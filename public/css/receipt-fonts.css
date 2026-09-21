@@ -1,0 +1,46 @@
+/* Locally hosted receipt fonts (Settings → System → POS Receipt).
+   Served from /fonts so receipts render the chosen font with no external
+   request — POS must keep printing offline. Inter and Roboto are variable
+   fonts (one file covers weights 400-700); Ubuntu ships one file per weight.
+   Latin subset only: glyphs outside it (e.g. Arabic on the bilingual layout)
+   fall through to the next font in the receipt's CSS stack. */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/Inter.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/Roboto.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Ubuntu';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Ubuntu-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Ubuntu';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Ubuntu-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Ubuntu';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Ubuntu-700.woff2') format('woff2');
+}

@@ -1,0 +1,29 @@
+/* ============================================================================
+ * Tailwind v4 pilot — ADMIN DASHBOARD ONLY.
+ *
+ * - Preflight is intentionally NOT imported: the admin ships Bootstrap 4 and
+ *   Tailwind's reset would fight it.
+ * - source(none) disables auto content detection; the @source below limits
+ *   class scanning to dashboard.vue, so this file stays tiny and can never
+ *   leak styles generated from other parts of the app.
+ * - `important` makes utilities win over Bootstrap's unlayered rules when
+ *   class names collide (.rounded, .border, .shadow, ...).
+ *
+ * The storefront keeps its separate Tailwind v3 build (storefront.css).
+ * ============================================================================ */
+
+/* "tw4" is an npm alias for tailwindcss@4 — the bare "tailwindcss" package name
+ * resolves to the v3 copy the storefront uses and has no theme/utilities.css. */
+@layer theme, base, components, utilities;
+@import "tw4/theme.css" layer(theme);
+@import "tw4/utilities.css" layer(utilities) source(none) important;
+
+@source "../src/views/app/dashboard/dashboard.vue";
+@source "../src/views/app/dashboard/dashboard_v2.vue";
+@source "../src/views/app/dashboard/dashboard_v3.vue";
+
+@theme {
+  /* Glass accent tokens for the dashboard pilot */
+  --color-glass-accent: #8b5cf6;
+  --color-glass-accent-deep: #6d28d9;
+}

@@ -1,0 +1,808 @@
+/* ==========================================================================
+   Stocky installer — dark glass theme (matches the system-update screen)
+   Loaded after bootstrap.css so these rules win.
+   ========================================================================== */
+
+:root {
+    --bg: #0d0b1e;
+    --surface: rgba(255, 255, 255, 0.045);
+    --surface-2: rgba(255, 255, 255, 0.03);
+    --line: rgba(255, 255, 255, 0.09);
+    --fg: #f4f2fb;
+    --fg-soft: #a8a1c0;
+    --fg-faint: #6f6890;
+    --accent: #7c3aed;
+    --accent-soft: #a78bfa;
+    --success: #4ade80;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --radius: 10px;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.55;
+    min-height: 100vh;
+    background-image:
+        radial-gradient(ellipse 70% 45% at 50% -5%, rgba(124, 58, 237, 0.28), transparent 70%),
+        radial-gradient(ellipse 45% 35% at 85% 110%, rgba(109, 40, 217, 0.14), transparent 70%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+/* ---------- Shell -------------------------------------------------------- */
+
+.setup-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+}
+
+.setup-card {
+    display: flex;
+    width: 100%;
+    max-width: 960px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+
+.setup-foot {
+    margin-top: 20px;
+    font-size: 12px;
+    color: var(--fg-faint);
+    text-align: center;
+}
+
+/* ---------- Left rail ---------------------------------------------------- */
+
+.setup-rail {
+    flex: 0 0 300px;
+    padding: 34px 28px;
+    background: var(--surface-2);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), #4c1d95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 20px;
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4);
+}
+
+.brand-name {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    line-height: 1.25;
+}
+
+.brand-name small {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--fg-faint);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+}
+
+.rail-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1 1 auto;
+}
+
+.rail-step {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    padding: 0 0 30px;
+    color: var(--fg-faint);
+}
+
+.rail-step:last-child {
+    padding-bottom: 0;
+}
+
+/* connector line between bullets */
+.rail-step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 28px;
+    bottom: 4px;
+    width: 2px;
+    background: var(--line);
+}
+
+.rail-step.is-done:not(:last-child)::before {
+    background: rgba(74, 222, 128, 0.35);
+}
+
+.rail-bullet {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--fg-faint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--bg);
+    z-index: 1;
+}
+
+.rail-text {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    padding-top: 2px;
+}
+
+.rail-text small {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--fg-faint);
+    margin-top: 1px;
+}
+
+.rail-text a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.rail-text a:hover {
+    color: var(--fg);
+    text-decoration: none;
+}
+
+.rail-step.is-active {
+    color: var(--fg);
+}
+
+.rail-step.is-active .rail-bullet {
+    border-color: var(--accent-soft);
+    color: var(--accent-soft);
+    animation: railPulse 1.6s ease-in-out infinite;
+}
+
+.rail-step.is-done {
+    color: var(--fg-soft);
+}
+
+.rail-step.is-done .rail-bullet {
+    border-color: var(--success);
+    background: rgba(74, 222, 128, 0.12);
+    color: var(--success);
+}
+
+@keyframes railPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.45); }
+    50%      { box-shadow: 0 0 0 6px rgba(167, 139, 250, 0); }
+}
+
+.rail-foot {
+    font-size: 12px;
+    color: var(--fg-faint);
+}
+
+/* ---------- Content pane -------------------------------------------------- */
+
+.setup-pane {
+    flex: 1 1 auto;
+    padding: 38px 40px;
+    min-width: 0;
+}
+
+.eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--accent-soft);
+    margin-bottom: 6px;
+}
+
+.setup-pane h1 {
+    font-size: 25px;
+    font-weight: 650;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+    color: var(--fg);
+}
+
+.lead-text {
+    color: var(--fg-soft);
+    font-size: 14px;
+    margin-bottom: 26px;
+}
+
+/* ---------- Requirements checklist ---------------------------------------- */
+
+.req-grid {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.req {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--fg-soft);
+}
+
+.req-name {
+    font-weight: 600;
+    color: var(--fg);
+}
+
+.req-name small {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--fg-faint);
+}
+
+.req-state {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+}
+
+.req.ok .req-state {
+    background: rgba(74, 222, 128, 0.12);
+    color: var(--success);
+}
+
+.req.fail {
+    border-color: rgba(248, 113, 113, 0.4);
+}
+
+.req.fail .req-state {
+    background: rgba(248, 113, 113, 0.14);
+    color: var(--danger);
+}
+
+/* ---------- Alerts / notes ------------------------------------------------ */
+
+.alert-banner {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    margin-bottom: 18px;
+}
+
+.alert-banner i {
+    margin-top: 2px;
+}
+
+.alert-banner.danger {
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    background: rgba(248, 113, 113, 0.08);
+    color: #fecaca;
+}
+
+.alert-banner.warning {
+    border: 1px solid rgba(251, 191, 36, 0.25);
+    background: rgba(251, 191, 36, 0.07);
+    color: #e7d9ae;
+}
+
+.alert-banner.warning strong { color: #fde68a; }
+.alert-banner.warning i { color: var(--warning); }
+
+/* #errormsg gets alert-success / alert-danger + text-white from scripts.js */
+#errormsg {
+    text-align: left;
+    font-size: 13px;
+    border-radius: var(--radius);
+}
+
+#errormsg.alert-danger {
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    background: rgba(248, 113, 113, 0.08);
+    color: #fecaca !important;
+    padding: 12px 14px !important;
+    margin-bottom: 18px;
+}
+
+#errormsg.alert-success {
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    background: rgba(74, 222, 128, 0.08);
+    color: #bbf7d0 !important;
+    padding: 12px 14px !important;
+    margin-bottom: 18px;
+}
+
+/* ---------- Forms ---------------------------------------------------------- */
+
+.setup-pane label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg-soft);
+    margin-bottom: 6px;
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
+}
+
+.form-grid .full {
+    grid-column: 1 / -1;
+}
+
+.setup-pane .form-control {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--fg);
+    font-size: 14px;
+    height: auto;
+    padding: 10px 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.setup-pane .form-control::placeholder {
+    color: var(--fg-faint) !important;
+    opacity: 1;
+}
+
+.setup-pane .form-control:focus {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--accent-soft);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+    color: var(--fg);
+    outline: 0;
+}
+
+.setup-pane .form-control:disabled,
+.setup-pane .form-control[readonly] {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--fg-soft);
+    cursor: not-allowed;
+}
+
+.setup-pane select.form-control {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--fg-soft) 50%),
+        linear-gradient(135deg, var(--fg-soft) 50%, transparent 50%);
+    background-position: calc(100% - 19px) 50%, calc(100% - 14px) 50%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 38px;
+}
+
+.setup-pane select.form-control option {
+    background: #17132e;
+    color: var(--fg);
+}
+
+.tip {
+    color: var(--accent-soft);
+    cursor: help;
+    margin-left: 2px;
+}
+
+/* input + button on one row (app key) */
+.input-row {
+    display: flex;
+    gap: 10px;
+}
+
+.input-row .form-control {
+    flex: 1 1 auto;
+}
+
+/* ---------- Buttons --------------------------------------------------------- */
+
+.btn {
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 14px;
+    padding: 10px 20px;
+    transition: transform 0.15s, box-shadow 0.15s, filter 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn:focus,
+.btn:focus-visible {
+    outline: 3px solid var(--accent-soft);
+    outline-offset: 2px;
+    box-shadow: none !important;
+}
+
+.btn-accent {
+    border: 0;
+    color: #fff;
+    background: linear-gradient(135deg, #8b5cf6, var(--accent) 55%, #5b21b6);
+    box-shadow: 0 10px 28px rgba(124, 58, 237, 0.35);
+}
+
+.btn-accent:hover {
+    color: #fff;
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--fg-soft);
+}
+
+.btn-ghost:hover {
+    color: var(--fg);
+    border-color: var(--fg-faint);
+    text-decoration: none;
+}
+
+/* Test-connection button — scripts.js swaps btn-dark / btn-success / btn-danger */
+#testdb {
+    display: block;
+    width: 100%;
+    cursor: pointer;
+}
+
+#testdb.btn-dark {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--line);
+    color: var(--fg) !important;
+}
+
+#testdb.btn-dark:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+#testdb.btn-success {
+    background: rgba(74, 222, 128, 0.14);
+    border: 1px solid rgba(74, 222, 128, 0.45);
+    color: #bbf7d0 !important;
+}
+
+#testdb.btn-danger {
+    background: rgba(248, 113, 113, 0.14);
+    border: 1px solid rgba(248, 113, 113, 0.5);
+    color: #fecaca !important;
+}
+
+/* success confirm button on the summary step */
+.btn-success,
+.btn-success:hover {
+    background: linear-gradient(135deg, #34d399, #059669);
+    border: 0;
+    color: #fff;
+}
+
+.btn-success:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+}
+
+/* step footer navigation */
+.pane-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+}
+
+.pane-nav .spacer {
+    flex: 1 1 auto;
+}
+
+/* ---------- Summary (step 3) ------------------------------------------------ */
+
+.summary-list {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.summary-list .form-group {
+    margin: 0;
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+}
+
+.summary-list .form-group:last-child {
+    border-bottom: 0;
+}
+
+.summary-list .form-group .col-12:first-child {
+    color: var(--fg-soft);
+    font-weight: 600;
+}
+
+.summary-list .form-group .col-12:last-child {
+    color: var(--fg);
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12.5px;
+    word-break: break-all;
+    white-space: normal;
+}
+
+/* ---------- Loader (toggled d-none/d-block by scripts.js) -------------------- */
+
+.loader {
+    width: 46px;
+    height: 46px;
+    margin: 48px auto 0;
+    border-radius: 50%;
+    border: 3px solid var(--line);
+    border-top-color: var(--accent-soft);
+    animation: setupSpin 0.8s linear infinite;
+    text-indent: -9999px;
+    overflow: hidden;
+}
+
+@keyframes setupSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* caption sibling also carries .loader so scripts.js toggles it too */
+.loader.loader-caption {
+    width: auto;
+    height: auto;
+    margin: 16px auto 48px;
+    border: 0;
+    border-radius: 0;
+    animation: none;
+    text-indent: 0;
+    overflow: visible;
+    text-align: center;
+    font-size: 13px;
+    color: var(--fg-soft);
+}
+
+/* ---------- Finish page ------------------------------------------------------ */
+
+.finish-wrap {
+    text-align: center;
+    padding: 8px 0;
+}
+
+.success-mark {
+    width: 76px;
+    height: 76px;
+    margin: 4px auto 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(74, 222, 128, 0.4);
+    background: rgba(74, 222, 128, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: var(--success);
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+
+.error-mark {
+    width: 76px;
+    height: 76px;
+    margin: 4px auto 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(248, 113, 113, 0.4);
+    background: rgba(248, 113, 113, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: var(--danger);
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.error-box {
+    background: rgba(248, 113, 113, 0.07);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin: 0 0 18px;
+    text-align: left;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #fecaca;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.credentials-card {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    text-align: left;
+    max-width: 420px;
+    margin: 24px auto;
+}
+
+.credentials-card h5 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent-soft);
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+.credential-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--line);
+}
+
+.credential-row:last-child {
+    border-bottom: 0;
+}
+
+.credential-label {
+    color: var(--fg-soft);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+}
+
+.credential-label i {
+    margin-right: 10px;
+    color: var(--accent-soft);
+    width: 16px;
+}
+
+.credential-value {
+    font-family: Consolas, "Courier New", monospace;
+    font-weight: 600;
+    color: var(--fg);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--line);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+/* ---------- Responsive -------------------------------------------------------- */
+
+@media (max-width: 860px) {
+    .setup-card {
+        flex-direction: column;
+    }
+
+    .setup-rail {
+        flex-basis: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 24px;
+        gap: 20px;
+    }
+
+    .rail-steps {
+        display: flex;
+        gap: 0;
+    }
+
+    .rail-step {
+        flex: 1 1 0;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+        padding: 0;
+    }
+
+    .rail-step:not(:last-child)::before {
+        left: calc(50% + 20px);
+        right: calc(-50% + 20px);
+        top: 12px;
+        bottom: auto;
+        width: auto;
+        height: 2px;
+    }
+
+    .rail-text {
+        font-size: 11px;
+        padding-top: 0;
+    }
+
+    .rail-text small,
+    .rail-foot {
+        display: none;
+    }
+
+    .setup-pane {
+        padding: 26px 22px;
+    }
+
+    .req-grid,
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pane-nav {
+        flex-direction: column-reverse;
+    }
+
+    .pane-nav .btn,
+    .pane-nav a.btn {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rail-step.is-active .rail-bullet { animation: none; }
+    .success-mark { animation: none; }
+    .btn, .btn:hover { transition: none; transform: none; }
+}

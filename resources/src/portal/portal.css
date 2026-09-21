@@ -1,0 +1,4200 @@
+
+/* =========================================================================
+   Portal design tokens
+   Orange is the product primary; every accent usage derives from --accent.
+   ========================================================================= */
+
+:root {
+    /* --accent is the single source of truth — the theme customizer
+       overrides it (and --accent-rgb) at runtime; everything else derives. */
+    --accent: #f97316;
+    --accent-hover: color-mix(in srgb, var(--accent) 86%, #000);
+    --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+    --accent-ring: color-mix(in srgb, var(--accent) 30%, transparent);
+    --accent-fg: #ffffff;
+    --accent-rgb: 249, 115, 22;
+
+    /* Corner radius scale — the customizer swaps these. */
+    --rst-radius: 0.75rem;
+    --rst-radius-sm: 0.375rem;
+
+    /* Side navigation footprint — the page gutter tracks this exactly. */
+    --rst-sidenav-w: 16rem;
+
+    --tblr-font-sans-serif: 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif;
+
+    /* Categorical chart slots.
+
+       --accent encodes magnitude and follows the customizer. These encode
+       identity — which payment method, which order type — and cannot, because
+       a set of oranges is indistinguishable to a colourblind reader. Fixed
+       order, assigned by slot, never cycled past six. Light steps validated
+       against #ffffff, dark steps against the dark card surface. */
+    --rst-s1: #2a78d6;
+    --rst-s2: #eb6834;
+    --rst-s3: #1baf7a;
+    --rst-s4: #eda100;
+    --rst-s5: #e87ba4;
+    --rst-s6: #008300;
+}
+
+[data-bs-theme='dark'] {
+    --rst-s1: #3987e5;
+    --rst-s2: #d95926;
+    --rst-s3: #199e70;
+    --rst-s4: #c98500;
+    --rst-s5: #d55181;
+    --rst-s6: #008300;
+}
+
+body {
+    font-feature-settings: 'cv03', 'cv04', 'cv11';
+}
+
+/* Propagate the accent into Tabler's primary color system */
+body.rst-app {
+    --tblr-primary: var(--accent);
+    --tblr-primary-rgb: var(--accent-rgb);
+    --tblr-link-color: var(--accent);
+    --tblr-link-hover-color: var(--accent-hover);
+}
+
+.btn-primary {
+    --tblr-btn-bg: var(--accent);
+    --tblr-btn-border-color: var(--accent);
+    --tblr-btn-color: var(--accent-fg);
+    --tblr-btn-hover-bg: var(--accent-hover);
+    --tblr-btn-hover-border-color: var(--accent-hover);
+    --tblr-btn-hover-color: var(--accent-fg);
+    --tblr-btn-active-bg: color-mix(in srgb, var(--accent) 78%, #000);
+    --tblr-btn-active-border-color: color-mix(in srgb, var(--accent) 78%, #000);
+    --tblr-btn-active-color: var(--accent-fg);
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 0.25rem var(--accent-ring);
+}
+
+.form-check-input:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* --- Links ------------------------------------------------------------------
+   Content links: accent colored, never underlined. Component anchors
+   (buttons, nav, dropdowns, list rows) keep their own look — :where()
+   keeps specificity low so component styles always win. */
+.rst-app a:where(:not(.btn):not(.land-btn):not(.land-brand):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link)) {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.12s ease;
+}
+
+.rst-app a:where(:not(.btn):not(.land-btn):not(.land-brand):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link)):hover {
+    color: var(--accent-hover);
+    text-decoration: none;
+}
+
+/* --- Side navigation ------------------------------------------------------ */
+.rst-sidenav {
+    width: var(--rst-sidenav-w);
+}
+
+/* Keep the content gutter locked to the real sidebar width. Tabler hard-codes
+   margin-left: 15rem on the page-wrapper, which never matched our 16rem rail
+   and cannot follow the collapse. Physical margins are zeroed first so the
+   logical one wins in both the LTR and RTL bundles. */
+@media (min-width: 992px) {
+    .navbar-vertical.rst-sidenav ~ .page-wrapper,
+    .navbar-vertical.rst-sidenav ~ .navbar {
+        margin-left: 0;
+        margin-right: 0;
+        margin-inline-start: var(--rst-sidenav-w);
+        transition: margin-inline-start 0.24s ease-in-out;
+    }
+}
+
+/* --- Collapsed sidebar ------------------------------------------------------
+   The topbar hamburger slides the whole sidebar off-canvas and
+   the content takes the full width (0.24s ease-in-out, persisted per browser,
+   applied pre-paint from localStorage in theme-boot). */
+@media (min-width: 992px) {
+    .navbar-vertical.rst-sidenav {
+        transition: transform 0.24s ease-in-out, visibility 0.24s;
+    }
+
+    .rst-sidenav-collapsed .navbar-vertical.rst-sidenav {
+        transform: translateX(-100%);
+        visibility: hidden; /* off-canvas: out of the tab order too */
+    }
+
+    [dir="rtl"] .rst-sidenav-collapsed .navbar-vertical.rst-sidenav {
+        transform: translateX(100%);
+    }
+
+    .rst-sidenav-collapsed .navbar-vertical.rst-sidenav ~ .page-wrapper,
+    .rst-sidenav-collapsed .navbar-vertical.rst-sidenav ~ .navbar {
+        margin-inline-start: 0;
+    }
+}
+
+/* The sidebar brand sits inside the container's 1rem gutter; this nudge lines
+   it up with the nav icons below it (0.625rem link margin + 0.75rem padding). */
+.rst-sidenav .navbar-brand {
+    margin-inline-start: 0.375rem;
+}
+
+/* --- Mobile sidebar: off-canvas drawer --------------------------------------
+   Below lg Tabler turns the vertical navbar back into a static horizontal bar,
+   which our fixed 16rem width shrank to a stub panel — the brand ended up on a
+   256px block with dead space beside it. Instead of patching that bar we drop
+   it entirely and use the stocky_saas pattern: the sidebar is a fixed drawer
+   that slides in over a backdrop, driven by the same topbar hamburger, and the
+   brand moves into the topbar so it is visible on every screen. */
+@media (max-width: 991.98px) {
+    .navbar-vertical.rst-sidenav {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        inset-inline-start: 0;
+        z-index: 1045;
+        width: var(--rst-sidenav-w);
+        max-width: 86vw;
+        padding: 0;
+        overflow-y: auto;
+        align-items: stretch;
+        background: var(--tblr-bg-surface);
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform 0.24s ease-in-out, visibility 0.24s;
+    }
+
+    [dir="rtl"] .navbar-vertical.rst-sidenav {
+        transform: translateX(100%);
+    }
+
+    .rst-sidenav-open .navbar-vertical.rst-sidenav {
+        transform: translateX(0);
+        visibility: visible;
+        box-shadow: 0 0 32px rgb(15 23 42 / 0.24);
+    }
+
+    /* Stack like the desktop rail — below lg the container is a flex row.
+       `nowrap` matters: .navbar sets flex-wrap: wrap, and a column flex box
+       that is stretched to the viewport height wraps its overflow into a
+       second column, which threw the nav alongside the brand. Letting the
+       container grow past 100% instead keeps one column and lets the drawer
+       scroll. */
+    .rst-sidenav > .container-fluid {
+        flex-direction: column;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        justify-content: flex-start;
+        min-height: 100%;
+        padding: 0;
+    }
+
+    /* The drawer zeroes the container padding above, so the brand carries
+       the whole inset itself. */
+    .rst-sidenav .navbar-brand {
+        margin-inline-start: 1.375rem;
+        margin-inline-end: 0.75rem;
+    }
+
+    /* The drawer itself is the disclosure, so the nav inside never collapses. */
+    .rst-sidenav .navbar-collapse {
+        display: block !important;
+    }
+
+    .rst-sidenav-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 1040;
+        background: rgb(15 23 42 / 0.45);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.24s ease, visibility 0.24s;
+    }
+
+    .rst-sidenav-open .rst-sidenav-backdrop {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* Freeze the page behind the drawer. */
+    .rst-sidenav-open,
+    .rst-sidenav-open body {
+        overflow: hidden;
+    }
+}
+
+@media (min-width: 992px) {
+    .rst-sidenav-backdrop {
+        display: none;
+    }
+}
+
+/* Brand shown in the topbar while the sidebar is a drawer. */
+.rst-topbar-brand {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+}
+
+.rst-topbar-brand > span {
+    min-width: 0;
+}
+
+.rst-topbar-brand svg {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+}
+
+/* A long platform name must not push the topbar tools off screen. */
+.rst-topbar-brand .fs-3 {
+    font-size: 1.0625rem !important;
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 359.98px) {
+    .rst-topbar-brand .fs-3 {
+        display: none;
+    }
+}
+
+/* Scrollbar stays invisible until the pointer enters the sidebar. Tabler
+   already reserves the gutter (overflow-y: scroll), so revealing the thumb
+   shifts nothing. Firefox uses scrollbar-color; WebKit the pseudo-elements. */
+.rst-sidenav {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.25s ease;
+}
+
+.rst-sidenav:hover,
+.rst-sidenav:focus-within {
+    scrollbar-color: color-mix(in srgb, var(--tblr-secondary) 40%, transparent) transparent;
+}
+
+.rst-sidenav::-webkit-scrollbar {
+    width: 10px;
+}
+
+.rst-sidenav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.rst-sidenav::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+    transition: background-color 0.25s ease;
+}
+
+.rst-sidenav:hover::-webkit-scrollbar-thumb,
+.rst-sidenav:focus-within::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--tblr-secondary) 40%, transparent);
+}
+
+.rst-sidenav::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--tblr-secondary) 65%, transparent);
+}
+
+.rst-sidenav .nav-link {
+    border-radius: 0.5rem;
+    margin: 0.075rem 0.625rem;
+    padding: 0.45rem 0.75rem;
+    color: var(--tblr-body-color);
+}
+
+.rst-sidenav .nav-link:hover {
+    background: var(--accent-soft);
+}
+
+.rst-sidenav .nav-link.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+    position: relative;
+}
+
+.rst-sidenav .nav-link.active::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: -0.625rem;
+    top: 22%;
+    bottom: 22%;
+    width: 3px;
+    border-radius: 999px;
+    background: var(--accent);
+}
+
+.rst-sidenav .nav-link .ti {
+    font-size: 1.15rem;
+    margin-inline-end: 0.625rem;
+    opacity: 0.85;
+}
+
+.rst-nav-heading {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--tblr-secondary);
+    padding: 1rem 1.375rem 0.375rem;
+    list-style: none;
+}
+
+/* --- Topbar ---------------------------------------------------------------- */
+.rst-search {
+    width: 16rem;
+}
+
+.rst-search .form-control {
+    border-radius: 999px;
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.rst-search .form-control:focus {
+    background: var(--tblr-bg-surface);
+}
+
+.rst-user-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.6rem;
+    text-decoration: none;
+    color: var(--tblr-body-color);
+}
+
+.rst-user-chip:hover {
+    background: var(--accent-soft);
+    color: var(--tblr-body-color);
+}
+
+.rst-user-chip .rst-user-meta {
+    line-height: 1.15;
+}
+
+.rst-user-chip[aria-expanded="true"] {
+    background: var(--accent-soft);
+}
+
+/* Topbar icon buttons — quiet until touched, then brand-tinted. */
+.rst-tool {
+    position: relative;
+    border: 0;
+    background: transparent;
+    color: var(--tblr-secondary);
+    border-radius: 0.6rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.rst-tool:hover,
+.rst-tool[aria-expanded="true"] {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.rst-tool .ti {
+    font-size: 1.15rem;
+}
+
+/* Unread counter on the bell. */
+.rst-bell-dot {
+    position: absolute;
+    top: 0.1rem;
+    inset-inline-end: 0.05rem;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    padding: 0 0.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent-fg);
+    background: var(--accent);
+    border: 2px solid var(--tblr-bg-surface);
+    border-radius: 999px;
+}
+
+/* --- Dropdown menus -------------------------------------------------------- */
+.rst-menu {
+    --rst-menu-pad: 0.4rem;
+    min-width: 15rem;
+    padding: var(--rst-menu-pad);
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius);
+    box-shadow: 0 18px 40px -20px rgb(15 23 42 / 0.35);
+}
+
+.rst-menu-wide {
+    min-width: 22rem;
+    max-width: calc(100vw - 2rem);
+}
+
+.rst-menu-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.35rem 0.6rem 0.5rem;
+}
+
+.rst-menu-title {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tblr-secondary);
+}
+
+.rst-menu-count {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.rst-menu .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--rst-radius-sm);
+    font-weight: 500;
+}
+
+.rst-menu .dropdown-item .ti {
+    font-size: 1.05rem;
+    color: var(--tblr-secondary);
+}
+
+.rst-menu .dropdown-item:hover,
+.rst-menu .dropdown-item:focus {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.rst-menu .dropdown-item:hover .ti,
+.rst-menu .dropdown-item:focus .ti {
+    color: var(--accent);
+}
+
+.rst-menu .rst-item-danger:hover,
+.rst-menu .rst-item-danger:focus {
+    background: color-mix(in srgb, var(--tblr-danger) 12%, transparent);
+    color: var(--tblr-danger);
+}
+
+.rst-menu .rst-item-danger:hover .ti,
+.rst-menu .rst-item-danger:focus .ti {
+    color: var(--tblr-danger);
+}
+
+/* Account card at the top of the user menu. */
+.rst-menu-user {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem;
+}
+
+.rst-menu-user-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.rst-menu-user-name {
+    font-weight: 600;
+}
+
+.rst-menu-user-mail {
+    font-size: 0.8125rem;
+    color: var(--tblr-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rst-menu-role {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+/* Notification rows. */
+.rst-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: var(--rst-radius-sm);
+    color: var(--tblr-body-color);
+}
+
+.rst-alert:hover {
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-body-color);
+}
+
+.rst-alert-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 0.55rem;
+    font-size: 1.05rem;
+}
+
+.rst-alert-accent {
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.rst-alert-warning {
+    color: var(--tblr-warning);
+    background: color-mix(in srgb, var(--tblr-warning) 14%, transparent);
+}
+
+.rst-alert-danger {
+    color: var(--tblr-danger);
+    background: color-mix(in srgb, var(--tblr-danger) 12%, transparent);
+}
+
+.rst-alert-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.3;
+}
+
+.rst-alert-title {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rst-alert-meta {
+    font-size: 0.75rem;
+    color: var(--tblr-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rst-menu-empty {
+    padding: 1.5rem 1rem;
+    text-align: center;
+    color: var(--tblr-secondary);
+    font-size: 0.875rem;
+}
+
+.rst-menu-empty .ti {
+    display: block;
+    font-size: 1.75rem;
+    margin-bottom: 0.4rem;
+    color: var(--accent);
+    opacity: 0.6;
+}
+
+/* Language picker rows. */
+.rst-lang .rst-lang-code {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    padding: 0.05rem 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-radius: 0.3rem;
+    color: var(--tblr-secondary);
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.rst-lang .rst-lang-check {
+    margin-inline-start: auto;
+    color: var(--accent);
+}
+
+.rst-menu .rst-lang.active,
+.rst-menu .rst-lang.active:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.rst-menu .rst-lang.active .rst-lang-code {
+    color: var(--accent-fg);
+    background: var(--accent);
+}
+
+/* --- Page header & breadcrumb trail ---------------------------------------- */
+.rst-pretitle {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.125rem;
+}
+
+.rst-crumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.8125rem;
+}
+
+.rst-crumbs li {
+    display: flex;
+    align-items: center;
+}
+
+.rst-crumbs a {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--tblr-secondary);
+    text-decoration: none;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.rst-crumbs a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.rst-crumbs .rst-crumb-sep {
+    color: var(--tblr-border-color-active, var(--tblr-border-color));
+    font-size: 0.9rem;
+    margin: 0 0.05rem;
+}
+
+.rst-crumbs .rst-crumb-now {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+}
+
+/* --- Footer ----------------------------------------------------------------- */
+.rst-footer {
+    border-top: 1px solid var(--tblr-border-color);
+    margin-top: auto;
+}
+
+.rst-footer .rst-footer-tag {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+}
+
+/* --- Cards ---------------------------------------------------------------- */
+.card {
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 12px 24px -16px rgb(15 23 42 / 0.12);
+    border-radius: var(--rst-radius);
+}
+
+/* Buttons, inputs and badges follow the small step of the radius scale. */
+body.rst-app {
+    --tblr-border-radius: var(--rst-radius-sm);
+}
+
+[data-bs-theme='dark'] .card {
+    box-shadow: none;
+}
+
+/* --- Tables ---------------------------------------------------------------- */
+.table thead th {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* --- Inline row actions (colored icon buttons in tables) ------------------- */
+.rst-row-actions {
+    display: flex;
+    gap: 0.625rem;
+    align-items: center;
+}
+
+.rst-row-actions a,
+.rst-row-actions button {
+    background: none;
+    border: 0;
+    padding: 0.1rem;
+    line-height: 1;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.rst-row-actions .ti {
+    font-size: 1.25rem;
+}
+
+.rst-row-actions a:hover,
+.rst-row-actions button:hover {
+    opacity: 0.75;
+    transform: translateY(-1px);
+}
+
+/* --- Auth screens ----------------------------------------------------------- */
+.rst-login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    background:
+        radial-gradient(60rem 40rem at 12% -10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+        radial-gradient(50rem 36rem at 110% 115%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 55%),
+        var(--tblr-bg-surface-secondary);
+}
+
+.rst-login-screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgb(15 23 42 / 0.05) 1px, transparent 1px);
+    background-size: 22px 22px;
+}
+
+[data-bs-theme='dark'] .rst-login-screen::before {
+    background-image: radial-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px);
+}
+
+.rst-login-panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 24px 48px -20px rgb(15 23 42 / 0.25);
+}
+
+.rst-login-panel::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    inset-inline: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent), #fbbf24);
+}
+
+/* --- Theme customizer (FAB + drawer) ---------------------------------------- */
+.rst-custom-fab {
+    position: fixed;
+    inset-inline-end: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 1055;
+    width: 3rem;
+    height: 3rem;
+    border: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 24px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rst-custom-fab:hover {
+    transform: translateY(-2px) rotate(20deg);
+    box-shadow: 0 14px 28px -8px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.rst-custom-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1056;
+    background: rgb(15 23 42 / 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.rst-custom-drawer {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    inset-inline-end: 0;
+    z-index: 1057;
+    width: min(21rem, 92vw);
+    background: var(--tblr-bg-surface);
+    border-inline-start: 1px solid var(--tblr-border-color);
+    box-shadow: -24px 0 48px -24px rgb(15 23 42 / 0.3);
+    transform: translateX(calc(100% * var(--rst-drawer-dir, 1)));
+    transition: transform 0.25s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+[dir="rtl"] .rst-custom-drawer {
+    --rst-drawer-dir: -1;
+}
+
+.rst-customizer-open .rst-custom-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.rst-customizer-open .rst-custom-drawer {
+    transform: translateX(0);
+}
+
+.rst-custom-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+    font-weight: 700;
+}
+
+.rst-custom-drawer-body {
+    padding: 1.25rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.rst-custom-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--tblr-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.rst-custom-swatches {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.5rem;
+}
+
+.rst-custom-swatch {
+    aspect-ratio: 1;
+    border: 0;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.12s ease;
+}
+
+.rst-custom-swatch:hover {
+    transform: scale(1.1);
+}
+
+.rst-custom-swatch.active::after {
+    content: "✓";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+}
+
+.rst-custom-segment {
+    display: flex;
+    gap: 0.375rem;
+}
+
+.rst-custom-segment button {
+    flex: 1;
+    border: 1px solid var(--tblr-border-color);
+    background: transparent;
+    color: var(--tblr-body-color);
+    border-radius: 0.5rem;
+    padding: 0.45rem 0.25rem;
+    font-size: 0.8125rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.rst-custom-segment button:hover {
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.rst-custom-segment button.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.rst-custom-picker-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.rst-custom-picker-row input[type="color"] {
+    width: 3rem;
+    height: 2.4rem;
+    padding: 0.15rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.5rem;
+    background: transparent;
+    cursor: pointer;
+}
+
+/* =========================================================================
+   General Settings — vertical tab shell
+   One form, a sticky side rail of panels on the left, the active panel on
+   the right. Logical properties throughout so the RTL bundle mirrors it.
+   ========================================================================= */
+
+.rst-settings {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+}
+
+@media (max-width: 991.98px) {
+    .rst-settings {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.rst-settings-side {
+    position: sticky;
+    top: 1rem;
+}
+
+@media (max-width: 991.98px) {
+    .rst-settings-side {
+        position: static;
+    }
+}
+
+.rst-settings-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.5rem;
+    background: var(--tblr-bg-surface);
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius);
+}
+
+@media (max-width: 991.98px) {
+    .rst-settings-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+}
+
+.rst-settings-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    border-radius: var(--rst-radius-sm);
+    background: transparent;
+    color: var(--tblr-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: start;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.rst-settings-nav-item .ti {
+    font-size: 1.05rem;
+    flex-shrink: 0;
+}
+
+.rst-settings-nav-item:hover {
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-body-color);
+}
+
+.rst-settings-nav-item.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.rst-settings-main {
+    background: var(--tblr-bg-surface);
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius);
+    overflow: hidden;
+}
+
+.rst-settings-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-block-end: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.rst-settings-bar-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.rst-settings-bar-sub {
+    margin: 0.125rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--tblr-secondary);
+    max-width: 46rem;
+}
+
+.rst-settings-panel {
+    display: none;
+    padding: 1.25rem;
+}
+
+.rst-settings-panel.active {
+    display: block;
+}
+
+.rst-settings-narrow {
+    max-width: 24rem;
+}
+
+/* Language picker grid */
+.rst-settings-langs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: 0.5rem 1rem;
+}
+
+.rst-settings-lang .rst-lang-code {
+    display: inline-block;
+    min-width: 1.75rem;
+    margin-inline-end: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--tblr-secondary);
+}
+
+.rst-settings-lang.is-default .form-check-label {
+    color: var(--tblr-body-color);
+}
+
+/* Inline callouts */
+.rst-settings-callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--tblr-border-color);
+    border-inline-start: 3px solid var(--accent);
+    border-radius: var(--rst-radius-sm);
+    background: var(--tblr-bg-surface-secondary);
+    font-size: 0.875rem;
+}
+
+.rst-settings-callout > .ti {
+    font-size: 1.15rem;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.rst-settings-callout-warning {
+    border-inline-start-color: var(--tblr-warning);
+}
+
+.rst-settings-callout-warning > .ti {
+    color: var(--tblr-warning);
+}
+
+/* Radio cards (hosting mode) */
+.rst-settings-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    height: 100%;
+    margin: 0;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.rst-settings-choice:hover {
+    border-color: var(--accent-ring);
+}
+
+.rst-settings-choice.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.rst-settings-choice input {
+    margin-block-start: 0.2rem;
+    flex-shrink: 0;
+}
+
+.rst-settings-choice-title {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9375rem;
+}
+
+.rst-settings-choice-desc {
+    display: block;
+    margin-block-start: 0.125rem;
+    font-size: 0.8125rem;
+    color: var(--tblr-secondary);
+}
+
+/* Upload wells */
+.rst-upload {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem;
+    border: 1px dashed var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.rst-upload-preview img {
+    display: block;
+    max-width: 10rem;
+    max-height: 3.5rem;
+    object-fit: contain;
+}
+
+.rst-upload-sm .rst-upload-preview img {
+    max-width: 3rem;
+    max-height: 3rem;
+}
+
+.rst-upload-empty {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--tblr-secondary);
+    font-size: 0.8125rem;
+}
+
+.rst-upload-empty .ti {
+    font-size: 1.35rem;
+}
+
+.rst-upload-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-inline-start: auto;
+}
+
+/* Empty state (no backups yet) */
+.rst-settings-empty {
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: var(--tblr-secondary);
+    border: 1px dashed var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+}
+
+.rst-settings-empty .ti {
+    display: block;
+    margin-block-end: 0.5rem;
+    font-size: 1.75rem;
+    opacity: 0.6;
+}
+
+.rst-settings-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+/* Uploaded brand logo — sized to sit where the built-in SVG mark did. */
+.rst-brand-logo {
+    max-height: 2rem;
+    max-width: 9rem;
+    object-fit: contain;
+}
+
+/* Numbered walkthrough — the release-update checklist in General Settings. */
+.rst-steps {
+    list-style: none;
+    counter-reset: rst-step;
+    margin: 0;
+    padding: 0;
+}
+
+.rst-steps > li {
+    counter-increment: rst-step;
+    position: relative;
+    padding: 0 0 1.1rem 0;
+    padding-inline-start: 2.5rem;
+}
+
+.rst-steps > li::before {
+    content: counter(rst-step);
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    width: 1.65rem;
+    height: 1.65rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+/* Connecting rule between the markers, stopping at the last one. */
+.rst-steps > li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0.8rem;
+    top: 1.9rem;
+    bottom: 0.2rem;
+    width: 1px;
+    background: var(--tblr-border-color);
+}
+
+.rst-steps code {
+    font-size: 0.8125rem;
+}
+
+/* =========================================================================
+   Profile page — identity hero above the account forms.
+   ========================================================================= */
+
+.rst-profile-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 2.25rem 1.75rem 1.75rem;
+    text-align: center;
+    border-bottom: 1px solid var(--tblr-border-color);
+    background:
+        linear-gradient(180deg, var(--accent-soft), transparent);
+}
+
+/* The photo (or initial) sits on an accent ring. Colours come from the
+   avatar partial, which paints the uploaded image when there is one. */
+.rst-profile-avatar {
+    font-size: 1.5rem;
+    font-weight: 600;
+    box-shadow: 0 0 0 0.35rem var(--accent-ring);
+    margin-bottom: 0.35rem;
+}
+
+/* Photo picker: current avatar beside the file input. */
+.rst-profile-upload {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.rst-profile-name {
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.rst-profile-mail {
+    font-size: 0.8125rem;
+    color: var(--tblr-secondary);
+    word-break: break-all;
+}
+
+.rst-profile-hero .rst-menu-role {
+    align-self: center;
+}
+
+.rst-profile-activity {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.rst-profile-activity > li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding-inline-start: 0.75rem;
+    border-inline-start: 2px solid var(--accent-soft);
+    font-size: 0.875rem;
+}
+
+/* =========================================================================
+   Permission picker — the section grid on the Super Admins form.
+   ========================================================================= */
+
+.rst-perm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: 0.5rem;
+}
+
+.rst-perm-card {
+    cursor: pointer;
+    margin: 0;
+}
+
+.rst-perm-card input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.rst-perm-body {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    font-size: 0.875rem;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.rst-perm-card:hover .rst-perm-body {
+    border-color: var(--accent);
+}
+
+.rst-perm-tick {
+    display: grid;
+    place-items: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    flex-shrink: 0;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.3rem;
+    font-size: 0.75rem;
+    color: transparent;
+}
+
+.rst-perm-card input:checked + .rst-perm-body {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.rst-perm-card input:checked + .rst-perm-body .rst-perm-tick {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-fg);
+}
+
+.rst-perm-card input:focus-visible + .rst-perm-body {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: 2px;
+}
+
+/* --- Navigation items for modules that have not landed yet ------------------
+   config/navigation.php describes the finished product, so entries whose
+   route does not exist are dimmed and non-interactive rather than hidden —
+   the shape of the app stays visible while it is being built. */
+.rst-sidenav .nav-link.rst-nav-soon {
+    opacity: 0.42;
+    cursor: default;
+}
+
+.rst-sidenav .nav-link.rst-nav-soon:hover {
+    background: transparent;
+    color: inherit;
+}
+
+/* Alpine hides x-cloak elements until it has initialised, so a conditional
+   block never flashes on screen before the component is alive. */
+[x-cloak] { display: none !important; }
+
+/* =========================================================================
+   POS terminal
+   A full-screen, fixed-height app rather than a scrolling page: only the
+   grid and the cart scroll, so the totals and the Pay button never leave
+   the screen mid-service. Touch targets are sized for a thumb on a tablet
+   at arm length, not a mouse pointer.
+   ========================================================================= */
+
+.rst-pos-body {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+.rst-pos,
+.rst-pos-shell {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--tblr-body-bg);
+}
+
+/* --- Top bar --------------------------------------------------------------- */
+.rst-pos-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 3.5rem;
+    padding: 0 0.75rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    flex: none;
+}
+
+.rst-pos-exit,
+.rst-pos-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    padding: 0 0.7rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    background: transparent;
+    color: var(--tblr-body-color);
+    text-decoration: none;
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+.rst-pos-exit { padding: 0; }
+.rst-pos-exit:hover,
+.rst-pos-chip:hover { background: var(--tblr-bg-surface-secondary); color: var(--tblr-body-color); }
+
+.rst-pos-chip.is-online { color: var(--tblr-green); border-color: color-mix(in srgb, var(--tblr-green) 40%, transparent); }
+.rst-pos-chip.is-offline { color: var(--tblr-orange); border-color: color-mix(in srgb, var(--tblr-orange) 50%, transparent); }
+.rst-pos-chip.is-pending { color: var(--accent); border-color: var(--accent); }
+
+.rst-pos-brand { display: flex; flex-direction: column; line-height: 1.2; flex: none; }
+.rst-pos-brand-name { font-weight: 700; }
+.rst-pos-brand-meta { font-size: 0.75rem; color: var(--tblr-secondary); white-space: nowrap; }
+
+/* Order type: a segmented control, centred between the brand and the status. */
+.rst-pos-types {
+    display: flex;
+    gap: 0.125rem;
+    padding: 0.2rem;
+    margin-inline: auto;
+    border-radius: 999px;
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.rst-pos-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 2.125rem;
+    padding: 0 0.9rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--tblr-secondary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.rst-pos-type i { font-size: 1rem; }
+
+.rst-pos-type.active {
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
+}
+
+.rst-pos-type.active i { color: var(--accent); }
+
+.rst-pos-status { display: flex; align-items: center; gap: 0.5rem; flex: none; }
+
+/* Icons only once the bar gets tight; the active one keeps its label. */
+@media (max-width: 1400px) {
+    .rst-pos-type:not(.active) span { display: none; }
+    .rst-pos-type:not(.active) { padding: 0 0.7rem; }
+}
+.rst-pos-clock { font-variant-numeric: tabular-nums; font-weight: 600; padding-inline-end: 0.25rem; }
+
+.rst-pos-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-inline-start: 0.5rem;
+    margin-inline-start: 0.25rem;
+    border-inline-start: 1px solid var(--tblr-border-color);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.rst-pos-user .avatar { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.rst-pos-user-name { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- Body split ------------------------------------------------------------
+   Three columns: categories, the grid, the order. Only the middle one is
+   elastic, and every column scrolls on its own so the Pay button and the
+   category you are on never leave the screen. */
+.rst-pos-main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 12.5rem minmax(0, 1fr) 24rem;
+    grid-template-areas: 'rail menu cart';
+    min-height: 0;
+}
+
+@media (max-width: 1180px) {
+    .rst-pos-main {
+        grid-template-columns: minmax(0, 1fr) 21rem;
+        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-areas: 'rail cart' 'menu cart';
+    }
+}
+
+@media (max-width: 900px) {
+    .rst-pos-main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-areas: 'rail' 'menu' 'cart';
+    }
+
+    .rst-pos-cart { max-height: 46dvh; border-inline-start: 0; border-top: 1px solid var(--tblr-border-color); }
+    .rst-pos-types { display: none; }
+}
+
+/* --- Category rail --------------------------------------------------------- */
+.rst-pos-rail {
+    grid-area: rail;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-height: 0;
+    padding: 0.75rem 0.5rem;
+    overflow-y: auto;
+    border-inline-end: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    scrollbar-width: thin;
+}
+
+.rst-pos-rail-title {
+    padding: 0.1rem 0.75rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tblr-secondary);
+}
+
+.rst-pos-rail-sep { height: 1px; margin: 0.4rem 0.5rem; background: var(--tblr-border-color); flex: none; }
+
+.rst-pos-cat {
+    --tile: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex: none;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
+    border: 1px solid transparent;
+    border-radius: var(--rst-radius-sm);
+    background: transparent;
+    color: var(--tblr-body-color);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: start;
+    white-space: nowrap;
+}
+
+.rst-pos-cat:hover { background: var(--tblr-bg-surface-secondary); }
+
+.rst-pos-cat.active {
+    background: color-mix(in srgb, var(--tile) 12%, transparent);
+    border-color: color-mix(in srgb, var(--tile) 35%, transparent);
+    font-weight: 600;
+}
+
+.rst-pos-cat i { font-size: 1.125rem; color: var(--tile); }
+.rst-pos-cat.is-featured i { color: #f59e0b; }
+.rst-pos-cat-dot { width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--tile); flex: none; }
+.rst-pos-cat-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rst-pos-cat-count { font-size: 0.75rem; color: var(--tblr-secondary); font-variant-numeric: tabular-nums; }
+
+/* Below the three-column breakpoint the rail lies flat above the grid. */
+@media (max-width: 1180px) {
+    .rst-pos-rail {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.6rem 0.75rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-inline-end: 0;
+        border-bottom: 1px solid var(--tblr-border-color);
+    }
+
+    .rst-pos-rail-title { display: none; }
+    .rst-pos-rail-sep { width: 1px; height: 1.5rem; margin: 0 0.25rem; }
+    .rst-pos-cat { min-height: 2.5rem; border-color: var(--tblr-border-color); }
+}
+
+/* --- Menu side ------------------------------------------------------------- */
+.rst-pos-menu { grid-area: menu; display: flex; flex-direction: column; min-height: 0; }
+
+.rst-pos-menu-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem 0.25rem;
+}
+
+.rst-pos-menu-title { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
+.rst-pos-menu-title h2 { margin: 0; font-size: 1.125rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rst-pos-menu-count {
+    align-self: center;
+    min-width: 1.5rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.rst-pos-search { position: relative; flex: 1 1 auto; max-width: 22rem; min-width: 10rem; }
+.rst-pos-search > i { position: absolute; inset-block-start: 50%; inset-inline-start: 0.9rem; transform: translateY(-50%); color: var(--tblr-secondary); pointer-events: none; }
+
+.rst-pos-search .form-control {
+    height: 2.75rem;
+    padding-inline: 2.5rem;
+    border-radius: 999px;
+    background: var(--tblr-bg-surface);
+}
+
+.rst-pos-search-clear {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: 0.4rem;
+    transform: translateY(-50%);
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--tblr-secondary);
+    display: grid;
+    place-items: center;
+}
+
+.rst-pos-search-clear:hover { background: var(--tblr-bg-surface-secondary); color: var(--tblr-body-color); }
+
+.rst-pos-grid {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.75rem 1rem 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+    /* max-content, not auto: when the grid is shorter than its tiles, auto
+       rows shrink to each tile's minimum — and a photo box with nothing
+       inside it has a minimum of nothing. This keeps the rows honest and
+       lets the grid scroll instead. */
+    grid-auto-rows: max-content;
+    gap: 0.75rem;
+    align-content: start;
+    scrollbar-width: thin;
+}
+
+/* --- Product tile -----------------------------------------------------------
+   A photograph on top, the name and price beneath. With no photo the media
+   box wears the category colour and the item's initial, at the same size,
+   so a menu that is only half photographed still lays out as one grid. */
+.rst-pos-tile {
+    --tile: var(--accent);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    text-align: start;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    transition: transform 0.08s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.rst-pos-tile:hover {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--tblr-border-color));
+    box-shadow: 0 6px 16px rgb(0 0 0 / 0.09);
+}
+
+.rst-pos-tile:active { transform: scale(0.97); }
+.rst-pos-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.rst-pos-tile-media {
+    position: relative;
+    display: block;
+    flex: none;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--tile) 32%, var(--tblr-bg-surface)),
+        color-mix(in srgb, var(--tile) 9%, var(--tblr-bg-surface))
+    );
+}
+
+.rst-pos-tile-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.25s ease;
+}
+
+.rst-pos-tile:hover .rst-pos-tile-media img { transform: scale(1.04); }
+
+.rst-pos-tile-mono {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 2.75rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: color-mix(in srgb, var(--tile) 65%, var(--tblr-body-color));
+    opacity: 0.55;
+}
+
+.rst-pos-tile-badge {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.rst-pos-tile-star {
+    inset-block-start: 0.45rem;
+    inset-inline-start: 0.45rem;
+    background: rgb(255 255 255 / 0.92);
+    color: #d97706;
+}
+
+.rst-pos-tile-count {
+    inset-block-start: 0.45rem;
+    inset-inline-end: 0.45rem;
+    background: var(--accent);
+    color: var(--accent-fg);
+    box-shadow: 0 0 0 2px var(--tblr-bg-surface);
+}
+
+.rst-pos-tile-out {
+    inset-block-end: 0.45rem;
+    inset-inline-start: 0.45rem;
+    background: var(--tblr-red);
+    color: #fff;
+}
+
+.rst-pos-tile.is-out .rst-pos-tile-media img,
+.rst-pos-tile.is-out .rst-pos-tile-mono { filter: grayscale(1); opacity: 0.45; }
+.rst-pos-tile.is-out .rst-pos-tile-name,
+.rst-pos-tile.is-out .rst-pos-tile-price { color: var(--tblr-secondary); }
+
+.rst-pos-tile-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.6rem 0.7rem 0.7rem;
+}
+
+.rst-pos-tile-name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.25em;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.rst-pos-tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.rst-pos-tile-price { font-size: 0.9375rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.rst-pos-tile-meta { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
+.rst-pos-tile-sizes { font-size: 0.6875rem; color: var(--tblr-secondary); white-space: nowrap; }
+
+.rst-pos-diet {
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.25rem;
+    background: color-mix(in srgb, var(--tblr-green) 15%, transparent);
+    color: var(--tblr-green);
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.rst-pos-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 3rem 1rem;
+    color: var(--tblr-secondary);
+    text-align: center;
+}
+
+.rst-pos-empty > i { font-size: 2rem; }
+.rst-pos-empty.sm { padding: 2.5rem 1.25rem; font-size: 0.875rem; }
+.rst-pos-empty strong { color: var(--tblr-body-color); }
+
+.rst-pos-empty-icon {
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 1.5rem;
+}
+
+/* --- Order panel ----------------------------------------------------------- */
+.rst-pos-cart {
+    grid-area: cart;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-inline-start: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+}
+
+.rst-pos-cart-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.rst-pos-cart-title { display: flex; align-items: center; justify-content: space-between; }
+.rst-pos-cart-title h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+
+.rst-pos-cart-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 1.75rem;
+    padding: 0 0.5rem;
+    border: 0;
+    border-radius: var(--rst-radius-sm);
+    background: transparent;
+    color: var(--tblr-secondary);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.rst-pos-cart-clear:hover { background: color-mix(in srgb, var(--tblr-red) 10%, transparent); color: var(--tblr-red); }
+
+.rst-pos-cart-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+
+.rst-pos-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 1.75rem;
+    padding: 0 0.6rem;
+    border-radius: 999px;
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-body-color);
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.rst-pos-tag.is-accent { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.rst-pos-tag-count { margin-inline-start: auto; }
+
+.rst-pos-guests { padding-inline-end: 0.2rem; gap: 0.1rem; }
+.rst-pos-guests i:first-child { margin-inline-end: 0.2rem; }
+.rst-pos-guests span { min-width: 1.25rem; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.rst-pos-guests button {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--tblr-body-color);
+    display: grid;
+    place-items: center;
+    font-size: 0.75rem;
+}
+
+.rst-pos-guests button:hover { background: var(--tblr-bg-surface); }
+
+.rst-pos-lines { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+
+.rst-pos-line {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 0.75rem;
+    row-gap: 0.45rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.rst-pos-line-thumb {
+    --tile: var(--accent);
+    grid-row: 1 / span 2;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: none;
+    border-radius: var(--rst-radius-sm);
+    overflow: hidden;
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--tile) 32%, var(--tblr-bg-surface)),
+        color-mix(in srgb, var(--tile) 9%, var(--tblr-bg-surface))
+    );
+    color: color-mix(in srgb, var(--tile) 65%, var(--tblr-body-color));
+    font-weight: 800;
+    font-size: 1.125rem;
+}
+
+.rst-pos-line-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rst-pos-line-thumb.lg { width: 3.5rem; height: 3.5rem; font-size: 1.5rem; border-radius: var(--rst-radius); }
+
+.rst-pos-sheet-item { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+
+.rst-pos-line-main { grid-column: 2; grid-row: 1; min-width: 0; }
+.rst-pos-line-name { font-weight: 600; font-size: 0.875rem; line-height: 1.3; }
+.rst-pos-line-variant { color: var(--tblr-secondary); font-weight: 500; }
+.rst-pos-line-variant::before { content: ' · '; }
+
+.rst-pos-line-mods,
+.rst-pos-line-note { font-size: 0.75rem; color: var(--tblr-secondary); line-height: 1.35; margin-top: 0.1rem; }
+.rst-pos-line-note i { margin-inline-end: 0.25rem; }
+
+.rst-pos-line-total {
+    grid-column: 3;
+    grid-row: 1;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.rst-pos-line-controls {
+    grid-column: 2 / span 2;
+    grid-row: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.rst-pos-line-x {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 1.75rem;
+    padding: 0 0.4rem;
+    border: 0;
+    border-radius: var(--rst-radius-sm);
+    background: transparent;
+    color: var(--tblr-secondary);
+    font-size: 0.75rem;
+}
+
+.rst-pos-line-x:hover { background: color-mix(in srgb, var(--tblr-red) 10%, transparent); color: var(--tblr-red); }
+
+.rst-pos-qty {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 999px;
+    background: var(--tblr-bg-surface);
+    overflow: hidden;
+}
+
+.rst-pos-qty button {
+    width: 2.125rem;
+    height: 2.125rem;
+    border: 0;
+    background: transparent;
+    color: var(--tblr-body-color);
+    display: grid;
+    place-items: center;
+}
+
+.rst-pos-qty button:hover { background: var(--accent-soft); color: var(--accent); }
+.rst-pos-qty span { min-width: 2rem; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rst-pos-qty.lg button { width: 3rem; height: 3rem; font-size: 1.25rem; }
+.rst-pos-qty.lg span { min-width: 3rem; font-size: 1.125rem; }
+
+.rst-pos-totals {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.85rem 1rem;
+    border-top: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.rst-pos-totals .row-line,
+.rst-pos-taken .row-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    color: var(--tblr-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.rst-pos-totals .row-line.grand {
+    margin-top: 0.35rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--tblr-border-color);
+    color: var(--tblr-body-color);
+    font-size: 1.375rem;
+    font-weight: 700;
+}
+
+.rst-pos-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.75rem 1rem 1rem;
+    border-top: 1px solid var(--tblr-border-color);
+}
+
+.rst-pos-action {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    height: 2.75rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    background: transparent;
+    color: var(--tblr-body-color);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.rst-pos-action i { font-size: 1.125rem; color: var(--tblr-secondary); }
+.rst-pos-action:hover:not(:disabled) { background: var(--tblr-bg-surface-secondary); border-color: var(--tblr-secondary); }
+.rst-pos-action:disabled { opacity: 0.45; }
+
+.rst-pos-action-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 0.6875rem;
+    font-weight: 700;
+}
+
+.rst-pos-pay {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 3.5rem;
+    padding: 0 1.25rem;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.rst-pos-pay i { margin-inline-end: 0.5rem; font-size: 1.25rem; }
+
+/* --- Sheets (picker, payment) ---------------------------------------------- */
+.rst-pos-sheet { position: fixed; inset: 0; z-index: 1080; display: flex; justify-content: flex-end; }
+.rst-pos-sheet-backdrop { position: absolute; inset: 0; background: rgb(0 0 0 / 0.45); }
+
+.rst-pos-sheet-panel {
+    position: relative;
+    width: min(30rem, 100vw);
+    height: 100dvh;
+    background: var(--tblr-bg-surface);
+    border-inline-start: 1px solid var(--tblr-border-color);
+    box-shadow: -8px 0 32px rgb(0 0 0 / 0.2);
+    display: flex;
+    flex-direction: column;
+}
+
+.rst-pos-sheet-panel.is-wide { width: min(34rem, 100vw); }
+
+.rst-pos-sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+    flex: none;
+}
+
+.rst-pos-sheet-body { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem; }
+.rst-pos-sheet-foot { display: flex; gap: 0.75rem; padding: 1rem; border-top: 1px solid var(--tblr-border-color); flex: none; }
+
+.rst-pos-sheet-title {
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tblr-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.rst-pos-choices { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.rst-pos-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 3rem;
+    padding: 0 1rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+}
+
+.rst-pos-choice.active { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.rst-pos-choice.is-out { opacity: 0.4; }
+.rst-pos-choice .price { color: var(--tblr-secondary); font-size: 0.875rem; }
+
+.rst-pos-due,
+.rst-pos-change {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    border-radius: var(--rst-radius);
+    background: var(--accent-soft);
+    margin-bottom: 1rem;
+}
+
+.rst-pos-due strong { font-size: 1.75rem; font-variant-numeric: tabular-nums; }
+.rst-pos-change { background: color-mix(in srgb, var(--tblr-green) 14%, transparent); margin-top: 0.75rem; }
+.rst-pos-change strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+
+.rst-pos-taken {
+    padding: 0.5rem 0.75rem;
+    border: 1px dashed var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    margin-bottom: 1rem;
+}
+
+/* --- Dialogs --------------------------------------------------------------- */
+.rst-pos-dialog {
+    border: 0;
+    border-radius: var(--rst-radius);
+    padding: 0;
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    max-width: min(26rem, 92vw);
+    box-shadow: 0 24px 64px rgb(0 0 0 / 0.35);
+}
+
+.rst-pos-dialog.is-wide { max-width: min(34rem, 92vw); }
+.rst-pos-dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+.rst-pos-dialog-body { padding: 1.25rem; }
+.rst-pos-dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+
+/* A dialog opened by the :open attribute rather than showModal() has to be
+   positioned by hand, since it gets no top layer. */
+.rst-pos-dialog[open] {
+    position: fixed;
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1090;
+}
+
+.rst-pos-held-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 60dvh; overflow-y: auto; }
+
+.rst-pos-held {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.15rem 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    text-align: start;
+}
+
+.rst-pos-held:hover { border-color: var(--accent); }
+.rst-pos-held-label { font-weight: 600; }
+.rst-pos-held-meta { grid-column: 1; font-size: 0.75rem; color: var(--tblr-secondary); }
+.rst-pos-held-total { grid-row: 1 / span 2; align-self: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+@keyframes rst-spin { to { transform: rotate(360deg); } }
+.rst-spin { display: inline-block; animation: rst-spin 0.9s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    .rst-spin { animation: none; }
+    .rst-pos-tile:active { transform: none; }
+}
+
+/* --- SweetAlert2 dialogs & toasts ------------------------------------------
+   The confirm and flash layer (resources/js/dialog.js). Colours come from
+   Tabler's tokens so a dialog follows the light/dark switch and the primary
+   colour picked in the customizer without its own palette. */
+/* Above the POS sheets (1080) and dialogs (1090), so a notice raised from
+   inside the modifier picker or the payment sheet is not hidden behind it. */
+.swal2-container {
+    z-index: 1100;
+}
+
+.rst-swal.swal2-popup {
+    border-radius: var(--rst-radius);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    font-family: inherit;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 24px 48px -16px rgb(15 23 42 / 0.35);
+}
+
+.rst-swal .swal2-title {
+    color: var(--tblr-body-color);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.rst-swal .swal2-html-container {
+    color: var(--tblr-secondary);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.rst-swal .swal2-icon {
+    margin-top: 1.5rem;
+}
+
+.rst-swal .swal2-actions {
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+}
+
+.rst-swal .swal2-styled {
+    border-radius: var(--rst-radius-sm);
+    font-weight: 500;
+    font-size: 0.9rem;
+    padding: 0.5rem 1.1rem;
+    box-shadow: none;
+}
+
+.rst-swal .swal2-styled:focus-visible {
+    box-shadow: 0 0 0 0.25rem rgba(var(--tblr-primary-rgb), 0.35);
+}
+
+/* Toasts sit in the corner as compact cards. */
+.rst-swal-toast.swal2-popup {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--tblr-border-color);
+    box-shadow: 0 8px 24px -8px rgb(15 23 42 / 0.25);
+}
+
+.rst-swal-toast .swal2-title {
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0 0.25rem;
+}
+
+.rst-swal-toast .swal2-close {
+    color: var(--tblr-secondary);
+    font-size: 1.4rem;
+    align-self: center;
+}
+
+.rst-swal-toast .swal2-close:hover {
+    color: var(--tblr-body-color);
+}
+
+.rst-swal-toast .swal2-timer-progress-bar {
+    background: rgba(var(--tblr-primary-rgb), 0.35);
+}
+
+/* A frosted backdrop reads better on the dark theme than plain black. */
+[data-bs-theme='dark'] .swal2-backdrop-show {
+    background: rgb(0 0 0 / 0.6);
+}
+/* --- Gate screens (till picker, shift open, cash up) ----------------------- */
+.rst-pos-gate {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+}
+
+.rst-pos-gate-card { width: min(34rem, 100%); }
+
+.rst-pos-till {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    text-align: start;
+}
+
+.rst-pos-till:hover { border-color: var(--accent); }
+.rst-pos-till.is-busy { opacity: 0.6; }
+
+/* --- Receipt --------------------------------------------------------------- */
+.rst-receipt {
+    width: 80mm;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 6mm 4mm;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #000;
+    background: #fff;
+}
+
+.rst-receipt.is-58 { width: 58mm; font-size: 11px; }
+.rst-receipt h1 { font-size: 15px; text-align: center; margin: 0 0 2mm; }
+.rst-receipt .muted { color: #444; }
+.rst-receipt .center { text-align: center; }
+.rst-receipt .rule { border-top: 1px dashed #000; margin: 2mm 0; }
+.rst-receipt table { width: 100%; border-collapse: collapse; }
+.rst-receipt td { padding: 0.4mm 0; vertical-align: top; }
+.rst-receipt td.num { text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rst-receipt .grand td { font-size: 14px; font-weight: 700; padding-top: 1mm; }
+.rst-receipt .mods { padding-inline-start: 4mm; font-size: 10px; color: #333; }
+.rst-receipt .stamp { margin-top: 3mm; font-weight: 700; }
+
+/* The standalone receipt window is always printed on white paper. */
+.rst-print-body { background: #fff; }
+
+@media print {
+    body { background: #fff; }
+    .d-print-none { display: none !important; }
+    .rst-receipt { width: auto; padding: 0; }
+    @page { margin: 4mm; }
+}
+
+/* =========================================================================
+   Service floor, kitchen display and waiter app
+   ========================================================================= */
+
+/* --- Live floor plan ------------------------------------------------------- */
+.rst-floor {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem;
+}
+
+.rst-floor-grid {
+    display: grid;
+    grid-template-columns: repeat(24, minmax(2.2rem, 1fr));
+    grid-auto-rows: 3.25rem;
+    gap: 0.4rem;
+    min-width: 46rem;
+}
+
+.rst-table {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    padding: 0.4rem;
+    border: 2px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    overflow: hidden;
+    transition: transform 0.08s ease;
+}
+
+.rst-table:active { transform: scale(0.97); }
+.rst-table.shape-round { border-radius: 50%; }
+.rst-table.shape-booth { border-radius: var(--rst-radius-sm) var(--rst-radius-sm) 2rem 2rem; }
+
+.rst-table-name { font-weight: 700; font-size: 1.05rem; line-height: 1.1; }
+
+.rst-table-meta {
+    display: flex;
+    gap: 0.45rem;
+    font-size: 0.7rem;
+    color: var(--tblr-secondary);
+    white-space: nowrap;
+}
+
+.rst-table-total { font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.rst-table-flag {
+    position: absolute;
+    inset-block-start: 0.2rem;
+    inset-inline-end: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--tblr-yellow);
+}
+
+/* Status colours, shared by the tiles and the legend dots. */
+.rst-table.is-free { border-style: dashed; opacity: 0.75; }
+.rst-table.is-seated { border-color: var(--tblr-blue); background: color-mix(in srgb, var(--tblr-blue) 12%, var(--tblr-bg-surface)); }
+.rst-table.is-ordered { border-color: var(--tblr-orange); background: color-mix(in srgb, var(--tblr-orange) 14%, var(--tblr-bg-surface)); }
+.rst-table.is-served { border-color: var(--tblr-green); background: color-mix(in srgb, var(--tblr-green) 14%, var(--tblr-bg-surface)); }
+.rst-table.is-billed { border-color: var(--tblr-purple); background: color-mix(in srgb, var(--tblr-purple) 14%, var(--tblr-bg-surface)); }
+.rst-table.is-dirty { border-color: var(--tblr-yellow); background: color-mix(in srgb, var(--tblr-yellow) 12%, var(--tblr-bg-surface)); }
+
+.rst-floor-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    padding: 0.6rem 1rem;
+    border-top: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    font-size: 0.75rem;
+    color: var(--tblr-secondary);
+    flex: none;
+}
+
+.rst-floor-key { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+.rst-floor-key .dot {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    border: 2px solid var(--tblr-border-color);
+    display: inline-block;
+}
+
+.rst-floor-key .dot.is-free { border-style: dashed; }
+.rst-floor-key .dot.is-seated { border-color: var(--tblr-blue); background: var(--tblr-blue); }
+.rst-floor-key .dot.is-ordered { border-color: var(--tblr-orange); background: var(--tblr-orange); }
+.rst-floor-key .dot.is-served { border-color: var(--tblr-green); background: var(--tblr-green); }
+.rst-floor-key .dot.is-billed { border-color: var(--tblr-purple); background: var(--tblr-purple); }
+.rst-floor-key .dot.is-dirty { border-color: var(--tblr-yellow); background: var(--tblr-yellow); }
+
+.rst-session-order {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    margin-bottom: 0.5rem;
+}
+
+.rst-session-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--tblr-secondary);
+    padding-top: 0.25rem;
+}
+
+/* --- Plan editor ----------------------------------------------------------- */
+.rst-plan {
+    --cell: 3rem;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    gap: 0.25rem;
+    padding: 0.5rem;
+    min-height: 24rem;
+    border: 1px dashed var(--tblr-border-color);
+    border-radius: var(--rst-radius);
+    background-image:
+        linear-gradient(to right, var(--tblr-border-color) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--tblr-border-color) 1px, transparent 1px);
+    background-size: calc(100% / 24) var(--cell);
+    background-position: 0.5rem 0.5rem;
+    overflow-x: auto;
+    touch-action: none;
+}
+
+.rst-plan-table {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    border: 2px solid var(--accent);
+    border-radius: var(--rst-radius-sm);
+    background: var(--accent-soft);
+    color: var(--tblr-body-color);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.rst-plan-table:active { cursor: grabbing; }
+.rst-plan-table.is-selected { outline: 2px solid var(--tblr-blue); outline-offset: 2px; }
+.rst-plan-table.shape-round { border-radius: 50%; }
+.rst-plan-table.shape-booth { border-radius: var(--rst-radius-sm) var(--rst-radius-sm) 2rem 2rem; }
+.rst-plan-table .name { font-weight: 700; }
+.rst-plan-table .seats { font-size: 0.7rem; color: var(--tblr-secondary); }
+
+.rst-plan-resize {
+    position: absolute;
+    inset-block-end: 0.1rem;
+    inset-inline-end: 0.1rem;
+    display: none;
+    gap: 0.05rem;
+}
+
+.rst-plan-table.is-selected .rst-plan-resize { display: flex; }
+
+.rst-plan-resize button {
+    width: 1.1rem;
+    height: 1.1rem;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-secondary);
+    font-size: 0.65rem;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+}
+
+.rst-plan-resize button:hover { color: var(--accent); }
+
+.rst-plan-empty {
+    grid-column: 1 / -1;
+    grid-row: 3 / span 4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--tblr-secondary);
+}
+
+.rst-plan-empty i { font-size: 2rem; }
+
+/* --- Kitchen display ------------------------------------------------------- */
+.rst-kds-body { flex: 1; min-height: 0; display: flex; }
+
+.rst-kds-allday {
+    width: 15rem;
+    flex: none;
+    padding: 1rem;
+    border-inline-end: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    overflow-y: auto;
+}
+
+.rst-kds-allday h3 { font-size: 1rem; margin-bottom: 0.15rem; }
+
+.rst-kds-allday-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.rst-kds-allday-row .qty {
+    min-width: 1.75rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.rst-kds-rail {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: 0.75rem;
+    align-content: start;
+}
+
+.rst-ticket {
+    display: flex;
+    flex-direction: column;
+    border: 2px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius);
+    background: var(--tblr-bg-surface);
+    overflow: hidden;
+}
+
+/* Amber at three quarters of the ticket target, red past it. */
+.rst-ticket.is-due { border-color: var(--tblr-orange); }
+.rst-ticket.is-late { border-color: var(--tblr-red); }
+.rst-ticket.is-late .rst-ticket-head { background: var(--tblr-red); color: #fff; }
+.rst-ticket.is-due .rst-ticket-head { background: color-mix(in srgb, var(--tblr-orange) 22%, transparent); }
+.rst-ticket.is-working { box-shadow: inset 0 0 0 1px var(--accent); }
+
+.rst-ticket-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.rst-ticket-id { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.rst-ticket-number { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rst-ticket-table { font-size: 0.75rem; opacity: 0.8; text-transform: capitalize; }
+.rst-ticket-clock { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rst-ticket-flags { display: flex; gap: 0.35rem; padding: 0.4rem 0.75rem 0; flex-wrap: wrap; }
+
+.rst-ticket-items { list-style: none; margin: 0; padding: 0.5rem 0; flex: 1; }
+
+.rst-ticket-items li {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.35rem 0.75rem;
+    align-items: baseline;
+}
+
+.rst-ticket-items li.is-ready { opacity: 0.45; text-decoration: line-through; }
+.rst-ticket-items .qty { font-size: 1.1rem; font-weight: 700; min-width: 1.5rem; font-variant-numeric: tabular-nums; }
+.rst-ticket-items .body { display: flex; flex-direction: column; min-width: 0; }
+.rst-ticket-items .name { font-size: 1.05rem; font-weight: 600; line-height: 1.25; }
+.rst-ticket-items .mods { font-size: 0.8125rem; color: var(--accent); }
+.rst-ticket-items .note { font-size: 0.8125rem; color: var(--tblr-orange); font-style: italic; }
+
+.rst-ticket-bump {
+    border: 0;
+    border-top: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-body-color);
+    padding: 0.7rem;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.rst-ticket-bump:hover { background: var(--tblr-green); color: #fff; }
+
+@media (max-width: 700px) {
+    .rst-kds-allday { position: absolute; z-index: 5; height: 100%; box-shadow: 4px 0 16px rgb(0 0 0 / 0.25); }
+}
+
+/* --- Waiter app ------------------------------------------------------------ */
+.rst-waiter-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    flex: none;
+}
+
+.rst-waiter-tabs button {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: var(--tblr-secondary);
+    padding: 0.8rem 0.5rem;
+    font-weight: 600;
+    border-bottom: 2px solid transparent;
+}
+
+.rst-waiter-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.rst-waiter-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0.75rem; }
+
+.rst-run-card {
+    border: 1px solid var(--tblr-border-color);
+    border-inline-start: 4px solid var(--tblr-green);
+    border-radius: var(--rst-radius);
+    background: var(--tblr-bg-surface);
+    padding: 0.75rem 0.9rem;
+    margin-bottom: 0.6rem;
+}
+
+.rst-run-card header { display: flex; align-items: baseline; justify-content: space-between; }
+.rst-run-table { font-size: 1.15rem; font-weight: 700; }
+.rst-run-waited { font-size: 0.8125rem; color: var(--tblr-secondary); font-variant-numeric: tabular-nums; }
+.rst-run-waited.is-late { color: var(--tblr-red); font-weight: 700; }
+.rst-run-card ul { list-style: none; margin: 0.5rem 0; padding: 0; }
+.rst-run-card li { padding: 0.15rem 0; }
+.rst-run-card footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+
+.rst-waiter-table {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.2rem 0.75rem;
+    padding: 0.8rem 0.9rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--tblr-border-color);
+    border-inline-start: 4px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    text-decoration: none;
+}
+
+.rst-waiter-table.is-orange { border-inline-start-color: var(--tblr-orange); }
+.rst-waiter-table.is-green { border-inline-start-color: var(--tblr-green); }
+.rst-waiter-table.is-red { border-inline-start-color: var(--tblr-red); }
+
+.rst-waiter-table-name { font-weight: 700; font-size: 1.05rem; }
+
+.rst-waiter-table-meta {
+    grid-column: 1;
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--tblr-secondary);
+}
+
+.rst-waiter-table-flag { grid-row: 1 / span 2; align-self: center; }
+
+/* =========================================================================
+   Reports and charts
+
+   Two kinds of chart, split by where the thing is read.
+
+   A report is printed. Its charts are CSS bars, on purpose: they respect the
+   theme, they need no JavaScript, and they survive being saved as a PDF from
+   the browser, which a canvas does badly.
+
+   The dashboard is read on a screen and never on paper, so it uses Chart.js
+   (see resources/js/charts.js). That buys hover values, two series against
+   one axis, and a curve that shows the shape of a trading day — none of which
+   a stack of CSS bars can do.
+   ========================================================================= */
+
+/* A canvas chart. Chart.js needs a sized, positioned box to measure against,
+   and the height comes from the component so a card can ask for a taller plot
+   without a new class. */
+.rst-chart {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.rst-chart > canvas { display: block; }
+
+/* The legend for a doughnut, doubling as the table view.
+
+   Three of the light categorical steps fall below 3:1 against a white card,
+   so the colour alone is not allowed to carry the reading — every slice is
+   named and valued here in text as well. */
+.rst-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.rst-legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    min-width: 0;
+}
+
+.rst-legend .rst-swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    flex: none;
+}
+
+.rst-legend .rst-legend-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rst-legend .rst-legend-value {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+}
+
+/* A doughnut reads as part-to-whole; the total belongs in the hole. */
+.rst-donut { position: relative; }
+
+.rst-donut-centre {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.rst-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.25rem;
+    height: 12rem;
+    padding-bottom: 1.25rem;
+    position: relative;
+}
+
+.rst-bars.is-hours { height: 9rem; }
+
+.rst-bar {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    position: relative;
+}
+
+.rst-bar-fill {
+    width: 100%;
+    max-width: 2.5rem;
+    background: var(--accent);
+    border-radius: 2px 2px 0 0;
+    min-height: 0;
+    transition: opacity 0.12s ease;
+}
+
+.rst-bar:hover .rst-bar-fill { opacity: 0.75; }
+
+.rst-bar-label {
+    position: absolute;
+    inset-block-end: -1.15rem;
+    font-size: 0.6875rem;
+    color: var(--tblr-secondary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* A share bar under a table row — cheaper to read than a percentage. */
+.rst-meter {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--tblr-border-color);
+    overflow: hidden;
+    margin-top: 0.3rem;
+    max-width: 12rem;
+}
+
+.rst-meter span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+}
+
+/* --- Print ---------------------------------------------------------------
+   Reports are saved as PDF from the browser rather than rendered server
+   side: no dependency, no font licensing, no forty megabytes of vendor
+   directory in the ZIP, and a better-looking document than most server-side
+   renderers manage. This is what makes that hold up. */
+@media print {
+    .rst-pos-body { overflow: visible; }
+
+    .navbar,
+    .rst-sidenav,
+    .rst-sidenav-backdrop,
+    .rst-custom-fab,
+    .page-header .btn-list,
+    .card-footer .btn,
+    .pagination {
+        display: none !important;
+    }
+
+    .page-wrapper { margin-inline-start: 0 !important; }
+
+    .card {
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+    }
+
+    .rst-chart { break-inside: avoid; }
+    .rst-chart > canvas { max-width: 100% !important; height: auto !important; }
+
+    .rst-bar-fill { background: #666 !important; print-color-adjust: exact; }
+    .rst-meter span { background: #666 !important; print-color-adjust: exact; }
+
+    .badge {
+        border: 1px solid #999 !important;
+        color: #000 !important;
+        background: transparent !important;
+    }
+
+    a[href]::after { content: none !important; }
+
+    @page { margin: 12mm; }
+}
+
+/* =========================================================================
+   The public shop
+   A separate skin from the back office. Staff screens optimise for density;
+   this one optimises for a stranger holding a phone in one hand, outdoors,
+   deciding whether to bother. Tap targets are large, the type is bigger than
+   anywhere else in the product, and nothing needs JavaScript to be readable.
+   ========================================================================= */
+
+.rst-shop-body {
+    background: var(--tblr-body-bg);
+    color: var(--tblr-body-color);
+}
+
+.rst-shop {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+/* --- Chrome ---------------------------------------------------------------- */
+.rst-shop__bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--tblr-bg-surface);
+    border-bottom: 1px solid var(--tblr-border-color);
+    backdrop-filter: blur(8px);
+}
+
+.rst-shop__bar-inner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 0.75rem 1rem;
+}
+
+.rst-shop__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: inherit;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.rst-shop__brand img { height: 2rem; width: auto; }
+
+.rst-shop__brand-mark {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--rst-radius-sm);
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-weight: 700;
+}
+
+.rst-shop__nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-inline-start: auto;
+}
+
+.rst-shop__nav-link { color: var(--tblr-secondary); text-decoration: none; }
+
+.rst-shop__cart {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 1.25rem;
+}
+
+.rst-shop__cart-count {
+    position: absolute;
+    top: -0.125rem;
+    inset-inline-end: -0.125rem;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.25rem;
+    border-radius: 0.625rem;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    text-align: center;
+    font-weight: 700;
+}
+
+.rst-shop__main {
+    flex: 1;
+    width: 100%;
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 1rem 1rem 5rem;
+}
+
+.rst-shop__footer {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--tblr-secondary);
+    font-size: 0.875rem;
+    border-top: 1px solid var(--tblr-border-color);
+}
+
+.rst-shop__flash {
+    max-width: 60rem;
+    margin: 0.75rem auto 0;
+    padding: 0.75rem 1rem;
+    border-radius: var(--rst-radius-sm);
+    font-weight: 500;
+}
+
+.rst-shop__flash--ok { background: var(--tblr-green-lt); color: var(--tblr-green); }
+
+/* --- Hero and order type --------------------------------------------------- */
+.rst-shop__hero {
+    border-radius: var(--rst-radius);
+    overflow: hidden;
+    background: var(--tblr-bg-surface);
+    border: 1px solid var(--tblr-border-color);
+    margin-bottom: 1.5rem;
+}
+
+.rst-shop__hero-image { width: 100%; height: 12rem; object-fit: cover; display: block; }
+.rst-shop__hero-body { padding: 1.25rem; }
+.rst-shop__hero-body h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.rst-shop__hero-note { color: var(--tblr-secondary); margin-bottom: 0.75rem; }
+
+.rst-shop__status { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.rst-shop__eta { color: var(--tblr-secondary); font-size: 0.875rem; }
+
+.rst-shop__types { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.rst-shop__type {
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    border: 1px solid var(--tblr-border-color);
+    color: var(--tblr-body-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.rst-shop__type.is-active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+}
+
+/* A small status chip, used on the shop and the account pages. */
+.rst-pill {
+    display: inline-block;
+    padding: 0.125rem 0.625rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.rst-pill--green { background: var(--tblr-green-lt); color: var(--tblr-green); }
+.rst-pill--red { background: var(--tblr-red-lt); color: var(--tblr-red); }
+.rst-pill--orange { background: var(--tblr-orange-lt); color: var(--tblr-orange); }
+.rst-pill--blue { background: var(--tblr-blue-lt); color: var(--tblr-blue); }
+.rst-pill--yellow { background: var(--tblr-yellow-lt); color: var(--tblr-yellow); }
+.rst-pill--teal { background: var(--tblr-teal-lt); color: var(--tblr-teal); }
+.rst-pill--grey { background: var(--tblr-bg-surface-secondary); color: var(--tblr-secondary); }
+
+/* --- Category jump bar ----------------------------------------------------- */
+.rst-shop__jump {
+    position: sticky;
+    top: 3.75rem;
+    z-index: 10;
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 0.75rem 0;
+    margin-bottom: 0.5rem;
+    background: var(--tblr-body-bg);
+    scrollbar-width: none;
+}
+
+.rst-shop__jump::-webkit-scrollbar { display: none; }
+
+.rst-shop__jump a {
+    flex: none;
+    padding: 0.375rem 0.875rem;
+    border-radius: 999px;
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-body-color);
+    text-decoration: none;
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+/* --- Menu grid ------------------------------------------------------------- */
+.rst-shop__section { margin-bottom: 2rem; scroll-margin-top: 7rem; }
+.rst-shop__section h2 { font-size: 1.125rem; margin-bottom: 0.75rem; }
+
+.rst-shop__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.75rem;
+}
+
+.rst-shop__card {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--rst-radius);
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.15s, transform 0.15s;
+}
+
+.rst-shop__card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.rst-shop__card.is-out { opacity: 0.55; }
+
+.rst-shop__card img {
+    width: 5rem;
+    height: 5rem;
+    object-fit: cover;
+    border-radius: var(--rst-radius-sm);
+    flex: none;
+}
+
+.rst-shop__card-body { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.rst-shop__card-name { font-weight: 600; }
+.rst-shop__card-note { color: var(--tblr-secondary); font-size: 0.8125rem; margin: 0; }
+.rst-shop__card-foot { margin-top: auto; display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+.rst-shop__price { font-weight: 700; color: var(--accent); }
+
+.rst-shop__diet {
+    padding: 0.0625rem 0.375rem;
+    border-radius: var(--rst-radius-sm);
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-secondary);
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+/* --- Sticky basket bar ----------------------------------------------------- */
+.rst-shop__basket-bar {
+    position: fixed;
+    inset-inline: 1rem;
+    bottom: 1rem;
+    z-index: 30;
+    max-width: 58rem;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 1.25rem;
+    border-radius: var(--rst-radius);
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.25);
+}
+
+/* --- Item page ------------------------------------------------------------- */
+.rst-shop__back { display: inline-block; margin-bottom: 1rem; color: var(--tblr-secondary); text-decoration: none; }
+
+.rst-shop__item {
+    border-radius: var(--rst-radius);
+    overflow: hidden;
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+}
+
+.rst-shop__item-image { width: 100%; height: 16rem; object-fit: cover; display: block; }
+.rst-shop__item-body { padding: 1.25rem; }
+.rst-shop__item-body h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+.rst-shop__item-note { color: var(--tblr-secondary); }
+.rst-shop__item-meta { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.75rem; }
+
+.rst-shop__allergens {
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--rst-radius-sm);
+    background: var(--tblr-red-lt);
+    color: var(--tblr-red);
+    font-size: 0.875rem;
+}
+
+.rst-shop__choice { border: 0; padding: 0; margin: 0 0 1.25rem; }
+
+.rst-shop__choice legend {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.rst-shop__required { font-size: 0.75rem; color: var(--tblr-red); font-weight: 600; }
+.rst-shop__hint { font-size: 0.75rem; color: var(--tblr-secondary); font-weight: 400; }
+
+.rst-shop__option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+    margin-bottom: 0.375rem;
+    cursor: pointer;
+}
+
+.rst-shop__option:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.rst-shop__option-price { margin-inline-start: auto; color: var(--tblr-secondary); }
+
+.rst-shop__field { display: block; margin-bottom: 1rem; }
+.rst-shop__field > span { display: block; font-weight: 500; margin-bottom: 0.375rem; }
+.rst-shop__field em { color: var(--tblr-secondary); font-style: normal; font-weight: 400; font-size: 0.8125rem; }
+
+.rst-shop__field input,
+.rst-shop__field textarea,
+.rst-shop__field select {
+    width: 100%;
+    padding: 0.75rem;
+    /* 16px minimum: anything smaller makes iOS zoom the page on focus. */
+    font-size: 1rem;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+}
+
+.rst-shop__check { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 1rem; }
+.rst-shop__row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+.rst-shop__add { display: flex; align-items: center; gap: 0.75rem; }
+
+.rst-shop__stepper {
+    display: flex;
+    align-items: center;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+    overflow: hidden;
+}
+
+.rst-shop__stepper button {
+    width: 3rem;
+    height: 3rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 1.25rem;
+    cursor: pointer;
+}
+
+.rst-shop__stepper input {
+    width: 3rem;
+    height: 3rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: center;
+    font-size: 1rem;
+    -moz-appearance: textfield;
+}
+
+.rst-shop__stepper input::-webkit-inner-spin-button { appearance: none; }
+
+.rst-shop__submit {
+    display: inline-block;
+    flex: 1;
+    padding: 0.875rem 1.5rem;
+    border: 0;
+    border-radius: var(--rst-radius-sm);
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.rst-shop__submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.rst-shop__link { display: inline-block; margin-top: 1rem; color: var(--accent); text-decoration: none; }
+
+/* --- Basket ---------------------------------------------------------------- */
+.rst-shop__title { font-size: 1.5rem; margin-bottom: 1rem; }
+.rst-shop__lead { color: var(--tblr-secondary); }
+.rst-shop__lines { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+
+.rst-shop__line {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.rst-shop__line-main { flex: 1; min-width: 0; }
+.rst-shop__line-name { font-weight: 600; }
+.rst-shop__line-variant { color: var(--tblr-secondary); font-weight: 400; }
+.rst-shop__line-mod,
+.rst-shop__line-note { font-size: 0.8125rem; color: var(--tblr-secondary); }
+
+.rst-shop__line-qty {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+}
+
+.rst-shop__line-qty button {
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.rst-shop__line-qty span { min-width: 1.5rem; text-align: center; }
+.rst-shop__line-total { min-width: 4.5rem; text-align: end; font-weight: 600; }
+
+.rst-shop__line-remove {
+    border: 0;
+    background: transparent;
+    color: var(--tblr-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+}
+
+.rst-shop__coupon { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+
+.rst-shop__coupon input {
+    flex: 1;
+    padding: 0.75rem;
+    font-size: 1rem;
+    text-transform: uppercase;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+}
+
+.rst-shop__coupon button {
+    padding: 0 1.25rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.rst-shop__totals { margin: 0 0 1.5rem; }
+.rst-shop__totals > div { display: flex; justify-content: space-between; padding: 0.375rem 0; }
+.rst-shop__totals dt { font-weight: 400; color: var(--tblr-secondary); }
+.rst-shop__totals dd { margin: 0; }
+.rst-shop__totals .is-discount dd { color: var(--tblr-green); }
+
+.rst-shop__totals .is-total {
+    border-top: 1px solid var(--tblr-border-color);
+    margin-top: 0.375rem;
+    padding-top: 0.75rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+.rst-shop__totals .is-total dt { color: inherit; font-weight: 700; }
+
+.rst-shop__actions { display: flex; align-items: center; gap: 1rem; }
+
+/* --- Checkout -------------------------------------------------------------- */
+.rst-shop__checkout { max-width: 34rem; }
+
+.rst-shop__panel {
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-radius: var(--rst-radius);
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+}
+
+.rst-shop__panel h2 { font-size: 1.0625rem; margin-bottom: 0.875rem; }
+.rst-shop__collect { margin: 0; line-height: 1.6; }
+.rst-shop__saved { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+
+.rst-shop__saved-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+    background: transparent;
+    color: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.rst-shop__saved-item span { font-size: 0.8125rem; color: var(--tblr-secondary); }
+
+.rst-shop__quote {
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--rst-radius-sm);
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.rst-shop__quote.is-ok { background: var(--tblr-green-lt); color: var(--tblr-green); }
+.rst-shop__quote.is-bad { background: var(--tblr-red-lt); color: var(--tblr-red); }
+
+/* --- Tracking -------------------------------------------------------------- */
+.rst-shop__track { max-width: 34rem; }
+.rst-shop__track-head { margin-bottom: 1.5rem; }
+.rst-shop__track-label { color: var(--tblr-secondary); margin: 0; }
+.rst-shop__track-head h1 { font-size: 1.75rem; margin: 0 0 0.25rem; }
+.rst-shop__track-eta { color: var(--tblr-secondary); margin: 0; }
+.rst-shop__track-rider { color: var(--tblr-secondary); }
+
+.rst-shop__track-cancelled {
+    padding: 0.875rem 1rem;
+    border-radius: var(--rst-radius-sm);
+    background: var(--tblr-red-lt);
+    color: var(--tblr-red);
+}
+
+.rst-shop__steps { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+
+.rst-shop__steps li {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.625rem 0;
+    color: var(--tblr-secondary);
+}
+
+.rst-shop__step-dot {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 50%;
+    border: 2px solid var(--tblr-border-color);
+    flex: none;
+}
+
+.rst-shop__steps li.is-done { color: var(--tblr-body-color); }
+.rst-shop__steps li.is-done .rst-shop__step-dot { background: var(--tblr-green); border-color: var(--tblr-green); }
+
+.rst-shop__steps li.is-current { color: var(--tblr-body-color); font-weight: 600; }
+
+.rst-shop__steps li.is-current .rst-shop__step-dot {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 0.25rem var(--accent-ring);
+}
+
+.rst-shop__receipt { list-style: none; padding: 0; margin: 0 0 1rem; }
+.rst-shop__receipt li { display: flex; justify-content: space-between; padding: 0.25rem 0; }
+.rst-shop__receipt li.is-modifier { color: var(--tblr-secondary); font-size: 0.8125rem; padding-inline-start: 1rem; }
+
+/* Five radios reversed in the DOM, so CSS can light up the hovered star and
+   everything before it without a line of JavaScript. */
+.rst-shop__stars { display: flex; flex-direction: row-reverse; justify-content: flex-end; margin-bottom: 1rem; }
+.rst-shop__stars input { position: absolute; opacity: 0; width: 0; }
+
+.rst-shop__stars label {
+    font-size: 1.75rem;
+    color: var(--tblr-border-color);
+    cursor: pointer;
+    padding: 0 0.125rem;
+}
+
+.rst-shop__stars input:checked ~ label,
+.rst-shop__stars label:hover,
+.rst-shop__stars label:hover ~ label { color: var(--tblr-yellow); }
+
+.rst-shop__rate textarea {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    margin-bottom: 1rem;
+}
+
+/* --- Account --------------------------------------------------------------- */
+.rst-shop__narrow { max-width: 34rem; }
+.rst-shop__aside { color: var(--tblr-secondary); margin-top: 1rem; }
+
+.rst-shop__balances { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; }
+
+.rst-shop__balances > div {
+    flex: 1;
+    padding: 1rem;
+    border-radius: var(--rst-radius);
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    text-align: center;
+}
+
+.rst-shop__balance-label { display: block; font-size: 0.8125rem; color: var(--tblr-secondary); }
+.rst-shop__balance-value { display: block; font-size: 1.5rem; font-weight: 700; }
+
+.rst-shop__account-nav { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+.rst-shop__account-nav a { color: var(--accent); text-decoration: none; }
+
+.rst-shop__account-nav button {
+    border: 0;
+    background: transparent;
+    color: var(--tblr-secondary);
+    cursor: pointer;
+    padding: 0;
+}
+
+.rst-shop__history { list-style: none; padding: 0; margin: 0; }
+
+.rst-shop__history a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--tblr-border-color);
+    color: inherit;
+    text-decoration: none;
+}
+
+.rst-shop__history-number { font-weight: 600; }
+.rst-shop__history-when { color: var(--tblr-secondary); font-size: 0.8125rem; }
+.rst-shop__history-total { margin-inline-start: auto; font-weight: 600; }
+
+.rst-shop__address-list { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+
+.rst-shop__address-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.rst-shop__address-list p { margin: 0.25rem 0 0; color: var(--tblr-secondary); font-size: 0.875rem; }
+
+@media (max-width: 36rem) {
+    .rst-shop__brand-name { display: none; }
+    .rst-shop__row { grid-template-columns: 1fr; }
+    .rst-shop__balances { flex-wrap: wrap; }
+}
+
+/* =========================================================================
+   QR code sheet
+   Printed once and stuck to the tables, so it is laid out for paper first.
+   ========================================================================= */
+
+.rst-qr-sheet {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 0.75rem;
+}
+
+.rst-qr-card {
+    padding: 1rem;
+    border: 1px dashed var(--tblr-border-color);
+    border-radius: var(--rst-radius-sm);
+    text-align: center;
+    break-inside: avoid;
+    /* Fixed black on white: a dark-theme QR code does not scan. */
+    background: #fff;
+    color: #000;
+}
+
+.rst-qr-card__brand { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
+.rst-qr-card__table { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+.rst-qr-card__code svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+.rst-qr-card__hint { font-size: 0.8125rem; margin-top: 0.5rem; }
+.rst-qr-card__url { font-size: 0.625rem; opacity: 0.55; word-break: break-all; margin-top: 0.25rem; }
+
+@media print {
+    .rst-qr-sheet { grid-template-columns: repeat(3, 1fr); }
+    .rst-qr-card { border-color: #999 !important; }
+}
+
+/* =========================================================================
+   The clock, at the terminal
+   Wall-mounted tablet, doorway, wet hands, coat still on. Everything here is
+   sized for a thumb rather than a cursor.
+   ========================================================================= */
+
+.rst-clock {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--tblr-body-bg);
+    color: var(--tblr-body-color);
+}
+
+.rst-clock__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.rst-clock__back { color: var(--tblr-secondary); text-decoration: none; font-size: 1rem; }
+.rst-clock__now { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.rst-clock__body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 22rem;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    min-height: 0;
+}
+
+.rst-clock__people,
+.rst-clock__pad {
+    padding: 1.25rem;
+    border-radius: var(--rst-radius);
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    overflow: auto;
+}
+
+.rst-clock__people h2,
+.rst-clock__pad h2 { font-size: 1.125rem; margin-bottom: 1rem; }
+
+.rst-clock__empty { color: var(--tblr-secondary); }
+.rst-clock__list { list-style: none; padding: 0; margin: 0; }
+
+.rst-clock__list li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.rst-clock__name { font-size: 1.25rem; font-weight: 600; }
+.rst-clock__meta { color: var(--tblr-secondary); font-variant-numeric: tabular-nums; }
+
+.rst-clock__label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--tblr-secondary);
+    margin: 0.75rem 0 0.375rem;
+}
+
+.rst-clock__select {
+    width: 100%;
+    padding: 0.875rem;
+    font-size: 1.0625rem;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+}
+
+/* Feedback that a digit landed, without showing the digit. */
+.rst-clock__dots { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+
+.rst-clock__dots span {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 50%;
+    border: 2px solid var(--tblr-border-color);
+}
+
+.rst-clock__dots span.is-filled { background: var(--accent); border-color: var(--accent); }
+.rst-clock__dots span.is-hidden { opacity: 0.25; }
+
+.rst-clock__keys {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.rst-clock__keys button {
+    padding: 1.125rem 0;
+    font-size: 1.375rem;
+    font-weight: 600;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface-secondary);
+    color: inherit;
+    cursor: pointer;
+    /* No text selection when a thumb drags across the pad. */
+    user-select: none;
+}
+
+.rst-clock__keys button:active { background: var(--accent-soft); border-color: var(--accent); }
+.rst-clock__key--wide { font-size: 1rem !important; }
+
+.rst-clock__submit {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 1.125rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+    border: 0;
+    border-radius: var(--rst-radius-sm);
+    background: var(--accent);
+    color: var(--accent-fg);
+    cursor: pointer;
+}
+
+.rst-clock__submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.rst-clock__break { margin-top: 0.75rem; }
+
+.rst-clock__break button {
+    width: 100%;
+    padding: 0.875rem;
+    border-radius: var(--rst-radius-sm);
+    border: 1px solid var(--tblr-border-color);
+    background: transparent;
+    color: var(--tblr-secondary);
+    cursor: pointer;
+}
+
+.rst-clock__break button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@media (max-width: 62rem) {
+    .rst-clock__body { grid-template-columns: 1fr; }
+    .rst-clock__people { order: 2; }
+}
+
+/* =========================================================================
+   Receipt preview
+   Sits on the settings screen so "58 or 80 millimetres" means something
+   before a roll is wasted finding out. Monospace and hard edges on purpose:
+   it should look like paper, not like the rest of the panel.
+   ========================================================================= */
+
+.rst-receipt-preview {
+    padding: 0.9rem 0.8rem;
+    background: #fff;
+    color: #111;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    /* No radius and a hard shadow — a rounded receipt is not a receipt. */
+    box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.35);
+    transition: width 0.15s ease;
+}
+
+.rst-receipt-preview__brand {
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+}
+
+.rst-receipt-preview__free {
+    text-align: center;
+    white-space: pre-line;
+    word-break: break-word;
+    margin-bottom: 0.35rem;
+}
+
+.rst-receipt-preview__rule {
+    border-top: 1px dashed #999;
+    margin: 0.5rem 0;
+}
+
+.rst-receipt-preview__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.rst-receipt-preview__line {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.rst-receipt-preview__line span:last-child {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.rst-receipt-preview__line--sub {
+    padding-inline-start: 0.75rem;
+    color: #555;
+}
+
+.rst-receipt-preview__line--total {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid #111;
+    font-weight: 700;
+    font-size: 0.82rem;
+}
+
+/* A second line under an option label — "handled by Stripe" and the like. */
+.rst-shop__option-note {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--tblr-secondary);
+}
+
+/* =========================================================================
+   Utilities
+   Small single-purpose classes that replace what would otherwise be inline
+   styles in Blade. Values the server computes per row (a share percentage, a
+   category colour, an uploaded image) travel as data-rst-* attributes instead
+   and are applied by resources/js/enhance.js.
+   ========================================================================= */
+
+/* Fixed widths for compact controls sitting inside table rows and toolbars. */
+.rst-w-2r { width: 2rem; }
+.rst-w-5r { width: 5rem; }
+.rst-w-6r { width: 6rem; }
+.rst-w-7r { width: 7rem; }
+.rst-w-8r { width: 8rem; }
+.rst-w-9r { width: 9rem; }
+.rst-mw-16r { max-width: 16rem; }
+.rst-mw-18r { max-width: 18rem; }
+.rst-mw-20r { max-width: 20rem; }
+.rst-mw-22r { max-width: 22rem; }
+
+/* Table column widths. */
+.rst-w-20p { width: 20%; }
+.rst-w-45p { width: 45%; }
+
+/* The 3rem icon square used on list rows and stat cards. */
+.rst-icon-tile { width: 3rem; height: 3rem; flex: none; }
+
+/* Scrollable table bodies with a height cap. */
+.rst-scroll-22 { max-height: 22rem; overflow-y: auto; }
+.rst-scroll-26 { max-height: 26rem; overflow-y: auto; }
+
+/* Long tokens and shell commands in <pre>/<code>. */
+.rst-prewrap { white-space: pre-wrap; word-break: break-all; }
+.rst-break-all { word-break: break-all; }
+
+/* Thin progress rails (feedback histogram, translation coverage). */
+.rst-progress-thin { height: 0.4rem; }
+
+/* The wordmark next to the logo glyph. */
+.rst-brand-word { letter-spacing: -0.02em; }
+
+/* A recessed preview panel (logo and favicon previews, receipt preview). */
+.rst-surface-2 { background: var(--tblr-bg-surface-secondary); }
+
+/* Height caps for uploaded image previews. */
+.rst-img-cap-2 { max-height: 2rem; }
+.rst-img-cap-3 { max-height: 3rem; }
+.rst-img-cap-8 { max-height: 8rem; }
+
+/* Hint text aligned under a toggle's label rather than its switch. */
+.rst-indent-toggle { padding-inline-start: 2.6rem; }
+
+/* The initials avatar fallback, painted with the accent. */
+.rst-avatar-accent { background: var(--accent); color: var(--accent-fg); }
+
+/* Ink in the accent colour (the customizer's palette icon). */
+.rst-accent-ink { color: var(--accent); }
+
+/* A flexible column that must not crush below a readable width. */
+.rst-minw-12r { min-width: 12rem; }
+
+/* A small colour dot (category lists). The colour arrives via data-rst-bg. */
+.rst-dot { width: 0.75rem; height: 0.75rem; }
+
+/* POS gate screens that read as a page (shift close, drawer, reports)
+   rather than a centred card. */
+.rst-pos-gate--page { align-items: start; padding-top: 2rem; }
+.rst-pos-gate-card--md { width: min(40rem, 100%); }
+.rst-pos-gate-card--lg { width: min(48rem, 100%); }
+.rst-pos-gate-card--xl { width: min(52rem, 100%); }
+
+/* The sign-in screens: language menu pinned to the corner, frame widths. */
+.rst-gate-lang { inset-inline-end: 0; z-index: 10; }
+.rst-gate-frame { max-width: 26rem; }
+.rst-gate-frame--wide { max-width: 52rem; }
+
+/* Demo accounts under the sign-in form: a two-up grid of tiles, each one
+   the autofill button. Kept compact so the panel stays a sign-in card
+   rather than turning into a table. */
+.rst-demo-accounts {
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--tblr-border-color);
+}
+
+.rst-demo-accounts__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.rst-demo-accounts__title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tblr-secondary);
+}
+
+.rst-demo-accounts__hint {
+    font-size: 0.75rem;
+    color: var(--tblr-secondary);
+}
+
+.rst-demo-accounts__hint code {
+    font-size: 0.75rem;
+    padding: 0 0.3em;
+    border-radius: 0.25rem;
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-body-color);
+}
+
+.rst-demo-accounts__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+@media (max-width: 400px) {
+    .rst-demo-accounts__grid { grid-template-columns: 1fr; }
+}
+
+.rst-demo-account {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.6rem 2rem 0.6rem 0.75rem;
+    text-align: start;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.6rem;
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.rst-demo-account:hover,
+.rst-demo-account:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    transform: translateY(-1px);
+}
+
+.rst-demo-account.is-active {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--tblr-bg-surface));
+}
+
+.rst-demo-account__role {
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 1.2;
+}
+
+.rst-demo-account__email {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--tblr-font-monospace);
+    font-size: 0.7rem;
+    color: var(--tblr-secondary);
+}
+
+.rst-demo-account__pin {
+    margin-top: 0.2rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    font-family: var(--tblr-font-monospace);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-secondary);
+}
+
+.rst-demo-account__icon {
+    position: absolute;
+    top: 0.55rem;
+    inset-inline-end: 0.6rem;
+    font-size: 0.9rem;
+    color: var(--tblr-secondary);
+    opacity: 0.6;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.rst-demo-account:hover .rst-demo-account__icon,
+.rst-demo-account.is-active .rst-demo-account__icon {
+    opacity: 1;
+    color: var(--accent);
+}
+
+[dir='rtl'] .rst-demo-account { padding: 0.6rem 0.75rem 0.6rem 2rem; }
+[dir='rtl'] .rst-demo-account__icon { transform: scaleX(-1); }
+
+/* Shop one-offs. */
+.rst-shop__flash--push { margin: 0 0 1.25rem; }
+.rst-shop__panel--accent { border-color: var(--accent); }
+
+
+/* =========================================================================
+   Portal-only overrides (loaded after the design-system rules above)
+   ========================================================================= */
+/* The Vue mount point must be as tall as the viewport: Tabler's .page is
+   min-height: 100% and the portal's .rst-footer uses margin-top: auto, so without
+   this the footer floats up under short pages instead of sitting at the
+   bottom of the screen. */
+#portal-app { min-height: 100vh; display: flex; flex-direction: column; }
+#portal-app > .page, #portal-app > div > .page { flex: 1 1 auto; min-height: 100vh; }
+
+/* Sign-in / set-password gate: portal.blade.php mounts inside body.layout-fluid,
+   whose Tabler rule (.layout-fluid .container { max-width: 100% }) out-ranks
+   the portal's .rst-gate-frame { max-width: 26rem } and stretched the card edge to
+   edge on wide screens. */
+.layout-fluid .rst-gate-frame { max-width: 26rem; }
+.layout-fluid .rst-gate-frame--wide { max-width: 52rem; }
+
+/* Sortable column headers (server-side data tables) */
+.pc-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+}
+.pc-sort .ti { font-size: 0.9rem; opacity: 0.35; }
+.pc-sort.is-active .ti { opacity: 1; color: var(--accent); }
+
+/* Dim the table while a page is loading */
+.pc-table-loading { position: relative; }
+.pc-table-loading .table { opacity: 0.45; pointer-events: none; }
+.pc-table-loading .pc-table-spinner {
+    position: absolute; inset: 0; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+}
+
+/* Numeric columns */
+.pc-num { text-align: end; font-variant-numeric: tabular-nums; }
+
+/* Long values (emails) wrap without splitting mid-word when avoidable */
+.pc-wrap { overflow-wrap: anywhere; word-break: normal; }
+
+/* Rich text from the API (contracts, help articles) */
+.pc-html p:last-child { margin-bottom: 0; }
+
+/* Page actions teleported into the shell header keep Tabler's button spacing */
+.pc-page-actions:empty { display: none; }
+
+/* Vue-driven modal (Bootstrap markup, no Bootstrap modal JS) */
+.pc-modal-open { overflow: hidden; }
+
+/* Stacked (mobile) table rows: keep action buttons side by side */
+@media (max-width: 767.98px) {
+    .table-mobile-md td.pc-num { text-align: start; }
+    .table-mobile-md td .rst-row-actions { justify-content: flex-start; }
+    .table-mobile-md td[data-label=""]::before { display: none; }
+}

@@ -1,0 +1,90 @@
+/* Page chrome only. All component styling and the light/dark palette come from
+ * Ant Design's theme algorithm (see App.vue) — never hard-code surface colors
+ * here, or dark mode will show light patches through the layout gaps. */
+
+/* The window scrollbar is always present, so it can't pop in/out (and shift
+   the whole layout) when a page's height changes between loading states.
+   overflow-x lives HERE, not on body: hidden on one axis forces the other
+   axis to compute as auto, which would turn body into a second scroll
+   container and show two vertical scrollbars. */
+html {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+/* POS manages its own 100vh layout (html gets .pos-active there) — keep its
+   original scroll behaviour, no permanent gutter. */
+html.pos-active {
+  overflow-y: auto;
+  scrollbar-gutter: auto;
+}
+
+body {
+  margin: 0;
+  /* No overflow set here on purpose — horizontal clipping is on html (see
+     above); any overflow value on body would make it a scroll container. */
+  /* Ant Design's default font stack. Ant themes its own components via
+     CSS-in-JS, but plain elements and ApexCharts (which use fontFamily:
+     'inherit') would otherwise fall back to the browser default serif. */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* a-layout paints the app background (colorBgLayout) in both themes. */
+
+/* Content fills the full width of the layout on every desktop size (no cap). */
+.page {
+  width: 100%;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Deltas read correctly on light and dark surfaces. */
+.kpi-delta-up { color: #52c41a; font-size: 13px; font-weight: 600; }
+.kpi-delta-down { color: #ff4d4f; font-size: 13px; font-weight: 600; }
+
+.chart-card .ant-card-body { padding-top: 8px; }
+
+.payment-row { margin-bottom: 16px; }
+.payment-row:last-child { margin-bottom: 0; }
+.payment-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+/* a-upload-dragger's root is an inline <span>; block children below it in the
+   same card can then escape the card's height calculation (buttons rendered
+   outside the card on the import wizards). Newer antd makes it a block. */
+.ant-upload-wrapper {
+  display: block;
+}
+
+/* Wide tables must scroll INSIDE their card, never bleed out of it:
+   .ant-table-container is capped at the .ant-spin-container width and the
+   overflow moves to .ant-table-content's own horizontal scrollbar. */
+.ant-table-wrapper {
+  max-width: 100%;
+}
+.ant-table-wrapper .ant-spin-container {
+  width: 100%;
+}
+.ant-table-wrapper .ant-table,
+.ant-table-wrapper .ant-table-container {
+  max-width: 100%;
+}
+.ant-table-wrapper .ant-table-content {
+  overflow-x: auto;
+}

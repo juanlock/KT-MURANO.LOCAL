@@ -1,0 +1,93 @@
+/* Shared invoice styles for the return detail pages. */
+
+.inv-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.inv-ref-badge {
+    display: inline-block;
+    background: #6d28d9;
+    color: #fff;
+    font-weight: 600;
+    padding: 4px 14px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+.inv-meta td {
+    padding: 2px 8px 2px 0;
+    color: rgba(0, 0, 0, 0.65);
+    font-size: 13px;
+}
+.inv-meta td:first-child {
+    font-weight: 500;
+}
+.inv-box {
+    border: 1px solid rgba(5, 5, 5, 0.08);
+    border-radius: 8px;
+    padding: 12px 16px;
+    height: 100%;
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.65);
+}
+.inv-box-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(0, 0, 0, 0.45);
+    margin-bottom: 4px;
+}
+.inv-box-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: rgba(0, 0, 0, 0.88);
+    margin-bottom: 4px;
+}
+.muted {
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 12px;
+}
+.inv-summary {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+.inv-summary table {
+    min-width: 320px;
+    border-collapse: collapse;
+}
+.inv-summary td {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(5, 5, 5, 0.06);
+    font-size: 13px;
+}
+.inv-summary td:last-child {
+    text-align: right;
+    font-weight: 500;
+}
+.inv-summary .neg {
+    color: #ff4d4f;
+}
+.inv-summary .grand td {
+    font-size: 15px;
+    font-weight: 700;
+    border-top: 2px solid rgba(5, 5, 5, 0.15);
+}
+.inv-footer {
+    margin-top: 24px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(5, 5, 5, 0.15);
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 13px;
+    text-align: center;
+}
+
+@media print {
+    :global(.ant-layout-sider),
+    :global(.ant-layout-header),
+    :global(.page-header) {
+        display: none !important;
+    }
+}

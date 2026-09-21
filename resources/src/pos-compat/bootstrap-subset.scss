@@ -1,0 +1,167 @@
+/**
+ * Legacy Bootstrap pipeline for the POS 1:1 port, scoped under .pos-scope.
+ *
+ * This reproduces EXACTLY what the legacy bundle compiled: the lite-purple
+ * theme variable prelude (copied from
+ * resources/src/assets/styles/sass/themes/lite-purple.scss + _colors.scss +
+ * sass/_variables.scss) feeding the app's VENDORED Bootstrap 4.1.3 sources
+ * (copied verbatim to ./bootstrap-legacy). Fonts, sizes, colors and control
+ * heights therefore match the legacy admin to the pixel — stock Bootstrap
+ * had visibly different type scale (1rem vs .813rem) and a blue primary.
+ *
+ * Everything is nested under .pos-scope so nothing leaks into the Ant
+ * Design admin; reboot's html/body rules compile to dead `.pos-scope html`
+ * selectors, which is intentional and harmless.
+ */
+
+/* ---- themes/_colors.scss ---- */
+$solid-colors: (
+  "blue": #3b82f6,
+  "midnight-blue": #0c0c3c,
+  "indigo": #6366f1,
+  "dark-purple": #322740,
+  "purple": #8b5cf6,
+  "pink": #ec4899,
+  "red": #ef4444,
+  "orange": #f97316,
+  "yellow": #f59e0b,
+  "green": #10b981,
+  "teal": #14b8a6,
+  "cyan": #06b6d4,
+  "gray": #71717a,
+  "slate-gray": #64748b,
+);
+
+$gradient-colors: (
+  gradient-purple-indigo: (
+    "start-color": #8b5cf6,
+    "end-color": #33214b,
+  ),
+  gradient-black-blue: (
+    "start-color": #004e92,
+    "end-color": #000428,
+  ),
+  gradient-black-gray: (
+    "start-color": #404040,
+    "end-color": #000000,
+  ),
+  gradient-steel-gray: (
+    "start-color": #616d86,
+    "end-color": #1f1c2c,
+  ),
+);
+
+/* ---- sass/_variables.scss (fonts + layout + brand colors) ---- */
+$font-family-heading: 'Inter', sans-serif;
+$font-family-base: 'Inter', sans-serif;
+$font-size-base: .813rem;
+$topbar-height: 80px;
+$topbar-height-mobile: 70px;
+$sidebar-left-width: 120px;
+$sidebar-left-width-mobile: 90px;
+$sidebar-left-secondary-width: 220px;
+$sidebar-left-secondary-width-mobile: 190px;
+$side-clearance: 20px;
+$facebook: rgb(55, 101, 201);
+$google: rgb(236, 65, 44);
+$twitter: rgb(3, 159, 245);
+$instagram: rgb(193, 53, 132);
+$linkedin: rgb(0, 119, 181);
+$dribble: #ea4c89;
+$youtube: #c4302b;
+
+/* ---- themes/lite-purple.scss variable block ---- */
+$blue: map-get($solid-colors, "blue") !default;
+$indigo: map-get($solid-colors, "indigo") !default;
+$purple: map-get($solid-colors, "purple") !default;
+$pink: map-get($solid-colors, "pink") !default;
+$red: map-get($solid-colors, "red") !default;
+$orange: map-get($solid-colors, "orange") !default;
+$yellow: map-get($solid-colors, "yellow") !default;
+$green: map-get($solid-colors, "green") !default;
+$teal: map-get($solid-colors, "teal") !default;
+$cyan: map-get($solid-colors, "cyan") !default;
+$primary-base: $purple;
+$white: #fff !default;
+$gray-100: #F3F4F6 !default;
+$gray-200: #E5E7EB !default;
+$gray-300: #D1D5DB !default;
+$gray-400: #9CA3AF !default;
+$gray-500: #6B7280 !default;
+$gray-600: #4B5563 !default;
+$gray-700: #374151 !default;
+$gray-800: #1F2937 !default;
+$gray-900: #111827 !default;
+$black: darken($primary-base, 60%) !default;
+$primary: $primary-base !default;
+$secondary: $gray-800 !default;
+$success: $green !default;
+$info: $blue !default;
+$warning: $yellow !default;
+$danger: $red !default;
+$light: $gray-500 !default;
+$dark: $gray-900 !default;
+$background: $white !default;
+$foreground: $gray-900 !default;
+$heading: darken($foreground, 8%);
+
+// Keys quoted (Bootstrap's own convention): unquoted `purple:` etc. parse as
+// COLOR values, and _root.scss interpolating them into custom-property names
+// triggers Sass's "always quote color names" warning on every key. Quoted vs
+// unquoted compiles to the SAME CSS variable names.
+$colors: (
+  "purple": $purple,
+  "pink": $pink,
+  "red": $red,
+  "orange": $orange,
+  "yellow": $yellow,
+  "green": $green,
+  "teal": $teal,
+  "cyan": $cyan,
+  "white": $white,
+  "gray": $gray-600,
+  "gray-dark": $gray-800
+) !default;
+$theme-colors: (
+  primary: $primary,
+  secondary: $secondary,
+  success: $success,
+  info: $info,
+  warning: $warning,
+  danger: $danger,
+  light: $light,
+  gray-100: $gray-100,
+  gray-200: $gray-200,
+  gray-300: $gray-300,
+  gray-400: $gray-400,
+  gray-500: $gray-500,
+  gray-600: $gray-600,
+  gray-700: $gray-700,
+  gray-800: $gray-800,
+  gray-900: $gray-900,
+  dark: $dark
+) !default;
+
+/* ---- the app's vendored Bootstrap 4.1.3 + the app skin, scoped ---- */
+.pos-scope {
+  @import "./bootstrap-legacy/bootstrap";
+  /* globals-legacy = verbatim copy of sass/globals (typography, buttons,
+     badges, form polish, utilities …) — the same skin legacy compiles after
+     Bootstrap. Layout/sidebar selectors become dead .pos-scope descendants,
+     which is fine. */
+  @import "./globals-legacy/globals";
+}
+
+/* Bootstrap's `.modal-open .modal { overflow-y: auto }` compiles above to
+   `.pos-scope .modal-open .modal`, which can never match: `modal-open` sits
+   on <body>, an ANCESTOR of .pos-scope. Only `.pos-scope .modal
+   { overflow: hidden }` survives, so any modal taller than the viewport
+   (every form modal on a phone — Quick Add Customer, New Customer, …) gets
+   clipped with its submit row off-screen and no way to scroll. The BModal
+   shim always renders the open modal as `.modal.show`, so this restores
+   Bootstrap's intended scroll container for all POS modals at once. */
+.modal-open .pos-scope .modal,
+.pos-scope .modal.show {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
