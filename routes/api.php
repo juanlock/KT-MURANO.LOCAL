@@ -1401,6 +1401,11 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::resource('roles/check/create_page', 'PermissionsController@Check_Create_Page');
     Route::post('roles/delete/by_selection', 'PermissionsController@delete_by_selection');
 
+    // ------------------------------- Menu Positions -------------------\\
+    // ------------------------------------------------------------------\\
+    Route::get('menu-positions', 'MenuPositionController@index');
+    Route::post('menu-positions', 'MenuPositionController@store');
+
     // ------------------------------- Settings ------------------------\\
     // ------------------------------------------------------------------\\
     Route::get('settings/dark-mode', 'SettingsController@getDarkMode');
