@@ -1,6 +1,9 @@
 {
 	"folders": [
 		{
+			"path": "../KT-BILLING.LOCAL"
+		},
+		{
 			"path": "."
 		}
 	],
