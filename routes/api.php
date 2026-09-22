@@ -1414,6 +1414,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     // ------------------------------------------------------------------\\
     Route::get('menu-positions', 'MenuPositionController@index');
     Route::post('menu-positions', 'MenuPositionController@store');
+    Route::delete('menu-positions', 'MenuPositionController@reset');
 
     // ------------------------------- Settings ------------------------\\
     // ------------------------------------------------------------------\\

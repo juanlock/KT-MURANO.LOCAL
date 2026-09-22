@@ -11,7 +11,7 @@ import {
     Receipt, ShoppingCart, ChevronRight, ShoppingBasket, ChevronLeft, ArrowLeft,
     Library, CalendarDays, Megaphone, DollarSign, Wrench, Settings, Archive,
     ClipboardList, Check, Book, DatabaseZap, Lightbulb, TrendingUp, Percent,
-    FolderArchive, Truck, HeartPulse, GraduationCap, Plug, ChefHat,
+    FolderArchive, Truck, HeartPulse, GraduationCap, Plug, ChefHat, Menu,
 } from 'lucide-vue-next';
 
 export const MENU_ICONS = {
@@ -48,4 +48,5 @@ export const MENU_ICONS = {
     'graduation-cap': GraduationCap,
     'plug': Plug,
     'chef-hat': ChefHat,
+    'menu': Menu,
 };

@@ -526,6 +526,15 @@ class PaymentPurchaseReturnsController extends BaseController
     public function Send_SMS(Request $request)
     {
         $payment = PaymentPurchaseReturns::with('PurchaseReturn', 'PurchaseReturn.provider')->findOrFail($request->id);
+
+        // Company boundary: this method had no permission/ownership check at
+        // all (not even record_view) -- missed in the earlier pass that
+        // fixed the rest of this controller.
+        $requester = $request->user('api');
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) optional($payment->PurchaseReturn)->company_id === (int) $requester->company_id, 403);
+        }
+
         $settings = Setting::where('deleted_at', '=', null)->first();
         $gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->where('deleted_at', '=', null)->first();

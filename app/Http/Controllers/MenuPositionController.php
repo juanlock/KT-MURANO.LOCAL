@@ -13,7 +13,7 @@ class MenuPositionController extends Controller
     public function index()
     {
         return response()->json(
-            MenuPosition::select('item_key as key', 'parent_key', 'sort_order', 'label', 'icon', 'route', 'external', 'is_custom', 'template', 'dynamic_table', 'hidden')->get()
+            MenuPosition::select('item_key as key', 'parent_key', 'sort_order', 'label', 'icon', 'route', 'external', 'is_custom', 'template', 'dynamic_table', 'hidden', 'location')->get()
         );
     }
 
@@ -33,6 +33,7 @@ class MenuPositionController extends Controller
             'positions.*.external' => 'nullable|boolean',
             'positions.*.is_custom' => 'nullable|boolean',
             'positions.*.hidden' => 'nullable|boolean',
+            'positions.*.location' => 'nullable|string|in:sidebar,topnav,footer',
         ]);
 
         $positions = $data['positions'];
@@ -96,6 +97,7 @@ class MenuPositionController extends Controller
                     'external' => $row['external'] ?? false,
                     'is_custom' => $row['is_custom'] ?? false,
                     'hidden' => $row['hidden'] ?? false,
+                    'location' => $row['location'] ?? 'sidebar',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -107,5 +109,15 @@ class MenuPositionController extends Controller
         });
 
         return response()->json(['message' => 'Menu layout saved.']);
+    }
+
+    // Wipes all rows -- restores the factory menu structure from
+    // config/menu.js (no custom items, no renames, nothing hidden, at any
+    // level). Mirrors resetSidebarMenuOrder's DELETE pattern.
+    public function reset()
+    {
+        MenuPosition::query()->delete();
+
+        return response()->json(['message' => 'Menu layout reset.']);
     }
 }

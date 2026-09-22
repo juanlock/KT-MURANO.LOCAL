@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Adjustment;
 use App\Models\AdjustmentDetail;
 use App\Models\CombinedProduct;
@@ -24,6 +25,8 @@ use PDF;
 
 class AdjustmentController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------ Show All Adjustement  -----------\\
 
     public function index(request $request)
@@ -34,6 +37,10 @@ class AdjustmentController extends BaseController
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
         $is_all_warehouses = $user->is_all_warehouses;
+
+        // Company boundary: SuperAdmin may narrow via ?company_id=; everyone else
+        // is always scoped to their own company, regardless of record_view.
+        $companyId = $this->resolveActingCompanyId($request);
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
             $warehouse_ids = UserWarehouse::where('user_id', $user->id)
@@ -57,6 +64,7 @@ class AdjustmentController extends BaseController
         // Check If User Has Permission View  All Records
         $Adjustments = Adjustment::with('warehouse')
             ->where('deleted_at', '=', null)
+            ->where('company_id', '=', $companyId)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -174,6 +182,9 @@ class AdjustmentController extends BaseController
 
         \DB::transaction(function () use ($request) {
             $order = new Adjustment;
+            // Company boundary: force from the acting company -- never trust a
+            // client-submitted value.
+            $order->company_id = $this->resolveActingCompanyId($request);
             $order->date = $request->date;
             $order->time = now()->toTimeString();
             $order->Ref = $this->getNumberOrder();
@@ -352,6 +363,13 @@ class AdjustmentController extends BaseController
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
         $current_adjustment = Adjustment::findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't modify an adjustment from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $current_adjustment->company_id === (int) $requester->company_id, 403);
+        }
 
          /**
          * Warehouses restriction
@@ -732,6 +750,13 @@ class AdjustmentController extends BaseController
             $view_records = $user->hasRecordView();
             $current_adjustment = Adjustment::findOrFail($id);
 
+            // Company boundary: a non-SuperAdmin can't delete an adjustment from a
+            // different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_adjustment->company_id === (int) $requester->company_id, 403);
+            }
+
             /**
              * Warehouses restriction
              * Allow if:
@@ -958,6 +983,14 @@ class AdjustmentController extends BaseController
             ? (int) $variant_id
             : null;
 
+        // Company boundary: the warehouse (and therefore the batches it
+        // holds) must belong to the acting company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Warehouse::where('id', $warehouseId)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         $batchService = app(BatchService::class);
 
         return response()->json([
@@ -997,6 +1030,13 @@ class AdjustmentController extends BaseController
         $Adjustment_data = Adjustment::with('details.product')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't open an adjustment from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Adjustment_data->company_id === (int) $requester->company_id, 403);
+        }
 
         /**
          * Warehouses restriction
@@ -1128,6 +1168,14 @@ class AdjustmentController extends BaseController
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
         $details = [];
+
+        // Company boundary: a non-SuperAdmin can't view an adjustment from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Adjustment_data->company_id === (int) $requester->company_id, 403);
+        }
+
         // Check If User Has Permission view All Records
         // Warehouse half of the same rule: record_view says whose documents,
         // the assigned warehouses say which warehouses they may come from.
@@ -1194,6 +1242,13 @@ class AdjustmentController extends BaseController
         $adjustment_data = Adjustment::with('details.product.unit')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't download the PDF of an
+        // adjustment from a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $adjustment_data->company_id === (int) $requester->company_id, 403);
+        }
 
         $batchesByDetail = app(BatchService::class)->batchesForAdjustmentDetails($adjustment_data['details']);
 

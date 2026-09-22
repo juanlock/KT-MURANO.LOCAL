@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { MENU } from '../config/menu';
 import { applyMenuOrder } from '../lib/menuOrder';
-import { buildTopLevelMenu } from '../lib/menuTree';
+import { buildTopLevelMenu, hasNestedPositions } from '../lib/menuTree';
 import { useAuthStore } from './auth';
 import http from '../lib/http';
 
@@ -41,7 +41,12 @@ export const useMenuStore = defineStore('menu', {
                 ? buildTopLevelMenu(state.positions)
                 : MENU;
 
-            if (Array.isArray(order) && order.length) {
+            // Once menu_positions covers anything below the top level (the
+            // first full-tree save from the nested Manage Menus editor), it
+            // alone decides structure/order at every level -- applyMenuOrder
+            // only knows about static config/menu.js entries and would
+            // silently drop any custom sub-item it doesn't recognize.
+            if (!hasNestedPositions(state.positions) && Array.isArray(order) && order.length) {
                 try {
                     arranged = applyMenuOrder(order, arranged);
                 } catch (e) {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Mail\PaymentReturn;
 use App\Models\Account;
 use App\Models\Client;
@@ -24,6 +25,8 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class PaymentSaleReturnsController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------- Get All Payment Sale Returns --------------\\
 
     public function index(request $request)
@@ -52,6 +55,12 @@ class PaymentSaleReturnsController extends BaseController
                 ->toArray();
         }
 
+        // Company boundary: payment_sale_returns has no company_id column of
+        // its own, so scope via the parent sale_return's (now real) company_id.
+        // SuperAdmin may narrow via ?company_id=; everyone else is always scoped
+        // to their own company, regardless of record_view.
+        $companyId = $this->resolveActingCompanyId($request);
+
         // Filter fields With Params to retriever
         $param = [0 => 'like', 1 => '=', 2 => '='];
         $columns = [0 => 'Ref', 1 => 'sale_return_id', 2 => 'payment_method_id'];
@@ -61,6 +70,9 @@ class PaymentSaleReturnsController extends BaseController
         $Payments = PaymentSaleReturns::with('SaleReturn', 'SaleReturn.client', 'account', 'user')
             ->where('deleted_at', '=', null)
             ->whereBetween('date', [$request->from, $request->to])
+            ->whereHas('SaleReturn', function ($q) use ($companyId) {
+                $q->where('company_id', $companyId);
+            })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -163,8 +175,8 @@ class PaymentSaleReturnsController extends BaseController
             $data[] = $item;
         }
 
-        $clients = Client::where('deleted_at', '=', null)->get(['id', 'name']);
-        $sale_returns = SaleReturn::get(['Ref', 'id']);
+        $clients = Client::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
+        $sale_returns = SaleReturn::where('company_id', $companyId)->get(['Ref', 'id']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 
         $methodNames = $payment_methods->pluck('name', 'id');
@@ -201,6 +213,13 @@ class PaymentSaleReturnsController extends BaseController
                 // Backward compatibility: If record_view is null, fall back to role permission check
                 $view_records = $user->hasRecordView();
                 $SaleReturn = SaleReturn::findOrFail($request['sale_return_id']);
+
+                // Company boundary: a non-SuperAdmin can't record a payment
+                // against a sale return from a different company.
+                $requester = $request->user('api');
+                if ($requester->type !== 'SuperAdmin') {
+                    abort_unless((int) $SaleReturn->company_id === (int) $requester->company_id, 403);
+                }
 
                 // Check If User Has Permission view All Records
                 // Warehouse half of the same rule: record_view says whose documents,
@@ -278,6 +297,14 @@ class PaymentSaleReturnsController extends BaseController
             $view_records = $user->hasRecordView();
             $payment = PaymentSaleReturns::findOrFail($id);
 
+            // Company boundary: a non-SuperAdmin can't modify a payment against
+            // a sale return from a different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                $paymentCompanyId = SaleReturn::where('id', $payment->sale_return_id)->value('company_id');
+                abort_unless((int) $paymentCompanyId === (int) $requester->company_id, 403);
+            }
+
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
             // the assigned warehouses say which warehouses they may come from.
@@ -354,6 +381,14 @@ class PaymentSaleReturnsController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $payment = PaymentSaleReturns::findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't delete a payment against
+            // a sale return from a different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                $paymentCompanyId = SaleReturn::where('id', $payment->sale_return_id)->value('company_id');
+                abort_unless((int) $paymentCompanyId === (int) $requester->company_id, 403);
+            }
 
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
@@ -447,6 +482,14 @@ class PaymentSaleReturnsController extends BaseController
 
         $payment = PaymentSaleReturns::with('SaleReturn', 'SaleReturn.client')->findOrFail($id);
 
+        // Company boundary: a non-SuperAdmin can't PDF a payment against a
+        // sale return from a different company. This method had zero
+        // permission check before.
+        $requester = $request->user('api');
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $payment['SaleReturn']->company_id === (int) $requester->company_id, 403);
+        }
+
         $payment_data['return_Ref'] = $payment['SaleReturn']->Ref;
         $payment_data['client_name'] = $payment['SaleReturn']['client']->name;
         $payment_data['client_phone'] = $payment['SaleReturn']['client']->phone;
@@ -485,6 +528,15 @@ class PaymentSaleReturnsController extends BaseController
     public function Send_SMS(Request $request)
     {
         $payment = PaymentSaleReturns::with('SaleReturn', 'SaleReturn.client')->findOrFail($request->id);
+
+        // Company boundary: a non-SuperAdmin can't SMS a payment against a
+        // sale return from a different company. This method had zero
+        // permission check before.
+        $requester = $request->user('api');
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $payment['SaleReturn']->company_id === (int) $requester->company_id, 403);
+        }
+
         $settings = Setting::where('deleted_at', '=', null)->first();
         $gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->where('deleted_at', '=', null)->first();

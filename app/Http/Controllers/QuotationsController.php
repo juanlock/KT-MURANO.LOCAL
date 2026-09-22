@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Mail\CustomEmail;
 use App\Models\Client;
 use App\Models\EmailMessage;
@@ -40,6 +41,8 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class QuotationsController extends BaseController
 {
+    use ScopesToCompany;
+
     // ---------------- GET ALL QUOTATIONS ---------------\\
     public function index(request $request)
     {
@@ -48,6 +51,9 @@ class QuotationsController extends BaseController
         // New way: Check user's record_view field (user-level boolean)
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
+        // Company scoping -- SuperAdmin may pass ?company_id= (a company
+        // picker sends it); everyone else is locked to their own company.
+        $companyId = $this->resolveActingCompanyId($request);
         $is_all_warehouses = $user->is_all_warehouses;
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
@@ -84,6 +90,9 @@ class QuotationsController extends BaseController
         // Check If User Has Permission View  All Records
         $Quotations = Quotation::with('client', 'warehouse')
             ->where('deleted_at', '=', null)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -162,15 +171,28 @@ class QuotationsController extends BaseController
             $data[] = $item;
         }
 
-        $customers = client::where('deleted_at', '=', null)->get();
+        $customers = client::where('deleted_at', '=', null)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->get();
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)
+                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                    return $query->where('company_id', $companyId);
+                })
+                ->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)
+                ->whereIn('id', $warehouses_id)
+                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                    return $query->where('company_id', $companyId);
+                })
+                ->get(['id', 'name']);
         }
 
         return response()->json([
@@ -193,7 +215,24 @@ class QuotationsController extends BaseController
             'warehouse_id' => 'required',
         ]);
 
-        \DB::transaction(function () use ($request) {
+        // Company boundary: force the quotation onto the acting company --
+        // never trust a client-submitted company_id -- and reject a
+        // client_id or warehouse_id that belongs to a different company
+        // (both tables carry company_id), so a company-1 user can't create
+        // a quotation against another company's client/warehouse/stock.
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_unless(
+            (int) Client::where('id', $request->client_id)->value('company_id') === $companyId,
+            403,
+            'Client does not belong to your company.'
+        );
+        abort_unless(
+            (int) Warehouse::where('id', $request->warehouse_id)->value('company_id') === $companyId,
+            403,
+            'Warehouse does not belong to your company.'
+        );
+
+        \DB::transaction(function () use ($request, $companyId) {
 
             $order = new Quotation;
 
@@ -204,6 +243,7 @@ class QuotationsController extends BaseController
             $order->client_id = $request->client_id;
             $order->GrandTotal = $request->GrandTotal;
             $order->warehouse_id = $request->warehouse_id;
+            $order->company_id = $companyId;
             $order->tax_rate = $request->tax_rate;
             $order->TaxNet = $request->TaxNet;
             $order->discount = $request->Discount;
@@ -265,6 +305,26 @@ class QuotationsController extends BaseController
             'warehouse_id' => 'required',
             'client_id' => 'required',
         ]);
+
+        // Company boundary: a non-SuperAdmin can't update a quotation from a
+        // different company, and a changed client_id/warehouse_id must also
+        // stay inside the company.
+        $requester = $request->user('api');
+        $companyId = $this->resolveActingCompanyId($request);
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Quotation::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === $companyId, 403);
+            abort_unless(
+                (int) Client::where('id', $request->client_id)->value('company_id') === $companyId,
+                403,
+                'Client does not belong to your company.'
+            );
+            abort_unless(
+                (int) Warehouse::where('id', $request->warehouse_id)->value('company_id') === $companyId,
+                403,
+                'Warehouse does not belong to your company.'
+            );
+        }
 
         \DB::transaction(function () use ($request, $id) {
             $user = Auth::user();
@@ -409,6 +469,12 @@ class QuotationsController extends BaseController
             $view_records = $user->hasRecordView();
             $Quotation = Quotation::findOrFail($id);
 
+            // Company boundary: a non-SuperAdmin can't delete a quotation
+            // from a different company.
+            if ($user->type !== 'SuperAdmin') {
+                abort_unless((int) $Quotation->company_id === (int) $this->resolveActingCompanyId($request), 403);
+            }
+
              /**
              * Warehouses restriction
              * Allow if:
@@ -465,13 +531,22 @@ class QuotationsController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', Quotation::class);
 
-        \DB::transaction(function () use ($request) {
+        // Company boundary: a non-SuperAdmin can only bulk-delete quotations
+        // belonging to their own company -- silently drop any other id
+        // instead of letting it through to the unscoped findOrFail below.
+        $requester = $request->user('api');
+        $selectedIds = $request->selectedIds;
+        if ($requester->type !== 'SuperAdmin') {
+            $companyId = $this->resolveActingCompanyId($request);
+            $selectedIds = Quotation::whereIn('id', $selectedIds)->where('company_id', $companyId)->pluck('id')->all();
+        }
+
+        \DB::transaction(function () use ($request, $selectedIds) {
 
             $user = Auth::user();
             // New way: Check user's record_view field (user-level boolean)
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
-            $selectedIds = $request->selectedIds;
             foreach ($selectedIds as $Quotation_id) {
                 $Quotation = Quotation::findOrFail($Quotation_id);
 
@@ -537,6 +612,12 @@ class QuotationsController extends BaseController
         $quotation_data = Quotation::with('details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't open a quotation from a
+        // different company.
+        if ($user->type !== 'SuperAdmin') {
+            abort_unless((int) $quotation_data->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($quotation_data);
@@ -711,6 +792,14 @@ class QuotationsController extends BaseController
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
 
+        // Company boundary: this had no ownership check at all -- a
+        // company-1 login could print/read another company's quotation PDF
+        // by id.
+        $requester = $request->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Quotation->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($Quotation);
 
@@ -827,6 +916,14 @@ class QuotationsController extends BaseController
         $Quotation = Quotation::with('details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: this had no ownership check at all -- a
+        // company-1 login could print/read another company's quotation
+        // (via the print popup) by id.
+        $requester = $request->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Quotation->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($Quotation);
@@ -954,16 +1051,34 @@ class QuotationsController extends BaseController
 
         $this->authorizeForUser($request->user('api'), 'create', Quotation::class);
 
+        // Company scoping -- SuperAdmin may pass ?company_id= (a company
+        // picker sends it); everyone else is locked to their own company.
+        $user = Auth::user();
+        $companyId = $this->resolveActingCompanyId($request);
+
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)
+                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                    return $query->where('company_id', $companyId);
+                })
+                ->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)
+                ->whereIn('id', $warehouses_id)
+                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                    return $query->where('company_id', $companyId);
+                })
+                ->get(['id', 'name']);
         }
 
-        $clients = Client::where('deleted_at', '=', null)->get(['id', 'name']);
+        $clients = Client::where('deleted_at', '=', null)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->get(['id', 'name']);
         $quotation_with_stock = Setting::where('deleted_at', '=', null)->first()->quotation_with_stock;
 
         return response()->json([
@@ -986,6 +1101,13 @@ class QuotationsController extends BaseController
         $Quotation = Quotation::with('details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't open/edit a quotation
+        // from a different company.
+        $companyId = $this->resolveActingCompanyId($request);
+        if ($user->type !== 'SuperAdmin') {
+            abort_unless((int) $Quotation->company_id === $companyId, 403);
+        }
 
         /**
          * Warehouses restriction
@@ -1167,13 +1289,26 @@ class QuotationsController extends BaseController
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)
+                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                    return $query->where('company_id', $companyId);
+                })
+                ->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)
+                ->whereIn('id', $warehouses_id)
+                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                    return $query->where('company_id', $companyId);
+                })
+                ->get(['id', 'name']);
         }
 
-        $clients = Client::where('deleted_at', '=', null)->get(['id', 'name']);
+        $clients = Client::where('deleted_at', '=', null)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->get(['id', 'name']);
 
         return response()->json([
             'details' => $details,
@@ -1191,6 +1326,13 @@ class QuotationsController extends BaseController
 
         // Quotation
         $quotation = Quotation::with('client')->where('deleted_at', '=', null)->findOrFail($request->id);
+
+        // Company boundary: a non-SuperAdmin can't email a quotation from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $quotation->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($quotation);
@@ -1251,6 +1393,13 @@ class QuotationsController extends BaseController
 
         // Quotation
         $quotation = Quotation::with('client')->where('deleted_at', '=', null)->findOrFail($request->id);
+
+        // Company boundary: a non-SuperAdmin can't SMS a quotation from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $quotation->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($quotation);
@@ -1386,6 +1535,13 @@ class QuotationsController extends BaseController
         // Quotation
         $quotation = Quotation::with('client')->where('deleted_at', '=', null)->findOrFail($request->id);
 
+        // Company boundary: a non-SuperAdmin can't pull another company's
+        // quotation/client phone number through this endpoint.
+        $requester = $request->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $quotation->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($quotation);
         $currency = $docCurrency['symbol'];
@@ -1444,6 +1600,14 @@ class QuotationsController extends BaseController
         $variantId = ($variant_id !== null && $variant_id !== '' && $variant_id !== 'null' && (int) $variant_id > 0)
             ? (int) $variant_id
             : null;
+
+        // Company boundary: the warehouse (and therefore the batches it
+        // holds) must belong to the acting company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Warehouse::where('id', $warehouseId)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         $batchService = app(BatchService::class);
 

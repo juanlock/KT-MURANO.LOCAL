@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Product;
 use App\Models\product_warehouse;
 use App\Models\ProductVariant;
@@ -24,6 +25,8 @@ use PDF;
 
 class TransferController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------ Show All Transfers  -----------\\
 
     public function index(request $request)
@@ -34,6 +37,10 @@ class TransferController extends BaseController
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
         $is_all_warehouses = $user->is_all_warehouses;
+
+        // Company boundary: SuperAdmin may narrow via ?company_id=; everyone else
+        // is always scoped to their own company, regardless of record_view.
+        $companyId = $this->resolveActingCompanyId($request);
 
         $warehouse_ids = [];
         if (! $is_all_warehouses) {
@@ -58,6 +65,7 @@ class TransferController extends BaseController
         // Check If User Has Permission View  All Records
         $transfers = Transfer::with('from_warehouse', 'to_warehouse')
             ->where('deleted_at', '=', null)
+            ->where('company_id', '=', $companyId)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -145,6 +153,9 @@ class TransferController extends BaseController
         \DB::transaction(function () use ($request) {
             $order = new Transfer;
 
+            // Company boundary: force from the acting company -- never trust a
+            // client-submitted value.
+            $order->company_id = $this->resolveActingCompanyId($request);
             $order->date = $request->transfer['date'];
             $order->Ref = $this->getNumberOrder();
             $order->from_warehouse_id = $request->transfer['from_warehouse'];
@@ -329,6 +340,13 @@ class TransferController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $current_Transfer = Transfer::findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't modify a transfer from a
+            // different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_Transfer->company_id === (int) $requester->company_id, 403);
+            }
 
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
@@ -671,6 +689,13 @@ class TransferController extends BaseController
             $current_Transfer = Transfer::findOrFail($id);
             $Old_Details = TransferDetail::where('transfer_id', $id)->get();
 
+            // Company boundary: a non-SuperAdmin can't delete a transfer from a
+            // different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_Transfer->company_id === (int) $requester->company_id, 403);
+            }
+
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
             // the assigned warehouses say which warehouses they may come from.
@@ -827,6 +852,13 @@ class TransferController extends BaseController
             foreach ($selectedIds as $Transfer_id) {
                 $current_Transfer = Transfer::findOrFail($Transfer_id);
                 $Old_Details = TransferDetail::where('transfer_id', $Transfer_id)->get();
+
+                // Company boundary: a non-SuperAdmin can't bulk-delete a transfer
+                // from a different company.
+                $requester = $request->user('api');
+                if ($requester->type !== 'SuperAdmin') {
+                    abort_unless((int) $current_Transfer->company_id === (int) $requester->company_id, 403);
+                }
 
                 // Check If User Has Permission view All Records
                 // Warehouse half of the same rule: record_view says whose documents,
@@ -988,6 +1020,14 @@ class TransferController extends BaseController
             ? (int) $variant_id
             : null;
 
+        // Company boundary: the (source) warehouse -- and therefore the
+        // batches it holds -- must belong to the acting company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Warehouse::where('id', $warehouseId)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         $batchService = app(BatchService::class);
 
         return response()->json([
@@ -1040,6 +1080,13 @@ class TransferController extends BaseController
         $Transfer_data = Transfer::with('details.product.unit')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't open a transfer from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Transfer_data->company_id === (int) $requester->company_id, 403);
+        }
 
         /**
          * Warehouses restriction
@@ -1253,7 +1300,11 @@ class TransferController extends BaseController
             }
         }
 
-        $to_warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+        // Company boundary: the destination warehouse picker must not leak
+        // another company's warehouses.
+        $to_warehouses = Warehouse::where('deleted_at', '=', null)
+            ->where('company_id', $this->resolveActingCompanyId($request))
+            ->get(['id', 'name']);
 
         return response()->json([
             'details' => $details,
@@ -1276,6 +1327,13 @@ class TransferController extends BaseController
         $Transfer_data = Transfer::with('details.product.unit')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't view a transfer from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Transfer_data->company_id === (int) $requester->company_id, 403);
+        }
 
         $details = [];
         // Check If User Has Permission view All Records
@@ -1356,7 +1414,11 @@ class TransferController extends BaseController
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $to_warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+        // Company boundary: the destination warehouse picker must not leak
+        // another company's warehouses.
+        $to_warehouses = Warehouse::where('deleted_at', '=', null)
+            ->where('company_id', $this->resolveActingCompanyId($request))
+            ->get(['id', 'name']);
 
         return response()->json(['warehouses' => $warehouses, 'to_warehouses' => $to_warehouses]);
     }
@@ -1370,6 +1432,13 @@ class TransferController extends BaseController
         $transfer_data = Transfer::with('details.product.unitPurchase')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't download the PDF of a
+        // transfer from a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $transfer_data->company_id === (int) $requester->company_id, 403);
+        }
 
         $batchesByDetail = app(BatchService::class)->batchesForTransferDetails($transfer_data['details']);
 
@@ -1455,6 +1524,13 @@ class TransferController extends BaseController
                 ->where('deleted_at', '=', null)
                 ->findOrFail($id);
 
+            // Company boundary: a non-SuperAdmin can't approve a transfer from a
+            // different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $transfer->company_id === (int) $requester->company_id, 403);
+            }
+
             // Warehouse half of the same rule: record_view says whose documents,
             // the assigned warehouses say which warehouses they may come from.
             $this->abortIfDocumentWarehouseDenied($transfer);
@@ -1496,6 +1572,13 @@ class TransferController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $transfer = Transfer::where('deleted_at', '=', null)->findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't reject a transfer from a
+            // different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $transfer->company_id === (int) $requester->company_id, 403);
+            }
 
             // Warehouse half of the same rule: record_view says whose documents,
             // the assigned warehouses say which warehouses they may come from.

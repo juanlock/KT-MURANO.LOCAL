@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\CombinedProduct;
 use App\Models\Damage;
 use App\Models\DamageDetail;
@@ -23,6 +24,8 @@ use PDF;
 
 class DamageController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------ Show All Damages  -----------\\
     public function index(Request $request)
     {
@@ -32,6 +35,10 @@ class DamageController extends BaseController
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
         $is_all_warehouses = $user->is_all_warehouses;
+
+        // Company boundary: SuperAdmin may narrow via ?company_id=; everyone else
+        // is always scoped to their own company, regardless of record_view.
+        $companyId = $this->resolveActingCompanyId($request);
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
             $warehouse_ids = UserWarehouse::where('user_id', $user->id)
@@ -51,6 +58,7 @@ class DamageController extends BaseController
 
         $Damages = Damage::with('warehouse')
             ->where('deleted_at', '=', null)
+            ->where('company_id', '=', $companyId)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -120,6 +128,9 @@ class DamageController extends BaseController
 
         \DB::transaction(function () use ($request) {
             $order = new Damage;
+            // Company boundary: force from the acting company -- never trust a
+            // client-submitted value.
+            $order->company_id = $this->resolveActingCompanyId($request);
             $order->date = $request->date;
             $order->time = now()->toTimeString();
             $order->Ref = $this->getNumberOrder();
@@ -237,6 +248,13 @@ class DamageController extends BaseController
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
         $current_damage = Damage::findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't modify a damage from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $current_damage->company_id === (int) $requester->company_id, 403);
+        }
 
         // Warehouse half of the same rule: record_view says whose documents,
         // the assigned warehouses say which warehouses they may come from.
@@ -457,6 +475,13 @@ class DamageController extends BaseController
             $current_damage = Damage::findOrFail($id);
             $old_details = DamageDetail::where('damage_id', $id)->get();
 
+            // Company boundary: a non-SuperAdmin can't delete a damage from a
+            // different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_damage->company_id === (int) $requester->company_id, 403);
+            }
+
             // Warehouse half of the same rule: record_view says whose documents,
             // the assigned warehouses say which warehouses they may come from.
             $this->abortIfDocumentWarehouseDenied($current_damage);
@@ -567,6 +592,13 @@ class DamageController extends BaseController
             ->findOrFail($id);
         $details = [];
 
+        // Company boundary: a non-SuperAdmin can't open a damage from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Damage_data->company_id === (int) $requester->company_id, 403);
+        }
+
         // Warehouse half of the same rule: record_view says whose documents,
         // the assigned warehouses say which warehouses they may come from.
         $this->abortIfDocumentWarehouseDenied($Damage_data);
@@ -671,6 +703,13 @@ class DamageController extends BaseController
             ->findOrFail($id);
         $details = [];
 
+        // Company boundary: a non-SuperAdmin can't view a damage from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Damage_data->company_id === (int) $requester->company_id, 403);
+        }
+
         // Warehouse half of the same rule: record_view says whose documents,
         // the assigned warehouses say which warehouses they may come from.
         $this->abortIfDocumentWarehouseDenied($Damage_data);
@@ -725,6 +764,13 @@ class DamageController extends BaseController
         $damage_data = Damage::with('details.product.unit')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't download the PDF of a
+        // damage from a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $damage_data->company_id === (int) $requester->company_id, 403);
+        }
 
         $adjustment['warehouse_name'] = $damage_data['warehouse']->name;
         $adjustment['Ref'] = $damage_data->Ref;
@@ -796,6 +842,14 @@ class DamageController extends BaseController
         $variantId = ($variant_id !== null && $variant_id !== '' && $variant_id !== 'null' && (int) $variant_id > 0)
             ? (int) $variant_id
             : null;
+
+        // Company boundary: the warehouse (and therefore the batches it
+        // holds) must belong to the acting company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Warehouse::where('id', $warehouseId)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         $batchService = app(BatchService::class);
 

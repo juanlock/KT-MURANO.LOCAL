@@ -943,6 +943,7 @@
 import { ref, computed, onMounted, h } from 'vue';
 import { message, Skeleton } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 import { defineAsyncComponent } from 'vue';
 import {
   UploadOutlined, UpOutlined, DownOutlined, ClearOutlined,
@@ -963,6 +964,7 @@ import { uploadForm } from '../../lib/upload';
 const { t, locale } = useI18n();
 const ui = useUiStore();
 const auth = useAuthStore();
+const route = useRoute();
 
 /* --------------------------- DataTable preferences (device-local) */
 const dtStore = useDatatableStore();
@@ -979,8 +981,11 @@ const dtPreviewRows = [
 
 const isLoading = ref(true);
 const saving = ref(false);
-const activeTab = ref('general');
-const selectedKeys = ref(['general']);
+// Deep-link support (e.g. Permissions -> "Manage Menus" links to
+// /settings/system?tab=sidebar) -- falls back to 'general' for anything else.
+const initialTab = String(route.query.tab || '') || 'general';
+const activeTab = ref(initialTab);
+const selectedKeys = ref([initialTab]);
 
 // Domains with dedicated migrated pages, embedded here as sections so the
 // whole settings surface lives on ONE page like legacy. Loaded lazily —

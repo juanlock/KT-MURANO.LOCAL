@@ -6,6 +6,10 @@
     >
       <template #extra>
         <a-space>
+          <a-button @click="$router.push('/settings/system?tab=sidebar')">
+            <template #icon><MenuOutlined /></template>
+            {{ tf('Manage_Menus', 'Manage Menus') }}
+          </a-button>
           <a-button @click="$router.push('/permissions')">{{ $t('Cancel') }}</a-button>
           <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
         </a-space>
@@ -102,6 +106,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { MenuOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { PERMISSION_GROUPS } from '../../config/permissions';
 import { useAuthStore } from '../../stores/auth';

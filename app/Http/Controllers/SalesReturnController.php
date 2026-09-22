@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Account;
 use App\Models\Client;
 use App\Models\PaymentMethod;
@@ -31,6 +32,8 @@ use PDF;
 
 class SalesReturnController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------ GET ALL Sale Return--------------\\
 
     public function index(request $request)
@@ -47,6 +50,15 @@ class SalesReturnController extends BaseController
                 ->pluck('warehouse_id')
                 ->toArray();
         }
+
+        // Company boundary: SuperAdmin may narrow via ?company_id=; everyone else
+        // is always scoped to their own company, regardless of record_view. This
+        // mirrors the fix already applied to PurchasesReturnController/SalesController/
+        // ClientController/WarehouseController (record_view used to double as the
+        // company gate and silently stopped scoping once every Admin got
+        // record_view=true).
+        $companyId = $this->resolveActingCompanyId($request);
+
         // How many items do you want to display.
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -79,6 +91,7 @@ class SalesReturnController extends BaseController
         // Check If User Has Permission View  All Records
         $SaleReturn = SaleReturn::with('sale', 'facture', 'client', 'warehouse')
             ->where('deleted_at', '=', null)
+            ->where('company_id', '=', $companyId)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -151,18 +164,21 @@ class SalesReturnController extends BaseController
             $data[] = $item;
         }
 
-        $customers = client::where('deleted_at', '=', null)->get(['id', 'name']);
-        $sales = Sale::where('deleted_at', '=', null)->get(['id', 'Ref']);
+        // Company boundary: the client/sale pickers must not leak another
+        // company's data. Accounts/payment methods have no company_id column
+        // (pre-existing, out of scope -- same note as PurchasesReturnController).
+        $customers = client::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
+        $sales = Sale::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'Ref']);
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->where('company_id', $companyId)->get(['id', 'name']);
         }
 
         return response()->json([
@@ -207,6 +223,12 @@ class SalesReturnController extends BaseController
             $order->payment_statut = 'unpaid';
             $order->notes = $request->notes;
             $order->user_id = Auth::user()->id;
+            // Company boundary: force from the acting company -- never trust a
+            // client-submitted value. sale_id is nullable (a return doesn't
+            // always trace back to a sale), so this can't be reliably inherited
+            // from a parent sale; set directly, same as
+            // PurchasesReturnController::store() does for purchase_returns.company_id.
+            $order->company_id = $this->resolveActingCompanyId($request);
             // Multi-Currency: the return inherits the parent sale's snapshot
             // so its documents print in the same currency.
             if ($request->sale_id) {
@@ -331,6 +353,13 @@ class SalesReturnController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $current_SaleReturn = SaleReturn::findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't modify a sale return
+            // from a different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_SaleReturn->company_id === (int) $requester->company_id, 403);
+            }
 
             /**
              * Warehouses restriction
@@ -582,6 +611,13 @@ class SalesReturnController extends BaseController
             $view_records = $user->hasRecordView();
             $current_SaleReturn = SaleReturn::findOrFail($id);
 
+            // Company boundary: a non-SuperAdmin can't delete a sale return
+            // from a different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_SaleReturn->company_id === (int) $requester->company_id, 403);
+            }
+
             /**
              * Warehouses restriction
              * Allow if:
@@ -726,9 +762,18 @@ class SalesReturnController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $selectedIds = $request->selectedIds;
+
+            // Company boundary: a non-SuperAdmin can only bulk-delete sale
+            // returns from their own company.
+            $requester = $request->user('api');
+
             foreach ($selectedIds as $SaleReturn_id) {
 
                 $current_SaleReturn = SaleReturn::findOrFail($SaleReturn_id);
+
+                if ($requester->type !== 'SuperAdmin') {
+                    abort_unless((int) $current_SaleReturn->company_id === (int) $requester->company_id, 403);
+                }
 
                 /**
                  * Warehouses restriction
@@ -865,6 +910,13 @@ class SalesReturnController extends BaseController
         $view_records = $user->hasRecordView();
         $SaleReturn = SaleReturn::findOrFail($id);
 
+        // Company boundary: a non-SuperAdmin can't view payments of a sale
+        // return from a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $SaleReturn->company_id === (int) $requester->company_id, 403);
+        }
+
         // Check If User Has Permission view All Records
         // Warehouse half of the same rule: record_view says whose documents,
         // the assigned warehouses say which warehouses they may come from.
@@ -933,6 +985,13 @@ class SalesReturnController extends BaseController
         $Sale_Return = SaleReturn::with('sale', 'details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't view a sale return from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Sale_Return->company_id === (int) $requester->company_id, 403);
+        }
 
         $docCurrency = helpers::Get_Document_Currency($Sale_Return);
 
@@ -1094,6 +1153,10 @@ class SalesReturnController extends BaseController
         $view_records = $user->hasRecordView();
         $is_all_warehouses = $user->is_all_warehouses;
 
+        // Company boundary: the POS return picker must not surface another
+        // company's sales.
+        $companyId = $this->resolveActingCompanyId($request);
+
         $search = $request->input('search', '');
         $limit = (int) $request->input('limit', 10);
         if ($limit <= 0 || $limit > 50) {
@@ -1102,6 +1165,7 @@ class SalesReturnController extends BaseController
 
         $query = Sale::with('client', 'warehouse')
             ->where('deleted_at', '=', null)
+            ->where('company_id', $companyId)
             ->where(function ($q) use ($view_records, $user) {
                 if (! $view_records) {
                     $q->where('user_id', '=', $user->id);
@@ -1158,6 +1222,13 @@ class SalesReturnController extends BaseController
         $SaleReturn = Sale::with('details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't start a return from a sale
+        // belonging to a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $SaleReturn->company_id === (int) $requester->company_id, 403);
+        }
 
         $details = [];
 
@@ -1286,6 +1357,13 @@ class SalesReturnController extends BaseController
         $Sale_Return = SaleReturn::with('sale', 'details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't PDF a sale return from a
+        // different company. This method had zero permission check before.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Sale_Return->company_id === (int) $requester->company_id, 403);
+        }
 
         $docCurrency = helpers::Get_Document_Currency($Sale_Return);
 
@@ -1417,6 +1495,13 @@ class SalesReturnController extends BaseController
         $SaleReturn = SaleReturn::with('sale', 'details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't edit a sale return from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $SaleReturn->company_id === (int) $requester->company_id, 403);
+        }
 
         /**
          * Warehouses restriction
