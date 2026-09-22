@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Product;
 use App\Models\product_warehouse;
 use App\Models\ProductVariant;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 
 class WarehouseController extends Controller
 {
+    use ScopesToCompany;
+
     // ----------- GET ALL  Warehouse --------------\\
 
     public function index(Request $request)
@@ -25,7 +28,14 @@ class WarehouseController extends Controller
         $order = $request->SortField;
         $dir = $request->SortType;
 
+        $user = $request->user('api');
+
         $warehouses = Warehouse::where('deleted_at', '=', null)
+            // Company boundary: a SuperAdmin sees every company (optionally
+            // narrowed via ?company_id=); everyone else only their own.
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($request) {
+                return $query->where('company_id', $this->resolveActingCompanyId($request));
+            })
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
@@ -63,10 +73,13 @@ class WarehouseController extends Controller
             'name' => 'required',
         ]);
 
-        \DB::transaction(function () use ($request) {
+        $companyId = $this->resolveActingCompanyId($request);
+
+        \DB::transaction(function () use ($request, $companyId) {
 
             $Warehouse = new Warehouse;
             $Warehouse->name = $request['name'];
+            $Warehouse->company_id = $companyId;
             $Warehouse->mobile = $request['mobile'];
             $Warehouse->country = $request['country'];
             $Warehouse->city = $request['city'];
@@ -74,7 +87,11 @@ class WarehouseController extends Controller
             $Warehouse->email = $request['email'];
             $Warehouse->save();
 
-            $products = Product::where('deleted_at', '=', null)->get(['id', 'type']);
+            // Only seed opening stock for THIS company's own products -- a
+            // new warehouse belongs to one company, so creating
+            // product_warehouse rows for every company's products would
+            // leak stock-tracking rows across the company boundary.
+            $products = Product::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'type']);
 
             if ($products) {
                 foreach ($products as $product) {
@@ -125,6 +142,14 @@ class WarehouseController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'update', Warehouse::class);
 
+        // Company boundary: a non-SuperAdmin can't update a warehouse from
+        // a different company.
+        $user = $request->user('api');
+        if ($user->type !== 'SuperAdmin') {
+            $targetCompanyId = Warehouse::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $user->company_id, 403);
+        }
+
         request()->validate([
             'name' => 'required',
         ]);
@@ -146,6 +171,14 @@ class WarehouseController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Warehouse::class);
+
+        // Company boundary: a non-SuperAdmin can't delete a warehouse from
+        // a different company.
+        $user = $request->user('api');
+        if ($user->type !== 'SuperAdmin') {
+            $targetCompanyId = Warehouse::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $user->company_id, 403);
+        }
 
         \DB::transaction(function () use ($id) {
 
@@ -169,8 +202,16 @@ class WarehouseController extends Controller
 
         $this->authorizeForUser($request->user('api'), 'delete', Warehouse::class);
 
-        \DB::transaction(function () use ($request) {
-            $selectedIds = $request->selectedIds;
+        $selectedIds = $request->selectedIds;
+
+        // Company boundary: a non-SuperAdmin can only bulk-delete
+        // warehouses belonging to their own company.
+        $user = $request->user('api');
+        if ($user->type !== 'SuperAdmin') {
+            $selectedIds = Warehouse::whereIn('id', $selectedIds)->where('company_id', $user->company_id)->pluck('id')->all();
+        }
+
+        \DB::transaction(function () use ($selectedIds) {
             foreach ($selectedIds as $warehouse_id) {
                 Warehouse::whereId($warehouse_id)->update([
                     'deleted_at' => Carbon::now(),
@@ -188,10 +229,15 @@ class WarehouseController extends Controller
 
     // ----------- GET ALL  Warehouse --------------\\
 
-    public function Get_Warehouses()
+    public function Get_Warehouses(Request $request)
     {
-        $Warehouses = Warehouse::where('deleted_at', '=', null)->get();
+        $user = $request->user('api');
 
-        return response()->json($Warehouses);
+        $query = Warehouse::where('deleted_at', '=', null);
+        if ($user->type !== 'SuperAdmin') {
+            $query->where('company_id', $user->company_id);
+        }
+
+        return response()->json($query->get());
     }
 }

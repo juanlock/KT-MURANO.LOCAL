@@ -41,14 +41,23 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Intervention\Image\ImageManagerStatic as Image;
+use App\Http\Controllers\Concerns\ScopesToCompany;
 
 class ProductsController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------ Get ALL Products --------------\\
 
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Product::class);
+
+        // Company scoping -- SuperAdmin may pass ?company_id= (a company
+        // picker sends it); everyone else is locked to their own company.
+        // Without this, products/categories/subcategories/brands from every
+        // company were mixed together in this list.
+        $companyId = $this->resolveActingCompanyId($request);
 
         $perPage = $request->integer('limit', 10);
         $pageStart = (int) ($request->get('page', 1));
@@ -80,8 +89,9 @@ class ProductsController extends BaseController
         $param = [0 => 'like', 1 => '=', 2 => '=', 3 => '='];
 
         $productsQuery = Product::with('unit', 'category', 'subCategory', 'brand', 'categories')
-            ->whereNull('deleted_at');
-         
+            ->whereNull('deleted_at')
+            ->where('company_id', $companyId);
+
 
 
         // Multiple Filter
@@ -323,9 +333,9 @@ class ProductsController extends BaseController
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $categories = Category::whereNull('deleted_at')->get(['id', 'name']);
-        $subcategories = SubCategory::orderBy('name')->get(['id', 'name', 'category_id']);
-        $brands = Brand::whereNull('deleted_at')->get(['id', 'name']);
+        $categories = Category::whereNull('deleted_at')->where('company_id', $companyId)->get(['id', 'name']);
+        $subcategories = SubCategory::where('company_id', $companyId)->orderBy('name')->get(['id', 'name', 'category_id']);
+        $brands = Brand::whereNull('deleted_at')->where('company_id', $companyId)->get(['id', 'name']);
 
         return response()->json([
             'warehouses' => $warehouses,
@@ -411,6 +421,7 @@ class ProductsController extends BaseController
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', Product::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         try {
 
@@ -418,12 +429,17 @@ class ProductsController extends BaseController
             $productRules = [
                 'code' => [
                     'required',
-                    Rule::unique('products')->where(function ($query) {
-                        return $query->where('deleted_at', '=', null);
+                    // Scoped to the acting company -- otherwise a code
+                    // that's unique within this company but happens to
+                    // match a DIFFERENT company's product/variant would be
+                    // wrongly rejected as already taken.
+                    Rule::unique('products')->where(function ($query) use ($companyId) {
+                        return $query->where('deleted_at', '=', null)->where('company_id', $companyId);
                     }),
 
-                    Rule::unique('product_variants')->where(function ($query) {
-                        return $query->where('deleted_at', '=', null);
+                    Rule::unique('product_variants')->where(function ($query) use ($companyId) {
+                        return $query->where('deleted_at', '=', null)
+                            ->whereIn('product_id', Product::where('company_id', $companyId)->pluck('id'));
                     }),
                 ],
                 'name' => [
@@ -434,13 +450,18 @@ class ProductsController extends BaseController
                 ],
                 'Type_barcode' => 'required',
                 'gtin' => 'nullable|string|max:64',
-                'category_id' => 'required',
+                // Existence checks are also scoped to the acting company --
+                // otherwise a crafted request could attach a product to
+                // another company's category/subcategory/brand/unit by id.
+                'category_id' => ['required', Rule::exists('categories', 'id')->where('company_id', $companyId)],
                 'type' => 'required',
                 'tax_method' => 'required',
                 'discount_method' => 'required',
-                'sub_category_id' => 'nullable|integer',
-                'sub_category_id' => 'nullable|integer',
-                'unit_id' => Rule::requiredIf($request->type != 'is_service'),
+                'sub_category_id' => ['nullable', 'integer', Rule::exists('subcategories', 'id')->where('company_id', $companyId)],
+                'brand_id' => ['nullable', 'integer', Rule::exists('brands', 'id')->where('company_id', $companyId)],
+                'unit_id' => [Rule::requiredIf($request->type != 'is_service'), Rule::exists('units', 'id')->where('company_id', $companyId)],
+                'unit_sale_id' => ['nullable', 'integer', Rule::exists('units', 'id')->where('company_id', $companyId)],
+                'unit_purchase_id' => ['nullable', 'integer', Rule::exists('units', 'id')->where('company_id', $companyId)],
                 'cost' => Rule::requiredIf($request->type == 'is_single' || $request->type == 'is_combo'),
                 'price' => Rule::requiredIf($request->type != 'is_variant'),
             ];
@@ -586,12 +607,13 @@ class ProductsController extends BaseController
                 'code.required' => 'This field is required',
             ]);
 
-            \DB::transaction(function () use ($request) {
+            \DB::transaction(function () use ($request, $companyId) {
 
                 // -- Create New Product
                 $Product = new Product;
 
                 // -- Field Required
+                $Product->company_id = $companyId;
                 $Product->type = $request['type'];
                 $Product->name = $request['name'];
                 $Product->code = $request['code'];
@@ -747,9 +769,17 @@ class ProductsController extends BaseController
                 if ($request['type'] == 'is_combo') {
                     $materiels = json_decode($request['materiels'], true);
 
+                    // Only materials that actually belong to this company --
+                    // the picker (get_products_materiels) already only
+                    // offers this company's own products, but nothing
+                    // stops a direct/tampered request from submitting a
+                    // different company's product id as a combo component.
+                    $ownMaterialIds = Product::where('company_id', $companyId)->pluck('id')->all();
                     $syncData = [];
                     foreach ($materiels as $materiel) {
-                        $syncData[$materiel['product_id']] = ['quantity' => $materiel['quantity']];
+                        if (in_array((int) $materiel['product_id'], $ownMaterialIds, true)) {
+                            $syncData[$materiel['product_id']] = ['quantity' => $materiel['quantity']];
+                        }
                     }
 
                     // Sync the combined products
@@ -813,8 +843,11 @@ class ProductsController extends BaseController
                 // Wholesale Pricing by Quantity: persist the product's quantity breaks.
                 $this->syncProductPriceTiers($request, $Product);
 
-                // 1) gather all warehouse IDs
+                // 1) gather all warehouse IDs -- scoped by company, or a
+                // new product gets an opening-stock row at every OTHER
+                // company's warehouses too.
                 $warehouseIds = Warehouse::whereNull('deleted_at')
+                    ->where('company_id', $companyId)
                     ->pluck('id')
                     ->toArray();
 
@@ -994,6 +1027,13 @@ class ProductsController extends BaseController
     {
 
         $this->authorizeForUser($request->user('api'), 'update', Product::class);
+        $companyId = $this->resolveActingCompanyId($request);
+        // A regular admin must never be able to update a different
+        // company's product by tampering with the id in the URL.
+        abort_unless(
+            optional(Product::where('deleted_at', null)->find($id))->company_id === $companyId,
+            404
+        );
         try {
 
             // define validation rules for product
@@ -1001,12 +1041,15 @@ class ProductsController extends BaseController
                 'code' => [
                     'required',
 
-                    Rule::unique('products')->ignore($id)->where(function ($query) {
-                        return $query->where('deleted_at', '=', null);
+                    // Scoped to the acting company -- see store()'s
+                    // matching comment.
+                    Rule::unique('products')->ignore($id)->where(function ($query) use ($companyId) {
+                        return $query->where('deleted_at', '=', null)->where('company_id', $companyId);
                     }),
 
-                    Rule::unique('product_variants')->ignore($id, 'product_id')->where(function ($query) {
-                        return $query->where('deleted_at', '=', null);
+                    Rule::unique('product_variants')->ignore($id, 'product_id')->where(function ($query) use ($companyId) {
+                        return $query->where('deleted_at', '=', null)
+                            ->whereIn('product_id', Product::where('company_id', $companyId)->pluck('id'));
                     }),
                 ],
                 'name' => [
@@ -1016,11 +1059,17 @@ class ProductsController extends BaseController
                     'regex:/^[^<>]*$/', // prevents <script>, <details>, etc.
                 ],
                 'gtin' => 'nullable|string|max:64',
-                'category_id' => 'required',
+                // Existence checks are also scoped to the acting company --
+                // see store()'s matching comment.
+                'category_id' => ['required', Rule::exists('categories', 'id')->where('company_id', $companyId)],
+                'sub_category_id' => ['nullable', 'integer', Rule::exists('subcategories', 'id')->where('company_id', $companyId)],
+                'brand_id' => ['nullable', 'integer', Rule::exists('brands', 'id')->where('company_id', $companyId)],
                 'tax_method' => 'required',
                 'discount_method' => 'required',
                 'type' => 'required',
-                'unit_id' => Rule::requiredIf($request->type != 'is_service'),
+                'unit_id' => [Rule::requiredIf($request->type != 'is_service'), Rule::exists('units', 'id')->where('company_id', $companyId)],
+                'unit_sale_id' => ['nullable', 'integer', Rule::exists('units', 'id')->where('company_id', $companyId)],
+                'unit_purchase_id' => ['nullable', 'integer', Rule::exists('units', 'id')->where('company_id', $companyId)],
                 'cost' => Rule::requiredIf($request->type == 'is_single' || $request->type == 'is_combo'),
                 'price' => Rule::requiredIf($request->type != 'is_variant'),
             ];
@@ -1169,7 +1218,7 @@ class ProductsController extends BaseController
                 'code.required' => 'This field is required',
             ]);
 
-            \DB::transaction(function () use ($request, $id) {
+            \DB::transaction(function () use ($request, $id, $companyId) {
 
                 $Product = Product::where('id', $id)
                     ->where('deleted_at', '=', null)
@@ -1282,9 +1331,17 @@ class ProductsController extends BaseController
                 if ($request['type'] == 'is_combo') {
                     $materiels = json_decode($request['materiels'], true);
 
+                    // Only materials that actually belong to this company --
+                    // the picker (get_products_materiels) already only
+                    // offers this company's own products, but nothing
+                    // stops a direct/tampered request from submitting a
+                    // different company's product id as a combo component.
+                    $ownMaterialIds = Product::where('company_id', $companyId)->pluck('id')->all();
                     $syncData = [];
                     foreach ($materiels as $materiel) {
-                        $syncData[$materiel['product_id']] = ['quantity' => $materiel['quantity']];
+                        if (in_array((int) $materiel['product_id'], $ownMaterialIds, true)) {
+                            $syncData[$materiel['product_id']] = ['quantity' => $materiel['quantity']];
+                        }
                     }
 
                     // Sync the combined products
@@ -1328,7 +1385,10 @@ class ProductsController extends BaseController
                     ->where('deleted_at', null)
                     ->get();
 
+                // Scoped by company -- same reasoning as store()'s
+                // matching comment.
                 $warehouses = Warehouse::where('deleted_at', null)
+                    ->where('company_id', $companyId)
                     ->pluck('id')
                     ->toArray();
 
@@ -1665,6 +1725,10 @@ class ProductsController extends BaseController
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Product::class);
+        abort_unless(
+            optional(Product::find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         \DB::transaction(function () use ($id) {
 
@@ -1708,12 +1772,20 @@ class ProductsController extends BaseController
     public function delete_by_selection(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Product::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
-        \DB::transaction(function () use ($request) {
+        \DB::transaction(function () use ($request, $companyId) {
             $selectedIds = $request->selectedIds;
             foreach ($selectedIds as $product_id) {
 
-                $Product = Product::findOrFail($product_id);
+                // Scoped to the acting company -- a selection can only ever
+                // have come from this company's own (already-scoped) list,
+                // but this is the last line of defense against a tampered
+                // request deleting a DIFFERENT company's product.
+                $Product = Product::where('company_id', $companyId)->find($product_id);
+                if (! $Product) {
+                    continue;
+                }
                 $Product->deleted_at = Carbon::now();
 
                 if (Schema::hasTable('category_product')) {
@@ -1760,6 +1832,7 @@ class ProductsController extends BaseController
         $Product = Product::with(['category', 'categories', 'subCategory', 'subcategories', 'images', 'sizeGuide'])
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+        abort_unless($Product->company_id === $this->resolveActingCompanyId($request), 404);
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
@@ -1964,6 +2037,13 @@ class ProductsController extends BaseController
         // read another warehouse's full stock list by changing the id.
         $this->abortIfWarehouseDenied($id);
 
+        // Belt-and-braces alongside the warehouse-assignment check above --
+        // guards against a stale/legacy product_warehouse row pointing at a
+        // product from a DIFFERENT company than the one this request is
+        // acting as (prefers resolveActingCompanyId over Auth::user()->company_id
+        // so a SuperAdmin acting on a chosen company is scoped correctly too).
+        $companyId = $this->resolveActingCompanyId($request);
+
         $data = [];
 
         // Allow Overselling (global Features switch): when ON, zero / negative
@@ -1975,6 +2055,7 @@ class ProductsController extends BaseController
         $allow_overselling = (bool) ($global_setting->allow_overselling ?? false);
 
         $product_warehouse_data = product_warehouse::with('warehouse', 'product', 'productVariant')
+            ->whereRelation('product', 'company_id', '=', $companyId)
             ->where(function ($query) use ($request, $id, $allow_overselling) {
                 return $query->where('warehouse_id', $id)
                     ->where('deleted_at', '=', null)
@@ -2535,6 +2616,9 @@ class ProductsController extends BaseController
 
         $product_warehouse_data = product_warehouse::with('warehouse', 'product', 'productVariant')
             ->join('products', 'product_warehouse.product_id', '=', 'products.id')
+            // Belt-and-braces alongside the warehouse-assignment scope above --
+            // guards a stale/legacy cross-company row from surfacing here.
+            ->where('products.company_id', $this->resolveActingCompanyId($request))
             ->where('manage_stock', true)
             ->whereRaw('qte <= stock_alert')
             ->whereIn('product_warehouse.warehouse_id', $allowedWarehouseIds)
@@ -2606,12 +2690,17 @@ class ProductsController extends BaseController
 
         $this->authorizeForUser($request->user('api'), 'create', Product::class);
 
-        $categories = Category::whereNull('deleted_at')->get(['id', 'name']);
-        $subcategories = SubCategory::orderBy('name')->get(['id', 'name', 'category_id']);
-        $brands = Brand::where('deleted_at', null)->get(['id', 'name']);
+        // Company scoping -- see index()'s matching comment: without this
+        // the create form's category/brand/unit dropdowns offered every
+        // company's own values mixed together.
+        $companyId = $this->resolveActingCompanyId($request);
+
+        $categories = Category::whereNull('deleted_at')->where('company_id', $companyId)->get(['id', 'name']);
+        $subcategories = SubCategory::where('company_id', $companyId)->orderBy('name')->get(['id', 'name', 'category_id']);
+        $brands = Brand::where('deleted_at', null)->where('company_id', $companyId)->get(['id', 'name']);
         $size_guides = \App\Models\SizeGuide::where('deleted_at', null)->where('status', 1)->orderBy('name')->get(['id', 'name']);
         $shipping_methods = \App\Models\ShippingMethod::where('active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'price']);
-        $units = Unit::where('deleted_at', null)->where('base_unit', null)->get();
+        $units = Unit::where('deleted_at', null)->where('base_unit', null)->where('company_id', $companyId)->get();
 
         // get warehouses and pad with opening‑stock defaults
         $user_auth = auth()->user();
@@ -2793,6 +2882,9 @@ class ProductsController extends BaseController
         $this->authorizeForUser($request->user('api'), 'update', Product::class);
 
         $Product = Product::where('deleted_at', '=', null)->findOrFail($id);
+        // A regular admin must never be able to open a different company's
+        // product for editing by guessing/tampering with the id in the URL.
+        abort_unless($Product->company_id === $this->resolveActingCompanyId($request), 404);
 
         $item['id'] = $Product->id;
         $item['type'] = $Product->type;
@@ -3051,9 +3143,11 @@ class ProductsController extends BaseController
         }
 
         $data = $item;
-        $categories = Category::where('deleted_at', null)->get(['id', 'name']);
-        $all_subcategories = SubCategory::orderBy('name')->get(['id', 'name', 'category_id']);
-        $brands = Brand::where('deleted_at', null)->get(['id', 'name']);
+        // Scoped by the product's own company -- same reasoning as
+        // create()'s matching comment.
+        $categories = Category::where('deleted_at', null)->where('company_id', $Product->company_id)->get(['id', 'name']);
+        $all_subcategories = SubCategory::where('company_id', $Product->company_id)->orderBy('name')->get(['id', 'name', 'category_id']);
+        $brands = Brand::where('deleted_at', null)->where('company_id', $Product->company_id)->get(['id', 'name']);
         $size_guides = \App\Models\SizeGuide::where('deleted_at', null)->where('status', 1)->orderBy('name')->get(['id', 'name']);
         $shipping_methods = \App\Models\ShippingMethod::where('active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'price']);
 
@@ -3064,6 +3158,7 @@ class ProductsController extends BaseController
 
         $units = Unit::where('deleted_at', null)
             ->where('base_unit', null)
+            ->where('company_id', $Product->company_id)
             ->get();
 
         // Warehouses assigned to user (for default location selection UI)
@@ -3120,6 +3215,7 @@ class ProductsController extends BaseController
     public function import_single_products(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'product_import', Product::class);
+        $companyId = $this->resolveActingCompanyId($request);
         ini_set('max_execution_time', 2000);
 
         $request->validate([
@@ -3147,11 +3243,19 @@ class ProductsController extends BaseController
             return response()->json(['status' => false, 'message' => 'The imported file is empty.']);
         }
 
-        $warehouses = Warehouse::whereNull('deleted_at')->pluck('id')->toArray();
+        // Scoped by company -- otherwise a newly-imported product gets an
+        // opening-stock row at EVERY warehouse in the system, including
+        // other companies' warehouses.
+        $warehouses = Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->toArray();
 
         // Preload existing codes (products & variants)
-        $existingProductCodes = Product::whereNull('deleted_at')->pluck('code')->all();
-        $existingVariantCodes = ProductVariant::whereNull('deleted_at')->pluck('code')->all();
+        // Scoped by company -- otherwise a code that's unique within this
+        // company but happens to match a DIFFERENT company's product would
+        // be wrongly rejected as a duplicate.
+        $existingProductCodes = Product::whereNull('deleted_at')->where('company_id', $companyId)->pluck('code')->all();
+        $existingVariantCodes = ProductVariant::whereNull('deleted_at')->whereHas('product', function ($q) use ($companyId) {
+            $q->where('company_id', $companyId);
+        })->pluck('code')->all();
         $existingCodesSet = array_fill_keys(array_merge($existingProductCodes, $existingVariantCodes), true);
 
         $seenCodes = []; // duplicates inside the file
@@ -3203,26 +3307,33 @@ class ProductsController extends BaseController
                 return response()->json(['status' => false, 'message' => "Missing category name for product \"$name\"."]);
             }
 
-            $category = Category::firstOrCreate(['name' => $categoryName]);
+            // Scoped by company_id -- otherwise a category/subcategory/brand/unit
+            // whose name happens to match another company's row would get reused
+            // (silently attaching this company's imported product to that
+            // OTHER company's row), or a unit belonging to a different company
+            // would be treated as "doesn't exist".
+            $category = Category::firstOrCreate(['name' => $categoryName, 'company_id' => $companyId]);
 
             $subCategoryId = null;
             $subCategoryName = trim($subCategoryName);
             if ($subCategoryName !== '') {
                 $subCategory = SubCategory::firstOrCreate(
-                    ['category_id' => $category->id, 'name' => $subCategoryName],
+                    ['category_id' => $category->id, 'name' => $subCategoryName, 'company_id' => $companyId],
                     ['status' => true]
                 );
                 $subCategoryId = $subCategory->id;
             }
 
-            $unit = Unit::where('ShortName', $unitName)->orWhere('name', $unitName)->first();
+            $unit = Unit::where('company_id', $companyId)
+                ->where(fn ($q) => $q->where('ShortName', $unitName)->orWhere('name', $unitName))
+                ->first();
             if (! $unit) {
                 return response()->json(['status' => false, 'message' => "Unit \"$unitName\" for \"$name\" does not exist."]);
             }
 
             $brandId = null;
             if (trim($brandName) !== '') {
-                $brand = Brand::firstOrCreate(['name' => trim($brandName)]);
+                $brand = Brand::firstOrCreate(['name' => trim($brandName), 'company_id' => $companyId]);
                 $brandId = $brand->id;
             }
 
@@ -3247,7 +3358,7 @@ class ProductsController extends BaseController
         }
 
         try {
-            DB::transaction(function () use ($toCreate, $warehouses) {
+            DB::transaction(function () use ($toCreate, $warehouses, $companyId) {
                 DB::disableQueryLog(); // reduce memory during huge imports
 
                 // MySQL prepared statement cap ≈ 65k placeholders.
@@ -3260,6 +3371,7 @@ class ProductsController extends BaseController
                 foreach ($toCreate as $data) {
                     $product = Product::create([
                         // base
+                        'company_id' => $companyId,
                         'type' => 'is_single',
                         'is_variant' => 0,
                         'is_imei' => 0,
@@ -3321,6 +3433,7 @@ class ProductsController extends BaseController
     public function import_service_products(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'product_import', Product::class);
+        $companyId = $this->resolveActingCompanyId($request);
         ini_set('max_execution_time', 2000);
 
         $request->validate([
@@ -3346,10 +3459,16 @@ class ProductsController extends BaseController
             return response()->json(['status' => false, 'message' => 'The imported file is empty.']);
         }
 
-        $warehouses = Warehouse::whereNull('deleted_at')->pluck('id')->toArray();
+        // Scoped by company -- otherwise a newly-imported service gets an
+        // opening-stock row at EVERY warehouse in the system, including
+        // other companies' warehouses.
+        $warehouses = Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->toArray();
 
-        $existingProductCodes = Product::whereNull('deleted_at')->pluck('code')->all();
-        $existingVariantCodes = ProductVariant::whereNull('deleted_at')->pluck('code')->all();
+        // Scoped by company -- see import_single_products()'s matching comment.
+        $existingProductCodes = Product::whereNull('deleted_at')->where('company_id', $companyId)->pluck('code')->all();
+        $existingVariantCodes = ProductVariant::whereNull('deleted_at')->whereHas('product', function ($q) use ($companyId) {
+            $q->where('company_id', $companyId);
+        })->pluck('code')->all();
         $existingCodesSet = array_fill_keys(array_merge($existingProductCodes, $existingVariantCodes), true);
 
         $seenCodes = [];
@@ -3395,26 +3514,29 @@ class ProductsController extends BaseController
                 return response()->json(['status' => false, 'message' => "Missing category name for service \"$name\"."]);
             }
 
-            $category = Category::firstOrCreate(['name' => $categoryName]);
+            // Scoped by company_id -- see import_single_products()'s matching comment.
+            $category = Category::firstOrCreate(['name' => $categoryName, 'company_id' => $companyId]);
 
             $subCategoryId = null;
             $subCategoryName = trim($subCategoryName);
             if ($subCategoryName !== '') {
                 $subCategory = SubCategory::firstOrCreate(
-                    ['category_id' => $category->id, 'name' => $subCategoryName],
+                    ['category_id' => $category->id, 'name' => $subCategoryName, 'company_id' => $companyId],
                     ['status' => true]
                 );
                 $subCategoryId = $subCategory->id;
             }
 
-            $unit = Unit::where('ShortName', $unitName)->orWhere('name', $unitName)->first();
+            $unit = Unit::where('company_id', $companyId)
+                ->where(fn ($q) => $q->where('ShortName', $unitName)->orWhere('name', $unitName))
+                ->first();
             if (! $unit) {
                 return response()->json(['status' => false, 'message' => "Unit \"$unitName\" for \"$name\" does not exist."]);
             }
 
             $brandId = null;
             if (trim($brandName) !== '') {
-                $brand = Brand::firstOrCreate(['name' => trim($brandName)]);
+                $brand = Brand::firstOrCreate(['name' => trim($brandName), 'company_id' => $companyId]);
                 $brandId = $brand->id;
             }
 
@@ -3439,7 +3561,7 @@ class ProductsController extends BaseController
         }
 
         try {
-            DB::transaction(function () use ($toCreate, $warehouses) {
+            DB::transaction(function () use ($toCreate, $warehouses, $companyId) {
                 DB::disableQueryLog();
 
                 $PW_BATCH_ROWS = 12000;
@@ -3447,6 +3569,7 @@ class ProductsController extends BaseController
 
                 foreach ($toCreate as $data) {
                     $product = Product::create([
+                        'company_id' => $companyId,
                         'type' => 'is_service',
                         'is_variant' => 0,
                         'is_imei' => 0,
@@ -3500,6 +3623,7 @@ class ProductsController extends BaseController
     public function import_variant_products(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'product_import', Product::class);
+        $companyId = $this->resolveActingCompanyId($request);
         ini_set('max_execution_time', 2000);
 
         $request->validate([
@@ -3567,11 +3691,17 @@ class ProductsController extends BaseController
             return $v;
         };
 
-        $warehouses = Warehouse::whereNull('deleted_at')->pluck('id')->toArray();
+        // Scoped by company -- otherwise a newly-imported product gets an
+        // opening-stock row at EVERY warehouse in the system, including
+        // other companies' warehouses.
+        $warehouses = Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->toArray();
 
-        // Global uniqueness set (DB): products.code + product_variants.code
-        $existingProductCodes = Product::whereNull('deleted_at')->pluck('code')->all();
-        $existingVariantCodes = ProductVariant::whereNull('deleted_at')->pluck('code')->all();
+        // Global uniqueness set (DB): products.code + product_variants.code,
+        // scoped by company -- see import_single_products()'s matching comment.
+        $existingProductCodes = Product::whereNull('deleted_at')->where('company_id', $companyId)->pluck('code')->all();
+        $existingVariantCodes = ProductVariant::whereNull('deleted_at')->whereHas('product', function ($q) use ($companyId) {
+            $q->where('company_id', $companyId);
+        })->pluck('code')->all();
         $existingCodes = array_fill_keys(array_merge($existingProductCodes, $existingVariantCodes), true);
 
         // In-file sets
@@ -3703,28 +3833,31 @@ class ProductsController extends BaseController
 
         // ---- persist ----
         try {
-            DB::transaction(function () use ($groups, $warehouses) {
+            DB::transaction(function () use ($groups, $warehouses, $companyId) {
                 $pwRows = [];
 
                 foreach ($groups as $parentCode => $bundle) {
                     $p = $bundle['parent'];
 
-                    // Category (create if missing)
-                    $category = Category::firstOrCreate(['name' => trim($p['category'])]);
+                    // Category (create if missing) -- scoped by company_id, see
+                    // import_single_products()'s matching comment.
+                    $category = Category::firstOrCreate(['name' => trim($p['category']), 'company_id' => $companyId]);
 
                     // Sub-category (optional, create if missing)
                     $subCategoryId = null;
                     $subCatName = trim((string) ($p['sub_category'] ?? ''));
                     if ($subCatName !== '') {
                         $subCat = SubCategory::firstOrCreate(
-                            ['category_id' => $category->id, 'name' => $subCatName],
+                            ['category_id' => $category->id, 'name' => $subCatName, 'company_id' => $companyId],
                             ['status' => true]
                         );
                         $subCategoryId = $subCat->id;
                     }
 
                     // Unit (must exist)
-                    $unit = Unit::where('ShortName', $p['unit'])->orWhere('name', $p['unit'])->first();
+                    $unit = Unit::where('company_id', $companyId)
+                        ->where(fn ($q) => $q->where('ShortName', $p['unit'])->orWhere('name', $p['unit']))
+                        ->first();
                     if (! $unit) {
                         throw new \RuntimeException("Unit \"{$p['unit']}\" for \"{$p['name']}\" does not exist.");
                     }
@@ -3732,12 +3865,13 @@ class ProductsController extends BaseController
                     // Brand (optional)
                     $brandId = null;
                     if (trim((string) $p['brand']) !== '') {
-                        $brand = Brand::firstOrCreate(['name' => trim((string) $p['brand'])]);
+                        $brand = Brand::firstOrCreate(['name' => trim((string) $p['brand']), 'company_id' => $companyId]);
                         $brandId = $brand->id;
                     }
 
                     // Parent product (variant type)
                     $product = Product::create([
+                        'company_id' => $companyId,
                         'type' => 'is_variant',
                         'is_variant' => 1,
                         'is_imei' => 0,
@@ -3832,6 +3966,7 @@ class ProductsController extends BaseController
     public function import_update_only(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'product_import', Product::class);
+        $companyId = $this->resolveActingCompanyId($request);
         ini_set('max_execution_time', 2000);
 
         // Validate file - check extension instead of MIME type for better CSV support
@@ -3932,8 +4067,13 @@ class ProductsController extends BaseController
                 continue;
             }
 
-            // Find product by code (only non-deleted products)
+            // Find product by code (only non-deleted products, and only
+            // within the acting company -- otherwise a code that doesn't
+            // exist for this company but DOES for another one would
+            // silently update that OTHER company's product instead of
+            // correctly reporting "not found").
             $product = Product::where('code', $code)
+                ->where('company_id', $companyId)
                 ->whereNull('deleted_at')
                 ->first();
 
@@ -3995,9 +4135,17 @@ class ProductsController extends BaseController
         $dir = $request->SortType;
         $helpers = new helpers;
 
+        // count_stock has no company_id column of its own -- derived from
+        // its warehouse (every warehouse belongs to exactly one company).
+        // Belt-and-braces alongside the userWarehouseIds() scope below.
+        $companyId = $this->resolveActingCompanyId($request);
+
         $count_stock = CountStock::whereNull('deleted_at')
             ->with(['warehouse', 'user', 'category'])
             ->whereIn('warehouse_id', $this->userWarehouseIds())
+            ->whereHas('warehouse', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('search'), function ($query) use ($request) {
                     $search = $request->search;
@@ -4040,7 +4188,7 @@ class ProductsController extends BaseController
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $categories = Category::where('deleted_at', '=', null)->get(['id', 'name']);
+        $categories = Category::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
 
         return response()->json([
             'totalRows' => $totalRows,
@@ -4061,6 +4209,11 @@ class ProductsController extends BaseController
             'date' => 'required',
             'warehouse_id' => 'required',
         ]);
+
+        // The warehouse is addressed directly by the request, so it must be
+        // one of the caller's assigned warehouses -- otherwise a tampered
+        // request could export another company's stock count file.
+        $this->abortIfWarehouseDenied($request->warehouse_id);
 
         $products = product_warehouse::join('products', 'product_warehouse.product_id', '=', 'products.id')
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
@@ -4133,7 +4286,11 @@ class ProductsController extends BaseController
         $q = trim((string) $request->input('q', ''));
         $exclude = (int) $request->input('exclude', 0);
 
+        // Scoped to the acting company -- otherwise this picker (used for
+        // e.g. the "Related products" field) could attach a DIFFERENT
+        // company's product to this one.
         $products = Product::whereNull('deleted_at')
+            ->where('company_id', $this->resolveActingCompanyId($request))
             ->where('is_active', 1)
             ->when($exclude > 0, fn ($qq) => $qq->where('id', '!=', $exclude))
             ->when($q !== '', fn ($qq) => $qq->where(function ($w) use ($q) {
@@ -4150,8 +4307,12 @@ class ProductsController extends BaseController
 
     public function get_products_materiels(request $request)
     {
-
+        // This had no scoping at all -- every company's single products
+        // showed up as candidate "materials" for a combo product, and
+        // nothing stopped attaching another company's product as a
+        // component of this company's combo.
         $products = Product::where('products.deleted_at', '=', null)
+            ->where('products.company_id', $this->resolveActingCompanyId($request))
             ->where('products.type', 'is_single')
             ->where('products.is_active', 1)
             ->join('units', 'products.unit_sale_id', '=', 'units.id')
@@ -4196,6 +4357,11 @@ class ProductsController extends BaseController
             ], 422);
         }
 
+        // The warehouse is addressed directly by the request, so it must be
+        // one of the caller's assigned warehouses -- otherwise a tampered
+        // request could write opening stock into another company's warehouse.
+        $this->abortIfWarehouseDenied($request->warehouse_id);
+
         $rows = Excel::toArray(new OpeningStockRowsImport, $request->file('products'))[0] ?? [];
         if (empty($rows)) {
             return response()->json(['status' => false, 'message' => 'The imported file is empty.', 'errors' => ['The imported file is empty.']]);
@@ -4229,9 +4395,13 @@ class ProductsController extends BaseController
             $clean[] = ['row' => $rowNum, 'code' => $code, 'qty' => (float) $qty];
         }
 
-        // Validate existence of products
+        // Validate existence of products -- scoped to the acting company, or
+        // a product code that only exists under a DIFFERENT company would
+        // silently apply this import's stock to that other company's product
+        // instead of correctly failing as "does not exist".
+        $companyId = $this->resolveActingCompanyId($request);
         $codes = array_values(array_unique(array_column($clean, 'code')));
-        $existing = Product::whereNull('deleted_at')->whereIn('code', $codes)->pluck('id', 'code')->toArray();
+        $existing = Product::whereNull('deleted_at')->where('company_id', $companyId)->whereIn('code', $codes)->pluck('id', 'code')->toArray();
         foreach ($codes as $code) {
             if ($code !== '' && ! isset($existing[$code])) {
                 // Provide detailed, row-by-row errors:
@@ -4329,6 +4499,11 @@ class ProductsController extends BaseController
             ], 422);
         }
 
+        // The warehouse is addressed directly by the request, so it must be
+        // one of the caller's assigned warehouses -- otherwise a tampered
+        // request could write opening stock into another company's warehouse.
+        $this->abortIfWarehouseDenied($request->warehouse_id);
+
         $rows = Excel::toArray(new OpeningStockRowsImport, $request->file('products'))[0] ?? [];
         if (empty($rows)) {
             return response()->json(['status' => false, 'message' => 'The imported file is empty.', 'errors' => ['The imported file is empty.']]);
@@ -4357,9 +4532,11 @@ class ProductsController extends BaseController
             $clean[] = ['row' => $rowNum, 'pcode' => $pcode, 'vcode' => $vcode, 'qty' => (float) $qty];
         }
 
-        // Validate existence + relationships
+        // Validate existence + relationships -- scoped to the acting
+        // company, same reasoning as opening_stock_import_single().
+        $companyId = $this->resolveActingCompanyId($request);
         $productCodes = array_values(array_unique(array_column($clean, 'pcode')));
-        $products = Product::whereNull('deleted_at')->whereIn('code', $productCodes)->pluck('id', 'code')->toArray();
+        $products = Product::whereNull('deleted_at')->where('company_id', $companyId)->whereIn('code', $productCodes)->pluck('id', 'code')->toArray();
 
         // variant lookup
         $variantCodes = array_values(array_unique(array_column($clean, 'vcode')));
@@ -4479,6 +4656,14 @@ class ProductsController extends BaseController
     public function duplicate(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'create', Product::class);
+        // A regular admin must never be able to duplicate a different
+        // company's product by tampering with the id in the URL --
+        // replicate() would carry over the ORIGINAL's company_id, so the
+        // "duplicate" would land in that OTHER company, not this admin's.
+        abort_unless(
+            optional(Product::find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         $newProductId = null;
 
@@ -4691,12 +4876,16 @@ class ProductsController extends BaseController
      * @param  array<int, int>  $orderedIds
      * @return array<int, int>
      */
-    protected function filterCategoryIdsPreservingOrder(array $orderedIds): array
+    protected function filterCategoryIdsPreservingOrder(array $orderedIds, int $companyId): array
     {
         if ($orderedIds === []) {
             return [];
         }
+        // Scoped to the product's own company -- otherwise a tampered
+        // request could attach a DIFFERENT company's category to this
+        // product (and even overwrite its primary category_id with it).
         $allowed = Category::whereNull('deleted_at')
+            ->where('company_id', $companyId)
             ->whereIn('id', $orderedIds)
             ->pluck('id')
             ->map(fn ($v) => (int) $v)
@@ -4717,12 +4906,15 @@ class ProductsController extends BaseController
      * @param  array<int, int>  $orderedIds
      * @return array<int, int>
      */
-    protected function filterSubcategoryIdsPreservingOrder(array $orderedIds): array
+    protected function filterSubcategoryIdsPreservingOrder(array $orderedIds, int $companyId): array
     {
         if ($orderedIds === []) {
             return [];
         }
-        $allowed = SubCategory::whereIn('id', $orderedIds)
+        // Scoped to the product's own company -- same reasoning as
+        // filterCategoryIdsPreservingOrder() above.
+        $allowed = SubCategory::where('company_id', $companyId)
+            ->whereIn('id', $orderedIds)
             ->pluck('id')
             ->map(fn ($v) => (int) $v)
             ->flip()
@@ -4757,13 +4949,35 @@ class ProductsController extends BaseController
     /** Store the curated related products in the order they were arranged. */
     protected function syncRelatedProducts(Product $product, array $ids): void
     {
+        if ($ids === []) {
+            $product->relatedProducts()->sync([]);
+
+            return;
+        }
+
+        // Scoped to the product's own company -- the picker
+        // (search_products_basic) already only offers this company's own
+        // products, but nothing stops a direct/tampered request from
+        // submitting a different company's product id as "related" (which
+        // would then surface that other company's product on this
+        // company's storefront product page).
+        $ownIds = Product::where('company_id', $product->company_id)
+            ->whereIn('id', $ids)
+            ->pluck('id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+
         $sync = [];
         $position = 0;
         foreach ($ids as $id) {
-            if ((int) $id === (int) $product->id) {
+            $id = (int) $id;
+            if ($id === (int) $product->id) {
                 continue; // a product is not related to itself
             }
-            $sync[(int) $id] = ['sort_order' => $position++];
+            if (! in_array($id, $ownIds, true)) {
+                continue;
+            }
+            $sync[$id] = ['sort_order' => $position++];
         }
 
         $product->relatedProducts()->sync($sync);
@@ -4828,7 +5042,7 @@ class ProductsController extends BaseController
         if (Schema::hasTable('category_product') && $request->has('multi_category_ids')) {
             $ids = $this->normalizeOrderedMultiIds($request->input('multi_category_ids'));
             if ($ids !== []) {
-                $valid = $this->filterCategoryIdsPreservingOrder($ids);
+                $valid = $this->filterCategoryIdsPreservingOrder($ids, (int) $product->company_id);
                 if ($valid !== []) {
                     $product->category_id = $valid[0];
                     $categoryDirty = true;
@@ -4840,7 +5054,7 @@ class ProductsController extends BaseController
         if (Schema::hasTable('product_subcategory') && $request->has('multi_subcategory_ids')) {
             $subIds = $this->normalizeOrderedMultiIds($request->input('multi_subcategory_ids'));
             if ($subIds !== []) {
-                $validSub = $this->filterSubcategoryIdsPreservingOrder($subIds);
+                $validSub = $this->filterSubcategoryIdsPreservingOrder($subIds, (int) $product->company_id);
                 $product->sub_category_id = $validSub !== [] ? $validSub[0] : null;
                 $subDirty = true;
                 $product->subcategories()->sync($validSub);

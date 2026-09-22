@@ -9,6 +9,7 @@ class Product extends Model
     protected $dates = ['deleted_at'];
 
     protected $fillable = [
+        'company_id',
         'code', 'gtin', 'Type_barcode', 'name', 'cost', 'price', 'unit_id', 'unit_sale_id', 'unit_purchase_id',
         'stock_alert', 'weight', 'length', 'width', 'height', 'category_id', 'sub_category_id', 'is_variant', 'is_imei',
         'tax_method', 'image', 'brand_id', 'is_active', 'note', 'type',
@@ -25,6 +26,7 @@ class Product extends Model
     protected $casts = [
         'wholesale_price' => 'double',
         'min_price' => 'double',
+        'company_id' => 'integer',
         'category_id' => 'integer',
         'is_featured' => 'integer',
         'sub_category_id' => 'integer',

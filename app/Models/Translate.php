@@ -13,7 +13,7 @@ class Translate extends Model
 
     protected $dates = ['deleted_at'];
 
-    protected $fillable = [
-        'locale', 'key', 'value', 'is_customized',
-    ];
+    // Locale columns are dynamic (one per row in `languages`), so $fillable
+    // can't enumerate them -- see 2026_09_21_190000_pivot_translations_to_wide_table.
+    protected $guarded = ['id'];
 }

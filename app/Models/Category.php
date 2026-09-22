@@ -14,7 +14,12 @@ class Category extends Model
     protected $fillable = [
         'code',
         'name',
+        'company_id',
         'icon',
+    ];
+
+    protected $casts = [
+        'company_id' => 'integer',
     ];
 
     public function subcategories()

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Mail\CustomEmail;
 use App\Models\Account;
 use App\Models\EmailMessage;
@@ -32,11 +33,19 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class PaymentPurchasesController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------- Get All Payments Purchases --------------\\
 
     public function index(request $request)
     {
         $this->authorizeForUser($request->user('api'), 'Reports_payments_Purchases', PaymentPurchase::class);
+
+        // Company boundary: payment_purchases has no company_id of its own,
+        // scoped via the parent purchase's -- applied unconditionally, same
+        // as PurchasesController/PaymentPurchaseReturnsController (not gated
+        // by record_view, which only controls "just my own rows" beneath it).
+        $companyId = $this->resolveActingCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -68,6 +77,9 @@ class PaymentPurchasesController extends BaseController
         $Payments = PaymentPurchase::with('purchase.provider', 'account', 'user')
             ->where('deleted_at', '=', null)
             ->whereBetween('date', [$request->from, $request->to])
+            ->whereHas('purchase', function ($q) use ($companyId) {
+                $q->where('company_id', $companyId);
+            })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -170,8 +182,8 @@ class PaymentPurchasesController extends BaseController
             $data[] = $item;
         }
 
-        $suppliers = provider::where('deleted_at', '=', null)->get(['id', 'name']);
-        $purchases = Purchase::get(['Ref', 'id']);
+        $suppliers = provider::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
+        $purchases = Purchase::where('company_id', $companyId)->get(['Ref', 'id']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 
         $methodNames = $payment_methods->pluck('name', 'id');
@@ -209,6 +221,12 @@ class PaymentPurchasesController extends BaseController
                 // Backward compatibility: If record_view is null, fall back to role permission check
                 $view_records = $user->hasRecordView();
                 $purchase = Purchase::findOrFail($request['purchase_id']);
+
+                // Company boundary: non-SuperAdmin can't record a payment
+                // against another company's purchase.
+                if ($request->user('api')->type !== 'SuperAdmin') {
+                    abort_unless((int) $purchase->company_id === (int) $this->resolveActingCompanyId($request), 403);
+                }
 
                 // Check If User Has Permission view All Records
                 // Warehouse half of the same rule: record_view says whose documents,
@@ -285,6 +303,13 @@ class PaymentPurchasesController extends BaseController
             $view_records = $user->hasRecordView();
             $payment = PaymentPurchase::findOrFail($id);
 
+            // Company boundary: non-SuperAdmin can't touch a payment whose
+            // purchase belongs to another company.
+            if ($user->type !== 'SuperAdmin') {
+                $paymentCompanyId = Purchase::where('id', $payment->purchase_id)->value('company_id');
+                abort_unless((int) $paymentCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+            }
+
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
             // the assigned warehouses say which warehouses they may come from.
@@ -296,6 +321,12 @@ class PaymentPurchasesController extends BaseController
             }
 
             $purchase = Purchase::whereId($request['purchase_id'])->first();
+
+            // Company boundary: the purchase being reassigned to must also
+            // belong to the acting company.
+            if ($user->type !== 'SuperAdmin') {
+                abort_unless((int) optional($purchase)->company_id === (int) $this->resolveActingCompanyId($request), 403);
+            }
             $old_total_paid = $purchase->paid_amount - $payment->montant;
             $new_total_paid = $old_total_paid + $request['montant'];
 
@@ -361,6 +392,13 @@ class PaymentPurchasesController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $payment = PaymentPurchase::findOrFail($id);
+
+            // Company boundary: non-SuperAdmin can't delete a payment whose
+            // purchase belongs to another company.
+            if ($user->type !== 'SuperAdmin') {
+                $paymentCompanyId = Purchase::where('id', $payment->purchase_id)->value('company_id');
+                abort_unless((int) $paymentCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+            }
 
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
@@ -433,6 +471,13 @@ class PaymentPurchasesController extends BaseController
     {
         $payment = PaymentPurchase::with('purchase', 'purchase.provider')->findOrFail($id);
 
+        // Company boundary: this route sits behind auth:api (see the
+        // 2026-09-22 routing fix), so a real user is always present here.
+        $requester = $request->user('api');
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) optional($payment->purchase)->company_id === (int) $requester->company_id, 403);
+        }
+
         $payment_data['purchase_Ref'] = $payment['purchase']->Ref;
         $payment_data['supplier_name'] = $payment['purchase']['provider']->name;
         $payment_data['supplier_phone'] = $payment['purchase']['provider']->phone;
@@ -475,6 +520,11 @@ class PaymentPurchasesController extends BaseController
 
         // PaymentPurchase
         $payment = PaymentPurchase::with('purchase.provider')->findOrFail($request->id);
+
+        // Company boundary: non-SuperAdmin can't email another company's payment receipt.
+        if ($request->user('api')->type !== 'SuperAdmin') {
+            abort_unless((int) optional($payment->purchase)->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         $helpers = new helpers;
         $currency = $helpers->Get_Currency();
@@ -529,6 +579,11 @@ class PaymentPurchasesController extends BaseController
 
         // PaymentPurchase
         $payment = PaymentPurchase::with('purchase.provider')->findOrFail($request->id);
+
+        // Company boundary: non-SuperAdmin can't SMS another company's payment receipt.
+        if ($request->user('api')->type !== 'SuperAdmin') {
+            abort_unless((int) optional($payment->purchase)->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         // settings
         $settings = Setting::where('deleted_at', '=', null)->first();

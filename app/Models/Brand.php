@@ -11,6 +11,10 @@ class Brand extends Model
     protected $dates = ['deleted_at'];
 
     protected $fillable = [
-        'name', 'description', 'image', 'woocommerce_id',
+        'company_id', 'name', 'description', 'image', 'woocommerce_id',
+    ];
+
+    protected $casts = [
+        'company_id' => 'integer',
     ];
 }

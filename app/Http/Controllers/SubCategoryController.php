@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\SubCategory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class SubCategoryController extends BaseController
 {
+    use ScopesToCompany;
+
     /**
      * GET /subcategories
      * Query params: page, limit, SortField, SortType, search
@@ -28,6 +31,7 @@ class SubCategoryController extends BaseController
         }
 
         $query = SubCategory::query()
+            ->where('company_id', $this->resolveActingCompanyId($request))
             ->with('category:id,name')
             ->when($search !== '', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%");
@@ -78,6 +82,7 @@ class SubCategoryController extends BaseController
         ]);
 
         SubCategory::create([
+            'company_id' => $this->resolveActingCompanyId($request),
             'category_id' => $validated['category_id'],
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
@@ -90,9 +95,10 @@ class SubCategoryController extends BaseController
     /**
      * GET /subcategories/{id}
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $subcategory = SubCategory::with('category:id,name')->findOrFail($id);
+        abort_unless($subcategory->company_id === $this->resolveActingCompanyId($request), 404);
 
         return response()->json($subcategory);
     }
@@ -105,6 +111,7 @@ class SubCategoryController extends BaseController
         $this->authorizeForUser($request->user('api'), 'update', SubCategory::class);
 
         $subcategory = SubCategory::findOrFail($id);
+        abort_unless($subcategory->company_id === $this->resolveActingCompanyId($request), 404);
 
         $validated = $request->validate([
             'category_id' => 'required|integer|exists:categories,id',
@@ -138,6 +145,10 @@ class SubCategoryController extends BaseController
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', SubCategory::class);
+        abort_unless(
+            optional(SubCategory::find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         SubCategory::whereId($id)->delete();
 
@@ -154,7 +165,9 @@ class SubCategoryController extends BaseController
 
         $selectedIds = (array) $request->input('selectedIds', []);
         if (! empty($selectedIds)) {
-            SubCategory::whereIn('id', $selectedIds)->delete();
+            SubCategory::whereIn('id', $selectedIds)
+                ->where('company_id', $this->resolveActingCompanyId($request))
+                ->delete();
         }
 
         return response()->json(['success' => true]);
@@ -163,9 +176,10 @@ class SubCategoryController extends BaseController
     /**
      * GET /subcategories/by-category/{category_id}
      */
-    public function getByCategory($category_id)
+    public function getByCategory(Request $request, $category_id)
     {
         $subcategories = SubCategory::where('category_id', $category_id)
+            ->where('company_id', $this->resolveActingCompanyId($request))
             ->where('status', true)
             ->orderBy('name')
             ->get(['id', 'name', 'category_id']);

@@ -4,7 +4,7 @@
       type="info"
       show-icon
       message="Drag and drop to rearrange the sidebar"
-      description="Reorder modules, reorder items inside a module, or drag an item into a different module. Modules always stay at the top level and items cannot become modules. The saved arrangement applies to every user."
+      description="Reorder modules, reorder items inside a module, or drag an item into a different module. Modules always stay at the top level and items cannot become modules. Use the eye icon to hide a whole module, or add a custom top-level link. The saved arrangement applies to every user."
       style="margin-bottom: 16px"
     />
 
@@ -12,6 +12,7 @@
       <a-space>
         <a-button size="small" @click="expandAll">Expand all</a-button>
         <a-button size="small" @click="expandedKeys = []">Collapse all</a-button>
+        <a-button size="small" @click="addModalVisible = true">+ Add Top-Level Item</a-button>
       </a-space>
       <a-space>
         <a-button danger :loading="resetting" @click="confirmReset">
@@ -40,11 +41,52 @@
       <template #title="{ dataRef }">
         <span class="smm-node" :class="`smm-${dataRef.type}`">
           <component :is="dataRef.iconCmp" v-if="dataRef.iconCmp" :size="15" class="smm-icon" />
-          <span class="smm-label">{{ labelOf(dataRef.entry) }}</span>
+          <span class="smm-label" :class="{ 'smm-hidden-label': dataRef.hidden }">{{ labelOf(dataRef.entry) }}</span>
           <a-tag v-if="dataRef.type === 'subgroup'" class="smm-tag" :bordered="false">group</a-tag>
+          <a-tag v-if="dataRef.isCustomTop" class="smm-tag" color="blue" :bordered="false">custom</a-tag>
+          <span v-if="dataRef.type === 'module'" class="smm-row-actions" @click.stop>
+            <a-tooltip :title="dataRef.hidden ? 'Hidden from sidebar -- click to show' : 'Click to hide from sidebar'">
+              <a-button type="text" size="small" @click="toggleHidden(dataRef)">
+                <template #icon>
+                  <EyeInvisibleOutlined v-if="dataRef.hidden" />
+                  <EyeOutlined v-else />
+                </template>
+              </a-button>
+            </a-tooltip>
+            <a-tooltip v-if="dataRef.isCustomTop" title="Remove this custom item">
+              <a-button type="text" size="small" danger @click="removeCustomItem(dataRef)">
+                <template #icon><DeleteOutlined /></template>
+              </a-button>
+            </a-tooltip>
+          </span>
         </span>
       </template>
     </a-tree>
+
+    <a-modal
+      v-model:open="addModalVisible"
+      title="Add Top-Level Menu Item"
+      @ok="confirmAddItem"
+      @cancel="resetAddForm"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="Label" required>
+          <a-input v-model:value="newItem.label" placeholder="e.g. Help Center" />
+        </a-form-item>
+        <a-form-item label="Icon">
+          <a-select v-model:value="newItem.icon" :options="iconOptions" />
+        </a-form-item>
+        <a-form-item label="External link">
+          <a-switch v-model:checked="newItem.external" />
+        </a-form-item>
+        <a-form-item :label="newItem.external ? 'URL' : 'Route'" required>
+          <a-input
+            v-model:value="newItem.route"
+            :placeholder="newItem.external ? 'https://example.com' : '/app/some/page'"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </a-card>
 </template>
 
@@ -67,13 +109,16 @@
  * auth.user.sidebar_menu_order, so the live sidebar re-arranges immediately
  * without a reload.
  */
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { SaveOutlined, UndoOutlined } from '@ant-design/icons-vue';
+import {
+  SaveOutlined, UndoOutlined, EyeOutlined, EyeInvisibleOutlined, DeleteOutlined,
+} from '@ant-design/icons-vue';
 import { MENU_ICONS } from '../../config/menuIcons';
 import { MENU_ITEM_ICONS } from '../../config/menuItemIcons';
 import { nodeId, applyMenuOrder } from '../../lib/menuOrder';
+import { buildTopLevelMenuForEditor } from '../../lib/menuTree';
 import { MENU } from '../../config/menu';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
@@ -86,6 +131,13 @@ const resetting = ref(false);
 const dirty = ref(false);
 const expandedKeys = ref([]);
 const dragging = ref(null);
+// Raw rows from GET /api/menu-positions (Settings -> Manage Menus' top-level
+// layer -- hide/custom-item state; see menuTree.js). Null until loaded.
+const menuPositions = ref(null);
+
+const addModalVisible = ref(false);
+const newItem = ref({ label: '', icon: 'bar-chart', route: '', external: false });
+const iconOptions = Object.keys(MENU_ICONS).map(key => ({ value: key, label: key }));
 
 /* ------------------------------------------------------------- tree data */
 
@@ -106,17 +158,36 @@ function toNode(entry, depth) {
     // Only containers (had children in the default MENU) may receive drops.
     isContainer: Array.isArray(entry.children),
     iconCmp: isTop ? MENU_ICONS[entry.icon] : MENU_ITEM_ICONS[entry.to],
+    // Top-level-only concepts, backed by menu_positions (see menuTree.js) --
+    // sub-items have neither.
+    hidden: isTop ? !!entry.hidden : false,
+    isCustomTop: isTop ? !!entry.custom : false,
   };
   if (node.isContainer) node.children = entry.children.map(c => toNode(c, depth + 1));
   return node;
 }
 
-function buildTree(order) {
-  const arranged = (Array.isArray(order) && order.length) ? applyMenuOrder(order) : MENU;
+/**
+ * `positions` (menu_positions rows) decide the top-level set/hidden-state/
+ * custom items; `order` (sidebar_menu_order) then arranges everything,
+ * including that same top level, same as it always has.
+ */
+function buildTree(order, positions) {
+  const topBase = buildTopLevelMenuForEditor(positions, MENU);
+  const arranged = (Array.isArray(order) && order.length) ? applyMenuOrder(order, topBase) : topBase;
   return arranged.map(g => toNode(g, 0));
 }
 
-const treeData = ref(buildTree(auth.user && auth.user.sidebar_menu_order));
+const treeData = ref(buildTree(auth.user && auth.user.sidebar_menu_order, null));
+
+onMounted(async () => {
+  try {
+    menuPositions.value = await http.get('menu-positions');
+  } catch (e) {
+    menuPositions.value = null;
+  }
+  treeData.value = buildTree(auth.user && auth.user.sidebar_menu_order, menuPositions.value);
+});
 
 function expandAll() {
   const keys = [];
@@ -234,6 +305,47 @@ function onDrop(info) {
   dirty.value = true;
 }
 
+/* ------------------------------------------------ top-level hide / custom */
+
+function toggleHidden(node) {
+  node.hidden = !node.hidden;
+  dirty.value = true;
+}
+
+function removeCustomItem(node) {
+  treeData.value = treeData.value.filter(n => n.key !== node.key);
+  dirty.value = true;
+}
+
+function resetAddForm() {
+  newItem.value = { label: '', icon: 'bar-chart', route: '', external: false };
+}
+
+function confirmAddItem() {
+  const label = newItem.value.label.trim();
+  const route = newItem.value.route.trim();
+  if (!label || !route) {
+    message.warning('Label and route/URL are required.');
+    return;
+  }
+
+  const existing = new Set(treeData.value.map(n => n.key));
+  const base = 'custom_' + (label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'item');
+  let key = base;
+  for (let i = 1; existing.has(key); i++) key = `${base}_${i}`;
+
+  const entry = {
+    key, label, icon: newItem.value.icon, raw: true, custom: true, permissions: [],
+  };
+  if (newItem.value.external) entry.href = route;
+  else entry.to = route;
+
+  treeData.value = [...treeData.value, toNode(entry, 0)];
+  dirty.value = true;
+  addModalVisible.value = false;
+  resetAddForm();
+}
+
 /* ------------------------------------------------------------ save/reset */
 
 function serialize(list) {
@@ -242,11 +354,28 @@ function serialize(list) {
     : { id: n.key }));
 }
 
+/** Top-level rows only, in the shape MenuPositionController::store() expects. */
+function flattenTopLevelPositions(list) {
+  return list.map((n, index) => ({
+    key: n.key,
+    parent_key: null,
+    sort_order: index,
+    label: n.isCustomTop ? (n.entry.label || n.key) : null,
+    icon: n.isCustomTop ? (n.entry.icon || null) : null,
+    route: n.isCustomTop ? (n.entry.href || n.entry.to || null) : null,
+    external: n.isCustomTop ? !!n.entry.href : false,
+    is_custom: !!n.isCustomTop,
+    hidden: !!n.hidden,
+  }));
+}
+
 async function save() {
   saving.value = true;
   try {
     const order = serialize(treeData.value);
     await http.put('sidebar_menu_order', { order });
+    await http.post('menu-positions', { positions: flattenTopLevelPositions(treeData.value) });
+    menuPositions.value = flattenTopLevelPositions(treeData.value);
     // Live-update the sidebar for this session; other users get it at next boot.
     if (auth.user) auth.user.sidebar_menu_order = order;
     dirty.value = false;
@@ -273,7 +402,9 @@ async function reset() {
   try {
     await http.delete('sidebar_menu_order');
     if (auth.user) auth.user.sidebar_menu_order = null;
-    treeData.value = buildTree(null);
+    // Only resets ordering/nesting (sidebar_menu_order) -- hide/custom-item
+    // state (menu_positions) has no reset endpoint and is left as-is.
+    treeData.value = buildTree(null, menuPositions.value);
     dirty.value = false;
     message.success(t('Successfully_Updated'));
   } catch (e) {
@@ -320,5 +451,15 @@ async function reset() {
   line-height: 16px;
   margin-inline-start: 2px;
   opacity: 0.7;
+}
+.smm-hidden-label {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.smm-row-actions {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: auto;
+  padding-inline-start: 8px;
 }
 </style>

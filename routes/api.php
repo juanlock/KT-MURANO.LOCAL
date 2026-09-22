@@ -79,9 +79,16 @@ Route::get('/get-logo-setting', function () {
 });
 
 Route::get('/translations/{locale}', function ($locale) {
+    // One column per locale now (2026_09_21_190000_pivot_translations_to_wide_table)
+    // -- must be a real column, never a raw locale string, to stay safe as a
+    // SQL identifier.
+    if (! \Illuminate\Support\Facades\Schema::hasColumn('translations', $locale)) {
+        return response()->json([]);
+    }
+
     $translations = \DB::table('translations')
-        ->where('locale', $locale)
-        ->pluck('value', 'key');
+        ->whereNotNull($locale)
+        ->pluck($locale, 'key');
 
     return response()->json($translations);
 });
@@ -321,7 +328,9 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::post('/sync-locale', 'LocaleSyncController@sync');
     
     Route::get('/translations_setting/{locale}', 'LanguageController@get_translate');
-    Route::put('/translations_setting/{locale}', 'LanguageController@update_translate');
+    // Was registered twice (this one targeting a nonexistent update_translate
+    // method) before 2026_09_21_190000_pivot_translations_to_wide_table --
+    // dead route removed, updateOrInsert is the real handler.
     Route::put('/translations_setting/{locale}', 'LanguageController@updateOrInsert');
     Route::delete('/translations_setting/{locale}/{key}', 'LanguageController@delete_translate');
 
@@ -1852,27 +1861,35 @@ Route::get('kitchen/ready-screen/data', [\App\Http\Controllers\KitchenOrderContr
 
 // -------------------------------  Print & PDF ------------------------\\
 // ------------------------------------------------------------------\\
-
-Route::get('sale_pdf/{id}', 'SalesController@Sale_PDF');
-Route::get('sale_print_html/{id}', 'SalesController@Sale_PDF_Inline');
-Route::get('quote_pdf/{id}', 'QuotationsController@Quotation_pdf');
-Route::get('quote_print_html/{id}', 'QuotationsController@Quotation_PDF_Inline');
-Route::get('booking_pdf/{id}', 'BookingController@booking_pdf');
-Route::get('service_job_pdf/{id}', 'ServiceJobController@service_job_pdf');
-Route::get('service_quote_pdf/{id}', 'ServiceJobController@service_quote_pdf');
-Route::get('purchase_pdf/{id}', 'PurchasesController@Purchase_pdf');
-Route::get('purchase_print_html/{id}', 'PurchasesController@Purchase_PDF_Inline');
-Route::get('return_sale_pdf/{id}', 'SalesReturnController@Return_pdf');
-Route::get('return_purchase_pdf/{id}', 'PurchasesReturnController@Return_pdf');
-Route::get('payment_purchase_pdf/{id}', 'PaymentPurchasesController@Payment_purchase_pdf');
-Route::get('payment_return_sale_pdf/{id}', 'PaymentSaleReturnsController@payment_return');
-Route::get('payment_return_purchase_pdf/{id}', 'PaymentPurchaseReturnsController@payment_return');
-Route::get('payment_sale_pdf/{id}', 'PaymentSalesController@payment_sale');
-Route::get('sales_print_invoice/{id}', 'SalesController@Print_Invoice_POS');
-Route::post('direct_network_print/{id}', 'SalesController@Direct_Network_Print_POS');
-Route::get('transfer_pdf/{id}', 'TransferController@transfer_pdf');
-Route::get('adjustment_pdf/{id}', 'AdjustmentController@adjustment_pdf');
-Route::get('damage_pdf/{id}', 'DamageController@damage_pdf');
+// Previously registered here with NO middleware at all -- an unauthenticated
+// request had no user to check company ownership against, so every
+// controller-level `abort_unless($x->company_id === ...)` guard added during
+// the 2026-09-21 company-boundary audit was unreachable for these 19 routes.
+// Wrapped in the same auth stack the rest of the authenticated app uses so
+// those guards actually apply. publicInvoiceView() (Sales) stays outside any
+// group -- it's deliberately public, HMAC-signature-gated instead.
+Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])->group(function () {
+    Route::get('sale_pdf/{id}', 'SalesController@Sale_PDF');
+    Route::get('sale_print_html/{id}', 'SalesController@Sale_PDF_Inline');
+    Route::get('quote_pdf/{id}', 'QuotationsController@Quotation_pdf');
+    Route::get('quote_print_html/{id}', 'QuotationsController@Quotation_PDF_Inline');
+    Route::get('booking_pdf/{id}', 'BookingController@booking_pdf');
+    Route::get('service_job_pdf/{id}', 'ServiceJobController@service_job_pdf');
+    Route::get('service_quote_pdf/{id}', 'ServiceJobController@service_quote_pdf');
+    Route::get('purchase_pdf/{id}', 'PurchasesController@Purchase_pdf');
+    Route::get('purchase_print_html/{id}', 'PurchasesController@Purchase_PDF_Inline');
+    Route::get('return_sale_pdf/{id}', 'SalesReturnController@Return_pdf');
+    Route::get('return_purchase_pdf/{id}', 'PurchasesReturnController@Return_pdf');
+    Route::get('payment_purchase_pdf/{id}', 'PaymentPurchasesController@Payment_purchase_pdf');
+    Route::get('payment_return_sale_pdf/{id}', 'PaymentSaleReturnsController@payment_return');
+    Route::get('payment_return_purchase_pdf/{id}', 'PaymentPurchaseReturnsController@payment_return');
+    Route::get('payment_sale_pdf/{id}', 'PaymentSalesController@payment_sale');
+    Route::get('sales_print_invoice/{id}', 'SalesController@Print_Invoice_POS');
+    Route::post('direct_network_print/{id}', 'SalesController@Direct_Network_Print_POS');
+    Route::get('transfer_pdf/{id}', 'TransferController@transfer_pdf');
+    Route::get('adjustment_pdf/{id}', 'AdjustmentController@adjustment_pdf');
+    Route::get('damage_pdf/{id}', 'DamageController@damage_pdf');
+});
 
 // Route::get('/available-modules', 'ModuleSettingsController@get_modules_enabled');
 

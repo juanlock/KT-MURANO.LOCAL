@@ -552,10 +552,11 @@ Route::get('/order-ready', function (HttpRequest $request) {
     // language, with English fallbacks baked into the view.
     $settings = \App\Models\Setting::whereNull('deleted_at')->first();
     $locale = $settings->default_language ?? 'en';
+    // One column per locale (2026_09_21_190000_pivot_translations_to_wide_table).
+    $locale = \Illuminate\Support\Facades\Schema::hasColumn('translations', $locale) ? $locale : 'en';
     $labels = \DB::table('translations')
-        ->where('locale', $locale)
         ->whereIn('key', ['PreparingOrders', 'ReadyOrders', 'OrderReadyScreen'])
-        ->pluck('value', 'key');
+        ->pluck($locale, 'key');
 
     return view('order_ready', [
         'token' => $token,

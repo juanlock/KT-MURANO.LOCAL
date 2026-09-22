@@ -22,7 +22,7 @@
  * Migrated pages route inside this app; everything else deep-links back into
  * the legacy SPA, so the sidebar covers the whole product during the migration.
  */
-import { computed, ref, watch, h } from 'vue';
+import { computed, onMounted, ref, watch, h } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { resolveTarget } from '../config/menu';
@@ -51,6 +51,12 @@ const router = useRouter();
 
 const selectedKeys = ref([]);
 const openKeys = ref([]);
+
+// Admin-configured top-level layout (Settings -> Manage Menus). No-op today
+// since menu_positions is empty until that screen exists -- see menu.js's
+// `menu` getter, which falls back to the untouched default+per-user-order
+// behavior whenever nothing has been saved there.
+onMounted(() => menuStore.loadPositions());
 
 /** Legacy rule: no permissions listed = always visible; otherwise ANY match. */
 function allowed(entry) {
@@ -165,6 +171,10 @@ const items = computed(() => {
     } else if (group.to) {
       const tgt = resolveTarget(group.to);
       out.push({ key: `${group.key}|${tgt?.type}|${tgt?.path}`, icon: icon(group.icon), label: labelNode(group) });
+    } else if (group.href) {
+      // A childless top-level entry with an external link only -- e.g. a
+      // custom item added via Settings -> Manage Menus with "external" set.
+      out.push({ key: `${group.key}|external|${group.href}`, icon: icon(group.icon), label: labelNode(group) });
     }
   }
   return out;

@@ -9,6 +9,7 @@ class SubCategory extends Model
     protected $table = 'subcategories';
 
     protected $fillable = [
+        'company_id',
         'category_id',
         'name',
         'description',
@@ -16,6 +17,7 @@ class SubCategory extends Model
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'category_id' => 'integer',
         'status' => 'boolean',
     ];

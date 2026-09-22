@@ -40,7 +40,19 @@ trait ScopesWarehouseAccess
         }
 
         if ($user->is_all_warehouses) {
-            return $this->warehouseAccessMemo = Warehouse::whereNull('deleted_at')
+            // "All warehouses" means every warehouse in the user's OWN
+            // company, not the whole system -- a non-SuperAdmin with this
+            // flag was otherwise getting every other company's warehouse ids
+            // too, undermining every company-boundary guard built on top of
+            // this list (abortIfWarehouseDenied, scopeToWarehouses, etc.). A
+            // SuperAdmin genuinely is meant to act across companies, so stays
+            // unrestricted here.
+            $query = Warehouse::whereNull('deleted_at');
+            if ($user->type !== 'SuperAdmin') {
+                $query->where('company_id', $user->company_id);
+            }
+
+            return $this->warehouseAccessMemo = $query
                 ->pluck('id')
                 ->map(fn ($id) => (int) $id)
                 ->all();

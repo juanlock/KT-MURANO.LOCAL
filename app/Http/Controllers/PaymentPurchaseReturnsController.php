@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Mail\PaymentReturn;
 use App\Models\Account;
 use App\Models\PaymentMethod;
@@ -24,6 +25,8 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class PaymentPurchaseReturnsController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------- Get All Payment Purchase Returns --------------\\
 
     public function index(request $request)
@@ -52,6 +55,12 @@ class PaymentPurchaseReturnsController extends BaseController
                 ->toArray();
         }
 
+        // Company boundary: payment_purchase_returns has no company_id column of
+        // its own, so scope via the parent purchase_return's (now real) company_id.
+        // SuperAdmin may narrow via ?company_id=; everyone else is always scoped
+        // to their own company, regardless of record_view.
+        $companyId = $this->resolveActingCompanyId($request);
+
         // Filter fields With Params to retriever
         $param = [0 => 'like', 1 => '=', 2 => '='];
         $columns = [0 => 'Ref', 1 => 'purchase_return_id', 2 => 'payment_method_id'];
@@ -61,6 +70,9 @@ class PaymentPurchaseReturnsController extends BaseController
         $Payments = PaymentPurchaseReturns::with('account', 'PurchaseReturn', 'PurchaseReturn.provider', 'user')
             ->where('deleted_at', '=', null)
             ->whereBetween('date', [$request->from, $request->to])
+            ->whereHas('PurchaseReturn', function ($q) use ($companyId) {
+                $q->where('company_id', $companyId);
+            })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -163,8 +175,8 @@ class PaymentPurchaseReturnsController extends BaseController
             $data[] = $item;
         }
 
-        $suppliers = Provider::where('deleted_at', '=', null)->get(['id', 'name']);
-        $purchase_returns = PurchaseReturn::get(['Ref', 'id']);
+        $suppliers = Provider::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
+        $purchase_returns = PurchaseReturn::where('company_id', $companyId)->get(['Ref', 'id']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 
         $methodNames = $payment_methods->pluck('name', 'id');
@@ -201,6 +213,13 @@ class PaymentPurchaseReturnsController extends BaseController
                 // Backward compatibility: If record_view is null, fall back to role permission check
                 $view_records = $user->hasRecordView();
                 $PurchaseReturn = PurchaseReturn::findOrFail($request['purchase_return_id']);
+
+                // Company boundary: a non-SuperAdmin can't record a payment
+                // against a purchase return from a different company.
+                $requester = $request->user('api');
+                if ($requester->type !== 'SuperAdmin') {
+                    abort_unless((int) $PurchaseReturn->company_id === (int) $requester->company_id, 403);
+                }
 
                 // Check If User Has Permission view All Records
                 // Warehouse half of the same rule: record_view says whose documents,
@@ -276,6 +295,14 @@ class PaymentPurchaseReturnsController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $payment = PaymentPurchaseReturns::findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't modify a payment against
+            // a purchase return from a different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                $paymentCompanyId = PurchaseReturn::where('id', $payment->purchase_return_id)->value('company_id');
+                abort_unless((int) $paymentCompanyId === (int) $requester->company_id, 403);
+            }
 
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
@@ -354,6 +381,14 @@ class PaymentPurchaseReturnsController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $payment = PaymentPurchaseReturns::findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't delete a payment against
+            // a purchase return from a different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                $paymentCompanyId = PurchaseReturn::where('id', $payment->purchase_return_id)->value('company_id');
+                abort_unless((int) $paymentCompanyId === (int) $requester->company_id, 403);
+            }
 
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
@@ -445,6 +480,13 @@ class PaymentPurchaseReturnsController extends BaseController
     public function payment_return(Request $request, $id)
     {
         $payment = PaymentPurchaseReturns::with('PurchaseReturn', 'PurchaseReturn.provider')->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't PDF a payment against a
+        // purchase return from a different company.
+        $requester = $request->user('api');
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $payment['PurchaseReturn']->company_id === (int) $requester->company_id, 403);
+        }
 
         $payment_data['return_Ref'] = $payment['PurchaseReturn']->Ref;
         $payment_data['supplier_name'] = $payment['PurchaseReturn']['provider']->name;

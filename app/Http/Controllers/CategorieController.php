@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Category;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class CategorieController extends BaseController
 {
+    use ScopesToCompany;
+
     /**
      * GET /categories
      * Query params: page, limit, SortField, SortType, search
@@ -29,8 +32,12 @@ class CategorieController extends BaseController
             $sortField = 'id';
         }
 
+        // Company scoping -- SuperAdmin may pass ?company_id= (a company
+        // picker sends it); everyone else is locked to their own company.
+        $companyId = $this->resolveActingCompanyId($request);
         $query = Category::query()
             ->whereNull('deleted_at')
+            ->where('company_id', $companyId)
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($qq) use ($search) {
                     $qq->where('name', 'like', "%{$search}%")
@@ -78,6 +85,7 @@ class CategorieController extends BaseController
         $category = Category::create([
             'code' => $validated['code'],
             'name' => $validated['name'],
+            'company_id' => $this->resolveActingCompanyId($request),
             'icon' => $validated['icon'] ?? null,
         ]);
 
@@ -90,9 +98,10 @@ class CategorieController extends BaseController
     /**
      * GET /categories/{id}
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $category = Category::whereNull('deleted_at')->findOrFail($id);
+        abort_unless($category->company_id === $this->resolveActingCompanyId($request), 404);
 
         return response()->json($category);
     }
@@ -103,6 +112,12 @@ class CategorieController extends BaseController
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Category::class);
+        // A regular admin must never be able to update a different
+        // company's category by tampering with the id in the URL.
+        abort_unless(
+            optional(Category::find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         $validated = $request->validate([
             'name' => 'required|string|max:190',
@@ -125,6 +140,10 @@ class CategorieController extends BaseController
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Category::class);
+        abort_unless(
+            optional(Category::find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         Category::whereId($id)->update([
             'deleted_at' => Carbon::now(),
@@ -146,9 +165,14 @@ class CategorieController extends BaseController
             return response()->json(['success' => true]); // nothing to do
         }
 
-        Category::whereIn('id', $selectedIds)->update([
-            'deleted_at' => Carbon::now(),
-        ]);
+        // Scoped to the acting company -- a selection can only ever have
+        // come from this company's own (already-scoped) list, but this is
+        // the last line of defense against a tampered request.
+        Category::whereIn('id', $selectedIds)
+            ->where('company_id', $this->resolveActingCompanyId($request))
+            ->update([
+                'deleted_at' => Carbon::now(),
+            ]);
 
         return response()->json(['success' => true]);
     }

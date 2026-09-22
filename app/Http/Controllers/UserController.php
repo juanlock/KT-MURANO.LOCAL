@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Client;
+use App\Models\Company;
 use App\Models\product_warehouse;
 use App\Models\Provider;
 use App\Models\Role;
@@ -20,6 +22,8 @@ use Intervention\Image\ImageManagerStatic as Image;
 
 class UserController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------- GET ALL USERS---------\\
 
     public function index(request $request)
@@ -44,7 +48,15 @@ class UserController extends BaseController
         // Backward compatibility: If record_view is null, fall back to role permission check
         $ShowRecord = $user->hasRecordView();
 
+        // Company boundary: a SuperAdmin sees every company (optionally
+        // narrowed via ?company_id= from a future company picker); anyone
+        // else only ever sees their own company's users, regardless of
+        // record_view.
+        $actingCompanyId = $this->resolveActingCompanyId($request);
         $users = User::where('deleted_at', '=', null)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($actingCompanyId) {
+                return $query->where('company_id', $actingCompanyId);
+            })
             ->where(function ($query) use ($ShowRecord) {
             if (! $ShowRecord) {
                 return $query->where('id', '=', Auth::user()->id);
@@ -73,12 +85,21 @@ class UserController extends BaseController
             ->get();
 
         $roles = Role::where('deleted_at', null)->get(['id', 'name']);
-        $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+
+        // Only a SuperAdmin gets every company's warehouses (needed so the
+        // Create User form could offer choices across companies) -- everyone
+        // else only ever sees their own company's warehouses.
+        $warehouses = $user->type === 'SuperAdmin'
+            ? Warehouse::where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
+            : Warehouse::where('deleted_at', '=', null)->where('company_id', $user->company_id)->get(['id', 'name', 'company_id']);
+
+        $companies = Company::where('deleted_at', null)->get(['id', 'name']);
 
         return response()->json([
             'users' => $users,
             'roles' => $roles,
             'warehouses' => $warehouses,
+            'companies' => $companies,
             'totalRows' => $totalRows,
         ]);
     }
@@ -176,12 +197,18 @@ class UserController extends BaseController
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', User::class);
+
+        // Company boundary: non-SuperAdmin admins can only create users
+        // within their own company; a SuperAdmin may target any company
+        // (defaults to their own if none was specified).
+        $companyId = $this->resolveActingCompanyId($request);
+
         $this->validate($request, [
             'email' => 'required|unique:users',
         ], [
             'email.unique' => 'This Email already taken.',
         ]);
-        \DB::transaction(function () use ($request) {
+        \DB::transaction(function () use ($request, $companyId) {
             if ($request->hasFile('avatar')) {
 
                 $image = $request->file('avatar');
@@ -205,6 +232,7 @@ class UserController extends BaseController
             $User->firstname = $request['firstname'];
             $User->lastname = $request['lastname'];
             $User->username = $request['username'];
+            $User->company_id = $companyId;
             $User->email = $request['email'];
             // users.phone is NOT NULL and ConvertEmptyStringsToNull turns '' into null
             $User->phone = $request['phone'] ?? '';
@@ -228,7 +256,12 @@ class UserController extends BaseController
             $role_user->save();
 
             if (! $User->is_all_warehouses) {
-                $User->assignedWarehouses()->sync($request['assigned_to']);
+                // Only warehouses belonging to this user's own company can be
+                // assigned, regardless of what ids the request sent.
+                $requestedWarehouseIds = array_map('intval', $request['assigned_to'] ?? []);
+                $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->all();
+                $requestedWarehouseIds = array_values(array_intersect($requestedWarehouseIds, $allowedWarehouseIds));
+                $User->assignedWarehouses()->sync($requestedWarehouseIds);
             }
 
         }, 10);
@@ -248,16 +281,32 @@ class UserController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', User::class);
 
+        $actingUser = $request->user('api');
         $user = User::where('deleted_at', '=', null)->findOrFail($id);
+
+        // Non-superadmin admins are locked to their own company -- they
+        // can't even open a user that belongs to a different company.
+        if ($actingUser->type !== 'SuperAdmin') {
+            abort_unless((int) $user->company_id === (int) $actingUser->company_id, 403);
+        }
+
         $assigned_warehouses = UserWarehouse::where('user_id', $id)->pluck('warehouse_id')->toArray();
         $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $assigned_warehouses)->pluck('id')->toArray();
         $roles = Role::where('deleted_at', null)->get(['id', 'name']);
-        $all_warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+
+        // Only a SuperAdmin (or a SuperAdmin-type target user) gets every
+        // company's warehouses; everyone else only gets their own company's.
+        $unrestrictedWarehouses = $actingUser->type === 'SuperAdmin' || $user->type === 'SuperAdmin';
+        $all_warehouses = $unrestrictedWarehouses
+            ? Warehouse::where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
+            : Warehouse::where('deleted_at', '=', null)->where('company_id', $user->company_id)->get(['id', 'name', 'company_id']);
+        $companies = Company::where('deleted_at', null)->get(['id', 'name']);
 
         return response()->json([
             'user' => $user,
             'assigned_warehouses' => $warehouses,
             'roles' => $roles,
+            'companies' => $companies,
             'warehouses' => $all_warehouses,
         ]);
     }
@@ -268,6 +317,19 @@ class UserController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', User::class);
 
+        $actingUser = $request->user('api');
+
+        // Non-superadmin admins are locked to their own company -- they can
+        // neither edit a user from a different company nor move this one to
+        // a different company, no matter what the request says.
+        $targetCompanyId = User::where('id', $id)->value('company_id');
+        if ($actingUser->type !== 'SuperAdmin') {
+            abort_unless((int) $targetCompanyId === (int) $actingUser->company_id, 403);
+            $targetCompanyId = $actingUser->company_id;
+        } elseif ($request->filled('company_id')) {
+            $targetCompanyId = (int) $request['company_id'];
+        }
+
         $this->validate($request, [
             'email' => 'required|email|unique:users',
             'email' => Rule::unique('users')->ignore($id),
@@ -275,7 +337,7 @@ class UserController extends BaseController
             'email.unique' => 'This Email already taken.',
         ]);
 
-        \DB::transaction(function () use ($id, $request) {
+        \DB::transaction(function () use ($id, $request, $targetCompanyId) {
             $user = User::findOrFail($id);
             $current = $user->password;
 
@@ -328,6 +390,7 @@ class UserController extends BaseController
                 'firstname' => $request['firstname'],
                 'lastname' => $request['lastname'],
                 'username' => $request['username'],
+                'company_id' => $targetCompanyId,
                 'email' => $request['email'],
                 'phone' => $request['phone'] ?? '',
                 'password' => $pass,
@@ -345,7 +408,13 @@ class UserController extends BaseController
             ]);
 
             $user_saved = User::where('deleted_at', '=', null)->findOrFail($id);
-            $user_saved->assignedWarehouses()->sync($request['assigned_to']);
+
+            // Only warehouses belonging to this user's (now-locked-in)
+            // company can be assigned, regardless of what ids the request sent.
+            $requestedWarehouseIds = array_map('intval', $request['assigned_to'] ?? []);
+            $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->where('company_id', $targetCompanyId)->pluck('id')->all();
+            $requestedWarehouseIds = array_values(array_intersect($requestedWarehouseIds, $allowedWarehouseIds));
+            $user_saved->assignedWarehouses()->sync($requestedWarehouseIds);
 
         }, 10);
 
@@ -444,6 +513,13 @@ class UserController extends BaseController
 
         $user = Auth::user();
         if ($request['id'] !== $user->id) {
+            // Non-superadmin admins can't (de)activate a user from a
+            // different company.
+            if ($user->type !== 'SuperAdmin') {
+                $targetCompanyId = User::where('id', $id)->value('company_id');
+                abort_unless((int) $targetCompanyId === (int) $user->company_id, 403);
+            }
+
             User::whereId($id)->update([
                 'statut' => $request['statut'],
             ]);
@@ -464,7 +540,7 @@ class UserController extends BaseController
         $this->authorizeForUser($request->user('api'), 'delete', User::class);
 
         $user = Auth::user();
-        
+
         // Prevent user from deleting their own account
         if ($id == $user->id) {
             return response()->json([
@@ -474,6 +550,11 @@ class UserController extends BaseController
         }
 
         $userToDelete = User::where('deleted_at', '=', null)->findOrFail($id);
+
+        // Non-superadmin admins can't delete a user from a different company.
+        if ($user->type !== 'SuperAdmin') {
+            abort_unless((int) $userToDelete->company_id === (int) $user->company_id, 403);
+        }
 
         // Soft delete the user (bypass mass-assignment on deleted_at)
         // and mark them as inactive (statut = 0) so any legacy checks

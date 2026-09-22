@@ -15,10 +15,13 @@ class PurchaseReturn extends Model
         'paid_amount', 'payment_statut', 'created_at', 'updated_at', 'deleted_at',
         // Multi-Currency snapshot copied from the parent purchase; NULL = base currency
         'currency_id', 'exchange_rate',
+        // 2026_09_22_100000_add_company_id_to_purchase_returns_table
+        'company_id',
     ];
 
     protected $casts = [
         'GrandTotal' => 'double',
+        'company_id' => 'integer',
         'currency_id' => 'integer',
         'exchange_rate' => 'float',
         'user_id' => 'integer',

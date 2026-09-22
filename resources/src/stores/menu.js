@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia';
 import { MENU } from '../config/menu';
 import { applyMenuOrder } from '../lib/menuOrder';
+import { buildTopLevelMenu } from '../lib/menuTree';
 import { useAuthStore } from './auth';
+import http from '../lib/http';
 
 /**
  * The navigation actually rendered by the sidebars: the default MENU arranged
@@ -10,17 +12,40 @@ import { useAuthStore } from './auth';
  * boot and live when the manager saves a new arrangement.
  */
 export const useMenuStore = defineStore('menu', {
+    state: () => ({
+        // Admin-saved TOP-LEVEL layout from `menu_positions` (Billing-style
+        // "Manage Menus", ported backend-only so far -- no editor screen
+        // exists in Murano yet). Null until loadPositions() resolves; stays
+        // an empty array if nothing has ever been saved there, in which case
+        // the `menu` getter below behaves exactly as before this was added.
+        positions: null,
+    }),
+    actions: {
+        async loadPositions() {
+            try {
+                this.positions = await http.get('menu-positions');
+            } catch (e) {
+                this.positions = null; // fall back to the default+per-user layout
+            }
+        },
+    },
     getters: {
-        menu() {
+        menu(state) {
             const auth = useAuthStore();
             const order = auth.user && auth.user.sidebar_menu_order;
-            let arranged = MENU;
+
+            // Only the top level is DB-driven (see menuTree.js) -- each
+            // entry's own `children` are whatever menu.js/applyMenuOrder
+            // below decide, untouched by menu_positions.
+            let arranged = Array.isArray(state.positions) && state.positions.length
+                ? buildTopLevelMenu(state.positions)
+                : MENU;
+
             if (Array.isArray(order) && order.length) {
                 try {
-                    arranged = applyMenuOrder(order);
+                    arranged = applyMenuOrder(order, arranged);
                 } catch (e) {
                     // A malformed saved order must never take the navigation down.
-                    arranged = MENU;
                 }
             }
             // Drop entries whose module the admin switched off (Settings →

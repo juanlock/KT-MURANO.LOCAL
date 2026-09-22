@@ -10,7 +10,7 @@ class Provider extends Model
 
     protected $fillable = [
         'name', 'code', 'adresse', 'phone', 'country', 'email', 'city', 'tax_number',
-        'opening_balance', 'credit_limit',
+        'opening_balance', 'credit_limit', 'company_id',
     ];
 
     protected $casts = [

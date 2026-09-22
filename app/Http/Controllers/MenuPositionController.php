@@ -32,6 +32,7 @@ class MenuPositionController extends Controller
             'positions.*.route' => 'nullable|string|max:191',
             'positions.*.external' => 'nullable|boolean',
             'positions.*.is_custom' => 'nullable|boolean',
+            'positions.*.hidden' => 'nullable|boolean',
         ]);
 
         $positions = $data['positions'];
@@ -94,6 +95,7 @@ class MenuPositionController extends Controller
                     'route' => $row['route'] ?? null,
                     'external' => $row['external'] ?? false,
                     'is_custom' => $row['is_custom'] ?? false,
+                    'hidden' => $row['hidden'] ?? false,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];

@@ -18,7 +18,7 @@ class User extends Authenticatable
      * @var array
      */
     protected $fillable = [
-        'firstname', 'lastname', 'username', 'email', 'password', 'phone', 'statut', 'avatar', 'role_id', 'is_all_warehouses', 'record_view',
+        'firstname', 'lastname', 'username', 'email', 'password', 'phone', 'statut', 'avatar', 'role_id', 'type', 'is_all_warehouses', 'record_view',
     ];
 
     /**
@@ -51,6 +51,15 @@ class User extends Authenticatable
     public function roles()
     {
         return $this->belongsToMany(Role::class);
+    }
+
+    // The Customer profile this account was auto-provisioned for, if this
+    // is a type=customer login (Client<->User is 1-to-1). Needed now that
+    // 212 Billing users of this type were synced in via
+    // sync_users_remaining_from_billing.sql.
+    public function client()
+    {
+        return $this->hasOne(\App\Models\Client::class);
     }
 
     public function assignRole(Role $role)

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Mail\CustomEmail;
 use App\Models\Account;
 use App\Models\EmailMessage;
@@ -44,6 +45,8 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class PurchasesController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------- Show ALL Purchases ----------\\
 
     public function index(request $request)
@@ -88,9 +91,17 @@ class PurchasesController extends BaseController
         $data = [];
         $total = 0;
 
+        // Company boundary: SuperAdmin may narrow via ?company_id=; everyone else
+        // is always scoped to their own company, regardless of record_view. This
+        // mirrors the fix already applied to Billing's PurchasesController (record_view
+        // used to double as the company gate and silently stopped scoping once every
+        // Admin got record_view=true) and to this app's ClientController/WarehouseController.
+        $companyId = $this->resolveActingCompanyId($request);
+
         // Check If User Has Permission View  All Records
         $Purchases = Purchase::with('facture', 'provider', 'warehouse', 'currency')
             ->where('deleted_at', '=', null)
+            ->where('company_id', '=', $companyId)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -184,7 +195,9 @@ class PurchasesController extends BaseController
             $data[] = $item;
         }
 
-        $suppliers = provider::where('deleted_at', '=', null)->get(['id', 'name']);
+        $suppliers = provider::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
+        // NOTE: accounts has no company_id column on this app either -- can't be
+        // scoped here without a schema change, left as-is (pre-existing, out of scope).
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
 
         // get warehouses assigned to user
@@ -237,6 +250,10 @@ class PurchasesController extends BaseController
             $order->payment_statut = 'unpaid';
             $order->notes = $request->notes;
             $order->user_id = Auth::user()->id;
+            // Company boundary: force from the acting company -- never trust a
+            // client-submitted value (store() doesn't currently accept one, but
+            // this keeps new purchases correctly scoped either way).
+            $order->company_id = $this->resolveActingCompanyId($request);
             // Multi-Currency snapshot (NULL/NULL = base currency); amounts on
             // the purchase are always stored in the base currency.
             $docCurrency = helpers::resolve_request_currency($request);
@@ -366,6 +383,13 @@ class PurchasesController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $current_Purchase = Purchase::findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't modify a purchase from a
+            // different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_Purchase->company_id === (int) $requester->company_id, 403);
+            }
 
              /**
              * Warehouses restriction
@@ -653,6 +677,13 @@ class PurchasesController extends BaseController
             $view_records = $user->hasRecordView();
             $current_Purchase = Purchase::findOrFail($id);
 
+            // Company boundary: a non-SuperAdmin can't delete a purchase from a
+            // different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_Purchase->company_id === (int) $requester->company_id, 403);
+            }
+
              /**
              * Warehouses restriction
              * Allow if:
@@ -791,6 +822,10 @@ class PurchasesController extends BaseController
             $view_records = $user->hasRecordView();
             $selectedIds = $request->selectedIds;
 
+            // Company boundary: a non-SuperAdmin can't bulk-delete purchases from
+            // a different company.
+            $requester = $request->user('api');
+
             foreach ($selectedIds as $purchase_id) {
 
                 if (PurchaseReturn::where('purchase_id', $purchase_id)->where('deleted_at', '=', null)->exists()) {
@@ -798,6 +833,10 @@ class PurchasesController extends BaseController
                 } else {
 
                     $current_Purchase = Purchase::findOrFail($purchase_id);
+
+                    if ($requester->type !== 'SuperAdmin') {
+                        abort_unless((int) $current_Purchase->company_id === (int) $requester->company_id, 403);
+                    }
 
                     /**
                      * Warehouses restriction
@@ -928,6 +967,13 @@ class PurchasesController extends BaseController
         $purchase = Purchase::with('details.product.unitPurchase', 'details.batches.batch')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't view a purchase from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $purchase->company_id === (int) $requester->company_id, 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($purchase);
@@ -1077,6 +1123,13 @@ class PurchasesController extends BaseController
         $view_records = $user->hasRecordView();
         $purchase = Purchase::findOrFail($id);
 
+        // Company boundary: a non-SuperAdmin can't view payments of a purchase
+        // from a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $purchase->company_id === (int) $requester->company_id, 403);
+        }
+
         // Check If User Has Permission view All Records
         // Warehouse half of the same rule: record_view says whose documents,
         // the assigned warehouses say which warehouses they may come from.
@@ -1141,6 +1194,13 @@ class PurchasesController extends BaseController
         $Purchase_data = Purchase::with('details.product.unitPurchase')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't PDF a purchase from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Purchase_data->company_id === (int) $requester->company_id, 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($Purchase_data);
@@ -1267,6 +1327,13 @@ class PurchasesController extends BaseController
         $Purchase_data = Purchase::with('details.product.unitPurchase')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't print a purchase from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Purchase_data->company_id === (int) $requester->company_id, 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($Purchase_data);
@@ -1412,7 +1479,7 @@ class PurchasesController extends BaseController
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $suppliers = Provider::where('deleted_at', '=', null)->get(['id', 'name']);
+        $suppliers = Provider::where('deleted_at', '=', null)->where('company_id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
 
         return response()->json([
             'warehouses' => $warehouses,
@@ -1436,6 +1503,13 @@ class PurchasesController extends BaseController
             $Purchase_data = Purchase::with('details.product.unitPurchase')
                 ->where('deleted_at', '=', null)
                 ->findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't edit a purchase from a
+            // different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $Purchase_data->company_id === (int) $requester->company_id, 403);
+            }
 
             /**
              * Warehouses restriction
@@ -1613,7 +1687,7 @@ class PurchasesController extends BaseController
                 $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
             }
 
-            $suppliers = Provider::where('deleted_at', '=', null)->get(['id', 'name']);
+            $suppliers = Provider::where('deleted_at', '=', null)->where('company_id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
 
             return response()->json([
                 'details' => $details,
@@ -1637,6 +1711,13 @@ class PurchasesController extends BaseController
         $Purchase_data = Purchase::with('details.product.unitPurchase')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't pull line items from a
+        // purchase in a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Purchase_data->company_id === (int) $requester->company_id, 403);
+        }
 
         $details = [];
 
@@ -1778,6 +1859,13 @@ class PurchasesController extends BaseController
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
 
+        // Company boundary: a non-SuperAdmin can't pull barcode data from a
+        // purchase in a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $purchase->company_id === (int) $requester->company_id, 403);
+        }
+
         // Check If User Has Permission view All Records
         // Warehouse half of the same rule: record_view says whose documents,
         // the assigned warehouses say which warehouses they may come from.
@@ -1868,6 +1956,13 @@ class PurchasesController extends BaseController
         // purchase
         $purchase = Purchase::with('provider')->where('deleted_at', '=', null)->findOrFail($request->id);
 
+        // Company boundary: a non-SuperAdmin can't email a purchase from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $purchase->company_id === (int) $requester->company_id, 403);
+        }
+
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($purchase);
         $currency = $docCurrency['symbol'];
@@ -1931,6 +2026,13 @@ class PurchasesController extends BaseController
 
         // purchase
         $purchase = Purchase::with('provider')->where('deleted_at', '=', null)->findOrFail($request->id);
+
+        // Company boundary: a non-SuperAdmin can't SMS a purchase from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $purchase->company_id === (int) $requester->company_id, 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($purchase);
@@ -2076,6 +2178,13 @@ class PurchasesController extends BaseController
         // purchase
         $purchase = Purchase::with('provider')->where('deleted_at', '=', null)->findOrFail($request->id);
 
+        // Company boundary: a non-SuperAdmin can't WhatsApp a purchase from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $purchase->company_id === (int) $requester->company_id, 403);
+        }
+
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($purchase);
         $currency = $docCurrency['symbol'];
@@ -2142,7 +2251,7 @@ class PurchasesController extends BaseController
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $suppliers = Provider::where('deleted_at', '=', null)->get(['id', 'name']);
+        $suppliers = Provider::where('deleted_at', '=', null)->where('company_id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
 
         return response()->json([
             'warehouses' => $warehouses,
@@ -2172,11 +2281,16 @@ class PurchasesController extends BaseController
 
         $rows = [];
         $subtotal = 0;
+        // Company boundary: only match products belonging to the acting company
+        // -- otherwise a purchase import could pull cost/name data from another
+        // company's catalog by guessing a product code.
+        $companyId = $this->resolveActingCompanyId($request);
 
         foreach ($data as $row) {
             $product = Product::with('unitPurchase')
                 ->where('deleted_at', '=', null)
                 ->where('code', $row['productcode'])
+                ->where('company_id', $companyId)
                 ->first();
 
             if (!$product) {
@@ -2248,6 +2362,9 @@ class PurchasesController extends BaseController
             $order->payment_statut = 'unpaid';
             $order->notes = $request->notes;
             $order->user_id = Auth::user()->id;
+            // Company boundary: force from the acting company, same as store().
+            $companyId = $this->resolveActingCompanyId($request);
+            $order->company_id = $companyId;
 
             $order->save();
 
@@ -2255,7 +2372,7 @@ class PurchasesController extends BaseController
             $inputDetailsForBatches = [];
             foreach ($data as $key => $value) {
 
-                $product = Product::where('deleted_at', '=', null)->where('code', $value['productcode'])->first();
+                $product = Product::where('deleted_at', '=', null)->where('code', $value['productcode'])->where('company_id', $companyId)->first();
                 $unit = Unit::where('id', $product->unit_purchase_id)->first();
 
                 $total += $value['qty'] * $product->cost;
@@ -2391,9 +2508,13 @@ class PurchasesController extends BaseController
             }
 
             // Validate productcode existence in the database
+            // Company boundary: only codes within the acting company count as
+            // existing -- otherwise this would confirm/deny product codes
+            // belonging to other companies.
+            $companyId = $this->resolveActingCompanyId($request);
             $missingProductCodes = [];
             foreach ($productCodes as $code) {
-                if (! Product::where('code', $code)->exists()) {
+                if (! Product::where('code', $code)->where('company_id', $companyId)->exists()) {
                     $missingProductCodes[] = $code;
                 }
             }
@@ -2433,9 +2554,16 @@ class PurchasesController extends BaseController
     public function getDocuments($purchaseId)
     {
         $this->authorizeForUser(request()->user('api'), 'view', Purchase::class);
-        
+
         $purchase = Purchase::findOrFail($purchaseId);
-        
+
+        // Company boundary: a non-SuperAdmin can't list documents of a
+        // purchase from a different company.
+        $requester = request()->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $purchase->company_id === (int) $requester->company_id, 403);
+        }
+
         $documents = DB::table('purchase_documents')
             ->where('purchase_id', $purchaseId)
             ->where('deleted_at', null)
@@ -2452,8 +2580,15 @@ class PurchasesController extends BaseController
     public function uploadDocuments(Request $request, $purchaseId)
     {
         $this->authorizeForUser($request->user('api'), 'update', Purchase::class);
-        
+
         $purchase = Purchase::findOrFail($purchaseId);
+
+        // Company boundary: a non-SuperAdmin can't attach documents to a
+        // purchase from a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $purchase->company_id === (int) $requester->company_id, 403);
+        }
 
         $request->validate([
             'documents.*' => 'required|file|max:10240', // Max 10MB per file
@@ -2519,6 +2654,14 @@ class PurchasesController extends BaseController
             ], 404);
         }
 
+        // Company boundary: a non-SuperAdmin can't download a document
+        // attached to a purchase from a different company.
+        $requester = request()->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $documentCompanyId = Purchase::where('id', $document->purchase_id)->value('company_id');
+            abort_unless((int) $documentCompanyId === (int) $requester->company_id, 403);
+        }
+
         $filePath = public_path($document->path);
 
         if (!file_exists($filePath)) {
@@ -2547,6 +2690,14 @@ class PurchasesController extends BaseController
                 'message' => 'Document not found',
                 'status' => false
             ], 404);
+        }
+
+        // Company boundary: a non-SuperAdmin can't delete a document
+        // attached to a purchase from a different company.
+        $requester = request()->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $documentCompanyId = Purchase::where('id', $document->purchase_id)->value('company_id');
+            abort_unless((int) $documentCompanyId === (int) $requester->company_id, 403);
         }
 
         // Soft delete

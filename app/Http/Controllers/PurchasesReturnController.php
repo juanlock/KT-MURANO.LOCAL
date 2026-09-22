@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Account;
 use App\Models\PaymentMethod;
 use App\Models\PaymentPurchaseReturns;
@@ -31,6 +32,8 @@ use PDF;
 
 class PurchasesReturnController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------ GET ALL Purchases Return  --------------\\
 
     public function index(request $request)
@@ -76,9 +79,17 @@ class PurchasesReturnController extends BaseController
         ];
         $data = [];
 
+        // Company boundary: SuperAdmin may narrow via ?company_id=; everyone else
+        // is always scoped to their own company, regardless of record_view. This
+        // mirrors the fix already applied to PurchasesController/ClientController/
+        // WarehouseController (record_view used to double as the company gate and
+        // silently stopped scoping once every Admin got record_view=true).
+        $companyId = $this->resolveActingCompanyId($request);
+
         // Check If User Has Permission View  All Records
         $PurchaseReturn = PurchaseReturn::with('purchase', 'facture', 'provider', 'warehouse')
             ->where('deleted_at', '=', null)
+            ->where('company_id', '=', $companyId)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -150,8 +161,11 @@ class PurchasesReturnController extends BaseController
             $data[] = $item;
         }
 
-        $suppliers = Provider::where('deleted_at', '=', null)->get(['id', 'name']);
-        $purchases = Purchase::where('deleted_at', '=', null)->get(['id', 'Ref']);
+        $suppliers = Provider::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
+        $purchases = Purchase::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'Ref']);
+        // NOTE: accounts has no company_id column on this app either -- can't be
+        // scoped here without a schema change, left as-is (pre-existing, out of scope,
+        // matches PurchasesController::index()).
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
 
@@ -200,6 +214,12 @@ class PurchasesReturnController extends BaseController
             $order->payment_statut = 'unpaid';
             $order->notes = $request->notes;
             $order->user_id = Auth::user()->id;
+            // Company boundary: force from the acting company -- never trust a
+            // client-submitted value. purchase_id is nullable (a return doesn't
+            // always trace back to a purchase), so this can't be inherited from
+            // a parent purchase; it must be set directly, same as
+            // PurchasesController::store() does for purchases.company_id.
+            $order->company_id = $this->resolveActingCompanyId($request);
             // Multi-Currency: the return inherits the parent purchase's snapshot
             // so its documents print in the same currency.
             if ($request->purchase_id) {
@@ -304,6 +324,13 @@ class PurchasesReturnController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $current_PurchaseReturn = PurchaseReturn::findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't modify a purchase return
+            // from a different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_PurchaseReturn->company_id === (int) $requester->company_id, 403);
+            }
 
             /**
              * Warehouses restriction
@@ -538,6 +565,13 @@ class PurchasesReturnController extends BaseController
             $view_records = $user->hasRecordView();
             $current_PurchaseReturn = PurchaseReturn::findOrFail($id);
 
+            // Company boundary: a non-SuperAdmin can't delete a purchase return
+            // from a different company.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $current_PurchaseReturn->company_id === (int) $requester->company_id, 403);
+            }
+
              /**
              * Warehouses restriction
              * Allow if:
@@ -677,8 +711,16 @@ class PurchasesReturnController extends BaseController
             $view_records = $user->hasRecordView();
             $selectedIds = $request->selectedIds;
 
+            // Company boundary: a non-SuperAdmin can only bulk-delete purchase
+            // returns from their own company.
+            $requester = $request->user('api');
+
             foreach ($selectedIds as $PurchaseReturn_id) {
                 $current_PurchaseReturn = PurchaseReturn::findOrFail($PurchaseReturn_id);
+
+                if ($requester->type !== 'SuperAdmin') {
+                    abort_unless((int) $current_PurchaseReturn->company_id === (int) $requester->company_id, 403);
+                }
 
                 /**
                  * Warehouses restriction
@@ -826,6 +868,13 @@ class PurchasesReturnController extends BaseController
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
 
+        // Company boundary: a non-SuperAdmin can't create a return from a
+        // purchase belonging to a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Purchase_data->company_id === (int) $requester->company_id, 403);
+        }
+
         $details = [];
 
         // Check If User Has Permission view All Records
@@ -966,6 +1015,13 @@ class PurchasesReturnController extends BaseController
         $Purchase_Return = PurchaseReturn::with('details.product.unitPurchase')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't edit a purchase return from
+        // a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Purchase_Return->company_id === (int) $requester->company_id, 403);
+        }
 
         /**
          * Warehouses restriction
@@ -1138,6 +1194,13 @@ class PurchasesReturnController extends BaseController
         $view_records = $user->hasRecordView();
         $PurchaseReturn = PurchaseReturn::findOrFail($id);
 
+        // Company boundary: a non-SuperAdmin can't view payments of a purchase
+        // return from a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $PurchaseReturn->company_id === (int) $requester->company_id, 403);
+        }
+
         // Check If User Has Permission view All Records
         // Warehouse half of the same rule: record_view says whose documents,
         // the assigned warehouses say which warehouses they may come from.
@@ -1207,6 +1270,13 @@ class PurchasesReturnController extends BaseController
         $Purchase_Return = PurchaseReturn::with('purchase', 'details.product.unitPurchase')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't view a purchase return from
+        // a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $Purchase_Return->company_id === (int) $requester->company_id, 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($Purchase_Return);
@@ -1343,6 +1413,13 @@ class PurchasesReturnController extends BaseController
         $PurchaseReturn = PurchaseReturn::with('purchase', 'details.product.unitPurchase')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't PDF a purchase return from
+        // a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $PurchaseReturn->company_id === (int) $requester->company_id, 403);
+        }
 
         // Document currency: stored amounts are base currency, display = stored * rate.
         $docCurrency = helpers::Get_Document_Currency($PurchaseReturn);

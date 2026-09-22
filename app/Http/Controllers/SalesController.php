@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\CustomEmail;
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Services\BatchService;
 use App\Services\SerialNumberService;
 use App\Models\ServiceJob;
@@ -53,12 +54,22 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class SalesController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------- GET ALL SALES -----------\\
 
     public function index(request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Sale::class);
         $user = Auth::user();
+        // Company boundary: a SuperAdmin sees every company (optionally
+        // narrowed via ?company_id=); everyone else -- REGARDLESS of
+        // record_view -- only ever sees their own company's sales. This
+        // controller previously had zero company scoping at all (a
+        // company-1 login could see another company's sales/warehouses),
+        // the same class of gap already found and fixed in
+        // UserController/ClientController/WarehouseController/EmployeesController.
+        $companyId = $this->resolveActingCompanyId($request);
         $is_all_warehouses = $user->is_all_warehouses;
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
@@ -102,6 +113,9 @@ class SalesController extends BaseController
         // Check If User Has Permission View  All Records
         $Sales = Sale::with('facture.payment_method', 'client', 'warehouse', 'user', 'seller', 'currency')
             ->where('deleted_at', '=', null)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -207,17 +221,33 @@ class SalesController extends BaseController
         }
 
         $stripe_key = config('app.STRIPE_KEY');
-        $customers = client::where('deleted_at', '=', null)->get(['id', 'name']);
+        // Company boundary: the client picker must not leak another
+        // company's customers. Accounts/payment methods have no company_id
+        // column (pre-existing, out of scope -- same note as Billing).
+        $customers = client::where('deleted_at', '=', null)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->get(['id', 'name']);
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)
+                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                    return $query->where('company_id', $companyId);
+                })
+                ->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)
+                ->whereIn('id', $warehouses_id)
+                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                    return $query->where('company_id', $companyId);
+                })
+                ->get(['id', 'name']);
         }
 
         return response()->json([
@@ -251,21 +281,30 @@ class SalesController extends BaseController
             return null;
         }
 
+        // Company boundary: a picked salesperson must belong to the acting
+        // company -- otherwise a company-1 user could attribute a sale to a
+        // user_id from another company (users table has company_id).
+        $companyId = $this->resolveActingCompanyId($request);
+
         return User::where('id', (int) $request->seller_id)
             ->where('deleted_at', '=', null)
             ->where('statut', 1)
+            ->where('company_id', $companyId)
             ->value('id');
     }
 
     /**
      * Active-user list for the Salesperson select (same shape as the POS
      * bootstrap); empty when the feature is off so the form hides the field.
+     * Company boundary: scoped to the acting company (users table has
+     * company_id) so the picker never lists another company's staff.
      */
-    private function salespeopleList(bool $enabled)
+    private function salespeopleList(bool $enabled, int $companyId)
     {
         return $enabled
             ? User::where('deleted_at', '=', null)
                 ->where('statut', 1)
+                ->where('company_id', $companyId)
                 ->orderBy('username')
                 ->get(['id', 'username', 'firstname', 'lastname'])
                 ->map(fn ($u) => [
@@ -286,13 +325,30 @@ class SalesController extends BaseController
             'warehouse_id' => 'required',
         ]);
 
+        // Company boundary: force the sale onto the acting company -- never
+        // trust a client-submitted company_id -- and reject a client_id or
+        // warehouse_id that belongs to a different company (both tables
+        // carry company_id), so a company-1 user can't create a sale against
+        // another company's client/warehouse/stock.
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_unless(
+            (int) Client::where('id', $request->client_id)->value('company_id') === $companyId,
+            403,
+            'Client does not belong to your company.'
+        );
+        abort_unless(
+            (int) Warehouse::where('id', $request->warehouse_id)->value('company_id') === $companyId,
+            403,
+            'Warehouse does not belong to your company.'
+        );
+
         // Multi-Pack Selling: a completed sale deducts quantity × pack_multiplier
         // base units per pack — reject if that would oversell.
         if ($request->statut === 'completed') {
             $this->assertPackStockSufficient($request);
         }
 
-        $sale = \DB::transaction(function () use ($request) {
+        $sale = \DB::transaction(function () use ($request, $companyId) {
             $helpers = new helpers;
             $order = new Sale;
 
@@ -303,6 +359,7 @@ class SalesController extends BaseController
             $order->client_id = $request->client_id;
             $order->GrandTotal = $request->GrandTotal;
             $order->warehouse_id = $request->warehouse_id;
+            $order->company_id = $companyId;
             $order->tax_rate = $request->tax_rate;
             $order->TaxNet = $request->TaxNet;
             $order->discount = $request->discount;
@@ -660,6 +717,28 @@ class SalesController extends BaseController
             'warehouse_id' => 'required',
             'client_id' => 'required',
         ]);
+
+        // Company boundary: a non-SuperAdmin can't update a sale from a
+        // different company (this was previously an unscoped findOrFail with
+        // no ownership check at all -- the exact gap that let a company-1
+        // login open another company's sale).
+        $requester = $request->user('api');
+        $companyId = $this->resolveActingCompanyId($request);
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Sale::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === $companyId, 403);
+            // A changed client_id/warehouse_id must also stay inside the company.
+            abort_unless(
+                (int) Client::where('id', $request->client_id)->value('company_id') === $companyId,
+                403,
+                'Client does not belong to your company.'
+            );
+            abort_unless(
+                (int) Warehouse::where('id', $request->warehouse_id)->value('company_id') === $companyId,
+                403,
+                'Warehouse does not belong to your company.'
+            );
+        }
 
         $sale = \DB::transaction(function () use ($request, $id) {
 
@@ -1111,6 +1190,14 @@ class SalesController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', \App\Models\Sale::class);
 
+        // Company boundary: a non-SuperAdmin can't delete a sale from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = \App\Models\Sale::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         // We’ll capture QBO identifiers before deletion so we can sync after commit
         $qboInfo = [
             'id' => null,
@@ -1316,12 +1403,21 @@ class SalesController extends BaseController
 
         $this->authorizeForUser($request->user('api'), 'delete', Sale::class);
 
-        \DB::transaction(function () use ($request) {
+        // Company boundary: a non-SuperAdmin can only bulk-delete sales
+        // belonging to their own company -- silently drop any other id
+        // instead of letting it through to the unscoped findOrFail below.
+        $requester = $request->user('api');
+        $selectedIds = $request->selectedIds;
+        if ($requester->type !== 'SuperAdmin') {
+            $companyId = $this->resolveActingCompanyId($request);
+            $selectedIds = Sale::whereIn('id', $selectedIds)->where('company_id', $companyId)->pluck('id')->all();
+        }
+
+        \DB::transaction(function () use ($request, $selectedIds) {
             $user = Auth::user();
             // New way: Check user's record_view field (user-level boolean)
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
-            $selectedIds = $request->selectedIds;
             foreach ($selectedIds as $sale_id) {
 
                 if (SaleReturn::where('sale_id', $sale_id)->where('deleted_at', '=', null)->exists()) {
@@ -1499,6 +1595,12 @@ class SalesController extends BaseController
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
 
+        // Company boundary: a non-SuperAdmin can't open a sale from a
+        // different company.
+        if ($user->type !== 'SuperAdmin') {
+            abort_unless((int) $sale_data->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         $docCurrency = helpers::Get_Document_Currency($sale_data);
 
         $details = [];
@@ -1655,6 +1757,14 @@ class SalesController extends BaseController
         $sale = Sale::with('details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: this had no ownership check at all (not even a
+        // permission check) -- a company-1 login could print/read another
+        // company's invoice by id.
+        $requester = $request->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         $docCurrency = helpers::Get_Document_Currency($sale);
 
@@ -1855,6 +1965,12 @@ class SalesController extends BaseController
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
 
+        // Company boundary: no ownership check at all previously.
+        $requester = $request->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         $settings = Setting::where('deleted_at', '=', null)->first();
         $docCurrency = helpers::Get_Document_Currency($sale);
         $symbol = $docCurrency['code'];
@@ -1986,6 +2102,12 @@ class SalesController extends BaseController
         $view_records = $user->hasRecordView();
         $Sale = Sale::findOrFail($id);
 
+        // Company boundary: a non-SuperAdmin can't view payments of a sale
+        // from a different company.
+        if ($user->type !== 'SuperAdmin') {
+            abort_unless((int) $Sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         // Check If User Has Permission view All Records
         // Warehouse half of the same rule: record_view says whose documents,
         // the assigned warehouses say which warehouses they may come from.
@@ -2063,15 +2185,22 @@ class SalesController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'create', Sale::class);
 
+        // Company boundary: these dropdowns feed the CSV-import form and must
+        // not leak another company's warehouses/clients. sales_agents has no
+        // company_id column (pre-existing, out of scope).
+        $companyId = $this->resolveActingCompanyId($request);
         $user_auth = Auth::user();
+        $scopeCompany = fn ($query) => $query->when($user_auth->type !== 'SuperAdmin' || $request->filled('company_id'), function ($q) use ($companyId) {
+            return $q->where('company_id', $companyId);
+        });
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
+            $warehouses = $scopeCompany(Warehouse::whereNull('deleted_at'))->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = $scopeCompany(Warehouse::whereNull('deleted_at')->whereIn('id', $warehouses_id))->get(['id', 'name']);
         }
 
-        $clients = Client::whereNull('deleted_at')->get(['id', 'name']);
+        $clients = $scopeCompany(Client::whereNull('deleted_at'))->get(['id', 'name']);
         $sales_agents = SalesAgent::where('deleted_at', '=', null)->get(['id', 'name']);
 
         return response()->json([
@@ -2099,6 +2228,21 @@ class SalesController extends BaseController
 
         $warehouse_id = (int) $request->warehouse_id;
 
+        // Company boundary: force the sale onto the acting company and reject
+        // a client_id/warehouse_id belonging to a different one -- same rule
+        // as store().
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_unless(
+            (int) Client::where('id', $request->client_id)->value('company_id') === $companyId,
+            403,
+            'Client does not belong to your company.'
+        );
+        abort_unless(
+            (int) Warehouse::where('id', $warehouse_id)->value('company_id') === $companyId,
+            403,
+            'Warehouse does not belong to your company.'
+        );
+
         // Validate stock availability for all products before processing
         $insufficient = $this->validateStockForImportSales($data, $warehouse_id);
         if (! empty($insufficient)) {
@@ -2118,7 +2262,7 @@ class SalesController extends BaseController
             ], 422);
         }
 
-        DB::transaction(function () use ($request, $data) {
+        DB::transaction(function () use ($request, $data, $companyId) {
             $order = new Sale;
             $order->is_pos = 0;
             $order->date = $request->date;
@@ -2127,6 +2271,7 @@ class SalesController extends BaseController
             $order->client_id = $request->client_id;
             $order->GrandTotal = 0;
             $order->warehouse_id = $request->warehouse_id;
+            $order->company_id = $companyId;
             $order->tax_rate = $request->tax_rate ?? 0;
             $order->TaxNet = 0;
             $order->discount = $request->discount ?? 0;
@@ -2316,6 +2461,14 @@ class SalesController extends BaseController
             ? (int) $variant_id
             : null;
 
+        // Company boundary: the warehouse (and therefore the batches it
+        // holds) must belong to the acting company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Warehouse::where('id', $warehouseId)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         $batchService = app(BatchService::class);
 
         return response()->json([
@@ -2406,14 +2559,23 @@ class SalesController extends BaseController
      *
      * @return array|null
      */
-    protected function resolveCodeForImportSale(string $code): ?array
+    protected function resolveCodeForImportSale(string $code, int $companyId): ?array
     {
         $code = trim($code);
         if ($code === '') {
             return null;
         }
 
-        $variant = ProductVariant::whereNull('deleted_at')->where('code', $code)->with('product')->first();
+        // Company boundary: a product/variant code is only unique per
+        // company, so this must never resolve a code belonging to another
+        // company -- otherwise a CSV import could pull another company's
+        // product into the sale (and decrement its stock).
+        $variant = ProductVariant::whereNull('deleted_at')
+            ->where('code', $code)
+            ->whereHas('product', function ($q) use ($companyId) {
+                $q->where('company_id', $companyId);
+            })
+            ->with('product')->first();
         if ($variant) {
             $product = $variant->product;
             if (! $product || $product->deleted_at !== null) {
@@ -2430,7 +2592,7 @@ class SalesController extends BaseController
             ];
         }
 
-        $product = Product::whereNull('deleted_at')->where('code', $code)->first();
+        $product = Product::whereNull('deleted_at')->where('code', $code)->where('company_id', $companyId)->first();
         if (! $product) {
             return null;
         }
@@ -2462,6 +2624,10 @@ class SalesController extends BaseController
     public function request_products_csv(Request $request)
     {
         ini_set('max_execution_time', 2000);
+
+        // Company boundary: every product code below is resolved against
+        // this company only (see resolveCodeForImportSale).
+        $companyId = $this->resolveActingCompanyId($request);
 
         if (! $request->hasFile('products')) {
             return response()->json(['msg' => 'CSV file is required.', 'status' => false], 422);
@@ -2517,7 +2683,7 @@ class SalesController extends BaseController
             if ($code === '') {
                 continue;
             }
-            $resolved = $this->resolveCodeForImportSale($code);
+            $resolved = $this->resolveCodeForImportSale($code, $companyId);
             if ($resolved === null) {
                 $missingProductCodes[] = $code;
                 continue;
@@ -2627,6 +2793,12 @@ class SalesController extends BaseController
         $sale_data = Sale::with('details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: no ownership check at all previously.
+        $requester = $request->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale_data->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         $docCurrency = helpers::Get_Document_Currency($sale_data);
 
@@ -2774,6 +2946,12 @@ class SalesController extends BaseController
         $sale_data = Sale::with('details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: no ownership check at all previously.
+        $requester = $request->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale_data->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         $docCurrency = helpers::Get_Document_Currency($sale_data);
 
@@ -2927,16 +3105,25 @@ class SalesController extends BaseController
 
         $this->authorizeForUser($request->user('api'), 'create', Sale::class);
 
-        // get warehouses assigned to user
+        // Company boundary: these dropdowns feed the new-sale form and must
+        // not leak another company's warehouses/clients/staff. Accounts,
+        // payment_methods and sales_agents have no company_id column
+        // (pre-existing, out of scope -- same note as index()).
+        $companyId = $this->resolveActingCompanyId($request);
         $user_auth = auth()->user();
+        $scopeCompany = fn ($query) => $query->when($user_auth->type !== 'SuperAdmin' || $request->filled('company_id'), function ($q) use ($companyId) {
+            return $q->where('company_id', $companyId);
+        });
+
+        // get warehouses assigned to user
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null))->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id))->get(['id', 'name']);
         }
 
-        $clients = Client::where('deleted_at', '=', null)->get(['id', 'name']);
+        $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
         $accounts = Account::where('deleted_at', '=', null)->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
         $sales_agents = SalesAgent::where('deleted_at', '=', null)->get(['id', 'name']);
@@ -2953,7 +3140,7 @@ class SalesController extends BaseController
             'payment_methods' => $payment_methods,
             'point_to_amount_rate' => $settings->point_to_amount_rate,
             'enable_pos_salesperson_switch' => $salesperson_switch_enabled,
-            'salespeople' => $this->salespeopleList($salesperson_switch_enabled),
+            'salespeople' => $this->salespeopleList($salesperson_switch_enabled, $companyId),
         ]);
 
     }
@@ -2973,6 +3160,12 @@ class SalesController extends BaseController
             $Sale_data = Sale::with('details.product.unitSale')
                 ->where('deleted_at', '=', null)
                 ->findOrFail($id);
+
+            // Company boundary: a non-SuperAdmin can't open a sale from a
+            // different company.
+            if ($user->type !== 'SuperAdmin') {
+                abort_unless((int) $Sale_data->company_id === (int) $this->resolveActingCompanyId($request), 403);
+            }
 
             /**
              * Warehouses restriction
@@ -3192,15 +3385,21 @@ class SalesController extends BaseController
             }
 
             // get warehouses assigned to user
+            // Company boundary: these dropdowns must not leak another
+            // company's warehouses/clients/staff.
+            $companyId = $this->resolveActingCompanyId($request);
             $user_auth = auth()->user();
+            $scopeCompany = fn ($query) => $query->when($user_auth->type !== 'SuperAdmin' || $request->filled('company_id'), function ($q) use ($companyId) {
+                return $q->where('company_id', $companyId);
+            });
             if ($user_auth->is_all_warehouses) {
-                $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+                $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null))->get(['id', 'name']);
             } else {
                 $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-                $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+                $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id))->get(['id', 'name']);
             }
 
-            $clients = Client::where('deleted_at', '=', null)->get(['id', 'name']);
+            $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
             $sales_agents = SalesAgent::where('deleted_at', '=', null)->get(['id', 'name']);
             $settings = Setting::where('deleted_at', '=', null)->first();
 
@@ -3215,7 +3414,7 @@ class SalesController extends BaseController
                 'discount_from_points' => $Sale_data->discount_from_points,
                 'point_to_amount_rate' => $settings->point_to_amount_rate,
                 'enable_pos_salesperson_switch' => $salesperson_switch_enabled,
-                'salespeople' => $this->salespeopleList($salesperson_switch_enabled),
+                'salespeople' => $this->salespeopleList($salesperson_switch_enabled, $companyId),
             ]);
         }
 
@@ -3234,6 +3433,15 @@ class SalesController extends BaseController
         $Quotation = Quotation::with('details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: quotations has no company_id column of its own,
+        // so ownership is derived from its warehouse (which does carry
+        // company_id) -- a non-SuperAdmin can't convert a quotation whose
+        // warehouse belongs to a different company.
+        if ($user->type !== 'SuperAdmin') {
+            $quotationCompanyId = Warehouse::where('id', $Quotation->warehouse_id)->value('company_id');
+            abort_unless((int) $quotationCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         /**
          * Warehouses restriction
@@ -3396,15 +3604,21 @@ class SalesController extends BaseController
         }
 
         // get warehouses assigned to user
+        // Company boundary: these dropdowns must not leak another company's
+        // warehouses/clients.
+        $companyId = $this->resolveActingCompanyId($request);
         $user_auth = auth()->user();
+        $scopeCompany = fn ($query) => $query->when($user_auth->type !== 'SuperAdmin' || $request->filled('company_id'), function ($q) use ($companyId) {
+            return $q->where('company_id', $companyId);
+        });
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null))->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id))->get(['id', 'name']);
         }
 
-        $clients = Client::where('deleted_at', '=', null)->get(['id', 'name']);
+        $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
         $sales_agents = SalesAgent::where('deleted_at', '=', null)->get(['id', 'name']);
 
         return response()->json([
@@ -3430,6 +3644,12 @@ class SalesController extends BaseController
         $SaleReturn = Sale::with('details.product.unitSale')
             ->where('deleted_at', '=', null)
             ->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't pull products from a
+        // sale that belongs to a different company.
+        if ($user->type !== 'SuperAdmin') {
+            abort_unless((int) $SaleReturn->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         $details = [];
 
@@ -3577,6 +3797,13 @@ class SalesController extends BaseController
         // sale
         $sale = Sale::with('client')->where('deleted_at', '=', null)->findOrFail($request->id);
 
+        // Company boundary: a non-SuperAdmin can't email an invoice from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         $docCurrency = helpers::Get_Document_Currency($sale);
         $currency = $docCurrency['symbol'];
 
@@ -3639,6 +3866,13 @@ class SalesController extends BaseController
 
         // sale
         $sale = Sale::with('client')->where('deleted_at', '=', null)->findOrFail($request->id);
+
+        // Company boundary: a non-SuperAdmin can't SMS an invoice from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         $docCurrency = helpers::Get_Document_Currency($sale);
         $currency = $docCurrency['symbol'];
@@ -3783,6 +4017,13 @@ class SalesController extends BaseController
         // sale
         $sale = Sale::with('client')->where('deleted_at', '=', null)->findOrFail($request->id);
 
+        // Company boundary: a non-SuperAdmin can't pull another company's
+        // invoice/client phone number through this endpoint.
+        $requester = $request->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
         $docCurrency = helpers::Get_Document_Currency($sale);
         $currency = $docCurrency['symbol'];
 
@@ -3862,8 +4103,14 @@ class SalesController extends BaseController
                 ->first();
         }
 
-        $applySaleScope = function ($query) use ($view_records, $is_all_warehouses, $warehouse_ids, $openRegister, $today, $user_auth) {
-            $query->whereNull('deleted_at');
+        // Company boundary: this dashboard aggregates GrandTotal/payments
+        // across whatever $applySaleScope lets through -- without a
+        // company_id filter it summed every company's sales into one
+        // cashier's "today" totals.
+        $companyId = $this->resolveActingCompanyId($request);
+
+        $applySaleScope = function ($query) use ($view_records, $is_all_warehouses, $warehouse_ids, $openRegister, $today, $user_auth, $companyId) {
+            $query->whereNull('deleted_at')->where('company_id', $companyId);
 
             if (! $view_records) {
                 $query->where('user_id', $user_auth->id);
@@ -4155,9 +4402,16 @@ class SalesController extends BaseController
     public function getDocuments($saleId)
     {
         $this->authorizeForUser(request()->user('api'), 'view', Sale::class);
-        
+
         $sale = Sale::findOrFail($saleId);
-        
+
+        // Company boundary: a non-SuperAdmin can't list documents of a sale
+        // from a different company.
+        $requester = request()->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId(request()), 403);
+        }
+
         $documents = DB::table('sale_documents')
             ->where('sale_id', $saleId)
             ->where('deleted_at', null)
@@ -4174,8 +4428,15 @@ class SalesController extends BaseController
     public function uploadDocuments(Request $request, $saleId)
     {
         $this->authorizeForUser($request->user('api'), 'update', Sale::class);
-        
+
         $sale = Sale::findOrFail($saleId);
+
+        // Company boundary: a non-SuperAdmin can't attach documents to a
+        // sale from a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
 
         $request->validate([
             'documents.*' => 'required|file|max:10240', // Max 10MB per file
@@ -4241,6 +4502,14 @@ class SalesController extends BaseController
             ], 404);
         }
 
+        // Company boundary: a non-SuperAdmin can't download a document
+        // belonging to a sale from a different company.
+        $requester = request()->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            $saleCompanyId = Sale::where('id', $document->sale_id)->value('company_id');
+            abort_unless((int) $saleCompanyId === (int) $this->resolveActingCompanyId(request()), 403);
+        }
+
         $filePath = public_path($document->path);
 
         if (! file_exists($filePath)) {
@@ -4269,6 +4538,14 @@ class SalesController extends BaseController
                 'message' => 'Document not found',
                 'status' => false,
             ], 404);
+        }
+
+        // Company boundary: a non-SuperAdmin can't delete a document
+        // belonging to a sale from a different company.
+        $requester = request()->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            $saleCompanyId = Sale::where('id', $document->sale_id)->value('company_id');
+            abort_unless((int) $saleCompanyId === (int) $this->resolveActingCompanyId(request()), 403);
         }
 
         // Soft delete

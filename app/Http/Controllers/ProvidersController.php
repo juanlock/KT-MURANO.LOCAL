@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Account;
 use App\Models\PaymentMethod;
 use App\Models\PaymentPurchase;
@@ -21,6 +22,8 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ProvidersController extends BaseController
 {
+    use ScopesToCompany;
+
     // ----------- Get ALL Suppliers-------\\
 
     public function index(request $request)
@@ -40,7 +43,13 @@ class ProvidersController extends BaseController
         $param = [0 => 'like', 1 => 'like', 2 => 'like', 3 => 'like'];
         $data = [];
 
-        $providers = Provider::where('deleted_at', '=', null);
+        // Company boundary: SuperAdmin may narrow via ?company_id=; everyone
+        // else is always scoped to their own company. Suppliers previously had
+        // no company_id column at all -- this closes the same class of gap
+        // already fixed on ClientController/WarehouseController.
+        $companyId = $this->resolveActingCompanyId($request);
+
+        $providers = Provider::where('deleted_at', '=', null)->where('company_id', $companyId);
 
         // Multiple Filter
         $Filtred = $helpers->filter($providers, $columns, $param, $request)
@@ -137,6 +146,9 @@ class ProvidersController extends BaseController
             'tax_number' => $request['tax_number'],
             'opening_balance' => $request['opening_balance'] ?? 0,
             'credit_limit' => $request['credit_limit'] ?? 0,
+            // Company boundary: force from the acting company, never trust a
+            // client-submitted value.
+            'company_id' => $this->resolveActingCompanyId($request),
         ]);
 
         return response()->json([
@@ -155,6 +167,13 @@ class ProvidersController extends BaseController
 
         $provider = Provider::where('deleted_at', '=', null)->findOrFail($id);
 
+        // Company boundary: a non-SuperAdmin can't open a supplier from a
+        // different company.
+        $requester = request()->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $provider->company_id === (int) $requester->company_id, 403);
+        }
+
         return response()->json([
             'provider' => $provider,
         ]);
@@ -170,6 +189,14 @@ class ProvidersController extends BaseController
         request()->validate([
             'name' => 'required',
         ]);
+
+        // Company boundary: a non-SuperAdmin can't update a supplier from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Provider::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $requester->company_id, 403);
+        }
 
         Provider::whereId($id)->update([
             'name' => $request['name'],
@@ -199,6 +226,14 @@ class ProvidersController extends BaseController
         ]);
 
         $provider = Provider::findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't adjust a supplier's opening
+        // balance from a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $provider->company_id === (int) $requester->company_id, 403);
+        }
+
         $current = (float) ($provider->opening_balance ?? 0);
         $amount = (float) $request->input('amount');
 
@@ -236,6 +271,13 @@ class ProvidersController extends BaseController
         $this->authorizeForUser($request->user('api'), 'view', Provider::class);
 
         $provider = Provider::where('deleted_at', '=', null)->findOrFail($id);
+
+        // Company boundary: a non-SuperAdmin can't view supplier details from
+        // a different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $provider->company_id === (int) $requester->company_id, 403);
+        }
 
         $data['total_purchase'] = DB::table('purchases')
             ->where('deleted_at', '=', null)
@@ -293,7 +335,13 @@ class ProvidersController extends BaseController
         // decide which warehouses they may come from. Both apply.
         $scopeIds = $this->warehouseScopeIds();
 
+        // Company boundary: a non-SuperAdmin only ever sees purchases scoped to
+        // their own company, regardless of the (client-supplied) provider_id.
+        $requester = $request->user('api');
+        $companyId = $this->resolveActingCompanyId($request);
+
         $purchases = Purchase::where('deleted_at', '=', null)
+            ->when($requester->type !== 'SuperAdmin' || $request->filled('company_id'), fn ($q) => $q->where('company_id', $companyId))
             ->when($scopeIds !== null, fn ($q) => $q->whereIn('warehouse_id', $scopeIds))
             ->with('provider', 'warehouse')
             ->where('provider_id', $request->id)
@@ -364,7 +412,13 @@ class ProvidersController extends BaseController
         // decide which warehouses they may come from. Both apply.
         $scopeIds = $this->warehouseScopeIds();
 
+        // Company boundary: a non-SuperAdmin only ever sees payments for
+        // purchases scoped to their own company.
+        $requester = $request->user('api');
+        $companyId = $this->resolveActingCompanyId($request);
+
         $payments = DB::table('payment_purchases')
+            ->when($requester->type !== 'SuperAdmin' || $request->filled('company_id'), fn ($q) => $q->where('purchases.company_id', $companyId))
             ->when($scopeIds !== null, fn ($q) => $q->whereIn('purchases.warehouse_id', $scopeIds))
             ->where(function ($query) use ($ShowRecord) {
                 if (! $ShowRecord) {
@@ -418,7 +472,13 @@ class ProvidersController extends BaseController
         // decide which warehouses they may come from. Both apply.
         $scopeIds = $this->warehouseScopeIds();
 
+        // Company boundary: purchase_returns now has its own company_id column
+        // (2026_09_22_100000_add_company_id_to_purchase_returns_table), so scope
+        // directly on it instead of the old indirect provider-company check.
+        $companyId = $this->resolveActingCompanyId($request);
+
         $PurchaseReturn = PurchaseReturn::where('deleted_at', '=', null)
+            ->where('company_id', $companyId)
             ->when($scopeIds !== null, fn ($q) => $q->whereIn('warehouse_id', $scopeIds))
             ->with('purchase', 'provider', 'warehouse')
             ->where('provider_id', $request->id)
@@ -487,6 +547,14 @@ class ProvidersController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', Provider::class);
 
+        // Company boundary: a non-SuperAdmin can't delete a supplier from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Provider::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $requester->company_id, 403);
+        }
+
         Provider::whereId($id)->update([
             'deleted_at' => Carbon::now(),
         ]);
@@ -503,6 +571,15 @@ class ProvidersController extends BaseController
         $this->authorizeForUser($request->user('api'), 'delete', Provider::class);
 
         $selectedIds = $request->selectedIds;
+
+        // Company boundary: a non-SuperAdmin can only bulk-delete suppliers
+        // belonging to their own company -- ids outside it are silently
+        // dropped from the batch rather than trusted from the request.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $selectedIds = Provider::whereIn('id', $selectedIds)->where('company_id', $requester->company_id)->pluck('id')->all();
+        }
+
         foreach ($selectedIds as $Provider_id) {
             Provider::whereId($Provider_id)->update([
                 'deleted_at' => Carbon::now(),
@@ -657,6 +734,11 @@ class ProvidersController extends BaseController
             ];
         }
 
+        // Company boundary: imported suppliers belong to the acting company;
+        // the duplicate-code check below is scoped the same way, since a code
+        // reused in another company is not actually a conflict here.
+        $companyId = $this->resolveActingCompanyId($request);
+
         // DB duplicate codes
         $codes = array_values(array_filter(array_map(function ($r) {
             return $r['code'];
@@ -664,7 +746,7 @@ class ProvidersController extends BaseController
             return $v !== null;
         }));
         if (! empty($codes)) {
-            $dupes = Provider::whereNull('deleted_at')->whereIn('code', $codes)->pluck('code')->all();
+            $dupes = Provider::whereNull('deleted_at')->where('company_id', $companyId)->whereIn('code', $codes)->pluck('code')->all();
             foreach ($dupes as $dup) {
                 $errors[] = "code '{$dup}' already exists in the system.";
             }
@@ -692,6 +774,7 @@ class ProvidersController extends BaseController
                 'tax_number' => $r['tax_number'],
                 'opening_balance' => $r['opening_balance'],
                 'credit_limit' => $r['credit_limit'],
+                'company_id' => $companyId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
@@ -769,6 +852,14 @@ class ProvidersController extends BaseController
 
         if ($request['amount'] > 0) {
             $provider = Provider::findOrFail($request->provider_id);
+
+            // Company boundary: a non-SuperAdmin can't pay down another
+            // company's supplier.
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $provider->company_id === (int) $requester->company_id, 403);
+            }
+
             $paid_amount_total = $request->amount;
 
             // Pay opening balance first (only when this supplier has one).
@@ -808,6 +899,7 @@ class ProvidersController extends BaseController
             }
 
             $provider_purchases_due = Purchase::where('deleted_at', '=', null)
+                ->where('company_id', $provider->company_id)
                 ->where('statut', 'received')
                 ->where([
                     ['payment_statut', '!=', 'paid'],
@@ -869,7 +961,21 @@ class ProvidersController extends BaseController
         $this->authorizeForUser($request->user('api'), 'pay_purchase_return_due', Provider::class);
 
         if ($request['amount'] > 0) {
+            $provider = Provider::findOrFail($request->provider_id);
+
+            // Company boundary: a non-SuperAdmin can't pay down another
+            // company's supplier's purchase returns. purchase_returns now has
+            // its own company_id column (2026_09_22_100000_add_company_id_to_
+            // purchase_returns_table), so scope the fetched rows directly on
+            // it rather than only gating via the provider.
+            $companyId = $this->resolveActingCompanyId($request);
+            $requester = $request->user('api');
+            if ($requester->type !== 'SuperAdmin') {
+                abort_unless((int) $provider->company_id === (int) $requester->company_id, 403);
+            }
+
             $supplier_purchase_return_due = PurchaseReturn::where('deleted_at', '=', null)
+                ->where('company_id', $companyId)
                 ->where([
                     ['payment_statut', '!=', 'paid'],
                     ['provider_id', $request->provider_id],

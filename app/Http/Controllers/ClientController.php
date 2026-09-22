@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Account;
 use App\Models\Client;
 use App\Models\EcommerceClient;
@@ -28,6 +29,8 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ClientController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------- Get ALL Customers -------------\\
 
     public function index(request $request)
@@ -48,7 +51,26 @@ class ClientController extends BaseController
         $columns = [0 => 'name', 1 => 'code', 2 => 'phone', 3 => 'email'];
         $param = [0 => 'like', 1 => 'like', 2 => 'like', 3 => 'like'];
         $data = [];
-        $clients = Client::where('deleted_at', '=', null);
+
+        $admin = Auth::user();
+
+        // Company boundary: a customer-type login only ever sees its own
+        // profile; a SuperAdmin sees every company (optionally narrowed via
+        // ?company_id= from a picker); everyone else -- REGARDLESS of
+        // record_view -- only ever sees their own company. Billing's version
+        // of this (which this was ported from) instead let any record_view
+        // admin see every company's clients, the same class of gap already
+        // found and fixed in UserController::index().
+        $clients = Client::where('deleted_at', '=', null)
+            ->where(function ($query) use ($admin, $request) {
+                if ($admin->type === 'customer') {
+                    return $query->where('id', '=', optional($admin->client)->id ?? 0);
+                } elseif ($admin->type !== 'SuperAdmin' || $request->filled('company_id')) {
+                    return $query->where('company_id', '=', $this->resolveActingCompanyId($request));
+                }
+
+                return $query;
+            });
 
         // Multiple Filter
         $Filtred = $helpers->filter($clients, $columns, $param, $request)
@@ -202,6 +224,7 @@ class ClientController extends BaseController
             'city' => $request['city'],
             'state' => $request['state'],
             'zip' => $request['zip'],
+            'company_id' => $this->resolveActingCompanyId($request),
             'tax_number' => $request['tax_number'],
             'is_royalty_eligible' => $is_royalty_eligible,
             'opening_balance' => $request['opening_balance'] ?? 0,
@@ -216,7 +239,16 @@ class ClientController extends BaseController
     public function show($id)
     {
         $client = Client::where('deleted_at', '=', null)->findOrFail($id);
-        
+
+        // Company boundary: a non-SuperAdmin can't open a client from a
+        // different company; a customer-type login may only open its own.
+        $requester = Auth::user();
+        if ($requester->type === 'customer') {
+            abort_unless(optional($requester->client)->id === $client->id, 403);
+        } elseif ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $client->company_id === (int) $requester->company_id, 403);
+        }
+
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
         
@@ -232,6 +264,14 @@ class ClientController extends BaseController
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Client::class);
+
+        // Company boundary: a non-SuperAdmin can't update a client from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Client::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $requester->company_id, 403);
+        }
 
         // Get existing ecommerce_client id if it exists (for ignoring in validation)
         $existingEcommerceClient = EcommerceClient::where('client_id', $id)
@@ -331,6 +371,14 @@ class ClientController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', Client::class);
 
+        // Company boundary: a non-SuperAdmin can't delete a client from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Client::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $requester->company_id, 403);
+        }
+
         DB::transaction(function () use ($id) {
             $now = Carbon::now();
 
@@ -361,6 +409,15 @@ class ClientController extends BaseController
         ]);
 
         $ids = $data['selectedIds'];
+
+        // Company boundary: a non-SuperAdmin can only bulk-delete clients
+        // belonging to their own company -- ids outside it are silently
+        // dropped from the batch rather than trusted from the request.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $ids = Client::whereIn('id', $ids)->where('company_id', $requester->company_id)->pluck('id')->all();
+        }
+
         $now = Carbon::now();
 
         DB::transaction(function () use ($ids, $now) {
@@ -377,6 +434,26 @@ class ClientController extends BaseController
         });
 
         return response()->json(['success' => true]);
+    }
+
+    // Company boundary guard shared by every endpoint below that takes a
+    // client id/client_id directly from the request (reports, ledger,
+    // points, payments, etc.) rather than through show()/update(). A
+    // SuperAdmin may access any client; a customer-type login only its own;
+    // anyone else only a client belonging to their own company.
+    private function assertClientAccess(Request $request, int $clientId): void
+    {
+        $requester = $request->user('api');
+        if ($requester->type === 'SuperAdmin') {
+            return;
+        }
+        if ($requester->type === 'customer') {
+            abort_unless(optional($requester->client)->id === $clientId, 403);
+
+            return;
+        }
+        $companyId = Client::where('id', $clientId)->value('company_id');
+        abort_unless((int) $companyId === (int) $requester->company_id, 403);
     }
 
     // ------------- get Number Order Customer -------------\\
@@ -696,6 +773,7 @@ class ClientController extends BaseController
     public function clients_pay_due(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'pay_due', Client::class);
+        $this->assertClientAccess($request, (int) $request->client_id);
 
         if ($request['amount'] > 0) {
             $client = Client::findOrFail($request->client_id);
@@ -853,6 +931,7 @@ class ClientController extends BaseController
     public function pay_sale_return_due(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'pay_sale_return_due', Client::class);
+        $this->assertClientAccess($request, (int) $request->client_id);
 
         if ($request['amount'] > 0) {
             $client_sell_return_due = SaleReturn::where('deleted_at', '=', null)
@@ -913,6 +992,8 @@ class ClientController extends BaseController
 
     public function getPoints(Request $request, $id)
     {
+        $this->assertClientAccess($request, (int) $id);
+
         $client = Client::find($id);
 
         if (! $client) {
@@ -933,6 +1014,7 @@ class ClientController extends BaseController
     public function updatePoints(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $id);
 
         $request->validate([
             'points' => 'required',
@@ -948,6 +1030,7 @@ class ClientController extends BaseController
     public function adjustOpeningBalance(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Client::class);
+        $this->assertClientAccess($request, (int) $id);
 
         $request->validate([
             'mode' => ['required', Rule::in(['add', 'subtract', 'set'])],
@@ -991,6 +1074,7 @@ class ClientController extends BaseController
         ]);
 
         $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $request->id);
 
         // Pagination
         $perPage = (int) ($request->input('limit', 10));
@@ -1071,6 +1155,7 @@ class ClientController extends BaseController
         ]);
 
         $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $request->id);
 
         $perPage = (int) ($request->input('limit', 10));
         $page = max(1, (int) $request->input('page', 1));
@@ -1135,6 +1220,7 @@ class ClientController extends BaseController
         ]);
 
         $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $request->id);
 
         $perPage = (int) ($request->input('limit', 10));
         $page = max(1, (int) $request->input('page', 1));
@@ -1257,6 +1343,7 @@ class ClientController extends BaseController
     public function clientBrief(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $id);
 
         $client = Client::query()
             ->select('id', 'name', 'email', 'phone', 'code', 'adresse', 'country', 'city', 'state', 'zip', 'tax_number', 'opening_balance', 'credit_limit', 'points')
@@ -1329,6 +1416,7 @@ class ClientController extends BaseController
         ]);
 
         $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $request->id);
 
         $client = Client::select('id', 'name', 'email', 'phone', 'code', 'adresse', 'country', 'city', 'state', 'zip', 'tax_number', 'opening_balance', 'credit_limit')
             ->whereNull('deleted_at')
@@ -1493,6 +1581,7 @@ class ClientController extends BaseController
         ]);
 
         $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $request->id);
 
         $perPage = (int) ($request->input('limit', 10));
         $page = max(1, (int) $request->input('page', 1));
@@ -1554,6 +1643,7 @@ class ClientController extends BaseController
         ]);
 
         $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $request->id);
 
         $perPage = (int) ($request->input('limit', 10));
         $page = max(1, (int) $request->input('page', 1));
@@ -1626,6 +1716,7 @@ class ClientController extends BaseController
         ]);
 
         $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $request->id);
 
         $perPage = (int) ($request->input('limit', 10));
         $page = max(1, (int) $request->input('page', 1));

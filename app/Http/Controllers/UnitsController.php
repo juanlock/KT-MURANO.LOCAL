@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Product;
 use App\Models\Unit;
 use Carbon\Carbon;
@@ -9,6 +10,8 @@ use Illuminate\Http\Request;
 
 class UnitsController extends BaseController
 {
+    use ScopesToCompany;
+
     // -------------- show All Units -----------\\
 
     public function index(Request $request)
@@ -24,6 +27,7 @@ class UnitsController extends BaseController
         $data = [];
 
         $Units = Unit::where('deleted_at', '=', null)
+            ->where('company_id', $this->resolveActingCompanyId($request))
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
@@ -93,6 +97,7 @@ class UnitsController extends BaseController
         }
 
         $unit = Unit::create([
+            'company_id' => $this->resolveActingCompanyId($request),
             'name' => $request['name'],
             'ShortName' => $request['ShortName'],
             'base_unit' => $request['base_unit'],
@@ -110,6 +115,10 @@ class UnitsController extends BaseController
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Unit::class);
+        abort_unless(
+            optional(Unit::find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         request()->validate([
             'name' => 'required',
@@ -143,6 +152,10 @@ class UnitsController extends BaseController
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Unit::class);
+        abort_unless(
+            optional(Unit::find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         $Sub_Unit_exist = Unit::where('base_unit', $id)->where('deleted_at', null)->exists();
         if (! $Sub_Unit_exist) {
@@ -174,17 +187,21 @@ class UnitsController extends BaseController
         ]);
 
         $selectedIds = $request->selectedIds;
+        $companyId = $this->resolveActingCompanyId($request);
 
         // Deleting a base unit together with all of its sub-units is fine, so
         // only sub-units left OUTSIDE the selection block the delete.
+        // Scoped to the acting company -- otherwise another company's
+        // sub-unit sharing a base_unit id could block/leak into this delete.
         $blocking = Unit::whereIn('base_unit', $selectedIds)
             ->whereNotIn('id', $selectedIds)
             ->where('deleted_at', null)
+            ->where('company_id', $companyId)
             ->pluck('base_unit')
             ->unique();
 
         if ($blocking->isNotEmpty()) {
-            $names = Unit::whereIn('id', $blocking)->pluck('name')->implode(', ');
+            $names = Unit::whereIn('id', $blocking)->where('company_id', $companyId)->pluck('name')->implode(', ');
 
             // Nothing is deleted, so the table stays in step with the message.
             return response()->json([
@@ -195,6 +212,7 @@ class UnitsController extends BaseController
 
         Unit::whereIn('id', $selectedIds)
             ->where('deleted_at', null)
+            ->where('company_id', $companyId)
             ->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);

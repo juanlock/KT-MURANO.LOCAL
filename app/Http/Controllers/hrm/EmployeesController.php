@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\hrm;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Department;
@@ -16,6 +17,8 @@ use Illuminate\Http\Request;
 
 class EmployeesController extends Controller
 {
+    use ScopesToCompany;
+
     // ------------ GET ALL employees -----------\\
 
     public function index(Request $request)
@@ -43,9 +46,17 @@ class EmployeesController extends Controller
         ];
         $data = [];
 
+        $user = $request->user('api');
+
         $employees = Employee::with('company:id,name', 'office_shift:id,name', 'department:id,department', 'designation:id,designation')
             ->where('deleted_at', '=', null)
-            ->where('leaving_date', null);
+            ->where('leaving_date', null)
+            // Company boundary: a SuperAdmin sees every company (optionally
+            // narrowed via ?company_id=); everyone else only their own,
+            // regardless of what the request sends.
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($request) {
+                return $query->where('company_id', $this->resolveActingCompanyId($request));
+            });
 
         // Multiple Filter
         $Filtred = $helpers->filter($employees, $columns, $param, $request)
@@ -110,6 +121,13 @@ class EmployeesController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Employee::class);
 
+        // Company boundary: non-SuperAdmin admins can only create employees
+        // within their own company, regardless of what the request sends.
+        $actingUser = $request->user('api');
+        if ($actingUser->type !== 'SuperAdmin') {
+            $request->merge(['company_id' => $actingUser->company_id]);
+        }
+
         $this->validate($request, [
             'firstname' => 'required|string',
             'lastname' => 'required|string',
@@ -148,6 +166,13 @@ class EmployeesController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Employee::class);
 
         $employee = Employee::where('deleted_at', '=', null)->findOrFail($id);
+
+        // Non-superadmin admins can't open an employee from a different company.
+        $actingUser = $request->user('api');
+        if ($actingUser->type !== 'SuperAdmin') {
+            abort_unless((int) $employee->company_id === (int) $actingUser->company_id, 403);
+        }
+
         $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
         $office_shifts = OfficeShift::where('company_id', $employee->company_id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
         $departments = Department::where('company_id', $employee->company_id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'department']);
@@ -168,6 +193,13 @@ class EmployeesController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Employee::class);
 
         $employee = Employee::where('deleted_at', '=', null)->findOrFail($id);
+
+        // Non-superadmin admins can't open an employee from a different company.
+        $actingUser = $request->user('api');
+        if ($actingUser->type !== 'SuperAdmin') {
+            abort_unless((int) $employee->company_id === (int) $actingUser->company_id, 403);
+        }
+
         $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
         $office_shifts = OfficeShift::where('company_id', $employee->company_id)->where('deleted_at', '=', null)->get(['id', 'name']);
         $departments = Department::where('company_id', $employee->company_id)->where('deleted_at', '=', null)->get(['id', 'department']);
@@ -188,6 +220,16 @@ class EmployeesController extends Controller
     {
 
         $this->authorizeForUser($request->user('api'), 'update', Employee::class);
+
+        // Company boundary: non-superadmin admins can neither edit an
+        // employee from a different company nor move this one to a
+        // different company, no matter what the request says.
+        $actingUser = $request->user('api');
+        if ($actingUser->type !== 'SuperAdmin') {
+            $targetCompanyId = Employee::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $actingUser->company_id, 403);
+            $request->merge(['company_id' => $actingUser->company_id]);
+        }
 
         $this->validate($request, [
             'firstname' => 'required|string',
@@ -257,6 +299,12 @@ class EmployeesController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', Employee::class);
 
+        $actingUser = $request->user('api');
+        if ($actingUser->type !== 'SuperAdmin') {
+            $targetCompanyId = Employee::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $actingUser->company_id, 403);
+        }
+
         Employee::whereId($id)->update([
             'deleted_at' => Carbon::now(),
         ]);
@@ -272,6 +320,14 @@ class EmployeesController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', Employee::class);
 
         $selectedIds = $request->selectedIds;
+
+        // Company boundary: a non-SuperAdmin can only bulk-delete employees
+        // belonging to their own company.
+        $actingUser = $request->user('api');
+        if ($actingUser->type !== 'SuperAdmin') {
+            $selectedIds = Employee::whereIn('id', $selectedIds)->where('company_id', $actingUser->company_id)->pluck('id')->all();
+        }
+
         foreach ($selectedIds as $employee_id) {
             Employee::whereId($employee_id)->update([
                 'deleted_at' => Carbon::now(),
@@ -284,6 +340,14 @@ class EmployeesController extends Controller
 
     public function Get_employees_by_department(Request $request)
     {
+        // Company boundary: a non-SuperAdmin can only query a department
+        // belonging to their own company, regardless of the id passed in.
+        $actingUser = $request->user('api');
+        if ($actingUser->type !== 'SuperAdmin') {
+            $departmentCompanyId = Department::where('id', $request->id)->value('company_id');
+            abort_unless((int) $departmentCompanyId === (int) $actingUser->company_id, 403);
+        }
+
         $employees = Employee::where('department_id', $request->id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'username']);
 
         return response()->json($employees);
@@ -291,7 +355,12 @@ class EmployeesController extends Controller
 
     public function Get_office_shift_by_company(Request $request)
     {
-        $office_shifts = OfficeShift::where('company_id', $request->id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        // Company boundary: a non-SuperAdmin can only ever request their own
+        // company's shifts, regardless of the id passed in.
+        $actingUser = $request->user('api');
+        $companyId = $actingUser->type === 'SuperAdmin' ? $request->id : $actingUser->company_id;
+
+        $office_shifts = OfficeShift::where('company_id', $companyId)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
 
         return response()->json($office_shifts);
     }
@@ -380,7 +449,12 @@ class EmployeesController extends Controller
 
     public function Get_employees_by_company(Request $request)
     {
-        $employees = Employee::where('company_id', $request->id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'username']);
+        // Company boundary: a non-SuperAdmin can only ever request their own
+        // company's employees, regardless of the id passed in.
+        $actingUser = $request->user('api');
+        $companyId = $actingUser->type === 'SuperAdmin' ? $request->id : $actingUser->company_id;
+
+        $employees = Employee::where('company_id', $companyId)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'username']);
 
         return response()->json($employees);
     }

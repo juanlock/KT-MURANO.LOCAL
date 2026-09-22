@@ -32,12 +32,13 @@ if (! function_exists('db_translations')) {
 
         $map = Cache::remember('db_translations.'.$locale, 600, function () use ($locale) {
             try {
-                if (! Schema::hasTable('translations')) {
+                // One column per locale (2026_09_21_190000_pivot_translations_to_wide_table).
+                if (! Schema::hasTable('translations') || ! Schema::hasColumn('translations', $locale)) {
                     return [];
                 }
 
-                return DB::table('translations')->where('locale', $locale)
-                    ->pluck('value', 'key')->all();
+                return DB::table('translations')->whereNotNull($locale)
+                    ->pluck($locale, 'key')->all();
             } catch (\Throwable $e) {
                 // No DB yet (installer / update flow) — fall back to literals.
                 return [];
