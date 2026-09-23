@@ -38,14 +38,21 @@
           </a-col>
           <a-col :xs="24" :md="8">
             <a-form-item :label="$t('warehouse')" required>
-              <a-select
-                v-model:value="sale.warehouse_id"
-                show-search option-filter-prop="label"
-                :placeholder="$t('Choose_Warehouse')"
-                :options="warehouseOptions"
-                :disabled="isEdit"
-                @change="onWarehouseChange"
-              />
+              <div style="display: flex; gap: 8px">
+                <a-select
+                  v-model:value="sale.warehouse_id"
+                  show-search option-filter-prop="label"
+                  :placeholder="$t('Choose_Warehouse')"
+                  :options="warehouseOptions"
+                  :disabled="isEdit"
+                  style="flex: 1"
+                  @change="onWarehouseChange"
+                />
+                <a-button type="primary" :disabled="!sale.warehouse_id" @click="quickAddProductOpen = true">
+                  <template #icon><PlusOutlined /></template>
+                  {{ $t('Add_Product') }}
+                </a-button>
+              </div>
             </a-form-item>
           </a-col>
           <!-- Multi-Currency: entered/displayed amounts are in this currency;
@@ -64,19 +71,43 @@
 
       <!-- Product search + lines -->
       <a-card size="small" style="margin-bottom: 16px">
-        <div style="display: flex; gap: 8px; margin-bottom: 16px">
+        <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap">
           <a-select
             v-model:value="searchValue"
             show-search
             :filter-option="filterProduct"
             :placeholder="$t('Scan_Search_Product_by_Code_Name')"
-            style="flex: 1"
+            style="flex: 2; min-width: 220px"
             :options="productOptions"
             :disabled="!sale.warehouse_id"
             @select="onProductPicked"
           />
-          <ProductScanModal :disabled="!sale.warehouse_id" @scan="onScan" />
+          <!-- Browse by Group: pick an existing Group Name, then a Name within
+               it, to insert that product without typing in the search box. -->
+          <a-select
+            v-model:value="browseGroupId"
+            show-search allow-clear
+            option-filter-prop="label"
+            :placeholder="$t('GroupName')"
+            style="min-width: 180px; flex: 1"
+            :options="browseGroupOptions"
+            :disabled="!sale.warehouse_id"
+            @change="browseProductIdx = undefined"
+          />
+          <a-select
+            v-model:value="browseProductIdx"
+            show-search allow-clear
+            option-filter-prop="label"
+            :placeholder="$t('Name_product')"
+            style="min-width: 180px; flex: 1"
+            :options="browseProductOptions"
+            :disabled="!browseGroupId"
+            @select="onBrowseProductPicked"
+          />
+          <ProductScanModal type="primary" :disabled="!sale.warehouse_id" @scan="onScan" />
         </div>
+
+        <QuickAddProduct v-model:open="quickAddProductOpen" context="sale" @created="onProductCreated" />
 
         <a-table
           :columns="lineColumns"
@@ -88,7 +119,7 @@
         >
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'product'">
-              <div style="font-weight: 500">{{ productDisplayName(record.name, record.sub_name) }}</div>
+              <div style="font-weight: 500">{{ productDisplayName(record.name) }}</div>
               <div class="muted">{{ record.code }}</div>
               <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">Batch</a-tag>
               <a-select
@@ -365,7 +396,7 @@
     <!-- Line edit modal -->
     <a-modal
       v-model:open="lineEditOpen"
-      :title="editingLine ? productDisplayName(editingLine.name, editingLine.sub_name) : ''"
+      :title="editingLine ? productDisplayName(editingLine.name) : ''"
       :ok-text="$t('submit')"
       :ok-button-props="{ disabled: lineEditLoading }"
       @ok="applyLineEdit"
@@ -472,6 +503,7 @@ import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons-vu
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import QuickAddParty from '../../components/QuickAddParty.vue';
+import QuickAddProduct from '../../components/QuickAddProduct.vue';
 import SerialPicker from '../../components/SerialPicker.vue';
 import BatchAllocator from '../../components/BatchAllocator.vue';
 import ProductScanModal from '../../components/ProductScanModal.vue';
@@ -752,15 +784,16 @@ const paymentMethodOptions = computed(() => paymentMethods.value.map(m => ({ val
 const productOptions = computed(() =>
   products.value.map((p, i) => ({
     value: i,
-    label: `${p.code} — ${productDisplayName(p.name, p.sub_name)}${p.qte !== undefined ? ` (${p.qte})` : ''}`,
+    label: `${p.code} — ${productDisplayName(p.name)}${p.qte !== undefined ? ` (${p.qte})` : ''}`,
   }))
 );
 
-// A variant's label carries the VARIANT code, so also match the parent
-// product's code — otherwise typing the main code finds none of its variants.
+// Matches Group Name / Name only -- Code is de-prioritized here (there's a
+// dedicated Code column/search elsewhere); the scan button and barcode
+// input still match on code directly, this box is name/group driven.
 function filterProduct(input, option) {
   const p = products.value[option.value];
-  return `${option.label} ${p?.product_code ?? ''}`
+  return `${p?.group_name || ''} ${p?.name || ''}`
     .toLowerCase()
     .includes(String(input).toLowerCase());
 }
@@ -825,6 +858,47 @@ function onWarehouseChange() {
   loadProducts();
 }
 
+const quickAddProductOpen = ref(false);
+// ProductsController@store doesn't hand back the created row, so re-fetch
+// this warehouse's product list and find the new product by the code the
+// modal generated, then add it exactly like a normal search pick.
+async function onProductCreated({ code }) {
+  await loadProducts();
+  const idx = products.value.findIndex(p => p.product_code === code || p.code === code);
+  if (idx === -1) {
+    message.warning(t('Product_Not_Found'));
+    return;
+  }
+  await onProductPicked(idx);
+}
+
+// Browse by Group: an alternative to the free-text search for catalogs that
+// lean on Group Name to organize many products (only grouped products show
+// up here -- ungrouped ones stay reachable via the regular search).
+const browseGroupId = ref(undefined);
+const browseProductIdx = ref(undefined);
+const browseGroupOptions = computed(() => {
+  const seen = new Map();
+  products.value.forEach(p => {
+    if (p.product_group_id && !seen.has(p.product_group_id)) {
+      seen.set(p.product_group_id, p.group_name);
+    }
+  });
+  return Array.from(seen.entries()).map(([value, label]) => ({ value, label }));
+});
+const browseProductOptions = computed(() => {
+  if (!browseGroupId.value) return [];
+  return products.value
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.product_group_id === browseGroupId.value)
+    .map(({ p, i }) => ({ value: i, label: p.name }));
+});
+async function onBrowseProductPicked(idx) {
+  await onProductPicked(idx);
+  // Keep the Group selected so the next item from the same group is one pick away.
+  browseProductIdx.value = undefined;
+}
+
 // Camera / handheld scan: match the code exactly as legacy search() did
 // (weighing-scale 13-digit codes included) and add the product, applying the
 // embedded weight as the quantity when the scale barcode carries one.
@@ -865,7 +939,6 @@ async function onProductPicked(idx) {
       product_type: d.product_type,
       code: d.code || p.code,
       name: d.name,
-      sub_name: d.sub_name,
       stock: d.product_type !== 'is_service' ? d.qte_sale : '---',
       // Overselling: never seed the line with the (zero/negative) stock —
       // always start at 1 so the product can actually be sold.

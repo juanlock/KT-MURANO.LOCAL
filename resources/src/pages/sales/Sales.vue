@@ -401,6 +401,7 @@ import {
   SALE_STATUSES, PAYMENT_STATUSES, SHIPPING_STATUSES, statusKey, shipStatusColor,
 } from './saleVocab';
 import http from '../../lib/http';
+import { withAllOption } from '../../lib/filterOptions';
 import { receiptFontHeadTags, whenPrintFontsReady } from '../../lib/receiptFont';
 import { buildPosReceiptHtml } from '../../lib/posReceiptHtml';
 
@@ -449,20 +450,22 @@ const statTiles = computed(() => {
 });
 
 const customerOptions = computed(() =>
-  (crud.payload.value?.customers || []).map(c => ({ value: c.id, label: c.name }))
+  withAllOption((crud.payload.value?.customers || []).map(c => ({ value: c.id, label: c.name })))
 );
 const warehouseOptions = computed(() =>
-  (crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))
+  withAllOption((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name })))
 );
+// paymentMethodOptions/accountOptions are used in the Pay Due modal, not a
+// table filter -- no "All" option (there's no "no payment method" concept).
 const paymentMethodOptions = computed(() =>
   (crud.payload.value?.payment_methods || []).map(m => ({ value: m.id, label: m.name }))
 );
 const accountOptions = computed(() =>
   (crud.payload.value?.accounts || []).map(a => ({ value: a.id, label: a.account_name }))
 );
-const statusOptions = computed(() => SALE_STATUSES.map(s => ({ value: s.value, label: t(s.key) })));
-const paymentStatusOptions = computed(() => PAYMENT_STATUSES.map(s => ({ value: s.value, label: t(s.key) })));
-const shippingStatusOptions = computed(() => SHIPPING_STATUSES.map(s => ({ value: s.value, label: t(s.key) })));
+const statusOptions = computed(() => withAllOption(SALE_STATUSES.map(s => ({ value: s.value, label: t(s.key) }))));
+const paymentStatusOptions = computed(() => withAllOption(PAYMENT_STATUSES.map(s => ({ value: s.value, label: t(s.key) }))));
+const shippingStatusOptions = computed(() => withAllOption(SHIPPING_STATUSES.map(s => ({ value: s.value, label: t(s.key) }))));
 
 const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 70, align: 'center', fixed: 'left' },

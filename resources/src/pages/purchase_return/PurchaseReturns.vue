@@ -171,6 +171,7 @@ import { payStatusColor } from '../../lib/statusColors';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import { PAYMENT_STATUSES, statusKey } from '../sales/saleVocab';
 import http from '../../lib/http';
+import { withAllOption } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const { money, dateTime, roundMoney } = useFormat();
@@ -199,21 +200,23 @@ const crud = useCrudTable('returns/purchase', {
 crud.fetchRows();
 
 const supplierOptions = computed(() =>
-  (crud.payload.value?.suppliers || []).map(s => ({ value: s.id, label: s.name }))
+  withAllOption((crud.payload.value?.suppliers || []).map(s => ({ value: s.id, label: s.name })))
 );
 const purchaseOptions = computed(() =>
-  (crud.payload.value?.purchases || []).map(p => ({ value: p.id, label: p.Ref }))
+  withAllOption((crud.payload.value?.purchases || []).map(p => ({ value: p.id, label: p.Ref })))
 );
 const warehouseOptions = computed(() =>
-  (crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))
+  withAllOption((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name })))
 );
+// paymentMethodOptions/accountOptions are used in a payment modal, not a
+// table filter -- no "All" option.
 const paymentMethodOptions = computed(() =>
   (crud.payload.value?.payment_methods || []).map(m => ({ value: m.id, label: m.name }))
 );
 const accountOptions = computed(() =>
   (crud.payload.value?.accounts || []).map(a => ({ value: a.id, label: a.account_name }))
 );
-const paymentStatusOptions = computed(() => PAYMENT_STATUSES.map(s => ({ value: s.value, label: t(s.key) })));
+const paymentStatusOptions = computed(() => withAllOption(PAYMENT_STATUSES.map(s => ({ value: s.value, label: t(s.key) }))));
 
 const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 70, align: 'center', fixed: 'left' },

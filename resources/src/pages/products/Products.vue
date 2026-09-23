@@ -26,12 +26,20 @@
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[16, 8]">
         <a-col :xs="12" :md="8" :xl="5">
-          <div class="filter-label">{{ $t('CodeProduct') }}</div>
-          <a-input v-model:value="filters.code" :placeholder="$t('SearchByCode')" allow-clear @change="crud.reload()" />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="5">
           <div class="filter-label">{{ $t('ProductName') }}</div>
           <a-input v-model:value="filters.name" :placeholder="$t('SearchByName')" allow-clear @change="crud.reload()" />
+        </a-col>
+        <a-col :xs="12" :md="8" :xl="5">
+          <div class="filter-label">{{ $t('GroupName') }}</div>
+          <a-select
+            v-model:value="filters.product_group_id" style="width: 100%" allow-clear show-search
+            option-filter-prop="label" :placeholder="$t('GroupName')" :options="productGroupFilterOptions"
+            @change="crud.reload()"
+          />
+        </a-col>
+        <a-col :xs="12" :md="8" :xl="4">
+          <div class="filter-label">{{ $t('CodeProduct') }}</div>
+          <a-input v-model:value="filters.code" :placeholder="$t('SearchByCode')" allow-clear @change="crud.reload()" />
         </a-col>
         <a-col :xs="12" :md="8" :xl="5">
           <div class="filter-label">{{ $t('Categorie') }}</div>
@@ -275,6 +283,7 @@ import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import http from '../../lib/http';
+import { withAllOption } from '../../lib/filterOptions';
 import { t as tf } from '../../i18n';
 
 const { t } = useI18n();
@@ -282,7 +291,7 @@ const { money } = useFormat();
 const auth = useAuthStore();
 
 const filters = ref({
-  code: '', name: '', category_id: undefined, brand_id: undefined, warehouse_id: undefined,
+  code: '', name: '', category_id: undefined, brand_id: undefined, warehouse_id: undefined, product_group_id: undefined,
 });
 
 const filterParams = () => ({
@@ -291,6 +300,7 @@ const filterParams = () => ({
   category_id: filters.value.category_id || '',
   brand_id: filters.value.brand_id || '',
   warehouse_id: filters.value.warehouse_id || '',
+  product_group_id: filters.value.product_group_id || '',
 });
 
 const crud = useCrudTable('products', {
@@ -300,28 +310,35 @@ const crud = useCrudTable('products', {
 crud.fetchRows();
 
 const categoryOptions = computed(() =>
-  (crud.payload.value?.categories || []).map(c => ({ value: c.id, label: c.name }))
+  withAllOption((crud.payload.value?.categories || []).map(c => ({ value: c.id, label: c.name })))
 );
 const brandOptions = computed(() =>
-  (crud.payload.value?.brands || []).map(b => ({ value: b.id, label: b.name }))
+  withAllOption((crud.payload.value?.brands || []).map(b => ({ value: b.id, label: b.name })))
 );
 const warehouseOptions = computed(() =>
-  (crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))
+  withAllOption((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name })))
+);
+
+const productGroups = ref([]);
+http.get('product-groups').then(data => { productGroups.value = data.product_groups || []; }).catch(() => {});
+const productGroupFilterOptions = computed(() =>
+  withAllOption(productGroups.value.map(g => ({ value: g.id, label: g.name })))
 );
 
 const columns = computed(() => [
   { title: t('image'), key: 'image', width: 70, exportable: false },
   // Type rides along inside the name cell as a tag; unit is already appended to
   // the quantity string by the API, so neither needs a column of its own.
+  // Name + Group Name are the primary identifying columns, kept leftmost;
+  // Code moved later (after cost/price) so it stops competing with them.
   { title: t('Name_product'), dataIndex: 'name', key: 'name', sorter: true },
-  { title: t('Code'), dataIndex: 'code', key: 'code', sorter: true },
-  // Money columns sit next to Code so a variant's codes and its stacked
-  // cost/price lines can be read across without scanning past Brand/Category.
+  { title: t('GroupName'), dataIndex: 'group_name', key: 'group_name', sorter: true },
   { title: t('Cost'), dataIndex: 'cost', key: 'cost', align: 'right', sorter: true },
   { title: t('Price'), dataIndex: 'price', key: 'price', align: 'right', sorter: true },
   // Off by default — users can enable them from the table's columns dropdown.
   { title: t('Wholesale_Price'), dataIndex: 'wholesale_price', key: 'wholesale_price', align: 'right', sorter: true, defaultHidden: true },
   { title: t('Min_Selling_Price'), dataIndex: 'min_price', key: 'min_price', align: 'right', sorter: true, defaultHidden: true },
+  { title: t('Code'), dataIndex: 'code', key: 'code', sorter: true },
   { title: t('Brand'), dataIndex: 'brand', key: 'brand' },
   { title: t('Categorie'), dataIndex: 'category', key: 'category' },
   { title: t('Quantity'), dataIndex: 'quantity', key: 'quantity', align: 'right', sorter: true },
@@ -379,7 +396,12 @@ const subtitleOf = p => [p.brand, p.category].filter(v => v && v !== 'N/D').join
  */
 const exportColumns = computed(() => [
   { title: t('Name_product'), dataIndex: 'name' },
+  { title: t('GroupName'), dataIndex: 'group_name' },
   { title: t('type'), dataIndex: 'type' },
+  { title: t('Cost'), dataIndex: 'cost' },
+  { title: t('Price'), dataIndex: 'price' },
+  { title: t('Wholesale_Price'), dataIndex: 'wholesale_price' },
+  { title: t('Min_Selling_Price'), dataIndex: 'min_price' },
   {
     title: t('Code'),
     key: 'code',
@@ -393,10 +415,6 @@ const exportColumns = computed(() => [
       return [r.code || '', ...variants.map(c => `- ${c}`)].filter(Boolean).join('\n');
     },
   },
-  { title: t('Cost'), dataIndex: 'cost' },
-  { title: t('Price'), dataIndex: 'price' },
-  { title: t('Wholesale_Price'), dataIndex: 'wholesale_price' },
-  { title: t('Min_Selling_Price'), dataIndex: 'min_price' },
   { title: t('Brand'), dataIndex: 'brand' },
   { title: t('Categorie'), dataIndex: 'category' },
   { title: t('Quantity'), dataIndex: 'quantity' },

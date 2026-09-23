@@ -1607,7 +1607,6 @@ class PurchasesController extends BaseController
 
                     $data['code'] = $productsVariants->code;
                     $data['name'] = '['.$productsVariants->name.']'.$detail['product']['name'];
-                    $data['sub_name'] = $detail['product']['sub_name'];
                     $data['product_variant_id'] = $detail->product_variant_id;
 
                     if ($unit && $unit->operator == '/') {
@@ -1628,7 +1627,6 @@ class PurchasesController extends BaseController
 
                     $data['code'] = $detail['product']['code'];
                     $data['name'] = $detail['product']['name'];
-                    $data['sub_name'] = $detail['product']['sub_name'];
 
                     if ($unit && $unit->operator == '/') {
                         $data['stock'] = $item_product ? $item_product->qte * $unit->operator_value : 0;

@@ -174,6 +174,7 @@ import DataTable from '../components/DataTable.vue';
 import { useCrudTable } from '../composables/useCrudTable';
 import { useAuthStore } from '../stores/auth';
 import http from '../lib/http';
+import { withAllOption } from '../lib/filterOptions';
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -276,7 +277,7 @@ watch(tab, v => {
 });
 
 const warehouseOptions = computed(() =>
-  (locCrud.payload.value?.warehouses || crud.rows.value || []).map(w => ({ value: w.id, label: w.name }))
+  withAllOption((locCrud.payload.value?.warehouses || crud.rows.value || []).map(w => ({ value: w.id, label: w.name })))
 );
 
 const locColumns = computed(() => [

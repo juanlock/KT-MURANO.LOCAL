@@ -1212,7 +1212,6 @@ class QuotationsController extends BaseController
 
                 $data['code'] = $productsVariants->code;
                 $data['name'] = '['.$productsVariants->name.']'.$detail['product']['name'];
-                $data['sub_name'] = $detail['product']['sub_name'];
 
                 if ($unit && $unit->operator == '/') {
                     $stock = $item_product ? $item_product->qte * $unit->operator_value : 0;
@@ -1233,7 +1232,6 @@ class QuotationsController extends BaseController
                 $data['product_variant_id'] = null;
                 $data['code'] = $detail['product']['code'];
                 $data['name'] = $detail['product']['name'];
-                $data['sub_name'] = $detail['product']['sub_name'];
 
                 if ($unit && $unit->operator == '/') {
                     $stock = $item_product ? $item_product->qte * $unit->operator_value : 0;

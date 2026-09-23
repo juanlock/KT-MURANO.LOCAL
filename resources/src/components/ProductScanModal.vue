@@ -1,7 +1,7 @@
 <template>
   <span class="product-scan">
     <a-tooltip :title="$t('Scan')">
-      <a-button :disabled="disabled" @click="openScan">
+      <a-button :type="type" :disabled="disabled" @click="openScan">
         <template #icon><ScanOutlined /></template>
       </a-button>
     </a-tooltip>
@@ -40,6 +40,7 @@ import QrcodeScanner from '../pos-compat/QrcodeScanner';
 
 defineProps({
   disabled: { type: Boolean, default: false },
+  type: { type: String, default: 'default' },
 });
 const emit = defineEmits(['scan']);
 

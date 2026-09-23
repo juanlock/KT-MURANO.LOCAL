@@ -1,18 +1,14 @@
 /**
- * Appends a product's sub_name disambiguator to its display name, matching
- * billing's convention: "name (sub_name)" -- skipped when sub_name is empty
- * or the default 'MAIN' (an ungrouped/single product with nothing to
- * disambiguate). Unrelated to true product_variants, whose "[Variant]" prefix
- * is baked into `name` server-side already.
+ * A product's display name. Used to be "name (sub_name)" -- sub_name
+ * disambiguated siblings within a Group Name before `product_groups`
+ * existed as a real table; the column is gone now (2026_09_23_090000
+ * migration), so this is just the name.
  */
-export function productDisplayName(name, subName) {
-  const n = name || '';
-  if (isMainSubName(subName)) return n;
-  return `${n} (${subName.trim()})`;
+export function productDisplayName(name) {
+  return name || '';
 }
 
-/** True when there's nothing worth showing -- empty, or the default 'MAIN'. */
-export function isMainSubName(subName) {
-  const s = (subName || '').trim();
-  return !s || s.toUpperCase() === 'MAIN';
+/** Kept for old callers still passing a (now nonexistent) sub_name -- always true. */
+export function isMainSubName() {
+  return true;
 }

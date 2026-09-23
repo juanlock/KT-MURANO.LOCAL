@@ -2081,7 +2081,6 @@ class PosController extends BaseController
                 $item['product_variant_id'] = $product_warehouse->product_variant_id;
                 $item['Variant'] = '['.$productsVariants->name.']'.$product_warehouse['product']->name;
                 $item['name'] = '['.$productsVariants->name.']'.$product_warehouse['product']->name;
-                $item['sub_name'] = $product_warehouse['product']->sub_name;
 
                 $item['code'] = $productsVariants->code;
                 $item['barcode'] = $productsVariants->code;
@@ -2093,7 +2092,6 @@ class PosController extends BaseController
                 $item['Variant'] = null;
                 $item['code'] = $product_warehouse['product']->code;
                 $item['name'] = $product_warehouse['product']->name;
-                $item['sub_name'] = $product_warehouse['product']->sub_name;
                 $item['barcode'] = $product_warehouse['product']->code;
 
                 $product_price = $product_warehouse['product']->price;

@@ -106,6 +106,7 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
+import { withAllOption } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const { money, dateTime } = useFormat();
@@ -125,13 +126,13 @@ const crud = useCrudTable('transfers', {
 crud.fetchRows();
 
 const warehouseOptions = computed(() =>
-  (crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))
+  withAllOption((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name })))
 );
-const statusOptions = computed(() => [
+const statusOptions = computed(() => withAllOption([
   { value: 'completed', label: t('complete') },
   { value: 'sent', label: t('Sent') },
   { value: 'pending', label: t('Pending') },
-]);
+]));
 
 function transferStatusKey(s) {
   return s === 'completed' ? 'complete' : s === 'sent' ? 'Sent' : 'Pending';

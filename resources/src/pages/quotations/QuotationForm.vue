@@ -78,7 +78,7 @@
         >
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'product'">
-              <div style="font-weight: 500">{{ productDisplayName(record.name, record.sub_name) }}</div>
+              <div style="font-weight: 500">{{ productDisplayName(record.name) }}</div>
               <div class="muted">{{ record.code }}</div>
               <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">Batch</a-tag>
             </template>
@@ -190,7 +190,7 @@
     <!-- Line edit modal -->
     <a-modal
       v-model:open="lineEditOpen"
-      :title="editingLine ? productDisplayName(editingLine.name, editingLine.sub_name) : ''"
+      :title="editingLine ? productDisplayName(editingLine.name) : ''"
       :ok-text="$t('submit')"
       :ok-button-props="{ disabled: lineEditLoading }"
       @ok="applyLineEdit"
@@ -360,7 +360,7 @@ const shippingInput = computed({
 const clientOptions = computed(() => clients.value.map(c => ({ value: c.id, label: c.name })));
 const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id, label: w.name })));
 const productOptions = computed(() =>
-  products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productDisplayName(p.name, p.sub_name)}` }))
+  products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productDisplayName(p.name)}` }))
 );
 
 // A variant's label carries the VARIANT code, so also match the parent

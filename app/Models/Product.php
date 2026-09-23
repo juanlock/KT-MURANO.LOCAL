@@ -10,7 +10,7 @@ class Product extends Model
 
     protected $fillable = [
         'company_id', 'product_group_id',
-        'code', 'gtin', 'Type_barcode', 'name', 'sub_name', 'cost', 'price', 'unit_id', 'unit_sale_id', 'unit_purchase_id',
+        'code', 'gtin', 'Type_barcode', 'name', 'cost', 'price', 'unit_id', 'unit_sale_id', 'unit_purchase_id',
         'stock_alert', 'weight', 'length', 'width', 'height', 'category_id', 'sub_category_id', 'is_variant', 'is_imei',
         'tax_method', 'image', 'brand_id', 'is_active', 'note', 'type',
         'warranty_period', 'warranty_unit', 'warranty_terms', 'wholesale_price', 'min_price',

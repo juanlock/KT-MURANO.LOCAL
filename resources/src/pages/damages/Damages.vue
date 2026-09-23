@@ -106,6 +106,7 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
+import { withAllOption } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const { dateTime, number } = useFormat();
@@ -124,7 +125,7 @@ const crud = useCrudTable('damages', {
 crud.fetchRows();
 
 const warehouseOptions = computed(() =>
-  (crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))
+  withAllOption((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name })))
 );
 
 const columns = computed(() => [

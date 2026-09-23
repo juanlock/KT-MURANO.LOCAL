@@ -162,6 +162,7 @@ import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import http from '../../lib/http';
+import { withAllOption } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const { money, dateTime } = useFormat();
@@ -201,15 +202,15 @@ const statTiles = computed(() => {
 });
 
 const customerOptions = computed(() =>
-  (crud.payload.value?.customers || []).map(c => ({ value: c.id, label: c.name }))
+  withAllOption((crud.payload.value?.customers || []).map(c => ({ value: c.id, label: c.name })))
 );
 const warehouseOptions = computed(() =>
-  (crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))
+  withAllOption((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name })))
 );
-const statusOptions = computed(() => [
+const statusOptions = computed(() => withAllOption([
   { value: 'sent', label: t('Sent') },
   { value: 'pending', label: t('Pending') },
-]);
+]));
 
 const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 70, align: 'center', fixed: 'left' },

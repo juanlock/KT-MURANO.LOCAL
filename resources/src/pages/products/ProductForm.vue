@@ -44,26 +44,17 @@
               </a-col>
 
               <a-col :xs="24" :md="12">
-                <a-form-item :label="$t('GroupName')" name="group_name" :help="$t('GroupName_Help')">
-                  <a-auto-complete
+                <a-form-item :label="$t('GroupName')" name="group_name" required :help="$t('GroupName_Help')">
+                  <a-select
                     v-model:value="product.group_name"
-                    :options="productGroupOptions"
+                    show-search allow-clear
+                    option-filter-prop="label"
                     :placeholder="$t('GroupName_Placeholder')"
-                    allow-clear
-                    :filter-option="(input, option) => option.value.toLowerCase().includes(input.toLowerCase())"
+                    :options="productGroupOptions"
+                    @search="onGroupNameSearch"
                   />
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="12">
-                <a-form-item
-                  :label="$t('SubName')" name="sub_name"
-                  :required="!!product.group_name"
-                  :help="product.group_name ? $t('SubName_Help') : ''"
-                >
-                  <a-input v-model:value="product.sub_name" :disabled="!product.group_name" />
-                </a-form-item>
-              </a-col>
-
               <a-col :xs="24" :md="12">
                 <a-form-item
                   :label="$t('CodeProduct')" name="code"
@@ -818,7 +809,17 @@ const codeExists = ref('');
 
 const categories = ref([]);
 const productGroups = ref([]);
-const productGroupOptions = computed(() => productGroups.value.map(g => ({ value: g.name })));
+const groupNameSearch = ref('');
+function onGroupNameSearch(val) { groupNameSearch.value = val; }
+const productGroupOptions = computed(() => {
+  const base = productGroups.value.map(g => ({ value: g.name, label: g.name }));
+  const search = (groupNameSearch.value || '').trim();
+  const exists = search && base.some(o => o.value.toLowerCase() === search.toLowerCase());
+  if (search && !exists) {
+    base.push({ value: search, label: `${t('Create_new_group')}: "${search}"` });
+  }
+  return base;
+});
 const subcategories = ref([]);
 const brands = ref([]);
 const sizeGuides = ref([]);
@@ -897,7 +898,7 @@ const periodUnits = computed(() => [
 
 const product = ref({
   type: 'is_single',
-  name: '', group_name: '', sub_name: '', code: '', gtin: '', points: 0, Type_barcode: 'CODE128',
+  name: '', group_name: '', code: '', gtin: '', points: 0, Type_barcode: 'CODE128',
   cost: null, price: null, wholesale_price: null, min_price: null,
   brand_id: undefined, category_id: '', sub_category_id: '',
   assigned_category_ids: [], assigned_subcategory_ids: [],
@@ -988,9 +989,7 @@ const priceTierColumns = computed(() => [
 const rules = computed(() => ({
   type: [{ required: true, message: t('Field_is_required') }],
   name: [{ required: true, message: t('Field_is_required') }],
-  sub_name: product.value.group_name
-    ? [{ required: true, message: t('SubName_Required') }]
-    : [],
+  group_name: [{ required: true, message: t('Field_is_required') }],
   code: [
     { required: true, message: t('Field_is_required') },
     {
