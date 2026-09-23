@@ -46,6 +46,15 @@
         <a-col :xs="24" :md="8">
           <a-card size="small">
             <a-statistic
+              :title="$t('Total_Sales')" :value="money(totalSales)"
+              :value-style="{ color: '#52c41a' }"
+            />
+            <div class="muted">{{ $t('Lifetime_Sales_Value') }}</div>
+          </a-card>
+        </a-col>
+        <a-col :xs="24" :md="8">
+          <a-card size="small">
+            <a-statistic
               :title="$t('Sales_Due')" :value="money(salesDue)"
               :value-style="{ color: salesDue > 0 ? '#ff4d4f' : '#52c41a' }"
             />
@@ -209,6 +218,7 @@ const company = ref({ CompanyName: '', CompanyAdress: '', CompanyPhone: '' });
 const MONEY_KEYS = ['GrandTotal', 'paid_amount', 'due', 'montant'];
 
 const openingBalance = computed(() => Number(brief.value.opening_balance ?? client.value.opening_balance) || 0);
+const totalSales = computed(() => Number(brief.value.salesGrand) || 0);
 const salesDue = computed(() => Number(brief.value.sale_due) || 0);
 const serviceDue = computed(() => Number(brief.value.service_due) || 0);
 /** Opening balance + sales due + service due. netBalance also nets off return dues. */

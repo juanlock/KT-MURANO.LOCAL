@@ -1129,6 +1129,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('show_product_data/{id}/{variant_id}/{warehouse_id}', 'ProductsController@show_product_data');
     // Typeahead for the Related products picker (any visible product).
     Route::get('products/search-basic', 'ProductsController@search_products_basic');
+Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('get_products_materiels', 'ProductsController@get_products_materiels')->name('get_products_materiels');
 
     Route::get('opening-stock/import/meta', 'ProductsController@opening_stock_meta');

@@ -116,6 +116,11 @@ class UserController extends BaseController
             'id' => $user->id,
             'avatar' => $user->avatar,
             'username' => $user->username,
+            // Read by the frontend to gate SuperAdmin-only UI (e.g. the
+            // company picker + full CRUD on Manage Menu) -- previously never
+            // exposed to the SPA at all.
+            'type' => $user->type,
+            'company_id' => $user->company_id,
             'currency' => $helpers->Get_Currency(),
             // Multi-Currency module: master toggle + the base currency id, read
             // by document forms/POS to show a currency picker (default off)

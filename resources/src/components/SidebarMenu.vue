@@ -1,5 +1,6 @@
 <template>
   <a-menu
+    :key="menuVersion"
     v-model:selectedKeys="selectedKeys"
     v-model:openKeys="openKeys"
     class="sidebar-menu"
@@ -26,7 +27,7 @@ import { computed, onMounted, ref, watch, h } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { resolveTarget } from '../config/menu';
-import { MENU_ICONS } from '../config/menuIcons';
+import { MENU_ICONS, fallbackIcon } from '../config/menuIcons';
 import { MENU_ITEM_ICONS } from '../config/menuItemIcons';
 import { useAuthStore } from '../stores/auth';
 import { useUiStore } from '../stores/ui';
@@ -80,6 +81,16 @@ function icon(name) {
   return Cmp ? () => h(Cmp, { size: 16 }) : undefined;
 }
 
+/** Same as icon(), but for a top-level module: falls back to a stable
+ * "random" icon (keyed off its own id) instead of rendering blank when it
+ * has no icon of its own or an icon name that no longer resolves. Named
+ * distinctly from the `moduleIcon` PARAMETER used below (a plain icon-name
+ * string threaded through buildChildNode) to avoid shadowing confusion. */
+function topLevelIcon(group) {
+  const Cmp = MENU_ICONS[group.icon] || fallbackIcon(group.key);
+  return Cmp ? () => h(Cmp, { size: 16 }) : undefined;
+}
+
 /**
  * Labels are PLAIN STRINGS on purpose.
  *
@@ -113,79 +124,124 @@ function itemIcon(entry, groupIconName) {
   return Cmp ? () => h(Cmp, { size: 15 }) : undefined;
 }
 
-/** Keys encode the target, so click handling needs no lookup. */
-function leafItem(groupKey, entry, groupIconName) {
+/**
+ * Keys encode the target, so click handling needs no lookup. `groupKey` is
+ * always the TOP-LEVEL module's key regardless of how deep this leaf sits --
+ * stable even if an intermediate subgroup gets renamed or the leaf moves
+ * between subgroups within the same module.
+ */
+function leafItem(groupKey, entry, withIcon) {
   const target = entry.href
     ? { type: 'external', path: entry.href }
     : resolveTarget(entry.to);
   return {
     key: `${groupKey}|${target.type}|${target.path}`,
     label: labelNode(entry),
-    icon: itemIcon(entry, groupIconName),
+    icon: withIcon ? itemIcon(entry, withIcon) : undefined,
   };
 }
 
-/** Whether a group would render ≥1 visible child (permission-aware) WITHOUT
- *  building the child nodes — decides if it's a submenu. Mirrors the old
- *  filter: a leaf counts if allowed; a sub-group counts if any of its leaves is. */
-function hasVisibleChildren(group) {
-  return (group.children || []).some(c =>
-    c.children ? c.children.some(allowed) : allowed(c)
-  );
+/** Whether `entry` (a container) has >=1 visible leaf anywhere beneath it, at
+ *  any depth -- decides if it (or an ancestor) should render as a submenu. */
+function hasVisibleDescendant(entry) {
+  return (entry.children || []).some(c => (c.children ? hasVisibleDescendant(c) : allowed(c)));
 }
 
-/** Build a group's child nodes (leaves + sub-groups), eagerly. */
+/**
+ * Builds one child node (leaf or nested subgroup), recursively, at any
+ * depth -- module > subgroup > subgroup > ... > item, matching what the
+ * Manage Menu editor's tree and menu_positions already support structurally.
+ * `groupKey` = the top-level module's key (leaf-key prefix, see leafItem()).
+ * `containerKey` = the immediate parent container's key, used to derive
+ * THIS node's own subgroup key if it turns out to be a container.
+ * `moduleIcon` = the module's icon, shown only on items/subgroups directly
+ * under it (depth 0) -- anything nested deeper relies on indent alone,
+ * matching the original 2-level design's convention.
+ */
+function buildChildNode(entry, groupKey, containerKey, moduleIcon, depth) {
+  if (entry.children) {
+    if (!hasVisibleDescendant(entry)) return null;
+    // __key is menuTree.js's stable identity for every node (set on both
+    // static and custom entries) -- prefer it over label so a rename doesn't
+    // shift this subgroup's Ant Menu key out from under its own open/select
+    // state. label is only a defensive fallback.
+    const subKey = `${containerKey}|group|${entry.__key || entry.label}`;
+    return {
+      key: subKey,
+      icon: icon(entry.icon) || (depth === 0 ? icon(moduleIcon) : undefined),
+      label: label(entry),
+      children: entry.children
+        .map(c => buildChildNode(c, groupKey, subKey, moduleIcon, depth + 1))
+        .filter(Boolean),
+    };
+  }
+  if (!allowed(entry)) return null;
+  return leafItem(groupKey, entry, depth === 0 ? moduleIcon : undefined);
+}
+
+/** Build a module's child nodes (leaves + arbitrarily-nested sub-groups), eagerly. */
 function buildGroupChildren(group) {
   return group.children
-    .filter(allowed)
-    .map(child => {
-      if (child.children) {
-        if (!child.children.some(allowed)) return null;
-        const subKey = `${group.key}|group|${child.label}`;
-        // Third-level items: no icon — the indent alone marks the level, and
-        // the saved width lets the full name show (see the CSS wrap rule).
-        const subItems = child.children.filter(allowed)
-          .map(x => ({ ...leafItem(group.key, x, group.icon), icon: undefined }));
-        // A sub-group may carry its own icon; otherwise it inherits the module's.
-        return { key: subKey, icon: icon(child.icon || group.icon), label: label(child), children: subItems };
-      }
-      return leafItem(group.key, child, group.icon);
-    })
+    .map(child => buildChildNode(child, group.key, group.key, group.icon, 0))
     .filter(Boolean);
 }
 
 /**
- * Three-level menu (group > sub-group > item). Children are built eagerly so a
- * submenu's content is already in the DOM when it opens — expanding then plays
- * a single smooth animation. (An earlier lazy version built children only on
- * open, which made the submenu animate empty and then re-expand once the items
- * arrived — the "double open" jump.) Performance comes from the scoped
- * scrollbar CSS in AdminLayout, not from withholding the nodes.
+ * Arbitrary-depth menu (group > subgroup > subgroup > ... > item). Children
+ * are built eagerly so a submenu's content is already in the DOM when it
+ * opens — expanding then plays a single smooth animation. (An earlier lazy
+ * version built children only on open, which made the submenu animate empty
+ * and then re-expand once the items arrived — the "double open" jump.)
+ * Performance comes from the scoped scrollbar CSS in AdminLayout, not from
+ * withholding the nodes.
  */
 const items = computed(() => {
   const out = [];
   for (const group of menuStore.menu) {
     if (!allowed(group)) continue;
-    if (group.children && hasVisibleChildren(group)) {
-      out.push({ key: group.key, icon: icon(group.icon), label: label(group), children: buildGroupChildren(group) });
+    if (group.children && group.children.length === 0) {
+      // A genuinely empty container (e.g. a "Menu" just created via Manage
+      // Menu, nothing added to it yet) -- `[] && hasVisibleDescendant()`
+      // would be truthy-but-false and fall through every branch below,
+      // making it invisible with no way to confirm it was even created.
+      // Show it as an empty submenu instead; it fills in once items get
+      // added to it.
+      out.push({ key: group.key, icon: topLevelIcon(group), label: label(group), children: [] });
+    } else if (group.children && hasVisibleDescendant(group)) {
+      out.push({ key: group.key, icon: topLevelIcon(group), label: label(group), children: buildGroupChildren(group) });
     } else if (group.to) {
       const tgt = resolveTarget(group.to);
-      out.push({ key: `${group.key}|${tgt?.type}|${tgt?.path}`, icon: icon(group.icon), label: labelNode(group) });
+      out.push({ key: `${group.key}|${tgt?.type}|${tgt?.path}`, icon: topLevelIcon(group), label: labelNode(group) });
     } else if (group.href) {
       // A childless top-level entry with an external link only -- e.g. a
       // custom item added via Settings -> Manage Menus with "external" set.
-      out.push({ key: `${group.key}|external|${group.href}`, icon: icon(group.icon), label: labelNode(group) });
+      out.push({ key: `${group.key}|external|${group.href}`, icon: topLevelIcon(group), label: labelNode(group) });
     }
   }
   return out;
 });
 
 /**
+ * Forces a-menu to fully remount (not patch) whenever the top-level item SET
+ * changes shape -- e.g. once auth.permissions/menuStore.positions finish
+ * loading after the sidebar's first paint (which renders with whatever is
+ * available synchronously, per allowed()'s fail-open-on-`failed`-only rule).
+ * Without this, a-menu can keep a stale item's rendered label/DOM attached to
+ * a newly-appearing key when the array is patched in place rather than
+ * replaced -- reproducible: a freshly permission-gated top-level item can
+ * render with a stray label left over from whatever WAS at that array
+ * position on the first, pre-auth-load pass, until something forces a full
+ * re-render (observed via a manual page reload). Keying on the item keys
+ * (not just .length) also catches same-count reorders/relabels.
+ */
+const menuVersion = computed(() => items.value.map(i => i.key).join('|'));
+
+/**
  * path → { key, opens[] } built straight from the menu tree (NOT the lazy
- * `items`, whose closed groups have no children to search). Lets a route change
- * highlight the active item and open its ancestor group/sub-group even while
- * they're collapsed. Computed: item keys embed the parent group key, which
- * changes when the admin moves an item to another module.
+ * `items`, whose closed groups have no children to search). Lets a route
+ * change highlight the active item and open its FULL ancestor chain, at any
+ * depth, even while collapsed. Computed: item keys embed the parent group
+ * key, which changes when the admin moves an item to another module.
  */
 const routeIndex = computed(() => {
   const idx = {};
@@ -194,16 +250,18 @@ const routeIndex = computed(() => {
     const tgt = resolveTarget(entry.to);
     if (tgt?.type === 'next') idx[tgt.path] = { key: `${groupKey}|next|${tgt.path}`, opens };
   };
+  const walk = (entry, groupKey, containerKey, opens) => {
+    if (entry.children) {
+      const subKey = `${containerKey}|group|${entry.__key || entry.label}`;
+      const nextOpens = [...opens, subKey];
+      entry.children.forEach(c => walk(c, groupKey, subKey, nextOpens));
+    } else {
+      addLeaf(groupKey, entry, opens);
+    }
+  };
   for (const group of menuStore.menu) {
     if (!group.children) { addLeaf(group.key, group, []); continue; }
-    for (const child of group.children) {
-      if (child.children) {
-        const subKey = `${group.key}|group|${child.label}`;
-        child.children.forEach(leaf => addLeaf(group.key, leaf, [group.key, subKey]));
-      } else {
-        addLeaf(group.key, child, [group.key]);
-      }
-    }
+    group.children.forEach(c => walk(c, group.key, group.key, [group.key]));
   }
   return idx;
 });
@@ -234,14 +292,28 @@ watch(
   { immediate: true }
 );
 
+/**
+ * A subgroup key is its own full ancestor chain, self-qualified at creation
+ * (`${containerKey}|group|${ownId}` — see buildChildNode()/routeIndex()), so
+ * splitting on the `|group|` separator and re-joining progressively recovers
+ * every ancestor key, root to leaf, at any depth.
+ */
+function ancestorChain(key) {
+  const parts = key.split('|group|');
+  const chain = [parts[0]];
+  for (let i = 1; i < parts.length; i++) chain.push(`${chain[i - 1]}|group|${parts[i]}`);
+  return chain;
+}
+
 // Accordion: opening a submenu closes the previously open one at the same
-// level. Keys encode ancestry (sub-group keys are `${group}|group|${label}`),
-// so the newly opened key keeps only itself plus its parent chain.
+// level. The newly opened key keeps its full ancestor chain (root module
+// through every nested subgroup down to itself) so a deep group stays
+// reachable, while unrelated branches still collapse.
 watch(openKeys, (nv, ov) => {
   const added = nv.filter(k => !(ov || []).includes(k));
   if (!added.length) return;
   const key = String(added[added.length - 1]);
-  const next = key.includes('|group|') ? [key.split('|')[0], key] : [key];
+  const next = key.includes('|group|') ? ancestorChain(key) : [key];
   if (next.length !== nv.length || next.some((k, i) => k !== nv[i])) {
     openKeys.value = next;
   }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\hrm;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Designation;
@@ -10,11 +11,14 @@ use Illuminate\Http\Request;
 
 class DesignationsController extends Controller
 {
+    use ScopesToCompany;
+
     // ----------- GET ALL  Designations --------------\\
 
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Designation::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -25,6 +29,7 @@ class DesignationsController extends Controller
         $dir = $request->SortType;
         $data = [];
         $designations = Designation::with('department')->where('deleted_at', '=', null)
+            ->where('company_id', $companyId)
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
@@ -63,7 +68,11 @@ class DesignationsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Designation::class);
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        // A regular admin only ever creates a designation for their own
+        // company -- the picker is SuperAdmin-only.
+        $companies = $request->user('api')->type === 'SuperAdmin'
+            ? Company::where('deleted_at', '=', null)->get(['id', 'name'])
+            : Company::where('id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
 
         return response()->json([
             'companies' => $companies,
@@ -83,9 +92,16 @@ class DesignationsController extends Controller
             'department' => 'required',
         ]);
 
+        // A regular admin can only ever create a designation for their own
+        // company -- ignore whatever company_id the request sent and force
+        // it, rather than trusting a client-editable form field.
+        $companyId = $request->user('api')->type === 'SuperAdmin'
+            ? (int) $request['company_id']
+            : $this->resolveActingCompanyId($request);
+
         Designation::create([
             'designation' => $request['designation'],
-            'company_id' => $request['company_id'],
+            'company_id' => $companyId,
             'department_id' => $request['department'],
         ]);
 
@@ -105,8 +121,14 @@ class DesignationsController extends Controller
     public function edit(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Designation::class);
+        abort_unless(
+            optional(Designation::where('deleted_at', null)->find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        $companies = $request->user('api')->type === 'SuperAdmin'
+            ? Company::where('deleted_at', '=', null)->get(['id', 'name'])
+            : Company::where('id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
 
         return response()->json([
             'companies' => $companies,
@@ -119,6 +141,11 @@ class DesignationsController extends Controller
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Designation::class);
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_unless(
+            optional(Designation::where('deleted_at', null)->find($id))->company_id === $companyId,
+            404
+        );
 
         request()->validate([
             'designation' => 'required|string',
@@ -126,9 +153,13 @@ class DesignationsController extends Controller
             'department' => 'required',
         ]);
 
+        $newCompanyId = $request->user('api')->type === 'SuperAdmin'
+            ? (int) $request['company_id']
+            : $companyId;
+
         Designation::whereId($id)->update([
             'designation' => $request['designation'],
-            'company_id' => $request['company_id'],
+            'company_id' => $newCompanyId,
             'department_id' => $request['department'],
         ]);
 
@@ -140,6 +171,10 @@ class DesignationsController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Designation::class);
+        abort_unless(
+            optional(Designation::where('deleted_at', null)->find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         \DB::transaction(function () use ($id) {
 
@@ -158,20 +193,22 @@ class DesignationsController extends Controller
     {
 
         $this->authorizeForUser($request->user('api'), 'delete', Designation::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $selectedIds = $request->selectedIds;
-        foreach ($selectedIds as $designation_id) {
-            Designation::whereId($designation_id)->update([
-                'deleted_at' => Carbon::now(),
-            ]);
-        }
+        Designation::whereIn('id', $selectedIds)
+            ->where('company_id', $companyId)
+            ->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
 
     public function Get_designations_by_department(Request $request)
     {
-        $designations = Designation::where('department_id', $request->id)->where('deleted_at', '=', null)->get();
+        $companyId = $this->resolveActingCompanyId($request);
+        $designations = Designation::where('department_id', $request->id)
+            ->where('company_id', $companyId)
+            ->where('deleted_at', '=', null)->get();
 
         return response()->json($designations);
     }

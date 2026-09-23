@@ -42,7 +42,6 @@
             <a-menu-item-group :title="$t('System') || 'Workspace'">
               <a-menu-item key="dashboard"><AppstoreOutlined /> {{ $t('Dashboard') }}</a-menu-item>
               <a-menu-item key="modules"><AppstoreAddOutlined /> Modules</a-menu-item>
-              <a-menu-item key="sidebar"><MenuOutlined /> Sidebar Menu</a-menu-item>
               <a-menu-item key="datatable"><TableOutlined /> DataTable</a-menu-item>
               <a-menu-item key="export"><ExportOutlined /> {{ $t('Export') }}</a-menu-item>
               <a-menu-item key="security"><SafetyOutlined /> {{ $t('Security') }}</a-menu-item>
@@ -943,7 +942,6 @@
 import { ref, computed, onMounted, h } from 'vue';
 import { message, Skeleton } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { useRoute } from 'vue-router';
 import { defineAsyncComponent } from 'vue';
 import {
   UploadOutlined, UpOutlined, DownOutlined, ClearOutlined,
@@ -952,7 +950,7 @@ import {
   AppstoreOutlined, AppstoreAddOutlined, SafetyOutlined, CloudUploadOutlined, ToolOutlined,
   CalendarOutlined, SkinOutlined, MobileOutlined, TabletOutlined, MailOutlined, MessageOutlined,
   CreditCardOutlined, FormOutlined, DatabaseOutlined, LaptopOutlined,
-  MenuOutlined, ExperimentOutlined, TableOutlined, PrinterOutlined,
+  ExperimentOutlined, TableOutlined, PrinterOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { useUiStore } from '../../stores/ui';
@@ -964,7 +962,6 @@ import { uploadForm } from '../../lib/upload';
 const { t, locale } = useI18n();
 const ui = useUiStore();
 const auth = useAuthStore();
-const route = useRoute();
 
 /* --------------------------- DataTable preferences (device-local) */
 const dtStore = useDatatableStore();
@@ -981,11 +978,8 @@ const dtPreviewRows = [
 
 const isLoading = ref(true);
 const saving = ref(false);
-// Deep-link support (e.g. Permissions -> "Manage Menus" links to
-// /settings/system?tab=sidebar) -- falls back to 'general' for anything else.
-const initialTab = String(route.query.tab || '') || 'general';
-const activeTab = ref(initialTab);
-const selectedKeys = ref([initialTab]);
+const activeTab = ref('general');
+const selectedKeys = ref(['general']);
 
 // Domains with dedicated migrated pages, embedded here as sections so the
 // whole settings surface lives on ONE page like legacy. Loaded lazily —
@@ -1013,7 +1007,6 @@ const embeddedPages = {
   custom_fields: lazySection(() => import('./CustomFields.vue')),
   backups: lazySection(() => import('./Backup.vue')),
   devices: lazySection(() => import('./LoginDevices.vue')),
-  sidebar: lazySection(() => import('./SidebarMenuManager.vue')),
   modules: lazySection(() => import('./ModuleToggles.vue')),
   invoice_pdf: lazySection(() => import('./InvoicePdfSettings.vue')),
   demo: lazySection(() => import('./DemoDataGenerator.vue')),
@@ -1047,7 +1040,6 @@ const currentSection = computed(() => ({
   pharmacy: { title: 'Pharmacy', desc: 'Batch and expiry tracking for pharmacies.' },
   dashboard: { title: t('Dashboard'), desc: 'What the dashboard shows by default.' },
   modules: { title: 'Modules', desc: 'Enable or disable business modules — Hospital, Fleet, Projects, HRM and more — for all users.' },
-  sidebar: { title: 'Sidebar Menu', desc: 'Drag and drop to rearrange the navigation for all users.' },
   datatable: { title: 'DataTable', desc: 'How list tables look on this device: font, size, density and toolbar components.' },
   export: { title: t('Export'), desc: 'Defaults for PDF, Excel and print exports on list and report pages, for all users.' },
   demo: { title: 'Demo Data', desc: 'Generate realistic sample data for testing, and remove it safely.' },

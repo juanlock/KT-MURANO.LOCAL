@@ -8,6 +8,8 @@
  * Throws on non-2xx; a 401/419 redirects to the login page.
  */
 
+import { getActingCompanyId } from './actingCompany';
+
 const BASE = '/api/';
 
 function readCookie(name) {
@@ -23,6 +25,21 @@ function csrfHeaders() {
 }
 
 async function request(method, url, { params, body, formData, raw } = {}) {
+    // Global company switcher (SuperAdmin only -- a no-op default for
+    // everyone else): attaches to every request WITHOUT overriding a
+    // caller's own explicit company_id (e.g. a "which company should this
+    // new user belong to" form field takes precedence over the switcher).
+    const actingCompanyId = getActingCompanyId();
+    if (actingCompanyId) {
+        if (method === 'GET' || method === 'DELETE') {
+            params = { company_id: actingCompanyId, ...(params || {}) };
+        } else if (formData instanceof FormData) {
+            if (!formData.has('company_id')) formData.append('company_id', actingCompanyId);
+        } else if (body !== undefined && body !== null && typeof body === 'object' && !Array.isArray(body)) {
+            body = { company_id: actingCompanyId, ...body };
+        }
+    }
+
     let full = BASE + url.replace(/^\//, '');
     if (params) {
         const qs = new URLSearchParams();
@@ -115,7 +132,7 @@ export default {
     postForm: (url, formData) => request('POST', url, { formData }),
     put: (url, body) => request('PUT', url, { body }),
     patch: (url, body) => request('PATCH', url, { body }),
-    delete: (url) => request('DELETE', url),
+    delete: (url, params) => request('DELETE', url, { params }),
     download,
     blob,
     /**

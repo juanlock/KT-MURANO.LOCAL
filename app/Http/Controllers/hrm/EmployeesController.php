@@ -153,7 +153,15 @@ class EmployeesController extends Controller
         $data['office_shift_id'] = $request['office_shift_id'];
         $data['joining_date'] = $request['joining_date'];
 
-        Employee::create($data);
+        $employee = Employee::create($data);
+
+        // Every employee gets a matching users row (type=employee) --
+        // employees.user_id already existed as a nullable/unique FK for
+        // this, nothing ever populated it.
+        $employee->user_id = \App\Services\LinkedUserService::provision(
+            (int) $data['company_id'], 'employee', 'Employee', trim($data['firstname'].' '.$data['lastname']), $data['email'], $data['phone']
+        );
+        $employee->save();
 
         return response()->json(['success' => true]);
     }

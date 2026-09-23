@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
+use App\Models\Company;
 use App\Models\MenuPosition;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -9,19 +11,41 @@ use Illuminate\Validation\ValidationException;
 
 class MenuPositionController extends Controller
 {
-    // Every signed-in user needs this to render their own sidebar.
-    public function index()
+    use ScopesToCompany;
+
+    /**
+     * Every signed-in user needs this to render their own sidebar --
+     * company-scoped, same as every other per-company resource: SuperAdmin
+     * sees whichever company a ?company_id= picker sends (their own
+     * company otherwise), everyone else always sees their own.
+     */
+    public function index(Request $request)
     {
+        $companyId = $this->resolveActingCompanyId($request);
+
         return response()->json(
-            MenuPosition::select('item_key as key', 'parent_key', 'sort_order', 'label', 'icon', 'route', 'external', 'is_custom', 'template', 'dynamic_table', 'hidden', 'location')->get()
+            MenuPosition::where('company_id', $companyId)
+                ->select('item_key as key', 'parent_key', 'sort_order', 'label', 'icon', 'route', 'external', 'is_custom', 'template', 'dynamic_table', 'hidden', 'location')
+                ->get()
         );
     }
 
-    // Saves the full menu layout as one atomic replace. Only an admin
-    // (setting_system permission, enforced client-side via the menu itself
-    // and by hiding the Manage Menus screen) is expected to call this.
+    /**
+     * Saves the full menu layout as one atomic replace, scoped to the
+     * acting company. Only SuperAdmin and Admin-type users may call this at
+     * all; a plain Admin may only reorder (parent_key/sort_order) and
+     * hide/show items -- adding, removing, renaming or re-typing any item
+     * is SuperAdmin-only (checked below via a diff against the current
+     * rows, since this endpoint always saves the whole tree at once).
+     */
     public function store(Request $request)
     {
+        $user = $request->user('api');
+        // Stored user types are 'SuperAdmin' and lowercase 'admin' (not
+        // 'Admin') -- verified against real data, not assumed.
+        abort_unless($user->type === 'SuperAdmin' || strtolower($user->type) === 'admin', 403);
+        $companyId = $this->resolveActingCompanyId($request);
+
         $data = $request->validate([
             'positions' => 'required|array|min:1',
             'positions.*.key' => 'required|string',
@@ -81,42 +105,109 @@ class MenuPositionController extends Controller
             }
         }
 
-        DB::transaction(function () use ($positions) {
-            // NOT truncate(): TRUNCATE is DDL and implicitly commits in MySQL,
-            // which breaks this transaction ("There is no active transaction").
-            MenuPosition::query()->delete();
-            $now = now();
-            $rows = array_map(function ($row) use ($now) {
-                return [
-                    'item_key' => $row['key'],
-                    'parent_key' => $row['parent_key'] ?? null,
-                    'sort_order' => $row['sort_order'],
-                    'label' => $row['label'] ?? null,
-                    'icon' => $row['icon'] ?? null,
-                    'route' => $row['route'] ?? null,
-                    'external' => $row['external'] ?? false,
-                    'is_custom' => $row['is_custom'] ?? false,
-                    'hidden' => $row['hidden'] ?? false,
-                    'location' => $row['location'] ?? 'sidebar',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }, $positions);
+        // A plain Admin may reorder/hide but not add, remove, rename or
+        // re-type anything -- diff the incoming tree against this company's
+        // current rows and reject the whole save if it tries to.
+        if ($user->type !== 'SuperAdmin') {
+            $current = MenuPosition::where('company_id', $companyId)
+                ->get(['item_key', 'label', 'icon', 'route', 'external', 'is_custom'])
+                ->keyBy('item_key');
 
-            foreach (array_chunk($rows, 500) as $chunk) {
-                MenuPosition::insert($chunk);
+            $currentKeys = $current->keys()->all();
+            sort($currentKeys);
+            $incomingKeys = $keys;
+            sort($incomingKeys);
+            if ($currentKeys !== $incomingKeys) {
+                abort(403, 'Only a SuperAdmin can add or remove menu items -- you can reorder or hide/show existing ones.');
+            }
+
+            foreach ($positions as $row) {
+                $existing = $current[$row['key']];
+                $changed = (string) ($row['label'] ?? '') !== (string) ($existing->label ?? '')
+                    || (string) ($row['icon'] ?? '') !== (string) ($existing->icon ?? '')
+                    || (string) ($row['route'] ?? '') !== (string) ($existing->route ?? '')
+                    || (bool) ($row['external'] ?? false) !== (bool) $existing->external
+                    || (bool) ($row['is_custom'] ?? false) !== (bool) $existing->is_custom;
+                if ($changed) {
+                    abort(403, "Only a SuperAdmin can rename or edit menu items -- '{$row['key']}' was changed beyond its position/visibility.");
+                }
+            }
+        }
+
+        DB::transaction(function () use ($positions, $companyId, $user) {
+            $this->writeCompanyPositions($companyId, $positions);
+
+            // A SuperAdmin's edit is the platform-wide standard, not just
+            // this one company's -- replicate the exact same layout to
+            // every OTHER company too, so all companies stay in sync. An
+            // Admin's save (reorder/hide only, enforced above) stays local
+            // to their own company.
+            if ($user->type === 'SuperAdmin') {
+                // Company has no SoftDeletes trait/global scope (deleted_at is
+                // filtered manually elsewhere), so this already includes
+                // soft-deleted rows like 999 with no withTrashed() needed.
+                $otherCompanyIds = Company::where('id', '!=', $companyId)->pluck('id');
+                foreach ($otherCompanyIds as $otherId) {
+                    $this->writeCompanyPositions($otherId, $positions);
+                }
             }
         });
 
         return response()->json(['message' => 'Menu layout saved.']);
     }
 
-    // Wipes all rows -- restores the factory menu structure from
-    // config/menu.js (no custom items, no renames, nothing hidden, at any
-    // level). Mirrors resetSidebarMenuOrder's DELETE pattern.
-    public function reset()
+    /**
+     * NOT truncate(): TRUNCATE is DDL and implicitly commits in MySQL, which
+     * breaks the caller's transaction ("There is no active transaction").
+     */
+    private function writeCompanyPositions(int $companyId, array $positions): void
     {
-        MenuPosition::query()->delete();
+        MenuPosition::where('company_id', $companyId)->delete();
+        $now = now();
+        $rows = array_map(function ($row) use ($now, $companyId) {
+            return [
+                'company_id' => $companyId,
+                'item_key' => $row['key'],
+                'parent_key' => $row['parent_key'] ?? null,
+                'sort_order' => $row['sort_order'],
+                'label' => $row['label'] ?? null,
+                'icon' => $row['icon'] ?? null,
+                'route' => $row['route'] ?? null,
+                'external' => $row['external'] ?? false,
+                'is_custom' => $row['is_custom'] ?? false,
+                'hidden' => $row['hidden'] ?? false,
+                'location' => $row['location'] ?? 'sidebar',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }, $positions);
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            MenuPosition::insert($chunk);
+        }
+    }
+
+    /**
+     * Wipes this company's rows -- restores the factory menu structure from
+     * config/menu.js (no custom items, no renames, nothing hidden, at any
+     * level). SuperAdmin only: this discards every add/remove/rename an
+     * Admin isn't allowed to make in the first place, so undoing it is the
+     * same permission tier as making it. Like store(), a SuperAdmin's reset
+     * replicates to every company, not just the one being viewed.
+     */
+    public function reset(Request $request)
+    {
+        $user = $request->user('api');
+        abort_unless($user->type === 'SuperAdmin', 403);
+        $companyId = $this->resolveActingCompanyId($request);
+
+        DB::transaction(function () use ($companyId) {
+            MenuPosition::where('company_id', $companyId)->delete();
+            $otherCompanyIds = Company::where('id', '!=', $companyId)->pluck('id');
+            foreach ($otherCompanyIds as $otherId) {
+                MenuPosition::where('company_id', $otherId)->delete();
+            }
+        });
 
         return response()->json(['message' => 'Menu layout reset.']);
     }

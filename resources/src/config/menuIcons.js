@@ -14,6 +14,20 @@ import {
     FolderArchive, Truck, HeartPulse, GraduationCap, Plug, ChefHat, Menu,
 } from 'lucide-vue-next';
 
+/**
+ * A stable "random" icon for a module/menu that has no icon of its own (or an
+ * icon name that no longer resolves) -- hashed from its key so the SAME item
+ * always gets the SAME icon across reloads/re-renders, rather than actually
+ * picking a new one every render (which would look broken, not "random").
+ */
+export function fallbackIcon(seed) {
+    const s = String(seed || '');
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+    const keys = Object.keys(MENU_ICONS);
+    return MENU_ICONS[keys[hash % keys.length]];
+}
+
 export const MENU_ICONS = {
     'bar-chart': BarChart3,
     'shopping-bag': ShoppingBag,

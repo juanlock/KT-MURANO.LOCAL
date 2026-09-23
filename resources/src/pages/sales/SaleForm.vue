@@ -88,7 +88,7 @@
         >
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'product'">
-              <div style="font-weight: 500">{{ record.name }}</div>
+              <div style="font-weight: 500">{{ productDisplayName(record.name, record.sub_name) }}</div>
               <div class="muted">{{ record.code }}</div>
               <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">Batch</a-tag>
               <a-select
@@ -365,7 +365,7 @@
     <!-- Line edit modal -->
     <a-modal
       v-model:open="lineEditOpen"
-      :title="editingLine?.name"
+      :title="editingLine ? productDisplayName(editingLine.name, editingLine.sub_name) : ''"
       :ok-text="$t('submit')"
       :ok-button-props="{ disabled: lineEditLoading }"
       @ok="applyLineEdit"
@@ -478,6 +478,7 @@ import ProductScanModal from '../../components/ProductScanModal.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useDocCurrency } from '../../composables/useDocCurrency';
 import { useAuthStore } from '../../stores/auth';
+import { productDisplayName } from '../../lib/productDisplayName';
 import { recomputeLine, computeTotals } from '../../lib/lineCalc';
 import { hasBatchSelectErrors, firstBatchSelectError } from '../../lib/batchValidation';
 import { resolveScan } from '../../lib/scanMatch';
@@ -751,7 +752,7 @@ const paymentMethodOptions = computed(() => paymentMethods.value.map(m => ({ val
 const productOptions = computed(() =>
   products.value.map((p, i) => ({
     value: i,
-    label: `${p.code} — ${p.name}${p.qte !== undefined ? ` (${p.qte})` : ''}`,
+    label: `${p.code} — ${productDisplayName(p.name, p.sub_name)}${p.qte !== undefined ? ` (${p.qte})` : ''}`,
   }))
 );
 
@@ -864,6 +865,7 @@ async function onProductPicked(idx) {
       product_type: d.product_type,
       code: d.code || p.code,
       name: d.name,
+      sub_name: d.sub_name,
       stock: d.product_type !== 'is_service' ? d.qte_sale : '---',
       // Overselling: never seed the line with the (zero/negative) stock —
       // always start at 1 so the product can actually be sold.

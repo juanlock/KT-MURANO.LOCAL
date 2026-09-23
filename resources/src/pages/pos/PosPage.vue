@@ -423,7 +423,7 @@
                    column reads top-to-bottom as title / subtitle / controls. -->
               <div style="min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px;">
                 <!-- Name -->
-                <div style="font-size: 13px; font-weight: 600; color: #1f1f2c; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.name }}</div>
+                <div style="font-size: 13px; font-weight: 600; color: #1f1f2c; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ displayProductName(item.name, item.sub_name) }}</div>
 
                 <!-- SKU subtitle -->
                 <div v-if="item.code" style="font-size: 10px; color: #8d8da0; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">SKU · {{ item.code }}</div>
@@ -790,7 +790,7 @@
               </div>
 
               <!-- Name (single 13px line) -->
-              <div style="font-size: 13px; font-weight: 500; margin-bottom: 2px; line-height: 1.2; color: #1f1f2c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ product.name }}</div>
+              <div style="font-size: 13px; font-weight: 500; margin-bottom: 2px; line-height: 1.2; color: #1f1f2c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ displayProductName(product.name, product.sub_name) }}</div>
 
               <!-- SKU · X in stock -->
               <div style="font-size: 10px; color: #8d8da0; font-family: 'JetBrains Mono', monospace; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -2202,7 +2202,7 @@
   </b-modal>
 
   <validation-observer ref="Update_Detail">
-    <b-modal hide-footer size="lg" id="form_Update_Detail" :title="detail.name">
+    <b-modal hide-footer size="lg" id="form_Update_Detail" :title="displayProductName(detail.name, detail.sub_name)">
     <b-form @submit.prevent="submit_Update_Detail">
         <b-row>
           <!-- Unit Price + Price Type -->
@@ -3811,6 +3811,7 @@ import Util from "../../pos-compat/util";
 import { formatPriceDisplay, getPriceFormatSetting, getPriceDecimals } from "../../pos-compat/priceFormat";
 import { openCashDrawer } from "../../pos-compat/cashDrawerQz";
 import { receiptFontHeadTags, whenPrintFontsReady } from "../../lib/receiptFont";
+import { productDisplayName, isMainSubName } from "../../lib/productDisplayName";
 import posKeyboardShortcutsMixin, {
   POS_SHORTCUTS,
   posShortcutsEnabled,
@@ -9598,7 +9599,12 @@ export default {
 
     // ==================== SEARCH HELPERS (from old_pos) ====================
     getResultValue(result) {
-      return result.code + " " + "(" + result.name + ")";
+      return result.code + " " + "(" + result.name + ")" + (isMainSubName(result.sub_name) ? "" : " — " + result.sub_name);
+    },
+    // "Name (SubName)" -- skipped when sub_name is empty/'MAIN'. Template
+    // interpolations can't reach a bare module import, so this wraps it.
+    displayProductName(name, subName) {
+      return productDisplayName(name, subName);
     },
     SearchProduct(result) {
       if (this.load_product) {

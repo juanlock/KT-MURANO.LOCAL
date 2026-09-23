@@ -6,7 +6,7 @@
     >
       <template #extra>
         <a-space>
-          <a-button @click="$router.push('/settings/system?tab=sidebar')">
+          <a-button @click="$router.push('/settings/sidebar-menu')">
             <template #icon><MenuOutlined /></template>
             {{ tf('Manage_Menus', 'Manage Menus') }}
           </a-button>

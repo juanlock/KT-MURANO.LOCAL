@@ -47,6 +47,33 @@ the *full* `kt_logs` history.
 - **Murano** (aka "the new system") — lives at `KT-MURANO.LOCAL` (this repo),
   database `dbmurano`. New code, new features/modules.
 
+## Base Product & Documentation
+
+Murano is built on **Stocky** (a commercial CodeCanyon Laravel product,
+currently v5.8) — a single-business POS/inventory/online-store/accounting/HRM
+system. This explains the ~294 unrelated Models and the Hospital/School/MRP/
+Fleet/etc. modules seen throughout the codebase: they're stock Stocky
+features, not anything built for this project specifically.
+
+**Full user-facing documentation is at `public/documentation/index.html`**
+(read directly off disk, not a URL — ~2,500 lines covering every feature
+area: install, settings, products, POS, sales, purchasing, the online store,
+accounting, HRM, every business module, integrations, reports). There's also
+a full REST API reference at `public/documentation/api/index.html` with an
+OpenAPI 3 spec at `public/documentation/api/openapi.json` (~9 MB, ~1,200
+endpoints) — too large to read wholesale, but worth grepping/fetching a
+specific path from when a task needs to know an endpoint's exact shape.
+
+**Important architectural fact from that documentation, stated explicitly:**
+*"No multi-tenant or SaaS mode. One install is one business, with as many
+warehouses, users and stores as you like."* Stocky's native segmentation unit
+is the **warehouse** (physical stock location within one business), not a
+"company." The SuperAdmin/AdminKT/AdminRG multicompany model above is
+**custom work layered on top of this base product** — Stocky was never
+designed for it — which is why it needs its own `company_id` scoping
+(`ScopesToCompany`, `resolveActingCompanyId()`) built out module by module
+rather than being a built-in concept.
+
 ## Migration Approach
 
 - Murano was not built with a dynamic menu — its menu is currently static.

@@ -29,6 +29,20 @@
       <a-col :xs="12" :sm="12" :md="6">
         <a-card size="small" class="stat-card">
           <div class="stat-inner">
+            <div class="stat-icon" style="background: rgba(82, 196, 26, 0.12); color: #52c41a"><DollarOutlined /></div>
+            <div class="stat-meta">
+              <div class="stat-label">{{ $t('Total_Sales') }}</div>
+              <div class="stat-value">
+                <a-spin v-if="cardsLoading" size="small" />
+                <template v-else>{{ money(totals.sales) }}</template>
+              </div>
+            </div>
+          </div>
+        </a-card>
+      </a-col>
+      <a-col :xs="12" :sm="12" :md="6">
+        <a-card size="small" class="stat-card">
+          <div class="stat-inner">
             <div class="stat-icon" style="background: rgba(255, 77, 79, 0.12); color: #ff4d4f"><DollarOutlined /></div>
             <div class="stat-meta">
               <div class="stat-label">{{ $t('Total_Due') }}</div>
@@ -350,7 +364,7 @@ const { money, roundMoney } = useFormat();
 const auth = useAuthStore();
 const router = useRouter();
 
-const MONEY_KEYS = ['credit_limit', 'opening_balance'];
+const MONEY_KEYS = ['credit_limit', 'opening_balance', 'total_amount'];
 
 // Payload: { clients, totalRows, company_info, accounts, payment_methods }
 const crud = useCrudTable('clients', { rowsKey: 'clients' });
@@ -367,6 +381,7 @@ const columns = computed(() => [
   { title: t('Email'), dataIndex: 'email', key: 'email' },
   { title: t('Credit_Limit'), key: 'credit_limit', dataIndex: 'credit_limit', align: 'right', exportValue: r => money(r.credit_limit) },
   { title: t('Opening_Balance'), key: 'opening_balance', dataIndex: 'opening_balance', align: 'right', exportValue: r => money(r.opening_balance) },
+  { title: t('Total_Sales'), key: 'total_amount', dataIndex: 'total_amount', align: 'right', exportValue: r => money(r.total_amount) },
   { title: t('Due'), key: 'due', dataIndex: 'due', sorter: true, align: 'right', exportValue: r => money(r.due) },
   { title: t('Service_Due'), key: 'service_due', dataIndex: 'service_due', align: 'right', exportValue: r => money(r.service_due) },
   { title: t('Total_Sell_Return_Due'), key: 'return_Due', dataIndex: 'return_Due', align: 'right', exportValue: r => money(r.return_Due) },
@@ -376,7 +391,7 @@ const columns = computed(() => [
 // Global sums across every customer (not the current page): one unpaginated
 // fetch that reuses the same list endpoint the exports use.
 const customerCount = computed(() => crud.total.value);
-const totals = ref({ due: 0, returnDue: 0, credit: 0 });
+const totals = ref({ sales: 0, due: 0, returnDue: 0, credit: 0 });
 const totalsLoading = ref(false);
 // Keeps the stat cards in a skeleton state from first mount until both the row
 // fetch and the totals fetch have completed — including direct navigation.
@@ -389,6 +404,7 @@ async function loadTotals() {
     const data = await http.get('clients', { page: 1, limit: -1 });
     const rows = data.clients || [];
     totals.value = {
+      sales: rows.reduce((s, r) => s + (Number(r.total_amount) || 0), 0),
       due: rows.reduce((s, r) => s + (Number(r.due) || 0) + (Number(r.service_due) || 0), 0),
       returnDue: rows.reduce((s, r) => s + (Number(r.return_Due) || 0), 0),
       credit: rows.reduce((s, r) => s + (Number(r.credit_limit) || 0), 0),

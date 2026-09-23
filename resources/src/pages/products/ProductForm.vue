@@ -44,6 +44,27 @@
               </a-col>
 
               <a-col :xs="24" :md="12">
+                <a-form-item :label="$t('GroupName')" name="group_name" :help="$t('GroupName_Help')">
+                  <a-auto-complete
+                    v-model:value="product.group_name"
+                    :options="productGroupOptions"
+                    :placeholder="$t('GroupName_Placeholder')"
+                    allow-clear
+                    :filter-option="(input, option) => option.value.toLowerCase().includes(input.toLowerCase())"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="12">
+                <a-form-item
+                  :label="$t('SubName')" name="sub_name"
+                  :required="!!product.group_name"
+                  :help="product.group_name ? $t('SubName_Help') : ''"
+                >
+                  <a-input v-model:value="product.sub_name" :disabled="!product.group_name" />
+                </a-form-item>
+              </a-col>
+
+              <a-col :xs="24" :md="12">
                 <a-form-item
                   :label="$t('CodeProduct')" name="code"
                   :validate-status="codeExists ? 'error' : ''" :help="codeExists || undefined"
@@ -796,6 +817,8 @@ const formRef = ref();
 const codeExists = ref('');
 
 const categories = ref([]);
+const productGroups = ref([]);
+const productGroupOptions = computed(() => productGroups.value.map(g => ({ value: g.name })));
 const subcategories = ref([]);
 const brands = ref([]);
 const sizeGuides = ref([]);
@@ -874,7 +897,7 @@ const periodUnits = computed(() => [
 
 const product = ref({
   type: 'is_single',
-  name: '', code: '', gtin: '', points: 0, Type_barcode: 'CODE128',
+  name: '', group_name: '', sub_name: '', code: '', gtin: '', points: 0, Type_barcode: 'CODE128',
   cost: null, price: null, wholesale_price: null, min_price: null,
   brand_id: undefined, category_id: '', sub_category_id: '',
   assigned_category_ids: [], assigned_subcategory_ids: [],
@@ -965,6 +988,9 @@ const priceTierColumns = computed(() => [
 const rules = computed(() => ({
   type: [{ required: true, message: t('Field_is_required') }],
   name: [{ required: true, message: t('Field_is_required') }],
+  sub_name: product.value.group_name
+    ? [{ required: true, message: t('SubName_Required') }]
+    : [],
   code: [
     { required: true, message: t('Field_is_required') },
     {
@@ -1423,6 +1449,10 @@ function indexLocations(list) {
 }
 
 onMounted(async () => {
+  http.get('product-groups')
+    .then(data => { productGroups.value = data.product_groups || []; })
+    .catch(() => {});
+
   try {
     if (isEdit.value) {
       const data = await http.get(`products/${id.value}/edit`);

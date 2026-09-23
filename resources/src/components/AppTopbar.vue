@@ -10,6 +10,17 @@
 
     <!-- Right: actions -->
     <a-space :size="4">
+      <!-- Company switcher (SuperAdmin only) -- every page/form acts on
+           whichever company is selected here until changed again. -->
+      <a-select
+        v-if="company.isSuperAdmin"
+        :value="company.actingCompanyId"
+        :options="companyOptions"
+        class="company-switch"
+        :dropdown-match-select-width="false"
+        @change="onCompanyChange"
+      />
+
       <!-- POS -->
       <a-button v-if="auth.can('Pos_view')" type="primary" class="pos-btn" @click="$router.push('/pos')">
         <template #icon><CalculatorOutlined /></template>
@@ -229,6 +240,7 @@ import { canInstall as pwaCanInstall, promptInstall } from '../lib/pwaInstall';
 import { useAuthStore } from '../stores/auth';
 import { usePendingWorkStore } from '../stores/pendingWork';
 import { useUiStore } from '../stores/ui';
+import { useCompanyStore } from '../stores/company';
 import { SUPPORTED_LOCALES } from '../i18n';
 import http from '../lib/http';
 
@@ -240,7 +252,22 @@ const emit = defineEmits(['toggle-sidebar', 'logout']);
 const auth = useAuthStore();
 const ui = useUiStore();
 const pending = usePendingWorkStore();
+const company = useCompanyStore();
 const router = useRouter();
+
+// ---------------- company switcher ----------------
+
+const companyOptions = computed(() => company.companies.map(c => ({ value: c.id, label: `🏢 ${c.name}` })));
+
+function onCompanyChange(id) {
+  company.setCompany(id);
+  // Every page's own data is fetched on its own mount/watchers, not from a
+  // central store this topbar could refresh directly -- a reload is the
+  // simplest way to guarantee the whole app re-fetches under the new company.
+  window.location.reload();
+}
+
+onMounted(() => company.load());
 
 const summaryOpen = ref(false);
 
@@ -391,6 +418,24 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   border-radius: 999px;
   padding-inline: 14px;
   margin-right: 4px;
+}
+
+/* Company switcher (SuperAdmin only) -- tinted like the install-btn so it
+   reads as its own distinct, always-visible context control rather than a
+   generic form field lost among the other icon buttons. */
+.company-switch {
+  min-width: 150px;
+  margin-right: 4px;
+}
+.company-switch :deep(.ant-select-selector) {
+  border-radius: 999px !important;
+  background: rgba(109, 40, 217, 0.08) !important;
+  border-color: transparent !important;
+  font-weight: 500;
+}
+:global(.topbar--dark .company-switch .ant-select-selector) {
+  background: rgba(139, 92, 246, 0.16) !important;
+  color: #c4b5fd;
 }
 
 /* Thin divider separating the icon cluster from the account chip. */

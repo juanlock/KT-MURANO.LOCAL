@@ -176,6 +176,17 @@ class StoreAuthController extends BaseController
                 ]
             );
 
+            // Every storefront account gets a matching users row too
+            // (type=Online_store, distinct from an admin/POS-created
+            // customer's type=customer) -- skip if this Client row already
+            // has one (firstOrCreate may have found an existing customer).
+            if (! $client->user_id) {
+                $client->user_id = \App\Services\LinkedUserService::provision(
+                    (int) $client->company_id, 'Online_store', 'Customer', $client->name, $client->email, $client->phone
+                );
+                $client->save();
+            }
+
             $ecomClient = EcommerceClient::create([
                 'client_id' => $client->id,
                 'username' => Str::slug(Str::before($data['email'], '@')),

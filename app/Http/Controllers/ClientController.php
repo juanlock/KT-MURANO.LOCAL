@@ -212,6 +212,8 @@ class ClientController extends BaseController
             $is_royalty_eligible = 0;
         }
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $client = Client::create([
             'firstname' => $request['firstname'],
             'lastname' => $request['lastname'],
@@ -224,12 +226,20 @@ class ClientController extends BaseController
             'city' => $request['city'],
             'state' => $request['state'],
             'zip' => $request['zip'],
-            'company_id' => $this->resolveActingCompanyId($request),
+            'company_id' => $companyId,
             'tax_number' => $request['tax_number'],
             'is_royalty_eligible' => $is_royalty_eligible,
             'opening_balance' => $request['opening_balance'] ?? 0,
             'credit_limit' => $request['credit_limit'] ?? 0,
         ]);
+
+        // Every customer gets a matching users row (type=customer) --
+        // clients.user_id already existed as a nullable/unique FK for this,
+        // nothing ever populated it.
+        $client->user_id = \App\Services\LinkedUserService::provision(
+            $companyId, 'customer', 'Customer', $client->name, $client->email, $client->phone
+        );
+        $client->save();
 
         return response()->json($client);
     }
@@ -693,38 +703,45 @@ class ClientController extends BaseController
             ], 422);
         }
 
-        // Insert
+        // Insert -- scoped to the acting company (previously missing
+        // entirely here, so every bulk-imported client silently fell back
+        // to company_id's column default regardless of who imported it),
+        // and each row gets a matching users row (type=customer), same as
+        // a single customer created via store().
+        $companyId = $this->resolveActingCompanyId($request);
         $now = now();
-        $insertRows = [];
-        foreach ($prepared as $r) {
-            $insertRows[] = [
-                'name' => $r['name'],
-                'firstname' => $r['firstname'] ?? null,
-                'lastname' => $r['lastname'] ?? null,
-                'code' => $r['code'],
-                'email' => $r['email'],
-                'phone' => $r['phone'],
-                'country' => $r['country'],
-                'city' => $r['city'],
-                'state' => $r['state'] ?? null,
-                'zip' => $r['zip'] ?? null,
-                'adresse' => $r['adresse'],
-                'tax_number' => $r['tax_number'],
-                'opening_balance' => $r['opening_balance'] ?? 0,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
 
-        DB::transaction(function () use ($insertRows) {
-            foreach (array_chunk($insertRows, 1000) as $chunk) {
-                Client::insert($chunk);
+        DB::transaction(function () use ($prepared, $companyId, $now) {
+            foreach ($prepared as $r) {
+                $client = Client::create([
+                    'name' => $r['name'],
+                    'firstname' => $r['firstname'] ?? null,
+                    'lastname' => $r['lastname'] ?? null,
+                    'code' => $r['code'],
+                    'email' => $r['email'],
+                    'phone' => $r['phone'],
+                    'country' => $r['country'],
+                    'city' => $r['city'],
+                    'state' => $r['state'] ?? null,
+                    'zip' => $r['zip'] ?? null,
+                    'adresse' => $r['adresse'],
+                    'tax_number' => $r['tax_number'],
+                    'opening_balance' => $r['opening_balance'] ?? 0,
+                    'company_id' => $companyId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                $client->user_id = \App\Services\LinkedUserService::provision(
+                    $companyId, 'customer', 'Customer', $client->name, $client->email, $client->phone
+                );
+                $client->save();
             }
         });
 
         return response()->json([
             'status' => true,
-            'imported' => count($insertRows),
+            'imported' => count($prepared),
         ]);
     }
 

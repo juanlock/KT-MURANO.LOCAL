@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\hrm;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Department;
@@ -10,11 +11,14 @@ use Illuminate\Http\Request;
 
 class DepartmentsController extends Controller
 {
+    use ScopesToCompany;
+
     // ----------- GET ALL  Department --------------\\
 
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Department::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -27,6 +31,7 @@ class DepartmentsController extends Controller
         $departments = Department::leftjoin('employees', 'employees.id', '=', 'departments.department_head')
             ->join('companies', 'companies.id', '=', 'departments.company_id')
             ->where('departments.deleted_at', '=', null)
+            ->where('departments.company_id', $companyId)
             ->select('departments.*', 'employees.username AS employee_head', 'companies.name AS company_name')
 
         // Search With Multiple Param
@@ -54,7 +59,13 @@ class DepartmentsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Department::class);
 
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        // A regular admin only ever creates a department for their own
+        // company -- the picker is SuperAdmin-only (matching the "acting
+        // company" model everywhere else); the field still exists in the
+        // form because it also filters the Department Head dropdown.
+        $companies = $request->user('api')->type === 'SuperAdmin'
+            ? Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name'])
+            : Company::where('id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
 
         return response()->json([
             'companies' => $companies,
@@ -73,9 +84,16 @@ class DepartmentsController extends Controller
             'company_id' => 'required',
         ]);
 
+        // A regular admin can only ever create a department for their own
+        // company -- ignore whatever company_id the request sent and force
+        // it, rather than trusting a client-editable form field.
+        $companyId = $request->user('api')->type === 'SuperAdmin'
+            ? (int) $request['company_id']
+            : $this->resolveActingCompanyId($request);
+
         Department::create([
             'department' => $request['department'],
-            'company_id' => $request['company_id'],
+            'company_id' => $companyId,
             'department_head' => $request['department_head'] ? $request['department_head'] : null,
         ]);
 
@@ -95,8 +113,16 @@ class DepartmentsController extends Controller
     public function edit(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Department::class);
+        // A regular admin must never be able to open a different company's
+        // department for editing by guessing/tampering with the id in the URL.
+        abort_unless(
+            optional(Department::where('deleted_at', null)->find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $companies = $request->user('api')->type === 'SuperAdmin'
+            ? Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name'])
+            : Company::where('id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
 
         return response()->json([
             'companies' => $companies,
@@ -109,15 +135,26 @@ class DepartmentsController extends Controller
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Department::class);
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_unless(
+            optional(Department::where('deleted_at', null)->find($id))->company_id === $companyId,
+            404
+        );
 
         request()->validate([
             'department' => 'required|string',
             'company_id' => 'required',
         ]);
 
+        // Same rule as store(): only SuperAdmin may move a department to a
+        // different company.
+        $newCompanyId = $request->user('api')->type === 'SuperAdmin'
+            ? (int) $request['company_id']
+            : $companyId;
+
         Department::whereId($id)->update([
             'department' => $request['department'],
-            'company_id' => $request['company_id'],
+            'company_id' => $newCompanyId,
             'department_head' => $request['department_head'] ? $request['department_head'] : null,
         ]);
 
@@ -129,6 +166,10 @@ class DepartmentsController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Department::class);
+        abort_unless(
+            optional(Department::where('deleted_at', null)->find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         \DB::transaction(function () use ($id) {
 
@@ -147,20 +188,22 @@ class DepartmentsController extends Controller
     {
 
         $this->authorizeForUser($request->user('api'), 'delete', Department::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $selectedIds = $request->selectedIds;
-        foreach ($selectedIds as $department_id) {
-            Department::whereId($department_id)->update([
-                'deleted_at' => Carbon::now(),
-            ]);
-        }
+        // Scoped to the acting company -- a tampered id list can't reach
+        // another company's departments.
+        Department::whereIn('id', $selectedIds)
+            ->where('company_id', $companyId)
+            ->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
 
-    public function Get_all_Departments()
+    public function Get_all_Departments(Request $request)
     {
-        $departments = Department::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'department']);
+        $companyId = $this->resolveActingCompanyId($request);
+        $departments = Department::where('deleted_at', '=', null)->where('company_id', $companyId)->orderBy('id', 'desc')->get(['id', 'department']);
 
         return response()->json($departments);
     }

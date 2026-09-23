@@ -1607,6 +1607,7 @@ class PurchasesController extends BaseController
 
                     $data['code'] = $productsVariants->code;
                     $data['name'] = '['.$productsVariants->name.']'.$detail['product']['name'];
+                    $data['sub_name'] = $detail['product']['sub_name'];
                     $data['product_variant_id'] = $detail->product_variant_id;
 
                     if ($unit && $unit->operator == '/') {
@@ -1627,6 +1628,7 @@ class PurchasesController extends BaseController
 
                     $data['code'] = $detail['product']['code'];
                     $data['name'] = $detail['product']['name'];
+                    $data['sub_name'] = $detail['product']['sub_name'];
 
                     if ($unit && $unit->operator == '/') {
                         $data['stock'] = $item_product ? $item_product->qte * $unit->operator_value : 0;
@@ -2597,11 +2599,10 @@ class PurchasesController extends BaseController
         $uploadedDocuments = [];
 
         if ($request->hasFile('documents')) {
-            // Create directory if it doesn't exist
-            $uploadPath = public_path('images/purchase_documents');
-            if (!file_exists($uploadPath)) {
-                mkdir($uploadPath, 0755, true);
-            }
+            // Company-scoped: images/company_{id}/purchase_documents, not
+            // one shared folder for the whole install.
+            $uploadRel = \App\Support\CompanyFiles::dir((int) $purchase->company_id, 'purchase_documents');
+            $uploadPath = public_path($uploadRel);
 
             foreach ($request->file('documents') as $file) {
                 // Capture metadata BEFORE moving the file (tmp file is still readable)
@@ -2610,11 +2611,11 @@ class PurchasesController extends BaseController
                 $mimeType = $file->getMimeType();
 
                 $filename = time() . '_' . Str::random(10) . '_' . $originalName;
-                
-                // Move file to public/images/purchase_documents
+
+                // Move file to public/images/company_{id}/purchase_documents
                 $file->move($uploadPath, $filename);
-                
-                $relativePath = 'images/purchase_documents/' . $filename;
+
+                $relativePath = $uploadRel . '/' . $filename;
 
                 $documentId = DB::table('purchase_documents')->insertGetId([
                     'purchase_id' => $purchaseId,

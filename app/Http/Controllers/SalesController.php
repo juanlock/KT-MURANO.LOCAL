@@ -3305,6 +3305,7 @@ class SalesController extends BaseController
                     $data['product_variant_id'] = $detail->product_variant_id;
                     $data['code'] = $productsVariants->code;
                     $data['name'] = '['.$productsVariants->name.']'.$detail['product']['name'];
+                    $data['sub_name'] = $detail['product']['sub_name'];
 
                     if ($unit && $unit->operator == '/') {
                         $stock = $item_product ? $item_product->qte * $unit->operator_value : 0;
@@ -3323,6 +3324,7 @@ class SalesController extends BaseController
                     $data['product_variant_id'] = null;
                     $data['code'] = $detail['product']['code'];
                     $data['name'] = $detail['product']['name'];
+                    $data['sub_name'] = $detail['product']['sub_name'];
 
                     if ($unit && $unit->operator == '/') {
                         $stock = $item_product ? $item_product->qte * $unit->operator_value : 0;
@@ -4445,11 +4447,10 @@ class SalesController extends BaseController
         $uploadedDocuments = [];
 
         if ($request->hasFile('documents')) {
-            // Create directory if it doesn't exist
-            $uploadPath = public_path('images/sale_documents');
-            if (! file_exists($uploadPath)) {
-                mkdir($uploadPath, 0755, true);
-            }
+            // Company-scoped: images/company_{id}/sale_documents, not one
+            // shared folder for the whole install.
+            $uploadRel = \App\Support\CompanyFiles::dir((int) $sale->company_id, 'sale_documents');
+            $uploadPath = public_path($uploadRel);
 
             foreach ($request->file('documents') as $file) {
                 // Capture metadata BEFORE moving the file (tmp file is still readable)
@@ -4458,11 +4459,11 @@ class SalesController extends BaseController
                 $mimeType = $file->getMimeType();
 
                 $filename = time() . '_' . Str::random(10) . '_' . $originalName;
-                
-                // Move file to public/images/sale_documents
+
+                // Move file to public/images/company_{id}/sale_documents
                 $file->move($uploadPath, $filename);
-                
-                $relativePath = 'images/sale_documents/' . $filename;
+
+                $relativePath = $uploadRel . '/' . $filename;
 
                 $documentId = DB::table('sale_documents')->insertGetId([
                     'sale_id' => $saleId,

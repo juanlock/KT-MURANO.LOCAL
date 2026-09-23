@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\hrm;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\OfficeShift;
@@ -11,11 +12,14 @@ use Illuminate\Http\Request;
 
 class OfficeShiftController extends Controller
 {
+    use ScopesToCompany;
+
     // ----------- GET ALL  office_shift --------------\\
 
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', OfficeShift::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -26,6 +30,7 @@ class OfficeShiftController extends Controller
         $dir = $request->SortType;
         $data = [];
         $office_shifts = OfficeShift::with('company:id,name')->where('deleted_at', '=', null)
+            ->where('company_id', $companyId)
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
@@ -75,7 +80,9 @@ class OfficeShiftController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', OfficeShift::class);
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        $companies = $request->user('api')->type === 'SuperAdmin'
+            ? Company::where('deleted_at', '=', null)->get(['id', 'name'])
+            : Company::where('id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
 
         return response()->json([
             'companies' => $companies,
@@ -109,8 +116,15 @@ class OfficeShiftController extends Controller
         $sunday_in = new DateTime($request['sunday_in']);
         $sunday_out = new DateTime($request['sunday_out']);
 
+        // A regular admin can only ever create a shift for their own
+        // company -- ignore whatever company_id the request sent and force
+        // it, rather than trusting a client-editable form field.
+        $companyId = $request->user('api')->type === 'SuperAdmin'
+            ? (int) $request['company_id']
+            : $this->resolveActingCompanyId($request);
+
         OfficeShift::create([
-            'company_id' => $request['company_id'],
+            'company_id' => $companyId,
             'name' => $request['name'],
             'monday_in' => $request['monday_in'] ? $monday_in->format('H:iA') : null,
             'monday_out' => $request['monday_out'] ? $monday_out->format('H:iA') : null,
@@ -144,8 +158,14 @@ class OfficeShiftController extends Controller
     public function edit(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', OfficeShift::class);
+        abort_unless(
+            optional(OfficeShift::where('deleted_at', null)->find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        $companies = $request->user('api')->type === 'SuperAdmin'
+            ? Company::where('deleted_at', '=', null)->get(['id', 'name'])
+            : Company::where('id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
 
         return response()->json([
             'companies' => $companies,
@@ -158,6 +178,11 @@ class OfficeShiftController extends Controller
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', OfficeShift::class);
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_unless(
+            optional(OfficeShift::where('deleted_at', null)->find($id))->company_id === $companyId,
+            404
+        );
 
         // monday_in
         if (strlen($request['monday_in']) == 5) {
@@ -257,8 +282,12 @@ class OfficeShiftController extends Controller
             $sunday_out = new DateTime(substr($request['sunday_out'], 0, -2));
         }
 
+        $newCompanyId = $request->user('api')->type === 'SuperAdmin'
+            ? (int) $request['company_id']
+            : $companyId;
+
         OfficeShift::whereId($id)->update([
-            'company_id' => $request['company_id'],
+            'company_id' => $newCompanyId,
             'name' => $request['name'],
             'monday_in' => $request['monday_in'] ? $monday_in->format('H:iA') : null,
             'monday_out' => $request['monday_out'] ? $monday_out->format('H:iA') : null,
@@ -284,6 +313,10 @@ class OfficeShiftController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', OfficeShift::class);
+        abort_unless(
+            optional(OfficeShift::where('deleted_at', null)->find($id))->company_id === $this->resolveActingCompanyId($request),
+            404
+        );
 
         \DB::transaction(function () use ($id) {
 
@@ -302,13 +335,12 @@ class OfficeShiftController extends Controller
     {
 
         $this->authorizeForUser($request->user('api'), 'delete', OfficeShift::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $selectedIds = $request->selectedIds;
-        foreach ($selectedIds as $office_shift_id) {
-            OfficeShift::whereId($office_shift_id)->update([
-                'deleted_at' => Carbon::now(),
-            ]);
-        }
+        OfficeShift::whereIn('id', $selectedIds)
+            ->where('company_id', $companyId)
+            ->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }

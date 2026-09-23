@@ -32,11 +32,11 @@ export const MIGRATED_ROUTES = {
     '/app/settings/payment_methods': '/settings/payment-methods',
     // Rack locations merged into the Warehouses page (tab).
     '/app/settings/Warehouse_Locations': '/warehouses',
-    // Billing's Manage Menus screen merged into the System Settings > Sidebar
-    // Menu tab (Murano-only entry point, see the 'manage_menu' MENU node below
-    // -- billing has no equivalent legacy route, this maps from billing's
-    // /app/settings/manage_menus for consistency with the rest of this table).
-    '/app/settings/manage_menus': '/settings/system?tab=sidebar',
+    // Murano-only entry point, its own standalone page (see the 'manage_menu'
+    // MENU node below) -- billing has no equivalent legacy route, this maps
+    // from billing's /app/settings/manage_menus for consistency with the
+    // rest of this table.
+    '/app/settings/manage_menus': '/settings/sidebar-menu',
     '/app/settings/payment_gateway': '/settings/payment-gateway',
     '/app/settings/mail_settings': '/settings/mail',
     '/app/settings/login_devices': '/settings/login-devices',

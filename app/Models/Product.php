@@ -9,8 +9,8 @@ class Product extends Model
     protected $dates = ['deleted_at'];
 
     protected $fillable = [
-        'company_id',
-        'code', 'gtin', 'Type_barcode', 'name', 'cost', 'price', 'unit_id', 'unit_sale_id', 'unit_purchase_id',
+        'company_id', 'product_group_id',
+        'code', 'gtin', 'Type_barcode', 'name', 'sub_name', 'cost', 'price', 'unit_id', 'unit_sale_id', 'unit_purchase_id',
         'stock_alert', 'weight', 'length', 'width', 'height', 'category_id', 'sub_category_id', 'is_variant', 'is_imei',
         'tax_method', 'image', 'brand_id', 'is_active', 'note', 'type',
         'warranty_period', 'warranty_unit', 'warranty_terms', 'wholesale_price', 'min_price',
@@ -27,6 +27,7 @@ class Product extends Model
         'wholesale_price' => 'double',
         'min_price' => 'double',
         'company_id' => 'integer',
+        'product_group_id' => 'integer',
         'category_id' => 'integer',
         'is_featured' => 'integer',
         'sub_category_id' => 'integer',
@@ -94,6 +95,17 @@ class Product extends Model
     {
         // table is "product_variants", FK is "product_id"
         return $this->hasMany(ProductVariant::class, 'product_id');
+    }
+
+    /**
+     * The umbrella group this product belongs to (e.g. a services company's
+     * "Chemical Application Services" covering many independently priced
+     * line items). NOT the same concept as variants() -- see
+     * app/Models/ProductGroup.php.
+     */
+    public function productGroup()
+    {
+        return $this->belongsTo(ProductGroup::class, 'product_group_id');
     }
 
     public function batches()

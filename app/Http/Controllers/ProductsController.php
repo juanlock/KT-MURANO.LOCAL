@@ -15,6 +15,7 @@ use App\Models\CountStock;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductPack;
+use App\Models\ProductGroup;
 use App\Models\ProductPriceTier;
 use App\Models\product_warehouse;
 use App\Models\ProductVariant;
@@ -88,7 +89,7 @@ class ProductsController extends BaseController
         $columns = [0 => 'name', 1 => 'category_id', 2 => 'brand_id', 3 => 'sub_category_id'];
         $param = [0 => 'like', 1 => '=', 2 => '=', 3 => '='];
 
-        $productsQuery = Product::with('unit', 'category', 'subCategory', 'brand', 'categories')
+        $productsQuery = Product::with('unit', 'category', 'subCategory', 'brand', 'categories', 'productGroup')
             ->whereNull('deleted_at')
             ->where('company_id', $companyId);
 
@@ -199,6 +200,9 @@ class ProductsController extends BaseController
 
             $item['id'] = $product->id;
             $item['code'] = $product->code;
+            $item['sub_name'] = $product->sub_name;
+            $item['product_group_id'] = $product->product_group_id;
+            $item['group_name'] = optional($product->productGroup)->name;
             // Variant products list the parent code first and every variant code
             // under it; other types leave this empty.
             $item['variant_codes'] = [];
@@ -416,6 +420,55 @@ class ProductsController extends BaseController
         }
     }
 
+    /**
+     * Resolves the request's optional "Group Name" / "Sub Name" pair into a
+     * [product_group_id, sub_name] pair for saving on the product.
+     *
+     * Group Name is the umbrella a services-style catalog needs (e.g. a
+     * company selling "Chemical Application Services" with many
+     * independently priced line items) -- findOrCreate by (company_id,
+     * name) so typing the same group name twice reuses the same parent row
+     * instead of creating a duplicate. Sub Name disambiguates siblings
+     * within that group and is required once a group is set. $excludeId
+     * excludes the product being edited from its own collision check.
+     *
+     * @return array{0: int|null, 1: string|null}
+     */
+    private function resolveProductGroupAndSubName(Request $request, int $companyId, ?int $excludeId = null): array
+    {
+        $groupName = trim((string) $request->input('group_name', ''));
+        $subName = trim((string) $request->input('sub_name', ''));
+
+        if ($groupName === '') {
+            return [null, $subName !== '' ? $subName : null];
+        }
+
+        if ($subName === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'sub_name' => 'Sub Name is required when Group Name is set.',
+            ]);
+        }
+
+        $group = ProductGroup::firstOrCreate(
+            ['company_id' => $companyId, 'name' => $groupName],
+        );
+
+        $collision = Product::where('company_id', $companyId)
+            ->where('product_group_id', $group->id)
+            ->where('sub_name', $subName)
+            ->whereNull('deleted_at')
+            ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
+            ->exists();
+
+        if ($collision) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'sub_name' => "\"{$subName}\" already exists in the \"{$groupName}\" group.",
+            ]);
+        }
+
+        return [$group->id, $subName];
+    }
+
     // -------------- Store new  Product  ---------------\\
 
     public function store(Request $request)
@@ -607,13 +660,17 @@ class ProductsController extends BaseController
                 'code.required' => 'This field is required',
             ]);
 
-            \DB::transaction(function () use ($request, $companyId) {
+            [$productGroupId, $subName] = $this->resolveProductGroupAndSubName($request, $companyId);
+
+            \DB::transaction(function () use ($request, $companyId, $productGroupId, $subName) {
 
                 // -- Create New Product
                 $Product = new Product;
 
                 // -- Field Required
                 $Product->company_id = $companyId;
+                $Product->product_group_id = $productGroupId;
+                $Product->sub_name = $subName;
                 $Product->type = $request['type'];
                 $Product->name = $request['name'];
                 $Product->code = $request['code'];
@@ -1218,13 +1275,17 @@ class ProductsController extends BaseController
                 'code.required' => 'This field is required',
             ]);
 
-            \DB::transaction(function () use ($request, $id, $companyId) {
+            [$productGroupId, $subName] = $this->resolveProductGroupAndSubName($request, $companyId, (int) $id);
+
+            \DB::transaction(function () use ($request, $id, $companyId, $productGroupId, $subName) {
 
                 $Product = Product::where('id', $id)
                     ->where('deleted_at', '=', null)
                     ->first();
 
                 // -- Update Product
+                $Product->product_group_id = $productGroupId;
+                $Product->sub_name = $subName;
                 $Product->type = $request['type'];
                 $Product->name = $request['name'];
                 $Product->code = $request['code'];
@@ -2130,6 +2191,7 @@ class ProductsController extends BaseController
             // variant code above, so without this searching by the main code
             // could never match a variant.
             $item['product_code'] = $product_warehouse['product']->code;
+            $item['sub_name'] = $product_warehouse['product']->sub_name;
 
             $item['id'] = $product_warehouse->product_id;
             $item['product_type'] = $product_warehouse['product']->type;
@@ -2306,6 +2368,7 @@ class ProductsController extends BaseController
         $item['not_selling'] = $Product_data['not_selling'];
         $item['hide_from_online_store'] = $Product_data['hide_from_online_store'] ?? 0;
         $item['is_batch_tracked'] = (bool) ($Product_data['is_batch_tracked'] ?? false);
+        $item['sub_name'] = $Product_data['sub_name'];
 
         // product single
         if ($Product_data['type'] == 'is_single') {
@@ -2893,6 +2956,8 @@ class ProductsController extends BaseController
         $item['points'] = $Product->points;
         $item['Type_barcode'] = $Product->Type_barcode;
         $item['name'] = $Product->name;
+        $item['sub_name'] = $Product->sub_name;
+        $item['group_name'] = optional($Product->productGroup)->name;
 
         // ——— Warranty & Guarantee ———
         $item['warranty_period'] = $Product->warranty_period;
@@ -4301,6 +4366,23 @@ class ProductsController extends BaseController
             ->get(['id', 'name', 'code']);
 
         return response()->json(['products' => $products]);
+    }
+
+    /**
+     * Typeahead for the product form's "Group Name" field -- existing
+     * umbrellas the acting company already has (e.g. "Chemical Application
+     * Services"), so a second sub-item reuses the same product_groups row
+     * instead of accidentally creating a near-duplicate group by typo.
+     */
+    public function listProductGroups(Request $request)
+    {
+        $companyId = $this->resolveActingCompanyId($request);
+
+        $groups = ProductGroup::where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json(['product_groups' => $groups]);
     }
 
     // -------------- get_products_materiels ------------------\\

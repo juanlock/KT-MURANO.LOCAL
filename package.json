@@ -3,7 +3,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "node --max-old-space-size=4096 node_modules/vite/bin/vite.js build --watch",
+        "dev": "npm run build:admin",
+        "watch": "node --max-old-space-size=4096 node_modules/vite/bin/vite.js build --watch",
         "clean:js": "node -e \"require('fs').rmSync('public/js',{recursive:true,force:true})\"",
         "build": "npm run clean:js && npm run build:admin && npm run build:customer-display && npm run build:portal && npm run build:storefront",
         "prod": "npm run build",
@@ -12,7 +13,7 @@
         "build:portal": "vite build -c vite.portal.config.js",
         "build:storefront": "vite build -c vite.storefront.config.js",
         "vue3:build": "npm run build",
-        "vue3:watch": "npm run dev"
+        "vue3:watch": "npm run watch"
     },
     "dependencies": {
         "@alpinejs/collapse": "^3.15.11",

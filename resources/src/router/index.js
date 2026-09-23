@@ -241,6 +241,7 @@ const SmsSettings = lazy('SmsSettings', () => import('../pages/settings/SmsSetti
 const Languages = lazy('Languages', () => import('../pages/settings/Languages.vue'));
 const TranslationsView = lazy('TranslationsView', () => import('../pages/settings/TranslationsView.vue'));
 const Webhooks = lazy('Webhooks', () => import('../pages/settings/Webhooks.vue'));
+const SidebarMenuManager = lazy('SidebarMenuManager', () => import('../pages/settings/SidebarMenuManager.vue'));
 const SerialNumbers = lazy('SerialNumbers', () => import('../pages/serial_numbers/SerialNumbers.vue'));
 const SerialNumberDetails = lazy('SerialNumberDetails', () => import('../pages/serial_numbers/SerialNumberDetails.vue'));
 const Deposits = lazy('Deposits', () => import('../pages/deposits/Deposits.vue'));
@@ -775,6 +776,7 @@ const routes = [
             { path: 'deposits/:id/edit', name: 'deposit-edit', component: DepositForm, meta: { title: 'Edit Deposit', permission: 'deposit_edit' } },
             { path: 'deposits/categories', name: 'deposit-categories', component: DepositCategories, meta: { title: 'Deposit Categories', permission: 'deposit_view' } },
             { path: 'settings/payment-methods', name: 'payment-methods', component: PaymentMethods, meta: { title: 'Payment Methods', permission: 'payment_methods' } },
+            { path: 'settings/sidebar-menu', name: 'sidebar-menu-settings', component: SidebarMenuManager, meta: { title: 'Manage Menu', permission: 'setting_system' } },
             // Rack locations now live in a tab on the Warehouses page.
             { path: 'settings/warehouse-locations', redirect: '/warehouses' },
             { path: 'settings/payment-gateway', name: 'payment-gateway', component: PaymentGateway, meta: { title: 'Payment Gateway', permission: 'payment_gateway' } },
