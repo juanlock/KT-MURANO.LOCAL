@@ -363,6 +363,7 @@ import BarcodeSvg from '../../components/BarcodeSvg.vue';
 import { useAuthStore } from '../../stores/auth';
 import { useFormat } from '../../composables/useFormat';
 import http from '../../lib/http';
+import { resolveImageUrl } from '../../lib/imagePath';
 
 const { t } = useI18n();
 const { money } = useFormat();
@@ -439,7 +440,7 @@ const gallery = computed(() => {
   base.forEach(push);
   (p.products_variants_data || []).forEach(v => push(v.image));
   return files.length
-    ? files.map(f => (/^https?:\/\//i.test(f) ? f : `/images/products/${f}`))
+    ? files.map(f => (/^https?:\/\//i.test(f) ? f : resolveImageUrl(f, 'products')))
     : [NO_IMAGE];
 });
 const carouselRef = ref(null);

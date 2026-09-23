@@ -6,6 +6,7 @@ use App\Http\Controllers\LocaleSyncController;
 use App\Models\Setting;
 use Closure;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
@@ -50,16 +51,22 @@ class SetLocale
      * Settings → default_language, cached: this runs on every 'web' request and
      * must not add a query to each one. Null while there is no DB/settings row
      * yet (installer and update flows both hit web routes).
+     *
+     * No acting-company header exists on guest/Blade routes, so the acting
+     * company is the logged-in user's own company_id, or null for a guest
+     * (Setting::forCompany(null) resolves to the 999 System template row).
      */
     public static function settingsLocale(): ?string
     {
-        return Cache::remember('settings.default_language', 600, function () {
+        $companyId = Auth::check() ? (int) Auth::user()->company_id : null;
+
+        return Cache::remember('settings.default_language.'.($companyId ?? 'guest'), 600, function () use ($companyId) {
             try {
                 if (! Schema::hasTable('settings')) {
                     return null;
                 }
 
-                return Setting::query()->value('default_language') ?: null;
+                return Setting::forCompany($companyId)->default_language ?: null;
             } catch (\Throwable $e) {
                 return null;
             }

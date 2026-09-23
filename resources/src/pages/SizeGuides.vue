@@ -14,7 +14,7 @@
         <template v-if="column.key === 'image'">
           <a-image
             v-if="record.image"
-            :src="'/images/size_guides/' + record.image"
+            :src="sizeGuideImageUrl(record.image)"
             :width="44"
             :height="44"
             style="object-fit: cover; border-radius: 8px"
@@ -82,7 +82,7 @@
             </a-button>
           </a-upload>
           <div v-if="editMode && currentImage" class="sg-current">
-            <img :src="`/images/size_guides/${currentImage}`" :alt="form.name" class="sg-current-img" />
+            <img :src="sizeGuideImageUrl(currentImage)" :alt="form.name" class="sg-current-img" />
             <a-typography-text type="secondary" style="font-size: 12px">
               {{ $t('Current') }}: {{ currentImage }}
             </a-typography-text>
@@ -194,6 +194,16 @@ const rules = computed(() => ({
     { min: 2, max: 100, message: '2 – 100' },
   ],
 }));
+
+/**
+ * Newer rows store a full company-scoped relative path (images/company_{id}/
+ * size_guides/xxx.jpg); older rows still hold a bare filename that lived
+ * under the old shared images/size_guides/ folder. Render both correctly.
+ */
+function sizeGuideImageUrl(image) {
+  if (!image) return '';
+  return image.includes('/') ? '/' + image : '/images/size_guides/' + image;
+}
 
 /* ------------------------------------------------------- matrix editing */
 // Columns and rows must stay rectangular: every row carries one cell per column.

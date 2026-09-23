@@ -6,8 +6,10 @@
  * products.image / product_images.image_path historically hold a bare filename
  * under public/images/products. Admins can now also attach an image by pasting
  * a link, in which case the stored value is the absolute http(s) URL itself.
+ * As of the per-company upload folders fix, a NEW upload instead stores a
+ * full relative path from public/ (e.g. files/company_2/products/xxx.jpg).
  * Every consumer must go through these helpers instead of concatenating
- * 'images/products/' so both forms render.
+ * 'images/products/' so all three forms render.
  */
 
 if (! function_exists('product_image_is_remote')) {
@@ -35,6 +37,12 @@ if (! function_exists('product_image_url')) {
         }
         if ($v[0] === '/') {
             return $v;
+        }
+        // New format: already a full relative path from public/ (e.g.
+        // files/company_2/products/xxx.jpg) -- asset() it directly instead
+        // of double-prefixing with images/products/.
+        if (str_starts_with($v, 'files/') || str_starts_with($v, 'images/')) {
+            return asset($v);
         }
 
         return asset('images/products/'.$v);

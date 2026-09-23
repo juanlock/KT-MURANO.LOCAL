@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\AcademicYear;
 use App\Models\ClassSection;
 use App\Models\ExamResult;
@@ -10,6 +11,7 @@ use App\Models\SchoolInvoice;
 use App\Models\Student;
 use App\Models\StudentAttendance;
 use App\Models\StudentEnrollment;
+use App\Support\CompanyFiles;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,13 +29,15 @@ use Illuminate\Support\Str;
  */
 class SchoolStudentController extends Controller
 {
-    private const IMAGE_DIR = 'images/students';
+    use ScopesToCompany;
 
     private const SORTABLE = ['id', 'admission_number', 'name', 'gender', 'date_of_birth', 'admission_date', 'status', 'created_at'];
 
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Student::class);
+
+        $companyId = $this->resolveActingCompanyId($request);
 
         $perPage = (int) ($request->limit ?? 10);
         $page = max(1, (int) $request->get('page', 1));
@@ -42,7 +46,7 @@ class SchoolStudentController extends Controller
 
         $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
 
-        $query = Student::whereNull('deleted_at');
+        $query = Student::whereNull('deleted_at')->where('company_id', $companyId);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -53,6 +57,7 @@ class SchoolStudentController extends Controller
         // Class/section filters run through the enrolment for the chosen year.
         if ($request->filled('class_id') || $request->filled('section_id') || $request->boolean('unassigned')) {
             $enrollmentIds = StudentEnrollment::whereNull('deleted_at')
+                ->where('company_id', $companyId)
                 ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
                 ->when($request->filled('class_id'), fn ($q) => $q->where('class_id', $request->class_id))
                 ->when($request->filled('section_id'), fn ($q) => $q->where('section_id', $request->section_id))
@@ -86,6 +91,7 @@ class SchoolStudentController extends Controller
         // Current enrolments in one query rather than one per row.
         $enrollments = StudentEnrollment::with('schoolClass', 'section')
             ->whereNull('deleted_at')
+            ->where('company_id', $companyId)
             ->whereIn('student_id', $students->pluck('id'))
             ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
             ->get()->keyBy('student_id');
@@ -100,20 +106,22 @@ class SchoolStudentController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Student::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $request->validate($this->rules());
 
         $data = $this->payload($request);
+        $data['company_id'] = $companyId;
         $data['admission_number'] = $request->filled('admission_number')
             ? $request->admission_number
             : Student::generateAdmissionNumber();
-        $data['image'] = $this->storeImage($request);
+        $data['image'] = $this->storeImage($request, $companyId);
 
         $student = Student::create($data);
 
         // Admitting straight into a class is the common case; skipping it is
         // allowed so a mid-year applicant can be registered before placement.
         if ($request->filled('class_id')) {
-            $this->writeEnrollment($student, $request);
+            $this->writeEnrollment($student, $request, $companyId);
         }
 
         return response()->json([
@@ -128,6 +136,7 @@ class SchoolStudentController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Student::class);
 
         $student = Student::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $student->company_id === $this->resolveActingCompanyId($request), 404);
         $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
         $enrollment = $student->enrollmentFor($yearId);
 
@@ -167,10 +176,11 @@ class SchoolStudentController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Student::class);
 
         $student = Student::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $student->company_id === $this->resolveActingCompanyId($request), 404);
         $enrollment = $student->enrollmentFor();
 
         return response()->json(['student' => array_merge($student->toArray(), [
-            'image_url' => $student->image ? asset(self::IMAGE_DIR . '/' . $student->image) : null,
+            'image_url' => $student->image ? asset($student->image) : null,
             'date_of_birth' => optional($student->date_of_birth)->toDateString(),
             'admission_date' => optional($student->admission_date)->toDateString(),
             'class_id' => $enrollment ? $enrollment->class_id : null,
@@ -183,7 +193,10 @@ class SchoolStudentController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'update', Student::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $student = Student::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $student->company_id === $companyId, 404);
+
         $request->validate($this->rules($student->id));
 
         $data = $this->payload($request);
@@ -191,7 +204,7 @@ class SchoolStudentController extends Controller
             $data['admission_number'] = $request->admission_number;
         }
 
-        $image = $this->storeImage($request);
+        $image = $this->storeImage($request, $companyId);
         if ($image) {
             $this->deleteImage($student->image);
             $data['image'] = $image;
@@ -203,7 +216,7 @@ class SchoolStudentController extends Controller
         $student->update($data);
 
         if ($request->filled('class_id')) {
-            $this->writeEnrollment($student, $request);
+            $this->writeEnrollment($student, $request, $companyId);
         }
 
         return response()->json(['success' => true]);
@@ -213,7 +226,9 @@ class SchoolStudentController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', Student::class);
 
-        Student::whereNull('deleted_at')->findOrFail($id)->delete();
+        $student = Student::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $student->company_id === $this->resolveActingCompanyId($request), 404);
+        $student->delete();
 
         return response()->json(['success' => true]);
     }
@@ -223,7 +238,7 @@ class SchoolStudentController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', Student::class);
 
         $ids = (array) $request->selectedIds;
-        Student::whereIn('id', $ids)->delete();
+        Student::whereIn('id', $ids)->where('company_id', $this->resolveActingCompanyId($request))->delete();
 
         return response()->json(['success' => true, 'count' => count($ids)]);
     }
@@ -234,6 +249,7 @@ class SchoolStudentController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Student::class);
 
         $student = Student::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $student->company_id === $this->resolveActingCompanyId($request), 404);
         $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
 
         $results = ExamResult::with('examSubject.subject', 'examSubject.exam')
@@ -308,6 +324,7 @@ class SchoolStudentController extends Controller
 
         $query = StudentEnrollment::with('student', 'academicYear', 'schoolClass', 'section')
             ->whereNull('deleted_at')
+            ->where('company_id', $this->resolveActingCompanyId($request))
             ->when($request->filled('academic_year_id'), fn ($q) => $q->where('academic_year_id', $request->academic_year_id))
             ->when($request->filled('class_id'), fn ($q) => $q->where('class_id', $request->class_id))
             ->when($request->filled('section_id'), fn ($q) => $q->where('section_id', $request->section_id))
@@ -350,6 +367,8 @@ class SchoolStudentController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', StudentEnrollment::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $request->validate([
             'student_id' => 'required|exists:students,id',
             'academic_year_id' => 'required|exists:academic_years,id',
@@ -358,7 +377,8 @@ class SchoolStudentController extends Controller
         ]);
 
         $student = Student::findOrFail($request->student_id);
-        $this->writeEnrollment($student, $request);
+        abort_unless((int) $student->company_id === $companyId, 404);
+        $this->writeEnrollment($student, $request, $companyId);
 
         return response()->json(['success' => true]);
     }
@@ -374,6 +394,8 @@ class SchoolStudentController extends Controller
         ]);
 
         $enrollment = StudentEnrollment::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $enrollment->company_id === $this->resolveActingCompanyId($request), 404);
+
         $enrollment->update([
             'class_id' => $request->class_id,
             'section_id' => $request->section_id ?: null,
@@ -389,7 +411,9 @@ class SchoolStudentController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', StudentEnrollment::class);
 
-        StudentEnrollment::whereNull('deleted_at')->findOrFail($id)->delete();
+        $enrollment = StudentEnrollment::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $enrollment->company_id === $this->resolveActingCompanyId($request), 404);
+        $enrollment->delete();
 
         return response()->json(['success' => true]);
     }
@@ -406,6 +430,8 @@ class SchoolStudentController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', StudentEnrollment::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $request->validate([
             'from_year_id' => 'required|exists:academic_years,id',
             'to_year_id' => 'required|exists:academic_years,id|different:from_year_id',
@@ -419,6 +445,7 @@ class SchoolStudentController extends Controller
         $repeatIds = array_map('intval', (array) $request->repeat_ids);
 
         $source = StudentEnrollment::whereNull('deleted_at')
+            ->where('company_id', $companyId)
             ->where('academic_year_id', $request->from_year_id)
             ->where('class_id', $request->class_id)
             ->where('status', 'active')
@@ -429,7 +456,7 @@ class SchoolStudentController extends Controller
         $repeated = 0;
         $skipped = 0;
 
-        DB::transaction(function () use ($source, $request, $repeatIds, &$promoted, &$repeated, &$skipped) {
+        DB::transaction(function () use ($source, $request, $repeatIds, $companyId, &$promoted, &$repeated, &$skipped) {
             foreach ($source as $enrollment) {
                 $already = StudentEnrollment::whereNull('deleted_at')
                     ->where('student_id', $enrollment->student_id)
@@ -443,6 +470,7 @@ class SchoolStudentController extends Controller
                 $repeats = in_array((int) $enrollment->student_id, $repeatIds, true);
 
                 StudentEnrollment::create([
+                    'company_id' => $companyId,
                     'student_id' => $enrollment->student_id,
                     'academic_year_id' => $request->to_year_id,
                     // A repeater stays in the class they were in.
@@ -475,7 +503,7 @@ class SchoolStudentController extends Controller
      * per student per year is a DB constraint, so this updates in place rather
      * than inserting a second.
      */
-    private function writeEnrollment(Student $student, Request $request)
+    private function writeEnrollment(Student $student, Request $request, int $companyId)
     {
         $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
         if (! $yearId) {
@@ -502,6 +530,7 @@ class SchoolStudentController extends Controller
         }
 
         return StudentEnrollment::create($payload + [
+            'company_id' => $companyId,
             'student_id' => $student->id,
             'academic_year_id' => $yearId,
         ]);
@@ -572,7 +601,7 @@ class SchoolStudentController extends Controller
             'status' => $student->status,
             'client_id' => $student->client_id,
             'image' => $student->image,
-            'image_url' => $student->image ? asset(self::IMAGE_DIR . '/' . $student->image) : null,
+            'image_url' => $student->image ? asset($student->image) : null,
             'enrollment_id' => $enrollment ? $enrollment->id : null,
             'class_id' => $enrollment ? $enrollment->class_id : null,
             'class_name' => $enrollment && $enrollment->schoolClass ? $enrollment->schoolClass->name : null,
@@ -626,31 +655,31 @@ class SchoolStudentController extends Controller
         ];
     }
 
-    private function storeImage(Request $request)
+    /** Returns the stored image's public-relative path, or null when no photo was sent. */
+    private function storeImage(Request $request, int $companyId)
     {
         if (! $request->hasFile('image')) {
             return null;
         }
 
         $file = $request->file('image');
-        $path = public_path(self::IMAGE_DIR);
-        if (! file_exists($path)) {
-            mkdir($path, 0755, true);
-        }
+        $rel = CompanyFiles::dir($companyId, 'students');
+        $path = public_path($rel);
 
         $extension = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
         $filename = time() . '_' . Str::random(10) . '.' . $extension;
         $file->move($path, $filename);
 
-        return $filename;
+        return $rel . '/' . $filename;
     }
 
-    private function deleteImage($filename)
+    /** $relPath is the public-relative path stored in the `image` column. */
+    private function deleteImage(?string $relPath)
     {
-        if (! $filename) {
+        if (! $relPath) {
             return;
         }
-        $path = public_path(self::IMAGE_DIR . '/' . $filename);
+        $path = public_path($relPath);
         if (file_exists($path)) {
             @unlink($path);
         }

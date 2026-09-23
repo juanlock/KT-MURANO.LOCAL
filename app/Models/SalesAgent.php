@@ -13,10 +13,11 @@ class SalesAgent extends Model
     protected $dates = ['deleted_at'];
 
     protected $fillable = [
-        'user_id', 'code', 'name', 'email', 'phone', 'is_active', 'notes',
+        'company_id', 'user_id', 'code', 'name', 'email', 'phone', 'is_active', 'notes',
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'user_id' => 'integer',
         'is_active' => 'boolean',
     ];

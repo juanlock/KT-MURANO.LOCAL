@@ -106,6 +106,16 @@ class PurchasesController extends BaseController
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
                 }
+            })
+            // Quick date-range filter (All / This Year / This Month / Last
+            // Month / Last Year buttons) -- independent of the single-day
+            // `date` filter above, applied here so it also shapes the
+            // summary cards (stats) and totalRows, not just the page's rows.
+            ->when($request->filled('date_from'), function ($query) use ($request) {
+                return $query->whereDate('date', '>=', $request->date_from);
+            })
+            ->when($request->filled('date_to'), function ($query) use ($request) {
+                return $query->whereDate('date', '<=', $request->date_to);
             });
         if (! $is_all_warehouses) {
             $Purchases->whereIn('warehouse_id', $warehouse_ids);
@@ -518,7 +528,7 @@ class PurchasesController extends BaseController
                 foreach ($new_purchase_details as $key => $prod_detail) {
 
                     // Absent on lines added during the edit (only stored details
-                    // carry it), so default to 1 = "has a unit, process it" — the
+                    // carry it), so default to 1 = "has a unit, process it" â€” the
                     // same default the batch/serial alignment below already uses.
                     // These three must agree or the aligned arrays desync from
                     // what actually got persisted.
@@ -698,17 +708,18 @@ class PurchasesController extends BaseController
                     ->toArray();
 
                 if (empty($current_Purchase->warehouse_id) || ! in_array($current_Purchase->warehouse_id, $warehouses_id)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'You are not allowed to access this sale (warehouse restriction).',
-                    ], 403);
+                    // abort(), not a plain return: a `return` here only exits this
+                    // closure -- DB::transaction() treats that as success, and the
+                    // method falls through to the real success response below
+                    // regardless (the record silently never gets deleted).
+                    abort(403, 'You are not allowed to access this purchase (warehouse restriction).');
                 }
             }
 
             $old_purchase_details = PurchaseDetail::where('purchase_id', $id)->get();
 
             if (PurchaseReturn::where('purchase_id', $id)->where('deleted_at', '=', null)->exists()) {
-                return response()->json(['success' => false, 'Return exist for the Transaction' => false], 403);
+                abort(403, 'Return exists for this purchase; cannot delete.');
             } else {
 
                 // Check If User Has Permission view All Records
@@ -808,6 +819,107 @@ class PurchasesController extends BaseController
         return response()->json(['success' => true, 'message' => 'Purchase Deleted !!']);
     }
 
+    // -------------- Cancel (pending-only, non-destructive) ---------------\\
+
+    /**
+     * Mirrors SalesController@cancel: a lot of purchase invoices sit in
+     * Pending indefinitely with no clean way to void them other than a full
+     * Delete, which erases the record entirely. Cancel fills that gap --
+     * pending-only, keeps the invoice AND its line items on record (no
+     * deleted_at, no detail rows removed), just flips statut to 'cancelled'.
+     * Unlike sales (loyalty points are applied unconditionally at creation),
+     * nothing here is committed before statut becomes 'received' -- stock/
+     * batches/serials/payments are all gated behind it -- so a Pending
+     * purchase genuinely has nothing to reverse. The completed-only block
+     * below is dead code on the only reachable path (statut must already be
+     * 'pending' to get here), kept defensively for parity with destroy().
+     */
+    public function cancel(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Purchase::class);
+
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Purchase::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
+        \DB::transaction(function () use ($id, $request) {
+            $user = Auth::user();
+            $view_records = $user->hasRecordView();
+            $current = Purchase::with('details')->findOrFail($id);
+
+            if ($current->statut !== 'pending') {
+                abort(422, 'Only a pending purchase can be cancelled.');
+            }
+
+            $user_auth = auth()->user();
+            if (! $user_auth->is_all_warehouses) {
+                $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)
+                    ->pluck('warehouse_id')
+                    ->toArray();
+
+                if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
+                    abort(403, 'You are not allowed to access this purchase (warehouse restriction).');
+                }
+            }
+
+            $this->abortIfDocumentWarehouseDenied($current);
+
+            if (! $view_records) {
+                $this->authorizeForUser($request->user('api'), 'check_record', $current);
+            }
+
+            if ((float) $current->paid_amount > 0) {
+                abort(422, 'This purchase has payments recorded; cannot cancel.');
+            }
+
+            // Reverse warehouse stock if the purchase had somehow already been
+            // received -- unreachable today (see docblock), kept for
+            // defensive parity with destroy().
+            if ($current->statut === 'received') {
+                foreach ($current->details as $value) {
+                    if ($value->purchase_unit_id !== null) {
+                        $unit = Unit::where('id', $value->purchase_unit_id)->first();
+                    } else {
+                        $product = Product::with('unitPurchase')->where('id', $value->product_id)->first();
+                        $unit = $product && $product->unitPurchase ? Unit::where('id', $product->unitPurchase->id)->first() : null;
+                    }
+
+                    $pw = product_warehouse::whereNull('deleted_at')
+                        ->where('warehouse_id', $current->warehouse_id)
+                        ->where('product_id', $value->product_id)
+                        ->when($value->product_variant_id, fn ($q) => $q->where('product_variant_id', $value->product_variant_id))
+                        ->first();
+
+                    if ($unit && $pw) {
+                        if ($unit->operator == '/') {
+                            $pw->qte -= $value->quantity / $unit->operator_value;
+                        } else {
+                            $pw->qte -= $value->quantity * $unit->operator_value;
+                        }
+                        $pw->save();
+                    }
+                }
+
+                $batchService = app(BatchService::class);
+                if ($batchService->isSupported()) {
+                    $batchService->reverseForPurchaseDetails($current->details);
+                }
+                $serialService = app(SerialNumberService::class);
+                if ($serialService->isSupported()) {
+                    $serialService->reverseForPurchaseDetails($current->details);
+                }
+            }
+
+            // Disable, don't delete: statut flips to 'cancelled', the invoice
+            // and its line items stay on record.
+            $current->update(['statut' => 'cancelled']);
+        }, 10);
+
+        return response()->json(['success' => true]);
+    }
+
     // -------------- Delete by selection  ---------------\\
 
     public function delete_by_selection(Request $request)
@@ -829,7 +941,10 @@ class PurchasesController extends BaseController
             foreach ($selectedIds as $purchase_id) {
 
                 if (PurchaseReturn::where('purchase_id', $purchase_id)->where('deleted_at', '=', null)->exists()) {
-                    return response()->json(['success' => false, 'Return exist for the Transaction' => false], 403);
+                    // abort(), not a plain return: a `return` here only exits this
+                    // closure -- DB::transaction() treats that as success, and the
+                    // method falls through to the real success response regardless.
+                    abort(403, "Return exists for purchase id {$purchase_id}; cannot delete.");
                 } else {
 
                     $current_Purchase = Purchase::findOrFail($purchase_id);
@@ -852,10 +967,7 @@ class PurchasesController extends BaseController
                             ->toArray();
 
                         if (empty($current_Purchase->warehouse_id) || ! in_array($current_Purchase->warehouse_id, $warehouses_id)) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'You are not allowed to access this sale (warehouse restriction).',
-                            ], 403);
+                            abort(403, 'You are not allowed to access this purchase (warehouse restriction).');
                         }
                     }
 
@@ -995,7 +1107,7 @@ class PurchasesController extends BaseController
         $purchase_data['id'] = $purchase->id;
         $purchase_data['Ref'] = $purchase->Ref;
         // Multi-Currency: amounts in this payload are converted into the
-        // document currency — the page must render them with THIS symbol.
+        // document currency â€” the page must render them with THIS symbol.
         $purchase_data['currency_symbol'] = $docCurrency['symbol'];
         $purchase_data['currency_code'] = $docCurrency['code'];
         $purchase_data['currency_id'] = $docCurrency['id'];
@@ -2335,7 +2447,7 @@ class PurchasesController extends BaseController
             'warehouse_id' => 'required',
         ]);
 
-        // Pharmacy: decode batches payload (map of productcode → batches[]).
+        // Pharmacy: decode batches payload (map of productcode â†’ batches[]).
         $batchesByCode = [];
         $rawBatches = $request->input('batches_by_code');
         if (is_string($rawBatches) && $rawBatches !== '') {
@@ -2597,7 +2709,7 @@ class PurchasesController extends BaseController
         $uploadedDocuments = [];
 
         if ($request->hasFile('documents')) {
-            // Company-scoped: images/company_{id}/purchase_documents, not
+            // Company-scoped: files/company_{id}/purchase_documents, not
             // one shared folder for the whole install.
             $uploadRel = \App\Support\CompanyFiles::dir((int) $purchase->company_id, 'purchase_documents');
             $uploadPath = public_path($uploadRel);
@@ -2610,7 +2722,7 @@ class PurchasesController extends BaseController
 
                 $filename = time() . '_' . Str::random(10) . '_' . $originalName;
 
-                // Move file to public/images/company_{id}/purchase_documents
+                // Move file to public/files/company_{id}/purchase_documents
                 $file->move($uploadPath, $filename);
 
                 $relativePath = $uploadRel . '/' . $filename;

@@ -245,7 +245,7 @@ class SyncService
     private function reverseImportedSale(Sale $sale, string $reason, ?string $newWooStatus = null): void
     {
         DB::transaction(function () use ($sale, $reason, $newWooStatus) {
-            // Restore stock — only if the sale was previously decremented
+            // Restore stock â€” only if the sale was previously decremented
             // (i.e. statut was 'completed'). Mirrors SalesController::destroy.
             if (($sale->statut ?? '') === 'completed') {
                 $details = SaleDetail::where('sale_id', $sale->id)
@@ -2280,7 +2280,7 @@ class SyncService
 
                 // Best-effort: download and store brand image if we have a source.
                 if (trim($imageSrc) !== '') {
-                    $filename = $this->downloadBrandImage((string) $imageSrc, $wooBrandId);
+                    $filename = $this->downloadBrandImage((string) $imageSrc, $wooBrandId, (int) ($brand->company_id ?: 1));
                     if ($filename !== null) {
                         $brand->image = $filename;
                     }
@@ -2718,7 +2718,7 @@ class SyncService
         }
     }
 
-    private function downloadWooProductImage(string $url, int $wooId): ?string
+    private function downloadWooProductImage(string $url, int $wooId, int $companyId): ?string
     {
         try {
             $url = trim($url);
@@ -2774,7 +2774,10 @@ class SyncService
                 }
             }
 
-            $dir = public_path('images/products');
+            // Company-scoped: files/company_{id}/products, matching
+            // ProductsController's own upload paths.
+            $relDir = \App\Support\CompanyFiles::dir($companyId, 'products');
+            $dir = public_path($relDir);
             if (!is_dir($dir)) {
                 @mkdir($dir, 0755, true);
             }
@@ -2797,7 +2800,7 @@ class SyncService
                 return null;
             }
 
-            return $filename;
+            return $relDir.'/'.$filename;
         } catch (\Throwable $e) {
             $this->log('products.pull', 'warning', 'Product image download exception: '.$e->getMessage(), [
                 'woocommerce_id' => $wooId,
@@ -3137,7 +3140,7 @@ class SyncService
                         }
 
                         if ($src !== '') {
-                            $filename = $this->downloadWooProductImage($src, $wooId);
+                            $filename = $this->downloadWooProductImage($src, $wooId, (int) ($product->company_id ?: 1));
                             // If download fails, treat as missing image.
                             $product->image = $filename ?: 'no-image.png';
                         } else {
@@ -3574,7 +3577,7 @@ class SyncService
                         $payload['brands'] = $tagsPayload;
                     }
 
-                    // Image (best-effort, don’t block the sync)
+                    // Image (best-effort, donâ€™t block the sync)
                     // Attach on create ALWAYS (if local image exists). On update, attach ONLY if Woo has no images.
                     if (empty($product->woocommerce_id)) {
                         try {
@@ -5049,7 +5052,7 @@ class SyncService
 
             $images = $data['images'] ?? null;
             if (!is_array($images)) {
-                // If field missing/invalid, treat as “no images”
+                // If field missing/invalid, treat as â€œno imagesâ€
                 return false;
             }
 
@@ -5089,7 +5092,12 @@ class SyncService
                 return null;
             }
 
-            $public = public_path('images/products/'.$imageName);
+            // The stored path may be either the new "relDir/filename"
+            // format or a bare filename from the old shared
+            // images/products/ folder.
+            $public = str_contains($imageName, '/')
+                ? public_path($imageName)
+                : public_path('images/products/'.$imageName);
             if (!is_file($public)) {
                 return null;
             }
@@ -5128,7 +5136,12 @@ class SyncService
                 return null;
             }
 
-            $abs = public_path('images/products/'.$imageName);
+            // The stored path may be either the new "relDir/filename"
+            // format or a bare filename from the old shared
+            // images/products/ folder.
+            $abs = str_contains($imageName, '/')
+                ? public_path($imageName)
+                : public_path('images/products/'.$imageName);
             if (!is_file($abs)) {
                 return null;
             }
@@ -5661,7 +5674,12 @@ class SyncService
                 return null;
             }
 
-            $abs = public_path('images/brands/'.$imageName);
+            // The stored path may be either the new "relDir/filename"
+            // format or a bare filename from the old shared images/brands/
+            // folder.
+            $abs = str_contains($imageName, '/')
+                ? public_path($imageName)
+                : public_path('images/brands/'.$imageName);
             if (!is_file($abs)) {
                 return null;
             }
@@ -5706,7 +5724,7 @@ class SyncService
         return null;
     }
 
-    private function downloadBrandImage(string $url, int $wooId): ?string
+    private function downloadBrandImage(string $url, int $wooId, int $companyId): ?string
     {
         try {
             $res = Http::timeout(15)->get($url);
@@ -5728,14 +5746,17 @@ class SyncService
                     $ext = 'webp';
                 }
             }
-            $dir = public_path('images/brands');
+            // Company-scoped: files/company_{id}/brands, matching
+            // BrandsController's own upload paths.
+            $relDir = \App\Support\CompanyFiles::dir($companyId, 'brands');
+            $dir = public_path($relDir);
             if (!is_dir($dir)) {
                 return null;
             }
             $filename = 'woo_brand_'.$wooId.'_'.uniqid().'.'.$ext;
             $path = $dir.'/'.$filename;
             if (file_put_contents($path, $body) !== false) {
-                return $filename;
+                return $relDir.'/'.$filename;
             }
         } catch (\Throwable $e) {
             $this->log('brands.pull', 'warning', 'Failed to download brand image: '.$e->getMessage(), ['url' => $url]);
@@ -5795,7 +5816,7 @@ class SyncService
 
                         $img = $t['image'] ?? null;
                         if (is_array($img) && !empty($img['src'])) {
-                            $filename = $this->downloadBrandImage((string) $img['src'], $wooId);
+                            $filename = $this->downloadBrandImage((string) $img['src'], $wooId, (int) ($brand->company_id ?: 1));
                             if ($filename !== null) {
                                 $brand->image = $filename;
                             }
@@ -5899,7 +5920,12 @@ class SyncService
                     } else {
                         $imageFile = trim((string) ($brand->image ?? ''));
                         if ($imageFile !== '' && $imageFile !== 'no-image.png') {
-                            $payload['image'] = ['src' => asset('images/brands/'.$imageFile)];
+                            // The stored path may be either the new
+                            // "relDir/filename" format or a bare filename
+                            // from the old shared images/brands/ folder.
+                            $payload['image'] = ['src' => str_contains($imageFile, '/')
+                                ? asset($imageFile)
+                                : asset('images/brands/'.$imageFile)];
                         }
                     }
 
@@ -5970,13 +5996,13 @@ class SyncService
      * Push POS clients (customers) to WooCommerce.
      *
      * Loop Stocky customers:
-     *   - If woocommerce_id exists → UPDATE
+     *   - If woocommerce_id exists â†’ UPDATE
      *   - Else:
      *       - Search Woo by email (best & safest)
-     *       - If found → save ID → UPDATE
+     *       - If found â†’ save ID â†’ UPDATE
      *       - If not found, search by phone (optional fallback)
-     *       - If found → save ID → UPDATE
-     *       - If not found → CREATE → save ID
+     *       - If found â†’ save ID â†’ UPDATE
+     *       - If not found â†’ CREATE â†’ save ID
      *
      * Priority matching: Email first, then Phone (optional fallback).
      * Skips clients without email (WooCommerce requires it).
@@ -6091,7 +6117,7 @@ class SyncService
                     $wasUpdate = false;
                     $hadIssue = false;
 
-                    // If email is empty and we don't have a Woo ID → can't match/create (manual link required)
+                    // If email is empty and we don't have a Woo ID â†’ can't match/create (manual link required)
                     if ($email === '' && $wooId === null) {
                         $skipped++;
                         $this->log('customers.push', 'info', 'Skipped client without email (requires manual link)', ['client_id' => $client->id]);
@@ -6101,7 +6127,7 @@ class SyncService
                     }
 
                     if ($wooId !== null) {
-                        // ── If woocommerce_id exists → USE AS PRIMARY KEY → UPDATE ────────
+                        // â”€â”€ If woocommerce_id exists â†’ USE AS PRIMARY KEY â†’ UPDATE â”€â”€â”€â”€â”€â”€â”€â”€
                         // Email overwrite rules:
                         // - If Stocky email is empty: do NOT overwrite Woo email
                         // - If Stocky email is non-empty: only overwrite if unique in Woo (or belongs to same Woo customer)
@@ -6143,7 +6169,7 @@ class SyncService
                     }
 
                     if ($wooId === null) {
-                        // ── If woocommerce_id IS null → Match by email ────────────────────
+                        // â”€â”€ If woocommerce_id IS null â†’ Match by email â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                         if ($email === '') {
                             $skipped++;
                             $this->log('customers.push', 'info', 'Skipped client without email after Woo ID cleared (requires manual link)', ['client_id' => $client->id]);
@@ -6155,7 +6181,7 @@ class SyncService
                         $foundId = $this->findWooCustomerIdByEmail($normalizedEmail);
                         
                         if ($foundId === -1) {
-                            // Multiple Woo customers share same email → ambiguous, require manual link
+                            // Multiple Woo customers share same email â†’ ambiguous, require manual link
                             $skipped++;
                             $this->log('customers.push', 'warning', 'Ambiguous email match: multiple WooCommerce customers found', [
                                 'client_id' => $client->id,
@@ -6166,7 +6192,7 @@ class SyncService
                             $processed++;
                             continue;
                         } elseif ($foundId > 0) {
-                            // If a Woo customer with that email exists → link it by saving woocommerce_id locally
+                            // If a Woo customer with that email exists â†’ link it by saving woocommerce_id locally
                             $client->woocommerce_id = $foundId;
                             $client->save();
                             $linkedByEmail++;
@@ -6180,7 +6206,7 @@ class SyncService
                             $wasUpdate = true;
                         } else {
                             // $foundId === 0 means no match found, create new customer
-                            // If not found → CREATE → save returned woocommerce_id
+                            // If not found â†’ CREATE â†’ save returned woocommerce_id
                             $res = $this->client->postNoRetry('customers', $payload, 20, 5);
                             $wasUpdate = false;
                         }
@@ -6398,14 +6424,14 @@ class SyncService
             $wasUpdate = false;
             $hadIssue = false;
 
-            // If email is empty and we don't have a Woo ID → can't match/create (manual link required)
+            // If email is empty and we don't have a Woo ID â†’ can't match/create (manual link required)
             if ($email === '' && $wooId === null) {
                 $this->setClientSyncIssue($client, 'missing_email', 'Stocky customer has no email. Add an email or manually link to a Woo customer.', 'push');
                 return ['ok' => false, 'error' => 'Customer must have an email to sync (requires manual link)'];
             }
 
             if ($wooId !== null) {
-                // If woocommerce_id exists → USE AS PRIMARY KEY → UPDATE
+                // If woocommerce_id exists â†’ USE AS PRIMARY KEY â†’ UPDATE
                 // Email overwrite rules:
                 // - If Stocky email is empty: do NOT overwrite Woo email
                 // - If Stocky email is non-empty: only overwrite if unique in Woo (or belongs to same Woo customer)
@@ -6447,7 +6473,7 @@ class SyncService
             }
 
             if ($wooId === null) {
-                // If woocommerce_id IS null → Match by email (normalize: trim + lowercase)
+                // If woocommerce_id IS null â†’ Match by email (normalize: trim + lowercase)
                 if ($email === '') {
                     $this->setClientSyncIssue($client, 'missing_email', 'Stocky customer has no email. Add an email or manually link to a Woo customer.', 'push');
                     return ['ok' => false, 'error' => 'Customer must have an email to sync (requires manual link)'];
@@ -6456,18 +6482,18 @@ class SyncService
                 $foundId = $this->findWooCustomerIdByEmail($normalizedEmail);
                 
                 if ($foundId === -1) {
-                    // Multiple Woo customers share same email → ambiguous, require manual link
+                    // Multiple Woo customers share same email â†’ ambiguous, require manual link
                     $this->setClientSyncIssue($client, 'ambiguous_email', 'Multiple WooCommerce customers match this email. Manual link required.', 'push');
                     return ['ok' => false, 'error' => 'Ambiguous email match: multiple WooCommerce customers found with this email. Please link manually.'];
                 } elseif ($foundId > 0) {
-                    // If a Woo customer with that email exists → link it by saving woocommerce_id locally
+                    // If a Woo customer with that email exists â†’ link it by saving woocommerce_id locally
                     $client->woocommerce_id = $foundId;
                     $client->save();
                     $wooId = $foundId;
                     $res = $this->client->putNoRetry('customers/'.$wooId, $payload, 20, 5);
                     $wasUpdate = true;
                 } else {
-                    // If not found → CREATE → save returned woocommerce_id
+                    // If not found â†’ CREATE â†’ save returned woocommerce_id
                     $res = $this->client->postNoRetry('customers', $payload, 20, 5);
                     $wasUpdate = false;
                 }
@@ -6539,7 +6565,7 @@ class SyncService
     }
 
     /**
-     * Pull customers from WooCommerce → Stocky
+     * Pull customers from WooCommerce â†’ Stocky
      * Uses email as the unique identifier to match customers and prevent duplicates
      */
     public function pullCustomers(?callable $progress = null): array
@@ -6662,7 +6688,7 @@ class SyncService
                             ->first();
                         
                         if (!$client) {
-                            // If email is empty → don't auto-match by email; require manual link
+                            // If email is empty â†’ don't auto-match by email; require manual link
                             if ($email === '') {
                                 $skipped++;
                                 $this->log('customers.pull', 'info', 'Skipped WooCommerce customer without email (requires manual link)', [
@@ -6681,7 +6707,7 @@ class SyncService
                         $hadIssue = false;
                         if ($client) {
                             if ($client->woocommerce_id === $wooId) {
-                                // If woocommerce_id exists → USE AS PRIMARY KEY → UPDATE
+                                // If woocommerce_id exists â†’ USE AS PRIMARY KEY â†’ UPDATE
                                 $client->name = $name;
                                 $client->firstname = $firstName !== '' ? $firstName : null;
                                 $client->lastname = $lastName !== '' ? $lastName : null;
@@ -6938,7 +6964,7 @@ class SyncService
                 ->first();
             
             if ($client) {
-                // If woocommerce_id exists → USE AS PRIMARY KEY → UPDATE
+                // If woocommerce_id exists â†’ USE AS PRIMARY KEY â†’ UPDATE
                 $hadIssue = false;
                 $client->name = $name;
                 $client->firstname = $firstName !== '' ? $firstName : null;
@@ -6983,7 +7009,7 @@ class SyncService
                 return ['ok' => true, 'created' => 0, 'updated' => 1];
             }
             
-            // If email is empty and we didn't match by woocommerce_id → don't auto-match; require manual link
+            // If email is empty and we didn't match by woocommerce_id â†’ don't auto-match; require manual link
             if ($email === '') {
                 return ['ok' => false, 'error' => 'WooCommerce customer has no email (requires manual link)'];
             }
@@ -6995,7 +7021,7 @@ class SyncService
                 ->first();
 
             if ($client) {
-                // If a Stocky customer with that email exists → link it by saving woocommerce_id
+                // If a Stocky customer with that email exists â†’ link it by saving woocommerce_id
                 $client->name = $name;
                 $client->firstname = $firstName !== '' ? $firstName : null;
                 $client->lastname = $lastName !== '' ? $lastName : null;
@@ -7012,7 +7038,7 @@ class SyncService
                 $client->save();
                 return ['ok' => true, 'created' => 0, 'updated' => 1];
             } else {
-                // If not found → CREATE → store that Woo ID in the new row
+                // If not found â†’ CREATE â†’ store that Woo ID in the new row
                 // Validate email uniqueness before creating
                 $validator = Validator::make(
                     ['email' => $email],
@@ -7528,7 +7554,7 @@ class SyncService
      *   2. Product by woocommerce_id (soft-deleted excluded).
      *   3. SKU fallback: ProductVariant.code first (variation SKUs in Woo are
      *      stored on the variation, not the parent), then Product.code. Only
-     *      matches when exactly one row matches — ambiguous matches return null.
+     *      matches when exactly one row matches â€” ambiguous matches return null.
      */
     private function resolveLineItemMapping(int $wooProductId, int $wooVariationId, string $sku): array
     {
@@ -7562,7 +7588,7 @@ class SyncService
         }
 
         if (!$product && $sku !== '') {
-            // Try variant SKU first — Woo stores variation SKUs on the variation,
+            // Try variant SKU first â€” Woo stores variation SKUs on the variation,
             // and resolving at the variant level lets us decrement the right
             // stock row instead of the parent.
             $variantHits = ProductVariant::where('product_variants.code', $sku)
@@ -7582,7 +7608,7 @@ class SyncService
                     ->whereNull('deleted_at')
                     ->first();
             } elseif ($variantHits->count() === 0) {
-                // No variant match — try parent product code, but only if the
+                // No variant match â€” try parent product code, but only if the
                 // match is unambiguous.
                 $productHits = Product::where('code', $sku)
                     ->whereNull('deleted_at')

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Meeting;
 use App\Models\MeetingActivityLog;
 use App\Models\MeetingAttachment;
@@ -10,6 +11,7 @@ use App\Models\MeetingParticipant;
 use App\Models\Permission;
 use App\Models\User;
 use App\Notifications\MeetingInvitationNotification;
+use App\Support\CompanyFiles;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,8 @@ use Illuminate\Support\Str;
 
 class MeetingController extends Controller
 {
+    use ScopesToCompany;
+
     /**
      * Ensure the authenticated user owns the given permission (via any of its roles).
      * Used for abilities that are not tied to an Eloquent model policy
@@ -46,19 +50,17 @@ class MeetingController extends Controller
     }
 
     /**
-     * Store an uploaded meeting file under public/images/meetings and return its
-     * public-relative path. Stocky serves uploads from public/images directly.
+     * Store an uploaded meeting file under public/files/company_{id}/meetings
+     * and return its public-relative path. Stocky serves uploads from
+     * public/images directly.
      */
-    private function storeUpload($file): string
+    private function storeUpload($file, int $companyId): string
     {
-        $destination = public_path('images/meetings');
-        if (! is_dir($destination)) {
-            mkdir($destination, 0755, true);
-        }
+        $uploadRel = CompanyFiles::dir($companyId, 'meetings');
         $filename = Str::random(20) . '.' . $file->getClientOriginalExtension();
-        $file->move($destination, $filename);
+        $file->move(public_path($uploadRel), $filename);
 
-        return 'images/meetings/' . $filename;
+        return $uploadRel . '/' . $filename;
     }
 
     /**
@@ -158,6 +160,7 @@ class MeetingController extends Controller
     public function meetings_index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Meeting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -167,6 +170,7 @@ class MeetingController extends Controller
 
         $meetings = Meeting::with('organizer:id,firstname,lastname,username')
             ->withCount('participants')
+            ->where('company_id', $companyId)
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('status'), function ($q) use ($request) {
                     $q->where('status', $request->status);
@@ -206,16 +210,19 @@ class MeetingController extends Controller
         ]);
     }
 
-    public function meetings_all()
+    public function meetings_all(Request $request)
     {
+        $companyId = $this->resolveActingCompanyId($request);
+
         return response()->json(
-            Meeting::orderBy('meeting_date', 'desc')->get(['id', 'title', 'meeting_date', 'status'])
+            Meeting::where('company_id', $companyId)->orderBy('meeting_date', 'desc')->get(['id', 'title', 'meeting_date', 'status'])
         );
     }
 
     public function meetings_show(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Meeting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $meeting = Meeting::with([
             'organizer:id,firstname,lastname,username,email',
@@ -224,6 +231,8 @@ class MeetingController extends Controller
             'attachments',
             'logs.user:id,firstname,lastname,username',
         ])->findOrFail($id);
+
+        abort_unless((int) $meeting->company_id === $companyId, 404);
 
         // Most recent activity first.
         $meeting->setRelation('logs', $meeting->logs->sortByDesc('created_at')->values());
@@ -234,6 +243,7 @@ class MeetingController extends Controller
     public function meetings_store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', Meeting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $request->validate([
             'title'        => 'required|string|max:255',
@@ -245,6 +255,7 @@ class MeetingController extends Controller
         $userId = $request->user('api') ? $request->user('api')->id : null;
 
         $meeting = Meeting::create([
+            'company_id'       => $companyId,
             'title'            => $request->title,
             'description'      => $request->description,
             'agenda'           => $request->agenda,
@@ -271,6 +282,7 @@ class MeetingController extends Controller
     public function meetings_update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Meeting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $request->validate([
             'title'        => 'required|string|max:255',
@@ -280,6 +292,7 @@ class MeetingController extends Controller
         ]);
 
         $meeting = Meeting::findOrFail($id);
+        abort_unless((int) $meeting->company_id === $companyId, 404);
 
         $meeting->update([
             'title'            => $request->title,
@@ -309,10 +322,12 @@ class MeetingController extends Controller
     public function meetings_update_status(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Meeting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $request->validate(['status' => 'required|in:scheduled,ongoing,completed,cancelled']);
 
         $meeting = Meeting::findOrFail($id);
+        abort_unless((int) $meeting->company_id === $companyId, 404);
         $meeting->update(['status' => $request->status]);
 
         $this->logActivity($request, $meeting->id, 'status_changed', 'Status changed to ' . $request->status);
@@ -323,6 +338,12 @@ class MeetingController extends Controller
     public function meetings_destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Meeting::class);
+        $companyId = $this->resolveActingCompanyId($request);
+
+        abort_unless(
+            optional(Meeting::find($id))->company_id == $companyId,
+            404
+        );
 
         Meeting::whereId($id)->update(['deleted_at' => Carbon::now()]);
 
@@ -332,10 +353,11 @@ class MeetingController extends Controller
     public function meetings_delete_by_selection(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Meeting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
-        foreach ($request->selectedIds as $id) {
-            Meeting::whereId($id)->update(['deleted_at' => Carbon::now()]);
-        }
+        Meeting::whereIn('id', (array) $request->selectedIds)
+            ->where('company_id', $companyId)
+            ->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
@@ -452,14 +474,18 @@ class MeetingController extends Controller
     public function attachments_store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'update', Meeting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $request->validate([
             'meeting_id' => 'required|exists:meetings,id',
             'file'       => 'required|file|max:10240',
         ]);
 
+        $meeting = Meeting::findOrFail($request->meeting_id);
+        abort_unless((int) $meeting->company_id === $companyId, 404);
+
         $file = $request->file('file');
-        $path = $this->storeUpload($file);
+        $path = $this->storeUpload($file, $companyId);
 
         MeetingAttachment::create([
             'meeting_id'  => $request->meeting_id,

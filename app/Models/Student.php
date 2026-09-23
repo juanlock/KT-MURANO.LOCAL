@@ -13,7 +13,7 @@ class Student extends Model
     protected $table = 'students';
 
     protected $fillable = [
-        'admission_number', 'name', 'gender', 'date_of_birth', 'admission_date',
+        'company_id', 'admission_number', 'name', 'gender', 'date_of_birth', 'admission_date',
         'blood_group', 'phone', 'email', 'address', 'city', 'national_id', 'medical_notes',
         'guardian_name', 'guardian_relation', 'guardian_phone', 'guardian_email',
         'guardian_occupation', 'client_id', 'image', 'notes', 'status',
@@ -23,6 +23,7 @@ class Student extends Model
         'date_of_birth' => 'date',
         'admission_date' => 'date',
         'client_id' => 'integer',
+        'company_id' => 'integer',
     ];
 
     public function enrollments()

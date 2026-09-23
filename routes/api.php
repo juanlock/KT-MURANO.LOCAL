@@ -1207,6 +1207,9 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::post('purchase_send_sms', 'PurchasesController@Send_SMS');
     Route::post('purchases_delete_by_selection', 'PurchasesController@delete_by_selection');
     Route::get('get_Products_by_purchase/{id}', 'PurchasesController@get_Products_by_purchase');
+    // Cancel: pending-only, non-destructive alternative to delete -- keeps the
+    // invoice on record (statut -> cancelled) instead of removing it.
+    Route::post('purchases/{id}/cancel', 'PurchasesController@cancel');
     Route::post('purchase_send_whatsapp', 'PurchasesController@purchase_send_whatsapp');
 
     Route::get('get_import_purchases', 'PurchasesController@get_import_purchases');
@@ -1241,6 +1244,9 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::post('sales_send_sms', 'SalesController@Send_SMS');
     Route::post('sales_delete_by_selection', 'SalesController@delete_by_selection');
     Route::get('get_Products_by_sale/{id}', 'SalesController@get_Products_by_sale');
+    // Cancel: pending-only, non-destructive alternative to delete -- keeps the
+    // invoice on record (statut -> cancelled) instead of removing it.
+    Route::post('sales/{id}/cancel', 'SalesController@cancel');
 
     // ------------------------------- Sales Documents --------------------------\\
     Route::get('sales/{id}/documents', 'SalesController@getDocuments');

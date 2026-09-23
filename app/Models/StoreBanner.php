@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class StoreBanner extends Model
 {
-    protected $fillable = ['title', 'position', 'link', 'image', 'active'];
+    protected $fillable = ['company_id', 'title', 'position', 'link', 'image', 'active'];
 
     protected $casts = ['active' => 'boolean'];
 }

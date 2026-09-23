@@ -11,9 +11,10 @@ class RecruitJobCategory extends Model
 
     protected $table = 'recruit_job_categories';
 
-    protected $fillable = ['name', 'description', 'is_active'];
+    protected $fillable = ['company_id', 'name', 'description', 'is_active'];
 
     protected $casts = [
+        'company_id' => 'integer',
         'is_active' => 'boolean',
     ];
 

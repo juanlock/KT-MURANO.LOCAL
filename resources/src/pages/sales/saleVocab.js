@@ -8,12 +8,21 @@ export const SALE_STATUSES = [
     { value: 'completed', key: 'complete' },
     { value: 'pending', key: 'Pending' },
     { value: 'ordered', key: 'Ordered' },
+    // Reachable only via the "Cancel" row action on a Pending sale
+    // (SalesController@cancel) -- never set at creation.
+    { value: 'cancelled', key: 'Cancelled' },
 ];
 
+// paid/partial/unpaid are computed automatically from paid_amount vs
+// GrandTotal (see SalesController/PurchasesController) -- never set directly.
+// pending/Cancelled are legacy values: no current code path writes them, but
+// older/imported records still carry them, so they stay filterable here.
 export const PAYMENT_STATUSES = [
     { value: 'paid', key: 'Paid' },
     { value: 'partial', key: 'partial' },
     { value: 'unpaid', key: 'Unpaid' },
+    { value: 'pending', key: 'Pending' },
+    { value: 'Cancelled', key: 'Cancelled' },
 ];
 
 export const SHIPPING_STATUSES = [

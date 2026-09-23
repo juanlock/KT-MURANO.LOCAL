@@ -6,13 +6,33 @@ use Illuminate\Database\Eloquent\Model;
 
 class Setting extends Model
 {
+    public const TEMPLATE_COMPANY_ID = 999;
+
+    public static function forCompany(?int $companyId): self
+    {
+        $companyId = $companyId ?: self::TEMPLATE_COMPANY_ID;
+        if ($existing = static::where('company_id', $companyId)->whereNull('deleted_at')->first()) {
+            return $existing;
+        }
+        $template = static::where('company_id', self::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')->first()
+            ?? static::whereNull('deleted_at')->first();
+        $attrs = $template
+            ? collect($template->getAttributes())->except(['id', 'company_id', 'created_at', 'updated_at', 'deleted_at'])->all()
+            : [];
+        return static::create($attrs + ['company_id' => $companyId]);
+    }
+
     protected $fillable = [
         'currency_id', 'email', 'CompanyName', 'CompanyPhone', 'CompanyAdress', 'quotation_with_stock',
         'logo', 'footer', 'developed_by', 'client_id', 'warehouse_id', 'default_account_id', 'default_payment_method_id', 'default_language', 'show_language',
         'is_invoice_footer', 'invoice_footer', 'invoice_format', 'invoice_logo_width', 'invoice_logo_height', 'app_name', 'favicon', 'page_title_suffix', 'customize_button_visible', 'hide_site_name', 'sidebar_logo_width', 'sidebar_logo_height', 'sidebar_show_logo', 'point_to_amount_rate',
         'vat_number', 'company_name_ar', 'zatca_enabled', 'default_tax', 'default_dashboard_date_range', 'dashboard_section_order', 'dashboard_grid_layout', 'dashboard_font_size', 'dashboard_font_family', 'date_format',
+        'sale_prefix', 'purchase_prefix', 'quotation_prefix', 'adjustment_prefix', 'transfer_prefix',
         'sale_return_prefix', 'purchase_return_prefix',
         'price_format', 'dark_mode', 'rtl', 'sms_gateway',
+        // Pharmacy mode (batch & expiry tracking) -- opt-in, columns only
+        // present once that migration has run (see pharmacySettingsPayload()).
+        'pharmacy_mode', 'expiry_warning_days', 'block_expired_sale', 'print_expiry_on_receipt',
         // Login page appearance
         'login_hero_title', 'login_hero_subtitle', 'login_panel_title', 'login_panel_subtitle',
         'login_hero_badge', 'login_hero_feature_1', 'login_hero_feature_2', 'login_hero_feature_3',

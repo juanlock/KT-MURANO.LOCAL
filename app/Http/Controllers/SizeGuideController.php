@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\SizeGuide;
+use App\Support\CompanyFiles;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -10,10 +12,13 @@ use Intervention\Image\ImageManagerStatic as Image;
 
 class SizeGuideController extends Controller
 {
+    use ScopesToCompany;
+
     // ------------ GET ALL Size Guides (datatable) -----------\\
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', SizeGuide::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -21,7 +26,7 @@ class SizeGuideController extends Controller
         $order = $request->SortField ?: 'id';
         $dir = $request->SortType ?: 'desc';
 
-        $query = SizeGuide::where('deleted_at', '=', null)
+        $query = SizeGuide::where('deleted_at', '=', null)->where('company_id', $companyId)
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
                     return $query->where('name', 'LIKE', "%{$request->search}%");
@@ -57,16 +62,18 @@ class SizeGuideController extends Controller
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', SizeGuide::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         request()->validate(['name' => 'required']);
 
-        \DB::transaction(function () use ($request) {
+        \DB::transaction(function () use ($request, $companyId) {
             $guide = new SizeGuide;
+            $guide->company_id = $companyId;
             $guide->name = $request['name'];
             $guide->columns = $this->normalizeColumns($request->input('columns'));
             $guide->rows = $this->normalizeRows($request->input('rows'));
             $guide->status = filter_var($request->input('status', true), FILTER_VALIDATE_BOOLEAN);
-            $guide->image = $this->saveImage($request);
+            $guide->image = $this->saveImage($request, $companyId);
             $guide->save();
         }, 10);
 
@@ -77,17 +84,19 @@ class SizeGuideController extends Controller
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', SizeGuide::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         request()->validate(['name' => 'required']);
 
-        \DB::transaction(function () use ($request, $id) {
+        \DB::transaction(function () use ($request, $id, $companyId) {
             $guide = SizeGuide::findOrFail($id);
+            abort_unless((int) $guide->company_id === $companyId, 404);
 
             $guide->name = $request['name'];
             $guide->columns = $this->normalizeColumns($request->input('columns'));
             $guide->rows = $this->normalizeRows($request->input('rows'));
             $guide->status = filter_var($request->input('status', true), FILTER_VALIDATE_BOOLEAN);
-            $guide->image = $this->saveImage($request, $guide->image);
+            $guide->image = $this->saveImage($request, $companyId, $guide->image);
             $guide->save();
         }, 10);
 
@@ -98,6 +107,12 @@ class SizeGuideController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', SizeGuide::class);
+        $companyId = $this->resolveActingCompanyId($request);
+
+        abort_unless(
+            optional(SizeGuide::find($id))->company_id == $companyId,
+            404
+        );
 
         SizeGuide::whereId($id)->update(['deleted_at' => Carbon::now()]);
 
@@ -107,10 +122,11 @@ class SizeGuideController extends Controller
     public function delete_by_selection(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'delete', SizeGuide::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
-        foreach ((array) $request->selectedIds as $guide_id) {
-            SizeGuide::whereId($guide_id)->update(['deleted_at' => Carbon::now()]);
-        }
+        SizeGuide::whereIn('id', (array) $request->selectedIds)
+            ->where('company_id', $companyId)
+            ->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
@@ -121,21 +137,26 @@ class SizeGuideController extends Controller
     public function list(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', SizeGuide::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         return response()->json([
             'size_guides' => SizeGuide::where('deleted_at', null)->where('status', 1)
+                ->where('company_id', $companyId)
                 ->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
     // ---------------------------------------------------------------------
 
-    private function saveImage(Request $request, ?string $currentImage = null): ?string
+    /**
+     * Save an uploaded chart image under public/files/company_{id}/size_guides
+     * and return the relative path stored on the model (not a bare filename,
+     * since the directory itself is now per-company).
+     */
+    private function saveImage(Request $request, int $companyId, ?string $currentImage = null): ?string
     {
-        $dir = public_path('/images/size_guides');
-        if (! File::exists($dir)) {
-            File::makeDirectory($dir, 0755, true);
-        }
+        $uploadRel = CompanyFiles::dir($companyId, 'size_guides');
+        $dir = public_path($uploadRel);
 
         // A new file was uploaded.
         if ($request->hasFile('image')) {
@@ -146,18 +167,21 @@ class SizeGuideController extends Controller
                 $c->upsize();
             })->save($dir.'/'.$filename);
 
-            if ($currentImage && $currentImage !== 'no-image.png' && File::exists($dir.'/'.$currentImage)) {
-                @unlink($dir.'/'.$currentImage);
+            if ($currentImage && basename($currentImage) !== 'no-image.png') {
+                $oldAbs = str_contains($currentImage, '/') ? public_path($currentImage) : $dir.'/'.$currentImage;
+                if (File::exists($oldAbs)) {
+                    @unlink($oldAbs);
+                }
             }
 
-            return $filename;
+            return $uploadRel.'/'.$filename;
         }
 
         // No new file: keep the existing one on update, null on create.
         return $currentImage;
     }
 
-    /** Column headers → clean list of non-empty strings. */
+    /** Column headers â†’ clean list of non-empty strings. */
     private function normalizeColumns($value): array
     {
         $value = $this->decodeJson($value);
@@ -168,7 +192,7 @@ class SizeGuideController extends Controller
         return array_values(array_filter(array_map(fn ($c) => trim((string) $c), $value), fn ($c) => $c !== ''));
     }
 
-    /** Rows → array of rows, each an array of cell strings. */
+    /** Rows â†’ array of rows, each an array of cell strings. */
     private function normalizeRows($value): array
     {
         $value = $this->decodeJson($value);

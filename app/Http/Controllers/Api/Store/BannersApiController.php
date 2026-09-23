@@ -2,23 +2,28 @@
 
 namespace App\Http\Controllers\Api\Store;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Http\Controllers\Controller;
 use App\Models\StoreBanner;
+use App\Support\CompanyFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Intervention\Image\Facades\Image;
 
 class BannersApiController extends Controller
 {
+    use ScopesToCompany;
+
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreBanner::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $per = (int) $request->query('per_page', 10);
         $sort = $request->query('sort', 'updated_at');
         $dir = $request->query('dir', 'desc');
 
-        $q = StoreBanner::query()->orderBy($sort, $dir)->paginate($per);
+        $q = StoreBanner::query()->where('company_id', $companyId)->orderBy($sort, $dir)->paginate($per);
 
         $rows = collect($q->items())->map(function (StoreBanner $b) {
             return [
@@ -41,6 +46,7 @@ class BannersApiController extends Controller
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreBanner::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $request->merge(['active' => $request->boolean('active')]);
 
@@ -58,21 +64,21 @@ class BannersApiController extends Controller
             // Generate unique name
             $filename = rand(11111111, 99999999).$image->getClientOriginalName();
 
-            // Create folder if it doesn’t exist
-            $path = public_path('images/banners');
-            if (! file_exists($path)) {
-                mkdir($path, 0755, true);
-            }
+            // Company-scoped: files/company_{id}/banners, not one shared
+            // folder for the whole install.
+            $uploadRel = CompanyFiles::dir($companyId, 'banners');
+            $path = public_path($uploadRel);
 
             // Resize / process with Intervention
             $image_resize = Image::make($image->getRealPath());
             $image_resize->save($path.'/'.$filename);
 
+            $data['image'] = $uploadRel.'/'.$filename;
         } else {
-            $filename = 'no-image.png'; // <-- put this file manually into public/images/brands
+            $data['image'] = 'images/brands/no-image.png'; // shared placeholder, not company-scoped
         }
 
-        $data['image'] = 'images/banners/'.$filename;
+        $data['company_id'] = $companyId;
 
         $banner = StoreBanner::create($data);
 
@@ -84,7 +90,9 @@ class BannersApiController extends Controller
     public function show(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreBanner::class);
+        $companyId = $this->resolveActingCompanyId($request);
         $b = StoreBanner::findOrFail($id);
+        abort_unless((int) $b->company_id === $companyId, 404);
         $arr = $b->toArray();
         $arr['image_url'] = $b->image_url;
 
@@ -94,7 +102,9 @@ class BannersApiController extends Controller
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreBanner::class);
+        $companyId = $this->resolveActingCompanyId($request);
         $b = StoreBanner::findOrFail($id);
+        abort_unless((int) $b->company_id === $companyId, 404);
 
         // Normalize boolean to satisfy validator
         $request->merge(['active' => $request->boolean('active')]);
@@ -111,24 +121,23 @@ class BannersApiController extends Controller
         // If a new image is uploaded, delete the old one (simple unlink pattern) and save the new one.
         if ($request->hasFile('image')) {
             // delete old
-            if (! empty($b->image) && $b->image !== 'no-image.png') {
-                // if DB ever stored a path, basename() keeps it safe
-                $oldName = basename($b->image);
-                $pathIMG = public_path().'/images/banners/'.$oldName;
-                if (file_exists($pathIMG)) {
-                    @unlink($pathIMG);
+            if (! empty($b->image) && basename($b->image) !== 'no-image.png') {
+                $oldAbs = public_path($b->image);
+                if (file_exists($oldAbs)) {
+                    @unlink($oldAbs);
                 }
             }
 
-            // save new
+            // save new, company-scoped
             $image = $request->file('image');
             $filename = rand(11111111, 99999999).$image->getClientOriginalName();
+            $uploadRel = CompanyFiles::dir($companyId, 'banners');
 
             $img = Image::make($image->getRealPath());
-            $img->save(public_path('/images/banners/'.$filename));
+            $img->save(public_path($uploadRel).'/'.$filename);
 
-            // store only the filename in DB
-            $data['image'] = 'images/banners/'.$filename;
+            // store the relative path (not bare filename) in the DB
+            $data['image'] = $uploadRel.'/'.$filename;
         }
 
         $b->fill($data)->save();
@@ -136,8 +145,8 @@ class BannersApiController extends Controller
         // respond with a ready-to-use URL
         $arr = $b->toArray();
         $arr['image_url'] = $b->image
-            ? asset('images/banners/'.basename($b->image))
-            : asset('images/banners/no-image.png');
+            ? asset($b->image)
+            : asset('images/brands/no-image.png');
 
         return response()->json($arr);
     }
@@ -145,15 +154,14 @@ class BannersApiController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreBanner::class);
+        $companyId = $this->resolveActingCompanyId($request);
         $b = StoreBanner::findOrFail($id);
+        abort_unless((int) $b->company_id === $companyId, 404);
 
-        if (! empty($b->image)) {
-            $filename = basename($b->image); // in case a path was stored
-            if ($filename !== 'no-image.png') {
-                $pathIMG = public_path('/images/banenrs/'.$filename);
-                if (file_exists($pathIMG)) {
-                    @unlink($pathIMG);
-                }
+        if (! empty($b->image) && basename($b->image) !== 'no-image.png') {
+            $pathIMG = public_path($b->image);
+            if (file_exists($pathIMG)) {
+                @unlink($pathIMG);
             }
         }
 

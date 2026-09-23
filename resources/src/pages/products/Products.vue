@@ -257,7 +257,7 @@ function productImg(v) {
   const f = String(v || '').trim();
   if (!f) return '/images/products/no-image.png';
   if (/^https?:\/\//i.test(f)) return f;
-  return '/images/products/' + f;
+  return resolveImageUrl(f, 'products');
 }
 /**
  * GET products → {products, warehouses, categories, subcategories, brands,
@@ -284,6 +284,7 @@ import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import http from '../../lib/http';
 import { withAllOption } from '../../lib/filterOptions';
+import { resolveImageUrl } from '../../lib/imagePath';
 import { t as tf } from '../../i18n';
 
 const { t } = useI18n();

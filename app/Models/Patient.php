@@ -13,7 +13,7 @@ class Patient extends Model
     protected $table = 'patients';
 
     protected $fillable = [
-        'mrn', 'name', 'gender', 'date_of_birth', 'phone', 'email', 'address', 'city',
+        'company_id', 'mrn', 'name', 'gender', 'date_of_birth', 'phone', 'email', 'address', 'city',
         'national_id', 'blood_group', 'allergies', 'chronic_conditions',
         'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation',
         'insurance_provider', 'insurance_number', 'insurance_expiry',
@@ -24,6 +24,7 @@ class Patient extends Model
         'date_of_birth' => 'date',
         'insurance_expiry' => 'date',
         'client_id' => 'integer',
+        'company_id' => 'integer',
     ];
 
     public function visits()

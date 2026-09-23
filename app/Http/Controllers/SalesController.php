@@ -112,6 +112,7 @@ class SalesController extends BaseController
 
         // Check If User Has Permission View  All Records
         $Sales = Sale::with('facture.payment_method', 'client', 'warehouse', 'user', 'seller', 'currency')
+            ->withCount('details')
             ->where('deleted_at', '=', null)
             ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
                 return $query->where('company_id', $companyId);
@@ -120,6 +121,16 @@ class SalesController extends BaseController
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
                 }
+            })
+            // Quick date-range filter (All / This Year / This Month / Last
+            // Month / Last Year buttons) -- independent of the single-day
+            // `date` filter above, applied here so it also shapes the
+            // summary cards (stats) and totalRows, not just the page's rows.
+            ->when($request->filled('date_from'), function ($query) use ($request) {
+                return $query->whereDate('date', '>=', $request->date_from);
+            })
+            ->when($request->filled('date_to'), function ($query) use ($request) {
+                return $query->whereDate('date', '<=', $request->date_to);
             });
         if (! $is_all_warehouses) {
             $Sales->whereIn('warehouse_id', $warehouse_ids);
@@ -178,6 +189,9 @@ class SalesController extends BaseController
             // Attributed salesperson (Change Salesperson at POS); cashier otherwise.
             $item['seller_name'] = optional($Sale['seller'])->username ?? $Sale['user']->username;
             $item['statut'] = $Sale['statut'];
+            // Distinct product lines on the sale (not quantity summed) -- the
+            // Nro Item / # products column on the list.
+            $item['items_count'] = $Sale['details_count'];
             $item['shipping_status'] = $Sale['shipping_status'];
             $item['discount'] = $Sale['discount'];
             $item['shipping'] = $Sale['shipping'];
@@ -268,7 +282,7 @@ class SalesController extends BaseController
      * Change Salesperson: same contract as PosController::resolvePosSellerId().
      * Returns the picked user's id only when the feature is enabled in System
      * Settings AND the id belongs to an active, non-deleted user; otherwise
-     * null. Stored in sales.seller_id (attribution) — sales.user_id always
+     * null. Stored in sales.seller_id (attribution) â€” sales.user_id always
      * stays the authenticated creator, and NULL means credit goes to them.
      */
     private function resolveSellerId(Request $request): ?int
@@ -342,8 +356,8 @@ class SalesController extends BaseController
             'Warehouse does not belong to your company.'
         );
 
-        // Multi-Pack Selling: a completed sale deducts quantity × pack_multiplier
-        // base units per pack — reject if that would oversell.
+        // Multi-Pack Selling: a completed sale deducts quantity Ã— pack_multiplier
+        // base units per pack â€” reject if that would oversell.
         if ($request->statut === 'completed') {
             $this->assertPackStockSufficient($request);
         }
@@ -362,6 +376,8 @@ class SalesController extends BaseController
             $order->company_id = $companyId;
             $order->tax_rate = $request->tax_rate;
             $order->TaxNet = $request->TaxNet;
+            // '1' for percentage, '2' for fixed -- same convention as discount_Method.
+            $order->tax_method = $request->has('tax_Method') ? (string) $request->tax_Method : '1';
             $order->discount = $request->discount;
             // Ensure order-level discount method is saved: '1' for percentage, '2' for fixed
             $order->discount_Method = $request->has('discount_Method') ? (string) $request->discount_Method : '2';
@@ -579,7 +595,7 @@ class SalesController extends BaseController
 
             }
 
-            // 🪙 Points logic
+            // ðŸª™ Points logic
             $client = Client::find($request->client_id);
             $used_points = $request->used_points ?? 0;
             $discount_from_points = $request->discount_from_points ?? 0;
@@ -1106,11 +1122,15 @@ class SalesController extends BaseController
                     'statut' => $request['statut'],
                     'sales_agent_id' => $request->filled('sales_agent_id') ? $request->sales_agent_id : $current_Sale->sales_agent_id,
                     // Only forms that carry the field may change it (clearing the
-                    // select sends null → credit reverts to the creator); other
+                    // select sends null â†’ credit reverts to the creator); other
                     // API callers leave the stored attribution untouched.
                     'seller_id' => $request->has('seller_id') ? $this->resolveSellerId($request) : $current_Sale->seller_id,
                     'tax_rate' => $request['tax_rate'],
                     'TaxNet' => $request['TaxNet'],
+                    // Ensure order-level tax method stays in sync when editing
+                    'tax_method' => $request->has('tax_Method')
+                        ? (string) $request->tax_Method
+                        : ($current_Sale->tax_method ?? '1'),
                     'discount' => $request['discount'],
                     // Ensure order-level discount method stays in sync when editing
                     'discount_Method' => $request->has('discount_Method')
@@ -1157,7 +1177,7 @@ class SalesController extends BaseController
                 ]);
                 $qboSync = 'failed';
             } else {
-                // ✅ never overwrite an existing id here
+                // âœ… never overwrite an existing id here
                 $updates = [
                     'quickbooks_realm_id' => $sale->quickbooks_realm_id ?: ($res['realm'] ?? null),
                     'quickbooks_synced_at' => now(),
@@ -1198,7 +1218,7 @@ class SalesController extends BaseController
             abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
         }
 
-        // We’ll capture QBO identifiers before deletion so we can sync after commit
+        // Weâ€™ll capture QBO identifiers before deletion so we can sync after commit
         $qboInfo = [
             'id' => null,
             'ref' => null,
@@ -1226,10 +1246,11 @@ class SalesController extends BaseController
                     ->toArray();
 
                 if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'You are not allowed to access this sale (warehouse restriction).',
-                    ], 403);
+                    // abort(), not a plain return: a `return` here only exits this
+                    // closure -- DB::transaction() treats that as success, and the
+                    // method falls through to the real success response below
+                    // regardless (the record silently never gets deleted).
+                    abort(403, 'You are not allowed to access this sale (warehouse restriction).');
                 }
             }
 
@@ -1275,8 +1296,8 @@ class SalesController extends BaseController
                         ->first();
 
                     if ($pw && $unit) {
-                        // No max(0, …) clamp here: with Allow Overselling the stock
-                        // is legitimately negative, and clamping would inflate it —
+                        // No max(0, â€¦) clamp here: with Allow Overselling the stock
+                        // is legitimately negative, and clamping would inflate it â€”
                         // restoring 5 units on a -10 stock has to give -5, not 0.
                         // Restoring can only ever increase qte, so dropping the
                         // clamp cannot make a non-negative stock go negative.
@@ -1396,6 +1417,139 @@ class SalesController extends BaseController
         return response()->json(['success' => true, 'qbo_sync' => $qboSync]);
     }
 
+    // -------------- Cancel (pending-only, non-destructive) ---------------\\
+
+    /**
+     * The "Sell Return" action only makes sense once a sale is completed
+     * (stock/points/batches were actually committed) -- but a lot of
+     * invoices sit in Pending indefinitely with no clean way to void them
+     * other than a full Delete, which erases the record entirely. Cancel
+     * fills that gap: pending-only, keeps the invoice AND its line items on
+     * record (no deleted_at, no detail rows removed), just flips statut to
+     * 'cancelled' and reverses the one thing that IS committed at Pending --
+     * loyalty points (used_points/earned_points are applied unconditionally
+     * at creation, not gated behind statut === 'completed', unlike stock/
+     * batches/serials/payments). The completed-only reversal blocks below
+     * are dead code on the only reachable path (statut must already be
+     * 'pending' to get here) -- kept anyway, defensively, in case this
+     * method is ever reused for a sale that was completed then edited back.
+     */
+    public function cancel(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Sale::class);
+
+        // Company boundary: a non-SuperAdmin can't cancel a sale from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Sale::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
+        \DB::transaction(function () use ($id, $request) {
+            $user = Auth::user();
+            $view_records = $user->hasRecordView();
+            $current = Sale::with(['details.product'])->findOrFail($id);
+
+            if ($current->statut !== 'pending') {
+                abort(422, 'Only a pending sale can be cancelled.');
+            }
+
+            $user_auth = auth()->user();
+            if (! $user_auth->is_all_warehouses) {
+                $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)
+                    ->pluck('warehouse_id')
+                    ->toArray();
+
+                if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
+                    abort(403, 'You are not allowed to access this sale (warehouse restriction).');
+                }
+            }
+
+            $this->abortIfDocumentWarehouseDenied($current);
+
+            if (! $view_records) {
+                $this->authorizeForUser($request->user('api'), 'check_record', $current);
+            }
+
+            // A pending sale can't be paid through the normal UI (Add Payment
+            // requires statut === 'completed'), so this should never actually
+            // trip -- guards against cancelling a sale money was recorded
+            // against by some other path.
+            if ((float) $current->paid_amount > 0) {
+                abort(422, 'This sale has payments recorded; cannot cancel.');
+            }
+
+            // Restore stock if the sale had somehow already been completed --
+            // unreachable today (see docblock), kept for defensive parity
+            // with destroy().
+            if ($current->statut === 'completed') {
+                foreach ($current->details as $d) {
+                    $product = $d->product;
+                    if (! $product || ($product->type ?? null) === 'is_service') {
+                        continue;
+                    }
+
+                    $unit = $d->sale_unit_id ? Unit::find($d->sale_unit_id)
+                                            : optional($product->unitSale);
+
+                    $packMul = (float) ($d->pack_multiplier ?? 0) > 0 ? (float) $d->pack_multiplier : 1;
+                    $qty = (float) $d->quantity * $packMul;
+                    $opv = max((float) ($unit->operator_value ?? 1), 1);
+                    $addQ = ($unit && $unit->operator === '/') ? ($qty / $opv) : ($qty * $opv);
+
+                    $pw = product_warehouse::whereNull('deleted_at')
+                        ->where('warehouse_id', $current->warehouse_id)
+                        ->where('product_id', $d->product_id)
+                        ->when($d->product_variant_id, fn ($q) => $q->where('product_variant_id', $d->product_variant_id))
+                        ->first();
+
+                    if ($pw && $unit) {
+                        $pw->qte = $pw->qte + $addQ;
+                        $pw->save();
+                    }
+                }
+
+                $batchService = app(BatchService::class);
+                if ($batchService->isSupported()) {
+                    $batchService->reverseForSaleDetails($current->details);
+                }
+                $serialService = app(SerialNumberService::class);
+                if ($serialService->isSupported()) {
+                    $serialService->reverseForSaleDetails($current->details);
+                }
+            }
+
+            // Reverse client points -- this DOES apply to a pending sale:
+            // used_points/earned_points are set unconditionally at creation
+            // (see store()), not gated behind statut === 'completed'.
+            $client = Client::find($current->client_id);
+            if ($client) {
+                $used_points = (int) ($current->used_points ?? 0);
+                $earned_points = (int) ($current->earned_points ?? 0);
+
+                if ($used_points > 0) {
+                    $client->increment('points', $used_points);
+                }
+                if ($earned_points > 0) {
+                    $new_balance = max(0, (int) $client->points - $earned_points);
+                    $client->update(['points' => $new_balance]);
+                }
+            }
+
+            // Disable, don't delete: statut flips to 'cancelled', the invoice
+            // and its line items stay on record (no deleted_at, no detail
+            // rows removed) so it stays visible/findable in reports.
+            $current->update([
+                'statut' => 'cancelled',
+                'used_points' => 0,
+                'earned_points' => 0,
+            ]);
+        }, 10);
+
+        return response()->json(['success' => true]);
+    }
+
     // -------------- Delete by selection  ---------------\\
 
     public function delete_by_selection(Request $request)
@@ -1421,7 +1575,13 @@ class SalesController extends BaseController
             foreach ($selectedIds as $sale_id) {
 
                 if (SaleReturn::where('sale_id', $sale_id)->where('deleted_at', '=', null)->exists()) {
-                    return response()->json(['success' => false, 'Return exist for the Transaction' => false], 403);
+                    // A plain `return` here only exits this closure -- DB::transaction()
+                    // treats that as success and COMMITS, and the outer method still
+                    // falls through to `return response()->json(['success' => true])`
+                    // below regardless. abort() throws instead, so the transaction
+                    // actually rolls back (any sales already deleted earlier in this
+                    // same selection) and the error reaches the caller.
+                    abort(403, "Return exists for sale id {$sale_id}; cannot delete.");
                 } else {
                     $current_Sale = Sale::findOrFail($sale_id);
 
@@ -1439,10 +1599,7 @@ class SalesController extends BaseController
                             ->toArray();
 
                         if (empty($current_Sale->warehouse_id) || ! in_array($current_Sale->warehouse_id, $warehouses_id)) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'You are not allowed to access this sale (warehouse restriction).',
-                            ], 403);
+                            abort(403, 'You are not allowed to access this sale (warehouse restriction).');
                         }
                     }
 
@@ -1624,7 +1781,7 @@ class SalesController extends BaseController
         $sale_details['statut'] = $sale_data->statut;
         $sale_details['warehouse'] = $sale_data['warehouse']->name;
         // Multi-Currency: amounts below are converted into the document
-        // currency — the page must render them with THIS symbol, not the base.
+        // currency â€” the page must render them with THIS symbol, not the base.
         $sale_details['currency_symbol'] = $docCurrency['symbol'];
         $sale_details['currency_code'] = $docCurrency['code'];
         $sale_details['currency_id'] = $docCurrency['id'];
@@ -1730,7 +1887,7 @@ class SalesController extends BaseController
             $data['is_batch_tracked'] = (bool) ($detail['product']['is_batch_tracked'] ?? false);
             $data['batches'] = $saleBatchesByDetail[(int) $detail->id] ?? [];
 
-            // Multi-Pack Selling: pack name + total pieces (quantity × multiplier).
+            // Multi-Pack Selling: pack name + total pieces (quantity Ã— multiplier).
             $data['pack_name'] = $detail->pack_name;
             $data['pack_multiplier'] = $detail->pack_multiplier !== null ? (float) $detail->pack_multiplier : 1;
 
@@ -1859,7 +2016,7 @@ class SalesController extends BaseController
             $data['DiscountNet'] = number_format($unitDiscountAmount, helpers::price_decimals(), '.', '');
 
             // Per-line tax (per-unit) so receipts can show the "Total Items Tax"
-            // row (sum of taxe × quantity). Mirrors showDetailsSale's tax logic.
+            // row (sum of taxe Ã— quantity). Mirrors showDetailsSale's tax logic.
             $tax_price = (float) $detail->TaxNet * (((float) $detail->price - $unitDiscountAmount) / 100);
             if ($detail->tax_method == '1') {
                 // Exclusive: tax added on top of the net price
@@ -1876,7 +2033,7 @@ class SalesController extends BaseController
             $data['imei_number'] = $detail->imei_number;
 
             // Multi-Pack Selling: expose the pack so receipts can show the pack
-            // name and the total pieces (quantity × multiplier) sold.
+            // name and the total pieces (quantity Ã— multiplier) sold.
             $data['pack_name'] = $detail->pack_name;
             $data['pack_multiplier'] = $detail->pack_multiplier !== null ? (float) $detail->pack_multiplier : 1;
 
@@ -2899,7 +3056,7 @@ class SalesController extends BaseController
             $data['imei_number'] = $detail->imei_number;
 
             // Multi-Pack Selling: expose the pack so the PDF can show the pack
-            // name and total pieces (quantity × multiplier) sold.
+            // name and total pieces (quantity Ã— multiplier) sold.
             $data['pack_name'] = $detail->pack_name;
             $data['pack_multiplier'] = $detail->pack_multiplier !== null ? (float) $detail->pack_multiplier : 1;
 
@@ -2937,7 +3094,7 @@ class SalesController extends BaseController
      *
      * Uses the same template (`pdf.sale_pdf`) but returns raw HTML instead of a PDF.
      * This is used by the POS A4 flow, which opens a popup, injects the HTML, and
-     * calls window.print() – mirroring the POS thermal invoice behavior.
+     * calls window.print() â€“ mirroring the POS thermal invoice behavior.
      */
     public function Sale_PDF_Inline(Request $request, $id)
     {
@@ -3049,7 +3206,7 @@ class SalesController extends BaseController
             $data['is_imei'] = $detail['product']['is_imei'];
             $data['imei_number'] = $detail->imei_number;
 
-            // Multi-Pack Selling: pack name + total pieces (quantity × multiplier).
+            // Multi-Pack Selling: pack name + total pieces (quantity Ã— multiplier).
             $data['pack_name'] = $detail->pack_name;
             $data['pack_multiplier'] = $detail->pack_multiplier !== null ? (float) $detail->pack_multiplier : 1;
 
@@ -3229,6 +3386,7 @@ class SalesController extends BaseController
 
             $sale['date'] = $Sale_data->date;
             $sale['tax_rate'] = $Sale_data->tax_rate;
+            $sale['tax_Method'] = $Sale_data->tax_method ?? '1'; // ensure method is sent
             $sale['TaxNet'] = $Sale_data->TaxNet;
             $sale['used_points'] = $Sale_data->used_points;
             $sale['discount'] = $Sale_data->discount;
@@ -4445,7 +4603,7 @@ class SalesController extends BaseController
         $uploadedDocuments = [];
 
         if ($request->hasFile('documents')) {
-            // Company-scoped: images/company_{id}/sale_documents, not one
+            // Company-scoped: files/company_{id}/sale_documents, not one
             // shared folder for the whole install.
             $uploadRel = \App\Support\CompanyFiles::dir((int) $sale->company_id, 'sale_documents');
             $uploadPath = public_path($uploadRel);
@@ -4458,7 +4616,7 @@ class SalesController extends BaseController
 
                 $filename = time() . '_' . Str::random(10) . '_' . $originalName;
 
-                // Move file to public/images/company_{id}/sale_documents
+                // Move file to public/files/company_{id}/sale_documents
                 $file->move($uploadPath, $filename);
 
                 $relativePath = $uploadRel . '/' . $filename;
@@ -4639,7 +4797,7 @@ class SalesController extends BaseController
     /**
      * Multi-Pack Selling stock guard.
      *
-     * A pack line removes `quantity × pack_multiplier` base units (then the unit
+     * A pack line removes `quantity Ã— pack_multiplier` base units (then the unit
      * operator) from stock. Reject any pack line (pack_multiplier > 1) that would
      * drive a managed-stock product negative, so a "pack of 4" can't be sold when
      * only 1 piece is on hand. Non-pack lines are untouched.
@@ -4701,7 +4859,7 @@ class SalesController extends BaseController
 
             if ($required > $available + 1e-9) {
                 $name = $product->name ?? ('#'.$value['product_id']);
-                $packName = isset($value['pack_name']) && $value['pack_name'] !== '' ? $value['pack_name'] : ('×'.$mult);
+                $packName = isset($value['pack_name']) && $value['pack_name'] !== '' ? $value['pack_name'] : ('Ã—'.$mult);
                 $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, '.', ''), '0'), '.');
                 $errors[] = $name.' ('.$packName.'): needs '.$fmt($required).' but only '.$fmt($available).' in stock.';
             }

@@ -98,13 +98,21 @@
                   </a-input-password>
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="12">
+              <a-col v-if="!isEdit" :xs="24" :md="12">
+                <a-form-item :label="$t('Type')" name="type">
+                  <a-select v-model:value="form.type" :options="typeOptions" :placeholder="$t('PleaseSelect')" />
+                </a-form-item>
+              </a-col>
+              <a-col v-if="isEdit || !isAutoProvisionType" :xs="24" :md="12">
                 <a-form-item :label="$t('RoleName')" name="role_id">
                   <a-select
                     v-model:value="form.role_id" :options="roleOptions"
                     show-search option-filter-prop="label" :placeholder="$t('PleaseSelect')"
                   />
                 </a-form-item>
+              </a-col>
+              <a-col v-if="!isEdit && isAutoProvisionType" :span="24">
+                <a-alert type="info" show-icon :message="autoProvisionHint" style="margin-bottom: 16px" />
               </a-col>
             </a-row>
 
@@ -175,10 +183,12 @@ import {
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
+import { useAuthStore } from '../../stores/auth';
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
 
 const id = computed(() => route.params.id);
 const isEdit = computed(() => !!id.value);
@@ -193,12 +203,35 @@ const warehouses = ref([]);
 
 const form = ref({
   firstname: '', lastname: '', username: '', email: '', phone: '',
-  password: '', role_id: undefined, is_all_warehouses: false,
+  password: '', role_id: undefined, type: 'admin', is_all_warehouses: false,
   record_view: false, assigned_to: [],
 });
 
 const roleOptions = computed(() => roles.value.map(r => ({ value: r.id, label: r.name })));
 const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id, label: w.name })));
+
+// SuperAdmin is only offered to an acting SuperAdmin -- the backend rejects
+// anyone else who tries to force it anyway, this just keeps the option out
+// of sight for everyone who could never actually use it.
+const typeOptions = computed(() => {
+  const base = [
+    { value: 'admin', label: t('Admin') },
+    { value: 'employee', label: t('Employee') },
+    { value: 'customer', label: t('Customer') },
+    { value: 'sales_agent', label: t('Sales_Agent') },
+  ];
+  if (authStore.user?.type === 'SuperAdmin') {
+    base.unshift({ value: 'SuperAdmin', label: t('SuperAdmin') });
+  }
+  return base;
+});
+// employee/customer/sales_agent auto-create their matching record and get
+// their role auto-assigned -- the manual role picker doesn't apply to them.
+const isAutoProvisionType = computed(() => ['employee', 'customer', 'sales_agent'].includes(form.value.type));
+const autoProvisionHint = computed(() => {
+  const labels = { employee: t('Employee'), customer: t('Customer'), sales_agent: t('Sales_Agent') };
+  return t('AutoProvision_Hint', { type: labels[form.value.type] || form.value.type });
+});
 
 // ---- Profile panel preview ----
 const avatarPreview = ref('');
@@ -224,7 +257,9 @@ const rules = computed(() => ({
   ],
   // Password required only when creating; on edit blank = keep current.
   password: isEdit.value ? [] : [{ required: true, min: 6, message: t('Field_is_required') }],
-  role_id: [{ required: true, message: t('Field_is_required') }],
+  // Auto-provisioned types (employee/customer/sales_agent) get their role
+  // assigned automatically on create -- no manual pick required there.
+  role_id: (isEdit.value || !isAutoProvisionType.value) ? [{ required: true, message: t('Field_is_required') }] : [],
 }));
 
 function beforeUpload(file) {
@@ -258,7 +293,10 @@ function buildFormData() {
   fd.append('username', form.value.username);
   fd.append('email', form.value.email);
   fd.append('phone', form.value.phone || '');
-  fd.append('role', form.value.role_id);
+  if (!isEdit.value) fd.append('type', form.value.type);
+  // Auto-provision types don't send a role -- the backend resolves their
+  // own per-company role and would otherwise reject an empty one.
+  if (isEdit.value || !isAutoProvisionType.value) fd.append('role', form.value.role_id);
   fd.append('is_all_warehouses', form.value.is_all_warehouses ? 1 : 0);
   fd.append('record_view', form.value.record_view ? 1 : 0);
   if (fileList.value.length) fd.append('avatar', fileList.value[0]);
@@ -285,8 +323,11 @@ async function submit() {
       await http.postForm(`users/${id.value}`, fd);
       message.success(t('Successfully_Updated'));
     } else {
-      await http.postForm('users', fd);
+      const result = await http.postForm('users', fd);
       message.success(t('Successfully_Created'));
+      if (result?.warning === 'employee_missing_hr_setup') {
+        message.warning(t('Warning_Employee_Missing_HR_Setup'), 8);
+      }
     }
     router.push('/users');
   } catch (e) {
@@ -307,7 +348,7 @@ async function bootstrap() {
       form.value = {
         firstname: u.firstname || '', lastname: u.lastname || '',
         username: u.username || '', email: u.email || '', phone: u.phone || '',
-        password: '', role_id: u.role_id,
+        password: '', role_id: u.role_id, type: u.type || 'admin',
         is_all_warehouses: !!Number(u.is_all_warehouses),
         record_view: !!Number(u.record_view),
         assigned_to: data.assigned_warehouses || [],
@@ -315,7 +356,10 @@ async function bootstrap() {
       // Show the current avatar in the profile panel (placeholder file aside);
       // picking a new file replaces this preview with a local object URL.
       if (u.avatar && u.avatar !== 'no_avatar.png') {
-        avatarPreview.value = `/images/avatar/${u.avatar}`;
+        // The backend stores the avatar's full relative path (e.g.
+        // images/company_2/avatar/xxx.jpg), not a bare filename under a
+        // shared /images/avatar/ folder -- use it as-is.
+        avatarPreview.value = u.avatar.startsWith('/') ? u.avatar : `/${u.avatar}`;
       }
     } else {
       // Legacy bootstraps role/warehouse lists from the users list endpoint —

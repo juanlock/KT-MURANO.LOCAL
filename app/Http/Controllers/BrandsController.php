@@ -70,12 +70,14 @@ class BrandsController extends Controller
             if ($request->hasFile('image')) {
 
                 $image = $request->file('image');
+                $brandDir = \App\Support\CompanyFiles::dir($companyId, 'brands');
                 $filename = rand(11111111, 99999999).$image->getClientOriginalName();
 
                 $image_resize = Image::make($image->getRealPath());
                 $image_resize->resize(200, 200);
-                $image_resize->save(public_path('/images/brands/'.$filename));
+                $image_resize->save(public_path($brandDir.'/'.$filename));
 
+                $filename = $brandDir.'/'.$filename;
             } else {
                 $filename = 'no-image.png';
             }
@@ -123,29 +125,37 @@ class BrandsController extends Controller
             abort_unless($Brand->company_id === $companyId, 404);
             $currentImage = $Brand->image;
 
+            $brandDir = \App\Support\CompanyFiles::dir($companyId, 'brands');
+
             if ($currentImage && $request->image != $currentImage) {
                 $image = $request->file('image');
-                $path = public_path().'/images/brands';
                 $filename = rand(11111111, 99999999).$image->getClientOriginalName();
 
                 $image_resize = Image::make($image->getRealPath());
                 $image_resize->resize(200, 200);
-                $image_resize->save(public_path('/images/brands/'.$filename));
+                $image_resize->save(public_path($brandDir.'/'.$filename));
 
-                $BrandImage = $path.'/'.$currentImage;
+                // Old value may be either the new "relDir/filename" format
+                // or a bare filename from the old shared images/brands/ folder.
+                $BrandImage = str_contains((string) $currentImage, '/')
+                    ? public_path($currentImage)
+                    : public_path().'/images/brands/'.$currentImage;
                 if (file_exists($BrandImage)) {
                     if ($currentImage != 'no-image.png') {
                         @unlink($BrandImage);
                     }
                 }
+
+                $filename = $brandDir.'/'.$filename;
             } elseif (! $currentImage && $request->image != 'null') {
                 $image = $request->file('image');
-                $path = public_path().'/images/brands';
                 $filename = rand(11111111, 99999999).$image->getClientOriginalName();
 
                 $image_resize = Image::make($image->getRealPath());
                 $image_resize->resize(200, 200);
-                $image_resize->save(public_path('/images/brands/'.$filename));
+                $image_resize->save(public_path($brandDir.'/'.$filename));
+
+                $filename = $brandDir.'/'.$filename;
             } else {
                 $filename = $currentImage ? $currentImage : 'no-image.png';
             }

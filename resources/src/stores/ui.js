@@ -61,7 +61,13 @@ export const useUiStore = defineStore('ui', {
         // Hamburger collapse — an icon rail for the default layout, and hides
         // the submenu panel for the large one.
         sidebarCollapsed: stored(SIDEBAR_KEY, '0') === '1',
+        // Sidebar "filter menus" search box -- typed text only, never
+        // persisted (a fresh session starts with the full menu showing).
+        menuSearchQuery: '',
         locale: storedLocale(),
+        // Theme customizer drawer -- toggled from the topbar's Customize
+        // button; never persisted, always starts closed.
+        customizerOpen: false,
     }),
     getters: {
         // A manual RTL choice wins; otherwise the locale decides (ar → rtl).
@@ -115,8 +121,39 @@ export const useUiStore = defineStore('ui', {
             this.sidebarLayout = SIDEBAR_LAYOUTS.includes(layout) ? layout : 'default';
             save(LAYOUT_KEY, this.sidebarLayout);
         },
-        async setLocale(locale) {
+        toggleCustomizer() {
+            this.customizerOpen = !this.customizerOpen;
+        },
+        /**
+         * Applies a locale WITHOUT stamping it as the user's own explicit
+         * choice -- for automatic syncs (e.g. after saving System Settings'
+         * Default Language for the acting company) as opposed to a deliberate
+         * pick from the language switcher. Using setLocale() for this stamped
+         * 'language_explicit', which then permanently overrode the correct
+         * per-company default on every later login -- e.g. a SuperAdmin
+         * saving a Spanish-default company's settings would get stuck seeing
+         * the whole app in Spanish even after switching back to an
+         * English-default company, until they happened to pick a language
+         * manually again.
+         */
+        async applyServerLocale(locale) {
             this.locale = locale;
+            await loadLocale(locale);
+        },
+        async setLocale(locale, userId) {
+            this.locale = locale;
+            // Remembers this was a deliberate pick, not the boot-time
+            // fallback -- see stores/auth.js: a device with no explicit
+            // choice (for the CURRENTLY logged-in user) adopts that user's
+            // company default_language instead of always sticking at 'en'.
+            // Stamped with the acting user's id, not just a bare flag --
+            // otherwise one admin's manual pick in a shared/test browser
+            // would silently override every other company's admin who
+            // later logs in on that same browser.
+            try {
+                window.localStorage.setItem('language_explicit', '1');
+                window.localStorage.setItem('language_explicit_user_id', String(userId ?? ''));
+            } catch (e) { /* ignore */ }
             await loadLocale(locale);
             // Tell the server too. The language lived only in localStorage, so
             // anything Blade renders — PDFs, and the logged-out /login page —

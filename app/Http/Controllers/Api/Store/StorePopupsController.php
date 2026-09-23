@@ -2,19 +2,25 @@
 
 namespace App\Http\Controllers\Api\Store;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Http\Controllers\Controller;
 use App\Models\StorePopup;
 use App\Models\StoreSetting;
+use App\Support\CompanyFiles;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class StorePopupsController extends Controller
 {
+    use ScopesToCompany;
+
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
-        $popups = StorePopup::orderBy('sort_order')->orderByDesc('id')->get()
+        $popups = StorePopup::where('company_id', $companyId)
+            ->orderBy('sort_order')->orderByDesc('id')->get()
             ->map(fn (StorePopup $p) => $this->present($p));
 
         return response()->json([
@@ -26,9 +32,11 @@ class StorePopupsController extends Controller
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $data = $this->validateData($request);
-        $data['image'] = $this->handleImage($request, null);
+        $data['company_id'] = $companyId;
+        $data['image'] = $this->handleImage($request, null, $companyId);
 
         $popup = StorePopup::create($data);
 
@@ -38,11 +46,13 @@ class StorePopupsController extends Controller
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $popup = StorePopup::findOrFail($id);
+        abort_unless((int) $popup->company_id === $companyId, 404);
         $data = $this->validateData($request);
 
-        $image = $this->handleImage($request, $popup->image);
+        $image = $this->handleImage($request, $popup->image, $companyId);
         if ($image !== null) {
             $data['image'] = $image;
         }
@@ -55,8 +65,11 @@ class StorePopupsController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
-        StorePopup::findOrFail($id)->delete();
+        $popup = StorePopup::findOrFail($id);
+        abort_unless((int) $popup->company_id === $companyId, 404);
+        $popup->delete();
 
         return response()->json(['success' => true]);
     }
@@ -114,10 +127,11 @@ class StorePopupsController extends Controller
     }
 
     /**
-     * Store an uploaded image under public/images/popups. Returns the new path,
-     * or null when no new file was uploaded (keep the existing one).
+     * Store an uploaded image under public/files/company_{id}/popups.
+     * Returns the new relative path, or null when no new file was uploaded
+     * (keep the existing one).
      */
-    private function handleImage(Request $request, ?string $current): ?string
+    private function handleImage(Request $request, ?string $current, int $companyId): ?string
     {
         if (! $request->hasFile('image')) {
             return $current;
@@ -125,16 +139,13 @@ class StorePopupsController extends Controller
 
         $request->validate(['image' => ['image', 'max:4096']]);
 
-        $dir = public_path('images/popups');
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0755, true);
-        }
+        $uploadRel = CompanyFiles::dir($companyId, 'popups');
 
         $file = $request->file('image');
         $filename = 'popup_'.time().'_'.mt_rand(1000, 9999).'.'.$file->getClientOriginalExtension();
-        $file->move($dir, $filename);
+        $file->move(public_path($uploadRel), $filename);
 
-        return 'images/popups/'.$filename;
+        return $uploadRel.'/'.$filename;
     }
 
     private function present(StorePopup $p): array

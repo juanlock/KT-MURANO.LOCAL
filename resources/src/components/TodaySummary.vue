@@ -12,8 +12,8 @@
     <div class="ts-head">
       <div>
         <div class="ts-eyebrow">{{ $t('Day_Ledger') }}</div>
-        <div class="ts-title">{{ $t('Todays_Summary') }}</div>
-        <div class="ts-date">{{ date(summary.date || new Date()) }}</div>
+        <div class="ts-title">Como Vamos!</div>
+        <div class="ts-date">{{ periodLabel }}</div>
       </div>
       <a-space :size="2">
         <a-tooltip :title="$t('Refresh')">
@@ -26,6 +26,14 @@
         </a-button>
       </a-space>
     </div>
+
+    <!-- Period toggle: Today / Month (default) / Year -- reruns the whole
+         ledger for that range instead of always being today-only. -->
+    <a-radio-group v-model:value="period" button-style="solid" class="ts-period" @change="load">
+      <a-radio-button value="today">{{ $t('Today') }}</a-radio-button>
+      <a-radio-button value="month">{{ $t('Month') }}</a-radio-button>
+      <a-radio-button value="year">{{ $t('Year') }}</a-radio-button>
+    </a-radio-group>
 
     <div v-if="loading && !loaded" class="ts-loading"><a-spin size="large" /></div>
 
@@ -230,6 +238,7 @@ const { t } = useI18n();
 const loading = ref(false);
 const loaded = ref(false);
 const summary = ref({});
+const period = ref('month');
 
 const num = v => Number(v) || 0;
 const clampPct = v => Math.max(0, Math.min(100, Number(v) || 0));
@@ -263,12 +272,22 @@ const purchaseRows = computed(() => docRows(purchases.value));
 async function load() {
   loading.value = true;
   try {
-    summary.value = await http.get('today_summary');
+    summary.value = await http.get('today_summary', { period: period.value });
     loaded.value = true;
   } catch (e) { /* keep last data */ } finally {
     loading.value = false;
   }
 }
+
+// Shows the exact day for "Today", or the from/to range for Month/Year --
+// summary.date_from/date_to always reflect the range actually loaded.
+const periodLabel = computed(() => {
+  const from = summary.value.date_from;
+  const to = summary.value.date_to;
+  if (!from) return date(new Date());
+  if (from === to) return date(from);
+  return `${date(from)} — ${date(to)}`;
+});
 
 watch(() => props.open, v => { if (v && !loaded.value) load(); });
 </script>
@@ -299,6 +318,10 @@ watch(() => props.open, v => { if (v && !loaded.value) load(); });
 .ts-date {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.45);
+}
+.ts-period {
+  display: flex;
+  margin-bottom: 16px;
 }
 .ts-loading {
   display: flex;

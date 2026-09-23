@@ -6,6 +6,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class PosSetting extends Model
 {
+    public const TEMPLATE_COMPANY_ID = 999;
+
+    public static function forCompany(?int $companyId): self
+    {
+        $companyId = $companyId ?: self::TEMPLATE_COMPANY_ID;
+        if ($existing = static::where('company_id', $companyId)->whereNull('deleted_at')->first()) {
+            return $existing;
+        }
+        $template = static::where('company_id', self::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')->first()
+            ?? static::whereNull('deleted_at')->first();
+        $attrs = $template
+            ? collect($template->getAttributes())->except(['id', 'company_id', 'created_at', 'updated_at', 'deleted_at'])->all()
+            : [];
+        return static::create($attrs + ['company_id' => $companyId]);
+    }
+
     protected $fillable = [
         'note_customer', 'show_logo', 'logo_size', 'show_store_name',
         'show_reference', 'show_date', 'show_seller',

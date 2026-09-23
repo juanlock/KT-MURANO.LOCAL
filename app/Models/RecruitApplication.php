@@ -12,11 +12,12 @@ class RecruitApplication extends Model
     protected $table = 'recruit_applications';
 
     protected $fillable = [
-        'job_id', 'candidate_id', 'stage', 'applied_date', 'cover_letter',
+        'company_id', 'job_id', 'candidate_id', 'stage', 'applied_date', 'cover_letter',
         'rating', 'notes', 'reviewed_by', 'reviewed_at',
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'applied_date' => 'date',
         'reviewed_at' => 'datetime',
     ];

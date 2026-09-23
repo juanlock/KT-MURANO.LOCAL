@@ -6,6 +6,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class StoreSetting extends Model
 {
+    public const TEMPLATE_COMPANY_ID = 999;
+
+    public static function forCompany(?int $companyId): self
+    {
+        $companyId = $companyId ?: self::TEMPLATE_COMPANY_ID;
+        if ($existing = static::where('company_id', $companyId)->first()) {
+            return $existing;
+        }
+        $template = static::where('company_id', self::TEMPLATE_COMPANY_ID)->first()
+            ?? static::first();
+        $attrs = $template
+            ? collect($template->getAttributes())->except(['id', 'company_id', 'created_at', 'updated_at'])->all()
+            : [];
+        return static::create($attrs + ['company_id' => $companyId]);
+    }
+
     protected $fillable = [
         'enabled', 'registration_enabled', 'require_invite_code', 'require_admin_approval', 'require_email_verification',
         'allow_cancellations', 'return_window_days', 'auto_approve_reviews', 'cookie_consent_enabled',

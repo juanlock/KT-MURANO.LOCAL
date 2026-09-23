@@ -12,6 +12,7 @@ class Meeting extends Model
     protected $table = 'meetings';
 
     protected $fillable = [
+        'company_id',
         'title', 'description', 'agenda', 'meeting_date', 'start_time', 'end_time',
         'location', 'type', 'status', 'platform', 'meeting_link', 'reminder_minutes',
         'reminder_sent', 'organizer_id', 'created_by',

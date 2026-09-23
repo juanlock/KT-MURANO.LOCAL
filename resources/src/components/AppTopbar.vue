@@ -27,6 +27,14 @@
         <span class="hide-sm">POS</span>
       </a-button>
 
+      <!-- Customize — theme/layout/language drawer (moved here from the old
+           floating bottom-right handle), matching legacy's setting to hide it. -->
+      <a-tooltip v-if="auth.customizeButtonVisible" :title="$t('Settings')">
+        <a-button type="text" class="icon-btn customize-btn" @click="ui.toggleCustomizer()">
+          <template #icon><SettingOutlined /></template>
+        </a-button>
+      </a-tooltip>
+
       <!-- Install PWA — only while the browser is offering installation -->
       <a-tooltip v-if="pwaCanInstall" :title="$t('Install_App')">
         <a-button type="text" class="icon-btn install-btn" @click="promptInstall">
@@ -35,19 +43,9 @@
       </a-tooltip>
 
       <!-- Today's summary -->
-      <a-tooltip :title="$t('Todays_Summary')">
+      <a-tooltip title="Como Vamos!">
         <a-button type="text" class="icon-btn" @click="summaryOpen = true">
           <template #icon><PieChartOutlined /></template>
-        </a-button>
-      </a-tooltip>
-
-      <!-- Dark mode -->
-      <a-tooltip :title="ui.dark ? 'Light Mode' : 'Dark Mode'">
-        <a-button type="text" class="icon-btn" @click="ui.toggleDark()">
-          <template #icon>
-            <BulbFilled v-if="ui.dark" />
-            <BulbOutlined v-else />
-          </template>
         </a-button>
       </a-tooltip>
 
@@ -65,7 +63,7 @@
       <a-dropdown v-if="auth.showLanguage" placement="bottomRight">
         <a-button type="text" class="icon-btn"><template #icon><GlobalOutlined /></template></a-button>
         <template #overlay>
-          <a-menu :selected-keys="[ui.locale]" class="lang-menu" @click="({ key }) => ui.setLocale(key)">
+          <a-menu :selected-keys="[ui.locale]" class="lang-menu" @click="({ key }) => ui.setLocale(key, auth.user?.id)">
             <a-menu-item v-for="l in languages" :key="l.value">
               <span class="lang-row">
                 <img v-if="l.image" :src="l.image" :alt="l.label" class="flag" />
@@ -229,8 +227,8 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  MenuFoldOutlined, MenuUnfoldOutlined, CalculatorOutlined, BulbOutlined,
-  BulbFilled, FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
+  MenuFoldOutlined, MenuUnfoldOutlined, CalculatorOutlined,
+  FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, UserOutlined, SettingOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined,
   DownloadOutlined,

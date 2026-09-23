@@ -16,7 +16,7 @@
       <span v-else></span>
       <a-space>
         <a-button
-          v-if="selectable && crud.selectedIds.value.length"
+          v-if="selectionEnabled && crud.selectedIds.value.length"
           danger
           @click="crud.removeSelected()"
         >
@@ -60,7 +60,7 @@
       :data-source="crud.rows.value"
       :loading="crud.loading.value"
       :pagination="crud.pagination.value"
-      :row-selection="selectable ? crud.rowSelection.value : undefined"
+      :row-selection="selectionEnabled ? crud.rowSelection.value : undefined"
       :row-key="rowKey"
       :scroll="{ x: 'max-content' }"
       :size="dt.density"
@@ -83,11 +83,11 @@
       <template v-if="$slots.summary || hasAutoSummary" #summary>
         <slot name="summary">
           <a-table-summary-row>
-            <a-table-summary-cell v-if="selectable" :index="0" />
+            <a-table-summary-cell v-if="selectionEnabled" :index="0" />
             <a-table-summary-cell
               v-for="(col, i) in visibleColumns"
               :key="colKey(col) || i"
-              :index="i + (selectable ? 1 : 0)"
+              :index="i + (selectionEnabled ? 1 : 0)"
               :align="col.align"
             >
               <b v-if="col.sum">{{ sumFor(col) }}</b>
@@ -111,6 +111,7 @@
  * System Settings > DataTable and persisted per device.
  */
 import { ref, computed } from 'vue';
+import { useRoute } from 'vue-router';
 import { DeleteOutlined, SettingOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 import { useDatatableStore } from '../stores/datatable';
 import { useFormat } from '../composables/useFormat';
@@ -121,13 +122,26 @@ const props = defineProps({
   rowKey: { type: String, default: 'id' },
   searchable: { type: Boolean, default: true },
   // Row checkboxes + bulk delete (endpoint must support /delete/by_selection).
+  // Disabled system-wide (2026-09-23) -- a real server bug let a blocked bulk
+  // delete (e.g. one selected row already had a return) silently report
+  // success while leaving every row untouched (SalesController/
+  // PurchasesController delete_by_selection() swallowed the block inside a
+  // DB::transaction() closure). Even with that fixed, deleting several
+  // records in one click is too easy to trigger by accident to leave
+  // enabled across every list in the app. The prop/wiring stays in place
+  // (harmless, ignored) rather than ripped out of every page that passes it.
   selectable: { type: Boolean, default: false },
 });
 
 const dt = useDatatableStore();
 
+// Hard override, not just a lower default: pages still pass :selectable="...",
+// this makes it a no-op everywhere instead of requiring every call site to be
+// edited individually. See the `selectable` prop comment above for why.
+const selectionEnabled = false;
+
 const toolbarVisible = computed(() =>
-  (props.searchable && dt.showSearch) || props.selectable || dt.showColumns || dt.showRefresh
+  (props.searchable && dt.showSearch) || selectionEnabled || dt.showColumns || dt.showRefresh
 );
 
 // tbody/thead styling via CSS vars, so 'default' cleanly inherits Ant's stack.
@@ -148,9 +162,30 @@ const stripedClass = (_record, index) => (index % 2 === 1 ? 'dt-row-striped' : '
 /* ------------------------------------------------ column visibility */
 const colKey = c => c.key ?? c.dataIndex;
 
-// Columns flagged `defaultHidden: true` start unchecked in the picker; the
-// user can turn them on from the columns dropdown for the session.
-const hiddenKeys = ref(props.columns.filter(c => c.defaultHidden).map(colKey));
+// Persisted per page (route name/path) so hide/unhide choices survive a
+// reload or a later visit, not just the current session.
+const route = useRoute();
+const hiddenColsStorageKey = `dt_hidden_columns_${String(route.name || route.path)}`;
+
+function readStoredHiddenKeys() {
+  try {
+    const raw = window.localStorage.getItem(hiddenColsStorageKey);
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) { /* storage unavailable / corrupt value -- fall back to defaults */ }
+  // Columns flagged `defaultHidden: true` start unchecked in the picker.
+  return props.columns.filter(c => c.defaultHidden).map(colKey);
+}
+
+const hiddenKeys = ref(readStoredHiddenKeys());
+
+function persistHiddenKeys() {
+  try {
+    window.localStorage.setItem(hiddenColsStorageKey, JSON.stringify(hiddenKeys.value));
+  } catch (e) { /* storage unavailable (private mode, quota) -- stays session-only */ }
+}
 
 // The actions column stays out of the picker — hiding it strands the row menu.
 const toggleableColumns = computed(() => props.columns.filter(c => colKey(c) !== 'actions'));
@@ -192,6 +227,7 @@ function toggleColumn(key) {
   const i = hiddenKeys.value.indexOf(key);
   if (i >= 0) hiddenKeys.value.splice(i, 1);
   else hiddenKeys.value.push(key);
+  persistHiddenKeys();
 }
 
 /* ------------------------------------------------ auto totals footer */

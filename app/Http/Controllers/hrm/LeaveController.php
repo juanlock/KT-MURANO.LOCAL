@@ -98,9 +98,13 @@ class LeaveController extends Controller
         if ($request->hasFile('attachment')) {
 
             $image = $request->file('attachment');
+            // Company-scoped: files/company_{id}/leaves, not one shared
+            // folder for the whole install.
+            $leaveDir = \App\Support\CompanyFiles::dir((int) $request['company_id'], 'leaves');
             $filename = time().'.'.$image->extension();
-            $image->move(public_path('/images/leaves'), $filename);
+            $image->move(public_path($leaveDir), $filename);
 
+            $filename = $leaveDir.'/'.$filename;
         } else {
             $filename = 'no_image.png';
         }
@@ -185,15 +189,24 @@ class LeaveController extends Controller
             if ($request->attachment != $CurrentAttachement) {
 
                 $image = $request->file('attachment');
+                // Company-scoped: files/company_{id}/leaves, not one
+                // shared folder for the whole install.
+                $leaveDir = \App\Support\CompanyFiles::dir((int) $request['company_id'], 'leaves');
                 $filename = time().'.'.$image->extension();
-                $image->move(public_path('/images/leaves'), $filename);
-                $path = public_path().'/images/leaves';
-                $LeavePhoto = $path.'/'.$CurrentAttachement;
+                $image->move(public_path($leaveDir), $filename);
+
+                // Old value may be either the new "relDir/filename" format
+                // or a bare filename from the old shared images/leaves/ folder.
+                $LeavePhoto = str_contains((string) $CurrentAttachement, '/')
+                    ? public_path($CurrentAttachement)
+                    : public_path().'/images/leaves/'.$CurrentAttachement;
                 if (file_exists($LeavePhoto)) {
                     if ($leave->attachment != 'no_image.png') {
                         @unlink($LeavePhoto);
                     }
                 }
+
+                $filename = $leaveDir.'/'.$filename;
             } else {
                 $filename = $CurrentAttachement;
             }
@@ -263,8 +276,11 @@ class LeaveController extends Controller
 
         $attachment = $leave->attachment;
 
-        $path = public_path().'/images/leaves';
-        $LeavePhoto = $path.'/'.$attachment;
+        // Attachment may be either the new "relDir/filename" format or a
+        // bare filename from the old shared images/leaves/ folder.
+        $LeavePhoto = str_contains((string) $attachment, '/')
+            ? public_path($attachment)
+            : public_path().'/images/leaves/'.$attachment;
         if (file_exists($LeavePhoto)) {
             if ($leave->attachment != 'no_image.png') {
                 @unlink($LeavePhoto);
@@ -290,8 +306,11 @@ class LeaveController extends Controller
 
             $attachment = $leave->attachment;
 
-            $path = public_path().'/images/leaves';
-            $LeavePhoto = $path.'/'.$attachment;
+            // Attachment may be either the new "relDir/filename" format or
+            // a bare filename from the old shared images/leaves/ folder.
+            $LeavePhoto = str_contains((string) $attachment, '/')
+                ? public_path($attachment)
+                : public_path().'/images/leaves/'.$attachment;
             if (file_exists($LeavePhoto)) {
                 if ($leave->attachment != 'no_image.png') {
                     @unlink($LeavePhoto);

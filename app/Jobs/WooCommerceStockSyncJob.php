@@ -192,7 +192,10 @@ class WooCommerceStockSyncJob implements ShouldQueue
                                     try {
                                         $imgName = (string) ($product->image ?? '');
                                         if ($imgName !== '' && strtolower($imgName) !== 'no-image.png') {
-                                            $public = public_path('images/products/'.$imgName);
+                                            // Stored path may be the new "relDir/filename" format or a bare filename.
+                                            $public = str_contains($imgName, '/')
+                                                ? public_path($imgName)
+                                                : public_path('images/products/'.$imgName);
                                             if (is_file($public)) {
                                                 $payloadVar['image'] = ['src' => product_image_url($imgName)];
                                             }
@@ -238,7 +241,10 @@ class WooCommerceStockSyncJob implements ShouldQueue
                                 try {
                                     $imgName = (string) ($product->image ?? '');
                                     if ($imgName !== '' && strtolower($imgName) !== 'no-image.png') {
-                                        $public = public_path('images/products/'.$imgName);
+                                        // Stored path may be the new "relDir/filename" format or a bare filename.
+                                        $public = str_contains($imgName, '/')
+                                            ? public_path($imgName)
+                                            : public_path('images/products/'.$imgName);
                                         if (is_file($public)) {
                                             $payload['images'] = [['src' => product_image_url($imgName)]];
                                         }
@@ -265,7 +271,10 @@ class WooCommerceStockSyncJob implements ShouldQueue
                                 try {
                                     $imgName = (string) ($product->image ?? '');
                                     if ($imgName !== '' && strtolower($imgName) !== 'no-image.png') {
-                                        $public = public_path('images/products/'.$imgName);
+                                        // Stored path may be the new "relDir/filename" format or a bare filename.
+                                        $public = str_contains($imgName, '/')
+                                            ? public_path($imgName)
+                                            : public_path('images/products/'.$imgName);
                                         if (is_file($public)) {
                                             $payload['images'] = [['src' => product_image_url($imgName)]];
                                         }
@@ -443,7 +452,10 @@ class WooCommerceStockSyncJob implements ShouldQueue
             if ($imgName === '' || strtolower($imgName) === 'no-image.png') {
                 return null;
             }
-            $abs = public_path('images/products/'.$imgName);
+            // Stored path may be the new "relDir/filename" format or a bare filename.
+            $abs = str_contains($imgName, '/')
+                ? public_path($imgName)
+                : public_path('images/products/'.$imgName);
             if (! is_file($abs)) {
                 return null;
             }

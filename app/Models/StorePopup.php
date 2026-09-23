@@ -22,6 +22,7 @@ class StorePopup extends Model
     public const TRANSLATABLE = ['title', 'message', 'cta_label'];
 
     protected $fillable = [
+        'company_id',
         'title', 'message', 'type', 'image', 'cta_label', 'cta_url',
         'title_translations', 'message_translations', 'cta_label_translations',
         'enabled', 'trigger', 'delay_seconds', 'frequency',

@@ -69,7 +69,7 @@ class ProductsController extends BaseController
         $helpers = new helpers;
         $warehouseId = $request->integer('warehouse_id');
 
-          // ✅ assigned warehouses (user scope)
+          // âœ… assigned warehouses (user scope)
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
@@ -79,12 +79,12 @@ class ProductsController extends BaseController
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $allowedWarehouseIds)->get(['id', 'name']);
         }
 
-        // ✅ if warehouse_id provided but not allowed => ignore it (don’t break anything)
+        // âœ… if warehouse_id provided but not allowed => ignore it (donâ€™t break anything)
         if ($warehouseId && ! in_array($warehouseId, $allowedWarehouseIds, true)) {
             $warehouseId = null;
         }
 
-        // 'code' is handled separately below so it can also match variant codes —
+        // 'code' is handled separately below so it can also match variant codes â€”
         // the generic filter can only compare columns on products itself.
         $columns = [0 => 'name', 1 => 'category_id', 2 => 'brand_id', 3 => 'sub_category_id', 4 => 'product_group_id'];
         $param = [0 => 'like', 1 => '=', 2 => '=', 3 => '=', 4 => '='];
@@ -170,7 +170,7 @@ class ProductsController extends BaseController
             $perPage = $totalRows;
         }
 
-        // 'quantity' is not a products column — it is the sum of product_warehouse
+        // 'quantity' is not a products column â€” it is the sum of product_warehouse
         // stock, so sorting by it needs a subquery scoped exactly like the
         // displayed quantity (selected warehouse, else the user's allowed ones).
         if ($order === 'quantity') {
@@ -223,10 +223,10 @@ class ProductsController extends BaseController
 
                 $item['type'] = 'Single';
                 $item['name'] = $product->name; // PLAIN TEXT
-                // IMPORTANT: keep backend numeric formatting *machine‑friendly*:
+                // IMPORTANT: keep backend numeric formatting *machineâ€‘friendly*:
                 // - 2 decimals
                 // - NO thousands separator (third param '.', fourth param '')
-                // So the frontend priceFormat helper can safely re‑format.
+                // So the frontend priceFormat helper can safely reâ€‘format.
                 $item['cost'] = number_format((float) $product->cost, helpers::price_decimals(), '.', '');
                 $item['price'] = number_format((float) $product->price, helpers::price_decimals(), '.', '');
                 $item['wholesale_price'] = number_format((float) $product->wholesale_price, helpers::price_decimals(), '.', '');
@@ -238,7 +238,7 @@ class ProductsController extends BaseController
                 if ($warehouseId) {
                     $qtyQuery->where('warehouse_id', $warehouseId);
                 } elseif (! $user_auth->is_all_warehouses) {
-                    // ✅ if no warehouse filter selected, keep qty within allowed warehouses only
+                    // âœ… if no warehouse filter selected, keep qty within allowed warehouses only
                     $qtyQuery->whereIn('warehouse_id', $allowedWarehouseIds);
                 }
 
@@ -393,10 +393,11 @@ class ProductsController extends BaseController
     }
 
     /**
-     * Store an uploaded variant image under public/images/products/ (same convention as product images).
-     * Resizes to 800x800 (keeping aspect ratio). Returns the stored filename, or 'no-image.png' when no/invalid file.
+     * Store an uploaded variant image under public/files/company_{id}/products/
+     * (same convention as product images). Resizes to 800x800 (keeping aspect
+     * ratio). Returns the stored relative path, or 'no-image.png' when no/invalid file.
      */
-    private function storeVariantImage($file): string
+    private function storeVariantImage($file, int $companyId): string
     {
         if (! $file) {
             return 'no-image.png';
@@ -409,11 +410,12 @@ class ProductsController extends BaseController
             }
             $filename = rand(11111111, 99999999).'.'.$ext;
 
+            $dir = \App\Support\CompanyFiles::dir($companyId, 'products');
             $image_resize = Image::make($file->getRealPath());
             helpers::apply_product_image_resize($image_resize)
-                ->save(public_path('/images/products/'.$filename));
+                ->save(public_path($dir.'/'.$filename));
 
-            return $filename;
+            return $dir.'/'.$filename;
         } catch (\Throwable $e) {
             return 'no-image.png';
         }
@@ -672,7 +674,7 @@ class ProductsController extends BaseController
 
                 $Product->points = $request['points'] ? $request['points'] : 0;
 
-                // —————— Warranty & Guarantee ——————
+                // â€”â€”â€”â€”â€”â€” Warranty & Guarantee â€”â€”â€”â€”â€”â€”
                 $Product->warranty_period = $request['warranty_period'] ?? null;
                 $Product->warranty_unit = $request['warranty_unit'] ?? null;
                 $Product->warranty_terms = $request['warranty_terms'] ?? null;
@@ -685,7 +687,7 @@ class ProductsController extends BaseController
                 // -- check if type is_single
                 if ($request['type'] == 'is_single' || $request['type'] == 'is_combo') {
                     $Product->price = $request['price'];
-                    // ✅ Handle new prices safely (default to 0)
+                    // âœ… Handle new prices safely (default to 0)
                     $Product->wholesale_price = ! empty($request['wholesale_price']) ? $request['wholesale_price'] : 0;
                     $Product->min_price = ! empty($request['min_price']) ? $request['min_price'] : 0;
 
@@ -782,12 +784,14 @@ class ProductsController extends BaseController
                     }
                     $filename = rand(11111111, 99999999).'.'.$ext;
 
+                    $productImgDir = \App\Support\CompanyFiles::dir($companyId, 'products');
                     $image_resize = Image::make($image->getRealPath());
 
                     // Downscale per the Resize Product Images setting (off = original size)
                     helpers::apply_product_image_resize($image_resize)
-                        ->save(public_path('/images/products/'.$filename));
+                        ->save(public_path($productImgDir.'/'.$filename));
 
+                    $filename = $productImgDir.'/'.$filename;
                 } else {
                     $filename = 'no-image.png';
                 }
@@ -834,7 +838,7 @@ class ProductsController extends BaseController
                     foreach ($variants as $index => $variant) {
                         $newVariantImage = is_array($variantImages) ? ($variantImages[$index] ?? null) : null;
                         if ($newVariantImage) {
-                            $variantImageName = $this->storeVariantImage($newVariantImage);
+                            $variantImageName = $this->storeVariantImage($newVariantImage, $companyId);
                         } elseif (isset($variant->image) && $variant->image !== '' && $variant->image !== 'null') {
                             // Preserve an existing filename (e.g. when duplicating a product).
                             $variantImageName = $variant->image;
@@ -891,7 +895,7 @@ class ProductsController extends BaseController
                     $isSingle = $request->input('type') === 'is_single';
                     $isVariant = $request->input('is_variant') === 'true';
 
-                    // fetch variants if needed — ordered by id so positions match
+                    // fetch variants if needed â€” ordered by id so positions match
                     // the request's variants array (bulk insert preserves order)
                     $variants = $isVariant
                         ? ProductVariant::where('product_id', $Product->id)
@@ -1288,7 +1292,7 @@ class ProductsController extends BaseController
                 $Product->size_guide_id = $request->input('size_guide_id') ? (int) $request->input('size_guide_id') : null;
                 $Product->points = $request['points'];
 
-                // ——— Warranty & Guarantee Tracking ———
+                // â€”â€”â€” Warranty & Guarantee Tracking â€”â€”â€”
 
                 // Warranty
                 $Product->warranty_period = $request['warranty_period'] !== null
@@ -1433,7 +1437,7 @@ class ProductsController extends BaseController
 
                 if ($request['type'] == 'is_variant') {
 
-                    // Uploaded variant images (indexed by variant position) — shared by both update branches below.
+                    // Uploaded variant images (indexed by variant position) â€” shared by both update branches below.
                     $variantImages = $request->file('variant_images', []);
 
                     if ($oldVariants->isNotEmpty()) {
@@ -1472,7 +1476,7 @@ class ProductsController extends BaseController
                             // New uploaded image for this variant (by index) overrides the existing filename.
                             $newVariantImage = is_array($variantImages) ? ($variantImages[$key] ?? null) : null;
                             $variantImageName = $newVariantImage
-                                ? $this->storeVariantImage($newVariantImage)
+                                ? $this->storeVariantImage($newVariantImage, $companyId)
                                 : ((isset($variant['image']) && $variant['image'] !== '' && $variant['image'] !== 'null')
                                     ? $variant['image']
                                     : 'no-image.png');
@@ -1602,7 +1606,7 @@ class ProductsController extends BaseController
                             }
                             $newVarImg = is_array($variantImages) ? ($variantImages[$vIdx] ?? null) : null;
                             $ProductVarDT->image = $newVarImg
-                                ? $this->storeVariantImage($newVarImg)
+                                ? $this->storeVariantImage($newVarImg, $companyId)
                                 : ((isset($variant['image']) && $variant['image'] !== '' && $variant['image'] !== 'null')
                                     ? $variant['image']
                                     : 'no-image.png');
@@ -1674,7 +1678,8 @@ class ProductsController extends BaseController
                 if ($currentImage && $request->hasFile('image')) {
 
                     $image = $request->file('image');
-                    $path = public_path('/images/products');
+                    $productImgDir = \App\Support\CompanyFiles::dir($companyId, 'products');
+                    $path = public_path($productImgDir);
                     $ext = strtolower($image->getClientOriginalExtension());
                     if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
                         $ext = 'jpg';
@@ -1685,16 +1690,23 @@ class ProductsController extends BaseController
                     $image_resize = Image::make($image->getRealPath());
                     helpers::apply_product_image_resize($image_resize)->save($path.'/'.$filename);
 
-                    // Delete old image if it exists and is not the placeholder
-                    $oldImage = $path.'/'.$currentImage;
+                    // Delete old image if it exists and is not the placeholder.
+                    // The old value may be either the new "relDir/filename"
+                    // format or a bare filename from the old shared
+                    // images/products/ folder.
+                    $oldImage = str_contains($currentImage, '/')
+                        ? public_path($currentImage)
+                        : $path.'/'.$currentImage;
                     if ($currentImage && $currentImage != 'no-image.png' && file_exists($oldImage)) {
                         @unlink($oldImage);
                     }
 
+                    $filename = $productImgDir.'/'.$filename;
                 } elseif (! $currentImage && $request->hasFile('image')) {
 
                     $image = $request->file('image');
-                    $path = public_path('/images/products');
+                    $productImgDir = \App\Support\CompanyFiles::dir($companyId, 'products');
+                    $path = public_path($productImgDir);
                     $ext = strtolower($image->getClientOriginalExtension());
                     if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
                         $ext = 'jpg';
@@ -1704,6 +1716,7 @@ class ProductsController extends BaseController
                     $image_resize = Image::make($image->getRealPath());
                     helpers::apply_product_image_resize($image_resize)->save($path.'/'.$filename);
 
+                    $filename = $productImgDir.'/'.$filename;
                 } else {
                     // Keep existing image or fallback to default
                     $filename = $currentImage ? $currentImage : 'no-image.png';
@@ -1782,7 +1795,12 @@ class ProductsController extends BaseController
 
             ProductGalleryService::deleteAllForProduct($Product);
 
-            $pathIMG = public_path().'/images/products/'.$Product->image;
+            // The stored image may be either the new "relDir/filename"
+            // format or a bare filename from the old shared
+            // images/products/ folder.
+            $pathIMG = str_contains((string) $Product->image, '/')
+                ? public_path($Product->image)
+                : public_path().'/images/products/'.$Product->image;
             if (file_exists($pathIMG)) {
                 if ($Product->image != 'no-image.png') {
                     @unlink($pathIMG);
@@ -1836,7 +1854,12 @@ class ProductsController extends BaseController
 
                 ProductGalleryService::deleteAllForProduct($Product);
 
-                $pathIMG = public_path().'/images/products/'.$Product->image;
+                // The stored image may be either the new "relDir/filename"
+                // format or a bare filename from the old shared
+                // images/products/ folder.
+                $pathIMG = str_contains((string) $Product->image, '/')
+                    ? public_path($Product->image)
+                    : public_path().'/images/products/'.$Product->image;
                 if (file_exists($pathIMG)) {
                     if ($Product->image != 'no-image.png') {
                         @unlink($pathIMG);
@@ -1912,7 +1935,7 @@ class ProductsController extends BaseController
         $symbol = $helpers->Get_Currency_Code();
         $item['discount'] = $Product->discount_method === 1 ? $Product->discount.' '.'%' : $Product->discount.' '.$symbol;
 
-        // ——— Warranty & Guarantee ———
+        // â€”â€”â€” Warranty & Guarantee â€”â€”â€”
         $item['warranty_period'] = $Product->warranty_period;
         $item['warranty_unit'] = $Product->warranty_unit;
         $item['warranty_terms'] = $Product->warranty_terms;
@@ -2072,7 +2095,7 @@ class ProductsController extends BaseController
     public function Products_by_Warehouse(request $request, $id)
     {
         // The warehouse is addressed directly by the URL, so it must be one of
-        // the caller's assigned warehouses — otherwise any restricted user can
+        // the caller's assigned warehouses â€” otherwise any restricted user can
         // read another warehouse's full stock list by changing the id.
         $this->abortIfWarehouseDenied($id);
 
@@ -2087,7 +2110,7 @@ class ProductsController extends BaseController
 
         // Allow Overselling (global Features switch): when ON, zero / negative
         // stock products must still be listed on the sale, quotation, transfer,
-        // adjustment and damage forms — otherwise they can never be picked even
+        // adjustment and damage forms â€” otherwise they can never be picked even
         // though selling them is permitted. Only the stock condition is
         // dropped; the service / manage_stock semantics stay untouched.
         $global_setting = Setting::whereNull('deleted_at')->first();
@@ -2120,14 +2143,14 @@ class ProductsController extends BaseController
 
                     ->where(function ($query) use ($request, $allow_overselling) {
                         if ($request->stock == '1' && $request->product_service == '1') {
-                            // Overselling ON → same list as the no-stock-enforcement
+                            // Overselling ON â†’ same list as the no-stock-enforcement
                             // branch below (services included, no qte filter).
                             return $allow_overselling
                                 ? $query
                                 : $query->where('qte', '>', 0)->orWhere('manage_stock', false);
 
                         } elseif ($request->stock == '1' && $request->product_service == '0') {
-                            // Overselling ON → stock-managed products only, no qte filter.
+                            // Overselling ON â†’ stock-managed products only, no qte filter.
                             return $allow_overselling
                                 ? $query->where('manage_stock', true)
                                 : $query->where('qte', '>', 0)->orWhere('manage_stock', true);
@@ -2587,7 +2610,7 @@ class ProductsController extends BaseController
             }
         }
 
-        // Multi-Pack Selling: expose active packs when the feature is enabled —
+        // Multi-Pack Selling: expose active packs when the feature is enabled â€”
         // for single products the flat list, for variant products the packs of
         // the requested variant. Empty otherwise, so non-pack flows are unchanged.
         $item['packs'] = [];
@@ -2743,7 +2766,7 @@ class ProductsController extends BaseController
         $shipping_methods = \App\Models\ShippingMethod::where('active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'price']);
         $units = Unit::where('deleted_at', null)->where('base_unit', null)->where('company_id', $companyId)->get();
 
-        // get warehouses and pad with opening‑stock defaults
+        // get warehouses and pad with openingâ€‘stock defaults
         $user_auth = auth()->user();
 
         if ($user_auth->is_all_warehouses) {
@@ -2823,7 +2846,7 @@ class ProductsController extends BaseController
             'barcode_label_settings' => is_array($label_settings) ? $label_settings : null,
             'label_printer_enabled' => (bool) ($posSetting->label_printer_enabled ?? false),
             'label_printer_render_mode' => $posSetting->label_printer_render_mode ?? 'native',
-            // Physical sticker size for direct printing — the page renders and
+            // Physical sticker size for direct printing â€” the page renders and
             // prints at this, not at the on-screen preview's sticker size.
             'label_printer_width_mm' => $posSetting->label_printer_width_mm ?? null,
             'label_printer_height_mm' => $posSetting->label_printer_height_mm ?? null,
@@ -2895,7 +2918,7 @@ class ProductsController extends BaseController
         }
 
         // QZ Tray: the browser delivers the bytes to a printer on the client
-        // machine — hand the payload back instead of printing server-side.
+        // machine â€” hand the payload back instead of printing server-side.
         // Base64 because a raster payload is binary and would not survive JSON.
         if (\App\Services\LabelPrinterTransport::isClientSide($posSetting)) {
             return response()->json([
@@ -2936,7 +2959,7 @@ class ProductsController extends BaseController
         $item['name'] = $Product->name;
         $item['group_name'] = optional($Product->productGroup)->name;
 
-        // ——— Warranty & Guarantee ———
+        // â€”â€”â€” Warranty & Guarantee â€”â€”â€”
         $item['warranty_period'] = $Product->warranty_period;
         $item['warranty_unit'] = $Product->warranty_unit;
         $item['warranty_terms'] = $Product->warranty_terms;
@@ -3264,7 +3287,7 @@ class ProductsController extends BaseController
             'products' => 'required|mimes:xls,xlsx',
         ]);
 
-        // Read first sheet with headings → associative rows
+        // Read first sheet with headings â†’ associative rows
         $rows = Excel::toArray(new ProductImport, $request->file('products'))[0] ?? [];
 
         // Drop rows that are entirely empty (all values null/blank)
@@ -3403,8 +3426,8 @@ class ProductsController extends BaseController
             DB::transaction(function () use ($toCreate, $warehouses, $companyId) {
                 DB::disableQueryLog(); // reduce memory during huge imports
 
-                // MySQL prepared statement cap ≈ 65k placeholders.
-                // We insert 4 columns per row → theoretical max ≈ 16k rows.
+                // MySQL prepared statement cap â‰ˆ 65k placeholders.
+                // We insert 4 columns per row â†’ theoretical max â‰ˆ 16k rows.
                 // Use a safe margin to avoid "too many placeholders".
                 $PW_BATCH_ROWS = 12000;
 
@@ -3937,7 +3960,7 @@ class ProductsController extends BaseController
                         'note' => null,
                     ]);
 
-                    // Variants — forced image = 'no-image.png'
+                    // Variants â€” forced image = 'no-image.png'
                     $variantRows = [];
                     $codesForFetch = [];
                     foreach ($bundle['variants'] as $v) {
@@ -4497,7 +4520,7 @@ class ProductsController extends BaseController
             }
 
             // 2) Create a lightweight Adjustment with one detail per product
-            //    so average‑cost/COGS logic can treat this as opening stock.
+            //    so averageâ€‘cost/COGS logic can treat this as opening stock.
             $detailsByProduct = [];
             foreach ($clean as $c) {
                 $qty = (float) $c['qty'];
@@ -4698,7 +4721,7 @@ class ProductsController extends BaseController
             ->chunkById(200, function ($products) use (&$count) {
                 foreach ($products as $p) {
                     $old = $p->name;
-                    $p->name = str_replace(['<', '>'], ['‹', '›'], $old);
+                    $p->name = str_replace(['<', '>'], ['â€¹', 'â€º'], $old);
                     $p->save();
                     $count++;
                 }
@@ -4738,15 +4761,23 @@ class ProductsController extends BaseController
             $newImage = 'no-image.png';
             $oldImage = $original->image;
             if (! empty($oldImage) && $oldImage !== 'no-image.png') {
-                $srcPath = public_path('/images/products/'.$oldImage);
+                // The stored image may be either the new "relDir/filename"
+                // format or a bare filename from the old shared
+                // images/products/ folder.
+                $srcPath = str_contains($oldImage, '/')
+                    ? public_path($oldImage)
+                    : public_path('/images/products/'.$oldImage);
                 if (file_exists($srcPath)) {
                     $ext = strtolower(pathinfo($oldImage, PATHINFO_EXTENSION));
                     if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
                         $ext = 'jpg';
                     }
+                    // The duplicate stays within the same company as the original.
+                    $dstDir = \App\Support\CompanyFiles::dir((int) $original->company_id, 'products');
                     $newImage = rand(11111111, 99999999).'.'.$ext;
-                    $dstPath = public_path('/images/products/'.$newImage);
+                    $dstPath = public_path($dstDir.'/'.$newImage);
                     @copy($srcPath, $dstPath);
+                    $newImage = $dstDir.'/'.$newImage;
                 }
             }
 
@@ -5042,7 +5073,7 @@ class ProductsController extends BaseController
         $product->relatedProducts()->sync($sync);
     }
 
-    /** A JSON string or array of ids → a clean list of positive ints. */
+    /** A JSON string or array of ids â†’ a clean list of positive ints. */
     protected function normalizeIdList($raw): array
     {
         $val = is_string($raw) ? (json_decode($raw, true) ?: []) : (is_array($raw) ? $raw : []);
@@ -5136,13 +5167,13 @@ class ProductsController extends BaseController
      * Only runs when the global feature toggle is on; otherwise existing tiers
      * are left untouched, so turning the feature off hides the ladder without
      * destroying it. The incoming "price_tiers" payload is a JSON array of
-     * { id?, min_qty, max_qty, price } — max_qty empty/null means the
+     * { id?, min_qty, max_qty, price } â€” max_qty empty/null means the
      * open-ended top tier ("100+").
      *
      * Rows are sanitised (min_qty >= 1, max_qty >= min_qty, price >= 0),
      * sorted by min_qty and de-overlapped: a tier starting inside the previous
      * one is dropped rather than silently shadowing it. Tiers are matched by
-     * id — existing rows updated, new rows inserted, removed rows soft-deleted.
+     * id â€” existing rows updated, new rows inserted, removed rows soft-deleted.
      */
     protected function syncProductPriceTiers(Request $request, Product $product): void
     {
@@ -5184,7 +5215,7 @@ class ProductsController extends BaseController
 
         usort($rows, fn ($a, $b) => $a['min_qty'] <=> $b['min_qty']);
 
-        // Drop brackets that start before the previous one ends — overlapping
+        // Drop brackets that start before the previous one ends â€” overlapping
         // ladders make the applied price depend on row order.
         $clean = [];
         $prevEnd = null;
@@ -5234,7 +5265,7 @@ class ProductsController extends BaseController
      * Single products keep one flat pack list (product_variant_id NULL).
      * Variant products carry one pack list per variant: each row is resolved to
      * its variant by product_variant_id (existing variants) or by variant_name
-     * (variants created in the same submit) — must be called AFTER variants are
+     * (variants created in the same submit) â€” must be called AFTER variants are
      * persisted. Exactly one default pack (multiplier 1, always active) is
      * guaranteed per scope that has rows. Packs are matched by id: existing
      * rows are updated, new rows inserted, removed rows soft-deleted (which
@@ -5280,7 +5311,7 @@ class ProductsController extends BaseController
                 } elseif ($vname !== '' && $variantIdByName->has($vname)) {
                     $variantId = (int) $variantIdByName[$vname];
                 } else {
-                    continue; // orphan row — its variant was removed or never saved
+                    continue; // orphan row â€” its variant was removed or never saved
                 }
             }
             $scope = $variantId ?? 0;

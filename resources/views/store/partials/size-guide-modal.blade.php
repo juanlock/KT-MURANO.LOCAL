@@ -9,6 +9,12 @@
   // that image IS the size chart, so show it full width rather than declaring
   // there is no chart while a thumbnail sits in the header.
   $sgHasImage = (bool) $sg->image;
+  // Newer rows store a full company-scoped relative path (images/company_{id}/
+  // size_guides/xxx.jpg); older rows still hold a bare filename that lived
+  // under the old shared images/size_guides/ folder.
+  $sgImageUrl = $sgHasImage
+      ? url(str_contains($sg->image, '/') ? $sg->image : '/images/size_guides/'.$sg->image)
+      : null;
 @endphp
 
 <div id="size-guide-modal" class="sg-root hidden" role="dialog" aria-modal="true" aria-label="{{ __('messages.SizeGuide') }}">
@@ -19,13 +25,13 @@
       {{-- Only a decorative thumbnail when the table is the chart; otherwise
            the image is shown full width in the body below. --}}
       @if($sgHasImage && $sgHasTable)
-        <img class="sg-thumb" src="{{ url('/images/size_guides/'.$sg->image) }}" alt="{{ $sg->name }}">
+        <img class="sg-thumb" src="{{ $sgImageUrl }}" alt="{{ $sg->name }}">
       @endif
       <h3 class="sg-title">{{ $sg->name }}</h3>
     </div>
     <div class="sg-body">
       @if($sgHasImage && ! $sgHasTable)
-        <img class="sg-chart" src="{{ url('/images/size_guides/'.$sg->image) }}" alt="{{ $sg->name }}">
+        <img class="sg-chart" src="{{ $sgImageUrl }}" alt="{{ $sg->name }}">
       @endif
 
       @if($sgHasTable)

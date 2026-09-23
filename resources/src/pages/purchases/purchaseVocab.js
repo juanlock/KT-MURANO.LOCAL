@@ -7,4 +7,7 @@ export const PURCHASE_STATUSES = [
     { value: 'received', key: 'Received' },
     { value: 'pending', key: 'Pending' },
     { value: 'ordered', key: 'Ordered' },
+    // Reachable only via the "Cancel" row action on a Pending purchase
+    // (PurchasesController@cancel) -- never set at creation.
+    { value: 'cancelled', key: 'Cancelled' },
 ];

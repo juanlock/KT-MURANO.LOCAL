@@ -73,14 +73,25 @@ export function recomputeCostLine(line) {
  * Purchase/quotation order totals — legacy's simpler model: a plain fixed
  * discount subtracted UNCAPPED (matches Calcul_Total: total - discount).
  */
-export function computeSimpleTotals(lines, { discount = 0, taxRate = 0, shipping = 0 } = {}, recompute = recomputeLine) {
+/**
+ * Order Tax: '1' percent of the post-discount total (default, matches every
+ * sale that predates the toggle) | '2' fixed amount, taken as-is.
+ */
+function computeTaxAmount(base, taxRate, taxMethod = '1') {
+    const rate = Number(taxRate) || 0;
+    return String(taxMethod) === '2'
+        ? parseFloat(Math.max(rate, 0).toFixed(6))
+        : parseFloat(((base * rate) / 100).toFixed(6));
+}
+
+export function computeSimpleTotals(lines, { discount = 0, taxRate = 0, taxMethod = '1', shipping = 0 } = {}, recompute = recomputeLine) {
     let total = 0;
     for (const line of lines) {
         recompute(line);
         total = parseFloat((total + line.subtotal).toFixed(2));
     }
     const totalAfterDiscount = parseFloat((total - (Number(discount) || 0)).toFixed(6));
-    const TaxNet = parseFloat(((totalAfterDiscount * (Number(taxRate) || 0)) / 100).toFixed(6));
+    const TaxNet = computeTaxAmount(totalAfterDiscount, taxRate, taxMethod);
     const GrandTotal = parseFloat((totalAfterDiscount + TaxNet + (Number(shipping) || 0)).toFixed(2));
     return { total, discountAmount: Number(discount) || 0, TaxNet, GrandTotal };
 }
@@ -93,6 +104,7 @@ export function computeTotals(lines, {
     discount = 0,
     discountMethod = '2',
     taxRate = 0,
+    taxMethod = '1',
     shipping = 0,
     discountFromPoints = 0,
 } = {}) {
@@ -115,7 +127,7 @@ export function computeTotals(lines, {
     }
 
     const totalAfterDiscount = parseFloat((total - discountAmount).toFixed(2));
-    const TaxNet = parseFloat(((totalAfterDiscount * (Number(taxRate) || 0)) / 100).toFixed(6));
+    const TaxNet = computeTaxAmount(totalAfterDiscount, taxRate, taxMethod);
     const GrandTotal = parseFloat((totalAfterDiscount + TaxNet + (Number(shipping) || 0)).toFixed(2));
 
     return { total, discountAmount, TaxNet, GrandTotal };

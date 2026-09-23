@@ -12,7 +12,7 @@ class Vehicle extends Model
     protected $table = 'vehicles';
 
     protected $fillable = [
-        'name', 'plate_number', 'vin', 'make', 'model', 'year', 'color',
+        'company_id', 'name', 'plate_number', 'vin', 'make', 'model', 'year', 'color',
         'type', 'status', 'warehouse_id', 'employee_id', 'fuel_type',
         'tank_capacity', 'odometer', 'purchase_date', 'purchase_price',
         'insurance_provider', 'insurance_policy', 'insurance_expiry',
@@ -20,6 +20,7 @@ class Vehicle extends Model
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'warehouse_id' => 'integer',
         'employee_id' => 'integer',
         'year' => 'integer',

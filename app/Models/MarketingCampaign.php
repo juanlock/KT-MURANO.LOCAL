@@ -12,6 +12,7 @@ class MarketingCampaign extends Model
     protected $table = 'marketing_campaigns';
 
     protected $fillable = [
+        'company_id',
         'title', 'description', 'type', 'subject', 'message_content', 'attachment',
         'template_id', 'segment_id', 'all_customers', 'status', 'send_immediately',
         'scheduled_at', 'sent_at', 'total_recipients', 'sent_count', 'delivered_count',

@@ -404,7 +404,7 @@
                 </a-col>
                 <a-col :xs="24" :md="8">
                   <a-form-item :label="$t('Default_Tax')">
-                    <a-input-number v-model:value="setting.default_tax" :min="0" :max="100" style="width: 100%" addon-after="%" />
+                    <a-input-number v-model:value="setting.default_tax" :min="0" :max="100" :step="0.001" :precision="3" style="width: 100%" addon-after="%" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="8">
@@ -1320,9 +1320,14 @@ async function save() {
     }
     // Language switches reactively — loadLocale() fetches the bundle, flips the
     // locale and direction in place. (Legacy reloaded the page here, a Vue 2
-    // workaround; no reload needed anymore.)
+    // workaround; no reload needed anymore.) applyServerLocale(), NOT
+    // setLocale() -- this is an automatic sync to the company's own default,
+    // not the admin manually picking a language, and must not be stamped as
+    // an explicit override (that would permanently stick this locale for the
+    // admin's own account, overriding the correct per-company default the
+    // next time they act on a different company).
     if (s.default_language && s.default_language !== locale.value) {
-      ui.setLocale(s.default_language)?.catch?.(() => {});
+      ui.applyServerLocale(s.default_language)?.catch?.(() => {});
     }
   } catch (e) {
     message.error(e?.message || t('InvalidData'));

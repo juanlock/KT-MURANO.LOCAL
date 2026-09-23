@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Store;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Http\Controllers\Controller;
 use App\Models\Collection;
 use App\Models\Currency;
@@ -15,6 +16,8 @@ use Intervention\Image\ImageManagerStatic as Image;
 
 class SettingsApiController extends Controller
 {
+    use ScopesToCompany;
+
     /**
      * Return settings (create sane defaults if missing).
      * Also migrates old home_collections -> homepage_lineup (once), if present.
@@ -22,8 +25,8 @@ class SettingsApiController extends Controller
     public function show(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
-        $s = StoreSetting::first();
-        $setting = \App\Models\Setting::first();
+        $s = StoreSetting::forCompany($this->resolveActingCompanyId($request));
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
         $currencies = Currency::whereNull('deleted_at')->get(['id', 'name', 'symbol']);
         $default_currency_id = $setting?->Currency?->id ?? null;
@@ -53,8 +56,8 @@ class SettingsApiController extends Controller
                 'seo_meta_title' => 'Online Store',
                 'seo_meta_description' => 'A modern online storefront powered by your POS & Inventory system.',
 
-                'topbar_text_left' => '🚚 Free shipping on orders over $99',
-                'topbar_text_right' => '🔥 Summer deals are live!',
+                'topbar_text_left' => 'ðŸšš Free shipping on orders over $99',
+                'topbar_text_right' => 'ðŸ”¥ Summer deals are live!',
                 'footer_text' => 'A beautiful demo storefront paired with your POS & Inventory system.',
 
                 'social_links' => json_encode([
@@ -282,7 +285,7 @@ class SettingsApiController extends Controller
 
             'language' => 'nullable|string|max:10',
             'default_currency_id' => 'nullable|integer',
-            // Storefront display currency — distinct from default_currency_id,
+            // Storefront display currency â€” distinct from default_currency_id,
             // which sets the accounting base every amount is stored in.
             'display_currency_id' => 'nullable|integer',
             // Per-language copy: {field: {locale: text}} for TRANSLATABLE_TEXT.
@@ -372,7 +375,7 @@ class SettingsApiController extends Controller
             if (! empty($data['store_all_warehouses']) || empty($ids)) {
                 $data['warehouse_ids'] = null;
                 $data['default_warehouse_id'] = $data['default_warehouse_id']
-                    ?? StoreSetting::query()->value('default_warehouse_id')
+                    ?? StoreSetting::forCompany($this->resolveActingCompanyId($request))->default_warehouse_id
                     ?? Warehouse::whereNull('deleted_at')->value('id');
             } else {
                 $data['warehouse_ids'] = $ids;
@@ -403,13 +406,13 @@ class SettingsApiController extends Controller
         unset($data['home_collections']); // don't persist legacy field
 
         // --- Ensure model exists ---
-        $s = StoreSetting::first() ?: new StoreSetting;
+        $companyId = $this->resolveActingCompanyId($request);
+        $s = StoreSetting::forCompany($companyId);
 
-        // --- Ensure storage directory exists ---
-        $targetDir = public_path('images/store');
-        if (! File::exists($targetDir)) {
-            File::makeDirectory($targetDir, 0755, true);
-        }
+        // --- Company-scoped storage directory: files/company_{id}/store,
+        // not one shared images/store folder for the whole install. ---
+        $storeRelDir = \App\Support\CompanyFiles::dir($companyId, 'store');
+        $targetDir = public_path($storeRelDir);
 
         // ============================
         // IMAGE UPLOAD HANDLERS
@@ -432,7 +435,7 @@ class SettingsApiController extends Controller
                 ->encode($ext, 85)
                 ->save($targetDir.'/'.$filename);
 
-            $data['logo_path'] = 'images/store/'.$filename;
+            $data['logo_path'] = $storeRelDir.'/'.$filename;
         }
 
         // --- FAVICON ---
@@ -456,7 +459,7 @@ class SettingsApiController extends Controller
                     ->save($targetDir.'/'.$filename);
             }
 
-            $data['favicon_path'] = 'images/store/'.$filename;
+            $data['favicon_path'] = $storeRelDir.'/'.$filename;
         }
 
         // --- GCASH QR (600x600 max) ---
@@ -476,7 +479,7 @@ class SettingsApiController extends Controller
                 ->encode($ext, 88)
                 ->save($targetDir.'/'.$filename);
 
-            $data['gcash_qr_path'] = 'images/store/'.$filename;
+            $data['gcash_qr_path'] = $storeRelDir.'/'.$filename;
         }
 
         // --- HERO IMAGE (1600x800 max) ---
@@ -496,10 +499,10 @@ class SettingsApiController extends Controller
                 ->encode($ext, 82)
                 ->save($targetDir.'/'.$filename);
 
-            $data['hero_image_path'] = 'images/store/'.$filename;
+            $data['hero_image_path'] = $storeRelDir.'/'.$filename;
         }
 
-        // --- THEME OPTIONS (skin themes: electronics, toys, …) ---
+        // --- THEME OPTIONS (skin themes: electronics, toys, â€¦) ---
         // theme_options = {<theme>: {...}}; each theme's support class sanitizes
         // its own map. Uploaded images arrive as theme_image__<theme>__<list>__<i>
         // (legacy electronics form: theme_image__<list>__<i>).
@@ -517,7 +520,8 @@ class SettingsApiController extends Controller
                 $incoming = [\App\Support\ElectronicsTheme::KEY => $incoming];
             }
 
-            $themeDir = public_path('images/store/theme');
+            $themeRelDir = \App\Support\CompanyFiles::dir($companyId, 'store/theme');
+            $themeDir = public_path($themeRelDir);
             foreach (\App\Support\StoreThemes::SKINS as $themeKey) {
                 if (! array_key_exists($themeKey, $incoming)) {
                     continue;
@@ -549,11 +553,13 @@ class SettingsApiController extends Controller
                         ->encode($ext, 82)
                         ->save($themeDir.'/'.$filename);
 
+                    // Old value may be either the new company-scoped path or
+                    // the old shared images/store/theme/ path.
                     $old = (string) ($clean[$list][$idx]['image'] ?? '');
-                    if ($old !== '' && Str::startsWith($old, 'images/store/theme/') && File::exists(public_path($old))) {
+                    if ($old !== '' && Str::contains($old, '/store/theme/') && File::exists(public_path($old))) {
                         File::delete(public_path($old));
                     }
-                    $clean[$list][$idx]['image'] = 'images/store/theme/'.$filename;
+                    $clean[$list][$idx]['image'] = $themeRelDir.'/'.$filename;
                 }
 
                 $existing[$themeKey] = $clean;
@@ -572,7 +578,7 @@ class SettingsApiController extends Controller
             if ($currency) {
                 $data['currency_code'] = $currency->symbol;
 
-                $setting = \App\Models\Setting::first();
+                $setting = Setting::forCompany($this->resolveActingCompanyId($request));
                 if ($setting) {
                     $setting->currency_id = $currency->id;
                     $setting->save();
@@ -593,7 +599,7 @@ class SettingsApiController extends Controller
 
         $s->fill($data)->save();
 
-        // store_settings() is cached for 10 minutes — drop it on every save so
+        // store_settings() is cached for 10 minutes â€” drop it on every save so
         // changes (storefront default language/currency included) apply now.
         store_url_config_clear();
 
@@ -606,7 +612,7 @@ class SettingsApiController extends Controller
                     \Illuminate\Support\Facades\Artisan::call('route:clear');
                 }
             } catch (\Throwable $e) {
-                // best effort — an admin can still run `php artisan route:clear`
+                // best effort â€” an admin can still run `php artisan route:clear`
             }
         }
 
@@ -620,7 +626,7 @@ class SettingsApiController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
 
-        $s = StoreSetting::first();
+        $s = StoreSetting::forCompany($this->resolveActingCompanyId($request));
         $menus = $this->normalizeMenus(is_array($s?->menus) ? $s->menus : []);
 
         $pages = \App\Models\StorePage::orderBy('title')->get(['id', 'title', 'slug', 'published']);
@@ -647,7 +653,7 @@ class SettingsApiController extends Controller
         $data = $request->validate(['menus' => 'nullable']);
         $menus = $this->normalizeMenus($data['menus'] ?? []);
 
-        $s = StoreSetting::first() ?: new StoreSetting;
+        $s = StoreSetting::forCompany($this->resolveActingCompanyId($request));
         $s->menus = $menus;
         $s->save();
 
@@ -717,12 +723,12 @@ class SettingsApiController extends Controller
     }
 
     /**
-     * Return only calendar-related settings (for System Settings → Calendar tab).
+     * Return only calendar-related settings (for System Settings â†’ Calendar tab).
      */
     public function showCalendar(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Setting::class);
-        $s = Setting::first();
+        $s = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $s) {
             return response()->json([
                 'google_calendar_connected' => false,
@@ -757,7 +763,7 @@ class SettingsApiController extends Controller
             'google_calendar_redirect_uri' => 'nullable|string|max:512',
             'google_calendar_calendar_id' => 'nullable|string|max:255',
         ]);
-        $s = Setting::first();
+        $s = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $s) {
             return response()->json(['error' => 'Settings record not found.'], 404);
         }

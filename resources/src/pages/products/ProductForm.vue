@@ -198,7 +198,7 @@
                   >
                     <img
                       v-if="record.imagePreview || (record.image && record.image !== 'no-image.png')"
-                      :src="record.imagePreview || (isRemoteImage(record.image) ? record.image : `/images/products/${record.image}`)"
+                      :src="record.imagePreview || (isRemoteImage(record.image) ? record.image : resolveImageUrl(record.image, 'products'))"
                       class="variant-thumb"
                     />
                     <a-button v-else size="small"><UploadOutlined /></a-button>
@@ -794,8 +794,11 @@ import PageHeader from '../../components/PageHeader.vue';
 import ProductScanModal from '../../components/ProductScanModal.vue';
 import http from '../../lib/http';
 import { barcodeValueError, generateBarcodeValue } from '../../lib/barcodeSymbology';
+import { resolveImageUrl } from '../../lib/imagePath';
+import { useAuthStore } from '../../stores/auth';
 
 const { t } = useI18n();
+const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -902,7 +905,9 @@ const product = ref({
   cost: null, price: null, wholesale_price: null, min_price: null,
   brand_id: undefined, category_id: '', sub_category_id: '',
   assigned_category_ids: [], assigned_subcategory_ids: [],
-  TaxNet: 0, tax_method: '1', discount_method: '1', discount: 0,
+  // System Settings -> Defaults -> Default Tax; edit mode overwrites this
+  // with the product's own stored value once fetched.
+  TaxNet: auth.user?.default_tax || 0, tax_method: '1', discount_method: '1', discount: 0,
   unit_id: undefined, unit_sale_id: undefined, unit_purchase_id: undefined,
   stock_alert: 0, weight: null, length: null, width: null, height: null,
   // carried through untouched like legacy (server sets it from the gallery's
@@ -1513,7 +1518,7 @@ onMounted(async () => {
         ? p.faqs.map(f => ({ question: f.question || '', answer: f.answer || '' })) : [];
       gallery.value = (p.product_images || []).map(r => ({
         _uid: `e-${r.id}`, id: r.id,
-        url: r.url || r.image_url || (isRemoteImage(r.image_path) ? r.image_path : `/images/products/${r.image_path || r.image}`),
+        url: r.url || r.image_url || (isRemoteImage(r.image_path) ? r.image_path : resolveImageUrl(r.image_path || r.image, 'products')),
         image_path: r.image_path, remote: isRemoteImage(r.image_path),
         is_main: !!r.is_main, sort_order: r.sort_order,
       }));

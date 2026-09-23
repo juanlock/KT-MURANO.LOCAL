@@ -40,6 +40,7 @@ import { MENU_ICONS } from '../config/menuIcons';
 import { MENU_ITEM_ICONS } from '../config/menuItemIcons';
 import { useAuthStore } from '../stores/auth';
 import { useMenuStore } from '../stores/menu';
+import { useUiStore } from '../stores/ui';
 
 defineProps({
   theme: { type: String, default: 'light' },
@@ -50,6 +51,7 @@ const { t } = useI18n();
 const auth = useAuthStore();
 // The default MENU arranged per the admin-saved order (Settings → Sidebar Menu).
 const menuStore = useMenuStore();
+const ui = useUiStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -62,6 +64,12 @@ function label(entry) {
   // Composed labels mirror legacy (e.g. {{$t('Add')}} {{$t('Customer')}}).
   if (entry.labelKeys) return entry.labelKeys.map(k => t(k)).join(' ');
   return t(entry.label);
+}
+// Sidebar "filter menus" search box (AdminLayout.vue, below the logo).
+const searchQuery = computed(() => (ui.menuSearchQuery || '').trim().toLowerCase());
+function matchesSearch(entry) {
+  if (!searchQuery.value) return true;
+  return label(entry).toLowerCase().includes(searchQuery.value);
 }
 /** The item's own icon (by path), falling back to its module's icon. */
 function iconFor(entry, groupIconName) {
@@ -79,7 +87,7 @@ function sectionRows(children, groupIconName) {
         out.push({ type: 'subheader', label: label(c) });
         out.push(...sub);
       }
-    } else {
+    } else if (matchesSearch(c)) {
       out.push({ type: 'item', label: label(c), icon: iconFor(c, groupIconName), entry: c });
     }
   }
@@ -92,12 +100,13 @@ const rows = computed(() => {
     if (!allowed(g)) continue;
     if (g.children) {
       const sec = sectionRows(g.children, g.icon);
-      // Skip a header with no visible items under it.
+      // Skip a header with no visible items under it (also true while
+      // searching -- a header with no matching item just disappears).
       if (sec.some(r => r.type === 'item')) {
         all.push({ type: 'header', label: label(g) });
         all.push(...sec);
       }
-    } else {
+    } else if (matchesSearch(g)) {
       // A top-level leaf (e.g. Dashboard) is just an item.
       all.push({ type: 'item', label: label(g), icon: iconFor(g, g.icon), entry: g });
     }

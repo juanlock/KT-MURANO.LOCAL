@@ -191,11 +191,23 @@
         <a-col :xs="24" :lg="14">
           <a-card size="small" style="margin-bottom: 16px">
             <a-row :gutter="12">
-              <a-col :xs="24" :md="8">
+              <a-col :xs="12" :md="8">
                 <a-form-item :label="$t('OrderTax')">
                   <a-input-number
-                    v-model:value="sale.tax_rate" style="width: 100%" :min="0" :max="100"
-                    addon-after="%"
+                    v-model:value="taxInput" style="width: 100%" :min="0"
+                    :max="sale.tax_Method === '1' ? 100 : undefined"
+                    :addon-after="sale.tax_Method === '1' ? '%' : undefined"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="12" :md="8">
+                <a-form-item :label="$t('Tax_Method') || 'Tax Method'">
+                  <a-select
+                    v-model:value="sale.tax_Method"
+                    :options="[
+                      { value: '1', label: $t('Percentage') },
+                      { value: '2', label: $t('Fixed') },
+                    ]"
                   />
                 </a-form-item>
               </a-col>
@@ -361,7 +373,7 @@
         <a-col :xs="24" :lg="10">
           <a-card size="small">
             <div class="sum-row"><span>{{ $t('Total') }}</span><span>{{ docMoney(totals.total) }}</span></div>
-            <div class="sum-row"><span>{{ $t('OrderTax') }}</span><span>{{ docMoney(totals.TaxNet) }} ({{ Number(sale.tax_rate) || 0 }}%)</span></div>
+            <div class="sum-row"><span>{{ $t('OrderTax') }}</span><span>{{ docMoney(totals.TaxNet) }}<template v-if="sale.tax_Method === '1'"> ({{ Number(sale.tax_rate) || 0 }}%)</template></span></div>
             <div class="sum-row">
               <span>{{ $t('Discount') }}</span>
               <span style="color: #ff4d4f">- {{ docMoney(totals.discountAmount) }}</span>
@@ -609,6 +621,7 @@ const sale = ref({
   statut: 'completed',
   notes: '',
   tax_rate: 0,
+  tax_Method: '1',
   discount: 0,
   discount_Method: '2',
   shipping: 0,
@@ -622,6 +635,18 @@ const discountInput = computed({
     : Number(sale.value.discount) || 0),
   set: (v) => {
     sale.value.discount = String(sale.value.discount_Method) === '2'
+      ? toBaseAmt(v)
+      : (Number(v) || 0);
+  },
+});
+// Order Tax: percent is unit-less; a fixed amount is typed in the document
+// currency but stored in base, same convention as discount/shipping.
+const taxInput = computed({
+  get: () => (String(sale.value.tax_Method) === '2'
+    ? toDocAmt(sale.value.tax_rate)
+    : Number(sale.value.tax_rate) || 0),
+  set: (v) => {
+    sale.value.tax_rate = String(sale.value.tax_Method) === '2'
       ? toBaseAmt(v)
       : (Number(v) || 0);
   },
@@ -784,7 +809,7 @@ const paymentMethodOptions = computed(() => paymentMethods.value.map(m => ({ val
 const productOptions = computed(() =>
   products.value.map((p, i) => ({
     value: i,
-    label: `${p.code} — ${productDisplayName(p.name)}${p.qte !== undefined ? ` (${p.qte})` : ''}`,
+    label: `${p.group_name ? p.group_name + ' — ' : ''}${p.name}${p.qte !== undefined ? ` (${p.qte})` : ''}`,
   }))
 );
 
@@ -803,6 +828,7 @@ const totals = computed(() =>
     discount: sale.value.discount,
     discountMethod: sale.value.discount_Method,
     taxRate: sale.value.tax_rate,
+    taxMethod: sale.value.tax_Method,
     shipping: sale.value.shipping,
     discountFromPoints: pointsState.value.discount_from_points,
   })
@@ -1366,6 +1392,7 @@ async function submit() {
     statut: sale.value.statut,
     notes: sale.value.notes,
     tax_rate: Number(sale.value.tax_rate) || 0,
+    tax_Method: String(sale.value.tax_Method || '1'),
     TaxNet: totals.value.TaxNet,
     discount: Number(sale.value.discount) || 0,
     discount_Method: String(sale.value.discount_Method || '2'),
@@ -1467,6 +1494,9 @@ onMounted(async () => {
         statut: q.statut || 'completed',
         notes: q.notes || '',
         tax_rate: Number(q.tax_rate) || 0,
+        // Quotations don't carry a tax method yet -- percent, matching
+        // every sale/quotation's tax_rate meaning before this toggle existed.
+        tax_Method: '1',
         discount: Number(q.discount) || 0,
         discount_Method: '2',
         shipping: Number(q.shipping) || 0,
@@ -1515,6 +1545,7 @@ onMounted(async () => {
         statut: s.statut,
         notes: s.notes || '',
         tax_rate: Number(s.tax_rate) || 0,
+        tax_Method: String(s.tax_Method || '1') === '2' ? '2' : '1',
         discount: Number(s.discount) || 0,
         discount_Method: dm === '1' || dm === 'percent' || dm === 'percentage' ? '1' : '2',
         shipping: Number(s.shipping) || 0,
@@ -1562,6 +1593,19 @@ onMounted(async () => {
       accounts.value = data.accounts || [];
       paymentMethods.value = data.payment_methods || [];
       point_to_amount_rate.value = Number(data.point_to_amount_rate) || 0;
+      // Order Tax starts at the company's configured Default Tax (System
+      // Settings -> Defaults) instead of always 0.
+      if (auth.user?.default_tax) {
+        sale.value.tax_rate = Number(auth.user.default_tax) || 0;
+      }
+      // Pre-select the company's configured default warehouse (System
+      // Settings -> Defaults) instead of leaving the picker blank, same as
+      // manually picking it -- only when the user actually has access to it.
+      const defaultWarehouseId = auth.user?.default_warehouse_id;
+      if (defaultWarehouseId && warehouses.value.some(w => w.id === defaultWarehouseId)) {
+        sale.value.warehouse_id = defaultWarehouseId;
+        await loadProducts();
+      }
       // Status defaults to pending (unpaid): no payment line until the user
       // switches to paid/partial, which prefills via onPaymentStatusChange.
     }

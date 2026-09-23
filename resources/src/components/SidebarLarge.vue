@@ -1,7 +1,9 @@
 <template>
   <div class="large" :class="{ 'panel-hidden': collapsed }">
-    <!-- Primary rail: one entry per top-level module (icon + label). -->
-    <div class="rail" :class="theme">
+    <!-- Primary rail: one entry per top-level module (icon + label). Hidden
+         while searching (the flat results list below replaces it) unless
+         collapsed, where the search box itself is hidden and stale. -->
+    <div v-if="!searchQuery || collapsed" class="rail" :class="theme">
       <div
         v-for="g in groups" :key="g.key"
         class="rail-item" :class="{ active: activeKey === g.key }"
@@ -13,8 +15,25 @@
       </div>
     </div>
 
+    <!-- Search results: every matching item across every module, grouped. -->
+    <div v-if="searchQuery && !collapsed" class="panel" :class="theme">
+      <div class="panel-body">
+        <template v-if="searchResults.length">
+          <template v-for="section in searchResults" :key="section.key">
+            <div class="panel-subhead">{{ section.title }}</div>
+            <a
+              v-for="leaf in section.items" :key="leaf.key || leaf.label"
+              class="panel-link" :class="{ active: isActive(leaf) }"
+              @click="go(leaf)"
+            >{{ label(leaf) }}</a>
+          </template>
+        </template>
+        <div v-else class="panel-empty">{{ t('No_results') }}</div>
+      </div>
+    </div>
+
     <!-- Secondary panel: the active module's sub-items. -->
-    <div v-if="!collapsed" class="panel" :class="theme" @mouseleave="hoverKey = null">
+    <div v-else-if="!collapsed" class="panel" :class="theme" @mouseleave="hoverKey = null">
       <div v-if="activeGroup" class="panel-title">{{ label(activeGroup) }}</div>
 
       <div class="panel-body">
@@ -58,6 +77,7 @@ import { resolveTarget } from '../config/menu';
 import { MENU_ICONS } from '../config/menuIcons';
 import { useAuthStore } from '../stores/auth';
 import { useMenuStore } from '../stores/menu';
+import { useUiStore } from '../stores/ui';
 
 defineProps({
   theme: { type: String, default: 'light' },
@@ -68,6 +88,7 @@ const { t } = useI18n();
 const auth = useAuthStore();
 // The default MENU arranged per the admin-saved order (Settings → Sidebar Menu).
 const menuStore = useMenuStore();
+const ui = useUiStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -84,6 +105,33 @@ function label(entry) {
 function iconCmp(name) {
   return MENU_ICONS[name];
 }
+
+// Sidebar "filter menus" search box (AdminLayout.vue, below the logo). The
+// rail+hover-panel interaction doesn't translate to "show me every match
+// across however many modules", so searching swaps to a flat results list
+// (module label as a header, matching leaves underneath) instead.
+const searchQuery = computed(() => (ui.menuSearchQuery || '').trim().toLowerCase());
+function matchesSearch(entry) {
+  if (!searchQuery.value) return true;
+  return label(entry).toLowerCase().includes(searchQuery.value);
+}
+function collectMatches(node, out) {
+  for (const child of node.children || []) {
+    if (child.children) collectMatches(child, out);
+    else if (allowed(child) && matchesSearch(child)) out.push(child);
+  }
+}
+const searchResults = computed(() => {
+  if (!searchQuery.value) return [];
+  const sections = [];
+  for (const g of groups.value) {
+    if (!g.children) continue;
+    const matches = [];
+    collectMatches(g, matches);
+    if (matches.length) sections.push({ key: g.key, title: label(g), items: matches });
+  }
+  return sections;
+});
 
 const groups = computed(() => menuStore.menu.filter(allowed));
 
@@ -232,6 +280,12 @@ watch(
   background: rgba(109, 40, 217, 0.14);
   color: #6d28d9;
   font-weight: 600;
+}
+.panel-empty {
+  padding: 16px;
+  font-size: 13px;
+  opacity: 0.6;
+  text-align: center;
 }
 .panel.dark .panel-link.active {
   background: rgba(109, 40, 217, 0.28);

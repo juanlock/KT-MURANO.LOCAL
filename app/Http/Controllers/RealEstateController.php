@@ -2,16 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Permission;
 use App\Models\Property;
 use App\Models\PropertyCategory;
 use App\Models\PropertyInquiry;
+use App\Support\CompanyFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class RealEstateController extends Controller
 {
+    use ScopesToCompany;
+
     /**
      * Ensure the authenticated user owns the given permission (via any of its roles).
      */
@@ -26,19 +30,17 @@ class RealEstateController extends Controller
     }
 
     /**
-     * Store an uploaded file under public/images/properties and return its
-     * public-relative path. Stocky serves uploads from public/images directly.
+     * Store an uploaded file under the acting company's properties folder and
+     * return its public-relative path. Stocky serves uploads from public/images
+     * directly.
      */
-    private function storeUpload($file): string
+    private function storeUpload($file, int $companyId): string
     {
-        $destination = public_path('images/properties');
-        if (! is_dir($destination)) {
-            mkdir($destination, 0755, true);
-        }
+        $destination = public_path(CompanyFiles::dir($companyId, 'properties'));
         $filename = Str::random(24).'.'.$file->getClientOriginalExtension();
         $file->move($destination, $filename);
 
-        return 'images/properties/'.$filename;
+        return CompanyFiles::dir($companyId, 'properties').'/'.$filename;
     }
 
     /**
@@ -64,31 +66,37 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Property::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $stats = [
-            'total_properties'     => Property::count(),
-            'available_properties' => Property::where('status', 'available')->count(),
-            'sold_properties'      => Property::where('status', 'sold')->count(),
-            'rented_properties'    => Property::where('status', 'rented')->count(),
-            'featured_properties'  => Property::where('featured', 1)->count(),
-            'total_categories'     => PropertyCategory::count(),
-            'new_inquiries'        => PropertyInquiry::where('status', 'new')->count(),
-            'total_inquiries'      => PropertyInquiry::count(),
+            'total_properties'     => Property::where('company_id', $companyId)->count(),
+            'available_properties' => Property::where('company_id', $companyId)->where('status', 'available')->count(),
+            'sold_properties'      => Property::where('company_id', $companyId)->where('status', 'sold')->count(),
+            'rented_properties'    => Property::where('company_id', $companyId)->where('status', 'rented')->count(),
+            'featured_properties'  => Property::where('company_id', $companyId)->where('featured', 1)->count(),
+            'total_categories'     => PropertyCategory::where('company_id', $companyId)->count(),
+            'new_inquiries'        => PropertyInquiry::where('company_id', $companyId)->where('status', 'new')->count(),
+            'total_inquiries'      => PropertyInquiry::where('company_id', $companyId)->count(),
         ];
 
         $latest_properties = Property::with('category:id,name')
+            ->where('company_id', $companyId)
             ->orderByDesc('created_at')
             ->limit(8)
             ->get();
 
         $latest_inquiries = PropertyInquiry::with('property:id,title')
+            ->where('company_id', $companyId)
             ->orderByDesc('created_at')
             ->limit(8)
             ->get();
 
         $by_purpose = Property::select('purpose', DB::raw('count(*) as count'))
+            ->where('company_id', $companyId)
             ->groupBy('purpose')->pluck('count', 'purpose')->toArray();
 
         $by_status = Property::select('status', DB::raw('count(*) as count'))
+            ->where('company_id', $companyId)
             ->groupBy('status')->pluck('count', 'status')->toArray();
 
         return response()->json([
@@ -106,6 +114,8 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Property::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $perPage  = (int) $request->get('limit', 10);
         $page     = (int) $request->get('page', 1);
         $search   = trim((string) $request->get('search', ''));
@@ -118,6 +128,7 @@ class RealEstateController extends Controller
         }
 
         $query = Property::with('category:id,name')
+            ->where('company_id', $companyId)
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($w) use ($search) {
                     $w->where('title', 'like', "%{$search}%")
@@ -145,6 +156,7 @@ class RealEstateController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Property::class);
 
         $property = Property::with('category:id,name')->findOrFail($id);
+        abort_unless((int) $property->company_id === $this->resolveActingCompanyId($request), 404);
 
         return response()->json(['property' => $property]);
     }
@@ -153,10 +165,12 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Property::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $data = $this->validateProperty($request);
 
         $property = new Property;
-        $this->fillProperty($property, $request, $data, true);
+        $property->company_id = $companyId;
+        $this->fillProperty($property, $request, $data, true, $companyId);
         $property->slug = $this->uniquePropertySlug($data['title']);
         $property->created_by = $request->user('api')?->id;
         $property->save();
@@ -168,10 +182,13 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'update', Property::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $property = Property::findOrFail($id);
+        abort_unless((int) $property->company_id === $companyId, 404);
+
         $data = $this->validateProperty($request);
 
-        $this->fillProperty($property, $request, $data, false);
+        $this->fillProperty($property, $request, $data, false, $companyId);
         if ($property->isDirty('title') || empty($property->slug)) {
             $property->slug = $this->uniquePropertySlug($data['title'], $property->id);
         }
@@ -184,7 +201,9 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', Property::class);
 
-        Property::findOrFail($id)->delete();
+        $property = Property::findOrFail($id);
+        abort_unless((int) $property->company_id === $this->resolveActingCompanyId($request), 404);
+        $property->delete();
 
         return response()->json(['success' => true]);
     }
@@ -194,7 +213,7 @@ class RealEstateController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', Property::class);
 
         $ids = $request->input('selectedIds', []);
-        Property::whereIn('id', $ids)->delete();
+        Property::whereIn('id', $ids)->where('company_id', $this->resolveActingCompanyId($request))->delete();
 
         return response()->json(['success' => true]);
     }
@@ -241,7 +260,7 @@ class RealEstateController extends Controller
     /**
      * Copy validated scalar fields and process image uploads onto the model.
      */
-    private function fillProperty(Property $property, Request $request, array $data, bool $isNew): void
+    private function fillProperty(Property $property, Request $request, array $data, bool $isNew, int $companyId): void
     {
         $scalar = [
             'title', 'property_category_id', 'description', 'purpose', 'status', 'featured',
@@ -272,7 +291,7 @@ class RealEstateController extends Controller
 
         // Featured image
         if ($request->hasFile('featured_image_file')) {
-            $property->featured_image = $this->storeUpload($request->file('featured_image_file'));
+            $property->featured_image = $this->storeUpload($request->file('featured_image_file'), $companyId);
         }
 
         // Gallery: kept existing paths + newly uploaded files
@@ -286,7 +305,7 @@ class RealEstateController extends Controller
         if ($request->hasFile('gallery_files')) {
             foreach ($request->file('gallery_files') as $file) {
                 if ($file) {
-                    $gallery[] = $this->storeUpload($file);
+                    $gallery[] = $this->storeUpload($file, $companyId);
                 }
             }
         }
@@ -299,6 +318,8 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', PropertyCategory::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $perPage  = (int) $request->get('limit', 10);
         $page     = (int) $request->get('page', 1);
         $search   = trim((string) $request->get('search', ''));
@@ -310,6 +331,7 @@ class RealEstateController extends Controller
         }
 
         $query = PropertyCategory::withCount('properties')
+            ->where('company_id', $companyId)
             ->when($search !== '', fn ($q) => $q->where('name', 'like', "%{$search}%"))
             ->orderBy($sortBy, $sortType === 'asc' ? 'asc' : 'desc');
 
@@ -327,7 +349,8 @@ class RealEstateController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Property::class);
 
         return response()->json([
-            'categories' => PropertyCategory::orderBy('name')->get(['id', 'name', 'slug']),
+            'categories' => PropertyCategory::where('company_id', $this->resolveActingCompanyId($request))
+                ->orderBy('name')->get(['id', 'name', 'slug']),
         ]);
     }
 
@@ -335,6 +358,7 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', PropertyCategory::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $data = $request->validate([
             'name'        => 'required|string|max:190',
             'description' => 'nullable|string|max:1000',
@@ -342,11 +366,12 @@ class RealEstateController extends Controller
         ]);
 
         $category = new PropertyCategory;
+        $category->company_id = $companyId;
         $category->name = $data['name'];
         $category->slug = $this->uniqueCategorySlug($data['name']);
         $category->description = $data['description'] ?? null;
         if ($request->hasFile('image_file')) {
-            $category->image = $this->storeUpload($request->file('image_file'));
+            $category->image = $this->storeUpload($request->file('image_file'), $companyId);
         }
         $category->save();
 
@@ -357,7 +382,10 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'update', PropertyCategory::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $category = PropertyCategory::findOrFail($id);
+        abort_unless((int) $category->company_id === $companyId, 404);
+
         $data = $request->validate([
             'name'        => 'required|string|max:190',
             'description' => 'nullable|string|max:1000',
@@ -370,7 +398,7 @@ class RealEstateController extends Controller
         $category->name = $data['name'];
         $category->description = $data['description'] ?? null;
         if ($request->hasFile('image_file')) {
-            $category->image = $this->storeUpload($request->file('image_file'));
+            $category->image = $this->storeUpload($request->file('image_file'), $companyId);
         }
         $category->save();
 
@@ -382,6 +410,7 @@ class RealEstateController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', PropertyCategory::class);
 
         $category = PropertyCategory::findOrFail($id);
+        abort_unless((int) $category->company_id === $this->resolveActingCompanyId($request), 404);
         // Detach properties from this category rather than orphaning FK integrity.
         Property::where('property_category_id', $category->id)->update(['property_category_id' => null]);
         $category->delete();
@@ -409,6 +438,8 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', PropertyInquiry::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $perPage  = (int) $request->get('limit', 10);
         $page     = (int) $request->get('page', 1);
         $search   = trim((string) $request->get('search', ''));
@@ -420,6 +451,7 @@ class RealEstateController extends Controller
         }
 
         $query = PropertyInquiry::with('property:id,title,slug')
+            ->where('company_id', $companyId)
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($w) use ($search) {
                     $w->where('name', 'like', "%{$search}%")
@@ -444,6 +476,7 @@ class RealEstateController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', PropertyInquiry::class);
 
         $inquiry = PropertyInquiry::with('property:id,title,slug')->findOrFail($id);
+        abort_unless((int) $inquiry->company_id === $this->resolveActingCompanyId($request), 404);
 
         // Auto-mark as read when opened, if still new.
         if ($inquiry->status === 'new') {
@@ -463,6 +496,7 @@ class RealEstateController extends Controller
         ]);
 
         $inquiry = PropertyInquiry::findOrFail($id);
+        abort_unless((int) $inquiry->company_id === $this->resolveActingCompanyId($request), 404);
         $inquiry->status = $data['status'];
         $inquiry->save();
 
@@ -473,7 +507,9 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', PropertyInquiry::class);
 
-        PropertyInquiry::findOrFail($id)->delete();
+        $inquiry = PropertyInquiry::findOrFail($id);
+        abort_unless((int) $inquiry->company_id === $this->resolveActingCompanyId($request), 404);
+        $inquiry->delete();
 
         return response()->json(['success' => true]);
     }
@@ -483,7 +519,7 @@ class RealEstateController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', PropertyInquiry::class);
 
         $ids = $request->input('selectedIds', []);
-        PropertyInquiry::whereIn('id', $ids)->delete();
+        PropertyInquiry::whereIn('id', $ids)->where('company_id', $this->resolveActingCompanyId($request))->delete();
 
         return response()->json(['success' => true]);
     }

@@ -6,6 +6,8 @@
  * Same /api/ base + CSRF headers as lib/http.
  */
 
+import { getActingCompanyId } from './actingCompany';
+
 const BASE = '/api/';
 
 function readCookie(name) {
@@ -15,8 +17,24 @@ function readCookie(name) {
 
 export function uploadForm(url, formData, onProgress) {
     return new Promise((resolve, reject) => {
+        // Global company switcher (SuperAdmin only): this utility never
+        // went through lib/http.js, so it never got the acting company_id
+        // -- every upload+save through here silently fell back to the
+        // logged-in SuperAdmin's own company instead of whichever company
+        // was selected in the header. Attach it on the query string (the
+        // backend reads $request->input(), which merges query + body) and
+        // on the form body itself, same as lib/http.js does.
+        const actingCompanyId = getActingCompanyId();
+        let finalUrl = url.replace(/^\//, '');
+        if (actingCompanyId) {
+            if (formData instanceof FormData && !formData.has('company_id')) {
+                formData.append('company_id', actingCompanyId);
+            }
+            finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'company_id=' + encodeURIComponent(actingCompanyId);
+        }
+
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', BASE + url.replace(/^\//, ''));
+        xhr.open('POST', BASE + finalUrl);
         xhr.setRequestHeader('Accept', 'application/json');
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         const xsrf = readCookie('XSRF-TOKEN');

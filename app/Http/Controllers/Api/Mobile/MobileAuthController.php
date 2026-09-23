@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Mobile;
 
 use App\Http\Controllers\BaseController;
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\MobileDeviceToken;
 use App\Models\Setting;
 use App\Models\User;
@@ -24,14 +25,16 @@ use Laravel\Passport\Token;
  */
 class MobileAuthController extends BaseController
 {
+    use ScopesToCompany;
+
     /**
      * Public handshake used to validate a server URL typed into the app,
      * and to negotiate versions before login. Deliberately exposes only
      * data that is already public on the login page.
      */
-    public function ping()
+    public function ping(Request $request)
     {
-        $settings = Setting::whereNull('deleted_at')->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         $helpers = new helpers;
 
         // Admin-configured mobile settings (System Settings → Mobile App).
@@ -107,7 +110,7 @@ class MobileAuthController extends BaseController
         }
 
         // System Settings → Mobile App can switch the app off for everyone.
-        $settings = Setting::whereNull('deleted_at')->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! (bool) ($settings->mobile_app_enabled ?? true)) {
             return response()->json([
                 'status' => 'AppDisabled',
@@ -174,7 +177,9 @@ class MobileAuthController extends BaseController
     /** Profile + display settings the app needs at boot; mirrors GetUserAuth. */
     private function userPayload(User $user): array
     {
-        $settings = Setting::whereNull('deleted_at')->first();
+        // A mobile user has no company-selector concept -- their own
+        // company_id is authoritative, unlike the SPA's SuperAdmin picker.
+        $settings = Setting::forCompany($user->company_id);
         $helpers = new helpers;
 
         return [

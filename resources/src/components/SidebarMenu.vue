@@ -65,6 +65,15 @@ function allowed(entry) {
   return entry.permissions.some(p => auth.can(p));
 }
 
+// Sidebar "filter menus" search box (below the logo, AdminLayout.vue).
+// Empty query = every existing allowed()/hasVisibleDescendant() check below
+// behaves exactly as it always did (matchesSearch is a no-op then).
+const searchQuery = computed(() => (ui.menuSearchQuery || '').trim().toLowerCase());
+function matchesSearch(entry) {
+  if (!searchQuery.value) return true;
+  return label(entry).toLowerCase().includes(searchQuery.value);
+}
+
 /**
  * Literal labels (raw) bypass i18n — they had no key in the old sidebar.
  * Some entries compose several keys, exactly as legacy did (e.g. the People
@@ -142,9 +151,11 @@ function leafItem(groupKey, entry, withIcon) {
 }
 
 /** Whether `entry` (a container) has >=1 visible leaf anywhere beneath it, at
- *  any depth -- decides if it (or an ancestor) should render as a submenu. */
+ *  any depth -- decides if it (or an ancestor) should render as a submenu.
+ *  Also the search filter: matchesSearch() is a no-op with an empty query,
+ *  so this is unchanged when nothing is typed in the sidebar search box. */
 function hasVisibleDescendant(entry) {
-  return (entry.children || []).some(c => (c.children ? hasVisibleDescendant(c) : allowed(c)));
+  return (entry.children || []).some(c => (c.children ? hasVisibleDescendant(c) : (allowed(c) && matchesSearch(c))));
 }
 
 /**
@@ -176,6 +187,7 @@ function buildChildNode(entry, groupKey, containerKey, moduleIcon, depth) {
     };
   }
   if (!allowed(entry)) return null;
+  if (!matchesSearch(entry)) return null;
   return leafItem(groupKey, entry, depth === 0 ? moduleIcon : undefined);
 }
 
@@ -205,16 +217,20 @@ const items = computed(() => {
       // would be truthy-but-false and fall through every branch below,
       // making it invisible with no way to confirm it was even created.
       // Show it as an empty submenu instead; it fills in once items get
-      // added to it.
-      out.push({ key: group.key, icon: topLevelIcon(group), label: label(group), children: [] });
+      // added to it. Hidden while searching -- it can never match anything.
+      if (!searchQuery.value) {
+        out.push({ key: group.key, icon: topLevelIcon(group), label: label(group), children: [] });
+      }
     } else if (group.children && hasVisibleDescendant(group)) {
       out.push({ key: group.key, icon: topLevelIcon(group), label: label(group), children: buildGroupChildren(group) });
     } else if (group.to) {
+      if (!matchesSearch(group)) continue;
       const tgt = resolveTarget(group.to);
       out.push({ key: `${group.key}|${tgt?.type}|${tgt?.path}`, icon: topLevelIcon(group), label: labelNode(group) });
     } else if (group.href) {
       // A childless top-level entry with an external link only -- e.g. a
       // custom item added via Settings -> Manage Menus with "external" set.
+      if (!matchesSearch(group)) continue;
       out.push({ key: `${group.key}|external|${group.href}`, icon: topLevelIcon(group), label: labelNode(group) });
     }
   }
@@ -266,6 +282,38 @@ const routeIndex = computed(() => {
   return idx;
 });
 
+/** Every group/subgroup key (at any depth) that currently has a matching
+ *  descendant, so a search can expand every branch holding a result at once
+ *  instead of the accordion's normal "one open branch" behaviour. */
+function collectMatchingGroupKeys(entry, containerKey, acc) {
+  if (!entry.children) return;
+  const subKey = `${containerKey}|group|${entry.__key || entry.label}`;
+  if (hasVisibleDescendant(entry)) {
+    acc.push(subKey);
+    entry.children.forEach(c => collectMatchingGroupKeys(c, subKey, acc));
+  }
+}
+const searchOpenKeys = computed(() => {
+  if (!searchQuery.value) return [];
+  const acc = [];
+  for (const group of menuStore.menu) {
+    if (!allowed(group) || !group.children || !hasVisibleDescendant(group)) continue;
+    acc.push(group.key);
+    group.children.forEach(c => collectMatchingGroupKeys(c, group.key, acc));
+  }
+  return acc;
+});
+// Expand every matching branch while searching; restore the normal
+// route-based expansion (single active chain) the moment the box is cleared.
+watch(searchQuery, (q) => {
+  if (q) {
+    openKeys.value = searchOpenKeys.value;
+  } else {
+    const meta = routeIndex.value[route.path];
+    openKeys.value = meta ? meta.opens : [];
+  }
+});
+
 function onClick({ key }) {
   const [, type, path] = String(key).split('|');
   if (!path) return;
@@ -308,8 +356,12 @@ function ancestorChain(key) {
 // Accordion: opening a submenu closes the previously open one at the same
 // level. The newly opened key keeps its full ancestor chain (root module
 // through every nested subgroup down to itself) so a deep group stays
-// reachable, while unrelated branches still collapse.
+// reachable, while unrelated branches still collapse. Suspended while
+// searching -- the search watcher above intentionally opens every matching
+// branch at once, which this would otherwise immediately collapse back down
+// to just the last one.
 watch(openKeys, (nv, ov) => {
+  if (searchQuery.value) return;
   const added = nv.filter(k => !(ov || []).includes(k));
   if (!added.length) return;
   const key = String(added[added.length - 1]);

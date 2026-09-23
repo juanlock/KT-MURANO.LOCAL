@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Account;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -19,6 +20,8 @@ use Illuminate\Support\Str;
 
 class ExpensesController extends BaseController
 {
+    use ScopesToCompany;
+
     // -------------- Show All  Expenses -----------\\
 
     public function index(request $request)
@@ -213,6 +216,15 @@ class ExpensesController extends BaseController
 
         $expense = Expense::findOrFail($expenseId);
 
+        // Expense has no company_id column directly -- resolve it via the
+        // expense's own warehouse (Warehouse has company_id), falling back
+        // to the acting request's company when the warehouse can't be
+        // resolved (e.g. no warehouse set on the expense).
+        $companyId = optional(Warehouse::find($expense->warehouse_id))->company_id;
+        if (! $companyId) {
+            $companyId = $this->resolveActingCompanyId($request);
+        }
+
         $request->validate([
             'documents.*' => 'required|file|max:10240', // Max 10MB per file
         ]);
@@ -220,11 +232,10 @@ class ExpensesController extends BaseController
         $uploadedDocuments = [];
 
         if ($request->hasFile('documents')) {
-            // Create directory if it doesn't exist
-            $uploadPath = public_path('images/expense_documents');
-            if (! file_exists($uploadPath)) {
-                mkdir($uploadPath, 0755, true);
-            }
+            // Company-scoped: files/company_{id}/expense_documents, not
+            // one shared folder for the whole install.
+            $uploadRel = \App\Support\CompanyFiles::dir((int) $companyId, 'expense_documents');
+            $uploadPath = public_path($uploadRel);
 
             foreach ($request->file('documents') as $file) {
                 // Capture metadata BEFORE moving the file (tmp file is still readable)
@@ -234,10 +245,10 @@ class ExpensesController extends BaseController
 
                 $filename = time() . '_' . Str::random(10) . '_' . $originalName;
 
-                // Move file to public/images/expense_documents
+                // Move file to public/files/company_{id}/expense_documents
                 $file->move($uploadPath, $filename);
 
-                $relativePath = 'images/expense_documents/'.$filename;
+                $relativePath = $uploadRel.'/'.$filename;
 
                 $documentId = DB::table('expense_documents')->insertGetId([
                     'expense_id' => $expenseId,
@@ -484,7 +495,7 @@ class ExpensesController extends BaseController
             $item = $last->Ref;
             $nwMsg = explode('_', $item);
             // Refs from imports/demo data may not follow the EXP_n format
-            // (e.g. "DEMO-EXP-0015") — fall back to the trailing number.
+            // (e.g. "DEMO-EXP-0015") â€” fall back to the trailing number.
             if (count($nwMsg) >= 2 && is_numeric($nwMsg[1])) {
                 $code = $nwMsg[0].'_'.($nwMsg[1] + 1);
             } elseif (preg_match('/(\d+)$/', $item, $m)) {

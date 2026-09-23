@@ -1,13 +1,8 @@
 <template>
-  <!-- Gate on the same setting legacy used for its customizer button. -->
+  <!-- Gate on the same setting legacy used for its customizer button.
+       Opened from the topbar's Customize button (next to POS), not a
+       floating handle. -->
   <template v-if="visible">
-    <!-- Floating handle on the trailing edge (right in LTR, left in RTL);
-         the gear turns into a close icon. -->
-    <button v-show="!modalOpen" class="cz-handle" :class="{ open }" @click="open = !open" :title="$t('Settings')">
-      <SettingOutlined v-if="!open" />
-      <CloseOutlined v-else />
-    </button>
-
     <a-drawer
       v-model:open="open"
       :placement="ui.direction === 'rtl' ? 'left' : 'right'"
@@ -89,7 +84,7 @@
       <!-- Language: the full active list from /languages, real flags. -->
       <div class="cz-section">
         <div class="cz-label">{{ $t('Language') }}</div>
-        <a-menu :selected-keys="[ui.locale]" @click="({ key }) => ui.setLocale(key)">
+        <a-menu :selected-keys="[ui.locale]" @click="({ key }) => ui.setLocale(key, auth.user?.id)">
           <a-menu-item v-for="l in languages" :key="l.value">
             <span class="cz-lang">
               <img v-if="l.image" :src="l.image" :alt="l.label" class="cz-flag" />
@@ -106,19 +101,18 @@
 <script setup>
 /**
  * Theme customizer — the Vue 3 counterpart of the legacy customizer.vue panel.
- * A floating handle opens a LEFT drawer (legacy's slid in from the edge) with
- * the settings that apply to this Ant-Design app: primary colour, dark mode,
- * RTL and language. Sidebar-layout is dropped — vue3-app has one layout.
+ * Opened via the topbar's Customize button (next to POS) into a LEFT drawer
+ * (legacy's slid in from the edge) with the settings that apply to this
+ * Ant-Design app: primary colour, dark mode, RTL and language. Sidebar-layout
+ * is dropped — vue3-app has one layout.
  *
  * Every choice is persisted in the ui store (localStorage) and applied live:
  * the colour flows into App.vue's a-config-provider token, dark into Ant's
  * algorithm, RTL into the provider direction, language into vue-i18n. Shown
  * only when the customize_button_visible setting is on, matching legacy.
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import {
-  SettingOutlined, CloseOutlined, CheckOutlined,
-} from '@ant-design/icons-vue';
+import { ref, computed, onMounted } from 'vue';
+import { CheckOutlined } from '@ant-design/icons-vue';
 import { useUiStore } from '../stores/ui';
 import { useAuthStore } from '../stores/auth';
 import { SUPPORTED_LOCALES } from '../i18n';
@@ -127,37 +121,11 @@ import http from '../lib/http';
 const ui = useUiStore();
 const auth = useAuthStore();
 
-const open = ref(false);
-
-// Hide the floating handle while any Ant overlay is open: modals, confirm
-// dialogs, image previews and drawers — except the customizer's own drawer
-// (tagged .cz-drawer), where the handle doubles as the close button. Overlays
-// are teleported to body, so watch the body DOM; getClientRects() is empty
-// whenever the element (or an ancestor) is display: none, however Ant hides it.
-const modalOpen = ref(false);
-let modalObserver = null;
-
-function checkModals() {
-  const wraps = document.querySelectorAll(
-    '.ant-modal-wrap, .ant-image-preview-wrap, .ant-drawer:not(.cz-drawer) .ant-drawer-content-wrapper'
-  );
-  modalOpen.value = Array.from(wraps).some(w => w.getClientRects().length > 0);
-}
-
-onMounted(() => {
-  checkModals();
-  modalObserver = new MutationObserver(checkModals);
-  modalObserver.observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['style', 'class'],
-  });
-});
-
-onUnmounted(() => {
-  modalObserver?.disconnect();
-  modalObserver = null;
+// The drawer's own open state lives in the ui store, so the topbar button can
+// drive it without a parent/child prop chain.
+const open = computed({
+  get: () => ui.customizerOpen,
+  set: v => { ui.customizerOpen = v; },
 });
 
 // Every active language from GET /languages (name + flag image), falling back
@@ -195,8 +163,7 @@ const SIDEBAR_LAYOUTS = [
   { value: 'dark', label: 'Dark' },
 ];
 
-// Default true when the setting is absent, as legacy did.
-const visible = computed(() => !auth.user || auth.user.customize_button_visible !== false);
+const visible = computed(() => auth.customizeButtonVisible);
 
 function sameColor(c) {
   return String(ui.primaryColor).toLowerCase() === c.toLowerCase();
@@ -204,32 +171,6 @@ function sameColor(c) {
 </script>
 
 <style scoped>
-.cz-handle {
-  position: fixed;
-  /* Logical inset, so the handle sits bottom-right in LTR and bottom-left in
-     RTL without a second rule. */
-  inset-inline-end: 24px;
-  bottom: 24px;
-  z-index: 1001;
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 50%;
-  background: #6d28d9;
-  color: #fff;
-  font-size: 18px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: inset-inline-end 0.2s;
-}
-/* Slide clear of the 300px drawer so it doubles as a close button — the
-   drawer opens on the same edge, so this mirrors along with it. */
-.cz-handle.open {
-  inset-inline-end: 324px;
-}
 .cz-layouts {
   display: flex;
   flex-wrap: wrap;

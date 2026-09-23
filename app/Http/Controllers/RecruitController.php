@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\RecruitJob;
 use App\Models\RecruitJobCategory;
 use App\Models\RecruitCandidate;
 use App\Models\RecruitApplication;
 use App\Models\RecruitInterview;
+use App\Support\CompanyFiles;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,21 +16,21 @@ use Illuminate\Support\Str;
 
 class RecruitController extends Controller
 {
+    use ScopesToCompany;
+
     /**
-     * Store an uploaded recruit file under public/images/recruit/<dir>
-     * and return its public-relative path. Stocky serves uploads from
-     * public/images directly (no storage:link).
+     * Store an uploaded recruit file under the acting company's
+     * files/company_{id}/recruit/<dir> folder and return its public-relative
+     * path. Stocky serves uploads from public/images directly (no storage:link).
      */
-    private function storeUpload($file, string $dir): string
+    private function storeUpload($file, string $dir, int $companyId): string
     {
-        $destination = public_path('images/recruit/' . $dir);
-        if (!is_dir($destination)) {
-            mkdir($destination, 0755, true);
-        }
+        $base = CompanyFiles::dir($companyId, 'recruit/' . $dir);
+        $destination = public_path($base);
         $filename = Str::random(20) . '.' . $file->getClientOriginalExtension();
         $file->move($destination, $filename);
 
-        return 'images/recruit/' . $dir . '/' . $filename;
+        return $base . '/' . $filename;
     }
 
     // ======================== DASHBOARD ========================
@@ -37,21 +39,25 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitJob::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $stats = [
-            'total_jobs'         => RecruitJob::count(),
-            'open_jobs'          => RecruitJob::where('status', 'open')->count(),
-            'total_candidates'   => RecruitCandidate::count(),
-            'total_applications' => RecruitApplication::count(),
-            'pending_interviews' => RecruitInterview::where('status', 'scheduled')->count(),
-            'hired_count'        => RecruitApplication::where('stage', 'hired')->count(),
+            'total_jobs'         => RecruitJob::where('company_id', $companyId)->count(),
+            'open_jobs'          => RecruitJob::where('company_id', $companyId)->where('status', 'open')->count(),
+            'total_candidates'   => RecruitCandidate::where('company_id', $companyId)->count(),
+            'total_applications' => RecruitApplication::where('company_id', $companyId)->count(),
+            'pending_interviews' => RecruitInterview::where('company_id', $companyId)->where('status', 'scheduled')->count(),
+            'hired_count'        => RecruitApplication::where('company_id', $companyId)->where('stage', 'hired')->count(),
         ];
 
         $recent_applications = RecruitApplication::with(['candidate', 'job'])
+            ->where('company_id', $companyId)
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
 
         $upcoming_interviews = RecruitInterview::with(['application.candidate', 'application.job'])
+            ->where('company_id', $companyId)
             ->where('status', 'scheduled')
             ->where('scheduled_at', '>=', now())
             ->orderBy('scheduled_at')
@@ -59,6 +65,7 @@ class RecruitController extends Controller
             ->get();
 
         $pipeline = RecruitApplication::select('stage', DB::raw('count(*) as count'))
+            ->where('company_id', $companyId)
             ->groupBy('stage')
             ->pluck('count', 'stage')
             ->toArray();
@@ -77,6 +84,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitJobCategory::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
         $offSet = ($pageStart * $perPage) - $perPage;
@@ -84,6 +93,7 @@ class RecruitController extends Controller
         $dir = $request->SortType ?: 'desc';
 
         $categories = RecruitJobCategory::withCount('jobs')
+            ->where('company_id', $companyId)
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
                     return $query->where('name', 'LIKE', "%{$request->search}%");
@@ -103,10 +113,11 @@ class RecruitController extends Controller
         ]);
     }
 
-    public function categories_all()
+    public function categories_all(Request $request)
     {
         return response()->json(
-            RecruitJobCategory::where('is_active', true)->orderBy('name')->get(['id', 'name'])
+            RecruitJobCategory::where('company_id', $this->resolveActingCompanyId($request))
+                ->where('is_active', true)->orderBy('name')->get(['id', 'name'])
         );
     }
 
@@ -117,6 +128,7 @@ class RecruitController extends Controller
         $request->validate(['name' => 'required|string|max:255']);
 
         RecruitJobCategory::create([
+            'company_id'  => $this->resolveActingCompanyId($request),
             'name'        => $request->name,
             'description' => $request->description,
             'is_active'   => $request->filled('is_active') ? $request->is_active : true,
@@ -131,7 +143,10 @@ class RecruitController extends Controller
 
         $request->validate(['name' => 'required|string|max:255']);
 
-        RecruitJobCategory::whereId($id)->update([
+        $category = RecruitJobCategory::findOrFail($id);
+        abort_unless((int) $category->company_id === $this->resolveActingCompanyId($request), 404);
+
+        $category->update([
             'name'        => $request->name,
             'description' => $request->description,
             'is_active'   => $request->filled('is_active') ? $request->is_active : true,
@@ -144,7 +159,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitJobCategory::class);
 
-        RecruitJobCategory::whereId($id)->update(['deleted_at' => Carbon::now()]);
+        $category = RecruitJobCategory::findOrFail($id);
+        abort_unless((int) $category->company_id === $this->resolveActingCompanyId($request), 404);
+        $category->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
@@ -153,8 +170,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitJobCategory::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         foreach ($request->selectedIds as $id) {
-            RecruitJobCategory::whereId($id)->update(['deleted_at' => Carbon::now()]);
+            RecruitJobCategory::whereId($id)->where('company_id', $companyId)->update(['deleted_at' => Carbon::now()]);
         }
 
         return response()->json(['success' => true]);
@@ -166,6 +184,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitJob::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
         $offSet = ($pageStart * $perPage) - $perPage;
@@ -174,6 +194,7 @@ class RecruitController extends Controller
 
         $jobs = RecruitJob::with('category')
             ->withCount('applications')
+            ->where('company_id', $companyId)
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('status'), function ($q) use ($request) {
                     $q->where('status', $request->status);
@@ -199,10 +220,11 @@ class RecruitController extends Controller
         ]);
     }
 
-    public function jobs_all()
+    public function jobs_all(Request $request)
     {
         return response()->json(
-            RecruitJob::orderBy('title')->get(['id', 'title', 'status'])
+            RecruitJob::where('company_id', $this->resolveActingCompanyId($request))
+                ->orderBy('title')->get(['id', 'title', 'status'])
         );
     }
 
@@ -217,6 +239,7 @@ class RecruitController extends Controller
         ]);
 
         $data = $request->all();
+        $data['company_id'] = $this->resolveActingCompanyId($request);
         $data['slug'] = Str::slug($request->title) . '-' . Str::random(5);
         $data['created_by'] = $request->user('api') ? $request->user('api')->id : null;
 
@@ -236,7 +259,9 @@ class RecruitController extends Controller
         ]);
 
         $job = RecruitJob::findOrFail($id);
-        $data = $request->all();
+        abort_unless((int) $job->company_id === $this->resolveActingCompanyId($request), 404);
+
+        $data = $request->except(['company_id']);
         if ($request->filled('title') && $request->title !== $job->title) {
             $data['slug'] = Str::slug($request->title) . '-' . Str::random(5);
         }
@@ -249,7 +274,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitJob::class);
 
-        RecruitJob::whereId($id)->update(['deleted_at' => Carbon::now()]);
+        $job = RecruitJob::findOrFail($id);
+        abort_unless((int) $job->company_id === $this->resolveActingCompanyId($request), 404);
+        $job->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
@@ -258,8 +285,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitJob::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         foreach ($request->selectedIds as $id) {
-            RecruitJob::whereId($id)->update(['deleted_at' => Carbon::now()]);
+            RecruitJob::whereId($id)->where('company_id', $companyId)->update(['deleted_at' => Carbon::now()]);
         }
 
         return response()->json(['success' => true]);
@@ -271,6 +299,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitCandidate::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
         $offSet = ($pageStart * $perPage) - $perPage;
@@ -278,6 +308,7 @@ class RecruitController extends Controller
         $dir = $request->SortType ?: 'desc';
 
         $candidates = RecruitCandidate::withCount('applications')
+            ->where('company_id', $companyId)
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('source'), function ($q) use ($request) {
                     $q->where('source', $request->source);
@@ -305,9 +336,10 @@ class RecruitController extends Controller
         ]);
     }
 
-    public function candidates_all()
+    public function candidates_all(Request $request)
     {
-        $candidates = RecruitCandidate::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']);
+        $candidates = RecruitCandidate::where('company_id', $this->resolveActingCompanyId($request))
+            ->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']);
 
         return response()->json($candidates);
     }
@@ -316,6 +348,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', RecruitCandidate::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name'  => 'required|string|max:255',
@@ -323,12 +357,13 @@ class RecruitController extends Controller
         ]);
 
         $data = $request->except(['resume', 'photo']);
+        $data['company_id'] = $companyId;
 
         if ($request->hasFile('resume')) {
-            $data['resume_path'] = $this->storeUpload($request->file('resume'), 'resumes');
+            $data['resume_path'] = $this->storeUpload($request->file('resume'), 'resumes', $companyId);
         }
         if ($request->hasFile('photo')) {
-            $data['photo'] = $this->storeUpload($request->file('photo'), 'photos');
+            $data['photo'] = $this->storeUpload($request->file('photo'), 'photos', $companyId);
         }
 
         RecruitCandidate::create($data);
@@ -340,6 +375,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'update', RecruitCandidate::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name'  => 'required|string|max:255',
@@ -347,13 +384,15 @@ class RecruitController extends Controller
         ]);
 
         $candidate = RecruitCandidate::findOrFail($id);
-        $data = $request->except(['resume', 'photo']);
+        abort_unless((int) $candidate->company_id === $companyId, 404);
+
+        $data = $request->except(['resume', 'photo', 'company_id']);
 
         if ($request->hasFile('resume')) {
-            $data['resume_path'] = $this->storeUpload($request->file('resume'), 'resumes');
+            $data['resume_path'] = $this->storeUpload($request->file('resume'), 'resumes', $companyId);
         }
         if ($request->hasFile('photo')) {
-            $data['photo'] = $this->storeUpload($request->file('photo'), 'photos');
+            $data['photo'] = $this->storeUpload($request->file('photo'), 'photos', $companyId);
         }
 
         $candidate->update($data);
@@ -365,7 +404,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitCandidate::class);
 
-        RecruitCandidate::whereId($id)->update(['deleted_at' => Carbon::now()]);
+        $candidate = RecruitCandidate::findOrFail($id);
+        abort_unless((int) $candidate->company_id === $this->resolveActingCompanyId($request), 404);
+        $candidate->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
@@ -374,8 +415,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitCandidate::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         foreach ($request->selectedIds as $id) {
-            RecruitCandidate::whereId($id)->update(['deleted_at' => Carbon::now()]);
+            RecruitCandidate::whereId($id)->where('company_id', $companyId)->update(['deleted_at' => Carbon::now()]);
         }
 
         return response()->json(['success' => true]);
@@ -387,6 +429,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitApplication::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
         $offSet = ($pageStart * $perPage) - $perPage;
@@ -394,6 +438,7 @@ class RecruitController extends Controller
         $dir = $request->SortType ?: 'desc';
 
         $apps = RecruitApplication::with(['job', 'candidate'])
+            ->where('company_id', $companyId)
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('job_id'), function ($q) use ($request) {
                     $q->where('job_id', $request->job_id);
@@ -424,9 +469,10 @@ class RecruitController extends Controller
         ]);
     }
 
-    public function applications_all()
+    public function applications_all(Request $request)
     {
         $apps = RecruitApplication::with(['job:id,title', 'candidate:id,first_name,last_name'])
+            ->where('company_id', $this->resolveActingCompanyId($request))
             ->orderBy('id', 'desc')
             ->get();
 
@@ -443,6 +489,7 @@ class RecruitController extends Controller
         ]);
 
         $data = $request->all();
+        $data['company_id'] = $this->resolveActingCompanyId($request);
         $data['applied_date'] = $request->applied_date ?: now()->toDateString();
 
         RecruitApplication::create($data);
@@ -455,7 +502,8 @@ class RecruitController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', RecruitApplication::class);
 
         $app = RecruitApplication::findOrFail($id);
-        $app->update($request->all());
+        abort_unless((int) $app->company_id === $this->resolveActingCompanyId($request), 404);
+        $app->update($request->except(['company_id']));
 
         return response()->json(['success' => true]);
     }
@@ -466,7 +514,10 @@ class RecruitController extends Controller
 
         $request->validate(['stage' => 'required|in:applied,screening,shortlisted,interview,offered,hired,rejected']);
 
-        RecruitApplication::whereId($id)->update([
+        $app = RecruitApplication::findOrFail($id);
+        abort_unless((int) $app->company_id === $this->resolveActingCompanyId($request), 404);
+
+        $app->update([
             'stage'       => $request->stage,
             'reviewed_by' => $request->user('api') ? $request->user('api')->id : null,
             'reviewed_at' => now(),
@@ -479,7 +530,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitApplication::class);
 
-        RecruitApplication::whereId($id)->update(['deleted_at' => Carbon::now()]);
+        $app = RecruitApplication::findOrFail($id);
+        abort_unless((int) $app->company_id === $this->resolveActingCompanyId($request), 404);
+        $app->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
@@ -488,8 +541,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitApplication::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         foreach ($request->selectedIds as $id) {
-            RecruitApplication::whereId($id)->update(['deleted_at' => Carbon::now()]);
+            RecruitApplication::whereId($id)->where('company_id', $companyId)->update(['deleted_at' => Carbon::now()]);
         }
 
         return response()->json(['success' => true]);
@@ -501,6 +555,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitInterview::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
         $offSet = ($pageStart * $perPage) - $perPage;
@@ -508,6 +564,7 @@ class RecruitController extends Controller
         $dir = $request->SortType ?: 'desc';
 
         $interviews = RecruitInterview::with(['application.candidate', 'application.job'])
+            ->where('company_id', $companyId)
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('status'), function ($q) use ($request) {
                     $q->where('status', $request->status);
@@ -540,7 +597,10 @@ class RecruitController extends Controller
             'type'           => 'required|in:phone,video,in_person,technical,panel,group',
         ]);
 
-        RecruitInterview::create($request->all());
+        $data = $request->all();
+        $data['company_id'] = $this->resolveActingCompanyId($request);
+
+        RecruitInterview::create($data);
 
         // Auto-advance the application to the interview stage.
         $app = RecruitApplication::find($request->application_id);
@@ -560,7 +620,10 @@ class RecruitController extends Controller
             'type'         => 'required|in:phone,video,in_person,technical,panel,group',
         ]);
 
-        RecruitInterview::whereId($id)->update($request->only([
+        $interview = RecruitInterview::findOrFail($id);
+        abort_unless((int) $interview->company_id === $this->resolveActingCompanyId($request), 404);
+
+        $interview->update($request->only([
             'application_id', 'type', 'scheduled_at', 'duration_minutes', 'location',
             'meeting_link', 'interviewer_id', 'status', 'rating', 'feedback', 'notes',
         ]));
@@ -572,7 +635,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitInterview::class);
 
-        RecruitInterview::whereId($id)->update(['deleted_at' => Carbon::now()]);
+        $interview = RecruitInterview::findOrFail($id);
+        abort_unless((int) $interview->company_id === $this->resolveActingCompanyId($request), 404);
+        $interview->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
@@ -581,8 +646,9 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', RecruitInterview::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         foreach ($request->selectedIds as $id) {
-            RecruitInterview::whereId($id)->update(['deleted_at' => Carbon::now()]);
+            RecruitInterview::whereId($id)->where('company_id', $companyId)->update(['deleted_at' => Carbon::now()]);
         }
 
         return response()->json(['success' => true]);
@@ -594,6 +660,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitJob::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $period = $request->get('period', '6months');
         $dateFrom = match ($period) {
             '1month'  => now()->subMonth(),
@@ -603,12 +671,14 @@ class RecruitController extends Controller
         };
 
         $funnel = RecruitApplication::select('stage', DB::raw('count(*) as count'))
+            ->where('company_id', $companyId)
             ->where('created_at', '>=', $dateFrom)
             ->groupBy('stage')
             ->pluck('count', 'stage');
 
         $byJob = RecruitApplication::select('job_id', DB::raw('count(*) as count'))
             ->with('job:id,title')
+            ->where('company_id', $companyId)
             ->where('created_at', '>=', $dateFrom)
             ->groupBy('job_id')
             ->orderByDesc('count')
@@ -616,6 +686,7 @@ class RecruitController extends Controller
             ->get();
 
         $bySource = RecruitCandidate::select('source', DB::raw('count(*) as count'))
+            ->where('company_id', $companyId)
             ->where('created_at', '>=', $dateFrom)
             ->groupBy('source')
             ->pluck('count', 'source');
@@ -626,18 +697,21 @@ class RecruitController extends Controller
                 DB::raw('SUM(CASE WHEN stage = "hired" THEN 1 ELSE 0 END) as hired'),
                 DB::raw('SUM(CASE WHEN stage = "rejected" THEN 1 ELSE 0 END) as rejected')
             )
+            ->where('company_id', $companyId)
             ->where('applied_date', '>=', $dateFrom)
             ->groupBy('month')
             ->orderBy('month')
             ->get();
 
-        $avgTimeToHire = RecruitApplication::where('stage', 'hired')
+        $avgTimeToHire = RecruitApplication::where('company_id', $companyId)
+            ->where('stage', 'hired')
             ->where('created_at', '>=', $dateFrom)
             ->selectRaw('AVG(DATEDIFF(reviewed_at, applied_date)) as avg_days')
             ->value('avg_days');
 
         $byCategory = RecruitJob::select('category_id', DB::raw('count(*) as count'))
             ->with('category:id,name')
+            ->where('company_id', $companyId)
             ->where('created_at', '>=', $dateFrom)
             ->whereNotNull('category_id')
             ->groupBy('category_id')

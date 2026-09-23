@@ -205,7 +205,16 @@ class RealEstateStoreController extends Controller
             'message'     => 'required|string|max:2000',
         ]);
 
+        // Company boundary: this is a public, unauthenticated form with no
+        // acting company on the request -- derive it from the property being
+        // inquired about (properties already carry their own company_id), or
+        // fall back to the default company when the inquiry isn't tied to one.
+        $propertyCompanyId = $data['property_id'] ?? null
+            ? Property::where('id', $data['property_id'])->value('company_id')
+            : null;
+
         $inquiry = PropertyInquiry::create([
+            'company_id'  => $propertyCompanyId ?? 1,
             'property_id' => $data['property_id'] ?? null,
             'name'        => $data['name'],
             'phone'       => $data['phone'] ?? null,

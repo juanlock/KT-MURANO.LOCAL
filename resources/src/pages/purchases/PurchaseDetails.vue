@@ -59,7 +59,7 @@
         <div>
           <img
             v-if="company.logo"
-            :src="'/images/' + company.logo"
+            :src="resolveImageUrl(company.logo)"
             :style="{
               maxWidth: (company.invoice_logo_width || 180) + 'px',
               maxHeight: (company.invoice_logo_height || 60) + 'px',
@@ -189,6 +189,7 @@ import { docStatusColor, payStatusColor } from '../../lib/statusColors';
 import { PAYMENT_STATUSES, statusKey } from '../sales/saleVocab';
 import { PURCHASE_STATUSES } from './purchaseVocab';
 import http from '../../lib/http';
+import { resolveImageUrl } from '../../lib/imagePath';
 
 const { t } = useI18n();
 const { date, dateTime } = useFormat();

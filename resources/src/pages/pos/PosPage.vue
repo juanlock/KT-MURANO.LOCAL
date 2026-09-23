@@ -10,7 +10,7 @@
       <!-- Brand block (28x28 logo only on mobile; register info follows as a sibling) -->
       <div class="pos-shell-brand-block" style="display: flex; align-items: center; gap: 10px; padding-right: 12px; border-right: 1px solid #e6e6ec; height: 32px;">
         <div style="width: 28px; height: 28px; border-radius: 8px; background: transparent; display: grid; place-items: center; color: #1f1f2c; font-weight: 700; font-size: 13px; font-family: 'JetBrains Mono', monospace; overflow: hidden; flex-shrink: 0;">
-          <img v-if="currentUser && currentUser.logo" :src="'/images/'+currentUser.logo" alt="logo" style="width: 100%; height: 100%; object-fit: cover;" />
+          <img v-if="currentUser && currentUser.logo" :src="resolveImg(currentUser.logo)" alt="logo" style="width: 100%; height: 100%; object-fit: cover;" />
           <span v-else>{{ (currentUser && currentUser.company) ? (currentUser.company[0] || 'P') : 'P' }}</span>
         </div>
       </div>
@@ -1174,7 +1174,7 @@
             <div v-if="currentReceiptLayout === 1">
               <div class="info">
                 <div class="invoice_logo text-center mb-2">
-                  <img v-show="pos_settings.show_logo !== 0" :src="'/images/'+invoice_pos.setting.logo" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
+                  <img v-show="pos_settings.show_logo !== 0" :src="resolveImg(invoice_pos.setting.logo)" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
                 </div>
                 <p>
                   <span v-show="pos_settings.show_store_name !== 0"><strong>{{invoice_pos.setting.CompanyName}}</strong><br></span>
@@ -1361,7 +1361,7 @@
             <div v-else-if="currentReceiptLayout === 2">
               <div class="info text-center">
                 <div class="invoice_logo mb-1">
-                  <img v-show="pos_settings.show_logo !== 0" :src="'/images/'+invoice_pos.setting.logo" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
+                  <img v-show="pos_settings.show_logo !== 0" :src="resolveImg(invoice_pos.setting.logo)" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
                 </div>
                 <div>
                   <div v-show="pos_settings.show_store_name !== 0">{{invoice_pos.setting.CompanyName}}</div>
@@ -1583,7 +1583,7 @@
                     <span v-show="pos_settings.show_email">{{invoice_pos.setting.email}}</span>
                   </div>
                   <div class="invoice_logo text-center mb-2" v-show="pos_settings.show_logo !== 0">
-                    <img :src="'/images/'+invoice_pos.setting.logo" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
+                    <img :src="resolveImg(invoice_pos.setting.logo)" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
                   </div>
                 </div>
                 <div class="mt-2" style="font-size:11px;">
@@ -1773,7 +1773,7 @@
             <div v-else-if="currentReceiptLayout === 4" class="receipt-layout-4">
               <div class="info text-center bl4-header">
                 <div class="invoice_logo mb-1" v-show="pos_settings.show_logo !== 0">
-                  <img :src="'/images/'+invoice_pos.setting.logo" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
+                  <img :src="resolveImg(invoice_pos.setting.logo)" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
                 </div>
                 <div class="bl4-company-ar" v-if="invoice_pos.setting.company_name_ar">{{invoice_pos.setting.company_name_ar}}</div>
                 <div class="bl4-company-en">{{invoice_pos.setting.CompanyName}}</div>
@@ -1991,7 +1991,7 @@
             <div v-else-if="currentReceiptLayout === 5" class="receipt-layout-5">
               <div class="info text-center mb-2">
                 <div class="invoice_logo mb-2" v-show="pos_settings.show_logo !== 0">
-                  <img :src="'/images/'+invoice_pos.setting.logo" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
+                  <img :src="resolveImg(invoice_pos.setting.logo)" alt :width="pos_settings.logo_size || 60" :height="pos_settings.logo_size || 60">
                 </div>
                 <div class="minimal-store-name" v-show="pos_settings.show_store_name !== 0">{{invoice_pos.setting.CompanyName}}</div>
                 <div class="minimal-contact" v-if="invoice_pos.setting.CompanyAdress || invoice_pos.setting.CompanyPhone">
@@ -3812,6 +3812,7 @@ import { formatPriceDisplay, getPriceFormatSetting, getPriceDecimals } from "../
 import { openCashDrawer } from "../../pos-compat/cashDrawerQz";
 import { receiptFontHeadTags, whenPrintFontsReady } from "../../lib/receiptFont";
 import { productDisplayName, isMainSubName } from "../../lib/productDisplayName";
+import { resolveImageUrl } from "../../lib/imagePath";
 import posKeyboardShortcutsMixin, {
   POS_SHORTCUTS,
   posShortcutsEnabled,
@@ -4988,11 +4989,12 @@ export default {
     resolveProductImage(imagePath) {
       if (!imagePath) return '';
       if (/^https?:\/\//i.test(imagePath)) return imagePath;
-      const clean = String(imagePath).replace(/^\/+/, '');
+      const resolved = resolveImageUrl(String(imagePath).replace(/^\/+/, ''), 'products') || '';
+      const clean = resolved.replace(/^\/+/, '');
       const encoded = clean.split('/').map(seg =>
         encodeURIComponent(seg).replace(/[()'"!*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())
       ).join('/');
-      return `/images/products/${encoded}`;
+      return `/${encoded}`;
     },
     getResultValue(result) {
       return result.code + " (" + result.name + ")";
@@ -9605,6 +9607,10 @@ export default {
     // interpolations can't reach a bare module import, so this wraps it.
     displayProductName(name, subName) {
       return productDisplayName(name, subName);
+    },
+    // Template interpolations can't reach a bare module import.
+    resolveImg(value, legacyFolder) {
+      return resolveImageUrl(value, legacyFolder);
     },
     SearchProduct(result) {
       if (this.load_product) {

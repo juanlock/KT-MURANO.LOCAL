@@ -12,7 +12,11 @@ class PropertyCategory extends Model
     protected $table = 'property_categories';
 
     protected $fillable = [
-        'name', 'slug', 'description', 'image',
+        'company_id', 'name', 'slug', 'description', 'image',
+    ];
+
+    protected $casts = [
+        'company_id' => 'integer',
     ];
 
     public function properties()

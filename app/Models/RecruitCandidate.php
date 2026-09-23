@@ -12,7 +12,7 @@ class RecruitCandidate extends Model
     protected $table = 'recruit_candidates';
 
     protected $fillable = [
-        'first_name', 'last_name', 'email', 'phone', 'date_of_birth', 'gender',
+        'company_id', 'first_name', 'last_name', 'email', 'phone', 'date_of_birth', 'gender',
         'address', 'city', 'state', 'country', 'zip_code', 'current_company',
         'current_position', 'current_salary', 'expected_salary', 'experience_years',
         'skills', 'education', 'resume_path', 'photo', 'linkedin_url',
@@ -20,6 +20,7 @@ class RecruitCandidate extends Model
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'date_of_birth' => 'date',
         'current_salary' => 'decimal:2',
         'expected_salary' => 'decimal:2',

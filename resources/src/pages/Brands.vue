@@ -13,7 +13,7 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'image'">
           <a-image
-            :src="'/images/brands/' + (record.image || 'no_image.png')"
+            :src="record.image ? resolveImageUrl(record.image, 'brands') : '/images/brands/no_image.png'"
             :width="44"
             :height="44"
             :preview="!!record.image"
@@ -94,6 +94,7 @@ import PageHeader from '../components/PageHeader.vue';
 import DataTable from '../components/DataTable.vue';
 import { useCrudTable } from '../composables/useCrudTable';
 import http from '../lib/http';
+import { resolveImageUrl } from '../lib/imagePath';
 
 const { t } = useI18n();
 

@@ -49,12 +49,11 @@
         <a-form-item :label="$t('phone')">
           <a-input v-model:value="form.phone" />
         </a-form-item>
-        <a-form-item :label="$t('Link_User')">
-          <a-select
-            v-model:value="form.user_id" :placeholder="$t('PleaseSelect')"
-            :options="usersList.map(u => ({ label: u.label, value: u.id }))"
-            show-search option-filter-prop="label" allow-clear
-          />
+        <a-form-item v-if="editMode" :label="$t('Link_User')">
+          <!-- Read-only: the linked login account is created automatically
+               (type=sales_agent, role "Sales Agent") when the agent is
+               added, and never manually reassigned. -->
+          <a-input :value="linkedUserLabel" disabled />
         </a-form-item>
         <a-form-item>
           <a-checkbox v-model:checked="form.is_active">{{ $t('Active') }}</a-checkbox>
@@ -70,9 +69,10 @@
 <script setup>
 /**
  * Sales agents — GET sales_agents → {agents, totalRows} (data.data || data
- * unwrap); users for the Link_User select from users_list_for_select →
- * {users}. Save POST/PUT sales_agents[/{id}] with nullable code/email/phone/
- * user_id/notes, exactly the legacy payload.
+ * unwrap). Save POST/PUT sales_agents[/{id}] with nullable code/email/phone/
+ * notes; the backend auto-provisions a linked login account (type=
+ * sales_agent, role "Sales Agent" -- Sales + Commissions only) on create via
+ * LinkedUserService, same as Employees/Clients -- no user picker here.
  */
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
@@ -94,12 +94,17 @@ const crud = useCrudTable('sales_agents', {
   },
 });
 
-const usersList = ref([]);
 const modalOpen = ref(false);
 const editMode = ref(false);
 const saving = ref(false);
 const modalFormRef = ref();
-const form = ref({ id: null, name: '', code: '', email: '', phone: '', user_id: null, is_active: true, notes: '' });
+const form = ref({ id: null, name: '', code: '', email: '', phone: '', is_active: true, notes: '' });
+const linkedUser = ref(null);
+const linkedUserLabel = computed(() => {
+  const u = linkedUser.value;
+  if (!u) return '';
+  return ((u.firstname || '') + ' ' + (u.lastname || '')).trim() || u.email || '';
+});
 
 const rules = computed(() => ({
   name: [{ required: true, message: t('Field_is_required') }],
@@ -117,13 +122,13 @@ const columns = computed(() => [
 
 function openModal(row = null) {
   editMode.value = !!row;
+  linkedUser.value = row?.user || null;
   form.value = row
     ? {
         id: row.id, name: row.name, code: row.code || '', email: row.email || '',
-        phone: row.phone || '', user_id: row.user_id || null,
-        is_active: !!row.is_active, notes: row.notes || '',
+        phone: row.phone || '', is_active: !!row.is_active, notes: row.notes || '',
       }
-    : { id: null, name: '', code: '', email: '', phone: '', user_id: null, is_active: true, notes: '' };
+    : { id: null, name: '', code: '', email: '', phone: '', is_active: true, notes: '' };
   modalFormRef.value?.clearValidate();
   modalOpen.value = true;
 }
@@ -139,7 +144,6 @@ async function submit() {
     code: form.value.code || null,
     email: form.value.email || null,
     phone: form.value.phone || null,
-    user_id: form.value.user_id || null,
     is_active: form.value.is_active,
     notes: form.value.notes || null,
   };
@@ -156,18 +160,7 @@ async function submit() {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   crud.fetchRows();
-  try {
-    const data = await http.get('users_list_for_select');
-    const list = (data && data.users) || [];
-    usersList.value = list.map(u => ({
-      id: u.id,
-      label: ((u.firstname || '') + ' ' + (u.lastname || '')).trim() || u.username || u.email,
-    }));
-  } catch (e) {
-    usersList.value = [];
-    message.error(e?.data?.message || t('Error'));
-  }
 });
 </script>

@@ -12,7 +12,7 @@ class Property extends Model
     protected $table = 'properties';
 
     protected $fillable = [
-        'title', 'slug', 'property_category_id', 'description',
+        'company_id', 'title', 'slug', 'property_category_id', 'description',
         'purpose', 'status', 'featured',
         'price', 'area', 'area_unit', 'bedrooms', 'bathrooms', 'garage',
         'address', 'city', 'region', 'latitude', 'longitude',
@@ -23,6 +23,7 @@ class Property extends Model
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'featured'  => 'boolean',
         'price'     => 'decimal:2',
         'area'      => 'decimal:2',

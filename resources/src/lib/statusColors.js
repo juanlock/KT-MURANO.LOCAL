@@ -13,11 +13,13 @@ export function docStatusColor(status) {
     return 'default';
 }
 
-/** Payment status: paid, partial, unpaid. */
+/** Payment status: paid, partial, unpaid (computed) + legacy pending/Cancelled. */
 export function payStatusColor(status) {
     const s = String(status || '').toLowerCase();
     if (s.includes('paid') && !s.includes('unpaid')) return 'success';
     if (s.includes('partial')) return 'warning';
+    if (s.includes('cancel')) return 'default';
+    if (s.includes('pending')) return 'gold';
     if (s.includes('unpaid')) return 'error';
     return 'default';
 }

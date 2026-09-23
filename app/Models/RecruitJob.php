@@ -12,12 +12,13 @@ class RecruitJob extends Model
     protected $table = 'recruit_jobs';
 
     protected $fillable = [
-        'title', 'slug', 'category_id', 'department_id', 'job_type', 'location',
+        'company_id', 'title', 'slug', 'category_id', 'department_id', 'job_type', 'location',
         'description', 'requirements', 'benefits', 'salary_min', 'salary_max',
         'currency', 'vacancies', 'status', 'experience_level', 'deadline', 'created_by',
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'salary_min' => 'decimal:2',
         'salary_max' => 'decimal:2',
         'deadline' => 'date',

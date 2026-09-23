@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
+use App\Models\CompanyLanguageSetting;
 use App\Models\Language;
 use App\Models\Setting;
 use App\Models\Translate;
@@ -13,13 +15,58 @@ use Illuminate\Support\Facades\Schema;
 
 class LanguageController extends Controller
 {
+    use ScopesToCompany;
+
     // Column names a locale can never collide with on the wide translations
     // table (see 2026_09_21_190000_pivot_translations_to_wide_table).
     private const RESERVED_TRANSLATION_COLUMNS = ['id', 'key', 'is_default', 'customized_locales', 'created_at', 'updated_at'];
 
+    /**
+     * Effective is_active per language for a company: that company's own
+     * company_language_settings row, else company 999's (System -- the
+     * SuperAdmin's own company_id, so acting with no company selected
+     * edits this template), else the language's legacy global is_active
+     * column (for a language nobody has ever touched per-company).
+     *
+     * @return array<int, bool> language_id => is_active
+     */
+    private function effectiveIsActiveMap(int $companyId): array
+    {
+        $companyRows = CompanyLanguageSetting::where('company_id', $companyId)->pluck('is_active', 'language_id');
+        $templateRows = $companyId === Setting::TEMPLATE_COMPANY_ID
+            ? $companyRows
+            : CompanyLanguageSetting::where('company_id', Setting::TEMPLATE_COMPANY_ID)->pluck('is_active', 'language_id');
+
+        $map = [];
+        foreach (Language::all(['id', 'is_active']) as $lang) {
+            if ($companyRows->has($lang->id)) {
+                $map[$lang->id] = (bool) $companyRows[$lang->id];
+            } elseif ($templateRows->has($lang->id)) {
+                $map[$lang->id] = (bool) $templateRows[$lang->id];
+            } else {
+                $map[$lang->id] = (bool) $lang->is_active;
+            }
+        }
+
+        return $map;
+    }
+
     public function load_language(Request $request)
     {
-        $languages = Language::where('is_active', true)->get(['name', 'locale', 'flag']);
+        // This route is public (login page needs it before auth), but the
+        // topbar language switcher for an ALREADY logged-in user also
+        // calls it -- resolve their own company's active set when there is
+        // one, and only fall back to company 999's (System template) set
+        // for a genuine guest with no session at all.
+        $companyId = $request->user('api')
+            ? $this->resolveActingCompanyId($request)
+            : Setting::TEMPLATE_COMPANY_ID;
+        $activeMap = $this->effectiveIsActiveMap($companyId);
+
+        $languages = Language::all()
+            ->filter(fn ($lang) => $activeMap[$lang->id] ?? (bool) $lang->is_active)
+            ->map(fn ($lang) => ['name' => $lang->name, 'locale' => $lang->locale, 'flag' => $lang->flag])
+            ->values();
 
         return response()->json($languages);
 
@@ -29,7 +76,17 @@ class LanguageController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'translations_settings', Setting::class);
 
-        return Language::all();
+        $companyId = $this->resolveActingCompanyId($request);
+        $default = Setting::forCompany($companyId)->default_language ?? 'en';
+        $activeMap = $this->effectiveIsActiveMap($companyId);
+
+        return Language::all()->map(function ($lang) use ($default, $activeMap) {
+            $arr = $lang->toArray();
+            $arr['is_default'] = $lang->locale === $default;
+            $arr['is_active'] = $activeMap[$lang->id] ?? (bool) $lang->is_active;
+
+            return $arr;
+        });
     }
 
     public function store(Request $request)
@@ -180,14 +237,16 @@ class LanguageController extends Controller
 
         // Update default_language in settings table
         if ($language->locale) {
-            $setting = Setting::first();
-            if ($setting) {
-                $setting->update([
-                    'default_language' => $language->locale,
-                ]);
-                // SetLocale caches this to keep it off every web request.
-                Cache::forget('settings.default_language');
-            }
+            $companyId = $this->resolveActingCompanyId($request);
+            $setting = Setting::forCompany($companyId);
+            $setting->update(['default_language' => $language->locale]);
+            // SetLocale caches this per acting company to keep it off every web request.
+            Cache::forget('settings.default_language.'.$companyId);
+            // Can't default to a language this company has disabled.
+            CompanyLanguageSetting::updateOrCreate(
+                ['company_id' => $companyId, 'language_id' => $language->id],
+                ['is_active' => true]
+            );
         }
 
         return response()->json([
@@ -215,8 +274,15 @@ class LanguageController extends Controller
                 ->update(['is_default' => false]);
 
             // Update settings
-            Setting::query()->update(['default_language' => $language->locale]);
-            Cache::forget('settings.default_language');
+            $companyId = $this->resolveActingCompanyId($request);
+            $setting = Setting::forCompany($companyId);
+            $setting->update(['default_language' => $language->locale]);
+            Cache::forget('settings.default_language.'.$companyId);
+            // Can't default to a language this company has disabled.
+            CompanyLanguageSetting::updateOrCreate(
+                ['company_id' => $companyId, 'language_id' => $language->id],
+                ['is_active' => true]
+            );
         }
 
         return response()->json([
@@ -233,15 +299,22 @@ class LanguageController extends Controller
         // Find language by ID
         $language = Language::where('id', $id)->firstOrFail();
 
-        // Toggle the is_active value
-        $language->update([
-            'is_active' => ! $language->is_active,
-        ]);
+        // Per-company toggle (see effectiveIsActiveMap()) -- does NOT touch
+        // the legacy global languages.is_active column, so enabling/
+        // disabling from one company never affects another's.
+        $companyId = $this->resolveActingCompanyId($request);
+        $current = $this->effectiveIsActiveMap($companyId)[$language->id] ?? (bool) $language->is_active;
+        $newStatus = ! $current;
+
+        CompanyLanguageSetting::updateOrCreate(
+            ['company_id' => $companyId, 'language_id' => $language->id],
+            ['is_active' => $newStatus]
+        );
 
         return response()->json([
             'success' => true,
             'message' => 'Updated successfully.',
-            'new_status' => $language->is_active,
+            'new_status' => $newStatus,
         ]);
     }
 

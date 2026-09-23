@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Account;
 use App\Models\Client;
 use App\Models\Currency;
@@ -19,19 +20,25 @@ use Intervention\Image\ImageManagerStatic as Image;
 
 class SettingsController extends Controller
 {
+    use ScopesToCompany;
+
     // -------------- Update  Settings ---------------\\
 
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Setting::class);
 
-        $setting = Setting::findOrFail($id);
+        $companyId = $this->resolveActingCompanyId($request);
+        $setting = Setting::forCompany($companyId);
         $currentAvatar = $setting->logo;
         // Only process logo if a file was actually uploaded
         if ($request->hasFile('logo') && $request->file('logo')->isValid()) {
             $image = $request->file('logo');
-            $path = public_path().'/images';
-            $filename = rand(11111111, 99999999).$image->getClientOriginalName();
+            // Company-scoped: files/company_{id}/logos, not one shared
+            // folder for the whole install.
+            $logosDir = \App\Support\CompanyFiles::dir($companyId, 'logos');
+            $rawFilename = rand(11111111, 99999999).$image->getClientOriginalName();
+            $filename = $logosDir.'/'.$rawFilename;
 
             $image_resize = Image::make($image->getRealPath());
 
@@ -39,13 +46,15 @@ class SettingsController extends Controller
              $image_resize->resize(800, 800, function ($constraint) {
                 $constraint->aspectRatio();
                 $constraint->upsize();
-            })->save(public_path('/images/'.$filename));
+            })->save(public_path($filename));
 
-            $userPhoto = $path.'/'.$currentAvatar;
-            if (file_exists($userPhoto)) {
-                if ($setting->logo != 'logo-default.png') {
-                    @unlink($userPhoto);
-                }
+            // Old value may be an old-format bare filename (shared /images/
+            // root) or the new company-scoped relative path.
+            $oldLogoPath = str_contains((string) $currentAvatar, '/')
+                ? public_path($currentAvatar)
+                : public_path('images/'.$currentAvatar);
+            if ($currentAvatar && $currentAvatar != 'logo-default.png' && file_exists($oldLogoPath)) {
+                @unlink($oldLogoPath);
             }
         } else {
             $filename = $currentAvatar;
@@ -141,7 +150,7 @@ class SettingsController extends Controller
         $sidebar_logo_height = (int) ($request['sidebar_logo_height'] ?? $setting->sidebar_logo_height ?? 32);
         $sidebar_logo_height = max(16, min(120, $sidebar_logo_height));
 
-        // Sidebar brand toggles — guarded with has() so older callers of this
+        // Sidebar brand toggles Ã¢â‚¬â€ guarded with has() so older callers of this
         // endpoint that don't send them keep the stored values.
         $sidebar_show_logo = $request->has('sidebar_show_logo')
             ? (($request['sidebar_show_logo'] == '1' || $request['sidebar_show_logo'] == 'true' || $request['sidebar_show_logo'] === 1 || $request['sidebar_show_logo'] === true) ? 1 : 0)
@@ -150,7 +159,7 @@ class SettingsController extends Controller
             ? (($request['hide_site_name'] == '1' || $request['hide_site_name'] == 'true' || $request['hide_site_name'] === 1 || $request['hide_site_name'] === true) ? 1 : 0)
             : (($setting->hide_site_name ?? false) ? 1 : 0);
 
-        Setting::whereId($id)->update([
+        $setting->update([
             'currency_id' => $currency,
             'client_id' => $client,
             'warehouse_id' => $warehouse,
@@ -276,14 +285,14 @@ class SettingsController extends Controller
                 ? (($request['enable_pos_salesperson_switch'] == '1' || $request['enable_pos_salesperson_switch'] == 'true' || $request['enable_pos_salesperson_switch'] === 1 || $request['enable_pos_salesperson_switch'] === true) ? 1 : 0)
                 : (int) ($setting->enable_pos_salesperson_switch ?? 0),
             // Session timeout (Security tab): minutes before automatic logout;
-            // empty/null = never expire. Clamped to ≥5 so a typo can't lock
+            // empty/null = never expire. Clamped to Ã¢â€°Â¥5 so a typo can't lock
             // everyone out the moment they log in.
             'session_timeout_minutes' => $request->has('session_timeout_minutes')
                 ? (($request['session_timeout_minutes'] === '' || $request['session_timeout_minutes'] === null || (int) $request['session_timeout_minutes'] <= 0)
                     ? null
                     : max(5, (int) $request['session_timeout_minutes']))
                 : ($setting->session_timeout_minutes ?? null),
-            // Allow Overselling: global switch — every stock check (POS, sales,
+            // Allow Overselling: global switch Ã¢â‚¬â€ every stock check (POS, sales,
             // quotations, transfers, adjustments, damages, imports) is bypassed
             // and stock may go negative (default off)
             'allow_overselling' => $request->has('allow_overselling')
@@ -300,7 +309,7 @@ class SettingsController extends Controller
                 ? (($request['auto_journal_enabled'] == '1' || $request['auto_journal_enabled'] == 'true' || $request['auto_journal_enabled'] === 1 || $request['auto_journal_enabled'] === true) ? 1 : 0)
                 : $setting->auto_journal_enabled,
             // Global export defaults (JSON: scope, totals, pdf_orientation,
-            // filename_date, pdf_meta) — kept when the caller doesn't send it
+            // filename_date, pdf_meta) Ã¢â‚¬â€ kept when the caller doesn't send it
             // or sends malformed JSON.
             'export_settings' => ($request->has('export_settings') && json_decode($request['export_settings'], true) !== null)
                 ? $request['export_settings']
@@ -310,15 +319,16 @@ class SettingsController extends Controller
         if (! empty($currency)) {
             $currencyModel = \App\Models\Currency::find($currency);
             if ($currencyModel) {
-                \App\Models\StoreSetting::query()->update([
+                \App\Models\StoreSetting::forCompany($this->resolveActingCompanyId($request))->update([
                     'currency_code' => $currencyModel->symbol,
                 ]);
             }
         }
 
-        // SetLocale caches default_language (it runs on every web request), and
-        // it is what guest pages like /login render in — drop it on save.
-        \Illuminate\Support\Facades\Cache::forget('settings.default_language');
+        // SetLocale caches default_language per acting company (it runs on
+        // every web request), and is what guest pages like /login render in
+        // Ã¢â‚¬â€ drop this company's cached value on save.
+        \Illuminate\Support\Facades\Cache::forget('settings.default_language.'.$this->resolveActingCompanyId($request));
 
         // Set selected language as default (only if language is provided and exists)
         if (! empty($default_language)) {
@@ -376,7 +386,7 @@ class SettingsController extends Controller
     public function getDarkMode(Request $request)
     {
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
 
         return response()->json([
             'dark_mode' => $settings ? (bool) ($settings->dark_mode ?? false) : false,
@@ -396,7 +406,7 @@ class SettingsController extends Controller
             'dark_mode' => 'required',
         ]);
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $settings) {
             return response()->json(['message' => 'Settings not found'], 404);
         }
@@ -422,10 +432,10 @@ class SettingsController extends Controller
     public function get_pos_Settings(Request $request)
     {
 
-        $PosSetting = PosSetting::where('deleted_at', '=', null)->first();
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $PosSetting = PosSetting::forCompany($this->resolveActingCompanyId($request));
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
 
-        // Allow Overselling is a global feature (settings row) — surface it on
+        // Allow Overselling is a global feature (settings row) Ã¢â‚¬â€ surface it on
         // the pos_settings payload so POS / sale forms keep reading it here.
         if ($PosSetting) {
             $PosSetting->allow_overselling = (bool) ($settings->allow_overselling ?? false);
@@ -441,10 +451,10 @@ class SettingsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'pos_settings', Setting::class);
 
-        $PosSetting = PosSetting::where('deleted_at', '=', null)->first();
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $PosSetting = PosSetting::forCompany($this->resolveActingCompanyId($request));
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
 
-        // Allow Overselling is a global feature (settings row) — surface it on
+        // Allow Overselling is a global feature (settings row) Ã¢â‚¬â€ surface it on
         // the pos_settings payload so existing consumers keep reading it here.
         if ($PosSetting) {
             $PosSetting->allow_overselling = (bool) ($settings->allow_overselling ?? false);
@@ -452,7 +462,7 @@ class SettingsController extends Controller
 
         return response()->json([
             'pos_settings' => $PosSetting,
-            // Global invoice format (thermal|a4) — editable from POS Settings
+            // Global invoice format (thermal|a4) Ã¢â‚¬â€ editable from POS Settings
             // (update_pos_settings already persists it back to `settings`).
             'invoice_format' => $settings && in_array($settings->invoice_format, ['thermal', 'a4'], true)
                 ? $settings->invoice_format : 'thermal',
@@ -474,13 +484,13 @@ class SettingsController extends Controller
             'note_customer' => 'sometimes|nullable|string',
         ]);
 
-        $posSettings = PosSetting::findOrFail($id);
+        $posSettings = PosSetting::forCompany($this->resolveActingCompanyId($request));
 
         // Allow POS Settings endpoint to also update the global invoice_format
         // so that users can control the invoice layout (thermal vs A4) directly
         // from the POS Settings screens.
         if ($request->has('invoice_format')) {
-            $settings = Setting::where('deleted_at', '=', null)->first();
+            $settings = Setting::forCompany($this->resolveActingCompanyId($request));
             if ($settings) {
                 // Normalize invoice_format: only allow 'thermal' or 'a4', default to existing or 'thermal'
                 $invoice_format = 'thermal';
@@ -752,7 +762,7 @@ class SettingsController extends Controller
         // The in-POS toggle still posts it here, so persist it globally instead
         // of on pos_settings.
         if ($request->has('allow_overselling')) {
-            $globalSettings = Setting::where('deleted_at', '=', null)->first();
+            $globalSettings = Setting::forCompany($this->resolveActingCompanyId($request));
             if ($globalSettings) {
                 $globalSettings->allow_overselling = ($request['allow_overselling'] == '1' || $request['allow_overselling'] == 'true' || $request['allow_overselling'] === true) ? 1 : 0;
                 $globalSettings->save();
@@ -765,20 +775,20 @@ class SettingsController extends Controller
 
         // Receipt font (POS Receipt page). Family is a CSS font stack kept to a
         // safe charset (letters, digits, spaces, commas, quotes, hyphens) so it
-        // can be injected into print-window <style> tags; empty → null = default.
+        // can be injected into print-window <style> tags; empty Ã¢â€ â€™ null = default.
         if ($request->has('receipt_font_family')) {
             $family = trim((string) $request->input('receipt_font_family'));
             $family = preg_replace("/[^a-zA-Z0-9 ,'\\-]/", '', $family);
             $data['receipt_font_family'] = $family !== '' ? mb_substr($family, 0, 120) : null;
         }
 
-        // Font size in px, clamped to a printable range; out-of-range → null = default.
+        // Font size in px, clamped to a printable range; out-of-range Ã¢â€ â€™ null = default.
         if ($request->has('receipt_font_size')) {
             $fontSize = (int) $request->input('receipt_font_size');
             $data['receipt_font_size'] = ($fontSize >= 8 && $fontSize <= 24) ? $fontSize : null;
         }
 
-        // Receipt layout (1-5) – only if sent (POS Receipt / POS Settings pages).
+        // Receipt layout (1-5) Ã¢â‚¬â€œ only if sent (POS Receipt / POS Settings pages).
         // 5 (Minimal) was missing from the old clamp and silently reset to 1.
         if ($request->has('receipt_layout')) {
             $candidate = (int) $request['receipt_layout'];
@@ -798,7 +808,7 @@ class SettingsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Setting::class);
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         if ($settings) {
             if ($settings->currency_id) {
                 if (Currency::where('id', $settings->currency_id)->where('deleted_at', '=', null)->first()) {
@@ -909,7 +919,7 @@ class SettingsController extends Controller
             $item['kitchen_auto_online_orders'] = (bool) ($settings->kitchen_auto_online_orders ?? false);
             // Show product GTIN/barcode field on the product create form (default true)
             $item['show_product_gtin'] = (bool) ($settings->show_product_gtin ?? true);
-            // Resize uploaded product images on save (default on, 800px box) — must
+            // Resize uploaded product images on save (default on, 800px box) Ã¢â‚¬â€ must
             // be returned here or the form loads it undefined and every save
             // silently turns resizing off.
             $item['product_image_resize'] = (bool) ($settings->product_image_resize ?? true);
@@ -918,22 +928,22 @@ class SettingsController extends Controller
             $item['show_serial_tracking'] = (bool) ($settings->show_serial_tracking ?? false);
             // Multi-pack selling toggle (default false)
             $item['enable_multi_pack_selling'] = (bool) ($settings->enable_multi_pack_selling ?? false);
-            // Wholesale Pricing by Quantity toggle (default false) — must be
+            // Wholesale Pricing by Quantity toggle (default false) Ã¢â‚¬â€ must be
             // returned here or the System Settings form loads it undefined and
             // every save silently turns the feature off.
             $item['enable_wholesale_pricing'] = (bool) ($settings->enable_wholesale_pricing ?? false);
-            // Multi-Currency toggle (default false) — must be returned here or
+            // Multi-Currency toggle (default false) Ã¢â‚¬â€ must be returned here or
             // the System Settings form loads it undefined and every save
             // silently turns the feature off.
             $item['enable_multi_currency'] = (bool) ($settings->enable_multi_currency ?? false);
-            // Change Salesperson During Checkout toggle (default false) — must be
+            // Change Salesperson During Checkout toggle (default false) Ã¢â‚¬â€ must be
             // returned here or the System Settings form loads it undefined and
             // every save silently turns the feature off.
             $item['enable_pos_salesperson_switch'] = (bool) ($settings->enable_pos_salesperson_switch ?? false);
             // Session timeout: minutes before automatic logout (null = never)
             $item['session_timeout_minutes'] = $settings->session_timeout_minutes ?? null;
             $item['allow_overselling'] = (bool) ($settings->allow_overselling ?? false);
-            // Vehicle Fitment master switch (default false) — must be returned
+            // Vehicle Fitment master switch (default false) Ã¢â‚¬â€ must be returned
             // here or the System Settings form loads it as undefined and every
             // save silently turns the module off.
             $item['vehicle_fitment_enabled'] = (bool) ($settings->vehicle_fitment_enabled ?? false);
@@ -984,7 +994,7 @@ class SettingsController extends Controller
             // with its built-in defaults)
             $item['export_settings'] = $settings->export_settings ?? null;
 
-            // Pharmacy mode (batch & expiry tracking) — opt-in, only present once migration has run
+            // Pharmacy mode (batch & expiry tracking) Ã¢â‚¬â€ opt-in, only present once migration has run
             $item['pharmacy_mode_supported'] = \Schema::hasColumn('settings', 'pharmacy_mode');
             $item['pharmacy_mode'] = (bool) ($settings->pharmacy_mode ?? false);
             $item['expiry_warning_days'] = (int) ($settings->expiry_warning_days ?? 90);
@@ -1040,7 +1050,7 @@ class SettingsController extends Controller
     public function updateDashboardGridLayout(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'update', Setting::class);
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (!$setting) {
             return response()->json(['message' => 'Settings not found'], 404);
         }
@@ -1059,7 +1069,7 @@ class SettingsController extends Controller
 
     public function getSidebarMenuOrder(Request $request)
     {
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         $order = $setting?->sidebar_menu_order ? json_decode($setting->sidebar_menu_order, true) : null;
 
         return response()->json(['sidebar_menu_order' => $order], 200);
@@ -1068,7 +1078,7 @@ class SettingsController extends Controller
     public function updateSidebarMenuOrder(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'update', Setting::class);
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
             return response()->json(['message' => 'Settings not found'], 404);
         }
@@ -1084,7 +1094,7 @@ class SettingsController extends Controller
     public function resetSidebarMenuOrder(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'update', Setting::class);
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
             return response()->json(['message' => 'Settings not found'], 404);
         }
@@ -1101,7 +1111,7 @@ class SettingsController extends Controller
 
     public function getModuleFlags(Request $request)
     {
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         $flags = $setting?->module_flags ? json_decode($setting->module_flags, true) : null;
 
         return response()->json(['module_flags' => is_array($flags) ? $flags : null], 200);
@@ -1111,7 +1121,7 @@ class SettingsController extends Controller
     {
         // business_modules OR setting_system (see SettingPolicy::business_modules)
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
             return response()->json(['message' => 'Settings not found'], 404);
         }
@@ -1135,7 +1145,7 @@ class SettingsController extends Controller
     public function resetModuleFlags(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
             return response()->json(['message' => 'Settings not found'], 404);
         }
@@ -1146,8 +1156,8 @@ class SettingsController extends Controller
         return response()->json(['success' => true], 200);
     }
 
-    // ----------------- Feature toggles (Settings → Modules → Features tab) -----------------\\
-    // The same optional-capability switches as System Settings → Features,
+    // ----------------- Feature toggles (Settings Ã¢â€ â€™ Modules Ã¢â€ â€™ Features tab) -----------------\\
+    // The same optional-capability switches as System Settings Ã¢â€ â€™ Features,
     // exposed as a small standalone endpoint so the Modules page can save them
     // without posting the full settings row (the main update() clobbers any
     // unguarded field that isn't sent).
@@ -1155,7 +1165,7 @@ class SettingsController extends Controller
     public function getFeatureSettings(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
-        $settings = Setting::whereNull('deleted_at')->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
 
         return response()->json(['features' => [
             'enable_3_decimal_pricing' => (bool) ($settings->enable_3_decimal_pricing ?? false),
@@ -1179,7 +1189,7 @@ class SettingsController extends Controller
     public function updateFeatureSettings(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
             return response()->json(['message' => 'Settings not found'], 404);
         }
@@ -1191,7 +1201,7 @@ class SettingsController extends Controller
             'vehicle_fitment_enabled', 'auto_journal_enabled', 'allow_overselling',
         ];
 
-        // Only fields present in the payload are written — anything omitted
+        // Only fields present in the payload are written Ã¢â‚¬â€ anything omitted
         // keeps its stored value, mirroring the has() guards in update().
         $data = [];
         foreach ($boolFields as $field) {
@@ -1211,7 +1221,7 @@ class SettingsController extends Controller
         }
 
         if ($data) {
-            Setting::whereId($setting->id)->update($data);
+            $setting->update($data);
         }
 
         return response()->json(['success' => true], 200);
@@ -1226,7 +1236,7 @@ class SettingsController extends Controller
     public function getBarcodeLabelSettings(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'barcode', \App\Models\Product::class);
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         $labelSettings = $setting?->barcode_label_settings ? json_decode($setting->barcode_label_settings, true) : null;
 
         return response()->json(['barcode_label_settings' => is_array($labelSettings) ? $labelSettings : null], 200);
@@ -1235,7 +1245,7 @@ class SettingsController extends Controller
     public function updateBarcodeLabelSettings(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'barcode', \App\Models\Product::class);
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
             return response()->json(['message' => 'Settings not found'], 404);
         }
@@ -1305,13 +1315,13 @@ class SettingsController extends Controller
     /**
      * The stored label design, filled in with the defaults and the sticker
      * size the test label is printed at. In raster mode the settings page has
-     * to draw the sample itself, so it needs exactly this — hence the
+     * to draw the sample itself, so it needs exactly this Ã¢â‚¬â€ hence the
      * companion endpoint below rather than the `barcode` permissioned
      * getBarcodeLabelSettings.
      */
     private function labelTestDesign(Request $request, ?\App\Models\PosSetting $posSetting): array
     {
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         $design = $setting?->barcode_label_settings ? json_decode($setting->barcode_label_settings, true) : [];
         $design = is_array($design) ? $design : [];
         $design += [
@@ -1328,7 +1338,7 @@ class SettingsController extends Controller
             ?: ($posSetting->label_printer_height_mm ?? null)
             ?: ($design['custom_sticker_height'] ?? 30));
         // Symbol for display; ASCII code ("AED", "USD") as the fallback the
-        // printer-font mode uses when the symbol has no ASCII form (د.إ, ₹…).
+        // printer-font mode uses when the symbol has no ASCII form (Ã˜Â¯.Ã˜Â¥, Ã¢â€šÂ¹Ã¢â‚¬Â¦).
         $currency = optional($setting?->Currency);
         $design['currency'] = (string) ($currency->symbol ?? '') !== ''
             ? $currency->symbol : (string) ($currency->code ?? '');
@@ -1351,7 +1361,7 @@ class SettingsController extends Controller
     public function labelPrinterTestDesign(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'pos_settings', Setting::class);
-        $posSetting = \App\Models\PosSetting::where('deleted_at', '=', null)->first();
+        $posSetting = \App\Models\PosSetting::forCompany($this->resolveActingCompanyId($request));
 
         return response()->json([
             'design' => $this->labelTestDesign($request, $posSetting),
@@ -1363,7 +1373,7 @@ class SettingsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'pos_settings', Setting::class);
 
-        $posSetting = \App\Models\PosSetting::where('deleted_at', '=', null)->first();
+        $posSetting = \App\Models\PosSetting::forCompany($this->resolveActingCompanyId($request));
         if (! $posSetting) {
             return response()->json(['success' => false, 'message' => 'POS settings not found.'], 404);
         }
@@ -1400,7 +1410,7 @@ class SettingsController extends Controller
         }
 
         // QZ Tray: the browser delivers the bytes to a printer on the client
-        // machine — hand the payload back instead of printing server-side.
+        // machine Ã¢â‚¬â€ hand the payload back instead of printing server-side.
         // Base64 because a raster payload is binary and would not survive JSON.
         if (\App\Services\LabelPrinterTransport::isClientSide($posSetting)) {
             return response()->json([
@@ -1420,7 +1430,7 @@ class SettingsController extends Controller
     }
 
     /**
-     * Print two frames — one computed at 203 dpi, one at 300 — each labeled
+     * Print two frames Ã¢â‚¬â€ one computed at 203 dpi, one at 300 Ã¢â‚¬â€ each labeled
      * with its number. The frame that exactly matches the sticker edges IS
      * the printhead's real resolution: the user reads the answer off the
      * label instead of anyone guessing scale factors from photos.
@@ -1429,7 +1439,7 @@ class SettingsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'pos_settings', Setting::class);
 
-        $posSetting = \App\Models\PosSetting::where('deleted_at', '=', null)->first();
+        $posSetting = \App\Models\PosSetting::forCompany($this->resolveActingCompanyId($request));
         if (! $posSetting) {
             return response()->json(['success' => false, 'message' => 'POS settings not found.'], 404);
         }
@@ -1487,7 +1497,7 @@ class SettingsController extends Controller
     /**
      * Auto-calibrate label gap sensing. Sends the configured label size plus
      * TSPL GAPDETECT: the printer feeds a few labels, measures the real
-     * sticker/gap lengths and stores them — the same calibration the vendor
+     * sticker/gap lengths and stores them Ã¢â‚¬â€ the same calibration the vendor
      * print tools perform. Run this once after loading a new roll, or when
      * label positions drift.
      */
@@ -1495,7 +1505,7 @@ class SettingsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'pos_settings', Setting::class);
 
-        $posSetting = \App\Models\PosSetting::where('deleted_at', '=', null)->first();
+        $posSetting = \App\Models\PosSetting::forCompany($this->resolveActingCompanyId($request));
         if (! $posSetting) {
             return response()->json(['success' => false, 'message' => 'POS settings not found.'], 404);
         }
@@ -1538,7 +1548,7 @@ class SettingsController extends Controller
      * Public certificate used to sign QZ Tray requests. The qz-tray JS lib
      * fetches this on connect; the settings page also offers it as a download
      * so the user can install it as override.crt in QZ Tray (silent printing).
-     * Returns certificate:null when the server cannot generate one — the
+     * Returns certificate:null when the server cannot generate one Ã¢â‚¬â€ the
      * frontend then falls back to unsigned (per-session Allow prompt).
      */
     public function qzCertificate(Request $request)
@@ -1569,7 +1579,7 @@ class SettingsController extends Controller
     public function getSettings(Request $request)
     {
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         if ($settings) {
             if ($settings->currency_id) {
                 if (Currency::where('id', $settings->currency_id)->where('deleted_at', '=', null)->first()) {
@@ -1680,7 +1690,7 @@ class SettingsController extends Controller
             $item['kitchen_auto_online_orders'] = (bool) ($settings->kitchen_auto_online_orders ?? false);
             // Show product GTIN/barcode field on the product create form (default true)
             $item['show_product_gtin'] = (bool) ($settings->show_product_gtin ?? true);
-            // Resize uploaded product images on save (default on, 800px box) — must
+            // Resize uploaded product images on save (default on, 800px box) Ã¢â‚¬â€ must
             // be returned here or the form loads it undefined and every save
             // silently turns resizing off.
             $item['product_image_resize'] = (bool) ($settings->product_image_resize ?? true);
@@ -1689,22 +1699,22 @@ class SettingsController extends Controller
             $item['show_serial_tracking'] = (bool) ($settings->show_serial_tracking ?? false);
             // Multi-pack selling toggle (default false)
             $item['enable_multi_pack_selling'] = (bool) ($settings->enable_multi_pack_selling ?? false);
-            // Wholesale Pricing by Quantity toggle (default false) — must be
+            // Wholesale Pricing by Quantity toggle (default false) Ã¢â‚¬â€ must be
             // returned here or the System Settings form loads it undefined and
             // every save silently turns the feature off.
             $item['enable_wholesale_pricing'] = (bool) ($settings->enable_wholesale_pricing ?? false);
-            // Multi-Currency toggle (default false) — must be returned here or
+            // Multi-Currency toggle (default false) Ã¢â‚¬â€ must be returned here or
             // the System Settings form loads it undefined and every save
             // silently turns the feature off.
             $item['enable_multi_currency'] = (bool) ($settings->enable_multi_currency ?? false);
-            // Change Salesperson During Checkout toggle (default false) — must be
+            // Change Salesperson During Checkout toggle (default false) Ã¢â‚¬â€ must be
             // returned here or the System Settings form loads it undefined and
             // every save silently turns the feature off.
             $item['enable_pos_salesperson_switch'] = (bool) ($settings->enable_pos_salesperson_switch ?? false);
             // Session timeout: minutes before automatic logout (null = never)
             $item['session_timeout_minutes'] = $settings->session_timeout_minutes ?? null;
             $item['allow_overselling'] = (bool) ($settings->allow_overselling ?? false);
-            // Vehicle Fitment master switch (default false) — must be returned
+            // Vehicle Fitment master switch (default false) Ã¢â‚¬â€ must be returned
             // here or the System Settings form loads it as undefined and every
             // save silently turns the module off.
             $item['vehicle_fitment_enabled'] = (bool) ($settings->vehicle_fitment_enabled ?? false);
@@ -1755,7 +1765,7 @@ class SettingsController extends Controller
             // with its built-in defaults)
             $item['export_settings'] = $settings->export_settings ?? null;
 
-            // Pharmacy mode (batch & expiry tracking) — opt-in, only present once migration has run
+            // Pharmacy mode (batch & expiry tracking) Ã¢â‚¬â€ opt-in, only present once migration has run
             $item['pharmacy_mode_supported'] = \Schema::hasColumn('settings', 'pharmacy_mode');
             $item['pharmacy_mode'] = (bool) ($settings->pharmacy_mode ?? false);
             $item['expiry_warning_days'] = (int) ($settings->expiry_warning_days ?? 90);
@@ -1881,7 +1891,7 @@ class SettingsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'appearance_settings', Setting::class);
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         if ($settings) {
 
             $item['id'] = $settings->id;
@@ -1920,7 +1930,8 @@ class SettingsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'appearance_settings', Setting::class);
 
-        $setting = Setting::findOrFail($id);
+        $companyId = $this->resolveActingCompanyId($request);
+        $setting = Setting::forCompany($companyId);
         $currentLogo = $setting->logo;
         $currentFavicon = $setting->favicon;
 
@@ -1936,18 +1947,25 @@ class SettingsController extends Controller
         // Handle Logo Upload
         if ($request->hasFile('logo') && $request->file('logo') != $currentLogo) {
             $logo = $request->file('logo');
+            $brandingDir = \App\Support\CompanyFiles::dir($companyId, 'logos');
             $logoFilename = rand(11111111, 99999999).$logo->getClientOriginalName();
-            $logoPath = public_path('/images/'.$logoFilename);
+            $logoPath = public_path($brandingDir.'/'.$logoFilename);
 
             $imageResize = Image::make($logo->getRealPath())->resize(80, 80);
             $imageResize->save($logoPath);
 
+            // Old value may be either the new "relDir/filename" format or a
+            // bare filename from the old shared images/ folder.
             if ($currentLogo && $currentLogo != 'logo-default.png') {
-                $oldLogoPath = public_path('/images/'.$currentLogo);
+                $oldLogoPath = str_contains((string) $currentLogo, '/')
+                    ? public_path($currentLogo)
+                    : public_path('/images/'.$currentLogo);
                 if (file_exists($oldLogoPath)) {
                     @unlink($oldLogoPath);
                 }
             }
+
+            $logoFilename = $brandingDir.'/'.$logoFilename;
         }
 
         // Handle Favicon Upload
@@ -1956,16 +1974,23 @@ class SettingsController extends Controller
             $extension = strtolower($favicon->getClientOriginalExtension());
 
             if (in_array($extension, ['ico', 'png'])) {
+                $brandingDir = \App\Support\CompanyFiles::dir($companyId, 'logos');
                 $faviconFilename = uniqid().'.'.$extension;
-                $favicon->move(public_path('images'), $faviconFilename);
+                $favicon->move(public_path($brandingDir), $faviconFilename);
 
-                // Delete old favicon if it exists and is not default
+                // Delete old favicon if it exists and is not default. Old
+                // value may be either the new "relDir/filename" format or a
+                // bare filename from the old shared images/ folder.
                 if ($currentFavicon && $currentFavicon !== 'favicon.ico') {
-                    $oldFaviconPath = public_path('images/'.$currentFavicon);
+                    $oldFaviconPath = str_contains((string) $currentFavicon, '/')
+                        ? public_path($currentFavicon)
+                        : public_path('images/'.$currentFavicon);
                     if (file_exists($oldFaviconPath)) {
                         @unlink($oldFaviconPath);
                     }
                 }
+
+                $faviconFilename = $brandingDir.'/'.$faviconFilename;
             }
         }
 
@@ -2002,7 +2027,7 @@ class SettingsController extends Controller
      * Return everything the PWA settings tab in System Settings needs: the
      * installable-app identity (name, colors, launch behavior) and the current
      * icon URLs with a cache-busting query. Icon filenames are not stored in
-     * the DB — icons live at public/pwa_images/pwa-icon-{192,512}.png.
+     * the DB Ã¢â‚¬â€ icons live at public/pwa_images/pwa-icon-{192,512}.png.
      *
      * Identity fields are returned raw (empty when unset) alongside the values
      * that would be used instead, so the form can show them as placeholders
@@ -2012,7 +2037,7 @@ class SettingsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'appearance_settings', Setting::class);
 
-        $setting = Setting::where('deleted_at', '=', null)->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         $iconDir = public_path('pwa_images');
 
         $icon192Path = $iconDir.DIRECTORY_SEPARATOR.'pwa-icon-192.png';
@@ -2122,7 +2147,7 @@ class SettingsController extends Controller
      */
     protected function savePwaIdentity(Request $request): void
     {
-        $setting = Setting::where('deleted_at', '=', null)->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
             return;
         }
@@ -2139,7 +2164,7 @@ class SettingsController extends Controller
                 continue;
             }
             $value = trim((string) $request->input($column));
-            // Empty means "no override" — store NULL so the manifest falls back.
+            // Empty means "no override" Ã¢â‚¬â€ store NULL so the manifest falls back.
             $payload[$column] = $value === '' ? null : $value;
         }
 
@@ -2190,7 +2215,7 @@ class SettingsController extends Controller
     ];
 
     /**
-     * Every mobile-app knob shown in System Settings → Mobile App.
+     * Every mobile-app knob shown in System Settings Ã¢â€ â€™ Mobile App.
      * Missing columns (migration not run) read as null and behave exactly
      * like "not configured", so the app keeps its built-in defaults.
      */
@@ -2198,9 +2223,12 @@ class SettingsController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'appearance_settings', Setting::class);
 
-        $setting = Setting::where('deleted_at', '=', null)->first();
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         $logo = $setting->mobile_logo ?? null;
-        $logoPath = $logo ? public_path('images'.DIRECTORY_SEPARATOR.$logo) : null;
+        // $logo may be either the new "relDir/filename" format or a bare
+        // filename from the old shared images/ folder.
+        $logoRel = $logo ? (str_contains($logo, '/') ? $logo : 'images/'.$logo) : null;
+        $logoPath = $logoRel ? public_path($logoRel) : null;
 
         return response()->json([
             'settings' => [
@@ -2209,7 +2237,7 @@ class SettingsController extends Controller
                 'mobile_app_name' => $setting->mobile_app_name ?? '',
                 'mobile_logo' => $logo ?? '',
                 'mobile_logo_url' => ($logo && $logoPath && file_exists($logoPath))
-                    ? url('/images/'.$logo).'?v='.filemtime($logoPath)
+                    ? url('/'.$logoRel).'?v='.filemtime($logoPath)
                     : null,
                 'mobile_primary_color' => $setting->mobile_primary_color ?? '',
                 'mobile_theme_mode' => $setting->mobile_theme_mode ?? 'system',
@@ -2249,7 +2277,8 @@ class SettingsController extends Controller
             'mobile_support_email' => 'sometimes|nullable|email|max:120',
         ]);
 
-        $setting = Setting::where('deleted_at', '=', null)->firstOrFail();
+        $companyId = $this->resolveActingCompanyId($request);
+        $setting = Setting::forCompany($companyId);
 
         $boolean = function ($value, $default = true) {
             if ($value === null) {
@@ -2286,12 +2315,11 @@ class SettingsController extends Controller
             }
         }
 
-        // Uploads live in public/images like every other Stocky upload.
+        // Company-scoped: files/company_{id}/branding, not one shared
+        // images/ folder for the whole install.
         if ($request->hasFile('logo') && $request->file('logo')->isValid()) {
-            $dir = public_path('images');
-            if (! file_exists($dir)) {
-                @mkdir($dir, 0755, true);
-            }
+            $brandingDir = \App\Support\CompanyFiles::dir($companyId, 'logos');
+            $dir = public_path($brandingDir);
 
             $filename = 'mobile-app-logo-'.time().'.png';
             Image::make($request->file('logo')->getRealPath())
@@ -2302,22 +2330,25 @@ class SettingsController extends Controller
                 ->encode('png')
                 ->save($dir.DIRECTORY_SEPARATOR.$filename);
 
-            // Drop the previous file so uploads do not pile up.
+            // Drop the previous file so uploads do not pile up. Old value
+            // may be either the new "relDir/filename" format or a bare
+            // filename from the old shared images/ folder.
             $old = $setting->mobile_logo;
-            if ($old && $old !== $filename) {
-                $oldPath = $dir.DIRECTORY_SEPARATOR.$old;
+            $newRelPath = $brandingDir.'/'.$filename;
+            if ($old && $old !== $newRelPath) {
+                $oldPath = str_contains($old, '/') ? public_path($old) : public_path('images'.DIRECTORY_SEPARATOR.$old);
                 if (file_exists($oldPath)) {
                     @unlink($oldPath);
                 }
             }
 
-            $setting->mobile_logo = $filename;
+            $setting->mobile_logo = $newRelPath;
         }
 
         if ($request->boolean('remove_logo')) {
             $old = $setting->mobile_logo;
             if ($old) {
-                $oldPath = public_path('images'.DIRECTORY_SEPARATOR.$old);
+                $oldPath = str_contains($old, '/') ? public_path($old) : public_path('images'.DIRECTORY_SEPARATOR.$old);
                 if (file_exists($oldPath)) {
                     @unlink($oldPath);
                 }

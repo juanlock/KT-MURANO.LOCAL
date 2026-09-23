@@ -33,6 +33,19 @@
         </template>
         <span v-if="!effectiveCollapsed && auth.companyName" class="brand-name">{{ auth.companyName }}</span>
       </div>
+      <!-- Filter the menu by typing -- hidden in the collapsed icon rail
+           (no room for a text box there). Lives in the ui store so every
+           sidebar variant can read it. -->
+      <div v-if="!effectiveCollapsed" class="sidebar-search">
+        <a-input
+          v-model:value="ui.menuSearchQuery"
+          :placeholder="tf('Search_Menu', 'Search menu')"
+          allow-clear
+          size="small"
+        >
+          <template #prefix><SearchOutlined /></template>
+        </a-input>
+      </div>
       <!-- Navigation style: two-pane rail + submenu panel (large), flat
            sectioned list with no submenus (flat), or the Ant inline accordion
            (default and dark, which differ only in theme). -->
@@ -92,6 +105,7 @@ import SidebarMenu from '../components/SidebarMenu.vue';
 import SidebarLarge from '../components/SidebarLarge.vue';
 import SidebarFlat from '../components/SidebarFlat.vue';
 import AppTopbar from '../components/AppTopbar.vue';
+import { SearchOutlined } from '@ant-design/icons-vue';
 import Customizer from '../components/Customizer.vue';
 import { useUiStore } from '../stores/ui';
 import { useAuthStore } from '../stores/auth';
@@ -265,6 +279,15 @@ async function logout() {
 /* Same tint as .topbar--dark's border; covers app dark mode AND the "dark
    sidebar in a light app" layout, both of which set sider--dark. */
 .sider--dark .brand {
+  border-right-color: rgba(253, 253, 253, 0.12);
+  border-bottom-color: rgba(253, 253, 253, 0.12);
+}
+.sidebar-search {
+  padding: 10px 12px;
+  border-right: 1px solid #ececee;
+  border-bottom: 1px solid #ececee;
+}
+.sider--dark .sidebar-search {
   border-right-color: rgba(253, 253, 253, 0.12);
   border-bottom-color: rgba(253, 253, 253, 0.12);
 }

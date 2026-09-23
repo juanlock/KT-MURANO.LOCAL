@@ -2,7 +2,23 @@
   <div class="page">
     <PageHeader :title="$t('ListPurchases')" :breadcrumb="[$t('Purchases'), $t('ListPurchases')]">
       <template #actions>
-        <a-space wrap>
+        <a-space wrap :size="12">
+          <!-- Quick date-range presets — filters both the summary cards and
+               the table (server-side, via date_from/date_to). The keycard
+               shows exactly which days that active range covers. -->
+          <a-card size="small" class="range-card">
+            <div class="range-row">
+              <span class="range-label">{{ $t('start_date') }}</span>
+              <b class="range-value">{{ activeRange.from }}</b>
+            </div>
+            <div class="range-row">
+              <span class="range-label">{{ $t('to') }}</span>
+              <b class="range-value">{{ activeRange.to }}</b>
+            </div>
+          </a-card>
+          <a-radio-group v-model:value="datePreset" button-style="solid" @change="applyPreset(datePreset)">
+            <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
+          </a-radio-group>
           <a-button :loading="exporting === 'pdf'" @click="exportList('pdf')">
             <template #icon><FilePdfOutlined /></template>
             PDF
@@ -43,14 +59,14 @@
       <a-row :gutter="[16, 8]">
         <a-col :xs="12" :md="8" :xl="5">
           <div class="filter-label">{{ $t('date') }}</div>
-          <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="crud.reload()" />
+          <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="onExactDateChange" />
         </a-col>
         <a-col :xs="12" :md="8" :xl="5">
           <div class="filter-label">{{ $t('Supplier') }}</div>
           <a-select
             v-model:value="filters.provider_id" style="width: 100%" allow-clear show-search
             option-filter-prop="label" :placeholder="$t('Supplier')" :options="supplierOptions"
-            @change="crud.reload()"
+            @change="onOtherFilterChange"
           />
         </a-col>
         <a-col :xs="12" :md="8" :xl="5">
@@ -58,27 +74,30 @@
           <a-select
             v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
             option-filter-prop="label" :placeholder="$t('Choose_Warehouse')" :options="warehouseOptions"
-            @change="crud.reload()"
+            @change="onOtherFilterChange"
           />
         </a-col>
         <a-col :xs="12" :md="8" :xl="4">
           <div class="filter-label">{{ $t('Status') }}</div>
           <a-select
             v-model:value="filters.statut" style="width: 100%" allow-clear
-            :placeholder="$t('Choose_Status')" :options="statusOptions" @change="crud.reload()"
+            :placeholder="$t('Choose_Status')" :options="statusOptions" @change="onOtherFilterChange"
           />
         </a-col>
         <a-col :xs="12" :md="8" :xl="5">
           <div class="filter-label">{{ $t('PaymentStatus') }}</div>
           <a-select
             v-model:value="filters.payment_statut" style="width: 100%" allow-clear
-            :placeholder="$t('PaymentStatus')" :options="paymentStatusOptions" @change="crud.reload()"
+            :placeholder="$t('PaymentStatus')" :options="paymentStatusOptions" @change="onOtherFilterChange"
           />
         </a-col>
       </a-row>
     </a-card>
 
     <DataTable :crud="crud" :columns="columns" :selectable="auth.can('Purchases_delete')">
+      <template #toolbar>
+        <StatusHelpModal doc-type="purchase" />
+      </template>
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'date'">{{ dateTime(record.date) }}</template>
         <template v-else-if="column.key === 'Ref'">
@@ -115,7 +134,10 @@
                 <a-menu-item key="detail">
                   <EyeOutlined /> {{ $t('PurchaseDetail') }}
                 </a-menu-item>
-                <a-menu-item v-if="auth.can('Purchases_edit') && record.purchase_has_return === 'no'" key="edit">
+                <a-menu-item
+                  v-if="auth.can('Purchases_edit') && record.purchase_has_return === 'no' && record.statut !== 'cancelled'"
+                  key="edit"
+                >
                   <EditOutlined /> {{ $t('EditPurchase') }}
                 </a-menu-item>
                 <a-menu-item
@@ -126,6 +148,12 @@
                 </a-menu-item>
                 <a-menu-item v-if="auth.can('Purchase_Returns_add') && record.purchase_has_return === 'yes'" key="return-edit">
                   <RollbackOutlined /> {{ $t('Purchase_Return') }}
+                </a-menu-item>
+                <!-- Non-destructive alternative to Delete for a stuck Pending
+                     invoice: disables it (statut -> cancelled) instead of
+                     removing the record. -->
+                <a-menu-item v-if="auth.can('Purchases_edit') && record.statut === 'pending'" key="cancel" danger>
+                  <StopOutlined /> {{ $t('Cancel') }}
                 </a-menu-item>
                 <a-menu-item v-if="auth.can('payment_purchases_view')" key="payments">
                   <WalletOutlined /> {{ $t('ShowPayment') }}
@@ -337,11 +365,12 @@ import {
   FilePdfOutlined, FileExcelOutlined, MailOutlined, MessageOutlined,
   WalletOutlined, RollbackOutlined, PaperClipOutlined, UploadOutlined,
   DownloadOutlined, WhatsAppOutlined, BarcodeOutlined, ExclamationCircleOutlined,
-  ShoppingOutlined, DollarOutlined, CheckCircleOutlined,
+  ShoppingOutlined, DollarOutlined, CheckCircleOutlined, StopOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
+import StatusHelpModal from '../../components/StatusHelpModal.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
@@ -350,7 +379,7 @@ import { exportExcel, exportPdf } from '../../lib/exporters';
 import { PAYMENT_STATUSES, statusKey } from '../sales/saleVocab';
 import { PURCHASE_STATUSES } from './purchaseVocab';
 import http from '../../lib/http';
-import { withAllOption } from '../../lib/filterOptions';
+import { withAllOption, sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const { money, dateTime, roundMoney } = useFormat();
@@ -360,11 +389,14 @@ const router = useRouter();
 const filters = ref({
   date: null, provider_id: undefined, warehouse_id: undefined,
   statut: undefined, payment_statut: undefined,
+  date_from: '', date_to: '',
 });
 
 const filterParams = () => ({
   Ref: '',
   date: filters.value.date || '',
+  date_from: filters.value.date_from || '',
+  date_to: filters.value.date_to || '',
   provider_id: filters.value.provider_id || '',
   warehouse_id: filters.value.warehouse_id || '',
   statut: filters.value.statut || '',
@@ -375,8 +407,95 @@ const crud = useCrudTable('purchases', {
   rowsKey: 'purchases',
   bulkDeleteEndpoint: 'purchases_delete_by_selection',
   params: filterParams,
+  sortField: 'date',
+  sortType: 'desc',
 });
-crud.fetchRows();
+
+// ---------------- quick date-range presets ----------------
+// Filters both the summary cards (server-side stats) and the table, via
+// date_from/date_to -- independent of the exact-day picker below (only one
+// of the two is ever active: picking a preset clears the exact date, and
+// picking an exact date clears the active preset).
+const DATE_PRESETS = [
+  { value: 'all', labelKey: 'All' },
+  { value: 'year', labelKey: 'This_Year' },
+  { value: 'month', labelKey: 'This_Month' },
+  { value: 'last_month', labelKey: 'Last_Month' },
+  { value: 'last_year', labelKey: 'Last_Year' },
+];
+const datePreset = ref('month');
+
+function presetRange(preset) {
+  const now = dayjs();
+  switch (preset) {
+    case 'year':
+      return [now.startOf('year'), now.endOf('year')];
+    case 'month':
+      return [now.startOf('month'), now.endOf('month')];
+    case 'last_month': {
+      const m = now.subtract(1, 'month');
+      return [m.startOf('month'), m.endOf('month')];
+    }
+    case 'last_year': {
+      const y = now.subtract(1, 'year');
+      return [y.startOf('year'), y.endOf('year')];
+    }
+    default:
+      return [null, null];
+  }
+}
+
+function applyPreset(preset) {
+  filters.value.date = null;
+  const [from, to] = presetRange(preset);
+  filters.value.date_from = from ? from.format('YYYY-MM-DD') : '';
+  filters.value.date_to = to ? to.format('YYYY-MM-DD') : '';
+  // A preset button means "show me everything for this period" -- clear
+  // whatever supplier/warehouse/status filters happen to be set so they
+  // don't silently keep narrowing the result underneath it.
+  filters.value.provider_id = undefined;
+  filters.value.warehouse_id = undefined;
+  filters.value.statut = undefined;
+  filters.value.payment_statut = undefined;
+  crud.reload();
+}
+
+// Picking an exact day is a separate, more specific filter than the presets
+// above -- clear the active preset (visually and in the query) so the two
+// don't silently fight each other.
+function onExactDateChange() {
+  datePreset.value = null;
+  filters.value.date_from = '';
+  filters.value.date_to = '';
+  crud.reload();
+}
+
+// Supplier/Warehouse/Status/PaymentStatus filters were silently staying
+// AND-ed with whatever date range was active (default: This Month), so e.g.
+// picking a status with no matches THIS month looked like a broken filter
+// even though the records existed outside that range. These filters now
+// switch the date range to "All" instead, so each one always shows every
+// matching record on its own.
+function onOtherFilterChange() {
+  datePreset.value = 'all';
+  filters.value.date = null;
+  filters.value.date_from = '';
+  filters.value.date_to = '';
+  crud.reload();
+}
+
+// Default: This Month, applied before the first fetch.
+applyPreset(datePreset.value);
+
+// What the keycard shows: the exact day (picker) takes priority, then the
+// active preset's range, then '—' when neither is set (the "All" preset).
+const activeRange = computed(() => {
+  if (filters.value.date) return { from: filters.value.date, to: filters.value.date };
+  return {
+    from: filters.value.date_from || '—',
+    to: filters.value.date_to || '—',
+  };
+});
 
 // Summary cards — `stats` ships with the list payload (sums over ALL pages of
 // the current filtered set, not just the visible page).
@@ -396,21 +515,21 @@ const statTiles = computed(() => {
 });
 
 const supplierOptions = computed(() =>
-  withAllOption((crud.payload.value?.suppliers || []).map(s => ({ value: s.id, label: s.name })))
+  withAllOption(sortByLabel((crud.payload.value?.suppliers || []).map(s => ({ value: s.id, label: s.name }))))
 );
 const warehouseOptions = computed(() =>
-  withAllOption((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name })))
+  withAllOption(sortByLabel((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))))
 );
 // paymentMethodOptions/accountOptions are used in a payment modal, not a
 // table filter -- no "All" option.
 const paymentMethodOptions = computed(() =>
-  (crud.payload.value?.payment_methods || []).map(m => ({ value: m.id, label: m.name }))
+  sortByLabel((crud.payload.value?.payment_methods || []).map(m => ({ value: m.id, label: m.name })))
 );
 const accountOptions = computed(() =>
-  (crud.payload.value?.accounts || []).map(a => ({ value: a.id, label: a.account_name }))
+  sortByLabel((crud.payload.value?.accounts || []).map(a => ({ value: a.id, label: a.account_name })))
 );
-const statusOptions = computed(() => withAllOption(PURCHASE_STATUSES.map(s => ({ value: s.value, label: t(s.key) }))));
-const paymentStatusOptions = computed(() => withAllOption(PAYMENT_STATUSES.map(s => ({ value: s.value, label: t(s.key) }))));
+const statusOptions = computed(() => withAllOption(sortByLabel(PURCHASE_STATUSES.map(s => ({ value: s.value, label: t(s.key) })))));
+const paymentStatusOptions = computed(() => withAllOption(sortByLabel(PAYMENT_STATUSES.map(s => ({ value: s.value, label: t(s.key) })))));
 
 const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 70, align: 'center', fixed: 'left' },
@@ -475,8 +594,31 @@ function onAction(key, record) {
     sms: () => notify('purchase_send_sms', record.id, 'sms_send_successfully', 'sms_config_invalid'),
     documents: () => openDocuments(record),
     delete: () => crud.remove(record, { label: record.Ref }),
+    cancel: () => cancelPurchase(record),
   };
   go[key]?.();
+}
+
+// ---------------- cancel (pending-only, non-destructive) ----------------
+
+function cancelPurchase(record) {
+  Modal.confirm({
+    title: t('Cancel'),
+    icon: createVNode(ExclamationCircleOutlined),
+    content: `${t('Confirm_Cancel_Purchase')} — ${record.Ref}`,
+    okText: t('Cancel'),
+    okType: 'danger',
+    cancelText: t('Delete_cancelButtonText'),
+    async onOk() {
+      try {
+        await http.post(`purchases/${record.id}/cancel`);
+        message.success(t('Successfully_Updated'));
+        crud.fetchRows();
+      } catch (e) {
+        message.error(e?.data?.message || t('InvalidData'));
+      }
+    },
+  });
 }
 
 // ---------------- notifications ----------------
@@ -734,6 +876,29 @@ function removeDocument(doc) {
 </script>
 
 <style scoped>
+.range-card {
+  border-radius: 10px;
+}
+.range-card :deep(.ant-card-body) {
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+}
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.range-label {
+  opacity: 0.6;
+}
+.range-value {
+  font-size: 13px;
+}
 .filter-label {
   margin-bottom: 4px;
   color: rgba(0, 0, 0, 0.55);

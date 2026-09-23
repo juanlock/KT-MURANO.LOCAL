@@ -7,5 +7,12 @@
 			"path": "../KT-BILLING.LOCAL"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"favorites.resources": [
+			{
+				"filePath": "d:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\storage\\logs\\laravel.log",
+				"group": "Default"
+			}
+		]
+	}
 }

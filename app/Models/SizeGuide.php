@@ -13,7 +13,7 @@ class SizeGuide extends Model
     protected $table = 'size_guides';
 
     protected $fillable = [
-        'name', 'image', 'columns', 'rows', 'status',
+        'company_id', 'name', 'image', 'columns', 'rows', 'status',
     ];
 
     protected $casts = [

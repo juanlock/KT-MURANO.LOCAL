@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Employee;
 use App\Models\Vehicle;
 use App\Models\VehicleAssignment;
 use App\Models\VehicleFuelLog;
 use App\Models\VehicleMaintenance;
 use App\Models\Warehouse;
+use App\Support\CompanyFiles;
 use App\Traits\ScopesWarehouseAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -28,9 +30,7 @@ use Illuminate\Support\Str;
 class FleetVehicleController extends Controller
 {
     use ScopesWarehouseAccess;
-
-    /** Photo directory, relative to public/. */
-    private const IMAGE_DIR = 'images/vehicles';
+    use ScopesToCompany;
 
     /** How far ahead a renewal or service counts as "due soon". */
     private const DUE_SOON_DAYS = 30;
@@ -49,7 +49,8 @@ class FleetVehicleController extends Controller
         $order = in_array($request->SortField, self::SORTABLE, true) ? $request->SortField : 'created_at';
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
-        $query = Vehicle::with('warehouse', 'driver')->whereNull('deleted_at');
+        $query = Vehicle::with('warehouse', 'driver')->whereNull('deleted_at')
+            ->where('company_id', $this->resolveActingCompanyId($request));
 
         // Vehicles are stationed at a warehouse; one with no warehouse belongs
         // to the whole company and stays visible to everyone.
@@ -106,8 +107,10 @@ class FleetVehicleController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Vehicle::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         return response()->json([
-            'vehicles' => Vehicle::whereNull('deleted_at')->orderBy('name')
+            'vehicles' => Vehicle::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('name')
                 ->get(['id', 'name', 'plate_number', 'odometer', 'status'])
                 ->map(fn ($v) => [
                     'id' => $v->id,
@@ -117,7 +120,7 @@ class FleetVehicleController extends Controller
                     'odometer' => (float) $v->odometer,
                     'status' => $v->status,
                 ])->values(),
-            'warehouses' => Warehouse::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
+            'warehouses' => Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('name')->get(['id', 'name']),
             'employees' => Employee::orderBy('firstname')->get(['id', 'firstname', 'lastname'])
                 ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->firstname . ' ' . $e->lastname)])
                 ->values(),
@@ -128,10 +131,12 @@ class FleetVehicleController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Vehicle::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $request->validate($this->rules(), [], $this->attributes());
 
         $data = $this->payload($request);
-        $data['image'] = $this->storeImage($request);
+        $data['company_id'] = $companyId;
+        $data['image'] = $this->storeImage($request, $companyId);
 
         Vehicle::create($data);
 
@@ -143,6 +148,7 @@ class FleetVehicleController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Vehicle::class);
 
         $vehicle = Vehicle::with('warehouse', 'driver')->whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $vehicle->company_id === $this->resolveActingCompanyId($request), 404);
 
         $data = $this->present($vehicle);
         $data['vin'] = $vehicle->vin;
@@ -160,9 +166,10 @@ class FleetVehicleController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Vehicle::class);
 
         $vehicle = Vehicle::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $vehicle->company_id === $this->resolveActingCompanyId($request), 404);
 
         return response()->json(['vehicle' => array_merge($vehicle->toArray(), [
-            'image_url' => $vehicle->image ? asset(self::IMAGE_DIR . '/' . $vehicle->image) : null,
+            'image_url' => $vehicle->image ? asset($vehicle->image) : null,
             'purchase_date' => optional($vehicle->purchase_date)->toDateString(),
             'insurance_expiry' => optional($vehicle->insurance_expiry)->toDateString(),
             'registration_expiry' => optional($vehicle->registration_expiry)->toDateString(),
@@ -174,12 +181,15 @@ class FleetVehicleController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'update', Vehicle::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $vehicle = Vehicle::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $vehicle->company_id === $companyId, 404);
+
         $request->validate($this->rules(), [], $this->attributes());
 
         $data = $this->payload($request);
         // Only replace the photo when a new one was actually sent.
-        $image = $this->storeImage($request);
+        $image = $this->storeImage($request, $companyId);
         if ($image) {
             $this->deleteImage($vehicle->image);
             $data['image'] = $image;
@@ -197,7 +207,9 @@ class FleetVehicleController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', Vehicle::class);
 
-        Vehicle::whereNull('deleted_at')->findOrFail($id)->delete();
+        $vehicle = Vehicle::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $vehicle->company_id === $this->resolveActingCompanyId($request), 404);
+        $vehicle->delete();
 
         return response()->json(['success' => true]);
     }
@@ -207,7 +219,7 @@ class FleetVehicleController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', Vehicle::class);
 
         $ids = (array) $request->selectedIds;
-        Vehicle::whereIn('id', $ids)->delete();
+        Vehicle::whereIn('id', $ids)->where('company_id', $this->resolveActingCompanyId($request))->delete();
 
         return response()->json(['success' => true, 'count' => count($ids)]);
     }
@@ -224,6 +236,7 @@ class FleetVehicleController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Vehicle::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $today = Carbon::today();
         $soon = $today->copy()->addDays(self::DUE_SOON_DAYS);
         $monthStart = $today->copy()->startOfMonth();
@@ -231,7 +244,7 @@ class FleetVehicleController extends Controller
         // Every tile below is counted over the vehicles this user may see, so
         // the totals and the cost figures describe the same fleet.
         $visibleVehicleIds = $this->scopeToWarehouses(
-            Vehicle::whereNull('deleted_at'), 'warehouse_id', true
+            Vehicle::whereNull('deleted_at')->where('company_id', $companyId), 'warehouse_id', true
         )->pluck('id')->all();
 
         $byStatus = Vehicle::whereNull('deleted_at')->whereIn('id', $visibleVehicleIds)
@@ -260,8 +273,8 @@ class FleetVehicleController extends Controller
                 ->whereDate('service_date', '>=', $monthStart->toDateString())->sum('cost'),
             'fuel_cost_total' => (float) VehicleFuelLog::whereNull('deleted_at')->whereIn('vehicle_id', $visibleVehicleIds)->sum('total_cost'),
             'maintenance_cost_total' => (float) VehicleMaintenance::whereNull('deleted_at')->whereIn('vehicle_id', $visibleVehicleIds)->sum('cost'),
-            'alerts' => $this->alerts($today, $soon),
-            'cost_trend' => $this->costTrend(),
+            'alerts' => $this->alerts($today, $soon, $visibleVehicleIds),
+            'cost_trend' => $this->costTrend($visibleVehicleIds),
             'recent_maintenance' => VehicleMaintenance::with('vehicle')->whereNull('deleted_at')
                 ->whereIn('vehicle_id', $visibleVehicleIds)
                 ->orderBy('service_date', 'desc')->limit(5)->get()
@@ -281,7 +294,7 @@ class FleetVehicleController extends Controller
      * Renewals and services that are due or overdue, newest deadline first.
      * `days` is negative when the date has already passed.
      */
-    private function alerts(Carbon $today, Carbon $soon)
+    private function alerts(Carbon $today, Carbon $soon, array $visibleVehicleIds)
     {
         $alerts = [];
 
@@ -293,6 +306,7 @@ class FleetVehicleController extends Controller
 
         foreach ($fields as $field => $label) {
             Vehicle::whereNull('deleted_at')
+                ->whereIn('id', $visibleVehicleIds)
                 ->whereNotNull($field)
                 ->whereDate($field, '<=', $soon->toDateString())
                 ->orderBy($field)
@@ -312,6 +326,7 @@ class FleetVehicleController extends Controller
 
         // Scheduled services that are due by date.
         VehicleMaintenance::with('vehicle')->whereNull('deleted_at')
+            ->whereIn('vehicle_id', $visibleVehicleIds)
             ->whereNotNull('next_service_date')
             ->where('status', '!=', 'scheduled')
             ->whereDate('next_service_date', '<=', $soon->toDateString())
@@ -338,7 +353,7 @@ class FleetVehicleController extends Controller
     }
 
     /** Fuel vs maintenance spend for the last 6 months, oldest first. */
-    private function costTrend()
+    private function costTrend(array $visibleVehicleIds)
     {
         $months = [];
         for ($i = 5; $i >= 0; $i--) {
@@ -348,10 +363,12 @@ class FleetVehicleController extends Controller
             $months[] = [
                 'month' => $month->format('M Y'),
                 'fuel' => (float) VehicleFuelLog::whereNull('deleted_at')
+                    ->whereIn('vehicle_id', $visibleVehicleIds)
                     ->whereDate('log_date', '>=', $month->toDateString())
                     ->whereDate('log_date', '<', $next->toDateString())
                     ->sum('total_cost'),
                 'maintenance' => (float) VehicleMaintenance::whereNull('deleted_at')
+                    ->whereIn('vehicle_id', $visibleVehicleIds)
                     ->whereDate('service_date', '>=', $month->toDateString())
                     ->whereDate('service_date', '<', $next->toDateString())
                     ->sum('cost'),
@@ -420,7 +437,7 @@ class FleetVehicleController extends Controller
             'days_to_registration' => $daysTo($vehicle->registration_expiry),
             'days_to_inspection' => $daysTo($vehicle->inspection_expiry),
             'image' => $vehicle->image,
-            'image_url' => $vehicle->image ? asset(self::IMAGE_DIR . '/' . $vehicle->image) : null,
+            'image_url' => $vehicle->image ? asset($vehicle->image) : null,
             'created_at' => optional($vehicle->created_at)->toIso8601String(),
         ];
     }
@@ -484,32 +501,31 @@ class FleetVehicleController extends Controller
         ];
     }
 
-    /** Returns the stored file name, or null when no photo was sent. */
-    private function storeImage(Request $request)
+    /** Returns the stored image's public-relative path, or null when no photo was sent. */
+    private function storeImage(Request $request, int $companyId)
     {
         if (! $request->hasFile('image')) {
             return null;
         }
 
         $file = $request->file('image');
-        $path = public_path(self::IMAGE_DIR);
-        if (! file_exists($path)) {
-            mkdir($path, 0755, true);
-        }
+        $rel = CompanyFiles::dir($companyId, 'vehicles');
+        $path = public_path($rel);
 
         $extension = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
         $filename = time() . '_' . Str::random(10) . '.' . $extension;
         $file->move($path, $filename);
 
-        return $filename;
+        return $rel . '/' . $filename;
     }
 
-    private function deleteImage($filename)
+    /** $relPath is the public-relative path stored in the `image` column. */
+    private function deleteImage(?string $relPath)
     {
-        if (! $filename) {
+        if (! $relPath) {
             return;
         }
-        $path = public_path(self::IMAGE_DIR . '/' . $filename);
+        $path = public_path($relPath);
         if (file_exists($path)) {
             @unlink($path);
         }

@@ -112,21 +112,26 @@ class ProductGalleryService
             return;
         }
 
-        $dir = public_path('/images/products');
+        // The duplicate stays within the same company as the source.
+        $dir = \App\Support\CompanyFiles::dir((int) $copy->company_id, 'products');
         foreach ($source->images as $img) {
             $oldName = $img->image_path;
-            if ($oldName === '' || $oldName === 'no-image.png') {
+            if ($oldName === '' || $oldName === 'no-image.png' || product_image_is_remote($oldName)) {
                 continue;
             }
-            $src = $dir.'/'.$oldName;
+            // The stored path may be either the new "relDir/filename"
+            // format or a bare filename from the old shared
+            // images/products/ folder.
+            $src = str_contains($oldName, '/') ? public_path($oldName) : public_path('/images/products/'.$oldName);
             $newName = $oldName;
             if (file_exists($src)) {
                 $ext = strtolower(pathinfo($oldName, PATHINFO_EXTENSION));
                 if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
                     $ext = 'jpg';
                 }
-                $newName = rand(11111111, 99999999).'.'.$ext;
-                @copy($src, $dir.'/'.$newName);
+                $newFilename = rand(11111111, 99999999).'.'.$ext;
+                @copy($src, public_path($dir.'/'.$newFilename));
+                $newName = $dir.'/'.$newFilename;
             }
             ProductImage::create([
                 'product_id' => $copy->id,
@@ -201,7 +206,8 @@ class ProductGalleryService
             );
         }
 
-        $path = public_path('/images/products');
+        $relDir = \App\Support\CompanyFiles::dir((int) $product->company_id, 'products');
+        $path = public_path($relDir);
         $sort = $startSort;
         $fi = 0;
         $ui = 0;
@@ -246,7 +252,7 @@ class ProductGalleryService
 
             ProductImage::create([
                 'product_id' => $product->id,
-                'image_path' => $filename,
+                'image_path' => $relDir.'/'.$filename,
                 'is_main' => false,
                 'sort_order' => $sort++,
             ]);
@@ -423,7 +429,11 @@ class ProductGalleryService
             return; // pasted link — nothing on disk
         }
 
-        $full = public_path('/images/products/'.$filename);
+        // The stored path may be either the new "relDir/filename" format or
+        // a bare filename from the old shared images/products/ folder.
+        $full = str_contains($filename, '/')
+            ? public_path($filename)
+            : public_path('/images/products/'.$filename);
         if (file_exists($full)) {
             @unlink($full);
         }

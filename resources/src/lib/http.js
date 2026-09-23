@@ -29,11 +29,18 @@ async function request(method, url, { params, body, formData, raw } = {}) {
     // everyone else): attaches to every request WITHOUT overriding a
     // caller's own explicit company_id (e.g. a "which company should this
     // new user belong to" form field takes precedence over the switcher).
+    //
+    // Always goes on the query string (Laravel's $request->input() merges
+    // query + body, so the backend picks it up regardless of method) --
+    // NOT just for GET/DELETE. A bodyless action call like
+    // `http.post('languages_setting/1/set-default')` has no object body to
+    // merge into, so query-string-only used to silently drop company_id on
+    // exactly these calls, making the write fall back to the acting user's
+    // own company instead of the one selected in the header.
     const actingCompanyId = getActingCompanyId();
     if (actingCompanyId) {
-        if (method === 'GET' || method === 'DELETE') {
-            params = { company_id: actingCompanyId, ...(params || {}) };
-        } else if (formData instanceof FormData) {
+        params = { company_id: actingCompanyId, ...(params || {}) };
+        if (formData instanceof FormData) {
             if (!formData.has('company_id')) formData.append('company_id', actingCompanyId);
         } else if (body !== undefined && body !== null && typeof body === 'object' && !Array.isArray(body)) {
             body = { company_id: actingCompanyId, ...body };

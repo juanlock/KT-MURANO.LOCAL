@@ -139,7 +139,10 @@ class WooCommercePushProducts extends Command
         // Optional image sync
         $imageName = (string) ($product->image ?? '');
         if ($imageName !== '') {
-            $publicPath = public_path('images/products/'.$imageName);
+            // Stored path may be the new "relDir/filename" format or a bare filename.
+            $publicPath = str_contains($imageName, '/')
+                ? public_path($imageName)
+                : public_path('images/products/'.$imageName);
             if (is_file($publicPath)) {
                 $payload['images'] = [
                     ['src' => product_image_url($imageName)],

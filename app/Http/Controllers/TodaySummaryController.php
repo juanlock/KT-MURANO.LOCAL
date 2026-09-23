@@ -23,7 +23,28 @@ class TodaySummaryController extends Controller
      */
     public function index(Request $request)
     {
-        $today = Carbon::today()->toDateString();
+        // Today / Month (default) / Year -- the topbar drawer's period toggle.
+        // Every section below queries this range instead of a single day.
+        $period = in_array($request->input('period'), ['today', 'month', 'year'], true)
+            ? $request->input('period') : 'month';
+        $now = Carbon::now();
+        switch ($period) {
+            case 'today':
+                $from = Carbon::today();
+                $to = Carbon::today();
+                break;
+            case 'year':
+                $from = $now->copy()->startOfYear();
+                $to = $now->copy()->endOfYear();
+                break;
+            case 'month':
+            default:
+                $from = $now->copy()->startOfMonth();
+                $to = $now->copy()->endOfMonth();
+                break;
+        }
+        $fromDate = $from->toDateString();
+        $toDate = $to->toDateString();
         $user = Auth::user();
 
         $warehouseIds = null; // null = unrestricted
@@ -51,17 +72,17 @@ class TodaySummaryController extends Controller
         };
 
         /* ------------------------------------------------------------ sales */
-        $s = $own($wh(DB::table('sales')->whereNull('deleted_at')->whereDate('date', $today)))
+        $s = $own($wh(DB::table('sales')->whereNull('deleted_at')->whereDate('date', '>=', $fromDate)->whereDate('date', '<=', $toDate)))
             ->selectRaw('COUNT(*) c, COALESCE(SUM(GrandTotal),0) net, COALESCE(SUM(TaxNet),0) tax,
                          COALESCE(SUM(discount),0) disc, COALESCE(SUM(shipping),0) ship')
             ->first();
         $itemsSold = (float) $own($wh(
             DB::table('sale_details')
                 ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
-                ->whereNull('sales.deleted_at')->whereDate('sales.date', $today),
+                ->whereNull('sales.deleted_at')->whereDate('sales.date', '>=', $fromDate)->whereDate('sales.date', '<=', $toDate),
             'sales.warehouse_id'
         ), 'sales.user_id')->sum('sale_details.quantity');
-        $saleReturns = (float) $own($wh(DB::table('sale_returns')->whereNull('deleted_at')->whereDate('date', $today)))
+        $saleReturns = (float) $own($wh(DB::table('sale_returns')->whereNull('deleted_at')->whereDate('date', '>=', $fromDate)->whereDate('date', '<=', $toDate)))
             ->sum('GrandTotal');
 
         $taxableSales = max(0, $s->net - $s->tax - $s->ship);
@@ -78,17 +99,17 @@ class TodaySummaryController extends Controller
         ];
 
         /* -------------------------------------------------------- purchases */
-        $p = $own($wh(DB::table('purchases')->whereNull('deleted_at')->whereDate('date', $today)))
+        $p = $own($wh(DB::table('purchases')->whereNull('deleted_at')->whereDate('date', '>=', $fromDate)->whereDate('date', '<=', $toDate)))
             ->selectRaw('COUNT(*) c, COALESCE(SUM(GrandTotal),0) net, COALESCE(SUM(TaxNet),0) tax,
                          COALESCE(SUM(discount),0) disc, COALESCE(SUM(shipping),0) ship')
             ->first();
         $itemsPurchased = (float) $own($wh(
             DB::table('purchase_details')
                 ->join('purchases', 'purchases.id', '=', 'purchase_details.purchase_id')
-                ->whereNull('purchases.deleted_at')->whereDate('purchases.date', $today),
+                ->whereNull('purchases.deleted_at')->whereDate('purchases.date', '>=', $fromDate)->whereDate('purchases.date', '<=', $toDate),
             'purchases.warehouse_id'
         ), 'purchases.user_id')->sum('purchase_details.quantity');
-        $purchaseReturns = (float) $own($wh(DB::table('purchase_returns')->whereNull('deleted_at')->whereDate('date', $today)))
+        $purchaseReturns = (float) $own($wh(DB::table('purchase_returns')->whereNull('deleted_at')->whereDate('date', '>=', $fromDate)->whereDate('date', '<=', $toDate)))
             ->sum('GrandTotal');
 
         $taxablePurch = max(0, $p->net - $p->tax - $p->ship);
@@ -152,7 +173,7 @@ class TodaySummaryController extends Controller
                 ->join('sales', 'sales.id', '=', 'payment_sales.sale_id')
                 ->whereNull('payment_sales.deleted_at')
                 ->whereNull('sales.deleted_at')
-                ->whereDate('payment_sales.date', $today),
+                ->whereDate('payment_sales.date', '>=', $fromDate)->whereDate('payment_sales.date', '<=', $toDate),
             'sales.warehouse_id'
         ), 'payment_sales.user_id')
             ->groupBy('payment_methods.name')
@@ -164,7 +185,7 @@ class TodaySummaryController extends Controller
                 ->join('purchases', 'purchases.id', '=', 'payment_purchases.purchase_id')
                 ->whereNull('payment_purchases.deleted_at')
                 ->whereNull('purchases.deleted_at')
-                ->whereDate('payment_purchases.date', $today),
+                ->whereDate('payment_purchases.date', '>=', $fromDate)->whereDate('payment_purchases.date', '<=', $toDate),
             'purchases.warehouse_id'
         ), 'payment_purchases.user_id')
             ->groupBy('payment_methods.name')
@@ -179,7 +200,7 @@ class TodaySummaryController extends Controller
             DB::table('client_opening_balance_payments')
                 ->join('payment_methods', 'payment_methods.id', '=', 'client_opening_balance_payments.payment_method_id')
                 ->whereNull('client_opening_balance_payments.deleted_at')
-                ->whereDate('client_opening_balance_payments.date', $today),
+                ->whereDate('client_opening_balance_payments.date', '>=', $fromDate)->whereDate('client_opening_balance_payments.date', '<=', $toDate),
             'client_opening_balance_payments.user_id'
         )
             ->groupBy('payment_methods.name')
@@ -193,7 +214,7 @@ class TodaySummaryController extends Controller
             DB::table('provider_opening_balance_payments')
                 ->join('payment_methods', 'payment_methods.id', '=', 'provider_opening_balance_payments.payment_method_id')
                 ->whereNull('provider_opening_balance_payments.deleted_at')
-                ->whereDate('provider_opening_balance_payments.date', $today),
+                ->whereDate('provider_opening_balance_payments.date', '>=', $fromDate)->whereDate('provider_opening_balance_payments.date', '<=', $toDate),
             'provider_opening_balance_payments.user_id'
         )
             ->groupBy('payment_methods.name')
@@ -218,14 +239,14 @@ class TodaySummaryController extends Controller
                 ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
                 ->leftJoin('product_variants', 'product_variants.id', '=', 'sale_details.product_variant_id')
                 ->leftJoin('products', 'products.id', '=', 'sale_details.product_id')
-                ->whereNull('sales.deleted_at')->whereDate('sales.date', $today),
+                ->whereNull('sales.deleted_at')->whereDate('sales.date', '>=', $fromDate)->whereDate('sales.date', '<=', $toDate),
             'sales.warehouse_id'
         ), 'sales.user_id')
             ->selectRaw('COALESCE(SUM(sale_details.quantity * COALESCE(product_variants.cost, products.cost, 0)),0) v')
             ->value('v');
 
         $expenses = (float) $own($wh(
-            DB::table('expenses')->whereNull('deleted_at')->whereDate('date', $today)
+            DB::table('expenses')->whereNull('deleted_at')->whereDate('date', '>=', $fromDate)->whereDate('date', '<=', $toDate)
         ))->sum('amount');
 
         $grossProfit = $taxableSales - $cogs;
@@ -244,7 +265,7 @@ class TodaySummaryController extends Controller
         /* ------------------------------------------------------------ tiles */
         // Clients carry neither a warehouse nor an owner column, so this tile
         // stays global for every user.
-        $newCustomers = (int) DB::table('clients')->whereNull('deleted_at')->whereDate('created_at', $today)->count();
+        $newCustomers = (int) DB::table('clients')->whereNull('deleted_at')->whereDate('created_at', '>=', $fromDate)->whereDate('created_at', '<=', $toDate)->count();
 
         $lowStock = (int) $wh(
             DB::table('product_warehouse')
@@ -262,7 +283,7 @@ class TodaySummaryController extends Controller
             $onShift = (int) $own(
                 DB::table('attendances')
                     ->whereNull('deleted_at')
-                    ->whereDate('date', $today)
+                    ->whereDate('date', '>=', $fromDate)->whereDate('date', '<=', $toDate)
                     ->where(function ($q) {
                         $q->whereNull('clock_out')->orWhere('clock_out', '');
                     })
@@ -270,7 +291,12 @@ class TodaySummaryController extends Controller
         }
 
         return response()->json([
-            'date' => $today,
+            'period' => $period,
+            'date_from' => $fromDate,
+            'date_to' => $toDate,
+            // Kept for compatibility: the single reference day when the
+            // period is "today" (from === to), null for month/year ranges.
+            'date' => $fromDate === $toDate ? $fromDate : null,
             'sales' => $sales,
             'purchases' => $purchases,
             'stock' => $stock,

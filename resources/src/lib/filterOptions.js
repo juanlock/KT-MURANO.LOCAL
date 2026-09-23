@@ -9,3 +9,11 @@ import { t } from '../i18n';
 export function withAllOption(options) {
     return [...options, { value: '', label: t('All') }];
 }
+
+/** Alphabetical by label (locale-aware, case-insensitive) -- apply BEFORE
+ *  withAllOption() so the "All" sentinel stays pinned at the end. */
+export function sortByLabel(options) {
+    return [...options].sort((a, b) =>
+        String(a.label).localeCompare(String(b.label), undefined, { sensitivity: 'base', numeric: true })
+    );
+}

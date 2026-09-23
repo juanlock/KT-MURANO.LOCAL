@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Mail\CustomEmail;
 use App\Models\Account;
 use App\Models\Brand;
@@ -52,6 +53,8 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class PosController extends BaseController
 {
+    use ScopesToCompany;
+
     /**
      * Change Salesperson During Checkout: resolve the salesperson picked on the
      * POS screen. Returns the picked user's id only when the feature is enabled
@@ -65,7 +68,7 @@ class PosController extends BaseController
         if (! $request->filled('seller_id')) {
             return null;
         }
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! (bool) ($settings->enable_pos_salesperson_switch ?? false)) {
             return null;
         }
@@ -864,7 +867,7 @@ class PosController extends BaseController
         // existing sales workflow is unchanged when the feature is off or not requested.
         try {
             $kitchenAction = (string) $request->input('kitchen_action', 'none');
-            $kitchenEnabled = (bool) optional(Setting::first())->enable_kitchen_display;
+            $kitchenEnabled = (bool) optional(Setting::forCompany($this->resolveActingCompanyId($request)))->enable_kitchen_display;
 
             if ($kitchenEnabled && $kitchenAction === 'send') {
                 KitchenOrderController::createForSale($sale->id, $request->notes);
@@ -938,8 +941,9 @@ class PosController extends BaseController
         $helpers = new helpers;
         $currency = $helpers->Get_Currency();
 
-        // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        // settings -- company-scoped to the sale being emailed, not the
+        // acting/logged-in user's own company.
+        $settings = Setting::forCompany($sale->company_id);
 
         // the custom msg of sale
         $emailMessage = EmailMessage::getForLocale('sale');
@@ -1000,8 +1004,9 @@ class PosController extends BaseController
         $helpers = new helpers;
         $currency = $helpers->Get_Currency();
 
-        // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        // settings -- company-scoped to the sale being texted, not the
+        // acting/logged-in user's own company.
+        $settings = Setting::forCompany($sale->company_id);
 
         $default_sms_gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->where('deleted_at', '=', null)->first();
@@ -1721,7 +1726,7 @@ class PosController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
         $clients = Client::where('deleted_at', '=', null)->get(['id', 'name', 'phone']);
-        $settings = Setting::where('deleted_at', '=', null)->with('Client')->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
 
         $draft_sale_data = DraftSale::with('details.product.unitSale')->where('deleted_at', '=', null)->findOrFail($id);
@@ -1786,7 +1791,7 @@ class PosController extends BaseController
         // reloaded POS cart can restore the pack picker. Empty map when feature
         // is off. Key "productId:variantId" with 0 for the no-variant scope.
         $mpPacksByKey = [];
-        $mpSetting = Setting::whereNull('deleted_at')->first();
+        $mpSetting = Setting::forCompany($this->resolveActingCompanyId($request));
         if ((bool) ($mpSetting->enable_multi_pack_selling ?? false)) {
             $mpProductIds = collect($draft_sale_data['details'])->pluck('product_id')->unique()->values()->all();
             if (! empty($mpProductIds)) {
@@ -1980,7 +1985,7 @@ class PosController extends BaseController
         // zero or negative stock must still appear in the POS grid / search —
         // otherwise the cashier can never reach them even though selling them
         // is permitted. Read once here and reused for the pack preload below.
-        $mpSetting = Setting::whereNull('deleted_at')->first();
+        $mpSetting = Setting::forCompany($this->resolveActingCompanyId($request));
         $allow_overselling = (bool) ($mpSetting->allow_overselling ?? false);
 
         $product_warehouse_query = product_warehouse::where('warehouse_id', $request->warehouse_id)
@@ -2381,7 +2386,7 @@ class PosController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
         $clients = Client::where('deleted_at', '=', null)->get(['id', 'name', 'phone']);
-        $settings = Setting::where('deleted_at', '=', null)->with('Client')->first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
 
         // get warehouses assigned to user
@@ -2440,7 +2445,7 @@ class PosController extends BaseController
         $categories = Category::where('deleted_at', '=', null)->get(['id', 'name']);
         $brands = Brand::where('deleted_at', '=', null)->get();
         $stripe_key = config('app.STRIPE_KEY');
-        $pos_setting = PosSetting::where('deleted_at', '=', null)->first();
+        $pos_setting = PosSetting::forCompany($this->resolveActingCompanyId($request));
 
         // Allow Overselling lives on the global settings row (Settings > Features),
         // not on pos_settings — that column is a dead duplicate that never gets
@@ -2579,7 +2584,7 @@ class PosController extends BaseController
 
     protected function assertPackStockSufficient(Request $request): void
     {
-        $mpSetting = Setting::whereNull('deleted_at')->first();
+        $mpSetting = Setting::forCompany($this->resolveActingCompanyId($request));
         if ((bool) ($mpSetting->allow_overselling ?? false)) {
             return; // overselling permitted by the global Features switch
         }

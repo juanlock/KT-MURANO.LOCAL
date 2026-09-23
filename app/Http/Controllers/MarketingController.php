@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Jobs\SendMarketingCampaign;
 use App\Models\MarketingActivityLog;
 use App\Models\MarketingCampaign;
@@ -12,6 +13,7 @@ use App\Models\MarketingTemplate;
 use App\Models\Permission;
 use App\Services\Marketing\MarketingDispatcher;
 use App\Services\Marketing\SegmentResolver;
+use App\Support\CompanyFiles;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +21,8 @@ use Illuminate\Support\Str;
 
 class MarketingController extends Controller
 {
+    use ScopesToCompany;
+
     /**
      * Ensure the authenticated user owns the given permission (via any of its roles).
      * Used for abilities not tied to an Eloquent model policy (dashboard, reports).
@@ -48,18 +52,16 @@ class MarketingController extends Controller
     }
 
     /**
-     * Store an uploaded campaign attachment under public/images/marketing.
+     * Store an uploaded campaign attachment under
+     * public/files/company_{id}/marketing.
      */
-    private function storeUpload($file): string
+    private function storeUpload($file, int $companyId): string
     {
-        $destination = public_path('images/marketing');
-        if (! is_dir($destination)) {
-            mkdir($destination, 0755, true);
-        }
+        $uploadRel = CompanyFiles::dir($companyId, 'marketing');
         $filename = Str::random(20).'.'.$file->getClientOriginalExtension();
-        $file->move($destination, $filename);
+        $file->move(public_path($uploadRel), $filename);
 
-        return 'images/marketing/'.$filename;
+        return $uploadRel.'/'.$filename;
     }
 
     private function currentUserId(Request $request)
@@ -123,6 +125,7 @@ class MarketingController extends Controller
     public function campaigns_index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', MarketingCampaign::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -130,7 +133,7 @@ class MarketingController extends Controller
         $order = $request->SortField ?: 'id';
         $dir = $request->SortType ?: 'desc';
 
-        $query = MarketingCampaign::query();
+        $query = MarketingCampaign::where('company_id', $companyId);
 
         $query->when($request->filled('type'), function ($q) use ($request) {
             $q->where('type', $request->type);
@@ -163,8 +166,10 @@ class MarketingController extends Controller
     public function campaigns_show(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', MarketingCampaign::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $campaign = MarketingCampaign::with(['segment', 'template'])->findOrFail($id);
+        abort_unless((int) $campaign->company_id === $companyId, 404);
 
         $recipientStats = MarketingCampaignRecipient::where('campaign_id', $id)
             ->select('status', DB::raw('count(*) as total'))
@@ -183,6 +188,7 @@ class MarketingController extends Controller
     public function campaigns_store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', MarketingCampaign::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $request->validate([
             'title'           => 'required|string|max:255',
@@ -200,10 +206,11 @@ class MarketingController extends Controller
 
         $attachment = null;
         if ($request->hasFile('attachment')) {
-            $attachment = $this->storeUpload($request->file('attachment'));
+            $attachment = $this->storeUpload($request->file('attachment'), $companyId);
         }
 
         $campaign = MarketingCampaign::create([
+            'company_id'      => $companyId,
             'title'            => $request->title,
             'description'      => $request->description,
             'type'            => $request->type,
@@ -234,8 +241,10 @@ class MarketingController extends Controller
     public function campaigns_update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', MarketingCampaign::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $campaign = MarketingCampaign::findOrFail($id);
+        abort_unless((int) $campaign->company_id === $companyId, 404);
 
         if (in_array($campaign->status, ['sending', 'sent'])) {
             return response()->json(['success' => false, 'message' => 'Sent campaigns cannot be edited.'], 422);
@@ -271,7 +280,7 @@ class MarketingController extends Controller
         ];
 
         if ($request->hasFile('attachment')) {
-            $data['attachment'] = $this->storeUpload($request->file('attachment'));
+            $data['attachment'] = $this->storeUpload($request->file('attachment'), $companyId);
         }
 
         $campaign->update($data);
@@ -291,10 +300,12 @@ class MarketingController extends Controller
     public function campaigns_update_status(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', MarketingCampaign::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $request->validate(['status' => 'required|in:draft,scheduled,sending,sent,failed,cancelled']);
 
         $campaign = MarketingCampaign::findOrFail($id);
+        abort_unless((int) $campaign->company_id === $companyId, 404);
         $campaign->update(['status' => $request->status]);
 
         $this->logActivity($request, 'campaign', $campaign->id, 'status_changed', 'Status set to '.$request->status);
@@ -308,8 +319,10 @@ class MarketingController extends Controller
     public function campaigns_send(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', MarketingCampaign::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $campaign = MarketingCampaign::findOrFail($id);
+        abort_unless((int) $campaign->company_id === $companyId, 404);
 
         if ($campaign->status === 'sending') {
             return response()->json(['success' => false, 'message' => 'Campaign is already sending.'], 422);
@@ -326,8 +339,10 @@ class MarketingController extends Controller
     public function campaigns_destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', MarketingCampaign::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $campaign = MarketingCampaign::findOrFail($id);
+        abort_unless((int) $campaign->company_id === $companyId, 404);
         $campaign->delete();
 
         $this->logActivity($request, 'campaign', (int) $id, 'deleted', 'Campaign deleted');
@@ -338,10 +353,11 @@ class MarketingController extends Controller
     public function campaigns_delete_by_selection(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'delete', MarketingCampaign::class);
+        $companyId = $this->resolveActingCompanyId($request);
 
         $selectedIds = $request->selectedIds;
         foreach ($selectedIds as $id) {
-            $campaign = MarketingCampaign::find($id);
+            $campaign = MarketingCampaign::where('id', $id)->where('company_id', $companyId)->first();
             if ($campaign) {
                 $campaign->delete();
             }

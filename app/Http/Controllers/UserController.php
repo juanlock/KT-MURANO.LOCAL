@@ -110,7 +110,7 @@ class UserController extends BaseController
     {
         $helpers = new Helpers;
         $user = Auth::user();
-        $settings = Setting::first();
+        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
 
         $userData = [
             'id' => $user->id,
@@ -126,6 +126,15 @@ class UserController extends BaseController
             // by document forms/POS to show a currency picker (default off)
             'enable_multi_currency' => (bool) ($settings->enable_multi_currency ?? false),
             'default_currency_id' => $settings->currency_id ?? null,
+            // System Settings -> Defaults -> Default Warehouse: pre-selects
+            // the warehouse on new documents (Sales, etc.) instead of
+            // leaving the picker blank every time.
+            'default_warehouse_id' => $settings->warehouse_id ?? null,
+            // System Settings -> Defaults -> Default Tax: pre-fills a new
+            // product's own tax rate instead of always starting at 0, so
+            // sale/purchase lines for that product carry the company's
+            // usual rate without retyping it every time.
+            'default_tax' => $settings->default_tax ?? 0,
             'logo' => $settings->logo ?? null,
             'default_language' => $settings->default_language ?? 'en',
             'show_language' => $settings->show_language ?? false,
@@ -141,17 +150,17 @@ class UserController extends BaseController
             'company' => $settings->CompanyName ?? '',
             'date_format' => $settings->date_format ?? 'YYYY-MM-DD',
             'price_format' => $settings->price_format ?? null,
-            // Monetary precision (3 when 3-decimal pricing is enabled, else 2) — read by the SPA at boot
+            // Monetary precision (3 when 3-decimal pricing is enabled, else 2) â€” read by the SPA at boot
             'price_decimals' => (bool) ($settings->enable_3_decimal_pricing ?? false) ? 3 : 2,
             'dark_mode' => (bool) ($settings->dark_mode ?? false),
             'enable_kitchen_display' => (bool) ($settings->enable_kitchen_display ?? false),
             'timezone' => $this->getEnvValue('APP_TIMEZONE', 'UTC'),
-            // Admin-defined sidebar arrangement (null = default menu.js order) —
+            // Admin-defined sidebar arrangement (null = default menu.js order) â€”
             // applied by the SPA for every user at boot.
             'sidebar_menu_order' => ($settings && $settings->sidebar_menu_order)
                 ? json_decode($settings->sidebar_menu_order, true)
                 : null,
-            // Admin module toggles ({key: bool}, null = everything enabled) —
+            // Admin module toggles ({key: bool}, null = everything enabled) â€”
             // gates the sidebar and SPA routes for every user at boot.
             'module_flags' => ($settings && $settings->module_flags)
                 ? json_decode($settings->module_flags, true)
@@ -213,15 +222,43 @@ class UserController extends BaseController
         ], [
             'email.unique' => 'This Email already taken.',
         ]);
-        \DB::transaction(function () use ($request, $companyId) {
+
+        // Type defaults to plain admin (unchanged from before this field
+        // existed). Only an acting SuperAdmin may create another SuperAdmin --
+        // anyone else requesting it gets rejected outright rather than
+        // silently downgraded, so the mistake is visible instead of hidden.
+        $type = $request->input('type', 'admin');
+        if (! in_array($type, ['SuperAdmin', 'admin', 'employee', 'customer', 'sales_agent'], true)) {
+            $type = 'admin';
+        }
+        if ($type === 'SuperAdmin' && optional($request->user('api'))->type !== 'SuperAdmin') {
+            abort(403, 'Only a SuperAdmin can create a SuperAdmin user.');
+        }
+
+        // employee/customer/sales_agent users get their role auto-assigned
+        // (the type's own per-company role) instead of the manually picked
+        // one -- resolved up front since users.role_id/role_user.role_id are
+        // both NOT NULL, so the initial insert needs a valid id either way.
+        $autoRoleNames = ['employee' => 'Employee', 'customer' => 'Customer', 'sales_agent' => 'Sales Agent'];
+        $roleId = isset($autoRoleNames[$type])
+            ? (Role::where('company_id', $companyId)->where('name', $autoRoleNames[$type])->value('id') ?? $request['role'])
+            : $request['role'];
+
+        $warning = null;
+        \DB::transaction(function () use ($request, $companyId, $type, $roleId, &$warning) {
             if ($request->hasFile('avatar')) {
 
                 $image = $request->file('avatar');
+                $avatarDir = \App\Support\CompanyFiles::dir($companyId, 'avatar');
                 $filename = rand(11111111, 99999999).$image->getClientOriginalName();
 
                 $image_resize = Image::make($image->getRealPath());
                 $image_resize->resize(128, 128);
-                $image_resize->save(public_path('/images/avatar/'.$filename));
+                $image_resize->save(public_path($avatarDir.'/'.$filename));
+
+                // Store the full relative path so it can be resolved later
+                // without guessing which company's folder it lives in.
+                $filename = $avatarDir.'/'.$filename;
 
             } else {
                 $filename = 'no_avatar.png';
@@ -243,21 +280,22 @@ class UserController extends BaseController
             $User->phone = $request['phone'] ?? '';
             $User->password = Hash::make($request['password']);
             $User->avatar = $filename;
-            $User->role_id = $request['role'];
+            $User->role_id = $roleId;
+            $User->type = $type;
             $User->is_all_warehouses = $is_all_warehouses;
-            
+
             // Set record_view from request (default to false if not provided)
             if (isset($request['record_view'])) {
                 $User->record_view = ($request['record_view'] == '1' || $request['record_view'] == 'true' || $request['record_view'] == 1) ? 1 : 0;
             } else {
                 $User->record_view = 0;
             }
-            
+
             $User->save();
 
             $role_user = new role_user;
             $role_user->user_id = $User->id;
-            $role_user->role_id = $request['role'];
+            $role_user->role_id = $roleId;
             $role_user->save();
 
             if (! $User->is_all_warehouses) {
@@ -269,9 +307,16 @@ class UserController extends BaseController
                 $User->assignedWarehouses()->sync($requestedWarehouseIds);
             }
 
+            // employee/customer/sales_agent: auto-create the matching
+            // Employee/Client/SalesAgent row, mirroring (in reverse) how
+            // creating one of those already auto-creates a linked User.
+            if (in_array($type, ['employee', 'customer', 'sales_agent'], true)) {
+                $warning = \App\Services\LinkedUserService::attachTypedRecord($User, $type, $companyId);
+            }
+
         }, 10);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'warning' => $warning]);
     }
 
     // ------------ function show -----------\\
@@ -348,7 +393,7 @@ class UserController extends BaseController
 
             // Blank/absent means "keep the current password". The legacy client
             // sent the literal string 'null' when unchanged; the SPA sends an
-            // empty field, which ConvertEmptyStringsToNull turns into null —
+            // empty field, which ConvertEmptyStringsToNull turns into null â€”
             // both must NOT be hashed, or the password gets silently wiped.
             if ($request->filled('NewPassword') && $request->NewPassword !== 'null' && $request->NewPassword !== $current) {
                 $pass = Hash::make($request->NewPassword);
@@ -358,23 +403,36 @@ class UserController extends BaseController
 
             $currentAvatar = $user->avatar;
             // Only treat this as an avatar change when a file was actually
-            // uploaded — the SPA omits the field entirely when it is untouched.
+            // uploaded â€” the SPA omits the field entirely when it is untouched.
             if ($request->hasFile('avatar')) {
 
                 $image = $request->file('avatar');
-                $path = public_path().'/images/avatar';
+                // Company-scoped: files/company_{id}/avatar, keyed off the
+                // company the user is (now) being assigned to -- not the
+                // acting admin's own company (a SuperAdmin may be editing a
+                // user from a different company).
+                $avatarDir = \App\Support\CompanyFiles::dir($targetCompanyId, 'avatar');
                 $filename = rand(11111111, 99999999).$image->getClientOriginalName();
 
                 $image_resize = Image::make($image->getRealPath());
                 $image_resize->resize(128, 128);
-                $image_resize->save(public_path('/images/avatar/'.$filename));
+                $image_resize->save(public_path($avatarDir.'/'.$filename));
 
-                $userPhoto = $path.'/'.$currentAvatar;
+                // Old value may be either the new "relDir/filename" format
+                // or a bare filename from the old shared images/avatar/
+                // folder -- resolve whichever format it is before deleting.
+                $userPhoto = str_contains((string) $currentAvatar, '/')
+                    ? public_path($currentAvatar)
+                    : public_path('images/avatar/'.$currentAvatar);
                 if (file_exists($userPhoto)) {
                     if ($user->avatar != 'no_avatar.png') {
                         @unlink($userPhoto);
                     }
                 }
+
+                // Store the full relative path so it can be resolved later
+                // without guessing which company's folder it lives in.
+                $filename = $avatarDir.'/'.$filename;
             } else {
                 $filename = $currentAvatar;
             }
@@ -449,20 +507,31 @@ class UserController extends BaseController
         if ($request->hasFile('avatar')) {
 
             $image = $request->file('avatar');
-            $path = public_path().'/images/avatar';
+            // A user only ever edits their own profile -- avatar is scoped
+            // to their own company, not any acting/SuperAdmin company.
+            $avatarDir = \App\Support\CompanyFiles::dir((int) Auth::user()->company_id, 'avatar');
             $filename = rand(11111111, 99999999).$image->getClientOriginalName();
 
             $image_resize = Image::make($image->getRealPath());
             $image_resize->resize(128, 128);
-            $image_resize->save(public_path('/images/avatar/'.$filename));
+            $image_resize->save(public_path($avatarDir.'/'.$filename));
 
-            $userPhoto = $path.'/'.$currentAvatar;
+            // Old value may be either the new "relDir/filename" format or a
+            // bare filename from the old shared images/avatar/ folder --
+            // resolve whichever format it is before deleting.
+            $userPhoto = str_contains((string) $currentAvatar, '/')
+                ? public_path($currentAvatar)
+                : public_path('images/avatar/'.$currentAvatar);
 
             if (file_exists($userPhoto)) {
                 if ($user->avatar != 'no_avatar.png') {
                     @unlink($userPhoto);
                 }
             }
+
+            // Store the full relative path so it can be resolved later
+            // without guessing which company's folder it lives in.
+            $filename = $avatarDir.'/'.$filename;
         } else {
             $filename = $currentAvatar;
         }
@@ -573,7 +642,7 @@ class UserController extends BaseController
 
     /**
      * Lightweight users list for select dropdowns (e.g. linking a sales agent to a user).
-     * Only requires authentication — no `view User` permission check, since the call
+     * Only requires authentication â€” no `view User` permission check, since the call
      * site only needs id + display name to render a picker.
      */
     public function listForSelect(Request $request)

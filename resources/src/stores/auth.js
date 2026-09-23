@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia';
 import http from '../lib/http';
 import { isModuleEnabled } from '../config/modules';
+import { loadLocale } from '../i18n';
+import { useUiStore } from './ui';
+import { resolveImageUrl } from '../lib/imagePath';
 
 /**
  * Mirrors the legacy Vuex auth module: GET /api/get_user_auth returns
@@ -32,17 +35,28 @@ export const useAuthStore = defineStore('auth', {
         // Base currency id (settings.currency_id) — document pickers default to it.
         defaultCurrencyId: s => (s.user && s.user.default_currency_id) || null,
         username: s => (s.user && s.user.username) || '',
-        // Legacy resolves the avatar under /images/avatar/ and falls back to
-        // the shipped default when the user has none.
-        avatarUrl: s => `/images/avatar/${(s.user && s.user.avatar) || 'avatar-default.jpg'}`,
+        // The backend now stores the avatar's full relative path (e.g.
+        // images/company_2/avatar/xxx.jpg), not a bare filename under a
+        // shared /images/avatar/ folder -- use it as-is (prefixed with a
+        // leading slash), falling back to the shipped default when the
+        // user has none.
+        avatarUrl: (s) => {
+            const avatar = s.user && s.user.avatar;
+            if (!avatar) return '/images/avatar/no_avatar.png';
+            return avatar.startsWith('/') ? avatar : `/${avatar}`;
+        },
         // Per-user switch from the DB — hides the language picker entirely.
         showLanguage: s => !s.user || !!s.user.show_language,
+        // System Settings → Appearance → "Show customize button". Default true
+        // when the setting is absent, as legacy did.
+        customizeButtonVisible: s => !s.user || s.user.customize_button_visible !== false,
 
         // ---- Branding (settings) — the same fields the legacy layout reads ----
         // Company name, blank when the admin chose to hide the site name.
         companyName: s => (s.user && !s.user.hide_site_name ? (s.user.company || 'Stocky') : ''),
-        // Uploaded logo under /images/, or null to fall back to an initial.
-        logoUrl: s => (s.user && s.user.logo ? `/images/${s.user.logo}` : null),
+        // Uploaded logo (old bare filename under shared /images/, or the
+        // new company-scoped relative path), or null to fall back to an initial.
+        logoUrl: s => resolveImageUrl(s.user && s.user.logo),
         // Admin toggle: hide the logo/initial in the sidebar brand entirely.
         showSidebarLogo: s => !s.user || s.user.sidebar_show_logo !== false,
         // Admin-configured sidebar logo size (px), defaulting to the historical 32x32.
@@ -78,6 +92,33 @@ export const useAuthStore = defineStore('auth', {
                 this.permissions = Array.isArray(data.permissions) ? data.permissions : [];
                 this.notifs = Number(data.notifs) || 0;
                 this.failed = false;
+
+                // The SPA's locale otherwise lives entirely in localStorage
+                // ('language', written on every boot including the very
+                // first one), so a company's default_language never actually
+                // reached the UI. Apply it here, but only when THIS user
+                // hasn't made their own explicit choice (stores/ui.js stamps
+                // 'language_explicit' + the acting user's id when picked
+                // from the switcher) -- matches SetLocale.php's server-side
+                // order: explicit choice first, company default as the
+                // fallback. Checking the stamped user id (not just the bare
+                // flag) matters on a shared/test browser: one admin's
+                // manual pick must not silently stick for every other
+                // company's admin who logs in afterwards on the same
+                // device -- each of THEM still gets their own company
+                // default until they personally pick something too.
+                try {
+                    const explicit = window.localStorage.getItem('language_explicit') === '1'
+                        && window.localStorage.getItem('language_explicit_user_id') === String(this.user && this.user.id);
+                    const serverLocale = this.user && this.user.default_language;
+                    if (!explicit && serverLocale) {
+                        const ui = useUiStore();
+                        if (ui.locale !== serverLocale) {
+                            ui.locale = serverLocale;
+                            await loadLocale(serverLocale);
+                        }
+                    }
+                } catch (e) { /* best effort -- never block auth on locale sync */ }
                 // Snapshot for offline boots: a POS refresh with no network must
                 // keep the real user + permissions instead of failing open.
                 try {

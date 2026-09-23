@@ -92,8 +92,10 @@ import { ref, computed, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import http from '../lib/http';
+import { useAuthStore } from '../stores/auth';
 
 const { t } = useI18n();
+const auth = useAuthStore();
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -207,7 +209,9 @@ async function submit() {
     Type_barcode: 'CODE128',
     tax_method: '1',
     discount_method: '1',
-    TaxNet: 0,
+    // System Settings -> Defaults -> Default Tax, so a quickly-added
+    // product isn't silently 0% until someone edits it later.
+    TaxNet: auth.user?.default_tax || 0,
     discount: 0,
     price: form.value.price,
   };

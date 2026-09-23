@@ -12,7 +12,11 @@ class PropertyInquiry extends Model
     protected $table = 'property_inquiries';
 
     protected $fillable = [
-        'property_id', 'name', 'phone', 'email', 'message', 'status',
+        'company_id', 'property_id', 'name', 'phone', 'email', 'message', 'status',
+    ];
+
+    protected $casts = [
+        'company_id' => 'integer',
     ];
 
     public function property()

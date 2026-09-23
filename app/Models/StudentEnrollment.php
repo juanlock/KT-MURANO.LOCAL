@@ -12,11 +12,12 @@ class StudentEnrollment extends Model
     protected $table = 'student_enrollments';
 
     protected $fillable = [
-        'student_id', 'academic_year_id', 'class_id', 'section_id',
+        'company_id', 'student_id', 'academic_year_id', 'class_id', 'section_id',
         'roll_number', 'enrolled_on', 'status', 'notes',
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'student_id' => 'integer',
         'academic_year_id' => 'integer',
         'class_id' => 'integer',

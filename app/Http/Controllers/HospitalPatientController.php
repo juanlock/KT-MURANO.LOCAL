@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Admission;
 use App\Models\Appointment;
 use App\Models\HospitalInvoice;
@@ -9,6 +10,7 @@ use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\PatientVisit;
 use App\Models\Prescription;
+use App\Support\CompanyFiles;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -26,7 +28,7 @@ use Illuminate\Support\Str;
  */
 class HospitalPatientController extends Controller
 {
-    private const IMAGE_DIR = 'images/patients';
+    use ScopesToCompany;
 
     private const SORTABLE = ['id', 'mrn', 'name', 'gender', 'date_of_birth', 'phone', 'status', 'created_at'];
 
@@ -34,12 +36,14 @@ class HospitalPatientController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Patient::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
+
         $perPage = (int) ($request->limit ?? 10);
         $page = max(1, (int) $request->get('page', 1));
         $order = in_array($request->SortField, self::SORTABLE, true) ? $request->SortField : 'created_at';
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
-        $query = Patient::whereNull('deleted_at');
+        $query = Patient::whereNull('deleted_at')->where('company_id', $companyId);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -90,11 +94,13 @@ class HospitalPatientController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Patient::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $request->validate($this->rules());
 
         $data = $this->payload($request);
+        $data['company_id'] = $companyId;
         $data['mrn'] = $request->filled('mrn') ? $request->mrn : Patient::generateMrn();
-        $data['image'] = $this->storeImage($request);
+        $data['image'] = $this->storeImage($request, $companyId);
 
         $patient = Patient::create($data);
 
@@ -107,6 +113,7 @@ class HospitalPatientController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Patient::class);
 
         $patient = Patient::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $patient->company_id === $this->resolveActingCompanyId($request), 404);
 
         $data = $this->present($patient);
         $data += [
@@ -163,9 +170,10 @@ class HospitalPatientController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Patient::class);
 
         $patient = Patient::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $patient->company_id === $this->resolveActingCompanyId($request), 404);
 
         return response()->json(['patient' => array_merge($patient->toArray(), [
-            'image_url' => $patient->image ? asset(self::IMAGE_DIR . '/' . $patient->image) : null,
+            'image_url' => $patient->image ? asset($patient->image) : null,
             'date_of_birth' => optional($patient->date_of_birth)->toDateString(),
             'insurance_expiry' => optional($patient->insurance_expiry)->toDateString(),
         ])]);
@@ -175,7 +183,10 @@ class HospitalPatientController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'update', Patient::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $patient = Patient::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $patient->company_id === $companyId, 404);
+
         $request->validate($this->rules($patient->id));
 
         $data = $this->payload($request);
@@ -183,7 +194,7 @@ class HospitalPatientController extends Controller
             $data['mrn'] = $request->mrn;
         }
 
-        $image = $this->storeImage($request);
+        $image = $this->storeImage($request, $companyId);
         if ($image) {
             $this->deleteImage($patient->image);
             $data['image'] = $image;
@@ -201,7 +212,9 @@ class HospitalPatientController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', Patient::class);
 
-        Patient::whereNull('deleted_at')->findOrFail($id)->delete();
+        $patient = Patient::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $patient->company_id === $this->resolveActingCompanyId($request), 404);
+        $patient->delete();
 
         return response()->json(['success' => true]);
     }
@@ -211,7 +224,7 @@ class HospitalPatientController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', Patient::class);
 
         $ids = (array) $request->selectedIds;
-        Patient::whereIn('id', $ids)->delete();
+        Patient::whereIn('id', $ids)->where('company_id', $this->resolveActingCompanyId($request))->delete();
 
         return response()->json(['success' => true, 'count' => count($ids)]);
     }
@@ -222,6 +235,7 @@ class HospitalPatientController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Patient::class);
 
         $patient = Patient::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $patient->company_id === $this->resolveActingCompanyId($request), 404);
         $limit = (int) ($request->limit ?? 50);
 
         return response()->json([
@@ -321,7 +335,7 @@ class HospitalPatientController extends Controller
             'status' => $patient->status,
             'client_id' => $patient->client_id,
             'image' => $patient->image,
-            'image_url' => $patient->image ? asset(self::IMAGE_DIR . '/' . $patient->image) : null,
+            'image_url' => $patient->image ? asset($patient->image) : null,
             'is_admitted' => $isAdmitted === null ? null : (bool) $isAdmitted,
             'created_at' => optional($patient->created_at)->toIso8601String(),
         ];
@@ -370,31 +384,31 @@ class HospitalPatientController extends Controller
         ];
     }
 
-    private function storeImage(Request $request)
+    /** Returns the stored image's public-relative path, or null when no photo was sent. */
+    private function storeImage(Request $request, int $companyId)
     {
         if (! $request->hasFile('image')) {
             return null;
         }
 
         $file = $request->file('image');
-        $path = public_path(self::IMAGE_DIR);
-        if (! file_exists($path)) {
-            mkdir($path, 0755, true);
-        }
+        $rel = CompanyFiles::dir($companyId, 'patients');
+        $path = public_path($rel);
 
         $extension = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
         $filename = time() . '_' . Str::random(10) . '.' . $extension;
         $file->move($path, $filename);
 
-        return $filename;
+        return $rel . '/' . $filename;
     }
 
-    private function deleteImage($filename)
+    /** $relPath is the public-relative path stored in the `image` column. */
+    private function deleteImage(?string $relPath)
     {
-        if (! $filename) {
+        if (! $relPath) {
             return;
         }
-        $path = public_path(self::IMAGE_DIR . '/' . $filename);
+        $path = public_path($relPath);
         if (file_exists($path)) {
             @unlink($path);
         }

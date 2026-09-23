@@ -31,12 +31,14 @@ export const buildPageSizeOptionText = ({ value }) =>
     (Number(value) >= ALL_PAGE_SIZE ? t('All', 'All') : `${value}`);
 
 /**
- * A 422 is the server deliberately explaining why an action is not allowed
- * (e.g. a unit still has sub-units), so show that reason. Any other failure is
- * infrastructure noise the user can't act on — keep the friendly generic text.
+ * A 4xx is the server deliberately explaining why an action is not allowed
+ * (e.g. a unit still has sub-units, a sale already has a return), so show
+ * that reason. 401/419 never reach here (http.js redirects to /login first).
+ * Any other failure (5xx, network) is infrastructure noise the user can't
+ * act on — keep the friendly generic text.
  */
 function actionError(e, fallbackKey, fallbackText) {
-    if (e?.status === 422 && e?.data?.message) return e.data.message;
+    if (e?.status >= 400 && e?.status < 500 && e?.data?.message) return e.data.message;
     return t(fallbackKey, fallbackText);
 }
 
@@ -45,7 +47,7 @@ export function useCrudTable(endpoint, options = {}) {
 
     const {
         rowsKey = null,
-        limit: initialLimit = 10,
+        limit: initialLimit = 20,
         sortField: initialSortField = 'id',
         sortType: initialSortType = 'desc',
         params = null,          // () => ({ extra: 'query params' })
@@ -57,6 +59,11 @@ export function useCrudTable(endpoint, options = {}) {
         // The documents use flat routes (e.g. sales_delete_by_selection)
         // instead of the usual `${endpoint}/delete/by_selection`.
         bulkDeleteEndpoint = null,
+        // Adds Ant's "Go to page" input to the pagination bar -- a quick way
+        // to jump straight to the first or last page on tables with many
+        // pages. Opt-in per page (default off) so existing tables keep their
+        // current pagination bar unchanged.
+        showQuickJumper = false,
     } = options;
 
     const rows = ref([]);
@@ -122,6 +129,7 @@ export function useCrudTable(endpoint, options = {}) {
         pageSizeOptions: PAGE_SIZE_OPTIONS,
         buildOptionText: buildPageSizeOptionText,
         showTotal: n => `${n}`,
+        showQuickJumper,
     }));
 
     /** Wire to <a-table @change>. */

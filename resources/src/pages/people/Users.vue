@@ -16,6 +16,9 @@
             {{ initials(record) }}
           </a-avatar>
         </template>
+        <template v-else-if="column.key === 'type'">
+          <a-tag :color="typeColor(record.type)">{{ typeLabel(record.type) }}</a-tag>
+        </template>
         <template v-else-if="column.key === 'statut'">
           <!-- Activate/deactivate toggle, like the legacy switch. The logged-in
                user cannot deactivate their own account. -->
@@ -73,12 +76,22 @@ const switching = ref(null);
 // The logged-in user may not deactivate or delete their own account (legacy parity).
 const isSelf = record => auth.user && Number(record.id) === Number(auth.user.id);
 
-// Avatars live under public/images/avatar/; the antd Avatar falls back to
+// The backend stores the avatar's full relative path (e.g.
+// images/company_2/avatar/xxx.jpg), not a bare filename under a shared
+// /images/avatar/ folder -- use it as-is; the antd Avatar falls back to
 // initials when the image is missing or fails to load.
-const avatarUrl = record => (record.avatar ? `/images/avatar/${record.avatar}` : undefined);
+const avatarUrl = record => {
+  if (!record.avatar) return undefined;
+  return record.avatar.startsWith('/') ? record.avatar : `/${record.avatar}`;
+};
 const initials = record =>
   `${(record.firstname || '')[0] || ''}${(record.lastname || '')[0] || ''}`.toUpperCase()
   || (record.username || '?')[0].toUpperCase();
+
+const TYPE_COLORS = { SuperAdmin: 'gold', admin: 'blue', employee: 'green', customer: 'purple', sales_agent: 'orange' };
+const TYPE_LABELS = { SuperAdmin: 'SuperAdmin', admin: 'Admin', employee: 'Employee', customer: 'Customer', sales_agent: 'Sales_Agent' };
+const typeColor = type => TYPE_COLORS[type] || 'default';
+const typeLabel = type => t(TYPE_LABELS[type] || type);
 
 const columns = computed(() => [
   { title: t('Image'), key: 'avatar', dataIndex: 'avatar', width: 70, align: 'center', exportValue: r => r.avatar || '' },
@@ -87,6 +100,7 @@ const columns = computed(() => [
   { title: t('username'), dataIndex: 'username', key: 'username', sorter: true },
   { title: t('Email'), dataIndex: 'email', key: 'email' },
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
+  { title: t('type'), key: 'type', dataIndex: 'type', exportValue: r => typeLabel(r.type) },
   { title: t('Status'), key: 'statut', dataIndex: 'statut', exportValue: r => (Number(r.statut) ? t('ActivateUser') : t('DisActivateUser')) },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);

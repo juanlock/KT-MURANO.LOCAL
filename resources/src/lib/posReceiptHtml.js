@@ -13,6 +13,8 @@
  * (the popup has no Vue refs to mount QR canvases into).
  */
 
+import { resolveImageUrl } from './imagePath';
+
 export function normalizeReceiptLayout(raw) {
   const n = Number(raw) || 1;
   return [1, 2, 3, 4, 5].includes(n) ? n : 1;
@@ -74,7 +76,7 @@ export function buildPosReceiptHtml(opts) {
   const hasImei = d => d.is_imei && d.imei_number != null;
 
   const logo = on('show_logo') && setting.logo
-    ? `<img src="/images/${esc(setting.logo)}" alt width="${Number(ps.logo_size) || 60}" height="${Number(ps.logo_size) || 60}">`
+    ? `<img src="${esc(resolveImageUrl(setting.logo))}" alt width="${Number(ps.logo_size) || 60}" height="${Number(ps.logo_size) || 60}">`
     : '';
 
   const qrRow = () => {

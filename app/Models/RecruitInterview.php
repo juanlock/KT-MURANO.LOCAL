@@ -12,11 +12,12 @@ class RecruitInterview extends Model
     protected $table = 'recruit_interviews';
 
     protected $fillable = [
-        'application_id', 'type', 'scheduled_at', 'duration_minutes', 'location',
+        'company_id', 'application_id', 'type', 'scheduled_at', 'duration_minutes', 'location',
         'meeting_link', 'interviewer_id', 'status', 'rating', 'feedback', 'notes',
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'scheduled_at' => 'datetime',
     ];
 
