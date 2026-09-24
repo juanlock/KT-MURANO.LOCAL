@@ -245,6 +245,18 @@ class SalesController extends BaseController
             ->get(['id', 'name']);
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
+        // Payment Status filter options: only values that actually occur for
+        // this company (not the full static vocab) -- a company with no
+        // legacy 'pending' rows, for example, never sees that option at all.
+        $payment_statuses = Sale::where('deleted_at', '=', null)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->whereNotNull('payment_statut')
+            ->distinct()
+            ->pluck('payment_statut')
+            ->filter()
+            ->values();
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
@@ -273,6 +285,7 @@ class SalesController extends BaseController
             'warehouses' => $warehouses,
             'accounts' => $accounts,
             'payment_methods' => $payment_methods,
+            'payment_statuses' => $payment_statuses,
         ]);
     }
 
@@ -444,6 +457,9 @@ class SalesController extends BaseController
                     'product_pack_id' => isset($value['product_pack_id']) && $value['product_pack_id'] ? (int) $value['product_pack_id'] : null,
                     'pack_multiplier' => $packMultiplier,
                     'pack_name' => $value['pack_name'] ?? null,
+                    // Ported from billing: a free-text note per line item
+                    // (distinct from sales.notes, the whole-document note).
+                    'note' => $value['note'] ?? null,
                 ], $warrantyGuarantee);
 
                 if ($order->statut == 'completed') {
@@ -959,6 +975,7 @@ class SalesController extends BaseController
                         $orderDetails['product_pack_id'] = isset($prod_detail['product_pack_id']) && $prod_detail['product_pack_id'] ? (int) $prod_detail['product_pack_id'] : null;
                         $orderDetails['pack_multiplier'] = $newPackMultiplier;
                         $orderDetails['pack_name'] = $prod_detail['pack_name'] ?? null;
+                        $orderDetails['note'] = $prod_detail['note'] ?? null;
 
                         $baseDate = ! empty($request['date']) ? \Carbon\Carbon::parse($request['date']) : now();
                         $wg = SaleDetail::computeWarrantyGuaranteeDates($product, $baseDate);
@@ -1539,11 +1556,165 @@ class SalesController extends BaseController
 
             // Disable, don't delete: statut flips to 'cancelled', the invoice
             // and its line items stay on record (no deleted_at, no detail
-            // rows removed) so it stays visible/findable in reports.
+            // rows removed) so it stays visible/findable in reports. Note:
+            // used_points/earned_points columns are left AS-IS (not zeroed) --
+            // restore() below needs the original values to symmetrically
+            // re-apply them if a SuperAdmin puts the sale back to pending.
+            $current->update(['statut' => 'cancelled']);
+        }, 10);
+
+        return response()->json(['success' => true]);
+    }
+
+    // -------------- Restore a cancelled sale (SuperAdmin only) ---------------\\
+
+    /**
+     * The inverse of cancel(): only a SuperAdmin may put a cancelled sale
+     * back to Pending (a mistaken cancel is otherwise permanent from a
+     * regular admin's point of view). Re-applies the same client points
+     * cancel() reversed, symmetrically -- used_points/earned_points on the
+     * sale itself were deliberately left untouched by cancel() for exactly
+     * this purpose.
+     */
+    public function restore(Request $request, $id)
+    {
+        $requester = $request->user('api');
+        abort_unless($requester->type === 'SuperAdmin', 403, 'Only a SuperAdmin can restore a cancelled sale.');
+
+        \DB::transaction(function () use ($id) {
+            $current = Sale::findOrFail($id);
+
+            if ($current->statut !== 'cancelled') {
+                abort(422, 'Only a cancelled sale can be restored.');
+            }
+
+            $client = Client::find($current->client_id);
+            if ($client) {
+                $used_points = (int) ($current->used_points ?? 0);
+                $earned_points = (int) ($current->earned_points ?? 0);
+
+                // Re-apply the same effect the original (completed) sale had:
+                // spending used_points again, re-earning earned_points.
+                if ($used_points > 0) {
+                    $new_balance = max(0, (int) $client->points - $used_points);
+                    $client->update(['points' => $new_balance]);
+                }
+                if ($earned_points > 0) {
+                    $client->increment('points', $earned_points);
+                }
+            }
+
+            $current->update(['statut' => 'pending']);
+        }, 10);
+
+        return response()->json(['success' => true]);
+    }
+
+    // -------------- Quick status change from Pending (Status tag click) ---------------\\
+
+    /**
+     * Pending -> Ordered: no stock/accounting effect either way (see the
+     * Status Help modal), so this is just the statut flip.
+     */
+    public function markOrdered(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Sale::class);
+
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Sale::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
+        $current = Sale::findOrFail($id);
+        abort_unless($current->statut === 'pending', 422, 'Only a pending sale can be marked Ordered.');
+        $current->update(['statut' => 'ordered']);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Pending -> Completed via the Status tag's quick action (no payment
+     * collected through this path, unlike the full Sell/Edit flow) --
+     * deducts stock exactly like store()/update() do for a completed sale,
+     * and auto-consumes batches FEFO-style (BatchService::applyForSaleWithAutoFallback,
+     * the same fallback edit_sale relies on when no per-line batch picks
+     * exist). Serial/IMEI numbers are NOT reserved here -- there is no
+     * payload to pick specific units from, so a serial-tracked sale must
+     * still go through the full Edit screen to complete correctly.
+     * payment_statut is explicitly set to 'pending' (not computed from
+     * paid_amount, which stays 0) since nothing was actually collected.
+     */
+    public function markCompleted(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Sale::class);
+
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            $targetCompanyId = Sale::where('id', $id)->value('company_id');
+            abort_unless((int) $targetCompanyId === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
+        \DB::transaction(function () use ($id, $request) {
+            $user = Auth::user();
+            $view_records = $user->hasRecordView();
+            $current = Sale::with(['details.product'])->findOrFail($id);
+
+            abort_unless($current->statut === 'pending', 422, 'Only a pending sale can be marked Completed.');
+
+            $user_auth = auth()->user();
+            if (! $user_auth->is_all_warehouses) {
+                $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+                if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
+                    abort(403, 'You are not allowed to access this sale (warehouse restriction).');
+                }
+            }
+
+            $this->abortIfDocumentWarehouseDenied($current);
+
+            if (! $view_records) {
+                $this->authorizeForUser($request->user('api'), 'check_record', $current);
+            }
+
+            // Deduct stock -- mirrors store()'s own completed-sale deduction.
+            foreach ($current->details as $d) {
+                $product = $d->product;
+                if (! $product || ($product->type ?? null) === 'is_service') {
+                    continue;
+                }
+
+                $unit = $d->sale_unit_id ? Unit::find($d->sale_unit_id) : optional($product->unitSale);
+                $packMul = (float) ($d->pack_multiplier ?? 0) > 0 ? (float) $d->pack_multiplier : 1;
+                $qty = (float) $d->quantity * $packMul;
+                $opv = max((float) ($unit->operator_value ?? 1), 1);
+                $subQ = ($unit && $unit->operator === '/') ? ($qty / $opv) : ($qty * $opv);
+
+                $pw = product_warehouse::whereNull('deleted_at')
+                    ->where('warehouse_id', $current->warehouse_id)
+                    ->where('product_id', $d->product_id)
+                    ->when($d->product_variant_id, fn ($q) => $q->where('product_variant_id', $d->product_variant_id))
+                    ->first();
+
+                if ($pw && $unit) {
+                    $pw->qte = $pw->qte - $subQ;
+                    $pw->save();
+                }
+            }
+
+            // Batch tracking: same auto-FEFO fallback edit_sale uses when no
+            // per-line batch selection exists.
+            $batchService = app(BatchService::class);
+            if ($batchService->isSupported()) {
+                $inputDetails = $current->details->map(fn ($d) => [
+                    'product_id' => $d->product_id,
+                    'batches' => [],
+                ])->all();
+                $batchService->applyForSaleWithAutoFallback($current, $inputDetails, $current->details);
+            }
+
             $current->update([
-                'statut' => 'cancelled',
-                'used_points' => 0,
-                'earned_points' => 0,
+                'statut' => 'completed',
+                'payment_statut' => 'pending',
             ]);
         }, 10);
 
@@ -1886,6 +2057,9 @@ class SalesController extends BaseController
             $data['imei_number'] = $detail->imei_number;
             $data['is_batch_tracked'] = (bool) ($detail['product']['is_batch_tracked'] ?? false);
             $data['batches'] = $saleBatchesByDetail[(int) $detail->id] ?? [];
+            // Per-line note (ported from billing) -- distinct from
+            // $sale_details['note'] above, which is the whole-document note.
+            $data['note'] = $detail->note;
 
             // Multi-Pack Selling: pack name + total pieces (quantity Ã— multiplier).
             $data['pack_name'] = $detail->pack_name;
@@ -1894,7 +2068,7 @@ class SalesController extends BaseController
             $details[] = $data;
         }
 
-        $company = Setting::where('deleted_at', '=', null)->first();
+        $company = Setting::forCompany((int) $sale_data->company_id);
 
         return response()->json([
             'details' => $details,
@@ -3062,9 +3236,13 @@ class SalesController extends BaseController
 
             $details[] = $data;
         }
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        // Company boundary: this was an unscoped ->first() -- every sale's PDF
+        // showed whichever company's Setting row happened to be first in the
+        // table (logo, name, phone, email, address all come from here),
+        // regardless of which company the sale actually belongs to.
+        $settings = Setting::forCompany((int) $sale_data->company_id);
         $symbol = $docCurrency['code'];
-        $pos_setting_pdf = PosSetting::where('deleted_at', '=', null)->first();
+        $pos_setting_pdf = PosSetting::forCompany((int) $sale_data->company_id);
         $show_items_tax = $pos_setting_pdf ? (int) ($pos_setting_pdf->show_items_tax ?? 0) : 0;
 
         $Html = view('pdf.sale_pdf', [
@@ -3085,7 +3263,19 @@ class SalesController extends BaseController
 
         $pdf = PDF::loadHTML($Html, 'UTF-8');
 
-        return $pdf->download('sale.pdf');
+        // Keep a company-scoped copy on disk (files/company_{id}/sales/) in
+        // addition to streaming the download -- same convention as every
+        // other company-owned upload (CompanyFiles::dir()).
+        try {
+            $salesDir = \App\Support\CompanyFiles::dir((int) $sale_data->company_id, 'sales');
+            $pdf->save(public_path($salesDir.'/'.$sale_data->Ref.'.pdf'));
+        } catch (\Throwable $e) {
+            // Non-blocking: the browser download must still succeed even if
+            // the on-disk copy fails (e.g. permissions).
+            \Log::warning('Sale PDF disk save failed (non-blocking): '.$e->getMessage(), ['sale_id' => $id]);
+        }
+
+        return $pdf->download($sale_data->Ref.'.pdf');
 
     }
 
@@ -3213,9 +3403,10 @@ class SalesController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        // Company boundary: same unscoped ->first() bug as Sale_PDF() above.
+        $settings = Setting::forCompany((int) $sale_data->company_id);
         $symbol = $docCurrency['code'];
-        $pos_setting_pdf = PosSetting::where('deleted_at', '=', null)->first();
+        $pos_setting_pdf = PosSetting::forCompany((int) $sale_data->company_id);
         $show_items_tax = $pos_setting_pdf ? (int) ($pos_setting_pdf->show_items_tax ?? 0) : 0;
 
         $Html = view('pdf.sale_pdf', [
@@ -3507,6 +3698,8 @@ class SalesController extends BaseController
                 $data['sale_unit_id'] = $unit ? $unit->id : '';
                 $data['is_imei'] = $detail['product']['is_imei'];
                 $data['imei_number'] = $detail->imei_number;
+                // Per-line note (ported from billing).
+                $data['note'] = $detail->note;
 
                 // Multi-Pack Selling: restore the selected pack and the packs
                 // available for this line's (product, variant) scope.

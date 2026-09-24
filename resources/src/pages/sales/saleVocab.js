@@ -21,7 +21,9 @@ export const PAYMENT_STATUSES = [
     { value: 'paid', key: 'Paid' },
     { value: 'partial', key: 'partial' },
     { value: 'unpaid', key: 'Unpaid' },
-    { value: 'pending', key: 'Pending' },
+    // Own key (not the shared 'Pending' the document Status column uses) --
+    // labeled distinctly here so relabeling one never touches the other.
+    { value: 'pending', key: 'PaymentPending' },
     { value: 'Cancelled', key: 'Cancelled' },
 ];
 

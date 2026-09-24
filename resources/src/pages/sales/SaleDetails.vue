@@ -124,7 +124,7 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'product'">
             <div style="font-weight: 500">{{ record.name }}</div>
-            <div class="muted">{{ record.code }}</div>
+            <div v-if="record.note" style="font-size: 10pt; color: #0252f3; white-space: pre-wrap; text-align: left">Note: {{ record.note }}</div>
             <div v-if="record.is_imei && record.imei_number" class="muted">SN: {{ record.imei_number }}</div>
             <div v-if="record.is_batch_tracked && (record.batches || []).length">
               <a-tag v-for="(b, i) in record.batches" :key="i" style="margin-top: 2px">

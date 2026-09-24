@@ -220,6 +220,16 @@ class PurchasesController extends BaseController
         }
 
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
+        // Payment Status filter options: only values that actually occur for
+        // this company (not the full static vocab) -- a company with no
+        // legacy 'pending' rows, for example, never sees that option at all.
+        $payment_statuses = Purchase::where('deleted_at', '=', null)
+            ->where('company_id', $companyId)
+            ->whereNotNull('payment_statut')
+            ->distinct()
+            ->pluck('payment_statut')
+            ->filter()
+            ->values();
 
         return response()->json([
             'totalRows' => $totalRows,
@@ -229,6 +239,7 @@ class PurchasesController extends BaseController
             'warehouses' => $warehouses,
             'accounts' => $accounts,
             'payment_methods' => $payment_methods,
+            'payment_statuses' => $payment_statuses,
         ]);
     }
 
@@ -915,6 +926,31 @@ class PurchasesController extends BaseController
             // Disable, don't delete: statut flips to 'cancelled', the invoice
             // and its line items stay on record.
             $current->update(['statut' => 'cancelled']);
+        }, 10);
+
+        return response()->json(['success' => true]);
+    }
+
+    // -------------- Restore a cancelled purchase (SuperAdmin only) ---------------\\
+
+    /**
+     * Mirrors SalesController@restore: only a SuperAdmin may put a cancelled
+     * purchase back to Pending. Purchases have no points-equivalent side
+     * effect to re-apply (unlike sales), so this is just the statut flip.
+     */
+    public function restore(Request $request, $id)
+    {
+        $requester = $request->user('api');
+        abort_unless($requester->type === 'SuperAdmin', 403, 'Only a SuperAdmin can restore a cancelled purchase.');
+
+        \DB::transaction(function () use ($id) {
+            $current = Purchase::findOrFail($id);
+
+            if ($current->statut !== 'cancelled') {
+                abort(422, 'Only a cancelled purchase can be restored.');
+            }
+
+            $current->update(['statut' => 'pending']);
         }, 10);
 
         return response()->json(['success' => true]);

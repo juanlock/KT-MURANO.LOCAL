@@ -1210,6 +1210,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // Cancel: pending-only, non-destructive alternative to delete -- keeps the
     // invoice on record (statut -> cancelled) instead of removing it.
     Route::post('purchases/{id}/cancel', 'PurchasesController@cancel');
+    Route::post('purchases/{id}/restore', 'PurchasesController@restore');
     Route::post('purchase_send_whatsapp', 'PurchasesController@purchase_send_whatsapp');
 
     Route::get('get_import_purchases', 'PurchasesController@get_import_purchases');
@@ -1247,6 +1248,11 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // Cancel: pending-only, non-destructive alternative to delete -- keeps the
     // invoice on record (statut -> cancelled) instead of removing it.
     Route::post('sales/{id}/cancel', 'SalesController@cancel');
+    // Restore: SuperAdmin-only inverse of cancel (cancelled -> pending).
+    Route::post('sales/{id}/restore', 'SalesController@restore');
+    // Quick status change from Pending (Status tag click popup).
+    Route::post('sales/{id}/mark-ordered', 'SalesController@markOrdered');
+    Route::post('sales/{id}/mark-completed', 'SalesController@markCompleted');
 
     // ------------------------------- Sales Documents --------------------------\\
     Route::get('sales/{id}/documents', 'SalesController@getDocuments');

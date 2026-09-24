@@ -107,7 +107,11 @@
           </a-tooltip>
         </template>
         <template v-else-if="column.key === 'statut'">
-          <a-tag :color="docStatusColor(record.statut)">
+          <a-tag
+            :color="docStatusColor(record.statut)"
+            :style="statusClickable(record) ? { cursor: 'pointer' } : undefined"
+            @click="onStatusClick(record)"
+          >
             {{ statusKey(PURCHASE_STATUSES, record.statut) ? $t(statusKey(PURCHASE_STATUSES, record.statut)) : record.statut }}
           </a-tag>
         </template>
@@ -120,9 +124,14 @@
           <span :style="{ color: Number(record.due) > 0 ? '#ff4d4f' : undefined }">{{ money(record.due) }}</span>
         </template>
         <template v-else-if="column.key === 'payment_status'">
-          <a-tag :color="payStatusColor(record.payment_status)">
+          <!-- Confusing next to Status when the purchase is still Pending
+               (same 'pending' value) -- and it's not real yet anyway, since
+               payment_status is only computed once received. Hidden while
+               statut is pending. -->
+          <a-tag v-if="record.statut !== 'pending'" :color="payStatusColor(record.payment_status)">
             {{ statusKey(PAYMENT_STATUSES, record.payment_status) ? $t(statusKey(PAYMENT_STATUSES, record.payment_status)) : record.payment_status }}
           </a-tag>
+          <span v-else>—</span>
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-dropdown :trigger="['click']">
@@ -154,6 +163,11 @@
                      removing the record. -->
                 <a-menu-item v-if="auth.can('Purchases_edit') && record.statut === 'pending'" key="cancel" danger>
                   <StopOutlined /> {{ $t('Cancel') }}
+                </a-menu-item>
+                <!-- Reversing a cancel is SuperAdmin-only: a regular admin's
+                     cancel is otherwise permanent. -->
+                <a-menu-item v-if="isSuperAdmin && record.statut === 'cancelled'" key="restore">
+                  <RollbackOutlined /> {{ $t('Restore') }}
                 </a-menu-item>
                 <a-menu-item v-if="auth.can('payment_purchases_view')" key="payments">
                   <WalletOutlined /> {{ $t('ShowPayment') }}
@@ -529,7 +543,18 @@ const accountOptions = computed(() =>
   sortByLabel((crud.payload.value?.accounts || []).map(a => ({ value: a.id, label: a.account_name })))
 );
 const statusOptions = computed(() => withAllOption(sortByLabel(PURCHASE_STATUSES.map(s => ({ value: s.value, label: t(s.key) })))));
-const paymentStatusOptions = computed(() => withAllOption(sortByLabel(PAYMENT_STATUSES.map(s => ({ value: s.value, label: t(s.key) })))));
+// Built from the REAL distinct payment_statut values for this company (not
+// the full static vocab) -- a company with no legacy 'pending' rows, for
+// example, never sees that option, so it can't collide/near-duplicate with
+// a real 'unpaid' entry that IS present.
+const paymentStatusOptions = computed(() =>
+  withAllOption(sortByLabel(
+    (crud.payload.value?.payment_statuses || []).map(v => ({
+      value: v,
+      label: statusKey(PAYMENT_STATUSES, v) ? t(statusKey(PAYMENT_STATUSES, v)) : v,
+    }))
+  ))
+);
 
 const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 70, align: 'center', fixed: 'left' },
@@ -595,23 +620,56 @@ function onAction(key, record) {
     documents: () => openDocuments(record),
     delete: () => crud.remove(record, { label: record.Ref }),
     cancel: () => cancelPurchase(record),
+    restore: () => restorePurchase(record),
   };
   go[key]?.();
 }
 
-// ---------------- cancel (pending-only, non-destructive) ----------------
+// ---------------- cancel / restore (pending <-> cancelled) ----------------
+
+const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
+
+// The Status tag doubles as the Cancel trigger while Pending -- the row
+// menu still carries the same action for discoverability.
+function statusClickable(record) {
+  return auth.can('Purchases_edit') && record.statut === 'pending';
+}
+function onStatusClick(record) {
+  if (!statusClickable(record)) return;
+  cancelPurchase(record);
+}
 
 function cancelPurchase(record) {
   Modal.confirm({
     title: t('Cancel'),
     icon: createVNode(ExclamationCircleOutlined),
     content: `${t('Confirm_Cancel_Purchase')} — ${record.Ref}`,
-    okText: t('Cancel'),
+    okText: t('Yes_Cancel_It'),
     okType: 'danger',
-    cancelText: t('Delete_cancelButtonText'),
+    cancelText: t('No'),
     async onOk() {
       try {
         await http.post(`purchases/${record.id}/cancel`);
+        message.success(t('Successfully_Updated'));
+        crud.fetchRows();
+      } catch (e) {
+        message.error(e?.data?.message || t('InvalidData'));
+      }
+    },
+  });
+}
+
+// SuperAdmin-only: reversing a cancel is otherwise permanent for a regular admin.
+function restorePurchase(record) {
+  Modal.confirm({
+    title: t('Restore'),
+    icon: createVNode(ExclamationCircleOutlined),
+    content: `${t('Confirm_Restore_Purchase')} — ${record.Ref}`,
+    okText: t('Restore'),
+    cancelText: t('Delete_cancelButtonText'),
+    async onOk() {
+      try {
+        await http.post(`purchases/${record.id}/restore`);
         message.success(t('Successfully_Updated'));
         crud.fetchRows();
       } catch (e) {

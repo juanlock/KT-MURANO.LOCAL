@@ -19,7 +19,7 @@ export function payStatusColor(status) {
     if (s.includes('paid') && !s.includes('unpaid')) return 'success';
     if (s.includes('partial')) return 'warning';
     if (s.includes('cancel')) return 'default';
-    if (s.includes('pending')) return 'gold';
+    if (s.includes('pending')) return 'default';
     if (s.includes('unpaid')) return 'error';
     return 'default';
 }

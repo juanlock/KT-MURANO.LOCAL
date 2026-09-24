@@ -2370,6 +2370,10 @@ class ProductsController extends BaseController
         $item['not_selling'] = $Product_data['not_selling'];
         $item['hide_from_online_store'] = $Product_data['hide_from_online_store'] ?? 0;
         $item['is_batch_tracked'] = (bool) ($Product_data['is_batch_tracked'] ?? false);
+        // Default note (products.note) -- prefills a new sale line's own
+        // per-line note (sale_details.note), same starting-value pattern as
+        // billing's create_sale.vue product-search prefill.
+        $item['note'] = $Product_data['note'] ?? null;
 
         // product single
         if ($Product_data['type'] == 'is_single') {

@@ -12,6 +12,7 @@ class SaleDetail extends Model
         'price', 'TaxNet', 'discount', 'discount_method', 'tax_method', 'price_type',
         'warranty_date', 'guarantee_date',
         'product_pack_id', 'pack_multiplier', 'pack_name',
+        'imei_number', 'note',
     ];
 
     protected $casts = [

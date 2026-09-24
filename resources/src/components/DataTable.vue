@@ -28,6 +28,7 @@
         <!-- Column visibility -->
         <a-popover v-if="dt.showColumns" trigger="click" placement="bottomRight" overlay-class-name="dt-cols-pop">
           <template #content>
+            <div class="col-toggle-hint">{{ $t('Columns_Remember_Hint') }}</div>
             <div class="col-toggle-list">
               <a-checkbox
                 v-for="c in toggleableColumns"
@@ -38,6 +39,9 @@
                 {{ c.title }}
               </a-checkbox>
             </div>
+            <a-button type="link" size="small" class="col-toggle-reset" @click="resetHiddenColumns">
+              {{ $t('Reset') }}
+            </a-button>
           </template>
           <a-tooltip :title="$t('Columns') || 'Columns'" placement="left">
             <a-button>
@@ -230,6 +234,15 @@ function toggleColumn(key) {
   persistHiddenKeys();
 }
 
+// Clears this table's saved choices back to the columns' own defaultHidden
+// flags, and forgets the persisted override entirely (not just this session).
+function resetHiddenColumns() {
+  hiddenKeys.value = props.columns.filter(c => c.defaultHidden).map(colKey);
+  try {
+    window.localStorage.removeItem(hiddenColsStorageKey);
+  } catch (e) { /* storage unavailable */ }
+}
+
 /* ------------------------------------------------ auto totals footer */
 const { money, number } = useFormat();
 
@@ -279,6 +292,17 @@ function sumFor(col) {
 }
 .col-toggle-list :deep(.ant-checkbox-wrapper) {
   margin-inline-start: 0;
+}
+.col-toggle-hint {
+  font-size: 11px;
+  opacity: 0.55;
+  margin-bottom: 8px;
+  max-width: 220px;
+}
+.col-toggle-reset {
+  padding: 0;
+  height: auto;
+  margin-top: 4px;
 }
 
 /* Body cells follow the user's DataTable preferences (font + size). */

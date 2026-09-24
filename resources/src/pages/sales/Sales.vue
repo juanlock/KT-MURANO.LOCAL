@@ -70,14 +70,6 @@
           />
         </a-col>
         <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('warehouse') }}</div>
-          <a-select
-            v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
-            option-filter-prop="label" :placeholder="$t('Choose_Warehouse')" :options="warehouseOptions"
-            @change="onOtherFilterChange"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
           <div class="filter-label">{{ $t('Status') }}</div>
           <a-select
             v-model:value="filters.statut" style="width: 100%" allow-clear
@@ -98,6 +90,14 @@
             :placeholder="$t('Shipping_status')" :options="shippingStatusOptions" @change="onOtherFilterChange"
           />
         </a-col>
+        <a-col :xs="12" :md="8" :xl="4">
+          <div class="filter-label">{{ $t('warehouse') }}</div>
+          <a-select
+            v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
+            option-filter-prop="label" :placeholder="$t('Choose_Warehouse')" :options="warehouseOptions"
+            @change="onOtherFilterChange"
+          />
+        </a-col>
       </a-row>
     </a-card>
 
@@ -113,8 +113,25 @@
             <span style="color: #ff4d4f; margin-left: 4px">↩</span>
           </a-tooltip>
         </template>
+        <template v-else-if="column.key === 'client_name'">
+          <a v-if="record.client_id" @click="$router.push(`/customers/${record.client_id}/ledger`)">{{ record.client_name }}</a>
+          <span v-else>{{ record.client_name }}</span>
+        </template>
         <template v-else-if="column.key === 'statut'">
-          <a-tag :color="docStatusColor(record.statut)">
+          <a-dropdown v-if="auth.can('Sales_edit') && record.statut === 'pending'" :trigger="['click']">
+            <a-tag :color="docStatusColor(record.statut)" style="cursor: pointer">
+              {{ statusKey(SALE_STATUSES, record.statut) ? $t(statusKey(SALE_STATUSES, record.statut)) : record.statut }}
+            </a-tag>
+            <template #overlay>
+              <a-menu @click="({ key }) => onStatusMenuClick(key, record)">
+                <a-menu-item key="ordered">{{ $t('Ordered') }}</a-menu-item>
+                <a-menu-item key="completed">{{ $t('complete') }}</a-menu-item>
+                <a-menu-divider />
+                <a-menu-item key="cancel" danger>{{ $t('Cancel') }}</a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
+          <a-tag v-else :color="docStatusColor(record.statut)">
             {{ statusKey(SALE_STATUSES, record.statut) ? $t(statusKey(SALE_STATUSES, record.statut)) : record.statut }}
           </a-tag>
         </template>
@@ -127,9 +144,19 @@
           <span :style="{ color: Number(record.due) > 0 ? '#ff4d4f' : undefined }">{{ money(record.due) }}</span>
         </template>
         <template v-else-if="column.key === 'payment_status'">
-          <a-tag :color="payStatusColor(record.payment_status)">
+          <!-- Confusing next to Status when the sale is still Pending (same
+               'pending' value, same tag color on both) -- and it's not real
+               yet anyway, since payment_status is only computed once a sale
+               is completed. Hidden while statut is pending. -->
+          <a-tag
+            v-if="record.statut !== 'pending'"
+            :color="payStatusColor(record.payment_status)"
+            :style="paymentStatusClickable(record) ? { cursor: 'pointer' } : undefined"
+            @click="onPaymentStatusClick(record)"
+          >
             {{ statusKey(PAYMENT_STATUSES, record.payment_status) ? $t(statusKey(PAYMENT_STATUSES, record.payment_status)) : record.payment_status }}
           </a-tag>
+          <span v-else>—</span>
         </template>
         <template v-else-if="column.key === 'shipping_status'">
           <a-tag v-if="record.shipping_status" :color="shipStatusColor(record.shipping_status)">
@@ -138,70 +165,75 @@
           <span v-else>—</span>
         </template>
         <template v-else-if="column.key === 'actions'">
-          <a-dropdown :trigger="['click']">
-            <a-button type="text" size="small">
-              <template #icon><MoreOutlined style="font-size: 18px" /></template>
-            </a-button>
-            <template #overlay>
-              <a-menu @click="({ key }) => onAction(key, record)">
-                <a-menu-item key="detail">
-                  <EyeOutlined /> {{ $t('SaleDetail') }}
-                </a-menu-item>
-                <a-menu-item
-                  v-if="auth.can('Sales_edit') && record.sale_has_return === 'no' && record.statut !== 'cancelled'"
-                  key="edit"
-                >
-                  <EditOutlined /> {{ $t('EditSale') }}
-                </a-menu-item>
-                <a-menu-item
-                  v-if="auth.can('Sale_Returns_add') && record.sale_has_return === 'no' && record.statut === 'completed'"
-                  key="return-add"
-                >
-                  <RollbackOutlined /> {{ $t('Sell_Return') }}
-                </a-menu-item>
-                <a-menu-item v-if="auth.can('Sale_Returns_add') && record.sale_has_return === 'yes'" key="return-edit">
-                  <RollbackOutlined /> {{ $t('Sell_Return') }}
-                </a-menu-item>
-                <!-- Non-destructive alternative to Delete for a stuck Pending
-                     invoice: disables it (statut -> cancelled) instead of
-                     removing the record. -->
-                <a-menu-item v-if="auth.can('Sales_edit') && record.statut === 'pending'" key="cancel" danger>
-                  <StopOutlined /> {{ $t('Cancel') }}
-                </a-menu-item>
-                <a-menu-item v-if="auth.can('payment_sales_view')" key="payments">
-                  <WalletOutlined /> {{ $t('ShowPayment') }}
-                </a-menu-item>
-                <a-menu-item v-if="auth.can('payment_sales_add') && record.statut === 'completed'" key="pay">
-                  <PlusOutlined /> {{ $t('AddPayment') }}
-                </a-menu-item>
-                <a-menu-item v-if="auth.can('shipment')" key="shipment">
-                  <CarOutlined /> {{ $t('Edit_Shipping') }}
-                </a-menu-item>
-                <a-menu-item key="invoice-pos">
-                  <FileTextOutlined /> {{ $t('Invoice_POS') }}
-                </a-menu-item>
-                <a-menu-item key="pdf">
-                  <FilePdfOutlined /> {{ $t('DownloadPdf') }}
-                </a-menu-item>
-                <a-menu-item key="whatsapp">
-                  <WhatsAppOutlined /> WhatsApp Notification
-                </a-menu-item>
-                <a-menu-item key="email">
-                  <MailOutlined /> {{ $t('email_notification') }}
-                </a-menu-item>
-                <a-menu-item key="sms">
-                  <MessageOutlined /> {{ $t('sms_notification') }}
-                </a-menu-item>
-                <a-menu-item key="documents">
-                  <PaperClipOutlined /> {{ $t('Attach_Documents') }}
-                </a-menu-item>
-                <a-menu-divider v-if="auth.can('Sales_delete') && record.sale_has_return === 'no'" />
-                <a-menu-item v-if="auth.can('Sales_delete') && record.sale_has_return === 'no'" key="delete" danger>
-                  <DeleteOutlined /> {{ $t('Del') }}
-                </a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
+          <a-space :size="0">
+            <a-tooltip :title="$t('DownloadPdf')">
+              <a-button type="text" size="small" @click="invoicePdf(record)">
+                <template #icon><FilePdfOutlined /></template>
+              </a-button>
+            </a-tooltip>
+            <a-tooltip :title="$t('Attach_Documents')">
+              <a-button type="text" size="small" @click="openDocuments(record)">
+                <template #icon><PaperClipOutlined /></template>
+              </a-button>
+            </a-tooltip>
+            <a-dropdown :trigger="['click']">
+              <a-button type="text" size="small">
+                <template #icon><MoreOutlined style="font-size: 18px" /></template>
+              </a-button>
+              <template #overlay>
+                <a-menu @click="({ key }) => onAction(key, record)">
+                  <a-menu-item key="detail">
+                    <EyeOutlined /> {{ $t('SaleDetail') }}
+                  </a-menu-item>
+                  <a-menu-item
+                    v-if="auth.can('Sales_edit') && record.sale_has_return === 'no' && record.statut !== 'cancelled'"
+                    key="edit"
+                  >
+                    <EditOutlined /> {{ $t('EditSale') }}
+                  </a-menu-item>
+                  <a-menu-item
+                    v-if="auth.can('Sale_Returns_add') && record.sale_has_return === 'no' && record.statut === 'completed'"
+                    key="return-add"
+                  >
+                    <RollbackOutlined /> {{ $t('Sell_Return') }}
+                  </a-menu-item>
+                  <a-menu-item v-if="auth.can('Sale_Returns_add') && record.sale_has_return === 'yes'" key="return-edit">
+                    <RollbackOutlined /> {{ $t('Sell_Return') }}
+                  </a-menu-item>
+                  <!-- Non-destructive alternative to Delete for a stuck Pending
+                       invoice: disables it (statut -> cancelled) instead of
+                       removing the record. -->
+                  <a-menu-item v-if="auth.can('Sales_edit') && record.statut === 'pending'" key="cancel" danger>
+                    <StopOutlined /> {{ $t('Cancel') }}
+                  </a-menu-item>
+                  <!-- Reversing a cancel is SuperAdmin-only: a regular admin's
+                       cancel is otherwise permanent. -->
+                  <a-menu-item v-if="isSuperAdmin && record.statut === 'cancelled'" key="restore">
+                    <RollbackOutlined /> {{ $t('Restore') }}
+                  </a-menu-item>
+                  <a-menu-item v-if="auth.can('shipment')" key="shipment">
+                    <CarOutlined /> {{ $t('Edit_Shipping') }}
+                  </a-menu-item>
+                  <a-menu-item key="invoice-pos">
+                    <FileTextOutlined /> {{ $t('Invoice_POS') }}
+                  </a-menu-item>
+                  <a-menu-item key="whatsapp">
+                    <WhatsAppOutlined /> WhatsApp Notification
+                  </a-menu-item>
+                  <a-menu-item key="email">
+                    <MailOutlined /> {{ $t('email_notification') }}
+                  </a-menu-item>
+                  <a-menu-item key="sms">
+                    <MessageOutlined /> {{ $t('sms_notification') }}
+                  </a-menu-item>
+                  <a-menu-divider v-if="auth.can('Sales_delete') && record.sale_has_return === 'no'" />
+                  <a-menu-item v-if="auth.can('Sales_delete') && record.sale_has_return === 'no'" key="delete" danger>
+                    <DeleteOutlined /> {{ $t('Del') }}
+                  </a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </a-space>
         </template>
       </template>
     </DataTable>
@@ -413,7 +445,7 @@ import { useI18n } from 'vue-i18n';
 import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, MoreOutlined,
   FilePdfOutlined, FileExcelOutlined, FileTextOutlined, MailOutlined,
-  MessageOutlined, WalletOutlined, CarOutlined, RollbackOutlined,
+  MessageOutlined, CarOutlined, RollbackOutlined,
   PaperClipOutlined, UploadOutlined, DownloadOutlined, WhatsAppOutlined,
   ExclamationCircleOutlined, ShoppingCartOutlined, DollarOutlined, CheckCircleOutlined,
   StopOutlined,
@@ -585,16 +617,26 @@ const accountOptions = computed(() =>
   sortByLabel((crud.payload.value?.accounts || []).map(a => ({ value: a.id, label: a.account_name })))
 );
 const statusOptions = computed(() => withAllOption(sortByLabel(SALE_STATUSES.map(s => ({ value: s.value, label: t(s.key) })))));
-const paymentStatusOptions = computed(() => withAllOption(sortByLabel(PAYMENT_STATUSES.map(s => ({ value: s.value, label: t(s.key) })))));
+// Built from the REAL distinct payment_statut values for this company (not
+// the full static vocab) -- a company with no legacy 'pending' rows, for
+// example, never sees that option, so it can't collide/near-duplicate with
+// a real 'unpaid' entry that IS present.
+const paymentStatusOptions = computed(() =>
+  withAllOption(sortByLabel(
+    (crud.payload.value?.payment_statuses || []).map(v => ({
+      value: v,
+      label: statusKey(PAYMENT_STATUSES, v) ? t(statusKey(PAYMENT_STATUSES, v)) : v,
+    }))
+  ))
+);
 const shippingStatusOptions = computed(() => withAllOption(sortByLabel(SHIPPING_STATUSES.map(s => ({ value: s.value, label: t(s.key) })))));
 
 const columns = computed(() => [
-  { title: t('Action'), key: 'actions', width: 70, align: 'center', fixed: 'left' },
+  { title: t('Action'), key: 'actions', width: 130, align: 'center', fixed: 'left' },
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true, exportValue: r => dateTime(r.date) },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   { title: t('Seller'), dataIndex: 'seller_name', key: 'seller_name' },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name', sorter: true },
-  { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name', sorter: true },
   { title: t('Items'), dataIndex: 'items_count', key: 'items_count', align: 'center', width: 80, exportValue: r => r.items_count },
   { title: t('Status'), dataIndex: 'statut', key: 'statut', sorter: true, exportValue: r => r.statut },
   // Multi-Currency: badge with the document's currency code (amounts in the
@@ -607,6 +649,7 @@ const columns = computed(() => [
   { title: t('Due'), dataIndex: 'due', key: 'due', align: 'right', exportValue: r => money(r.due) },
   { title: t('PaymentStatus'), dataIndex: 'payment_status', key: 'payment_status', exportValue: r => r.payment_status },
   { title: t('Shipping_status'), dataIndex: 'shipping_status', key: 'shipping_status', exportValue: r => r.shipping_status || '' },
+  { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name', sorter: true },
 ]);
 
 // ---------------- list exports (PDF / Excel) ----------------
@@ -645,34 +688,97 @@ function onAction(key, record) {
     edit: () => router.push(`/sales/${record.id}/edit`),
     'return-add': () => router.push(`/sale-returns/create/${record.id}`),
     'return-edit': () => router.push(`/sale-returns/${record.salereturn_id}/edit/${record.id}`),
-    payments: () => showPayments(record),
-    pay: () => openAddPayment(record),
     shipment: () => openShipment(record),
     'invoice-pos': () => invoicePos(record),
-    pdf: () => invoicePdf(record),
     whatsapp: () => sendWhatsApp(record),
     email: () => notify('sales_send_email', record.id, 'SendEmail', 'SMTPIncorrect'),
     sms: () => notify('sales_send_sms', record.id, 'sms_send_successfully', 'sms_config_invalid'),
-    documents: () => openDocuments(record),
     delete: () => crud.remove(record, { label: record.Ref }),
     cancel: () => cancelSale(record),
+    restore: () => restoreSale(record),
   };
   go[key]?.();
 }
 
-// ---------------- cancel (pending-only, non-destructive) ----------------
+// ---------------- status tag quick actions (pending -> ordered/completed/cancelled) ----------------
+
+const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
+
+function onStatusMenuClick(key, record) {
+  if (key === 'cancel') return cancelSale(record);
+  if (key === 'ordered') return markOrdered(record);
+  if (key === 'completed') return markCompleted(record);
+}
+
+function markOrdered(record) {
+  Modal.confirm({
+    title: t('Ordered'),
+    icon: createVNode(ExclamationCircleOutlined),
+    content: `${t('Confirm_Mark_Ordered')} — ${record.Ref}`,
+    okText: t('Ordered'),
+    cancelText: t('No'),
+    async onOk() {
+      try {
+        await http.post(`sales/${record.id}/mark-ordered`);
+        message.success(t('Successfully_Updated'));
+        crud.fetchRows();
+      } catch (e) {
+        message.error(e?.data?.message || t('InvalidData'));
+      }
+    },
+  });
+}
+
+function markCompleted(record) {
+  Modal.confirm({
+    title: t('complete'),
+    icon: createVNode(ExclamationCircleOutlined),
+    content: `${t('Confirm_Mark_Completed')} — ${record.Ref}`,
+    okText: t('complete'),
+    cancelText: t('No'),
+    async onOk() {
+      try {
+        await http.post(`sales/${record.id}/mark-completed`);
+        message.success(t('Successfully_Updated'));
+        crud.fetchRows();
+      } catch (e) {
+        message.error(e?.data?.message || t('InvalidData'));
+      }
+    },
+  });
+}
 
 function cancelSale(record) {
   Modal.confirm({
     title: t('Cancel'),
     icon: createVNode(ExclamationCircleOutlined),
     content: `${t('Confirm_Cancel_Sale')} — ${record.Ref}`,
-    okText: t('Cancel'),
+    okText: t('Yes_Cancel_It'),
     okType: 'danger',
-    cancelText: t('Delete_cancelButtonText'),
+    cancelText: t('No'),
     async onOk() {
       try {
         await http.post(`sales/${record.id}/cancel`);
+        message.success(t('Successfully_Updated'));
+        crud.fetchRows();
+      } catch (e) {
+        message.error(e?.data?.message || t('InvalidData'));
+      }
+    },
+  });
+}
+
+// SuperAdmin-only: reversing a cancel is otherwise permanent for a regular admin.
+function restoreSale(record) {
+  Modal.confirm({
+    title: t('Restore'),
+    icon: createVNode(ExclamationCircleOutlined),
+    content: `${t('Confirm_Restore_Sale')} — ${record.Ref}`,
+    okText: t('Restore'),
+    cancelText: t('Delete_cancelButtonText'),
+    async onOk() {
+      try {
+        await http.post(`sales/${record.id}/restore`);
         message.success(t('Successfully_Updated'));
         crud.fetchRows();
       } catch (e) {
@@ -837,6 +943,20 @@ async function loadPayments(saleId) {
   const data = await http.get(`get_payments_by_sale/${saleId}`);
   payments.value = data.payments || [];
   paymentsDue.value = data.due || 0;
+}
+
+// Payment Status tag now doubles as the ShowPayment/AddPayment trigger
+// (row menu no longer carries them): paid -> view payments, otherwise ->
+// add a payment (only when the sale is actually payable).
+function paymentStatusClickable(record) {
+  if (record.payment_status === 'paid') return auth.can('payment_sales_view');
+  return auth.can('payment_sales_add') && record.statut === 'completed';
+}
+function onPaymentStatusClick(record) {
+  if (!paymentStatusClickable(record)) return;
+  activeSale.value = record;
+  if (record.payment_status === 'paid') showPayments(record);
+  else openAddPayment(record);
 }
 
 async function showPayments(record) {

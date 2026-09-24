@@ -120,7 +120,7 @@
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'product'">
               <div style="font-weight: 500">{{ productDisplayName(record.name) }}</div>
-              <div class="muted">{{ record.code }}</div>
+              <div v-if="record.note" style="font-size: 10pt; color: #0252f3; white-space: pre-wrap; text-align: left">Note: {{ record.note }}</div>
               <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">Batch</a-tag>
               <a-select
                 :value="record.price_type"
@@ -458,6 +458,13 @@
           <a-col v-if="units.length" :span="12">
             <a-form-item :label="$t('UnitSale')">
               <a-select v-model:value="lineDraft.sale_unit_id" :options="units.map(u => ({ value: u.id, label: u.name }))" />
+            </a-form-item>
+          </a-col>
+          <!-- Per-line note (ported from billing's sale_details.note) --
+               shown in the items table in place of the product code. -->
+          <a-col :span="24">
+            <a-form-item :label="$t('Description')">
+              <a-textarea v-model:value="lineDraft.note" :rows="3" />
             </a-form-item>
           </a-col>
           <a-col v-if="editingLine.is_imei" :span="24">
@@ -965,6 +972,9 @@ async function onProductPicked(idx) {
       product_type: d.product_type,
       code: d.code || p.code,
       name: d.name,
+      // Prefills from the product's own default note (products.note); the
+      // line-edit modal lets it be changed per line from there.
+      note: d.note || '',
       stock: d.product_type !== 'is_service' ? d.qte_sale : '---',
       // Overselling: never seed the line with the (zero/negative) stock —
       // always start at 1 so the product can actually be sold.
@@ -1195,6 +1205,7 @@ async function openLineEdit(line) {
     discount_Method: String(line.discount_Method || '2'),
     discount: String(line.discount_Method || '2') === '2' ? toDocAmt(line.discount) : line.discount,
     sale_unit_id: line.sale_unit_id,
+    note: line.note || '',
   };
   units.value = [];
   lineEditLoading.value = true;
@@ -1220,6 +1231,7 @@ function applyLineEdit() {
       ? toBaseAmt(lineDraft.value.discount)
       : (Number(lineDraft.value.discount) || 0),
     sale_unit_id: lineDraft.value.sale_unit_id,
+    note: lineDraft.value.note || '',
     // serial_numbers / imei_number / batches are managed by SerialPicker
     // and BatchAllocator, which mutate the line directly.
   });
@@ -1359,6 +1371,7 @@ function detailsPayload() {
     tax_method: String(l.tax_method || '1'),
     subtotal: l.subtotal,
     imei_number: l.imei_number || null,
+    note: l.note || null,
     serial_numbers: serialsOf(l),
     price_type: l.price_type || 'retail',
     product_pack_id: l.product_pack_id || null,

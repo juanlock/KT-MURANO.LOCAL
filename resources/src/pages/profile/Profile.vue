@@ -16,6 +16,10 @@
           </div>
           <div class="profile-name">{{ displayName }}</div>
           <div class="profile-email">{{ form.email }}</div>
+          <div class="profile-tags">
+            <a-tag v-if="form.role_name" color="purple">{{ form.role_name }}</a-tag>
+            <a-tag v-if="form.type" :color="typeColor(form.type)">{{ typeLabel(form.type) }}</a-tag>
+          </div>
 
           <!-- Legacy capped this at an image under 200 KB. -->
           <a-upload
@@ -159,7 +163,13 @@ const savingPassword = ref(false);
 const profileRef = ref();
 const passwordRef = ref();
 
-const form = ref({ id: '', firstname: '', lastname: '', username: '', email: '', phone: '' });
+const form = ref({ id: '', firstname: '', lastname: '', username: '', email: '', phone: '', type: '', role_name: '' });
+
+// Same mapping as the Users list's Type column.
+const TYPE_COLORS = { SuperAdmin: 'gold', admin: 'blue', employee: 'green', customer: 'purple', sales_agent: 'orange' };
+const TYPE_LABELS = { SuperAdmin: 'SuperAdmin', admin: 'Admin', employee: 'Employee', customer: 'Customer', sales_agent: 'Sales_Agent' };
+const typeColor = type => TYPE_COLORS[type] || 'default';
+const typeLabel = type => t(TYPE_LABELS[type] || type);
 const passwordForm = ref({ current_password: '', new_password: '', new_password_confirmation: '' });
 
 const avatarFile = ref(null);
@@ -330,10 +340,13 @@ onMounted(loadProfile);
 .profile-email {
   opacity: 0.6;
   font-size: 13px;
-  margin-bottom: 16px;
+  margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.profile-tags {
+  margin-bottom: 16px;
 }
 
 /* ---------------- Field sections ---------------- */

@@ -678,6 +678,9 @@ class UserController extends BaseController
     public function GetInfoProfile(Request $request)
     {
         $data = Auth::user();
+        // 'type' is already a plain column on $data; role name needs its own
+        // lookup since roles() is a belongsToMany (role_user pivot).
+        $data->role_name = optional($data->roles()->first())->name;
 
         return response()->json(['success' => true, 'user' => $data]);
     }
