@@ -15,6 +15,7 @@ class BackupController extends Controller
     public function Get_Backup(Request $request)
     {
 
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access backups.');
         $this->authorizeForUser($request->user('api'), 'backup', User::class);
 
         $data = [];
@@ -41,6 +42,7 @@ class BackupController extends Controller
     public function Generate_Backup(Request $request)
     {
 
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access backups.');
         $this->authorizeForUser($request->user('api'), 'backup', User::class);
 
         // Run backup command
@@ -170,6 +172,7 @@ class BackupController extends Controller
     public function Delete_Backup(Request $request, $name)
     {
 
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access backups.');
         $this->authorizeForUser($request->user('api'), 'backup', User::class);
 
         foreach (glob(storage_path().'/app/public/backup/*') as $filename) {

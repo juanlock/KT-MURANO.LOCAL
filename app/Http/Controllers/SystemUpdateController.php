@@ -26,6 +26,7 @@ class SystemUpdateController extends Controller
 
     private function authorize_update(Request $request): void
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access system updates.');
         $this->authorizeForUser($request->user('api'), 'update_settings', Setting::class);
     }
 

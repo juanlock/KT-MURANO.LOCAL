@@ -23,7 +23,7 @@
  * Migrated pages route inside this app; everything else deep-links back into
  * the legacy SPA, so the sidebar covers the whole product during the migration.
  */
-import { computed, onMounted, ref, watch, h } from 'vue';
+import { computed, onMounted, ref, watch, watchEffect, h } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { resolveTarget } from '../config/menu';
@@ -33,6 +33,9 @@ import { useAuthStore } from '../stores/auth';
 import { useUiStore } from '../stores/ui';
 import { useMenuStore } from '../stores/menu';
 import { usePendingWorkStore } from '../stores/pendingWork';
+import { useCompanyStore } from '../stores/company';
+import { isLightColor } from '../lib/colorUtils';
+import { isMenuEntryAllowed } from '../lib/menuVisibility';
 
 const props = defineProps({
   theme: { type: String, default: 'light' },
@@ -47,8 +50,56 @@ const ui = useUiStore();
 const menuStore = useMenuStore();
 // Pending-work counts, so a menu row can show what is waiting behind it.
 const pending = usePendingWorkStore();
+// Drives systemOnly entries' visibility -- see isMenuEntryAllowed().
+const company = useCompanyStore();
 const route = useRoute();
 const router = useRouter();
+
+// Dark Menu's background is the EXACT chosen Primary Color (no darkening) --
+// applied via plain CSS below (.ant-menu-dark rules), not an ant-design-vue
+// Menu component-token override: that route was tried first and had to be
+// reverted because ant-design-vue merges a components.Menu override into the
+// token BEFORE it branches into light vs. dark styles, so it leaked the dark
+// background onto every LIGHT-themed <a-menu> in the app too (with no
+// matching text-colour change -- black text on a dark fill). These CSS vars
+// only ever apply where the .ant-menu-dark class is actually present, so
+// there's no equivalent leak.
+//
+// Set on :root (not just this element's inline style) because a collapsed
+// sidebar's submenu flyouts render via Vue Teleport to document.body --
+// outside this element's DOM subtree, so a locally-scoped custom property
+// would not inherit into them.
+//
+// Text/icon colour: 'auto' (default) picks white or black for contrast
+// against whatever colour was chosen, same idea as picking a photo's caption
+// colour off its background -- a bright pick (e.g. #00b294) gets dark text,
+// a deep one gets white text. ui.sidebarTextMode lets it be forced either way
+// from the Customizer for the rare colour auto doesn't call right.
+const sbIsLight = computed(() => isLightColor(ui.primaryColor));
+const sbText = computed(() => {
+  if (ui.sidebarTextMode === 'white') return 'rgba(255, 255, 255, 0.95)';
+  if (ui.sidebarTextMode === 'black') return 'rgba(0, 0, 0, 0.88)';
+  return sbIsLight.value ? 'rgba(0, 0, 0, 0.88)' : 'rgba(255, 255, 255, 0.95)';
+});
+// A translucent layer of the TEXT colour reads as a highlight against any
+// background lightness -- used for hover/selected rows instead of a second
+// fixed colour, so it never has to fight the chosen Primary Color for
+// contrast the way a same-hue highlight would.
+const sbOverlay = computed(() => (sbText.value.includes('255, 255, 255') ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.08)'));
+const sbOverlayStrong = computed(() => (sbText.value.includes('255, 255, 255') ? 'rgba(255, 255, 255, 0.26)' : 'rgba(0, 0, 0, 0.14)'));
+watchEffect(() => {
+  const root = document.documentElement.style;
+  root.setProperty('--sb-bg', ui.primaryColor);
+  root.setProperty('--sb-sub-bg', ui.primaryColor);
+  root.setProperty('--sb-text', sbText.value);
+  root.setProperty('--sb-overlay', sbOverlay.value);
+  root.setProperty('--sb-overlay-strong', sbOverlayStrong.value);
+  // Menu Font (Customizer): applies regardless of light/dark theme, not just
+  // Dark Menu -- a row-text-size/weight preference, not a contrast fix. Also
+  // set on :root so the Teleported flyout popup (collapsed sidebar) matches.
+  root.setProperty('--sb-font-size', `${ui.sidebarFontSize}px`);
+  root.setProperty('--sb-font-weight', ui.sidebarBold ? '700' : '400');
+});
 
 const selectedKeys = ref([]);
 const openKeys = ref([]);
@@ -61,8 +112,7 @@ onMounted(() => menuStore.loadPositions());
 
 /** Legacy rule: no permissions listed = always visible; otherwise ANY match. */
 function allowed(entry) {
-  if (!entry.permissions || !entry.permissions.length) return true;
-  return entry.permissions.some(p => auth.can(p));
+  return isMenuEntryAllowed(entry, { can: p => auth.can(p), actingCompanyId: company.actingCompanyId, isSuperAdmin: auth.user?.type === 'SuperAdmin' });
 }
 
 // Sidebar "filter menus" search box (below the logo, AdminLayout.vue).
@@ -144,7 +194,14 @@ function leafItem(groupKey, entry, withIcon) {
     ? { type: 'external', path: entry.href }
     : resolveTarget(entry.to);
   return {
-    key: `${groupKey}|${target.type}|${target.path}`,
+    // The `|system` suffix on systemOnly entries is a CSS hook (see the
+    // style block: Ant reflects the raw key verbatim as data-menu-id, so a
+    // plain attribute selector can style/tag this row) -- NOT a UI-driven
+    // choice. It must also be added in routeIndex's addLeaf() below, which
+    // independently builds the SAME key from the SAME entry for
+    // highlighting the active item; if the two ever disagree, navigating to
+    // a systemOnly page stops highlighting/auto-expanding it in the sidebar.
+    key: `${groupKey}|${target.type}|${target.path}${entry.systemOnly ? '|system' : ''}`,
     label: labelNode(entry),
     icon: withIcon ? itemIcon(entry, withIcon) : undefined,
   };
@@ -264,7 +321,8 @@ const routeIndex = computed(() => {
   const addLeaf = (groupKey, entry, opens) => {
     if (entry.href) return;
     const tgt = resolveTarget(entry.to);
-    if (tgt?.type === 'next') idx[tgt.path] = { key: `${groupKey}|next|${tgt.path}`, opens };
+    // Must match leafItem()'s key exactly -- see the comment there.
+    if (tgt?.type === 'next') idx[tgt.path] = { key: `${groupKey}|next|${tgt.path}${entry.systemOnly ? '|system' : ''}`, opens };
   };
   const walk = (entry, groupKey, containerKey, opens) => {
     if (entry.children) {
@@ -373,6 +431,76 @@ watch(openKeys, (nv, ov) => {
 </script>
 
 <style scoped>
+/* Dark sidebar background, following the chosen Primary Color (see the
+   watchEffect above) instead of Ant's fixed navy. Scoped to .ant-menu-dark
+   specifically -- this component also renders with the LIGHT theme (default
+   sidebar layout), and must not touch that. The flyout popup rule covers a
+   collapsed sidebar's submenus, which Ant renders via Teleport to
+   document.body -- outside this element's normal DOM subtree, but still
+   reachable by a :root-level custom property. */
+.sidebar-menu.ant-menu-dark {
+  background: var(--sb-bg) !important;
+}
+:global(.ant-menu-submenu-popup.ant-menu-dark),
+:global(.ant-menu-submenu-popup .ant-menu.ant-menu-dark) {
+  background: var(--sb-sub-bg) !important;
+}
+/* Text/icon colour: ant-design-vue bakes Menu's dark-theme text colours as
+   literal computed values (not var() references), derived from the GLOBAL
+   colorTextLightSolid token -- always white, regardless of how light the
+   chosen Primary Color is. Overriding here instead of via that token keeps
+   the change scoped to just this dark sidebar (colorTextLightSolid is also
+   used for e.g. every Primary button's label app-wide).
+   :deep() is required on every selector below: .ant-menu-item etc. are
+   rendered INSIDE the <a-menu> by Ant's own implementation, not written in
+   this component's template, so Vue's `scoped` attribute never lands on
+   them -- an un-:deep()'d rule silently matches nothing (confirmed: this is
+   exactly why the background override above worked immediately, targeting
+   the <a-menu> root element itself, while a first pass at this text-colour
+   rule without :deep() compiled fine but never actually applied). The popup
+   selectors stay :global() (Teleported to document.body, outside this
+   component's tree entirely -- :deep() cannot reach there, :global() skips
+   scoping altogether). */
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-item),
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-submenu-title),
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-item-group-title),
+:global(.ant-menu-submenu-popup.ant-menu-dark .ant-menu-item),
+:global(.ant-menu-submenu-popup.ant-menu-dark .ant-menu-submenu-title) {
+  color: var(--sb-text) !important;
+}
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-item .anticon),
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-submenu-title .anticon),
+:global(.ant-menu-submenu-popup.ant-menu-dark .anticon) {
+  color: var(--sb-text) !important;
+}
+/* Hover/selected: a translucent layer of the TEXT colour, not a second fixed
+   colour -- reads as a highlight regardless of how light/dark the chosen
+   Primary Color is (a same-hue highlight would vanish against its own
+   background when background = the exact colour, as it now is). */
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-item:not(.ant-menu-item-selected):hover),
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-submenu-title:hover),
+:global(.ant-menu-submenu-popup.ant-menu-dark .ant-menu-item:hover) {
+  background: var(--sb-overlay) !important;
+  color: var(--sb-text) !important;
+}
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-item-selected),
+:global(.ant-menu-submenu-popup.ant-menu-dark .ant-menu-item-selected) {
+  background: var(--sb-overlay-strong) !important;
+  color: var(--sb-text) !important;
+}
+
+/* Menu Font (Customizer: row size + bold) -- applies to BOTH the light
+   Default layout and Dark Menu, and to the collapsed sidebar's Teleported
+   flyout popups (the :global() rules), not just the dark theme like the
+   colour rules above. */
+.sidebar-menu :deep(.ant-menu-item),
+.sidebar-menu :deep(.ant-menu-submenu-title),
+:global(.ant-menu-submenu-popup .ant-menu-item),
+:global(.ant-menu-submenu-popup .ant-menu-submenu-title) {
+  font-size: var(--sb-font-size, 14px) !important;
+  font-weight: var(--sb-font-weight, 400) !important;
+}
+
 /* A menu row that carries a pending-work count. */
 .sb-row {
   display: flex;
@@ -398,6 +526,44 @@ watch(openKeys, (nv, ov) => {
   font-weight: 600;
   line-height: 18px;
   text-align: center;
+}
+
+/* systemOnly entries (e.g. Login Page Settings) -- install-wide, not scoped
+   to whichever company is currently acting, so they get their own distinct
+   color + a "Global" tag rather than blending in with every other
+   (company-scoped) item. Applied via a plain attribute selector on the raw
+   key Ant reflects as data-menu-id (leafItem() appends a `|system` suffix
+   to the key for exactly this purpose) -- NOT via label content: a-menu's
+   items-array API only accepts a string or VNode for `label`; a function
+   (tried first) gets stringified into literal text instead of invoked as a
+   render callback (see the "Labels are PLAIN STRINGS on purpose" comment
+   above labelNode() -- this is what it's warning about). Explicit colors
+   here win over the ancestor's --sb-text !important rule despite not using
+   !important themselves -- inheritance always loses to any rule that
+   targets the element directly. */
+.sidebar-menu :deep([data-menu-id$="|system"]) {
+  position: relative;
+}
+.sidebar-menu :deep([data-menu-id$="|system"] .ant-menu-title-content) {
+  color: #b45309;
+  font-weight: 600;
+}
+.sidebar-menu :deep([data-menu-id$="|system"])::after {
+  content: 'Global';
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 12px;
+  transform: translateY(-50%);
+  padding: 0 6px;
+  border-radius: 4px;
+  background: rgba(180, 83, 9, 0.14);
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 16px;
+  pointer-events: none;
 }
 
 /* Takes the leftover height in the sider's flex column and scrolls on its own,
@@ -489,9 +655,22 @@ watch(openKeys, (nv, ov) => {
   pointer-events: none;
 }
 
-/* Dark sider: lift the rail so it stays visible on the dark background. */
+/* Dark Menu: the rail is normally the Primary Color itself -- now that the
+   sidebar's OWN background is that exact same colour, a same-colour rail
+   would be invisible against it. Use the sidebar's text colour instead,
+   which is already chosen specifically to contrast with that background. */
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-sub.ant-menu-inline .ant-menu-item:hover)::after {
+  background: var(--sb-text);
+  opacity: 0.55;
+}
+.sidebar-menu.ant-menu-dark :deep(.ant-menu-sub.ant-menu-inline .ant-menu-item-selected)::after {
+  background: var(--sb-text);
+}
+
+/* Dark Menu: lift the guide line so it stays visible against whatever
+   Primary Color was chosen, light or dark. */
 .sidebar-menu.ant-menu-dark :deep(.ant-menu-sub.ant-menu-inline)::before {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--sb-overlay);
 }
 
 /* ---- Third-level ul (a sub-group's list) ----
@@ -504,7 +683,7 @@ watch(openKeys, (nv, ov) => {
   background: transparent;
 }
 .sidebar-menu.ant-menu-dark :deep(.ant-menu-sub.ant-menu-inline .ant-menu-sub.ant-menu-inline) {
-  border-inline-start-color: rgba(255, 255, 255, 0.16);
+  border-inline-start-color: var(--sb-overlay);
   background: transparent;
 }
 /* The inherited pseudo rail is redundant inside the nested panel. */

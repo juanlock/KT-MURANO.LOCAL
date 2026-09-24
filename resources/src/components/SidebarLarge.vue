@@ -78,6 +78,8 @@ import { MENU_ICONS } from '../config/menuIcons';
 import { useAuthStore } from '../stores/auth';
 import { useMenuStore } from '../stores/menu';
 import { useUiStore } from '../stores/ui';
+import { useCompanyStore } from '../stores/company';
+import { isMenuEntryAllowed } from '../lib/menuVisibility';
 
 defineProps({
   theme: { type: String, default: 'light' },
@@ -86,6 +88,8 @@ defineProps({
 
 const { t } = useI18n();
 const auth = useAuthStore();
+// Drives systemOnly entries' visibility -- see isMenuEntryAllowed().
+const company = useCompanyStore();
 // The default MENU arranged per the admin-saved order (Settings → Sidebar Menu).
 const menuStore = useMenuStore();
 const ui = useUiStore();
@@ -93,8 +97,7 @@ const route = useRoute();
 const router = useRouter();
 
 function allowed(entry) {
-  if (!entry.permissions || !entry.permissions.length) return true;
-  return entry.permissions.some(p => auth.can(p));
+  return isMenuEntryAllowed(entry, { can: p => auth.can(p), actingCompanyId: company.actingCompanyId, isSuperAdmin: auth.user?.type === 'SuperAdmin' });
 }
 function label(entry) {
   if (entry.raw) return entry.label;

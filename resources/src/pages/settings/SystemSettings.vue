@@ -41,7 +41,6 @@
             </a-menu-item-group>
             <a-menu-item-group :title="$t('System') || 'Workspace'">
               <a-menu-item key="dashboard"><AppstoreOutlined /> {{ $t('Dashboard') }}</a-menu-item>
-              <a-menu-item key="modules"><AppstoreAddOutlined /> Modules</a-menu-item>
               <a-menu-item key="datatable"><TableOutlined /> DataTable</a-menu-item>
               <a-menu-item key="export"><ExportOutlined /> {{ $t('Export') }}</a-menu-item>
               <a-menu-item key="security"><SafetyOutlined /> {{ $t('Security') }}</a-menu-item>
@@ -62,10 +61,10 @@
               <a-menu-item key="mail"><MailOutlined /> Mail</a-menu-item>
               <a-menu-item key="sms"><MessageOutlined /> SMS</a-menu-item>
               <a-menu-item key="payment"><CreditCardOutlined /> {{ $t('Payment_Gateway') }}</a-menu-item>
-              <a-menu-item key="zatca"><AuditOutlined /> {{ $t('Zatca_E_Invoicing') }}</a-menu-item>
+              <a-menu-item v-if="isSuperAdmin" key="zatca"><AuditOutlined /> {{ $t('Zatca_E_Invoicing') }}</a-menu-item>
               <a-menu-item key="custom_fields"><FormOutlined /> Custom Fields</a-menu-item>
-              <a-menu-item key="backups"><DatabaseOutlined /> Backup archives</a-menu-item>
-              <a-menu-item key="devices"><LaptopOutlined /> Login Devices</a-menu-item>
+              <a-menu-item v-if="isSuperAdmin" key="backups"><DatabaseOutlined /> Backup archives</a-menu-item>
+              <a-menu-item v-if="isSuperAdmin" key="devices"><LaptopOutlined /> Login Devices</a-menu-item>
             </a-menu-item-group>
           </a-menu>
         </a-card>
@@ -368,80 +367,96 @@
 
           <!-- ============================== Defaults ============================== -->
           <template v-else-if="activeTab === 'defaults'">
-            <a-form layout="vertical" style="max-width: 680px">
-              <a-row :gutter="16">
-                <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('DefaultCustomer')">
-                    <a-select
-                      v-model:value="setting.client_id" show-search option-filter-prop="label"
-                      :options="clients.map(c => ({ label: c.name, value: c.id }))"
-                    />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('DefaultWarehouse')">
-                    <a-select
-                      v-model:value="setting.warehouse_id" show-search option-filter-prop="label"
-                      :options="warehouses.map(w => ({ label: w.name, value: w.id }))"
-                    />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('Default_Account')">
-                    <a-select
-                      v-model:value="setting.default_account_id" allow-clear show-search option-filter-prop="label"
-                      :options="accounts.map(a => ({ label: a.account_name, value: a.id }))"
-                    />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('Default_Payment_Method')">
-                    <a-select
-                      v-model:value="setting.default_payment_method_id" allow-clear show-search option-filter-prop="label"
-                      :options="paymentMethods.map(p => ({ label: p.name, value: p.id }))"
-                    />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item :label="$t('Default_Tax')">
-                    <a-input-number v-model:value="setting.default_tax" :min="0" :max="100" :step="0.001" :precision="3" style="width: 100%" addon-after="%" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item :label="'Point to amount rate'">
-                    <a-input-number v-model:value="setting.point_to_amount_rate" :min="0" :step="0.01" style="width: 100%" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item :label="$t('Default_SMS_Gateway')">
-                    <a-select
-                      v-model:value="setting.sms_gateway" allow-clear
-                      :options="(smsGateways || []).map(g => ({ label: g.title || g.name || g, value: g.id ?? g.name ?? g }))"
-                    />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item :label="$t('How_many_items_do_you_want_to_display_in_POS')">
-                    <a-input-number v-model:value="pos_settings.products_per_page" :min="1" style="width: 100%" />
-                  </a-form-item>
-                </a-col>
-              </a-row>
-            </a-form>
-            <a-divider style="margin: 8px 0 0" />
-            <div class="setting-row">
-              <div>
-                <div class="setting-label">{{ $t('Create_Quotation_with_Stock') }}</div>
-                <div class="setting-help">Quotations check available stock when created.</div>
+            <!-- One a-card per module (Default - Sales now; Default - Purchases /
+                 Default - Modules etc. can follow the same pattern later). -->
+            <a-card size="small" title="Default — Sales" style="margin-bottom: 16px">
+              <a-form layout="vertical" style="max-width: 680px">
+                <a-row :gutter="16">
+                  <a-col :xs="24" :md="12">
+                    <a-form-item :label="$t('DefaultCustomer')">
+                      <a-select
+                        v-model:value="setting.client_id" show-search option-filter-prop="label"
+                        :options="clients.map(c => ({ label: c.name, value: c.id }))"
+                      />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="12">
+                    <a-form-item :label="$t('DefaultWarehouse')">
+                      <a-select
+                        v-model:value="setting.warehouse_id" show-search option-filter-prop="label"
+                        :options="warehouses.map(w => ({ label: w.name, value: w.id }))"
+                      />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="12">
+                    <a-form-item :label="$t('Default_Account')">
+                      <a-select
+                        v-model:value="setting.default_account_id" allow-clear show-search option-filter-prop="label"
+                        :options="accounts.map(a => ({ label: a.account_name, value: a.id }))"
+                      />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="12">
+                    <a-form-item :label="$t('Default_Payment_Method')">
+                      <a-select
+                        v-model:value="setting.default_payment_method_id" allow-clear show-search option-filter-prop="label"
+                        :options="paymentMethods.map(p => ({ label: p.name, value: p.id }))"
+                      />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="8">
+                    <a-form-item :label="$t('Default_Tax')">
+                      <a-input-number v-model:value="setting.default_tax" :min="0" :max="100" :step="0.001" :precision="3" style="width: 100%" addon-after="%" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="8">
+                    <a-form-item :label="'Point to amount rate'">
+                      <a-input-number v-model:value="setting.point_to_amount_rate" :min="0" :step="0.01" style="width: 100%" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="8">
+                    <a-form-item label="Default Quantity" help="Quantity a line starts at when a product is added to a sale.">
+                      <a-input-number v-model:value="setting.sale_default_quantity" :min="1" :precision="0" style="width: 100%" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="8">
+                    <a-form-item :label="$t('Default_SMS_Gateway')">
+                      <a-select
+                        v-model:value="setting.sms_gateway" allow-clear
+                        :options="(smsGateways || []).map(g => ({ label: g.title || g.name || g, value: g.id ?? g.name ?? g }))"
+                      />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="8">
+                    <a-form-item :label="$t('How_many_items_do_you_want_to_display_in_POS')">
+                      <a-input-number v-model:value="pos_settings.products_per_page" :min="1" style="width: 100%" />
+                    </a-form-item>
+                  </a-col>
+                </a-row>
+              </a-form>
+              <a-divider style="margin: 8px 0 0" />
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Create_Quotation_with_Stock') }}</div>
+                  <div class="setting-help">Quotations check available stock when created.</div>
+                </div>
+                <a-switch :checked="asBool(setting.quotation_with_stock)" @change="v => (setting.quotation_with_stock = v ? 1 : 0)" />
               </div>
-              <a-switch :checked="asBool(setting.quotation_with_stock)" @change="v => (setting.quotation_with_stock = v ? 1 : 0)" />
-            </div>
-            <div class="setting-row">
-              <div>
-                <div class="setting-label">{{ $t('Show_Items_Tax') }}</div>
-                <div class="setting-help">Show the total items tax line on POS receipts.</div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Show_Items_Tax') }}</div>
+                  <div class="setting-help">Show the total items tax line on POS receipts.</div>
+                </div>
+                <a-switch :checked="asBool(pos_settings.show_items_tax)" @change="v => (pos_settings.show_items_tax = v ? 1 : 0)" />
               </div>
-              <a-switch :checked="asBool(pos_settings.show_items_tax)" @change="v => (pos_settings.show_items_tax = v ? 1 : 0)" />
-            </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Show price type dropdown</div>
+                  <div class="setting-help">Let the user pick Retail/Wholesale price when adding a product to a sale. Turn off to always use the retail price.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_show_price_type_dropdown)" @change="v => (setting.sale_show_price_type_dropdown = v ? 1 : 0)" />
+              </div>
+            </a-card>
           </template>
 
           <!-- ============================== Dashboard ============================== -->
@@ -947,7 +962,7 @@ import {
   UploadOutlined, UpOutlined, DownOutlined, ClearOutlined,
   ShopOutlined, GlobalOutlined, AuditOutlined, ControlOutlined, ExportOutlined,
   ThunderboltOutlined, NumberOutlined, FileTextOutlined, FilePdfOutlined, MedicineBoxOutlined,
-  AppstoreOutlined, AppstoreAddOutlined, SafetyOutlined, CloudUploadOutlined, ToolOutlined,
+  AppstoreOutlined, SafetyOutlined, CloudUploadOutlined, ToolOutlined,
   CalendarOutlined, SkinOutlined, MobileOutlined, TabletOutlined, MailOutlined, MessageOutlined,
   CreditCardOutlined, FormOutlined, DatabaseOutlined, LaptopOutlined,
   ExperimentOutlined, TableOutlined, PrinterOutlined,
@@ -962,6 +977,10 @@ import { uploadForm } from '../../lib/upload';
 const { t, locale } = useI18n();
 const ui = useUiStore();
 const auth = useAuthStore();
+// Modules / Backup archives / ZATCA / Login Devices tabs mirror the same
+// superAdminOnly gate as their standalone routes -- see menu.js and
+// router/index.js -- since embedding them here would otherwise bypass it.
+const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
 
 /* --------------------------- DataTable preferences (device-local) */
 const dtStore = useDatatableStore();
@@ -1007,7 +1026,6 @@ const embeddedPages = {
   custom_fields: lazySection(() => import('./CustomFields.vue')),
   backups: lazySection(() => import('./Backup.vue')),
   devices: lazySection(() => import('./LoginDevices.vue')),
-  modules: lazySection(() => import('./ModuleToggles.vue')),
   invoice_pdf: lazySection(() => import('./InvoicePdfSettings.vue')),
   demo: lazySection(() => import('./DemoDataGenerator.vue')),
 };
@@ -1039,7 +1057,6 @@ const currentSection = computed(() => ({
   invoice_pdf: { title: 'Invoice PDF', desc: 'Customize the PDF templates — colors, fonts, layout, sections and labels — with a live preview.' },
   pharmacy: { title: 'Pharmacy', desc: 'Batch and expiry tracking for pharmacies.' },
   dashboard: { title: t('Dashboard'), desc: 'What the dashboard shows by default.' },
-  modules: { title: 'Modules', desc: 'Enable or disable business modules — Hospital, Fleet, Projects, HRM and more — for all users.' },
   datatable: { title: 'DataTable', desc: 'How list tables look on this device: font, size, density and toolbar components.' },
   export: { title: t('Export'), desc: 'Defaults for PDF, Excel and print exports on list and report pages, for all users.' },
   demo: { title: 'Demo Data', desc: 'Generate realistic sample data for testing, and remove it safely.' },
@@ -1227,6 +1244,8 @@ async function save() {
   fd.append('sidebar_show_logo', asBool(s.sidebar_show_logo) ? 1 : 0);
   fd.append('hide_site_name', asBool(s.hide_site_name) ? 1 : 0);
   fd.append('quotation_with_stock', s.quotation_with_stock);
+  fd.append('sale_show_price_type_dropdown', asBool(s.sale_show_price_type_dropdown) ? 1 : 0);
+  fd.append('sale_default_quantity', Math.max(1, Number(s.sale_default_quantity) || 1));
   fd.append('show_language', s.show_language);
   fd.append('timezone', s.timezone);
   fd.append('date_format', s.date_format || 'YYYY-MM-DD');

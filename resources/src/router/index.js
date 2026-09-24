@@ -235,6 +235,7 @@ const CustomFields = lazy('CustomFields', () => import('../pages/settings/Custom
 const Backup = lazy('Backup', () => import('../pages/settings/Backup.vue'));
 const PosSettings = lazy('PosSettings', () => import('../pages/settings/PosSettings.vue'));
 const AppearanceSettings = lazy('AppearanceSettings', () => import('../pages/settings/AppearanceSettings.vue'));
+const LoginPageSettings = lazy('LoginPageSettings', () => import('../pages/settings/LoginPageSettings.vue'));
 const PwaSettings = lazy('PwaSettings', () => import('../pages/settings/PwaSettings.vue'));
 const MobileAppSettings = lazy('MobileAppSettings', () => import('../pages/settings/MobileAppSettings.vue'));
 const SmsSettings = lazy('SmsSettings', () => import('../pages/settings/SmsSettings.vue'));
@@ -781,15 +782,20 @@ const routes = [
             { path: 'settings/warehouse-locations', redirect: '/warehouses' },
             { path: 'settings/payment-gateway', name: 'payment-gateway', component: PaymentGateway, meta: { title: 'Payment Gateway', permission: 'payment_gateway' } },
             { path: 'settings/mail', name: 'mail-settings', component: MailSettings, meta: { title: 'Mail Settings', permission: 'mail_settings' } },
-            { path: 'settings/login-devices', name: 'login-devices', component: LoginDevices, meta: { title: 'Login Devices', permission: 'login_device_management' } },
+            { path: 'settings/login-devices', name: 'login-devices', component: LoginDevices, meta: { title: 'Login Devices', permission: 'login_device_management', superAdminOnly: true } },
             { path: 'settings/system-health', name: 'system-health', component: SystemHealth, meta: { title: 'System Health', permission: 'system_health_view' } },
             { path: 'settings/sms-templates', name: 'sms-templates', component: SmsTemplates, meta: { title: 'SMS Templates', permission: 'notification_template' } },
             { path: 'settings/email-templates', name: 'email-templates', component: EmailTemplates, meta: { title: 'Email Templates', permission: 'notification_template' } },
             // Legacy route has no permission gate — keep it open the same way.
             { path: 'settings/custom-fields', name: 'custom-fields', component: CustomFields, meta: { title: 'Custom Fields' } },
-            { path: 'settings/backup', name: 'backup', component: Backup, meta: { title: 'Backup', permission: 'backup' } },
+            { path: 'settings/backup', name: 'backup', component: Backup, meta: { title: 'Backup', permission: 'backup', superAdminOnly: true } },
             { path: 'settings/pos', name: 'pos-settings', component: PosSettings, meta: { title: 'POS Settings', permission: 'pos_settings' } },
             { path: 'settings/appearance', name: 'appearance-settings', component: AppearanceSettings, meta: { title: 'Appearance', permission: 'appearance_settings' } },
+            // No `permission` meta -- gated inside the page itself by
+            // auth.user.type === 'SuperAdmin' (and enforced server-side the
+            // same way), not by the role-based permission system, since this
+            // must never be delegable to a company-level Admin's role.
+            { path: 'settings/login-page', name: 'login-page-settings', component: LoginPageSettings, meta: { title: 'Login Page' } },
             { path: 'settings/pwa', name: 'pwa-settings', component: PwaSettings, meta: { title: 'PWA Settings', permission: 'appearance_settings' } },
             { path: 'settings/mobile-app', name: 'mobile-app-settings', component: MobileAppSettings, meta: { title: 'Mobile App Settings', permission: 'appearance_settings' } },
             { path: 'settings/sms', name: 'sms-settings', component: SmsSettings, meta: { title: 'SMS Settings', permission: 'sms_settings' } },
@@ -798,11 +804,11 @@ const routes = [
             { path: 'settings/webhooks', name: 'webhooks', component: Webhooks, meta: { title: 'Webhooks', permission: 'webhooks_view' } },
             { path: 'settings/pos-receipt', name: 'pos-receipt', component: PosReceipt, meta: { title: 'POS Receipt', permission: 'pos_settings' } },
             { path: 'settings/modules', name: 'module-settings', component: ModuleSettings, meta: { title: 'Module Settings', permission: 'module_settings' } },
-            { path: 'settings/business-modules', name: 'business-modules', component: Modules, meta: { title: 'Modules', permission: ['business_modules', 'setting_system'] } },
-            { path: 'settings/update', name: 'update-settings', component: UpdateSettings, meta: { title: 'Update Settings', permission: 'update_settings' } },
+            { path: 'settings/business-modules', name: 'business-modules', component: Modules, meta: { title: 'Modules', permission: ['business_modules', 'setting_system'], superAdminOnly: true } },
+            { path: 'settings/update', name: 'update-settings', component: UpdateSettings, meta: { title: 'Update Settings', permission: 'update_settings', superAdminOnly: true } },
             { path: 'settings/system', name: 'system-settings', component: SystemSettings, meta: { title: 'System Settings', permission: 'setting_system' } },
             { path: 'settings/quickbooks', name: 'quickbooks-sync', component: QuickBooksSync, meta: { title: 'QuickBooks Sync', permission: 'quickbooks_settings' } },
-            { path: 'settings/zatca', name: 'zatca-settings', component: ZatcaSettings, meta: { title: 'ZATCA E-Invoicing', permission: 'zatca_settings' } },
+            { path: 'settings/zatca', name: 'zatca-settings', component: ZatcaSettings, meta: { title: 'ZATCA E-Invoicing', permission: 'zatca_settings', superAdminOnly: true } },
             { path: 'woocommerce', name: 'woocommerce-settings', component: WooCommerceSettings, meta: { title: 'WooCommerce', permission: 'woocommerce_settings' } },
             // Integrations platform — hub is visible with ANY connector permission.
             { path: 'integrations', name: 'integrations-hub', component: IntegrationsHub, meta: { title: 'Integrations', permission: ['woocommerce_settings', 'shopify_stores', 'shopify_sync', 'shopify_logs', 'salla_settings', 'prestashop_settings', 'jumia_settings', 'quickbooks_settings', 'xero_settings', 'google_sheets_settings', 'mailchimp_settings', 'slack_settings', 'telegram_settings', 'webhooks_view'] } },
@@ -843,6 +849,14 @@ router.beforeEach(async to => {
         if (!perms.some(p => auth.can(p))) {
             return { name: 'not-found' };
         }
+    }
+    // Install-level admin tooling (Modules, Upgrade, ZATCA, Backup, Login
+    // Device Management) -- never delegable to a company-level Admin's role
+    // even if their role happens to carry the permission above; matches the
+    // sidebar's superAdminOnly gate and the same abort_unless(...) check
+    // enforced server-side.
+    if (to.meta.superAdminOnly && auth.user?.type !== 'SuperAdmin') {
+        return { name: 'not-found' };
     }
     // Pages of a module the admin switched off (Settings → Modules) are
     // unreachable even by direct URL, mirroring the sidebar filter.

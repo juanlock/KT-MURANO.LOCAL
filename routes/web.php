@@ -483,6 +483,11 @@ Route::group(['middleware' => ['web', 'auth:web', 'Is_Active', 'request.safety']
 
 });
 
+// Guest-accessible language switcher for the login page (throttled: it just
+// sets a cookie and redirects, but still a write endpoint reachable with no
+// auth) -- see LocaleSyncController::setGuestLocale().
+Route::get('set-locale', 'LocaleSyncController@setGuestLocale')->middleware('throttle:30,1')->name('locale.guest');
+
 // Laravel 12 compatibility: define auth routes explicitly (laravel/ui optional)
 Route::get('login', 'Auth\LoginController@showLoginForm')->name('login');
 // 5 attempts per minute per IP — blocks credential-stuffing / brute force.

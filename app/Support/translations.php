@@ -124,6 +124,31 @@ if (! function_exists('tdb')) {
     }
 }
 
+if (! function_exists('login_locale_text')) {
+    /**
+     * Reads one locale's value out of a Login Page Settings text field --
+     * these are stored as a per-locale JSON map ({"en": "...", "es": "..."})
+     * since 2026_09_24_160000_make_login_page_text_multilingual, not a plain
+     * string, so a visitor sees the login page's own copy (hero title,
+     * badge, panel text, etc.) in whichever language they're browsing in,
+     * not always English. Falls back to 'en' when the current locale has no
+     * translation yet, then to '' if even that is missing (never throws).
+     */
+    function login_locale_text(?string $json, ?string $locale = null): string
+    {
+        if (! $json) {
+            return '';
+        }
+        $map = json_decode($json, true);
+        if (! is_array($map)) {
+            return '';
+        }
+        $locale ??= app()->getLocale();
+
+        return $map[$locale] ?? $map['en'] ?? '';
+    }
+}
+
 if (! function_exists('login_text')) {
     /**
      * One of the admin-overridable login strings, translated.

@@ -123,6 +123,7 @@
               <div v-if="record.note" style="font-size: 10pt; color: #0252f3; white-space: pre-wrap; text-align: left">Note: {{ record.note }}</div>
               <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">Batch</a-tag>
               <a-select
+                v-if="showPriceTypeDropdown"
                 :value="record.price_type"
                 size="small"
                 style="width: 100%; min-width: 150px; margin-top: 4px"
@@ -578,6 +579,12 @@ const agents = ref([]);
 // the sale's owner stays the logged-in user.
 const salespeople = ref([]);
 const salesSwitchEnabled = ref(false);
+// Settings -> Defaults -> Default - Sales: show/hide the Retail/Wholesale
+// price dropdown on each line when adding a product (default on).
+const showPriceTypeDropdown = ref(true);
+// Settings -> Defaults -> Default - Sales: quantity a new line starts at
+// when a product is added (default 1).
+const defaultQuantity = ref(1);
 
 // New sales start credited to the authenticated user (matches the POS
 // default); edit mode keeps whatever the sale already stores.
@@ -921,11 +928,25 @@ const browseGroupOptions = computed(() => {
 });
 const browseProductOptions = computed(() => {
   if (!browseGroupId.value) return [];
+  const group = browseGroupOptions.value.find(g => g.value === browseGroupId.value);
   return products.value
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.product_group_id === browseGroupId.value)
-    .map(({ p, i }) => ({ value: i, label: p.name }));
+    .map(({ p, i }) => ({ value: i, label: stripGroupPrefix(p.name, group?.label) }));
 });
+// A product's own name often already carries its group as a "Group (Item)"
+// prefix (e.g. "ProductKT-01 (productktsubname01)") -- once the group is
+// the one just picked in the dropdown above, repeating it here in every
+// row is redundant and reads as a duplicate. Strip it for this list only;
+// the full name is still used everywhere else (line items, receipts...).
+function stripGroupPrefix(name, groupName) {
+  if (!groupName) return name;
+  const prefix = `${groupName} (`;
+  if (name.startsWith(prefix) && name.endsWith(')')) {
+    return name.slice(prefix.length, -1);
+  }
+  return name;
+}
 async function onBrowseProductPicked(idx) {
   await onProductPicked(idx);
   // Keep the Group selected so the next item from the same group is one pick away.
@@ -977,8 +998,9 @@ async function onProductPicked(idx) {
       note: d.note || '',
       stock: d.product_type !== 'is_service' ? d.qte_sale : '---',
       // Overselling: never seed the line with the (zero/negative) stock —
-      // always start at 1 so the product can actually be sold.
-      quantity: !isOversellingAllowed.value && d.qte_sale !== undefined && d.qte_sale < 1 ? d.qte_sale : 1,
+      // fall back to the configured default quantity (Settings -> Defaults
+      // -> Default - Sales) so the product can actually be sold.
+      quantity: !isOversellingAllowed.value && d.qte_sale !== undefined && d.qte_sale < defaultQuantity.value ? d.qte_sale : defaultQuantity.value,
       Unit_price: d.Unit_price,
       Net_price: d.Net_price,
       discount: d.discount,
@@ -1492,6 +1514,8 @@ onMounted(async () => {
       agents.value = conv.sales_agents || create.sales_agents || [];
       salespeople.value = create.salespeople || [];
       salesSwitchEnabled.value = create.enable_pos_salesperson_switch === true;
+      showPriceTypeDropdown.value = create.sale_show_price_type_dropdown !== false;
+      defaultQuantity.value = Math.max(1, Number(create.sale_default_quantity) || 1);
       accounts.value = create.accounts || [];
       paymentMethods.value = create.payment_methods || [];
       point_to_amount_rate.value = Number(create.point_to_amount_rate) || 0;
@@ -1547,6 +1571,8 @@ onMounted(async () => {
       agents.value = data.sales_agents || [];
       salespeople.value = data.salespeople || [];
       salesSwitchEnabled.value = data.enable_pos_salesperson_switch === true;
+      showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
+      defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
       const s = data.sale || {};
       const dm = String(s.discount_Method ?? '2').toLowerCase().trim();
       sale.value = {
@@ -1602,6 +1628,8 @@ onMounted(async () => {
       agents.value = data.sales_agents || [];
       salespeople.value = data.salespeople || [];
       salesSwitchEnabled.value = data.enable_pos_salesperson_switch === true;
+      showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
+      defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
       defaultSellerToSelf();
       accounts.value = data.accounts || [];
       paymentMethods.value = data.payment_methods || [];

@@ -46,6 +46,7 @@ export const MIGRATED_ROUTES = {
     '/app/settings/Backup': '/settings/backup',
     '/app/settings/pos_settings': '/settings/pos',
     '/app/settings/appearance_settings': '/settings/appearance',
+    '/app/settings/login_page': '/settings/login-page',
     '/app/settings/sms_settings': '/settings/sms',
     '/app/settings/translations_settings': '/settings/languages',
     '/app/settings/webhooks': '/settings/webhooks',
@@ -839,11 +840,22 @@ export const MENU = [
         permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view'],
         children: [
             { label: 'SystemSettings', to: '/app/settings/System_settings', permissions: ['setting_system'] },
-            { label: 'update_settings', to: '/app/settings/update_settings', permissions: ['update_settings'] },
+            // superAdminOnly: install-level admin tooling that must never be
+            // delegable to a company-level Admin's role even if their role
+            // has the permission below -- see isMenuEntryAllowed() and the
+            // matching abort_unless(...type === 'SuperAdmin') server-side.
+            { label: 'update_settings', to: '/app/settings/update_settings', permissions: ['update_settings'], superAdminOnly: true },
             { label: 'Warehouses', to: '/app/settings/Warehouses', permissions: ['warehouse'] },
-            { label: 'Modules', to: '/app/settings/business_modules', permissions: ['business_modules', 'setting_system'] },
-            { label: 'Zatca_E_Invoicing', to: '/app/settings/zatca_settings', permissions: ['zatca_settings'] },
+            { label: 'Modules', to: '/app/settings/business_modules', permissions: ['business_modules', 'setting_system'], superAdminOnly: true },
+            { label: 'Zatca_E_Invoicing', to: '/app/settings/zatca_settings', permissions: ['zatca_settings'], superAdminOnly: true },
             { label: 'Dynamic_Appearance', to: '/app/settings/appearance_settings', permissions: ['appearance_settings'] },
+            // systemOnly: only shows while "AdminSystem" (company_id=999) is
+            // the acting company in the topbar switcher -- this is install-wide
+            // state, not anything scoped to whichever real company happens to
+            // be selected. permissions is kept too (defense in depth); the
+            // page itself and the API hard-restrict actual access to
+            // SuperAdmin only regardless -- see LoginPageSettings.vue.
+            { label: 'Login_Page_Settings', to: '/app/settings/login_page', permissions: ['appearance_settings'], systemOnly: true },
             { label: 'Languages', to: '/app/settings/translations_settings', permissions: ['translations_settings'] },
             { label: 'Payment_Methods', to: '/app/settings/payment_methods', permissions: ['payment_methods'] },
             { label: 'sms_settings', to: '/app/settings/sms_settings', permissions: ['sms_settings'] },
@@ -854,9 +866,9 @@ export const MENU = [
             { label: 'POS_Receipt', to: '/app/settings/pos_receipt', permissions: ['pos_settings'] },
             { label: 'Payment_Gateway', to: '/app/settings/payment_gateway', permissions: ['payment_gateway'] },
             { label: 'Currencies', to: '/app/settings/Currencies', permissions: ['currency'] },
-            { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'] },
+            { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true },
             { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'] },
-            { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'] },
+            { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true },
             { label: 'Loyalty_Rewards', to: '/app/loyalty/rewards', permissions: ['loyalty_rewards'] },
         ],
     },

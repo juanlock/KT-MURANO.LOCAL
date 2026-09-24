@@ -143,6 +143,10 @@ class UserController extends BaseController
             'app_name' => $settings->app_name ?? config('app.name'),
             'page_title_suffix' => $settings->page_title_suffix ?? '',
             'customize_button_visible' => (bool) ($settings->customize_button_visible ?? true),
+            // System Settings -> Appearance -> Primary Color: the admin app's
+            // (colorPrimary) brand color. Null = no company override, the
+            // SPA falls back to its own built-in default.
+            'primary_color' => $settings->primary_color ?? null,
             'hide_site_name' => (bool) ($settings->hide_site_name ?? false),
             'sidebar_logo_width' => (int) ($settings->sidebar_logo_width ?: 32),
             'sidebar_logo_height' => (int) ($settings->sidebar_logo_height ?: 32),

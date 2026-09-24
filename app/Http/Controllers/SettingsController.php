@@ -275,6 +275,16 @@ class SettingsController extends Controller
             'enable_wholesale_pricing' => $request->has('enable_wholesale_pricing')
                 ? (($request['enable_wholesale_pricing'] == '1' || $request['enable_wholesale_pricing'] == 'true' || $request['enable_wholesale_pricing'] === 1 || $request['enable_wholesale_pricing'] === true) ? 1 : 0)
                 : (int) ($setting->enable_wholesale_pricing ?? 0),
+            // Default -- Sales: show/hide the Retail/Wholesale price dropdown on
+            // each sale line when adding a product (default on)
+            'sale_show_price_type_dropdown' => $request->has('sale_show_price_type_dropdown')
+                ? (($request['sale_show_price_type_dropdown'] == '1' || $request['sale_show_price_type_dropdown'] == 'true' || $request['sale_show_price_type_dropdown'] === 1 || $request['sale_show_price_type_dropdown'] === true) ? 1 : 0)
+                : (int) ($setting->sale_show_price_type_dropdown ?? 1),
+            // Default -- Sales: quantity a line starts at when a product is
+            // added to a sale (default 1)
+            'sale_default_quantity' => $request->has('sale_default_quantity')
+                ? max(1, (int) $request['sale_default_quantity'])
+                : (int) ($setting->sale_default_quantity ?: 1),
             // Master switch for the Multi-Currency module (default off)
             'enable_multi_currency' => $request->has('enable_multi_currency')
                 ? (($request['enable_multi_currency'] == '1' || $request['enable_multi_currency'] == 'true' || $request['enable_multi_currency'] === 1 || $request['enable_multi_currency'] === true) ? 1 : 0)
@@ -883,6 +893,8 @@ class SettingsController extends Controller
             $item['sidebar_show_logo'] = (bool) ($settings->sidebar_show_logo ?? true);
             $item['hide_site_name'] = (bool) ($settings->hide_site_name ?? false);
             $item['quotation_with_stock'] = $settings->quotation_with_stock;
+            $item['sale_show_price_type_dropdown'] = (bool) ($settings->sale_show_price_type_dropdown ?? true);
+            $item['sale_default_quantity'] = (int) ($settings->sale_default_quantity ?: 1);
             $item['show_language'] = $settings->show_language;
             $item['dark_mode'] = (bool) ($settings->dark_mode ?? false);
             $item['rtl'] = (bool) ($settings->rtl ?? false);
@@ -1111,6 +1123,7 @@ class SettingsController extends Controller
 
     public function getModuleFlags(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can view module settings.');
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         $flags = $setting?->module_flags ? json_decode($setting->module_flags, true) : null;
 
@@ -1119,6 +1132,7 @@ class SettingsController extends Controller
 
     public function updateModuleFlags(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can change module settings.');
         // business_modules OR setting_system (see SettingPolicy::business_modules)
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
@@ -1144,6 +1158,7 @@ class SettingsController extends Controller
 
     public function resetModuleFlags(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can change module settings.');
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
@@ -1164,6 +1179,7 @@ class SettingsController extends Controller
 
     public function getFeatureSettings(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can view feature settings.');
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
         $settings = Setting::forCompany($this->resolveActingCompanyId($request));
 
@@ -1188,6 +1204,7 @@ class SettingsController extends Controller
 
     public function updateFeatureSettings(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can change feature settings.');
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
@@ -1654,6 +1671,8 @@ class SettingsController extends Controller
             $item['sidebar_show_logo'] = (bool) ($settings->sidebar_show_logo ?? true);
             $item['hide_site_name'] = (bool) ($settings->hide_site_name ?? false);
             $item['quotation_with_stock'] = $settings->quotation_with_stock;
+            $item['sale_show_price_type_dropdown'] = (bool) ($settings->sale_show_price_type_dropdown ?? true);
+            $item['sale_default_quantity'] = (int) ($settings->sale_default_quantity ?: 1);
             $item['show_language'] = $settings->show_language;
             $item['dark_mode'] = (bool) ($settings->dark_mode ?? false);
             $item['rtl'] = (bool) ($settings->rtl ?? false);
@@ -1904,18 +1923,7 @@ class SettingsController extends Controller
             $item['logo'] = $settings->logo;
             $item['footer'] = $settings->footer;
             $item['developed_by'] = $settings->developed_by;
-            // Login page appearance
-            $item['login_hero_title'] = $settings->login_hero_title;
-            $item['login_hero_subtitle'] = $settings->login_hero_subtitle;
-            $item['login_panel_title'] = $settings->login_panel_title;
-            $item['login_panel_subtitle'] = $settings->login_panel_subtitle;
-            $item['login_hero_badge'] = $settings->login_hero_badge;
-            $item['login_hero_feature_1'] = $settings->login_hero_feature_1;
-            $item['login_hero_feature_2'] = $settings->login_hero_feature_2;
-            $item['login_hero_feature_3'] = $settings->login_hero_feature_3;
-            $item['login_btn_text'] = $settings->login_btn_text;
-            $item['login_footer_text'] = $settings->login_footer_text;
-            $item['login_bg_color'] = $settings->login_bg_color;
+            $item['primary_color'] = $settings->primary_color;
 
             return response()->json([
                 'settings' => $item,
@@ -1936,9 +1944,9 @@ class SettingsController extends Controller
         $currentFavicon = $setting->favicon;
 
         // Only accept a valid hex color; anything else clears the override
-        $login_bg_color = $request->input('login_bg_color');
-        if (! is_string($login_bg_color) || ! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $login_bg_color)) {
-            $login_bg_color = null;
+        $primary_color = $request->input('primary_color');
+        if (! is_string($primary_color) || ! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $primary_color)) {
+            $primary_color = null;
         }
 
         $logoFilename = $currentLogo;
@@ -2004,19 +2012,227 @@ class SettingsController extends Controller
             'hide_site_name' => filter_var($request->input('hide_site_name'), FILTER_VALIDATE_BOOLEAN),
             'logo' => $logoFilename,
             'favicon' => $faviconFilename,
-            // Login page appearance
-            'login_hero_title' => $request->input('login_hero_title'),
-            'login_hero_subtitle' => $request->input('login_hero_subtitle'),
-            'login_panel_title' => $request->input('login_panel_title'),
-            'login_panel_subtitle' => $request->input('login_panel_subtitle'),
-            'login_hero_badge' => $request->input('login_hero_badge'),
-            'login_hero_feature_1' => $request->input('login_hero_feature_1'),
-            'login_hero_feature_2' => $request->input('login_hero_feature_2'),
-            'login_hero_feature_3' => $request->input('login_hero_feature_3'),
-            'login_btn_text' => $request->input('login_btn_text'),
-            'login_footer_text' => $request->input('login_footer_text'),
-            'login_bg_color' => $login_bg_color,
+            'primary_color' => $primary_color,
         ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    // ------------------------------- Login Page Settings ------------------------ \\
+    // A separate form from Appearance Settings above, and SuperAdmin-only,
+    // on purpose: the login screen renders before any user is authenticated,
+    // so there's no company to resolve yet (no session, no acting-company
+    // topbar switcher) -- it can only ever be ONE shared, install-wide look,
+    // never a per-company one. That's different in kind from every other
+    // field on the Appearance Settings page (which really do follow the
+    // acting company), so it doesn't belong on that page, and a company-level
+    // Admin -- who may well hold the general 'appearance_settings' permission
+    // -- must not be able to change what EVERY other company's users see on
+    // their own login screen. Always reads/writes the reserved template
+    // company row (Setting::TEMPLATE_COMPANY_ID = 999), matching
+    // AppServiceProvider's login/password view-composer branch.
+
+    public function get_login_page_settings(Request $request)
+    {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can view the login page settings.');
+
+        $settings = Setting::forCompany(Setting::TEMPLATE_COMPANY_ID);
+
+        return response()->json(['settings' => [
+            'id' => $settings->id,
+            // Page title (<title>) and the logo shown above the login form --
+            // same "Stocky | Ultimate Inventory With POS" placeholder every
+            // fresh company's Setting row is cloned with (Setting::forCompany's
+            // template-clone), left unedited on the reserved template row
+            // specifically. Editable here now instead of only through a
+            // per-company field that never actually reached this screen.
+            'app_name' => $settings->app_name,
+            'logo' => $settings->logo,
+            'favicon' => $settings->favicon,
+            // Guests (no session/user yet) resolve their default locale off
+            // THIS same row -- see SetLocale::settingsLocale().
+            'default_language' => $settings->default_language ?: 'en',
+            // Each of these is a per-locale JSON map ({"en": "...", "es": "..."}
+            // -- 2026_09_24_160000_make_login_page_text_multilingual), decoded
+            // here so the form can show/edit every language at once instead of
+            // just whichever one happens to be the admin's own browser locale.
+            'login_hero_title' => $this->decodeLoginLocaleMap($settings->login_hero_title),
+            'login_hero_subtitle' => $this->decodeLoginLocaleMap($settings->login_hero_subtitle),
+            'login_panel_title' => $this->decodeLoginLocaleMap($settings->login_panel_title),
+            'login_panel_subtitle' => $this->decodeLoginLocaleMap($settings->login_panel_subtitle),
+            'login_hero_badge' => $this->decodeLoginLocaleMap($settings->login_hero_badge),
+            'login_hero_feature_1' => $this->decodeLoginLocaleMap($settings->login_hero_feature_1),
+            'login_hero_feature_2' => $this->decodeLoginLocaleMap($settings->login_hero_feature_2),
+            'login_hero_feature_3' => $this->decodeLoginLocaleMap($settings->login_hero_feature_3),
+            'login_btn_text' => $this->decodeLoginLocaleMap($settings->login_btn_text),
+            'login_footer_text' => $this->decodeLoginLocaleMap($settings->login_footer_text),
+            'login_bg_color' => $settings->login_bg_color,
+            // Background is EITHER a color OR an uploaded image (image wins
+            // when both are set -- see login.blade.php); background_mode
+            // just tells the frontend which control to show, derived from
+            // which one is actually populated rather than stored separately.
+            'login_bg_image' => $settings->login_bg_image,
+            'background_mode' => $settings->login_bg_image ? 'image' : 'color',
+        ]]);
+    }
+
+    /** Decodes a Login Page Settings text field's per-locale JSON map, tolerating null/malformed values. */
+    private function decodeLoginLocaleMap(?string $json): array
+    {
+        if (! $json) {
+            return [];
+        }
+        $map = json_decode($json, true);
+
+        return is_array($map) ? $map : [];
+    }
+
+    /**
+     * Saves an uploaded file into the fixed global public/images/loginpage/
+     * folder (never per-company -- CompanyFiles::dir() does not apply here,
+     * this is the one shared login screen) and deletes the previous file IF
+     * it also lived in that folder (a bare legacy filename like "logo.png"
+     * under the shared images/ root is a default, never deleted).
+     */
+    private function saveLoginPageImage(\Illuminate\Http\UploadedFile $file, ?string $oldValue, ?int $maxWidth = null, ?int $maxHeight = null): string
+    {
+        $dir = 'images/loginpage';
+        if (! is_dir(public_path($dir))) {
+            mkdir(public_path($dir), 0755, true);
+        }
+        $filename = rand(11111111, 99999999).'.'.strtolower($file->getClientOriginalExtension());
+        $image = Image::make($file->getRealPath());
+        if ($maxWidth && $maxHeight) {
+            $image->resize($maxWidth, $maxHeight, function ($constraint) {
+                $constraint->aspectRatio();
+                $constraint->upsize();
+            });
+        }
+        $image->save(public_path($dir.'/'.$filename));
+
+        if ($oldValue && str_contains($oldValue, '/')) {
+            $oldPath = public_path($oldValue);
+            if (file_exists($oldPath)) {
+                @unlink($oldPath);
+            }
+        }
+
+        return $dir.'/'.$filename;
+    }
+
+    public function update_login_page_settings(Request $request)
+    {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can edit the login page settings.');
+
+        $setting = Setting::forCompany(Setting::TEMPLATE_COMPANY_ID);
+
+        // Only accept a valid hex color; anything else clears the override.
+        $login_bg_color = $request->input('login_bg_color');
+        if (! is_string($login_bg_color) || ! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $login_bg_color)) {
+            $login_bg_color = null;
+        }
+
+        $logoFilename = $setting->logo;
+        if ($request->hasFile('logo') && $request->file('logo')->isValid()) {
+            $logoFilename = $this->saveLoginPageImage($request->file('logo'), $setting->logo, 220, 80);
+        }
+
+        // Favicon: a raw file move, not saveLoginPageImage()'s Intervention
+        // Image resize -- Intervention doesn't handle .ico reliably, and a
+        // favicon needs no resizing anyway. Same ico/png restriction as the
+        // per-company favicon upload in update_appearance_settings() above.
+        $faviconFilename = $setting->favicon;
+        if ($request->hasFile('favicon') && $request->file('favicon')->isValid()) {
+            $favicon = $request->file('favicon');
+            $extension = strtolower($favicon->getClientOriginalExtension());
+            if (in_array($extension, ['ico', 'png'])) {
+                $dir = 'images/loginpage';
+                if (! is_dir(public_path($dir))) {
+                    mkdir(public_path($dir), 0755, true);
+                }
+                $newFilename = uniqid().'.'.$extension;
+                $favicon->move(public_path($dir), $newFilename);
+
+                if ($faviconFilename && str_contains($faviconFilename, '/')) {
+                    $oldPath = public_path($faviconFilename);
+                    if (file_exists($oldPath)) {
+                        @unlink($oldPath);
+                    }
+                }
+
+                $faviconFilename = $dir.'/'.$newFilename;
+            }
+        }
+
+        // Background: color and image are mutually exclusive. background_mode
+        // ('color'|'image') says which the SuperAdmin has selected; switching
+        // to 'color' clears any previously uploaded image (and deletes the
+        // file) so the color takes effect instead of a stale image winning.
+        $backgroundMode = $request->input('background_mode', 'color');
+        $bgImage = $setting->login_bg_image;
+        if ($backgroundMode === 'image') {
+            if ($request->hasFile('login_bg_image') && $request->file('login_bg_image')->isValid()) {
+                // A hero background is the full height of one side of the
+                // screen -- wide-gamut resize (not the small logo crop), cap
+                // just to keep the file from being unreasonably huge.
+                $bgImage = $this->saveLoginPageImage($request->file('login_bg_image'), $setting->login_bg_image, 2400, 3200);
+            }
+        } else {
+            if ($bgImage && str_contains($bgImage, '/')) {
+                $oldPath = public_path($bgImage);
+                if (file_exists($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+            $bgImage = null;
+        }
+
+        // Guests resolve their default locale off THIS row too (see
+        // app\Http\Middleware\SetLocale::settingsLocale() -- Setting::forCompany(null)
+        // lands on this same template row) -- only accept a locale this app
+        // actually ships, same validation SetLocale itself applies.
+        $defaultLanguage = $request->input('default_language');
+        if (! is_string($defaultLanguage) || ! array_key_exists($defaultLanguage, \App\Http\Middleware\SetLocale::SUPPORTED)) {
+            $defaultLanguage = 'en';
+        }
+
+        // Which language's copy this submission is editing -- each text
+        // field is a per-locale JSON map, and saving must only touch THIS
+        // locale's entry, leaving every other language's text untouched.
+        $textLocale = $request->input('text_locale');
+        if (! is_string($textLocale) || ! array_key_exists($textLocale, \App\Http\Middleware\SetLocale::SUPPORTED)) {
+            $textLocale = 'en';
+        }
+        $textFields = [
+            'login_hero_title', 'login_hero_subtitle', 'login_panel_title', 'login_panel_subtitle',
+            'login_hero_badge', 'login_hero_feature_1', 'login_hero_feature_2', 'login_hero_feature_3',
+            'login_btn_text', 'login_footer_text',
+        ];
+        $textUpdates = [];
+        foreach ($textFields as $field) {
+            $map = $this->decodeLoginLocaleMap($setting->$field);
+            $value = $request->input($field);
+            if ($value === null || $value === '') {
+                unset($map[$textLocale]);
+            } else {
+                $map[$textLocale] = $value;
+            }
+            $textUpdates[$field] = $map ? json_encode($map, JSON_UNESCAPED_UNICODE) : null;
+        }
+
+        $setting->update(array_merge([
+            'app_name' => $request->input('app_name'),
+            'logo' => $logoFilename,
+            'favicon' => $faviconFilename,
+            'default_language' => $defaultLanguage,
+            'login_bg_color' => $login_bg_color,
+            'login_bg_image' => $bgImage,
+        ], $textUpdates));
+
+        // SetLocale::settingsLocale() caches the guest default for 10
+        // minutes -- without this, a SuperAdmin changing the default
+        // language here would not take effect for guests until that expires.
+        \Illuminate\Support\Facades\Cache::forget('settings.default_language.guest');
 
         return response()->json(['success' => true]);
     }

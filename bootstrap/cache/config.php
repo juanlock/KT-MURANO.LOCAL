@@ -657,7 +657,7 @@
     ),
     'temporary_files' => 
     array (
-      'local_path' => 'C:\\Users\\juanl\\AppData\\Local\\Temp',
+      'local_path' => 'C:\\Users\\juanlock\\AppData\\Local\\Temp',
       'remote_disk' => NULL,
       'remote_prefix' => NULL,
     ),

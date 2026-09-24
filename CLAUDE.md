@@ -23,6 +23,14 @@ requests as separate cards, what changed, and each one's **status**
 `.claude/commands/kelsy.md`). This is distinct from Memorex, which reports
 the *full* `kt_logs` history.
 
+**Glossary — "multicompany"**: when the user uses this word, it refers to the
+rule spelled out below in "Roles & Multicompany Model" -- the system is
+prepared/built to serve more than one company from a single install. In
+short: a SuperAdmin gets a company dropdown/selector on company-scoped forms
+and can switch/modify which company's data they're viewing or editing; an
+Admin (AdminKT, AdminRG, etc.) is fixed to their own company and never sees
+that selector -- only a SuperAdmin can change the acting company.
+
 ## Roles & Multicompany Model
 
 - **SuperAdmin** — a user (or users) with user type `Superadmin` in the users

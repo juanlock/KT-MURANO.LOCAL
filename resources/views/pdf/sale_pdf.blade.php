@@ -221,7 +221,9 @@
             <tr style="border-bottom: 1px solid #e5e7eb; background: {{$rowIndex % 2 == 0 ? '#ffffff' : '#f9fafb'}};">
                 <td style="padding: 5px; vertical-align: top;">
                     <div style="font-weight: 600; font-size: 8.5pt; color: {{ $pdfT['text_color'] }}; margin-bottom: 1px;">{{$detail['name']}}</div>
-                    <div style="font-size: 7pt; color: #6b7280;">{{ __('pdf.code') }} {{$detail['code']}}</div>
+                    @if(!empty($detail['note']))
+                        <div style="white-space: pre-wrap; text-align: left; font-size: 7pt; color: #6b7280;">Note: {{$detail['note']}}</div>
+                    @endif
                     @if($detail['is_imei'] && $detail['imei_number'] !==null)
                         <div style="font-size: 7pt; color: {{ $pdfT['secondary_color'] }}; margin-top: 1px;">{{ __('pdf.sn') }} {{$detail['imei_number']}}</div>
                     @endif

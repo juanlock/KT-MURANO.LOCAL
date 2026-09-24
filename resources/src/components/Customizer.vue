@@ -42,6 +42,28 @@
 
       <a-divider style="margin: 16px 0" />
 
+      <!-- Menu font — row text size + bold, for the Ant-menu-based sidebar
+           (Default/Dark Menu; SidebarLarge/SidebarFlat use their own custom
+           markup and aren't wired to this yet). -->
+      <div class="cz-section">
+        <div class="cz-label">Menu Font</div>
+        <div class="cz-row" style="margin-bottom: 10px">
+          <span>Size</span>
+          <a-input-number
+            :value="ui.sidebarFontSize"
+            :min="MIN_FONT_SIZE" :max="MAX_FONT_SIZE"
+            size="small" style="width: 90px"
+            @change="v => ui.setSidebarFontSize(v)"
+          />
+        </div>
+        <div class="cz-row">
+          <span>Bold</span>
+          <a-switch :checked="ui.sidebarBold" @change="v => ui.setSidebarBold(v)" />
+        </div>
+      </div>
+
+      <a-divider style="margin: 16px 0" />
+
       <!-- Primary colour -->
       <div class="cz-section">
         <div class="cz-label">Primary Color</div>
@@ -50,18 +72,36 @@
             v-for="c in PRESETS" :key="c"
             class="cz-swatch" :class="{ active: sameColor(c) }"
             :style="{ background: c }" :title="c"
-            @click="ui.setPrimaryColor(c)"
+            @click="ui.setPrimaryColor(c, auth.user?.id)"
           >
             <CheckOutlined v-if="sameColor(c)" />
           </button>
         </div>
         <div class="cz-custom">
           <span>Custom:</span>
-          <input type="color" :value="ui.primaryColor" @input="e => ui.setPrimaryColor(e.target.value)" />
+          <input type="color" :value="ui.primaryColor" @input="e => ui.setPrimaryColor(e.target.value, auth.user?.id)" />
           <code>{{ ui.primaryColor }}</code>
-          <a-button type="link" size="small" @click="ui.resetPrimaryColor()">Reset</a-button>
+          <a-button type="link" size="small" @click="ui.resetPrimaryColor()">
+            {{ ui.companyPrimaryColor ? 'Use company color' : 'Reset' }}
+          </a-button>
         </div>
       </div>
+
+      <!-- Dark Menu's text colour: defaults to auto (picks white or black for
+           contrast against whichever Primary Color was chosen above), with a
+           manual override for the rare case auto doesn't call it right. Only
+           relevant once Dark Menu is actually on. -->
+      <template v-if="isDarkMenu">
+        <a-divider style="margin: 16px 0" />
+        <div class="cz-section">
+          <div class="cz-label">Menu Text Color</div>
+          <a-radio-group :value="ui.sidebarTextMode" @change="e => ui.setSidebarTextMode(e.target.value)">
+            <a-radio-button value="auto">Auto</a-radio-button>
+            <a-radio-button value="white">White</a-radio-button>
+            <a-radio-button value="black">Black</a-radio-button>
+          </a-radio-group>
+        </div>
+      </template>
 
       <a-divider style="margin: 16px 0" />
 
@@ -113,7 +153,7 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { CheckOutlined } from '@ant-design/icons-vue';
-import { useUiStore } from '../stores/ui';
+import { useUiStore, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../stores/ui';
 import { useAuthStore } from '../stores/auth';
 import { SUPPORTED_LOCALES } from '../i18n';
 import http from '../lib/http';
@@ -152,15 +192,27 @@ onMounted(async () => {
   } catch (e) { /* fall back to SUPPORTED_LOCALES */ }
 });
 
-// Legacy palette + the brand colour first.
-const PRESETS = ['#6d28d9', '#2f47c2', '#0f9d58', '#e91e63', '#ff9800', '#f44336', '#00bcd4', '#212121'];
+// Microsoft/SharePoint theme palette -- https://learn.microsoft.com/en-us/sharepoint/dev/design/themes-colors
+// Blue (the brand colour/default) first, then the rest of the "Main colors"
+// set, then the palette's own "Dark themes" set (brighter, higher-contrast
+// variants of the same hues) -- 18 colours total, every one taken from that
+// page rather than invented to hit a round number. Any of them (or a custom
+// pick) works for Dark Menu too -- SidebarMenu.vue picks white or black text
+// automatically for contrast against whichever one is chosen.
+const PRESETS = [
+  // Main colors
+  '#0078d4', '#004e8c', '#4f6bed', '#007780', '#498205', '#986f0b',
+  '#ca5010', '#a4262c', '#881798', '#8764b8', '#69797e', '#7a7574',
+  // Dark themes
+  '#3a96dd', '#9c89e9', '#00b294', '#ffc83d', '#ef6950', '#b1adab',
+];
 
 // The sidebar layouts, like legacy's Sidebar picker.
 const SIDEBAR_LAYOUTS = [
   { value: 'default', label: 'Default' },
   { value: 'large', label: 'Large' },
   { value: 'flat', label: 'Flat' },
-  { value: 'dark', label: 'Dark' },
+  { value: 'dark', label: 'Dark Menu' },
 ];
 
 const visible = computed(() => auth.customizeButtonVisible);
@@ -168,6 +220,8 @@ const visible = computed(() => auth.customizeButtonVisible);
 function sameColor(c) {
   return String(ui.primaryColor).toLowerCase() === c.toLowerCase();
 }
+
+const isDarkMenu = computed(() => ui.sidebarLayout === 'dark');
 </script>
 
 <style scoped>
@@ -191,7 +245,7 @@ function sameColor(c) {
   font-size: 12px;
 }
 .cz-layout.active {
-  border-color: #6d28d9;
+  border-color: #0078d4;
 }
 .cz-layout-preview {
   width: 100%;
@@ -202,12 +256,12 @@ function sameColor(c) {
   background: rgba(128, 128, 128, 0.08);
 }
 .cz-rail {
-  background: #6d28d9;
+  background: #0078d4;
   opacity: 0.85;
 }
 .cz-panel {
   width: 26%;
-  background: rgba(109, 40, 217, 0.3);
+  background: rgba(0, 120, 212, 0.3);
 }
 .cz-body {
   flex: 1;
@@ -229,7 +283,7 @@ function sameColor(c) {
 /* Flat: a sidebar column drawn as grouped header/line marks. */
 .cz-flatcol {
   width: 40%;
-  background: rgba(109, 40, 217, 0.14);
+  background: rgba(0, 120, 212, 0.14);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -240,14 +294,14 @@ function sameColor(c) {
   height: 3px;
   width: 40%;
   border-radius: 2px;
-  background: #6d28d9;
+  background: #0078d4;
   opacity: 0.9;
 }
 .cz-flatcol .cz-ln {
   height: 3px;
   width: 80%;
   border-radius: 2px;
-  background: rgba(109, 40, 217, 0.5);
+  background: rgba(0, 120, 212, 0.5);
   margin-inline-start: 6px;
 }
 .cz-lang {

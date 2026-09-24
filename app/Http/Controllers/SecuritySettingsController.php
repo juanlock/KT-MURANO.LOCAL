@@ -23,6 +23,7 @@ class SecuritySettingsController extends Controller
 
     public function sessions(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can view login device management.');
         $this->authorizeForUser($request->user('api'), 'login_device_management', Setting::class);
 
         $user = $request->user('api');
@@ -113,6 +114,7 @@ class SecuritySettingsController extends Controller
 
     public function logoutSession(Request $request, string $tokenId)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can manage login devices.');
         $this->authorizeForUser($request->user('api'), 'login_device_management', Setting::class);
 
         $user = $request->user('api');
@@ -169,6 +171,7 @@ class SecuritySettingsController extends Controller
 
     public function logoutAllOtherDevices(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can manage login devices.');
         $this->authorizeForUser($request->user('api'), 'login_device_management', Setting::class);
 
         $user = $request->user('api');

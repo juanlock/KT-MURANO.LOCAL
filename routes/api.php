@@ -1490,6 +1490,12 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('get_appearance_settings', 'SettingsController@get_appearance_settings');
     Route::put('update_appearance_settings/{id}', 'SettingsController@update_appearance_settings');
 
+    // Separate from appearance_settings above and SuperAdmin-only -- the
+    // login screen has no company to resolve pre-authentication, so it's one
+    // shared install-wide look, not a per-company setting.
+    Route::get('login_page_settings', 'SettingsController@get_login_page_settings');
+    Route::put('update_login_page_settings', 'SettingsController@update_login_page_settings');
+
     // ------------------------------- PWA Settings ------------------------\\
 
     Route::get('get_mobile_settings', 'SettingsController@get_mobile_settings');

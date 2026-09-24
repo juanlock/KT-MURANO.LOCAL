@@ -65,7 +65,22 @@ class AppServiceProvider extends ServiceProvider
             ];
 
             if (! in_array($firstSegment, $settingsExcluded)) {
-                $view->with('app_settings', Setting::first());
+                // Login/password-reset pages render before any user is
+                // authenticated -- there's no company to resolve yet (no
+                // session, no acting-company switcher), so their branding is
+                // intentionally ONE shared, install-wide look rather than
+                // "whichever company happens to be Setting::first()" (which
+                // used to silently follow row insertion order). Pinned to the
+                // reserved template company (999) -- see the matching
+                // Setting::forCompany(Setting::TEMPLATE_COMPANY_ID) calls in
+                // SettingsController::get/update_appearance_settings(),
+                // which is where a SuperAdmin actually edits this "Login
+                // page" card, regardless of which company is currently
+                // selected in the topbar switcher.
+                $app_settings = in_array($firstSegment, ['login', 'password'])
+                    ? Setting::forCompany(Setting::TEMPLATE_COMPANY_ID)
+                    : Setting::first();
+                $view->with('app_settings', $app_settings);
             }
 
             // Category data is only needed by the main application views; keep it

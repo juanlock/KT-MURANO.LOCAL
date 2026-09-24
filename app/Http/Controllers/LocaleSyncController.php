@@ -47,4 +47,40 @@ class LocaleSyncController extends Controller
 
         return response()->json(['ok' => true, 'locale' => $appLocale])->cookie($cookie);
     }
+
+    /**
+     * Guest-accessible counterpart to sync() above -- that one lives under
+     * the auth:api-protected group, so the logged-out /login page (which
+     * needed its own selectable language per an explicit ask -- it was
+     * silently defaulting to Spanish for every visitor, see the
+     * 2026_09_24_140000 migration) has no way to reach it. Same cookie,
+     * same 1-year lifetime; just a plain GET a login-page link can point at
+     * with no auth/CSRF requirements, redirecting back to where it came from.
+     */
+    public function setGuestLocale(Request $request)
+    {
+        $locale = strtolower(substr((string) $request->query('locale', ''), 0, 5));
+        $appLocale = isset(SetLocale::SUPPORTED[$locale]) ? $locale : 'en';
+
+        $cookie = cookie(
+            self::COOKIE_NAME,
+            $appLocale,
+            60 * 24 * 365, // 1 year in minutes
+            '/',
+            null,
+            false, // secure
+            false, // httpOnly - allow JS read if needed
+            false,
+            'lax'
+        );
+
+        // Only ever redirect back to a same-site path -- never follow an
+        // absolute/external `redirect` value (open-redirect guard).
+        $redirect = $request->query('redirect', '/login');
+        if (! is_string($redirect) || ! str_starts_with($redirect, '/') || str_starts_with($redirect, '//')) {
+            $redirect = '/login';
+        }
+
+        return redirect($redirect)->cookie($cookie);
+    }
 }

@@ -8,7 +8,15 @@ const COLOR_KEY = 'next_primary_color';
 const RTL_KEY = 'next_rtl';
 const SIDEBAR_KEY = 'next_sidebar_compact';
 const LAYOUT_KEY = 'next_sidebar_layout';
-const DEFAULT_COLOR = '#6d28d9';
+const TEXT_MODE_KEY = 'next_sidebar_text_mode';
+const TEXT_MODES = ['auto', 'white', 'black'];
+const FONT_SIZE_KEY = 'next_sidebar_font_size';
+const BOLD_KEY = 'next_sidebar_bold';
+const DEFAULT_FONT_SIZE = 14; // matches ant-design-vue Menu's own default fontSize
+const MIN_FONT_SIZE = 11;
+const MAX_FONT_SIZE = 20;
+// Microsoft/SharePoint "Blue" theme primary -- https://learn.microsoft.com/en-us/sharepoint/dev/design/themes-colors
+const DEFAULT_COLOR = '#0078d4';
 const SIDEBAR_LAYOUTS = ['default', 'large', 'flat', 'dark'];
 
 function stored(key, fallback) {
@@ -52,12 +60,30 @@ export const useUiStore = defineStore('ui', {
         themeMode: initialThemeMode(),
         dark: modeIsDark(initialThemeMode()),
         primaryColor: stored(COLOR_KEY, DEFAULT_COLOR),
+        // Last company-level Appearance Settings color seen from the server
+        // (null until auth loads, or if the company hasn't set one). Lets
+        // resetPrimaryColor() go back to "follow the company" instead of
+        // just the app's hardcoded brand color.
+        companyPrimaryColor: null,
         // Null → follow the locale's natural direction; '1'/'0' → manual override.
         rtl: stored(RTL_KEY, null),
         // Which sidebar to render: 'default' (Ant inline accordion) or 'large'
         // (the legacy two-pane rail + submenu panel).
         sidebarLayout: SIDEBAR_LAYOUTS.includes(stored(LAYOUT_KEY, 'default'))
             ? stored(LAYOUT_KEY, 'default') : 'default',
+        // Dark Menu's text/icon colour: 'auto' picks white or black for
+        // contrast against whatever Primary Color is chosen (see
+        // colorUtils.isLightColor()); 'white'/'black' are a manual override
+        // for the rare case auto doesn't read right on a particular colour.
+        sidebarTextMode: TEXT_MODES.includes(stored(TEXT_MODE_KEY, 'auto'))
+            ? stored(TEXT_MODE_KEY, 'auto') : 'auto',
+        // Sidebar menu row text size (px) and bold toggle -- applies to the
+        // Ant-menu-based sidebar (Default/Dark Menu layouts).
+        sidebarFontSize: (() => {
+            const n = Number(stored(FONT_SIZE_KEY, DEFAULT_FONT_SIZE));
+            return Number.isFinite(n) && n >= MIN_FONT_SIZE && n <= MAX_FONT_SIZE ? n : DEFAULT_FONT_SIZE;
+        })(),
+        sidebarBold: stored(BOLD_KEY, '0') === '1',
         // Hamburger collapse — an icon rail for the default layout, and hides
         // the submenu panel for the large one.
         sidebarCollapsed: stored(SIDEBAR_KEY, '0') === '1',
@@ -99,12 +125,49 @@ export const useUiStore = defineStore('ui', {
         toggleDark() {
             this.setThemeMode(this.dark ? 'light' : 'dark');
         },
-        setPrimaryColor(color) {
+        /**
+         * A deliberate pick from the Customizer. Stamped with the acting
+         * user's id (same reasoning as setLocale()'s 'language_explicit'):
+         * without it, one admin's manual pick in a shared/test browser would
+         * silently override every other company's admin who later logs in
+         * on that same device.
+         */
+        setPrimaryColor(color, userId) {
             this.primaryColor = color || DEFAULT_COLOR;
             save(COLOR_KEY, this.primaryColor);
+            try {
+                window.localStorage.setItem('primary_color_explicit', '1');
+                window.localStorage.setItem('primary_color_explicit_user_id', String(userId ?? ''));
+            } catch (e) { /* ignore */ }
         },
+        // "Reset" means stop personally overriding it -- go back to
+        // following the company's own Appearance Settings color (or the
+        // app's built-in default if the company hasn't set one).
         resetPrimaryColor() {
-            this.setPrimaryColor(DEFAULT_COLOR);
+            try {
+                window.localStorage.removeItem('primary_color_explicit');
+                window.localStorage.removeItem('primary_color_explicit_user_id');
+            } catch (e) { /* ignore */ }
+            this.primaryColor = this.companyPrimaryColor || DEFAULT_COLOR;
+            save(COLOR_KEY, this.primaryColor);
+        },
+        /**
+         * Applies the company's Appearance Settings color WITHOUT stamping
+         * it as this user's own explicit choice -- mirrors
+         * applyServerLocale()/the load() locale-sync block below. Called
+         * after auth loads; only takes effect when this user hasn't
+         * personally picked a color via the Customizer.
+         */
+        applyServerPrimaryColor(color, userId) {
+            this.companyPrimaryColor = color || null;
+            try {
+                const explicit = window.localStorage.getItem('primary_color_explicit') === '1'
+                    && window.localStorage.getItem('primary_color_explicit_user_id') === String(userId ?? '');
+                if (!explicit) {
+                    this.primaryColor = color || DEFAULT_COLOR;
+                    save(COLOR_KEY, this.primaryColor);
+                }
+            } catch (e) { /* best effort -- never block auth on this */ }
         },
         setRtl(on) {
             this.rtl = on ? '1' : '0';
@@ -120,6 +183,21 @@ export const useUiStore = defineStore('ui', {
         setSidebarLayout(layout) {
             this.sidebarLayout = SIDEBAR_LAYOUTS.includes(layout) ? layout : 'default';
             save(LAYOUT_KEY, this.sidebarLayout);
+        },
+        setSidebarTextMode(mode) {
+            this.sidebarTextMode = TEXT_MODES.includes(mode) ? mode : 'auto';
+            save(TEXT_MODE_KEY, this.sidebarTextMode);
+        },
+        setSidebarFontSize(size) {
+            const n = Number(size);
+            this.sidebarFontSize = Number.isFinite(n)
+                ? Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, n))
+                : DEFAULT_FONT_SIZE;
+            save(FONT_SIZE_KEY, String(this.sidebarFontSize));
+        },
+        setSidebarBold(on) {
+            this.sidebarBold = !!on;
+            save(BOLD_KEY, this.sidebarBold ? '1' : '0');
         },
         toggleCustomizer() {
             this.customizerOpen = !this.customizerOpen;
@@ -167,4 +245,4 @@ export const useUiStore = defineStore('ui', {
     },
 });
 
-export { DEFAULT_COLOR };
+export { DEFAULT_COLOR, MIN_FONT_SIZE, MAX_FONT_SIZE };

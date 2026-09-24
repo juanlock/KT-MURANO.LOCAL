@@ -119,6 +119,13 @@ export const useAuthStore = defineStore('auth', {
                         }
                     }
                 } catch (e) { /* best effort -- never block auth on locale sync */ }
+                // Same explicit-choice-wins-over-company-default pattern as
+                // locale above, for System Settings -> Appearance -> Primary
+                // Color (Ant Design's colorPrimary token, App.vue).
+                try {
+                    const ui = useUiStore();
+                    ui.applyServerPrimaryColor(this.user && this.user.primary_color, this.user && this.user.id);
+                } catch (e) { /* best effort -- never block auth on this */ }
                 // Snapshot for offline boots: a POS refresh with no network must
                 // keep the real user + permissions instead of failing open.
                 try {

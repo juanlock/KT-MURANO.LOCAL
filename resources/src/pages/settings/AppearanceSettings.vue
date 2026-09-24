@@ -57,27 +57,20 @@
               </a-space>
             </a-form-item>
           </a-col>
-        </a-row>
-      </a-card>
-
-      <a-card size="small" title="Login page" style="margin-bottom: 16px">
-        <a-row :gutter="16">
-          <a-col v-for="f in LOGIN_FIELDS" :key="f.key" :xs="24" :md="12">
-            <a-form-item :label="f.label">
-              <a-input v-model:value="setting[f.key]" />
-            </a-form-item>
-          </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Background color">
+            <a-form-item
+              :label="$t('Primary_Color')"
+              help="Every user's buttons/links/highlights default to this. Anyone can still personally override it from the Customizer drawer (topbar → Customize)."
+            >
               <a-space>
                 <input
                   type="color"
-                  :value="setting.login_bg_color || '#4f46e5'"
+                  :value="setting.primary_color || '#0078d4'"
                   style="width: 48px; height: 32px; padding: 2px; border: 1px solid #d9d9d9; border-radius: 6px; background: transparent; cursor: pointer"
-                  @input="e => (setting.login_bg_color = e.target.value)"
+                  @input="e => (setting.primary_color = e.target.value)"
                 />
-                <a-input v-model:value="setting.login_bg_color" placeholder="#4f46e5" style="width: 130px" />
-                <a-button v-if="setting.login_bg_color" @click="setting.login_bg_color = null">{{ $t('Reset') }}</a-button>
+                <a-input v-model:value="setting.primary_color" placeholder="#0078d4" style="width: 130px" />
+                <a-button v-if="setting.primary_color" @click="setting.primary_color = null">{{ $t('Reset') }}</a-button>
               </a-space>
             </a-form-item>
           </a-col>
@@ -94,6 +87,13 @@
  * GET get_appearance_settings → {settings}; save = multipart POST
  * update_appearance_settings/{id} with _method=put; checkbox flags travel as
  * '1'/'0' strings; logo/favicon only appended when a new file was picked.
+ *
+ * The Login page's own branding (hero text, background color) used to live
+ * here too, but moved to its own SuperAdmin-only page (LoginPageSettings.vue)
+ * -- unlike everything on THIS page, the login screen has no company to
+ * resolve before authentication, so it can only ever be one shared,
+ * install-wide look, not a per-company setting a company-level Admin should
+ * be able to touch.
  */
 import { ref, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
@@ -105,19 +105,6 @@ import { useAuthStore } from '../../stores/auth';
 
 const { t } = useI18n();
 const auth = useAuthStore();
-
-const LOGIN_FIELDS = [
-  { key: 'login_hero_title', label: 'Hero title' },
-  { key: 'login_hero_subtitle', label: 'Hero subtitle' },
-  { key: 'login_panel_title', label: 'Panel title' },
-  { key: 'login_panel_subtitle', label: 'Panel subtitle' },
-  { key: 'login_hero_badge', label: 'Hero badge' },
-  { key: 'login_hero_feature_1', label: 'Hero feature 1' },
-  { key: 'login_hero_feature_2', label: 'Hero feature 2' },
-  { key: 'login_hero_feature_3', label: 'Hero feature 3' },
-  { key: 'login_btn_text', label: 'Login button text' },
-  { key: 'login_footer_text', label: 'Login footer text' },
-];
 
 const loading = ref(true);
 const saving = ref(false);
@@ -137,14 +124,15 @@ async function save() {
   fd.append('footer', s.footer || '');
   fd.append('customize_button_visible', s.customize_button_visible ? '1' : '0');
   fd.append('hide_site_name', s.hide_site_name ? '1' : '0');
-  LOGIN_FIELDS.forEach(({ key }) => fd.append(key, s[key] || ''));
-  fd.append('login_bg_color', s.login_bg_color || '');
+  fd.append('primary_color', s.primary_color || '');
   fd.append('_method', 'put');
   try {
     await http.postForm(`update_appearance_settings/${s.id}`, fd);
     message.success(t('Successfully_Updated'));
     // Refresh the auth payload so the sidebar brand (logo, site name, footer)
-    // reflects the change immediately, without a page reload.
+    // AND the admin app's brand color (ui store) reflect the change
+    // immediately, without a page reload -- auth.load() re-runs the same
+    // applyServerPrimaryColor() sync used at login.
     auth.reload?.().catch?.(() => {});
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData'));

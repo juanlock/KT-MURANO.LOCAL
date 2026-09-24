@@ -5,7 +5,15 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="{{ asset('images/' . ($app_settings->favicon ?? 'favicon.ico')) }}">
+    @php
+        // Same dual-format handling as the logo below: a bare legacy filename
+        // ("favicon.ico") lives under the shared images/ root; a full relative
+        // path (uploaded via Login Page Settings, e.g. "images/loginpage/xxx.ico")
+        // already includes it.
+        $loginFavicon = $app_settings->favicon ?? 'favicon.ico';
+        $loginFaviconUrl = str_contains($loginFavicon, '/') ? asset($loginFavicon) : asset('images/'.$loginFavicon);
+    @endphp
+    <link rel="icon" href="{{ $loginFaviconUrl }}">
 
     {{-- PWA --}}
     @include('partials.pwa-head')
@@ -207,11 +215,37 @@
 
       /* ─── FORM PANEL ─── */
       .auth-panel {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: clamp(1.5rem, 5vw, 4rem);
         background: linear-gradient(180deg, #f8f9ff 0%, #f0f0ff 100%);
+      }
+
+      /* Guest language switcher -- picks the locale BEFORE signing in (the
+         page otherwise has no way to know which company/user is about to
+         log in, so it can't infer a language any other way). */
+      .auth-lang-switch {
+        position: absolute;
+        top: 1.25rem;
+        inset-inline-end: 1.5rem;
+        display: flex;
+        gap: 0.5rem;
+      }
+      .auth-lang-switch a {
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        color: var(--text-muted, #6b7280);
+        text-decoration: none;
+        padding: 0.2rem 0.45rem;
+        border-radius: 6px;
+      }
+      .auth-lang-switch a:hover { background: rgba(0, 0, 0, 0.05); }
+      .auth-lang-switch a.active {
+        color: var(--brand, #4f46e5);
+        background: rgba(79, 70, 229, 0.1);
       }
 
       .auth-card {
@@ -609,9 +643,20 @@
       [dir="rtl"] .auth-btn:hover .btn-arrow { transform: scaleX(-1) translateX(3px); }
     </style>
 
-    @if (!empty($app_settings->login_bg_color) && preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $app_settings->login_bg_color))
+    @if (!empty($app_settings->login_bg_image))
     <style>
-      /* Admin-configured login background (Settings → Appearance → Login page) */
+      /* Admin-configured login background image (Settings → Login Page Settings)
+         -- takes priority over the solid color below, mutually exclusive
+         (same rule the settings page itself enforces on save). */
+      .auth-hero {
+        background-image: url({{ str_contains($app_settings->login_bg_image, '/') ? asset($app_settings->login_bg_image) : asset('images/'.$app_settings->login_bg_image) }});
+        background-size: cover;
+        background-position: center;
+      }
+    </style>
+    @elseif (!empty($app_settings->login_bg_color) && preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $app_settings->login_bg_color))
+    <style>
+      /* Admin-configured login background color (Settings → Login Page Settings) */
       .auth-hero {
         background: {{ $app_settings->login_bg_color }};
       }
@@ -631,20 +676,25 @@
         <div class="hero-content">
           <div class="hero-badge">
             <span class="hero-badge-dot"></span>
-            {{ $app_settings->login_hero_badge ?: tdb('Login_hero_badge', 'Secure & Reliable') }}
+            {{ login_locale_text($app_settings->login_hero_badge) }}
           </div>
 
-          <h1 class="hero-title">{{ login_text($app_settings->login_hero_title, 'Login_hero_title', 'Manage your business smarter.') }}</h1>
+          <h1 class="hero-title">{{ login_locale_text($app_settings->login_hero_title) }}</h1>
           <p class="hero-subtitle">
-            {{ login_text($app_settings->login_hero_subtitle, 'Login_hero_subtitle', 'Streamline inventory, track sales, and grow your business — all from one powerful dashboard.') }}
+            {{ login_locale_text($app_settings->login_hero_subtitle) }}
           </p>
 
           <div class="hero-features">
             @php
+              // Login Page Settings' text fields are per-locale JSON maps
+              // (2026_09_24_160000) -- login_locale_text() picks the current
+              // visitor's language, falling back to English. A SuperAdmin can
+              // still blank a feature (for the CURRENT locale) to show fewer
+              // than 3 (the @if below), same as always.
               $features = [
-                $app_settings->login_hero_feature_1 ?? tdb('Login_hero_feature_1', 'Real-time inventory tracking'),
-                $app_settings->login_hero_feature_2 ?? tdb('Login_hero_feature_2', 'Multi-location POS support'),
-                $app_settings->login_hero_feature_3 ?? tdb('Login_hero_feature_3', 'Advanced reporting & analytics'),
+                login_locale_text($app_settings->login_hero_feature_1),
+                login_locale_text($app_settings->login_hero_feature_2),
+                login_locale_text($app_settings->login_hero_feature_3),
               ];
             @endphp
             @foreach ($features as $feature)
@@ -663,14 +713,32 @@
 
       <!-- FORM -->
       <section class="auth-panel">
+        <div class="auth-lang-switch">
+          @foreach (\App\Http\Middleware\SetLocale::SUPPORTED as $code => $label)
+            <a
+              href="{{ route('locale.guest', ['locale' => $code, 'redirect' => url()->full()]) }}"
+              class="{{ app()->getLocale() === $code ? 'active' : '' }}"
+              title="{{ $label }}"
+            >{{ strtoupper($code) }}</a>
+          @endforeach
+        </div>
         <div class="auth-card">
           <header class="auth-card-header">
+            @php
+                // Bare filename (legacy default, e.g. "logo.png") lives under
+                // the shared images/ root; a full relative path (uploaded via
+                // Login Page Settings, e.g. "images/loginpage/xxx.png")
+                // already includes it -- same dual-format handling as every
+                // other company-owned image path in this app.
+                $loginLogo = $app_settings->logo ?? 'logo.png';
+                $loginLogoUrl = str_contains($loginLogo, '/') ? asset($loginLogo) : asset('images/'.$loginLogo);
+            @endphp
             <div class="auth-logo">
-              <img src="{{ asset('images/' . ($app_settings->logo ?? 'logo.png')) }}" alt="{{ $app_settings->app_name ?? 'Stocky' }}">
+              <img src="{{ $loginLogoUrl }}" alt="{{ $app_settings->app_name ?? 'Stocky' }}">
             </div>
-            <h2 class="auth-card-title">{{ login_text($app_settings->login_panel_title, 'Login_panel_title', 'Welcome back') }}</h2>
+            <h2 class="auth-card-title">{{ login_locale_text($app_settings->login_panel_title) }}</h2>
             <p class="auth-card-subtitle">
-              {{ login_text($app_settings->login_panel_subtitle, 'Login_panel_subtitle', 'Sign in to your account to continue') }}
+              {{ login_locale_text($app_settings->login_panel_subtitle) }}
             </p>
           </header>
 
@@ -734,14 +802,14 @@
             </div>
 
             <button type="submit" class="auth-btn" id="login_submit_btn">
-              <span class="btn-text">{{ $app_settings->login_btn_text ?: tdb('Sign_in', 'Sign in') }}</span>
+              <span class="btn-text">{{ login_locale_text($app_settings->login_btn_text) }}</span>
               <svg class="btn-arrow btn-text" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
               <span class="btn-loading"><span class="spinner"></span> {{ tdb('Signing_in', 'Signing in...') }}</span>
             </button>
           </form>
 
           <div class="auth-footer">
-            {{ $app_settings->login_footer_text ?: '© ' . date('Y') . ' ' . ($app_settings->app_name ?? 'Stocky') . '. ' . tdb('All_rights_reserved', 'All rights reserved') . '.' }}
+            {{ login_locale_text($app_settings->login_footer_text) ?: '© ' . date('Y') . ' ' . ($app_settings->app_name ?? 'Stocky') . '. ' . tdb('All_rights_reserved', 'All rights reserved') . '.' }}
           </div>
         </div>
       </section>

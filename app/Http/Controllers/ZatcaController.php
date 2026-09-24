@@ -22,6 +22,7 @@ class ZatcaController extends Controller
      */
     public function settings(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access ZATCA settings.');
         $this->authorizeForUser($request->user('api'), 'zatca_settings', Sale::class);
 
         $zatca = ZatcaSetting::current();
@@ -53,6 +54,7 @@ class ZatcaController extends Controller
      */
     public function saveSettings(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access ZATCA settings.');
         $this->authorizeForUser($request->user('api'), 'zatca_settings', Sale::class);
 
         $zatca = ZatcaSetting::current();
@@ -125,6 +127,7 @@ class ZatcaController extends Controller
      */
     public function onboard(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access ZATCA settings.');
         $this->authorizeForUser($request->user('api'), 'zatca_settings', Sale::class);
 
         $request->validate(['otp' => 'required|string|min:4|max:12']);
@@ -153,6 +156,7 @@ class ZatcaController extends Controller
      */
     public function regenerateCsr(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access ZATCA settings.');
         $this->authorizeForUser($request->user('api'), 'zatca_settings', Sale::class);
 
         $zatca = ZatcaSetting::current();
@@ -174,6 +178,7 @@ class ZatcaController extends Controller
      */
     public function documents(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access ZATCA settings.');
         $this->authorizeForUser($request->user('api'), 'zatca_settings', Sale::class);
 
         $query = ZatcaDocument::query()->orderBy('id', 'desc');
@@ -209,6 +214,7 @@ class ZatcaController extends Controller
      */
     public function downloadXml(Request $request, $id)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access ZATCA settings.');
         $this->authorizeForUser($request->user('api'), 'zatca_settings', Sale::class);
 
         $doc = ZatcaDocument::findOrFail($id);
@@ -242,6 +248,7 @@ class ZatcaController extends Controller
      */
     public function logs(Request $request)
     {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access ZATCA settings.');
         $this->authorizeForUser($request->user('api'), 'zatca_settings', Sale::class);
 
         return response()->json(

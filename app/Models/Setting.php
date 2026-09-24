@@ -36,7 +36,11 @@ class Setting extends Model
         // Login page appearance
         'login_hero_title', 'login_hero_subtitle', 'login_panel_title', 'login_panel_subtitle',
         'login_hero_badge', 'login_hero_feature_1', 'login_hero_feature_2', 'login_hero_feature_3',
-        'login_btn_text', 'login_footer_text', 'login_bg_color',
+        'login_btn_text', 'login_footer_text', 'login_bg_color', 'login_bg_image',
+        // Admin app (/next SPA) brand color -- drives Ant Design's colorPrimary
+        // token in App.vue; a per-user Customizer pick still overrides it
+        // client-side (see stores/ui.js applyServerPrimaryColor()).
+        'primary_color',
         // Cloud backup settings
         'backup_cloud_enabled', 'backup_keep_local', 'backup_cloud_provider', 'backup_cloud_path',
         'backup_s3_bucket', 'backup_s3_region', 'backup_s3_access_key', 'backup_s3_secret_key',
@@ -51,7 +55,7 @@ class Setting extends Model
         'show_product_gtin', 'show_serial_tracking',
         'enable_multi_pack_selling', 'allow_overselling', 'sidebar_menu_order',
         'enable_pos_salesperson_switch', 'session_timeout_minutes', 'enable_multi_currency',
-        'enable_wholesale_pricing',
+        'enable_wholesale_pricing', 'sale_show_price_type_dropdown', 'sale_default_quantity',
         'vehicle_fitment_enabled', 'module_flags', 'barcode_label_settings', 'export_settings',
         'auto_journal_enabled', 'product_image_resize', 'product_image_max_size',
         // Installable app (PWA) identity — see PwaManifestController
@@ -89,6 +93,8 @@ class Setting extends Model
         'show_serial_tracking' => 'boolean',
         'enable_multi_pack_selling' => 'boolean',
         'enable_wholesale_pricing' => 'boolean',
+        'sale_show_price_type_dropdown' => 'boolean',
+        'sale_default_quantity' => 'integer',
         'enable_pos_salesperson_switch' => 'boolean',
         'enable_multi_currency' => 'boolean',
         'session_timeout_minutes' => 'integer',

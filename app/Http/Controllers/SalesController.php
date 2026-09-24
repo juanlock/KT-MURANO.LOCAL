@@ -3228,6 +3228,9 @@ class SalesController extends BaseController
 
             $data['is_imei'] = $detail['product']['is_imei'];
             $data['imei_number'] = $detail->imei_number;
+            // Per-line note (ported from billing) -- shown on the PDF in
+            // place of/alongside the product code, same as the app views.
+            $data['note'] = $detail->note;
 
             // Multi-Pack Selling: expose the pack so the PDF can show the pack
             // name and total pieces (quantity Ã— multiplier) sold.
@@ -3395,6 +3398,9 @@ class SalesController extends BaseController
 
             $data['is_imei'] = $detail['product']['is_imei'];
             $data['imei_number'] = $detail->imei_number;
+            // Per-line note (ported from billing) -- shown on the PDF in
+            // place of/alongside the product code, same as the app views.
+            $data['note'] = $detail->note;
 
             // Multi-Pack Selling: pack name + total pieces (quantity Ã— multiplier).
             $data['pack_name'] = $detail->pack_name;
@@ -3489,6 +3495,11 @@ class SalesController extends BaseController
             'point_to_amount_rate' => $settings->point_to_amount_rate,
             'enable_pos_salesperson_switch' => $salesperson_switch_enabled,
             'salespeople' => $this->salespeopleList($salesperson_switch_enabled, $companyId),
+            // Company-scoped on purpose -- $settings above is the install-wide
+            // unscoped lookup (a pre-existing quirk elsewhere in this method),
+            // which would silently ignore a company's own Default - Sales choice.
+            'sale_show_price_type_dropdown' => (bool) (Setting::forCompany($companyId)->sale_show_price_type_dropdown ?? true),
+            'sale_default_quantity' => (int) (Setting::forCompany($companyId)->sale_default_quantity ?: 1),
         ]);
 
     }
@@ -3766,6 +3777,9 @@ class SalesController extends BaseController
                 'point_to_amount_rate' => $settings->point_to_amount_rate,
                 'enable_pos_salesperson_switch' => $salesperson_switch_enabled,
                 'salespeople' => $this->salespeopleList($salesperson_switch_enabled, $companyId),
+                // Company-scoped on purpose -- see the same note in create() above.
+                'sale_show_price_type_dropdown' => (bool) (Setting::forCompany($companyId)->sale_show_price_type_dropdown ?? true),
+                'sale_default_quantity' => (int) (Setting::forCompany($companyId)->sale_default_quantity ?: 1),
             ]);
         }
 
