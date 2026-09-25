@@ -7,3 +7,4 @@
 /storage/framework/sessions
 /node_modules
 
+/storage/framework/views
