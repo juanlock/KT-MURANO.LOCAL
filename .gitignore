@@ -23,7 +23,7 @@
 #Homestead.yaml
 #npm-debug.log
 #yarn-error.log
+
 /storage/framework/sessions
-/storage/framework/sessions
-/storage/framework/sessions
-/storage/framework/sessions
+/node_modules
+
