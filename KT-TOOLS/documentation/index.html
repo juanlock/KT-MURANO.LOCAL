@@ -1,0 +1,2968 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stocky — Documentation</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='12' fill='%236d4de6'/%3E%3Cpath d='M29.5 17.2c-.9-2.4-3.2-3.7-6.6-3.7-4.1 0-6.7 2-6.7 5.2 0 2.9 1.9 4.4 6.2 5.3 3.4.7 4.3 1.3 4.3 2.7 0 1.5-1.3 2.4-3.6 2.4-2.4 0-3.9-1-4.5-2.9l-3.9 1.2c1 3.5 4 5.4 8.3 5.4 4.7 0 7.6-2.3 7.6-6 0-3.1-1.9-4.7-6.4-5.6-3.3-.7-4.1-1.2-4.1-2.5 0-1.2 1.2-2 3-2 2 0 3.1.8 3.6 2.4l3.8-1.1Z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<button class="doc__burger" type="button" aria-label="Contents">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+</button>
+
+<div class="doc">
+
+<aside class="doc__rail">
+  <div class="doc__brand">
+    <svg width="32" height="32" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#6d4de6"/>
+      <path d="M29.5 17.2c-.9-2.4-3.2-3.7-6.6-3.7-4.1 0-6.7 2-6.7 5.2 0 2.9 1.9 4.4 6.2 5.3 3.4.7 4.3 1.3 4.3 2.7 0 1.5-1.3 2.4-3.6 2.4-2.4 0-3.9-1-4.5-2.9l-3.9 1.2c1 3.5 4 5.4 8.3 5.4 4.7 0 7.6-2.3 7.6-6 0-3.1-1.9-4.7-6.4-5.6-3.3-.7-4.1-1.2-4.1-2.5 0-1.2 1.2-2 3-2 2 0 3.1.8 3.6 2.4l3.8-1.1Z" fill="#fff"/>
+    </svg>
+    <span class="doc__brand-name">Stocky<small>Documentation</small></span>
+  </div>
+
+  <div class="doc__search">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input type="search" id="doc-search" placeholder="Filter contents  /" aria-label="Filter contents" autocomplete="off">
+  </div>
+
+  <nav class="doc__nav">
+    <p class="doc__nav-group">Getting started</p>
+    <a href="#welcome">Welcome</a>
+    <a href="#requirements">Server requirements</a>
+    <a href="#install">Installing</a>
+    <a href="#first-hour">Your first hour</a>
+    <a href="#cli-install">Command-line install</a>
+    <a href="#interface">Around the screen</a>
+
+    <p class="doc__nav-group">Foundations</p>
+    <a href="#system-settings">System settings</a>
+    <a href="#features">Feature switches</a>
+    <a href="#business-modules">Business modules</a>
+    <a href="#warehouses">Warehouses &amp; locations</a>
+    <a href="#users">Users &amp; roles</a>
+    <a href="#permissions">Permissions</a>
+    <a href="#catalogue-lists">Categories, brands, units</a>
+    <a href="#payment-methods">Payment methods &amp; accounts</a>
+
+    <p class="doc__nav-group">Products &amp; stock</p>
+    <a href="#products">Products</a>
+    <a href="#product-types">Variants, combos &amp; services</a>
+    <a href="#import">Importing</a>
+    <a href="#barcodes">Barcode labels</a>
+    <a href="#batches">Batches &amp; expiry</a>
+    <a href="#serials">Serial numbers</a>
+    <a href="#stock-ops">Count, adjust, transfer</a>
+
+    <p class="doc__nav-group">Point of sale</p>
+    <a href="#pos">The register</a>
+    <a href="#pos-payments">Taking payment</a>
+    <a href="#pos-settings">POS settings &amp; receipts</a>
+    <a href="#shortcuts">Keyboard shortcuts</a>
+    <a href="#offline">Offline mode</a>
+    <a href="#customer-display">Customer display</a>
+    <a href="#kitchen">Kitchen display</a>
+
+    <p class="doc__nav-group">Sales &amp; purchasing</p>
+    <a href="#sales">Sales</a>
+    <a href="#quotations">Quotations</a>
+    <a href="#returns">Returns</a>
+    <a href="#shipments">Shipments</a>
+    <a href="#purchases">Suppliers &amp; purchases</a>
+
+    <p class="doc__nav-group">Customers</p>
+    <a href="#customers">Customers &amp; ledger</a>
+    <a href="#portal">Client portal</a>
+    <a href="#loyalty">Loyalty &amp; promotions</a>
+    <a href="#ewallet">E-wallet &amp; commissions</a>
+
+    <p class="doc__nav-group">Online store</p>
+    <a href="#store-setup">Setting up the store</a>
+    <a href="#store-themes">Themes</a>
+    <a href="#store-content">Collections, banners, pages</a>
+    <a href="#store-checkout">Shipping, tax &amp; payment</a>
+    <a href="#store-orders">Orders &amp; requests</a>
+    <a href="#store-accounts">Customer accounts</a>
+    <a href="#store-seo">Branding, SEO &amp; PWA</a>
+
+    <p class="doc__nav-group">Money</p>
+    <a href="#accounts">Accounts, deposits, expenses</a>
+    <a href="#accounting">Accounting</a>
+    <a href="#multi-currency">Multi-currency</a>
+    <a href="#zatca">ZATCA e-invoicing</a>
+
+    <p class="doc__nav-group">HRM</p>
+    <a href="#hrm-setup">Company structure</a>
+    <a href="#employees">Employees, attendance, leave</a>
+    <a href="#payroll">Payroll</a>
+    <a href="#recruitment">Recruitment &amp; meetings</a>
+
+    <p class="doc__nav-group">Business modules</p>
+    <a href="#projects">Projects &amp; tasks</a>
+    <a href="#bookings">Bookings</a>
+    <a href="#service">Service &amp; maintenance</a>
+    <a href="#subscriptions">Subscriptions</a>
+    <a href="#manufacturing">Manufacturing</a>
+    <a href="#assets-fleet">Assets &amp; fleet</a>
+    <a href="#documents">Documents, contracts, KB</a>
+    <a href="#marketing">Marketing</a>
+    <a href="#hospital-school">Hospital &amp; school</a>
+
+    <p class="doc__nav-group">Integrations</p>
+    <a href="#woocommerce">WooCommerce</a>
+    <a href="#shopify">Shopify</a>
+    <a href="#marketplaces">Salla, Jumia, PrestaShop</a>
+    <a href="#accounting-connectors">QuickBooks &amp; Xero</a>
+    <a href="#other-integrations">Sheets, Mailchimp, Slack, Telegram</a>
+    <a href="#webhooks">Webhooks</a>
+    <a href="#mobile-api">Mobile app &amp; API</a>
+    <a href="api/index.html" class="doc__nav-ext" target="_blank" rel="noopener" title="Full REST API reference">API reference <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+
+    <p class="doc__nav-group">Reports</p>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#reports">Reports</a>
+    <a href="#ai-reports">Analytics, 3D &amp; AI reports</a>
+
+    <p class="doc__nav-group">Administration</p>
+    <a href="#notifications">Email, SMS &amp; notifications</a>
+    <a href="#languages">Languages &amp; translations</a>
+    <a href="#appearance">Appearance &amp; PWA</a>
+    <a href="#backups">Backups</a>
+    <a href="#health">System health &amp; security</a>
+    <a href="#cron">Cron &amp; queue</a>
+    <a href="#updating">Updating</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#roadmap">Deliberately not here</a>
+    <a href="#changelog">Changelog</a>
+    <a href="#credits">Credits &amp; support</a>
+
+    <p class="doc__nav-empty" hidden>Nothing matches that.</p>
+  </nav>
+</aside>
+
+<main class="doc__main">
+
+<p class="doc__eyebrow">Stocky &middot; version 5.8</p>
+<h1>Inventory, point of sale, online store &amp; accounting</h1>
+<p class="doc__lede">
+  One Laravel application for the counter, the stockroom, the web shop and the books.
+  A touch-first register that keeps selling offline, live stock across every warehouse,
+  purchases and returns, double-entry accounting, HRM, sixty reports and a storefront with
+  five themes. This guide covers installing it and running it.
+</p>
+
+<div class="note note--tip">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+  <p><strong>In a hurry?</strong> Upload the files, open your domain, and follow the
+  four-step installer. Then read <a href="#first-hour">Your first hour</a> — the shortest
+  path from an empty install to a shop that can scan a product, take cash and print a
+  receipt.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="welcome">Welcome</h2>
+
+<p>Stocky is one system for one business. The product the cashier scans is the same row the
+online shop sells, the row a WooCommerce or Shopify sync pushes, the row a purchase order
+restocks and the row the stock-aging report counts. Nothing is copied between screens, so
+nothing has to be reconciled — one catalogue, one stock figure, every channel.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/dashboard</span></div><img src="images/dashboard.jpg" alt="The Stocky dashboard"></div>
+  <figcaption>The dashboard: today's sales, purchases, returns and dues per warehouse, with the charts and lists below.</figcaption>
+</figure>
+
+<h3>What is in the box</h3>
+
+<div class="cards">
+  <div class="card"><h4>Point of sale</h4><p>Touch-first register with barcode and camera scanning, hold and drafts, split payments, promotions, registers, receipts, a customer display and an offline queue.</p></div>
+  <div class="card"><h4>Products &amp; stock</h4><p>Single, variable, service and combo products; multi-warehouse stock with rack locations; batches and expiry; serial numbers; adjustments, transfers, counts and damages.</p></div>
+  <div class="card"><h4>Buying &amp; selling</h4><p>Sales, quotations, purchases, sale and purchase returns, shipments, a customer ledger and supplier history; PDF, email, SMS and print on every document.</p></div>
+  <div class="card"><h4>Online store</h4><p>Five themes on one catalogue, twelve payment gateways, shipping zones, coupons, flash sales, reviews, wishlists, returns and a customer account.</p></div>
+  <div class="card"><h4>Customer portal</h4><p>A separate login for business customers: invoices, payments, statement, quotations, appointments, contracts and a knowledge base.</p></div>
+  <div class="card"><h4>Money</h4><p>Cash accounts, deposits and expenses, plus double-entry accounting that posts itself: chart of accounts, journals, trial balance, P&amp;L, balance sheet and tax summary.</p></div>
+  <div class="card"><h4>HRM</h4><p>Companies, departments, shifts, employees, attendance, leave and payroll; recruitment and meetings as separate modules.</p></div>
+  <div class="card"><h4>Business modules</h4><p>Projects, bookings, service jobs, subscriptions, manufacturing, assets, fleet, kitchen display, documents, contracts, marketing, hospital and school — each on a switch.</p></div>
+  <div class="card"><h4>Integrations</h4><p>WooCommerce, Shopify, Salla, Jumia, PrestaShop, QuickBooks, Xero, Google Sheets, Mailchimp, Slack, Telegram, Google Calendar, ZATCA and Stripe.</p></div>
+  <div class="card"><h4>Reports</h4><p>Sixty report screens with a date range, a warehouse filter and Excel or PDF export, plus analytics, a 3D sales dashboard and question-driven AI reports.</p></div>
+  <div class="card"><h4>Platform</h4><p>Roles with 300+ permissions, users scoped to warehouses, 24 languages with RTL, light and dark themes, installable PWAs, a browser installer and an in-panel updater.</p></div>
+  <div class="card"><h4>Mobile</h4><p>A Bearer-token API for the separately sold companion app, with branding and module switches in Settings &rarr; Mobile App.</p></div>
+</div>
+
+<h3>How to read this guide</h3>
+
+<p>Sections follow the order you will actually need them: install it, set the business up,
+then each module in the order the sidebar lists it. Every screen named here exists in the
+product — where something is deliberately absent it is listed under
+<a href="#roadmap">Deliberately not here</a> rather than described as if it were built.
+Paths such as <em>Settings &rarr; POS Settings</em> refer to the sidebar; the address bar
+shows the same page under <code>/next/…</code>.</p>
+
+<h3>The shape of every screen</h3>
+
+<p>Lists work the same way throughout: a search box and filters at the top of the card, a
+table, paging at the bottom, and export buttons where a list is worth exporting. Record
+pages open with a header — the reference, the status pills, the buttons that change its
+state — and then the detail. The POS is the exception: it is a full-screen application of
+its own, opened from the purple <strong>POS</strong> button in the header.</p>
+
+<!-- ===================================================================== -->
+<h2 id="requirements">Server requirements</h2>
+
+<p>Stocky runs on ordinary PHP hosting. There is no Docker, no Node on the server and
+nothing to compile — the front-end assets ship already built. Cron and a queue worker are
+optional; see <a href="#cron">Cron &amp; queue</a> for what they add.</p>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>What</th><th>Needs</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>PHP</td><td>8.2 or newer</td><td>8.2, 8.3 and 8.4 all work. The installer shows the version it found.</td></tr>
+    <tr><td>Database</td><td>MySQL 8.0+ or MariaDB 10.6+</td><td>Create an empty database first; the installer fills it.</td></tr>
+    <tr><td>Extensions</td><td><code>openssl</code>, <code>pdo</code>, <code>pdo_mysql</code>, <code>mbstring</code>, <code>curl</code>, <code>tokenizer</code>, <code>xml</code>, <code>ctype</code>, <code>fileinfo</code>, <code>gd</code>, <code>json</code>, <code>bcmath</code>, <code>zip</code></td><td>All standard. The installer checks each one and names the missing ones.</td></tr>
+    <tr><td>Web server</td><td>Apache with <code>mod_rewrite</code>, or Nginx</td><td>Point the domain at <code>public/</code>. The shipped <code>.htaccess</code> handles the rewrites.</td></tr>
+    <tr><td>Writable</td><td><code>.env</code>, <code>storage/</code>, <code>bootstrap/cache/</code>, <code>public/images/</code></td><td>Usually <code>755</code> on folders, <code>644</code> on files. Product images and uploads land in <code>public/images</code>.</td></tr>
+    <tr><td>HTTPS</td><td>Required for the camera scanner and PWA install</td><td>Browsers only expose the camera and the install prompt on secure origins. Everything else works over plain HTTP.</td></tr>
+    <tr><td>Memory</td><td>256 MB PHP <code>memory_limit</code> recommended</td><td>Large imports and PDF exports are the hungry operations.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note note--warn">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+  <p><strong>Point the domain at <code>public/</code>, not at the folder above it.</strong>
+  If the document root is the project folder, anyone can download your <code>.env</code> —
+  which holds the database password and the application key. On cPanel this is
+  <em>Domains &rarr; Document Root</em>. If your host truly will not allow it, the shipped
+  <code>.htaccess</code> and <code>server.php</code> in the project root rewrite requests
+  into <code>public/</code>; still prefer the proper document root.</p>
+</div>
+
+<h3>Optional hardware</h3>
+
+<p>Nothing is bundled and nothing is proprietary. A USB or Bluetooth barcode scanner
+behaves as a keyboard and needs no driver. A phone or tablet camera scans in the browser.
+Thermal receipt printers print through the browser dialog, silently through
+<strong>QZ Tray</strong> on the cashier's computer, or directly to a network printer by IP
+address. Cash drawers kick through the receipt printer. Label printers take the barcode
+sheets. Digital scales that print weight-embedded barcodes are read as product plus
+kilograms.</p>
+
+<!-- ===================================================================== -->
+<h2 id="install">Installing</h2>
+
+<p>Stocky installs itself in a browser. You do not need shell access, phpMyAdmin or a
+command line.</p>
+
+<ol class="steps">
+  <li>
+    <h4>Upload and unzip</h4>
+    <p>Put the contents of the ZIP on your server and point the domain at the
+    <code>public/</code> folder. Everything is included — you do not need to run
+    <code>composer install</code> or <code>npm</code>.</p>
+  </li>
+  <li>
+    <h4>Open <code>/setup</code></h4>
+    <p>Browse to <code>https://your-domain/setup</code>. You land on the requirements check.
+    Every card must be green — the PHP version, the twelve extensions and the ZipArchive
+    class. If one is not, enable it on the server and press <strong>Re-check
+    requirements</strong>. Nothing has been written yet.</p>
+    <figure class="shot">
+      <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/setup</span></div><img src="images/setup-check.jpg" alt="Installer step 1: server requirements" loading="lazy"></div>
+      <figcaption>Step 1 of 4. Each requirement is checked on your server and named if it is missing.</figcaption>
+    </figure>
+  </li>
+  <li>
+    <h4>Application settings</h4>
+    <p>The application name, the environment (<em>Production</em> for a live shop), debug
+    mode (<em>Off</em> on a live server), an application key — press
+    <strong>Generate</strong> — and the application URL, exactly as people will type it,
+    with <code>https://</code>. All of this lands in <code>.env</code> and can be edited
+    there later.</p>
+    <figure class="shot">
+      <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/setup/step-1</span></div><img src="images/setup-app.jpg" alt="Installer step 2: application settings" loading="lazy"></div>
+      <figcaption>Step 2 of 4. Name, environment, debug mode, key and URL.</figcaption>
+    </figure>
+  </li>
+  <li>
+    <h4>Database</h4>
+    <p>Host, port, database name, username and password for an <strong>empty</strong> MySQL
+    database. Press <strong>Test connection</strong>; the <strong>Continue</strong> button
+    only appears once the test passes.</p>
+    <figure class="shot">
+      <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/setup/step-2</span></div><img src="images/setup-db.jpg" alt="Installer step 3: database connection" loading="lazy"></div>
+      <figcaption>Step 3 of 4. Test the connection before you continue.</figcaption>
+    </figure>
+  </li>
+  <li>
+    <h4>Review and install</h4>
+    <p>Check the summary, then press <strong>Install Stocky</strong>. This writes
+    <code>.env</code>, creates every table, installs the API keys and seeds the reference
+    data: the <em>Owner</em> role, the permissions, the default warehouse, currencies,
+    payment methods, settings and the translations for all 24 languages. Keep the tab open;
+    it can take a few minutes on slow hosting.</p>
+  </li>
+  <li>
+    <h4>Sign in</h4>
+    <p>The finish page shows the default administrator: <code>admin@example.com</code> with
+    the password <code>123456</code>. Press <strong>Go to login</strong>.</p>
+  </li>
+</ol>
+
+<div class="note note--bad">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+  <p><strong>Change the administrator password right after your first login.</strong>
+  It is printed in this guide and on the installer's finish page. Open the user menu (top
+  right) &rarr; <em>Profile</em>, or edit the account under <em>User Management &rarr;
+  Users</em> — change the email as well.</p>
+</div>
+
+<div class="note note--tip">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+  <p><strong>The installer seals itself.</strong> Once it finishes, every
+  <code>/setup</code> address answers <em>403</em>. The seal is a file:
+  <code>storage/app/public/installed</code>. Delete it to open the wizard again on a broken
+  install — and if <code>/setup</code> is ever reachable when it should not be, that file is
+  the first thing to check.</p>
+</div>
+
+<h3>If the install fails</h3>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Message mentions</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr><td>Access denied for user</td><td>Wrong database username or password. Go back a step and re-test.</td></tr>
+    <tr><td>Unknown database</td><td>The database does not exist. Create an empty one in your hosting panel and use that name.</td></tr>
+    <tr><td>Permission denied / failed to open stream</td><td><code>.env</code>, <code>storage/</code> or <code>bootstrap/cache/</code> is not writable. Set folders to <code>755</code> and files to <code>644</code>, owned by the web server user.</td></tr>
+    <tr><td>Maximum execution time</td><td>Raise <code>max_execution_time</code> to 300 for the install, or run the <a href="#cli-install">command-line install</a>.</td></tr>
+    <tr><td>Base table already exists</td><td>A previous attempt got half-way. Drop the tables (or the database) and run the installer again.</td></tr>
+    <tr><td>A blank page or 500 after <em>Install Stocky</em></td><td>Turn debug mode on in <code>.env</code> (<code>APP_DEBUG=true</code>) to see the reason, or read <code>storage/logs/laravel.log</code>. Turn it off again afterwards.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="first-hour">Your first hour</h2>
+
+<p>A fresh install already knows the shape of a shop — it has a default warehouse, a
+walk-in customer, a set of payment methods and a currency. This is the shortest route from
+there to a counter that sells.</p>
+
+<ol class="steps">
+  <li>
+    <h4>Company details</h4>
+    <p><em>Settings &rarr; System Settings.</em> Company name, logo, phone, email and
+    address print on every receipt and invoice. Set the default currency, the timezone, the
+    date and price formats, and the default warehouse and customer the POS opens with.</p>
+  </li>
+  <li>
+    <h4>Warehouses</h4>
+    <p><em>Settings &rarr; Warehouses.</em> One is enough. Add one per shop, store-room or
+    van if stock physically lives in different places — every stock figure is per
+    warehouse, and users can be limited to the warehouses they may see.</p>
+  </li>
+  <li>
+    <h4>Categories, brands and units</h4>
+    <p><em>Products &rarr; Categories / Brand / Units.</em> Short lists you edit rarely.
+    Units can convert (a carton of 12 pieces); categories can carry an icon and an image
+    for the POS tiles and the store.</p>
+  </li>
+  <li>
+    <h4>Products</h4>
+    <p><em>Products &rarr; Create product</em> for a few, <em>Import products</em> for a
+    spreadsheet. A product needs a name, a code, a category, a unit, a cost and a price;
+    everything else — barcode symbology, tax, images, variants, stock alerts — can come
+    later.</p>
+  </li>
+  <li>
+    <h4>Opening stock</h4>
+    <p><em>Products &rarr; Opening Stock</em> imports a quantity per product per warehouse.
+    Or receive your first <a href="#purchases">purchase</a>, which is the honest way to
+    start a stock figure with a cost behind it.</p>
+  </li>
+  <li>
+    <h4>Payment methods</h4>
+    <p><em>Settings &rarr; Payment Methods.</em> Cash, card, bank transfer and so on
+    are seeded; hide the ones you do not take. Add a cash account under
+    <em>Accounting &rarr; List accounts</em> if you want payments to land in named
+    accounts.</p>
+  </li>
+  <li>
+    <h4>The receipt</h4>
+    <p><em>Settings &rarr; POS Receipt.</em> Pick the paper width (58 or 80 mm), one of the
+    five layouts, and what prints on it — the preview on the right is live.
+    <em>Settings &rarr; POS Settings</em> holds the rest: auto-print, hold sales, the
+    cash drawer and keyboard shortcuts.</p>
+  </li>
+  <li>
+    <h4>Users</h4>
+    <p><em>User Management &rarr; Group Permissions</em> to create a <em>Cashier</em> role
+    with only the POS and sales permissions, then <em>Users</em> to add each person with
+    that role and the warehouses they may see.</p>
+  </li>
+  <li>
+    <h4>Open the POS and sell something</h4>
+    <p>Press the purple <strong>POS</strong> button in the header. Open the register with a
+    float, pick the warehouse, tap or scan a product, <strong>Pay Now</strong>, cash,
+    <strong>Complete Payment</strong>. The receipt prints; the stock moved.</p>
+  </li>
+</ol>
+
+<div class="note">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+  <p>Everything else — the online store, accounting, HRM, the marketplaces, the business
+  modules — can wait. Turn off what you do not use in <a href="#business-modules">Settings
+  &rarr; Modules</a> so the sidebar shows only what your business runs.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="cli-install">Command-line install</h2>
+
+<p>If you have shell access and would rather not use the wizard:</p>
+
+<pre><code>cp .env.example .env            # or write .env by hand: APP_URL, APP_KEY, DB_*
+php artisan key:generate
+php artisan migrate --force
+php artisan passport:install     # API keys for the mobile app and the session guard
+php artisan db:seed --force      # roles, permissions, warehouse, currencies, settings, translations
+
+# tell the installer it has nothing left to do
+echo 1 &gt; storage/app/public/installed</code></pre>
+
+<p>The seeders create the <em>Owner</em> role and the <code>admin@example.com</code> /
+<code>123456</code> account. They are idempotent — running them twice does not duplicate
+anything.</p>
+
+<h3>Demo catalogues</h3>
+
+<p>Four seeders fill the store with a themed catalogue, complete with pictures, so you can
+see a theme with real products before entering your own. Each one switches the store to
+its theme and is safe to run more than once:</p>
+
+<pre><code>php artisan db:seed --class=ElectronicsDemoSeeder
+php artisan db:seed --class=ToysDemoSeeder
+php artisan db:seed --class=GroceryDemoSeeder
+php artisan db:seed --class=RealEstateDemoSeeder</code></pre>
+
+<p>For a general set of customers, suppliers, products, sales, purchases, quotations and
+expenses without any theme, use the demo-data generator in <em>Settings &rarr; System
+Settings</em> — it works from the panel and needs no shell.</p>
+
+<div class="note note--warn">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+  <p>Demo data is a lot to delete afterwards. Seed it on a test install, not on the database
+  you will trade with.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="interface">Around the screen</h2>
+
+<p>A few things sit outside the modules and are worth knowing before you start.</p>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Where</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>POS</strong>, the purple button in the header</td><td>Opens the register full-screen. It is its own application: the sidebar disappears and comes back when you leave.</td></tr>
+    <tr><td><strong>Today's summary</strong>, the pie-chart icon</td><td>A drawer with today's sales, payments and stock alerts without leaving the page you are on.</td></tr>
+    <tr><td><strong>Light / dark</strong>, the bulb</td><td>Flips the theme for your browser. The customiser (below) also offers <em>auto</em>, which follows the operating system.</td></tr>
+    <tr><td><strong>Full screen</strong></td><td>Hides the browser chrome for a till or a wall-mounted screen.</td></tr>
+    <tr><td><strong>Language</strong>, the globe</td><td>Switches the whole panel to any language enabled in <a href="#languages">Settings &rarr; Languages</a>. Arabic flips the layout right-to-left.</td></tr>
+    <tr><td><strong>The bell</strong></td><td>In-app notifications — stock alerts, new online orders, kitchen tickets, sync results — newest first, with the unread count on the badge.</td></tr>
+    <tr><td><strong>The user menu</strong></td><td>Your profile (name, email, password, avatar) and sign out.</td></tr>
+    <tr><td><strong>The gear</strong>, bottom right</td><td>The appearance customiser: sidebar layout (default, large, flat or dark), theme mode and colours. Saved for your browser; it changes nothing for anybody else.</td></tr>
+    <tr><td><strong>Install app</strong></td><td>On HTTPS, an <em>Install App</em> button appears in the header and installs the admin as a PWA on a desktop or a phone. The POS, the store, the customer display and the portal each have their own manifest.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/dashboard · dark</span></div><img src="images/dashboard-dark.jpg" alt="Dashboard in the dark theme" loading="lazy"></div>
+    <figcaption>The dark theme, from the user menu.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/dashboard · العربية</span></div><img src="images/dashboard-ar.jpg" alt="Dashboard in Arabic, right-to-left" loading="lazy"></div>
+    <figcaption>Arabic: the whole panel runs right-to-left.</figcaption>
+  </figure>
+</div>
+
+<p>The sidebar shows only the modules that are switched on and only the pages your role may
+open. A cashier with POS-only permissions sees a very short sidebar; that is by design. The
+version number in the bottom corner is what <a href="#updating">Settings &rarr;
+Update</a> compares against the update server.</p>
+
+<div class="shots shots--phones">
+  <figure class="shot shot--phone">
+    <div class="shot__frame"><img src="images/dashboard-mobile.jpg" alt="Dashboard on a phone" loading="lazy"></div>
+    <figcaption>The admin on a phone.</figcaption>
+  </figure>
+  <figure class="shot shot--phone">
+    <div class="shot__frame"><img src="images/sales-mobile.jpg" alt="Sales list on a phone" loading="lazy"></div>
+    <figcaption>Lists collapse into cards.</figcaption>
+  </figure>
+  <figure class="shot shot--phone">
+    <div class="shot__frame"><img src="images/pos-mobile.jpg" alt="POS on a phone" loading="lazy"></div>
+    <figcaption>The register on a phone.</figcaption>
+  </figure>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="system-settings">System settings</h2>
+
+<p><em>Settings &rarr; System Settings.</em> The one page nearly every other screen reads
+from. It is split into tabs; each saves only its own fields.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/system</span></div><img src="images/settings-system.jpg" alt="System settings" loading="lazy"></div>
+  <figcaption>Company details, defaults and formats. The logo set here prints on receipts, invoices and PDFs.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Tab</th><th>What lives there</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Company</strong></td><td>Name, logo, phone, email and address. Sidebar logo size. The footer line and the <em>developed by</em> credit.</td></tr>
+    <tr><td><strong>System</strong></td><td>Default currency, default language, timezone, date format and price format. Default warehouse, default customer, default payment method, default account and default tax for new documents. The <strong>offline sync</strong> switch for the POS (see <a href="#offline">Offline mode</a>). The default dashboard date range and widget order.</td></tr>
+    <tr><td><strong>Sales</strong></td><td>How sales documents behave: the sales agent field, credit limits, minimum prices and the loyalty point-to-amount rate.</td></tr>
+    <tr><td><strong>Dashboard</strong></td><td>Font family and size; table density, striped rows, cell borders, sortable columns and column visibility — the feel of every list. Which dashboard widgets show and in what order.</td></tr>
+    <tr><td><strong>Export</strong>, <strong>Calendar</strong></td><td>Defaults for Excel and PDF exports; Google Calendar credentials for the bookings module.</td></tr>
+    <tr><td><strong>Features</strong>, <strong>Security</strong>, <strong>Backup</strong></td><td>The <a href="#features">feature switches</a>, login-device rules and the cloud backup target (S3 or Google Drive) — the same forms as the dedicated pages under Settings.</td></tr>
+    <tr><td><strong>POS Settings</strong>, <strong>POS Receipt</strong>, <strong>Payment Gateway</strong>, <strong>ZATCA</strong></td><td>Shortcuts to those settings pages so the whole configuration is reachable from one place.</td></tr>
+    <tr><td><strong>Demo data</strong></td><td>The generator described under <a href="#cli-install">Command-line install</a>: customers, suppliers, products, sales, purchases, quotations and expenses, with a status line showing what is already in the database.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+  <p>The <strong>timezone</strong> decides which day an evening sale belongs to and when
+  the scheduled jobs run. The <strong>default currency</strong> is the base currency for
+  every report and stock valuation — if you turn on <a href="#multi-currency">multi-currency</a>
+  later, other currencies convert into this one. Set both before you trade.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="features">Feature switches</h2>
+
+<p><em>Settings &rarr; Modules &rarr; Features</em> (the same switches are on the
+<em>Features</em> tab of System Settings). These change how the whole system behaves, so
+they live together rather than hidden in the module they affect.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/business-modules · Features</span></div><img src="images/settings-features.jpg" alt="Feature switches" loading="lazy"></div>
+  <figcaption>Each switch carries its own explanation. Press <em>Submit</em> after changing them.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Switch</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>3-decimal pricing</td><td>Prices, costs, discounts, taxes and POS totals keep three decimals (0.066) instead of rounding to two. For currencies such as the dinar.</td></tr>
+    <tr><td>Kitchen display</td><td>The POS shows <em>Send to Kitchen / Save without sending / Send later</em> and the <a href="#kitchen">Kitchen Display</a> page appears. Also sets the preparation-time target and whether confirmed store orders create a ticket automatically.</td></tr>
+    <tr><td>Show barcode (GTIN)</td><td>Shows the GTIN / UPC / EAN / ISBN field on the product form, separate from your own product code.</td></tr>
+    <tr><td>Resize product images</td><td>Downscales uploads to the <em>max size</em> (default 800 px on the longest edge). Turn off to keep originals — larger files, slower pages.</td></tr>
+    <tr><td>Serial number / IMEI tracking</td><td>Lets a product require a unique serial per unit, captured at purchase and picked at sale. See <a href="#serials">Serial numbers</a>.</td></tr>
+    <tr><td>Multi-pack selling</td><td>A product can be sold as single, 6-pack or case, each with its own price, while stock stays in one base unit.</td></tr>
+    <tr><td>Wholesale pricing by quantity</td><td>Products carry quantity breaks (10–19, 20–49, 100+) that replace the retail price in the POS and the store once the ordered quantity reaches a tier. Turning it off keeps the tiers but stops applying them.</td></tr>
+    <tr><td>Multi-currency</td><td>Record sales, purchases and online orders in other currencies with manual exchange rates. Reports and stock stay in the base currency. See <a href="#multi-currency">Multi-currency</a>.</td></tr>
+    <tr><td>Change salesperson during checkout</td><td>A salesperson picker on the POS so a sale can be credited to another employee without logging out; the choice is saved on the invoice and used in the seller report.</td></tr>
+    <tr><td>Auto journal entries</td><td>Post an accounting journal automatically when a sale, purchase, expense, return or payment is recorded. See <a href="#accounting">Accounting</a>.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="business-modules">Business modules</h2>
+
+<p><em>Settings &rarr; Modules.</em> Twenty-three optional modules, each with its own
+menu group, pages, permissions and reports. Switch off what your business does not do and
+the sidebar shrinks to match. Core commerce — products, sales, purchases, people, settings
+and reports — cannot be turned off.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/business-modules</span></div><img src="images/settings-business-modules.jpg" alt="Business modules switches" loading="lazy"></div>
+  <figcaption>Store, HRM, recruitment, meetings, marketing, accounting, e-wallet, commissions, promotions, WooCommerce, Shopify, Salla, Jumia, documents, subscriptions, manufacturing, assets, projects, bookings, service, fleet, hospital and school.</figcaption>
+</figure>
+
+<p>A module that is off is also off for the router: its pages answer <em>not found</em>
+even by direct address, and its permissions disappear from the role editor. Turning it back
+on restores everything — no data is deleted by the switch.</p>
+
+<p><em>Settings &rarr; Module Settings</em> is a different page: it lists add-on modules
+installed as packages and offers <strong>Upload Module</strong> for a ZIP supplied by the
+vendor. A fresh install lists none.</p>
+
+<!-- ===================================================================== -->
+<h2 id="warehouses">Warehouses &amp; locations</h2>
+
+<p><em>Settings &rarr; Warehouses.</em> A warehouse is any place stock physically lives:
+a shop, a stockroom, a van, a market stall. Every stock quantity, every alert and every
+sale, purchase, transfer and adjustment is tied to one.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/warehouses</span></div><img src="images/warehouses.jpg" alt="Warehouses list" loading="lazy"></div>
+  <figcaption>Warehouses with their contact details. Rack locations are the second tab.</figcaption>
+</figure>
+
+<h3>Internal locations</h3>
+
+<p>The <em>Locations</em> tab holds aisle, rack and bin positions inside a warehouse.
+Products can be assigned to a location so the picker knows where to walk; the
+<em>Internal Location</em> report lists what sits where.</p>
+
+<h3>Who sees which warehouse</h3>
+
+<p>Each user is assigned the warehouses they may work in (<em>User Management &rarr;
+Users</em>). The POS, the lists and the reports then only offer those. A cashier in the
+downtown shop never sees the airport store's stock; a manager assigned to all of them can
+switch. The default warehouse from System Settings is where the POS opens.</p>
+
+<!-- ===================================================================== -->
+<h2 id="users">Users &amp; roles</h2>
+
+<p><em>User Management &rarr; Users.</em> A user is anyone who signs in to the admin or
+the POS. Each has a role, a status (inactive users cannot sign in but keep their history),
+an avatar and the warehouses they may see.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/users</span></div><img src="images/users.jpg" alt="Users list" loading="lazy"></div>
+    <figcaption>Users with role and status.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/users/create</span></div><img src="images/user-create.jpg" alt="Add user form" loading="lazy"></div>
+    <figcaption>Adding a user: role, password, warehouses.</figcaption>
+  </figure>
+</div>
+
+<p>The install ships one role, <strong>Owner</strong>, which holds every permission — the
+administrator account has it. Create a role per job, not per person: <em>Cashier</em>,
+<em>Stock keeper</em>, <em>Accountant</em>, <em>Store manager</em>. Then give people the
+role.</p>
+
+<p>Users can be signed out remotely from <a href="#health">Settings &rarr; Login
+Devices</a>, and every sign-in is listed in the <em>Login Activity</em> report.</p>
+
+<!-- ===================================================================== -->
+<h2 id="permissions">Permissions</h2>
+
+<p><em>User Management &rarr; Group Permissions.</em> A role is a named set of
+permissions. The editor lists more than 300 of them, grouped by module, with a search box
+and a select-all per group.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/permissions/create</span></div><img src="images/role-editor.jpg" alt="The role editor" loading="lazy"></div>
+  <figcaption>Creating a role. Groups follow the sidebar; a module that is switched off does not appear.</figcaption>
+</figure>
+
+<p>Most groups follow the same pattern — <em>View, Create, Edit, Delete</em> — with extras
+where a module has a sensitive action: <em>override FEFO / sell quarantined</em> under
+batches, <em>write off</em>, <em>Pay due</em>, report-level permissions, and the settings
+pages one by one, so a manager can be given <em>POS Settings</em> without
+<em>Payment Gateway</em>.</p>
+
+<h3>A cashier role</h3>
+
+<p>The minimum for somebody who only runs the till: <em>POS</em>, <em>Sales &rarr; View
+and Create</em>, <em>Customers &rarr; View and Create</em> (for quick-add at the
+counter), and nothing under Settings, Purchases or Reports. Add <em>Sales &rarr; Edit</em>
+only if they should be able to change a completed sale, and <em>Cash Register Report</em>
+if they close their own drawer.</p>
+
+<div class="note note--tip">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+  <p>Permissions apply to the API as well as the menu. A page hidden from the sidebar is
+  also refused when typed into the address bar, and the mobile app sees the same set.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="catalogue-lists">Categories, brands, units &amp; currencies</h2>
+
+<p>Short reference lists under <em>Products</em> and <em>Settings</em>. Get them roughly
+right before importing products, because the import matches on their names.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/categories</span></div><img src="images/categories.jpg" alt="Categories" loading="lazy"></div>
+    <figcaption>Categories carry a code, an icon and an image for the POS tiles and the store.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/units</span></div><img src="images/units.jpg" alt="Units" loading="lazy"></div>
+    <figcaption>Units and their conversions.</figcaption>
+  </figure>
+</div>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>List</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Categories</strong> and <strong>Sub-categories</strong></td><td>Two levels. The POS filters by category; the store builds its menus and filters from them; kitchen stations claim categories.</td></tr>
+    <tr><td><strong>Brands</strong></td><td>A name and a logo. The POS has a brand filter; the Electronics theme shows a brand row.</td></tr>
+    <tr><td><strong>Units</strong></td><td>A base unit (piece, kg, litre) and derived units with an operator and a value — a <em>carton</em> is <em>× 12</em> pieces. Products have a stock unit, a purchase unit and a sale unit, so you can buy by the carton and sell by the piece.</td></tr>
+    <tr><td><strong>Size guides</strong></td><td>Tables (S/M/L with measurements) attached to products and shown on the store's product page.</td></tr>
+    <tr><td><strong>Vehicle fitment</strong></td><td>Makes, models and years a part fits. The store lets a shopper pick their vehicle and filters the catalogue to what fits.</td></tr>
+    <tr><td><strong>Currencies</strong> (<em>Settings &rarr; Currencies</em>)</td><td>Code, symbol and — with multi-currency on — an exchange rate against the base currency. The store's currency switcher offers whichever you enable.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="payment-methods">Payment methods &amp; accounts</h2>
+
+<p><em>Settings &rarr; Payment Methods.</em> The ways money arrives: the install seeds
+<em>Cash, Credit Card, Check, TPE, Western Union, bank transfer</em> and <em>other</em>.
+Rename, add or deactivate them; the POS payment screen and every payment form offer the
+active ones. <em>Store credit</em> and <em>wallet</em> are handled by the
+<a href="#ewallet">e-wallet</a> module.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/payment-methods</span></div><img src="images/settings-payment-methods.jpg" alt="Payment methods" loading="lazy"></div>
+  <figcaption>Payment methods. Each can be switched off without deleting the payments already recorded with it.</figcaption>
+</figure>
+
+<p><strong>Accounts</strong> (<em>Accounting &rarr; List accounts</em>) are where the
+money is kept: the till, the bank account, the mobile-money float. Every payment,
+deposit and expense may name an account, and the account balance moves with it. The
+<em>default account</em> in System Settings is pre-selected on new payments. See
+<a href="#accounts">Accounts, deposits &amp; expenses</a>.</p>
+
+<p><strong>Payment gateways</strong> are separate: <em>Settings &rarr; Payment
+Gateway</em> holds the Stripe keys the <a href="#pos-payments">POS</a> uses for card
+payments; the online store's twelve gateways are under <a href="#store-checkout">Store
+&rarr; Payment Gateway</a>.</p>
+
+<!-- ===================================================================== -->
+<h2 id="products">Products</h2>
+
+<p><em>Products &rarr; All Products.</em> The catalogue. One row per product with its
+image, code, category, brand, cost, price, unit and the stock across the warehouses you may
+see. The list filters by warehouse, category and brand, exports to Excel and PDF, and opens
+the <em>Print Labels</em> sheet for any selection.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/products</span></div><img src="images/products.jpg" alt="Products list" loading="lazy"></div>
+  <figcaption>The product list. Quantity is per warehouse; the total is what you may see.</figcaption>
+</figure>
+
+<h3>The product form</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/products/create</span></div><img src="images/product-create.jpg" alt="Create product form" loading="lazy"></div>
+  <figcaption>Creating a product. The type at the top decides which panels appear below.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Field group</th><th>What to put there</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Identity</strong></td><td>Name, code (generated if you leave it blank), barcode symbology (Code 128, EAN-13, UPC-A, …), optional GTIN, brand, category and sub-category.</td></tr>
+    <tr><td><strong>Units</strong></td><td>The stock unit, and optionally different purchase and sale units with a conversion.</td></tr>
+    <tr><td><strong>Money</strong></td><td>Cost, price, tax rate with <em>inclusive</em> or <em>exclusive</em>, and a default discount. With the wholesale switch on, a table of quantity tiers; with multi-pack on, the pack sizes and prices.</td></tr>
+    <tr><td><strong>Stock</strong></td><td>The stock alert quantity, opening stock per warehouse, an internal location, and whether the product tracks batches or serial numbers.</td></tr>
+    <tr><td><strong>Media &amp; text</strong></td><td>Images (upload or paste a hosted URL), a note, a warranty period, a size guide, vehicle fitment, and any custom fields defined in <em>Settings &rarr; Custom Fields</em>.</td></tr>
+    <tr><td><strong>Online store</strong></td><td>Whether the product is visible in the store, the collections it belongs to, the storefront description and SEO text, pre-order and quote-request options.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>The product page</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/products/1</span></div><img src="images/product-detail.jpg" alt="Product details page" loading="lazy"></div>
+  <figcaption>A product's detail page: stock per warehouse, movement history, sales and purchases.</figcaption>
+</figure>
+
+<p>Every product has a detail page with its stock per warehouse, a movement history —
+every sale, purchase, return, transfer and adjustment that touched it, in order — and the
+sales and purchase lines it appeared on. The <em>Product Report</em> under Reports is the
+same view with a date range and export.</p>
+
+<!-- ===================================================================== -->
+<h2 id="product-types">Variants, combos &amp; services</h2>
+
+<p>The <em>type</em> at the top of the product form decides how stock behaves.</p>
+
+<div class="cards">
+  <div class="card"><h4>Single</h4><p>One code, one price, one stock figure per warehouse. Most products.</p></div>
+  <div class="card"><h4>Variable</h4><p>A parent with variants — size, colour, capacity. Each variant has its own code, price, cost, image and stock. The POS and the store show the parent and let you pick the variant.</p></div>
+  <div class="card"><h4>Service</h4><p>No stock at all. Repairs, delivery, labour, consultations. Can carry a price and a tax like any product; the store can offer <em>request a quote</em> instead of a price.</p></div>
+  <div class="card"><h4>Combo</h4><p>A bundle sold as one line at one price. Selling it deducts each component's stock; the combo itself has none.</p></div>
+</div>
+
+<p><strong>Subscription products</strong> (their own module, see
+<a href="#subscriptions">Subscriptions</a>) add a billing cycle to any product.
+<strong>Packs</strong> and <strong>wholesale tiers</strong> are pricing on top of a single
+or variable product, switched on under <a href="#features">Feature switches</a>.</p>
+
+<!-- ===================================================================== -->
+<h2 id="import">Importing</h2>
+
+<p>Every import page has the same shape: a drop zone, a <strong>Download example</strong>
+button that gives you a template with the right columns, a table explaining each column
+and which are required, and <strong>Import now</strong>. Rows that fail are reported by
+line number; rows that pass are saved.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/products/import</span></div><img src="images/products-import.jpg" alt="Import products page" loading="lazy"></div>
+  <figcaption>Import products: one tab per product type, and the expected format underneath.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Import</th><th>Where</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Products</td><td><em>Products &rarr; Import products</em></td><td>Three tabs — single, variant and service products — each with its own template (<code>.xlsx</code>). Category, brand and unit are matched by name and created when missing.</td></tr>
+    <tr><td>Products, update only</td><td><em>Products &rarr; Import (Update Only)</em></td><td>Matches existing products by code and patches price, cost and stock. Never creates a product — safe for a supplier price list.</td></tr>
+    <tr><td>Opening stock</td><td><em>Products &rarr; Opening Stock</em></td><td>Code, warehouse and quantity, for single products and for variants. Recorded as an opening adjustment so the movement history starts cleanly.</td></tr>
+    <tr><td>Customers, suppliers</td><td><em>People &rarr; Import Customers / Import Suppliers</em></td><td>Name, email, phone, address, tax number, opening balance.</td></tr>
+    <tr><td>Sales, purchases</td><td><em>Sales &rarr; Import Sales</em>, <em>Purchases &rarr; Import Purchases</em></td><td>CSV with one row per line item; the reference groups rows into a document. For migrating history from another system.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/products/opening-stock-import</span></div><img src="images/products-opening-stock.jpg" alt="Opening stock import" loading="lazy"></div>
+  <figcaption>Opening stock per warehouse.</figcaption>
+</figure>
+
+<div class="note note--tip">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+  <p>Import in this order: categories, brands and units by hand; then products; then
+  opening stock; then customers and suppliers; then history if you want it. Product codes
+  must be unique — a duplicate code is the most common rejected row.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="barcodes">Barcode labels</h2>
+
+<p><em>Products &rarr; Print Labels.</em> Pick products (or a whole purchase), set a
+quantity per product, choose one of the five label templates and what prints on it — shop
+name, product name, price, barcode number — and print. The preview is true to size.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/products/barcode</span></div><img src="images/barcode.jpg" alt="Print barcode labels" loading="lazy"></div>
+  <figcaption>Label printing with a live, true-size preview. Settings such as fonts and barcode height are saved globally.</figcaption>
+</figure>
+
+<p>Labels go to a normal printer as a sheet, or directly — no print dialog — to a TSPL
+label printer over USB or the network. Products without a barcode of their own are printed
+with their product code, which the POS scanner reads just the same.</p>
+
+<!-- ===================================================================== -->
+<h2 id="batches">Batches &amp; expiry</h2>
+
+<p>For food, pharmacy, cosmetics and anything with a shelf life. Turn batch tracking on per
+product; from then on every purchase line asks for a batch number and an expiry date, and
+stock is kept per batch.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/products/batches</span></div><img src="images/batches.jpg" alt="Batch register" loading="lazy"></div>
+  <figcaption>The batch register: quantity on hand, expiry and status per batch and warehouse.</figcaption>
+</figure>
+
+<p>Sales allocate <strong>first-expiry-first-out</strong>: the POS takes from the batch
+that expires soonest. Expired or quarantined batches are skipped unless the user holds the
+<em>override FEFO / sell quarantined</em> permission. Batches can be written off, and the
+<em>Expiry</em> report lists what expires in the coming days by warehouse; the
+<em>Batch Register</em> and <em>Batch History</em> reports show where each batch went.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/reports/expiry</span></div><img src="images/reports-expiry.jpg" alt="Expiry report" loading="lazy"></div>
+  <figcaption>The expiry report.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="serials">Serial numbers</h2>
+
+<p>With the <em>Track serial number / IMEI</em> switch on (<a href="#features">Feature
+switches</a>) a product can require one serial per unit. Receiving a purchase asks for
+the serials; selling asks you to pick which units leave; returns bring a specific unit back.
+Phones, laptops, appliances, tools with a warranty.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/serial-numbers</span></div><img src="images/serials.jpg" alt="Serial numbers register" loading="lazy"></div>
+  <figcaption>Every serial with its status — available, sold, returned — and the documents it passed through.</figcaption>
+</figure>
+
+<p>Four reports cover them: <em>Available Serial Numbers</em>, <em>Sold Serial
+Numbers</em>, <em>Serial Movement Log</em> and <em>Product Serial Inventory</em>. The
+<em>Warranty &amp; Guarantee</em> report combines the serial with the product's warranty
+period to show what is still covered.</p>
+
+<!-- ===================================================================== -->
+<h2 id="stock-ops">Count, adjust, transfer, damage</h2>
+
+<p>Four operations move stock without a sale or a purchase. Each is a document with a date,
+a warehouse, lines and a note, and each shows up in the product's movement history and in
+its own report.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/products/count-stock</span></div><img src="images/count-stock.jpg" alt="Count stock" loading="lazy"></div>
+    <figcaption>Count stock: a sheet per warehouse and category to count against.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/adjustments/create</span></div><img src="images/adjustment-create.jpg" alt="Create adjustment" loading="lazy"></div>
+    <figcaption>An adjustment: add or subtract per line, with a reason.</figcaption>
+  </figure>
+</div>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Operation</th><th>Where</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Count stock</strong></td><td><em>Products &rarr; Count Stock</em></td><td>Generates a downloadable count sheet for a warehouse (and optionally a category) with the system quantity on a given date, to be counted on paper or a tablet. Enter the differences as an adjustment.</td></tr>
+    <tr><td><strong>Adjustment</strong></td><td><em>Stock Adjustment</em></td><td>Adds or subtracts a quantity per product with a reason: found, lost, sample, correction. The <em>Stock Adjustment</em> report totals them.</td></tr>
+    <tr><td><strong>Transfer</strong></td><td><em>Stock Transfers</em></td><td>Moves quantities from one warehouse to another, with a status (pending, sent, completed) and an optional shipping cost. Stock leaves the source at once and arrives when completed.</td></tr>
+    <tr><td><strong>Damage</strong></td><td><em>Damages</em></td><td>Writes off broken or unsellable units with a note and a value, so the loss is visible in the reports rather than hidden in an adjustment.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/transfers/create</span></div><img src="images/transfer-create.jpg" alt="Create transfer" loading="lazy"></div>
+    <figcaption>A transfer between two warehouses.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/damages</span></div><img src="images/damages.jpg" alt="Damages list" loading="lazy"></div>
+    <figcaption>Damages, with the value written off.</figcaption>
+  </figure>
+</div>
+
+<p>The <em>Negative Stock</em>, <em>Quantity Alerts</em>, <em>Dead Stock</em>,
+<em>Zero Sales</em>, <em>Stock Aging</em> and <em>Inventory Valuation</em> reports are the
+places to look for what needs counting, reordering or clearing.</p>
+
+<!-- ===================================================================== -->
+<h2 id="pos">The register</h2>
+
+<p>The purple <strong>POS</strong> button in the header opens the register full-screen.
+It is built for a touch screen and a scanner: large product tiles with image, code, stock
+and price; category and brand filters; a search box that also takes a scanner; and a cart
+on the left with a running total.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/pos</span></div><img src="images/pos.jpg" alt="The point of sale" loading="lazy"></div>
+  <figcaption>The register: the register status and warehouse at the top, the cart on the left, the catalogue on the right, and the status pill bottom left.</figcaption>
+</figure>
+
+<h3>Opening the register</h3>
+
+<p>With registers enabled, the top-left pill reads <strong>CLOSED</strong> until you open
+one. Press it, enter the opening float, and the register is yours for the shift. Every
+sale, payment and hold is stamped with the register and the cashier. At the end of the
+shift press the pill again, enter the counted cash and a closing note, and the
+<em>Cash Register</em> report shows the float, the cash sales, the counted amount and the
+difference — per register and per cashier.</p>
+
+<h3>Warehouse and customer</h3>
+
+<p>The warehouse chip picks which stock you are selling from — the POS opens on the
+default warehouse from System Settings, limited to the warehouses your user may see. The
+customer chip defaults to <em>walk-in-customer</em>; search for a named customer to attach
+the sale to their ledger and their loyalty points, or press the person-plus icon to create
+one without leaving the screen.</p>
+
+<h3>Building the cart</h3>
+
+<ul>
+  <li><strong>Tap a tile</strong> or <strong>scan a barcode</strong>. A USB or Bluetooth
+  scanner types into the search box; the scan icon opens the phone or tablet
+  <strong>camera</strong> as a scanner (HTTPS required). A weight-embedded barcode from a
+  scale adds the product with the weight as the quantity.</li>
+  <li><strong>Variants</strong> ask which one; <strong>batch</strong> products allocate
+  first-expiry-first-out; <strong>serial</strong> products ask you to pick the unit;
+  <strong>packs</strong> ask single, 6-pack or case.</li>
+  <li>Each line has a quantity, a unit, a per-line <strong>discount</strong>, a tax and a
+  price level — <em>Retail</em> or <em>Wholesale</em>. With wholesale tiers on, the price
+  drops itself when the quantity reaches a tier and the line says so.</li>
+  <li>Below the lines: an order tax, an order discount, shipping, a <strong>promo
+  code</strong> box and the promotions that apply.</li>
+  <li><strong>Hold</strong> parks the sale under a reference so you can serve the next
+  person and recall it; <strong>Recent Drafts</strong> lists what is parked. Drafts
+  survive a page reload and, with offline mode, a lost connection.</li>
+  <li>A sale can also be saved as a <strong>quotation</strong> and turned into an invoice
+  later.</li>
+</ul>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/pos · العربية</span></div><img src="images/pos-ar.jpg" alt="The POS in Arabic" loading="lazy"></div>
+    <figcaption>The register in Arabic, fully right-to-left.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/real-time-sales-counter</span></div><img src="images/rts.jpg" alt="Real-time sales counter" loading="lazy"></div>
+    <figcaption>The real-time sales counter: a live board of today's sales that pings when a new one lands.</figcaption>
+  </figure>
+</div>
+
+<h3>Live sales counter</h3>
+
+<p><em>Sales &rarr; Real-time Sales Counter</em> is a board for a back-office screen: the
+count and value of today's sales, refreshed by polling every few seconds with a chime
+when a new sale arrives. It needs no websocket server.</p>
+
+<!-- ===================================================================== -->
+<h2 id="pos-payments">Taking payment</h2>
+
+<p><strong>Pay Now</strong> opens the payment screen. The total is pre-filled; pick a
+method and press <strong>Complete Payment</strong>, or split it.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/pos · Pay Now</span></div><img src="images/pos-pay.jpg" alt="POS payment screen" loading="lazy"></div>
+  <figcaption>Payment: amount, account, method, quick-cash buttons, and <em>Add Payment Method</em> to split.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Split payments.</strong> <em>Add Payment Method</em> adds a second line —
+  part cash, part card, part bank transfer, part wallet. The breakdown on the left shows
+  what is paid, the balance and the change.</li>
+  <li><strong>Quick cash.</strong> The buttons on the right enter the exact total or a
+  round note; the change is computed.</li>
+  <li><strong>Partial payment and credit.</strong> Pay less than the total and the sale
+  is saved as <em>partial</em> with a due balance on the customer's ledger. A customer
+  with a credit limit cannot go past it. <em>Pay due</em> on the sales list settles it
+  later.</li>
+  <li><strong>Store credit and wallet.</strong> With the <a href="#ewallet">e-wallet</a>
+  module, a customer's balance is a payment method.</li>
+  <li><strong>Loyalty points.</strong> A named customer's available points show on the
+  screen; convert them into a discount, or redeem a reward from the loyalty catalogue.
+  Points earned by the sale are credited when it completes.</li>
+  <li><strong>Card through Stripe.</strong> With keys in <em>Settings &rarr; Payment
+  Gateway</em>, the card method charges through Stripe from the register; refunds sync
+  back.</li>
+  <li><strong>Kitchen routing.</strong> With the kitchen display on, the sale can be sent
+  to the kitchen, saved without sending, or sent later.</li>
+</ul>
+
+<p>Completing the payment saves the sale, moves the stock, posts the journal (if auto
+journals are on), credits the loyalty points, prints the receipt (if auto-print is on)
+and, if a cash drawer is configured, kicks it open.</p>
+
+<!-- ===================================================================== -->
+<h2 id="pos-settings">POS settings &amp; receipts</h2>
+
+<p><em>Settings &rarr; POS Settings</em> decides how the register behaves;
+<em>Settings &rarr; POS Receipt</em> decides what it prints.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/pos</span></div><img src="images/settings-pos.jpg" alt="POS settings" loading="lazy"></div>
+  <figcaption>POS settings: printing, hold sales, the cash drawer, shortcuts and the register.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>Invoice format</td><td><em>Thermal</em> prints the receipt layout on roll paper; <em>A4</em> prints the full invoice.</td></tr>
+    <tr><td>Auto-print receipt</td><td>Prints as soon as a sale completes instead of waiting for the button.</td></tr>
+    <tr><td>Enable hold sales</td><td>Shows or hides the <em>Hold</em> button and the drafts list.</td></tr>
+    <tr><td>Cash drawer auto-open</td><td>When a sale completes with cash, sends an ESC/POS pulse to the receipt printer named here, which kicks the drawer connected to it. Requires <strong>QZ Tray</strong> running on the cashier's computer.</td></tr>
+    <tr><td>Direct network printing</td><td>Sends receipts straight to a printer at an IP address and port (usually 9100), bypassing the browser dialog. Good for a tablet till with a shared printer.</td></tr>
+    <tr><td>Barcode scanning sound</td><td>A beep on every successful scan.</td></tr>
+    <tr><td>Products per page, show categories</td><td>How many tiles load at once and whether the category filter appears.</td></tr>
+    <tr><td>Keyboard shortcuts</td><td>The switch and the cheat sheet — see <a href="#shortcuts">Keyboard shortcuts</a>.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>The receipt</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/pos-receipt</span></div><img src="images/settings-receipt.jpg" alt="POS receipt settings with live preview" loading="lazy"></div>
+  <figcaption>Five receipt layouts with a live preview. Every change on the left redraws the receipt on the right.</figcaption>
+</figure>
+
+<p>Paper size (58, 80 or 88 mm); one of five layouts — <em>Standard, Compact, Detailed,
+Bilingual</em> and <em>Minimal</em>; logo and its size; font family and size; and which
+blocks print: the customer, the tax breakdown, the previous dues and net balance, a note
+to the customer, and — with <a href="#zatca">ZATCA</a> phase 1 on — the QR code Saudi
+receipts require. The <em>Bilingual</em> layout prints each label in two languages, for
+Arabic and English receipts.</p>
+
+<h3>Printing</h3>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Method</th><th>When to use it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Browser print</strong></td><td>The default. Works with any printer the operating system knows; the dialog appears each time unless the browser is set to skip it.</td></tr>
+    <tr><td><strong>QZ Tray</strong></td><td>A small free program on the cashier's computer. Prints silently, raw ESC/POS, and kicks the drawer. Install it, allow the site once, and set the printer name in POS Settings.</td></tr>
+    <tr><td><strong>Network printer</strong></td><td>A receipt printer with an Ethernet or Wi-Fi port. The server sends the job directly; nothing to install on the till. The server must be able to reach the printer's IP.</td></tr>
+    <tr><td><strong>Label printer</strong></td><td>TSPL printers over USB or the network take the <a href="#barcodes">barcode sheets</a> without a dialog.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="shortcuts">Keyboard shortcuts</h2>
+
+<p>Turn them on in <em>Settings &rarr; POS Settings</em>; the switch is per device and
+saves as soon as you flip it, so a touch till can leave them off while the counter PC has
+them on. Press <kbd>Shift</kbd> + <kbd>?</kbd> on the register for the cheat sheet; the
+same list is under <strong>View Shortcuts</strong> in POS Settings.</p>
+
+<p>The shortcuts cover what a cashier does a hundred times a day: focus the search or
+scan box, open the payment screen, complete a cash payment, hold the sale, open the
+drafts, clear the cart, change the customer, open the drawer and close the register.
+They are ignored while you are typing in a form field, except the function keys and
+<kbd>Esc</kbd>, so a barcode typed by a scanner is never misread as a command.</p>
+
+<!-- ===================================================================== -->
+<h2 id="offline">Offline mode</h2>
+
+<p>The register keeps selling when the internet does not. Switch it on with
+<em>offline sync</em> in <em>Settings &rarr; System Settings &rarr; System</em>.</p>
+
+<ol class="steps">
+  <li>
+    <h4>The register caches</h4>
+    <p>While online, the POS keeps a copy of the catalogue and the customers in the
+    browser, and refreshes it as you work. The status pill bottom left reads
+    <strong>Online · synced</strong>.</p>
+  </li>
+  <li>
+    <h4>The connection drops</h4>
+    <p>The pill turns red and reads <strong>Offline</strong>. Tiles, search, the cart,
+    holds and drafts keep working from the cache. Sales you complete are queued in the
+    browser with their payments, and the pill shows how many are waiting. Reloading the
+    page while offline is fine — the register comes back from the cache.</p>
+  </li>
+  <li>
+    <h4>It comes back</h4>
+    <p>The queue uploads itself, oldest first; each sale gets its reference and moves the
+    stock as if it had been taken online. The pill returns to <em>Online · synced</em>.
+    If a queued sale is refused — a product deleted meanwhile, say — it stays in the queue
+    with the error so nothing is silently lost.</p>
+  </li>
+</ol>
+
+<div class="note note--warn">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+  <p><strong>What offline cannot do.</strong> Opening or closing the register, card
+  payments through Stripe, kitchen tickets, customer-display updates and anything that
+  needs the server to answer. Stock figures on the tiles are as of the last sync, so two
+  offline tills can both sell the last unit. The queue lives in that browser's storage —
+  do not clear site data while sales are waiting.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="customer-display">Customer display</h2>
+
+<p>A second screen facing the customer — a tablet on a stand, a monitor, an old phone —
+that mirrors the cart as the cashier works: the lines, the totals, and a thank-you when
+the sale completes. It is a web page, so any device with a browser on the same network
+will do.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/customer-display/setup</span></div><img src="images/customer-display-setup.jpg" alt="Customer display setup" loading="lazy"></div>
+  <figcaption><em>Sales &rarr; Customer Screen</em>: generate a token, then open the URL or scan the QR code on the second device.</figcaption>
+</figure>
+
+<ol class="steps">
+  <li>
+    <h4>Generate a token</h4>
+    <p><em>Sales &rarr; Customer Screen &rarr; Generate New Token.</em> The page shows the
+    display URL — <code>/customer-display?token=…</code> — and a QR code for it.</p>
+  </li>
+  <li>
+    <h4>Open it on the display device</h4>
+    <p>Scan the QR or type the URL. The page installs as a PWA and runs full-screen. It
+    supports light and dark themes and needs no login — the token is the credential.</p>
+  </li>
+  <li>
+    <h4>Sell</h4>
+    <p>The display updates as items are added. Tokens expire after 24 hours; generate a
+    new one to rotate access, and the old link stops working at once.</p>
+  </li>
+</ol>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/customer-display?token=…</span></div><img src="images/customer-display.jpg" alt="The customer display" loading="lazy"></div>
+  <figcaption>What the customer sees.</figcaption>
+</figure>
+
+<p>If the display does not connect, check that the device is on the same network and uses
+the full URL including the token. If items stop updating, make sure the POS is still open
+on the cashier's side — the display shows the last cart the register broadcast.</p>
+
+<!-- ===================================================================== -->
+<h2 id="kitchen">Kitchen display</h2>
+
+<p>For restaurants, cafés and anywhere an order is prepared after it is taken. Switch it
+on under <a href="#features">Feature switches</a>; the POS then offers <em>Send to
+Kitchen</em> on every sale and <em>Kitchen &rarr; Kitchen Display</em> appears in the
+sidebar.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/kitchen-display</span></div><img src="images/kitchen.jpg" alt="Kitchen display" loading="lazy"></div>
+  <figcaption>Tickets in lanes — open, preparing, ready — with the daily token number, the elapsed time and per-item check-off.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Tickets</strong> carry a daily token number, the items with special
+  instructions, the customer and the source (POS or online). <em>Start preparation</em>,
+  check items off one by one — the ticket completes itself when the last one is done —
+  <em>Mark completed</em>, with a ten-second <strong>Undo</strong>. A ticket whose sale
+  was deleted shows <em>Voided</em>.</li>
+  <li><strong>Overdue colours.</strong> Set a preparation-time target in Features; tickets
+  past half of it turn amber, past all of it turn red, pulse and jump to the top of their
+  lane.</li>
+  <li><strong>Stations.</strong> Define stations by product category — grill, bar,
+  dessert — and pin a screen to one; it shows only its items. Items in a category no
+  station claims appear on every station, so nothing is missed. The <em>All stations</em>
+  view is the expo screen with full tickets.</li>
+  <li><strong>Kitchen mode</strong> is full-screen for a wall-mounted TV;
+  <strong>chits</strong> print at 72 mm, station-aware.</li>
+  <li><strong>Online orders</strong> can create a ticket automatically when confirmed.</li>
+</ul>
+
+<h3>The order-ready screen</h3>
+
+<p>A customer-facing board of token numbers under <em>Preparing</em> and <em>Ready</em>,
+with a chime when one moves. Press <strong>Order Ready Screen</strong> on the kitchen
+display to generate a secure link (<code>/order-ready?token=…</code>), open it on a screen
+in the collection area, and it updates on its own. The link stays valid for seven days;
+generating a new one replaces it.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/kitchen/report</span></div><img src="images/kitchen-report.jpg" alt="Kitchen report" loading="lazy"></div>
+  <figcaption>The kitchen report: preparation and wait times, staff performance, trends and top products, with export.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="sales">Sales</h2>
+
+<p><em>Sales &rarr; All Sales.</em> Every invoice, from the POS or from the back office,
+in one list: date, reference, customer, warehouse, status, grand total, paid, due, payment
+status and shipping status. Filter by any of them, export, and act from the row —
+<em>Pay due</em>, print, PDF, email, SMS, edit, return, delete.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/sales</span></div><img src="images/sales.jpg" alt="Sales list" loading="lazy"></div>
+  <figcaption>The sales list with status and payment status pills.</figcaption>
+</figure>
+
+<h3>Creating a sale in the back office</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/sales/create</span></div><img src="images/sale-create.jpg" alt="Create sale form" loading="lazy"></div>
+  <figcaption>The sale form: the same lines as the POS, with a status, a sales agent, a note and attachments.</figcaption>
+</figure>
+
+<p>The form is the POS in a page: customer, warehouse, date, lines with discount, tax,
+unit and batch or serial, an order tax, discount and shipping, a status (<em>pending,
+ordered, complete</em>), a sales agent, a note, and a payment you can record at once.
+Stock moves when the sale is completed. With multi-currency on, pick the sale currency and
+the base-currency equivalent shows alongside.</p>
+
+<h3>The sale page</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/sales/227</span></div><img src="images/sale-detail.jpg" alt="Sale detail page" loading="lazy"></div>
+  <figcaption>A sale: lines, totals, payments, shipment and documents, with the print, PDF, email and SMS buttons.</figcaption>
+</figure>
+
+<p>Payments are recorded against the sale with a date, a method and an account; each one
+updates the paid and due figures and the customer's ledger. Attach a file — a signed
+delivery note, a purchase order from the customer — under documents. Email and SMS use the
+templates from <a href="#notifications">Settings</a>, merged with the sale.</p>
+
+<!-- ===================================================================== -->
+<h2 id="quotations">Quotations</h2>
+
+<p><em>Quotations.</em> A priced offer that moves no stock. Same form as a sale; same
+lines; a status of <em>pending</em> or <em>sent</em>. Print or PDF it, email it, and when
+the customer agrees press <strong>Create sale</strong> — the quotation's lines become a
+sale in one click, and the quotation is marked as converted.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/quotations</span></div><img src="images/quotations.jpg" alt="Quotations list" loading="lazy"></div>
+    <figcaption>Quotations.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/quotations/30</span></div><img src="images/quotation-detail.jpg" alt="Quotation detail" loading="lazy"></div>
+    <figcaption>A quotation, ready to convert.</figcaption>
+  </figure>
+</div>
+
+<p>Business customers can also see their quotations in the <a href="#portal">client
+portal</a>, accept them there, or request a new one; shoppers can send a <em>quote
+request</em> from the store for service products.</p>
+
+<!-- ===================================================================== -->
+<h2 id="returns">Returns</h2>
+
+<p>A return is always against an original document, so the stock, the money and the
+reports agree on what came back.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/sale-returns</span></div><img src="images/sale-returns.jpg" alt="Sale returns" loading="lazy"></div>
+    <figcaption>Sale returns.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/purchase-returns</span></div><img src="images/purchase-returns.jpg" alt="Purchase returns" loading="lazy"></div>
+    <figcaption>Purchase returns.</figcaption>
+  </figure>
+</div>
+
+<ul>
+  <li><strong>Sale return</strong> — from the sale's row or page. Pick the lines and
+  quantities coming back (a serial product asks which unit); stock returns to the
+  warehouse; the refund is recorded as a payment on the return, by any method, or left as
+  a credit on the customer's ledger.</li>
+  <li><strong>Purchase return</strong> — the mirror image, against a purchase, with the
+  supplier's refund recorded the same way.</li>
+  <li><strong>Store returns</strong> — shoppers request a return from their account
+  within the return window; you approve it under <em>Store &rarr; Returns Requests</em>
+  and it becomes a sale return.</li>
+</ul>
+
+<p>The <em>Return Ratio</em> report shows what comes back most, by product and by
+customer.</p>
+
+<!-- ===================================================================== -->
+<h2 id="shipments">Shipments</h2>
+
+<p><em>Sales &rarr; Shipments.</em> One shipment per sale that needs delivering: the
+carrier, a tracking number, the delivery address and a status — packed, shipped,
+delivered, cancelled. The shipping status shows on the sale and on the sales list, and the
+store's customer account shows it to the shopper.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/shipments</span></div><img src="images/shipments.jpg" alt="Shipments list" loading="lazy"></div>
+  <figcaption>Shipments and their status.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="purchases">Suppliers &amp; purchases</h2>
+
+<p><em>People &rarr; Suppliers</em> holds who you buy from — name, contact, tax number,
+address, opening balance — with a detail page listing every purchase, return and
+payment. <em>Purchases</em> is how stock arrives with a cost behind it.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/suppliers</span></div><img src="images/suppliers.jpg" alt="Suppliers list" loading="lazy"></div>
+    <figcaption>Suppliers.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/purchases</span></div><img src="images/purchases.jpg" alt="Purchases list" loading="lazy"></div>
+    <figcaption>Purchases with status and payment status.</figcaption>
+  </figure>
+</div>
+
+<h3>Receiving a purchase</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/purchases/create</span></div><img src="images/purchase-create.jpg" alt="Create purchase form" loading="lazy"></div>
+  <figcaption>A purchase: supplier, warehouse, lines with cost, batch and expiry, and the payment.</figcaption>
+</figure>
+
+<p>Supplier, warehouse, date, lines with the unit cost, the purchase unit, a discount and
+a tax; per line a batch number and expiry for batch products and the serials for serial
+products; an order tax, discount and shipping. The status is <em>pending</em>,
+<em>ordered</em> or <em>received</em> — stock moves when it is received. Record the
+supplier payment at once or later from the row. A purchase can also open the
+<a href="#barcodes">label printer</a> for everything it contains.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/purchases/180</span></div><img src="images/purchase-detail.jpg" alt="Purchase detail" loading="lazy"></div>
+  <figcaption>A purchase with its lines, payments and documents.</figcaption>
+</figure>
+
+<p>The product's cost is what you paid; <em>Inventory Valuation</em> uses it, and the
+profit reports subtract it from the sale price. Purchases can be imported from CSV to
+bring in history; see <a href="#import">Importing</a>.</p>
+
+<!-- ===================================================================== -->
+<h2 id="customers">Customers &amp; ledger</h2>
+
+<p><em>People &rarr; Customers.</em> Name, email, phone, address, tax number, an opening
+balance and a credit limit. The POS creates them on the spot; the store creates them when
+a shopper registers; the import brings them in bulk.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/customers</span></div><img src="images/customers.jpg" alt="Customers list" loading="lazy"></div>
+    <figcaption>Customers, with their due balance and <em>Pay due</em> on the row.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/customers/2/details</span></div><img src="images/customer-details.jpg" alt="Customer details" loading="lazy"></div>
+    <figcaption>A customer's page: totals, sales, payments, quotations and returns.</figcaption>
+  </figure>
+</div>
+
+<h3>The ledger</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/customers/2/ledger</span></div><img src="images/customer-ledger.jpg" alt="Customer ledger" loading="lazy"></div>
+  <figcaption>The ledger: everything owed and paid, with a PDF statement.</figcaption>
+</figure>
+
+<p>Every invoice, return and payment for a customer on one statement, with the opening
+balance, the sales due, the returns due, the payments and the outstanding total.
+<strong>Download PDF</strong> produces the statement you send them. <em>Pay due</em>
+takes a payment against the oldest open invoices. The credit limit — <em>No limit</em> by
+default — stops the POS and the sale form from going past it.</p>
+
+<p>Two further lists under <em>People</em> split customers by store access:
+<em>Customers with Login</em> can sign in to the online store; <em>Customers without
+Login</em> cannot. The <em>Client Portal</em> link under <em>People</em> opens the
+<a href="#portal">portal</a> itself; access to it is granted per customer from this
+list.</p>
+
+<!-- ===================================================================== -->
+<h2 id="portal">Client portal</h2>
+
+<p>A separate front door at <code>/portal</code> for business customers — the ones who buy
+on account, ask for quotations and want their statement without phoning. It is not the
+online store: no cart, no checkout, no catalogue.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/portal/login</span></div><img src="images/portal-login.jpg" alt="Portal login" loading="lazy"></div>
+    <figcaption>The portal sign-in.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/portal/dashboard</span></div><img src="images/portal-dashboard.jpg" alt="Portal dashboard" loading="lazy"></div>
+    <figcaption>What a client sees after signing in.</figcaption>
+  </figure>
+</div>
+
+<h3>Inviting a customer</h3>
+
+<p><em>People &rarr; Customers.</em> Open the row's actions and choose <strong>Portal
+Client</strong>. Confirm the email address the invitation goes to and press
+<strong>Enable</strong>: an email with a set-password link is sent, and until they use
+it the customer shows as <em>invitation pending</em>. <strong>Disable</strong> revokes
+access without deleting anything.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/portal/invoices</span></div><img src="images/portal-invoices.jpg" alt="Portal invoices" loading="lazy"></div>
+    <figcaption>Invoices with PDF download.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/portal/statement</span></div><img src="images/portal-statement.jpg" alt="Portal statement" loading="lazy"></div>
+    <figcaption>The statement.</figcaption>
+  </figure>
+</div>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Portal page</th><th>What the client can do</th></tr></thead>
+  <tbody>
+    <tr><td>Dashboard</td><td>Outstanding balance, recent invoices and payments.</td></tr>
+    <tr><td>Invoices</td><td>Every sale, with status, paid and due, and a PDF of each.</td></tr>
+    <tr><td>Payments, Statement</td><td>Payments received and the running statement.</td></tr>
+    <tr><td>Quotations</td><td>Read the quotations you sent, and request a new one.</td></tr>
+    <tr><td>Appointments</td><td>Book an appointment (with the <a href="#bookings">bookings</a> module).</td></tr>
+    <tr><td>Contracts</td><td>Read their contracts and download attachments (with the contracts module).</td></tr>
+    <tr><td>Knowledge base</td><td>The articles you publish (with the knowledge-base module).</td></tr>
+    <tr><td>Profile</td><td>Change the password, switch language, or delete the account.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<figure class="shot shot--phone">
+  <div class="shot__frame"><img src="images/portal-mobile.jpg" alt="Portal on a phone" loading="lazy"></div>
+  <figcaption>The portal on a phone; it installs as a PWA.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="loyalty">Loyalty &amp; promotions</h2>
+
+<h3>Loyalty points</h3>
+
+<p><em>Settings &rarr; Loyalty Rewards.</em> Customers earn points on what they spend at
+the rate you set (points per amount, a minimum sale, an expiry). Points show on the
+customer's page, on the POS when the customer is picked, and in the store account. They
+are spent two ways: <strong>converted into a discount</strong> at the point-to-amount rate,
+or <strong>redeemed for a reward</strong> from the catalogue on this page — a discount
+amount, a gift card or a product, each with a points cost, a stock and a per-customer
+limit. Redemptions are listed with their status and fulfilled from here; points can be
+credited or deducted by hand with a note.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/loyalty/rewards</span></div><img src="images/loyalty.jpg" alt="Loyalty rewards" loading="lazy"></div>
+  <figcaption>The rewards catalogue and redemptions.</figcaption>
+</figure>
+
+<h3>Promotions</h3>
+
+<p><em>Promotions.</em> Rules that apply themselves at the POS checkout: a percentage or a
+fixed amount off, on chosen products, categories or the whole cart, within a date range,
+optionally behind a promo code, with a usage limit. The register lists the promotions that
+matched; the <em>Promotion Usage</em> report shows what each one cost.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/promotions</span></div><img src="images/promotions.jpg" alt="Promotions" loading="lazy"></div>
+  <figcaption>Promotions with their type, period and usage.</figcaption>
+</figure>
+
+<p>The online store has its own <a href="#store-checkout">coupons and flash sales</a>;
+they are separate from POS promotions on purpose, because a web coupon and a counter
+promotion rarely have the same rules.</p>
+
+<!-- ===================================================================== -->
+<h2 id="ewallet">E-wallet &amp; commissions</h2>
+
+<h3>E-wallet</h3>
+
+<p><em>E-Wallet.</em> A prepaid balance per customer. Top it up in the admin or let
+shoppers do it in the store; spend it as a payment method at the POS and at checkout;
+refund to it instead of to cash. <em>Wallet Items</em> are the products or amounts on
+offer; the dashboard shows balances, top-ups and spend; the settings decide minimums and
+whether withdrawals are allowed.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/ewallet/dashboard</span></div><img src="images/ewallet.jpg" alt="E-wallet dashboard" loading="lazy"></div>
+  <figcaption>The e-wallet dashboard.</figcaption>
+</figure>
+
+<h3>Commissions</h3>
+
+<p><em>Commissions.</em> For salespeople paid on what they sell. A <em>program</em> sets
+the rule — a percentage of the sale, of the profit, or a fixed amount per line — and
+which products it covers; <em>agents</em> are the users or employees in it; <em>rules</em>
+add tiers and exceptions. Every sale with a sales agent accrues, <em>receipts</em> record
+what was paid out, and the report reconciles the two.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/commissions/programs</span></div><img src="images/commissions.jpg" alt="Commission programs" loading="lazy"></div>
+  <figcaption>Commission programs.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="store-setup">Setting up the store</h2>
+
+<p>The online store sells the products you mark visible, from the warehouses you choose,
+with the same prices, stock and customers as the counter. It is switched on per install
+under <em>Settings &rarr; Modules &rarr; Store</em>, then configured from
+<em>Store &rarr; Settings</em>.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/settings</span></div><img src="images/store-settings.jpg" alt="Store settings" loading="lazy"></div>
+  <figcaption>Store settings: one tab per concern, and one per theme with the blocks that theme draws.</figcaption>
+</figure>
+
+<ol class="steps">
+  <li>
+    <h4>Basics</h4>
+    <p>Store name, the <strong>theme</strong>, the warehouses it sells from (or all), the
+    default language and the display currency. <em>Online store enabled</em> is the master
+    switch; off, the storefront answers with a closed page.</p>
+  </li>
+  <li>
+    <h4>Address</h4>
+    <p>By default the store lives at <code>/online_store</code>. Set a custom
+    <strong>URL path</strong> such as <code>/shop</code>, or tick <strong>use the root
+    domain</strong> so the shop is your home page and the admin stays at
+    <code>/login</code> and <code>/next</code>. On the root domain the shop's sign-in and
+    register pages move under <code>/customer/…</code>. Old links are redirected.</p>
+  </li>
+  <li>
+    <h4>Stock behaviour</h4>
+    <p>Show stock or not, hide out-of-stock products, allow or prevent overselling, hide
+    prices for guests (a wholesale catalogue that shows prices only after sign-in).</p>
+  </li>
+  <li>
+    <h4>Registration</h4>
+    <p>Public registration on or off; require an invite code, admin approval, email
+    verification, or any combination. See <a href="#store-accounts">Customer
+    accounts</a>.</p>
+  </li>
+  <li>
+    <h4>Returns and reviews</h4>
+    <p>The return window in days, whether shoppers may cancel unshipped orders, and whether
+    reviews publish at once or wait for moderation.</p>
+  </li>
+  <li>
+    <h4>Make products visible</h4>
+    <p>A product appears in the store only when its <em>online store</em> switch is on.
+    Set it per product, or in bulk from the product list.</p>
+  </li>
+</ol>
+
+<h3>Real estate</h3>
+
+<p>With the Real Estate theme the store becomes a listings site: <em>Store &rarr; Real
+Estate</em> holds properties (for sale or rent, price, beds, baths, area, photos, map),
+their categories and the inquiries the form sends. Products and the cart are not used.</p>
+
+<!-- ===================================================================== -->
+<h2 id="store-themes">Themes</h2>
+
+<p>Five themes on one catalogue. Switching is a dropdown in <em>Store &rarr; Settings
+&rarr; Basics</em>; each theme has a tab of its own for the blocks it draws, and every
+theme shares the same product page, cart, checkout and account.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store · Default</span></div><img src="images/store-default-home.jpg" alt="Default theme home page" loading="lazy"></div>
+    <figcaption><strong>Default</strong> — collections and homepage blocks you arrange yourself.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store · Electronics</span></div><img src="images/store-electronics-home.jpg" alt="Electronics theme home page" loading="lazy"></div>
+    <figcaption><strong>Electronics</strong> — hero slider, promo banners, category tiles, top picks / best rated / on sale tabs, brand row, testimonials.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store · Toys &amp; Baby</span></div><img src="images/store-toys-home.jpg" alt="Toys theme home page" loading="lazy"></div>
+    <figcaption><strong>Toys &amp; Baby</strong> — playful palette, four promo tiles, a welcome coupon bar.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store · Grocery</span></div><img src="images/store-grocery-home.jpg" alt="Grocery theme home page" loading="lazy"></div>
+    <figcaption><strong>Grocery</strong> — delivery-time badge, weekly deals with a countdown, category circles, popular-now row, aisles.</figcaption>
+  </figure>
+</div>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store · Real Estate</span></div><img src="images/store-real-estate-home.jpg" alt="Real estate theme home page" loading="lazy"></div>
+  <figcaption><strong>Real Estate</strong> — listings with sale/rent, price, beds, baths, area, a map and an inquiry form.</figcaption>
+</figure>
+
+<p>Each theme tab holds its own slides, tiles, banners, section headings, featured
+products per tab, deals and testimonials. What you fill in for Electronics is kept when
+you try Grocery, so switching back loses nothing. The demo seeders described under
+<a href="#cli-install">Command-line install</a> fill each theme with a matching catalogue.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store/shop</span></div><img src="images/store-electronics-shop.jpg" alt="Shop page with filters" loading="lazy"></div>
+    <figcaption>The shop page: search with suggestions, filters by category, collection and price, sort.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store/product/…</span></div><img src="images/store-electronics-product.jpg" alt="Product page" loading="lazy"></div>
+    <figcaption>The product page: gallery, variants, reviews, questions and answers, related products, wishlist, compare, size guide.</figcaption>
+  </figure>
+</div>
+
+<div class="shots shots--phones">
+  <figure class="shot shot--phone">
+    <div class="shot__frame"><img src="images/store-grocery-home-mobile.jpg" alt="Grocery theme on a phone" loading="lazy"></div>
+    <figcaption>Grocery on a phone.</figcaption>
+  </figure>
+  <figure class="shot shot--phone">
+    <div class="shot__frame"><img src="images/store-toys-product-mobile.jpg" alt="Toys product page on a phone" loading="lazy"></div>
+    <figcaption>A product page on a phone.</figcaption>
+  </figure>
+  <figure class="shot shot--phone">
+    <div class="shot__frame"><img src="images/store-real-estate-property-mobile.jpg" alt="Property page on a phone" loading="lazy"></div>
+    <figcaption>A property listing on a phone.</figcaption>
+  </figure>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="store-content">Collections, banners, pages &amp; menus</h2>
+
+<p>Everything a shopper sees that is not a product is managed under <em>Store</em>.</p>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Page</th><th>What it is for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Collections</strong></td><td>Named groups of products — <em>New arrivals</em>, <em>Gifts under 20</em>, <em>Summer</em> — with an image and a slug. The Default theme's home page is built from them; every theme offers them as a filter.</td></tr>
+    <tr><td><strong>Banners</strong></td><td>Images with a title, a link and a position for the hero and promo slots.</td></tr>
+    <tr><td><strong>Pages</strong></td><td>Static content — about, delivery, terms, privacy — with a rich-text editor and a slug at <code>/pages/…</code>.</td></tr>
+    <tr><td><strong>Menus</strong></td><td>The header and footer navigation: links to pages, collections, categories or any URL, in the order you drag them.</td></tr>
+    <tr><td><strong>Popup messages</strong></td><td>A one-time announcement or newsletter prompt, with a schedule.</td></tr>
+    <tr><td><strong>Product reviews</strong></td><td>Ratings and text left by verified buyers; approve, reply or hide. Auto-approval is a store setting.</td></tr>
+    <tr><td><strong>Subscribers</strong>, <strong>Messages</strong></td><td>Newsletter sign-ups from the footer form, and what the contact page sends.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/collections</span></div><img src="images/store-collections.jpg" alt="Collections" loading="lazy"></div>
+    <figcaption>Collections.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/banners</span></div><img src="images/store-banners.jpg" alt="Banners" loading="lazy"></div>
+    <figcaption>Banners.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/pages</span></div><img src="images/store-pages.jpg" alt="Pages" loading="lazy"></div>
+    <figcaption>Pages.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/menus</span></div><img src="images/store-menus.jpg" alt="Menus" loading="lazy"></div>
+    <figcaption>Menus.</figcaption>
+  </figure>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="store-checkout">Shipping, tax &amp; payment</h2>
+
+<p>Checkout quotes are computed on the server from these three lists, so the shopper's
+total is the same one that lands on the sale.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/shipping-methods</span></div><img src="images/store-shipping.jpg" alt="Shipping methods" loading="lazy"></div>
+    <figcaption>Shipping methods.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/tax-rates</span></div><img src="images/store-tax-rates.jpg" alt="Tax rates" loading="lazy"></div>
+    <figcaption>Tax rates.</figcaption>
+  </figure>
+</div>
+
+<ul>
+  <li><strong>Shipping zones</strong> group countries or regions; <strong>shipping
+  methods</strong> belong to a zone and carry a price, a free-over threshold and a
+  delivery estimate — <em>Standard</em>, <em>Express</em>, <em>Pickup in store</em>.</li>
+  <li><strong>Tax rates</strong> apply by zone at checkout; product-level tax from the
+  catalogue still applies to the POS.</li>
+  <li><strong>Coupons</strong> are codes with a percentage or fixed value, a minimum
+  order, a validity period and a usage limit. <strong>Flash sales</strong> put chosen
+  products on a timed discount with a countdown on the store's flash-sales page.</li>
+</ul>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/coupons</span></div><img src="images/store-coupons.jpg" alt="Coupons" loading="lazy"></div>
+    <figcaption>Coupons.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store/flash-sales</span></div><img src="images/store-electronics-flash-sales.jpg" alt="Flash sales page" loading="lazy"></div>
+    <figcaption>Flash sales with a countdown.</figcaption>
+  </figure>
+</div>
+
+<h3>Payment gateways</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/payment-gateway</span></div><img src="images/store-gateway.jpg" alt="Store payment gateways" loading="lazy"></div>
+  <figcaption>Store payment gateways, each with its keys and a sandbox switch.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Kind</th><th>Methods</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Offline</td><td>Cash on delivery, cash on pickup, bank transfer, mobile money, GCash</td><td>No keys. Bank transfer lets the shopper upload a proof of payment; you confirm the order when the money arrives.</td></tr>
+    <tr><td>Card &amp; wallet</td><td>Stripe, PayPal, Paystack, Flutterwave, Razorpay</td><td>Public and secret keys, an optional webhook secret, and a sandbox switch for testing. The order is marked paid when the gateway confirms.</td></tr>
+    <tr><td>Regional</td><td>bKash, SSLCommerz</td><td>Bangladesh. App key, secret, username and password (bKash); store ID and password (SSLCommerz).</td></tr>
+  </tbody>
+</table>
+</div>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store/checkout</span></div><img src="images/store-electronics-checkout.jpg" alt="Checkout" loading="lazy"></div>
+  <figcaption>Checkout: address, shipping method, payment method, coupon and a running summary.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="store-orders">Orders &amp; requests</h2>
+
+<p><em>Store &rarr; Online Orders.</em> A web order is a sale with a source of
+<em>online</em>: it appears here and in <em>Sales</em>, moves stock from the store's
+warehouse, and can be shipped, returned and refunded like any other. Confirm it, set the
+shipping status, print the invoice; with the kitchen on, confirmed orders can become
+tickets.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/orders</span></div><img src="images/store-orders.jpg" alt="Online orders" loading="lazy"></div>
+  <figcaption>Online orders with payment and shipping status.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Page</th><th>What arrives there</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Returns requests</strong></td><td>A shopper's request to return or cancel, from their account, within the return window. Approve to create a sale return; refuse with a reason.</td></tr>
+    <tr><td><strong>Quote requests</strong></td><td>A shopper's request for a price on a service or quote-only product. Answer with a <a href="#quotations">quotation</a>.</td></tr>
+    <tr><td><strong>Messages</strong></td><td>The contact form.</td></tr>
+    <tr><td><strong>Product reviews</strong></td><td>Ratings awaiting moderation.</td></tr>
+    <tr><td><strong>Pending customers</strong></td><td>Registrations awaiting your approval, when approval is required.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/store/returns</span></div><img src="images/store-returns.jpg" alt="Return requests" loading="lazy"></div>
+  <figcaption>Return requests from the store.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="store-accounts">Customer accounts</h2>
+
+<p>A shopper can check out as a guest or with an account. The account is the same customer
+row the POS and the ledger use — sign in at the counter with the same email and the
+loyalty points are there.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store/account</span></div><img src="images/store-electronics-account.jpg" alt="Store account page" loading="lazy"></div>
+    <figcaption>My account: orders, returns, wallet, rewards, wishlist, addresses, questions, preferences.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/online_store/account/orders</span></div><img src="images/store-electronics-account-orders.jpg" alt="Store account orders" loading="lazy"></div>
+    <figcaption>Orders with invoice PDF, tracking and the return button.</figcaption>
+  </figure>
+</div>
+
+<h3>Who may register</h3>
+
+<p><em>Store &rarr; Settings &rarr; Basics &rarr; Registration access control.</em> Four
+switches that combine:</p>
+
+<ul>
+  <li><strong>Public registration</strong> — anyone may create an account. Off, only
+  accounts you create in the admin can sign in.</li>
+  <li><strong>Require an invite code</strong> — codes you issue under <em>Store &rarr;
+  Invite Codes</em>, each with a usage limit and an expiry. For a members-only or
+  trade-only shop.</li>
+  <li><strong>Require admin approval</strong> — new accounts wait under <em>Pending
+  Customers</em> until you approve them.</li>
+  <li><strong>Require email verification</strong> — a link is emailed and must be clicked
+  before the first sign-in.</li>
+</ul>
+
+<p>Sign-in, registration, password reset and verification pages live under the store's
+address (<code>/online_store/login</code>, or <code>/customer/login</code> on the root
+domain).</p>
+
+<!-- ===================================================================== -->
+<h2 id="store-seo">Branding, SEO &amp; PWA</h2>
+
+<p><em>Store &rarr; Settings &rarr; Branding, Contact, SEO, Social.</em> Logo and tagline,
+favicon, primary and secondary colours, font family, whether shoppers get a dark-mode
+toggle, the top bar and footer text, contact details, social links, and the cookie-consent
+banner.</p>
+
+<p><strong>SEO</strong>: a title template (<code>{product} — {store}</code>), a default
+description, per-product and per-page SEO fields, an automatic <code>sitemap.xml</code>
+and <code>robots.txt</code>. <strong>Languages and currency</strong>: the store switcher
+offers the languages enabled in Settings and shows prices in the display currencies you
+enable; orders are still recorded in the base currency unless multi-currency is on.</p>
+
+<p><strong>PWA</strong>: <em>Settings &rarr; PWA</em> holds the name, icons and colours
+for each installable surface — the admin, the store, the customer display and the portal.
+On HTTPS the store shows an install prompt and works as an app on a phone's home screen.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/pwa</span></div><img src="images/settings-pwa.jpg" alt="PWA settings" loading="lazy"></div>
+  <figcaption>PWA settings: one manifest per surface.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="accounts">Accounts, deposits &amp; expenses</h2>
+
+<p>The simple books most shops start with, under <em>Accounting</em>. They work with or
+without the double-entry ledger described in the next section.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/accounts</span></div><img src="images/accounts.jpg" alt="Accounts" loading="lazy"></div>
+    <figcaption>Accounts and their balances.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/expenses</span></div><img src="images/expenses.jpg" alt="Expenses" loading="lazy"></div>
+    <figcaption>Expenses by category, with attachments.</figcaption>
+  </figure>
+</div>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Page</th><th>What it records</th></tr></thead>
+  <tbody>
+    <tr><td><strong>List accounts</strong></td><td>The till, the bank, the mobile-money float — each with a number, an opening balance and a running balance moved by every payment, deposit, expense and transfer that names it.</td></tr>
+    <tr><td><strong>Deposits</strong></td><td>Money in that is not a sale: an owner's injection, a refund from a supplier, interest. Categorised under <em>Deposit Category</em>.</td></tr>
+    <tr><td><strong>Expenses</strong></td><td>Money out that is not a purchase: rent, wages, electricity, fuel. A category, an account, a date, an amount, a note and a receipt attachment. The <em>Expense Report</em> totals them by category and period.</td></tr>
+    <tr><td><strong>Transfer money</strong></td><td>Moves a balance between two accounts — banking the till, funding the float.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/expenses/create</span></div><img src="images/expense-create.jpg" alt="Create expense" loading="lazy"></div>
+    <figcaption>Recording an expense.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/deposits</span></div><img src="images/deposits.jpg" alt="Deposits" loading="lazy"></div>
+    <figcaption>Deposits.</figcaption>
+  </figure>
+</div>
+
+<p>The <em>Cash Flow</em> report reads all four together with sales and purchase payments
+to show what came in and went out of each account over a period.</p>
+
+<!-- ===================================================================== -->
+<h2 id="accounting">Accounting</h2>
+
+<p><em>Accounting &rarr; Dashboard, Chart of Accounts, Journal Entries</em> and the
+financial reports. Proper double-entry books that post themselves: with the
+<em>auto journal entries</em> switch on (<a href="#features">Feature switches</a>), every
+sale, purchase, return, payment, expense, deposit and money transfer writes a balanced
+journal against the chart of accounts. Nothing has to be keyed twice.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/accounting-v2/dashboard</span></div><img src="images/acc-dashboard.jpg" alt="Accounting dashboard" loading="lazy"></div>
+  <figcaption>The accounting dashboard: revenue, expenses, receivables, payables and the recent journals.</figcaption>
+</figure>
+
+<h3>Chart of accounts</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/accounting-v2/chart-of-accounts</span></div><img src="images/acc-chart.jpg" alt="Chart of accounts" loading="lazy"></div>
+  <figcaption>Assets, liabilities, equity, income and expenses, numbered and nested.</figcaption>
+</figure>
+
+<p>A standard chart is created for you — cash and bank, receivables, inventory, payables,
+sales, cost of goods sold, expense accounts, tax accounts. Rename, renumber or add
+accounts to match your accountant's chart; the automatic journals map onto the accounts
+you mark for each purpose.</p>
+
+<h3>Journal entries</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/accounting-v2/journal-entries</span></div><img src="images/acc-journal.jpg" alt="Journal entries" loading="lazy"></div>
+  <figcaption>Journals: automatic ones reference the document they came from; manual ones can be drafted and posted.</figcaption>
+</figure>
+
+<p>Automatic journals are posted as the document is saved and carry its reference. Manual
+journals — an accrual, a depreciation charge, an owner's drawing — are entered as
+<em>draft</em>, must balance, and are <em>posted</em> when you are sure. Posted journals
+are not edited; reverse them with a new entry.</p>
+
+<h3>The statements</h3>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/accounting-v2/reports/trial-balance</span></div><img src="images/acc-trial.jpg" alt="Trial balance" loading="lazy"></div>
+    <figcaption>Trial balance.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/accounting-v2/reports/profit-and-loss</span></div><img src="images/acc-pl.jpg" alt="Profit and loss" loading="lazy"></div>
+    <figcaption>Profit and loss.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/accounting-v2/reports/balance-sheet</span></div><img src="images/acc-balance.jpg" alt="Balance sheet" loading="lazy"></div>
+    <figcaption>Balance sheet.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/accounting-v2/reports/tax-report</span></div><img src="images/acc-tax.jpg" alt="Tax summary" loading="lazy"></div>
+    <figcaption>Tax summary: tax collected on sales against tax paid on purchases.</figcaption>
+  </figure>
+</div>
+
+<p>Trial balance, profit and loss, balance sheet and tax summary, each for any period,
+each exportable to Excel and PDF. If you began trading before turning the switch on, the
+journals for existing documents are not created retroactively — post an opening-balance
+journal as of the start date instead. <a href="#accounting-connectors">QuickBooks and
+Xero</a> can take the invoices and payments if your accountant works there.</p>
+
+<!-- ===================================================================== -->
+<h2 id="multi-currency">Multi-currency</h2>
+
+<p>Off by default. Turn it on under <a href="#features">Feature switches</a>, then give
+each currency in <em>Settings &rarr; Currencies</em> an exchange rate against the base
+currency. From then on a sale, a purchase or an online order can be recorded in another
+currency: the document keeps its own currency, rate and totals, and the
+<em>base-currency equivalent</em> is shown alongside and used everywhere else.</p>
+
+<p>Rates are manual — you type them and update them; nothing is fetched. Reports, stock
+valuation, the ledger and the accounting journals stay in the base currency, so a euro
+sale and a dollar sale add up in one figure. The store's currency switcher is a separate,
+display-only feature that works even with this switch off.</p>
+
+<!-- ===================================================================== -->
+<h2 id="zatca">ZATCA e-invoicing</h2>
+
+<p>For businesses in Saudi Arabia. <em>Settings &rarr; ZATCA E-Invoicing.</em></p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/zatca</span></div><img src="images/zatca.jpg" alt="ZATCA settings" loading="lazy"></div>
+  <figcaption>ZATCA: phase 1 QR, phase 2 onboarding, and the documents submitted.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Phase 1.</strong> One switch: <em>Enable ZATCA QR on sales receipts</em>.
+  Every receipt then carries the TLV QR code with the seller name, VAT number, timestamp,
+  total and VAT. Fill in the company's Arabic name and VAT number first.</li>
+  <li><strong>Phase 2.</strong> Company details (VAT number, CRN, national address,
+  business category), the EGS unit details, the environment — sandbox, simulation or
+  production — and onboarding with the OTP from the ZATCA portal, which generates the CSR
+  and runs the compliance checks. Once onboarded, sales are reported or cleared with
+  ZATCA; <em>auto submit</em> does it as each sale is created, otherwise submit from the
+  <em>Documents</em> tab, which lists every invoice, credit note and debit note with its
+  status and ZATCA's messages.</li>
+</ul>
+
+<div class="note note--warn">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+  <p>Changing the environment resets the credentials and requires onboarding again. Test in
+  the sandbox with a test OTP before touching production.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="hrm-setup">Company structure</h2>
+
+<p>The HRM module (<em>Settings &rarr; Modules &rarr; HRM</em>) starts with the shape of
+the organisation, under <em>HRM</em>:</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/hrm/departments</span></div><img src="images/hrm-departments.jpg" alt="Departments" loading="lazy"></div>
+  <figcaption>Departments, with their head and company.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>List</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Companies</strong></td><td>One or more legal entities; employees belong to one.</td></tr>
+    <tr><td><strong>Departments</strong>, <strong>Designations</strong></td><td>The org tree and the job titles.</td></tr>
+    <tr><td><strong>Office shifts</strong></td><td>Working hours per weekday. Attendance is measured against the employee's shift.</td></tr>
+    <tr><td><strong>Holidays</strong></td><td>Public holidays per company; attendance and leave skip them.</td></tr>
+    <tr><td><strong>Leave types</strong></td><td>Annual, sick, unpaid and so on, with the days allowed per year.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="employees">Employees, attendance &amp; leave</h2>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/hrm/employees</span></div><img src="images/hrm-employees.jpg" alt="Employees" loading="lazy"></div>
+    <figcaption>Employees.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/hrm/attendance</span></div><img src="images/hrm-attendance.jpg" alt="Attendance" loading="lazy"></div>
+    <figcaption>Attendance: clock-in, clock-out, late and hours per day.</figcaption>
+  </figure>
+</div>
+
+<p><strong>Employees</strong> carry personal details, the company, department,
+designation and shift, the joining date, documents with expiry, and the basic salary the
+payroll starts from. An employee may or may not be a system user — a warehouse picker
+without a login is still on the payroll.</p>
+
+<p><strong>Attendance</strong> is a row per employee per day: clock in, clock out, the
+hours and whether they were late against the shift. Enter it by hand, import it, or let
+staff record it. The <em>Attendance Summary</em> report totals days, hours and lateness
+per employee for a month.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/hrm/leaves</span></div><img src="images/hrm-leaves.jpg" alt="Leave requests" loading="lazy"></div>
+  <figcaption>Leave requests and their status.</figcaption>
+</figure>
+
+<p><strong>Leave requests</strong> name a type, a period and a reason, and wait for
+approval. Approved leave counts against the type's allowance and shows on the attendance
+grid.</p>
+
+<!-- ===================================================================== -->
+<h2 id="payroll">Payroll</h2>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/hrm/payrolls</span></div><img src="images/hrm-payrolls.jpg" alt="Payroll" loading="lazy"></div>
+  <figcaption>Payroll runs per month with the net pay and the payment status.</figcaption>
+</figure>
+
+<p><em>HRM &rarr; Payroll.</em> A payroll entry is a payment to an employee: the
+employee, the date, the amount (pre-filled from the basic salary on their record), the
+account it is paid from, the payment method, a reference and a status. The list is the
+record of what was paid to whom and when, filterable by month and exportable. Stocky does
+not compute income tax or social contributions for you, because those differ by country
+and year — enter the net amount you actually pay.</p>
+
+<p>Because a payroll names an account, it moves that account's balance and reaches the
+cash-flow report; with auto journals on it is posted to the ledger as well.</p>
+
+<!-- ===================================================================== -->
+<h2 id="recruitment">Recruitment &amp; meetings</h2>
+
+<p>Two small modules of their own, each with a switch under <em>Settings &rarr;
+Modules</em>.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/recruit/dashboard</span></div><img src="images/recruit.jpg" alt="Recruitment dashboard" loading="lazy"></div>
+    <figcaption>Recruitment: jobs, candidates, applications and interviews.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/meeting/dashboard</span></div><img src="images/meeting.jpg" alt="Meetings dashboard" loading="lazy"></div>
+    <figcaption>Meetings with a calendar and reminders.</figcaption>
+  </figure>
+</div>
+
+<p><strong>Recruits and Jobs</strong>: job openings by category, candidates, their
+applications with a status, interviews with a date and an interviewer, and a report of the
+funnel. <strong>Meetings</strong>: a meeting with attendees, an agenda and a time, on a
+calendar, with reminders sent by the scheduler (see <a href="#cron">Cron &amp;
+queue</a>) and a report of attendance.</p>
+
+<!-- ===================================================================== -->
+<h2 id="projects">Projects &amp; tasks</h2>
+
+<p><em>Projects Management.</em> Projects with a client, a budget, dates and members;
+tasks with an assignee, a priority, a due date and a status, in a list or on a
+drag-and-drop board; milestones; timesheets of hours per task; and reports of hours and
+progress per project.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/projects/dashboard</span></div><img src="images/projects.jpg" alt="Projects dashboard" loading="lazy"></div>
+    <figcaption>The projects dashboard.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/tasks/board</span></div><img src="images/tasks-board.jpg" alt="Task board" loading="lazy"></div>
+    <figcaption>The task board.</figcaption>
+  </figure>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="bookings">Bookings</h2>
+
+<p><em>Booking Management.</em> Appointments and reservations: a customer, a service or a
+resource, a date and time, a status and a note, in a list and on a calendar.
+<em>Trays</em> hold the items prepared for a booking — a hamper, a cake, a hire kit — so
+the shop knows what to have ready. With the Google Calendar connection in System
+Settings, bookings appear in a Google calendar too; portal clients can book their own
+appointments.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/bookings</span></div><img src="images/bookings.jpg" alt="Bookings list" loading="lazy"></div>
+    <figcaption>Bookings.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/bookings/calendar</span></div><img src="images/bookings-calendar.jpg" alt="Booking calendar" loading="lazy"></div>
+    <figcaption>The calendar view.</figcaption>
+  </figure>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="service">Service &amp; maintenance</h2>
+
+<p><em>Service &amp; Maintenance.</em> For repair shops, phone and computer clinics,
+appliance servicing, workshops. A <strong>service job</strong> is a device or an item
+brought in by a customer, and it moves through a fixed path:</p>
+
+<p><em>intake &rarr; diagnostic &rarr; quoted &rarr; in progress &rarr; ready &rarr;
+delivered</em></p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/service/jobs</span></div><img src="images/service-jobs.jpg" alt="Service jobs" loading="lazy"></div>
+  <figcaption>Service jobs with their status; the sidebar filters <em>Awaiting approval</em>, <em>Ready for pickup</em> and <em>Awaiting payment</em>.</figcaption>
+</figure>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/service/jobs/details/2</span></div><img src="images/service-job.jpg" alt="Service job details" loading="lazy"></div>
+  <figcaption>A job: the item, the fault, the technician, the checklist, photos, parts and labour, payments and the printable job card.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Technicians</strong> are the people work is assigned to;
+  <strong>checklist categories and items</strong> are the inspections a technician ticks
+  off — the <em>Checklist Completion</em> report shows how thoroughly.</li>
+  <li>A job carries the parts used (from stock) and the labour (service products), a
+  quote the customer approves, photos, a warranty period and the payments.</li>
+  <li><strong>Maintenance history</strong> lists every job per customer and per item, so
+  the second visit starts with the first one's notes. The <em>Service Jobs</em> and
+  <em>Customer Maintenance History</em> reports cover turnaround and revenue.</li>
+</ul>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/service/technicians</span></div><img src="images/service-technicians.jpg" alt="Technicians" loading="lazy"></div>
+    <figcaption>Technicians.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/service/checklists</span></div><img src="images/service-checklists.jpg" alt="Checklist items" loading="lazy"></div>
+    <figcaption>Checklist items.</figcaption>
+  </figure>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="subscriptions">Subscriptions</h2>
+
+<p><em>Subscription Product.</em> Recurring sales of a product or service: a customer, the
+product, a billing cycle (weekly, monthly, yearly), a start date and the next billing
+date. Each cycle produces a sale; the list shows what is due next and what has lapsed.
+For water deliveries, maintenance contracts, memberships and software seats.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/subscriptions</span></div><img src="images/subscriptions.jpg" alt="Subscriptions" loading="lazy"></div>
+  <figcaption>Subscriptions with cycle and next billing date.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="manufacturing">Manufacturing</h2>
+
+<p><em>Manufacturing (MRP).</em> For businesses that make what they sell. A
+<strong>bill of materials</strong> lists the components and quantities that make one unit
+of a finished product; a <strong>production order</strong> asks for a quantity of it,
+reserves the components, and on completion consumes them from stock and adds the finished
+goods. <strong>Work centres</strong> are the machines or stations; the <strong>shop
+floor</strong> page is the work orders in progress; <strong>quality control</strong>
+records inspections and rejects; <strong>planning</strong> compares demand with stock and
+open orders to say what to make and buy; the reports cover output, cost and yield.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/mrp</span></div><img src="images/mrp.jpg" alt="Manufacturing dashboard" loading="lazy"></div>
+  <figcaption>The manufacturing dashboard.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="assets-fleet">Assets &amp; fleet</h2>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/assets/dashboard</span></div><img src="images/assets.jpg" alt="Asset dashboard" loading="lazy"></div>
+    <figcaption>Assets: what the business owns and who has it.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/fleet/dashboard</span></div><img src="images/fleet.jpg" alt="Fleet dashboard" loading="lazy"></div>
+    <figcaption>Fleet: vehicles, fuel and maintenance.</figcaption>
+  </figure>
+</div>
+
+<p><strong>Asset Management</strong>: the things the business owns and does not sell —
+laptops, tills, tools, furniture — by category, with a purchase date and value,
+assignments to employees, transfers between locations, maintenance, depreciation
+schedules, and a <em>Due Assets</em> list of what needs returning or checking. A daily
+scheduled task flags assets whose validation is due.</p>
+
+<p><strong>Fleet Management</strong>: vehicles with registration and documents, fuel logs
+with cost per litre and consumption, maintenance with reminders, assignments to drivers,
+and reports of cost per vehicle.</p>
+
+<!-- ===================================================================== -->
+<h2 id="documents">Documents, contracts &amp; knowledge base</h2>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/documents</span></div><img src="images/documents.jpg" alt="Document archive" loading="lazy"></div>
+    <figcaption>The document archive.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/contracts</span></div><img src="images/contracts.jpg" alt="Contracts" loading="lazy"></div>
+    <figcaption>Contracts.</figcaption>
+  </figure>
+</div>
+
+<ul>
+  <li><strong>Document Archive</strong> — folders and files with versions, tags and
+  access by role: licences, certificates, supplier agreements, scanned invoices.</li>
+  <li><strong>Contracts</strong> (part of HRM) — an agreement with a customer or an
+  employee: parties, value, start and end dates, renewal, attachments. Portal clients see
+  theirs.</li>
+  <li><strong>Knowledge Base</strong> — articles in groups, written in the rich-text
+  editor, published to staff and to the portal. Manuals, policies, how-tos.</li>
+</ul>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/kb</span></div><img src="images/kb.jpg" alt="Knowledge base" loading="lazy"></div>
+  <figcaption>The knowledge base.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="marketing">Marketing</h2>
+
+<p><em>Marketing.</em> Campaigns by email, SMS or WhatsApp to a <strong>customer
+segment</strong> — everyone, top spenders, inactive for 90 days, a loyalty tier — using a
+<strong>template</strong> with placeholders, sent now or scheduled. The dashboard and the
+reports show sends, deliveries and the sales attributed to a campaign. Templates for each
+channel and the gateway defaults live under <em>Marketing Settings</em>.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/marketing/dashboard</span></div><img src="images/marketing.jpg" alt="Marketing dashboard" loading="lazy"></div>
+    <figcaption>The marketing dashboard.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/marketing/campaigns</span></div><img src="images/marketing-campaigns.jpg" alt="Campaigns" loading="lazy"></div>
+    <figcaption>Campaigns.</figcaption>
+  </figure>
+</div>
+
+<p>Scheduled campaigns are sent by the scheduler every minute — they need the cron entry
+from <a href="#cron">Cron &amp; queue</a>. Sending thousands of emails from a shared
+host is how a domain gets blacklisted; for large lists connect <a
+href="#other-integrations">Mailchimp</a> and let it do the sending.</p>
+
+<!-- ===================================================================== -->
+<h2 id="hospital-school">Hospital &amp; school</h2>
+
+<p>Two vertical modules for businesses that also run a clinic or a school alongside the
+shop — a pharmacy with a consulting room, an academy with a bookshop. Both are switched on
+under <em>Settings &rarr; Modules</em> and use the same customers, users and
+accounting.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/hospital/dashboard</span></div><img src="images/hospital.jpg" alt="Hospital dashboard" loading="lazy"></div>
+    <figcaption>Hospital: patients, appointments, consultations, admissions, lab and billing.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/school/dashboard</span></div><img src="images/school.jpg" alt="School dashboard" loading="lazy"></div>
+    <figcaption>School: students, enrolment, attendance, timetable, exams and fees.</figcaption>
+  </figure>
+</div>
+
+<p><strong>Hospital Management</strong>: patients, doctors and departments, appointments,
+consultations, admissions with wards and beds, a lab test catalogue with orders, billing
+and reports. <strong>School Management</strong>: students, teachers, academic setup
+(classes, sections, subjects), enrolment, attendance, a timetable, exams and results, fees
+and reports.</p>
+
+<!-- ===================================================================== -->
+<h2 id="woocommerce">WooCommerce</h2>
+
+<p><em>Ecommerce Platforms &rarr; WooCommerce</em> (switch the module on first). Two-way
+sync between Stocky and a WordPress shop: products, stock, orders, categories, brands and
+customers. Stocky stays the source of truth for stock; WooCommerce sends the orders.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/woocommerce</span></div><img src="images/woocommerce.jpg" alt="WooCommerce integration" loading="lazy"></div>
+  <figcaption>The WooCommerce hub: status, settings, and a tab per entity with its sync buttons and logs.</figcaption>
+</figure>
+
+<ol class="steps">
+  <li>
+    <h4>Create API keys in WooCommerce</h4>
+    <p><em>WooCommerce &rarr; Settings &rarr; Advanced &rarr; REST API &rarr; Add key</em>,
+    read/write. Copy the consumer key and secret. For categories, brands and media you also
+    need a WordPress <em>application password</em> for an administrator
+    (<em>Users &rarr; Profile &rarr; Application Passwords</em>).</p>
+  </li>
+  <li>
+    <h4>Connect</h4>
+    <p>On the <em>Settings</em> tab enter the store URL, the consumer key and secret, the
+    WordPress username and application password, and press <strong>Test
+    connection</strong>. The status tile turns <em>Connected</em>.</p>
+  </li>
+  <li>
+    <h4>Sync</h4>
+    <p>Each tab — <em>Products, Stock, Orders, Categories, Brands, Customers</em> — shows
+    what is unsynced and offers a push or a pull. Run categories and brands first, then
+    products, then stock; orders pull on their own from then on. Batch sizes are tunable
+    on the Settings tab for slow hosts.</p>
+  </li>
+</ol>
+
+<p>With the cron entry in place the scheduler pushes unsynced products nightly, stock
+hourly, pulls orders every fifteen minutes and customers and product changes nightly (see
+<a href="#cron">Cron &amp; queue</a>). Without cron, the queued sync jobs drain inline
+while somebody uses the admin, so a small shop still syncs. The <em>Logs</em> tab keeps
+every run with its outcome.</p>
+
+<!-- ===================================================================== -->
+<h2 id="shopify">Shopify</h2>
+
+<p><em>Ecommerce Platforms &rarr; Shopify.</em> One or more Shopify stores, each connected
+with an Admin API access token from a custom app in the Shopify admin. The
+<strong>Sync Centre</strong> pushes products and stock and pulls orders;
+<strong>Mappings</strong> pairs Stocky products, locations and customers with their Shopify
+counterparts when the codes differ; <strong>Logs</strong> keeps the history.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/shopify</span></div><img src="images/shopify.jpg" alt="Shopify dashboard" loading="lazy"></div>
+  <figcaption>The Shopify dashboard.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="marketplaces">Salla, Jumia &amp; PrestaShop</h2>
+
+<p><em>Integrations.</em> The hub lists every connector with its state; each has a page of
+its own.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/integrations</span></div><img src="images/integrations.jpg" alt="Integrations hub" loading="lazy"></div>
+  <figcaption>The integrations hub.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Connector</th><th>What it syncs</th><th>How it connects</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Salla</strong></td><td>Products, stock and orders with a Salla store (Saudi Arabia and the Gulf).</td><td>OAuth: press <em>Connect</em>, sign in to Salla, approve. A daily keep-alive refreshes the token.</td></tr>
+    <tr><td><strong>Jumia</strong></td><td>Price and stock push, order import from the Jumia marketplace (Africa).</td><td>Seller Center API user and key.</td></tr>
+    <tr><td><strong>PrestaShop</strong></td><td>Products, stock and orders with a PrestaShop store.</td><td>The store URL and a webservice key.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/integrations/salla</span></div><img src="images/integrations-salla.jpg" alt="Salla integration" loading="lazy"></div>
+  <figcaption>Salla: connection, sync scopes and the log.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="accounting-connectors">QuickBooks &amp; Xero</h2>
+
+<p>If your accountant works in QuickBooks Online or Xero, push the books there instead of
+exporting spreadsheets.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/quickbooks</span></div><img src="images/quickbooks.jpg" alt="QuickBooks sync" loading="lazy"></div>
+    <figcaption>QuickBooks Sync.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/integrations/xero</span></div><img src="images/integrations-xero.jpg" alt="Xero integration" loading="lazy"></div>
+    <figcaption>Xero.</figcaption>
+  </figure>
+</div>
+
+<ul>
+  <li><strong>QuickBooks</strong> (<em>Settings &rarr; QuickBooks Sync</em>): create an
+  app at developer.intuit.com, enter the client ID and secret, set the redirect URI shown
+  on the page, press <em>Connect</em> and authorise. Customers, invoices and payments are
+  then pushed on demand.</li>
+  <li><strong>Xero</strong> (<em>Integrations &rarr; Xero</em>): the same OAuth flow with
+  an app from developer.xero.com. <em>Auto-sync</em> pushes each new sale as it is
+  created; a daily keep-alive refreshes the connection.</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2 id="other-integrations">Google Sheets, Mailchimp, Slack &amp; Telegram</h2>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Connector</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Google Sheets</strong></td><td>Exports sales, products, customers and stock to a spreadsheet you own. Connect with OAuth, pick the sheet, export on demand; with cron, a nightly auto-export at 02:30.</td></tr>
+    <tr><td><strong>Mailchimp</strong></td><td>Pushes customers to an audience. Auto-sync adds each new customer as they are created.</td></tr>
+    <tr><td><strong>Slack</strong></td><td>Posts alerts to a channel through an incoming webhook: new sales, low stock, new online orders.</td></tr>
+    <tr><td><strong>Telegram</strong></td><td>The same alerts to a Telegram chat through a bot token and chat ID.</td></tr>
+    <tr><td><strong>Google Calendar</strong></td><td>Mirrors <a href="#bookings">bookings</a> into a calendar. Credentials in System Settings, then connect.</td></tr>
+    <tr><td><strong>Stripe</strong></td><td>Card payments on the <a href="#pos-payments">POS</a> (<em>Settings &rarr; Payment Gateway</em>) and in the <a href="#store-checkout">store</a>.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="webhooks">Webhooks</h2>
+
+<p><em>Settings &rarr; Webhooks.</em> For systems this guide has not heard of. A webhook
+is a URL of yours that Stocky calls with a JSON payload whenever a chosen event happens,
+signed with a secret so your side can verify it came from Stocky.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/webhooks</span></div><img src="images/settings-webhooks.jpg" alt="Webhooks" loading="lazy"></div>
+  <figcaption>Webhooks with their events and the delivery log — payload, headers, response and status.</figcaption>
+</figure>
+
+<p>Events cover the documents: <code>sale.created / updated / deleted</code>,
+<code>sale_return.*</code>, <code>purchase.*</code>, <code>purchase_return.*</code>,
+<code>expense.*</code>, <code>payment.created / deleted</code> and the payment events for
+purchases and returns, plus <code>product.updated / deleted</code>,
+<code>client.created</code> and <code>order.created / updated</code> from the store. Each
+delivery is logged with the payload, the headers, the response body and a status —
+<em>pending, retrying, success, failed</em> — so a failed call can be read and resent.
+Deliveries go through the queue; see <a href="#cron">Cron &amp; queue</a>.</p>
+
+<!-- ===================================================================== -->
+<h2 id="mobile-api">Mobile app &amp; API</h2>
+
+<p>Stocky's admin, POS, store, customer display and portal are all installable web apps
+(PWAs). A native companion app is sold separately; this package holds its server side.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/mobile-app</span></div><img src="images/settings-mobile-app.jpg" alt="Mobile app settings" loading="lazy"></div>
+  <figcaption>Mobile app settings: switch, branding, modules and behaviour.</figcaption>
+</figure>
+
+<p><em>Settings &rarr; Mobile App</em>: enable or disable sign-in from the app (with a
+maintenance message when it is off), the app name, logo, primary colour and theme mode,
+which modules it shows, whether the scanner, offline data and price editing are allowed,
+the minimum app version that may connect, and support contacts.</p>
+
+<h3>The API</h3>
+
+<p>The app authenticates at <code>POST /api/mobile/login</code> with an email and
+password and receives a Laravel Passport personal access token, sent on every later call
+as <code>Authorization: Bearer …</code>. <code>GET /api/mobile/ping</code> lets a
+client validate a server URL before signing in. The token carries the user's role, so the
+app sees exactly what the browser would.</p>
+
+<p>The rest of the API — the endpoints the admin itself uses under <code>/api/…</code> —
+accepts the same Bearer token, which is how your own integrations read products, create
+sales or pull reports. Tokens issued to devices are listed, and can be revoked, under
+<a href="#health">Settings &rarr; Login Devices</a>.</p>
+
+<p>Every endpoint &mdash; path, parameters, validation rules, required permission, response
+shapes and cURL / JavaScript / PHP samples &mdash; is documented in the
+<a href="api/index.html" target="_blank" rel="noopener">API reference</a>, which ships with this package. It also
+exposes an <a href="api/openapi.json" target="_blank" rel="noopener">OpenAPI 3 document</a> you can import into Postman
+or Insomnia, and a try-it console that sends real requests against your own server.</p>
+
+<!-- ===================================================================== -->
+<h2 id="dashboard">Dashboard</h2>
+
+<p>The first page after sign-in. A date range — today, 7 days, this month, this year or a
+custom period — and a warehouse filter at the top; everything below follows them.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/dashboard</span></div><img src="images/dashboard.jpg" alt="Dashboard" loading="lazy"></div>
+  <figcaption>The dashboard for the current month.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Tiles</strong>: sales, purchases, sales returns, purchase returns, dues,
+  invoices, profit.</li>
+  <li><strong>Charts</strong>: sales and purchases over the period, top-selling products,
+  top customers, payments sent and received, sales by payment method, stock value.</li>
+  <li><strong>Lists</strong>: recent sales and the products under their stock alert.</li>
+</ul>
+
+<p>Which widgets show and in what order is set in <em>System Settings &rarr; Dashboard</em>,
+and the default range too, so a stock keeper can open on alerts and a manager on profit.
+The <em>Today's summary</em> drawer in the header is the short version, available from
+any page.</p>
+
+<!-- ===================================================================== -->
+<h2 id="reports">Reports</h2>
+
+<p><em>Reports.</em> Sixty screens, each the same shape: a date range with quick picks
+(today, 7 days, 30 days, 90 days, this year), a warehouse filter where it applies, a chart
+where one helps, a table, and Excel and PDF export. Reports default to <em>today</em>;
+pick a range first.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/reports/sales</span></div><img src="images/reports-sales.jpg" alt="Sales report" loading="lazy"></div>
+  <figcaption>The sales report: payment status, sales over time and the invoice table under one date range.</figcaption>
+</figure>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Group</th><th>Reports</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Sales &amp; purchases</strong></td><td>Sales, Purchases, Sales Return, Purchases Return, Product Sales, Products Sold Summary, Product Purchases, Sales by Category, Sales by Brand, Discount Summary, Draft Invoices, Return Ratio, Transactions.</td></tr>
+    <tr><td><strong>Payments</strong></td><td>Payments on sales, purchases, sales returns and purchases returns; Cash Flow; Cash Register.</td></tr>
+    <tr><td><strong>Profit</strong></td><td>Profit and Loss; profit by product, category, unit, customer, date and warehouse.</td></tr>
+    <tr><td><strong>Stock</strong></td><td>Stock, Stock Detail, Warehouse, Quantity Alerts, Negative Stock, Dead Stock, Zero Sales, Stock Aging, Inventory Valuation (summary and detail), Stock Transfer, Stock Adjustment, Internal Location, Expiry, Batch Register, Batch History, the four serial reports, Warranty &amp; Guarantee.</td></tr>
+    <tr><td><strong>People</strong></td><td>Customers, Top Customers, Inactive Customers, Loyalty Points, Suppliers, Top Suppliers, Sellers, Users, Login Activity; per-customer, per-supplier and per-user detail reports.</td></tr>
+    <tr><td><strong>Money</strong></td><td>Expenses, Deposits, Tax Summary.</td></tr>
+    <tr><td><strong>Modules</strong></td><td>Attendance Summary, Service Jobs, Checklist Completion, Customer Maintenance History, Kitchen, and the reports inside each business module.</td></tr>
+    <tr><td><strong>System</strong></td><td>Error Logs — the application log, readable without a shell.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/reports/profit-and-loss</span></div><img src="images/reports-pl.jpg" alt="Profit and loss report" loading="lazy"></div>
+    <figcaption>Profit and loss.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/reports/stock-aging</span></div><img src="images/reports-stock-aging.jpg" alt="Stock aging report" loading="lazy"></div>
+    <figcaption>Stock aging.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/reports/inventory-valuation-summary</span></div><img src="images/reports-valuation.jpg" alt="Inventory valuation" loading="lazy"></div>
+    <figcaption>Inventory valuation.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/reports/top-selling-products</span></div><img src="images/reports-top-products.jpg" alt="Top selling products" loading="lazy"></div>
+    <figcaption>Top-selling products.</figcaption>
+  </figure>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="ai-reports">Analytics, 3D &amp; AI reports</h2>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/reports/analytics</span></div><img src="images/reports-analytics.jpg" alt="Analytics report" loading="lazy"></div>
+    <figcaption>Analytics: the business in one page.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/reports/sales-3d-dashboard</span></div><img src="images/reports-3d.jpg" alt="3D sales dashboard" loading="lazy"></div>
+    <figcaption>The 3D sales dashboard.</figcaption>
+  </figure>
+</div>
+
+<p><strong>Analytics</strong> is a one-page summary — revenue, margin, growth against the
+previous period, best sellers, best customers — for a manager who wants one screen.
+The <strong>3D sales dashboard</strong> is the same data drawn for a wall screen.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/reports/ai-reports</span></div><img src="images/reports-ai.jpg" alt="AI reports" loading="lazy"></div>
+  <figcaption>AI reports: pick a question, get the answer from your own data.</figcaption>
+</figure>
+
+<p><strong>AI Reports</strong> answers a fixed list of business questions — what sells
+best on weekends, which customers are slipping, which products are about to run out —
+from your own database. Nothing is sent to a third-party model and no API key is needed;
+the name describes the questions, not a chatbot. See <a href="#roadmap">Deliberately not
+here</a>.</p>
+
+<!-- ===================================================================== -->
+<h2 id="notifications">Email, SMS &amp; notifications</h2>
+
+<h3>Mail</h3>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/mail</span></div><img src="images/settings-mail.jpg" alt="Mail settings" loading="lazy"></div>
+  <figcaption>Mail settings with a test button.</figcaption>
+</figure>
+
+<p><em>Settings &rarr; Mail Settings.</em> Mailer (SMTP), host, port, encryption,
+username, password, sender name and address. Send a test before relying on it. Everything
+Stocky emails — invoices and quotations from a document, portal invitations, store
+verification and password resets, order confirmations — goes through this.</p>
+
+<h3>SMS and WhatsApp</h3>
+
+<p><em>Settings &rarr; SMS Settings</em>: Twilio, Termii, Infobip or a custom HTTP gateway
+(URL, method, parameter names), with the default gateway in System Settings.
+<em>SMS Templates</em> hold the text sent for a sale, a purchase, a quotation, a return and
+a payment, with placeholders such as the customer name, the reference and the amount.
+WhatsApp templates live under <em>Marketing</em> and use the same placeholders.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/sms-templates</span></div><img src="images/settings-sms.jpg" alt="SMS templates" loading="lazy"></div>
+    <figcaption>SMS templates.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/email-templates</span></div><img src="images/settings-email.jpg" alt="Email templates" loading="lazy"></div>
+    <figcaption>Email templates for sales, purchases and quotations.</figcaption>
+  </figure>
+</div>
+
+<h3>In-app</h3>
+
+<p>The bell in the header collects stock alerts, new online orders, kitchen tickets, sync
+results and approvals. Slack and Telegram can receive the same alerts (see
+<a href="#other-integrations">integrations</a>). <em>Settings &rarr; Custom Fields</em>
+adds your own fields to products, customers, suppliers and documents, and they appear on
+the forms, the PDFs and the templates.</p>
+
+<!-- ===================================================================== -->
+<h2 id="languages">Languages &amp; translations</h2>
+
+<p><em>Settings &rarr; Languages.</em> Twenty-four languages ship: English, French,
+Arabic, Turkish, Thai, Hindi, German, Spanish, Italian, Indonesian, Simplified and
+Traditional Chinese, Russian, Vietnamese, Korean, Bangla, Portuguese, Danish, Japanese,
+Polish, Swahili, Hausa, Yoruba and Amharic. Enable the ones you want offered; set the
+default in System Settings. Arabic runs the admin, the POS and the store right-to-left.</p>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/languages</span></div><img src="images/languages.jpg" alt="Languages" loading="lazy"></div>
+    <figcaption>Languages: enable, set a flag, add a new one.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/translations/fr</span></div><img src="images/translations.jpg" alt="Translation editor" loading="lazy"></div>
+    <figcaption>The translation editor.</figcaption>
+  </figure>
+</div>
+
+<p>Strings live in the database, not in files, so <strong>Translations</strong> edits
+them from the panel: search a key or a phrase, type the translation, save. A language you
+add from the panel starts as a copy of English and is translated the same way. Product
+names and descriptions can be translated per language on the product form for the store;
+the customer portal and the store each have their own language switcher.</p>
+
+<!-- ===================================================================== -->
+<h2 id="appearance">Appearance &amp; PWA</h2>
+
+<p><em>Settings &rarr; Appearance</em>: the login page and sidebar branding, the accent
+colours, the sidebar style — default, large, flat or dark — the default theme mode, and
+the <strong>sidebar menu manager</strong>, which hides, renames and reorders entries for
+everyone (permissions still apply on top). <em>Reset to default</em> undoes it.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/appearance</span></div><img src="images/settings-appearance.jpg" alt="Appearance settings" loading="lazy"></div>
+  <figcaption>Appearance.</figcaption>
+</figure>
+
+<p>Each user's own choice — light or dark, sidebar layout — is the gear button bottom
+right and is saved in their browser. <em>Settings &rarr; PWA</em> holds the install
+manifests described under <a href="#store-seo">Branding, SEO &amp; PWA</a>.</p>
+
+<!-- ===================================================================== -->
+<h2 id="backups">Backups</h2>
+
+<p><em>Settings &rarr; Backup.</em> <strong>Generate backup</strong> dumps the database to
+<code>storage/app/public/backup/</code>; the list shows every dump with its date and
+size, to download or delete. With the cron entry in place the <code>database:backup</code>
+command runs on the schedule as well.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/backup</span></div><img src="images/settings-backup.jpg" alt="Backup page" loading="lazy"></div>
+  <figcaption>Backups: generate, download, delete; cloud backup to S3 or Google Drive.</figcaption>
+</figure>
+
+<p><strong>Cloud backup</strong> copies each dump off the server: Amazon S3 (or any
+S3-compatible bucket — key, secret, region, bucket, endpoint, path) or Google Drive
+(client ID and secret, refresh token, folder ID). A backup that lives only on the server
+it protects is not a backup.</p>
+
+<div class="note note--warn">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+  <p>The dump is the database only. Product images, attachments and documents live in
+  <code>public/images/</code> and <code>storage/app/</code> — include those folders in your
+  file backup. To restore, import the SQL into an empty database with phpMyAdmin or
+  <code>mysql</code>, and copy the folders back. There is no restore button in the panel,
+  on purpose: restoring overwrites everything.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="health">System health &amp; security</h2>
+
+<div class="shots">
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/system-health</span></div><img src="images/settings-health.jpg" alt="System health" loading="lazy"></div>
+    <figcaption>System health.</figcaption>
+  </figure>
+  <figure class="shot">
+    <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/login-devices</span></div><img src="images/settings-login-devices.jpg" alt="Login devices" loading="lazy"></div>
+    <figcaption>Login devices.</figcaption>
+  </figure>
+</div>
+
+<p><strong>System Health</strong>: PHP and Laravel versions, environment, database size,
+storage usage, the queue status (pending jobs — a growing number means the scheduler is
+not running), the last backup date, and a PDF of it all for a support ticket.</p>
+
+<p><strong>Login Devices</strong>: every active session and API token with its device,
+address and last activity; sign out any of them, or all but this one. The <em>Login
+Activity</em> report keeps the history. Passwords are reset from the login page by
+email; the storefront's request-safety middleware rate-limits and screens form
+submissions.</p>
+
+<!-- ===================================================================== -->
+<h2 id="cron">Cron &amp; queue</h2>
+
+<p>Stocky works without either — sales, stock, receipts, the store and the reports need
+nothing in the background. A single cron entry unlocks the scheduled work:</p>
+
+<pre><code>* * * * * cd /path/to/stocky &amp;&amp; php artisan schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</code></pre>
+
+<p>On cPanel this is <em>Cron Jobs</em>; use the full path to PHP 8.2+ if
+<code>php</code> is older. What the scheduler then runs:</p>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>When</th><th>What</th></tr></thead>
+  <tbody>
+    <tr><td>Every minute</td><td>Meeting reminders; scheduled marketing campaigns; the queue worker — one pass over the <code>default</code>, <code>webhooks</code> and sync queues (emails, webhooks, marketplace syncs, Xero and Mailchimp auto-sync).</td></tr>
+    <tr><td>Every 15 minutes</td><td>WooCommerce: pull orders.</td></tr>
+    <tr><td>Hourly</td><td>WooCommerce: push stock.</td></tr>
+    <tr><td>Daily</td><td>Database backup; assets due for validation; keep-alive for Salla and Xero connections; WooCommerce: push unsynced products (02:00), pull product changes (03:00), customers (03:30); Google Sheets auto-export (02:30).</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The queue driver is <code>database</code>, so there is nothing to install and no Redis.
+Because the scheduler drains the queue each minute, you do not need a separate
+<code>queue:work</code> process; if you run one anyway (Supervisor, a systemd unit), the
+scheduler's pass simply finds nothing to do. Without any cron, queued jobs drain inline
+while somebody uses the admin, which is enough for a small shop but delays webhooks and
+syncs until the next visit.</p>
+
+<!-- ===================================================================== -->
+<h2 id="updating">Updating</h2>
+
+<p><em>Settings &rarr; Update.</em> Three tabs: <em>Automatic Update</em>, <em>Manual
+Update</em> and the <em>Update Guide</em>. The installed version is shown against the
+latest one published on the update server.</p>
+
+<figure class="shot">
+  <div class="shot__frame"><div class="shot__bar"><i></i><i></i><i></i><span>/next/settings/update</span></div><img src="images/settings-update.jpg" alt="Update settings" loading="lazy"></div>
+  <figcaption>Automatic update: upload the ZIP, pass the pre-update checks, install. The history and the update backups sit below.</figcaption>
+</figure>
+
+<h3>Automatic update</h3>
+
+<ol class="steps">
+  <li>
+    <h4>Back up</h4>
+    <p>The updater takes its own backup of the files and the database, but take a
+    <a href="#backups">database backup</a> of your own first anyway.</p>
+  </li>
+  <li>
+    <h4>Upload the ZIP</h4>
+    <p>Download the new version from CodeCanyon and drop the full application ZIP onto the
+    page. Nothing is touched yet: the <strong>pre-update checks</strong> validate the
+    archive, its structure, the version, PHP requirements, permissions, disk space and the
+    database connection.</p>
+  </li>
+  <li>
+    <h4>Install</h4>
+    <p>Press <strong>Install</strong>. Stocky backs up the files and the database to
+    <code>storage/app/updater/backups</code>, puts the site into maintenance mode, replaces
+    the files, runs the migrations and permission sync, and comes back. Keep the tab open;
+    a bypass link is shown in case you lose the page.</p>
+  </li>
+  <li>
+    <h4>Reload</h4>
+    <p>Hard-refresh the browser (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>) so it
+    loads the new admin files. Check the version number in the footer.</p>
+  </li>
+</ol>
+
+<p>If anything fails the previous version is restored automatically. If the rollback
+itself cannot finish, the page says <em>Recovery required</em> and offers
+<strong>Open Recovery Console</strong> — a standalone page at
+<code>/system-update/recovery</code> that works even in maintenance mode, where you can
+continue where it stopped, roll back, or discard the run. The pre-update backup stays
+intact until you resolve it. <em>Update backups</em> keeps the last few (three by
+default); the only remaining complete one can never be deleted.</p>
+
+<h3>Manual update</h3>
+
+<p>For hosts where the automatic updater cannot write, or if you prefer to see each step.
+The <em>Manual Update</em> tab describes it; in short:</p>
+
+<ol>
+  <li>Back up the database and the <code>public/images</code> and <code>storage/app</code>
+  folders.</li>
+  <li>Upload the new files over the old ones — <strong>keep your <code>.env</code></strong>,
+  <code>public/images/</code> and <code>storage/</code>.</li>
+  <li>Open <code>https://your-domain/update</code>. The page runs the last step: clear the
+  configuration cache, run the migrations (existing data is untouched), sync roles and
+  permissions.</li>
+  <li>Hard-refresh the browser.</li>
+</ol>
+
+<div class="note note--warn">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+  <p><strong>Code changes are overwritten by an update.</strong> If you or a developer
+  changed files, keep the changes in a patch and re-apply them, or ask us about extending
+  through modules instead.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<div class="doc__table-wrap">
+<table>
+  <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+  <tbody>
+    <tr><td>A blank or broken page after an update</td><td>The browser is serving old files. Hard-refresh (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>) or clear the site's cache. If the admin is installed as a PWA, close and reopen it.</td></tr>
+    <tr><td>500 error or a white page</td><td>Read <code>storage/logs/laravel.log</code> or <em>Reports &rarr; Error Logs</em>. Usually a permission on <code>storage/</code> or <code>bootstrap/cache/</code>, or a missing PHP extension after a hosting change.</td></tr>
+    <tr><td><code>/setup</code> is reachable on a live site</td><td>The seal file <code>storage/app/public/installed</code> is missing. Recreate it (any content) and check the folder's permissions.</td></tr>
+    <tr><td>Images do not upload or show</td><td><code>public/images/</code> is not writable, or <code>upload_max_filesize</code> / <code>post_max_size</code> in PHP is below the file size. Product images default to a maximum of 800 px unless resizing is off.</td></tr>
+    <tr><td>Emails are not sent</td><td><em>Settings &rarr; Mail Settings &rarr; Send test</em>. Most hosts require the sender address to be on your own domain and port 587 with TLS.</td></tr>
+    <tr><td>The camera scanner or the install prompt does not appear</td><td>The site is not on HTTPS. Browsers only allow both on a secure origin.</td></tr>
+    <tr><td>The POS says <em>Offline</em> while the internet works</td><td>The server is not answering the POS heartbeat — a firewall, a proxy timeout or maintenance mode. Check that the admin loads in another tab. The offline switch itself is in System Settings.</td></tr>
+    <tr><td>Queued jobs pile up in System Health; webhooks and syncs are late</td><td>The cron entry is missing or points at the wrong PHP. See <a href="#cron">Cron &amp; queue</a>.</td></tr>
+    <tr><td>Receipts print with a dialog every time</td><td>That is browser printing. Use QZ Tray or direct network printing for silent printing; see <a href="#pos-settings">POS settings</a>.</td></tr>
+    <tr><td>The customer display does not update</td><td>The token expired (24 hours) — generate a new one — or the POS tab is not open on the cashier's side.</td></tr>
+    <tr><td>Stock differs between the store and the POS</td><td>The store sells from the warehouses chosen in Store Settings; the POS from the warehouse selected on the register. Compare the same warehouse.</td></tr>
+    <tr><td>WooCommerce shows <em>Disconnected</em></td><td>Re-test the connection. The application password may have been revoked, or the WordPress site blocks the REST API for non-logged-in requests.</td></tr>
+    <tr><td>The wrong day on evening sales</td><td>The timezone in System Settings does not match the shop. Change it; existing documents keep their stored time.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="roadmap">Deliberately not here</h2>
+
+<p>Every link in the sidebar opens a real screen. A few things a system like this could
+plausibly do are absent on purpose, and this guide would rather name them than let you
+find out:</p>
+
+<ul>
+  <li><strong>No native mobile app in this package.</strong> The admin, POS, store,
+  customer display and portal are installable PWAs. <em>Settings &rarr; Mobile App</em>
+  holds the server side of the separately sold companion app.</li>
+  <li><strong>No AI model calls.</strong> <em>AI Reports</em> answers a fixed list of
+  business questions from your own data. Nothing is sent to a third-party model, and no
+  key is needed.</li>
+  <li><strong>No multi-tenant or SaaS mode.</strong> One install is one business, with as
+  many warehouses, users and stores as you like.</li>
+  <li><strong>No tax engine.</strong> Tax rates are what you enter, per product and per
+  store rate. ZATCA covers Saudi e-invoicing only.</li>
+  <li><strong>No payroll tax tables.</strong> Payroll records what you pay; the deductions
+  are yours to compute.</li>
+  <li><strong>No live exchange rates.</strong> Multi-currency rates are typed and updated
+  by you.</li>
+  <li><strong>No hardware is bundled.</strong> Scanners, scales, printers and cash
+  drawers are standard devices talking over the browser, QZ Tray or the network.</li>
+  <li><strong>No restore button.</strong> Restoring a backup overwrites everything, and a
+  mis-click there costs a business its history. Restore with phpMyAdmin or the command
+  line, deliberately.</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2 id="changelog">Changelog</h2>
+
+<h3>5.8</h3>
+
+<ul>
+  <li><strong>Reports &amp; pricing</strong> — Product Sales Summary report;
+  quantity-based wholesale pricing; multi-currency; ZATCA phase 2.</li>
+  <li><strong>Online store</strong> — configurable store URL (a custom path or the root
+  domain); bKash and SSLCommerz; new Electronics, Toys &amp; Baby and Grocery themes; the
+  Real Estate theme redesigned and the Default theme upgraded; product images by link.</li>
+  <li><strong>Offline POS</strong> — the register works fully offline, including a
+  reload while offline.</li>
+  <li><strong>PWA &amp; updates</strong> — <em>Install App</em> in the header; automatic
+  updates with pre-update checks, backup, rollback and a recovery console.</li>
+  <li><strong>Integrations hub</strong> — Salla, PrestaShop, Jumia, Xero, Google Sheets
+  and Mailchimp; Slack and Telegram notifications; Xero auto-sync for new sales,
+  Mailchimp auto-sync for new customers, nightly Google Sheets export, keep-alive for
+  Salla and Xero; module toggles for WooCommerce, Shopify and Zapier fixed.</li>
+  <li><strong>Kitchen display</strong> — daily token numbers; full-screen kitchen mode;
+  overdue colour escalation with a target time; per-item check-off; stations by
+  category with per-device pinning; automatic tickets for confirmed online orders; a
+  ten-second undo; 72 mm station-aware chit printing; a kitchen report; the public
+  order-ready screen; a <em>Voided</em> badge.</li>
+  <li>Bug fixes and performance, stability and documentation improvements.</li>
+</ul>
+
+<h3>5.8</h3>
+
+<ul>
+  <li>Shopify integration.</li>
+  <li>Advanced manufacturing (MRP): bills of materials, work centres, production and work
+  orders, quality control, planning.</li>
+  <li>Barcode label printing redesigned: five templates, saved label settings, a
+  true-size live preview and direct TSPL printing to USB or network label printers.</li>
+  <li>Documentation updated; minor bugs fixed.</li>
+</ul>
+
+<p>The full history back to 1.0 is in <code>README.md</code> in the package.</p>
+
+<!-- ===================================================================== -->
+<h2 id="credits">Credits &amp; support</h2>
+
+<p>Stocky is built on <strong>Laravel</strong> with <strong>Laravel Passport</strong> for
+API tokens; the admin, POS, customer display and portal are <strong>Vue 3</strong>
+applications with <strong>Vue Router</strong>, <strong>Pinia</strong> and
+<strong>Ant Design Vue</strong>, charts by <strong>ApexCharts</strong> and
+<strong>ECharts</strong>, icons by <strong>Lucide</strong>, built with
+<strong>Vite</strong>; the storefront is Blade with <strong>Alpine.js</strong> and
+<strong>Tailwind CSS</strong>; silent printing through <strong>QZ Tray</strong>. Thanks
+to everyone who maintains them.</p>
+
+<h3>Getting help</h3>
+
+<p>When you write in, three things turn a slow answer into a fast one: the version and the
+PDF from <em>Settings &rarr; System Health</em>, the exact steps that produced the
+problem, and the last few lines of <code>storage/logs/laravel.log</code> (or the
+<em>Error Logs</em> report). A screenshot of the screen you were on helps more than a
+description of it. Support runs for six months from purchase; updates are free for
+life.</p>
+
+<p class="doc__foot">
+  Stocky documentation &middot; version 5.8<br>
+  Thank you for buying it.
+</p>
+
+</main>
+</div>
+
+<script src="assets/docs.js"></script>
+</body>
+</html>
