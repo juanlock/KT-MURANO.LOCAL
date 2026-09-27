@@ -612,6 +612,12 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::post('customers/{id}/update-points', 'ClientController@updatePoints');
     Route::post('customers/{id}/adjust-opening-balance', 'ClientController@adjustOpeningBalance');
 
+    // ------------------------------- GEO DATA --------------------------\\
+    // Country/City reference data (see App\Console\Commands\ImportGeoData) --
+    // used by Quick Add Customer's Country/City dropdowns.
+    Route::get('countries', 'GeoDataController@countries');
+    Route::get('uscities/search', 'GeoDataController@searchUsCities');
+
     // Customer Ledger (separate endpoints)
     Route::get('/sales_client', 'ClientController@salesByClient');
     Route::get('/payments_client', 'ClientController@paymentsByClient');

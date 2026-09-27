@@ -8,7 +8,7 @@ class QuotationDetail extends Model
 {
     protected $fillable = [
         'id', 'product_id', 'quotation_id', 'sale_unit_id', 'total', 'quantity', 'product_variant_id',
-        'price', 'TaxNet', 'discount', 'discount_method', 'tax_method', 'imei_number',
+        'price', 'TaxNet', 'discount', 'discount_method', 'tax_method', 'imei_number', 'price_type',
     ];
 
     protected $casts = [

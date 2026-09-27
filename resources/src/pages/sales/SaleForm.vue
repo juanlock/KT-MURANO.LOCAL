@@ -534,6 +534,7 @@ import { productDisplayName } from '../../lib/productDisplayName';
 import { recomputeLine, computeTotals } from '../../lib/lineCalc';
 import { hasBatchSelectErrors, firstBatchSelectError } from '../../lib/batchValidation';
 import { resolveScan } from '../../lib/scanMatch';
+import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
 
 const { t } = useI18n();
@@ -568,6 +569,12 @@ const id = computed(() => route.params.id);
 const mode = computed(() => route.meta?.mode || (route.params.id ? 'edit' : 'create'));
 const isEdit = computed(() => mode.value === 'edit');
 const isConvert = computed(() => mode.value === 'convert');
+// Duplicate Invoice ("All Sales" list -> Duplicate icon): a plain create
+// route (`/sales/create?duplicate={id}`, no :id param) prefilled from an
+// existing sale's own line detail (not a quotation), so it still submits
+// down the create path exactly like a from-scratch new sale.
+const duplicateFromId = computed(() => route.query.duplicate);
+const isDuplicate = computed(() => !isEdit.value && !isConvert.value && !!duplicateFromId.value);
 
 const loadingRecord = ref(true);
 const submitting = ref(false);
@@ -719,7 +726,7 @@ const paymentChange = computed(() => {
   return over > 0 ? over : 0;
 });
 
-const clientOptions = computed(() => clients.value.map(c => ({ value: c.id, label: c.name })));
+const clientOptions = computed(() => sortByLabel(clients.value.map(c => ({ value: c.id, label: c.name }))));
 
 // Quick Add Customer — legacy appends the new client, selects it, then runs
 // the same selection side effects as picking an existing one.
@@ -812,19 +819,19 @@ function convertPointsToDiscount() {
   const baseAvail = Number(initialClientPoints.value || selectedClientPoints.value) || 0;
   selectedClientPoints.value = Math.max(0, baseAvail - pts);
 }
-const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id, label: w.name })));
-const agentOptions = computed(() => agents.value.map(a => ({ value: a.id, label: a.name })));
+const warehouseOptions = computed(() => sortByLabel(warehouses.value.map(w => ({ value: w.id, label: w.name }))));
+const agentOptions = computed(() => sortByLabel(agents.value.map(a => ({ value: a.id, label: a.name }))));
 const salespersonOptions = computed(() =>
-  salespeople.value.map(s => ({ value: s.id, label: s.name || s.username }))
+  sortByLabel(salespeople.value.map(s => ({ value: s.id, label: s.name || s.username })))
 );
-const accountOptions = computed(() => accounts.value.map(a => ({ value: a.id, label: a.account_name })));
-const paymentMethodOptions = computed(() => paymentMethods.value.map(m => ({ value: m.id, label: m.name })));
+const accountOptions = computed(() => sortByLabel(accounts.value.map(a => ({ value: a.id, label: a.account_name }))));
+const paymentMethodOptions = computed(() => sortByLabel(paymentMethods.value.map(m => ({ value: m.id, label: m.name }))));
 
 const productOptions = computed(() =>
-  products.value.map((p, i) => ({
+  sortByLabel(products.value.map((p, i) => ({
     value: i,
     label: `${p.group_name ? p.group_name + ' — ' : ''}${p.name}${p.qte !== undefined ? ` (${p.qte})` : ''}`,
-  }))
+  })))
 );
 
 // Matches Group Name / Name only -- Code is de-prioritized here (there's a
@@ -924,15 +931,23 @@ const browseGroupOptions = computed(() => {
       seen.set(p.product_group_id, p.group_name);
     }
   });
-  return Array.from(seen.entries()).map(([value, label]) => ({ value, label }));
+  return sortByLabel(Array.from(seen.entries()).map(([value, label]) => ({ value, label })));
 });
 const browseProductOptions = computed(() => {
   if (!browseGroupId.value) return [];
   const group = browseGroupOptions.value.find(g => g.value === browseGroupId.value);
-  return products.value
+  const mapped = products.value
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.product_group_id === browseGroupId.value)
     .map(({ p, i }) => ({ value: i, label: stripGroupPrefix(p.name, group?.label) }));
+  // The group's generic/base item (no further sub-item) is stored with the
+  // literal stripped label "Main" -- relabel it clearly and pin it first
+  // (a deliberate exception to alphabetical order: it's the "just use the
+  // group itself" default, not a real sub-item name to sort among the rest).
+  const isMain = o => String(o.label).trim().toLowerCase() === 'main';
+  const mainEntry = mapped.find(isMain);
+  const rest = sortByLabel(mapped.filter(o => !isMain(o)));
+  return mainEntry ? [{ ...mainEntry, label: 'Main (use group name only)' }, ...rest] : rest;
 });
 // A product's own name often already carries its group as a "Group (Item)"
 // prefix (e.g. "ProductKT-01 (productktsubname01)") -- once the group is
@@ -1609,6 +1624,69 @@ onMounted(async () => {
             : (d.is_imei && d.imei_number
                 ? String(d.imei_number).split(/[\r\n,;\t]+/).map(s => s.trim()).filter(Boolean)
                 : []),
+          price_type: d.price_type || 'retail',
+          retail_unit_price: d.retail_unit_price ?? d.Unit_price,
+          wholesale_unit_price: d.wholesale_unit_price ?? d.Unit_price_wholesale,
+          packs: d.packs || [],
+          product_pack_id: d.product_pack_id ?? null,
+          pack_multiplier: d.pack_multiplier ?? 1,
+          pack_name: d.pack_name ?? null,
+        };
+        recomputeLine(line);
+        return line;
+      });
+      await loadProducts();
+    } else if (isDuplicate.value) {
+      // Same shape as isEdit's bootstrap (reuse the exact prior line detail --
+      // price/discount/tax as originally recorded), but the date/status reset
+      // to fresh-create defaults and every line drops its old sale_detail id
+      // (and edit-only bookkeeping fields) so submit() inserts all-new rows.
+      const [src, create] = await Promise.all([
+        http.get(`sales/${duplicateFromId.value}/edit`),
+        http.get('sales/create'),
+      ]);
+      clients.value = src.clients || create.clients || [];
+      warehouses.value = src.warehouses || create.warehouses || [];
+      agents.value = src.sales_agents || create.sales_agents || [];
+      salespeople.value = create.salespeople || [];
+      salesSwitchEnabled.value = create.enable_pos_salesperson_switch === true;
+      showPriceTypeDropdown.value = create.sale_show_price_type_dropdown !== false;
+      defaultQuantity.value = Math.max(1, Number(create.sale_default_quantity) || 1);
+      accounts.value = create.accounts || [];
+      paymentMethods.value = create.payment_methods || [];
+      point_to_amount_rate.value = Number(create.point_to_amount_rate) || 0;
+
+      const s = src.sale || {};
+      const dm = String(s.discount_Method ?? '2').toLowerCase().trim();
+      sale.value = {
+        date: dayjs().format('YYYY-MM-DD'),
+        client_id: s.client_id,
+        warehouse_id: s.warehouse_id,
+        sales_agent_id: s.sales_agent_id || undefined,
+        seller_id: undefined,
+        statut: s.statut || 'completed',
+        notes: s.notes || '',
+        tax_rate: Number(s.tax_rate) || 0,
+        tax_Method: String(s.tax_Method || '1') === '2' ? '2' : '1',
+        discount: Number(s.discount) || 0,
+        discount_Method: dm === '1' || dm === 'percent' || dm === 'percentage' ? '1' : '2',
+        shipping: Number(s.shipping) || 0,
+      };
+      // The duplicate keeps the source invoice's currency snapshot.
+      setDocCurrency(s.currency_id, s.exchange_rate);
+      defaultSellerToSelf();
+      lines.value = (src.details || []).map(d => {
+        const line = {
+          ...d,
+          id: undefined,
+          detail_id: nextDetailId++,
+          discount_Method: String(d.discount_Method ?? d.discount_method ?? '2'),
+          tax_method: String(d.tax_method ?? '1'),
+          is_batch_tracked: !!d.is_batch_tracked,
+          batches: [],
+          serial_numbers: [],
+          etat: 'new',
+          qte_copy: 0,
           price_type: d.price_type || 'retail',
           retail_unit_price: d.retail_unit_price ?? d.Unit_price,
           wholesale_unit_price: d.wholesale_unit_price ?? d.Unit_price_wholesale,

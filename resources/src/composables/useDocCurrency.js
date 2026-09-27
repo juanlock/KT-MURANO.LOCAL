@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useFormat } from './useFormat';
+import { sortByLabel } from '../lib/filterOptions';
 import http from '../lib/http';
 
 /**
@@ -68,7 +69,7 @@ export function useDocCurrency() {
     const symbol = computed(() => (isBase.value ? null : (current.value?.symbol || '')));
 
     const options = computed(() =>
-        currencies.value.map(c => ({ value: c.id, label: `${c.code} — ${c.name}` })));
+        sortByLabel(currencies.value.map(c => ({ value: c.id, label: `${c.code} — ${c.name}` }))));
 
     /** base → document currency (for display / input prefill) */
     const toDoc = v => (Number(v) || 0) * rate.value;

@@ -364,6 +364,7 @@ import { useDocCurrency } from '../../composables/useDocCurrency';
 import { productDisplayName } from '../../lib/productDisplayName';
 import { recomputeCostLine, computeSimpleTotals } from '../../lib/lineCalc';
 import { hasBatchEntryErrors, batchTotalQty } from '../../lib/batchValidation';
+import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
 
 const { t } = useI18n();
@@ -425,7 +426,7 @@ const shippingInput = computed({
   set: (v) => { purchase.value.shipping = toBaseAmt(v); },
 });
 
-const supplierOptions = computed(() => suppliers.value.map(s => ({ value: s.id, label: s.name })));
+const supplierOptions = computed(() => sortByLabel(suppliers.value.map(s => ({ value: s.id, label: s.name }))));
 
 // Quick Add Supplier — legacy appends the new supplier and selects it inline.
 const quickAddSupplierOpen = ref(false);
@@ -433,9 +434,9 @@ function onSupplierCreated(supplier) {
   suppliers.value.push(supplier);
   purchase.value.supplier_id = supplier.id;
 }
-const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id, label: w.name })));
+const warehouseOptions = computed(() => sortByLabel(warehouses.value.map(w => ({ value: w.id, label: w.name }))));
 const productOptions = computed(() =>
-  products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productDisplayName(p.name)}` }))
+  sortByLabel(products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productDisplayName(p.name)}` })))
 );
 
 // Matches Group Name / Name only -- Code is de-prioritized here (there's a
@@ -526,15 +527,35 @@ const browseGroupOptions = computed(() => {
       seen.set(p.product_group_id, p.group_name);
     }
   });
-  return Array.from(seen.entries()).map(([value, label]) => ({ value, label }));
+  return sortByLabel(Array.from(seen.entries()).map(([value, label]) => ({ value, label })));
 });
 const browseProductOptions = computed(() => {
   if (!browseGroupId.value) return [];
-  return products.value
+  const group = browseGroupOptions.value.find(g => g.value === browseGroupId.value);
+  const mapped = products.value
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.product_group_id === browseGroupId.value)
-    .map(({ p, i }) => ({ value: i, label: p.name }));
+    .map(({ p, i }) => ({ value: i, label: stripGroupPrefix(p.name, group?.label) }));
+  // The group's generic/base item (no further sub-item) is stored with the
+  // literal stripped label "Main" -- relabel it clearly and pin it first
+  // (a deliberate exception to alphabetical order -- see the same note in
+  // SaleForm.vue's browseProductOptions).
+  const isMain = o => String(o.label).trim().toLowerCase() === 'main';
+  const mainEntry = mapped.find(isMain);
+  const rest = sortByLabel(mapped.filter(o => !isMain(o)));
+  return mainEntry ? [{ ...mainEntry, label: 'Main (use group name only)' }, ...rest] : rest;
 });
+// A product's own name often already carries its group as a "Group (Item)"
+// prefix -- once the group is the one just picked in the dropdown above,
+// repeating it here in every row is redundant. Strip it for this list only.
+function stripGroupPrefix(name, groupName) {
+  if (!groupName) return name;
+  const prefix = `${groupName} (`;
+  if (name.startsWith(prefix) && name.endsWith(')')) {
+    return name.slice(prefix.length, -1);
+  }
+  return name;
+}
 async function onBrowseProductPicked(idx) {
   await onProductPicked(idx);
   // Keep the Group selected so the next item from the same group is one pick away.

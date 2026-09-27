@@ -46,12 +46,25 @@
 
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Country')" name="country">
-              <a-input v-model:value="form.country" :placeholder="$t('Enter_Country')" />
+              <a-select
+                v-model:value="countryIso2"
+                show-search allow-clear
+                option-filter-prop="label"
+                :options="countryOptions"
+                :placeholder="$t('Country')"
+                @focus="ensureCountriesLoaded"
+              />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('City')" name="city">
-              <a-input v-model:value="form.city" :placeholder="$t('Enter_City')" />
+              <UsCityPicker
+                v-if="isUSA"
+                v-model="cityPickerValue"
+                :initial-option="cityInitialOption"
+                @select="onCitySelected"
+              />
+              <a-input v-else v-model:value="form.city" :placeholder="$t('Enter_City')" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
@@ -103,11 +116,14 @@
  * WARNING (non-blocking), same as legacy's check_phone_duplicate probe.
  * Custom fields stay in legacy for now.
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
+import UsCityPicker from '../../components/UsCityPicker.vue';
+import { useCountries } from '../../composables/useCountries';
+import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
 
 const { t } = useI18n();
@@ -124,10 +140,48 @@ const formRef = ref();
 
 const emptyForm = () => ({
   firstname: '', lastname: '', name: '', email: '', phone: '', tax_number: '',
-  country: '', city: '', state: '', zip: '', adresse: '',
+  // New customers default to the United States (most add-customer flows are
+  // for US-based customers) -- City then starts straight in the searchable
+  // US-city picker below.
+  country: isEdit.value ? '' : 'United States', city: '', state: '', zip: '', adresse: '',
   opening_balance: 0, credit_limit: 0, is_royalty_eligible: false,
 });
 const form = ref(emptyForm());
+
+// Country/City: `form.country`/`form.city`/`form.state` (plain text) stay the
+// actual submitted fields -- countryIso2/cityPickerValue are just a UI bridge
+// so the pickers have something to bind to. Country is only ~250 rows
+// (loaded once, shared -- see useCountries); City is a remote search over
+// 31k+ US cities (UsCityPicker), never loaded as a full dropdown, and only
+// swapped in once Country is the United States.
+const { countries, ensureLoaded: ensureCountriesLoaded } = useCountries();
+const countryOptions = computed(() => sortByLabel(countries.value.map(c => ({ value: c.iso2, label: c.name }))));
+const countryIso2 = computed({
+  get: () => countries.value.find(c => c.name === form.value.country)?.iso2,
+  set(iso2) {
+    form.value.country = countries.value.find(c => c.iso2 === iso2)?.name || '';
+    form.value.city = '';
+    form.value.state = '';
+    cityPickerValue.value = undefined;
+  },
+});
+const isUSA = computed(() => form.value.country === 'United States');
+// UsCityPicker has no persisted id to select by -- seed its display from the
+// currently-stored city/state text (edit) instead of a real uscities.id.
+const cityPickerValue = ref(undefined);
+const cityInitialOption = computed(() => (form.value.city
+  ? { id: -1, city: form.value.city, state_id: '', state_name: form.value.state }
+  : null));
+// The picker's displayed selection is driven by modelValue matching one of
+// its options' `value` -- seed it to the initial option's sentinel id so an
+// edited record's saved city actually shows, not just the placeholder.
+watch(cityInitialOption, opt => {
+  if (opt && cityPickerValue.value === undefined) cityPickerValue.value = opt.id;
+}, { immediate: true });
+function onCitySelected(city) {
+  form.value.city = city?.city || '';
+  form.value.state = city?.state_name || '';
+}
 // The clients update endpoint deliberately ignores opening_balance — it is
 // changed only via customers/{id}/adjust-opening-balance. Remember the loaded
 // value so an edit can push a "set" adjustment when (and only when) it changes.
@@ -205,6 +259,7 @@ async function loadRecord() {
 }
 
 onMounted(() => {
+  ensureCountriesLoaded();
   if (isEdit.value) loadRecord();
 });
 </script>

@@ -143,6 +143,26 @@
         <template v-else-if="column.key === 'due'">
           <span :style="{ color: Number(record.due) > 0 ? '#ff4d4f' : undefined }">{{ money(record.due) }}</span>
         </template>
+        <template v-else-if="column.key === 'other_due'">
+          <!-- Blank when this customer has no OTHER invoice still owing --
+               deliberately no dash/zero, per the design ask. -->
+          <a-popover v-if="record.other_due_count > 0" trigger="click" placement="left">
+            <template #content>
+              <div style="max-width: 260px">
+                <div style="font-weight: 500; margin-bottom: 6px">{{ record.client_name }} — other due invoices</div>
+                <a-list size="small" :data-source="record.other_due_sales">
+                  <template #renderItem="{ item }">
+                    <a-list-item style="padding: 4px 0">
+                      <a @click="$router.push(`/sales/${item.id}`)">{{ item.Ref }}</a>
+                      <span style="margin-left: auto; color: #ff4d4f">{{ money(item.due) }}</span>
+                    </a-list-item>
+                  </template>
+                </a-list>
+              </div>
+            </template>
+            <a-tag color="warning" style="cursor: pointer">{{ record.other_due_count }}</a-tag>
+          </a-popover>
+        </template>
         <template v-else-if="column.key === 'payment_status'">
           <!-- Confusing next to Status when the sale is still Pending (same
                'pending' value, same tag color on both) -- and it's not real
@@ -171,6 +191,11 @@
                 <template #icon><FilePdfOutlined /></template>
               </a-button>
             </a-tooltip>
+            <a-tooltip v-if="auth.can('Sales_add')" :title="$t('Duplicate')">
+              <a-button type="text" size="small" @click="duplicateSale(record)">
+                <template #icon><CopyOutlined /></template>
+              </a-button>
+            </a-tooltip>
             <a-tooltip :title="$t('Attach_Documents')">
               <a-button type="text" size="small" @click="openDocuments(record)">
                 <template #icon><PaperClipOutlined /></template>
@@ -186,7 +211,8 @@
                     <EyeOutlined /> {{ $t('SaleDetail') }}
                   </a-menu-item>
                   <a-menu-item
-                    v-if="auth.can('Sales_edit') && record.sale_has_return === 'no' && record.statut !== 'cancelled'"
+                    v-if="auth.can('Sales_edit') && record.sale_has_return === 'no' && record.statut !== 'cancelled'
+                      && (record.statut !== 'completed' || record.payment_status !== 'paid' || isSuperAdmin || auth.can('edit_completed_paid_sale'))"
                     key="edit"
                   >
                     <EditOutlined /> {{ $t('EditSale') }}
@@ -373,9 +399,15 @@
 
     <!-- ============ Documents modal ============ -->
     <a-modal v-model:open="documentsOpen" :title="`${$t('Attach_Documents')} — ${activeSale?.Ref || ''}`" :footer="null" width="640px">
+      <a-alert
+        type="info" show-icon style="margin-bottom: 12px"
+        message="Documents, images, videos, and .zip/.rar archives only — max 25 MB per file."
+        description="Executables and scripts (.exe, .js, .bat, .sh, .msi, .dll, .vbs, .ps1, .jar, etc.) are not allowed."
+      />
       <a-upload
         :file-list="docFiles"
-        :before-upload="f => { docFiles = [...docFiles, f]; return false; }"
+        :accept="ALLOWED_DOCUMENT_EXTENSIONS.map(e => '.' + e).join(',')"
+        :before-upload="onBeforeUploadDocument"
         multiple
         @remove="f => { docFiles = docFiles.filter(x => x !== f); }"
       >
@@ -440,7 +472,7 @@
  */
 import { ref, computed, createVNode } from 'vue';
 import { useRouter } from 'vue-router';
-import { message, Modal } from 'ant-design-vue';
+import { message, Modal, Upload } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, MoreOutlined,
@@ -448,7 +480,7 @@ import {
   MessageOutlined, CarOutlined, RollbackOutlined,
   PaperClipOutlined, UploadOutlined, DownloadOutlined, WhatsAppOutlined,
   ExclamationCircleOutlined, ShoppingCartOutlined, DollarOutlined, CheckCircleOutlined,
-  StopOutlined,
+  StopOutlined, CopyOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
@@ -647,6 +679,10 @@ const columns = computed(() => [
   { title: t('Total'), dataIndex: 'GrandTotal', key: 'GrandTotal', sorter: true, align: 'right', exportValue: r => money(r.GrandTotal) },
   { title: t('Paid'), dataIndex: 'paid_amount', key: 'paid_amount', sorter: true, align: 'right', exportValue: r => money(r.paid_amount) },
   { title: t('Due'), dataIndex: 'due', key: 'due', align: 'right', exportValue: r => money(r.due) },
+  // Other invoices for this same customer still carrying a due balance --
+  // blank cell when there are none, per the design ask ("if not exist,
+  // don't show nothing"). exportValue mirrors that: '' not '0'.
+  { title: 'Other Due', dataIndex: 'other_due_count', key: 'other_due', align: 'center', width: 100, exportValue: r => (r.other_due_count > 0 ? String(r.other_due_count) : '') },
   { title: t('PaymentStatus'), dataIndex: 'payment_status', key: 'payment_status', exportValue: r => r.payment_status },
   { title: t('Shipping_status'), dataIndex: 'shipping_status', key: 'shipping_status', exportValue: r => r.shipping_status || '' },
   { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name', sorter: true },
@@ -814,6 +850,15 @@ async function sendWhatsApp(record) {
 function invoicePdf(record) {
   http.download(`sale_pdf/${record.id}`, `Sale-${record.Ref}.pdf`)
     .catch(() => message.error(t('InvalidData')));
+}
+
+// Opens Sales Create prefilled from this invoice's own line detail (price,
+// discount, tax as originally recorded) -- SaleForm.vue's isDuplicate branch
+// -- so the user only adjusts what's different instead of re-entering
+// everything. Still a plain create underneath: no :id route param, so it
+// submits a brand-new sale, never touching the source record.
+function duplicateSale(record) {
+  router.push({ path: '/sales/create', query: { duplicate: record.id } });
 }
 
 // qrcodejs loader shared by all receipt prints on this page. Same source
@@ -1153,12 +1198,45 @@ const documents = ref([]);
 const docFiles = ref([]);
 const docUploading = ref(false);
 
+// Same allow-list as SalesController::uploadDocuments' `mimes:` rule --
+// documents/images/videos/archives, no executables or scripts. Client-side
+// check is convenience only; the backend `mimes:`/`max:` rule is the real
+// boundary since a user can always bypass a JS check.
+const ALLOWED_DOCUMENT_EXTENSIONS = [
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'rtf', 'odt', 'ods', 'odp',
+  'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg',
+  'mp4', 'mov', 'avi', 'mkv', 'webm',
+  'zip', 'rar', '7z',
+];
+const MAX_DOCUMENT_SIZE_MB = 25;
+
+function onBeforeUploadDocument(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!ALLOWED_DOCUMENT_EXTENSIONS.includes(ext)) {
+    message.error(`".${ext}" files are not allowed. Allowed: documents, images, videos, .zip/.rar archives.`);
+    return Upload.LIST_IGNORE;
+  }
+  if (file.size > MAX_DOCUMENT_SIZE_MB * 1024 * 1024) {
+    message.error(`"${file.name}" is over the ${MAX_DOCUMENT_SIZE_MB} MB limit.`);
+    return Upload.LIST_IGNORE;
+  }
+  docFiles.value = [...docFiles.value, file];
+  return false;
+}
+
 async function loadDocuments(saleId) {
   const data = await http.get(`sales/${saleId}/documents`);
   documents.value = data.documents || [];
 }
 
 async function openDocuments(record) {
+  // Fix: this used to leave `activeSale` at whatever it was (null on a fresh
+  // page, or a DIFFERENT row's sale if the "..." dropdown was used earlier),
+  // since only onAction() set it -- uploadDocuments() then either threw on
+  // `activeSale.value.id` (docUploading stuck true forever, matching the
+  // reported "stuck on submit" with no error) or silently uploaded to the
+  // wrong sale.
+  activeSale.value = record;
   docFiles.value = [];
   try {
     await loadDocuments(record.id);
@@ -1173,6 +1251,10 @@ async function uploadDocuments() {
     message.warning(t('Please_select_files'));
     return;
   }
+  if (!activeSale.value?.id) {
+    message.error(t('InvalidData'));
+    return;
+  }
   docUploading.value = true;
   const fd = new FormData();
   docFiles.value.forEach(f => fd.append('documents[]', f.originFileObj || f));
@@ -1184,7 +1266,7 @@ async function uploadDocuments() {
     await loadDocuments(activeSale.value.id);
     crud.fetchRows();
   } catch (e) {
-    message.error(t('Failed_to_upload_documents'));
+    message.error(e?.data?.message || t('Failed_to_upload_documents'));
   } finally {
     docUploading.value = false;
   }

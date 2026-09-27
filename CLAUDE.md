@@ -98,6 +98,18 @@ rather than being a built-in concept.
   6. Translations
   7. kt_log
 
+## Frontend Conventions
+
+- **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
+  option list (Vue `computed` building `{value, label}` options) must be
+  sorted alphabetically by its displayed label, using the shared
+  `sortByLabel()` helper (`resources/src/lib/filterOptions.js`) -- wrap the
+  options array in it rather than writing an ad-hoc `.sort()`. Apply this
+  when creating a NEW dropdown, not just when fixing an existing one.
+  Exceptions need a deliberate reason (e.g. a "Manage Menu" admin-defined
+  order, or a list where recency/relevance genuinely matters more than
+  alphabetical) -- default to alphabetical unless there's a reason not to.
+
 ## Session Protocols (ported from KT-BILLING.LOCAL)
 
 The `kt_log` module migration (see above) included porting these Claude Code

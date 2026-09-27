@@ -405,6 +405,7 @@ class PostUpdateTasks
             'google_sheets_settings',
             'mailchimp_settings',
             'jumia_settings',
+            'edit_completed_paid_sale',
         ];
     }
 }

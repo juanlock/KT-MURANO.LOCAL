@@ -1337,6 +1337,15 @@ class PermissionsSeeder extends Seeder
                     'name' => 'jumia_settings',
                 ],
 
+                // Edit a Sale that's already completed AND fully paid --
+                // separate from the general Sales_edit permission, since
+                // editing a reconciled invoice is a sensitive operation.
+                // SuperAdmin bypasses this regardless (see SalesController).
+                [
+                    'id' => 308,
+                    'name' => 'edit_completed_paid_sale',
+                ],
+
             ]
         );
     }

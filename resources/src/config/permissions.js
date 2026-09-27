@@ -393,6 +393,11 @@ export const PERMISSION_GROUPS = [
             {
                 "v": "edit_tax_discount_shipping_sale",
                 "l": "edit_tax_and_discount_and_shipping"
+            },
+            {
+                "v": "edit_completed_paid_sale",
+                "l": "edit_completed_paid_sale",
+                "f": "Edit Completed & Paid Invoices"
             }
         ]
     },

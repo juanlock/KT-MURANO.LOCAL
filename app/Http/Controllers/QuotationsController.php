@@ -276,6 +276,7 @@ class QuotationsController extends BaseController
                     'product_variant_id' => $value['product_variant_id'] ? $value['product_variant_id'] : null,
                     'total' => $value['subtotal'],
                     'imei_number' => $value['imei_number'],
+                    'price_type' => $value['price_type'] ?? 'retail',
                 ]);
             }
 
@@ -410,6 +411,7 @@ class QuotationsController extends BaseController
                 $QuoteDetail['discount_method'] = $product_detail['discount_Method'];
                 $QuoteDetail['total'] = $product_detail['subtotal'];
                 $QuoteDetail['imei_number'] = $product_detail['imei_number'];
+                $QuoteDetail['price_type'] = $product_detail['price_type'] ?? 'retail';
 
                 if (! in_array($product_detail['id'], $old_detail_id)) {
                     $persistedDetail = QuotationDetail::Create($QuoteDetail);
@@ -1080,11 +1082,18 @@ class QuotationsController extends BaseController
             })
             ->get(['id', 'name']);
         $quotation_with_stock = Setting::where('deleted_at', '=', null)->first()->quotation_with_stock;
+        // Company-scoped on purpose -- $quotation_with_stock above is the
+        // install-wide unscoped lookup (a pre-existing quirk, out of scope
+        // here), which would silently ignore a company's own Default -
+        // Sales choice for these two.
+        $companySettings = Setting::forCompany($companyId);
 
         return response()->json([
             'clients' => $clients,
             'warehouses' => $warehouses,
             'quotation_with_stock' => $quotation_with_stock,
+            'sale_show_price_type_dropdown' => (bool) ($companySettings->sale_show_price_type_dropdown ?? true),
+            'sale_default_quantity' => (int) ($companySettings->sale_default_quantity ?: 1),
         ]);
     }
 
@@ -1269,6 +1278,7 @@ class QuotationsController extends BaseController
             $data['tax_method'] = $detail->tax_method;
             $data['discount'] = $detail->discount;
             $data['discount_Method'] = $detail->discount_method;
+            $data['price_type'] = $detail->price_type ?? 'retail';
 
             if ($detail->tax_method == '1') {
                 $data['Net_price'] = $detail->price - $data['DiscountNet'];
@@ -1310,11 +1320,15 @@ class QuotationsController extends BaseController
             })
             ->get(['id', 'name']);
 
+        $companySettings = Setting::forCompany($companyId);
+
         return response()->json([
             'details' => $details,
             'quote' => $quote,
             'clients' => $clients,
             'warehouses' => $warehouses,
+            'sale_show_price_type_dropdown' => (bool) ($companySettings->sale_show_price_type_dropdown ?? true),
+            'sale_default_quantity' => (int) ($companySettings->sale_default_quantity ?: 1),
         ]);
     }
 

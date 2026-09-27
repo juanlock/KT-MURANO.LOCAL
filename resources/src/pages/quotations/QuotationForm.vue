@@ -54,16 +54,38 @@
       </a-card>
 
       <a-card size="small" style="margin-bottom: 16px">
-        <div style="display: flex; gap: 8px; margin-bottom: 16px">
+        <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap">
           <a-select
             v-model:value="searchValue"
             show-search
             :filter-option="filterProduct"
             :placeholder="$t('Scan_Search_Product_by_Code_Name')"
-            style="flex: 1"
+            style="flex: 2; min-width: 220px"
             :options="productOptions"
             :disabled="!quote.warehouse_id"
             @select="onProductPicked"
+          />
+          <!-- Browse by Group: pick an existing Group Name, then a Name within
+               it, to insert that product without typing in the search box. -->
+          <a-select
+            v-model:value="browseGroupId"
+            show-search allow-clear
+            option-filter-prop="label"
+            :placeholder="$t('GroupName')"
+            style="min-width: 180px; flex: 1"
+            :options="browseGroupOptions"
+            :disabled="!quote.warehouse_id"
+            @change="browseProductIdx = undefined"
+          />
+          <a-select
+            v-model:value="browseProductIdx"
+            show-search allow-clear
+            option-filter-prop="label"
+            :placeholder="$t('Name_product')"
+            style="min-width: 180px; flex: 1"
+            :options="browseProductOptions"
+            :disabled="!browseGroupId"
+            @select="onBrowseProductPicked"
           />
           <ProductScanModal :disabled="!quote.warehouse_id" @scan="onScan" />
         </div>
@@ -81,6 +103,17 @@
               <div style="font-weight: 500">{{ productDisplayName(record.name) }}</div>
               <div class="muted">{{ record.code }}</div>
               <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">Batch</a-tag>
+              <a-select
+                v-if="showPriceTypeDropdown"
+                :value="record.price_type"
+                size="small"
+                style="width: 100%; min-width: 150px; margin-top: 4px"
+                :options="[
+                  { value: 'retail', label: $t('Retail Price') },
+                  { value: 'wholesale', label: $t('Wholesale Price') },
+                ]"
+                @change="v => onChangePriceType(record, v)"
+              />
             </template>
             <template v-else-if="column.key === 'net_price'">{{ docMoney(record.Net_price) }}</template>
             <template v-else-if="column.key === 'stock'">
@@ -295,6 +328,7 @@ import { useDocCurrency } from '../../composables/useDocCurrency';
 import { productDisplayName } from '../../lib/productDisplayName';
 import { recomputeLine, computeSimpleTotals } from '../../lib/lineCalc';
 import { hasBatchSelectErrors, firstBatchSelectError } from '../../lib/batchValidation';
+import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
 
 const { t } = useI18n();
@@ -333,6 +367,11 @@ const lines = ref([]);
 // leaves the last picked product on screen instead of the placeholder.
 const searchValue = ref(null);
 const quotationWithStock = ref('');
+// Settings -> Defaults -> Default - Sales: show/hide the Retail/Wholesale
+// price dropdown on each line, and the quantity a new line starts at
+// (default on / 1 -- same settings Sales Create/Edit use).
+const showPriceTypeDropdown = ref(true);
+const defaultQuantity = ref(1);
 let nextDetailId = 1;
 
 const quote = ref({
@@ -357,10 +396,10 @@ const shippingInput = computed({
   set: (v) => { quote.value.shipping = toBaseAmt(v); },
 });
 
-const clientOptions = computed(() => clients.value.map(c => ({ value: c.id, label: c.name })));
-const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id, label: w.name })));
+const clientOptions = computed(() => sortByLabel(clients.value.map(c => ({ value: c.id, label: c.name }))));
+const warehouseOptions = computed(() => sortByLabel(warehouses.value.map(w => ({ value: w.id, label: w.name }))));
 const productOptions = computed(() =>
-  products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productDisplayName(p.name)}` }))
+  sortByLabel(products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productDisplayName(p.name)}` })))
 );
 
 // A variant's label carries the VARIANT code, so also match the parent
@@ -370,6 +409,51 @@ function filterProduct(input, option) {
   return `${option.label} ${p?.product_code ?? ''}`
     .toLowerCase()
     .includes(String(input).toLowerCase());
+}
+
+const browseGroupId = ref(undefined);
+const browseProductIdx = ref(undefined);
+const browseGroupOptions = computed(() => {
+  const seen = new Map();
+  products.value.forEach(p => {
+    if (p.product_group_id && !seen.has(p.product_group_id)) {
+      seen.set(p.product_group_id, p.group_name);
+    }
+  });
+  return sortByLabel(Array.from(seen.entries()).map(([value, label]) => ({ value, label })));
+});
+const browseProductOptions = computed(() => {
+  if (!browseGroupId.value) return [];
+  const group = browseGroupOptions.value.find(g => g.value === browseGroupId.value);
+  const mapped = products.value
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.product_group_id === browseGroupId.value)
+    .map(({ p, i }) => ({ value: i, label: stripGroupPrefix(p.name, group?.label) }));
+  // The group's generic/base item (no further sub-item) is stored with the
+  // literal stripped label "Main" -- relabel it clearly and pin it first
+  // (a deliberate exception to alphabetical order -- see the same note in
+  // SaleForm.vue's browseProductOptions).
+  const isMain = o => String(o.label).trim().toLowerCase() === 'main';
+  const mainEntry = mapped.find(isMain);
+  const rest = sortByLabel(mapped.filter(o => !isMain(o)));
+  return mainEntry ? [{ ...mainEntry, label: 'Main (use group name only)' }, ...rest] : rest;
+});
+// A product's own name often already carries its group as a "Group (Item)"
+// prefix -- once the group is the one just picked in the dropdown above,
+// repeating it here in every row is redundant. Strip it for this list only;
+// the full name is still used everywhere else (line items, receipts...).
+function stripGroupPrefix(name, groupName) {
+  if (!groupName) return name;
+  const prefix = `${groupName} (`;
+  if (name.startsWith(prefix) && name.endsWith(')')) {
+    return name.slice(prefix.length, -1);
+  }
+  return name;
+}
+async function onBrowseProductPicked(idx) {
+  await onProductPicked(idx);
+  // Keep the Group selected so the next item from the same group is one pick away.
+  browseProductIdx.value = undefined;
 }
 
 const totals = computed(() =>
@@ -447,7 +531,7 @@ async function onProductPicked(idx) {
       code: d.code || p.code,
       name: d.name,
       stock: p.qte ?? d.qte_sale,
-      quantity: 1,
+      quantity: defaultQuantity.value,
       Unit_price: d.Unit_price,
       Net_price: d.Net_price,
       discount: d.discount,
@@ -463,6 +547,11 @@ async function onProductPicked(idx) {
       is_batch_tracked: !!d.is_batch_tracked,
       batches: [],
       subtotal: 0,
+      min_price: Number(d.min_price) || 0,
+      price_type: 'retail',
+      // Immutable baselines the retail/wholesale switch reprices from.
+      retail_unit_price: d.Unit_price,
+      wholesale_unit_price: d.Unit_price_wholesale,
     };
     recomputeLine(line);
     lines.value.push(line);
@@ -489,6 +578,29 @@ function setQty(line, value) {
   }
   line.quantity = qty;
   recomputeLine(line);
+}
+
+function applyPriceType(line) {
+  const wantsWholesale = line.price_type === 'wholesale';
+  const wholesale = line.wholesale_unit_price;
+  const retail = line.retail_unit_price;
+  const hasWholesale = wholesale !== undefined && wholesale !== null && wholesale !== '';
+  const hasRetail = retail !== undefined && retail !== null && retail !== '';
+
+  if (wantsWholesale && hasWholesale) line.Unit_price = parseFloat(wholesale);
+  else if (hasRetail) line.Unit_price = parseFloat(retail);
+
+  recomputeLine(line);
+}
+
+function onChangePriceType(line, newType) {
+  if (newType) line.price_type = newType;
+  applyPriceType(line);
+  if (Number(line.Net_price) < Number(line.min_price || 0)) {
+    message.warning(t('Price_below_min_not_allowed'));
+    line.price_type = 'retail';
+    applyPriceType(line);
+  }
 }
 
 // ---------------- line edit modal ----------------
@@ -589,6 +701,7 @@ function detailsPayload() {
     subtotal: l.subtotal,
     imei_number: l.imei_number || null,
     batches: Array.isArray(l.batches) ? l.batches : [],
+    price_type: l.price_type || 'retail',
   }));
 }
 
@@ -638,6 +751,8 @@ onMounted(async () => {
       const data = await http.get(`quotations/${id.value}/edit`);
       clients.value = data.clients || [];
       warehouses.value = data.warehouses || [];
+      showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
+      defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
       const q = data.quote || {};
       quote.value = {
         date: q.date,
@@ -659,6 +774,9 @@ onMounted(async () => {
           tax_method: String(d.tax_method ?? '1'),
           is_batch_tracked: !!d.is_batch_tracked,
           batches: Array.isArray(d.batches) ? d.batches : [],
+          price_type: d.price_type || 'retail',
+          retail_unit_price: d.retail_unit_price ?? d.Unit_price,
+          wholesale_unit_price: d.wholesale_unit_price ?? d.Unit_price_wholesale,
         };
         recomputeLine(line);
         return line;
@@ -669,6 +787,8 @@ onMounted(async () => {
       clients.value = data.clients || [];
       warehouses.value = data.warehouses || [];
       quotationWithStock.value = data.quotation_with_stock || '';
+      showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
+      defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
     }
   } catch (e) {
     message.error(t('InvalidData'));

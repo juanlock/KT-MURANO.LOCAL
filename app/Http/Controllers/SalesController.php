@@ -13,6 +13,7 @@ use App\Models\Client;
 use App\Models\EmailMessage;
 use App\Models\PaymentMethod;
 use App\Models\PaymentSale;
+use App\Models\Permission;
 use App\Models\PosSetting;
 use App\Models\Product;
 use App\Models\ProductPack;
@@ -180,6 +181,20 @@ class SalesController extends BaseController
             ->orderBy($order, $dir)
             ->get();
 
+        // "Other due invoices" per customer -- one grouped query for the
+        // page's distinct client_ids (not a per-row query), same company
+        // scope as the main query above. Grouped by client_id so the
+        // per-row lookup below is an in-memory array access.
+        $clientIds = $Sales->pluck('client_id')->filter()->unique()->values();
+        $dueSalesByClient = Sale::whereIn('client_id', $clientIds)
+            ->whereNull('deleted_at')
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->get(['id', 'client_id', 'Ref', 'date', 'GrandTotal', 'paid_amount'])
+            ->filter(fn ($s) => round((float) $s->GrandTotal - (float) $s->paid_amount, 2) > 0)
+            ->groupBy('client_id');
+
         foreach ($Sales as $Sale) {
 
             $item['id'] = $Sale['id'];
@@ -230,6 +245,23 @@ class SalesController extends BaseController
                 ->where('sale_id', $Sale['id'])
                 ->whereNull('deleted_at')
                 ->count();
+
+            // Other invoices for this same customer that still have a due
+            // balance (excludes this row's own invoice) -- always set (even
+            // to []), never left unset, so it can't leak a previous row's
+            // value forward like $item itself can (see $item never being
+            // reset to [] at the top of this loop).
+            $otherDue = ($dueSalesByClient->get($Sale['client_id']) ?? collect())
+                ->reject(fn ($s) => (int) $s->id === (int) $Sale['id'])
+                ->map(fn ($s) => [
+                    'id' => $s->id,
+                    'Ref' => $s->Ref,
+                    'date' => $s->date,
+                    'due' => number_format((float) $s->GrandTotal - (float) $s->paid_amount, helpers::price_decimals(), '.', ''),
+                ])
+                ->values();
+            $item['other_due_sales'] = $otherDue->all();
+            $item['other_due_count'] = $otherDue->count();
 
             $data[] = $item;
         }
@@ -341,6 +373,19 @@ class SalesController extends BaseController
                 ])
                 ->values()
             : collect();
+    }
+
+    /**
+     * Whether $user's role carries the edit_completed_paid_sale permission
+     * (mirrors SalePolicy::update()'s Sales_edit lookup pattern). SuperAdmin
+     * is checked separately by the caller, not here, matching how the
+     * company-boundary checks elsewhere in this controller do it.
+     */
+    private function userCanEditCompletedPaidSale(User $user): bool
+    {
+        $permission = Permission::where('name', 'edit_completed_paid_sale')->first();
+
+        return $permission && $user->hasRole($permission->roles);
     }
 
     public function store(Request $request)
@@ -779,6 +824,15 @@ class SalesController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $current_Sale = Sale::findOrFail($id);
+
+            // A completed, fully paid invoice is reconciled -- editing it
+            // needs the separate edit_completed_paid_sale permission on top
+            // of the general Sales_edit, not just Sales_edit alone. This is
+            // the REAL enforcement point (edit()'s own check only gates
+            // loading the form; a direct PUT still has to be rejected here).
+            if ($current_Sale->statut === 'completed' && $current_Sale->payment_statut === 'paid' && $user->type !== 'SuperAdmin') {
+                abort_unless($this->userCanEditCompletedPaidSale($user), 403, 'Editing a completed, fully paid invoice requires the "Edit Completed & Paid Invoices" permission.');
+            }
 
              /**
              * Warehouses restriction
@@ -3526,6 +3580,15 @@ class SalesController extends BaseController
                 abort_unless((int) $Sale_data->company_id === (int) $this->resolveActingCompanyId($request), 403);
             }
 
+            // A completed, fully paid invoice is reconciled -- editing it
+            // needs the separate edit_completed_paid_sale permission on top
+            // of the general Sales_edit, not just Sales_edit alone.
+            // SuperAdmin bypasses this regardless (matches the company-
+            // boundary check above).
+            if ($Sale_data->statut === 'completed' && $Sale_data->payment_statut === 'paid' && $user->type !== 'SuperAdmin') {
+                abort_unless($this->userCanEditCompletedPaidSale($user), 403, 'Editing a completed, fully paid invoice requires the "Edit Completed & Paid Invoices" permission.');
+            }
+
             /**
              * Warehouses restriction
              * Allow if:
@@ -4803,8 +4866,23 @@ class SalesController extends BaseController
             abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
         }
 
+        // Allow-list (documents/images/videos/archives) rather than a
+        // blocklist -- excludes executables/scripts (.exe, .js, .bat, .sh,
+        // .msi, .dll, .vbs, .ps1, .jar, etc.) by construction, since they're
+        // simply never listed.
         $request->validate([
-            'documents.*' => 'required|file|max:10240', // Max 10MB per file
+            'documents.*' => [
+                'required',
+                'file',
+                'max:25600', // 25 MB per file (Laravel `max:` for files is in KB)
+                'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,rtf,odt,ods,odp,'
+                    .'jpg,jpeg,png,gif,webp,bmp,svg,'
+                    .'mp4,mov,avi,mkv,webm,'
+                    .'zip,rar,7z',
+            ],
+        ], [
+            'documents.*.max' => 'Each file must be 25 MB or smaller.',
+            'documents.*.mimes' => 'That file type is not allowed. Allowed: documents, images, videos, and .zip/.rar/.7z archives.',
         ]);
 
         $uploadedDocuments = [];
