@@ -456,6 +456,83 @@
                 </div>
                 <a-switch :checked="asBool(setting.sale_show_price_type_dropdown)" @change="v => (setting.sale_show_price_type_dropdown = v ? 1 : 0)" />
               </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Loyalty Points</div>
+                  <div class="setting-help">Show the Loyalty Points widget and its dropdowns/options on the Sales Create/Edit form.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_loyalty_points_enabled)" @change="v => (setting.sale_loyalty_points_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Shipping</div>
+                  <div class="setting-help">Show the Shipping field and its dropdowns/options on the Sales Create/Edit form. Turn off for service-only companies that don't ship products.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_shipping_enabled)" @change="v => (setting.sale_shipping_enabled = v ? 1 : 0)" />
+              </div>
+            </a-card>
+
+            <!-- Invoice PDF: company-scoped section show/hide toggles + editable
+                 Company Note / Terms & Conditions content, distinct from the
+                 global Invoice PDF appearance page (Settings -> Invoice PDF). -->
+            <a-card size="small" title="Invoice PDF — Sections" style="margin-bottom: 16px">
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Discount column</div>
+                  <div class="setting-help">Show the DISC column in the invoice's line-items table.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_pdf_show_disc_column)" @change="v => (setting.sale_pdf_show_disc_column = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Tax column</div>
+                  <div class="setting-help">Show the TAX column in the invoice's line-items table. Only appears when at least one item has an individual tax.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_pdf_show_tax_column)" @change="v => (setting.sale_pdf_show_tax_column = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Shipping row</div>
+                  <div class="setting-help">Show the Shipping row in the invoice's totals summary. Only appears when the invoice has a shipping amount.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_pdf_show_shipping_row)" @change="v => (setting.sale_pdf_show_shipping_row = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Discount row</div>
+                  <div class="setting-help">Show the Discount row in the invoice's totals summary. Only appears when the invoice has a discount amount.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_pdf_show_discount_row)" @change="v => (setting.sale_pdf_show_discount_row = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Previous Dues / Net Balance</div>
+                  <div class="setting-help">Show the Previous Dues and Net Balance rows on invoices for a customer with an outstanding balance.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_pdf_show_previous_dues)" @change="v => (setting.sale_pdf_show_previous_dues = v ? 1 : 0)" />
+              </div>
+              <a-divider style="margin: 8px 0" />
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Company Note</div>
+                  <div class="setting-help">Show a Company Note block below the totals on the invoice.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_pdf_show_company_note)" @change="v => (setting.sale_pdf_show_company_note = v ? 1 : 0)" />
+              </div>
+              <a-form-item label="Company Note content" style="margin-top: 8px">
+                <a-textarea v-model:value="setting.sale_pdf_company_note" :rows="3" placeholder="e.g. We accept credit card for payment with 3.5% extra fee..." />
+              </a-form-item>
+              <a-divider style="margin: 8px 0" />
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Terms &amp; Conditions</div>
+                  <div class="setting-help">Show a Terms &amp; Conditions block below the totals on the invoice.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_pdf_show_terms_conditions)" @change="v => (setting.sale_pdf_show_terms_conditions = v ? 1 : 0)" />
+              </div>
+              <a-form-item label="Terms & Conditions content" help="{{COMPANY NAME}} and {{ADDRESS COMPANY}} are replaced with this company's own name/address when the invoice is generated." style="margin-top: 8px">
+                <a-textarea v-model:value="setting.sale_pdf_terms_conditions" :rows="3" placeholder="e.g. Make all checks payable to: {{COMPANY NAME}}..." />
+              </a-form-item>
             </a-card>
           </template>
 
@@ -1246,6 +1323,17 @@ async function save() {
   fd.append('quotation_with_stock', s.quotation_with_stock);
   fd.append('sale_show_price_type_dropdown', asBool(s.sale_show_price_type_dropdown) ? 1 : 0);
   fd.append('sale_default_quantity', Math.max(1, Number(s.sale_default_quantity) || 1));
+  fd.append('sale_loyalty_points_enabled', asBool(s.sale_loyalty_points_enabled) ? 1 : 0);
+  fd.append('sale_shipping_enabled', asBool(s.sale_shipping_enabled) ? 1 : 0);
+  fd.append('sale_pdf_show_disc_column', asBool(s.sale_pdf_show_disc_column) ? 1 : 0);
+  fd.append('sale_pdf_show_tax_column', asBool(s.sale_pdf_show_tax_column) ? 1 : 0);
+  fd.append('sale_pdf_show_shipping_row', asBool(s.sale_pdf_show_shipping_row) ? 1 : 0);
+  fd.append('sale_pdf_show_discount_row', asBool(s.sale_pdf_show_discount_row) ? 1 : 0);
+  fd.append('sale_pdf_show_previous_dues', asBool(s.sale_pdf_show_previous_dues) ? 1 : 0);
+  fd.append('sale_pdf_show_company_note', asBool(s.sale_pdf_show_company_note) ? 1 : 0);
+  fd.append('sale_pdf_company_note', s.sale_pdf_company_note || '');
+  fd.append('sale_pdf_show_terms_conditions', asBool(s.sale_pdf_show_terms_conditions) ? 1 : 0);
+  fd.append('sale_pdf_terms_conditions', s.sale_pdf_terms_conditions || '');
   fd.append('show_language', s.show_language);
   fd.append('timezone', s.timezone);
   fd.append('date_format', s.date_format || 'YYYY-MM-DD');

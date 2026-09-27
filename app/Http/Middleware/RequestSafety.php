@@ -37,6 +37,10 @@ class RequestSafety
         // '$.content_html',
         // '$.email_template',
         // '$.page.body',
+        // Invoice PDF Terms & Conditions intentionally uses {{COMPANY NAME}} /
+        // {{ADDRESS COMPANY}} mustache-style placeholders (substituted server-side
+        // in sale_pdf.blade.php), which otherwise trips the template-injection check below.
+        '$.sale_pdf_terms_conditions',
     ];
 
     /**

@@ -34,6 +34,8 @@ return [
     'sn' => 'SN:',
     'notes' => 'Sales Notes',
     'payment_note' => 'Payment Notes',
+    'company_note' => 'Company Note',
+    'terms_conditions' => 'Terms & Conditions',
     'batches' => 'Batches',
     'batch_no' => 'Batch #',
     'exp' => 'Exp',

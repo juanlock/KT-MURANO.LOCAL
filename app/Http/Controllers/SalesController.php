@@ -3554,6 +3554,8 @@ class SalesController extends BaseController
             // which would silently ignore a company's own Default - Sales choice.
             'sale_show_price_type_dropdown' => (bool) (Setting::forCompany($companyId)->sale_show_price_type_dropdown ?? true),
             'sale_default_quantity' => (int) (Setting::forCompany($companyId)->sale_default_quantity ?: 1),
+            'sale_loyalty_points_enabled' => (bool) (Setting::forCompany($companyId)->sale_loyalty_points_enabled ?? true),
+            'sale_shipping_enabled' => (bool) (Setting::forCompany($companyId)->sale_shipping_enabled ?? true),
         ]);
 
     }
@@ -3843,6 +3845,8 @@ class SalesController extends BaseController
                 // Company-scoped on purpose -- see the same note in create() above.
                 'sale_show_price_type_dropdown' => (bool) (Setting::forCompany($companyId)->sale_show_price_type_dropdown ?? true),
                 'sale_default_quantity' => (int) (Setting::forCompany($companyId)->sale_default_quantity ?: 1),
+                'sale_loyalty_points_enabled' => (bool) (Setting::forCompany($companyId)->sale_loyalty_points_enabled ?? true),
+                'sale_shipping_enabled' => (bool) (Setting::forCompany($companyId)->sale_shipping_enabled ?? true),
             ]);
         }
 

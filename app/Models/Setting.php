@@ -56,6 +56,14 @@ class Setting extends Model
         'enable_multi_pack_selling', 'allow_overselling', 'sidebar_menu_order',
         'enable_pos_salesperson_switch', 'session_timeout_minutes', 'enable_multi_currency',
         'enable_wholesale_pricing', 'sale_show_price_type_dropdown', 'sale_default_quantity',
+        'sale_loyalty_points_enabled', 'sale_shipping_enabled',
+        // Invoice PDF -- company-scoped section show/hide toggles + editable
+        // content blocks (Company Note / Terms & Conditions), distinct from
+        // the global, non-company-scoped PdfTemplate "Sections" panel.
+        'sale_pdf_show_disc_column', 'sale_pdf_show_tax_column', 'sale_pdf_show_shipping_row',
+        'sale_pdf_show_discount_row', 'sale_pdf_show_previous_dues',
+        'sale_pdf_show_company_note', 'sale_pdf_company_note',
+        'sale_pdf_show_terms_conditions', 'sale_pdf_terms_conditions',
         'vehicle_fitment_enabled', 'module_flags', 'barcode_label_settings', 'export_settings',
         'auto_journal_enabled', 'product_image_resize', 'product_image_max_size',
         // Installable app (PWA) identity — see PwaManifestController
@@ -95,6 +103,15 @@ class Setting extends Model
         'enable_wholesale_pricing' => 'boolean',
         'sale_show_price_type_dropdown' => 'boolean',
         'sale_default_quantity' => 'integer',
+        'sale_loyalty_points_enabled' => 'boolean',
+        'sale_shipping_enabled' => 'boolean',
+        'sale_pdf_show_disc_column' => 'boolean',
+        'sale_pdf_show_tax_column' => 'boolean',
+        'sale_pdf_show_shipping_row' => 'boolean',
+        'sale_pdf_show_discount_row' => 'boolean',
+        'sale_pdf_show_previous_dues' => 'boolean',
+        'sale_pdf_show_company_note' => 'boolean',
+        'sale_pdf_show_terms_conditions' => 'boolean',
         'enable_pos_salesperson_switch' => 'boolean',
         'enable_multi_currency' => 'boolean',
         'session_timeout_minutes' => 'integer',

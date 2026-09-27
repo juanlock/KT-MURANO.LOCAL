@@ -4,6 +4,19 @@
     $isRtl = $pdfLocale === 'ar';
     // No colon in Arabic; English keeps colon after summary labels
     $rtlLabelSuffix = $isRtl ? '' : ':';
+    // Invoice PDF section toggles -- company-scoped (Setting::forCompany()),
+    // distinct from $pdfT above which is the global PdfTemplate appearance
+    // settings. Each defaults to true so installs that haven't touched the
+    // new "Invoice PDF" settings card keep today's behavior.
+    $showDiscColumn = (bool) ($setting['sale_pdf_show_disc_column'] ?? true);
+    $showTaxColumn = (bool) ($setting['sale_pdf_show_tax_column'] ?? true);
+    $showShippingRow = (bool) ($setting['sale_pdf_show_shipping_row'] ?? true);
+    $showDiscountRow = (bool) ($setting['sale_pdf_show_discount_row'] ?? true);
+    $showPreviousDues = (bool) ($setting['sale_pdf_show_previous_dues'] ?? true);
+    $showCompanyNote = (bool) ($setting['sale_pdf_show_company_note'] ?? true);
+    $showTermsConditions = (bool) ($setting['sale_pdf_show_terms_conditions'] ?? true);
+    // TAX column only makes sense when at least one line actually has a tax.
+    $anyLineHasTax = collect($details)->contains(fn ($d) => (float) ($d['taxe'] ?? 0) > 0);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ $pdfLocale }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
@@ -210,8 +223,12 @@
                 <th style="padding: 6px 5px; text-align: {{ $isRtl ? 'right' : 'left' }}; font-size: 8pt; font-weight: bold; color: #ffffff; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.2);">{{ __('pdf.product') }}</th>
                 <th style="padding: 6px 5px; text-align: right; font-size: 8pt; font-weight: bold; color: #ffffff; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.2);">{{ __('pdf.price') }}</th>
                 <th style="padding: 6px 5px; text-align: right; font-size: 8pt; font-weight: bold; color: #ffffff; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.2);">{{ __('pdf.qty') }}</th>
+                @if($showDiscColumn)
                 <th style="padding: 6px 5px; text-align: right; font-size: 8pt; font-weight: bold; color: #ffffff; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.2);">{{ __('pdf.disc') }}</th>
+                @endif
+                @if($showTaxColumn && $anyLineHasTax)
                 <th style="padding: 6px 5px; text-align: right; font-size: 8pt; font-weight: bold; color: #ffffff; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.2);">{{ __('pdf.tax') }}</th>
+                @endif
                 <th style="padding: 6px 5px; text-align: right; font-size: 8pt; font-weight: bold; color: #ffffff; text-transform: uppercase;">{{ __('pdf.total') }}</th>
             </tr>
         </thead>
@@ -236,8 +253,12 @@
                     @endif
                 </td>
                 {{-- DiscountNet is per unit; this column is a line total like Tax beside it. --}}
+                @if($showDiscColumn)
                 <td style="padding: 5px; text-align: right; font-size: 8.5pt; color: #ef4444;">{{formatPrice((float)$detail['DiscountNet'] * (float)$detail['quantity'], $priceDecimals, $priceFormat)}}</td>
+                @endif
+                @if($showTaxColumn && $anyLineHasTax)
                 <td style="padding: 5px; text-align: right; font-size: 8.5pt; color: {{ $pdfT['text_color'] }};">{{formatPrice((float)$detail['taxe'] * (float)$detail['quantity'], $priceDecimals, $priceFormat)}}</td>
+                @endif
                 <td style="padding: 5px; text-align: right; font-size: 9pt; font-weight: bold; color: {{ $pdfT['primary_color'] }};">{{formatPrice((float)$detail['total'], $priceDecimals, $priceFormat)}}</td>
             </tr>
             @php $rowIndex++; @endphp
@@ -290,20 +311,24 @@
                         <td style="{{ $tdAmountLeft }} color: {{ $pdfT['text_color'] }};">{{$symbol}} {{formatPrice((float)$sale['TaxNet'], $priceDecimals, $priceFormat)}}</td>
                         <td style="{{ $tdLabelRight }} color: #6b7280;">{{ __('pdf.order_tax') }}{!! $rtlLabelSuffix !!}</td>
                     </tr>
+                    @if($showDiscountRow && $manualDiscountAmount > 0)
                     <tr style="background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }}; border-bottom: 1px solid #e5e7eb;">
                         <td style="{{ $tdAmountLeft }} color: #ef4444;">@if($discountMethod === '1')- {{number_format($discountValue, 2)}}% ({{$symbol}} {{formatPrice($manualDiscountAmount, $priceDecimals, $priceFormat)}})@else - {{$symbol}} {{formatPrice($manualDiscountAmount, $priceDecimals, $priceFormat)}}@endif</td>
                         <td style="{{ $tdLabelRight }} color: #6b7280;">{{ __('pdf.discount') }}{!! $rtlLabelSuffix !!}</td>
                     </tr>
+                    @endif
                     @if(isset($sale['discount_from_points']) && (float)$sale['discount_from_points'] > 0)
                     <tr style="background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }}; border-bottom: 1px solid #e5e7eb;">
                         <td style="{{ $tdAmountLeft }} color: #ef4444;">- {{$symbol}} {{formatPrice((float)$sale['discount_from_points'], $priceDecimals, $priceFormat)}}</td>
                         <td style="{{ $tdLabelRight }} color: #6b7280;">{{ __('pdf.discount_from_points') }}{!! $rtlLabelSuffix !!}</td>
                     </tr>
                     @endif
+                    @if($showShippingRow && (float)$sale['shipping'] > 0)
                     <tr style="background: #ffffff; border-bottom: 1px solid #e5e7eb;">
                         <td style="{{ $tdAmountLeft }} color: {{ $pdfT['text_color'] }};">{{$symbol}} {{formatPrice((float)$sale['shipping'], $priceDecimals, $priceFormat)}}</td>
                         <td style="{{ $tdLabelRight }} color: #6b7280;">{{ __('pdf.shipping') }}{!! $rtlLabelSuffix !!}</td>
                     </tr>
+                    @endif
                     <tr style="background: {{ $pdfT['primary_color'] }};">
                         <td style="padding: 8px 10px; font-size: 11pt; font-weight: bold; color: #ffffff; text-align: left; direction: ltr;">{{$symbol}} {{formatPrice((float)$sale['GrandTotal'], $priceDecimals, $priceFormat)}}</td>
                         <td style="padding: 8px 10px; font-size: 10pt; font-weight: bold; color: #ffffff; text-align: right; direction: rtl;">{{ __('pdf.total_label') }}{!! $rtlLabelSuffix !!}</td>
@@ -316,7 +341,7 @@
                         <td style="padding: 6px 10px; font-size: 9pt; font-weight: bold; color: #92400e; text-align: left; direction: ltr;">{{$symbol}} {{formatPrice((float)$sale['due'], $priceDecimals, $priceFormat)}}</td>
                         <td style="padding: 6px 10px; font-size: 8.5pt; font-weight: bold; color: #92400e; text-align: right; direction: rtl;">{{ __('pdf.amount_due') }}{!! $rtlLabelSuffix !!}</td>
                     </tr>
-                    @if(isset($sale['previous_dues']) && (float)$sale['previous_dues'] > 0)
+                    @if($showPreviousDues && isset($sale['previous_dues']) && (float)$sale['previous_dues'] > 0)
                     <tr style="background: #fef3c7;">
                         <td style="padding: 6px 10px; font-size: 9pt; font-weight: bold; color: #92400e; text-align: left; direction: ltr;">{{$symbol}} {{formatPrice((float)$sale['previous_dues'], $priceDecimals, $priceFormat)}}</td>
                         <td style="padding: 6px 10px; font-size: 8.5pt; font-weight: bold; color: #92400e; text-align: right; direction: rtl;">{{ __('pdf.previous_dues') }}{!! $rtlLabelSuffix !!}</td>
@@ -342,20 +367,24 @@
                         <td style="padding: 5px 10px; font-size: 8pt; font-weight: 600; color: #6b7280;">{{ __('pdf.order_tax') }}</td>
                         <td style="padding: 5px 10px; font-size: 8.5pt; font-weight: 600; color: {{ $pdfT['text_color'] }}; text-align: right;">{{$symbol}} {{formatPrice((float)$sale['TaxNet'], $priceDecimals, $priceFormat)}}</td>
                     </tr>
+                    @if($showDiscountRow && $manualDiscountAmount > 0)
                     <tr style="background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }}; border-bottom: 1px solid #e5e7eb;">
                         <td style="padding: 5px 10px; font-size: 8pt; font-weight: 600; color: #6b7280;">{{ __('pdf.discount') }}</td>
                         <td style="padding: 5px 10px; font-size: 8.5pt; font-weight: 600; color: #ef4444; text-align: right;">@if($discountMethod === '1')- {{number_format($discountValue, 2)}}% ({{$symbol}} {{formatPrice($manualDiscountAmount, $priceDecimals, $priceFormat)}})@else - {{$symbol}} {{formatPrice($manualDiscountAmount, $priceDecimals, $priceFormat)}}@endif</td>
                     </tr>
+                    @endif
                     @if(isset($sale['discount_from_points']) && (float)$sale['discount_from_points'] > 0)
                     <tr style="background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }}; border-bottom: 1px solid #e5e7eb;">
                         <td style="padding: 5px 10px; font-size: 8pt; font-weight: 600; color: #6b7280;">{{ __('pdf.discount_from_points') }}</td>
                         <td style="padding: 5px 10px; font-size: 8.5pt; font-weight: 600; color: #ef4444; text-align: right;">- {{$symbol}} {{formatPrice((float)$sale['discount_from_points'], $priceDecimals, $priceFormat)}}</td>
                     </tr>
                     @endif
+                    @if($showShippingRow && (float)$sale['shipping'] > 0)
                     <tr style="background: #ffffff; border-bottom: 1px solid #e5e7eb;">
                         <td style="padding: 5px 10px; font-size: 8pt; font-weight: 600; color: #6b7280;">{{ __('pdf.shipping') }}</td>
                         <td style="padding: 5px 10px; font-size: 8.5pt; font-weight: 600; color: {{ $pdfT['text_color'] }}; text-align: right;">{{$symbol}} {{formatPrice((float)$sale['shipping'], $priceDecimals, $priceFormat)}}</td>
                     </tr>
+                    @endif
                     <tr style="background: {{ $pdfT['primary_color'] }};">
                         <td style="padding: 8px 10px; font-size: 10pt; font-weight: bold; color: #ffffff;">{{ __('pdf.total_label') }}</td>
                         <td style="padding: 8px 10px; font-size: 11pt; font-weight: bold; color: #ffffff; text-align: right;">{{$symbol}} {{formatPrice((float)$sale['GrandTotal'], $priceDecimals, $priceFormat)}}</td>
@@ -368,7 +397,7 @@
                         <td style="padding: 6px 10px; font-size: 8.5pt; font-weight: bold; color: #92400e;">{{ __('pdf.amount_due') }}</td>
                         <td style="padding: 6px 10px; font-size: 9pt; font-weight: bold; color: #92400e; text-align: right;">{{$symbol}} {{formatPrice((float)$sale['due'], $priceDecimals, $priceFormat)}}</td>
                     </tr>
-                    @if(isset($sale['previous_dues']) && (float)$sale['previous_dues'] > 0)
+                    @if($showPreviousDues && isset($sale['previous_dues']) && (float)$sale['previous_dues'] > 0)
                     <tr style="background: #fef3c7;">
                         <td style="padding: 6px 10px; font-size: 8.5pt; font-weight: bold; color: #92400e;">{{ __('pdf.previous_dues') }}</td>
                         <td style="padding: 6px 10px; font-size: 9pt; font-weight: bold; color: #92400e; text-align: right;">{{$symbol}} {{formatPrice((float)$sale['previous_dues'], $priceDecimals, $priceFormat)}}</td>
@@ -383,6 +412,31 @@
             </td>
         </tr>
     </table>
+
+    <!-- Company Note / Terms & Conditions -->
+    @if(($showCompanyNote && !empty($setting['sale_pdf_company_note'])) || ($showTermsConditions && !empty($setting['sale_pdf_terms_conditions'])))
+    <div style="margin-top: 10px; margin-bottom: 10px;">
+        @if($showCompanyNote && !empty($setting['sale_pdf_company_note']))
+        <div style="padding: 8px 10px; background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }}; border: 1px solid #e5e7eb; border-radius: 3px; margin-bottom: 8px; text-align: {{ $isRtl ? 'right' : 'left' }};">
+            <div style="font-size: 8pt; font-weight: 600; color: {{ $pdfT['text_color'] }}; margin-bottom: 3px;">{{ __('pdf.company_note') }}</div>
+            <p style="font-size: 7.5pt; color: #6b7280; line-height: 1.5; margin: 0; white-space: pre-wrap; word-wrap: break-word;">{{$setting['sale_pdf_company_note']}}</p>
+        </div>
+        @endif
+        @if($showTermsConditions && !empty($setting['sale_pdf_terms_conditions']))
+        <div style="padding: 8px 10px; background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }}; border: 1px solid #e5e7eb; border-radius: 3px; text-align: {{ $isRtl ? 'right' : 'left' }};">
+            <div style="font-size: 8pt; font-weight: 600; color: {{ $pdfT['text_color'] }}; margin-bottom: 3px;">{{ __('pdf.terms_conditions') }}</div>
+            @php
+                $termsText = str_replace(
+                    ['{{COMPANY NAME}}', '{{ADDRESS COMPANY}}'],
+                    [$setting['CompanyName'] ?? '', $setting['CompanyAdress'] ?? ''],
+                    $setting['sale_pdf_terms_conditions']
+                );
+            @endphp
+            <p style="font-size: 7.5pt; color: #6b7280; line-height: 1.5; margin: 0; white-space: pre-wrap; word-wrap: break-word;">{{$termsText}}</p>
+        </div>
+        @endif
+    </div>
+    @endif
 
     <!-- Notes Section -->
     @if($pdfT['show_notes'] && (($sale['notes'] ?? null) || ($sale['payment_note'] ?? null)))

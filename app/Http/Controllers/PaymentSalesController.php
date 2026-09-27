@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Mail\CustomEmail;
 use App\Models\Account;
 use App\Models\Client;
@@ -13,14 +14,17 @@ use App\Models\Sale;
 use App\Models\Setting;
 use App\Models\sms_gateway;
 use App\Models\SMSMessage;
+use App\Models\UserWarehouse;
 use App\utils\helpers;
 use ArPHP\I18N\Arabic;
 use Carbon\Carbon;
 use DB;
 use GuzzleHttp\Client as Client_guzzle;
 use GuzzleHttp\Client as Client_termi;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Infobip\Api\SendSmsApi;
 use Infobip\Configuration;
@@ -28,15 +32,20 @@ use Infobip\Model\SmsAdvancedTextualRequest;
 use Infobip\Model\SmsDestination;
 use Infobip\Model\SmsTextualMessage;
 use PDF;
+use Throwable;
 use Twilio\Rest\Client as Client_Twilio;
 
 class PaymentSalesController extends BaseController
 {
+    use ScopesToCompany;
+
     // ------------- Get All Payments Sales --------------\\
 
     public function index(request $request)
     {
         $this->authorizeForUser($request->user('api'), 'Reports_payments_Sales', PaymentSale::class);
+
+        $companyId = $this->resolveActingCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -78,6 +87,14 @@ class PaymentSalesController extends BaseController
         if (! $is_all_warehouses) {
             $Payments->whereHas('sale', function ($q) use ($warehouse_ids) {
                 $q->whereIn('warehouse_id', $warehouse_ids);
+            });
+        }
+        // Company boundary: an is_all_warehouses admin has no warehouse
+        // restriction above, so this is the only thing stopping them from
+        // seeing another company's payments (same rule as SalesController).
+        if ($user->type !== 'SuperAdmin' || $request->filled('company_id')) {
+            $Payments->whereHas('sale', function ($q) use ($companyId) {
+                $q->where('company_id', $companyId);
             });
         }
         // Multiple Filter
@@ -170,8 +187,16 @@ class PaymentSalesController extends BaseController
             $data[] = $item;
         }
 
-        $clients = Client::where('deleted_at', '=', null)->get(['id', 'name']);
-        $sales = Sale::get(['Ref', 'id']);
+        // Company boundary: the Customer/Sale filter dropdowns must not leak
+        // another company's records (same rule as SalesController).
+        $clients = Client::where('deleted_at', '=', null)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->get(['id', 'name']);
+        $sales = Sale::when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+            return $query->where('company_id', $companyId);
+        })->get(['Ref', 'id']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 
         $methodNames = $payment_methods->pluck('name', 'id');

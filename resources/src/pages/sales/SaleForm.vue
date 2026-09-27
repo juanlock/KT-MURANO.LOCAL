@@ -228,7 +228,7 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col :xs="12" :md="8">
+              <a-col v-if="shippingEnabled" :xs="12" :md="8">
                 <a-form-item :label="$t('Shipping')">
                   <a-input-number v-model:value="shippingInput" style="width: 100%" :min="0" />
                 </a-form-item>
@@ -267,7 +267,7 @@
               </a-col>
               <!-- Loyalty points -> discount. Legacy gates this on the customer
                    being royalty-eligible AND the tax/discount edit permission. -->
-              <a-col v-if="clientIsEligible && auth.can('edit_tax_discount_shipping_sale')" :span="24">
+              <a-col v-if="loyaltyPointsEnabled && clientIsEligible && auth.can('edit_tax_discount_shipping_sale')" :span="24">
                 <a-form-item label="Points to convert">
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
                     <a-input-number
@@ -379,7 +379,7 @@
               <span>{{ $t('Discount') }}</span>
               <span style="color: #ff4d4f">- {{ docMoney(totals.discountAmount) }}</span>
             </div>
-            <div class="sum-row"><span>{{ $t('Shipping') }}</span><span>{{ docMoney(sale.shipping) }}</span></div>
+            <div v-if="shippingEnabled" class="sum-row"><span>{{ $t('Shipping') }}</span><span>{{ docMoney(sale.shipping) }}</span></div>
             <div class="sum-row grand"><span>{{ $t('Total') }}</span><span>{{ docMoney(totals.GrandTotal) }}</span></div>
             <!-- When a foreign currency is active, keep the base total visible -->
             <div v-if="!dcIsBase" class="sum-row" style="border-bottom: none; font-size: 12px; color: rgba(128,128,128,.85)">
@@ -592,6 +592,11 @@ const showPriceTypeDropdown = ref(true);
 // Settings -> Defaults -> Default - Sales: quantity a new line starts at
 // when a product is added (default 1).
 const defaultQuantity = ref(1);
+// Settings -> Defaults -> Default - Sales: master on/off for the Loyalty
+// Points widget and the Shipping field, for companies that don't use them
+// (e.g. service-only businesses that don't ship products) (both default on).
+const loyaltyPointsEnabled = ref(true);
+const shippingEnabled = ref(true);
 
 // New sales start credited to the authenticated user (matches the POS
 // default); edit mode keeps whatever the sale already stores.
@@ -755,14 +760,16 @@ async function onClientChange(clientId) {
   selectedClientNetBalance.value = 0;
   if (!clientId) return;
 
-  try {
-    const data = await http.get(`get_points_client/${clientId}`);
-    if (data?.is_royalty_eligible) {
-      selectedClientPoints.value = Number(data.points) || 0;
-      initialClientPoints.value = Number(data.points) || 0;
-      clientIsEligible.value = true;
-    }
-  } catch (e) { /* points stay at zero */ }
+  if (loyaltyPointsEnabled.value) {
+    try {
+      const data = await http.get(`get_points_client/${clientId}`);
+      if (data?.is_royalty_eligible) {
+        selectedClientPoints.value = Number(data.points) || 0;
+        initialClientPoints.value = Number(data.points) || 0;
+        clientIsEligible.value = true;
+      }
+    } catch (e) { /* points stay at zero */ }
+  }
 
   try {
     const brief = await http.get(`clients/${clientId}/brief`);
@@ -1531,6 +1538,8 @@ onMounted(async () => {
       salesSwitchEnabled.value = create.enable_pos_salesperson_switch === true;
       showPriceTypeDropdown.value = create.sale_show_price_type_dropdown !== false;
       defaultQuantity.value = Math.max(1, Number(create.sale_default_quantity) || 1);
+      loyaltyPointsEnabled.value = create.sale_loyalty_points_enabled !== false;
+      shippingEnabled.value = create.sale_shipping_enabled !== false;
       accounts.value = create.accounts || [];
       paymentMethods.value = create.payment_methods || [];
       point_to_amount_rate.value = Number(create.point_to_amount_rate) || 0;
@@ -1588,6 +1597,8 @@ onMounted(async () => {
       salesSwitchEnabled.value = data.enable_pos_salesperson_switch === true;
       showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
+      loyaltyPointsEnabled.value = data.sale_loyalty_points_enabled !== false;
+      shippingEnabled.value = data.sale_shipping_enabled !== false;
       const s = data.sale || {};
       const dm = String(s.discount_Method ?? '2').toLowerCase().trim();
       sale.value = {
@@ -1652,6 +1663,8 @@ onMounted(async () => {
       salesSwitchEnabled.value = create.enable_pos_salesperson_switch === true;
       showPriceTypeDropdown.value = create.sale_show_price_type_dropdown !== false;
       defaultQuantity.value = Math.max(1, Number(create.sale_default_quantity) || 1);
+      loyaltyPointsEnabled.value = create.sale_loyalty_points_enabled !== false;
+      shippingEnabled.value = create.sale_shipping_enabled !== false;
       accounts.value = create.accounts || [];
       paymentMethods.value = create.payment_methods || [];
       point_to_amount_rate.value = Number(create.point_to_amount_rate) || 0;
@@ -1708,6 +1721,8 @@ onMounted(async () => {
       salesSwitchEnabled.value = data.enable_pos_salesperson_switch === true;
       showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
+      loyaltyPointsEnabled.value = data.sale_loyalty_points_enabled !== false;
+      shippingEnabled.value = data.sale_shipping_enabled !== false;
       defaultSellerToSelf();
       accounts.value = data.accounts || [];
       paymentMethods.value = data.payment_methods || [];

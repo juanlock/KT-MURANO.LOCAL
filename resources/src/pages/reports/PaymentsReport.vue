@@ -14,7 +14,10 @@
       <ViewCurrencySelect />
     </template>
     <template #filters>
-      <DateRangePicker v-model:value="range" :allow-clear="false" @change="crud.reload()" />
+      <a-radio-group v-model:value="datePreset" button-style="solid" @change="applyPreset(datePreset)">
+        <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
+      </a-radio-group>
+      <DateRangePicker v-model:value="range" :allow-clear="false" @change="onExactRangeChange" />
       <a-input
         v-model:value="refFilter" allow-clear :placeholder="$t('Reference')" style="width: 200px"
         @press-enter="crud.reload()" @change="e => { if (!e.target.value) crud.reload(); }"
@@ -177,11 +180,55 @@ const kind = KINDS[route.meta.kind] || KINDS.sale;
 const endpoint = kind.endpoint;
 const titleKey = kind.titleKey;
 
-const range = ref([dayjs().subtract(29, 'day'), dayjs()]);
+const range = ref(presetRange('month'));
 const refFilter = ref('');
 const partyId = ref(undefined);
 const docId = ref(undefined);
 const methodId = ref(undefined);
+
+// Quick range buttons -- same presets/convention as the Sales & Purchases
+// lists (only one of the buttons or the exact picker is ever "active":
+// picking a preset clears any highlight mismatch, picking an exact range
+// clears the preset highlight).
+const DATE_PRESETS = [
+  { value: 'all', labelKey: 'All' },
+  { value: 'year', labelKey: 'This_Year' },
+  { value: 'month', labelKey: 'This_Month' },
+  { value: 'last_month', labelKey: 'Last_Month' },
+  { value: 'last_year', labelKey: 'Last_Year' },
+];
+// Default: This Month, matching the Sales/Purchases lists' convention.
+const datePreset = ref('month');
+
+function presetRange(preset) {
+  const now = dayjs();
+  switch (preset) {
+    case 'year':
+      return [now.startOf('year'), now.endOf('year')];
+    case 'month':
+      return [now.startOf('month'), now.endOf('month')];
+    case 'last_month': {
+      const m = now.subtract(1, 'month');
+      return [m.startOf('month'), m.endOf('month')];
+    }
+    case 'last_year': {
+      const y = now.subtract(1, 'year');
+      return [y.startOf('year'), y.endOf('year')];
+    }
+    default:
+      return [dayjs('2000-01-01'), now];
+  }
+}
+
+function applyPreset(preset) {
+  range.value = presetRange(preset);
+  crud.reload();
+}
+
+function onExactRangeChange() {
+  datePreset.value = null;
+  crud.reload();
+}
 
 const filterParams = () => ({
   from: range.value?.[0]?.format?.('YYYY-MM-DD') || '',

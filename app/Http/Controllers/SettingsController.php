@@ -285,6 +285,44 @@ class SettingsController extends Controller
             'sale_default_quantity' => $request->has('sale_default_quantity')
                 ? max(1, (int) $request['sale_default_quantity'])
                 : (int) ($setting->sale_default_quantity ?: 1),
+            // Default -- Sales: enable/disable the Loyalty Points widget and
+            // hide its dropdown/options on the Sales Create/Edit form (default on)
+            'sale_loyalty_points_enabled' => $request->has('sale_loyalty_points_enabled')
+                ? (($request['sale_loyalty_points_enabled'] == '1' || $request['sale_loyalty_points_enabled'] == 'true' || $request['sale_loyalty_points_enabled'] === 1 || $request['sale_loyalty_points_enabled'] === true) ? 1 : 0)
+                : (int) ($setting->sale_loyalty_points_enabled ?? 1),
+            // Default -- Sales: enable/disable the Shipping field and hide it
+            // on the Sales Create/Edit form (for service-only companies, default on)
+            'sale_shipping_enabled' => $request->has('sale_shipping_enabled')
+                ? (($request['sale_shipping_enabled'] == '1' || $request['sale_shipping_enabled'] == 'true' || $request['sale_shipping_enabled'] === 1 || $request['sale_shipping_enabled'] === true) ? 1 : 0)
+                : (int) ($setting->sale_shipping_enabled ?? 1),
+            // Invoice PDF -- section show/hide toggles (all default on)
+            'sale_pdf_show_disc_column' => $request->has('sale_pdf_show_disc_column')
+                ? (($request['sale_pdf_show_disc_column'] == '1' || $request['sale_pdf_show_disc_column'] == 'true' || $request['sale_pdf_show_disc_column'] === 1 || $request['sale_pdf_show_disc_column'] === true) ? 1 : 0)
+                : (int) ($setting->sale_pdf_show_disc_column ?? 1),
+            'sale_pdf_show_tax_column' => $request->has('sale_pdf_show_tax_column')
+                ? (($request['sale_pdf_show_tax_column'] == '1' || $request['sale_pdf_show_tax_column'] == 'true' || $request['sale_pdf_show_tax_column'] === 1 || $request['sale_pdf_show_tax_column'] === true) ? 1 : 0)
+                : (int) ($setting->sale_pdf_show_tax_column ?? 1),
+            'sale_pdf_show_shipping_row' => $request->has('sale_pdf_show_shipping_row')
+                ? (($request['sale_pdf_show_shipping_row'] == '1' || $request['sale_pdf_show_shipping_row'] == 'true' || $request['sale_pdf_show_shipping_row'] === 1 || $request['sale_pdf_show_shipping_row'] === true) ? 1 : 0)
+                : (int) ($setting->sale_pdf_show_shipping_row ?? 1),
+            'sale_pdf_show_discount_row' => $request->has('sale_pdf_show_discount_row')
+                ? (($request['sale_pdf_show_discount_row'] == '1' || $request['sale_pdf_show_discount_row'] == 'true' || $request['sale_pdf_show_discount_row'] === 1 || $request['sale_pdf_show_discount_row'] === true) ? 1 : 0)
+                : (int) ($setting->sale_pdf_show_discount_row ?? 1),
+            'sale_pdf_show_previous_dues' => $request->has('sale_pdf_show_previous_dues')
+                ? (($request['sale_pdf_show_previous_dues'] == '1' || $request['sale_pdf_show_previous_dues'] == 'true' || $request['sale_pdf_show_previous_dues'] === 1 || $request['sale_pdf_show_previous_dues'] === true) ? 1 : 0)
+                : (int) ($setting->sale_pdf_show_previous_dues ?? 1),
+            'sale_pdf_show_company_note' => $request->has('sale_pdf_show_company_note')
+                ? (($request['sale_pdf_show_company_note'] == '1' || $request['sale_pdf_show_company_note'] == 'true' || $request['sale_pdf_show_company_note'] === 1 || $request['sale_pdf_show_company_note'] === true) ? 1 : 0)
+                : (int) ($setting->sale_pdf_show_company_note ?? 1),
+            'sale_pdf_company_note' => $request->has('sale_pdf_company_note')
+                ? $request['sale_pdf_company_note']
+                : $setting->sale_pdf_company_note,
+            'sale_pdf_show_terms_conditions' => $request->has('sale_pdf_show_terms_conditions')
+                ? (($request['sale_pdf_show_terms_conditions'] == '1' || $request['sale_pdf_show_terms_conditions'] == 'true' || $request['sale_pdf_show_terms_conditions'] === 1 || $request['sale_pdf_show_terms_conditions'] === true) ? 1 : 0)
+                : (int) ($setting->sale_pdf_show_terms_conditions ?? 1),
+            'sale_pdf_terms_conditions' => $request->has('sale_pdf_terms_conditions')
+                ? $request['sale_pdf_terms_conditions']
+                : $setting->sale_pdf_terms_conditions,
             // Master switch for the Multi-Currency module (default off)
             'enable_multi_currency' => $request->has('enable_multi_currency')
                 ? (($request['enable_multi_currency'] == '1' || $request['enable_multi_currency'] == 'true' || $request['enable_multi_currency'] === 1 || $request['enable_multi_currency'] === true) ? 1 : 0)
@@ -895,6 +933,17 @@ class SettingsController extends Controller
             $item['quotation_with_stock'] = $settings->quotation_with_stock;
             $item['sale_show_price_type_dropdown'] = (bool) ($settings->sale_show_price_type_dropdown ?? true);
             $item['sale_default_quantity'] = (int) ($settings->sale_default_quantity ?: 1);
+            $item['sale_loyalty_points_enabled'] = (bool) ($settings->sale_loyalty_points_enabled ?? true);
+            $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
+            $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
+            $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
+            $item['sale_pdf_show_shipping_row'] = (bool) ($settings->sale_pdf_show_shipping_row ?? true);
+            $item['sale_pdf_show_discount_row'] = (bool) ($settings->sale_pdf_show_discount_row ?? true);
+            $item['sale_pdf_show_previous_dues'] = (bool) ($settings->sale_pdf_show_previous_dues ?? true);
+            $item['sale_pdf_show_company_note'] = (bool) ($settings->sale_pdf_show_company_note ?? true);
+            $item['sale_pdf_company_note'] = $settings->sale_pdf_company_note;
+            $item['sale_pdf_show_terms_conditions'] = (bool) ($settings->sale_pdf_show_terms_conditions ?? true);
+            $item['sale_pdf_terms_conditions'] = $settings->sale_pdf_terms_conditions;
             $item['show_language'] = $settings->show_language;
             $item['dark_mode'] = (bool) ($settings->dark_mode ?? false);
             $item['rtl'] = (bool) ($settings->rtl ?? false);
@@ -1673,6 +1722,17 @@ class SettingsController extends Controller
             $item['quotation_with_stock'] = $settings->quotation_with_stock;
             $item['sale_show_price_type_dropdown'] = (bool) ($settings->sale_show_price_type_dropdown ?? true);
             $item['sale_default_quantity'] = (int) ($settings->sale_default_quantity ?: 1);
+            $item['sale_loyalty_points_enabled'] = (bool) ($settings->sale_loyalty_points_enabled ?? true);
+            $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
+            $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
+            $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
+            $item['sale_pdf_show_shipping_row'] = (bool) ($settings->sale_pdf_show_shipping_row ?? true);
+            $item['sale_pdf_show_discount_row'] = (bool) ($settings->sale_pdf_show_discount_row ?? true);
+            $item['sale_pdf_show_previous_dues'] = (bool) ($settings->sale_pdf_show_previous_dues ?? true);
+            $item['sale_pdf_show_company_note'] = (bool) ($settings->sale_pdf_show_company_note ?? true);
+            $item['sale_pdf_company_note'] = $settings->sale_pdf_company_note;
+            $item['sale_pdf_show_terms_conditions'] = (bool) ($settings->sale_pdf_show_terms_conditions ?? true);
+            $item['sale_pdf_terms_conditions'] = $settings->sale_pdf_terms_conditions;
             $item['show_language'] = $settings->show_language;
             $item['dark_mode'] = (bool) ($settings->dark_mode ?? false);
             $item['rtl'] = (bool) ($settings->rtl ?? false);
