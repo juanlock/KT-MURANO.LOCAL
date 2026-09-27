@@ -1,0 +1,15 @@
+---
+description: "Protocol Copia BD -- dumps dbmurano via mysqldump into KT-TOOLS/database/ as a timestamped .sql file. Also triggers on \"Claude/Jarvis, run protocolo copia bd\" / \"protocolo copia bd\"."
+---
+
+Run Protocol Copia BD:
+
+1. Run `database/scripts/protocol_copia_bd.php` via tinker, using the file's **absolute path** (a bare relative `require` inside `php artisan tinker --execute="..."` fails with "Failed opening required" -- psysh's RequirePass doesn't resolve it against the project root). Example (adjust the drive/path to wherever this checkout actually lives on this machine):
+   `php artisan tinker --execute="require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"`
+2. It reads the DB connection from Laravel's own config (never hardcoded) and shells out to `mysqldump` (`--routines --triggers --single-transaction`, streamed straight to disk rather than buffered in memory), writing the dump to **`KT-TOOLS/database/dbmurano_<Y-m-d_His>.sql`** -- a new timestamped file each run, nothing overwritten, so backups accumulate as a history.
+3. `mysqldump`'s location varies per machine/engine, so the script discovers it in this order rather than hardcoding a path: `MYSQLDUMP_PATH` in `.env` (explicit override) -> `mysqldump` on PATH -> the `bin/` folder of whatever `mysql`/`mariadb` Windows service is currently running -> a couple of common XAMPP install locations as a last resort. If none of those find it, the script prints exactly what to add to `.env` on that machine and stops -- no partial/corrupt file is left behind.
+4. Report the output path and file size back to the user.
+
+Why this exists: the user (jlock) hit a phpMyAdmin bug on this machine (`Export::exportDatabase()` `TypeError` on PHP 8.1+) where a failed export silently wrote phpMyAdmin's HTML error page into the `.sql` file instead of real SQL, which then failed to restore. This protocol is a reliable, phpMyAdmin-independent way to snapshot `dbmurano`, and since `KT-TOOLS/` is git-tracked (matching the existing manually-made dumps already in `KT-TOOLS/SQL/`), the snapshot travels with the repo across every machine this checkout is on -- same multi-machine intent as Kelsy/Mañanitas/Memorex/Preparate.
+
+Note: `KT-TOOLS/database/` is **not** gitignored (same as the existing `KT-TOOLS/SQL/` dumps) -- each run adds a new file to be committed, so be mindful of repo size over many runs.

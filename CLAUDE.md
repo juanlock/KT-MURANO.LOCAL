@@ -129,6 +129,13 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
 - **Preparate** (`/preparate`, or "Jarvis, run protocolo preparate") — not
   ported from billing, this one is Murano's own: reloads this file's rules,
   then closes out with an HTML status card for the last request (see above).
+- **Copia BD** (`/copia-bd`, or "Jarvis, run protocolo copia bd") — not
+  ported from billing, this one is Murano's own: dumps `dbmurano` via
+  `mysqldump` (`database/scripts/protocol_copia_bd.php`) into
+  `KT-TOOLS/database/dbmurano_<timestamp>.sql` — a phpMyAdmin-independent
+  backup after a local phpMyAdmin export bug corrupted a manual backup
+  attempt. `KT-TOOLS/` is git-tracked, so the snapshot travels across every
+  machine this checkout is on, same as the other protocols.
 
 Billing's originals stay untouched (billing is read-only, per the Hard Rules
 below) — these are Murano's own copies, kept in sync manually if the protocol

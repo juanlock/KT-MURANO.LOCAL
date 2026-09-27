@@ -108,7 +108,7 @@
  *
  * NOTE: these endpoints are NOT under `report/` like the other reports.
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import dayjs from 'dayjs';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -225,7 +225,20 @@ function applyPreset(preset) {
   crud.reload();
 }
 
+// DateRangePicker fires a spurious @change once during initial mount (its
+// internal value syncs to the v-model default), which would otherwise clear
+// the "This Month" highlight before the user ever touches anything. Ignore
+// that one mount-time firing; only real picker interaction should un-highlight it.
+let ignoreNextExactRangeChange = true;
+onMounted(() => {
+  nextTick(() => { ignoreNextExactRangeChange = false; });
+});
+
 function onExactRangeChange() {
+  if (ignoreNextExactRangeChange) {
+    ignoreNextExactRangeChange = false;
+    return;
+  }
   datePreset.value = null;
   crud.reload();
 }
