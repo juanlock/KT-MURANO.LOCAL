@@ -1,4 +1,7 @@
 /KT-TOOLS/apps
+/KT-TOOLS/documentation
+/KT-TOOLS/VERSION
+/KT-TOOLS/sources
 /public/js
 */database/snapshots/
 /.claude/report/
@@ -9,7 +12,4 @@
 
 /storage/framework/views
 /storage/framework/cache
-/storage/framework/cache
-/storage/framework/views
-/storage/framework/cache
-/storage/framework/cache/data
+/bootstrap/cache/*.php
