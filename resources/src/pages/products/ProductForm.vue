@@ -300,7 +300,8 @@
                   <a-input-number v-model:value="product.stock_alert" :min="0" style="width: 100%" />
                 </a-form-item>
               </a-col>
-              <a-col :xs="12" :md="8">
+              <!-- Loyalty off hides the input; product.points still goes out unchanged. -->
+              <a-col v-if="auth.customerLoyaltyEnabled" :xs="12" :md="8">
                 <a-form-item :label="$t('Points')">
                   <a-input-number v-model:value="product.points" :min="0" style="width: 100%" />
                 </a-form-item>

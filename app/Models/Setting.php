@@ -57,6 +57,8 @@ class Setting extends Model
         'enable_pos_salesperson_switch', 'session_timeout_minutes', 'enable_multi_currency',
         'enable_wholesale_pricing', 'sale_show_price_type_dropdown', 'sale_default_quantity',
         'sale_loyalty_points_enabled', 'sale_shipping_enabled',
+        // Defaults -> Customers: optional customer features (hide all UI when off)
+        'customer_loyalty_enabled', 'customer_credit_limit_enabled', 'customer_opening_balance_enabled',
         // Invoice PDF -- company-scoped section show/hide toggles + editable
         // content blocks (Company Note / Terms & Conditions), distinct from
         // the global, non-company-scoped PdfTemplate "Sections" panel.
@@ -105,6 +107,9 @@ class Setting extends Model
         'sale_default_quantity' => 'integer',
         'sale_loyalty_points_enabled' => 'boolean',
         'sale_shipping_enabled' => 'boolean',
+        'customer_loyalty_enabled' => 'boolean',
+        'customer_credit_limit_enabled' => 'boolean',
+        'customer_opening_balance_enabled' => 'boolean',
         'sale_pdf_show_disc_column' => 'boolean',
         'sale_pdf_show_tax_column' => 'boolean',
         'sale_pdf_show_shipping_row' => 'boolean',

@@ -568,9 +568,9 @@
             </label>
           </div>
 
-          <!-- Points convert row -->
+          <!-- Points convert row (+ Redeem_Reward); also hidden when the company switched loyalty off -->
           <div
-            v-if="isOnline && pos_settings.enable_customer_points && clientIsEligible && currentUserPermissions && currentUserPermissions.includes('edit_tax_discount_shipping_sale')"
+            v-if="isOnline && customer_loyalty_enabled && pos_settings.enable_customer_points && clientIsEligible && currentUserPermissions && currentUserPermissions.includes('edit_tax_discount_shipping_sale')"
             :style="{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px', background: pointsConverted ? '#eaf7ef' : '#f5f3fd', borderRadius: '8px', marginBottom: '10px' }">
             <div style="min-width: 0;">
               <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #54546a;">
@@ -1147,7 +1147,7 @@
     :discount-from-points="discount_from_points"
     :used-points="used_points"
     :draft-sale-id="draft_sale_id"
-    :client-credit-limit="selectedClientCreditLimit"
+    :client-credit-limit="customer_credit_limit_enabled ? selectedClientCreditLimit : 0"
     :client-net-balance="selectedClientNetBalance"
     :is-online="isOnline"
     @payment-success="onModernPaymentSuccess"
@@ -2405,7 +2405,7 @@
           </b-form-group>
         </b-col>
 
-        <b-col md="12">
+        <b-col md="12" v-if="customer_loyalty_enabled">
           <b-form-group>
             <div class="loyalty-eligible-row">
               <b-form-checkbox v-model="client.is_royalty_eligible" switch class="mb-0 loyalty-switch">
@@ -2563,7 +2563,7 @@
               </label>
             </div>
 
-            <label class="qac-loyalty" for="qac_is_royalty_eligible">
+            <label v-if="customer_loyalty_enabled" class="qac-loyalty" for="qac_is_royalty_eligible">
               <span class="qac-loyalty-icon"><lucide-icon name="star" /></span>
               <span class="qac-loyalty-text">
                 <span class="qac-loyalty-title">{{ $t('Is_Royalty_Eligible') }}</span>
@@ -2808,7 +2808,7 @@
                 </span>
               </label>
 
-              <label class="ps-toggle">
+              <label class="ps-toggle" v-if="customer_loyalty_enabled">
                 <div class="ps-toggle-info">
                   <div class="ps-toggle-label">{{$t('Enable_Customer_Points_in_POS')}}</div>
                   <div class="ps-toggle-help">{{$t('Enable_disable_customer_points_system_in_POS')}}</div>
@@ -4085,6 +4085,11 @@ export default {
       selectedClientCreditLimit: 0,
       selectedClientNetBalance: 0,
       point_to_amount_rate: 0,
+      // Per-company customer switches from the POS payload (Settings).
+      // Missing (older cached payload) = on.
+      customer_loyalty_enabled: true,
+      customer_credit_limit_enabled: true,
+      customer_opening_balance_enabled: true,
       zatcaRenderedPos: false,
       public_invoice_url: '',
       sale: {
@@ -5587,7 +5592,8 @@ export default {
 
       // Credit Limit Validation (0 means no limit)
       // Only applies when this sale is adding new credit (paid amount < sale total)
-      if (this.selectedClientId && this.selectedClientCreditLimit > 0) {
+      // and the company has credit limits switched on.
+      if (this.customer_credit_limit_enabled && this.selectedClientId && this.selectedClientCreditLimit > 0) {
         // Credit limits live in the base currency — convert the typed tender.
         const total = parseFloat(this.totalPaid) / (this.posRate || 1);
         const due = parseFloat(this.GrandTotal.toFixed(this.priceDecimals));
@@ -7037,18 +7043,24 @@ export default {
         this.client_name = client.name;
         this.selectedClientId = 1;
 
-        try {
-          const response = await axios.get(`/get_points_client/${this.selectedClientId}`);
-          const data = response.data;
+        // Loyalty off for the company -> don't fetch points at all.
+        if (!this.customer_loyalty_enabled) {
+          this.selectedClientPoints = 0;
+          this.clientIsEligible = false;
+        } else {
+          try {
+            const response = await axios.get(`/get_points_client/${this.selectedClientId}`);
+            const data = response.data;
 
-          if (data.is_royalty_eligible) {
-            this.selectedClientPoints = data.points;
-            this.clientIsEligible = true;
-          } else {
-            this.selectedClientPoints = 0;
-            this.clientIsEligible = false;
+            if (data.is_royalty_eligible) {
+              this.selectedClientPoints = data.points;
+              this.clientIsEligible = true;
+            } else {
+              this.selectedClientPoints = 0;
+              this.clientIsEligible = false;
+            }
+          } catch (error) {
           }
-        } catch (error) {
         }
       }
 
@@ -7343,7 +7355,8 @@ export default {
           // Customer & loyalty
           this.selectedClientId = data.client_id || (data.sale && data.sale.client_id) || this.selectedClientId;
           this.client_name = data.client_name || this.client_name;
-          this.clientIsEligible = data.default_client_eligible === true || data.default_client_eligible === 1;
+          this.applyCustomerFeatureFlags(data);
+          this.clientIsEligible = this.customer_loyalty_enabled && (data.default_client_eligible === true || data.default_client_eligible === 1);
           this.selectedClientPoints = this.clientIsEligible ? parseFloat(data.default_client_points || 0) : 0;
           if (typeof data.point_to_amount_rate !== 'undefined') {
             this.point_to_amount_rate = data.point_to_amount_rate;
@@ -8184,19 +8197,25 @@ export default {
         this.client_name = client.name;
         this.selectedClientId = selectedClientId;
 
-        try {
-          const response = await axios.get(`/get_points_client/${selectedClientId}`);
-          const data = response.data;
+        // Loyalty off for the company -> don't fetch points at all.
+        if (!this.customer_loyalty_enabled) {
+          this.selectedClientPoints = 0;
+          this.clientIsEligible = false;
+        } else {
+          try {
+            const response = await axios.get(`/get_points_client/${selectedClientId}`);
+            const data = response.data;
 
-          if (data.is_royalty_eligible) {
-            this.selectedClientPoints = data.points;
-            this.clientIsEligible = true;
-          } else {
-            this.selectedClientPoints = 0;
-            this.clientIsEligible = false;
+            if (data.is_royalty_eligible) {
+              this.selectedClientPoints = data.points;
+              this.clientIsEligible = true;
+            } else {
+              this.selectedClientPoints = 0;
+              this.clientIsEligible = false;
+            }
+          } catch (error) {
+            console.error('Error fetching client points:', error);
           }
-        } catch (error) {
-          console.error('Error fetching client points:', error);
         }
 
         // Fetch client credit limit and current balance
@@ -8251,7 +8270,27 @@ export default {
       this.CalculTotal();
     },
 
+    // Per-company customer switches (Settings) from a POS payload. A missing
+    // key (older backend / cached offline bootstrap) counts as ON.
+    applyCustomerFeatureFlags(payload) {
+      const on = (v) => !(v === false || v === 0 || v === '0');
+      const p = payload || {};
+      this.customer_loyalty_enabled = on(p.customer_loyalty_enabled);
+      this.customer_credit_limit_enabled = on(p.customer_credit_limit_enabled);
+      this.customer_opening_balance_enabled = on(p.customer_opening_balance_enabled);
+      if (!this.customer_loyalty_enabled) {
+        // Nothing loyalty-related may linger from a previous payload.
+        this.clientIsEligible = false;
+        this.selectedClientPoints = 0;
+        this.discount_from_points = 0;
+        this.used_points = 0;
+        this.points_to_convert = 0;
+        this.pointsConverted = false;
+      }
+    },
+
     async openPosRewards() {
+      if (!this.customer_loyalty_enabled) return; // loyalty off for the company
       if (!this.selectedClientId) {
         this.makeToast('warning', this.$t('Select_Customer'), this.$t('Warning'));
         return;
@@ -9987,7 +10026,8 @@ export default {
           this.sale.warehouse_id = response.data.defaultWarehouse;
           this.selectedClientId = response.data.defaultClient;
           this.client_name = response.data.default_client_name;
-          this.clientIsEligible = response.data.default_client_eligible === true || response.data.default_client_eligible === 1;
+          this.applyCustomerFeatureFlags(response.data);
+          this.clientIsEligible = this.customer_loyalty_enabled && (response.data.default_client_eligible === true || response.data.default_client_eligible === 1);
           this.selectedClientPoints = this.clientIsEligible ? parseFloat(response.data.default_client_points) : 0;
           this.point_to_amount_rate = response.data.point_to_amount_rate;
           
@@ -10146,7 +10186,9 @@ export default {
                 this.client_name = cached.default_client_name;
               }
 
-              this.clientIsEligible = cached.default_client_eligible === true || cached.default_client_eligible === 1;
+              // Older cached payloads lack the flags -> treated as on.
+              this.applyCustomerFeatureFlags(cached);
+              this.clientIsEligible = this.customer_loyalty_enabled && (cached.default_client_eligible === true || cached.default_client_eligible === 1);
               this.selectedClientPoints = this.clientIsEligible
                 ? parseFloat(cached.default_client_points || 0)
                 : 0;

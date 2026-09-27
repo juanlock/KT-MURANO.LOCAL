@@ -83,17 +83,19 @@
             </a-form-item>
           </a-col>
 
-          <a-col :xs="24" :md="8">
+          <!-- Per-company feature flags: a hidden field keeps its loaded/default
+               value in `form`, so the save payload is unchanged. -->
+          <a-col v-if="auth.customerOpeningBalanceEnabled" :xs="24" :md="8">
             <a-form-item :label="$t('Opening_Balance')" name="opening_balance">
               <a-input-number v-model:value="form.opening_balance" style="width: 100%" :min="0" placeholder="0.00" />
             </a-form-item>
           </a-col>
-          <a-col :xs="24" :md="8">
+          <a-col v-if="auth.customerCreditLimitEnabled" :xs="24" :md="8">
             <a-form-item :label="$t('Credit_Limit')" name="credit_limit">
               <a-input-number v-model:value="form.credit_limit" style="width: 100%" :min="0" placeholder="0.00" />
             </a-form-item>
           </a-col>
-          <a-col :xs="24" :md="8">
+          <a-col v-if="auth.customerLoyaltyEnabled" :xs="24" :md="8">
             <a-form-item :label="$t('Loyalty_Eligible')">
               <a-switch v-model:checked="form.is_royalty_eligible" />
             </a-form-item>
@@ -125,8 +127,10 @@ import UsCityPicker from '../../components/UsCityPicker.vue';
 import { useCountries } from '../../composables/useCountries';
 import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
+import { useAuthStore } from '../../stores/auth';
 
 const { t } = useI18n();
+const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 

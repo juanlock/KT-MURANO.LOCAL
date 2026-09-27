@@ -411,7 +411,7 @@ const routes = [
             { path: 'reports/expiry', name: 'expiry-report', component: ExpiryReport, meta: { title: 'Expiry Report', permission: 'expiry_report' } },
             { path: 'reports/discount-summary', name: 'discount-summary-report', component: DiscountSummaryReport, meta: { title: 'Discount Summary', permission: 'discount_summary_report' } },
             { path: 'reports/tax-summary', name: 'tax-summary-report', component: TaxSummaryReport, meta: { title: 'Tax Summary', permission: 'tax_summary_report' } },
-            { path: 'reports/loyalty-points', name: 'loyalty-points-report', component: LoyaltyPointsReport, meta: { title: 'Loyalty Points', permission: 'customer_loyalty_points_report' } },
+            { path: 'reports/loyalty-points', name: 'loyalty-points-report', component: LoyaltyPointsReport, meta: { title: 'Loyalty Points', permission: 'customer_loyalty_points_report', requiresSetting: 'customerLoyaltyEnabled' } },
             { path: 'reports/inactive-customers', name: 'inactive-customers-report', component: InactiveCustomersReport, meta: { title: 'Inactive Customers', permission: 'inactive_customers_report' } },
             { path: 'reports/draft-invoices', name: 'draft-invoices-report', component: DraftInvoicesReport, meta: { title: 'Draft Invoices', permission: 'draft_invoices_report' } },
             { path: 'reports/top-suppliers', name: 'top-suppliers-report', component: TopSuppliersReport, meta: { title: 'Top Suppliers', permission: 'Top_Suppliers_Report' } },
@@ -763,7 +763,7 @@ const routes = [
             { path: 'shipments', name: 'shipments', component: Shipments, meta: { title: 'Shipments', permission: 'shipment' } },
             { path: 'customers-without-login', name: 'customers-without-login', component: CustomersWithoutLogin, meta: { title: 'Customers without Login', permission: 'Customers_view' } },
             { path: 'customers-with-login', name: 'customers-with-login', component: CustomersWithLogin, meta: { title: 'Customers with Login', permission: 'Customers_view' } },
-            { path: 'loyalty/rewards', name: 'loyalty-rewards', component: LoyaltyRewards, meta: { title: 'Loyalty Rewards', permission: 'loyalty_rewards' } },
+            { path: 'loyalty/rewards', name: 'loyalty-rewards', component: LoyaltyRewards, meta: { title: 'Loyalty Rewards', permission: 'loyalty_rewards', requiresSetting: 'customerLoyaltyEnabled' } },
             { path: 'real-time-sales-counter', name: 'real-time-sales-counter', component: RealTimeSalesCounter, meta: { title: 'Real-time Sales Counter', permission: 'real_time_sales_counter' } },
             { path: 'customer-display/setup', name: 'customer-display-setup', component: CustomerDisplaySetup, meta: { title: 'Customer Screen', permission: 'customer_display_screen_setup' } },
             { path: 'products/vehicle-fitment', name: 'vehicle-fitment', component: VehicleCatalog, meta: { title: 'Vehicle Fitment', permission: 'products_view' } },
@@ -862,6 +862,12 @@ router.beforeEach(async to => {
     // unreachable even by direct URL, mirroring the sidebar filter.
     const moduleKey = moduleKeyForPath(to.path);
     if (moduleKey && !auth.moduleEnabled(moduleKey)) {
+        return { name: 'not-found' };
+    }
+    // Pages tied to a per-company setting (meta.requiresSetting names an
+    // auth-store boolean getter, e.g. customerLoyaltyEnabled) -- same
+    // treatment as a disabled module, mirroring the sidebar filter.
+    if (to.meta.requiresSetting && auth[to.meta.requiresSetting] === false) {
         return { name: 'not-found' };
     }
     return true;

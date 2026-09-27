@@ -58,8 +58,11 @@ export const useMenuStore = defineStore('menu', {
             // Shopify, Salla…) live nested under the Ecommerce Platforms /
             // Integrations sections but keep a `key` matching config/modules.js.
             // Entries without a key are never toggleable and always pass.
+            // `requiresSetting` names an auth-store boolean getter (e.g.
+            // customerLoyaltyEnabled) -- the entry is dropped while it's off.
             const dropDisabled = entries => entries
                 .filter(entry => auth.moduleEnabled(entry.key))
+                .filter(entry => !entry.requiresSetting || auth[entry.requiresSetting] !== false)
                 .map(entry => (entry.children
                     ? { ...entry, children: dropDisabled(entry.children) }
                     : entry));

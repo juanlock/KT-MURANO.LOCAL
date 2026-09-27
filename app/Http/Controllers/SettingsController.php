@@ -70,6 +70,11 @@ class SettingsController extends Controller
         } else {
             $client = null;
         }
+        // Company boundary: the default customer must be one of this
+        // company's own customers -- otherwise keep (or create) its own.
+        if ($client && ! Client::where('id', $client)->where('company_id', $companyId)->whereNull('deleted_at')->exists()) {
+            $client = $this->ensureDefaultClient((int) $companyId, $setting);
+        }
 
         if ($request['warehouse'] != 'null') {
             $warehouse = $request['warehouse'];
@@ -295,6 +300,17 @@ class SettingsController extends Controller
             'sale_shipping_enabled' => $request->has('sale_shipping_enabled')
                 ? (($request['sale_shipping_enabled'] == '1' || $request['sale_shipping_enabled'] == 'true' || $request['sale_shipping_enabled'] === 1 || $request['sale_shipping_enabled'] === true) ? 1 : 0)
                 : (int) ($setting->sale_shipping_enabled ?? 1),
+            // Default -- Customers: optional customer features; off hides all
+            // UI tied to them (form fields, columns, stats, POS/sale widgets)
+            'customer_loyalty_enabled' => $request->has('customer_loyalty_enabled')
+                ? (($request['customer_loyalty_enabled'] == '1' || $request['customer_loyalty_enabled'] == 'true' || $request['customer_loyalty_enabled'] === 1 || $request['customer_loyalty_enabled'] === true) ? 1 : 0)
+                : (int) ($setting->customer_loyalty_enabled ?? 1),
+            'customer_credit_limit_enabled' => $request->has('customer_credit_limit_enabled')
+                ? (($request['customer_credit_limit_enabled'] == '1' || $request['customer_credit_limit_enabled'] == 'true' || $request['customer_credit_limit_enabled'] === 1 || $request['customer_credit_limit_enabled'] === true) ? 1 : 0)
+                : (int) ($setting->customer_credit_limit_enabled ?? 1),
+            'customer_opening_balance_enabled' => $request->has('customer_opening_balance_enabled')
+                ? (($request['customer_opening_balance_enabled'] == '1' || $request['customer_opening_balance_enabled'] == 'true' || $request['customer_opening_balance_enabled'] === 1 || $request['customer_opening_balance_enabled'] === true) ? 1 : 0)
+                : (int) ($setting->customer_opening_balance_enabled ?? 1),
             // Invoice PDF -- section show/hide toggles (all default on)
             'sale_pdf_show_disc_column' => $request->has('sale_pdf_show_disc_column')
                 ? (($request['sale_pdf_show_disc_column'] == '1' || $request['sale_pdf_show_disc_column'] == 'true' || $request['sale_pdf_show_disc_column'] === 1 || $request['sale_pdf_show_disc_column'] === true) ? 1 : 0)
@@ -852,11 +868,47 @@ class SettingsController extends Controller
 
     // -------------- Get All Settings ---------------\\
 
+    /**
+     * Make sure a company has a valid Default Customer: its settings.client_id
+     * must point at one of THIS company's own live customers. If it's empty,
+     * deleted, or belongs to another company (e.g. a Setting row cloned from
+     * the template still pointing at company 1's walk-in customer), reuse the
+     * company's own "Walk-in Customer" or create it, and save it as the
+     * default. Returns the resulting client id (null for the template row).
+     */
+    private function ensureDefaultClient(int $companyId, $settings): ?int
+    {
+        if (! $settings || $companyId === Setting::TEMPLATE_COMPANY_ID) {
+            return $settings->client_id ?? null;
+        }
+
+        $valid = $settings->client_id && Client::where('id', $settings->client_id)
+            ->where('company_id', $companyId)->whereNull('deleted_at')->exists();
+        if ($valid) {
+            return (int) $settings->client_id;
+        }
+
+        $client = Client::where('company_id', $companyId)->whereNull('deleted_at')
+            ->whereIn('name', ['Walk-in Customer', 'walk-in-customer'])->first();
+        if (! $client) {
+            $client = Client::create([
+                'company_id' => $companyId,
+                'name' => 'Walk-in Customer',
+                'code' => ((int) \Illuminate\Support\Facades\DB::table('clients')->max('code')) + 1,
+            ]);
+        }
+
+        $settings->update(['client_id' => $client->id]);
+
+        return (int) $client->id;
+    }
+
     public function get_Settings_data_api(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Setting::class);
 
-        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
+        $companyId = $this->resolveActingCompanyId($request);
+        $settings = Setting::forCompany($companyId);
         if ($settings) {
             if ($settings->currency_id) {
                 if (Currency::where('id', $settings->currency_id)->where('deleted_at', '=', null)->first()) {
@@ -868,15 +920,7 @@ class SettingsController extends Controller
                 $item['currency_id'] = '';
             }
 
-            if ($settings->client_id) {
-                if (Client::where('id', $settings->client_id)->where('deleted_at', '=', null)->first()) {
-                    $item['client_id'] = $settings->client_id;
-                } else {
-                    $item['client_id'] = '';
-                }
-            } else {
-                $item['client_id'] = '';
-            }
+            $item['client_id'] = $this->ensureDefaultClient((int) $companyId, $settings) ?? '';
 
             if ($settings->warehouse_id) {
                 if (Warehouse::where('id', $settings->warehouse_id)->where('deleted_at', '=', null)->first()) {
@@ -934,6 +978,9 @@ class SettingsController extends Controller
             $item['sale_show_price_type_dropdown'] = (bool) ($settings->sale_show_price_type_dropdown ?? true);
             $item['sale_default_quantity'] = (int) ($settings->sale_default_quantity ?: 1);
             $item['sale_loyalty_points_enabled'] = (bool) ($settings->sale_loyalty_points_enabled ?? true);
+            $item['customer_loyalty_enabled'] = (bool) ($settings->customer_loyalty_enabled ?? true);
+            $item['customer_credit_limit_enabled'] = (bool) ($settings->customer_credit_limit_enabled ?? true);
+            $item['customer_opening_balance_enabled'] = (bool) ($settings->customer_opening_balance_enabled ?? true);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
@@ -1072,7 +1119,9 @@ class SettingsController extends Controller
             }
 
             $Currencies = Currency::where('deleted_at', null)->get(['id', 'name', 'code', 'symbol']);
-            $clients = client::where('deleted_at', '=', null)->get(['id', 'name']);
+            // Company boundary: only this company's customers are offerable
+            // as its Default Customer.
+            $clients = client::where('deleted_at', '=', null)->where('company_id', $companyId)->orderBy('name')->get(['id', 'name']);
             $sms_gateway = sms_gateway::where('deleted_at', '=', null)->get(['id', 'title']);
 
             // get warehouses assigned to user
@@ -1645,7 +1694,8 @@ class SettingsController extends Controller
     public function getSettings(Request $request)
     {
 
-        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
+        $companyId = $this->resolveActingCompanyId($request);
+        $settings = Setting::forCompany($companyId);
         if ($settings) {
             if ($settings->currency_id) {
                 if (Currency::where('id', $settings->currency_id)->where('deleted_at', '=', null)->first()) {
@@ -1657,15 +1707,7 @@ class SettingsController extends Controller
                 $item['currency_id'] = '';
             }
 
-            if ($settings->client_id) {
-                if (Client::where('id', $settings->client_id)->where('deleted_at', '=', null)->first()) {
-                    $item['client_id'] = $settings->client_id;
-                } else {
-                    $item['client_id'] = '';
-                }
-            } else {
-                $item['client_id'] = '';
-            }
+            $item['client_id'] = $this->ensureDefaultClient((int) $companyId, $settings) ?? '';
 
             if ($settings->warehouse_id) {
                 if (Warehouse::where('id', $settings->warehouse_id)->where('deleted_at', '=', null)->first()) {
@@ -1723,6 +1765,9 @@ class SettingsController extends Controller
             $item['sale_show_price_type_dropdown'] = (bool) ($settings->sale_show_price_type_dropdown ?? true);
             $item['sale_default_quantity'] = (int) ($settings->sale_default_quantity ?: 1);
             $item['sale_loyalty_points_enabled'] = (bool) ($settings->sale_loyalty_points_enabled ?? true);
+            $item['customer_loyalty_enabled'] = (bool) ($settings->customer_loyalty_enabled ?? true);
+            $item['customer_credit_limit_enabled'] = (bool) ($settings->customer_credit_limit_enabled ?? true);
+            $item['customer_opening_balance_enabled'] = (bool) ($settings->customer_opening_balance_enabled ?? true);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
@@ -1861,7 +1906,9 @@ class SettingsController extends Controller
             }
 
             $Currencies = Currency::where('deleted_at', null)->get(['id', 'name', 'code', 'symbol']);
-            $clients = client::where('deleted_at', '=', null)->get(['id', 'name']);
+            // Company boundary: only this company's customers are offerable
+            // as its Default Customer.
+            $clients = client::where('deleted_at', '=', null)->where('company_id', $companyId)->orderBy('name')->get(['id', 'name']);
             $sms_gateway = sms_gateway::where('deleted_at', '=', null)->get(['id', 'title']);
 
             // get warehouses assigned to user

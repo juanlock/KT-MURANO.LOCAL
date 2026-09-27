@@ -120,6 +120,11 @@ const offlinePos = {
       default_client_eligible: data.default_client_eligible,
       default_client_points: data.default_client_points,
       point_to_amount_rate: data.point_to_amount_rate,
+      // Defaults -> Customers feature switches; missing = on (see
+      // PosPage applyCustomerFeatureFlags), so keep them across offline reloads.
+      customer_loyalty_enabled: data.customer_loyalty_enabled,
+      customer_credit_limit_enabled: data.customer_credit_limit_enabled,
+      customer_opening_balance_enabled: data.customer_opening_balance_enabled,
       default_tax: data.default_tax,
       products_per_page: data.products_per_page,
       languages_available: data.languages_available || [],

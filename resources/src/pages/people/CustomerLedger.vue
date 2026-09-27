@@ -141,10 +141,12 @@ import {
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { useFormat } from '../../composables/useFormat';
+import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
 
 const { t } = useI18n();
 const { money } = useFormat();
+const auth = useAuthStore();
 const route = useRoute();
 const id = route.params.id;
 
@@ -182,20 +184,28 @@ const kpis = computed(() => {
   const n = k => Number(c[k]) || 0;
   const sign = v => (v > 0 ? RED : GREEN);
   const tile = (label, text, color, extra = {}) => ({ label, text, icon: extra.icon, color: color[0], tint: color[1], style: extra.style });
+  // Opening balance / credit limit / loyalty tiles follow the per-company
+  // feature flags (Total_Due still includes the opening balance -- display only).
   const tiles = [
     tile('Sales_Grand', money(n('salesGrand')), C.blue, { icon: ShoppingOutlined }),
     tile('Sales_Paid', money(n('salesPaid')), C.green, { icon: CheckCircleOutlined }),
-    tile('Opening_Balance', money(n('opening_balance')), C.purple, { icon: CalculatorOutlined, style: sign(n('opening_balance')) }),
+    ...(auth.customerOpeningBalanceEnabled
+      ? [tile('Opening_Balance', money(n('opening_balance')), C.purple, { icon: CalculatorOutlined, style: sign(n('opening_balance')) })]
+      : []),
     tile('Sales_Due', money(n('sale_due')), C.red, { icon: ExclamationCircleOutlined, style: sign(n('sale_due')) }),
     tile('Total_Due', money(n('netBalance')), C.indigo, { icon: WalletOutlined, style: sign(n('netBalance')) }),
     tile('Returns_Due', money(n('return_due')), C.amber, { icon: RollbackOutlined, style: { color: '#faad14' } }),
     tile('Payments_Total', money(n('paymentsTotal')), C.teal, { icon: DollarOutlined }),
-    tile('Credit_Limit', n('credit_limit') > 0 ? money(n('credit_limit')) : t('No_limit'), C.blue, { icon: CreditCardOutlined, style: { color: '#1677ff' } }),
+    ...(auth.customerCreditLimitEnabled
+      ? [tile('Credit_Limit', n('credit_limit') > 0 ? money(n('credit_limit')) : t('No_limit'), C.blue, { icon: CreditCardOutlined, style: { color: '#1677ff' } })]
+      : []),
   ];
   if (c.wallet_enabled) {
     tiles.push(tile('WalletBalance', money(n('wallet_balance')), C.green, { icon: PayCircleOutlined, style: { color: n('wallet_balance') < 0 ? '#ff4d4f' : '#52c41a' } }));
   }
-  tiles.push(tile('Loyalty_Points', String(n('points')), C.amber, { icon: StarOutlined, style: { color: '#faad14' } }));
+  if (auth.customerLoyaltyEnabled) {
+    tiles.push(tile('Loyalty_Points', String(n('points')), C.amber, { icon: StarOutlined, style: { color: '#faad14' } }));
+  }
   return tiles;
 });
 

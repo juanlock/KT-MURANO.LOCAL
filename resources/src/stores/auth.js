@@ -72,6 +72,11 @@ export const useAuthStore = defineStore('auth', {
         // Admin module toggles (System Settings → Modules). Null map or a
         // missing key = module enabled, so fresh installs show everything.
         moduleEnabled: s => key => isModuleEnabled(s.user && s.user.module_flags, key),
+        // System Settings → Defaults → Customers. Missing flag = on, so older
+        // cached payloads keep showing everything.
+        customerLoyaltyEnabled: s => !s.user || s.user.customer_loyalty_enabled !== false,
+        customerCreditLimitEnabled: s => !s.user || s.user.customer_credit_limit_enabled !== false,
+        customerOpeningBalanceEnabled: s => !s.user || s.user.customer_opening_balance_enabled !== false,
         // Global export defaults (System Settings → Export). Missing keys keep
         // the historical behavior: full data, totals on, landscape, plain names.
         exportSettings: s => ({

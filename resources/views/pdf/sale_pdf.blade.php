@@ -414,28 +414,49 @@
     </table>
 
     <!-- Company Note / Terms & Conditions -->
-    @if(($showCompanyNote && !empty($setting['sale_pdf_company_note'])) || ($showTermsConditions && !empty($setting['sale_pdf_terms_conditions'])))
-    <div style="margin-top: 10px; margin-bottom: 10px;">
-        @if($showCompanyNote && !empty($setting['sale_pdf_company_note']))
-        <div style="padding: 8px 10px; background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }}; border: 1px solid #e5e7eb; border-radius: 3px; margin-bottom: 8px; text-align: {{ $isRtl ? 'right' : 'left' }};">
-            <div style="font-size: 8pt; font-weight: 600; color: {{ $pdfT['text_color'] }}; margin-bottom: 3px;">{{ __('pdf.company_note') }}</div>
-            <p style="font-size: 7.5pt; color: #6b7280; line-height: 1.5; margin: 0; white-space: pre-wrap; word-wrap: break-word;">{{$setting['sale_pdf_company_note']}}</p>
-        </div>
-        @endif
-        @if($showTermsConditions && !empty($setting['sale_pdf_terms_conditions']))
-        <div style="padding: 8px 10px; background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }}; border: 1px solid #e5e7eb; border-radius: 3px; text-align: {{ $isRtl ? 'right' : 'left' }};">
-            <div style="font-size: 8pt; font-weight: 600; color: {{ $pdfT['text_color'] }}; margin-bottom: 3px;">{{ __('pdf.terms_conditions') }}</div>
-            @php
-                $termsText = str_replace(
-                    ['{{COMPANY NAME}}', '{{ADDRESS COMPANY}}'],
-                    [$setting['CompanyName'] ?? '', $setting['CompanyAdress'] ?? ''],
-                    $setting['sale_pdf_terms_conditions']
-                );
-            @endphp
-            <p style="font-size: 7.5pt; color: #6b7280; line-height: 1.5; margin: 0; white-space: pre-wrap; word-wrap: break-word;">{{$termsText}}</p>
-        </div>
-        @endif
-    </div>
+    @php
+        // Join stored lines into one paragraph (not one row per line), adding
+        // a period where a line has no ending punctuation so "...to: ACME" +
+        // "Mailing address..." still reads.
+        $toParagraph = function ($text) {
+            $lines = array_values(array_filter(array_map('trim', preg_split('/\R/', (string) $text)), 'strlen'));
+            $out = '';
+            foreach ($lines as $i => $line) {
+                if ($i > 0) {
+                    $out .= preg_match('/[.,;:!?]$/', $out) ? ' ' : '. ';
+                }
+                $out .= $line;
+            }
+            return $out;
+        };
+        $noteText = ($showCompanyNote && !empty($setting['sale_pdf_company_note']))
+            ? $toParagraph($setting['sale_pdf_company_note']) : '';
+        $termsText = ($showTermsConditions && !empty($setting['sale_pdf_terms_conditions']))
+            ? $toParagraph(str_replace(
+                ['{{COMPANY NAME}}', '{{ADDRESS COMPANY}}'],
+                [$setting['CompanyName'] ?? '', $setting['CompanyAdress'] ?? ''],
+                $setting['sale_pdf_terms_conditions']
+            )) : '';
+        $noteBoxes = array_filter([
+            __('pdf.company_note') => $noteText,
+            __('pdf.terms_conditions') => $termsText,
+        ], 'strlen');
+    @endphp
+    @if(count($noteBoxes))
+    {{-- Company Note and Terms & Conditions share one row, side by side
+         (a table rather than flex -- dompdf doesn't support flexbox). --}}
+    <table style="width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; margin-bottom: 10px;">
+        <tr>
+            @foreach($noteBoxes as $boxTitle => $boxText)
+            <td style="width: {{ 100 / count($noteBoxes) }}%; vertical-align: top; padding: 0 {{ $loop->last ? '0' : '4px' }} 0 {{ $loop->first ? '0' : '4px' }};">
+                <div style="padding: 8px 10px; background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }}; border: 1px solid #e5e7eb; border-radius: 3px; text-align: {{ $isRtl ? 'right' : 'left' }};">
+                    <div style="font-size: 8pt; font-weight: 600; color: {{ $pdfT['text_color'] }}; margin-bottom: 3px;">{{ $boxTitle }}</div>
+                    <p style="font-size: 7.5pt; color: #6b7280; line-height: 1.5; margin: 0; word-wrap: break-word;">{{ $boxText }}</p>
+                </div>
+            </td>
+            @endforeach
+        </tr>
+    </table>
     @endif
 
     <!-- Notes Section -->

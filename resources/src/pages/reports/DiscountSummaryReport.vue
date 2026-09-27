@@ -51,8 +51,10 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import DateRangePicker from '../../components/DateRangePicker.vue';
 import ViewCurrencySelect from '../../components/ViewCurrencySelect.vue';
+import { useAuthStore } from '../../stores/auth';
 
 const { t } = useI18n();
+const auth = useAuthStore();
 const { money, dateTime } = useFormat();
 
 const MONEY_KEYS = ['line_discount', 'header_manual_discount', 'header_points_discount', 'total_discount'];
@@ -84,7 +86,10 @@ const columns = computed(() => [
   { title: t('User'), dataIndex: 'user_name', key: 'user_name' },
   { title: t('Line_Discount'), key: 'line_discount', dataIndex: 'line_discount', align: 'right', sum: 'money', exportValue: r => money(r.line_discount) },
   { title: t('Header_Discount'), key: 'header_manual_discount', dataIndex: 'header_manual_discount', align: 'right', sum: 'money', exportValue: r => money(r.header_manual_discount) },
-  { title: t('Discount_from_Points'), key: 'header_points_discount', dataIndex: 'header_points_discount', align: 'right', sum: 'money', exportValue: r => money(r.header_points_discount) },
+  // Loyalty off (System Settings → Defaults → Customers) → no points column.
+  ...(auth.customerLoyaltyEnabled
+    ? [{ title: t('Discount_from_Points'), key: 'header_points_discount', dataIndex: 'header_points_discount', align: 'right', sum: 'money', exportValue: r => money(r.header_points_discount) }]
+    : []),
   { title: t('Total_Discount'), key: 'total_discount', dataIndex: 'total_discount', align: 'right', sum: 'money', exportValue: r => money(r.total_discount) },
 ]);
 

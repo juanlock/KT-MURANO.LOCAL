@@ -376,7 +376,7 @@
                     <a-form-item :label="$t('DefaultCustomer')">
                       <a-select
                         v-model:value="setting.client_id" show-search option-filter-prop="label"
-                        :options="clients.map(c => ({ label: c.name, value: c.id }))"
+                        :options="sortByLabel(clients.map(c => ({ label: c.name, value: c.id })))"
                       />
                     </a-form-item>
                   </a-col>
@@ -409,7 +409,7 @@
                       <a-input-number v-model:value="setting.default_tax" :min="0" :max="100" :step="0.001" :precision="3" style="width: 100%" addon-after="%" />
                     </a-form-item>
                   </a-col>
-                  <a-col :xs="24" :md="8">
+                  <a-col v-if="asBool(setting.customer_loyalty_enabled ?? true)" :xs="24" :md="8">
                     <a-form-item :label="'Point to amount rate'">
                       <a-input-number v-model:value="setting.point_to_amount_rate" :min="0" :step="0.01" style="width: 100%" />
                     </a-form-item>
@@ -456,7 +456,7 @@
                 </div>
                 <a-switch :checked="asBool(setting.sale_show_price_type_dropdown)" @change="v => (setting.sale_show_price_type_dropdown = v ? 1 : 0)" />
               </div>
-              <div class="setting-row">
+              <div v-if="asBool(setting.customer_loyalty_enabled ?? true)" class="setting-row">
                 <div>
                   <div class="setting-label">Loyalty Points</div>
                   <div class="setting-help">Show the Loyalty Points widget and its dropdowns/options on the Sales Create/Edit form.</div>
@@ -469,6 +469,33 @@
                   <div class="setting-help">Show the Shipping field and its dropdowns/options on the Sales Create/Edit form. Turn off for service-only companies that don't ship products.</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_shipping_enabled)" @change="v => (setting.sale_shipping_enabled = v ? 1 : 0)" />
+              </div>
+            </a-card>
+
+            <!-- Default - Customers: optional customer features. Off hides
+                 every UI tied to the feature, company-wide (customer form,
+                 list columns, stats, POS/sale widgets). -->
+            <a-card size="small" title="Default — Customers" style="margin-bottom: 16px">
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Loyalty_Eligible') }}</div>
+                  <div class="setting-help">Customer loyalty points: the Loyalty Eligible switch, points balance, points adjustment, points redemption on Sales/POS, and the loyalty menus/reports. Off hides all of them.</div>
+                </div>
+                <a-switch :checked="asBool(setting.customer_loyalty_enabled)" @change="v => (setting.customer_loyalty_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Credit_Limit') }}</div>
+                  <div class="setting-help">Customer credit limit: the field, list column/stat, and the credit-limit check on Sales/POS. Off hides all of them and no limit is enforced.</div>
+                </div>
+                <a-switch :checked="asBool(setting.customer_credit_limit_enabled)" @change="v => (setting.customer_credit_limit_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Opening_Balance') }}</div>
+                  <div class="setting-help">Customer opening balance: the field, list column, Adjust Opening Balance action, and its stats/tiles. Off hides all of them (balances already recorded still count in totals due).</div>
+                </div>
+                <a-switch :checked="asBool(setting.customer_opening_balance_enabled)" @change="v => (setting.customer_opening_balance_enabled = v ? 1 : 0)" />
               </div>
             </a-card>
 
@@ -1050,6 +1077,7 @@ import { useAuthStore } from '../../stores/auth';
 import { useDatatableStore } from '../../stores/datatable';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t, locale } = useI18n();
 const ui = useUiStore();
@@ -1325,6 +1353,9 @@ async function save() {
   fd.append('sale_default_quantity', Math.max(1, Number(s.sale_default_quantity) || 1));
   fd.append('sale_loyalty_points_enabled', asBool(s.sale_loyalty_points_enabled) ? 1 : 0);
   fd.append('sale_shipping_enabled', asBool(s.sale_shipping_enabled) ? 1 : 0);
+  fd.append('customer_loyalty_enabled', asBool(s.customer_loyalty_enabled) ? 1 : 0);
+  fd.append('customer_credit_limit_enabled', asBool(s.customer_credit_limit_enabled) ? 1 : 0);
+  fd.append('customer_opening_balance_enabled', asBool(s.customer_opening_balance_enabled) ? 1 : 0);
   fd.append('sale_pdf_show_disc_column', asBool(s.sale_pdf_show_disc_column) ? 1 : 0);
   fd.append('sale_pdf_show_tax_column', asBool(s.sale_pdf_show_tax_column) ? 1 : 0);
   fd.append('sale_pdf_show_shipping_row', asBool(s.sale_pdf_show_shipping_row) ? 1 : 0);

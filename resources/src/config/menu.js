@@ -869,7 +869,10 @@ export const MENU = [
             { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true },
             { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'] },
             { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true },
-            { label: 'Loyalty_Rewards', to: '/app/loyalty/rewards', permissions: ['loyalty_rewards'] },
+            // requiresSetting: hidden while the named auth-store flag is off
+            // (System Settings → Defaults → Customers → Loyalty Eligible);
+            // honored by the menu store alongside the module filter.
+            { label: 'Loyalty_Rewards', to: '/app/loyalty/rewards', permissions: ['loyalty_rewards'], requiresSetting: 'customerLoyaltyEnabled' },
         ],
     },
     {
@@ -941,7 +944,7 @@ export const MENU = [
             { label: 'Stock_Transfer_Report', to: '/app/reports/stock_transfer_report', permissions: ['Stock_Transfer_Report'] },
             { label: 'Stock_Adjustment_Report', to: '/app/reports/stock_adjustment_report', permissions: ['Stock_Adjustment_Report'] },
             { label: 'Discount_Summary_Report', to: '/app/reports/discount_summary_report', permissions: ['discount_summary_report'] },
-            { label: 'Customer_Loyalty_Points_Report', to: '/app/reports/customer_loyalty_points_report', permissions: ['customer_loyalty_points_report'] },
+            { label: 'Customer_Loyalty_Points_Report', to: '/app/reports/customer_loyalty_points_report', permissions: ['customer_loyalty_points_report'], requiresSetting: 'customerLoyaltyEnabled' },
             { label: 'Tax_Summary_Report', to: '/app/reports/tax_summary_report', permissions: ['tax_summary_report'] },
             { label: 'Draft_Invoices_Report', to: '/app/reports/draft_invoices_report', permissions: ['draft_invoices_report'] },
             { label: 'Return_Ratio_Report', to: '/app/reports/return_ratio_report', permissions: ['return_ratio_report'] },

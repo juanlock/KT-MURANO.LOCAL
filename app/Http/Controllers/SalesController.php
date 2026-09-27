@@ -661,8 +661,11 @@ class SalesController extends BaseController
             $used_points = $request->used_points ?? 0;
             $discount_from_points = $request->discount_from_points ?? 0;
             $earned_points = 0;
+            // Company switched loyalty off (Settings -> customer_loyalty_enabled):
+            // no points are earned or redeemed, whatever the request carries.
+            $loyaltyOn = optional(Setting::forCompany($this->resolveActingCompanyId($request)))->customer_loyalty_enabled ?? true;
 
-            if ($client && ($client->is_royalty_eligible == 1 || $client->is_royalty_eligible || $client->is_royalty_eligible === 1)) {
+            if ($loyaltyOn && $client && ($client->is_royalty_eligible == 1 || $client->is_royalty_eligible || $client->is_royalty_eligible === 1)) {
 
                 // Deduct used points if valid
                 if ($used_points > 0 && $client->points >= $used_points) {

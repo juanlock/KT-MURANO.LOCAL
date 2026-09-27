@@ -68,7 +68,7 @@
           </div>
         </a-card>
       </a-col>
-      <a-col :xs="12" :sm="12" :md="6">
+      <a-col v-if="auth.customerCreditLimitEnabled" :xs="12" :sm="12" :md="6">
         <a-card size="small" class="stat-card">
           <div class="stat-inner">
             <div class="stat-icon" style="background: rgba(22, 119, 255, 0.12); color: #1677ff"><CreditCardOutlined /></div>
@@ -133,10 +133,10 @@
                 <a-menu-item key="details">
                   <EyeOutlined /> {{ $t('Customer_details') }}
                 </a-menu-item>
-                <a-menu-item key="points">
+                <a-menu-item v-if="auth.customerLoyaltyEnabled" key="points">
                   <StarOutlined /> {{ $t('Adjust_Customer_Points') }}
                 </a-menu-item>
-                <a-menu-item key="opening-balance">
+                <a-menu-item v-if="auth.customerOpeningBalanceEnabled" key="opening-balance">
                   <CalculatorOutlined /> {{ $t('Adjust_Opening_Balance') }}
                 </a-menu-item>
                 <a-menu-item key="portal">
@@ -202,6 +202,7 @@
 
     <!-- Adjust customer points -->
     <a-modal
+      v-if="auth.customerLoyaltyEnabled"
       v-model:open="pointsOpen"
       :title="$t('Adjust_Customer_Points')"
       :confirm-loading="pointsSaving"
@@ -221,6 +222,7 @@
 
     <!-- Adjust opening balance -->
     <a-modal
+      v-if="auth.customerOpeningBalanceEnabled"
       v-model:open="obOpen"
       :title="$t('Adjust_Opening_Balance')"
       :confirm-loading="obSaving"
@@ -379,8 +381,13 @@ const columns = computed(() => [
   { title: t('CustomerName'), dataIndex: 'name', key: 'name', sorter: true },
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
   { title: t('Email'), dataIndex: 'email', key: 'email' },
-  { title: t('Credit_Limit'), key: 'credit_limit', dataIndex: 'credit_limit', align: 'right', exportValue: r => money(r.credit_limit) },
-  { title: t('Opening_Balance'), key: 'opening_balance', dataIndex: 'opening_balance', align: 'right', exportValue: r => money(r.opening_balance) },
+  // Columns also drive the exports, so a disabled feature drops out of both.
+  ...(auth.customerCreditLimitEnabled
+    ? [{ title: t('Credit_Limit'), key: 'credit_limit', dataIndex: 'credit_limit', align: 'right', exportValue: r => money(r.credit_limit) }]
+    : []),
+  ...(auth.customerOpeningBalanceEnabled
+    ? [{ title: t('Opening_Balance'), key: 'opening_balance', dataIndex: 'opening_balance', align: 'right', exportValue: r => money(r.opening_balance) }]
+    : []),
   { title: t('Total_Sales'), key: 'total_amount', dataIndex: 'total_amount', align: 'right', exportValue: r => money(r.total_amount) },
   { title: t('Due'), key: 'due', dataIndex: 'due', sorter: true, align: 'right', exportValue: r => money(r.due) },
   { title: t('Service_Due'), key: 'service_due', dataIndex: 'service_due', align: 'right', exportValue: r => money(r.service_due) },

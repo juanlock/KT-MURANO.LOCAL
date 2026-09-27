@@ -14,7 +14,9 @@ context when invoked.
 
 Also available as a slash command (`.claude/commands/preparate.md`), so it's
 usable the same way on every machine this repo is checked out on: it reloads
-this file's rules, then closes out by generating and opening a small HTML
+this file's rules, reads the `kt_logs` table (the history of every
+request/order made to modify this project) so prior work and decisions are
+known before anything is changed, then closes out by generating and opening a small HTML
 status report (`database/scripts/protocol_preparate_report.php`, written to
 `.claude/report/kt_murano_preparate_report.html` -- inside the repo, not a
 temp dir; gitignored, regenerated every run) showing the **last 2** `kt_logs`

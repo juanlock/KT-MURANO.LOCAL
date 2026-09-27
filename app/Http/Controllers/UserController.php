@@ -158,6 +158,11 @@ class UserController extends BaseController
             'price_decimals' => (bool) ($settings->enable_3_decimal_pricing ?? false) ? 3 : 2,
             'dark_mode' => (bool) ($settings->dark_mode ?? false),
             'enable_kitchen_display' => (bool) ($settings->enable_kitchen_display ?? false),
+            // System Settings -> Defaults -> Customers: optional customer
+            // features; the SPA hides all UI tied to one when it's off.
+            'customer_loyalty_enabled' => (bool) ($settings->customer_loyalty_enabled ?? true),
+            'customer_credit_limit_enabled' => (bool) ($settings->customer_credit_limit_enabled ?? true),
+            'customer_opening_balance_enabled' => (bool) ($settings->customer_opening_balance_enabled ?? true),
             'timezone' => $this->getEnvValue('APP_TIMEZONE', 'UTC'),
             // Admin-defined sidebar arrangement (null = default menu.js order) â€”
             // applied by the SPA for every user at boot.
