@@ -138,6 +138,104 @@ class SettingsApiController extends Controller
     }
 
     /**
+     * Store -> Menus: the imported front page's own navigation menu
+     * (App\Services\FrontPageMenu), for the acting company.
+     *  GET  /admin/store/site-menu          -> {available, detected, items, pages}
+     *  PUT  /admin/store/site-menu {items}  -> rebuilds the menu in every page
+     *  POST /admin/store/site-menu/detect   -> re-read it from the site
+     */
+    public function siteMenu(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
+        $companyId = (int) $this->resolveActingCompanyId($request);
+        $path = fn (string $route, array $p = []) => parse_url(route($route, $p), PHP_URL_PATH) ?: '/';
+
+        // Link targets the editor can pick: the online store + this company's pages.
+        $links = [
+            ['label' => 'Store: Shop', 'href' => $path('store.shop')],
+            ['label' => 'Store: Cart', 'href' => $path('checkout')],
+            ['label' => 'Store: My Account', 'href' => $path('account')],
+            ['label' => 'Store: Contact', 'href' => $path('store.contact')],
+        ];
+        foreach (\App\Models\StorePage::where('company_id', $companyId)->where('published', true)->orderBy('title')->get(['title', 'slug']) as $p) {
+            $links[] = ['label' => 'Page: '.$p->title, 'href' => $path('store.page', ['slug' => $p->slug])];
+        }
+
+        return response()->json(\App\Services\FrontPageMenu::get($companyId) + ['links' => $links]);
+    }
+
+    public function updateSiteMenu(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
+        $request->validate([
+            'items' => 'present|array|max:40',
+            'items.*.id' => 'nullable|string|max:40',
+            'items.*.children.*.id' => 'nullable|string|max:40',
+            'items.*.label' => 'required|string|max:80',
+            'items.*.href' => 'nullable|string|max:500',
+            'items.*.children' => 'nullable|array|max:40',
+            'items.*.children.*.label' => 'required|string|max:80',
+            'items.*.children.*.href' => 'nullable|string|max:500',
+        ]);
+        $companyId = (int) $this->resolveActingCompanyId($request);
+        abort_unless(\App\Services\FrontPageMenu::get($companyId)['available'], 422, 'This company has no imported front page.');
+
+        $pages = \App\Services\FrontPageMenu::apply($companyId, $request->input('items', []));
+
+        return response()->json(['ok' => true, 'pages' => $pages] + \App\Services\FrontPageMenu::get($companyId));
+    }
+
+    public function detectSiteMenu(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
+        $companyId = (int) $this->resolveActingCompanyId($request);
+        \App\Services\FrontPageMenu::detect($companyId);
+
+        return response()->json(\App\Services\FrontPageMenu::get($companyId));
+    }
+
+    /**
+     * POST /admin/store/front-page {mode: sections|imported, url?}
+     * Store Settings -> Front page for the acting company:
+     *  - sections: the store's own section-built front page
+     *  - imported: import (or re-import) the page at `url`, keeping its
+     *    original format, with the store bar inserted.
+     */
+    public function frontPage(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
+        $data = $request->validate([
+            'mode' => 'required|in:sections,imported',
+            'url' => 'nullable|required_if:mode,imported|url|max:255',
+        ]);
+        $companyId = (int) $this->resolveActingCompanyId($request);
+
+        if ($data['mode'] === 'sections') {
+            \App\Services\FrontPage::setSections($companyId);
+
+            return response()->json(['ok' => true, 'mode' => 'sections']);
+        }
+
+        @set_time_limit(600);
+        try {
+            $slug = \Illuminate\Support\Str::slug(\App\Models\Company::whereKey($companyId)->value('name') ?: 'site') ?: 'site';
+            $r = \App\Services\SiteImporter::fromUrl($companyId, $data['url'], $slug);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => 'The page could not be imported: '.$e->getMessage()], 422);
+        }
+        if (($r['pages'] ?? 0) < 1) {
+            return response()->json(['message' => 'No page could be read from '.$data['url']], 422);
+        }
+        $entry = \App\Models\StorePage::where('company_id', $companyId)->where('slug', 'home')->value('site_path');
+        \App\Services\FrontPage::setImported($companyId, $data['url'], $entry ?: $r['path'].'/index.html');
+
+        return response()->json(['ok' => true, 'mode' => 'imported', 'pages' => $r['pages'], 'assets' => $r['assets'],
+            'settings' => StoreSetting::forCompany($companyId)->only(['front_page_mode', 'front_page_url', 'front_page_path', 'front_page_imported_at'])]);
+    }
+
+    /**
      * Update settings + handle image uploads.
      */
     public function update(Request $request)
@@ -629,7 +727,9 @@ class SettingsApiController extends Controller
         $s = StoreSetting::forCompany($this->resolveActingCompanyId($request));
         $menus = $this->normalizeMenus(is_array($s?->menus) ? $s->menus : []);
 
-        $pages = \App\Models\StorePage::orderBy('title')->get(['id', 'title', 'slug', 'published']);
+        // Pages are per company: only this company's pages are menu targets.
+        $pages = \App\Models\StorePage::where('company_id', $this->resolveActingCompanyId($request))
+            ->orderBy('title')->get(['id', 'title', 'slug', 'published']);
         $collections = Collection::orderBy('title')->get(['id', 'title', 'slug'])
             ->map(fn ($c) => ['title' => $c->title ?: $c->slug, 'slug' => $c->slug])
             ->filter(fn ($c) => ! empty($c['slug']))

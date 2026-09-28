@@ -4,6 +4,7 @@ import { isModuleEnabled } from '../config/modules';
 import { loadLocale } from '../i18n';
 import { useUiStore } from './ui';
 import { resolveImageUrl } from '../lib/imagePath';
+import { useDatatableStore } from './datatable';
 
 /**
  * Mirrors the legacy Vuex auth module: GET /api/get_user_auth returns
@@ -77,6 +78,10 @@ export const useAuthStore = defineStore('auth', {
         customerLoyaltyEnabled: s => !s.user || s.user.customer_loyalty_enabled !== false,
         customerCreditLimitEnabled: s => !s.user || s.user.customer_credit_limit_enabled !== false,
         customerOpeningBalanceEnabled: s => !s.user || s.user.customer_opening_balance_enabled !== false,
+        // DataTable "Customize Columns": per-table admin column setup for this
+        // company ({tableKey: [{key, title, width, hidden}]}), and who may edit it.
+        datatableColumns: s => (s.user && s.user.datatable_columns) || {},
+        canCustomizeColumns: s => !!(s.user && (s.user.type === 'SuperAdmin' || s.permissions.includes('datatable_customize'))),
         // Global export defaults (System Settings → Export). Missing keys keep
         // the historical behavior: full data, totals on, landscape, plain names.
         exportSettings: s => ({
@@ -156,6 +161,11 @@ export const useAuthStore = defineStore('auth', {
                 }
             } finally {
                 this.loaded = true;
+                // System Settings -> DataTable is company-wide: every user's
+                // tables follow the company's saved format (null = defaults).
+                if (this.user) {
+                    try { useDatatableStore().applyServer(this.user.datatable_settings); } catch (e) { /* best effort */ }
+                }
             }
         },
         // Force a re-fetch (load() is once-only) — used after saving settings

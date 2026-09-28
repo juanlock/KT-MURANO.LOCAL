@@ -406,6 +406,7 @@ class PostUpdateTasks
             'mailchimp_settings',
             'jumia_settings',
             'edit_completed_paid_sale',
+            'datatable_customize',
         ];
     }
 }

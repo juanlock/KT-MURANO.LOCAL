@@ -167,7 +167,10 @@ function labelNode(entry) {
   const count = entry.badge ? (pending.byKey[entry.badge] || 0) : 0;
   if (!count) return text;
 
-  return () => h('span', { class: 'sb-row' }, [
+  // A VNode, NOT a render function: a-menu's items API only accepts a string
+  // or a VNode for `label` -- a function got stringified and its source code
+  // showed up as the label (e.g. Online Store with pending orders).
+  return h('span', { class: 'sb-row' }, [
     h('span', { class: 'sb-row-label' }, text),
     h('span', { class: 'sb-row-badge' }, count > 99 ? '99+' : String(count)),
   ]);

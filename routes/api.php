@@ -129,6 +129,10 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
 
     Route::get('/admin/store/settings', [SettingsApiController::class, 'show']);
     Route::post('/admin/store/settings', [SettingsApiController::class, 'update']);
+    Route::post('/admin/store/front-page', [SettingsApiController::class, 'frontPage']);
+    Route::get('/admin/store/site-menu', [SettingsApiController::class, 'siteMenu']);
+    Route::put('/admin/store/site-menu', [SettingsApiController::class, 'updateSiteMenu']);
+    Route::post('/admin/store/site-menu/detect', [SettingsApiController::class, 'detectSiteMenu']);
     Route::get('/admin/store/menus', [SettingsApiController::class, 'menus']);
     Route::post('/admin/store/menus', [SettingsApiController::class, 'updateMenus']);
     Route::get('/settings/calendar', [SettingsApiController::class, 'showCalendar']);
@@ -541,6 +545,8 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::resource('company', 'hrm\CompanyController');
     Route::get('get_all_company', "hrm\CompanyController@Get_all_Company");
     Route::post('company/delete/by_selection', "hrm\CompanyController@delete_by_selection");
+    Route::post('company/{id}/clear-demo', "hrm\CompanyController@clearDemo");
+    Route::post('company/{id}/website', "hrm\CompanyController@website");
 
     // ------------------------------- departments --------------------------\\
     // --------------------------------------------------------------------\\
@@ -1105,6 +1111,11 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     // ------------------------------- PRODUCTS --------------------------\\
     // ------------------------------------------------------------------\\
 
+    // Defaults -> Product: next auto-generated product Code (own path so it
+    // isn't swallowed by the resource's products/{product} show route).
+    Route::get('product_next_code', 'ProductsController@nextProductCode');
+    // DataTable "Customize Columns" (admins/SuperAdmin, per company per table)
+    Route::put('datatable_columns', 'SettingsController@updateDatatableColumns');
     Route::resource('products', 'ProductsController');
     Route::post('products/{id}/duplicate', 'ProductsController@duplicate');
 

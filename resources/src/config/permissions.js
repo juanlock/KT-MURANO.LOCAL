@@ -1317,6 +1317,11 @@ export const PERMISSION_GROUPS = [
                 "l": "SystemSettings"
             },
             {
+                "v": "datatable_customize",
+                "l": "Customize_Columns",
+                "f": "Customize Table Columns"
+            },
+            {
                 "v": "business_modules",
                 "l": "Modules"
             },

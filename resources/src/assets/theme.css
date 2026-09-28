@@ -88,3 +88,47 @@ body {
 .ant-table-wrapper .ant-table-content {
   overflow-x: auto;
 }
+
+/* ---- System Settings -> DataTable, applied to EVERY table ----------------
+   stores/datatable.js mirrors the company's table format onto <html> as
+   --gdt-* vars + gdt-* classes. components/DataTable.vue applies the same
+   prefs itself (its table carries .dt-managed), so it's excluded here; this
+   brings the remaining raw <a-table> lists/reports in line with it. */
+.ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td {
+  font-family: var(--gdt-font, inherit);
+  font-size: var(--gdt-font-size, 14px);
+}
+.ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th {
+  font-weight: var(--gdt-th-weight, 600);
+  font-size: var(--gdt-th-size, 14px);
+  text-transform: var(--gdt-th-transform, none);
+}
+html.gdt-th-bg .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th {
+  background: var(--gdt-th-bg);
+}
+html.gdt-th-color .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th {
+  color: var(--gdt-th-color);
+}
+html.gdt-striped .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr:nth-child(even) > td {
+  background: rgba(128, 128, 128, 0.045);
+}
+html.gdt-bordered .ant-table-wrapper:not(.dt-managed) .ant-table-container {
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  border-radius: 6px;
+}
+html.gdt-bordered .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th,
+html.gdt-bordered .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td {
+  border-inline-end: 1px solid rgba(128, 128, 128, 0.2);
+}
+html.gdt-density-small .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th,
+html.gdt-density-small .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td {
+  padding: 8px 8px;
+}
+html.gdt-density-middle .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th,
+html.gdt-density-middle .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td {
+  padding: 12px 8px;
+}
+html.gdt-density-large .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th,
+html.gdt-density-large .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td {
+  padding: 16px 16px;
+}

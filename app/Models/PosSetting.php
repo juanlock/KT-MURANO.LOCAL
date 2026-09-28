@@ -19,7 +19,10 @@ class PosSetting extends Model
         $attrs = $template
             ? collect($template->getAttributes())->except(['id', 'company_id', 'created_at', 'updated_at', 'deleted_at'])->all()
             : [];
-        return static::create($attrs + ['company_id' => $companyId]);
+        // forceFill: company_id isn't mass-assignable (and the cloned template
+        // attributes may include non-fillable columns) -- create() silently
+        // saved a company-less row, so every later call cloned another one.
+        return tap((new static)->forceFill($attrs + ['company_id' => $companyId]))->save();
     }
 
     protected $fillable = [

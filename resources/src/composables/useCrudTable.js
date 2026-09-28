@@ -218,6 +218,9 @@ export function useCrudTable(endpoint, options = {}) {
     }
 
     return {
+        // Static endpoint name -- DataTable.vue uses it (with the route) as the
+        // per-table key for admin column customization.
+        endpoint: typeof endpoint === 'function' ? '' : String(endpoint || ''),
         rows, total, loading, page, limit, search, sortField, sortType, payload,
         selectedIds, rowSelection, pagination,
         fetchRows, reload, onChange, remove, removeSelected, getRecord,

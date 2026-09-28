@@ -132,6 +132,11 @@ class SalesController extends BaseController
             })
             ->when($request->filled('date_to'), function ($query) use ($request) {
                 return $query->whereDate('date', '<=', $request->date_to);
+            })
+            // Customers list "Due" link: only sales with an outstanding
+            // balance (the same set Customers' Due column sums).
+            ->when($request->boolean('due_only'), function ($query) {
+                return $query->whereColumn('paid_amount', '<', 'GrandTotal');
             });
         if (! $is_all_warehouses) {
             $Sales->whereIn('warehouse_id', $warehouse_ids);

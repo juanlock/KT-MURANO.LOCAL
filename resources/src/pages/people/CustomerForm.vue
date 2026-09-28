@@ -102,6 +102,35 @@
           </a-col>
         </a-row>
 
+        <!-- Client Portal: the customer's own login (its users row). Turning it
+             on the first time needs a password; later, leave it blank to keep it. -->
+        <template v-if="isEdit && auth.can('Customers_edit')">
+          <a-divider orientation="left" style="margin: 8px 0 16px">{{ $t('Portal_Client') }}</a-divider>
+          <a-row :gutter="16">
+            <a-col :xs="24" :md="8">
+              <a-form-item :label="$t('Portal_Client')">
+                <a-switch v-model:checked="portal.enabled" />
+                <span style="margin-left: 8px; opacity: 0.7">{{ portal.enabled ? $t('Enabled') : $t('Disabled') }}</span>
+              </a-form-item>
+            </a-col>
+            <template v-if="portal.enabled">
+              <a-col :xs="24" :md="8">
+                <a-form-item :label="$t('Email')" :required="true">
+                  <a-input v-model:value="portal.email" type="email" autocomplete="off" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="8">
+                <a-form-item
+                  :label="$t('Password')" :required="!portal.wasEnabled"
+                  :extra="portal.wasEnabled ? $t('LeaveBlank') : 'Min. 8 characters'"
+                >
+                  <a-input-password v-model:value="portal.password" autocomplete="new-password" />
+                </a-form-item>
+              </a-col>
+            </template>
+          </a-row>
+        </template>
+
         <a-space style="margin-top: 8px">
           <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
           <a-button @click="$router.push('/customers')">{{ $t('Cancel') }}</a-button>
@@ -191,6 +220,33 @@ function onCitySelected(city) {
 // value so an edit can push a "set" adjustment when (and only when) it changes.
 const loadedOpeningBalance = ref(0);
 
+// Client Portal (edit only): clients/{id}/portal-status | portal-enable | portal-disable.
+const portal = ref({ enabled: false, wasEnabled: false, email: '', loadedEmail: '', password: '' });
+
+async function loadPortal() {
+  try {
+    const s = await http.get(`clients/${id.value}/portal-status`);
+    portal.value = {
+      enabled: !!s.portal_enabled,
+      wasEnabled: !!s.portal_enabled,
+      email: s.portal_email || form.value.email || '',
+      loadedEmail: s.portal_email || '',
+      password: '',
+    };
+  } catch (e) { /* no permission / not available -- section just starts off */ }
+}
+
+// Only calls the API when something portal-related actually changed.
+async function savePortal() {
+  const p = portal.value;
+  if (p.enabled) {
+    if (p.wasEnabled && !p.password && p.email === p.loadedEmail) return;
+    await http.post(`clients/${id.value}/portal-enable`, { email: p.email, password: p.password || null });
+  } else if (p.wasEnabled) {
+    await http.post(`clients/${id.value}/portal-disable`);
+  }
+}
+
 const rules = computed(() => ({
   name: [{ required: true, message: t('Field_is_required') }],
   email: [{ type: 'email', message: t('InvalidData') }],
@@ -230,6 +286,7 @@ async function submit() {
         await http.post(`customers/${id.value}/adjust-opening-balance`, { mode: 'set', amount: newOpening });
         loadedOpeningBalance.value = newOpening;
       }
+      if (auth.can('Customers_edit')) await savePortal();
       message.success(t('Successfully_Updated'));
     } else {
       await http.post('clients', body());
@@ -237,7 +294,10 @@ async function submit() {
     }
     router.push('/customers');
   } catch (e) {
-    message.error(t('InvalidData'));
+    // Show the backend's reason (e.g. portal email taken / password required).
+    const errs = e?.data?.errors;
+    const first = errs && Object.values(errs)[0];
+    message.error((Array.isArray(first) ? first[0] : first) || e?.data?.message || t('InvalidData'));
   } finally {
     submitting.value = false;
   }
@@ -254,6 +314,7 @@ async function loadRecord() {
       is_royalty_eligible: !!c.is_royalty_eligible,
     };
     loadedOpeningBalance.value = parseFloat(c.opening_balance) || 0;
+    if (auth.can('Customers_edit')) await loadPortal();
   } catch (e) {
     message.error(t('InvalidData'));
     router.push('/customers');

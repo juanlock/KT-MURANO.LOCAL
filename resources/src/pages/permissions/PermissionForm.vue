@@ -132,7 +132,18 @@ const rules = computed(() => ({
   name: [{ required: true, message: t('Field_is_required') }],
 }));
 
-const totalCount = PERMISSION_GROUPS.reduce((s, g) => s + g.items.length, 0);
+// Install-level tooling that only a SuperAdmin can use (router superAdminOnly
+// pages + server abort_unless checks): not offered to company Admins in the
+// role editor. Already-assigned values stay in the payload untouched.
+const SUPERADMIN_ONLY = ['zatca_settings', 'business_modules', 'update_settings', 'backup', 'login_device_management'];
+const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
+const GROUPS = computed(() => (isSuperAdmin.value
+  ? PERMISSION_GROUPS
+  : PERMISSION_GROUPS
+    .map(g => ({ ...g, items: g.items.filter(i => !SUPERADMIN_ONLY.includes(i.v)) }))
+    .filter(g => g.items.length)));
+
+const totalCount = computed(() => GROUPS.value.reduce((s, g) => s + g.items.length, 0));
 
 /** Label helpers — `l` is an i18n key, `f` the legacy fallback text. */
 function itemLabel(item) {
@@ -146,8 +157,8 @@ function groupLabel(group) {
 
 const visibleGroups = computed(() => {
   const q = search.value.trim().toLowerCase();
-  if (!q) return PERMISSION_GROUPS;
-  return PERMISSION_GROUPS
+  if (!q) return GROUPS.value;
+  return GROUPS.value
     .map(g => ({
       ...g,
       items: g.items.filter(i =>
@@ -172,7 +183,9 @@ function selectAll(on) {
     permissions.value = [];
     return;
   }
-  permissions.value = PERMISSION_GROUPS.flatMap(g => g.items.map(i => i.v));
+  // Keep any SuperAdmin-only values the role already had; add only visible ones.
+  const hidden = permissions.value.filter(v => !GROUPS.value.some(g => g.items.some(i => i.v === v)));
+  permissions.value = [...new Set([...hidden, ...GROUPS.value.flatMap(g => g.items.map(i => i.v))])];
 }
 
 async function submit() {

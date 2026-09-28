@@ -2,16 +2,27 @@
   <div class="page">
     <PageHeader :title="$t('Customers')" :breadcrumb="[$t('People'), $t('Customers')]">
       <template #actions>
-        <a-button v-if="auth.can('Customers_add')" type="primary" @click="$router.push('/customers/create')">
-          <template #icon><PlusOutlined /></template>
-          {{ $t('Add') }}
-        </a-button>
+        <a-space wrap :size="12">
+          <a-button :loading="exporting === 'pdf'" @click="exportList('pdf')">
+            <template #icon><FilePdfOutlined /></template>
+            PDF
+          </a-button>
+          <a-button :loading="exporting === 'xlsx'" @click="exportList('xlsx')">
+            <template #icon><FileExcelOutlined /></template>
+            EXCEL
+          </a-button>
+          <a-button v-if="auth.can('Customers_add')" type="primary" @click="$router.push('/customers/create')">
+            <template #icon><PlusOutlined /></template>
+            {{ $t('Add') }}
+          </a-button>
+        </a-space>
       </template>
     </PageHeader>
 
     <!-- Summary cards — real global totals across ALL customers (a separate
-         unpaginated fetch), not just the loaded page. -->
-    <a-row :gutter="[16, 16]" style="margin-bottom: 16px">
+         unpaginated fetch), not just the loaded page. One row on desktop
+         (however many cards the feature switches leave), wrapping on mobile. -->
+    <a-row :gutter="[16, 16]" class="stat-row" style="margin-bottom: 16px">
       <a-col :xs="12" :sm="12" :md="6">
         <a-card size="small" class="stat-card">
           <div class="stat-inner">
@@ -86,11 +97,23 @@
 
     <DataTable :crud="crud" :columns="columns" selectable>
       <template #bodyCell="{ column, record }">
-        <template v-if="MONEY_KEYS.includes(column.key)">{{ money(record[column.key]) }}</template>
+        <!-- Name opens the customer's ledger; Total Sales / # Sales / Due open
+             the Sales list filtered to exactly the sales behind that number. -->
+        <template v-if="column.key === 'name'">
+          <a @click="router.push(`/customers/${record.id}/ledger`)">{{ record.name }}</a>
+        </template>
+        <template v-else-if="column.key === 'total_amount'">
+          <a @click="openSales(record)">{{ money(record.total_amount) }}</a>
+        </template>
+        <template v-else-if="column.key === 'sales_count'">
+          <a @click="openSales(record)">{{ record.sales_count || 0 }}</a>
+        </template>
+        <template v-else-if="MONEY_KEYS.includes(column.key)">{{ money(record[column.key]) }}</template>
         <template v-else-if="column.key === 'due'">
-          <strong :style="{ color: Number(record.due) > 0 ? '#ff4d4f' : undefined }">
-            {{ money(record.due) }}
-          </strong>
+          <a v-if="Number(record.due) > 0" @click="openSales(record, true)">
+            <strong style="color: #ff4d4f">{{ money(record.due) }}</strong>
+          </a>
+          <strong v-else>{{ money(record.due) }}</strong>
         </template>
         <template v-else-if="column.key === 'service_due'">
           <strong :style="{ color: Number(record.service_due) > 0 ? '#ff4d4f' : undefined }">
@@ -351,8 +374,9 @@ import {
   PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined, RollbackOutlined,
   EyeOutlined, ProfileOutlined, MoreOutlined, TeamOutlined, CreditCardOutlined,
   ShopOutlined, StarOutlined, CalculatorOutlined, KeyOutlined,
-  UserOutlined, LockOutlined, MailOutlined,
+  UserOutlined, LockOutlined, MailOutlined, FilePdfOutlined, FileExcelOutlined,
 } from '@ant-design/icons-vue';
+import { exportExcel, exportPdf } from '../../lib/exporters';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import PayDueModal from '../../components/PayDueModal.vue';
@@ -389,10 +413,44 @@ const columns = computed(() => [
     ? [{ title: t('Opening_Balance'), key: 'opening_balance', dataIndex: 'opening_balance', align: 'right', exportValue: r => money(r.opening_balance) }]
     : []),
   { title: t('Total_Sales'), key: 'total_amount', dataIndex: 'total_amount', align: 'right', exportValue: r => money(r.total_amount) },
+  { title: '# ' + t('Sales'), key: 'sales_count', dataIndex: 'sales_count', align: 'center', width: 90, exportValue: r => String(r.sales_count || 0) },
   { title: t('Due'), key: 'due', dataIndex: 'due', sorter: true, align: 'right', exportValue: r => money(r.due) },
   { title: t('Service_Due'), key: 'service_due', dataIndex: 'service_due', align: 'right', exportValue: r => money(r.service_due) },
   { title: t('Total_Sell_Return_Due'), key: 'return_Due', dataIndex: 'return_Due', align: 'right', exportValue: r => money(r.return_Due) },
 ]);
+
+// Sales list filtered to this customer's completed sales (the set Total Sales
+// and # Sales count); dueOnly narrows it to the ones making up Due.
+function openSales(record, dueOnly = false) {
+  router.push({
+    path: '/sales',
+    query: { client_id: record.id, statut: 'completed', ...(dueOnly ? { due_only: '1' } : {}) },
+  });
+}
+
+/* ------------------------------------------------- list exports (PDF / Excel) */
+// Whole filtered list (not just the loaded page), same pattern as Sales.
+const exporting = ref(null);
+async function exportList(kind) {
+  exporting.value = kind;
+  try {
+    const data = await http.get('clients', {
+      page: 1,
+      SortField: crud.sortField.value,
+      SortType: crud.sortType.value,
+      search: crud.search.value,
+      limit: -1,
+    });
+    const rows = data.clients || [];
+    const cols = columns.value.filter(c => c.key !== 'actions');
+    if (kind === 'xlsx') await exportExcel('customers', cols, rows);
+    else await exportPdf(t('Customers'), cols, rows);
+  } catch (e) {
+    message.error(t('InvalidData'));
+  } finally {
+    exporting.value = null;
+  }
+}
 
 /* ------------------------------------------------- summary card totals */
 // Global sums across every customer (not the current page): one unpaginated
@@ -724,6 +782,11 @@ onMounted(async () => {
 
 .stat-card {
   border-radius: 10px;
+}
+/* All summary cards share one row from md up, equal widths. */
+@media (min-width: 768px) {
+  .stat-row { flex-wrap: nowrap; }
+  .stat-row > :deep(.ant-col) { flex: 1 1 0; max-width: none; min-width: 0; }
 }
 .stat-inner {
   display: flex;

@@ -367,9 +367,12 @@
 
           <!-- ============================== Defaults ============================== -->
           <template v-else-if="activeTab === 'defaults'">
-            <!-- One a-card per module (Default - Sales now; Default - Purchases /
-                 Default - Modules etc. can follow the same pattern later). -->
-            <a-card size="small" title="Default — Sales" style="margin-bottom: 16px">
+            <!-- One tab per module (Sales / Customers / Product / Invoice PDF;
+                 Purchases etc. can follow the same pattern later). All tabs edit
+                 the same `setting` object, so the page's Save covers every tab. -->
+            <a-tabs v-model:activeKey="defaultsTab">
+            <a-tab-pane key="sales" :tab="$t('Sales')">
+            <a-card size="small" style="margin-bottom: 16px">
               <a-form layout="vertical" style="max-width: 680px">
                 <a-row :gutter="16">
                   <a-col :xs="24" :md="12">
@@ -471,11 +474,13 @@
                 <a-switch :checked="asBool(setting.sale_shipping_enabled)" @change="v => (setting.sale_shipping_enabled = v ? 1 : 0)" />
               </div>
             </a-card>
+            </a-tab-pane>
 
-            <!-- Default - Customers: optional customer features. Off hides
-                 every UI tied to the feature, company-wide (customer form,
-                 list columns, stats, POS/sale widgets). -->
-            <a-card size="small" title="Default — Customers" style="margin-bottom: 16px">
+            <!-- Customers: optional customer features. Off hides every UI tied
+                 to the feature, company-wide (customer form, list columns,
+                 stats, POS/sale widgets). -->
+            <a-tab-pane key="customers" :tab="$t('Customers')">
+            <a-card size="small" style="margin-bottom: 16px">
               <div class="setting-row">
                 <div>
                   <div class="setting-label">{{ $t('Loyalty_Eligible') }}</div>
@@ -498,11 +503,45 @@
                 <a-switch :checked="asBool(setting.customer_opening_balance_enabled)" @change="v => (setting.customer_opening_balance_enabled = v ? 1 : 0)" />
               </div>
             </a-card>
+            </a-tab-pane>
+
+            <!-- Product: auto-generated product Code, per company. -->
+            <a-tab-pane key="product" :tab="$t('Product')">
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Auto-generate {{ $t('CodeProduct') }}</div>
+                  <div class="setting-help">Pre-fill a new product's Code as prefix + next number (e.g. PPI-042), and use it for the Generate link. The Code can still be edited before saving.</div>
+                </div>
+                <a-switch :checked="asBool(setting.product_code_auto ?? true)" @change="v => (setting.product_code_auto = v ? 1 : 0)" />
+              </div>
+              <a-form v-if="asBool(setting.product_code_auto ?? true)" layout="vertical" style="max-width: 680px; margin-top: 8px">
+                <a-row :gutter="16">
+                  <a-col :xs="24" :md="8">
+                    <a-form-item label="Prefix" help="Letters before the number, e.g. PPI-">
+                      <a-input v-model:value="setting.product_code_prefix" :maxlength="20" allow-clear />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="8">
+                    <a-form-item label="Number of digits" help="Zero-padded, e.g. 3 → 042">
+                      <a-input-number v-model:value="setting.product_code_digits" :min="1" :max="12" :precision="0" style="width: 100%" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="8">
+                    <a-form-item label="Next code" :help="productCodePreviewHelp">
+                      <a-input :value="productCodePreview" disabled />
+                    </a-form-item>
+                  </a-col>
+                </a-row>
+              </a-form>
+            </a-card>
+            </a-tab-pane>
 
             <!-- Invoice PDF: company-scoped section show/hide toggles + editable
                  Company Note / Terms & Conditions content, distinct from the
                  global Invoice PDF appearance page (Settings -> Invoice PDF). -->
-            <a-card size="small" title="Invoice PDF — Sections" style="margin-bottom: 16px">
+            <a-tab-pane key="invoice_pdf" tab="Invoice PDF">
+            <a-card size="small" style="margin-bottom: 16px">
               <div class="setting-row">
                 <div>
                   <div class="setting-label">Discount column</div>
@@ -561,6 +600,8 @@
                 <a-textarea v-model:value="setting.sale_pdf_terms_conditions" :rows="3" placeholder="e.g. Make all checks payable to: {{COMPANY NAME}}..." />
               </a-form-item>
             </a-card>
+            </a-tab-pane>
+            </a-tabs>
           </template>
 
           <!-- ============================== Dashboard ============================== -->
@@ -621,10 +662,13 @@
           <template v-else-if="activeTab === 'datatable'">
             <a-alert
               type="info" show-icon style="margin-bottom: 16px; max-width: 680px"
-              message="Saved on this device"
-              description="These preferences apply to every list table in this browser and take effect immediately."
+              message="Company-wide table format"
+              description="Applies to every table in the system for every user of this company once you Save. Changes preview immediately here. Column names, widths, visibility and order are set per table with the Customize columns button on each list (admins)."
             />
             <a-form layout="vertical" style="max-width: 680px">
+              <!-- Sections as tabs; the live preview below stays visible for all. -->
+              <a-tabs v-model:activeKey="datatableTab">
+              <a-tab-pane key="table" tab="Table">
               <a-row :gutter="16">
                 <a-col :xs="24" :md="12">
                   <a-form-item label="Font family">
@@ -680,8 +724,9 @@
                   </a-form-item>
                 </a-col>
               </a-row>
+              </a-tab-pane>
 
-              <a-divider orientation="left" style="margin: 8px 0 16px">Header (thead)</a-divider>
+              <a-tab-pane key="header" tab="Header">
               <a-row :gutter="[16, 8]">
                 <a-col :xs="12" :md="6">
                   <a-form-item label="Font weight">
@@ -741,8 +786,9 @@
                   </a-form-item>
                 </a-col>
               </a-row>
+              </a-tab-pane>
 
-              <a-divider orientation="left" style="margin: 8px 0 16px">Toolbar components</a-divider>
+              <a-tab-pane key="toolbar" tab="Toolbar">
               <a-row :gutter="[16, 8]">
                 <a-col :xs="12" :md="8">
                   <a-form-item :label="$t('Search')">
@@ -760,6 +806,8 @@
                   </a-form-item>
                 </a-col>
               </a-row>
+              </a-tab-pane>
+              </a-tabs>
 
               <a-button size="small" @click="dtStore.reset()">{{ $t('Reset_to_Default') }}</a-button>
 
@@ -782,7 +830,7 @@
                   ...(dtStore.headerBg ? { '--dtp-th-bg': dtStore.headerBg } : {}),
                   ...(dtStore.headerColor ? { '--dtp-th-color': dtStore.headerColor } : {}),
                 }"
-                class="dt-preview"
+                class="dt-preview dt-managed"
                 :class="{ 'dtp-th-bg': !!dtStore.headerBg, 'dtp-th-color': !!dtStore.headerColor }"
               />
             </a-form>
@@ -1058,7 +1106,7 @@
  * Post-save side effects kept: date_format → localStorage app_date_format,
  * price format + decimals caches, ui-store dark/rtl sync, locale switch.
  */
-import { ref, computed, onMounted, h } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue';
 import { message, Skeleton } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { defineAsyncComponent } from 'vue';
@@ -1089,6 +1137,11 @@ const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
 
 /* --------------------------- DataTable preferences (device-local) */
 const dtStore = useDatatableStore();
+// Leaving with unsaved DataTable previews: go back to the company's saved
+// format (after a Save, auth.reload() has already refreshed it).
+onBeforeUnmount(() => {
+  try { dtStore.applyServer(auth.user?.datatable_settings); } catch (e) { /* best effort */ }
+});
 const dtPreviewColumns = [
   { title: 'Reference', dataIndex: 'ref', key: 'ref' },
   { title: 'Name', dataIndex: 'name', key: 'name' },
@@ -1200,6 +1253,23 @@ const logoFileList = ref([]);
 function asBool(v) {
   return v === 1 || v === '1' || v === true;
 }
+
+// Defaults -> Product: the server computes the next code for the SAVED
+// prefix/digits; while they're being edited, show the new format's shape.
+const savedProductCode = ref({ prefix: '', digits: 4, next: '' });
+
+// Sub-tabs inside the Defaults and DataTable sections.
+const defaultsTab = ref('sales');
+const datatableTab = ref('table');
+const productCodeChanged = computed(() =>
+  (setting.value.product_code_prefix || '') !== savedProductCode.value.prefix
+  || Number(setting.value.product_code_digits) !== savedProductCode.value.digits);
+const productCodePreview = computed(() => (productCodeChanged.value
+  ? (setting.value.product_code_prefix || '') + '1'.padStart(Math.max(1, Number(setting.value.product_code_digits) || 4), '0')
+  : savedProductCode.value.next));
+const productCodePreviewHelp = computed(() => (productCodeChanged.value
+  ? 'Numbering continues from the highest code already using this prefix — exact value shown after saving.'
+  : 'Highest code already using this prefix + 1.'));
 
 const fontFamilyOptions = [
   { label: 'System default', value: '' },
@@ -1356,6 +1426,9 @@ async function save() {
   fd.append('customer_loyalty_enabled', asBool(s.customer_loyalty_enabled) ? 1 : 0);
   fd.append('customer_credit_limit_enabled', asBool(s.customer_credit_limit_enabled) ? 1 : 0);
   fd.append('customer_opening_balance_enabled', asBool(s.customer_opening_balance_enabled) ? 1 : 0);
+  fd.append('product_code_auto', asBool(s.product_code_auto ?? true) ? 1 : 0);
+  fd.append('product_code_prefix', s.product_code_prefix || '');
+  fd.append('product_code_digits', Math.max(1, Number(s.product_code_digits) || 4));
   fd.append('sale_pdf_show_disc_column', asBool(s.sale_pdf_show_disc_column) ? 1 : 0);
   fd.append('sale_pdf_show_tax_column', asBool(s.sale_pdf_show_tax_column) ? 1 : 0);
   fd.append('sale_pdf_show_shipping_row', asBool(s.sale_pdf_show_shipping_row) ? 1 : 0);
@@ -1423,6 +1496,8 @@ async function save() {
   fd.append('block_expired_sale', s.block_expired_sale ? 1 : 0);
   fd.append('print_expiry_on_receipt', s.print_expiry_on_receipt ? 1 : 0);
   fd.append('export_settings', JSON.stringify(exportForm.value));
+  // DataTable format: company-wide (every user's tables), not per device.
+  fd.append('datatable_settings', JSON.stringify(dtStore.snapshot));
   fd.append('_method', 'put');
 
   try {
@@ -1439,6 +1514,14 @@ async function save() {
       throw new Error(msg);
     }
     message.success(t('Successfully_Updated'));
+    // Defaults -> Product: re-read the next code for the just-saved prefix.
+    http.get('product_next_code').then((r) => {
+      savedProductCode.value = {
+        prefix: s.product_code_prefix || '',
+        digits: Math.max(1, Number(s.product_code_digits) || 4),
+        next: r?.code || '',
+      };
+    }).catch(() => {});
     // Refresh the auth payload so the sidebar brand (logo size/visibility,
     // company name) reflects the new settings without a full page reload.
     auth.reload?.().catch?.(() => {});
@@ -1539,6 +1622,16 @@ onMounted(() => {
   const main = http.get('get_Settings_data_api', { include_secrets: 1 })
     .then(data => {
       setting.value = { ...(data.settings || {}) };
+      // DataTable tab edits the acting company's saved format.
+      try {
+        const saved = setting.value.datatable_settings ? JSON.parse(setting.value.datatable_settings) : null;
+        dtStore.applyServer(saved);
+      } catch (e) { /* malformed -> keep current */ }
+      savedProductCode.value = {
+        prefix: setting.value.product_code_prefix || '',
+        digits: Number(setting.value.product_code_digits) || 4,
+        next: setting.value.product_code_next || '',
+      };
       currencies.value = data.currencies || [];
       clients.value = data.clients || [];
       warehouses.value = data.warehouses || [];

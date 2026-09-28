@@ -19,7 +19,10 @@ class Setting extends Model
         $attrs = $template
             ? collect($template->getAttributes())->except(['id', 'company_id', 'created_at', 'updated_at', 'deleted_at'])->all()
             : [];
-        return static::create($attrs + ['company_id' => $companyId]);
+        // forceFill: company_id isn't mass-assignable (and the cloned template
+        // attributes may include non-fillable columns) -- create() silently
+        // saved a company-less row, so every later call cloned another one.
+        return tap((new static)->forceFill($attrs + ['company_id' => $companyId]))->save();
     }
 
     protected $fillable = [
@@ -59,6 +62,11 @@ class Setting extends Model
         'sale_loyalty_points_enabled', 'sale_shipping_enabled',
         // Defaults -> Customers: optional customer features (hide all UI when off)
         'customer_loyalty_enabled', 'customer_credit_limit_enabled', 'customer_opening_balance_enabled',
+        // Defaults -> Product: auto-generated product Code (<prefix><next number>)
+        'product_code_auto', 'product_code_prefix', 'product_code_digits',
+        // System Settings -> DataTable: company-wide table format + per-table
+        // column customization (JSON)
+        'datatable_settings', 'datatable_columns',
         // Invoice PDF -- company-scoped section show/hide toggles + editable
         // content blocks (Company Note / Terms & Conditions), distinct from
         // the global, non-company-scoped PdfTemplate "Sections" panel.
@@ -110,6 +118,8 @@ class Setting extends Model
         'customer_loyalty_enabled' => 'boolean',
         'customer_credit_limit_enabled' => 'boolean',
         'customer_opening_balance_enabled' => 'boolean',
+        'product_code_auto' => 'boolean',
+        'product_code_digits' => 'integer',
         'sale_pdf_show_disc_column' => 'boolean',
         'sale_pdf_show_tax_column' => 'boolean',
         'sale_pdf_show_shipping_row' => 'boolean',

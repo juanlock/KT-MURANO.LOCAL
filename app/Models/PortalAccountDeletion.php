@@ -14,7 +14,7 @@ class PortalAccountDeletion extends Model
     protected $table = 'portal_account_deletions';
 
     protected $fillable = [
-        'client_id', 'email', 'client_name', 'reason', 'ip',
+        'client_id', 'user_id', 'email', 'client_name', 'reason', 'ip',
     ];
 
     protected $casts = [

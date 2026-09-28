@@ -184,6 +184,7 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -207,7 +208,7 @@ const form = ref({
   record_view: false, assigned_to: [],
 });
 
-const roleOptions = computed(() => roles.value.map(r => ({ value: r.id, label: r.name })));
+const roleOptions = computed(() => sortByLabel(roles.value.map(r => ({ value: r.id, label: r.name }))));
 const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id, label: w.name })));
 
 // SuperAdmin is only offered to an acting SuperAdmin -- the backend rejects
@@ -331,7 +332,11 @@ async function submit() {
     }
     router.push('/users');
   } catch (e) {
-    message.error(t('InvalidData'));
+    // Show the backend's own reason (e.g. "This Email already taken.")
+    // instead of a generic "Invalid data" that hid why the save failed.
+    const errs = e?.data?.errors;
+    const first = errs && Object.values(errs)[0];
+    message.error((Array.isArray(first) ? first[0] : first) || e?.data?.message || t('InvalidData'));
   } finally {
     submitting.value = false;
   }

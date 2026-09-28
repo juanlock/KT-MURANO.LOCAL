@@ -311,6 +311,16 @@ class SettingsController extends Controller
             'customer_opening_balance_enabled' => $request->has('customer_opening_balance_enabled')
                 ? (($request['customer_opening_balance_enabled'] == '1' || $request['customer_opening_balance_enabled'] == 'true' || $request['customer_opening_balance_enabled'] === 1 || $request['customer_opening_balance_enabled'] === true) ? 1 : 0)
                 : (int) ($setting->customer_opening_balance_enabled ?? 1),
+            // Default -- Product: auto-generated product Code (<prefix><next number>)
+            'product_code_auto' => $request->has('product_code_auto')
+                ? (($request['product_code_auto'] == '1' || $request['product_code_auto'] == 'true' || $request['product_code_auto'] === 1 || $request['product_code_auto'] === true) ? 1 : 0)
+                : (int) ($setting->product_code_auto ?? 1),
+            'product_code_prefix' => $request->has('product_code_prefix')
+                ? mb_substr(trim((string) $request['product_code_prefix']), 0, 20)
+                : $setting->product_code_prefix,
+            'product_code_digits' => $request->has('product_code_digits')
+                ? max(1, min(12, (int) $request['product_code_digits']))
+                : (int) ($setting->product_code_digits ?? 4),
             // Invoice PDF -- section show/hide toggles (all default on)
             'sale_pdf_show_disc_column' => $request->has('sale_pdf_show_disc_column')
                 ? (($request['sale_pdf_show_disc_column'] == '1' || $request['sale_pdf_show_disc_column'] == 'true' || $request['sale_pdf_show_disc_column'] === 1 || $request['sale_pdf_show_disc_column'] === true) ? 1 : 0)
@@ -378,6 +388,11 @@ class SettingsController extends Controller
             'export_settings' => ($request->has('export_settings') && json_decode($request['export_settings'], true) !== null)
                 ? $request['export_settings']
                 : $setting->export_settings,
+            // System Settings -> DataTable: company-wide table format (JSON),
+            // same keep-on-absent/malformed rule as export_settings.
+            'datatable_settings' => ($request->has('datatable_settings') && json_decode($request['datatable_settings'], true) !== null)
+                ? $request['datatable_settings']
+                : $setting->datatable_settings,
         ] + $this->pharmacySettingsPayload($request, $setting));
 
         if (! empty($currency)) {
@@ -903,6 +918,48 @@ class SettingsController extends Controller
         return (int) $client->id;
     }
 
+    /**
+     * DataTable "Customize Columns": save (or, with columns=null, reset) one
+     * table's column setup for the acting company -- display order + per
+     * column {key, title, width, hidden}. Admins/SuperAdmin only, via the
+     * `datatable_customize` permission. Served back to every user of the
+     * company through get_user_auth (datatable_columns).
+     */
+    public function updateDatatableColumns(Request $request)
+    {
+        $user = $request->user('api');
+        $allowed = $user->type === 'SuperAdmin'
+            || (bool) optional($user->roles()->first())->permissions?->contains('name', 'datatable_customize');
+        abort_unless($allowed, 403);
+
+        $data = $request->validate([
+            'table_key' => ['required', 'string', 'max:120'],
+            'columns' => ['nullable', 'array', 'max:80'],
+            'columns.*.key' => ['required', 'string', 'max:80'],
+            'columns.*.title' => ['nullable', 'string', 'max:80'],
+            'columns.*.width' => ['nullable', 'integer', 'min:40', 'max:800'],
+            'columns.*.hidden' => ['nullable', 'boolean'],
+        ]);
+
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
+        $all = json_decode($setting->datatable_columns ?: '{}', true) ?: [];
+
+        if (empty($data['columns'])) {
+            unset($all[$data['table_key']]);
+        } else {
+            $all[$data['table_key']] = array_map(fn ($c) => [
+                'key' => $c['key'],
+                'title' => isset($c['title']) && trim($c['title']) !== '' ? trim($c['title']) : null,
+                'width' => $c['width'] ?? null,
+                'hidden' => (bool) ($c['hidden'] ?? false),
+            ], $data['columns']);
+        }
+
+        $setting->update(['datatable_columns' => $all ? json_encode($all) : null]);
+
+        return response()->json(['success' => true, 'datatable_columns' => (object) $all]);
+    }
+
     public function get_Settings_data_api(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Setting::class);
@@ -981,6 +1038,10 @@ class SettingsController extends Controller
             $item['customer_loyalty_enabled'] = (bool) ($settings->customer_loyalty_enabled ?? true);
             $item['customer_credit_limit_enabled'] = (bool) ($settings->customer_credit_limit_enabled ?? true);
             $item['customer_opening_balance_enabled'] = (bool) ($settings->customer_opening_balance_enabled ?? true);
+            $item['product_code_auto'] = (bool) ($settings->product_code_auto ?? true);
+            $item['product_code_prefix'] = $settings->product_code_prefix ?? '';
+            $item['product_code_digits'] = (int) ($settings->product_code_digits ?? 4);
+            $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
@@ -1101,6 +1162,7 @@ class SettingsController extends Controller
             // Global export defaults (JSON string; the SPA parses and merges
             // with its built-in defaults)
             $item['export_settings'] = $settings->export_settings ?? null;
+            $item['datatable_settings'] = $settings->datatable_settings ?? null;
 
             // Pharmacy mode (batch & expiry tracking) Ã¢â‚¬â€ opt-in, only present once migration has run
             $item['pharmacy_mode_supported'] = \Schema::hasColumn('settings', 'pharmacy_mode');
@@ -1768,6 +1830,10 @@ class SettingsController extends Controller
             $item['customer_loyalty_enabled'] = (bool) ($settings->customer_loyalty_enabled ?? true);
             $item['customer_credit_limit_enabled'] = (bool) ($settings->customer_credit_limit_enabled ?? true);
             $item['customer_opening_balance_enabled'] = (bool) ($settings->customer_opening_balance_enabled ?? true);
+            $item['product_code_auto'] = (bool) ($settings->product_code_auto ?? true);
+            $item['product_code_prefix'] = $settings->product_code_prefix ?? '';
+            $item['product_code_digits'] = (int) ($settings->product_code_digits ?? 4);
+            $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
@@ -1888,6 +1954,7 @@ class SettingsController extends Controller
             // Global export defaults (JSON string; the SPA parses and merges
             // with its built-in defaults)
             $item['export_settings'] = $settings->export_settings ?? null;
+            $item['datatable_settings'] = $settings->datatable_settings ?? null;
 
             // Pharmacy mode (batch & expiry tracking) Ã¢â‚¬â€ opt-in, only present once migration has run
             $item['pharmacy_mode_supported'] = \Schema::hasColumn('settings', 'pharmacy_mode');

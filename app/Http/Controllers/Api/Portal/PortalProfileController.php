@@ -109,22 +109,27 @@ class PortalProfileController extends Controller
         DB::transaction(function () use ($portalClient, $data, $request) {
             PortalAccountDeletion::create([
                 'client_id' => $portalClient->client_id,
+                'user_id' => $portalClient->id,
                 'email' => $portalClient->email,
                 'client_name' => optional($portalClient->client)->name,
                 'reason' => $data['reason'] ?? null,
                 'ip' => $request->ip(),
             ]);
 
-            // The login row carries no accounting value — remove it outright so
-            // access is revoked for good and the email is free to reuse.
-            PortalClient::whereKey($portalClient->getKey())->delete();
+            // The login is the customer's users row now (sales, role_user and
+            // clients.user_id point at it), so revoke instead of deleting:
+            // portal off, password scrambled, remember-me cleared. An admin
+            // can re-enable it later from the customer.
+            $portalClient->forceFill([
+                'portal_enabled' => 0,
+                'password' => Hash::make(\Illuminate\Support\Str::random(40)),
+                'remember_token' => null,
+            ])->save();
         });
 
+        // Only the portal guard: the session is shared with the admin app, so
+        // invalidating it would also log out an admin in the same browser.
         Auth::guard('portal')->logout();
-        if ($request->hasSession()) {
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-        }
 
         return response()->json(['success' => true]);
     }

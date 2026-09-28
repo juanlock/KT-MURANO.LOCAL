@@ -63,8 +63,11 @@ class ProductsController extends BaseController
         $perPage = $request->integer('limit', 10);
         $pageStart = (int) ($request->get('page', 1));
         $offSet = ($pageStart * max($perPage, 1)) - max($perPage, 1);
-        $order = $request->get('SortField', 'id');
-        $dir = $request->get('SortType', 'desc');
+        // Default list order is Group Name, then Name (A-Z) when the caller
+        // hasn't picked a column to sort by.
+        $order = $request->filled('SortField') ? $request->get('SortField') : 'group_name';
+        $dir = $request->filled('SortField') ? $request->get('SortType', 'desc') : 'asc';
+        $dir = strtolower((string) $dir) === 'asc' ? 'asc' : 'desc';
 
         $helpers = new helpers;
         $warehouseId = $request->integer('warehouse_id');
@@ -183,6 +186,15 @@ class ProductsController extends BaseController
                 $qtySub->whereIn('warehouse_id', $allowedWarehouseIds);
             }
             $filtered->orderBy($qtySub, $dir === 'asc' ? 'asc' : 'desc');
+        } elseif ($order === 'group_name') {
+            // group_name lives on product_groups, not products. Ungrouped
+            // products go last either direction; Name breaks ties.
+            $groupSub = DB::table('product_groups')->select('name')
+                ->whereColumn('product_groups.id', 'products.product_group_id')
+                ->limit(1);
+            $filtered->orderByRaw('products.product_group_id IS NULL')
+                ->orderBy($groupSub, $dir)
+                ->orderBy('products.name', 'asc');
         } else {
             $filtered->orderBy($order, $dir);
         }
@@ -316,9 +328,10 @@ class ProductsController extends BaseController
                 $item['type'] = 'Service';
                 $item['name'] = $product->name; // PLAIN TEXT
                 $item['cost'] = number_format((float) $product->cost, helpers::price_decimals(), '.', '');
-                // A service is never stocked, so quantity/unit stay blank.
-                $item['quantity'] = '----';
-                $item['unit'] = '----';
+                // A service is never stocked (no product_warehouse rows, no
+                // unit), so quantity is reported as not applicable.
+                $item['quantity'] = 'N/A';
+                $item['unit'] = '';
                 $item['price'] = number_format((float) $product->price, helpers::price_decimals(), '.', '');
                 $item['wholesale_price'] = number_format((float) $product->wholesale_price, helpers::price_decimals(), '.', '');
                 $item['min_price'] = number_format((float) $product->min_price, helpers::price_decimals(), '.', '');
@@ -660,6 +673,12 @@ class ProductsController extends BaseController
                 $Product->category_id = $request['category_id'];
                 $Product->sub_category_id = $request['sub_category_id'] ?? null;
                 $Product->brand_id = $request['brand_id'];
+                // New services with no brand chosen default to the acting
+                // company's "Company service" brand (created on demand).
+                if ($request['type'] === 'is_service' && (empty($request['brand_id']) || $request['brand_id'] === 'null')) {
+                    $Product->brand_id = Brand::where('company_id', $companyId)->where('name', 'Company service')->value('id')
+                        ?? Brand::create(['company_id' => $companyId, 'name' => 'Company service', 'image' => 'images/brands/no-image.png'])->id;
+                }
                 $Product->note = $request['note'];
                 $Product->tags = $this->normalizeTags($request->input('tags'));
                 $Product->labels = $this->normalizeLabels($request->input('labels'));
@@ -2801,7 +2820,9 @@ class ProductsController extends BaseController
 
         // Whether the Barcode (GTIN / UPC / EAN / ISBN) field should be shown on the
         // create form. Controlled from System Settings; defaults to true.
-        $setting = Setting::whereNull('deleted_at')->first();
+        // Company boundary: the acting company's own Setting row (was
+        // ->first(), i.e. whichever company's row happened to come first).
+        $setting = Setting::forCompany($companyId);
         $show_product_gtin = (bool) ($setting->show_product_gtin ?? true);
         $show_serial_tracking = (bool) ($setting->show_serial_tracking ?? false);
         $enable_multi_pack_selling = (bool) ($setting->enable_multi_pack_selling ?? false);
@@ -2820,8 +2841,22 @@ class ProductsController extends BaseController
             'show_serial_tracking' => $show_serial_tracking,
             'enable_multi_pack_selling' => $enable_multi_pack_selling,
             'enable_wholesale_pricing' => $enable_wholesale_pricing,
+            // Defaults -> Product: pre-filled Code for the new product (null = off)
+            'product_code_auto' => \App\Support\ProductCode::enabled((int) $companyId),
+            'next_product_code' => \App\Support\ProductCode::enabled((int) $companyId)
+                ? \App\Support\ProductCode::next((int) $companyId) : null,
         ]);
 
+    }
+
+    // Defaults -> Product: the next auto-generated product Code for the
+    // acting company (Create Product's "Generate" link when auto is on).
+    public function nextProductCode(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'create', Product::class);
+        $companyId = (int) $this->resolveActingCompanyId($request);
+
+        return response()->json(['code' => \App\Support\ProductCode::next($companyId)]);
     }
 
     // ---------------- Show Elements Barcode ---------------\\
@@ -3249,7 +3284,8 @@ class ProductsController extends BaseController
             ->whereIn('warehouse_id', $allowedWarehouseIds)
             ->get(['warehouse_id', 'warehouse_location_id']);
 
-        $setting = Setting::whereNull('deleted_at')->first();
+        // Company boundary: the acting company's own Setting row (was ->first()).
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         $show_product_gtin = (bool) ($setting->show_product_gtin ?? true);
         $show_serial_tracking = (bool) ($setting->show_serial_tracking ?? false);
         $enable_multi_pack_selling = (bool) ($setting->enable_multi_pack_selling ?? false);

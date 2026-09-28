@@ -261,7 +261,9 @@ class ZatcaController extends Controller
     protected function submitSource(Request $request, string $class, int $id)
     {
         // Submitting to the Fatoora gateway is a state-changing, government-
-        // facing action: gate it like the rest of the ZATCA administration.
+        // facing action: gate it like the rest of the ZATCA administration
+        // (SuperAdmin only -- a company Admin's role permission isn't enough).
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can access ZATCA.');
         $this->authorizeForUser($request->user('api'), 'zatca_settings', Sale::class);
 
         $source = $class::query()->where('deleted_at', '=', null)->findOrFail($id);

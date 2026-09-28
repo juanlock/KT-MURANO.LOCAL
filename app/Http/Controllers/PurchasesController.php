@@ -97,11 +97,19 @@ class PurchasesController extends BaseController
         // used to double as the company gate and silently stopped scoping once every
         // Admin got record_view=true) and to this app's ClientController/WarehouseController.
         $companyId = $this->resolveActingCompanyId($request);
+        // A SuperAdmin with no company picked in the switcher sees every
+        // company (same rule as SalesController::index). Previously this was
+        // an unconditional where(company_id = resolved id), and a SuperAdmin's
+        // own company_id is the pseudo-company 999 ("System"), which owns no
+        // purchases -- so the list and stat cards always showed 0 for them.
+        $scopeToCompany = $user->type !== 'SuperAdmin' || $request->filled('company_id');
 
         // Check If User Has Permission View  All Records
         $Purchases = Purchase::with('facture', 'provider', 'warehouse', 'currency')
             ->where('deleted_at', '=', null)
-            ->where('company_id', '=', $companyId)
+            ->when($scopeToCompany, function ($query) use ($companyId) {
+                return $query->where('company_id', '=', $companyId);
+            })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -205,7 +213,11 @@ class PurchasesController extends BaseController
             $data[] = $item;
         }
 
-        $suppliers = provider::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
+        $suppliers = Provider::where('deleted_at', '=', null)
+            ->when($scopeToCompany, function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->get(['id', 'name']);
         // NOTE: accounts has no company_id column on this app either -- can't be
         // scoped here without a schema change, left as-is (pre-existing, out of scope).
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
@@ -224,7 +236,9 @@ class PurchasesController extends BaseController
         // this company (not the full static vocab) -- a company with no
         // legacy 'pending' rows, for example, never sees that option at all.
         $payment_statuses = Purchase::where('deleted_at', '=', null)
-            ->where('company_id', $companyId)
+            ->when($scopeToCompany, function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
             ->whereNotNull('payment_statut')
             ->distinct()
             ->pluck('payment_statut')

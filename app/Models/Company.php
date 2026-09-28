@@ -13,5 +13,7 @@ class Company extends Model
 
     protected $fillable = [
         'name', 'email', 'phone', 'country',
+        // Own website domain(s), comma-separated (App\Support\CompanyDomain)
+        'domains',
     ];
 }

@@ -1,9 +1,12 @@
 import { defineStore } from 'pinia';
 
+// Offline / first-paint cache only -- the source of truth is the company's
+// settings.datatable_settings (System Settings -> DataTable), served to every
+// user via get_user_auth and applied with applyServer().
 const KEY = 'next_datatable_prefs';
 
 // Pure Ant Design look — "Reset to default" restores exactly this.
-const DEFAULTS = {
+export const DATATABLE_DEFAULTS = {
     // 'default' inherits Ant's font; the rest map to stacks below.
     fontFamily: 'default',
     fontSize: 14,
@@ -26,6 +29,7 @@ const DEFAULTS = {
     headerFontSize: 14,
     headerUppercase: false,
 };
+const DEFAULTS = DATATABLE_DEFAULTS;
 
 export const FONT_STACKS = {
     default: null, // inherit Ant Design's stack
@@ -34,36 +38,84 @@ export const FONT_STACKS = {
     serif: "Georgia, 'Times New Roman', Times, serif",
 };
 
+function pick(obj) {
+    const out = {};
+    for (const k of Object.keys(DEFAULTS)) out[k] = obj && obj[k] !== undefined ? obj[k] : DEFAULTS[k];
+    return out;
+}
+
 function load() {
     try {
         const raw = window.localStorage.getItem(KEY);
-        if (!raw) return { ...DEFAULTS };
-        const saved = JSON.parse(raw);
-        return { ...DEFAULTS, ...(saved && typeof saved === 'object' ? saved : {}) };
+        return pick(raw ? JSON.parse(raw) : null);
     } catch (e) {
         return { ...DEFAULTS };
     }
 }
 
-/** Per-device display preferences for every DataTable list (fonts, density,
- *  which toolbar components show). Persisted to localStorage. */
+/**
+ * The same format on EVERY table, including raw <a-table>s that don't go
+ * through components/DataTable.vue: the prefs are mirrored onto <html> as CSS
+ * vars + classes, and assets/theme.css styles every .ant-table from them
+ * (DataTable.vue's own table is excluded there -- it applies them itself).
+ */
+function applyGlobal(p) {
+    try {
+        const root = document.documentElement;
+        const vars = {
+            '--gdt-font': FONT_STACKS[p.fontFamily] || 'inherit',
+            '--gdt-font-size': `${p.fontSize}px`,
+            '--gdt-th-weight': p.headerWeight || '600',
+            '--gdt-th-size': `${p.headerFontSize || 14}px`,
+            '--gdt-th-transform': p.headerUppercase ? 'uppercase' : 'none',
+            '--gdt-th-bg': p.headerBg || '',
+            '--gdt-th-color': p.headerColor || '',
+        };
+        Object.entries(vars).forEach(([k, v]) => (v ? root.style.setProperty(k, v) : root.style.removeProperty(k)));
+        root.classList.toggle('gdt-striped', !!p.striped);
+        root.classList.toggle('gdt-bordered', !!p.bordered);
+        root.classList.toggle('gdt-th-bg', !!p.headerBg);
+        root.classList.toggle('gdt-th-color', !!p.headerColor);
+        ['small', 'middle', 'large'].forEach(d => root.classList.toggle(`gdt-density-${d}`, p.density === d));
+    } catch (e) { /* no DOM (SSR/tests) */ }
+}
+
+/** Company-wide display preferences for every table (fonts, density, which
+ *  toolbar components show). */
 export const useDatatableStore = defineStore('datatable', {
-    state: () => load(),
+    state: () => {
+        const s = load();
+        applyGlobal(s);
+        return s;
+    },
     getters: {
         // CSS font-family for tbody cells, or null to inherit.
         fontStack: s => FONT_STACKS[s.fontFamily] ?? null,
+        // Plain snapshot of the prefs -- what System Settings saves.
+        snapshot: s => pick(s),
     },
     actions: {
+        // Live edit (System Settings -> DataTable preview); persisted to the
+        // company when the settings page is saved.
         set(patch) {
             Object.assign(this, patch);
-            try {
-                const out = {};
-                for (const k of Object.keys(DEFAULTS)) out[k] = this[k];
-                window.localStorage.setItem(KEY, JSON.stringify(out));
-            } catch (e) { /* ignore */ }
+            this.persistLocal();
         },
         reset() {
             this.set({ ...DEFAULTS });
+        },
+        // The company's saved format (get_user_auth -> datatable_settings);
+        // null/absent = built-in defaults.
+        applyServer(prefs) {
+            Object.assign(this, pick(prefs && typeof prefs === 'object' ? prefs : null));
+            this.persistLocal();
+        },
+        persistLocal() {
+            const out = pick(this);
+            applyGlobal(out);
+            try {
+                window.localStorage.setItem(KEY, JSON.stringify(out));
+            } catch (e) { /* ignore */ }
         },
     },
 });

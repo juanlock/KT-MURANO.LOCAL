@@ -25,7 +25,17 @@ class StoreFrontController extends Controller
      */
     public function index(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        // Front page per company (Store Settings -> Front page): an imported
+        // page in its original format, or the section-built page below.
+        $frontCompany = \App\Services\FrontPage::companyIdForRequest($request);
+        if ($imported = \App\Services\FrontPage::importedResponse($frontCompany)) {
+            return $imported;
+        }
+        // Sections come from that company's own store settings when the
+        // request is on its domain (the shared store keeps the first row).
+        $s = \App\Services\FrontPage::explicitCompanyId($request)
+            ? StoreSetting::forCompany($frontCompany)
+            : StoreSetting::firstOrFail();
 
         // Theme switch: when the Real Estate theme is active, the storefront
         // homepage is served by the dedicated real estate controller. This keeps
@@ -640,9 +650,30 @@ class StoreFrontController extends Controller
     {
         $s = StoreSetting::firstOrFail();
 
-        $page = StorePage::where('slug', $slug)->where('published', true)->first();
+        // Pages are per company. On a company's own domain, only that
+        // company's pages; otherwise (the shared store URL) prefer the store's
+        // own company and fall back to any company's page with that slug,
+        // until the rest of the storefront is multicompany too.
+        // Only ONE company's pages: the domain's, or ?company=ID from the
+        // admin "view" links, else the shared store's own. (No cross-company
+        // fallback -- that showed AdminNe's Home to AdminKT/AdminRG.)
+        $pageCompany = \App\Services\FrontPage::explicitCompanyId(request()) ?? (int) $s->company_id;
+        $page = StorePage::where('slug', $slug)->where('published', true)
+            ->where('company_id', $pageCompany)
+            ->first();
         if (! $page) {
             abort(404);
+        }
+
+        // Imported website in its original design: show it full-screen (its
+        // own HTML/CSS/JS) at this store URL, instead of the store layout.
+        if ($page->use_site_design && $page->site_path
+            && str_starts_with($page->site_path, 'files/company_') && is_file(public_path($page->site_path))) {
+            return view('store.page-site', [
+                'title' => $page->localized('seo_title') ?: $page->localized('title'),
+                'description' => $page->localized('seo_description'),
+                'src' => url($page->site_path),
+            ]);
         }
 
         $metaDesc = trim((string) ($page->localized('seo_description') ?: \Illuminate\Support\Str::limit(strip_tags((string) $page->localized('content')), 160)));

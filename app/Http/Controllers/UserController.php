@@ -84,7 +84,11 @@ class UserController extends BaseController
             ->orderBy($order, $dir)
             ->get();
 
-        $roles = Role::where('deleted_at', null)->get(['id', 'name']);
+        // Roles are per-company copies (Owner/Admin/... exist once per
+        // company) -- only offer the acting company's own, i.e. the company
+        // store() will create the new user in. Unscoped, every role showed
+        // up once per company in the Create User dropdown.
+        $roles = Role::where('deleted_at', null)->where('company_id', $actingCompanyId)->orderBy('name')->get(['id', 'name']);
 
         // Only a SuperAdmin gets every company's warehouses (needed so the
         // Create User form could offer choices across companies) -- everyone
@@ -179,6 +183,14 @@ class UserController extends BaseController
             'export_settings' => ($settings && $settings->export_settings)
                 ? json_decode($settings->export_settings, true)
                 : null,
+            // System Settings -> DataTable: the company's table format (null =
+            // built-in defaults) and admin column customizations per table.
+            'datatable_settings' => ($settings && $settings->datatable_settings)
+                ? json_decode($settings->datatable_settings, true)
+                : null,
+            'datatable_columns' => ($settings && $settings->datatable_columns)
+                ? (object) json_decode($settings->datatable_columns, true)
+                : (object) [],
         ];
 
         $permissions = $user->roles()->first()?->permissions->pluck('name') ?? [];
@@ -227,7 +239,8 @@ class UserController extends BaseController
         $companyId = $this->resolveActingCompanyId($request);
 
         $this->validate($request, [
-            'email' => 'required|unique:users',
+            // Soft-deleted users don't hold on to their email.
+            'email' => ['required', Rule::unique('users')->whereNull('deleted_at')],
         ], [
             'email.unique' => 'This Email already taken.',
         ]);
@@ -252,6 +265,15 @@ class UserController extends BaseController
         $roleId = isset($autoRoleNames[$type])
             ? (Role::where('company_id', $companyId)->where('name', $autoRoleNames[$type])->value('id') ?? $request['role'])
             : $request['role'];
+
+        // Roles are per-company copies: the picked role must be the new
+        // user's own company's (the dropdown only offers those now).
+        if (! Role::where('id', $roleId)->where('company_id', $companyId)->whereNull('deleted_at')->exists()) {
+            return response()->json([
+                'message' => 'This role does not belong to the user\'s company.',
+                'errors' => ['role' => ['This role does not belong to the user\'s company.']],
+            ], 422);
+        }
 
         $warning = null;
         \DB::transaction(function () use ($request, $companyId, $type, $roleId, &$warning) {
@@ -351,7 +373,9 @@ class UserController extends BaseController
 
         $assigned_warehouses = UserWarehouse::where('user_id', $id)->pluck('warehouse_id')->toArray();
         $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $assigned_warehouses)->pluck('id')->toArray();
-        $roles = Role::where('deleted_at', null)->get(['id', 'name']);
+        // Only the edited user's own company's roles (roles are per-company
+        // copies; unscoped, each showed up once per company).
+        $roles = Role::where('deleted_at', null)->where('company_id', $user->company_id)->orderBy('name')->get(['id', 'name']);
 
         // Only a SuperAdmin (or a SuperAdmin-type target user) gets every
         // company's warehouses; everyone else only gets their own company's.
@@ -381,19 +405,27 @@ class UserController extends BaseController
         // Non-superadmin admins are locked to their own company -- they can
         // neither edit a user from a different company nor move this one to
         // a different company, no matter what the request says.
+        //
+        // The user always stays in their own company here. `company_id` on
+        // this request is the SuperAdmin's header company switcher (http.js
+        // attaches it to every call), not a "move this user" field -- the
+        // edit form has no company picker -- so honoring it silently moved
+        // the user into whatever company the switcher happened to be on.
         $targetCompanyId = User::where('id', $id)->value('company_id');
         if ($actingUser->type !== 'SuperAdmin') {
             abort_unless((int) $targetCompanyId === (int) $actingUser->company_id, 403);
             $targetCompanyId = $actingUser->company_id;
-        } elseif ($request->filled('company_id')) {
-            $targetCompanyId = (int) $request['company_id'];
         }
 
         $this->validate($request, [
-            'email' => 'required|email|unique:users',
-            'email' => Rule::unique('users')->ignore($id),
+            // Soft-deleted users don't hold on to their email -- otherwise a
+            // deleted user sharing this email blocks every save of this one.
+            'email' => ['required', 'email', Rule::unique('users')->ignore($id)->whereNull('deleted_at')],
+            // Roles are per-company copies: only this user's company's own.
+            'role' => ['required', Rule::exists('roles', 'id')->where('company_id', $targetCompanyId)->whereNull('deleted_at')],
         ], [
             'email.unique' => 'This Email already taken.',
+            'role.exists' => 'This role does not belong to the user\'s company.',
         ]);
 
         \DB::transaction(function () use ($id, $request, $targetCompanyId) {
@@ -474,10 +506,10 @@ class UserController extends BaseController
 
             ]);
 
-            role_user::where('user_id', $id)->update([
-                'user_id' => $id,
-                'role_id' => $request['role'],
-            ]);
+            // role_user is what permissions are actually read from
+            // (User::roles()); keep exactly one row, matching users.role_id
+            // (create it if a user somehow has none).
+            role_user::updateOrCreate(['user_id' => $id], ['role_id' => $request['role']]);
 
             $user_saved = User::where('deleted_at', '=', null)->findOrFail($id);
 

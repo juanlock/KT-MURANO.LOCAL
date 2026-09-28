@@ -151,7 +151,7 @@ class LinkedUserService
         return null;
     }
 
-    private static function uniqueUsername(string $seed): string
+    public static function uniqueUsername(string $seed): string
     {
         $base = Str::slug($seed, '_');
         if ($base === '') {

@@ -19,7 +19,10 @@
         :locale="{ emptyText: $t('No_Pages') }"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'title'"><strong>{{ record.title }}</strong></template>
+          <template v-if="column.key === 'title'">
+            <strong>{{ record.title }}</strong>
+            <a-tag v-if="record.site_path && record.use_site_design" color="purple" style="margin-left: 8px">Original design</a-tag>
+          </template>
           <template v-else-if="column.key === 'slug'">
             <a-tag style="font-family: ui-monospace, Menlo, monospace">{{ record.slug }}</a-tag>
           </template>
@@ -34,7 +37,9 @@
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button size="small" :href="`/online_store/pages/${record.slug}`" target="_blank" rel="noopener">
+              <!-- ?company= : slugs are per company; without it the shared
+                   store URL can't tell whose page to show. -->
+              <a-button size="small" :href="`/online_store/pages/${record.slug}?company=${record.company_id}`" target="_blank" rel="noopener">
                 <template #icon><LinkOutlined /></template>
               </a-button>
               <a-button size="small" @click="openEdit(record)">
@@ -66,6 +71,19 @@
             </a-form-item>
           </a-col>
         </a-row>
+        <!-- Imported website: shown full-screen in its own design, or this
+             page's editable content below (kept as the fallback). -->
+        <a-alert v-if="form.site_path" type="info" show-icon style="margin-bottom: 16px">
+          <template #message>
+            <a-switch v-model:checked="form.use_site_design" size="small" />
+            <span style="margin-left: 8px">Show the imported website (original design)</span>
+          </template>
+          <template #description>
+            On: the store page shows the original website exactly as it looks
+            (<a :href="'/' + form.site_path" target="_blank" rel="noopener">preview</a>) — its text is edited in the website files.
+            Off: the store page shows the editable content below instead.
+          </template>
+        </a-alert>
         <a-form-item :label="$t('Content')">
           <RichTextEditor v-model="form.content" />
         </a-form-item>
@@ -141,6 +159,7 @@ const slugTouched = ref(false);
 
 const emptyForm = () => ({
   id: null, title: '', slug: '', content: '', seo_title: '', seo_description: '', published: true,
+  site_path: null, use_site_design: false,
   title_translations: {}, content_translations: {},
   seo_title_translations: {}, seo_description_translations: {},
 });
@@ -192,6 +211,7 @@ function openEdit(p) {
     ...emptyForm(),
     id: p.id, title: p.title, slug: p.slug, content: p.content || '',
     seo_title: p.seo_title || '', seo_description: p.seo_description || '', published: !!p.published,
+    site_path: p.site_path || null, use_site_design: !!p.use_site_design,
     title_translations: { ...(p.title_translations || {}) },
     content_translations: { ...(p.content_translations || {}) },
     seo_title_translations: { ...(p.seo_title_translations || {}) },
@@ -213,6 +233,7 @@ async function submit() {
     seo_title: form.value.seo_title || '',
     seo_description: form.value.seo_description || '',
     published: form.value.published ? 1 : 0,
+    ...(form.value.site_path ? { use_site_design: form.value.use_site_design ? 1 : 0 } : {}),
   };
   // Every locale key is sent, blanks included, so clearing a translation here
   // actually clears it. togglePublished() sends none of these, which is how it

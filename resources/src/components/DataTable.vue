@@ -50,6 +50,14 @@
           </a-tooltip>
         </a-popover>
 
+        <!-- Customize columns (admins/SuperAdmin): rename, width, show/hide,
+             reorder -- for everyone in the company, per table. -->
+        <a-tooltip v-if="auth.canCustomizeColumns" :title="$t('Customize_Columns') === 'Customize_Columns' ? 'Customize columns' : $t('Customize_Columns')">
+          <a-button @click="openCustomize">
+            <template #icon><ColumnWidthOutlined /></template>
+          </a-button>
+        </a-tooltip>
+
         <!-- Refresh -->
         <a-tooltip v-if="dt.showRefresh" :title="$t('Refresh')">
           <a-button @click="crud.fetchRows()">
@@ -60,6 +68,7 @@
     </div>
 
     <a-table
+      class="dt-managed"
       :columns="visibleColumns"
       :data-source="crud.rows.value"
       :loading="crud.loading.value"
@@ -101,6 +110,37 @@
         </slot>
       </template>
     </a-table>
+
+    <!-- Customize columns: applies to every user of this company on this table. -->
+    <a-modal
+      v-model:open="customizeOpen"
+      :title="$t('Customize_Columns') === 'Customize_Columns' ? 'Customize columns' : $t('Customize_Columns')"
+      :width="640"
+      :confirm-loading="customizeSaving"
+      @ok="saveCustomize"
+    >
+      <div class="cc-hint">Rename, resize, hide or reorder this table's columns for everyone in the company. Leave a name or width empty to keep the default.</div>
+      <div class="cc-head">
+        <span class="cc-move"></span>
+        <span class="cc-vis">Show</span>
+        <span class="cc-title">Column name</span>
+        <span class="cc-width">Width (px)</span>
+      </div>
+      <div v-for="(row, i) in customizeRows" :key="row.key" class="cc-row">
+        <span class="cc-move">
+          <a-button size="small" type="text" :disabled="i === 0" @click="moveRow(i, -1)"><template #icon><ArrowUpOutlined /></template></a-button>
+          <a-button size="small" type="text" :disabled="i === customizeRows.length - 1" @click="moveRow(i, 1)"><template #icon><ArrowDownOutlined /></template></a-button>
+        </span>
+        <span class="cc-vis"><a-checkbox v-model:checked="row.visible" /></span>
+        <span class="cc-title"><a-input v-model:value="row.title" size="small" :placeholder="row.original" allow-clear /></span>
+        <span class="cc-width"><a-input-number v-model:value="row.width" size="small" :min="40" :max="800" placeholder="auto" style="width: 100%" /></span>
+      </div>
+      <template #footer>
+        <a-button danger :loading="customizeSaving" @click="resetCustomize">{{ $t('Reset') }}</a-button>
+        <a-button @click="customizeOpen = false">{{ $t('Cancel') }}</a-button>
+        <a-button type="primary" :loading="customizeSaving" @click="saveCustomize">{{ $t('Save') }}</a-button>
+      </template>
+    </a-modal>
   </a-card>
 </template>
 
@@ -116,9 +156,14 @@
  */
 import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { DeleteOutlined, SettingOutlined, ReloadOutlined } from '@ant-design/icons-vue';
+import { message } from 'ant-design-vue';
+import {
+  DeleteOutlined, SettingOutlined, ReloadOutlined, ColumnWidthOutlined, ArrowUpOutlined, ArrowDownOutlined,
+} from '@ant-design/icons-vue';
 import { useDatatableStore } from '../stores/datatable';
+import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
+import http from '../lib/http';
 
 const props = defineProps({
   crud: { type: Object, required: true },
@@ -135,9 +180,13 @@ const props = defineProps({
   // enabled across every list in the app. The prop/wiring stays in place
   // (harmless, ignored) rather than ripped out of every page that passes it.
   selectable: { type: Boolean, default: false },
+  // Identifies this table for admin column customization. Defaults to the
+  // route + the crud endpoint, which keeps pages with several tables apart.
+  tableKey: { type: String, default: '' },
 });
 
 const dt = useDatatableStore();
+const auth = useAuthStore();
 
 // Hard override, not just a lower default: pages still pass :selectable="...",
 // this makes it a no-op everywhere instead of requiring every call site to be
@@ -185,6 +234,104 @@ function readStoredHiddenKeys() {
 
 const hiddenKeys = ref(readStoredHiddenKeys());
 
+/* ------------------------------------------------ admin column customization
+ * Company-wide, per table (settings.datatable_columns via get_user_auth):
+ * [{key, title, width, hidden}] in display order. Applied before the per-user
+ * show/hide picker; admin-hidden columns are removed for everyone and don't
+ * appear in the picker. Columns added to a page later (not in the saved
+ * list) keep showing, after the saved ones. The actions column never moves. */
+const tableKeyResolved = computed(() =>
+  props.tableKey || `${String(route.name || route.path)}|${props.crud.endpoint || ''}`);
+const adminCfg = computed(() => {
+  const cfg = auth.datatableColumns?.[tableKeyResolved.value];
+  return Array.isArray(cfg) && cfg.length ? cfg : null;
+});
+
+const customizedColumns = computed(() => {
+  const cfg = adminCfg.value;
+  if (!cfg) return props.columns;
+  const actionsIdx = props.columns.findIndex(c => colKey(c) === 'actions');
+  const data = props.columns.filter(c => colKey(c) !== 'actions');
+  const byKey = new Map(data.map(c => [colKey(c), c]));
+  const out = [];
+  cfg.forEach(entry => {
+    const col = byKey.get(entry.key);
+    if (!col) return;
+    byKey.delete(entry.key);
+    if (entry.hidden) return;
+    out.push({
+      ...col,
+      ...(entry.title ? { title: entry.title } : {}),
+      ...(entry.width ? { width: entry.width } : {}),
+    });
+  });
+  data.forEach(c => { if (byKey.has(colKey(c))) out.push(c); });
+  if (actionsIdx >= 0) {
+    const actions = props.columns[actionsIdx];
+    if (actionsIdx === 0) out.unshift(actions); else out.push(actions);
+  }
+  return out;
+});
+
+const customizeOpen = ref(false);
+const customizeSaving = ref(false);
+const customizeRows = ref([]);
+
+function openCustomize() {
+  const cfg = adminCfg.value || [];
+  const cfgByKey = new Map(cfg.map(e => [e.key, e]));
+  const data = props.columns.filter(c => colKey(c) !== 'actions');
+  const ordered = [
+    ...cfg.map(e => data.find(c => colKey(c) === e.key)).filter(Boolean),
+    ...data.filter(c => !cfgByKey.has(colKey(c))),
+  ];
+  customizeRows.value = ordered.map(c => {
+    const e = cfgByKey.get(colKey(c)) || {};
+    return {
+      key: colKey(c),
+      original: typeof c.title === 'string' ? c.title : String(colKey(c)),
+      title: e.title || '',
+      width: e.width || null,
+      visible: !e.hidden,
+    };
+  });
+  customizeOpen.value = true;
+}
+
+function moveRow(i, dir) {
+  const rows = customizeRows.value;
+  const j = i + dir;
+  if (j < 0 || j >= rows.length) return;
+  [rows[i], rows[j]] = [rows[j], rows[i]];
+}
+
+async function persistCustomize(columns) {
+  customizeSaving.value = true;
+  try {
+    const res = await http.put('datatable_columns', { table_key: tableKeyResolved.value, columns });
+    if (auth.user) auth.user.datatable_columns = res?.datatable_columns || {};
+    customizeOpen.value = false;
+    message.success('Saved');
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not save');
+  } finally {
+    customizeSaving.value = false;
+  }
+}
+
+function saveCustomize() {
+  persistCustomize(customizeRows.value.map(r => ({
+    key: String(r.key),
+    title: (r.title || '').trim() || null,
+    width: r.width ? Number(r.width) : null,
+    hidden: !r.visible,
+  })));
+}
+
+function resetCustomize() {
+  persistCustomize(null);
+}
+
 function persistHiddenKeys() {
   try {
     window.localStorage.setItem(hiddenColsStorageKey, JSON.stringify(hiddenKeys.value));
@@ -192,7 +339,7 @@ function persistHiddenKeys() {
 }
 
 // The actions column stays out of the picker — hiding it strands the row menu.
-const toggleableColumns = computed(() => props.columns.filter(c => colKey(c) !== 'actions'));
+const toggleableColumns = computed(() => customizedColumns.value.filter(c => colKey(c) !== 'actions'));
 
 /* ------------------------------------------------ sorting
  * Global "Sortable columns" pref (System Settings > DataTable):
@@ -214,8 +361,8 @@ function localSorter(key) {
 }
 
 const sortedColumns = computed(() => {
-  if (!dt.autoSort) return props.columns.map(c => (c.sorter ? { ...c, sorter: undefined } : c));
-  return props.columns.map(c => {
+  if (!dt.autoSort) return customizedColumns.value.map(c => (c.sorter ? { ...c, sorter: undefined } : c));
+  return customizedColumns.value.map(c => {
     if (c.sorter || c.sorter === false || !c.dataIndex || colKey(c) === 'actions') return c;
     return { ...c, sorter: localSorter(c.dataIndex) };
   });
@@ -304,6 +451,14 @@ function sumFor(col) {
   height: auto;
   margin-top: 4px;
 }
+.cc-hint { font-size: 12px; opacity: 0.65; margin-bottom: 12px; }
+.cc-head, .cc-row { display: flex; align-items: center; gap: 8px; }
+.cc-head { font-size: 12px; font-weight: 600; opacity: 0.7; margin-bottom: 6px; }
+.cc-row { padding: 4px 0; border-top: 1px solid rgba(128, 128, 128, 0.12); }
+.cc-move { width: 64px; flex: none; display: flex; }
+.cc-vis { width: 44px; flex: none; text-align: center; }
+.cc-title { flex: 1; min-width: 0; }
+.cc-width { width: 110px; flex: none; }
 
 /* Body cells follow the user's DataTable preferences (font + size). */
 :deep(.ant-table-tbody > tr > td) {

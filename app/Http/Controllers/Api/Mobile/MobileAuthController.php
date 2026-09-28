@@ -93,6 +93,8 @@ class MobileAuthController extends BaseController
         // for the session guard to write to.
         $user = User::where('email', $request->email)
             ->whereNull('deleted_at')
+            // Staff app only: customers sign in to the Client Portal.
+            ->where('type', '!=', 'customer')
             ->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {

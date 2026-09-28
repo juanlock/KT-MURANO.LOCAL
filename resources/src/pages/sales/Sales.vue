@@ -103,6 +103,7 @@
 
     <DataTable :crud="crud" :columns="columns" :selectable="auth.can('Sales_delete')">
       <template #toolbar>
+        <a-tag v-if="dueOnly" color="red" closable @close.prevent="clearDueOnly">{{ $t('Due') }}</a-tag>
         <StatusHelpModal doc-type="sale" />
       </template>
       <template #bodyCell="{ column, record }">
@@ -471,7 +472,7 @@
  *   DELETE sales/documents/{id}
  */
 import { ref, computed, createVNode } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { message, Modal, Upload } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
@@ -503,6 +504,7 @@ const { t } = useI18n();
 const { money, number, dateTime, roundMoney } = useFormat();
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 
 const filters = ref({
   date: null, client_id: undefined, warehouse_id: undefined,
@@ -510,7 +512,11 @@ const filters = ref({
   date_from: '', date_to: '',
 });
 
+// "Only sales with a balance due" -- set by the Customers list Due link.
+const dueOnly = ref(false);
+
 const filterParams = () => ({
+  due_only: dueOnly.value ? 1 : '',
   Ref: '',
   date: filters.value.date || '',
   date_from: filters.value.date_from || '',
@@ -577,6 +583,7 @@ function applyPreset(preset) {
   filters.value.statut = undefined;
   filters.value.payment_statut = undefined;
   filters.value.shipping_status = undefined;
+  dueOnly.value = false;
   crud.reload();
 }
 
@@ -604,8 +611,27 @@ function onOtherFilterChange() {
   crud.reload();
 }
 
-// Default: This Month, applied before the first fetch.
-applyPreset(datePreset.value);
+// Deep links (Customers list: Total Sales / # Sales / Due) arrive as
+// ?client_id=&statut=&due_only=1 -- show that customer's matching sales
+// across ALL dates instead of the This Month default.
+const linkedQuery = route.query;
+if (linkedQuery.client_id) {
+  datePreset.value = 'all';
+  filters.value.date_from = '';
+  filters.value.date_to = '';
+  filters.value.client_id = Number(linkedQuery.client_id);
+  if (linkedQuery.statut) filters.value.statut = String(linkedQuery.statut);
+  dueOnly.value = linkedQuery.due_only === '1';
+  crud.reload();
+} else {
+  // Default: This Month, applied before the first fetch.
+  applyPreset(datePreset.value);
+}
+
+function clearDueOnly() {
+  dueOnly.value = false;
+  crud.reload();
+}
 
 // What the keycard shows: the exact day (picker) takes priority, then the
 // active preset's range, then '—' when neither is set (the "All" preset).

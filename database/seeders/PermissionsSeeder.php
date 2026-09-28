@@ -1345,6 +1345,10 @@ class PermissionsSeeder extends Seeder
                     'id' => 308,
                     'name' => 'edit_completed_paid_sale',
                 ],
+                [
+                    'id' => 309,
+                    'name' => 'datatable_customize',
+                ],
 
             ]
         );

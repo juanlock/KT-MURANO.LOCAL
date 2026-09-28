@@ -724,6 +724,51 @@
           </a-card>
         </a-tab-pane>
 
+        <!-- ===== Front page: section builder or imported page ===== -->
+        <a-tab-pane key="front_page">
+          <template #tab><span class="stab"><HomeOutlined /> Front page</span></template>
+          <a-card size="small" :bordered="false">
+            <a-radio-group v-model:value="front.mode" style="width: 100%">
+              <a-radio value="sections" class="fp-option">
+                <strong>Our store front page (sections)</strong>
+                <div class="fp-help">
+                  Build the front page from sections you create and edit — Hero, collections, banners, flash sale and more —
+                  in the <em>Hero</em> and <em>{{ $t('Homepage_Blocks') }}</em> tabs.
+                </div>
+              </a-radio>
+              <a-radio value="imported" class="fp-option">
+                <strong>Import the current front page from a URL</strong>
+                <div class="fp-help">
+                  Copies the page (and the pages it links to) keeping its original format, and inserts the store bar —
+                  <em>Shop</em>, <em>Cart</em> (with item count) and <em>My Account</em> — linking to this online store.
+                </div>
+              </a-radio>
+            </a-radio-group>
+
+            <template v-if="front.mode === 'imported'">
+              <a-form-item label="Front page URL" style="margin-top: 12px; max-width: 560px">
+                <a-input v-model:value="front.url" placeholder="https://www.example.com" />
+              </a-form-item>
+              <div v-if="front.imported_at" class="fp-status">
+                Imported {{ (front.imported_at || '').substring(0, 16).replace('T', ' ') }}
+                <template v-if="front.saved_url"> from <a :href="front.saved_url" target="_blank" rel="noopener">{{ front.saved_url }}</a></template>
+                — <a :href="storeHomeUrl" target="_blank" rel="noopener">view the front page</a>
+              </div>
+            </template>
+
+            <a-space style="margin-top: 16px">
+              <a-button
+                type="primary" :loading="front.busy"
+                :disabled="front.mode === 'imported' ? !front.url : front.saved_mode === 'sections'"
+                @click="applyFrontPage"
+              >
+                {{ front.mode === 'imported' ? (front.imported_at ? 'Re-import now' : 'Import now') : 'Use sections front page' }}
+              </a-button>
+              <span v-if="front.mode !== front.saved_mode" class="fp-help">Not applied yet.</span>
+            </a-space>
+          </a-card>
+        </a-tab-pane>
+
         <!-- ===== Homepage blocks ===== -->
         <a-tab-pane key="homepage">
           <template #tab><span class="stab"><AppstoreOutlined /> {{ $t('Homepage_Blocks') }}</span></template>
@@ -819,7 +864,7 @@ import { useI18n } from 'vue-i18n';
 import {
   PlusOutlined, DeleteOutlined, UploadOutlined, ShopOutlined, PhoneOutlined,
   BgColorsOutlined, PictureOutlined, SearchOutlined, LayoutOutlined,
-  ShareAltOutlined, AppstoreOutlined, LaptopOutlined, SmileOutlined, ShoppingCartOutlined,
+  ShareAltOutlined, AppstoreOutlined, LaptopOutlined, SmileOutlined, ShoppingCartOutlined, HomeOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import TranslatableInput from '../../components/TranslatableInput.vue';
@@ -1048,6 +1093,35 @@ const TRANSLATABLE_TEXT = [
   'topbar_text_left', 'topbar_text_right', 'footer_text',
   'seo_meta_title', 'seo_meta_description',
 ];
+
+/* ---------------- Front page (sections builder vs imported page) ---------------- */
+const front = ref({ mode: 'sections', saved_mode: 'sections', url: '', saved_url: '', imported_at: null, busy: false });
+// The store's own front page URL (same rule as storeUrlPreview below), for
+// THIS company (?company=) -- the shared store URL otherwise can't tell whose.
+const storeHomeUrl = computed(() => (form.value.store_use_root_domain
+  ? '/'
+  : '/' + (String(form.value.store_url_path || '').trim().replace(/^\/+|\/+$/g, '') || 'online_store'))
+  + (settings.value?.company_id ? `?company=${settings.value.company_id}` : ''));
+
+async function applyFrontPage() {
+  const f = front.value;
+  f.busy = true;
+  try {
+    const res = await http.post('admin/store/front-page', { mode: f.mode, url: f.mode === 'imported' ? f.url : null });
+    if (f.mode === 'imported') {
+      f.imported_at = res?.settings?.front_page_imported_at || new Date().toISOString();
+      f.saved_url = f.url;
+      message.success(`Front page imported: ${res.pages} page(s), ${res.assets} file(s), store bar inserted.`, 6);
+    } else {
+      message.success('The front page now uses the store sections.');
+    }
+    f.saved_mode = f.mode;
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not apply the front page.', 8);
+  } finally {
+    f.busy = false;
+  }
+}
 
 const form = ref({
   enabled: true,
@@ -1295,6 +1369,16 @@ async function fetch() {
     gr.value = grNormalize(s && s.theme_options);
     thFilePreviews.value = {};
 
+    // Front page mode (applied on its own, not by the main Save).
+    front.value = {
+      mode: (s && s.front_page_mode) || 'sections',
+      saved_mode: (s && s.front_page_mode) || 'sections',
+      url: (s && s.front_page_url) || '',
+      saved_url: (s && s.front_page_url) || '',
+      imported_at: (s && s.front_page_imported_at) || null,
+      busy: false,
+    };
+
     const lineupRaw = s && s.homepage_lineup;
     merged.homepage_lineup = Array.isArray(lineupRaw) ? lineupRaw : (tryParseJson(lineupRaw) || []);
     merged.homepage_layout = 'default';
@@ -1521,6 +1605,9 @@ onMounted(fetch);
 .settings-tabs :deep(.ant-tabs-tab-active) {
   background: rgba(109, 40, 217, 0.08);
 }
+.fp-option { display: flex; align-items: flex-start; white-space: normal; margin-bottom: 12px; }
+.fp-help { font-size: 12px; opacity: 0.7; font-weight: normal; margin-top: 2px; }
+.fp-status { font-size: 13px; opacity: 0.85; }
 .stab {
   display: inline-flex;
   align-items: center;

@@ -5,6 +5,12 @@
 		},
 		{
 			"path": "../KT-BILLING.LOCAL"
+		},
+		{
+			"path": "../NEWERABOOKING.LOCAL"
+		},
+		{
+			"path": "../NEWERA.LOCAL"
 		}
 	],
 	"settings": {
