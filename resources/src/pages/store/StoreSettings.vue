@@ -2,7 +2,7 @@
   <div class="page">
     <PageHeader :title="$t('Settings')" :breadcrumb="[$t('Store'), $t('Settings')]">
       <template #extra>
-        <a-button v-if="!isLoading" type="primary" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
+        <a-button v-if="!isLoading && !ownSaveTab" type="primary" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
       </template>
     </PageHeader>
 
@@ -11,7 +11,7 @@
     </div>
 
     <template v-else>
-      <a-tabs tab-position="left" class="settings-tabs">
+      <a-tabs v-model:activeKey="mainTab" tab-position="left" class="settings-tabs">
         <!-- ===== Store Basics ===== -->
         <a-tab-pane key="basics">
           <template #tab><span class="stab"><ShopOutlined /> {{ $t('Store_Basics') }}</span></template>
@@ -772,6 +772,21 @@
         <!-- ===== Homepage blocks ===== -->
         <a-tab-pane key="homepage">
           <template #tab><span class="stab"><AppstoreOutlined /> {{ $t('Homepage_Blocks') }}</span></template>
+          <!-- What's here follows the APPLIED front page (Front page tab):
+               our store front page -> blocks + store pages + store menus;
+               an imported website -> its own pages + its own menu. -->
+          <a-alert
+            v-if="front.saved_mode === 'imported'" type="info" show-icon style="margin-bottom: 8px"
+            message="The front page is the imported website."
+          >
+            <template #description>
+              Edit its pages (texts, pictures, links) and its navigation menu here.
+              <a :href="storeHomeUrl" target="_blank" rel="noopener">View the front page</a>.
+              To use the store's own sections instead, change it in the Front page tab.
+            </template>
+          </a-alert>
+          <a-tabs v-model:activeKey="homeSub" size="small" class="home-sub">
+            <a-tab-pane v-if="front.saved_mode !== 'imported'" key="blocks" :tab="$t('Homepage_Blocks')">
           <a-card size="small" :bordered="false">
             <template #title>
           {{ $t('Homepage_Blocks') }}
@@ -806,6 +821,22 @@
             </a-space>
           </div>
 
+          <div v-if="row.active && row.kind === 'portfolio'" class="block-config">
+            <a-row :gutter="16">
+              <a-col :xs="24" :md="9">
+                <a-form-item :label="$t('Section_Heading')"><a-input v-model:value="row.heading" :placeholder="$t('Portfolio')" /></a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="10">
+                <a-form-item :label="$t('Subtitle')"><a-input v-model:value="row.subtitle" /></a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="5">
+                <a-form-item :label="$t('Items_to_show')"><a-input-number v-model:value="row.limit" :min="1" :max="60" style="width: 100%" /></a-form-item>
+              </a-col>
+            </a-row>
+            <div style="font-size: 12px; color: #999">
+              Pictures and groups are managed in <a @click="$router.push('/store/portfolio')">Store → Portfolio</a>.
+            </div>
+          </div>
           <div v-if="row.active && (row.kind === 'best_sellers' || row.kind === 'you_may_like')" class="block-config">
             <a-row :gutter="16">
               <a-col :xs="24" :md="12">
@@ -833,10 +864,25 @@
           </div>
             </div>
           </a-card>
+            </a-tab-pane>
+            <a-tab-pane v-if="front.saved_mode === 'imported'" key="sections" tab="Sections">
+              <div style="margin-bottom: 8px; font-size: 13px; opacity: .75">
+                Sections from Store Management shown on the imported front page, live — they stay after re-importing the website.
+              </div>
+              <PortfolioSectionCard in-settings :key="'pf-' + settings.company_id" />
+            </a-tab-pane>
+            <a-tab-pane key="pages" :tab="front.saved_mode === 'imported' ? 'Website pages' : $t('Pages')">
+              <SitePagesEditor v-if="front.saved_mode === 'imported'" :key="'sp-' + settings.company_id" />
+              <StorePagesPanel v-else embedded :key="'p-' + settings.company_id" />
+            </a-tab-pane>
+            <a-tab-pane key="menu" :tab="front.saved_mode === 'imported' ? 'Website menu' : $t('Menus')">
+              <StoreMenusPanel embedded :mode="front.saved_mode === 'imported' ? 'site' : 'store'" :key="'m-' + front.saved_mode + settings.company_id" />
+            </a-tab-pane>
+          </a-tabs>
         </a-tab-pane>
       </a-tabs>
 
-      <div class="save-bar">
+      <div v-if="!ownSaveTab" class="save-bar">
         <a-button type="primary" size="large" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
       </div>
     </template>
@@ -859,6 +905,7 @@
  * admin/store/collections?include_counts=1 fallback.
  */
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
@@ -868,18 +915,36 @@ import {
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import TranslatableInput from '../../components/TranslatableInput.vue';
+import StorePagesPanel from './Pages.vue';
+import StoreMenusPanel from './Menus.vue';
+import SitePagesEditor from './SitePagesEditor.vue';
+import PortfolioSectionCard from './PortfolioSectionCard.vue';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
 
 const { t } = useI18n();
+const route = useRoute();
+
+// ?tab=homepage&sub=pages|menu|blocks -- the old Store -> Pages / Menus
+// links land here (Pages and Menus now live under Homepage Blocks).
+const mainTab = ref(String(route.query.tab || 'basics'));
+const homeSubPick = ref(String(route.query.sub || ''));
+const homeSub = computed({
+  get: () => {
+    const imported = front.value.saved_mode === 'imported';
+    const k = homeSubPick.value || (imported ? 'pages' : 'blocks');
+    return imported && k === 'blocks' ? 'pages' : k;
+  },
+  set: v => { homeSubPick.value = v; },
+});
+// Pages / Menu sub-tabs save on their own -- hide the settings Save there.
+const ownSaveTab = computed(() => mainTab.value === 'homepage' && homeSub.value !== 'blocks');
 
 const QUICK_LINKS = [
   { to: '/store/shipping-methods', label: 'Shipping_Methods' },
   { to: '/store/tax-rates', label: 'Tax_Rates' },
   { to: '/store/flash-sales', label: 'Flash_Sales' },
   { to: '/store/reviews', label: 'Manage_Reviews' },
-  { to: '/store/pages', label: 'Pages' },
-  { to: '/store/menus', label: 'Menus' },
   { to: '/store/popups', label: 'Popup_Messages' },
   { to: '/store/quote-requests', label: 'Quote_Requests' },
   { to: '/store/coupons', label: 'Coupons' },
@@ -1201,7 +1266,7 @@ function pick(key, e) {
 function kindColor(kind) {
   return {
     collection: 'cyan', hero: 'blue', newsletter: 'success',
-    best_sellers: 'warning', you_may_like: 'purple',
+    best_sellers: 'warning', you_may_like: 'purple', portfolio: 'magenta',
   }[kind] || 'default';
 }
 function labelFor(kind) {
@@ -1210,6 +1275,7 @@ function labelFor(kind) {
   if (kind === 'newsletter') return t('Newsletter');
   if (kind === 'best_sellers') return t('Best_Sellers');
   if (kind === 'you_may_like') return t('You_May_Also_Like');
+  if (kind === 'portfolio') return t('Portfolio');
   return kind;
 }
 function move(idx, dir) {
@@ -1286,6 +1352,8 @@ function buildHomeRows() {
     key: 'you_may_like', kind: 'you_may_like', title: t('You_May_Also_Like'),
     active: false, warning: false, heading: '', limit: 8, product_ids: [],
   });
+  // Store -> Portfolio pictures, grouped.
+  const portfolioRow = { key: 'portfolio', kind: 'portfolio', title: t('Portfolio'), active: false, warning: false, heading: '', subtitle: '', limit: 12 };
 
   const collectionBySlug = new Map(collections.value.map(c => [c.slug, c]));
   const used = new Set();
@@ -1304,6 +1372,9 @@ function buildHomeRows() {
           product_ids: Array.isArray(item.product_ids) ? item.product_ids.map(Number) : [],
         });
         used.add('you_may_like');
+      } else if (item.type === 'portfolio') {
+        rows.push({ ...portfolioRow, active: true, heading: item.title || '', subtitle: item.subtitle || '', limit: Number(item.limit || 12) });
+        used.add('portfolio');
       } else if (item.type === 'collection' && item.slug) {
         const c = collectionBySlug.get(String(item.slug));
         if (c) {
@@ -1316,6 +1387,7 @@ function buildHomeRows() {
     if (!used.has('newsletter')) rows.push(newsletterRow);
     if (!used.has('best_sellers')) rows.push({ ...bestSellersRow });
     if (!used.has('you_may_like')) rows.push(makeYouMayLikeRow());
+    if (!used.has('portfolio')) rows.push({ ...portfolioRow });
     collections.value
       .filter(c => !used.has(`collection:${c.slug}`))
       .sort((a, b) => (a.sort_order - b.sort_order) || a.title.localeCompare(b.title))
@@ -1328,6 +1400,7 @@ function buildHomeRows() {
       .forEach(c => rows.push({ ...c, key: `collection:${c.slug}`, kind: 'collection', active: normalizeBool(c.is_active) }));
     rows.push({ ...bestSellersRow });
     rows.push(makeYouMayLikeRow());
+    rows.push({ ...portfolioRow });
     rows.push({ ...newsletterRow, active: false });
   }
 
@@ -1482,6 +1555,8 @@ async function save() {
           type: 'you_may_like', title: (r.heading || '').trim(), limit: r.limit ? Number(r.limit) : 8,
           product_ids: Array.isArray(r.product_ids) ? r.product_ids.map(Number) : [],
         });
+      } else if (r.kind === 'portfolio') {
+        lineup.push({ type: 'portfolio', title: (r.heading || '').trim(), subtitle: (r.subtitle || '').trim(), limit: r.limit ? Number(r.limit) : 12 });
       } else if (r.kind === 'collection') {
         lineup.push({ type: 'collection', slug: r.slug, limit: r.limit ? Number(r.limit) : 8, layout: 'grid', title_override: '' });
       }

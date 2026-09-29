@@ -3,12 +3,23 @@
 use App\Http\Controllers\Api\CustomerDisplayController;
 use App\Http\Controllers\Api\Store\BannersApiController;
 use App\Http\Controllers\Api\Store\CollectionController;
+use App\Http\Controllers\Api\Store\GalleryApiController;
+use App\Http\Controllers\Api\Store\PortfolioApiController;
+use App\Http\Controllers\Api\Intranet\IntranetEventsApiController;
+use App\Http\Controllers\Api\Intranet\IntranetFilesApiController;
+use App\Http\Controllers\Api\Intranet\IntranetGalleryApiController;
+use App\Http\Controllers\Api\Intranet\IntranetPagesApiController;
+use App\Http\Controllers\Api\Intranet\IntranetPostsApiController;
+use App\Http\Controllers\Api\Intranet\IntranetViewApiController;
 use App\Http\Controllers\Api\Store\InviteCodesController;
 use App\Http\Controllers\Api\Store\MessageController;
 use App\Http\Controllers\Api\Store\OnlineOrdersApiController;
 use App\Http\Controllers\Api\Store\PagesApiController;
 use App\Http\Controllers\Api\Store\PendingCustomersController;
 use App\Http\Controllers\Api\Store\SettingsApiController;
+use App\Http\Controllers\Api\Store\SitePagesApiController;
+use App\Http\Controllers\Api\Helpdesk\HelpdeskAdminController;
+use App\Http\Controllers\Api\Helpdesk\MyTicketsController;
 use App\Http\Controllers\Api\Store\FlashSalesController;
 use App\Http\Controllers\Api\Store\ProductQuestionsController;
 use App\Http\Controllers\Api\Store\ProductReviewsController;
@@ -133,6 +144,31 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('/admin/store/site-menu', [SettingsApiController::class, 'siteMenu']);
     Route::put('/admin/store/site-menu', [SettingsApiController::class, 'updateSiteMenu']);
     Route::post('/admin/store/site-menu/detect', [SettingsApiController::class, 'detectSiteMenu']);
+    Route::get('/admin/store/site-pages', [SitePagesApiController::class, 'index']);
+    Route::post('/admin/store/site-pages/upload', [SitePagesApiController::class, 'upload']);
+    Route::get('/admin/store/site-pages/{file}', [SitePagesApiController::class, 'show'])->where('file', '[A-Za-z0-9._-]+');
+    Route::put('/admin/store/site-pages/{file}', [SitePagesApiController::class, 'update'])->where('file', '[A-Za-z0-9._-]+');
+    Route::post('/admin/store/site-pages/{file}/restore', [SitePagesApiController::class, 'restore'])->where('file', '[A-Za-z0-9._-]+');
+
+    // ---- Helpdesk (agents: helpdesk_view, managers: helpdesk_manage; per company) ----
+    Route::get('/helpdesk/dashboard', [HelpdeskAdminController::class, 'dashboard']);
+    Route::get('/helpdesk/tickets', [HelpdeskAdminController::class, 'index']);
+    Route::post('/helpdesk/tickets', [HelpdeskAdminController::class, 'store']);
+    Route::get('/helpdesk/tickets/{id}', [HelpdeskAdminController::class, 'show'])->whereNumber('id');
+    Route::put('/helpdesk/tickets/{id}', [HelpdeskAdminController::class, 'update'])->whereNumber('id');
+    Route::post('/helpdesk/tickets/{id}/reply', [HelpdeskAdminController::class, 'reply'])->whereNumber('id');
+    Route::delete('/helpdesk/tickets/{id}', [HelpdeskAdminController::class, 'destroy'])->whereNumber('id');
+    Route::get('/helpdesk/messages/{id}/attachments/{index}', [HelpdeskAdminController::class, 'attachment'])->whereNumber('id')->whereNumber('index');
+    Route::get('/helpdesk/settings', [HelpdeskAdminController::class, 'settings']);
+    Route::put('/helpdesk/settings', [HelpdeskAdminController::class, 'saveSettings']);
+    Route::post('/helpdesk/settings/test', [HelpdeskAdminController::class, 'testMailbox']);
+    Route::post('/helpdesk/settings/fetch', [HelpdeskAdminController::class, 'fetchNow']);
+    // "My tickets" -- any staff user, own tickets only.
+    Route::get('/helpdesk/my', [MyTicketsController::class, 'index']);
+    Route::post('/helpdesk/my', [MyTicketsController::class, 'store']);
+    Route::get('/helpdesk/my/{id}', [MyTicketsController::class, 'show'])->whereNumber('id');
+    Route::post('/helpdesk/my/{id}/reply', [MyTicketsController::class, 'reply'])->whereNumber('id');
+    Route::get('/helpdesk/my/messages/{id}/attachments/{index}', [MyTicketsController::class, 'attachment'])->whereNumber('id')->whereNumber('index');
     Route::get('/admin/store/menus', [SettingsApiController::class, 'menus']);
     Route::post('/admin/store/menus', [SettingsApiController::class, 'updateMenus']);
     Route::get('/settings/calendar', [SettingsApiController::class, 'showCalendar']);
@@ -171,6 +207,70 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('/store/banners/{id}', [BannersApiController::class, 'show']);
     Route::put('/store/banners/{id}', [BannersApiController::class, 'update']);
     Route::delete('/store/banners/{id}', [BannersApiController::class, 'destroy']);
+
+    // Intranet (staff only, per company): employee view (intranet_view) +
+    // Intranet Management (intranet_manage) -- gates live in the controllers.
+    Route::get('/intranet/home', [IntranetViewApiController::class, 'home']);
+    Route::get('/intranet/news', [IntranetViewApiController::class, 'news']);
+    Route::get('/intranet/news/{id}', [IntranetViewApiController::class, 'newsShow'])->whereNumber('id');
+    Route::get('/intranet/pages', [IntranetViewApiController::class, 'pages']);
+    Route::get('/intranet/pages/{slug}', [IntranetViewApiController::class, 'pageShow'])->where('slug', '[a-z0-9-]+');
+    Route::get('/intranet/files', [IntranetViewApiController::class, 'files']);
+    Route::get('/intranet/files/{id}/download', [IntranetViewApiController::class, 'download'])->whereNumber('id');
+    Route::get('/intranet/albums', [IntranetViewApiController::class, 'albums']);
+    Route::get('/intranet/albums/{id}', [IntranetViewApiController::class, 'albumShow'])->whereNumber('id');
+    Route::get('/intranet/calendar', [IntranetViewApiController::class, 'calendar']);
+    Route::get('/intranet/birthdays', [IntranetViewApiController::class, 'birthdays']);
+    Route::get('/intranet-admin/posts', [IntranetPostsApiController::class, 'index']);
+    Route::post('/intranet-admin/posts', [IntranetPostsApiController::class, 'store']);
+    Route::get('/intranet-admin/posts/{id}', [IntranetPostsApiController::class, 'show'])->whereNumber('id');
+    Route::put('/intranet-admin/posts/{id}', [IntranetPostsApiController::class, 'update'])->whereNumber('id');
+    Route::delete('/intranet-admin/posts/{id}', [IntranetPostsApiController::class, 'destroy'])->whereNumber('id');
+    Route::post('/intranet-admin/posts/{id}/cover', [IntranetPostsApiController::class, 'uploadCover'])->whereNumber('id');
+    Route::delete('/intranet-admin/posts/{id}/cover', [IntranetPostsApiController::class, 'removeCover'])->whereNumber('id');
+    Route::get('/intranet-admin/files', [IntranetFilesApiController::class, 'index']);
+    Route::post('/intranet-admin/files', [IntranetFilesApiController::class, 'store']);
+    Route::put('/intranet-admin/files/{id}', [IntranetFilesApiController::class, 'update'])->whereNumber('id');
+    Route::delete('/intranet-admin/files/{id}', [IntranetFilesApiController::class, 'destroy'])->whereNumber('id');
+    Route::get('/intranet-admin/albums', [IntranetGalleryApiController::class, 'index']);
+    Route::post('/intranet-admin/albums', [IntranetGalleryApiController::class, 'store']);
+    Route::post('/intranet-admin/albums/reorder', [IntranetGalleryApiController::class, 'reorder']);
+    Route::get('/intranet-admin/albums/{id}', [IntranetGalleryApiController::class, 'show'])->whereNumber('id');
+    Route::put('/intranet-admin/albums/{id}', [IntranetGalleryApiController::class, 'update'])->whereNumber('id');
+    Route::delete('/intranet-admin/albums/{id}', [IntranetGalleryApiController::class, 'destroy'])->whereNumber('id');
+    Route::post('/intranet-admin/albums/{id}/photos', [IntranetGalleryApiController::class, 'storePhotos'])->whereNumber('id');
+    Route::post('/intranet-admin/albums/{id}/photos/reorder', [IntranetGalleryApiController::class, 'reorderPhotos'])->whereNumber('id');
+    Route::put('/intranet-admin/photos/{id}', [IntranetGalleryApiController::class, 'updatePhoto'])->whereNumber('id');
+    Route::delete('/intranet-admin/photos/{id}', [IntranetGalleryApiController::class, 'destroyPhoto'])->whereNumber('id');
+    Route::get('/intranet-admin/events', [IntranetEventsApiController::class, 'index']);
+    Route::post('/intranet-admin/events', [IntranetEventsApiController::class, 'store']);
+    Route::put('/intranet-admin/events/{id}', [IntranetEventsApiController::class, 'update'])->whereNumber('id');
+    Route::delete('/intranet-admin/events/{id}', [IntranetEventsApiController::class, 'destroy'])->whereNumber('id');
+    Route::get('/intranet-admin/pages', [IntranetPagesApiController::class, 'index']);
+    Route::post('/intranet-admin/pages', [IntranetPagesApiController::class, 'store']);
+    Route::post('/intranet-admin/pages/reorder', [IntranetPagesApiController::class, 'reorder']);
+    Route::get('/intranet-admin/pages/{id}', [IntranetPagesApiController::class, 'show'])->whereNumber('id');
+    Route::put('/intranet-admin/pages/{id}', [IntranetPagesApiController::class, 'update'])->whereNumber('id');
+    Route::delete('/intranet-admin/pages/{id}', [IntranetPagesApiController::class, 'destroy'])->whereNumber('id');
+
+    Route::get('/store/portfolio', [PortfolioApiController::class, 'index']);
+    Route::post('/store/portfolio/groups', [PortfolioApiController::class, 'storeGroup']);
+    Route::post('/store/portfolio/groups/reorder', [PortfolioApiController::class, 'reorderGroups']);
+    Route::put('/store/portfolio/groups/{id}', [PortfolioApiController::class, 'updateGroup'])->whereNumber('id');
+    Route::delete('/store/portfolio/groups/{id}', [PortfolioApiController::class, 'destroyGroup'])->whereNumber('id');
+    Route::post('/store/portfolio/items', [PortfolioApiController::class, 'storeItems']);
+    Route::post('/store/portfolio/items/reorder', [PortfolioApiController::class, 'reorderItems']);
+    Route::put('/store/portfolio/items/{id}', [PortfolioApiController::class, 'updateItem'])->whereNumber('id');
+    Route::delete('/store/portfolio/items/{id}', [PortfolioApiController::class, 'destroyItem'])->whereNumber('id');
+    Route::post('/store/portfolio/import-site', [PortfolioApiController::class, 'importSite']);
+    Route::put('/store/portfolio/section', [PortfolioApiController::class, 'updateSection']);
+
+    Route::get('/store/gallery', [GalleryApiController::class, 'index']);
+    Route::post('/store/gallery', [GalleryApiController::class, 'store']);
+    Route::post('/store/gallery/reorder', [GalleryApiController::class, 'reorder']);
+    Route::post('/store/gallery/import-site', [GalleryApiController::class, 'importSite']);
+    Route::put('/store/gallery/{id}', [GalleryApiController::class, 'update'])->whereNumber('id');
+    Route::delete('/store/gallery/{id}', [GalleryApiController::class, 'destroy'])->whereNumber('id');
 
     Route::get('/store/subscribers', [SubscriberController::class, 'index']);
     Route::delete('/store/subscribers/{id}', [SubscriberController::class, 'destroy']);

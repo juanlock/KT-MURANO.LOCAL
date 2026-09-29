@@ -1,6 +1,6 @@
 <template>
-  <div class="page">
-    <PageHeader :title="$t('Pages')" :breadcrumb="[$t('Store'), $t('Pages')]">
+  <div :class="{ page: !embedded }">
+    <PageHeader v-if="!embedded" :title="$t('Pages')" :breadcrumb="[$t('Store'), $t('Pages')]">
       <template #extra>
         <a-button type="primary" @click="openCreate">
           <template #icon><PlusOutlined /></template>
@@ -12,6 +12,10 @@
     <a-card size="small" :body-style="{ padding: 0 }">
       <div class="toolbar">
         <a-input-search v-model:value="search" :placeholder="$t('Search')" allow-clear style="max-width: 240px" @search="fetch" @change="fetch" />
+        <a-button v-if="embedded" type="primary" @click="openCreate">
+          <template #icon><PlusOutlined /></template>
+          {{ $t('Create') }}
+        </a-button>
       </div>
       <a-table
         :columns="columns" :data-source="pages" :loading="isLoading"
@@ -147,6 +151,9 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, LinkOutlined } from '@ant-d
 import PageHeader from '../../components/PageHeader.vue';
 import RichTextEditor from '../../components/RichTextEditor.vue';
 import http from '../../lib/http';
+
+// `embedded`: shown inside Store Settings -> Homepage Blocks (no page header).
+defineProps({ embedded: { type: Boolean, default: false } });
 
 const { t } = useI18n();
 
@@ -298,6 +305,9 @@ onMounted(fetch);
   margin-bottom: 4px;
 }
 .toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
   padding: 16px;
   border-bottom: 1px solid rgba(5, 5, 5, 0.06);
 }

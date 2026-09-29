@@ -1310,6 +1310,36 @@ export const PERMISSION_GROUPS = [
         ]
     },
     {
+        "label": "Helpdesk",
+        "items": [
+            {
+                "v": "helpdesk_view",
+                "l": "Helpdesk_View",
+                "f": "Work tickets"
+            },
+            {
+                "v": "helpdesk_manage",
+                "l": "Helpdesk_Manage",
+                "f": "Helpdesk settings & mailbox"
+            }
+        ]
+    },
+    {
+        "label": "Intranet",
+        "items": [
+            {
+                "v": "intranet_view",
+                "l": "Intranet_View",
+                "f": "View intranet"
+            },
+            {
+                "v": "intranet_manage",
+                "l": "Intranet_Manage",
+                "f": "Manage intranet"
+            }
+        ]
+    },
+    {
         "label": "Settings",
         "items": [
             {

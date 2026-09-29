@@ -97,6 +97,11 @@ class CompanyController extends Controller
             'admin_email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'admin_password' => ['required', 'string', 'min:8'],
             'admin_role' => ['nullable', Rule::in(['Owner', 'Admin', 'Admin-ALL'])],
+            // Optional helpdesk agent (role "Helpdesk").
+            'helpdesk_firstname' => ['nullable', 'string', 'max:100'],
+            'helpdesk_lastname' => ['nullable', 'string', 'max:100'],
+            'helpdesk_email' => ['nullable', 'email', 'max:190', 'different:admin_email', Rule::unique('users', 'email')->whereNull('deleted_at')],
+            'helpdesk_password' => ['nullable', 'required_with:helpdesk_email', 'string', 'min:8'],
             'demo_data' => ['nullable', 'boolean'],
             // Website: import the company's existing site (original design)
             // or use the default online store + its standard pages.
@@ -104,6 +109,8 @@ class CompanyController extends Controller
             'website_url' => ['nullable', 'required_if:website_mode,import', 'url', 'max:255'],
         ], [
             'admin_email.unique' => 'This admin email is already used by another user.',
+            'helpdesk_email.unique' => 'This helpdesk email is already used by another user.',
+            'helpdesk_email.different' => 'The helpdesk user needs its own email (not the admin one).',
         ]);
 
         $result = CompanyProvisioner::create(
@@ -112,7 +119,11 @@ class CompanyController extends Controller
                 'firstname' => $data['admin_firstname'], 'lastname' => $data['admin_lastname'] ?? null,
                 'email' => $data['admin_email'], 'password' => $data['admin_password'],
                 'role' => $data['admin_role'] ?? 'Admin-ALL',
-            ]
+            ],
+            ! empty($data['helpdesk_email']) ? [
+                'firstname' => $data['helpdesk_firstname'] ?? null, 'lastname' => $data['helpdesk_lastname'] ?? null,
+                'email' => $data['helpdesk_email'], 'password' => $data['helpdesk_password'],
+            ] : null
         );
 
         if ($request->filled('domains')) {
@@ -135,6 +146,9 @@ class CompanyController extends Controller
             'company_id' => $result['company']->id,
             'admin_user_id' => $result['user']->id,
             'admin_username' => $result['user']->username,
+            'helpdesk_user_id' => $result['helpdesk_user']?->id,
+            'helpdesk_username' => $result['helpdesk_user']?->username,
+            'helpdesk_email' => $result['helpdesk_user']?->email,
             'website' => $website,
             'demo' => $demo,
         ]);

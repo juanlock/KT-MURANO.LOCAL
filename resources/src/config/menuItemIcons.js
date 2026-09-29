@@ -37,6 +37,9 @@ import {
     // Integrations platform (Store, Package, Calculator, Table?, Mail,
     // MessageSquare and ShoppingBasket are already imported above).
     LayoutGrid, Send, Slack as SlackIcon, Table, Globe,
+    // Intranet / Intranet Management (CalendarDays, CalendarCheck, Files and
+    // FileText are already imported above).
+    House, Images, Newspaper, FolderOpen,
 } from 'lucide-vue-next';
 
 export const MENU_ITEM_ICONS = {
@@ -56,6 +59,21 @@ export const MENU_ITEM_ICONS = {
     "/app/Store/Orders": Receipt,
     "/app/Store/Collections": Check,
     "/app/Store/Banners": Wallet,
+    "/app/Store/Gallery": Camera,
+    "/app/Store/Portfolio": LayoutGrid,
+    "/app/helpdesk/dashboard": LayoutDashboard,
+    "/app/helpdesk/tickets": Ticket,
+    "/app/helpdesk/my": User,
+    "/app/helpdesk/settings": Settings,
+    "/app/intranet/home": House,
+    "/app/intranet/calendar": CalendarDays,
+    "/app/intranet/files": FolderOpen,
+    "/app/intranet/gallery": Images,
+    "/app/intranet-admin/news": Newspaper,
+    "/app/intranet-admin/files": Files,
+    "/app/intranet-admin/gallery": Images,
+    "/app/intranet-admin/events": CalendarCheck,
+    "/app/intranet-admin/pages": FileText,
     "/app/Store/Subscribers": Users,
     "/app/Store/Messages": MessageSquare,
     "/app/Store/InviteCodes": Ticket,

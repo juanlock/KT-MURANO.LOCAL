@@ -38,6 +38,9 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('marketing:process-scheduled')->everyMinute()->withoutOverlapping();
 
+        // Helpdesk: import new emails from each company's mailbox into tickets.
+        $schedule->command('helpdesk:fetch-mail')->everyFiveMinutes()->withoutOverlapping();
+
         // Keep integration OAuth connections alive: Salla refresh tokens die
         // after 1 month idle, Xero's after 60 days. A daily authenticated ping
         // refreshes them long before either cliff.

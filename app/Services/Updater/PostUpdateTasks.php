@@ -407,6 +407,12 @@ class PostUpdateTasks
             'jumia_settings',
             'edit_completed_paid_sale',
             'datatable_customize',
+            // Helpdesk (per company)
+            'helpdesk_view',
+            'helpdesk_manage',
+            // Intranet (staff only, per company)
+            'intranet_view',
+            'intranet_manage',
         ];
     }
 }

@@ -348,6 +348,15 @@
                class="px-3 h-10 inline-flex items-center text-sm font-medium text-fg-secondary hover:text-fg-primary rounded-md transition-colors">
               {{ __('messages.Shop') }}
             </a>
+            @php
+              $galleryCompany = \App\Services\FrontPage::companyIdForRequest(request());
+            @endphp
+            @if(\App\Models\StoreGalleryImage::where('company_id', $galleryCompany)->where('active', true)->exists())
+              <a href="{{ route('store.gallery') }}{{ request()->query('company') ? '?company='.(int) request()->query('company') : '' }}"
+                 class="px-3 h-10 inline-flex items-center text-sm font-medium text-fg-secondary hover:text-fg-primary rounded-md transition-colors">
+                {{ __('messages.Gallery') }}
+              </a>
+            @endif
             <a href="{{ route('store.contact') }}"
                class="px-3 h-10 inline-flex items-center text-sm font-medium text-fg-secondary hover:text-fg-primary rounded-md transition-colors">
               {{ __('messages.Support') }}

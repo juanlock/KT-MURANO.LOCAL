@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Portal\PortalPaymentsController;
 use App\Http\Controllers\Api\Portal\PortalProfileController;
 use App\Http\Controllers\Api\Portal\PortalQuotationsController;
 use App\Http\Controllers\Api\Portal\PortalStatementController;
+use App\Http\Controllers\Api\Portal\PortalTicketsController;
 use Illuminate\Support\Facades\Route;
 
 // portal.locale runs before portal.auth so its 403 message is already translated.
@@ -70,6 +71,15 @@ Route::prefix('api/portal')->middleware(['web', 'portal.locale', 'portal.auth', 
         Route::get('contracts', [PortalContractsController::class, 'index']);
         Route::get('contracts/{id}', [PortalContractsController::class, 'show']);
         Route::get('contracts/{id}/attachments/{attachmentId}/download', [PortalContractsController::class, 'downloadAttachment']);
+
+        // Support tickets (helpdesk) -- own tickets only; writes go through RequestSafety
+        Route::get('tickets', [PortalTicketsController::class, 'index']);
+        Route::post('tickets', [PortalTicketsController::class, 'store'])->middleware(['request.safety', 'throttle:10,1,portal-tickets-open']);
+        Route::get('tickets/messages/{id}/attachments/{index}', [PortalTicketsController::class, 'attachment'])
+            ->whereNumber(['id', 'index']);
+        Route::get('tickets/{id}', [PortalTicketsController::class, 'show'])->whereNumber('id');
+        Route::post('tickets/{id}/reply', [PortalTicketsController::class, 'reply'])
+            ->whereNumber('id')->middleware(['request.safety', 'throttle:20,1,portal-tickets-reply']);
 
         // Knowledge base (read-only)
         Route::get('knowledge-base', [PortalKnowledgeBaseController::class, 'index']);

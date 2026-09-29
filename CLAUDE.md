@@ -138,6 +138,11 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   backup after a local phpMyAdmin export bug corrupted a manual backup
   attempt. `KT-TOOLS/` is git-tracked, so the snapshot travels across every
   machine this checkout is on, same as the other protocols.
+- **A Dormir** (`/a-dormir`, or "Jarvis, run protocolo a dormir") — Murano's
+  own end-of-session close-out: runs Kelsy, then Copia BD, then commits
+  everything with a summary subject and a detailed description of the
+  changes (one bullet per `kt_logs` request, migrations, setup steps for
+  other machines, backup file) and pushes to GitHub (never force-push).
 
 Billing's originals stay untouched (billing is read-only, per the Hard Rules
 below) — these are Murano's own copies, kept in sync manually if the protocol

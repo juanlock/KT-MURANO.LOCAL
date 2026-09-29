@@ -123,6 +123,29 @@
           </a-col>
         </a-row>
 
+        <div class="section-title">
+          <a-checkbox v-model:checked="cform.with_helpdesk">Helpdesk user</a-checkbox>
+          <span class="muted">(role "Helpdesk": answers the company's tickets; also created as an employee)</span>
+        </div>
+        <a-row v-if="cform.with_helpdesk" :gutter="16">
+          <a-col :xs="24" :md="12">
+            <a-form-item :label="$t('Firstname')" name="helpdesk_firstname"><a-input v-model:value="cform.helpdesk_firstname" placeholder="Helpdesk" /></a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="12">
+            <a-form-item :label="$t('lastname')" name="helpdesk_lastname"><a-input v-model:value="cform.helpdesk_lastname" /></a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="12">
+            <a-form-item :label="$t('Email') + ' (login)'" name="helpdesk_email" extra="Tip: the support mailbox, e.g. support@company.com">
+              <a-input v-model:value="cform.helpdesk_email" type="email" autocomplete="off" />
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="12">
+            <a-form-item :label="$t('password')" name="helpdesk_password" extra="Min. 8 characters">
+              <a-input-password v-model:value="cform.helpdesk_password" autocomplete="new-password" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+
         <div class="section-title">Website</div>
         <a-form-item
           label="Website domain(s)"
@@ -148,6 +171,9 @@
         <a-result status="success" :title="result.name" style="padding: 8px 0">
           <template #subTitle>
             Admin login: <strong>{{ result.admin_email }}</strong> (username {{ result.admin_username }})
+            <div v-if="result.helpdesk_email">
+              Helpdesk login: <strong>{{ result.helpdesk_email }}</strong> (username {{ result.helpdesk_username }})
+            </div>
           </template>
         </a-result>
         <a-alert
@@ -256,6 +282,7 @@ const createFormRef = ref();
 const emptyCreate = () => ({
   name: '', email: '', phone: '', country: 'United States',
   admin_firstname: '', admin_lastname: '', admin_email: '', admin_password: '', admin_role: 'Admin-ALL',
+  with_helpdesk: true, helpdesk_firstname: 'Helpdesk', helpdesk_lastname: '', helpdesk_email: '', helpdesk_password: '',
   domains: '', website_mode: 'default', website_url: '',
   demo_data: false,
 });
@@ -278,6 +305,10 @@ const createRules = computed(() => ({
   admin_firstname: [{ required: true, message: t('Field_is_required') }],
   admin_email: [{ required: true, message: t('Field_is_required') }, { type: 'email', message: t('InvalidData') }],
   admin_password: [{ required: true, min: 8, message: 'Min. 8 characters' }],
+  ...(cform.value.with_helpdesk ? {
+    helpdesk_email: [{ required: true, message: t('Field_is_required') }, { type: 'email', message: t('InvalidData') }],
+    helpdesk_password: [{ required: true, min: 8, message: 'Min. 8 characters' }],
+  } : {}),
 }));
 
 function openCreate() {
@@ -296,11 +327,15 @@ async function submitCreate() {
   try { await createFormRef.value.validate(); } catch (e) { return; }
   submitting.value = true;
   try {
-    const res = await http.post('company', { ...cform.value });
+    const { with_helpdesk: withHd, ...payload } = cform.value;
+    if (!withHd) ['helpdesk_firstname', 'helpdesk_lastname', 'helpdesk_email', 'helpdesk_password'].forEach(k => delete payload[k]);
+    const res = await http.post('company', payload);
     result.value = {
       name: cform.value.name,
       admin_email: cform.value.admin_email,
       admin_username: res.admin_username,
+      helpdesk_email: res.helpdesk_email || null,
+      helpdesk_username: res.helpdesk_username || null,
       website: res.website || null,
       demo: res.demo
         ? Object.entries(res.demo).map(([key, r]) => ({ key, ...r, summary: summarize(r.created) }))

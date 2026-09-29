@@ -151,6 +151,23 @@ class StoreFrontController extends Controller
                 continue;
             }
 
+            // Store -> Portfolio (this store's company), rendered by its own partial.
+            if ($type === 'portfolio') {
+                $html = \App\Services\Portfolio::render(
+                    (int) $s->company_id,
+                    trim((string) ($item['title'] ?? '')) ?: __('messages.Portfolio'),
+                    trim((string) ($item['subtitle'] ?? '')),
+                    max(1, (int) ($item['limit'] ?? 12)),
+                    'portfolio',
+                    true
+                );
+                if ($html !== '') {
+                    $blocks[] = ['type' => 'portfolio', 'html' => $html, 'cfg' => ['index' => $i]];
+                }
+
+                continue;
+            }
+
             if ($type === 'best_sellers') {
                 $limit = max(1, (int) ($item['limit'] ?? 8));
                 $title = trim((string) ($item['title'] ?? '')) ?: __('messages.BestSellers');
@@ -632,6 +649,32 @@ class StoreFrontController extends Controller
         $s = StoreSetting::first();
 
         return view('store.contact', compact('s'));
+    }
+
+    /**
+     * Public picture gallery (Store -> Gallery), for ONE company: the
+     * domain's, or ?company=ID, else the shared store's own.
+     */
+    public function gallery(Request $request)
+    {
+        $s = StoreSetting::firstOrFail();
+        $companyId = \App\Services\FrontPage::explicitCompanyId($request) ?? (int) $s->company_id;
+        $images = \App\Models\StoreGalleryImage::where('company_id', $companyId)->where('active', true)
+            ->orderBy('sort_order')->orderBy('id')->get();
+        $company = \App\Models\Company::find($companyId);
+
+        return view('store.gallery', [
+            's' => $s,
+            'images' => $images,
+            'company' => $company,
+            'categories' => Category::with('subcategories')->orderBy('name')->get(),
+            'showCategoryBar' => true,
+            'seo' => [
+                'title' => __('messages.Gallery').($company ? ' · '.$company->name : ''),
+                'description' => __('messages.Gallery'),
+                'canonical' => $s->canonicalForAppUrl(route('store.gallery')),
+            ],
+        ]);
     }
 
     /**

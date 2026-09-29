@@ -504,20 +504,27 @@ watch(openKeys, (nv, ov) => {
   font-weight: var(--sb-font-weight, 400) !important;
 }
 
-/* A menu row that carries a pending-work count. */
-.sb-row {
+/* A menu row that carries a pending-work count. :deep()/:global() like the
+   rules above -- the label VNode renders INSIDE <a-menu> (and in the
+   collapsed sidebar's Teleported flyout), where the scoped attribute never
+   lands; without it the badge was unstyled and read as part of the name
+   ("Online Orders3"). */
+.sidebar-menu :deep(.sb-row),
+:global(.ant-menu-submenu-popup .sb-row) {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.sb-row-label {
+.sidebar-menu :deep(.sb-row-label),
+:global(.ant-menu-submenu-popup .sb-row-label) {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.sb-row-badge {
+.sidebar-menu :deep(.sb-row-badge),
+:global(.ant-menu-submenu-popup .sb-row-badge) {
   flex: none;
   min-width: 18px;
   height: 18px;

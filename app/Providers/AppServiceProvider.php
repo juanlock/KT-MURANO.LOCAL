@@ -91,6 +91,7 @@ class AppServiceProvider extends ServiceProvider
                 'setup',
                 'update',
                 'password',
+                'support', // helpdesk public pages (standalone layout)
             ];
 
             if (! in_array($firstSegment, $categoriesExcluded) && ! is_store_request(request())) {

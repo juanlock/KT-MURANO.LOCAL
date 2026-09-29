@@ -1,6 +1,6 @@
 <template>
-  <div class="page">
-    <PageHeader :title="$t('Menus')" :breadcrumb="[$t('Store'), $t('Menus')]">
+  <div :class="{ page: !embedded }">
+    <PageHeader v-if="!embedded" :title="$t('Menus')" :breadcrumb="[$t('Store'), $t('Menus')]">
       <template #extra>
         <a-button type="primary" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
       </template>
@@ -13,7 +13,11 @@
     <template v-else>
       <!-- Imported website menu: the imported front page's OWN navigation,
            rebuilt in every page of the site with its original markup. -->
-      <a-card v-if="site.available" size="small" style="margin-bottom: 16px">
+      <a-empty
+        v-if="mode === 'site' && !site.available"
+        description="This company's front page is not an imported website."
+      />
+      <a-card v-if="mode !== 'store' && site.available" size="small" style="margin-bottom: 16px">
         <template #title>
           Imported website menu
           <a-tag color="purple" style="margin-left: 8px">{{ site.items.length }}</a-tag>
@@ -68,6 +72,10 @@
         </template>
       </a-card>
 
+      <template v-if="mode !== 'site'">
+      <div v-if="embedded" style="display: flex; justify-content: flex-end; margin-bottom: 12px">
+        <a-button type="primary" :loading="saving" @click="save">{{ $t('Save') }} — {{ $t('Menus') }}</a-button>
+      </div>
       <a-alert type="info" show-icon :message="$t('Menus_Help')" style="margin-bottom: 16px" />
 
       <a-row :gutter="[16, 16]">
@@ -129,6 +137,7 @@
           </a-card>
         </a-col>
       </a-row>
+      </template>
     </template>
   </div>
 </template>
@@ -145,6 +154,14 @@ import { useI18n } from 'vue-i18n';
 import { PlusOutlined, DeleteOutlined, GlobalOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
+
+// Also used inside Store Settings -> Homepage Blocks: `embedded` drops the
+// page header, `mode` shows only the store's own menus ('store') or only the
+// imported website's menu ('site').
+const props = defineProps({
+  embedded: { type: Boolean, default: false },
+  mode: { type: String, default: 'all' }, // all | store | site
+});
 
 const { t } = useI18n();
 
@@ -283,7 +300,10 @@ async function save() {
   }
 }
 
-onMounted(() => { fetch(); fetchSite(); });
+onMounted(() => {
+  if (props.mode === 'site') fetchSite().finally(() => { isLoading.value = false; });
+  else { fetch(); if (props.mode !== 'store') fetchSite(); }
+});
 </script>
 
 <style scoped>

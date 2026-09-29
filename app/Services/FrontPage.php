@@ -58,6 +58,8 @@ class FrontPage
         // page's relative links (CSS/JS/images/sub-pages) at the copy. Not a
         // <base> tag -- that would also redirect in-page "#anchor" links.
         $html = self::rebaseRelative($html, '/'.dirname($s->front_page_path).'/');
+        // Store -> Portfolio section, live (after rebasing: its URLs are absolute).
+        $html = Portfolio::injectInto($html, $companyId);
 
         return response($html, 200)->header('Content-Type', 'text/html; charset=UTF-8');
     }
@@ -89,6 +91,9 @@ class FrontPage
     /** Store the imported front page for a company and insert the store bar. */
     public static function setImported(int $companyId, ?string $url, string $path): void
     {
+        // A fresh import replaces the pages: their kept pre-edit copies are stale.
+        SitePageEditor::forgetOriginals($companyId);
+
         $abs = public_path($path);
         if (is_file($abs)) {
             file_put_contents($abs, self::withStoreBar(file_get_contents($abs)));

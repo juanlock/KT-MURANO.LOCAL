@@ -27,6 +27,8 @@ use Illuminate\Support\Facades\Hash;
  *  - HR basics: an office shift, an "Administration" department and an
  *    "Administrator" designation (employees need all three)
  *  - the company's admin user (type admin, all warehouses) + its employee
+ *  - optionally a helpdesk user (role "Helpdesk": works tickets, reads the
+ *    intranet) + its employee, and the company's helpdesk settings row
  *
  * Demo data is NOT generated here -- the caller runs DemoRunner afterwards,
  * outside this transaction, so a demo failure never undoes the company.
@@ -36,11 +38,12 @@ class CompanyProvisioner
     /**
      * @param  array  $company  name, email?, phone?, country?
      * @param  array  $admin    firstname, lastname?, email, password, role? (role name)
-     * @return array{company: Company, user: User, employee_id: int}
+     * @param  array|null  $helpdesk  firstname, lastname?, email, password -- the helpdesk agent
+     * @return array{company: Company, user: User, employee_id: int, helpdesk_user: ?User}
      */
-    public static function create(array $company, array $admin): array
+    public static function create(array $company, array $admin, ?array $helpdesk = null): array
     {
-        return DB::transaction(function () use ($company, $admin) {
+        return DB::transaction(function () use ($company, $admin, $helpdesk) {
             $now = now();
 
             $co = Company::create([
@@ -149,7 +152,50 @@ class CompanyProvisioner
                 'created_at' => $now, 'updated_at' => $now,
             ]);
 
-            return ['company' => $co, 'user' => $user, 'employee_id' => $employeeId];
+            // Helpdesk: settings row always; the agent user when asked for.
+            \App\Models\HelpdeskSetting::forCompany($cid);
+            $helpdeskUser = null;
+            if ($helpdesk && ! empty($helpdesk['email'])) {
+                $hdRole = $roleMap['Helpdesk'] ?? $roleMap['Employee'] ?? $roleId;
+                $hFirst = trim($helpdesk['firstname'] ?? '') ?: 'Helpdesk';
+                $hLast = trim($helpdesk['lastname'] ?? '') ?: $company['name'];
+                $helpdeskUser = User::create([
+                    'company_id' => $cid,
+                    'firstname' => $hFirst,
+                    'lastname' => $hLast,
+                    'username' => LinkedUserService::uniqueUsername($hFirst.$hLast),
+                    'email' => $helpdesk['email'],
+                    'password' => Hash::make($helpdesk['password']),
+                    'phone' => $company['phone'] ?? '',
+                    'role_id' => $hdRole,
+                    'type' => 'employee',
+                    'statut' => 1,
+                    'is_all_warehouses' => 1,
+                    'record_view' => 1,
+                ]);
+                role_user::create(['user_id' => $helpdeskUser->id, 'role_id' => $hdRole]);
+                $hdDesignation = DB::table('designations')->insertGetId([
+                    'company_id' => $cid, 'department_id' => $departmentId, 'designation' => 'Helpdesk Agent',
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+                DB::table('employees')->insert([
+                    'company_id' => $cid,
+                    'user_id' => $helpdeskUser->id,
+                    'firstname' => $hFirst,
+                    'lastname' => $hLast,
+                    'username' => $helpdeskUser->username,
+                    'email' => $helpdeskUser->email,
+                    'phone' => $helpdeskUser->phone,
+                    'gender' => 'other',
+                    'joining_date' => $now->toDateString(),
+                    'department_id' => $departmentId,
+                    'designation_id' => $hdDesignation,
+                    'office_shift_id' => $shiftId,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
+
+            return ['company' => $co, 'user' => $user, 'employee_id' => $employeeId, 'helpdesk_user' => $helpdeskUser];
         });
     }
 }

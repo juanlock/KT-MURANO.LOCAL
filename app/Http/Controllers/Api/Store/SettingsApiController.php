@@ -156,7 +156,12 @@ class SettingsApiController extends Controller
             ['label' => 'Store: Cart', 'href' => $path('checkout')],
             ['label' => 'Store: My Account', 'href' => $path('account')],
             ['label' => 'Store: Contact', 'href' => $path('store.contact')],
+            ['label' => 'Store: Gallery', 'href' => $path('store.gallery').'?company='.$companyId],
         ];
+        // The imported website's own pages (relative links, as the site uses them).
+        foreach (\App\Services\SitePageEditor::pages($companyId) as $p) {
+            $links[] = ['label' => 'Website: '.$p['file'], 'href' => $p['file']];
+        }
         foreach (\App\Models\StorePage::where('company_id', $companyId)->where('published', true)->orderBy('title')->get(['title', 'slug']) as $p) {
             $links[] = ['label' => 'Page: '.$p->title, 'href' => $path('store.page', ['slug' => $p->slug])];
         }
@@ -918,6 +923,22 @@ class SettingsApiController extends Controller
                 }
                 $out[] = ['type' => 'newsletter'];
                 $hasNewsletter = true;
+
+                continue;
+            }
+
+            // Store -> Portfolio pictures, grouped (one block per front page).
+            if ($type === 'portfolio') {
+                if (! empty($hasPortfolio)) {
+                    continue;
+                }
+                $hasPortfolio = true;
+                $out[] = [
+                    'type' => 'portfolio',
+                    'title' => isset($row['title']) ? mb_substr((string) $row['title'], 0, 120) : '',
+                    'subtitle' => isset($row['subtitle']) ? mb_substr((string) $row['subtitle'], 0, 200) : '',
+                    'limit' => max(1, min(60, (int) ($row['limit'] ?? 12))),
+                ];
 
                 continue;
             }

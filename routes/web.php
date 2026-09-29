@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Store\CustomerLoyaltyController;
 use App\Http\Controllers\Api\Store\CustomerReturnsController;
 use App\Http\Controllers\Api\Store\CustomerQuestionsController;
 use App\Http\Controllers\Api\Store\CustomerReviewsController;
+use App\Http\Controllers\Api\Store\CustomerTicketsController;
 use App\Http\Controllers\Api\Store\CustomerWalletController;
 use App\Http\Controllers\Api\Store\QuoteRequestsController;
 use App\Http\Controllers\Api\Store\MessageController;
@@ -110,6 +111,7 @@ if ($installed === true) {
             Route::get('/shop', [StoreFrontController::class, 'shop'])->name('store.shop');
             Route::get('/flash-sales', [StoreFrontController::class, 'flashSales'])->name('store.flash_sales');
             Route::get('/contact', [StoreFrontController::class, 'contact'])->name('store.contact');
+            Route::get('/gallery', [StoreFrontController::class, 'gallery'])->name('store.gallery');
 
             // Public product reviews (approved only)
             Route::get('/products/{id}/reviews', [CustomerReviewsController::class, 'productReviews'])
@@ -251,6 +253,18 @@ if ($installed === true) {
                 Route::get('/my/loyalty', [CustomerLoyaltyController::class, 'summary'])->name('my_loyalty.summary');
                 Route::post('/my/loyalty/redeem', [CustomerLoyaltyController::class, 'redeem'])->name('my_loyalty.redeem');
                 Route::get('/my/loyalty/redemptions', [CustomerLoyaltyController::class, 'redemptions'])->name('my_loyalty.redemptions');
+
+                // Support tickets (helpdesk) -- the customer's own tickets only
+                Route::get('/account/tickets', [CustomerTicketsController::class, 'index'])->name('account.tickets');
+                Route::get('/account/tickets/new', [CustomerTicketsController::class, 'create'])->name('account.tickets.create');
+                Route::post('/account/tickets', [CustomerTicketsController::class, 'store'])
+                    ->middleware('throttle:10,1,store-tickets-open')->name('account.tickets.store');
+                Route::get('/account/tickets/{id}', [CustomerTicketsController::class, 'show'])
+                    ->whereNumber('id')->name('account.tickets.show');
+                Route::post('/account/tickets/{id}/reply', [CustomerTicketsController::class, 'reply'])
+                    ->whereNumber('id')->middleware('throttle:20,1,store-tickets-reply')->name('account.tickets.reply');
+                Route::get('/account/tickets/messages/{messageId}/attachments/{index}', [CustomerTicketsController::class, 'attachment'])
+                    ->whereNumber(['messageId', 'index'])->name('account.tickets.attachment');
             });
 
             // Auth pages (only for guests of 'store' guard). In root-domain
@@ -450,6 +464,24 @@ Route::get('session/keepalive', function () {
         ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
 })->middleware('web')->name('session.keepalive');
 
+// Helpdesk public channel: "open a ticket" form (company = its domain or
+// ?company=ID) and the private ticket link (/support/t/{token}) for
+// suppliers / anyone without a login. Registered before the admin catch-all
+// (and 'support' is excluded from it below).
+Route::middleware(['web', 'request.safety'])->prefix('support')->group(function () {
+    Route::get('/', [\App\Http\Controllers\SupportController::class, 'create'])
+        ->middleware('throttle:60,1,support-form')->name('support.create');
+    Route::post('/', [\App\Http\Controllers\SupportController::class, 'store'])
+        ->middleware('throttle:5,1,support-open')->name('support.store');
+    Route::get('/t/{token}', [\App\Http\Controllers\SupportController::class, 'show'])
+        ->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:60,1,support-view')->name('support.ticket');
+    Route::post('/t/{token}/reply', [\App\Http\Controllers\SupportController::class, 'reply'])
+        ->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:10,1,support-reply')->name('support.reply');
+    Route::get('/t/{token}/attachments/{messageId}/{index}', [\App\Http\Controllers\SupportController::class, 'attachment'])
+        ->where('token', '[A-Za-z0-9]{48}')->whereNumber(['messageId', 'index'])
+        ->middleware('throttle:60,1,support-file')->name('support.attachment');
+});
+
 // SEO: public sitemap + robots (registered before the admin catch-all).
 Route::get('sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index'])->name('store.sitemap');
 Route::get('robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('store.robots');
@@ -479,7 +511,7 @@ Route::group(['middleware' => ['web', 'auth:web', 'Is_Active', 'request.safety']
             }
 
             return redirect('/next');
-        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout).*$');
+        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|support).*$');
 
 });
 

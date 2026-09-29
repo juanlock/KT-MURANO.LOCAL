@@ -26,7 +26,7 @@ if (! function_exists('store_reserved_paths')) {
             'session', 'invoice', 'customer-display', 'quickbooks', 'google-calendar',
             'pwa', 'manifest.webmanifest', 'sitemap.xml', 'robots.txt', 'sw.js',
             'offline.html', 'storage', 'vendor', 'images', 'css', 'js', 'fonts',
-            'pwa_images', 'customer',
+            'pwa_images', 'customer', 'support', // helpdesk public form + ticket links
         ];
     }
 }

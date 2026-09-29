@@ -223,6 +223,7 @@ export default {
           { to: '/contracts', label: 'nav_contracts', icon: 'file-certificate' },
         ] },
         { heading: 'nav_support', fallback: 'Support', items: [
+          { to: '/tickets', label: 'nav_tickets', icon: 'lifebuoy' },
           { to: '/help', label: 'nav_help', icon: 'help-circle' },
           { to: '/profile', label: 'nav_profile', icon: 'user-circle' },
         ] },
