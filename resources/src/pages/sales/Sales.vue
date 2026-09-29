@@ -56,8 +56,11 @@
     </a-row>
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[16, 8]">
-        <a-col v-for="key in visibleFilterKeys" :key="key" :xs="12" :md="8" :xl="4">
+      <!-- Filters + the Customize Filters button share one row (flex: the
+           filters split the width, the button sits at the end; wraps only
+           on narrow screens). -->
+      <div class="filters-line">
+        <div v-for="key in visibleFilterKeys" :key="key" class="filters-line__item">
           <template v-if="key === 'date'">
             <div class="filter-label">{{ $t('date') }}</div>
             <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="onExactDateChange" />
@@ -99,9 +102,7 @@
               @change="onOtherFilterChange"
             />
           </template>
-        </a-col>
-      </a-row>
-      <div class="tb-bar">
+        </div>
         <a-tooltip v-if="auth.canCustomizeColumns" title="Customize filters">
           <a-button @click="openCustomize">
             <template #icon><FilterOutlined /></template>
@@ -123,7 +124,24 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'date'">{{ dateTime(record.date) }}</template>
         <template v-else-if="column.key === 'Ref'">
-          <a @click="$router.push(`/sales/${record.id}`)">{{ record.Ref }}</a>
+          <!-- Reference opens a small chooser: view details or edit. -->
+          <a-dropdown :trigger="['click']">
+            <a class="ref-link">{{ record.Ref }} <DownOutlined class="ref-link__caret" /></a>
+            <template #overlay>
+              <a-menu @click="({ key }) => onAction(key, record)">
+                <a-menu-item key="detail">
+                  <EyeOutlined style="color: #1677ff" /> {{ $t('SaleDetail') }}
+                </a-menu-item>
+                <a-menu-item v-if="canEditSale(record)" key="edit">
+                  <EditOutlined style="color: #52c41a" /> {{ $t('EditSale') }}
+                </a-menu-item>
+                <a-menu-item v-else key="edit-locked" disabled :title="editLockedReason(record)">
+                  <LockOutlined /> {{ $t('EditSale') }}
+                  <div class="ref-link__why">{{ editLockedReason(record) }}</div>
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
           <a-tooltip v-if="record.sale_has_return === 'yes'" :title="$t('Sell_Return')">
             <span style="color: #ff4d4f; margin-left: 4px">↩</span>
           </a-tooltip>
@@ -202,29 +220,29 @@
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
             <a-tooltip :title="$t('DownloadPdf')">
-              <a-button type="text" size="small" @click="invoicePdf(record)">
+              <a-button type="text" size="small" class="row-act row-act--pdf" @click="invoicePdf(record)">
                 <template #icon><FilePdfOutlined /></template>
               </a-button>
             </a-tooltip>
             <a-tooltip :title="$t('email_notification')">
-              <a-button type="text" size="small" @click="notify('sales_send_email', record.id, 'SendEmail', 'SMTPIncorrect')">
+              <a-button type="text" size="small" class="row-act row-act--mail" @click="openEmailModal(record, 'email')">
                 <template #icon><MailOutlined /></template>
               </a-button>
             </a-tooltip>
             <!-- Only while a balance remains -- a paid/cancelled invoice has
                  nothing to remind the customer about. -->
             <a-tooltip v-if="isUnpaid(record)" title="Send payment reminder">
-              <a-button type="text" size="small" @click="notify('sales_send_reminder', record.id, 'ReminderSent', 'SMTPIncorrect')">
+              <a-button type="text" size="small" class="row-act row-act--remind" @click="openEmailModal(record, 'reminder')">
                 <template #icon><BellOutlined /></template>
               </a-button>
             </a-tooltip>
             <a-tooltip v-if="auth.can('Sales_add')" :title="$t('Duplicate')">
-              <a-button type="text" size="small" @click="duplicateSale(record)">
+              <a-button type="text" size="small" class="row-act row-act--dup" @click="duplicateSale(record)">
                 <template #icon><CopyOutlined /></template>
               </a-button>
             </a-tooltip>
             <a-tooltip :title="$t('Attach_Documents')">
-              <a-button type="text" size="small" @click="openDocuments(record)">
+              <a-button type="text" size="small" class="row-act row-act--docs" @click="openDocuments(record)">
                 <template #icon><PaperClipOutlined /></template>
               </a-button>
             </a-tooltip>
@@ -237,11 +255,7 @@
                   <a-menu-item key="detail">
                     <EyeOutlined /> {{ $t('SaleDetail') }}
                   </a-menu-item>
-                  <a-menu-item
-                    v-if="auth.can('Sales_edit') && record.sale_has_return === 'no' && record.statut !== 'cancelled'
-                      && (record.statut !== 'completed' || record.payment_status !== 'paid' || isSuperAdmin || auth.can('edit_completed_paid_sale'))"
-                    key="edit"
-                  >
+                  <a-menu-item v-if="canEditSale(record)" key="edit">
                     <EditOutlined /> {{ $t('EditSale') }}
                   </a-menu-item>
                   <a-menu-item
@@ -287,6 +301,19 @@
         </template>
       </template>
     </DataTable>
+
+    <!-- ============ Send Email / Reminder recipients modal ============ -->
+    <EmailRecipientsModal
+      v-model:open="emailModal.open"
+      :title="`${emailModal.kind === 'reminder' ? 'Send payment reminder' : $t('email_notification')} — ${emailModal.sale?.Ref || ''}`"
+      :contact-label="$t('Customer')"
+      contact-noun="customer"
+      :contact-name="emailModal.sale?.client_name || ''"
+      :main-email="emailModal.sale?.client_email || ''"
+      :additional-emails="emailModal.sale?.client_additional_emails || []"
+      :sending="emailModal.sending"
+      @send="sendEmailModal"
+    />
 
     <!-- ============ Payments list modal ============ -->
     <a-modal v-model:open="paymentsOpen" :title="`${$t('ShowPayment')} — ${activeSale?.Ref || ''}`" :footer="null" width="820px">
@@ -504,13 +531,14 @@ import {
   MessageOutlined, CarOutlined, RollbackOutlined,
   PaperClipOutlined, UploadOutlined, DownloadOutlined, WhatsAppOutlined,
   ExclamationCircleOutlined, ShoppingCartOutlined, DollarOutlined, CheckCircleOutlined,
-  StopOutlined, CopyOutlined, FilterOutlined, BellOutlined,
+  StopOutlined, CopyOutlined, FilterOutlined, BellOutlined, DownOutlined, LockOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
 import StatusHelpModal from '../../components/StatusHelpModal.vue';
+import EmailRecipientsModal from '../../components/EmailRecipientsModal.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useCustomizableFilters } from '../../composables/useCustomizableFilters';
 import { useFormat } from '../../composables/useFormat';
@@ -616,15 +644,8 @@ function applyPreset(preset) {
   const [from, to] = presetRange(preset);
   filters.value.date_from = from ? from.format('YYYY-MM-DD') : '';
   filters.value.date_to = to ? to.format('YYYY-MM-DD') : '';
-  // A preset button means "show me everything for this period" -- clear
-  // whatever customer/warehouse/status filters happen to be set so they
-  // don't silently keep narrowing the result underneath it.
-  filters.value.client_id = undefined;
-  filters.value.warehouse_id = undefined;
-  filters.value.statut = undefined;
-  filters.value.payment_statut = undefined;
-  filters.value.shipping_status = undefined;
-  dueOnly.value = false;
+  // The range combines with the dropdown filters (e.g. Last Year + Unpaid),
+  // so the customer/warehouse/status selections are kept, not cleared.
   crud.reload();
 }
 
@@ -638,17 +659,10 @@ function onExactDateChange() {
   crud.reload();
 }
 
-// Customer/Warehouse/Status/PaymentStatus/Shipping filters were silently
-// staying AND-ed with whatever date range was active (default: This Month),
-// so e.g. picking a payment status with no matches THIS month looked like a
-// broken filter even though the records existed outside that range. These
-// filters now switch the date range to "All" instead, so each one always
-// shows every matching record on its own.
+// Customer/Warehouse/Status/PaymentStatus/Shipping filters are AND-ed with
+// the active date range (preset or exact day) -- e.g. Last Year + Unpaid
+// shows last year's unpaid invoices. Pick "All" to search every date.
 function onOtherFilterChange() {
-  datePreset.value = 'all';
-  filters.value.date = null;
-  filters.value.date_from = '';
-  filters.value.date_to = '';
   crud.reload();
 }
 
@@ -816,6 +830,20 @@ function onAction(key, record) {
 
 const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
 
+// Who may edit a sale -- shared by the Reference chooser and the kebab menu.
+function canEditSale(record) {
+  return auth.can('Sales_edit') && record.sale_has_return === 'no' && record.statut !== 'cancelled'
+    && (record.statut !== 'completed' || record.payment_status !== 'paid' || isSuperAdmin.value || auth.can('edit_completed_paid_sale'));
+}
+
+// Why Edit is unavailable, shown under the disabled item in the chooser.
+function editLockedReason(record) {
+  if (!auth.can('Sales_edit')) return 'No permission to edit sales';
+  if (record.sale_has_return !== 'no') return 'Has a sale return';
+  if (record.statut === 'cancelled') return 'Sale is cancelled';
+  return 'Completed and paid';
+}
+
 function onStatusMenuClick(key, record) {
   if (key === 'cancel') return cancelSale(record);
   if (key === 'ordered') return markOrdered(record);
@@ -902,10 +930,11 @@ function restoreSale(record) {
 
 // ---------------- notifications (email / SMS / WhatsApp) ----------------
 
-async function notify(endpoint, id, okKey, failKey) {
+async function notify(endpoint, id, okKey, failKey, extra = {}) {
   try {
-    const data = await http.post(endpoint, { id });
+    const data = await http.post(endpoint, { id, ...extra });
     message.success(data?.message || t(okKey));
+    return true;
   } catch (e) {
     // Surface the backend's actual reason (e.g. "Mail is not configured for
     // this company yet.") instead of a generic translated fallback -- a
@@ -913,6 +942,33 @@ async function notify(endpoint, id, okKey, failKey) {
     const detail = typeof e?.data?.errors === 'string' ? e.data.errors : (e?.data?.errors && JSON.stringify(e.data.errors));
     const summary = e?.data?.message || t(failKey);
     message.error(detail ? `${summary} ${detail}` : summary, 8);
+    return false;
+  }
+}
+
+// Send Email / Reminder go through the shared recipients modal
+// (EmailRecipientsModal); a typed new address is saved to the customer
+// server-side (ResolvesEmailRecipients).
+const emailModal = ref({ open: false, kind: 'email', sale: null, sending: false });
+
+function openEmailModal(record, kind) {
+  emailModal.value = { open: true, kind, sale: record, sending: false };
+}
+
+async function sendEmailModal(emails, hasNew) {
+  const m = emailModal.value;
+  const reminder = m.kind === 'reminder';
+  m.sending = true;
+  const ok = await notify(
+    reminder ? 'sales_send_reminder' : 'sales_send_email', m.sale.id,
+    reminder ? 'ReminderSent' : 'SendEmail', 'SMTPIncorrect',
+    { emails },
+  );
+  m.sending = false;
+  if (ok) {
+    m.open = false;
+    // New addresses were saved to the customer -- refresh so the next open offers them.
+    if (hasNew) crud.fetchRows();
   }
 }
 
@@ -1154,7 +1210,11 @@ function openAddPayment(record) {
   }
   payEditing.value = null;
   payForm.value = {
-    date: dayjs().format('YYYY-MM-DD'),
+    // Defaults to the invoice's own date (record.date is "date time"), not
+    // today -- editable in the picker; today only if the date is unusable.
+    date: dayjs(String(record.date || '').slice(0, 10)).isValid()
+      ? String(record.date).slice(0, 10)
+      : dayjs().format('YYYY-MM-DD'),
     montant: roundMoney(record.due),
     received_amount: roundMoney(record.due),
     payment_method_id: 2,
@@ -1404,17 +1464,48 @@ function removeDocument(doc) {
 .range-value {
   font-size: 13px;
 }
+.ref-link {
+  white-space: nowrap;
+}
+.ref-link__caret {
+  font-size: 10px;
+  opacity: 0.55;
+  margin-left: 2px;
+}
+.ref-link__why {
+  font-size: 11px;
+  opacity: 0.75;
+}
+/* Row action icons: one color per action, soft tint of it on hover. */
+.row-act {
+  --act: #595959;
+  color: var(--act);
+  border-radius: 6px;
+}
+.row-act:hover,
+.row-act:focus-visible {
+  color: var(--act) !important;
+  background: color-mix(in srgb, var(--act) 14%, transparent) !important;
+}
+.row-act--pdf { --act: #d4380d; }
+.row-act--mail { --act: #1677ff; }
+.row-act--remind { --act: #d48806; }
+.row-act--dup { --act: #722ed1; }
+.row-act--docs { --act: #08979c; }
+.filters-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 16px;
+}
+.filters-line__item {
+  flex: 1 1 150px;
+  min-width: 0;
+}
 .filter-label {
   margin-bottom: 4px;
   color: rgba(0, 0, 0, 0.55);
   font-size: 13px;
-}
-.tb-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
 }
 
 /* Summary cards — same design as the customers/suppliers lists. */

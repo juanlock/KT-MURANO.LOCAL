@@ -232,10 +232,12 @@ import { nodeId, applyMenuOrder } from '../../lib/menuOrder';
 import { buildTopLevelMenuForEditor, hasNestedPositions } from '../../lib/menuTree';
 import { MENU } from '../../config/menu';
 import { useAuthStore } from '../../stores/auth';
+import { useMenuStore } from '../../stores/menu';
 import http from '../../lib/http';
 
 const { t } = useI18n();
 const auth = useAuthStore();
+const menuStore = useMenuStore();
 
 // Per-company menu layout: which company is acted on comes from the global
 // switcher in AppTopbar.vue (lib/actingCompany.js), attached to every
@@ -668,6 +670,10 @@ async function save() {
     menuPositions.value = positions;
     // Live-update the sidebar for this session; other users get it at next boot.
     if (auth.user) auth.user.sidebar_menu_order = order;
+    // Refresh the shared menu layout too, so the live sidebar and the role
+    // editor (permissions follow the menu order) pick up the new structure
+    // without a page reload.
+    menuStore.loadPositions();
     dirty.value = false;
     message.success(t('Successfully_Updated'));
   } catch (e) {
@@ -700,6 +706,7 @@ async function reset() {
     await http.delete('menu-positions');
     menuPositions.value = null;
     treeData.value = buildTree(null, null);
+    menuStore.loadPositions();
     dirty.value = false;
     message.success(t('Successfully_Updated'));
   } catch (e) {

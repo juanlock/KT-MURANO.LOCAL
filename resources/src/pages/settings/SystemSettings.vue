@@ -1134,6 +1134,7 @@
  * price format + decimals caches, ui-store dark/rtl sync, locale switch.
  */
 import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue';
+import { useRoute } from 'vue-router';
 import { message, Skeleton } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { defineAsyncComponent } from 'vue';
@@ -1230,6 +1231,13 @@ function onMenuClick({ key }) {
   selectedKeys.value = [String(key)];
   // Tab-scoped data loads on first open only (then cached in memory).
   if (key === 'calendar' && !calendarLoaded.value && !calendarLoading.value) loadCalendar();
+}
+
+// Deep link: /settings/system?tab=<key> opens that section (e.g. the old
+// standalone /settings/appearance page now redirects to ?tab=appearance).
+{
+  const tab = useRoute().query.tab;
+  if (typeof tab === 'string' && tab) onMenuClick({ key: tab });
 }
 
 const currentSection = computed(() => ({

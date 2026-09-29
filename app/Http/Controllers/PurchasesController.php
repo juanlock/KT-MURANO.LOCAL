@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ScopesToCompany;
+use App\Http\Controllers\Concerns\ResolvesEmailRecipients;
 use App\Mail\CustomEmail;
 use App\Models\Account;
 use App\Models\EmailMessage;
@@ -16,6 +17,7 @@ use App\Models\Purchase;
 use App\Models\PurchaseDetail;
 use App\Models\PurchaseReturn;
 use App\Models\Role;
+use App\Models\Server;
 use App\Models\Setting;
 use App\Models\sms_gateway;
 use App\Models\SMSMessage;
@@ -45,7 +47,7 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class PurchasesController extends BaseController
 {
-    use ScopesToCompany;
+    use ScopesToCompany, ResolvesEmailRecipients;
 
     // ------------- Show ALL Purchases ----------\\
 
@@ -185,6 +187,8 @@ class PurchasesController extends BaseController
             $item['provider_id'] = $Purchase['provider']->id;
             $item['provider_name'] = $Purchase['provider']->name;
             $item['provider_email'] = $Purchase['provider']->email;
+            // Recipient options for the Send Email modal.
+            $item['provider_additional_emails'] = $Purchase['provider']->additional_emails ?? [];
             $item['provider_tele'] = $Purchase['provider']->phone;
             $item['provider_code'] = $Purchase['provider']->code;
             $item['provider_adr'] = $Purchase['provider']->adresse;
@@ -2156,8 +2160,17 @@ class PurchasesController extends BaseController
         $contact_name = $purchase['provider']->name;
         $business_name = $settings->CompanyName;
 
-        // receiver email
-        $receiver_email = $purchase['provider']->email;
+        // receiver email(s) -- confirmed/extended in the Purchases list
+        // recipient modal (supplier email isn't unique, no main-email check)
+        $recipients = $this->resolveEmailRecipients($request, $purchase['provider']);
+        if (is_string($recipients)) {
+            return $this->sendError($recipients);
+        }
+
+        $server = Server::forCompany($purchase->company_id);
+        if (! $server || ! $server->host) {
+            return $this->sendError('Mail is not configured for this company yet. Set it up under Settings > Mail Settings, then try again.');
+        }
 
         // replace the text with tags
         $message_body = str_replace('{contact_name}', $contact_name, $message_body);
@@ -2174,9 +2187,14 @@ class PurchasesController extends BaseController
         $email['company_name'] = $business_name;
 
         $this->Set_config_mail($purchase->company_id);
-        Mail::to($receiver_email)->send(new CustomEmail($email));
 
-        return response()->json(['message' => 'Email sent successfully'], 200);
+        try {
+            Mail::to($recipients)->send(new CustomEmail($email));
+        } catch (\Exception $e) {
+            return $this->sendError('Failed to send email.', $e->getMessage());
+        }
+
+        return response()->json(['message' => 'Email sent successfully to '.implode(', ', $recipients)], 200);
         // return $mail;
     }
 

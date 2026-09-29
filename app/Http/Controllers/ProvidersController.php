@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ScopesToCompany;
+use App\Http\Controllers\Concerns\ResolvesEmailRecipients;
 use App\Models\Account;
 use App\Models\PaymentMethod;
 use App\Models\PaymentPurchase;
@@ -22,7 +23,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ProvidersController extends BaseController
 {
-    use ScopesToCompany;
+    use ScopesToCompany, ResolvesEmailRecipients;
 
     // ----------- Get ALL Suppliers-------\\
 
@@ -134,6 +135,8 @@ class ProvidersController extends BaseController
 
         request()->validate([
             'name' => 'required',
+            'additional_emails' => ['nullable', 'array', 'max:10'],
+            'additional_emails.*' => ['email', 'max:255'],
         ]);
         $provider = Provider::create([
             'name' => $request['name'],
@@ -141,6 +144,7 @@ class ProvidersController extends BaseController
             'adresse' => $request['adresse'],
             'phone' => $request['phone'],
             'email' => $request['email'],
+            'additional_emails' => $this->normalizeAdditionalEmails($request->input('additional_emails'), $request['email']),
             'country' => $request['country'],
             'city' => $request['city'],
             'tax_number' => $request['tax_number'],
@@ -188,6 +192,8 @@ class ProvidersController extends BaseController
 
         request()->validate([
             'name' => 'required',
+            'additional_emails' => ['nullable', 'array', 'max:10'],
+            'additional_emails.*' => ['email', 'max:255'],
         ]);
 
         // Company boundary: a non-SuperAdmin can't update a supplier from a
@@ -196,6 +202,13 @@ class ProvidersController extends BaseController
         if ($requester->type !== 'SuperAdmin') {
             $targetCompanyId = Provider::where('id', $id)->value('company_id');
             abort_unless((int) $targetCompanyId === (int) $requester->company_id, 403);
+        }
+
+        // Only touch additional_emails when the caller sent it -- older
+        // callers of this endpoint don't know about the field.
+        if ($request->has('additional_emails')) {
+            $extra = $this->normalizeAdditionalEmails($request->input('additional_emails'), $request['email']);
+            Provider::whereId($id)->update(['additional_emails' => $extra ? json_encode($extra) : null]);
         }
 
         Provider::whereId($id)->update([

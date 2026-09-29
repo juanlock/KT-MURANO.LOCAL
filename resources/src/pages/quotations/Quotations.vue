@@ -75,7 +75,24 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'date'">{{ dateTime(record.date) }}</template>
         <template v-else-if="column.key === 'Ref'">
-          <a @click="$router.push(`/quotations/${record.id}`)">{{ record.Ref }}</a>
+          <!-- Reference opens a small chooser: view details or edit. -->
+          <a-dropdown :trigger="['click']">
+            <a class="ref-link">{{ record.Ref }} <DownOutlined class="ref-link__caret" /></a>
+            <template #overlay>
+              <a-menu @click="({ key }) => onAction(key, record)">
+                <a-menu-item key="detail">
+                  <EyeOutlined style="color: #1677ff" /> {{ $t('DetailQuote') }}
+                </a-menu-item>
+                <a-menu-item v-if="auth.can('Quotations_edit')" key="edit">
+                  <EditOutlined style="color: #52c41a" /> {{ $t('EditQuote') }}
+                </a-menu-item>
+                <a-menu-item v-else key="edit-locked" disabled>
+                  <LockOutlined /> {{ $t('EditQuote') }}
+                  <div class="ref-link__why">No permission to edit quotations</div>
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
           <!-- Converted marker — like the sales list's return arrow; click opens the sale. -->
           <a-tooltip
             v-if="record.converted_sale_id"
@@ -94,6 +111,23 @@
         </template>
         <template v-else-if="column.key === 'GrandTotal'">{{ money(record.GrandTotal) }}</template>
         <template v-else-if="column.key === 'actions'">
+          <a-space :size="0">
+          <a-tooltip :title="$t('DownloadPdf')">
+            <a-button type="text" size="small" class="row-act row-act--pdf" @click="onAction('pdf', record)">
+              <template #icon><FilePdfOutlined /></template>
+            </a-button>
+          </a-tooltip>
+          <a-tooltip :title="$t('email_notification')">
+            <a-button type="text" size="small" class="row-act row-act--mail" @click="openEmailModal(record)">
+              <template #icon><MailOutlined /></template>
+            </a-button>
+          </a-tooltip>
+          <!-- Already-converted quotations can't be converted a second time. -->
+          <a-tooltip v-if="auth.can('Quotations_edit') && !record.converted_sale_id" :title="$t('Convert_to_Invoice')">
+            <a-button type="text" size="small" class="row-act row-act--convert" @click="onAction('convert', record)">
+              <template #icon><SwapOutlined /></template>
+            </a-button>
+          </a-tooltip>
           <a-dropdown :trigger="['click']">
             <a-button type="text" size="small">
               <template #icon><MoreOutlined style="font-size: 18px" /></template>
@@ -106,18 +140,8 @@
                 <a-menu-item v-if="auth.can('Quotations_edit')" key="edit">
                   <EditOutlined /> {{ $t('EditQuote') }}
                 </a-menu-item>
-                <!-- Already-converted quotations can't be converted a second time. -->
-                <a-menu-item v-if="auth.can('Quotations_edit') && !record.converted_sale_id" key="convert">
-                  <SwapOutlined /> {{ $t('Convert_to_Invoice') }}
-                </a-menu-item>
-                <a-menu-item key="pdf">
-                  <FilePdfOutlined /> {{ $t('DownloadPdf') }}
-                </a-menu-item>
                 <a-menu-item key="whatsapp">
                   <WhatsAppOutlined /> WhatsApp Notification
-                </a-menu-item>
-                <a-menu-item key="email">
-                  <MailOutlined /> {{ $t('email_notification') }}
                 </a-menu-item>
                 <a-menu-item key="sms">
                   <MessageOutlined /> {{ $t('sms_notification') }}
@@ -129,9 +153,23 @@
               </a-menu>
             </template>
           </a-dropdown>
+          </a-space>
         </template>
       </template>
     </DataTable>
+
+    <!-- ============ Send Email recipients modal ============ -->
+    <EmailRecipientsModal
+      v-model:open="emailModal.open"
+      :title="`${$t('email_notification')} — ${emailModal.quote?.Ref || ''}`"
+      :contact-label="$t('Customer')"
+      contact-noun="customer"
+      :contact-name="emailModal.quote?.client_name || ''"
+      :main-email="emailModal.quote?.client_email || ''"
+      :additional-emails="emailModal.quote?.client_additional_emails || []"
+      :sending="emailModal.sending"
+      @send="sendEmailModal"
+    />
   </div>
 </template>
 
@@ -153,16 +191,17 @@ import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, MoreOutlined,
   FilePdfOutlined, FileExcelOutlined, MailOutlined, MessageOutlined,
   WhatsAppOutlined, SwapOutlined, FileTextOutlined, DollarOutlined,
-  SendOutlined, ClockCircleOutlined,
+  SendOutlined, ClockCircleOutlined, DownOutlined, LockOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import EmailRecipientsModal from '../../components/EmailRecipientsModal.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import http from '../../lib/http';
-import { withAllOption } from '../../lib/filterOptions';
+import { withAllOption, sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const { money, dateTime } = useFormat();
@@ -202,10 +241,10 @@ const statTiles = computed(() => {
 });
 
 const customerOptions = computed(() =>
-  withAllOption((crud.payload.value?.customers || []).map(c => ({ value: c.id, label: c.name })))
+  withAllOption(sortByLabel((crud.payload.value?.customers || []).map(c => ({ value: c.id, label: c.name }))))
 );
 const warehouseOptions = computed(() =>
-  withAllOption((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name })))
+  withAllOption(sortByLabel((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))))
 );
 const statusOptions = computed(() => withAllOption([
   { value: 'sent', label: t('Sent') },
@@ -213,7 +252,7 @@ const statusOptions = computed(() => withAllOption([
 ]));
 
 const columns = computed(() => [
-  { title: t('Action'), key: 'actions', width: 70, align: 'center', fixed: 'left' },
+  { title: t('Action'), key: 'actions', width: 130, align: 'center', fixed: 'left' },
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true, exportValue: r => dateTime(r.date) },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name', sorter: true },
@@ -261,12 +300,38 @@ function onAction(key, record) {
   go[key]?.();
 }
 
-async function notify(endpoint, id, okKey, failKey) {
+async function notify(endpoint, id, okKey, failKey, extra = {}) {
   try {
-    await http.post(endpoint, { id });
-    message.success(t(okKey));
+    const data = await http.post(endpoint, { id, ...extra });
+    message.success(data?.message || t(okKey));
+    return true;
   } catch (e) {
-    message.error(t(failKey));
+    // Surface the backend's actual reason (e.g. "Mail is not configured for
+    // this company yet.") instead of a generic translated fallback.
+    const detail = typeof e?.data?.errors === 'string' ? e.data.errors : (e?.data?.errors && JSON.stringify(e.data.errors));
+    const summary = e?.data?.message || t(failKey);
+    message.error(detail ? `${summary} ${detail}` : summary, 8);
+    return false;
+  }
+}
+
+// Send Email goes through the shared recipients modal (EmailRecipientsModal);
+// a typed new address is saved to the customer server-side.
+const emailModal = ref({ open: false, quote: null, sending: false });
+
+function openEmailModal(record) {
+  emailModal.value = { open: true, quote: record, sending: false };
+}
+
+async function sendEmailModal(emails, hasNew) {
+  const m = emailModal.value;
+  m.sending = true;
+  const ok = await notify('quotations_send_email', m.quote.id, 'SendEmail', 'SMTPIncorrect', { emails });
+  m.sending = false;
+  if (ok) {
+    m.open = false;
+    // New addresses were saved to the customer -- refresh so the next open offers them.
+    if (hasNew) crud.fetchRows();
   }
 }
 
@@ -287,6 +352,32 @@ async function sendWhatsApp(record) {
   color: rgba(0, 0, 0, 0.55);
   font-size: 13px;
 }
+.ref-link {
+  white-space: nowrap;
+}
+.ref-link__caret {
+  font-size: 10px;
+  opacity: 0.55;
+  margin-left: 2px;
+}
+.ref-link__why {
+  font-size: 11px;
+  opacity: 0.75;
+}
+/* Row action icons: one color per action, soft tint of it on hover (same as Sales). */
+.row-act {
+  --act: #595959;
+  color: var(--act);
+  border-radius: 6px;
+}
+.row-act:hover,
+.row-act:focus-visible {
+  color: var(--act) !important;
+  background: color-mix(in srgb, var(--act) 14%, transparent) !important;
+}
+.row-act--pdf { --act: #d4380d; }
+.row-act--mail { --act: #1677ff; }
+.row-act--convert { --act: #389e0d; }
 
 /* Summary cards — same design as the sales/purchases lists. */
 .stat-card {

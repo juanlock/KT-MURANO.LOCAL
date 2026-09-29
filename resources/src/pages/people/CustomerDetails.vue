@@ -25,6 +25,7 @@
         <a-descriptions :title="client.name" :column="{ xs: 1, sm: 2, lg: 3 }" size="small">
           <a-descriptions-item :label="$t('Code')">{{ client.code }}</a-descriptions-item>
           <a-descriptions-item :label="$t('Email')">{{ client.email || '-' }}</a-descriptions-item>
+          <a-descriptions-item v-if="client.additional_emails?.length" label="Additional Emails">{{ client.additional_emails.join(', ') }}</a-descriptions-item>
           <a-descriptions-item :label="$t('Phone')">{{ client.phone || '-' }}</a-descriptions-item>
           <a-descriptions-item :label="$t('City')">{{ client.city || '-' }}</a-descriptions-item>
           <a-descriptions-item :label="$t('Country')">{{ client.country || '-' }}</a-descriptions-item>

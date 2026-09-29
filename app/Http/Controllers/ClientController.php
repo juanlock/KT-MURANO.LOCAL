@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ScopesToCompany;
+use App\Http\Controllers\Concerns\ResolvesEmailRecipients;
 use App\Models\Account;
 use App\Models\Client;
 use App\Models\EcommerceClient;
@@ -29,7 +30,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ClientController extends BaseController
 {
-    use ScopesToCompany;
+    use ScopesToCompany, ResolvesEmailRecipients;
 
     // ------------- Get ALL Customers -------------\\
 
@@ -215,6 +216,8 @@ class ClientController extends BaseController
                 // Ensure email is unique in ecommerce_clients table (exclude soft-deleted)
                 Rule::unique('ecommerce_clients', 'email')->whereNull('deleted_at'),
             ],
+            'additional_emails' => ['nullable', 'array', 'max:10'],
+            'additional_emails.*' => ['email', 'max:255'],
         ]);
 
         if ($request['is_royalty_eligible'] == '1' || $request['is_royalty_eligible'] == 'true') {
@@ -233,6 +236,7 @@ class ClientController extends BaseController
             'adresse' => $request['adresse'],
             'phone' => $request['phone'],
             'email' => $request['email'],
+            'additional_emails' => $this->normalizeAdditionalEmails($request->input('additional_emails'), $request['email']),
             'country' => $request['country'],
             'city' => $request['city'],
             'state' => $request['state'],
@@ -318,6 +322,8 @@ class ClientController extends BaseController
                     ->ignore($ecommerceClientId)
                     ->whereNull('deleted_at'),
             ],
+            'additional_emails' => ['nullable', 'array', 'max:10'],
+            'additional_emails.*' => ['email', 'max:255'],
             'country' => ['nullable', 'string', 'max:100'],
             'city' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'string', 'max:100'],
@@ -343,6 +349,13 @@ class ClientController extends BaseController
         DB::transaction(function () use ($request, $id, $isRoyaltyEligible) {
             // 1) Update Client
             // opening_balance is adjusted via the dedicated adjust-opening-balance endpoint
+            // Only touch additional_emails when the caller sent it -- older
+            // callers of this endpoint don't know about the field.
+            if ($request->has('additional_emails')) {
+                $extra = $this->normalizeAdditionalEmails($request->input('additional_emails'), $request->input('email'));
+                Client::whereKey($id)->update(['additional_emails' => $extra ? json_encode($extra) : null]);
+            }
+
             Client::whereKey($id)->update([
                 'firstname' => $request->input('firstname'),
                 'lastname' => $request->input('lastname'),

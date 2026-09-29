@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\CustomEmail;
 use App\Http\Controllers\Concerns\ScopesToCompany;
+use App\Http\Controllers\Concerns\ResolvesEmailRecipients;
 use App\Services\BatchService;
 use App\Services\SerialNumberService;
 use App\Models\ServiceJob;
@@ -56,7 +57,7 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class SalesController extends BaseController
 {
-    use ScopesToCompany;
+    use ScopesToCompany, ResolvesEmailRecipients;
 
     // ------------- GET ALL SALES -----------\\
 
@@ -220,6 +221,8 @@ class SalesController extends BaseController
             $item['client_id'] = $Sale['client']['id'];
             $item['client_name'] = $Sale['client']['name'];
             $item['client_email'] = $Sale['client']['email'];
+            // Recipient options for the Send Email / Reminder modal.
+            $item['client_additional_emails'] = $Sale['client']['additional_emails'] ?? [];
             $item['client_tele'] = $Sale['client']['phone'];
             $item['client_code'] = $Sale['client']['code'];
             $item['client_adr'] = $Sale['client']['adresse'];
@@ -4294,11 +4297,10 @@ class SalesController extends BaseController
         $contact_name = $sale['client']->name;
         $business_name = $settings->CompanyName;
 
-        // receiver email
-        $receiver_email = $sale['client']->email;
-
-        if (empty($receiver_email)) {
-            return $this->sendError('This customer has no email address on file.');
+        // receiver email(s) -- confirmed/extended in the Sales list recipient modal
+        $recipients = $this->resolveClientEmailRecipients($request, $sale['client']);
+        if (is_string($recipients)) {
+            return $this->sendError($recipients);
         }
 
         // Fail with a clear, actionable message instead of letting Mail::send()
@@ -4333,12 +4335,12 @@ class SalesController extends BaseController
                 'name' => $sale->Ref.'.pdf',
                 'mime' => 'application/pdf',
             ]];
-            Mail::to($receiver_email)->send(new CustomEmail($email));
+            Mail::to($recipients)->send(new CustomEmail($email));
         } catch (\Exception $e) {
             return $this->sendError('Failed to send email.', $e->getMessage());
         }
 
-        return response()->json(['message' => 'Email sent successfully'], 200);
+        return response()->json(['message' => 'Email sent successfully to '.implode(', ', $recipients)], 200);
 
     }
 
@@ -4398,14 +4400,13 @@ class SalesController extends BaseController
         $contact_name = $sale['client']->name;
         $business_name = $settings->CompanyName;
 
-        // receiver email
-        $receiver_email = $sale['client']->email;
-
-        if (empty($receiver_email)) {
-            return $this->sendError('This customer has no email address on file.');
+        // receiver email(s) -- confirmed/extended in the Sales list recipient modal
+        $recipients = $this->resolveClientEmailRecipients($request, $sale['client']);
+        if (is_string($recipients)) {
+            return $this->sendError($recipients);
         }
 
-        $server = Server::forCompany($sale->company_id);
+        $server =Server::forCompany($sale->company_id);
         if (! $server || ! $server->host) {
             return $this->sendError('Mail is not configured for this company yet. Set it up under Settings > Mail Settings, then try again.');
         }
@@ -4434,12 +4435,12 @@ class SalesController extends BaseController
                 'name' => $sale->Ref.'.pdf',
                 'mime' => 'application/pdf',
             ]];
-            Mail::to($receiver_email)->send(new CustomEmail($email));
+            Mail::to($recipients)->send(new CustomEmail($email));
         } catch (\Exception $e) {
             return $this->sendError('Failed to send reminder email.', $e->getMessage());
         }
 
-        return response()->json(['message' => 'Reminder email sent successfully'], 200);
+        return response()->json(['message' => 'Reminder email sent successfully to '.implode(', ', $recipients)], 200);
 
     }
 

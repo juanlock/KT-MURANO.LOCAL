@@ -38,6 +38,17 @@
               <a-input v-model:value="form.email" type="email" :placeholder="$t('Enter_Email')" />
             </a-form-item>
           </a-col>
+          <!-- Extra invoice/reminder recipients -- also filled from the Sales
+               list Send Email / Reminder modal when a new address is typed. -->
+          <a-col :xs="24" :md="12">
+            <a-form-item label="Additional Emails" name="additional_emails">
+              <a-select
+                v-model:value="form.additional_emails"
+                mode="tags" :open="false" :token-separators="[',', ' ', ';']"
+                placeholder="Type an email and press Enter"
+              />
+            </a-form-item>
+          </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Tax_Number')" name="tax_number">
               <a-input v-model:value="form.tax_number" :placeholder="$t('Enter_Tax_Number')" />
@@ -172,7 +183,7 @@ const phoneDup = ref(false);
 const formRef = ref();
 
 const emptyForm = () => ({
-  firstname: '', lastname: '', name: '', email: '', phone: '', tax_number: '',
+  firstname: '', lastname: '', name: '', email: '', additional_emails: [], phone: '', tax_number: '',
   // New customers default to the United States (most add-customer flows are
   // for US-based customers) -- City then starts straight in the searchable
   // US-city picker below.
@@ -250,6 +261,10 @@ async function savePortal() {
 const rules = computed(() => ({
   name: [{ required: true, message: t('Field_is_required') }],
   email: [{ type: 'email', message: t('InvalidData') }],
+  additional_emails: [{
+    validator: (_r, list) => ((list || []).every(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+      ? Promise.resolve() : Promise.reject(t('InvalidData'))),
+  }],
 }));
 
 async function checkPhone() {

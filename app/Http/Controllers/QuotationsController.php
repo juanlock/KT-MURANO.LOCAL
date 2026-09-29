@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ScopesToCompany;
+use App\Http\Controllers\Concerns\ResolvesEmailRecipients;
 use App\Mail\CustomEmail;
 use App\Models\Client;
 use App\Models\EmailMessage;
@@ -13,6 +14,7 @@ use App\Models\Quotation;
 use App\Models\QuotationDetail;
 use App\Models\Role;
 use App\Models\Sale;
+use App\Models\Server;
 use App\Models\Setting;
 use App\Models\sms_gateway;
 use App\Models\SMSMessage;
@@ -41,7 +43,7 @@ use Twilio\Rest\Client as Client_Twilio;
 
 class QuotationsController extends BaseController
 {
-    use ScopesToCompany;
+    use ScopesToCompany, ResolvesEmailRecipients;
 
     // ---------------- GET ALL QUOTATIONS ---------------\\
     public function index(request $request)
@@ -162,6 +164,8 @@ class QuotationsController extends BaseController
             $item['warehouse_name'] = $Quotation['warehouse']->name;
             $item['client_name'] = $Quotation['client']->name;
             $item['client_email'] = $Quotation['client']->email;
+            // Recipient options for the Send Email modal.
+            $item['client_additional_emails'] = $Quotation['client']->additional_emails ?? [];
             $item['GrandTotal'] = $Quotation->GrandTotal;
 
             $convertedSaleId = $Quotation->converted_sale_id ?? null;
@@ -1377,8 +1381,16 @@ class QuotationsController extends BaseController
         $contact_name = $quotation['client']->name;
         $business_name = $settings->CompanyName;
 
-        // receiver email
-        $receiver_email = $quotation['client']->email;
+        // receiver email(s) -- confirmed/extended in the Quotations list recipient modal
+        $recipients = $this->resolveClientEmailRecipients($request, $quotation['client']);
+        if (is_string($recipients)) {
+            return $this->sendError($recipients);
+        }
+
+        $server = Server::forCompany($quotation->company_id);
+        if (! $server || ! $server->host) {
+            return $this->sendError('Mail is not configured for this company yet. Set it up under Settings > Mail Settings, then try again.');
+        }
 
         // replace the text with tags
         $message_body = str_replace('{contact_name}', $contact_name, $message_body);
@@ -1393,9 +1405,13 @@ class QuotationsController extends BaseController
 
         $this->Set_config_mail($quotation->company_id);
 
-        Mail::to($receiver_email)->send(new CustomEmail($email));
+        try {
+            Mail::to($recipients)->send(new CustomEmail($email));
+        } catch (\Exception $e) {
+            return $this->sendError('Failed to send email.', $e->getMessage());
+        }
 
-        return response()->json(['message' => 'Email sent successfully'], 200);
+        return response()->json(['message' => 'Email sent successfully to '.implode(', ', $recipients)], 200);
 
         // return $mail;
     }

@@ -905,7 +905,6 @@ export const MENU = [
             { label: 'Warehouses', to: '/app/settings/Warehouses', permissions: ['warehouse'] },
             { label: 'Modules', to: '/app/settings/business_modules', permissions: ['business_modules', 'setting_system'], superAdminOnly: true },
             { label: 'Zatca_E_Invoicing', to: '/app/settings/zatca_settings', permissions: ['zatca_settings'], superAdminOnly: true },
-            { label: 'Dynamic_Appearance', to: '/app/settings/appearance_settings', permissions: ['appearance_settings'] },
             // systemOnly: only shows while "AdminSystem" (company_id=999) is
             // the acting company in the topbar switcher -- this is install-wide
             // state, not anything scoped to whichever real company happens to

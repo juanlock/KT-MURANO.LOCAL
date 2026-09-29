@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { moduleKeyForPath } from '../config/modules';
 import { start as progressStart, done as progressDone } from '../lib/progress';
+import { setPageTitle } from '../lib/docTitle';
 // The shell is needed on every page, so it stays in the entry bundle.
 import AdminLayout from '../layouts/AdminLayout.vue';
 
@@ -252,7 +253,6 @@ const EmailTemplates = lazy('EmailTemplates', () => import('../pages/settings/Em
 const CustomFields = lazy('CustomFields', () => import('../pages/settings/CustomFields.vue'));
 const Backup = lazy('Backup', () => import('../pages/settings/Backup.vue'));
 const PosSettings = lazy('PosSettings', () => import('../pages/settings/PosSettings.vue'));
-const AppearanceSettings = lazy('AppearanceSettings', () => import('../pages/settings/AppearanceSettings.vue'));
 const LoginPageSettings = lazy('LoginPageSettings', () => import('../pages/settings/LoginPageSettings.vue'));
 const PwaSettings = lazy('PwaSettings', () => import('../pages/settings/PwaSettings.vue'));
 const MobileAppSettings = lazy('MobileAppSettings', () => import('../pages/settings/MobileAppSettings.vue'));
@@ -831,7 +831,10 @@ const routes = [
             { path: 'settings/custom-fields', name: 'custom-fields', component: CustomFields, meta: { title: 'Custom Fields' } },
             { path: 'settings/backup', name: 'backup', component: Backup, meta: { title: 'Backup', permission: 'backup', superAdminOnly: true } },
             { path: 'settings/pos', name: 'pos-settings', component: PosSettings, meta: { title: 'POS Settings', permission: 'pos_settings' } },
-            { path: 'settings/appearance', name: 'appearance-settings', component: AppearanceSettings, meta: { title: 'Appearance', permission: 'appearance_settings' } },
+            // Old standalone Appearance page -- it duplicated System Settings ->
+            // Integrations -> Appearance (same component); kept only as a
+            // redirect so old links/bookmarks land on that tab.
+            { path: 'settings/appearance', redirect: { path: '/settings/system', query: { tab: 'appearance' } } },
             // No `permission` meta -- gated inside the page itself by
             // auth.user.type === 'SuperAdmin' (and enforced server-side the
             // same way), not by the role-based permission system, since this
@@ -874,10 +877,7 @@ const router = createRouter({
 
 router.beforeEach(async to => {
     progressStart();
-    if (to.meta.title) {
-        const suffix = window.__PAGE_TITLE_SUFFIX__ || '';
-        document.title = suffix ? `${to.meta.title} — ${suffix}` : to.meta.title;
-    }
+    if (to.meta.title) setPageTitle(to.meta.title);
     if (to.meta.skipAuth) return true;
 
     const auth = useAuthStore();

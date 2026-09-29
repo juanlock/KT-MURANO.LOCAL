@@ -9,7 +9,7 @@ class Provider extends Model
     protected $dates = ['deleted_at'];
 
     protected $fillable = [
-        'name', 'code', 'adresse', 'phone', 'country', 'email', 'city', 'tax_number',
+        'name', 'code', 'adresse', 'phone', 'country', 'email', 'additional_emails', 'city', 'tax_number',
         'opening_balance', 'credit_limit', 'company_id',
     ];
 
@@ -17,6 +17,7 @@ class Provider extends Model
         'code' => 'integer',
         'opening_balance' => 'double',
         'credit_limit' => 'double',
+        'additional_emails' => 'array',
     ];
 
     /**

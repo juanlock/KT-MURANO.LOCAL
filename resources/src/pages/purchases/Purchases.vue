@@ -56,8 +56,11 @@
     </a-row>
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[16, 8]">
-        <a-col v-for="key in visibleFilterKeys" :key="key" :xs="12" :md="8" :xl="key === 'statut' ? 4 : 5">
+      <!-- Filters + the Customize Filters button share one row (flex: the
+           filters split the width, the button sits at the end; wraps only
+           on narrow screens). -->
+      <div class="filters-line">
+        <div v-for="key in visibleFilterKeys" :key="key" class="filters-line__item">
           <template v-if="key === 'date'">
             <div class="filter-label">{{ $t('date') }}</div>
             <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="onExactDateChange" />
@@ -92,9 +95,7 @@
               :placeholder="$t('PaymentStatus')" :options="paymentStatusOptions" @change="onOtherFilterChange"
             />
           </template>
-        </a-col>
-      </a-row>
-      <div class="tb-bar">
+        </div>
         <a-tooltip v-if="auth.canCustomizeColumns" title="Customize filters">
           <a-button @click="openCustomize">
             <template #icon><FilterOutlined /></template>
@@ -115,7 +116,24 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'date'">{{ dateTime(record.date) }}</template>
         <template v-else-if="column.key === 'Ref'">
-          <a @click="$router.push(`/purchases/${record.id}`)">{{ record.Ref }}</a>
+          <!-- Reference opens a small chooser: view details or edit. -->
+          <a-dropdown :trigger="['click']">
+            <a class="ref-link">{{ record.Ref }} <DownOutlined class="ref-link__caret" /></a>
+            <template #overlay>
+              <a-menu @click="({ key }) => onAction(key, record)">
+                <a-menu-item key="detail">
+                  <EyeOutlined style="color: #1677ff" /> {{ $t('PurchaseDetail') }}
+                </a-menu-item>
+                <a-menu-item v-if="canEditPurchase(record)" key="edit">
+                  <EditOutlined style="color: #52c41a" /> {{ $t('EditPurchase') }}
+                </a-menu-item>
+                <a-menu-item v-else key="edit-locked" disabled>
+                  <LockOutlined /> {{ $t('EditPurchase') }}
+                  <div class="ref-link__why">{{ editLockedReason(record) }}</div>
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
           <a-tooltip v-if="record.purchase_has_return === 'yes'" :title="$t('Purchase_Return')">
             <span style="color: #ff4d4f; margin-left: 4px">↩</span>
           </a-tooltip>
@@ -148,6 +166,22 @@
           <span v-else>—</span>
         </template>
         <template v-else-if="column.key === 'actions'">
+          <a-space :size="0">
+          <a-tooltip :title="$t('DownloadPdf')">
+            <a-button type="text" size="small" class="row-act row-act--pdf" @click="invoicePdf(record)">
+              <template #icon><FilePdfOutlined /></template>
+            </a-button>
+          </a-tooltip>
+          <a-tooltip :title="$t('email_notification')">
+            <a-button type="text" size="small" class="row-act row-act--mail" @click="openEmailModal(record)">
+              <template #icon><MailOutlined /></template>
+            </a-button>
+          </a-tooltip>
+          <a-tooltip :title="$t('Attach_Documents')">
+            <a-button type="text" size="small" class="row-act row-act--docs" @click="onAction('documents', record)">
+              <template #icon><PaperClipOutlined /></template>
+            </a-button>
+          </a-tooltip>
           <a-dropdown :trigger="['click']">
             <a-button type="text" size="small">
               <template #icon><MoreOutlined style="font-size: 18px" /></template>
@@ -157,10 +191,7 @@
                 <a-menu-item key="detail">
                   <EyeOutlined /> {{ $t('PurchaseDetail') }}
                 </a-menu-item>
-                <a-menu-item
-                  v-if="auth.can('Purchases_edit') && record.purchase_has_return === 'no' && record.statut !== 'cancelled'"
-                  key="edit"
-                >
+                <a-menu-item v-if="canEditPurchase(record)" key="edit">
                   <EditOutlined /> {{ $t('EditPurchase') }}
                 </a-menu-item>
                 <a-menu-item
@@ -189,23 +220,14 @@
                 <a-menu-item v-if="auth.can('payment_purchases_add') && record.statut === 'received'" key="pay">
                   <PlusOutlined /> {{ $t('AddPayment') }}
                 </a-menu-item>
-                <a-menu-item key="pdf">
-                  <FilePdfOutlined /> {{ $t('DownloadPdf') }}
-                </a-menu-item>
                 <a-menu-item key="barcode">
                   <BarcodeOutlined /> {{ $t('Printbarcode') }}
                 </a-menu-item>
                 <a-menu-item key="whatsapp">
                   <WhatsAppOutlined /> WhatsApp Notification
                 </a-menu-item>
-                <a-menu-item key="email">
-                  <MailOutlined /> {{ $t('email_notification') }}
-                </a-menu-item>
                 <a-menu-item key="sms">
                   <MessageOutlined /> {{ $t('sms_notification') }}
-                </a-menu-item>
-                <a-menu-item key="documents">
-                  <PaperClipOutlined /> {{ $t('Attach_Documents') }}
                 </a-menu-item>
                 <a-menu-divider v-if="auth.can('Purchases_delete') && record.purchase_has_return === 'no'" />
                 <a-menu-item v-if="auth.can('Purchases_delete') && record.purchase_has_return === 'no'" key="delete" danger>
@@ -214,9 +236,23 @@
               </a-menu>
             </template>
           </a-dropdown>
+          </a-space>
         </template>
       </template>
     </DataTable>
+
+    <!-- ============ Send Email recipients modal ============ -->
+    <EmailRecipientsModal
+      v-model:open="emailModal.open"
+      :title="`${$t('email_notification')} — ${emailModal.purchase?.Ref || ''}`"
+      :contact-label="$t('Supplier')"
+      contact-noun="supplier"
+      :contact-name="emailModal.purchase?.provider_name || ''"
+      :main-email="emailModal.purchase?.provider_email || ''"
+      :additional-emails="emailModal.purchase?.provider_additional_emails || []"
+      :sending="emailModal.sending"
+      @send="sendEmailModal"
+    />
 
     <!-- ============ Payments list modal ============ -->
     <a-modal v-model:open="paymentsOpen" :title="`${$t('ShowPayment')} — ${activePurchase?.Ref || ''}`" :footer="null" width="820px">
@@ -394,12 +430,14 @@ import {
   WalletOutlined, RollbackOutlined, PaperClipOutlined, UploadOutlined,
   DownloadOutlined, WhatsAppOutlined, BarcodeOutlined, ExclamationCircleOutlined,
   ShoppingOutlined, DollarOutlined, CheckCircleOutlined, StopOutlined, FilterOutlined,
+  DownOutlined, LockOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
 import StatusHelpModal from '../../components/StatusHelpModal.vue';
+import EmailRecipientsModal from '../../components/EmailRecipientsModal.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useCustomizableFilters } from '../../composables/useCustomizableFilters';
 import { useFormat } from '../../composables/useFormat';
@@ -494,13 +532,8 @@ function applyPreset(preset) {
   const [from, to] = presetRange(preset);
   filters.value.date_from = from ? from.format('YYYY-MM-DD') : '';
   filters.value.date_to = to ? to.format('YYYY-MM-DD') : '';
-  // A preset button means "show me everything for this period" -- clear
-  // whatever supplier/warehouse/status filters happen to be set so they
-  // don't silently keep narrowing the result underneath it.
-  filters.value.provider_id = undefined;
-  filters.value.warehouse_id = undefined;
-  filters.value.statut = undefined;
-  filters.value.payment_statut = undefined;
+  // The range combines with the dropdown filters (e.g. Last Year + Unpaid),
+  // so the supplier/warehouse/status selections are kept, not cleared.
   crud.reload();
 }
 
@@ -514,17 +547,10 @@ function onExactDateChange() {
   crud.reload();
 }
 
-// Supplier/Warehouse/Status/PaymentStatus filters were silently staying
-// AND-ed with whatever date range was active (default: This Month), so e.g.
-// picking a status with no matches THIS month looked like a broken filter
-// even though the records existed outside that range. These filters now
-// switch the date range to "All" instead, so each one always shows every
-// matching record on its own.
+// Supplier/Warehouse/Status/PaymentStatus filters are AND-ed with the active
+// date range (preset or exact day) -- e.g. Last Year + Unpaid shows last
+// year's unpaid purchases. Pick "All" to search every date.
 function onOtherFilterChange() {
-  datePreset.value = 'all';
-  filters.value.date = null;
-  filters.value.date_from = '';
-  filters.value.date_to = '';
   crud.reload();
 }
 
@@ -587,7 +613,7 @@ const paymentStatusOptions = computed(() =>
 );
 
 const columns = computed(() => [
-  { title: t('Action'), key: 'actions', width: 70, align: 'center', fixed: 'left' },
+  { title: t('Action'), key: 'actions', width: 130, align: 'center', fixed: 'left' },
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true, exportValue: r => dateTime(r.date) },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   { title: t('Supplier'), dataIndex: 'provider_name', key: 'provider_name', sorter: true },
@@ -659,6 +685,18 @@ function onAction(key, record) {
 
 const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
 
+// Who may edit a purchase -- shared by the Reference chooser and the kebab menu.
+function canEditPurchase(record) {
+  return auth.can('Purchases_edit') && record.purchase_has_return === 'no' && record.statut !== 'cancelled';
+}
+
+// Why Edit is unavailable, shown under the disabled item in the chooser.
+function editLockedReason(record) {
+  if (!auth.can('Purchases_edit')) return 'No permission to edit purchases';
+  if (record.purchase_has_return !== 'no') return 'Has a purchase return';
+  return 'Purchase is cancelled';
+}
+
 // The Status tag doubles as the Cancel trigger while Pending -- the row
 // menu still carries the same action for discoverability.
 function statusClickable(record) {
@@ -711,12 +749,38 @@ function restorePurchase(record) {
 
 // ---------------- notifications ----------------
 
-async function notify(endpoint, id, okKey, failKey) {
+async function notify(endpoint, id, okKey, failKey, extra = {}) {
   try {
-    await http.post(endpoint, { id });
-    message.success(t(okKey));
+    const data = await http.post(endpoint, { id, ...extra });
+    message.success(data?.message || t(okKey));
+    return true;
   } catch (e) {
-    message.error(t(failKey));
+    // Surface the backend's actual reason (e.g. "Mail is not configured for
+    // this company yet.") instead of a generic translated fallback.
+    const detail = typeof e?.data?.errors === 'string' ? e.data.errors : (e?.data?.errors && JSON.stringify(e.data.errors));
+    const summary = e?.data?.message || t(failKey);
+    message.error(detail ? `${summary} ${detail}` : summary, 8);
+    return false;
+  }
+}
+
+// Send Email goes through the shared recipients modal (EmailRecipientsModal);
+// a typed new address is saved to the supplier server-side.
+const emailModal = ref({ open: false, purchase: null, sending: false });
+
+function openEmailModal(record) {
+  emailModal.value = { open: true, purchase: record, sending: false };
+}
+
+async function sendEmailModal(emails, hasNew) {
+  const m = emailModal.value;
+  m.sending = true;
+  const ok = await notify('purchase_send_email', m.purchase.id, 'SendEmail', 'SMTPIncorrect', { emails });
+  m.sending = false;
+  if (ok) {
+    m.open = false;
+    // New addresses were saved to the supplier -- refresh so the next open offers them.
+    if (hasNew) crud.fetchRows();
   }
 }
 
@@ -824,7 +888,11 @@ function openAddPayment(record) {
   }
   payEditing.value = null;
   payForm.value = {
-    date: dayjs().format('YYYY-MM-DD'),
+    // Defaults to the purchase's own date (record.date is "date time"), not
+    // today -- editable in the picker; today only if the date is unusable.
+    date: dayjs(String(record.date || '').slice(0, 10)).isValid()
+      ? String(record.date).slice(0, 10)
+      : dayjs().format('YYYY-MM-DD'),
     montant: roundMoney(record.due),
     received_amount: roundMoney(record.due),
     payment_method_id: 2,
@@ -992,13 +1060,42 @@ function removeDocument(doc) {
   color: rgba(0, 0, 0, 0.55);
   font-size: 13px;
 }
-.tb-bar {
+.filters-line {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 16px;
 }
+.filters-line__item {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+.ref-link {
+  white-space: nowrap;
+}
+.ref-link__caret {
+  font-size: 10px;
+  opacity: 0.55;
+  margin-left: 2px;
+}
+.ref-link__why {
+  font-size: 11px;
+  opacity: 0.75;
+}
+/* Row action icons: one color per action, soft tint of it on hover (same as Sales). */
+.row-act {
+  --act: #595959;
+  color: var(--act);
+  border-radius: 6px;
+}
+.row-act:hover,
+.row-act:focus-visible {
+  color: var(--act) !important;
+  background: color-mix(in srgb, var(--act) 14%, transparent) !important;
+}
+.row-act--pdf { --act: #d4380d; }
+.row-act--mail { --act: #1677ff; }
+.row-act--docs { --act: #08979c; }
 
 /* Summary cards — same design as the sales list. */
 .stat-card {

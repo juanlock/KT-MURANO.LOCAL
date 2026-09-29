@@ -5,6 +5,7 @@ import { loadLocale } from '../i18n';
 import { useUiStore } from './ui';
 import { resolveImageUrl } from '../lib/imagePath';
 import { useDatatableStore } from './datatable';
+import { setTitleSuffix } from '../lib/docTitle';
 
 /**
  * Mirrors the legacy Vuex auth module: GET /api/get_user_auth returns
@@ -111,6 +112,9 @@ export const useAuthStore = defineStore('auth', {
                 this.permissions = Array.isArray(data.permissions) ? data.permissions : [];
                 this.notifs = Number(data.notifs) || 0;
                 this.failed = false;
+                // Tab title suffix = the acting company's own Appearance
+                // setting (re-applied on reload(), e.g. right after saving it).
+                if (this.user) setTitleSuffix(this.user.page_title_suffix);
 
                 // The SPA's locale otherwise lives entirely in localStorage
                 // ('language', written on every boot including the very
