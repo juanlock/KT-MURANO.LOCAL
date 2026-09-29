@@ -25139,3 +25139,296 @@ Content-Transfer-Encoding: quoted-printable
 #57 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\public\\index.php(52): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
 #58 {main}
 "} 
+[2026-09-29 13:39:54] production.ERROR: Uncaught ReflectionException: Class "App\Http\Middleware\StoreDataMiddleware" does not exist in Command line code:1
+Stack trace:
+#0 Command line code(1): ReflectionMethod->__construct('App\\Http\\Middle...', 'handle')
+#1 {main}
+  thrown {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Uncaught ReflectionException: Class \"App\\Http\\Middleware\\StoreDataMiddleware\" does not exist in Command line code:1
+Stack trace:
+#0 Command line code(1): ReflectionMethod->__construct('App\\\\Http\\\\Middle...', 'handle')
+#1 {main}
+  thrown at Command line code:1)
+[stacktrace]
+#0 {main}
+"} 
+[2026-09-29 15:07:21] production.ERROR: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tax_method' in 'SELECT' (Connection: mysql, SQL: SELECT id, Ref, client_id, warehouse_id, user_id, date, statut, payment_statut, GrandTotal, tax_method FROM dbbilling.sales WHERE company_id = 2 AND Ref NOT IN (SELECT Ref FROM dbmurano.sales WHERE company_id = 2) ORDER BY id) {"exception":"[object] (Illuminate\\Database\\QueryException(code: 42S22): SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tax_method' in 'SELECT' (Connection: mysql, SQL: SELECT id, Ref, client_id, warehouse_id, user_id, date, statut, payment_statut, GrandTotal, tax_method FROM dbbilling.sales WHERE company_id = 2 AND Ref NOT IN (SELECT Ref FROM dbmurano.sales WHERE company_id = 2) ORDER BY id) at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php:824)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php(778): Illuminate\\Database\\Connection->runQueryCallback('SELECT id, Ref,...', Array, Object(Closure))
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php(397): Illuminate\\Database\\Connection->run('SELECT id, Ref,...', Array, Object(Closure))
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\DatabaseManager.php(489): Illuminate\\Database\\Connection->select('SELECT id, Ref,...')
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Facades\\Facade.php(363): Illuminate\\Database\\DatabaseManager->__call('select', Array)
+#4 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\check_sync_defaults.php(13): Illuminate\\Support\\Facades\\Facade::__callStatic('select', Array)
+#5 {main}
+
+[previous exception] [object] (PDOException(code: 42S22): SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tax_method' in 'SELECT' at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php:406)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php(406): PDO->prepare('SELECT id, Ref,...')
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php(811): Illuminate\\Database\\Connection->Illuminate\\Database\\{closure}('SELECT id, Ref,...', Array)
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php(778): Illuminate\\Database\\Connection->runQueryCallback('SELECT id, Ref,...', Array, Object(Closure))
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php(397): Illuminate\\Database\\Connection->run('SELECT id, Ref,...', Array, Object(Closure))
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\DatabaseManager.php(489): Illuminate\\Database\\Connection->select('SELECT id, Ref,...')
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Facades\\Facade.php(363): Illuminate\\Database\\DatabaseManager->__call('select', Array)
+#6 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\check_sync_defaults.php(13): Illuminate\\Support\\Facades\\Facade::__callStatic('select', Array)
+#7 {main}
+"} 
+[2026-09-29 15:19:42] production.ERROR: Undefined variable $host {"exception":"[object] (ErrorException(code: 0): Undefined variable $host at C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\kelsy_copia_bd_rename.php:16)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Bootstrap\\HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Undefined varia...', 'C:\\\\Users\\\\juanlo...', 16)
+#1 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\kelsy_copia_bd_rename.php(16): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->Illuminate\\Foundation\\Bootstrap\\{closure}(2, 'Undefined varia...', 'C:\\\\Users\\\\juanlo...', 16)
+#2 {main}
+"} 
+[2026-09-29 13:51:58] production.ERROR: Class "App\Http\Middleware\StoreDataMiddleware" does not exist {"exception":"[object] (ReflectionException(code: -1): Class \"App\\Http\\Middleware\\StoreDataMiddleware\" does not exist at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\storage\\framework\\lsp-f01c905603a38f49.php:101)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\storage\\framework\\lsp-f01c905603a38f49.php(101): ReflectionClass->__construct('App\\\\Http\\\\Middle...')
+#1 [internal function]: {closure}('App\\\\Http\\\\Middle...', 'store.data')
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Collections\\Arr.php(786): array_map(Object(Closure), Array, Array)
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Collections\\Collection.php(814): Illuminate\\Support\\Arr::map(Array, Object(Closure))
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\storage\\framework\\lsp-f01c905603a38f49.php(69): Illuminate\\Support\\Collection->map(Object(Closure))
+#5 {main}
+"} 
+[2026-09-29 14:11:07] production.ERROR: Connection could not be established with host "127.0.0.1:2525": stream_socket_client(): Unable to connect to 127.0.0.1:2525 (No connection could be made because the target machine actively refused it) {"userId":3,"exception":"[object] (Symfony\\Component\\Mailer\\Exception\\TransportException(code: 0): Connection could not be established with host \"127.0.0.1:2525\": stream_socket_client(): Unable to connect to 127.0.0.1:2525 (No connection could be made because the target machine actively refused it) at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\mailer\\Transport\\Smtp\\Stream\\SocketStream.php:154)
+[stacktrace]
+#0 [internal function]: Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\SocketStream->Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\{closure}(2, 'stream_socket_c...', 'D:\\\\WEBSITES-LOC...', 157)
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\mailer\\Transport\\Smtp\\Stream\\SocketStream.php(157): stream_socket_client('127.0.0.1:2525', 0, '', 60.0, 4, Resource id #832)
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\mailer\\Transport\\Smtp\\SmtpTransport.php(279): Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\SocketStream->initialize()
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\mailer\\Transport\\Smtp\\SmtpTransport.php(211): Symfony\\Component\\Mailer\\Transport\\Smtp\\SmtpTransport->start()
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\mailer\\Transport\\AbstractTransport.php(69): Symfony\\Component\\Mailer\\Transport\\Smtp\\SmtpTransport->doSend(Object(Symfony\\Component\\Mailer\\SentMessage))
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\mailer\\Transport\\Smtp\\SmtpTransport.php(138): Symfony\\Component\\Mailer\\Transport\\AbstractTransport->send(Object(Symfony\\Component\\Mime\\Email), Object(Symfony\\Component\\Mailer\\DelayedEnvelope))
+#6 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Mail\\Mailer.php(584): Symfony\\Component\\Mailer\\Transport\\Smtp\\SmtpTransport->send(Object(Symfony\\Component\\Mime\\Email), Object(Symfony\\Component\\Mailer\\DelayedEnvelope))
+#7 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Mail\\Mailer.php(331): Illuminate\\Mail\\Mailer->sendSymfonyMessage(Object(Symfony\\Component\\Mime\\Email))
+#8 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Mail\\Mailable.php(207): Illuminate\\Mail\\Mailer->send(Object(Closure), Array, Object(Closure))
+#9 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Traits\\Localizable.php(19): Illuminate\\Mail\\Mailable->Illuminate\\Mail\\{closure}()
+#10 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Mail\\Mailable.php(200): Illuminate\\Mail\\Mailable->withLocale(NULL, Object(Closure))
+#11 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Mail\\Mailer.php(353): Illuminate\\Mail\\Mailable->send(Object(Illuminate\\Mail\\Mailer))
+#12 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Mail\\Mailer.php(300): Illuminate\\Mail\\Mailer->sendMailable(Object(App\\Mail\\CustomEmail))
+#13 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Mail\\PendingMail.php(123): Illuminate\\Mail\\Mailer->send(Object(App\\Mail\\CustomEmail))
+#14 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Controllers\\SalesController.php(4295): Illuminate\\Mail\\PendingMail->send(Object(App\\Mail\\CustomEmail))
+#15 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Controller.php(54): App\\Http\\Controllers\\SalesController->Send_Email(Object(Illuminate\\Http\\Request))
+#16 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction('Send_Email', Array)
+#17 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Route.php(265): Illuminate\\Routing\\ControllerDispatcher->dispatch(Object(Illuminate\\Routing\\Route), Object(App\\Http\\Controllers\\SalesController), 'Send_Email')
+#18 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Route.php(211): Illuminate\\Routing\\Route->runController()
+#19 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Router.php(822): Illuminate\\Routing\\Route->run()
+#20 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(180): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}(Object(Illuminate\\Http\\Request))
+#21 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Middleware\\EnforceApiTokenTimeout.php(99): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#22 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): App\\Http\\Middleware\\EnforceApiTokenTimeout->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#23 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Middleware\\RequestSafety.php(80): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#24 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): App\\Http\\Middleware\\RequestSafety->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#25 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Middleware\\Is_Active.php(18): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#26 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): App\\Http\\Middleware\\Is_Active->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#27 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Middleware\\SetPdfLocale.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#28 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): App\\Http\\Middleware\\SetPdfLocale->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#29 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Middleware\\SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#30 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#31 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Auth\\Middleware\\Authenticate.php(63): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#32 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): Illuminate\\Auth\\Middleware\\Authenticate->handle(Object(Illuminate\\Http\\Request), Object(Closure), 'api')
+#33 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(137): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#34 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Router.php(821): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#35 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Router.php(800): Illuminate\\Routing\\Router->runRouteWithinStack(Object(Illuminate\\Routing\\Route), Object(Illuminate\\Http\\Request))
+#36 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Router.php(764): Illuminate\\Routing\\Router->runRoute(Object(Illuminate\\Http\\Request), Object(Illuminate\\Routing\\Route))
+#37 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Router.php(753): Illuminate\\Routing\\Router->dispatchToRoute(Object(Illuminate\\Http\\Request))
+#38 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(200): Illuminate\\Routing\\Router->dispatch(Object(Illuminate\\Http\\Request))
+#39 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(180): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}(Object(Illuminate\\Http\\Request))
+#40 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Middleware\\ServeCompanyWebsite.php(25): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#41 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): App\\Http\\Middleware\\ServeCompanyWebsite->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#42 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Middleware\\SetSessionConfig.php(48): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#43 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): App\\Http\\Middleware\\SetSessionConfig->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#44 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#45 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#46 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#47 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#48 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\TrimStrings.php(51): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#49 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#50 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Http\\Middleware\\ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#51 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): Illuminate\\Http\\Middleware\\ValidatePostSize->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#52 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Middleware\\CheckInstalled.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#53 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): App\\Http\\Middleware\\CheckInstalled->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#54 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance.php(109): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#55 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(219): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle(Object(Illuminate\\Http\\Request), Object(Closure))
+#56 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php(137): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}(Object(Illuminate\\Http\\Request))
+#57 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(175): Illuminate\\Pipeline\\Pipeline->then(Object(Closure))
+#58 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter(Object(Illuminate\\Http\\Request))
+#59 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\public\\index.php(52): Illuminate\\Foundation\\Http\\Kernel->handle(Object(Illuminate\\Http\\Request))
+#60 {main}
+"} 
+[2026-09-29 14:17:52] production.ERROR: SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'sale-en' for key 'email_messages_name_locale_unique' (Connection: mysql, SQL: insert into `email_messages` (`company_id`, `name`, `locale`, `subject`, `body`, `updated_at`, `created_at`) values (1, sale, en, TEST-COMPANY-1-CUSTOM-SUBJECT, Company 1 custom body, 2026-09-29 14:17:52, 2026-09-29 14:17:52)) {"exception":"[object] (Illuminate\\Database\\UniqueConstraintViolationException(code: 23000): SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'sale-en' for key 'email_messages_name_locale_unique' (Connection: mysql, SQL: insert into `email_messages` (`company_id`, `name`, `locale`, `subject`, `body`, `updated_at`, `created_at`) values (1, sale, en, TEST-COMPANY-1-CUSTOM-SUBJECT, Company 1 custom body, 2026-09-29 14:17:52, 2026-09-29 14:17:52)) at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php:819)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php(778): Illuminate\\Database\\Connection->runQueryCallback('insert into `em...', Array, Object(Closure))
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\MySqlConnection.php(42): Illuminate\\Database\\Connection->run('insert into `em...', Array, Object(Closure))
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Query\\Processors\\MySqlProcessor.php(35): Illuminate\\Database\\MySqlConnection->insert('insert into `em...', Array, 'id')
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Query\\Builder.php(3853): Illuminate\\Database\\Query\\Processors\\MySqlProcessor->processInsertGetId(Object(Illuminate\\Database\\Query\\Builder), 'insert into `em...', Array, 'id')
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Eloquent\\Builder.php(2235): Illuminate\\Database\\Query\\Builder->insertGetId(Array, 'id')
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Eloquent\\Model.php(1436): Illuminate\\Database\\Eloquent\\Builder->__call('insertGetId', Array)
+#6 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Eloquent\\Model.php(1401): Illuminate\\Database\\Eloquent\\Model->insertAndSetId(Object(Illuminate\\Database\\Eloquent\\Builder), Array)
+#7 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Eloquent\\Model.php(1240): Illuminate\\Database\\Eloquent\\Model->performInsert(Object(Illuminate\\Database\\Eloquent\\Builder))
+#8 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\verify_mail_multicompany.php(36): Illuminate\\Database\\Eloquent\\Model->save()
+#9 {main}
+
+[previous exception] [object] (PDOException(code: 23000): SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'sale-en' for key 'email_messages_name_locale_unique' at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\MySqlConnection.php:53)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\MySqlConnection.php(53): PDOStatement->execute()
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php(811): Illuminate\\Database\\MySqlConnection->Illuminate\\Database\\{closure}('insert into `em...', Array)
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Connection.php(778): Illuminate\\Database\\Connection->runQueryCallback('insert into `em...', Array, Object(Closure))
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\MySqlConnection.php(42): Illuminate\\Database\\Connection->run('insert into `em...', Array, Object(Closure))
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Query\\Processors\\MySqlProcessor.php(35): Illuminate\\Database\\MySqlConnection->insert('insert into `em...', Array, 'id')
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Query\\Builder.php(3853): Illuminate\\Database\\Query\\Processors\\MySqlProcessor->processInsertGetId(Object(Illuminate\\Database\\Query\\Builder), 'insert into `em...', Array, 'id')
+#6 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Eloquent\\Builder.php(2235): Illuminate\\Database\\Query\\Builder->insertGetId(Array, 'id')
+#7 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Eloquent\\Model.php(1436): Illuminate\\Database\\Eloquent\\Builder->__call('insertGetId', Array)
+#8 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Eloquent\\Model.php(1401): Illuminate\\Database\\Eloquent\\Model->insertAndSetId(Object(Illuminate\\Database\\Eloquent\\Builder), Array)
+#9 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Eloquent\\Model.php(1240): Illuminate\\Database\\Eloquent\\Model->performInsert(Object(Illuminate\\Database\\Eloquent\\Builder))
+#10 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\verify_mail_multicompany.php(36): Illuminate\\Database\\Eloquent\\Model->save()
+#11 {main}
+"} 
+[2026-09-29 14:24:33] production.ERROR: Undefined variable $companyId {"exception":"[object] (ErrorException(code: 0): Undefined variable $companyId at C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\kelsy_mail_multicompany.php:32)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Bootstrap\\HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Undefined varia...', 'C:\\\\Users\\\\juanlo...', 32)
+#1 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\kelsy_mail_multicompany.php(32): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->Illuminate\\Foundation\\Bootstrap\\{closure}(2, 'Undefined varia...', 'C:\\\\Users\\\\juanlo...', 32)
+#2 {main}
+"} 
+[2026-09-29 14:32:29] production.ERROR: Undefined variable $summary {"exception":"[object] (ErrorException(code: 0): Undefined variable $summary at C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\kelsy_mail_test_error_detail.php:23)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Bootstrap\\HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Undefined varia...', 'C:\\\\Users\\\\juanlo...', 23)
+#1 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\kelsy_mail_test_error_detail.php(23): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->Illuminate\\Foundation\\Bootstrap\\{closure}(2, 'Undefined varia...', 'C:\\\\Users\\\\juanlo...', 23)
+#2 {main}
+"} 
+[2026-09-29 14:56:25] production.ERROR: PHP Parse error: Syntax error, unexpected '=' on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected '=' on line 1 at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\CodeCleaner.php(306): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php  = App\\\\Mo...', false)
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(852): Psy\\CodeCleaner->clean(Array, false)
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(881): Psy\\Shell->addCode(' = App\\\\Models\\\\S...', true)
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(1394): Psy\\Shell->setCode(' = App\\\\Models\\\\S...', true)
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute(' = App\\\\Models\\\\S...')
+#6 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(43): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(836): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(211): Illuminate\\Container\\Container->call(Array)
+#12 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Command\\Command.php(318): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(1110): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(359): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(194): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(197): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 
+[2026-09-29 14:56:32] production.ERROR: Unexpected end of input {"exception":"[object] (InvalidArgumentException(code: 0): Unexpected end of input at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php:891)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(1394): Psy\\Shell->setCode('$s = App\\\\Models...', true)
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('$s = App\\\\Models...')
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(43): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#6 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(836): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#7 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(211): Illuminate\\Container\\Container->call(Array)
+#8 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Command\\Command.php(318): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#9 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#10 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(1110): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#11 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(359): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#12 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(194): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#13 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(197): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#14 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 {main}
+"} 
+[2026-09-29 14:56:40] production.ERROR: PHP Parse error: Syntax error, unexpected T_STRING, expecting ')' on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected T_STRING, expecting ')' on line 1 at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\CodeCleaner.php(306): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php $s = App\\\\...', false)
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(852): Psy\\CodeCleaner->clean(Array, false)
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(881): Psy\\Shell->addCode('$s = App\\\\Models...', true)
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(1394): Psy\\Shell->setCode('$s = App\\\\Models...', true)
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('$s = App\\\\Models...')
+#6 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(43): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(836): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(211): Illuminate\\Container\\Container->call(Array)
+#12 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Command\\Command.php(318): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(1110): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(359): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(194): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(197): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 
+[2026-09-29 14:57:30] production.ERROR: PHP Parse error: Syntax error, unexpected ':', expecting '(' on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected ':', expecting '(' on line 1 at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\CodeCleaner.php(306): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php $s = App\\\\...', false)
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(852): Psy\\CodeCleaner->clean(Array, false)
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(881): Psy\\Shell->addCode('$s = App\\\\Models...', true)
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\psy\\psysh\\src\\Shell.php(1394): Psy\\Shell->setCode('$s = App\\\\Models...', true)
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('$s = App\\\\Models...')
+#6 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(43): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(836): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(211): Illuminate\\Container\\Container->call(Array)
+#12 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Command\\Command.php(318): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(1110): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(359): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\symfony\\console\\Application.php(194): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(197): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 
+[2026-09-29 15:07:26] production.ERROR: Attempt to read property "is_all_warehouses" on null {"exception":"[object] (ErrorException(code: 0): Attempt to read property \"is_all_warehouses\" on null at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Controllers\\SalesController.php:75)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Bootstrap\\HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Attempt to read...', 'D:\\\\WEBSITES-LOC...', 75)
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Controllers\\SalesController.php(75): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->Illuminate\\Foundation\\Bootstrap\\{closure}(2, 'Attempt to read...', 'D:\\\\WEBSITES-LOC...', 75)
+#2 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\verify_sales_reminder.php(73): App\\Http\\Controllers\\SalesController->index(Object(Illuminate\\Http\\Request))
+#3 {main}
+"} 
+[2026-09-29 15:07:44] production.ERROR: Order direction must be "asc" or "desc". {"userId":1,"exception":"[object] (InvalidArgumentException(code: 0): Order direction must be \"asc\" or \"desc\". at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Query\\Builder.php:2696)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Traits\\ForwardsCalls.php(23): Illuminate\\Database\\Query\\Builder->orderBy(NULL, '')
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Database\\Eloquent\\Builder.php(2238): Illuminate\\Database\\Eloquent\\Builder->forwardCallTo(Object(Illuminate\\Database\\Query\\Builder), 'orderBy', Array)
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\app\\Http\\Controllers\\SalesController.php(187): Illuminate\\Database\\Eloquent\\Builder->__call('orderBy', Array)
+#3 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\verify_sales_index_flags.php(18): App\\Http\\Controllers\\SalesController->index(Object(Illuminate\\Http\\Request))
+#4 {main}
+"} 
+[2026-09-29 15:14:14] production.ERROR: Undefined variable $sale {"exception":"[object] (ErrorException(code: 0): Undefined variable $sale at C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\kelsy_sales_email_reminder.php:30)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Bootstrap\\HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Undefined varia...', 'C:\\\\Users\\\\juanlo...', 30)
+#1 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\kelsy_sales_email_reminder.php(30): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->Illuminate\\Foundation\\Bootstrap\\{closure}(2, 'Undefined varia...', 'C:\\\\Users\\\\juanlo...', 30)
+#2 {main}
+"} 
+[2026-09-29 15:21:26] production.ERROR: Cannot redeclare formatPrice() (previously declared in D:\WEBSITES-LOCAL\KT-MURANO.LOCAL\storage\framework\views\e62520bafdb88fcf964e8c8e9eb63534.php:32) {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Cannot redeclare formatPrice() (previously declared in D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\storage\\framework\\views\\e62520bafdb88fcf964e8c8e9eb63534.php:32) at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\storage\\framework\\views\\e62520bafdb88fcf964e8c8e9eb63534.php:32)
+[stacktrace]
+#0 {main}
+"} 
+[2026-09-29 15:22:13] production.ERROR: Call to undefined method App\Mail\CustomEmail::attachments() {"exception":"[object] (BadMethodCallException(code: 0): Call to undefined method App\\Mail\\CustomEmail::attachments() at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Traits\\ForwardsCalls.php:67)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Mail\\Mailable.php(1892): Illuminate\\Mail\\Mailable::throwBadMethodCallException('attachments')
+#1 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\verify_invoice_attachment.php(44): Illuminate\\Mail\\Mailable->__call('attachments', Array)
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Testing\\Fakes\\MailFake.php(353): {closure}(Object(App\\Mail\\CustomEmail))
+#3 [internal function]: Illuminate\\Support\\Testing\\Fakes\\MailFake->Illuminate\\Support\\Testing\\Fakes\\{closure}(Object(App\\Mail\\CustomEmail), 0)
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Collections\\Arr.php(1170): array_filter(Array, Object(Closure), 1)
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Collections\\Collection.php(415): Illuminate\\Support\\Arr::where(Array, Object(Closure))
+#6 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Testing\\Fakes\\MailFake.php(353): Illuminate\\Support\\Collection->filter(Object(Closure))
+#7 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Testing\\Fakes\\MailFake.php(93): Illuminate\\Support\\Testing\\Fakes\\MailFake->sent('App\\\\Mail\\\\Custom...', Object(Closure))
+#8 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Facades\\Facade.php(363): Illuminate\\Support\\Testing\\Fakes\\MailFake->assertSent('App\\\\Mail\\\\Custom...', Object(Closure))
+#9 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\verify_invoice_attachment.php(43): Illuminate\\Support\\Facades\\Facade::__callStatic('assertSent', Array)
+#10 {main}
+"} 
+[2026-09-29 15:22:34] production.ERROR: assert(self::$instance instanceof Configuration) {"exception":"[object] (AssertionError(code: 1): assert(self::$instance instanceof Configuration) at D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\phpunit\\phpunit\\src\\TextUI\\Configuration\\Registry.php:97)
+[stacktrace]
+#0 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\phpunit\\phpunit\\src\\TextUI\\Configuration\\Registry.php(97): assert(false, 'assert(self::$i...')
+#1 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\phpunit\\phpunit\\src\\Util\\Exporter.php(47): PHPUnit\\TextUI\\Configuration\\Registry::get()
+#2 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\phpunit\\phpunit\\src\\Util\\Exporter.php(24): PHPUnit\\Util\\Exporter::exporter()
+#3 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\phpunit\\phpunit\\src\\Framework\\Constraint\\Constraint.php(133): PHPUnit\\Util\\Exporter::export(false)
+#4 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\phpunit\\phpunit\\src\\Framework\\Constraint\\Constraint.php(92): PHPUnit\\Framework\\Constraint\\Constraint->failureDescription(false)
+#5 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\phpunit\\phpunit\\src\\Framework\\Constraint\\Constraint.php(58): PHPUnit\\Framework\\Constraint\\Constraint->fail(false, 'The expected [A...')
+#6 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\phpunit\\phpunit\\src\\Framework\\Assert.php(2573): PHPUnit\\Framework\\Constraint\\Constraint->evaluate(false, 'The expected [A...')
+#7 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\phpunit\\phpunit\\src\\Framework\\Assert.php(1522): PHPUnit\\Framework\\Assert::assertThat(false, Object(PHPUnit\\Framework\\Constraint\\IsTrue), 'The expected [A...')
+#8 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Testing\\Fakes\\MailFake.php(92): PHPUnit\\Framework\\Assert::assertTrue(false, 'The expected [A...')
+#9 D:\\WEBSITES-LOCAL\\KT-MURANO.LOCAL\\vendor\\laravel\\framework\\src\\Illuminate\\Support\\Facades\\Facade.php(363): Illuminate\\Support\\Testing\\Fakes\\MailFake->assertSent('App\\\\Mail\\\\Custom...', Object(Closure))
+#10 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\verify_invoice_attachment.php(58): Illuminate\\Support\\Facades\\Facade::__callStatic('assertSent', Array)
+#11 {main}
+"} 
