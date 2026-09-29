@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\DB;
 
 class ServiceReportController extends BaseController
 {
+    // Multicompany: reportCompanyId(), company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     // -------- Service Job Report (by type, technician, status) --------\\
     public function serviceJobs(Request $request)
     {
@@ -36,6 +39,9 @@ class ServiceReportController extends BaseController
         $query = ServiceJob::leftJoin('clients', 'clients.id', '=', 'service_jobs.client_id')
             ->leftJoin('service_technicians', 'service_technicians.id', '=', 'service_jobs.technician_id')
             ->whereNull('service_jobs.deleted_at')
+            // Multicompany: a job belongs to the company of its warehouse (or, without one, of its customer).
+            ->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())
+                ->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))
             ->select(
                 'service_jobs.*',
                 'clients.name as client_name',
@@ -84,7 +90,7 @@ class ServiceReportController extends BaseController
             $data[] = $item;
         }
 
-        $clients = Client::whereNull('deleted_at')
+        $clients = $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -93,7 +99,7 @@ class ServiceReportController extends BaseController
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'email']);
 
-        $jobTypes = ServiceJob::whereNull('deleted_at')
+        $jobTypes = ServiceJob::whereNull('deleted_at')->when(! $this->reportAllWarehouses(), fn ($q) => $q->whereIn('warehouse_id', $this->reportWarehouseIdList()))
             ->whereNotNull('job_type')
             ->distinct()
             ->orderBy('job_type')
@@ -117,6 +123,9 @@ class ServiceReportController extends BaseController
 
         $query = DB::table('service_job_checklist_items as jci')
             ->join('service_jobs as sj', 'sj.id', '=', 'jci.service_job_id')
+            // Multicompany: a job belongs to the company of its warehouse (or, without one, of its customer).
+            ->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('sj.warehouse_id', $this->reportWarehouseIdList())
+                ->orWhere(fn ($x) => $x->whereNull('sj.warehouse_id')->whereIn('sj.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))
             ->leftJoin('service_checklist_categories as cat', 'cat.id', '=', 'jci.category_id')
             ->whereNull('jci.deleted_at')
             ->whereNull('sj.deleted_at');
@@ -155,7 +164,7 @@ class ServiceReportController extends BaseController
             ->orderBy('category_name')
             ->get();
 
-        $clients = Client::whereNull('deleted_at')
+        $clients = $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -169,7 +178,7 @@ class ServiceReportController extends BaseController
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $jobTypes = ServiceJob::whereNull('deleted_at')
+        $jobTypes = ServiceJob::whereNull('deleted_at')->when(! $this->reportAllWarehouses(), fn ($q) => $q->whereIn('warehouse_id', $this->reportWarehouseIdList()))
             ->whereNotNull('job_type')
             ->distinct()
             ->orderBy('job_type')
@@ -197,6 +206,9 @@ class ServiceReportController extends BaseController
         $query = ServiceJob::leftJoin('clients', 'clients.id', '=', 'service_jobs.client_id')
             ->leftJoin('service_technicians', 'service_technicians.id', '=', 'service_jobs.technician_id')
             ->whereNull('service_jobs.deleted_at')
+            // Multicompany: a job belongs to the company of its warehouse (or, without one, of its customer).
+            ->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())
+                ->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))
             ->select(
                 'service_jobs.*',
                 'clients.name as client_name',
@@ -246,7 +258,7 @@ class ServiceReportController extends BaseController
             ];
         }
 
-        $clients = Client::whereNull('deleted_at')
+        $clients = $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')
             ->orderBy('name')
             ->get(['id', 'name']);
 

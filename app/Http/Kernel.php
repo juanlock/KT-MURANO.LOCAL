@@ -33,6 +33,8 @@ class Kernel extends HttpKernel
         \App\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
         \App\Http\Middleware\SetSessionConfig::class,
+        // A company's own domain at "/" -> that company's website (Home page).
+        \App\Http\Middleware\ServeCompanyWebsite::class,
 
     ];
 

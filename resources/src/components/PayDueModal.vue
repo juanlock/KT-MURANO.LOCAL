@@ -5,17 +5,18 @@
       type="info" show-icon style="margin-bottom: 16px"
       :message="`${$t('Payment_Allocation')}: ${$t('Payment_Allocation_description')}`"
     />
+    <!-- Opening Balance tile is display-only; totalDue still includes it. -->
     <a-row :gutter="16" style="margin-bottom: 16px">
-      <a-col :span="6">
+      <a-col v-if="auth.customerOpeningBalanceEnabled" :span="statSpan">
         <a-statistic :title="$t('Opening_Balance')" :value="money(openingBalance)" />
       </a-col>
-      <a-col :span="6">
+      <a-col :span="statSpan">
         <a-statistic :title="$t('Sales_Due')" :value="money(salesDue)" />
       </a-col>
-      <a-col :span="6">
+      <a-col :span="statSpan">
         <a-statistic :title="$t('Service_Due')" :value="money(serviceDue)" />
       </a-col>
-      <a-col :span="6">
+      <a-col :span="statSpan">
         <a-statistic
           :title="$t('Total_Due')" :value="money(totalDue)"
           :value-style="{ color: totalDue > 0 ? '#ff4d4f' : '#52c41a' }"
@@ -84,6 +85,7 @@ import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { PrinterOutlined } from '@ant-design/icons-vue';
 import { useFormat } from '../composables/useFormat';
+import { useAuthStore } from '../stores/auth';
 import http from '../lib/http';
 
 const props = defineProps({
@@ -104,6 +106,9 @@ const emit = defineEmits(['paid']);
 
 const { t } = useI18n();
 const { money, roundMoney } = useFormat();
+const auth = useAuthStore();
+// 4 summary tiles across, or 3 when the Opening Balance tile is hidden.
+const statSpan = computed(() => (auth.customerOpeningBalanceEnabled ? 6 : 8));
 
 const payOpen = ref(false);
 const paying = ref(false);

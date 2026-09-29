@@ -77,7 +77,7 @@
         <li><strong>Username</strong> is required (column name in file: <strong>name</strong>).</li>
         <li><strong>firstname</strong> and <strong>lastname</strong> are optional.</li>
         <li><strong>Address</strong> is the address field name expected by the backend.</li>
-        <li><strong>opening_balance</strong> is optional; if present it must be numeric and represents previous dues for this customer.</li>
+        <li v-if="auth.customerOpeningBalanceEnabled"><strong>opening_balance</strong> is optional; if present it must be numeric and represents previous dues for this customer.</li>
         <li><strong>email</strong> should be valid if provided; include the country code in <strong>phone</strong> when possible.</li>
       </ul>
     </a-card>
@@ -100,8 +100,13 @@ import PageHeader from '../../components/PageHeader.vue';
 import ImportDropzone from '../../components/ImportDropzone.vue';
 import { uploadForm } from '../../lib/upload';
 import { start as startProgress, done as doneProgress } from '../../lib/progress';
+import { useAuthStore } from '../../stores/auth';
 
 const router = useRouter();
+const auth = useAuthStore();
+// opening_balance is only documented while the company has the feature on.
+const withOpeningBalance = list =>
+  (auth.customerOpeningBalanceEnabled ? list : list.filter(c => (c.key ?? c.dataIndex) !== 'opening_balance'));
 
 const endpoint = 'customers/import';
 const file = ref(null);
@@ -114,7 +119,7 @@ const dz = ref();
 const maxSize = 20 * 1024 * 1024; // 20MB
 const accept = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,.xlsx,.xls';
 
-const columnsGuide = [
+const columnsGuide = computed(() => withOpeningBalance([
   { key: 'name', label: 'Username', required: true },
   { key: 'firstname', label: 'firstname', required: false },
   { key: 'lastname', label: 'lastname', required: false },
@@ -126,18 +131,18 @@ const columnsGuide = [
   { key: 'city', label: 'city', required: false },
   { key: 'adresse', label: 'adresse', required: false },
   { key: 'opening_balance', label: 'opening_balance', required: false },
-];
+]));
 
 const canSubmit = computed(() => !!file.value && errorMessages.value.length === 0);
 
-const exampleColumns = [
+const exampleColumns = computed(() => withOpeningBalance([
   { title: 'Username *', dataIndex: 'name' }, { title: 'firstname', dataIndex: 'firstname' },
   { title: 'lastname', dataIndex: 'lastname' }, { title: 'code (integer) *', dataIndex: 'code' },
   { title: 'email', dataIndex: 'email' }, { title: 'phone', dataIndex: 'phone' },
   { title: 'tax_number', dataIndex: 'tax_number' }, { title: 'country', dataIndex: 'country' },
   { title: 'city', dataIndex: 'city' }, { title: 'Address', dataIndex: 'adresse' },
   { title: 'opening_balance', dataIndex: 'opening_balance' },
-];
+]));
 const exampleRows = [
   { name: 'Acme Trading', firstname: 'Acme', lastname: 'Trading', code: '10001', email: 'info@acme.com', phone: '+1 555 0123', tax_number: 'TAX-9988', country: 'USA', city: 'New York', adresse: '5th Ave, Suite 2', opening_balance: '150.50' },
   { name: 'Jane Smith', firstname: 'Jane', lastname: 'Smith', code: '10002', email: 'jane@example.com', phone: '+44 20 7946 0958', tax_number: '', country: 'UK', city: 'London', adresse: '221B Baker Street', opening_balance: '0' },

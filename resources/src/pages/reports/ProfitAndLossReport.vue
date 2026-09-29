@@ -267,6 +267,7 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useUiStore } from '../../stores/ui';
+import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf, printRows } from '../../lib/exporters';
 import http from '../../lib/http';
 import DateRangePicker from '../../components/DateRangePicker.vue';
@@ -275,6 +276,7 @@ import ViewCurrencySelect from '../../components/ViewCurrencySelect.vue';
 const { t } = useI18n();
 const { money, number } = useFormat();
 const ui = useUiStore();
+const auth = useAuthStore();
 const num = v => number(v, 0);
 const n = v => Number(v) || 0;
 const pct = v => `${n(v).toFixed(1)}%`;
@@ -405,7 +407,11 @@ const flowTiles = computed(() => [
   { label: t('PaiementsSent'), value: infos.value.payment_sent, icon: CreditCardOutlined, color: '#ff4d4f', bg: 'rgba(255, 77, 79, 0.12)', valueColor: '#ff4d4f' },
   // Opening-balance settlements: already inside PaiementsReceived / PaiementsSent,
   // broken out here so old-debt collection is visible next to regular payments.
-  { label: t('OpeningBalanceReceived'), value: infos.value.paiement_client_opening, icon: WalletOutlined, color: '#52c41a', bg: 'rgba(82, 196, 26, 0.14)', valueColor: '#52c41a' },
+  // Customer opening balances switched off → drop the (customer-side) received
+  // tile, but only while it's 0 so historical collections never vanish.
+  ...(!auth.customerOpeningBalanceEnabled && !Number(infos.value.paiement_client_opening)
+    ? []
+    : [{ label: t('OpeningBalanceReceived'), value: infos.value.paiement_client_opening, icon: WalletOutlined, color: '#52c41a', bg: 'rgba(82, 196, 26, 0.14)', valueColor: '#52c41a' }]),
   { label: t('OpeningBalancePaid'), value: infos.value.paiement_provider_opening, icon: CreditCardOutlined, color: '#ff4d4f', bg: 'rgba(255, 77, 79, 0.12)', valueColor: '#ff4d4f' },
   { label: t('Expenses'), value: infos.value.expenses_sum, icon: FallOutlined, color: '#ff4d4f', bg: 'rgba(255, 77, 79, 0.12)', valueColor: '#ff4d4f' },
   { label: `${t('Service_Jobs')} – ${t('Product_Cost')}`, value: infos.value.service_parts_cost, icon: InboxOutlined, color: '#6d28d9', bg: 'rgba(109, 40, 217, 0.12)' },

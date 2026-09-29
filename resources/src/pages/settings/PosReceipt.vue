@@ -806,6 +806,7 @@ import { PrinterOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import BarcodeSvg from '../../components/BarcodeSvg.vue';
 import http from '../../lib/http';
+import { useAuthStore } from '../../stores/auth';
 import { receiptFontHeadTags, whenPrintFontsReady } from '../../lib/receiptFont';
 
 const { t } = useI18n();
@@ -853,7 +854,7 @@ const pos_settings = ref({
 
 // Same field/label pairs as legacy's 21 switches. The tax/discount pairs are
 // easy to confuse, so those four carry a helper description shown under the label.
-const toggles = [
+const allToggles = [
   { field: 'show_logo', label: 'Show_Logo' },
   { field: 'show_store_name', label: 'Show_Store_Name' },
   { field: 'show_reference', label: 'Show_Reference' },
@@ -876,8 +877,12 @@ const toggles = [
   { field: 'show_previous_dues', label: 'Show_Previous_Dues_Line', desc: 'Show_Previous_Dues_Line_Desc' },
   { field: 'show_net_balance', label: 'Show_Net_Balance_Line', desc: 'Show_Net_Balance_Line_Desc' },
   { field: 'show_payments', label: 'Show_Payments_Table' },
-  { field: 'show_zatca_qr', label: 'Show_ZATCA_QR' },
+  { field: 'show_zatca_qr', label: 'Show_ZATCA_QR', superAdminOnly: true },
 ];
+// ZATCA is SuperAdmin-only (settings, submissions and this receipt option);
+// company Admins don't see it. The saved value is left as it is.
+const auth = useAuthStore();
+const toggles = computed(() => allToggles.filter(tg => !tg.superAdminOnly || auth.user?.type === 'SuperAdmin'));
 
 const currentReceiptLayout = computed(() => {
   const n = Number(pos_settings.value.receipt_layout) || 1;

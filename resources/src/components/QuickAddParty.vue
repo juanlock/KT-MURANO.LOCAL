@@ -92,7 +92,7 @@
             <a-textarea v-model:value="form.adresse" :rows="3" />
           </a-form-item>
         </a-col>
-        <a-col v-if="isClient" :span="24">
+        <a-col v-if="isClient && auth.customerLoyaltyEnabled" :span="24">
           <a-checkbox v-model:checked="form.is_royalty_eligible">{{ $t('Is_Royalty_Eligible') }}</a-checkbox>
         </a-col>
       </a-row>
@@ -135,8 +135,10 @@ import http from '../lib/http';
 import { useCountries } from '../composables/useCountries';
 import { sortByLabel } from '../lib/filterOptions';
 import UsCityPicker from './UsCityPicker.vue';
+import { useAuthStore } from '../stores/auth';
 
 const { t } = useI18n();
+const auth = useAuthStore();
 
 const props = defineProps({
   open: { type: Boolean, default: false },

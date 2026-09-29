@@ -22,7 +22,8 @@
       />
 
       <!-- POS -->
-      <a-button v-if="auth.can('Pos_view')" type="primary" class="pos-btn" @click="$router.push('/pos')">
+      <!-- POS Settings -> "Show POS button in header"; the account menu keeps its POS entry. -->
+      <a-button v-if="auth.can('Pos_view') && auth.posButtonEnabled" type="primary" class="pos-btn" @click="$router.push('/pos')">
         <template #icon><CalculatorOutlined /></template>
         <span class="hide-sm">POS</span>
       </a-button>

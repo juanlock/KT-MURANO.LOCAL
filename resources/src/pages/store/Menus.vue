@@ -1,6 +1,6 @@
 <template>
-  <div class="page">
-    <PageHeader :title="$t('Menus')" :breadcrumb="[$t('Store'), $t('Menus')]">
+  <div :class="{ page: !embedded }">
+    <PageHeader v-if="!embedded" :title="$t('Menus')" :breadcrumb="[$t('Store'), $t('Menus')]">
       <template #extra>
         <a-button type="primary" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
       </template>
@@ -11,6 +11,71 @@
     </div>
 
     <template v-else>
+      <!-- Imported website menu: the imported front page's OWN navigation,
+           rebuilt in every page of the site with its original markup. -->
+      <a-empty
+        v-if="mode === 'site' && !site.available"
+        description="This company's front page is not an imported website."
+      />
+      <a-card v-if="mode !== 'store' && site.available" size="small" style="margin-bottom: 16px">
+        <template #title>
+          Imported website menu
+          <a-tag color="purple" style="margin-left: 8px">{{ site.items.length }}</a-tag>
+          <span v-if="site.pages" class="site-sub">used in {{ site.pages }} page(s) of the imported site</span>
+        </template>
+        <template #extra>
+          <a-space>
+            <a-button size="small" :loading="site.detecting" @click="detectSite">Re-read from website</a-button>
+            <a-button size="small" type="primary" :loading="site.saving" :disabled="!site.detected" @click="saveSite">Save website menu</a-button>
+          </a-space>
+        </template>
+
+        <a-alert
+          v-if="!site.detected" type="warning" show-icon
+          message="No navigation menu was found in the imported front page. Press “Re-read from website” after re-importing, or edit the page itself."
+        />
+        <template v-else>
+          <div class="site-help">
+            Rename, re-link, add, remove, reorder or nest the website's menu items. The site's own design is kept —
+            new items copy the style of the existing ones. Links starting with <code>#</code> jump to a section of the front page.
+          </div>
+          <div v-for="(item, idx) in site.items" :key="'s' + idx" class="menu-item">
+            <div class="site-row">
+              <a-input v-model:value="item.label" size="small" placeholder="Label" style="flex: 1" />
+              <a-auto-complete
+                v-model:value="item.href" size="small" style="flex: 1.4" placeholder="Link (#section, page, https://…)"
+                :options="linkOptions" :filter-option="false"
+              />
+              <a-button size="small" :disabled="idx === 0" @click="moveIn(site.items, idx, -1)">↑</a-button>
+              <a-button size="small" :disabled="idx === site.items.length - 1" @click="moveIn(site.items, idx, 1)">↓</a-button>
+              <a-tooltip title="Add sub-item">
+                <a-button size="small" @click="item.children.push({ label: '', href: '', children: [] })"><template #icon><PlusOutlined /></template></a-button>
+              </a-tooltip>
+              <a-button size="small" danger @click="site.items.splice(idx, 1)"><template #icon><DeleteOutlined /></template></a-button>
+            </div>
+            <div v-for="(child, cidx) in item.children" :key="'s' + idx + '-' + cidx" class="site-row site-child">
+              <span class="site-branch">↳</span>
+              <a-input v-model:value="child.label" size="small" placeholder="Label" style="flex: 1" />
+              <a-auto-complete
+                v-model:value="child.href" size="small" style="flex: 1.4" placeholder="Link"
+                :options="linkOptions" :filter-option="false"
+              />
+              <a-button size="small" :disabled="cidx === 0" @click="moveIn(item.children, cidx, -1)">↑</a-button>
+              <a-button size="small" :disabled="cidx === item.children.length - 1" @click="moveIn(item.children, cidx, 1)">↓</a-button>
+              <a-button size="small" danger @click="item.children.splice(cidx, 1)"><template #icon><DeleteOutlined /></template></a-button>
+            </div>
+          </div>
+          <a-button size="small" @click="site.items.push({ label: '', href: '', children: [] })">
+            <template #icon><PlusOutlined /></template>
+            {{ $t('Add_Item') }}
+          </a-button>
+        </template>
+      </a-card>
+
+      <template v-if="mode !== 'site'">
+      <div v-if="embedded" style="display: flex; justify-content: flex-end; margin-bottom: 12px">
+        <a-button type="primary" :loading="saving" @click="save">{{ $t('Save') }} — {{ $t('Menus') }}</a-button>
+      </div>
       <a-alert type="info" show-icon :message="$t('Menus_Help')" style="margin-bottom: 16px" />
 
       <a-row :gutter="[16, 16]">
@@ -72,6 +137,7 @@
           </a-card>
         </a-col>
       </a-row>
+      </template>
     </template>
   </div>
 </template>
@@ -88,6 +154,14 @@ import { useI18n } from 'vue-i18n';
 import { PlusOutlined, DeleteOutlined, GlobalOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
+
+// Also used inside Store Settings -> Homepage Blocks: `embedded` drops the
+// page header, `mode` shows only the store's own menus ('store') or only the
+// imported website's menu ('site').
+const props = defineProps({
+  embedded: { type: Boolean, default: false },
+  mode: { type: String, default: 'all' }, // all | store | site
+});
 
 const { t } = useI18n();
 
@@ -132,6 +206,54 @@ function normalizeLoc(arr) {
     value: (it && it.value) || '',
   }));
 }
+/* ---------------- imported website menu ---------------- */
+const site = ref({ available: false, detected: false, items: [], pages: 0, links: [], saving: false, detecting: false });
+const linkOptions = computed(() => site.value.links.map(l => ({ value: l.href, label: `${l.label}  (${l.href})` })));
+
+function applySite(r) {
+  site.value.available = !!r?.available;
+  site.value.detected = !!r?.detected;
+  site.value.pages = r?.pages || 0;
+  // tpl (the site's markup for each item) travels back untouched on save.
+  site.value.items = (r?.items || []).map(i => ({ ...i, href: i.href || '', children: (i.children || []).map(c => ({ ...c, href: c.href || '' })) }));
+  if (r?.links) site.value.links = r.links;
+}
+async function fetchSite() {
+  try { applySite(await http.get('admin/store/site-menu')); } catch (e) { /* no imported page */ }
+}
+async function saveSite() {
+  site.value.saving = true;
+  try {
+    const items = site.value.items
+      .filter(i => (i.label || '').trim())
+      .map(i => ({ ...i, children: (i.children || []).filter(c => (c.label || '').trim()) }));
+    const r = await http.put('admin/store/site-menu', { items });
+    applySite(r);
+    message.success(`Website menu saved in ${r.pages} page(s).`);
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+  } finally {
+    site.value.saving = false;
+  }
+}
+async function detectSite() {
+  site.value.detecting = true;
+  try {
+    applySite(await http.post('admin/store/site-menu/detect'));
+    message.success(site.value.detected ? 'Menu re-read from the website.' : 'No menu found in the website.');
+  } catch (e) {
+    message.error(t('Failed'));
+  } finally {
+    site.value.detecting = false;
+  }
+}
+function moveIn(arr, idx, dir) {
+  const j = idx + dir;
+  if (j < 0 || j >= arr.length) return;
+  const [it] = arr.splice(idx, 1);
+  arr.splice(j, 0, it);
+}
+
 function move(key, idx, dir) {
   const j = idx + dir;
   if (j < 0 || j >= menus.value[key].length) return;
@@ -178,10 +300,18 @@ async function save() {
   }
 }
 
-onMounted(fetch);
+onMounted(() => {
+  if (props.mode === 'site') fetchSite().finally(() => { isLoading.value = false; });
+  else { fetch(); if (props.mode !== 'store') fetchSite(); }
+});
 </script>
 
 <style scoped>
+.site-sub { font-size: 12px; font-weight: normal; opacity: 0.6; margin-left: 8px; }
+.site-help { font-size: 12px; opacity: 0.7; margin-bottom: 10px; }
+.site-row { display: flex; gap: 6px; align-items: center; }
+.site-child { margin-top: 6px; padding-left: 18px; }
+.site-branch { opacity: 0.5; width: 14px; flex: none; }
 .menu-i18n {
   display: grid;
   gap: 4px;

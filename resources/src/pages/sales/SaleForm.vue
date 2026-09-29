@@ -267,7 +267,8 @@
               </a-col>
               <!-- Loyalty points -> discount. Legacy gates this on the customer
                    being royalty-eligible AND the tax/discount edit permission. -->
-              <a-col v-if="loyaltyPointsEnabled && clientIsEligible && auth.can('edit_tax_discount_shipping_sale')" :span="24">
+              <!-- Also hidden when the company switched loyalty off (Settings -> customer_loyalty_enabled). -->
+              <a-col v-if="auth.customerLoyaltyEnabled && loyaltyPointsEnabled && clientIsEligible && auth.can('edit_tax_discount_shipping_sale')" :span="24">
                 <a-form-item label="Points to convert">
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
                     <a-input-number
@@ -760,7 +761,8 @@ async function onClientChange(clientId) {
   selectedClientNetBalance.value = 0;
   if (!clientId) return;
 
-  if (loyaltyPointsEnabled.value) {
+  // Company-level loyalty switch off -> don't even fetch the customer's points.
+  if (loyaltyPointsEnabled.value && auth.customerLoyaltyEnabled) {
     try {
       const data = await http.get(`get_points_client/${clientId}`);
       if (data?.is_royalty_eligible) {
@@ -1374,8 +1376,9 @@ function validateForm() {
       message.warning(t('Paying_amount_is_greater_than_Grand_Total'));
       return false;
     }
-    // Credit limit (0 = no limit) only bites when this sale adds new credit.
-    if (sale.value.client_id && selectedClientCreditLimit.value > 0) {
+    // Credit limit (0 = no limit) only bites when this sale adds new credit,
+    // and only when the company has credit limits switched on.
+    if (auth.customerCreditLimitEnabled && sale.value.client_id && selectedClientCreditLimit.value > 0) {
       const saleTotal = parseFloat(totals.value.GrandTotal || 0);
       if (totalPaid < saleTotal) {
         const newTotalDue = parseFloat(selectedClientNetBalance.value || 0) + (saleTotal - totalPaid);
@@ -1456,8 +1459,10 @@ async function submit() {
     shipping: Number(sale.value.shipping) || 0,
     GrandTotal: totals.value.GrandTotal,
     details: detailsPayload(),
-    discount_from_points: pointsState.value.discount_from_points,
-    used_points: pointsState.value.used_points,
+    // Loyalty off for the company -> new sales carry no points. Edits keep the
+    // sale's historical points (already in GrandTotal) so the total doesn't shift.
+    discount_from_points: (auth.customerLoyaltyEnabled || isEdit.value) ? pointsState.value.discount_from_points : 0,
+    used_points: (auth.customerLoyaltyEnabled || isEdit.value) ? pointsState.value.used_points : 0,
     // Multi-Currency snapshot ({} when the module is off)
     ...currencyPayload(),
   };

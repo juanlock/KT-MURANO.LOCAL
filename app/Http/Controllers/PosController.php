@@ -713,8 +713,11 @@ class PosController extends BaseController
                 $used_points = $request->used_points ?? 0;
                 $discount_from_points = $request->discount_from_points ?? 0;
                 $earned_points = 0;
+                // Company switched loyalty off (Settings -> customer_loyalty_enabled):
+                // no points are earned or redeemed, whatever the request carries.
+                $loyaltyOn = optional(Setting::forCompany($this->resolveActingCompanyId($request)))->customer_loyalty_enabled ?? true;
 
-                if ($client && ($client->is_royalty_eligible == 1 || $client->is_royalty_eligible || $client->is_royalty_eligible === 1)) {
+                if ($loyaltyOn && $client && ($client->is_royalty_eligible == 1 || $client->is_royalty_eligible || $client->is_royalty_eligible === 1)) {
 
                     // Deduct used points if valid
                     if ($used_points > 0 && $client->points >= $used_points) {
@@ -1618,8 +1621,11 @@ class PosController extends BaseController
                 $used_points = $request->used_points ?? 0;
                 $discount_from_points = $request->discount_from_points ?? 0;
                 $earned_points = 0;
+                // Company switched loyalty off (Settings -> customer_loyalty_enabled):
+                // no points are earned or redeemed, whatever the request carries.
+                $loyaltyOn = optional(Setting::forCompany($this->resolveActingCompanyId($request)))->customer_loyalty_enabled ?? true;
 
-                if ($client && ($client->is_royalty_eligible == 1 || $client->is_royalty_eligible || $client->is_royalty_eligible === 1)) {
+                if ($loyaltyOn && $client && ($client->is_royalty_eligible == 1 || $client->is_royalty_eligible || $client->is_royalty_eligible === 1)) {
 
                     // Deduct used points if valid
                     if ($used_points > 0 && $client->points >= $used_points) {
@@ -1950,6 +1956,10 @@ class PosController extends BaseController
             'default_client_points' => $default_client_points,
             'default_client_eligible' => $default_client_eligible,
             'point_to_amount_rate' => $settings->point_to_amount_rate,
+            // Per-company customer switches (see GetELementPos). Missing = on.
+            'customer_loyalty_enabled' => (bool) ($settings->customer_loyalty_enabled ?? true),
+            'customer_credit_limit_enabled' => (bool) ($settings->customer_credit_limit_enabled ?? true),
+            'customer_opening_balance_enabled' => (bool) ($settings->customer_opening_balance_enabled ?? true),
         ]);
     }
 
@@ -2509,6 +2519,11 @@ class PosController extends BaseController
             'default_client_points' => $default_client_points,
             'default_client_eligible' => $default_client_eligible,
             'point_to_amount_rate' => $settings->point_to_amount_rate,
+            // Per-company customer switches (Settings); the POS hides loyalty /
+            // skips the credit-limit check when off. Missing = on.
+            'customer_loyalty_enabled' => (bool) ($settings->customer_loyalty_enabled ?? true),
+            'customer_credit_limit_enabled' => (bool) ($settings->customer_credit_limit_enabled ?? true),
+            'customer_opening_balance_enabled' => (bool) ($settings->customer_opening_balance_enabled ?? true),
             'default_tax' => $settings->default_tax ?? 0,
             'default_account_id' => $settings->default_account_id ?? null,
             'default_payment_method_id' => $settings->default_payment_method_id ?? null,

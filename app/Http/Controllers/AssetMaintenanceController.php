@@ -48,7 +48,7 @@ class AssetMaintenanceController extends BaseController
         ];
         $order = $sortable[$order] ?? 'asset_maintenances.id';
 
-        $query = AssetMaintenance::leftJoin('assets', 'assets.id', '=', 'asset_maintenances.asset_id')
+        $query = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->leftJoin('assets', 'assets.id', '=', 'asset_maintenances.asset_id')
             ->whereNull('asset_maintenances.deleted_at')
             ->select('asset_maintenances.*', 'assets.name as asset_name', 'assets.tag as asset_tag')
             ->when($request->filled('asset_id'), fn ($q) => $q->where('asset_maintenances.asset_id', $request->asset_id))
@@ -152,7 +152,7 @@ class AssetMaintenanceController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', AssetMaintenance::class);
 
-        $record = AssetMaintenance::whereNull('deleted_at')->findOrFail($id);
+        $record = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->whereNull('asset_maintenances.deleted_at')->findOrFail($id);
 
         $request->validate([
             'title' => 'required|string|max:191',
@@ -200,7 +200,7 @@ class AssetMaintenanceController extends BaseController
         ]);
 
         return DB::transaction(function () use ($request, $id) {
-            $record = AssetMaintenance::whereNull('deleted_at')->findOrFail($id);
+            $record = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->whereNull('asset_maintenances.deleted_at')->findOrFail($id);
 
             $record->update([
                 'status' => $request->status,
@@ -219,7 +219,7 @@ class AssetMaintenanceController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', AssetMaintenance::class);
 
-        $record = AssetMaintenance::whereNull('deleted_at')->findOrFail($id);
+        $record = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->whereNull('asset_maintenances.deleted_at')->findOrFail($id);
         $record->update(['deleted_at' => Carbon::now()]);
         $this->syncAssetStatus($record->asset_id);
 
@@ -231,7 +231,7 @@ class AssetMaintenanceController extends BaseController
         $this->authorizeForUser($request->user('api'), 'delete', AssetMaintenance::class);
 
         foreach ($request->selectedIds ?: [] as $id) {
-            $record = AssetMaintenance::whereNull('deleted_at')->find($id);
+            $record = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->whereNull('asset_maintenances.deleted_at')->find($id);
             if ($record) {
                 $record->update(['deleted_at' => Carbon::now()]);
                 $this->syncAssetStatus($record->asset_id);
@@ -249,6 +249,7 @@ class AssetMaintenanceController extends BaseController
     private function syncAssetStatus($assetId): void
     {
         $asset = Asset::whereNull('deleted_at')->find($assetId);
+        if ($asset) { $this->abortIfAssetIdOutOfScope($asset->id); }
         if (! $asset || $asset->status === 'retired' || $asset->disposal_date) {
             return;
         }

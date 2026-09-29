@@ -49,11 +49,29 @@ export function contractTone(status) {
   return 'yellow';
 }
 
+export function ticketTone(status) {
+  const v = (status || '').toLowerCase();
+  if (v === 'open') return 'blue';
+  if (v === 'pending') return 'yellow';
+  if (v === 'resolved') return 'green';
+  return 'secondary';
+}
+
 export const badge = (tone) => `badge bg-${tone}-lt`;
 
 export function apiError(e, fallback) {
   const data = e && e.response && e.response.data ? e.response.data : e;
   return (data && data.message) || (e && e.message) || fallback;
+}
+
+/** First Laravel validation error (422 `errors` bag), else the API message. */
+export function validationMessage(e, fallback) {
+  const errors = e && e.response && e.response.data && e.response.data.errors;
+  if (errors && typeof errors === 'object') {
+    const first = Object.values(errors)[0];
+    if (Array.isArray(first) && first.length) return first[0];
+  }
+  return apiError(e, fallback);
 }
 
 export function initials(name) {

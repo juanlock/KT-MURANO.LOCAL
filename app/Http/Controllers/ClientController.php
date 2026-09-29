@@ -128,6 +128,13 @@ class ClientController extends BaseController
 
             $item['due'] = $item['total_amount'] - $item['total_paid'];
 
+            // "# Sales": same set as Total Sales (completed, not deleted).
+            $item['sales_count'] = DB::table('sales')
+                ->where('deleted_at', '=', null)
+                ->where('statut', 'completed')
+                ->where('client_id', $client->id)
+                ->count();
+
             $item['total_amount_return'] = DB::table('sale_returns')
                 ->where('deleted_at', '=', null)
                 ->where('client_id', $client->id)
@@ -167,10 +174,14 @@ class ClientController extends BaseController
             $data[] = $item;
         }
 
-        $company_info = Setting::where('deleted_at', '=', null)->first();
+        // Company boundary: the acting company's own settings row and
+        // customer count (were ->first() / every company's customers).
+        $actingCompanyId = $this->resolveActingCompanyId($request);
+        $company_info = Setting::forCompany($actingCompanyId);
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
 
         $clientsWithoutEcommerce = \App\Models\Client::where('deleted_at', '=', null)
+            ->when($admin->type !== 'SuperAdmin' || $request->filled('company_id'), fn ($q) => $q->where('company_id', $actingCompanyId))
             ->whereNotIn('id', function ($query) {
                 $query->select('client_id')->from('ecommerce_clients');
             })->count();
@@ -395,6 +406,12 @@ class ClientController extends BaseController
             // Soft delete Client
             Client::whereKey($id)->update(['deleted_at' => $now]);
 
+            // Its Client Portal login (the linked users row) stops working.
+            $userId = Client::whereKey($id)->value('user_id');
+            if ($userId) {
+                DB::table('users')->where('id', $userId)->where('type', 'customer')->update(['portal_enabled' => 0]);
+            }
+
             // Soft delete linked EcommerceClient (and optionally inactivate)
             EcommerceClient::where('client_id', $id)
                 ->whereNull('deleted_at')
@@ -433,6 +450,10 @@ class ClientController extends BaseController
         DB::transaction(function () use ($ids, $now) {
             // Soft delete all selected Clients
             Client::whereIn('id', $ids)->update(['deleted_at' => $now]);
+
+            // Their Client Portal logins stop working.
+            DB::table('users')->whereIn('id', Client::whereIn('id', $ids)->whereNotNull('user_id')->pluck('user_id'))
+                ->where('type', 'customer')->update(['portal_enabled' => 0]);
 
             // Soft delete all linked EcommerceClient rows
             EcommerceClient::whereIn('client_id', $ids)
@@ -502,18 +523,30 @@ class ClientController extends BaseController
 
     // ------------- Get Clients Without Paginate -------------\\
 
-    public function Get_Clients_Without_Paginate()
+    public function Get_Clients_Without_Paginate(Request $request)
     {
-        $clients = Client::where('deleted_at', '=', null)->get(['id', 'name', 'phone']);
+        // Company boundary (same rule as index()): feeds the customer
+        // dropdowns across the app, and was returning every company's
+        // customers to everyone -- e.g. AdminRG saw KcolTech's customers.
+        $user = $request->user('api');
+        $clients = Client::where('deleted_at', '=', null)
+            ->when($user->type === 'customer', fn ($q) => $q->where('id', optional($user->client)->id ?? 0))
+            ->when($user->type !== 'customer' && ($user->type !== 'SuperAdmin' || $request->filled('company_id')),
+                fn ($q) => $q->where('company_id', $this->resolveActingCompanyId($request)))
+            ->orderBy('name')
+            ->get(['id', 'name', 'phone']);
 
         return response()->json($clients);
     }
 
     // ------------- Get Clients get_client_store_data Paginate -------------\\
 
-    public function get_client_store_data($id)
+    public function get_client_store_data(Request $request, $id)
     {
-        $client = EcommerceClient::where('client_id', $id)->first();
+        $this->authorizeForUser($request->user('api'), 'view', Client::class);
+        $this->assertClientAccess($request, (int) $id);
+
+        $client = EcommerceClient::where('client_id', $id)->firstOrFail();
 
         $data['id'] = $client->id;
         $data['client_id'] = $client->client_id;

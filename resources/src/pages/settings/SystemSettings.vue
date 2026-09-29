@@ -367,16 +367,19 @@
 
           <!-- ============================== Defaults ============================== -->
           <template v-else-if="activeTab === 'defaults'">
-            <!-- One a-card per module (Default - Sales now; Default - Purchases /
-                 Default - Modules etc. can follow the same pattern later). -->
-            <a-card size="small" title="Default — Sales" style="margin-bottom: 16px">
+            <!-- One tab per module (Sales / Customers / Product / Invoice PDF;
+                 Purchases etc. can follow the same pattern later). All tabs edit
+                 the same `setting` object, so the page's Save covers every tab. -->
+            <a-tabs v-model:activeKey="defaultsTab">
+            <a-tab-pane key="sales" :tab="$t('Sales')">
+            <a-card size="small" style="margin-bottom: 16px">
               <a-form layout="vertical" style="max-width: 680px">
                 <a-row :gutter="16">
                   <a-col :xs="24" :md="12">
                     <a-form-item :label="$t('DefaultCustomer')">
                       <a-select
                         v-model:value="setting.client_id" show-search option-filter-prop="label"
-                        :options="clients.map(c => ({ label: c.name, value: c.id }))"
+                        :options="sortByLabel(clients.map(c => ({ label: c.name, value: c.id })))"
                       />
                     </a-form-item>
                   </a-col>
@@ -409,7 +412,7 @@
                       <a-input-number v-model:value="setting.default_tax" :min="0" :max="100" :step="0.001" :precision="3" style="width: 100%" addon-after="%" />
                     </a-form-item>
                   </a-col>
-                  <a-col :xs="24" :md="8">
+                  <a-col v-if="asBool(setting.customer_loyalty_enabled ?? true)" :xs="24" :md="8">
                     <a-form-item :label="'Point to amount rate'">
                       <a-input-number v-model:value="setting.point_to_amount_rate" :min="0" :step="0.01" style="width: 100%" />
                     </a-form-item>
@@ -456,7 +459,7 @@
                 </div>
                 <a-switch :checked="asBool(setting.sale_show_price_type_dropdown)" @change="v => (setting.sale_show_price_type_dropdown = v ? 1 : 0)" />
               </div>
-              <div class="setting-row">
+              <div v-if="asBool(setting.customer_loyalty_enabled ?? true)" class="setting-row">
                 <div>
                   <div class="setting-label">Loyalty Points</div>
                   <div class="setting-help">Show the Loyalty Points widget and its dropdowns/options on the Sales Create/Edit form.</div>
@@ -471,11 +474,87 @@
                 <a-switch :checked="asBool(setting.sale_shipping_enabled)" @change="v => (setting.sale_shipping_enabled = v ? 1 : 0)" />
               </div>
             </a-card>
+            </a-tab-pane>
+
+            <!-- Customers: optional customer features. Off hides every UI tied
+                 to the feature, company-wide (customer form, list columns,
+                 stats, POS/sale widgets). -->
+            <a-tab-pane key="customers" :tab="$t('Customers')">
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Loyalty_Eligible') }}</div>
+                  <div class="setting-help">Customer loyalty points: the Loyalty Eligible switch, points balance, points adjustment, points redemption on Sales/POS, and the loyalty menus/reports. Off hides all of them.</div>
+                </div>
+                <a-switch :checked="asBool(setting.customer_loyalty_enabled)" @change="v => (setting.customer_loyalty_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Credit_Limit') }}</div>
+                  <div class="setting-help">Customer credit limit: the field, list column/stat, and the credit-limit check on Sales/POS. Off hides all of them and no limit is enforced.</div>
+                </div>
+                <a-switch :checked="asBool(setting.customer_credit_limit_enabled)" @change="v => (setting.customer_credit_limit_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Opening_Balance') }}</div>
+                  <div class="setting-help">Customer opening balance: the field, list column, Adjust Opening Balance action, and its stats/tiles. Off hides all of them (balances already recorded still count in totals due).</div>
+                </div>
+                <a-switch :checked="asBool(setting.customer_opening_balance_enabled)" @change="v => (setting.customer_opening_balance_enabled = v ? 1 : 0)" />
+              </div>
+            </a-card>
+            </a-tab-pane>
+
+            <!-- Booking: optional fields on the Booking Create/Edit form, per company. -->
+            <a-tab-pane key="booking" tab="Booking">
+            <a-card size="small" style="margin-bottom: 16px">
+              <div v-for="f in BOOKING_FIELD_TOGGLES" :key="f.key" class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t(f.label) }}</div>
+                  <div class="setting-help">{{ f.help }}</div>
+                </div>
+                <a-switch :checked="asBool(setting[f.key] ?? true)" @change="v => (setting[f.key] = v ? 1 : 0)" />
+              </div>
+            </a-card>
+            </a-tab-pane>
+
+            <!-- Product: auto-generated product Code, per company. -->
+            <a-tab-pane key="product" :tab="$t('Product')">
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Auto-generate {{ $t('CodeProduct') }}</div>
+                  <div class="setting-help">Pre-fill a new product's Code as prefix + next number (e.g. PPI-042), and use it for the Generate link. The Code can still be edited before saving.</div>
+                </div>
+                <a-switch :checked="asBool(setting.product_code_auto ?? true)" @change="v => (setting.product_code_auto = v ? 1 : 0)" />
+              </div>
+              <a-form v-if="asBool(setting.product_code_auto ?? true)" layout="vertical" style="max-width: 680px; margin-top: 8px">
+                <a-row :gutter="16">
+                  <a-col :xs="24" :md="8">
+                    <a-form-item label="Prefix" help="Letters before the number, e.g. PPI-">
+                      <a-input v-model:value="setting.product_code_prefix" :maxlength="20" allow-clear />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="8">
+                    <a-form-item label="Number of digits" help="Zero-padded, e.g. 3 → 042">
+                      <a-input-number v-model:value="setting.product_code_digits" :min="1" :max="12" :precision="0" style="width: 100%" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="8">
+                    <a-form-item label="Next code" :help="productCodePreviewHelp">
+                      <a-input :value="productCodePreview" disabled />
+                    </a-form-item>
+                  </a-col>
+                </a-row>
+              </a-form>
+            </a-card>
+            </a-tab-pane>
 
             <!-- Invoice PDF: company-scoped section show/hide toggles + editable
                  Company Note / Terms & Conditions content, distinct from the
                  global Invoice PDF appearance page (Settings -> Invoice PDF). -->
-            <a-card size="small" title="Invoice PDF — Sections" style="margin-bottom: 16px">
+            <a-tab-pane key="invoice_pdf" tab="Invoice PDF">
+            <a-card size="small" style="margin-bottom: 16px">
               <div class="setting-row">
                 <div>
                   <div class="setting-label">Discount column</div>
@@ -534,6 +613,8 @@
                 <a-textarea v-model:value="setting.sale_pdf_terms_conditions" :rows="3" placeholder="e.g. Make all checks payable to: {{COMPANY NAME}}..." />
               </a-form-item>
             </a-card>
+            </a-tab-pane>
+            </a-tabs>
           </template>
 
           <!-- ============================== Dashboard ============================== -->
@@ -594,10 +675,13 @@
           <template v-else-if="activeTab === 'datatable'">
             <a-alert
               type="info" show-icon style="margin-bottom: 16px; max-width: 680px"
-              message="Saved on this device"
-              description="These preferences apply to every list table in this browser and take effect immediately."
+              message="Company-wide table format"
+              description="Applies to every table in the system for every user of this company once you Save. Changes preview immediately here. Column names, widths, visibility and order are set per table with the Customize columns button on each list (admins)."
             />
             <a-form layout="vertical" style="max-width: 680px">
+              <!-- Sections as tabs; the live preview below stays visible for all. -->
+              <a-tabs v-model:activeKey="datatableTab">
+              <a-tab-pane key="table" tab="Table">
               <a-row :gutter="16">
                 <a-col :xs="24" :md="12">
                   <a-form-item label="Font family">
@@ -653,8 +737,9 @@
                   </a-form-item>
                 </a-col>
               </a-row>
+              </a-tab-pane>
 
-              <a-divider orientation="left" style="margin: 8px 0 16px">Header (thead)</a-divider>
+              <a-tab-pane key="header" tab="Header">
               <a-row :gutter="[16, 8]">
                 <a-col :xs="12" :md="6">
                   <a-form-item label="Font weight">
@@ -714,8 +799,9 @@
                   </a-form-item>
                 </a-col>
               </a-row>
+              </a-tab-pane>
 
-              <a-divider orientation="left" style="margin: 8px 0 16px">Toolbar components</a-divider>
+              <a-tab-pane key="toolbar" tab="Toolbar">
               <a-row :gutter="[16, 8]">
                 <a-col :xs="12" :md="8">
                   <a-form-item :label="$t('Search')">
@@ -733,6 +819,8 @@
                   </a-form-item>
                 </a-col>
               </a-row>
+              </a-tab-pane>
+              </a-tabs>
 
               <a-button size="small" @click="dtStore.reset()">{{ $t('Reset_to_Default') }}</a-button>
 
@@ -755,7 +843,7 @@
                   ...(dtStore.headerBg ? { '--dtp-th-bg': dtStore.headerBg } : {}),
                   ...(dtStore.headerColor ? { '--dtp-th-color': dtStore.headerColor } : {}),
                 }"
-                class="dt-preview"
+                class="dt-preview dt-managed"
                 :class="{ 'dtp-th-bg': !!dtStore.headerBg, 'dtp-th-color': !!dtStore.headerColor }"
               />
             </a-form>
@@ -1031,7 +1119,7 @@
  * Post-save side effects kept: date_format → localStorage app_date_format,
  * price format + decimals caches, ui-store dark/rtl sync, locale switch.
  */
-import { ref, computed, onMounted, h } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue';
 import { message, Skeleton } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { defineAsyncComponent } from 'vue';
@@ -1050,6 +1138,7 @@ import { useAuthStore } from '../../stores/auth';
 import { useDatatableStore } from '../../stores/datatable';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t, locale } = useI18n();
 const ui = useUiStore();
@@ -1061,6 +1150,11 @@ const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
 
 /* --------------------------- DataTable preferences (device-local) */
 const dtStore = useDatatableStore();
+// Leaving with unsaved DataTable previews: go back to the company's saved
+// format (after a Save, auth.reload() has already refreshed it).
+onBeforeUnmount(() => {
+  try { dtStore.applyServer(auth.user?.datatable_settings); } catch (e) { /* best effort */ }
+});
 const dtPreviewColumns = [
   { title: 'Reference', dataIndex: 'ref', key: 'ref' },
   { title: 'Name', dataIndex: 'name', key: 'name' },
@@ -1172,6 +1266,31 @@ const logoFileList = ref([]);
 function asBool(v) {
   return v === 1 || v === '1' || v === true;
 }
+
+// Defaults -> Product: the server computes the next code for the SAVED
+// prefix/digits; while they're being edited, show the new format's shape.
+const savedProductCode = ref({ prefix: '', digits: 4, next: '' });
+
+// Defaults -> Booking: optional Booking Create/Edit form fields (settings columns, default on).
+const BOOKING_FIELD_TOGGLES = [
+  { key: 'booking_delivery_date_enabled', label: 'Delivery_Date', help: 'Show the Delivery Date field on the Booking Create/Edit form.' },
+  { key: 'booking_delivery_time_enabled', label: 'Delivery_Time', help: 'Show the Delivery Time field on the Booking Create/Edit form.' },
+  { key: 'booking_status_enabled', label: 'Status', help: 'Show the Status field on the Booking Create/Edit form. Off: new bookings are saved as Pending and editing keeps the current status (it can still be changed from the Booking List).' },
+  { key: 'booking_delivery_address_enabled', label: 'Delivery_Address', help: 'Show the Delivery Address field on the Booking Create/Edit form.' },
+];
+
+// Sub-tabs inside the Defaults and DataTable sections.
+const defaultsTab = ref('sales');
+const datatableTab = ref('table');
+const productCodeChanged = computed(() =>
+  (setting.value.product_code_prefix || '') !== savedProductCode.value.prefix
+  || Number(setting.value.product_code_digits) !== savedProductCode.value.digits);
+const productCodePreview = computed(() => (productCodeChanged.value
+  ? (setting.value.product_code_prefix || '') + '1'.padStart(Math.max(1, Number(setting.value.product_code_digits) || 4), '0')
+  : savedProductCode.value.next));
+const productCodePreviewHelp = computed(() => (productCodeChanged.value
+  ? 'Numbering continues from the highest code already using this prefix — exact value shown after saving.'
+  : 'Highest code already using this prefix + 1.'));
 
 const fontFamilyOptions = [
   { label: 'System default', value: '' },
@@ -1325,6 +1444,13 @@ async function save() {
   fd.append('sale_default_quantity', Math.max(1, Number(s.sale_default_quantity) || 1));
   fd.append('sale_loyalty_points_enabled', asBool(s.sale_loyalty_points_enabled) ? 1 : 0);
   fd.append('sale_shipping_enabled', asBool(s.sale_shipping_enabled) ? 1 : 0);
+  for (const f of BOOKING_FIELD_TOGGLES) fd.append(f.key, asBool(s[f.key] ?? true) ? 1 : 0);
+  fd.append('customer_loyalty_enabled', asBool(s.customer_loyalty_enabled) ? 1 : 0);
+  fd.append('customer_credit_limit_enabled', asBool(s.customer_credit_limit_enabled) ? 1 : 0);
+  fd.append('customer_opening_balance_enabled', asBool(s.customer_opening_balance_enabled) ? 1 : 0);
+  fd.append('product_code_auto', asBool(s.product_code_auto ?? true) ? 1 : 0);
+  fd.append('product_code_prefix', s.product_code_prefix || '');
+  fd.append('product_code_digits', Math.max(1, Number(s.product_code_digits) || 4));
   fd.append('sale_pdf_show_disc_column', asBool(s.sale_pdf_show_disc_column) ? 1 : 0);
   fd.append('sale_pdf_show_tax_column', asBool(s.sale_pdf_show_tax_column) ? 1 : 0);
   fd.append('sale_pdf_show_shipping_row', asBool(s.sale_pdf_show_shipping_row) ? 1 : 0);
@@ -1392,6 +1518,8 @@ async function save() {
   fd.append('block_expired_sale', s.block_expired_sale ? 1 : 0);
   fd.append('print_expiry_on_receipt', s.print_expiry_on_receipt ? 1 : 0);
   fd.append('export_settings', JSON.stringify(exportForm.value));
+  // DataTable format: company-wide (every user's tables), not per device.
+  fd.append('datatable_settings', JSON.stringify(dtStore.snapshot));
   fd.append('_method', 'put');
 
   try {
@@ -1408,6 +1536,14 @@ async function save() {
       throw new Error(msg);
     }
     message.success(t('Successfully_Updated'));
+    // Defaults -> Product: re-read the next code for the just-saved prefix.
+    http.get('product_next_code').then((r) => {
+      savedProductCode.value = {
+        prefix: s.product_code_prefix || '',
+        digits: Math.max(1, Number(s.product_code_digits) || 4),
+        next: r?.code || '',
+      };
+    }).catch(() => {});
     // Refresh the auth payload so the sidebar brand (logo size/visibility,
     // company name) reflects the new settings without a full page reload.
     auth.reload?.().catch?.(() => {});
@@ -1508,6 +1644,16 @@ onMounted(() => {
   const main = http.get('get_Settings_data_api', { include_secrets: 1 })
     .then(data => {
       setting.value = { ...(data.settings || {}) };
+      // DataTable tab edits the acting company's saved format.
+      try {
+        const saved = setting.value.datatable_settings ? JSON.parse(setting.value.datatable_settings) : null;
+        dtStore.applyServer(saved);
+      } catch (e) { /* malformed -> keep current */ }
+      savedProductCode.value = {
+        prefix: setting.value.product_code_prefix || '',
+        digits: Number(setting.value.product_code_digits) || 4,
+        next: setting.value.product_code_next || '',
+      };
       currencies.value = data.currencies || [];
       clients.value = data.clients || [];
       warehouses.value = data.warehouses || [];

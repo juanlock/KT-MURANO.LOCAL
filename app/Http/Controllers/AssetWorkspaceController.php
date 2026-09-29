@@ -38,7 +38,7 @@ class AssetWorkspaceController extends BaseController
         $live = Asset::whereNull('assets.deleted_at')->whereNull('assets.disposal_date');
 
         // Assets sit in a warehouse; one with none belongs to the whole company.
-        $this->scopeToWarehouses($live, 'assets.warehouse_id', true);
+        $this->scopeToWarehouses($live, 'assets.warehouse_id');
 
         $counts = (clone $live)->selectRaw("
             COUNT(*) as total,
@@ -61,24 +61,24 @@ class AssetWorkspaceController extends BaseController
         $overdueValidation = (clone $live)->whereNotNull('assets.next_validation')
             ->whereDate('assets.next_validation', '<', $today)->count();
 
-        $openMaintenance = AssetMaintenance::whereNull('deleted_at')
+        $openMaintenance = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->whereNull('asset_maintenances.deleted_at')
             ->whereIn('status', ['scheduled', 'in_progress'])->count();
-        $overdueMaintenance = AssetMaintenance::whereNull('deleted_at')
+        $overdueMaintenance = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->whereNull('asset_maintenances.deleted_at')
             ->whereIn('status', ['scheduled', 'in_progress'])
             ->whereDate('scheduled_date', '<', $today)->count();
 
-        $overdueReturns = AssetAssignment::whereNull('deleted_at')
+        $overdueReturns = $this->inAssetScope(AssetAssignment::query(), 'asset_assignments.asset_id')->whereNull('asset_assignments.deleted_at')
             ->where('status', 'assigned')
             ->whereNotNull('due_back_on')
             ->whereDate('due_back_on', '<', $today)->count();
 
-        $maintenanceYtd = AssetMaintenance::whereNull('deleted_at')
+        $maintenanceYtd = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->whereNull('asset_maintenances.deleted_at')
             ->where('status', 'completed')
             ->whereYear('scheduled_date', $today->year)
             ->sum('cost');
 
         // --- charts ---------------------------------------------------------
-        $byCategory = Asset::leftJoin('asset_categories', 'asset_categories.id', '=', 'assets.asset_category_id')
+        $byCategory = $this->inAssetScope(Asset::query(), 'assets.id')->leftJoin('asset_categories', 'asset_categories.id', '=', 'assets.asset_category_id')
             ->whereNull('assets.deleted_at')
             ->whereNull('assets.disposal_date')
             ->groupBy('asset_categories.id', 'asset_categories.name')
@@ -101,7 +101,7 @@ class AssetWorkspaceController extends BaseController
             'count' => (int) (clone $live)->where('assets.status', $s)->count(),
         ]);
 
-        $byWarehouse = Asset::leftJoin('warehouses', 'warehouses.id', '=', 'assets.warehouse_id')
+        $byWarehouse = $this->inAssetScope(Asset::query(), 'assets.id')->leftJoin('warehouses', 'warehouses.id', '=', 'assets.warehouse_id')
             ->whereNull('assets.deleted_at')
             ->whereNull('assets.disposal_date')
             ->groupBy('warehouses.id', 'warehouses.name')
@@ -121,7 +121,7 @@ class AssetWorkspaceController extends BaseController
 
         // Maintenance spend over the last 12 months, zero-filled so the chart
         // shows quiet months instead of skipping them.
-        $spendRaw = AssetMaintenance::whereNull('deleted_at')
+        $spendRaw = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->whereNull('asset_maintenances.deleted_at')
             ->where('status', 'completed')
             ->whereDate('scheduled_date', '>=', $today->copy()->subMonths(11)->startOfMonth())
             ->groupBy(DB::raw("DATE_FORMAT(scheduled_date, '%Y-%m')"))
@@ -155,7 +155,7 @@ class AssetWorkspaceController extends BaseController
                 'days' => $a->daysToValidation(),
             ]);
 
-        $overdueReturnRows = AssetAssignment::leftJoin('assets', 'assets.id', '=', 'asset_assignments.asset_id')
+        $overdueReturnRows = $this->inAssetScope(AssetAssignment::query(), 'asset_assignments.asset_id')->leftJoin('assets', 'assets.id', '=', 'asset_assignments.asset_id')
             ->leftJoin('users', 'users.id', '=', 'asset_assignments.user_id')
             ->whereNull('asset_assignments.deleted_at')
             ->where('asset_assignments.status', 'assigned')
@@ -177,7 +177,7 @@ class AssetWorkspaceController extends BaseController
                 'days_late' => $r->due_back_on ? (int) Carbon::parse($r->due_back_on)->diffInDays($today) : 0,
             ]);
 
-        $openJobs = AssetMaintenance::leftJoin('assets', 'assets.id', '=', 'asset_maintenances.asset_id')
+        $openJobs = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->leftJoin('assets', 'assets.id', '=', 'asset_maintenances.asset_id')
             ->whereNull('asset_maintenances.deleted_at')
             ->whereIn('asset_maintenances.status', ['scheduled', 'in_progress'])
             ->orderBy('asset_maintenances.scheduled_date')
@@ -248,17 +248,17 @@ class AssetWorkspaceController extends BaseController
         // The api guard is the one the policy check above already used; falling
         // back to auth() keeps this working under the web session too.
         $user = $request->user('api') ?: auth()->user();
-        if ($user && $user->is_all_warehouses) {
+        if ($this->warehouseScopeIds() === null) {
             $warehouses = Warehouse::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']);
         } else {
-            $ids = UserWarehouse::where('user_id', $user ? $user->id : null)->pluck('warehouse_id')->toArray();
+            $ids = $this->warehouseScopeIds();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $ids)->orderBy('name')->get(['id', 'name']);
         }
 
         return response()->json([
             'warehouses' => $warehouses,
             'categories' => AssetCategory::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
-            'assets' => Asset::whereNull('deleted_at')->whereNull('disposal_date')
+            'assets' => $this->inAssetScope(Asset::query(), 'assets.id')->whereNull('deleted_at')->whereNull('disposal_date')
                 ->orderBy('name')->get(['id', 'name', 'tag', 'warehouse_id', 'assigned_to_id'])
                 ->map(fn ($a) => [
                     'id' => $a->id,
@@ -283,10 +283,10 @@ class AssetWorkspaceController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', Asset::class);
 
-        $asset = Asset::leftJoin('asset_categories', 'asset_categories.id', '=', 'assets.asset_category_id')
+        $asset = $this->inAssetScope(Asset::query(), 'assets.id')->leftJoin('asset_categories', 'asset_categories.id', '=', 'assets.asset_category_id')
             ->leftJoin('warehouses', 'warehouses.id', '=', 'assets.warehouse_id')
             ->leftJoin('users', 'users.id', '=', 'assets.assigned_to_id')
-            ->tap(fn ($q) => $this->scopeToWarehouses($q, 'assets.warehouse_id', true))
+            ->tap(fn ($q) => $this->scopeToWarehouses($q, 'assets.warehouse_id'))
             ->whereNull('assets.deleted_at')
             ->select(
                 'assets.*',
@@ -314,7 +314,7 @@ class AssetWorkspaceController extends BaseController
                 'notes' => $m->notes,
             ]);
 
-        $assignments = AssetAssignment::leftJoin('users', 'users.id', '=', 'asset_assignments.user_id')
+        $assignments = $this->inAssetScope(AssetAssignment::query(), 'asset_assignments.asset_id')->leftJoin('users', 'users.id', '=', 'asset_assignments.user_id')
             ->where('asset_assignments.asset_id', $id)
             ->whereNull('asset_assignments.deleted_at')
             ->orderByDesc('asset_assignments.assigned_on')
@@ -405,6 +405,7 @@ class AssetWorkspaceController extends BaseController
 
         return DB::transaction(function () use ($request, $id) {
             $asset = Asset::whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
+        if ($asset) { $this->abortIfAssetIdOutOfScope($asset->id); }
 
             if ($asset->disposal_date) {
                 return response()->json([
@@ -456,9 +457,9 @@ class AssetWorkspaceController extends BaseController
 
         $asOf = $request->filled('as_of') ? Carbon::parse($request->as_of) : Carbon::today();
 
-        $query = Asset::leftJoin('asset_categories', 'asset_categories.id', '=', 'assets.asset_category_id')
+        $query = $this->inAssetScope(Asset::query(), 'assets.id')->leftJoin('asset_categories', 'asset_categories.id', '=', 'assets.asset_category_id')
             ->leftJoin('warehouses', 'warehouses.id', '=', 'assets.warehouse_id')
-            ->tap(fn ($q) => $this->scopeToWarehouses($q, 'assets.warehouse_id', true))
+            ->tap(fn ($q) => $this->scopeToWarehouses($q, 'assets.warehouse_id'))
             ->whereNull('assets.deleted_at')
             ->select('assets.*', 'asset_categories.name as category_name', 'warehouses.name as warehouse_name')
             ->when($request->filled('category_id'), fn ($q) => $q->where('assets.asset_category_id', $request->category_id))
@@ -547,7 +548,7 @@ class AssetWorkspaceController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', Asset::class);
 
-        $rows = AssetMaintenance::leftJoin('assets', 'assets.id', '=', 'asset_maintenances.asset_id')
+        $rows = $this->inAssetScope(AssetMaintenance::query(), 'asset_maintenances.asset_id')->leftJoin('assets', 'assets.id', '=', 'asset_maintenances.asset_id')
             ->leftJoin('asset_categories', 'asset_categories.id', '=', 'assets.asset_category_id')
             ->whereNull('asset_maintenances.deleted_at')
             ->when($request->filled('from'), fn ($q) => $q->whereDate('asset_maintenances.scheduled_date', '>=', $request->from))
@@ -602,7 +603,7 @@ class AssetWorkspaceController extends BaseController
 
         $today = Carbon::today();
 
-        $rows = AssetAssignment::leftJoin('users', 'users.id', '=', 'asset_assignments.user_id')
+        $rows = $this->inAssetScope(AssetAssignment::query(), 'asset_assignments.asset_id')->leftJoin('users', 'users.id', '=', 'asset_assignments.user_id')
             ->whereNull('asset_assignments.deleted_at')
             ->when($request->filled('from'), fn ($q) => $q->whereDate('asset_assignments.assigned_on', '>=', $request->from))
             ->when($request->filled('to'), fn ($q) => $q->whereDate('asset_assignments.assigned_on', '<=', $request->to))

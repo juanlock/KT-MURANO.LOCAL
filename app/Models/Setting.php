@@ -19,7 +19,10 @@ class Setting extends Model
         $attrs = $template
             ? collect($template->getAttributes())->except(['id', 'company_id', 'created_at', 'updated_at', 'deleted_at'])->all()
             : [];
-        return static::create($attrs + ['company_id' => $companyId]);
+        // forceFill: company_id isn't mass-assignable (and the cloned template
+        // attributes may include non-fillable columns) -- create() silently
+        // saved a company-less row, so every later call cloned another one.
+        return tap((new static)->forceFill($attrs + ['company_id' => $companyId]))->save();
     }
 
     protected $fillable = [
@@ -57,6 +60,16 @@ class Setting extends Model
         'enable_pos_salesperson_switch', 'session_timeout_minutes', 'enable_multi_currency',
         'enable_wholesale_pricing', 'sale_show_price_type_dropdown', 'sale_default_quantity',
         'sale_loyalty_points_enabled', 'sale_shipping_enabled',
+        // Defaults -> Customers: optional customer features (hide all UI when off)
+        'customer_loyalty_enabled', 'customer_credit_limit_enabled', 'customer_opening_balance_enabled',
+        // Defaults -> Product: auto-generated product Code (<prefix><next number>)
+        'product_code_auto', 'product_code_prefix', 'product_code_digits',
+        // Defaults -> Booking: optional fields on the Booking Create/Edit form
+        'booking_delivery_date_enabled', 'booking_delivery_time_enabled',
+        'booking_status_enabled', 'booking_delivery_address_enabled',
+        // System Settings -> DataTable: company-wide table format + per-table
+        // column customization (JSON)
+        'datatable_settings', 'datatable_columns',
         // Invoice PDF -- company-scoped section show/hide toggles + editable
         // content blocks (Company Note / Terms & Conditions), distinct from
         // the global, non-company-scoped PdfTemplate "Sections" panel.
@@ -105,6 +118,15 @@ class Setting extends Model
         'sale_default_quantity' => 'integer',
         'sale_loyalty_points_enabled' => 'boolean',
         'sale_shipping_enabled' => 'boolean',
+        'customer_loyalty_enabled' => 'boolean',
+        'customer_credit_limit_enabled' => 'boolean',
+        'customer_opening_balance_enabled' => 'boolean',
+        'product_code_auto' => 'boolean',
+        'product_code_digits' => 'integer',
+        'booking_delivery_date_enabled' => 'boolean',
+        'booking_delivery_time_enabled' => 'boolean',
+        'booking_status_enabled' => 'boolean',
+        'booking_delivery_address_enabled' => 'boolean',
         'sale_pdf_show_disc_column' => 'boolean',
         'sale_pdf_show_tax_column' => 'boolean',
         'sale_pdf_show_shipping_row' => 'boolean',

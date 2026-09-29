@@ -17,7 +17,7 @@
           <ul class="navbar-nav pt-lg-2 pb-4">
             <template v-for="group in navGroups" :key="group.heading || 'main'">
               <li v-if="group.heading" class="rst-nav-heading">{{ tr(group.heading, group.fallback) }}</li>
-              <li v-for="item in group.items" :key="item.to" class="nav-item">
+              <li v-for="item in group.items.filter(i => !i.module || modules[i.module] !== false)" :key="item.to" class="nav-item">
                 <router-link :to="item.to" class="nav-link" :class="{ active: isActive(item.to) }" @click="closeDrawer">
                   <i :class="`ti ti-${item.icon}`"></i>
                   <span>{{ $t(item.label) }}</span>
@@ -204,6 +204,8 @@ export default {
       theme: themeState,
       clientName: '',
       clientEmail: '',
+      // Business Modules of the customer's company, from /portal/me ({helpdesk: bool}).
+      modules: {},
       search: '',
       drawerOpen: false,
       isDesktop: window.matchMedia('(min-width: 992px)').matches,
@@ -223,6 +225,7 @@ export default {
           { to: '/contracts', label: 'nav_contracts', icon: 'file-certificate' },
         ] },
         { heading: 'nav_support', fallback: 'Support', items: [
+          { to: '/tickets', label: 'nav_tickets', icon: 'lifebuoy', module: 'helpdesk' },
           { to: '/help', label: 'nav_help', icon: 'help-circle' },
           { to: '/profile', label: 'nav_profile', icon: 'user-circle' },
         ] },
@@ -282,6 +285,7 @@ export default {
         const pc = data && data.portal_client;
         this.clientName = (pc && pc.client && pc.client.name) || this.$t('account');
         this.clientEmail = (pc && (pc.email || pc.portal_email)) || (pc && pc.client && pc.client.email) || '';
+        this.modules = (pc && pc.modules) || {};
       } catch (_) {
         this.clientName = this.$t('account');
       }

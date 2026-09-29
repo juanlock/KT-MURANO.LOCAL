@@ -495,7 +495,8 @@ const infoRows = computed(() => {
     { label: t('Discount'), value: parseFloat(p.discount) ? p.discount : '' },
     { label: t('Tax'), value: p.taxe !== undefined && p.taxe !== null ? `${p.taxe} (${taxMethod})` : '' },
     { label: t('StockAlert'), value: p.stock_alert },
-    { label: t('Points'), value: Number(p.points) ? p.points : '' },
+    // Empty value drops the row (filter below) -- loyalty off hides it.
+    { label: t('Points'), value: auth.customerLoyaltyEnabled && Number(p.points) ? p.points : '' },
     { label: t('Weight'), value: p.weight },
     { label: t('BarcodeSymbology'), value: p.Type_barcode },
     { label: t('Size_Guide'), value: p.size_guide?.name },

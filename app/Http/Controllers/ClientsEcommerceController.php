@@ -16,6 +16,26 @@ use Illuminate\Http\Request;
 
 class ClientsEcommerceController extends BaseController
 {
+    use \App\Http\Controllers\Concerns\ScopesToCompany;
+
+    // Company boundary (none of this controller had one): lists narrow to
+    // the acting company unless an unfiltered SuperAdmin; writes on a single
+    // customer require it to be the caller's own company's (SuperAdmin: any).
+    private function scopeClients($query, Request $request)
+    {
+        $user = $request->user('api');
+
+        return $query->when($user->type !== 'SuperAdmin' || $request->filled('company_id'),
+            fn ($q) => $q->where('company_id', $this->resolveActingCompanyId($request)));
+    }
+
+    private function assertClientCompany(Request $request, $clientId): void
+    {
+        $user = $request->user('api');
+        if ($user->type !== 'SuperAdmin') {
+            abort_unless((int) Client::where('id', $clientId)->value('company_id') === (int) $user->company_id, 403);
+        }
+    }
 
     //------------- Get ALL clients_without_ecommerce -------------\\
 
@@ -35,7 +55,7 @@ class ClientsEcommerceController extends BaseController
         $param = array(0 => 'like', 1 => 'like', 2 => 'like', 3 => 'like');
         $data = array();
         // $clients = Client::where('deleted_at', '=', null);
-        $clients = \App\Models\Client::where('deleted_at', '=', null)
+        $clients = $this->scopeClients(\App\Models\Client::where('deleted_at', '=', null), $request)
         ->whereNotIn('id', function($query){
             $query->select('client_id')->from('ecommerce_clients');
         });
@@ -70,7 +90,7 @@ class ClientsEcommerceController extends BaseController
             $data[] = $item;
         }
 
-        $clientsWithoutEcommerce = \App\Models\Client::where('deleted_at', '=', null)
+        $clientsWithoutEcommerce = $this->scopeClients(\App\Models\Client::where('deleted_at', '=', null), $request)
         ->whereNotIn('id', function($query){
             $query->select('client_id')->from('ecommerce_clients');
         })->count();
@@ -95,7 +115,8 @@ class ClientsEcommerceController extends BaseController
         $dir       = $request->SortType ?: 'desc';
 
         $query = EcommerceClient::with('client')
-            ->whereNull('deleted_at');
+            ->whereNull('deleted_at')
+            ->whereHas('client', fn ($qc) => $this->scopeClients($qc, $request));
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -150,6 +171,7 @@ class ClientsEcommerceController extends BaseController
 
         /** @var EcommerceClient $account */
         $account = EcommerceClient::whereNull('deleted_at')->findOrFail($id);
+        $this->assertClientCompany($request, $account->client_id);
 
         $this->validate($request, [
             'email'    => [
@@ -206,6 +228,7 @@ class ClientsEcommerceController extends BaseController
         $this->authorizeForUser($request->user('api'), 'delete', Client::class);
 
         $account = EcommerceClient::whereNull('deleted_at')->findOrFail($id);
+        $this->assertClientCompany($request, $account->client_id);
 
         // Only delete the ecommerce account; keep the core Client record
         $account->delete();
@@ -218,6 +241,7 @@ class ClientsEcommerceController extends BaseController
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', Client::class);
+        $this->assertClientCompany($request, $request->client_id);
 
         // Email must be a valid email address and unique in both clients and ecommerce_clients tables
         $this->validate($request, [
@@ -270,7 +294,8 @@ class ClientsEcommerceController extends BaseController
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Client::class);
-        
+        $this->assertClientCompany($request, $id);
+
         $client_ecommerce = EcommerceClient::where('client_id', $id)
             ->whereNull('deleted_at')
             ->first();
@@ -330,6 +355,7 @@ class ClientsEcommerceController extends BaseController
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Client::class);
+        $this->assertClientCompany($request, $id);
 
         Client::whereId($id)->update([
             'deleted_at' => Carbon::now(),

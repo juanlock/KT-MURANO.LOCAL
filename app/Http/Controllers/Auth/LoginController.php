@@ -41,7 +41,14 @@ class LoginController extends Controller
      */
     protected function credentials(\Illuminate\Http\Request $request)
     {
-        return ['email' => $request->{$this->username()}, 'password' => $request->password, 'statut' => 1];
+        return [
+            'email' => $request->{$this->username()},
+            'password' => $request->password,
+            'statut' => 1,
+            // Staff app only: customers sign in to the Client Portal
+            // (/portal) with their users row; deleted users can't sign in.
+            fn ($query) => $query->where('type', '!=', 'customer')->whereNull('deleted_at'),
+        ];
     }
 
     public function __construct()

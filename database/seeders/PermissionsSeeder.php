@@ -1345,6 +1345,28 @@ class PermissionsSeeder extends Seeder
                     'id' => 308,
                     'name' => 'edit_completed_paid_sale',
                 ],
+                [
+                    'id' => 309,
+                    'name' => 'datatable_customize',
+                ],
+                // Helpdesk (per company)
+                [
+                    'id' => 310,
+                    'name' => 'helpdesk_view',
+                ],
+                [
+                    'id' => 311,
+                    'name' => 'helpdesk_manage',
+                ],
+                // Intranet (staff only, per company)
+                [
+                    'id' => 312,
+                    'name' => 'intranet_view',
+                ],
+                [
+                    'id' => 313,
+                    'name' => 'intranet_manage',
+                ],
 
             ]
         );

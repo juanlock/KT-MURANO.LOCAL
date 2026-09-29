@@ -27,6 +27,9 @@ use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     use CalculatesCogsAndAverageCost;
     // ----------------- dashboard_data -----------------------\\
 
@@ -43,11 +46,11 @@ class DashboardController extends Controller
         }
 
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $array_warehouses_id = Warehouse::where('deleted_at', '=', null)->pluck('id')->toArray();
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
         } else {
-            $array_warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $array_warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $array_warehouses_id)->get(['id', 'name']);
         }
 
@@ -96,12 +99,10 @@ class DashboardController extends Controller
         // New way: Check user's record_view field (user-level boolean)
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
-            $warehouse_ids = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouse_ids = $this->reportWarehouseIdList();
         }
 
         // Determine date window: either custom [from, to] or default last 7 days
@@ -168,12 +169,10 @@ class DashboardController extends Controller
         // New way: Check user's record_view field (user-level boolean)
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
-            $warehouse_ids = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouse_ids = $this->reportWarehouseIdList();
         }
 
         // Determine date window: either custom [from, to] or default last 7 days
@@ -239,12 +238,10 @@ class DashboardController extends Controller
         // New way: Check user's record_view field (user-level boolean)
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
-            $warehouse_ids = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouse_ids = $this->reportWarehouseIdList();
         }
 
         $data = Sale::whereBetween('date', [
@@ -284,16 +281,14 @@ class DashboardController extends Controller
         // New way: Check user's record_view field (user-level boolean)
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
-            $warehouse_ids = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouse_ids = $this->reportWarehouseIdList();
         }
 
         $products = SaleDetail::join('sales', 'sale_details.sale_id', '=', 'sales.id')
-            ->join('products', 'sale_details.product_id', '=', 'products.id')
+            ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
             ->whereBetween('sale_details.date', [
                 Carbon::now()->startOfYear(),
                 Carbon::now()->endOfYear(),
@@ -336,7 +331,7 @@ class DashboardController extends Controller
 
         // top selling product this month
         $products = SaleDetail::join('sales', 'sale_details.sale_id', '=', 'sales.id')
-            ->join('products', 'sale_details.product_id', '=', 'products.id')
+            ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
             ->whereBetween('sale_details.date', [
                 Carbon::now()->startOfMonth(),
                 Carbon::now()->endOfMonth(),
@@ -365,7 +360,7 @@ class DashboardController extends Controller
 
         // Stock Alerts
         $product_warehouse_data = product_warehouse::with('warehouse', 'product', 'productVariant')
-            ->join('products', 'product_warehouse.product_id', '=', 'products.id')
+            ->join('products', 'product_warehouse.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
             ->where('manage_stock', true)
             ->whereRaw('qte <= stock_alert')
             ->where('product_warehouse.deleted_at', null)
@@ -1063,10 +1058,10 @@ class DashboardController extends Controller
         }
 
         $view_records = $user->hasRecordView();
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
         $array_warehouses_id = $is_all_warehouses
             ? Warehouse::where('deleted_at', null)->pluck('id')->toArray()
-            : UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->toArray();
+            : $this->reportWarehouseIdList();
 
         $warehouse_id = (int) ($request->warehouse_id ?? 0);
         if ($warehouse_id !== 0 && !in_array($warehouse_id, $array_warehouses_id, true)) {

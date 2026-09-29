@@ -22,6 +22,9 @@ use Illuminate\Support\Facades\Schema;
  */
 class ProductBatchController extends BaseController
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     /**
      * GET /product_batches
      *
@@ -360,11 +363,11 @@ class ProductBatchController extends BaseController
         if (! $user) {
             return [];
         }
-        if ($user->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             return null;
         }
 
-        return UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->all();
+        return $this->reportWarehouseIdList();
     }
 
     protected function ensureWarehouseAccess(int $warehouseId): void

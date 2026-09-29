@@ -22,8 +22,10 @@
         <a-col :xs="24" :xl="16">
           <!-- Basic information -->
           <a-card size="small" :title="$t('BasicInformation')" style="margin-bottom: 16px">
+            <!-- Three fields per row on md+, stacked on mobile.
+                 Row 1: Type / Name / Group name -->
             <a-row :gutter="16">
-              <a-col :xs="24" :md="12">
+              <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('type')" name="type">
                   <a-select
                     v-model:value="product.type" :disabled="isEdit"
@@ -37,13 +39,13 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="12">
+              <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('Name_product')" name="name">
                   <a-input v-model:value="product.name" />
                 </a-form-item>
               </a-col>
 
-              <a-col :xs="24" :md="12">
+              <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('GroupName')" name="group_name" required :help="$t('GroupName_Help')">
                   <a-select
                     v-model:value="product.group_name"
@@ -55,7 +57,9 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="12">
+
+              <!-- Row 2: Code product / Barcode symbology / Size -->
+              <a-col :xs="24" :md="8">
                 <a-form-item
                   :label="$t('CodeProduct')" name="code"
                   :validate-status="codeExists ? 'error' : ''" :help="codeExists || undefined"
@@ -70,7 +74,7 @@
                   </div>
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="12">
+              <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('BarcodeSymbology')" name="Type_barcode">
                   <a-select
                     v-model:value="product.Type_barcode"
@@ -79,13 +83,17 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col v-if="showGtin" :xs="24" :md="8">
-                <a-form-item :label="$t('Barcode_GTIN')">
-                  <a-input v-model:value="product.gtin" />
+              <a-col :xs="24" :md="8">
+                <a-form-item :label="$t('Size_Guide')">
+                  <a-select
+                    v-model:value="product.size_guide_id" allow-clear show-search option-filter-prop="label"
+                    :options="sizeGuides.map(s => ({ value: s.id, label: s.name }))"
+                  />
                 </a-form-item>
               </a-col>
 
-              <a-col :xs="24" :md="12">
+              <!-- Row 3: Category / Subcategory / Brand -->
+              <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('Categorie')" name="assigned_category_ids">
                   <a-select
                     v-model:value="product.assigned_category_ids" mode="multiple"
@@ -95,7 +103,7 @@
                   <a class="quick-add" @click="openQuickCategory">+ {{ $t('Add') }} {{ $t('Categorie') }}</a>
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="12">
+              <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('SubCategory')">
                   <a-select
                     v-model:value="product.assigned_subcategory_ids" mode="multiple" allow-clear
@@ -104,7 +112,7 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="12">
+              <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('Brand')">
                   <a-select
                     v-model:value="product.brand_id" allow-clear show-search option-filter-prop="label"
@@ -113,12 +121,12 @@
                   <a class="quick-add" @click="openQuickBrand">+ {{ $t('Add') }} {{ $t('Brand') }}</a>
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="12">
-                <a-form-item :label="$t('Size_Guide')">
-                  <a-select
-                    v-model:value="product.size_guide_id" allow-clear show-search option-filter-prop="label"
-                    :options="sizeGuides.map(s => ({ value: s.id, label: s.name }))"
-                  />
+
+              <!-- GTIN is optional (showGtin); kept after the three fixed rows
+                   so toggling it doesn't reflow them. -->
+              <a-col v-if="showGtin" :xs="24" :md="8">
+                <a-form-item :label="$t('Barcode_GTIN')">
+                  <a-input v-model:value="product.gtin" />
                 </a-form-item>
               </a-col>
             </a-row>
@@ -300,7 +308,8 @@
                   <a-input-number v-model:value="product.stock_alert" :min="0" style="width: 100%" />
                 </a-form-item>
               </a-col>
-              <a-col :xs="12" :md="8">
+              <!-- Loyalty off hides the input; product.points still goes out unchanged. -->
+              <a-col v-if="auth.customerLoyaltyEnabled" :xs="12" :md="8">
                 <a-form-item :label="$t('Points')">
                   <a-input-number v-model:value="product.points" :min="0" style="width: 100%" />
                 </a-form-item>
@@ -1015,8 +1024,21 @@ const rules = computed(() => ({
 }));
 
 /* ---------------- behaviour ---------------- */
-function generateCode() {
-  product.value.code = generateBarcodeValue(product.value.Type_barcode);
+// System Settings -> Defaults -> Product: when auto code is on, "Generate"
+// gives the company's next <prefix><number> code (e.g. PPI-042) instead of a
+// random value -- unless the chosen barcode type can't encode it (EAN/UPC are
+// digits-only), where it falls back to a random valid value as before.
+const productCodeAuto = ref(false);
+async function generateCode() {
+  let code = '';
+  if (productCodeAuto.value) {
+    try { code = (await http.get('product_next_code'))?.code || ''; } catch (e) { /* fall back below */ }
+  }
+  if (!code || barcodeValueError(product.value.Type_barcode, code)) {
+    code = generateBarcodeValue(product.value.Type_barcode);
+  }
+  product.value.code = code;
+  codeExists.value = '';
   formRef.value?.validate(['code']).catch(() => {});
 }
 
@@ -1552,6 +1574,11 @@ onMounted(async () => {
       if (enableMultiPack.value) ensureDefaultPack();
       warehouseRows.value = Object.fromEntries(
         warehouses.value.map(w => [w.id, { qte: w.qte ?? 0, warehouse_location_id: null }]));
+      // Defaults -> Product: pre-fill the next auto-generated Code (editable).
+      productCodeAuto.value = data.product_code_auto === true;
+      if (productCodeAuto.value && data.next_product_code && !product.value.code) {
+        product.value.code = data.next_product_code;
+      }
     }
   } catch (e) {
     message.error(t('InvalidData'));

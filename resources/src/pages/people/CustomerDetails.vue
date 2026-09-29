@@ -29,12 +29,12 @@
           <a-descriptions-item :label="$t('City')">{{ client.city || '-' }}</a-descriptions-item>
           <a-descriptions-item :label="$t('Country')">{{ client.country || '-' }}</a-descriptions-item>
           <a-descriptions-item :label="$t('Tax_Number')">{{ client.tax_number || '-' }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('Credit_Limit')">{{ creditLimitText }}</a-descriptions-item>
+          <a-descriptions-item v-if="auth.customerCreditLimitEnabled" :label="$t('Credit_Limit')">{{ creditLimitText }}</a-descriptions-item>
         </a-descriptions>
       </a-card>
 
       <a-row :gutter="[16, 16]" style="margin-bottom: 16px">
-        <a-col :xs="24" :md="8">
+        <a-col v-if="auth.customerOpeningBalanceEnabled" :xs="24" :md="8">
           <a-card size="small">
             <a-statistic
               :title="$t('Opening_Balance')" :value="money(openingBalance)"
@@ -70,7 +70,7 @@
             <div class="muted">{{ $t('Open_Service_Jobs') }}</div>
           </a-card>
         </a-col>
-        <a-col :xs="24" :md="8">
+        <a-col v-if="auth.customerCreditLimitEnabled" :xs="24" :md="8">
           <a-card size="small">
             <a-statistic :title="$t('Credit_Limit')" :value="creditLimitText" :value-style="{ color: '#1677ff' }" />
             <div class="muted">{{ $t('Maximum_credit_amount_allowed_for_this_customer') }}</div>
@@ -85,7 +85,7 @@
             <div class="muted">{{ $t('E_Wallet') }}</div>
           </a-card>
         </a-col>
-        <a-col :xs="24" :md="8">
+        <a-col v-if="auth.customerLoyaltyEnabled" :xs="24" :md="8">
           <a-card size="small">
             <a-statistic :title="$t('Loyalty_Points')" :value="loyaltyPoints" :value-style="{ color: '#faad14' }" />
             <div class="muted">{{ $t('Points') }}</div>

@@ -22,7 +22,12 @@ use Illuminate\Support\Facades\DB;
  */
 class FleetReportController extends Controller
 {
-    use \App\Traits\ScopesWarehouseAccess;
+    // Multicompany: reportCompanyId() -- see the trait. Its company-aware
+    // warehouse scope replaces the plain one of ScopesWarehouseAccess.
+    use \App\Traits\ScopesWarehouseAccess, \App\Http\Controllers\Concerns\ScopesReportsToCompany {
+        \App\Http\Controllers\Concerns\ScopesReportsToCompany::warehouseScopeIds insteadof \App\Traits\ScopesWarehouseAccess;
+        \App\Http\Controllers\Concerns\ScopesReportsToCompany::canAccessWarehouse insteadof \App\Traits\ScopesWarehouseAccess;
+    }
 
     /** Running cost per vehicle: fuel + maintenance, distance and cost/km. */
     public function costs(Request $request)
@@ -149,7 +154,7 @@ class FleetReportController extends Controller
         // This report groups by driver rather than by vehicle, so it never goes
         // through vehicleQuery(): restrict it to the vehicles the caller can see.
         $visibleVehicleIds = $this->scopeToWarehouses(
-            Vehicle::whereNull('deleted_at'), 'warehouse_id', true
+            $this->rc(Vehicle::query(), 'vehicles.company_id')->whereNull('deleted_at'), 'warehouse_id', true
         )->pluck('id')->all();
 
         $trips = VehicleAssignment::whereNull('deleted_at')
@@ -200,7 +205,7 @@ class FleetReportController extends Controller
 
     private function vehicleQuery(Request $request)
     {
-        $query = Vehicle::with('warehouse')->whereNull('deleted_at');
+        $query = $this->rc(Vehicle::with('warehouse'), 'vehicles.company_id')->whereNull('deleted_at');
 
         // Every fleet report funnels through here, so the warehouse scope only
         // has to be applied once.

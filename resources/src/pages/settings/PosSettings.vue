@@ -71,7 +71,7 @@
           </a-col>
           <a-col :span="24">
             <a-row :gutter="[8, 8]">
-              <a-col v-for="f in POS_FLAGS" :key="f.key" :xs="12" :md="8">
+              <a-col v-for="f in visiblePosFlags" :key="f.key" :xs="12" :md="8">
                 <a-checkbox v-model:checked="s[f.key]">{{ f.label }}</a-checkbox>
               </a-col>
             </a-row>
@@ -158,6 +158,7 @@ import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
+import { useAuthStore } from '../../stores/auth';
 import {
   POS_SHORTCUTS,
   posShortcutsEnabled,
@@ -165,8 +166,11 @@ import {
 } from '../../pos-compat/posKeyboardShortcuts';
 
 const { t } = useI18n();
+const auth = useAuthStore();
 
 const POS_FLAGS = [
+  // The blue POS button in the admin top header (off: reach the POS from the sidebar / account menu).
+  { key: 'show_pos_button', label: 'Show POS button in header' },
   { key: 'quick_add_customer', label: 'Quick add customer' },
   { key: 'barcode_scanning_sound', label: 'Barcode scanning sound' },
   { key: 'show_product_images', label: 'Show product images' },
@@ -181,6 +185,11 @@ const POS_FLAGS = [
 ];
 
 const ALL_FLAGS = [...POS_FLAGS.map(f => f.key), 'cash_drawer_auto_open'];
+
+// Loyalty off (System Settings → Defaults → Customers) hides the customer
+// points checkbox; its stored value still round-trips via ALL_FLAGS.
+const visiblePosFlags = computed(() => POS_FLAGS.filter(f =>
+  f.key !== 'enable_customer_points' || auth.customerLoyaltyEnabled));
 
 const loading = ref(true);
 const saving = ref(false);
@@ -229,6 +238,8 @@ async function save() {
   });
   try {
     await http.put(`pos_settings/${v.id}`, body);
+    // The topbar's POS button follows this setting right away (no reload needed).
+    if (auth.user) auth.user.show_pos_button = !!v.show_pos_button;
     message.success(t('Successfully_Updated'));
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData'));

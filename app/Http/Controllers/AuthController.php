@@ -17,6 +17,8 @@ class AuthController extends BaseController
         ]);
 
         $credentials = request(['email', 'password']);
+        // Staff app only: customers use the Client Portal; no deleted users.
+        $credentials[] = fn ($query) => $query->where('type', '!=', 'customer')->whereNull('deleted_at');
 
         if (Auth::attempt($credentials)) {
             $userStatus = Auth::User()->statut;

@@ -5,69 +5,84 @@
     </div>
 
     <template v-else>
-      <!-- Real-data warning, as requested: generating is still allowed, but the
-           admin is told demo rows will mix with real ones and how reset behaves. -->
       <a-alert
-        v-if="hasRealData"
-        type="warning"
-        show-icon
-        message="Your database contains real data"
-        style="margin-bottom: 16px"
-      >
-        <template #description>
-          {{ realSummary }} already exist. Demo records will be mixed in with them,
-          but every generated record is tagged — <strong>Reset demo data</strong> removes
-          only the demo records and never touches your real data.
-        </template>
-      </a-alert>
-      <a-alert
-        v-else
         type="info"
         show-icon
-        message="Fill the app with realistic sample data"
-        description="Products, customers, suppliers, sales, purchases, quotations and expenses spread over the last 90 days — ideal for exploring dashboards and reports. Everything generated is tagged and can be removed in one click."
         style="margin-bottom: 16px"
-      />
+        :message="`Example data for ${companyName || 'this company'}`"
+      >
+        <template #description>
+          One set of realistic examples per module — core (products, customers, suppliers, sales,
+          purchases, quotations, expenses) plus every business module switched on under Modules.
+          A module is <strong>skipped</strong> when this company already has real data in it, or when its
+          examples were already generated. Everything generated is tagged per company and can be removed
+          in one click; real data is never touched.
+        </template>
+      </a-alert>
 
-      <!-- ============================ Generate ============================ -->
-      <a-card title="Generate demo data" size="small" style="margin-bottom: 16px">
-        <a-form layout="vertical">
-          <a-row :gutter="16">
-            <a-col v-for="f in fields" :key="f.key" :xs="12" :md="8" :lg="6">
-              <a-form-item :label="f.label">
-                <a-input-number v-model:value="counts[f.key]" :min="0" :max="300" style="width: 100%" />
-              </a-form-item>
-            </a-col>
-          </a-row>
-        </a-form>
-        <div class="ddg-hint">
-          Sales, purchases and quotations only use demo products, customers and suppliers —
-          a small pool is created automatically if you request documents without them.
-        </div>
-        <a-button type="primary" :loading="generating" :disabled="totalRequested === 0" @click="onGenerate">
-          <template #icon><ThunderboltOutlined /></template>
-          Generate demo data
-        </a-button>
-      </a-card>
-
-      <!-- ============================== Reset ============================== -->
       <a-card size="small">
         <template #title>
-          Current demo data
-          <a-tag v-if="totalDemo" color="purple" style="margin-inline-start: 8px">{{ totalDemo }} records</a-tag>
+          Modules
+          <a-tag v-if="demoTotal" color="purple" style="margin-inline-start: 8px">{{ demoTotal }} demo records</a-tag>
         </template>
-        <template v-if="totalDemo">
-          <a-row :gutter="[16, 16]" style="margin-bottom: 16px">
-            <a-col v-for="f in fields" :key="f.key" :xs="12" :md="8" :lg="6">
-              <a-statistic :title="f.label" :value="demo[f.key] || 0" />
-            </a-col>
-          </a-row>
-          <a-button danger :loading="resetting" @click="onReset">
-            <template #icon><DeleteOutlined /></template>
-            Reset demo data
+        <template #extra>
+          <a-space>
+            <a-button :disabled="!availableKeys.length" size="small" @click="selectAvailable">Select available</a-button>
+            <a-button size="small" @click="selected = []">Clear</a-button>
+          </a-space>
+        </template>
+
+        <a-table
+          :columns="columns"
+          :data-source="modules"
+          :pagination="false"
+          row-key="key"
+          size="small"
+          :row-selection="{
+            selectedRowKeys: selected,
+            onChange: keys => (selected = keys),
+            getCheckboxProps: r => ({ disabled: !r.available }),
+          }"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'status'">
+              <a-tag v-if="record.available" color="green">Ready</a-tag>
+              <a-tag v-else-if="record.demo_count" color="purple">Examples generated</a-tag>
+              <a-tag v-else-if="!record.enabled" color="default">Module off</a-tag>
+              <a-tag v-else-if="record.has_real_data" color="blue">Has real data — skipped</a-tag>
+              <a-tag v-else color="orange">{{ record.reason }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'demo_count'">
+              {{ record.demo_count || '—' }}
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <a-button
+                v-if="record.demo_count" size="small" danger type="link"
+                :loading="resetting === record.key" @click="onReset(record)"
+              >Remove</a-button>
+            </template>
+          </template>
+        </a-table>
+
+        <a-space style="margin-top: 16px">
+          <a-button type="primary" :loading="generating" :disabled="!selected.length" @click="generate">
+            <template #icon><ThunderboltOutlined /></template>
+            Generate examples ({{ selected.length }})
           </a-button>
-        </template>
-        <a-empty v-else description="No demo data in the database" />
+          <a-button danger :disabled="!demoTotal" :loading="resetting === 'all'" @click="onReset(null)">
+            <template #icon><DeleteOutlined /></template>
+            Remove all demo data
+          </a-button>
+        </a-space>
+      </a-card>
+
+      <a-card v-if="lastResults.length" size="small" title="Last run" style="margin-top: 16px">
+        <div v-for="r in lastResults" :key="r.key" class="ddg-result">
+          <strong>{{ r.label }}:</strong>
+          <span v-if="r.status === 'created'"> {{ summary(r.created) || 'nothing created' }}</span>
+          <span v-else-if="r.status === 'skipped'" class="ddg-muted"> skipped — {{ r.reason }}</span>
+          <span v-else class="ddg-error"> failed — {{ r.reason }}</span>
+        </div>
       </a-card>
     </template>
   </div>
@@ -75,75 +90,71 @@
 
 <script setup>
 /**
- * Demo Data generator — the "demo" section of System Settings.
+ * Demo Data generator — the "demo" section of System Settings, per company
+ * (the acting company; a SuperAdmin picks it with the header switcher).
  *
- * GET  demo_data/status    → { demo: {entity: n}, real: {entity: n} }
- * POST demo_data/generate  → { created: {entity: n} } (counts capped at 300 each)
- * DELETE demo_data         → { deleted: {entity: n} } (removes ONLY tagged rows)
- *
- * Documents (sales/purchases/quotations) reference demo entities exclusively,
- * so the backend may create a few more products/customers/suppliers than
- * requested — the created summary reflects what actually happened.
+ * GET    demo_data/status    → { company_name, demo_total, modules: [{key, label, enabled,
+ *                                has_real_data, demo_count, available, reason}] }
+ * POST   demo_data/generate  { modules: [key] } → { results: {key: {status, created|reason}} }
+ * DELETE demo_data[?module=] → removes only this company's tagged demo rows
  */
-import { ref, reactive, computed, onMounted, createVNode } from 'vue';
+import { ref, computed, onMounted, createVNode } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { ThunderboltOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import http from '../../lib/http';
 
-const fields = [
-  { key: 'products', label: 'Products' },
-  { key: 'clients', label: 'Customers' },
-  { key: 'providers', label: 'Suppliers' },
-  { key: 'sales', label: 'Sales' },
-  { key: 'purchases', label: 'Purchases' },
-  { key: 'quotations', label: 'Quotations' },
-  { key: 'expenses', label: 'Expenses' },
-];
-
 const loading = ref(true);
 const generating = ref(false);
-const resetting = ref(false);
-const demo = ref({});
-const real = ref({});
+const resetting = ref(null);
+const modules = ref([]);
+const companyName = ref('');
+const demoTotal = ref(0);
+const selected = ref([]);
+const lastResults = ref([]);
 
-const counts = reactive({
-  products: 20, clients: 10, providers: 10,
-  sales: 50, purchases: 25, quotations: 10, expenses: 15,
-});
+const columns = [
+  { title: 'Module', dataIndex: 'label', key: 'label' },
+  { title: 'Status', key: 'status', width: 220 },
+  { title: 'Demo rows', key: 'demo_count', width: 110, align: 'right' },
+  { title: '', key: 'actions', width: 90, align: 'right' },
+];
 
-const totalRequested = computed(() => fields.reduce((n, f) => n + (Number(counts[f.key]) || 0), 0));
-const totalDemo = computed(() => fields.reduce((n, f) => n + (Number(demo.value[f.key]) || 0), 0));
-const hasRealData = computed(() => fields.some(f => Number(real.value[f.key]) > 0));
+const availableKeys = computed(() => modules.value.filter(m => m.available).map(m => m.key));
 
-const realSummary = computed(() => fields
-  .filter(f => Number(real.value[f.key]) > 0)
-  .map(f => `${real.value[f.key]} ${f.label.toLowerCase()}`)
-  .join(', '));
+function selectAvailable() {
+  selected.value = [...availableKeys.value];
+}
+
+function summary(map) {
+  return Object.entries(map || {})
+    .filter(([, n]) => Number(n) > 0)
+    .map(([label, n]) => `${n} ${label.toLowerCase()}`)
+    .join(', ');
+}
 
 async function loadStatus() {
   try {
     const data = await http.get('demo_data/status');
-    demo.value = data.demo || {};
-    real.value = data.real || {};
+    modules.value = data.modules || [];
+    companyName.value = data.company_name || '';
+    demoTotal.value = Number(data.demo_total) || 0;
+    selected.value = selected.value.filter(k => availableKeys.value.includes(k));
   } catch (e) {
     message.error(e?.data?.message || e?.message || 'Could not load demo data status');
   }
 }
 
-function summary(map) {
-  return fields
-    .filter(f => Number(map?.[f.key]) > 0)
-    .map(f => `${map[f.key]} ${f.label.toLowerCase()}`)
-    .join(', ');
-}
-
 async function generate() {
   generating.value = true;
   try {
-    const payload = {};
-    fields.forEach(f => { payload[f.key] = Number(counts[f.key]) || 0; });
-    const data = await http.post('demo_data/generate', payload);
-    message.success(`Demo data created: ${summary(data.created) || 'nothing'}`, 6);
+    const data = await http.post('demo_data/generate', { modules: selected.value });
+    const byKey = Object.fromEntries(modules.value.map(m => [m.key, m.label]));
+    lastResults.value = Object.entries(data.results || {}).map(([key, r]) => ({ key, label: byKey[key] || key, ...r }));
+    const ok = lastResults.value.filter(r => r.status === 'created').length;
+    const failed = lastResults.value.filter(r => r.status === 'error').length;
+    if (failed) message.warning(`${ok} module(s) generated, ${failed} failed — see "Last run".`, 6);
+    else message.success(`${ok} module(s) generated.`, 5);
+    selected.value = [];
     await loadStatus();
   } catch (e) {
     message.error(e?.data?.message || e?.message || 'Generation failed');
@@ -152,34 +163,25 @@ async function generate() {
   }
 }
 
-function onGenerate() {
-  if (!hasRealData.value) return generate();
+function onReset(record) {
   Modal.confirm({
-    title: 'Generate demo data alongside real data?',
+    title: record ? `Remove ${record.label} demo data?` : 'Remove all demo data?',
     icon: createVNode(ExclamationCircleOutlined),
-    content: `Your database already contains ${realSummary.value}. Demo records will appear next to them in every list and report until you reset. Continue?`,
-    okText: 'Generate',
-    onOk: generate,
-  });
-}
-
-function onReset() {
-  Modal.confirm({
-    title: 'Remove all demo data?',
-    icon: createVNode(ExclamationCircleOutlined),
-    content: `This permanently deletes the ${totalDemo.value} tagged demo records (including their line items, payments and stock). Real data is not affected.`,
-    okText: 'Reset demo data',
+    content: record
+      ? `Deletes the ${record.demo_count} demo rows generated for this module (this company only). Real data is not affected.`
+      : `Deletes all ${demoTotal.value} demo rows of ${companyName.value || 'this company'} (line items, payments and stock included). Real data is not affected.`,
+    okText: 'Remove',
     okType: 'danger',
     async onOk() {
-      resetting.value = true;
+      resetting.value = record ? record.key : 'all';
       try {
-        const data = await http.delete('demo_data');
-        message.success(`Demo data removed: ${summary(data.deleted) || 'nothing to remove'}`, 6);
+        const data = await http.delete('demo_data', record ? { module: record.key } : undefined);
+        message.success(`Removed ${data.deleted ?? 0} demo rows.`, 5);
         await loadStatus();
       } catch (e) {
         message.error(e?.data?.message || e?.message || 'Reset failed');
       } finally {
-        resetting.value = false;
+        resetting.value = null;
       }
     },
   });
@@ -192,10 +194,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.ddg-hint {
-  font-size: 12px;
-  color: #8c8c8c;
-  margin: -4px 0 16px;
-  max-width: 640px;
-}
+.ddg-result { padding: 2px 0; }
+.ddg-muted { opacity: 0.6; }
+.ddg-error { color: #ff4d4f; }
 </style>

@@ -171,15 +171,33 @@ const StoreSubscribers = lazy('StoreSubscribers', () => import('../pages/store/S
 const StoreQuoteRequests = lazy('StoreQuoteRequests', () => import('../pages/store/QuoteRequests.vue'));
 const StoreReviews = lazy('StoreReviews', () => import('../pages/store/Reviews.vue'));
 const StoreReturns = lazy('StoreReturns', () => import('../pages/store/Returns.vue'));
-const StoreMenus = lazy('StoreMenus', () => import('../pages/store/Menus.vue'));
 const StoreCoupons = lazy('StoreCoupons', () => import('../pages/store/Coupons.vue'));
 const StoreTaxRates = lazy('StoreTaxRates', () => import('../pages/store/TaxRates.vue'));
 const StorePendingCustomers = lazy('StorePendingCustomers', () => import('../pages/store/PendingCustomers.vue'));
-const StorePages = lazy('StorePages', () => import('../pages/store/Pages.vue'));
 const StorePopups = lazy('StorePopups', () => import('../pages/store/Popups.vue'));
 const StoreShippingMethods = lazy('StoreShippingMethods', () => import('../pages/store/ShippingMethods.vue'));
 const StoreShippingZones = lazy('StoreShippingZones', () => import('../pages/store/ShippingZones.vue'));
 const StoreBanners = lazy('StoreBanners', () => import('../pages/store/Banners.vue'));
+const HelpdeskDashboard = lazy('HelpdeskDashboard', () => import('../pages/helpdesk/HelpdeskDashboard.vue'));
+const HelpdeskTickets = lazy('HelpdeskTickets', () => import('../pages/helpdesk/HelpdeskTickets.vue'));
+const HelpdeskTicket = lazy('HelpdeskTicket', () => import('../pages/helpdesk/HelpdeskTicket.vue'));
+const HelpdeskSettings = lazy('HelpdeskSettings', () => import('../pages/helpdesk/HelpdeskSettings.vue'));
+const HelpdeskMyTickets = lazy('HelpdeskMyTickets', () => import('../pages/helpdesk/MyTickets.vue'));
+const StoreGallery = lazy('StoreGallery', () => import('../pages/store/Gallery.vue'));
+const StorePortfolio = lazy('StorePortfolio', () => import('../pages/store/Portfolio.vue'));
+const IntranetHome = lazy('IntranetHome', () => import('../pages/intranet/Home.vue'));
+const IntranetNewsList = lazy('IntranetNewsList', () => import('../pages/intranet/NewsList.vue'));
+const IntranetNewsShow = lazy('IntranetNewsShow', () => import('../pages/intranet/NewsShow.vue'));
+const IntranetPageShow = lazy('IntranetPageShow', () => import('../pages/intranet/PageShow.vue'));
+const IntranetFiles = lazy('IntranetFiles', () => import('../pages/intranet/Files.vue'));
+const IntranetGallery = lazy('IntranetGallery', () => import('../pages/intranet/Gallery.vue'));
+const IntranetAlbumShow = lazy('IntranetAlbumShow', () => import('../pages/intranet/AlbumShow.vue'));
+const IntranetCalendar = lazy('IntranetCalendar', () => import('../pages/intranet/Calendar.vue'));
+const IntranetAdminNews = lazy('IntranetAdminNews', () => import('../pages/intranet/AdminNews.vue'));
+const IntranetAdminFiles = lazy('IntranetAdminFiles', () => import('../pages/intranet/AdminFiles.vue'));
+const IntranetAdminGallery = lazy('IntranetAdminGallery', () => import('../pages/intranet/AdminGallery.vue'));
+const IntranetAdminEvents = lazy('IntranetAdminEvents', () => import('../pages/intranet/AdminEvents.vue'));
+const IntranetAdminPages = lazy('IntranetAdminPages', () => import('../pages/intranet/AdminPages.vue'));
 const StoreBannerForm = lazy('StoreBannerForm', () => import('../pages/store/BannerForm.vue'));
 const Properties = lazy('Properties', () => import('../pages/realestate/Properties.vue'));
 const PropertyForm = lazy('PropertyForm', () => import('../pages/realestate/PropertyForm.vue'));
@@ -304,6 +322,7 @@ const MrpReports = lazy('MrpReports', () => import('../pages/manufacturing/MrpRe
 // --- Bookings (Wave C) ---
 const Bookings = lazy('Bookings', () => import('../pages/bookings/Bookings.vue'));
 const BookingForm = lazy('BookingForm', () => import('../pages/bookings/BookingForm.vue'));
+const OnlineBooking = lazy('OnlineBooking', () => import('../pages/bookings/OnlineBooking.vue'));
 const KitchenDisplay = lazy('KitchenDisplay', () => import('../pages/kitchen/KitchenDisplay.vue'));
 const KitchenReport = lazy('KitchenReport', () => import('../pages/kitchen/KitchenReport.vue'));
 const Trays = lazy('Trays', () => import('../pages/bookings/Trays.vue'));
@@ -411,7 +430,7 @@ const routes = [
             { path: 'reports/expiry', name: 'expiry-report', component: ExpiryReport, meta: { title: 'Expiry Report', permission: 'expiry_report' } },
             { path: 'reports/discount-summary', name: 'discount-summary-report', component: DiscountSummaryReport, meta: { title: 'Discount Summary', permission: 'discount_summary_report' } },
             { path: 'reports/tax-summary', name: 'tax-summary-report', component: TaxSummaryReport, meta: { title: 'Tax Summary', permission: 'tax_summary_report' } },
-            { path: 'reports/loyalty-points', name: 'loyalty-points-report', component: LoyaltyPointsReport, meta: { title: 'Loyalty Points', permission: 'customer_loyalty_points_report' } },
+            { path: 'reports/loyalty-points', name: 'loyalty-points-report', component: LoyaltyPointsReport, meta: { title: 'Loyalty Points', permission: 'customer_loyalty_points_report', requiresSetting: 'customerLoyaltyEnabled' } },
             { path: 'reports/inactive-customers', name: 'inactive-customers-report', component: InactiveCustomersReport, meta: { title: 'Inactive Customers', permission: 'inactive_customers_report' } },
             { path: 'reports/draft-invoices', name: 'draft-invoices-report', component: DraftInvoicesReport, meta: { title: 'Draft Invoices', permission: 'draft_invoices_report' } },
             { path: 'reports/top-suppliers', name: 'top-suppliers-report', component: TopSuppliersReport, meta: { title: 'Top Suppliers', permission: 'Top_Suppliers_Report' } },
@@ -564,14 +583,35 @@ const routes = [
             { path: 'store/quote-requests', name: 'store-quote-requests', component: StoreQuoteRequests, meta: { title: 'Quote Requests', permission: 'Orders_view' } },
             { path: 'store/reviews', name: 'store-reviews', component: StoreReviews, meta: { title: 'Product Reviews', permission: 'Store_settings_view' } },
             { path: 'store/returns', name: 'store-returns', component: StoreReturns, meta: { title: 'Returns Requests', permission: 'Orders_view' } },
-            { path: 'store/menus', name: 'store-menus', component: StoreMenus, meta: { title: 'Menus', permission: 'Store_settings_view' } },
+            // Pages and Menus now live in Store Settings -> Homepage Blocks.
+            { path: 'store/menus', name: 'store-menus', redirect: { path: '/store/settings', query: { tab: 'homepage', sub: 'menu' } } },
             { path: 'store/coupons', name: 'store-coupons', component: StoreCoupons, meta: { title: 'Coupons', permission: 'Store_settings_view' } },
             { path: 'store/tax-rates', name: 'store-tax-rates', component: StoreTaxRates, meta: { title: 'Tax Rates', permission: 'Store_settings_view' } },
             { path: 'store/pending-customers', name: 'store-pending-customers', component: StorePendingCustomers, meta: { title: 'Pending Customers', permission: 'Store_settings_view' } },
-            { path: 'store/pages', name: 'store-pages', component: StorePages, meta: { title: 'Pages', permission: 'Store_settings_view' } },
+            { path: 'store/pages', name: 'store-pages', redirect: { path: '/store/settings', query: { tab: 'homepage', sub: 'pages' } } },
             { path: 'store/popups', name: 'store-popups', component: StorePopups, meta: { title: 'Popup Messages', permission: 'Store_settings_view' } },
             { path: 'store/shipping-methods', name: 'store-shipping-methods', component: StoreShippingMethods, meta: { title: 'Shipping Methods', permission: 'Store_settings_view' } },
             { path: 'store/shipping-zones', name: 'store-shipping-zones', component: StoreShippingZones, meta: { title: 'Shipping Zones', permission: 'Store_settings_view' } },
+            { path: 'intranet', name: 'intranet-home', component: IntranetHome, meta: { title: 'Intranet', permission: 'intranet_view' } },
+            { path: 'intranet/news', name: 'intranet-news', component: IntranetNewsList, meta: { title: 'Intranet News', permission: 'intranet_view' } },
+            { path: 'intranet/news/:id(\\d+)', name: 'intranet-news-show', component: IntranetNewsShow, meta: { title: 'Intranet News', permission: 'intranet_view' } },
+            { path: 'intranet/pages/:slug', name: 'intranet-page', component: IntranetPageShow, meta: { title: 'Intranet', permission: 'intranet_view' } },
+            { path: 'intranet/files', name: 'intranet-files', component: IntranetFiles, meta: { title: 'Intranet Files', permission: 'intranet_view' } },
+            { path: 'intranet/gallery', name: 'intranet-gallery', component: IntranetGallery, meta: { title: 'Intranet Gallery', permission: 'intranet_view' } },
+            { path: 'intranet/gallery/:id(\\d+)', name: 'intranet-album', component: IntranetAlbumShow, meta: { title: 'Intranet Gallery', permission: 'intranet_view' } },
+            { path: 'intranet/calendar', name: 'intranet-calendar', component: IntranetCalendar, meta: { title: 'Intranet Calendar', permission: 'intranet_view' } },
+            { path: 'intranet-admin/news', name: 'intranet-admin-news', component: IntranetAdminNews, meta: { title: 'Intranet Management - News', permission: 'intranet_manage' } },
+            { path: 'intranet-admin/files', name: 'intranet-admin-files', component: IntranetAdminFiles, meta: { title: 'Intranet Management - Files', permission: 'intranet_manage' } },
+            { path: 'intranet-admin/gallery', name: 'intranet-admin-gallery', component: IntranetAdminGallery, meta: { title: 'Intranet Management - Gallery', permission: 'intranet_manage' } },
+            { path: 'intranet-admin/events', name: 'intranet-admin-events', component: IntranetAdminEvents, meta: { title: 'Intranet Management - Events', permission: 'intranet_manage' } },
+            { path: 'intranet-admin/pages', name: 'intranet-admin-pages', component: IntranetAdminPages, meta: { title: 'Intranet Management - Pages', permission: 'intranet_manage' } },
+            { path: 'store/portfolio', name: 'store-portfolio', component: StorePortfolio, meta: { title: 'Portfolio', permission: 'Store_settings_view' } },
+            { path: 'store/gallery', name: 'store-gallery', component: StoreGallery, meta: { title: 'Gallery', permission: 'Store_settings_view' } },
+            { path: 'helpdesk/dashboard', name: 'helpdesk-dashboard', component: HelpdeskDashboard, meta: { title: 'Helpdesk', permission: 'helpdesk_view' } },
+            { path: 'helpdesk/tickets', name: 'helpdesk-tickets', component: HelpdeskTickets, meta: { title: 'Tickets', permission: 'helpdesk_view' } },
+            { path: 'helpdesk/tickets/:id', name: 'helpdesk-ticket', component: HelpdeskTicket, meta: { title: 'Ticket', permission: 'helpdesk_view' } },
+            { path: 'helpdesk/settings', name: 'helpdesk-settings', component: HelpdeskSettings, meta: { title: 'Helpdesk settings', permission: 'helpdesk_manage' } },
+            { path: 'helpdesk/my', name: 'helpdesk-my', component: HelpdeskMyTickets, meta: { title: 'My tickets' } },
             { path: 'store/banners', name: 'store-banners', component: StoreBanners, meta: { title: 'Banners', permission: 'Banners_view' } },
             { path: 'store/banners/edit/:id', name: 'store-banner-edit', component: StoreBannerForm, meta: { title: 'Banner', permission: 'Banners_view' } },
             { path: 'realestate/properties', name: 'realestate-properties', component: Properties, meta: { title: 'Properties', permission: 'realestate_properties' } },
@@ -610,6 +650,7 @@ const routes = [
             // Bookings
             { path: 'bookings', name: 'bookings', component: Bookings, meta: { title: 'Bookings', permission: 'bookings' } },
             { path: 'bookings/create', name: 'booking-create', component: BookingForm, meta: { title: 'Create Booking', permission: 'bookings' } },
+            { path: 'bookings/online', name: 'booking-online', component: OnlineBooking, meta: { title: 'Online Booking', permission: 'bookings' } },
             { path: 'bookings/:id(\\d+)/edit', name: 'booking-edit', component: BookingForm, meta: { title: 'Edit Booking', permission: 'bookings' } },
             { path: 'kitchen-display', name: 'kitchen-display', component: KitchenDisplay, meta: { title: 'Kitchen Display', permission: 'kitchen_display_view' } },
             { path: 'kitchen/report', name: 'kitchen-report', component: KitchenReport, meta: { title: 'Kitchen Report', permission: 'kitchen_display_view' } },
@@ -763,7 +804,7 @@ const routes = [
             { path: 'shipments', name: 'shipments', component: Shipments, meta: { title: 'Shipments', permission: 'shipment' } },
             { path: 'customers-without-login', name: 'customers-without-login', component: CustomersWithoutLogin, meta: { title: 'Customers without Login', permission: 'Customers_view' } },
             { path: 'customers-with-login', name: 'customers-with-login', component: CustomersWithLogin, meta: { title: 'Customers with Login', permission: 'Customers_view' } },
-            { path: 'loyalty/rewards', name: 'loyalty-rewards', component: LoyaltyRewards, meta: { title: 'Loyalty Rewards', permission: 'loyalty_rewards' } },
+            { path: 'loyalty/rewards', name: 'loyalty-rewards', component: LoyaltyRewards, meta: { title: 'Loyalty Rewards', permission: 'loyalty_rewards', requiresSetting: 'customerLoyaltyEnabled' } },
             { path: 'real-time-sales-counter', name: 'real-time-sales-counter', component: RealTimeSalesCounter, meta: { title: 'Real-time Sales Counter', permission: 'real_time_sales_counter' } },
             { path: 'customer-display/setup', name: 'customer-display-setup', component: CustomerDisplaySetup, meta: { title: 'Customer Screen', permission: 'customer_display_screen_setup' } },
             { path: 'products/vehicle-fitment', name: 'vehicle-fitment', component: VehicleCatalog, meta: { title: 'Vehicle Fitment', permission: 'products_view' } },
@@ -862,6 +903,12 @@ router.beforeEach(async to => {
     // unreachable even by direct URL, mirroring the sidebar filter.
     const moduleKey = moduleKeyForPath(to.path);
     if (moduleKey && !auth.moduleEnabled(moduleKey)) {
+        return { name: 'not-found' };
+    }
+    // Pages tied to a per-company setting (meta.requiresSetting names an
+    // auth-store boolean getter, e.g. customerLoyaltyEnabled) -- same
+    // treatment as a disabled module, mirroring the sidebar filter.
+    if (to.meta.requiresSetting && auth[to.meta.requiresSetting] === false) {
         return { name: 'not-found' };
     }
     return true;

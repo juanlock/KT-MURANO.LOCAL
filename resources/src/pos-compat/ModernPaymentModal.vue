@@ -423,6 +423,21 @@ export default {
       const user = useAuthStore().user;
       return !!(user && user.enable_kitchen_display);
     },
+    // Per-company customer switches (Settings). Off -> no points go out with
+    // the sale and the client-side credit-limit check is skipped.
+    loyaltyOn() {
+      return useAuthStore().customerLoyaltyEnabled !== false;
+    },
+    creditLimitOn() {
+      return useAuthStore().customerCreditLimitEnabled !== false;
+    },
+    // Points actually sent with the sale (0 when loyalty is off).
+    effectiveDiscountFromPoints() {
+      return this.loyaltyOn ? (this.discountFromPoints || 0) : 0;
+    },
+    effectiveUsedPoints() {
+      return this.loyaltyOn ? (this.usedPoints || 0) : 0;
+    },
     totalPaid() {
       return (this.paymentLines || []).reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
     },
@@ -965,8 +980,8 @@ export default {
           token: token && token.id ? token.id : null,
           is_new_credit_card: this.hasAnyNewCardToTokenize(),
           card_tokens_by_line: tokensByLine,
-          discount_from_points: this.discountFromPoints || 0,
-          used_points: this.usedPoints || 0,
+          discount_from_points: this.effectiveDiscountFromPoints,
+          used_points: this.effectiveUsedPoints,
           // Offline-held (local) draft ids never go to the server; the parent
           // deletes the local record on payment-success.
           draft_sale_id: (this.draftSaleId && !(Util && Util.offlinePos && Util.offlinePos.isLocalId && Util.offlinePos.isLocalId(this.draftSaleId)))
@@ -1039,7 +1054,8 @@ export default {
 
       // Credit Limit Validation (0 means no limit)
       // Only applies when this sale is adding new credit (paid amount < sale total)
-      if (this.clientId && Number(this.clientCreditLimit || 0) > 0 && total < due) {
+      // and the company has credit limits switched on (null/0 limit = no limit).
+      if (this.creditLimitOn && this.clientId && Number(this.clientCreditLimit || 0) > 0 && total < due) {
         // Credit limits live in the base currency — convert the doc-currency
         // shortfall before comparing.
         const currentDue = parseFloat(this.clientNetBalance || 0);
@@ -1103,8 +1119,8 @@ export default {
           send_sms: this.sendSMS,
           // No global account_id
           payment_note: this.paymentNote || '',
-          discount_from_points: this.discountFromPoints || 0,
-          used_points: this.usedPoints || 0,
+          discount_from_points: this.effectiveDiscountFromPoints,
+          used_points: this.effectiveUsedPoints,
           // Offline-held (local) draft ids never go to the server; the parent
           // deletes the local record on payment-success.
           draft_sale_id: (this.draftSaleId && !(Util && Util.offlinePos && Util.offlinePos.isLocalId && Util.offlinePos.isLocalId(this.draftSaleId)))

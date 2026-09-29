@@ -116,13 +116,13 @@
             </a-form-item>
           </a-col>
 
-          <a-col :xs="24" :md="12" :lg="8">
+          <a-col v-if="fields.delivery_date" :xs="24" :md="12" :lg="8">
             <a-form-item :label="$t('Delivery_Date')">
               <a-date-picker v-model:value="booking.delivery_date" value-format="YYYY-MM-DD" style="width: 100%" />
             </a-form-item>
           </a-col>
 
-          <a-col :xs="24" :md="12" :lg="8">
+          <a-col v-if="fields.delivery_time" :xs="24" :md="12" :lg="8">
             <a-form-item :label="$t('Delivery_Time')">
               <a-time-picker
                 v-model:value="booking.delivery_time" value-format="HH:mm" format="HH:mm" style="width: 100%"
@@ -130,7 +130,7 @@
             </a-form-item>
           </a-col>
 
-          <a-col :xs="24" :md="12" :lg="8">
+          <a-col v-if="fields.status" :xs="24" :md="12" :lg="8">
             <a-form-item :label="$t('Status') + ' *'" name="status">
               <a-select
                 v-model:value="booking.status" :placeholder="$t('Choose_Status')" :options="statusOptions"
@@ -138,7 +138,7 @@
             </a-form-item>
           </a-col>
 
-          <a-col :xs="24" :lg="12">
+          <a-col v-if="fields.delivery_address" :xs="24" :lg="12">
             <a-form-item :label="$t('Delivery_Address')">
               <a-textarea
                 v-model:value="booking.delivery_address" :rows="2"
@@ -160,6 +160,9 @@
         </a-space>
       </a-form>
     </a-card>
+
+    <!-- Public booking page + iframe code for external websites (create only) -->
+    <OnlineBookingCard v-if="!isEdit && !loading" :public-booking="publicBooking" style="margin-top: 16px" />
 
     <!-- Quick add customer -->
     <a-modal
@@ -213,6 +216,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
+import OnlineBookingCard from '../../components/OnlineBookingCard.vue';
 import { t as tf } from '../../i18n';
 import http from '../../lib/http';
 
@@ -231,6 +235,11 @@ const customers = ref([]);
 const products = ref([]);
 const trays = ref([]);
 const salesPersons = ref([]);
+const publicBooking = ref(null);
+// System Settings -> Defaults -> Booking: optional fields (all shown until the API says otherwise).
+// A hidden field keeps its value: a new booking saves the defaults (status Pending,
+// no delivery), an edit sends back what the booking already has.
+const fields = ref({ delivery_date: true, delivery_time: true, status: true, delivery_address: true });
 
 /** Local date, not UTC — see the note above. */
 function todayLocal() {
@@ -388,6 +397,8 @@ onMounted(async () => {
     products.value = data?.products || [];
     trays.value = data?.trays || [];
     salesPersons.value = data?.sales_persons || [];
+    publicBooking.value = data?.public_booking || null;
+    if (data?.booking_fields) fields.value = { ...fields.value, ...data.booking_fields };
 
     if (isEdit) {
       const b = data?.booking || {};

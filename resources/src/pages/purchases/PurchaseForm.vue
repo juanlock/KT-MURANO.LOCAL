@@ -408,7 +408,8 @@ const purchase = ref({
   date: dayjs().format('YYYY-MM-DD'),
   supplier_id: undefined,
   warehouse_id: undefined,
-  statut: 'received',
+  // New purchases default to 'pending' (no stock added until received).
+  statut: 'pending',
   notes: '',
   tax_rate: 0,
   discount: 0,

@@ -27,6 +27,18 @@ use Illuminate\Support\Facades\DB;
  */
 class HospitalReportController extends Controller
 {
+    // Multicompany: hospital rows belong to a company through their PATIENT
+    // (patients.company_id); doctors through their employee. Wards, beds and
+    // departments have no company link yet (shared) -- see the report notes.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
+    /** Restrict a query to the report company's patients (by $column). */
+    private function forCompanyPatients($query, string $column = 'patient_id')
+    {
+        $cid = $this->reportCompanyId();
+
+        return $cid ? $query->whereIn($column, Patient::where('company_id', $cid)->select('id')) : $query;
+    }
     /** Doctor workload: appointments, visits, patients seen, revenue. */
     public function doctors(Request $request)
     {
@@ -35,13 +47,14 @@ class HospitalReportController extends Controller
         [$from, $to] = $this->range($request);
 
         $doctors = Doctor::with('department')->whereNull('deleted_at')
+            ->when($this->reportCompanyId(), fn ($q, $cid) => $q->whereIn('employee_id', \App\Models\Employee::where('company_id', $cid)->select('id')))
             ->when($request->filled('department_id'), fn ($q) => $q->where('department_id', $request->department_id))
             ->when($request->filled('search'), fn ($q) => $q->where('name', 'LIKE', "%{$request->search}%"))
             ->get();
 
         $appointments = $this->groupCount(Appointment::class, 'doctor_id', 'scheduled_at', $from, $to);
         $noShows = $this->groupCount(Appointment::class, 'doctor_id', 'scheduled_at', $from, $to, fn ($q) => $q->where('status', 'no_show'));
-        $visitRows = PatientVisit::whereNull('deleted_at')
+        $visitRows = $this->forCompanyPatients(PatientVisit::query())->whereNull('deleted_at')
             ->when($from, fn ($q) => $q->whereDate('visit_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('visit_date', '<=', $to))
             ->select('doctor_id', DB::raw('count(*) as entries'), DB::raw('COUNT(DISTINCT patient_id) as patients'), DB::raw('COALESCE(SUM(fee),0) as fees'))
@@ -80,7 +93,7 @@ class HospitalReportController extends Controller
         [$from, $to] = $this->range($request);
 
         // Billed money is attributed through the visit that produced it.
-        $billed = DB::table('hospital_invoices')
+        $billed = $this->forCompanyPatients(DB::table('hospital_invoices'), 'hospital_invoices.patient_id')
             ->join('patient_visits', 'patient_visits.id', '=', 'hospital_invoices.visit_id')
             ->whereNull('hospital_invoices.deleted_at')
             ->where('hospital_invoices.status', '!=', 'cancelled')
@@ -90,7 +103,7 @@ class HospitalReportController extends Controller
             ->groupBy('patient_visits.department_id')
             ->get()->keyBy('department_id');
 
-        $visits = PatientVisit::whereNull('deleted_at')
+        $visits = $this->forCompanyPatients(PatientVisit::query())->whereNull('deleted_at')
             ->when($from, fn ($q) => $q->whereDate('visit_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('visit_date', '<=', $to))
             ->select('department_id', DB::raw('count(*) as entries'), DB::raw('COALESCE(SUM(fee),0) as fees'))
@@ -142,7 +155,7 @@ class HospitalReportController extends Controller
             ->select('ward_id', 'status', DB::raw('count(*) as aggregate'))
             ->groupBy('ward_id', 'status')->get();
 
-        $admissions = Admission::whereNull('deleted_at')
+        $admissions = $this->forCompanyPatients(Admission::query())->whereNull('deleted_at')
             ->when($from, fn ($q) => $q->whereDate('admitted_at', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('admitted_at', '<=', $to))
             ->get()->groupBy('ward_id');
@@ -186,13 +199,13 @@ class HospitalReportController extends Controller
 
         [$from, $to] = $this->range($request);
 
-        $visits = PatientVisit::whereNull('deleted_at')
+        $visits = $this->forCompanyPatients(PatientVisit::query())->whereNull('deleted_at')
             ->when($from, fn ($q) => $q->whereDate('visit_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('visit_date', '<=', $to))
             ->select('patient_id', DB::raw('count(*) as entries'), DB::raw('MAX(visit_date) as last_visit'))
             ->groupBy('patient_id')->get()->keyBy('patient_id');
 
-        $invoices = HospitalInvoice::whereNull('deleted_at')->where('status', '!=', 'cancelled')
+        $invoices = $this->forCompanyPatients(HospitalInvoice::query())->whereNull('deleted_at')->where('status', '!=', 'cancelled')
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to))
             ->select('patient_id', DB::raw('COALESCE(SUM(total),0) as billed'), DB::raw('COALESCE(SUM(paid),0) as paid'))
@@ -204,7 +217,7 @@ class HospitalReportController extends Controller
         $ids = collect($visits->keys())->merge($invoices->keys())->merge(array_keys($admissions))->merge(array_keys($labs))->unique();
 
         // Nothing in range: fall back to the register so the report is not blank.
-        $query = Patient::whereNull('deleted_at')
+        $query = $this->rc(Patient::query(), 'patients.company_id')->whereNull('deleted_at')
             ->when($ids->isNotEmpty(), fn ($q) => $q->whereIn('id', $ids))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where(function ($inner) use ($request) {
@@ -248,7 +261,7 @@ class HospitalReportController extends Controller
 
         [$from, $to] = $this->range($request);
 
-        $rows = HospitalPayment::whereNull('deleted_at')
+        $rows = $this->forCompanyPatients(HospitalPayment::query())->whereNull('deleted_at')
             ->when($from, fn ($q) => $q->whereDate('paid_on', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('paid_on', '<=', $to))
             ->select('method', DB::raw('count(*) as entries'), DB::raw('COALESCE(SUM(amount),0) as amount'))
@@ -287,6 +300,8 @@ class HospitalReportController extends Controller
     private function groupCount($model, $column, $dateColumn, $from, $to, $extra = null)
     {
         $query = $model::whereNull('deleted_at')
+            // every counted table here carries patient_id -> company scope
+            ->tap(fn ($q) => $this->forCompanyPatients($q))
             ->when($from, fn ($q) => $q->whereDate($dateColumn, '>=', $from))
             ->when($to, fn ($q) => $q->whereDate($dateColumn, '<=', $to));
 

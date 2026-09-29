@@ -43,7 +43,7 @@ class AssetAssignmentController extends BaseController
         ];
         $order = $sortable[$order] ?? 'asset_assignments.id';
 
-        $query = AssetAssignment::leftJoin('assets', 'assets.id', '=', 'asset_assignments.asset_id')
+        $query = $this->inAssetScope(AssetAssignment::query(), 'asset_assignments.asset_id')->leftJoin('assets', 'assets.id', '=', 'asset_assignments.asset_id')
             ->leftJoin('users', 'users.id', '=', 'asset_assignments.user_id')
             ->whereNull('asset_assignments.deleted_at')
             ->select(
@@ -121,6 +121,7 @@ class AssetAssignmentController extends BaseController
         return DB::transaction(function () use ($request) {
             // Lock the asset so two people cannot check the same one out at once.
             $asset = Asset::whereNull('deleted_at')->lockForUpdate()->find($request->asset_id);
+        if ($asset) { $this->abortIfAssetIdOutOfScope($asset->id); }
             if (! $asset) {
                 return response()->json(['success' => false, 'message' => 'Asset not found.'], 404);
             }
@@ -163,7 +164,7 @@ class AssetAssignmentController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', AssetAssignment::class);
 
-        $assignment = AssetAssignment::whereNull('deleted_at')->findOrFail($id);
+        $assignment = $this->inAssetScope(AssetAssignment::query(), 'asset_assignments.asset_id')->whereNull('asset_assignments.deleted_at')->findOrFail($id);
 
         $request->validate([
             'assigned_on' => 'required|date',
@@ -192,7 +193,7 @@ class AssetAssignmentController extends BaseController
         ]);
 
         return DB::transaction(function () use ($request, $id) {
-            $assignment = AssetAssignment::whereNull('deleted_at')->lockForUpdate()->findOrFail($id);
+            $assignment = $this->inAssetScope(AssetAssignment::query(), 'asset_assignments.asset_id')->whereNull('asset_assignments.deleted_at')->lockForUpdate()->findOrFail($id);
 
             if ($assignment->status === 'returned') {
                 return response()->json([
@@ -227,7 +228,7 @@ class AssetAssignmentController extends BaseController
         $this->authorizeForUser($request->user('api'), 'delete', AssetAssignment::class);
 
         return DB::transaction(function () use ($id) {
-            $assignment = AssetAssignment::whereNull('deleted_at')->findOrFail($id);
+            $assignment = $this->inAssetScope(AssetAssignment::query(), 'asset_assignments.asset_id')->whereNull('asset_assignments.deleted_at')->findOrFail($id);
 
             // Deleting an open spell has to release the asset too, or it stays
             // stuck against a person with no record explaining why.
@@ -250,7 +251,7 @@ class AssetAssignmentController extends BaseController
 
         DB::transaction(function () use ($request) {
             foreach ($request->selectedIds ?: [] as $id) {
-                $assignment = AssetAssignment::whereNull('deleted_at')->find($id);
+                $assignment = $this->inAssetScope(AssetAssignment::query(), 'asset_assignments.asset_id')->whereNull('asset_assignments.deleted_at')->find($id);
                 if (! $assignment) {
                     continue;
                 }

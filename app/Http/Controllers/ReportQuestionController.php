@@ -13,6 +13,9 @@ use App\Models\UserWarehouse;
 
 class ReportQuestionController extends BaseController
 {
+    // Multicompany: reportCompanyId(), company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     protected $reportService;
 
     public function __construct(ReportQuestionService $reportService)
@@ -37,10 +40,10 @@ class ReportQuestionController extends BaseController
 
         // warehouses for user
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 

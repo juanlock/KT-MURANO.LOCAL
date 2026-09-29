@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Schema;
 
 class TodaySummaryController extends Controller
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     /**
      * Everything the topbar "Today's summary" drawer shows, in one call.
      *
@@ -48,8 +51,8 @@ class TodaySummaryController extends Controller
         $user = Auth::user();
 
         $warehouseIds = null; // null = unrestricted
-        if ($user && ! $user->is_all_warehouses) {
-            $warehouseIds = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->toArray();
+        if ($user && ! $this->reportAllWarehouses()) {
+            $warehouseIds = $this->reportWarehouseIdList();
         }
         $wh = function ($q, $col = 'warehouse_id') use ($warehouseIds) {
             if ($warehouseIds !== null) {
@@ -78,7 +81,7 @@ class TodaySummaryController extends Controller
             ->first();
         $itemsSold = (float) $own($wh(
             DB::table('sale_details')
-                ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
+                ->join('sales', 'sales.id', '=', 'sale_details.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
                 ->whereNull('sales.deleted_at')->whereDate('sales.date', '>=', $fromDate)->whereDate('sales.date', '<=', $toDate),
             'sales.warehouse_id'
         ), 'sales.user_id')->sum('sale_details.quantity');
@@ -105,7 +108,7 @@ class TodaySummaryController extends Controller
             ->first();
         $itemsPurchased = (float) $own($wh(
             DB::table('purchase_details')
-                ->join('purchases', 'purchases.id', '=', 'purchase_details.purchase_id')
+                ->join('purchases', 'purchases.id', '=', 'purchase_details.purchase_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('purchases.company_id', $cid))
                 ->whereNull('purchases.deleted_at')->whereDate('purchases.date', '>=', $fromDate)->whereDate('purchases.date', '<=', $toDate),
             'purchases.warehouse_id'
         ), 'purchases.user_id')->sum('purchase_details.quantity');
@@ -128,7 +131,7 @@ class TodaySummaryController extends Controller
         /* ------------------------------------------------------------ stock */
         $stockRow = $wh(
             DB::table('product_warehouse')
-                ->join('products', 'products.id', '=', 'product_warehouse.product_id')
+                ->join('products', 'products.id', '=', 'product_warehouse.product_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
                 ->leftJoin('product_variants', 'product_variants.id', '=', 'product_warehouse.product_variant_id')
                 ->whereNull('product_warehouse.deleted_at')
                 ->whereNull('products.deleted_at')
@@ -140,7 +143,7 @@ class TodaySummaryController extends Controller
                          COALESCE(SUM(product_warehouse.qte),0) units')
             ->first();
 
-        $outOfStock = (int) DB::table('products')
+        $outOfStock = (int) $this->rc(DB::table('products'), 'products.company_id')
             ->whereNull('deleted_at')
             ->where('type', '!=', 'is_service')
             ->whereNotExists(function ($q) use ($warehouseIds) {
@@ -170,7 +173,7 @@ class TodaySummaryController extends Controller
         $received = $own($wh(
             DB::table('payment_sales')
                 ->join('payment_methods', 'payment_methods.id', '=', 'payment_sales.payment_method_id')
-                ->join('sales', 'sales.id', '=', 'payment_sales.sale_id')
+                ->join('sales', 'sales.id', '=', 'payment_sales.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
                 ->whereNull('payment_sales.deleted_at')
                 ->whereNull('sales.deleted_at')
                 ->whereDate('payment_sales.date', '>=', $fromDate)->whereDate('payment_sales.date', '<=', $toDate),
@@ -182,7 +185,7 @@ class TodaySummaryController extends Controller
         $given = $own($wh(
             DB::table('payment_purchases')
                 ->join('payment_methods', 'payment_methods.id', '=', 'payment_purchases.payment_method_id')
-                ->join('purchases', 'purchases.id', '=', 'payment_purchases.purchase_id')
+                ->join('purchases', 'purchases.id', '=', 'payment_purchases.purchase_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('purchases.company_id', $cid))
                 ->whereNull('payment_purchases.deleted_at')
                 ->whereNull('purchases.deleted_at')
                 ->whereDate('payment_purchases.date', '>=', $fromDate)->whereDate('payment_purchases.date', '<=', $toDate),
@@ -236,7 +239,7 @@ class TodaySummaryController extends Controller
         /* ----------------------------------------------------------- profit */
         $cogs = (float) $own($wh(
             DB::table('sale_details')
-                ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
+                ->join('sales', 'sales.id', '=', 'sale_details.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
                 ->leftJoin('product_variants', 'product_variants.id', '=', 'sale_details.product_variant_id')
                 ->leftJoin('products', 'products.id', '=', 'sale_details.product_id')
                 ->whereNull('sales.deleted_at')->whereDate('sales.date', '>=', $fromDate)->whereDate('sales.date', '<=', $toDate),
@@ -265,11 +268,11 @@ class TodaySummaryController extends Controller
         /* ------------------------------------------------------------ tiles */
         // Clients carry neither a warehouse nor an owner column, so this tile
         // stays global for every user.
-        $newCustomers = (int) DB::table('clients')->whereNull('deleted_at')->whereDate('created_at', '>=', $fromDate)->whereDate('created_at', '<=', $toDate)->count();
+        $newCustomers = (int) $this->rc(DB::table('clients'), 'clients.company_id')->whereNull('deleted_at')->whereDate('created_at', '>=', $fromDate)->whereDate('created_at', '<=', $toDate)->count();
 
         $lowStock = (int) $wh(
             DB::table('product_warehouse')
-                ->join('products', 'products.id', '=', 'product_warehouse.product_id')
+                ->join('products', 'products.id', '=', 'product_warehouse.product_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
                 ->whereNull('product_warehouse.deleted_at')
                 ->whereNull('products.deleted_at')
                 ->where('products.stock_alert', '>', 0)

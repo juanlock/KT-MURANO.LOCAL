@@ -20,6 +20,9 @@ use Illuminate\Support\Str;
 
 class ExpensesController extends BaseController
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     use ScopesToCompany;
 
     // -------------- Show All  Expenses -----------\\
@@ -37,12 +40,10 @@ class ExpensesController extends BaseController
         $dir = $request->SortType;
         $helpers = new helpers;
         $user = Auth::user();
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
-            $warehouse_ids = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouse_ids = $this->reportWarehouseIdList();
         }
         // New way: Check user's record_view field (user-level boolean)
         // Backward compatibility: If record_view is null, fall back to role permission check
@@ -62,7 +63,7 @@ class ExpensesController extends BaseController
             });
 
             if (! $is_all_warehouses) {
-                $Sales->whereIn('warehouse_id', $warehouse_ids);
+                $Expenses->whereIn('warehouse_id', $warehouse_ids);
             }
 
         // Multiple Filter
@@ -131,10 +132,10 @@ class ExpensesController extends BaseController
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
@@ -520,10 +521,10 @@ class ExpensesController extends BaseController
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
@@ -604,10 +605,10 @@ class ExpensesController extends BaseController
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 

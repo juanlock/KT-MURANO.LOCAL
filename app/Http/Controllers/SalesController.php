@@ -132,6 +132,11 @@ class SalesController extends BaseController
             })
             ->when($request->filled('date_to'), function ($query) use ($request) {
                 return $query->whereDate('date', '<=', $request->date_to);
+            })
+            // Customers list "Due" link: only sales with an outstanding
+            // balance (the same set Customers' Due column sums).
+            ->when($request->boolean('due_only'), function ($query) {
+                return $query->whereColumn('paid_amount', '<', 'GrandTotal');
             });
         if (! $is_all_warehouses) {
             $Sales->whereIn('warehouse_id', $warehouse_ids);
@@ -661,8 +666,11 @@ class SalesController extends BaseController
             $used_points = $request->used_points ?? 0;
             $discount_from_points = $request->discount_from_points ?? 0;
             $earned_points = 0;
+            // Company switched loyalty off (Settings -> customer_loyalty_enabled):
+            // no points are earned or redeemed, whatever the request carries.
+            $loyaltyOn = optional(Setting::forCompany($this->resolveActingCompanyId($request)))->customer_loyalty_enabled ?? true;
 
-            if ($client && ($client->is_royalty_eligible == 1 || $client->is_royalty_eligible || $client->is_royalty_eligible === 1)) {
+            if ($loyaltyOn && $client && ($client->is_royalty_eligible == 1 || $client->is_royalty_eligible || $client->is_royalty_eligible === 1)) {
 
                 // Deduct used points if valid
                 if ($used_points > 0 && $client->points >= $used_points) {

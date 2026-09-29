@@ -14,6 +14,37 @@ use Illuminate\Support\Facades\Schema;
  */
 class ReportsController extends Controller
 {
+    // Multicompany: reportCompanyId(), company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
+    /**
+     * Multicompany for journal-based reports: acc_journal_entries has no
+     * company_id, so an entry belongs to a company through its SOURCE
+     * document (sale, purchase, their returns and payments) or, for manual
+     * entries, through the user who created it.
+     */
+    private function scopeJournalCompany($q, string $j = 'j')
+    {
+        $cid = $this->reportCompanyId();
+        if (! $cid) {
+            return $q;
+        }
+        $docs = [
+            'sale' => DB::table('sales')->where('company_id', $cid)->select('id'),
+            'purchase' => DB::table('purchases')->where('company_id', $cid)->select('id'),
+            'sale_return' => DB::table('sale_returns')->where('company_id', $cid)->select('id'),
+            'purchase_return' => DB::table('purchase_returns')->where('company_id', $cid)->select('id'),
+            'payment_sale' => DB::table('payment_sales as ps')->join('sales as s', 's.id', '=', 'ps.sale_id')->where('s.company_id', $cid)->select('ps.id'),
+            'payment_purchase' => DB::table('payment_purchases as pp')->join('purchases as p', 'p.id', '=', 'pp.purchase_id')->where('p.company_id', $cid)->select('pp.id'),
+        ];
+
+        return $q->where(function ($w) use ($j, $cid, $docs) {
+            $w->whereIn("$j.created_by", DB::table('users')->where('company_id', $cid)->select('id'));
+            foreach ($docs as $type => $ids) {
+                $w->orWhere(fn ($x) => $x->where("$j.reference_type", $type)->whereIn("$j.reference_id", $ids));
+            }
+        });
+    }
     public function trialBalance(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'trial_balance', Account::class);
@@ -33,6 +64,7 @@ class ReportsController extends Controller
 
         $base = DB::table('acc_journal_entry_lines as l')
             ->join('acc_journal_entries as j', 'j.id', '=', 'l.journal_entry_id')
+            ->tap(fn ($q) => $this->scopeJournalCompany($q))
             ->leftJoin('acc_chart_of_accounts as c', 'c.id', '=', 'l.coa_id')
             ->where('j.status', 'posted');
         if ($from) {
@@ -92,6 +124,7 @@ class ReportsController extends Controller
         // the table is narrowed by the type/search filters below.
         $periodBase = DB::table('acc_journal_entry_lines as l')
             ->join('acc_journal_entries as j', 'j.id', '=', 'l.journal_entry_id')
+            ->tap(fn ($q) => $this->scopeJournalCompany($q))
             ->leftJoin('acc_chart_of_accounts as c', 'c.id', '=', 'l.coa_id')
             ->where('j.status', 'posted')
             ->whereIn('c.type', ['income', 'expense']);
@@ -151,6 +184,7 @@ class ReportsController extends Controller
         $to = $request->get('to', Carbon::now()->toDateString());
         $base = DB::table('acc_journal_entry_lines as l')
             ->join('acc_journal_entries as j', 'j.id', '=', 'l.journal_entry_id')
+            ->tap(fn ($q) => $this->scopeJournalCompany($q))
             ->leftJoin('acc_chart_of_accounts as c', 'c.id', '=', 'l.coa_id')
             ->where('j.status', 'posted')
             ->where('j.date', '<=', $to);
@@ -186,7 +220,7 @@ class ReportsController extends Controller
 
         // Calculate Sales (Output Tax)
         if (Schema::hasTable('sales')) {
-            $q = DB::table('sales')
+            $q = $this->rc(DB::table('sales'), 'sales.company_id')
                 ->whereNull('deleted_at')
                 ->where('statut', '!=', 'pending'); // Exclude draft/pending sales
             if ($from) {
@@ -201,7 +235,7 @@ class ReportsController extends Controller
 
         // Calculate Sale Returns (Reduce Output Tax)
         if (Schema::hasTable('sale_returns')) {
-            $q = DB::table('sale_returns')
+            $q = $this->rc(DB::table('sale_returns'), 'sale_returns.company_id')
                 ->whereNull('deleted_at')
                 ->where('statut', '!=', 'pending');
             if ($from) {
@@ -216,7 +250,7 @@ class ReportsController extends Controller
 
         // Calculate Purchases (Input Tax)
         if (Schema::hasTable('purchases')) {
-            $q = DB::table('purchases')
+            $q = $this->rc(DB::table('purchases'), 'purchases.company_id')
                 ->whereNull('deleted_at')
                 ->where('statut', '!=', 'pending'); // Exclude draft/pending purchases
             if ($from) {
@@ -231,7 +265,7 @@ class ReportsController extends Controller
 
         // Calculate Purchase Returns (Reduce Input Tax)
         if (Schema::hasTable('purchase_returns')) {
-            $q = DB::table('purchase_returns')
+            $q = $this->rc(DB::table('purchase_returns'), 'purchase_returns.company_id')
                 ->whereNull('deleted_at')
                 ->where('statut', '!=', 'pending');
             if ($from) {

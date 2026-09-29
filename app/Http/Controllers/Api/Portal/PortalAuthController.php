@@ -25,29 +25,31 @@ class PortalAuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $portalClient = PortalClient::where('email', $cred['email'])->first();
+        // Portal login = the customer's own users row (PortalClient scopes to
+        // type=customer, not deleted). users.email isn't DB-unique, so prefer
+        // the row that actually has the portal on.
+        $portalClient = PortalClient::where('email', $cred['email'])->orderByDesc('portal_enabled')->first();
 
         if (!$portalClient || !Hash::check($cred['password'], $portalClient->password)) {
             return response()->json(['message' => __('portal.invalid_credentials')], 401);
         }
 
-        if ((int) $portalClient->status !== 1) {
+        if (!$portalClient->canAccessPortal() || !$portalClient->client) {
             return response()->json(['message' => __('portal.portal_disabled_account')], 403);
         }
 
-        if (Auth::guard('portal')->attempt($cred, $request->boolean('remember'))) {
-            // Do not regenerate session here: the app and portal share the same session cookie.
-            // Regenerating would replace the session id and log out the main app (auth:web) user.
+        // Log in the exact row verified above (attempt() would re-look-up by
+        // email and could pick a different same-email customer).
+        // Do not regenerate session here: the app and portal share the same session cookie.
+        // Regenerating would replace the session id and log out the main app (auth:web) user.
+        Auth::guard('portal')->login($portalClient, $request->boolean('remember'));
 
-            $this->rememberSessionLocale($portalClient);
+        $this->rememberSessionLocale($portalClient);
 
-            return response()->json([
-                'success' => true,
-                'portal_client' => $this->portalClientResponse($portalClient),
-            ]);
-        }
-
-        return response()->json(['message' => __('portal.invalid_credentials')], 401);
+        return response()->json([
+            'success' => true,
+            'portal_client' => $this->portalClientResponse($portalClient),
+        ]);
     }
 
     /**
@@ -74,7 +76,7 @@ class PortalAuthController extends Controller
 
         $portalClient->load('client');
 
-        if ((int) $portalClient->status !== 1) {
+        if (!$portalClient->canAccessPortal() || !$portalClient->client) {
             Auth::guard('portal')->logout();
             // Only clear portal auth, do not invalidate entire session
 
@@ -173,6 +175,10 @@ class PortalAuthController extends Controller
                 'email' => $portalClient->client->email,
                 'phone' => $portalClient->client->phone,
                 'adresse' => $portalClient->client->adresse,
+            ],
+            // Business Modules of the customer's company (portal nav hides what's off).
+            'modules' => [
+                'helpdesk' => \App\Support\ModuleFlags::enabled((int) $portalClient->client->company_id, 'helpdesk'),
             ],
         ];
     }

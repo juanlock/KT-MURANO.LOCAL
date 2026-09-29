@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\DB;
 
 class ProfitReportController extends Controller
 {
+    // Multicompany: reportCompanyId(), company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     /**
      * Profit analysis grouped by one dimension:
      *   GET report/profit/{dimension}  — product | category | unit | customer | date | warehouse
@@ -45,8 +48,8 @@ class ProfitReportController extends Controller
         // ---- Warehouse scope
         $user = Auth::user();
         $allowed = null;
-        if ($user && ! $user->is_all_warehouses) {
-            $allowed = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->toArray();
+        if ($user && ! $this->reportAllWarehouses()) {
+            $allowed = $this->reportWarehouseIdList();
         }
         $warehouseId = $request->warehouse_id;
         if ($allowed !== null && $warehouseId && ! in_array((int) $warehouseId, $allowed, true)) {
@@ -56,8 +59,8 @@ class ProfitReportController extends Controller
         $costExpr = 'sd.quantity * COALESCE(pv.cost, p.cost, 0)';
 
         $base = fn () => DB::table('sale_details as sd')
-            ->join('sales as s', 's.id', '=', 'sd.sale_id')
-            ->join('products as p', 'p.id', '=', 'sd.product_id')
+            ->join('sales as s', 's.id', '=', 'sd.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('s.company_id', $cid))
+            ->join('products as p', 'p.id', '=', 'sd.product_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('p.company_id', $cid))
             ->leftJoin('product_variants as pv', 'pv.id', '=', 'sd.product_variant_id')
             ->whereNull('s.deleted_at')
             ->whereBetween('s.date', [$from, $to])

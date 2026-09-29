@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 
 class CommissionReportController extends BaseController
 {
+    // Multicompany: reportCompanyId(), company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', CommissionProgram::class);
@@ -25,7 +28,9 @@ class CommissionReportController extends BaseController
             'commissionProgram:id,name',
             'commissionRule:id,name,type,value',
             'commissionReceipt:id,Ref,paid_at',
-        ])->where('sale_commissions.deleted_at', null);
+        ])->where('sale_commissions.deleted_at', null)
+            // Multicompany: a commission belongs to the company of its sale.
+            ->when($this->reportCompanyId(), fn ($q, $cid) => $q->whereIn('sale_commissions.sale_id', \App\Models\Sale::where('company_id', $cid)->select('id')));
 
         if ($request->filled('sales_agent_id')) {
             $query->where('sales_agent_id', $request->sales_agent_id);
@@ -61,7 +66,9 @@ class CommissionReportController extends BaseController
     public function summary(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', CommissionProgram::class);
-        $query = SaleCommission::where('deleted_at', null);
+        $query = SaleCommission::where('deleted_at', null)
+            // Multicompany: a commission belongs to the company of its sale.
+            ->when($this->reportCompanyId(), fn ($q, $cid) => $q->whereIn('sale_commissions.sale_id', \App\Models\Sale::where('company_id', $cid)->select('id')));
 
         if ($request->filled('sales_agent_id')) {
             $query->where('sales_agent_id', $request->sales_agent_id);
@@ -96,6 +103,8 @@ class CommissionReportController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', CommissionProgram::class);
         $query = SaleCommission::where('sale_commissions.deleted_at', null)
+            // Multicompany: a commission belongs to the company of its sale.
+            ->when($this->reportCompanyId(), fn ($q, $cid) => $q->whereIn('sale_commissions.sale_id', \App\Models\Sale::where('company_id', $cid)->select('id')))
             ->join('sales_agents', 'sale_commissions.sales_agent_id', '=', 'sales_agents.id')
             ->select('sales_agents.id', 'sales_agents.name', 'sales_agents.code')
             ->selectRaw('SUM(sale_commissions.commission_amount) as total_commission')

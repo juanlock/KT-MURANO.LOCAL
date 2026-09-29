@@ -194,6 +194,21 @@ export const MIGRATED_ROUTES = {
     '/app/Store/ShippingMethods': '/store/shipping-methods',
     '/app/Store/ShippingZones': '/store/shipping-zones',
     '/app/Store/Banners': '/store/banners',
+    '/app/helpdesk/dashboard': '/helpdesk/dashboard',
+    '/app/helpdesk/tickets': '/helpdesk/tickets',
+    '/app/helpdesk/my': '/helpdesk/my',
+    '/app/helpdesk/settings': '/helpdesk/settings',
+    '/app/Store/Gallery': '/store/gallery',
+    '/app/Store/Portfolio': '/store/portfolio',
+    '/app/intranet/home': '/intranet',
+    '/app/intranet/calendar': '/intranet/calendar',
+    '/app/intranet/files': '/intranet/files',
+    '/app/intranet/gallery': '/intranet/gallery',
+    '/app/intranet-admin/news': '/intranet-admin/news',
+    '/app/intranet-admin/files': '/intranet-admin/files',
+    '/app/intranet-admin/gallery': '/intranet-admin/gallery',
+    '/app/intranet-admin/events': '/intranet-admin/events',
+    '/app/intranet-admin/pages': '/intranet-admin/pages',
     '/app/realestate/properties': '/realestate/properties',
     '/app/realestate/categories': '/realestate/categories',
     '/app/realestate/inquiries': '/realestate/inquiries',
@@ -249,6 +264,7 @@ export const MIGRATED_ROUTES = {
     '/app/assets/reports': '/assets/reports',
     '/app/bookings/list': '/bookings',
     '/app/bookings/trays': '/bookings/trays',
+    '/app/bookings/online': '/bookings/online',
     '/app/meeting/meetings': '/meetings',
     '/app/knowledge-base': '/kb',
     '/app/knowledge-base/groups': '/kb/groups',
@@ -331,6 +347,31 @@ export const MENU = [
         permissions: [],
     },
     {
+        key: 'intranet',
+        icon: 'megaphone',
+        label: 'Intranet',
+        permissions: ['intranet_view'],
+        children: [
+            { label: 'Intranet_Home', to: '/app/intranet/home', permissions: ['intranet_view'] },
+            { label: 'Intranet_Calendar', to: '/app/intranet/calendar', permissions: ['intranet_view'] },
+            { label: 'Intranet_Files', to: '/app/intranet/files', permissions: ['intranet_view'] },
+            { label: 'Intranet_Gallery', to: '/app/intranet/gallery', permissions: ['intranet_view'] },
+        ],
+    },
+    {
+        key: 'intranet_management',
+        icon: 'clipboard-list',
+        label: 'Intranet_Management',
+        permissions: ['intranet_manage'],
+        children: [
+            { label: 'Intranet_News', to: '/app/intranet-admin/news', permissions: ['intranet_manage'] },
+            { label: 'Intranet_Files', to: '/app/intranet-admin/files', permissions: ['intranet_manage'] },
+            { label: 'Intranet_Gallery', to: '/app/intranet-admin/gallery', permissions: ['intranet_manage'] },
+            { label: 'Intranet_Events', to: '/app/intranet-admin/events', permissions: ['intranet_manage'] },
+            { label: 'Intranet_Pages', to: '/app/intranet-admin/pages', permissions: ['intranet_manage'] },
+        ],
+    },
+    {
         key: 'Store',
         icon: 'shopping-bag',
         label: 'Store',
@@ -342,6 +383,8 @@ export const MENU = [
             { label: 'Online_Orders', to: '/app/Store/Orders', permissions: ['Orders_view'], badge: 'new_orders' },
             { label: 'Collections', to: '/app/Store/Collections', permissions: ['Collections_view'] },
             { label: 'Banners', to: '/app/Store/Banners', permissions: ['Banners_view'] },
+            { label: 'Gallery', to: '/app/Store/Gallery', permissions: ['Store_settings_view'] },
+            { label: 'Portfolio', to: '/app/Store/Portfolio', permissions: ['Store_settings_view'] },
             { label: 'Subscribers', to: '/app/Store/Subscribers', permissions: ['Subscribers_view'] },
             { label: 'Messages', to: '/app/Store/Messages', permissions: ['Messages_view'], badge: 'messages' },
             { label: 'Invite_Codes', to: '/app/Store/InviteCodes', permissions: ['Store_settings_view'] },
@@ -357,8 +400,8 @@ export const MENU = [
             { label: 'Popup_Messages', to: '/app/Store/Popups', permissions: ['Store_settings_view'] },
             { label: 'Quote_Requests', to: '/app/Store/QuoteRequests', permissions: ['Orders_view'], badge: 'quote_requests' },
             { label: 'Returns_Requests', to: '/app/Store/Returns', permissions: ['Orders_view'] },
-            { label: 'Pages', to: '/app/Store/Pages', permissions: ['Store_settings_view'] },
-            { label: 'Menus', to: '/app/Store/Menus', permissions: ['Store_settings_view'] },
+            // Pages and Menus live in Store -> Settings -> Homepage Blocks now
+            // (they follow the front page: store sections vs imported website).
             {
                 label: 'Real_Estate',
                 permissions: ['realestate_properties', 'realestate_categories', 'realestate_inquiries'],
@@ -368,6 +411,19 @@ export const MENU = [
                     { label: 'Property_Inquiries', to: '/app/realestate/inquiries', permissions: ['realestate_inquiries'] },
                 ],
             },
+        ],
+    },
+    {
+        // Helpdesk: agents work tickets; every staff user can open their own ("My tickets").
+        key: 'helpdesk',
+        icon: 'life-buoy',
+        label: 'Helpdesk',
+        permissions: [],
+        children: [
+            { label: 'Helpdesk_Dashboard', to: '/app/helpdesk/dashboard', permissions: ['helpdesk_view'] },
+            { label: 'Helpdesk_Tickets', to: '/app/helpdesk/tickets', permissions: ['helpdesk_view'] },
+            { label: 'Helpdesk_My_Tickets', to: '/app/helpdesk/my', permissions: [] },
+            { label: 'Helpdesk_Settings', to: '/app/helpdesk/settings', permissions: ['helpdesk_manage'] },
         ],
     },
     {
@@ -749,6 +805,7 @@ export const MENU = [
             { label: 'Booking_List', to: '/app/bookings/list', permissions: ['bookings'] },
             { label: 'Calendar_View', to: '/app/bookings/calendar', permissions: ['bookings'] },
             { label: 'Trays', to: '/app/bookings/trays', permissions: ['trays'] },
+            { label: 'Online_Booking', to: '/app/bookings/online', permissions: ['bookings'] },
         ],
     },
     {
@@ -869,7 +926,10 @@ export const MENU = [
             { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true },
             { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'] },
             { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true },
-            { label: 'Loyalty_Rewards', to: '/app/loyalty/rewards', permissions: ['loyalty_rewards'] },
+            // requiresSetting: hidden while the named auth-store flag is off
+            // (System Settings → Defaults → Customers → Loyalty Eligible);
+            // honored by the menu store alongside the module filter.
+            { label: 'Loyalty_Rewards', to: '/app/loyalty/rewards', permissions: ['loyalty_rewards'], requiresSetting: 'customerLoyaltyEnabled' },
         ],
     },
     {
@@ -941,7 +1001,7 @@ export const MENU = [
             { label: 'Stock_Transfer_Report', to: '/app/reports/stock_transfer_report', permissions: ['Stock_Transfer_Report'] },
             { label: 'Stock_Adjustment_Report', to: '/app/reports/stock_adjustment_report', permissions: ['Stock_Adjustment_Report'] },
             { label: 'Discount_Summary_Report', to: '/app/reports/discount_summary_report', permissions: ['discount_summary_report'] },
-            { label: 'Customer_Loyalty_Points_Report', to: '/app/reports/customer_loyalty_points_report', permissions: ['customer_loyalty_points_report'] },
+            { label: 'Customer_Loyalty_Points_Report', to: '/app/reports/customer_loyalty_points_report', permissions: ['customer_loyalty_points_report'], requiresSetting: 'customerLoyaltyEnabled' },
             { label: 'Tax_Summary_Report', to: '/app/reports/tax_summary_report', permissions: ['tax_summary_report'] },
             { label: 'Draft_Invoices_Report', to: '/app/reports/draft_invoices_report', permissions: ['draft_invoices_report'] },
             { label: 'Return_Ratio_Report', to: '/app/reports/return_ratio_report', permissions: ['return_ratio_report'] },

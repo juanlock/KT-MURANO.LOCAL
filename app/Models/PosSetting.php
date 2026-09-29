@@ -19,7 +19,10 @@ class PosSetting extends Model
         $attrs = $template
             ? collect($template->getAttributes())->except(['id', 'company_id', 'created_at', 'updated_at', 'deleted_at'])->all()
             : [];
-        return static::create($attrs + ['company_id' => $companyId]);
+        // forceFill: company_id isn't mass-assignable (and the cloned template
+        // attributes may include non-fillable columns) -- create() silently
+        // saved a company-less row, so every later call cloned another one.
+        return tap((new static)->forceFill($attrs + ['company_id' => $companyId]))->save();
     }
 
     protected $fillable = [
@@ -29,7 +32,7 @@ class PosSetting extends Model
         'show_email', 'show_phone', 'show_address', 'is_printable', 'show_Warehouse', 'products_per_page',
         'quick_add_customer', 'barcode_scanning_sound', 'show_product_images',
         'show_stock_quantity', 'enable_hold_sales', 'enable_customer_points', 'show_categories', 'show_brands',
-        'show_customer_history', 'allow_overselling',
+        'show_customer_history', 'allow_overselling', 'show_pos_button',
         'receipt_layout', 'receipt_paper_size', 'receipt_font_family', 'receipt_font_size',
         'show_paid', 'show_due', 'show_previous_dues', 'show_net_balance', 'show_payments', 'show_zatca_qr',
         'cash_drawer_auto_open', 'cash_drawer_printer_name',
@@ -70,6 +73,7 @@ class PosSetting extends Model
         'enable_customer_points' => 'integer',
         'show_categories' => 'integer',
         'show_brands' => 'integer',
+        'show_pos_button' => 'integer',
         'allow_overselling' => 'boolean',
         'receipt_layout' => 'integer',
         'receipt_paper_size' => 'integer',

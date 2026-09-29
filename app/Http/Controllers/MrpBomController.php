@@ -25,6 +25,16 @@ use Illuminate\Support\Facades\DB;
  */
 class MrpBomController extends BaseController
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
+    /** Multicompany: a BOM belongs to the company of the product it builds. */
+    private function bomScope($query, string $column = 'product_id')
+    {
+        $cid = $this->reportCompanyId();
+
+        return $cid ? $query->whereIn($column, \App\Models\Product::where('company_id', $cid)->select('id')) : $query;
+    }
     // ------------------------------------------------------------ work centres --
 
     public function workCenters(Request $request)
@@ -182,7 +192,7 @@ class MrpBomController extends BaseController
         ];
         $order = $sortable[$request->SortField ?? 'id'] ?? 'mrp_boms.id';
 
-        $query = MrpBom::leftJoin('products', 'products.id', '=', 'mrp_boms.product_id')
+        $query = $this->bomScope(MrpBom::query(), 'mrp_boms.product_id')->leftJoin('products', 'products.id', '=', 'mrp_boms.product_id')
             ->whereNull('mrp_boms.deleted_at')
             ->select('mrp_boms.*', 'products.name as product_name', 'products.code as product_code')
             ->when($request->filled('status'), fn ($q) => $q->where('mrp_boms.status', $request->status))
@@ -233,7 +243,7 @@ class MrpBomController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', MrpBom::class);
 
-        $bom = MrpBom::whereNull('deleted_at')->with(['lines', 'operations'])->findOrFail($id);
+        $bom = $this->bomScope(MrpBom::query())->whereNull('deleted_at')->with(['lines', 'operations'])->findOrFail($id);
 
         // A BOM with no warehouse is company-wide; one that names a warehouse
         // is only visible to users assigned to it.
@@ -378,7 +388,7 @@ class MrpBomController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', MrpBom::class);
 
-        $bom = MrpBom::whereNull('deleted_at')->findOrFail($id);
+        $bom = $this->bomScope(MrpBom::query())->whereNull('deleted_at')->findOrFail($id);
 
         $request->validate([
             'code' => 'required|string|max:60|unique:mrp_boms,code,'.$id,
@@ -433,7 +443,7 @@ class MrpBomController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', MrpBom::class);
 
-        $bom = MrpBom::whereNull('deleted_at')->findOrFail($id);
+        $bom = $this->bomScope(MrpBom::query())->whereNull('deleted_at')->findOrFail($id);
 
         // An open order still needs the recipe it was built from.
         $inUse = MrpProductionOrder::whereNull('deleted_at')
@@ -458,14 +468,14 @@ class MrpBomController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'create', MrpBom::class);
 
-        $source = MrpBom::whereNull('deleted_at')->with(['lines', 'operations'])->findOrFail($id);
+        $source = $this->bomScope(MrpBom::query())->whereNull('deleted_at')->with(['lines', 'operations'])->findOrFail($id);
         if ($source->warehouse_id) {
             $this->abortIfWarehouseDenied($source->warehouse_id);
         }
         $copy = null;
 
         DB::transaction(function () use ($source, $request, &$copy) {
-            $nextVersion = (int) MrpBom::whereNull('deleted_at')
+            $nextVersion = (int) $this->bomScope(MrpBom::query())->whereNull('deleted_at')
                 ->where('product_id', $source->product_id)->max('version') + 1;
 
             $copy = MrpBom::create([
@@ -510,7 +520,7 @@ class MrpBomController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', MrpBom::class);
 
-        $bom = MrpBom::whereNull('deleted_at')->findOrFail($id);
+        $bom = $this->bomScope(MrpBom::query())->whereNull('deleted_at')->findOrFail($id);
         $qty = (float) ($request->qty ?: $bom->output_qty);
 
         $result = app(MrpService::class)->explode($bom->product_id, $qty);
@@ -630,7 +640,7 @@ class MrpBomController extends BaseController
             return;
         }
 
-        MrpBom::whereNull('deleted_at')
+        $this->bomScope(MrpBom::query())->whereNull('deleted_at')
             ->where('product_id', $bom->product_id)
             ->where('id', '!=', $bom->id)
             ->update(['is_default' => false]);
@@ -642,10 +652,10 @@ class MrpBomController extends BaseController
         $this->authorizeForUser($request->user('api'), 'view', MrpBom::class);
 
         $user = $request->user('api') ?: auth()->user();
-        if ($user && $user->is_all_warehouses) {
+        if ($user && $this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']);
         } else {
-            $ids = UserWarehouse::where('user_id', $user ? $user->id : null)->pluck('warehouse_id')->toArray();
+            $ids = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $ids)->orderBy('name')->get(['id', 'name']);
         }
 
@@ -662,7 +672,7 @@ class MrpBomController extends BaseController
                     'overhead_rate' => round((float) $c->overhead_rate, 4),
                     'efficiency_pct' => (int) $c->efficiency_pct,
                 ]),
-            'boms' => MrpBom::whereNull('deleted_at')->where('status', 'active')
+            'boms' => $this->bomScope(MrpBom::query())->whereNull('deleted_at')->where('status', 'active')
                 ->orderBy('name')->get(['id', 'code', 'name', 'product_id', 'output_qty', 'warehouse_id'])
                 ->map(fn ($b) => [
                     'id' => $b->id,
@@ -672,7 +682,7 @@ class MrpBomController extends BaseController
                     'output_qty' => round((float) $b->output_qty, 4),
                     'warehouse_id' => $b->warehouse_id,
                 ]),
-            'employees' => DB::table('employees')->whereNull('deleted_at')
+            'employees' => $this->rc(DB::table('employees'), 'employees.company_id')->whereNull('deleted_at')
                 ->orderBy('firstname')->get(['id', 'firstname', 'lastname', 'hourly_rate'])
                 ->map(fn ($e) => [
                     'id' => $e->id,
@@ -689,7 +699,7 @@ class MrpBomController extends BaseController
 
         $search = (string) $request->search;
 
-        $products = Product::whereNull('deleted_at')
+        $products = $this->rc(Product::query(), 'products.company_id')->whereNull('deleted_at')
             ->where('is_active', 1)
             ->when($search !== '', function ($q) use ($search) {
                 return $q->where(fn ($q) => $q->where('name', 'LIKE', "%{$search}%")

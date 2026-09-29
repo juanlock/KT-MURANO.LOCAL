@@ -190,6 +190,10 @@
       @endif
       @break
 
+    @case('portfolio')
+      {!! $block['html'] !!}
+      @break
+
     @case('best_sellers')
     @case('you_may_like')
       @php

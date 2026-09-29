@@ -30,6 +30,18 @@ use Illuminate\Support\Facades\DB;
  */
 class SchoolReportController extends Controller
 {
+    // Multicompany: school rows belong to a company through the STUDENT
+    // (students.company_id; enrollments carry company_id). Classes, sections,
+    // exams and timetable have no company link yet (shared).
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
+    /** Restrict a query to the report company's students (by $column). */
+    private function forCompanyStudents($query, string $column = 'student_id')
+    {
+        $cid = $this->reportCompanyId();
+
+        return $cid ? $query->whereIn($column, Student::where('company_id', $cid)->select('id')) : $query;
+    }
     /** Enrolment by class: headcount, gender split, capacity. */
     public function enrollment(Request $request)
     {
@@ -37,7 +49,7 @@ class SchoolReportController extends Controller
 
         $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
 
-        $enrollments = StudentEnrollment::with('student')
+        $enrollments = $this->rc(StudentEnrollment::query(), 'student_enrollments.company_id')->with('student')
             ->whereNull('deleted_at')->where('status', 'active')
             ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
             ->get()->groupBy('class_id');
@@ -83,7 +95,7 @@ class SchoolReportController extends Controller
 
         [$from, $to] = $this->range($request);
 
-        $marks = StudentAttendance::whereNull('subject_id')
+        $marks = $this->forCompanyStudents(StudentAttendance::query())->whereNull('subject_id')
             ->when($from, fn ($q) => $q->whereDate('attendance_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('attendance_date', '<=', $to))
             ->select('class_id', 'status', DB::raw('count(*) as aggregate'))
@@ -129,7 +141,7 @@ class SchoolReportController extends Controller
         $threshold = (float) ($request->threshold ?: 75);
         $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
 
-        $marks = StudentAttendance::whereNull('subject_id')
+        $marks = $this->forCompanyStudents(StudentAttendance::query())->whereNull('subject_id')
             ->when($from, fn ($q) => $q->whereDate('attendance_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('attendance_date', '<=', $to))
             ->when($request->filled('class_id'), fn ($q) => $q->where('class_id', $request->class_id))
@@ -140,7 +152,7 @@ class SchoolReportController extends Controller
             return $this->paginated($request, collect(), ['students' => 0], 'rate');
         }
 
-        $students = Student::whereNull('deleted_at')->whereIn('id', $marks->keys())
+        $students = $this->rc(Student::query(), 'students.company_id')->whereNull('deleted_at')->whereIn('id', $marks->keys())
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where(function ($inner) use ($request) {
                     $inner->where('name', 'LIKE', "%{$request->search}%")
@@ -148,7 +160,7 @@ class SchoolReportController extends Controller
                 });
             })->get()->keyBy('id');
 
-        $enrollments = StudentEnrollment::with('schoolClass', 'section')
+        $enrollments = $this->rc(StudentEnrollment::query(), 'student_enrollments.company_id')->with('schoolClass', 'section')
             ->whereNull('deleted_at')->whereIn('student_id', $students->keys())
             ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
             ->get()->keyBy('student_id');
@@ -206,7 +218,7 @@ class SchoolReportController extends Controller
             ->when($request->filled('class_id'), fn ($q) => $q->where('class_id', $request->class_id))
             ->get();
 
-        $results = ExamResult::whereIn('exam_subject_id', $papers->pluck('id'))->get()
+        $results = $this->forCompanyStudents(ExamResult::query())->whereIn('exam_subject_id', $papers->pluck('id'))->get()
             ->groupBy('exam_subject_id');
 
         $rows = $papers->map(function ($paper) use ($results) {
@@ -248,7 +260,7 @@ class SchoolReportController extends Controller
         $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
         [$from, $to] = $this->range($request);
 
-        $invoices = SchoolInvoice::whereNull('deleted_at')->where('status', '!=', 'cancelled')
+        $invoices = $this->forCompanyStudents(SchoolInvoice::query())->whereNull('deleted_at')->where('status', '!=', 'cancelled')
             ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
             ->when($from, fn ($q) => $q->whereDate('invoice_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('invoice_date', '<=', $to))
@@ -288,7 +300,7 @@ class SchoolReportController extends Controller
 
         $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
 
-        $owed = SchoolInvoice::whereNull('deleted_at')
+        $owed = $this->forCompanyStudents(SchoolInvoice::query())->whereNull('deleted_at')
             ->whereIn('status', ['unpaid', 'partial'])
             ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
             ->when($request->filled('class_id'), fn ($q) => $q->where('class_id', $request->class_id))
@@ -309,7 +321,7 @@ class SchoolReportController extends Controller
             return $this->paginated($request, collect(), ['due' => 0, 'students' => 0], 'due');
         }
 
-        $students = Student::whereNull('deleted_at')->whereIn('id', $owed->keys())
+        $students = $this->rc(Student::query(), 'students.company_id')->whereNull('deleted_at')->whereIn('id', $owed->keys())
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where(function ($inner) use ($request) {
                     $inner->where('name', 'LIKE', "%{$request->search}%")
@@ -318,7 +330,7 @@ class SchoolReportController extends Controller
                 });
             })->get();
 
-        $enrollments = StudentEnrollment::with('schoolClass', 'section')
+        $enrollments = $this->rc(StudentEnrollment::query(), 'student_enrollments.company_id')->with('schoolClass', 'section')
             ->whereNull('deleted_at')->whereIn('student_id', $students->pluck('id'))
             ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
             ->get()->keyBy('student_id');
@@ -367,7 +379,7 @@ class SchoolReportController extends Controller
             ->select('teacher_id', DB::raw('count(*) as aggregate'))
             ->groupBy('teacher_id')->pluck('aggregate', 'teacher_id')->toArray();
 
-        $rows = Teacher::whereNull('deleted_at')
+        $rows = Teacher::whereNull('deleted_at')->when($this->reportCompanyId(), fn ($q, $cid) => $q->whereIn('employee_id', \App\Models\Employee::where('company_id', $cid)->select('id')))
             ->when($request->filled('search'), fn ($q) => $q->where('name', 'LIKE', "%{$request->search}%"))
             ->get()
             ->map(function ($t) use ($slots, $formClasses) {

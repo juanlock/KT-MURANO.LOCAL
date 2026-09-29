@@ -25,11 +25,11 @@
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[16, 8]">
-        <a-col :xs="12" :md="8" :xl="5">
+        <a-col :xs="12" :md="8" :xl="4">
           <div class="filter-label">{{ $t('ProductName') }}</div>
           <a-input v-model:value="filters.name" :placeholder="$t('SearchByName')" allow-clear @change="crud.reload()" />
         </a-col>
-        <a-col :xs="12" :md="8" :xl="5">
+        <a-col :xs="12" :md="8" :xl="4">
           <div class="filter-label">{{ $t('GroupName') }}</div>
           <a-select
             v-model:value="filters.product_group_id" style="width: 100%" allow-clear show-search
@@ -41,7 +41,7 @@
           <div class="filter-label">{{ $t('CodeProduct') }}</div>
           <a-input v-model:value="filters.code" :placeholder="$t('SearchByCode')" allow-clear @change="crud.reload()" />
         </a-col>
-        <a-col :xs="12" :md="8" :xl="5">
+        <a-col :xs="12" :md="8" :xl="4">
           <div class="filter-label">{{ $t('Categorie') }}</div>
           <a-select
             v-model:value="filters.category_id" style="width: 100%" allow-clear show-search
@@ -57,7 +57,7 @@
             @change="crud.reload()"
           />
         </a-col>
-        <a-col :xs="12" :md="8" :xl="5">
+        <a-col :xs="12" :md="8" :xl="4">
           <div class="filter-label">{{ $t('warehouse') }}</div>
           <a-select
             v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
@@ -92,7 +92,7 @@
                 :alt="p.name"
                 :fallback="'/images/products/no-image.png'"
               />
-              <a-tag v-if="p.type" class="pcard-type">{{ p.type }}</a-tag>
+              <a-tag v-if="p.type" class="pcard-type" :color="typeColor(p.type)">{{ p.type }}</a-tag>
               <span class="pcard-qty">{{ p.quantity }}</span>
             </div>
 
@@ -189,8 +189,14 @@
         <template v-else-if="column.key === 'name'">
           <div class="name-cell">
             <a @click="$router.push(`/products/${record.id}`)">{{ record.name }}</a>
-            <a-tag v-if="record.type" class="type-tag">{{ record.type }}</a-tag>
+            <a-tag v-if="record.type" class="type-tag" :color="typeColor(record.type)">{{ record.type }}</a-tag>
           </div>
+        </template>
+        <!-- Services carry no stock, so quantity is shown as a muted N/A. -->
+        <template v-else-if="column.key === 'quantity' && record.type === 'Service'">
+          <a-tooltip :title="tf('Service_Not_Stocked', 'Services are not stocked')">
+            <span class="qty-na">{{ record.quantity }}</span>
+          </a-tooltip>
         </template>
         <template v-else-if="column.key === 'code'">
           <div class="stacked-cell">
@@ -283,7 +289,7 @@ import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import http from '../../lib/http';
-import { withAllOption } from '../../lib/filterOptions';
+import { withAllOption, sortByLabel } from '../../lib/filterOptions';
 import { resolveImageUrl } from '../../lib/imagePath';
 import { t as tf } from '../../i18n';
 
@@ -307,33 +313,42 @@ const filterParams = () => ({
 const crud = useCrudTable('products', {
   rowsKey: 'products',
   params: filterParams,
+  // Default order: Group Name A-Z (server adds Name as the tie-breaker).
+  // Clicking any sortable column header still overrides it.
+  sortField: 'group_name',
+  sortType: 'asc',
 });
+
+// One colour per product type so the type tag is distinguishable at a glance.
+const TYPE_COLORS = { Single: 'blue', Variable: 'purple', Combo: 'cyan', Service: 'orange' };
+const typeColor = type => TYPE_COLORS[type] || 'default';
 crud.fetchRows();
 
 const categoryOptions = computed(() =>
-  withAllOption((crud.payload.value?.categories || []).map(c => ({ value: c.id, label: c.name })))
+  withAllOption(sortByLabel((crud.payload.value?.categories || []).map(c => ({ value: c.id, label: c.name }))))
 );
 const brandOptions = computed(() =>
-  withAllOption((crud.payload.value?.brands || []).map(b => ({ value: b.id, label: b.name })))
+  withAllOption(sortByLabel((crud.payload.value?.brands || []).map(b => ({ value: b.id, label: b.name }))))
 );
 const warehouseOptions = computed(() =>
-  withAllOption((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name })))
+  withAllOption(sortByLabel((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))))
 );
 
 const productGroups = ref([]);
 http.get('product-groups').then(data => { productGroups.value = data.product_groups || []; }).catch(() => {});
 const productGroupFilterOptions = computed(() =>
-  withAllOption(productGroups.value.map(g => ({ value: g.id, label: g.name })))
+  withAllOption(sortByLabel(productGroups.value.map(g => ({ value: g.id, label: g.name }))))
 );
 
 const columns = computed(() => [
-  { title: t('image'), key: 'image', width: 70, exportable: false },
-  // Type rides along inside the name cell as a tag; unit is already appended to
-  // the quantity string by the API, so neither needs a column of its own.
-  // Name + Group Name are the primary identifying columns, kept leftmost;
-  // Code moved later (after cost/price) so it stops competing with them.
-  { title: t('Name_product'), dataIndex: 'name', key: 'name', sorter: true },
+  // Group Name leads: the list is ordered by it by default (then Name), so it
+  // reads as the grouping key of the table.
   { title: t('GroupName'), dataIndex: 'group_name', key: 'group_name', sorter: true },
+  { title: t('image'), key: 'image', width: 70, exportable: false },
+  // Type rides along inside the name cell as a coloured tag; unit is already
+  // appended to the quantity string by the API, so neither needs a column of
+  // its own. Code sits later (after cost/price) so it stops competing.
+  { title: t('Name_product'), dataIndex: 'name', key: 'name', sorter: true },
   { title: t('Cost'), dataIndex: 'cost', key: 'cost', align: 'right', sorter: true },
   { title: t('Price'), dataIndex: 'price', key: 'price', align: 'right', sorter: true },
   // Off by default — users can enable them from the table's columns dropdown.
@@ -396,8 +411,8 @@ const subtitleOf = p => [p.brand, p.category].filter(v => v && v !== 'N/D').join
  * out because the API already appends it to Quantity ("12.00 pcs").
  */
 const exportColumns = computed(() => [
-  { title: t('Name_product'), dataIndex: 'name' },
   { title: t('GroupName'), dataIndex: 'group_name' },
+  { title: t('Name_product'), dataIndex: 'name' },
   { title: t('type'), dataIndex: 'type' },
   { title: t('Cost'), dataIndex: 'cost' },
   { title: t('Price'), dataIndex: 'price' },
@@ -671,6 +686,10 @@ function duplicate(record) {
 .code-row.is-variant {
   padding-inline-start: 14px;
   opacity: 0.7;
+}
+.qty-na {
+  color: rgba(0, 0, 0, 0.45);
+  font-style: italic;
 }
 .filter-label {
   margin-bottom: 4px;

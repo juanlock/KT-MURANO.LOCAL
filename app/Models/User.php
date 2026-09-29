@@ -19,6 +19,8 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'firstname', 'lastname', 'username', 'email', 'password', 'phone', 'statut', 'avatar', 'role_id', 'type', 'is_all_warehouses', 'record_view', 'company_id',
+        // Client Portal (merged from portal_clients; see App\Models\PortalClient)
+        'portal_enabled', 'preferred_locale', 'invitation_token', 'invitation_sent_at',
     ];
 
     /**
@@ -27,7 +29,7 @@ class User extends Authenticatable
      * @var array
      */
     protected $hidden = [
-        'password', 'remember_token',
+        'password', 'remember_token', 'invitation_token',
     ];
 
     /**
@@ -41,6 +43,8 @@ class User extends Authenticatable
         'statut' => 'integer',
         'is_all_warehouses' => 'integer',
         'record_view' => 'boolean',
+        'portal_enabled' => 'integer',
+        'invitation_sent_at' => 'datetime',
     ];
 
     public function oauthAccessToken()

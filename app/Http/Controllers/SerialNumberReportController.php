@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\DB;
 
 class SerialNumberReportController extends BaseController
 {
+    // Multicompany: reportCompanyId(), company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     /**
      * Available Serial Numbers Report — units currently in stock.
      */
@@ -153,7 +156,7 @@ class SerialNumberReportController extends BaseController
         $allowed = $this->allowedWarehouseIds();
 
         $base = DB::table('product_serials as ps')
-            ->join('products as p', 'p.id', '=', 'ps.product_id')
+            ->join('products as p', 'p.id', '=', 'ps.product_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('p.company_id', $cid))
             ->when($allowed !== null, fn ($q) => $q->whereIn('ps.warehouse_id', $allowed))
             ->when($request->filled('warehouse_id'), fn ($q) => $q->where('ps.warehouse_id', $request->warehouse_id))
             ->when($request->filled('search'), function ($q) use ($request) {
@@ -230,8 +233,8 @@ class SerialNumberReportController extends BaseController
     private function allowedWarehouseIds(): ?array
     {
         $user = auth()->user();
-        if ($user && ! $user->is_all_warehouses) {
-            return UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->toArray();
+        if ($user && ! $this->reportAllWarehouses()) {
+            return $this->reportWarehouseIdList();
         }
 
         return null;
