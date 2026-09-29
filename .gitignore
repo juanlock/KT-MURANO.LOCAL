@@ -7,7 +7,7 @@
 .env
 /node_modules
 
-#/bootstrap/cache
+/bootstrap/cache
 
 /storage/framework/sessions
 /storage/framework/views
