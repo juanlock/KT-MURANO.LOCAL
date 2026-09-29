@@ -322,6 +322,7 @@ const MrpReports = lazy('MrpReports', () => import('../pages/manufacturing/MrpRe
 // --- Bookings (Wave C) ---
 const Bookings = lazy('Bookings', () => import('../pages/bookings/Bookings.vue'));
 const BookingForm = lazy('BookingForm', () => import('../pages/bookings/BookingForm.vue'));
+const OnlineBooking = lazy('OnlineBooking', () => import('../pages/bookings/OnlineBooking.vue'));
 const KitchenDisplay = lazy('KitchenDisplay', () => import('../pages/kitchen/KitchenDisplay.vue'));
 const KitchenReport = lazy('KitchenReport', () => import('../pages/kitchen/KitchenReport.vue'));
 const Trays = lazy('Trays', () => import('../pages/bookings/Trays.vue'));
@@ -649,6 +650,7 @@ const routes = [
             // Bookings
             { path: 'bookings', name: 'bookings', component: Bookings, meta: { title: 'Bookings', permission: 'bookings' } },
             { path: 'bookings/create', name: 'booking-create', component: BookingForm, meta: { title: 'Create Booking', permission: 'bookings' } },
+            { path: 'bookings/online', name: 'booking-online', component: OnlineBooking, meta: { title: 'Online Booking', permission: 'bookings' } },
             { path: 'bookings/:id(\\d+)/edit', name: 'booking-edit', component: BookingForm, meta: { title: 'Edit Booking', permission: 'bookings' } },
             { path: 'kitchen-display', name: 'kitchen-display', component: KitchenDisplay, meta: { title: 'Kitchen Display', permission: 'kitchen_display_view' } },
             { path: 'kitchen/report', name: 'kitchen-report', component: KitchenReport, meta: { title: 'Kitchen Report', permission: 'kitchen_display_view' } },

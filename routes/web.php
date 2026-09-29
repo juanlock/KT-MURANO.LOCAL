@@ -482,6 +482,17 @@ Route::middleware(['web', 'request.safety'])->prefix('support')->group(function 
         ->middleware('throttle:60,1,support-file')->name('support.attachment');
 });
 
+// Bookings public channel: "Book an appointment" page (company = its domain or
+// ?company=ID; &embed=1 = compact iframe layout for external websites). The
+// POST is CSRF-exempt (VerifyCsrfToken) since it is posted from cross-site
+// iframes; spam is held off by throttle + honeypot + time-to-submit.
+Route::middleware(['web', 'request.safety'])->prefix('book')->group(function () {
+    Route::get('/', [\App\Http\Controllers\PublicBookingController::class, 'create'])
+        ->middleware('throttle:60,1,book-form')->name('booking.public');
+    Route::post('/', [\App\Http\Controllers\PublicBookingController::class, 'store'])
+        ->middleware('throttle:5,1,book-create')->name('booking.public.store');
+});
+
 // SEO: public sitemap + robots (registered before the admin catch-all).
 Route::get('sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index'])->name('store.sitemap');
 Route::get('robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('store.robots');
@@ -511,7 +522,7 @@ Route::group(['middleware' => ['web', 'auth:web', 'Is_Active', 'request.safety']
             }
 
             return redirect('/next');
-        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|support).*$');
+        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|support|book(?:/|$)).*$');
 
 });
 

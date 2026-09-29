@@ -169,6 +169,8 @@ const { t } = useI18n();
 const auth = useAuthStore();
 
 const POS_FLAGS = [
+  // The blue POS button in the admin top header (off: reach the POS from the sidebar / account menu).
+  { key: 'show_pos_button', label: 'Show POS button in header' },
   { key: 'quick_add_customer', label: 'Quick add customer' },
   { key: 'barcode_scanning_sound', label: 'Barcode scanning sound' },
   { key: 'show_product_images', label: 'Show product images' },
@@ -236,6 +238,8 @@ async function save() {
   });
   try {
     await http.put(`pos_settings/${v.id}`, body);
+    // The topbar's POS button follows this setting right away (no reload needed).
+    if (auth.user) auth.user.show_pos_button = !!v.show_pos_button;
     message.success(t('Successfully_Updated'));
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData'));

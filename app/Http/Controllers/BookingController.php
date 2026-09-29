@@ -20,6 +20,30 @@ use PDF;
 
 class BookingController extends BaseController
 {
+    // Multicompany: bookings have no company_id -- a booking belongs to the
+    // company of its CUSTOMER. Customers, products and sales people offered
+    // on the form are the acting company's only.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
+    /** Restrict a bookings query to the company's customers. */
+    private function bookingScope($query, string $column = 'bookings.customer_id')
+    {
+        $cid = $this->reportCompanyId();
+
+        return $cid ? $query->whereIn($column, Client::where('company_id', $cid)->select('id')) : $query;
+    }
+
+    /** Customer / product / sales person of a booking must be the company's own. */
+    private function assertBookingRefs(array $v): void
+    {
+        $cid = $this->reportCompanyId();
+        if (! $cid) {
+            return;
+        }
+        abort_unless(Client::whereKey($v['customer_id'] ?? 0)->where('company_id', $cid)->exists(), 422, 'That customer does not belong to your company.');
+        abort_if(! empty($v['product_id']) && ! Product::whereKey($v['product_id'])->where('company_id', $cid)->exists(), 422, 'That product does not belong to your company.');
+        abort_if(! empty($v['sales_person_id']) && ! User::whereKey($v['sales_person_id'])->where('company_id', $cid)->exists(), 422, 'That sales person does not belong to your company.');
+    }
     /**
      * List bookings with optional filters.
      *
@@ -50,7 +74,7 @@ class BookingController extends BaseController
         ];
         $order = $sortableMap[$order] ?? 'bookings.id';
 
-        $query = Booking::leftJoin('clients', 'clients.id', '=', 'bookings.customer_id')
+        $query = $this->bookingScope(Booking::query())->leftJoin('clients', 'clients.id', '=', 'bookings.customer_id')
             ->leftJoin('products', 'products.id', '=', 'bookings.product_id')
             ->whereNull('bookings.deleted_at')
             ->select(
@@ -92,7 +116,7 @@ class BookingController extends BaseController
 
         // Summary stats for the header cards. Respect date/search filters but
         // ignore the status filter so the breakdown always shows every status.
-        $statsQuery = Booking::leftJoin('clients', 'clients.id', '=', 'bookings.customer_id')
+        $statsQuery = $this->bookingScope(Booking::query())->leftJoin('clients', 'clients.id', '=', 'bookings.customer_id')
             ->leftJoin('products', 'products.id', '=', 'bookings.product_id')
             ->whereNull('bookings.deleted_at')
             ->when($request->filled('date'), function ($q) use ($request) {
@@ -167,11 +191,11 @@ class BookingController extends BaseController
     public function create(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', Booking::class);
-        $customers = Client::whereNull('deleted_at')
+        $customers = $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')
             ->orderBy('name', 'asc')
             ->get(['id', 'name']);
 
-        $products = Product::whereNull('deleted_at')
+        $products = $this->rc(Product::query(), 'products.company_id')->whereNull('deleted_at')
             ->where('type', 'is_service')
             ->orderBy('name', 'asc')
             ->get(['id', 'name', 'code', 'price']);
@@ -179,10 +203,58 @@ class BookingController extends BaseController
         return response()->json([
             'customers' => $customers,
             'products' => $products,
+            'booking_fields' => $this->bookingFieldFlags($this->reportCompanyId() ?: (int) optional(Client::find($booking->customer_id ?? 0))->company_id),
             'trays' => $this->getTrays(),
             'sales_persons' => $this->getSalesPersons(),
             'statuses' => ['pending', 'confirmed', 'cancelled', 'completed'],
+            'public_booking' => $this->publicBookingInfo(),
         ]);
+    }
+
+    /**
+     * Public "Book an appointment" page of the acting company (null for a SuperAdmin
+     * who has not picked a company) -- shown with its iframe code on Create Booking
+     * and on Booking Management -> Online Booking.
+     */
+    private function publicBookingInfo(): ?array
+    {
+        $cid = $this->reportCompanyId();
+        if (! $cid) {
+            return null;
+        }
+
+        return [
+            'company_id' => $cid,
+            'company_name' => \DB::table('companies')->where('id', $cid)->value('name'),
+            'url' => route('booking.public', ['company' => $cid]),
+            'embed_url' => route('booking.public', ['company' => $cid, 'embed' => 1]),
+            'enabled' => \App\Support\ModuleFlags::enabled($cid, 'bookings'),
+        ];
+    }
+
+    /**
+     * System Settings -> Defaults -> Booking: which optional fields the Booking
+     * Create/Edit form shows, for the given company (all on when unknown).
+     */
+    private function bookingFieldFlags(?int $cid): array
+    {
+        $s = $cid ? \App\Models\Setting::where('company_id', $cid)->whereNull('deleted_at')->first() : null;
+        $flag = fn ($k) => (bool) ($s->{$k} ?? true);
+
+        return [
+            'delivery_date' => $flag('booking_delivery_date_enabled'),
+            'delivery_time' => $flag('booking_delivery_time_enabled'),
+            'status' => $flag('booking_status_enabled'),
+            'delivery_address' => $flag('booking_delivery_address_enabled'),
+        ];
+    }
+
+    /** GET bookings_public_link -- Booking Management -> Online Booking page. */
+    public function publicLink(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', Booking::class);
+
+        return response()->json(['public_booking' => $this->publicBookingInfo()]);
     }
 
     /**
@@ -200,7 +272,7 @@ class BookingController extends BaseController
      */
     private function getSalesPersons()
     {
-        return User::whereNull('deleted_at')
+        return $this->rc(User::query(), 'users.company_id')->whereNull('deleted_at')
             ->where('statut', 1)
             ->orderBy('firstname', 'asc')
             ->orderBy('lastname', 'asc')
@@ -268,6 +340,7 @@ class BookingController extends BaseController
             'status' => 'required|string|in:pending,confirmed,cancelled,completed',
             'notes' => 'nullable|string',
         ])->validate();
+        $this->assertBookingRefs($validated);
 
         // Generate reference number
         $validated['Ref'] = $this->getNumberOrder();
@@ -283,7 +356,7 @@ class BookingController extends BaseController
     public function show(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Booking::class);
-        $booking = Booking::with(['customer', 'product', 'tray', 'salesPerson'])
+        $booking = $this->bookingScope(Booking::query())->with(['customer', 'product', 'tray', 'salesPerson'])
             ->whereNull('deleted_at')
             ->findOrFail($id);
 
@@ -330,13 +403,13 @@ class BookingController extends BaseController
     public function edit(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Booking::class);
-        $booking = Booking::whereNull('deleted_at')->findOrFail($id);
+        $booking = $this->bookingScope(Booking::whereNull('deleted_at'))->findOrFail($id);
 
-        $customers = Client::whereNull('deleted_at')
+        $customers = $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')
             ->orderBy('name', 'asc')
             ->get(['id', 'name']);
 
-        $products = Product::whereNull('deleted_at')
+        $products = $this->rc(Product::query(), 'products.company_id')->whereNull('deleted_at')
             ->where('type', 'is_service')
             ->orderBy('name', 'asc')
             ->get(['id', 'name', 'code', 'price']);
@@ -364,6 +437,7 @@ class BookingController extends BaseController
             ],
             'customers' => $customers,
             'products' => $products,
+            'booking_fields' => $this->bookingFieldFlags($this->reportCompanyId() ?: (int) optional(Client::find($booking->customer_id ?? 0))->company_id),
             'trays' => $this->getTrays(),
             'sales_persons' => $this->getSalesPersons(),
             'statuses' => ['pending', 'confirmed', 'cancelled', 'completed'],
@@ -376,7 +450,7 @@ class BookingController extends BaseController
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Booking::class);
-        $booking = Booking::whereNull('deleted_at')->findOrFail($id);
+        $booking = $this->bookingScope(Booking::whereNull('deleted_at'))->findOrFail($id);
 
         // Normalize time formats before validation - handle H:i:s format and empty strings
         $requestData = $request->all();
@@ -425,6 +499,7 @@ class BookingController extends BaseController
             'status' => 'required|string|in:pending,confirmed,cancelled,completed',
             'notes' => 'nullable|string',
         ])->validate();
+        $this->assertBookingRefs($validated);
 
         $booking->update($validated);
 
@@ -437,7 +512,7 @@ class BookingController extends BaseController
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Booking::class);
-        $booking = Booking::withTrashed()->findOrFail($id);
+        $booking = $this->bookingScope(Booking::withTrashed())->findOrFail($id);
         
         // Check if already deleted
         if ($booking->trashed()) {
@@ -455,7 +530,7 @@ class BookingController extends BaseController
     public function changeStatus(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Booking::class);
-        $booking = Booking::whereNull('deleted_at')->findOrFail($id);
+        $booking = $this->bookingScope(Booking::whereNull('deleted_at'))->findOrFail($id);
 
         $validated = $request->validate([
             'status' => 'required|string|in:pending,confirmed,cancelled,completed',
@@ -474,7 +549,7 @@ class BookingController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', Booking::class);
         $helpers = new helpers;
-        $booking = Booking::with(['customer', 'product'])
+        $booking = $this->bookingScope(Booking::query())->with(['customer', 'product'])
             ->whereNull('deleted_at')
             ->findOrFail($id);
 
@@ -546,7 +621,7 @@ class BookingController extends BaseController
             return response()->json(['message' => 'Booking ID is required.'], 422);
         }
 
-        $booking = Booking::with(['customer', 'product'])
+        $booking = $this->bookingScope(Booking::query())->with(['customer', 'product'])
             ->whereNull('deleted_at')
             ->findOrFail($id);
 

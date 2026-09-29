@@ -180,7 +180,7 @@ const kind = KINDS[route.meta.kind] || KINDS.sale;
 const endpoint = kind.endpoint;
 const titleKey = kind.titleKey;
 
-const range = ref(presetRange('month'));
+const range = ref(presetRange('all'));
 const refFilter = ref('');
 const partyId = ref(undefined);
 const docId = ref(undefined);
@@ -197,8 +197,8 @@ const DATE_PRESETS = [
   { value: 'last_month', labelKey: 'Last_Month' },
   { value: 'last_year', labelKey: 'Last_Year' },
 ];
-// Default: This Month, matching the Sales/Purchases lists' convention.
-const datePreset = ref('month');
+// Default: All -- the report opens with every payment (This Month often shows 0).
+const datePreset = ref('all');
 
 function presetRange(preset) {
   const now = dayjs();
@@ -227,7 +227,7 @@ function applyPreset(preset) {
 
 // DateRangePicker fires a spurious @change once during initial mount (its
 // internal value syncs to the v-model default), which would otherwise clear
-// the "This Month" highlight before the user ever touches anything. Ignore
+// the default (All) highlight before the user ever touches anything. Ignore
 // that one mount-time firing; only real picker interaction should un-highlight it.
 let ignoreNextExactRangeChange = true;
 onMounted(() => {

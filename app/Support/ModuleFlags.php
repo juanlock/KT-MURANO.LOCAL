@@ -1,0 +1,35 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\Setting;
+
+/**
+ * Server side of System Settings -> Business Modules: settings.module_flags
+ * ({key: bool}, per company). A null map or a missing key = ENABLED, same
+ * rule as resources/src/config/modules.js (isModuleEnabled).
+ */
+class ModuleFlags
+{
+    private static array $memo = [];
+
+    public static function enabled(?int $companyId, string $key): bool
+    {
+        if (! $companyId) {
+            return true;
+        }
+        if (! array_key_exists($companyId, self::$memo)) {
+            $raw = Setting::where('company_id', $companyId)->whereNull('deleted_at')->value('module_flags');
+            $flags = is_string($raw) ? json_decode($raw, true) : $raw;
+            self::$memo[$companyId] = is_array($flags) ? $flags : [];
+        }
+
+        return (self::$memo[$companyId][$key] ?? true) !== false;
+    }
+
+    /** 403 (staff API) when the module is switched off for the company. */
+    public static function abortUnlessEnabled(?int $companyId, string $key, int $status = 403): void
+    {
+        abort_unless(self::enabled($companyId, $key), $status, "The {$key} module is turned off for this company.");
+    }
+}

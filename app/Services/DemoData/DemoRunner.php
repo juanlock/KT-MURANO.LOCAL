@@ -15,11 +15,21 @@ class DemoRunner
     public static function context(int $companyId, int $userId, bool $ensureWarehouse): DemoContext
     {
         $warehouseIds = DB::table('warehouses')->whereNull('deleted_at')->where('company_id', $companyId)
-            ->pluck('id')->map(fn ($v) => (int) $v)->all();
-        $ctx = new DemoContext($companyId, $userId, $warehouseIds);
+            ->orderBy('id')->pluck('id')->map(fn ($v) => (int) $v)->all();
+        // Demo documents go to the company's DEFAULT warehouse (settings.warehouse_id);
+        // fall back to its first warehouse. Listed first so warehouseIds[0] is it too.
+        $default = (int) (Setting::forCompany($companyId)->warehouse_id ?? 0);
+        if (! in_array($default, $warehouseIds, true)) {
+            $default = $warehouseIds[0] ?? 0;
+        }
+        if ($default) {
+            $warehouseIds = array_values(array_unique(array_merge([$default], $warehouseIds)));
+        }
+        $ctx = new DemoContext($companyId, $userId, $warehouseIds, $default ?: null);
         if (! $warehouseIds && $ensureWarehouse) {
             $ctx->module = 'core';
             $ctx->warehouseIds = [$ctx->insert('warehouses', ['name' => 'Demo Warehouse'])];
+            $ctx->defaultWarehouseId = $ctx->warehouseIds[0];
         }
 
         return $ctx;

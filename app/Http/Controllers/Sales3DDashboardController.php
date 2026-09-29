@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Cache;
 
 class Sales3DDashboardController extends Controller
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     private const TOP_N_PRODUCTS = 12;
     private const TOP_N_CLIENTS = 10;
     private const CACHE_TTL_SECONDS = 60;
@@ -22,12 +25,11 @@ class Sales3DDashboardController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
             $allowed_warehouse_ids = $warehouses->pluck('id')->toArray();
         } else {
-            $allowed_warehouse_ids = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')->toArray();
+            $allowed_warehouse_ids = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')
                 ->whereIn('id', $allowed_warehouse_ids)
                 ->get(['id', 'name']);
@@ -157,8 +159,8 @@ class Sales3DDashboardController extends Controller
         }
 
         $rows = SaleDetail::query()
-            ->join('sales', 'sale_details.sale_id', '=', 'sales.id')
-            ->join('products', 'sale_details.product_id', '=', 'products.id')
+            ->join('sales', 'sale_details.sale_id', '=', 'sales.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
+            ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
             ->whereNull('sales.deleted_at')
             ->whereBetween('sales.date', [$start, $end])
             ->where('sales.statut', 'completed')
@@ -196,8 +198,8 @@ class Sales3DDashboardController extends Controller
     private function productScatter(int $warehouse_id, array $allowed_warehouse_ids, Carbon $start, Carbon $end): array
     {
         $rows = SaleDetail::query()
-            ->join('sales', 'sale_details.sale_id', '=', 'sales.id')
-            ->join('products', 'sale_details.product_id', '=', 'products.id')
+            ->join('sales', 'sale_details.sale_id', '=', 'sales.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
+            ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
             ->whereNull('sales.deleted_at')
             ->whereBetween('sales.date', [$start, $end])
             ->where('sales.statut', 'completed')

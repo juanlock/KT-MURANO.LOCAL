@@ -32,6 +32,8 @@ class CustomerTicketsController extends Controller
         abort_unless($u && $u->client_id, 403);
         $client = DB::table('clients')->where('id', $u->client_id)->whereNull('deleted_at')->first(['id', 'company_id', 'name']);
         abort_unless($client && $client->company_id, 403);
+        // Business Modules: Helpdesk switched off for the company -> no tickets.
+        abort_unless(\App\Support\ModuleFlags::enabled((int) $client->company_id, 'helpdesk'), 404);
 
         return [$u, $client];
     }

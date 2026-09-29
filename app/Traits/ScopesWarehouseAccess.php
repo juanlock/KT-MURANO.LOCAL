@@ -73,8 +73,17 @@ trait ScopesWarehouseAccess
     {
         $user = auth()->user();
 
-        if ($user && $user->is_all_warehouses) {
-            return null;
+        // Multicompany: "all warehouses" is all warehouses of the user's OWN
+        // company, never the whole system -- module tables without company_id
+        // (assets, MRP, fleet...) rely on this list as their company boundary.
+        // Only a SuperAdmin is unrestricted, unless they picked a company in
+        // the header switcher (company_id), which then limits them to it.
+        if ($user && $user->type === 'SuperAdmin') {
+            $companyId = (int) request()->input('company_id');
+
+            return $companyId
+                ? Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->map(fn ($id) => (int) $id)->all()
+                : null;
         }
 
         return $this->userWarehouseIds();
@@ -101,6 +110,31 @@ trait ScopesWarehouseAccess
                 $q->orWhereNull($column);
             }
         });
+    }
+
+    /**
+     * Asset-module records (maintenance, assignments, ...) carry no warehouse
+     * or company: they belong to the company of their ASSET's warehouse.
+     * Keeps rows whose $column (an asset id) is an asset in scope.
+     */
+    protected function inAssetScope($query, string $column)
+    {
+        $ids = $this->warehouseScopeIds();
+
+        return $ids === null
+            ? $query
+            : $query->whereIn($column, \App\Models\Asset::whereIn('warehouse_id', $ids)->select('id'));
+    }
+
+    /** 404 when an asset (or a record's asset id) is outside the caller's scope. */
+    protected function abortIfAssetIdOutOfScope($assetId): void
+    {
+        $ids = $this->warehouseScopeIds();
+        if ($ids === null) {
+            return;
+        }
+        $wh = \App\Models\Asset::whereKey((int) $assetId)->value('warehouse_id');
+        abort_unless($wh && in_array((int) $wh, $ids, true), 404);
     }
 
     /**

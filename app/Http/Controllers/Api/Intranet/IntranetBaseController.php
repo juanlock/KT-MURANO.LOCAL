@@ -40,16 +40,20 @@ abstract class IntranetBaseController extends Controller
     protected function viewCompany(Request $request): int
     {
         abort_unless($this->userCan($request, 'intranet_view'), 403, 'You do not have access to the intranet.');
+        $companyId = (int) $this->resolveActingCompanyId($request);
+        \App\Support\ModuleFlags::abortUnlessEnabled($companyId, 'intranet');
 
-        return (int) $this->resolveActingCompanyId($request);
+        return $companyId;
     }
 
     /** Company id for a management (intranet_manage) request. */
     protected function manageCompany(Request $request): int
     {
         abort_unless($this->userCan($request, 'intranet_manage'), 403, 'You cannot manage the intranet.');
+        $companyId = (int) $this->resolveActingCompanyId($request);
+        \App\Support\ModuleFlags::abortUnlessEnabled($companyId, 'intranet');
 
-        return (int) $this->resolveActingCompanyId($request);
+        return $companyId;
     }
 
     /** @template T of Model  @param class-string<T> $class  @return T */

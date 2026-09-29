@@ -4,6 +4,9 @@
   use App\Models\StoreSetting;
   $accNav = $accNav ?? StoreSetting::first();
   $walletEnabled = (bool) optional($accNav)->wallet_enabled;
+  // Support tickets only when the customer's company has the Helpdesk module on.
+  $accClientCompany = optional(optional(auth('store')->user())->client)->company_id;
+  $helpdeskEnabled = \App\Support\ModuleFlags::enabled($accClientCompany ? (int) $accClientCompany : null, 'helpdesk');
 
   $items = [
     ['label' => __('messages.Dashboard'),      'url' => route('account'),          'active' => request()->routeIs('account'),        'show' => true],
@@ -15,7 +18,7 @@
     ['label' => __('messages.Addresses'),      'url' => route('account').'#address',          'active' => false,               'show' => true],
     ['label' => __('messages.AccountDetails'), 'url' => route('account').'#account-details', 'active' => false,               'show' => true],
     ['label' => __('messages.MyQuestions'),   'url' => route('account.questions'), 'active' => request()->routeIs('account.questions'), 'show' => true],
-    ['label' => __('messages.SupportTickets'), 'url' => route('account.tickets'),  'active' => request()->routeIs('account.tickets*'), 'show' => true],
+    ['label' => __('messages.SupportTickets'), 'url' => route('account.tickets'),  'active' => request()->routeIs('account.tickets*'), 'show' => $helpdeskEnabled],
     ['label' => __('messages.Preferences'),    'url' => route('account').'#preferences',     'active' => false,               'show' => true],
   ];
 @endphp

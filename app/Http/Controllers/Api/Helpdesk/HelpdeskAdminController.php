@@ -36,8 +36,10 @@ class HelpdeskAdminController extends Controller
     private function companyId(Request $request, string $perm = 'helpdesk_view'): int
     {
         abort_unless(HelpdeskAccess::can($request->user('api'), $perm), 403);
+        $companyId = (int) $this->resolveActingCompanyId($request);
+        \App\Support\ModuleFlags::abortUnlessEnabled($companyId, 'helpdesk');
 
-        return (int) $this->resolveActingCompanyId($request);
+        return $companyId;
     }
 
     private function ticket(int $companyId, $id): HelpdeskTicket

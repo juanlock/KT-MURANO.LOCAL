@@ -22,6 +22,9 @@ use Illuminate\Support\Facades\Schema;
  */
 class BatchReportController extends BaseController
 {
+    // Multicompany: reportCompanyId(), company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     /**
      * GET /reports/batches/register
      *
@@ -74,10 +77,8 @@ class BatchReportController extends BaseController
         $nearEnd = Carbon::today()->addDays(max(0, $warningDays))->toDateString();
 
         $accessibleWarehouseIds = null;
-        if (! $user->is_all_warehouses) {
-            $accessibleWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->all();
+        if (! $this->reportAllWarehouses()) {
+            $accessibleWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Pull originating purchase via the *first* purchase_detail_batch row for each
@@ -229,7 +230,7 @@ class BatchReportController extends BaseController
                     $sub->select(\DB::raw(1))
                         ->from('purchase_detail_batches as pdb2')
                         ->join('purchase_details as pd2', 'pd2.id', '=', 'pdb2.purchase_detail_id')
-                        ->join('purchases as p2', 'p2.id', '=', 'pd2.purchase_id')
+                        ->join('purchases as p2', 'p2.id', '=', 'pd2.purchase_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('p2.company_id', $cid))
                         ->join('product_batches as pb2', 'pb2.id', '=', 'pdb2.product_batch_id')
                         ->whereNull('pb2.deleted_at')
                         ->whereColumn('p2.provider_id', 'providers.id');
@@ -278,8 +279,8 @@ class BatchReportController extends BaseController
             ->findOrFail($id);
 
         // Warehouse-restriction guard.
-        if (! $user->is_all_warehouses) {
-            $accessible = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->all();
+        if (! $this->reportAllWarehouses()) {
+            $accessible = $this->reportWarehouseIdList();
             if (! in_array($batch->warehouse_id, $accessible, true)) {
                 abort(403, 'Warehouse restriction.');
             }

@@ -144,13 +144,18 @@ class PortalQuotationsController extends Controller
             'items.*.quantity' => ['required_with:items', 'numeric', 'min:0.0001'],
         ]);
 
-        $defaultWarehouseId = Setting::value('warehouse_id')
-            ?? optional(Warehouse::whereNull('deleted_at')->orderBy('id')->first())->id;
+        // Multicompany: the request belongs to the CUSTOMER'S company -- its default
+        // warehouse (settings.warehouse_id) and one of its own staff users.
+        $companyId = (int) DB::table('clients')->where('id', $portalClient->client_id)->value('company_id');
+        $defaultWarehouseId = Setting::forCompany($companyId)->warehouse_id
+            ?: Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('id')->value('id');
 
         // quotations.user_id is NOT NULL — portal-originated requests have no staff author,
         // so fall back to the first active user (typically the owner/admin seed account).
         // Admins can reassign when they review the request.
-        $systemUserId = User::whereNull('deleted_at')->orderBy('id')->value('id');
+        // (the company's first admin, else any staff user of that company)
+        $systemUserId = User::whereNull('deleted_at')->where('company_id', $companyId)->where('type', '!=', 'customer')
+            ->orderByRaw("type = 'admin' desc")->orderBy('id')->value('id');
         if (! $systemUserId) {
             return response()->json([
                 'message' => __('portal.no_staff_user'),
@@ -169,7 +174,7 @@ class PortalQuotationsController extends Controller
             }
         }
 
-        $quotation = DB::transaction(function () use ($portalClient, $defaultWarehouseId, $systemUserId, $notes) {
+        $quotation = DB::transaction(function () use ($portalClient, $defaultWarehouseId, $systemUserId, $notes, $companyId) {
             $year = date('Y');
             $prefix = "QT_REQ_{$year}_";
             $lastRef = Quotation::where('Ref', 'LIKE', $prefix . '%')
@@ -177,9 +182,11 @@ class PortalQuotationsController extends Controller
             $next = $lastRef ? ((int) substr($lastRef, strlen($prefix))) + 1 : 1;
             $ref = sprintf('QT_REQ_%s_%05d', $year, $next);
 
-            return Quotation::create([
+            // forceFill: company_id is not mass-assignable on Quotation.
+            return tap((new Quotation)->forceFill([
                 'date' => now()->toDateString(),
                 'Ref' => $ref,
+                'company_id' => $companyId,
                 'client_id' => $portalClient->client_id,
                 'warehouse_id' => $defaultWarehouseId,
                 'user_id' => $systemUserId,
@@ -190,7 +197,7 @@ class PortalQuotationsController extends Controller
                 'tax_rate' => 0,
                 'statut' => 'pending',
                 'notes' => $notes,
-            ]);
+            ]))->save();
         });
 
         return response()->json([

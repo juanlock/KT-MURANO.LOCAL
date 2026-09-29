@@ -60,6 +60,8 @@ use Illuminate\Support\Facades\Auth;
 class ReportController extends BaseController
 {
     use CalculatesCogsAndAverageCost;
+    // Multicompany: reportCompanyId() -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
     // ----------- Get Last 5 Sales --------------\\
 
     public function Get_last_Sales()
@@ -124,7 +126,7 @@ class ReportController extends BaseController
         $realCols = ['id', 'name', 'code', 'phone'];
         $sqlOrder = in_array($order, $realCols, true) ? $order : 'id';
 
-        $clients = Client::where('deleted_at', '=', null)
+        $clients = $this->rc(Client::query(), 'clients.company_id')->whereNull('clients.deleted_at')
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
@@ -143,7 +145,7 @@ class ReportController extends BaseController
         // Same rules as the row loop below: completed sales only, due =
         // amount − paid; scoped to the same client search.
         $salesBase = function () use ($request) {
-            $q = DB::table('sales')
+            $q = $this->rc(DB::table('sales'), 'sales.company_id')
                 ->join('clients as c', 'c.id', '=', 'sales.client_id')
                 ->whereNull('sales.deleted_at')
                 ->whereNull('c.deleted_at')
@@ -230,18 +232,18 @@ class ReportController extends BaseController
             ->get();
 
         foreach ($clients as $client) {
-            $item['total_sales'] = DB::table('sales')
+            $item['total_sales'] = $this->rc(DB::table('sales'), 'sales.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('client_id', $client->id)
                 ->count();
 
-            $item['total_amount'] = DB::table('sales')
+            $item['total_amount'] = $this->rc(DB::table('sales'), 'sales.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('statut', 'completed')
                 ->where('client_id', $client->id)
                 ->sum('GrandTotal');
 
-            $item['total_paid'] = DB::table('sales')
+            $item['total_paid'] = $this->rc(DB::table('sales'), 'sales.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('statut', 'completed')
                 ->where('client_id', $client->id)
@@ -249,12 +251,12 @@ class ReportController extends BaseController
 
             $item['due'] = $item['total_amount'] - $item['total_paid'];
 
-            $item['total_amount_return'] = DB::table('sale_returns')
+            $item['total_amount_return'] = $this->rc(DB::table('sale_returns'), 'sale_returns.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('client_id', $client->id)
                 ->sum('GrandTotal');
 
-            $item['total_paid_return'] = DB::table('sale_returns')
+            $item['total_paid_return'] = $this->rc(DB::table('sale_returns'), 'sale_returns.company_id')
                 ->where('sale_returns.deleted_at', '=', null)
                 ->where('sale_returns.client_id', $client->id)
                 ->sum('paid_amount');
@@ -297,20 +299,20 @@ class ReportController extends BaseController
 
         $this->authorizeForUser($request->user('api'), 'Reports_customers', Client::class);
 
-        $client = Client::where('deleted_at', '=', null)->findOrFail($id);
+        $client = $this->rc(Client::query(), 'clients.company_id')->whereNull('clients.deleted_at')->findOrFail($id);
 
-        $data['total_sales'] = DB::table('sales')
+        $data['total_sales'] = $this->rc(DB::table('sales'), 'sales.company_id')
             ->where('deleted_at', '=', null)
             ->where('client_id', $id)
             ->count();
 
-        $data['total_amount'] = DB::table('sales')
+        $data['total_amount'] = $this->rc(DB::table('sales'), 'sales.company_id')
             ->where('deleted_at', '=', null)
             ->where('statut', 'completed')
             ->where('client_id', $id)
             ->sum('GrandTotal');
 
-        $data['total_paid'] = DB::table('sales')
+        $data['total_paid'] = $this->rc(DB::table('sales'), 'sales.company_id')
             ->where('deleted_at', '=', null)
             ->where('statut', 'completed')
             ->where('client_id', $client->id)
@@ -334,20 +336,20 @@ class ReportController extends BaseController
 
         $this->authorizeForUser($request->user('api'), 'Reports_suppliers', Provider::class);
 
-        $provider = Provider::where('deleted_at', '=', null)->findOrFail($id);
+        $provider = $this->rc(Provider::query(), 'providers.company_id')->whereNull('providers.deleted_at')->findOrFail($id);
 
-        $data['total_purchase'] = DB::table('purchases')
+        $data['total_purchase'] = $this->rc(DB::table('purchases'), 'purchases.company_id')
             ->where('deleted_at', '=', null)
             ->where('provider_id', $id)
             ->count();
 
-        $data['total_amount'] = DB::table('purchases')
+        $data['total_amount'] = $this->rc(DB::table('purchases'), 'purchases.company_id')
             ->where('deleted_at', '=', null)
             ->where('statut', 'received')
             ->where('provider_id', $id)
             ->sum('GrandTotal');
 
-        $data['total_paid'] = DB::table('purchases')
+        $data['total_paid'] = $this->rc(DB::table('purchases'), 'purchases.company_id')
             ->where('deleted_at', '=', null)
             ->where('statut', 'received')
             ->where('provider_id', $id)
@@ -471,7 +473,7 @@ class ReportController extends BaseController
                 }
             })
             ->where('payment_sales.deleted_at', '=', null)
-            ->join('sales', 'payment_sales.sale_id', '=', 'sales.id')
+            ->join('sales', 'payment_sales.sale_id', '=', 'sales.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
             ->join('payment_methods', 'payment_sales.payment_method_id', '=', 'payment_methods.id')
             ->where('sales.client_id', $request->id)
              // Search With Multiple Param
@@ -726,13 +728,11 @@ class ReportController extends BaseController
     /**
      * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
      */
-    $is_all_warehouses = $user->is_all_warehouses;
+    $is_all_warehouses = $this->reportAllWarehouses();
 
     $allowedWarehouseIds = [];
     if (! $is_all_warehouses) {
-        $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-            ->pluck('warehouse_id')
-            ->toArray();
+        $allowedWarehouseIds = $this->reportWarehouseIdList();
     }
 
     // Filter fields With Params to retrieve
@@ -854,14 +854,14 @@ class ReportController extends BaseController
         $data[] = $item;
     }
 
-    $suppliers = provider::whereNull('deleted_at')->get(['id', 'name']);
+    $suppliers = $this->rc(Provider::query(), 'providers.company_id')->whereNull('providers.deleted_at')->get(['id', 'name']);
 
     // get warehouses assigned to user (your existing logic, unchanged)
     $user_auth = auth()->user();
-    if ($user_auth->is_all_warehouses) {
+    if ($this->reportAllWarehouses()) {
         $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
     } else {
-        $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+        $warehouses_id = $this->reportWarehouseIdList();
         $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouses_id)->get(['id', 'name']);
     }
 
@@ -899,13 +899,11 @@ class ReportController extends BaseController
     /**
      * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
      */
-    $is_all_warehouses = $user->is_all_warehouses;
+    $is_all_warehouses = $this->reportAllWarehouses();
 
     $allowedWarehouseIds = [];
     if (! $is_all_warehouses) {
-        $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-            ->pluck('warehouse_id')
-            ->toArray();
+        $allowedWarehouseIds = $this->reportWarehouseIdList();
     }
 
     // Filter fields With Params to retrieve
@@ -1086,15 +1084,15 @@ class ReportController extends BaseController
         $data[] = $item;
     }
 
-    $customers = client::whereNull('deleted_at')->get(['id', 'name']);
-    $sellers = User::whereNull('deleted_at')->get(['id', 'username']);
+    $customers = $this->rc(Client::query(), 'clients.company_id')->whereNull('clients.deleted_at')->get(['id', 'name']);
+    $sellers = $this->rc(User::query(), 'users.company_id')->whereNull('deleted_at')->get(['id', 'username']);
 
     // get warehouses assigned to user (your existing logic, unchanged)
     $user_auth = auth()->user();
-    if ($user_auth->is_all_warehouses) {
+    if ($this->reportAllWarehouses()) {
         $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
     } else {
-        $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+        $warehouses_id = $this->reportWarehouseIdList();
         $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouses_id)->get(['id', 'name']);
     }
 
@@ -1232,9 +1230,14 @@ class ReportController extends BaseController
         // When status filter is set we must compute status in PHP, so fetch all matching rows then filter and paginate in memory
         $fetchLimit = $request->filled('status') ? 100000 : (int) $perPage;
         $fetchOffset = $request->filled('status') ? 0 : $offSet;
+        // limit=-1 (export all): no LIMIT, and an OFFSET without LIMIT is invalid SQL.
+        if ($fetchLimit < 0) {
+            $fetchLimit = 1000000;
+            $fetchOffset = 0;
+        }
 
-        $getQuery = (clone $baseQuery)->join('sales', 'sale_details.sale_id', '=', 'sales.id')
-            ->join('products', 'sale_details.product_id', '=', 'products.id')
+        $getQuery = (clone $baseQuery)->join('sales', 'sale_details.sale_id', '=', 'sales.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
+            ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
             ->join('clients', 'sales.client_id', '=', 'clients.id')
             ->join('warehouses', 'sales.warehouse_id', '=', 'warehouses.id')
             ->select([
@@ -1315,15 +1318,15 @@ class ReportController extends BaseController
             $perPage = max(1, $totalRows);
         }
 
-        $customers = Client::where('deleted_at', null)->get(['id', 'name']);
+        $customers = $this->rc(Client::query(), 'clients.company_id')->whereNull('clients.deleted_at')->get(['id', 'name']);
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', null)->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
-        $products = Product::where('deleted_at', null)->get(['id', 'name']);
+        $products = $this->rc(Product::query(), 'products.company_id')->where('deleted_at', null)->orderBy('name')->get(['id', 'name']);
 
         return response()->json([
             'totalRows' => $totalRows,
@@ -1357,7 +1360,7 @@ class ReportController extends BaseController
         $realCols = ['id', 'name', 'code', 'phone'];
         $sqlOrder = in_array($order, $realCols, true) ? $order : 'id';
 
-        $providers = Provider::where('deleted_at', '=', null)
+        $providers = $this->rc(Provider::query(), 'providers.company_id')->whereNull('providers.deleted_at')
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
@@ -1377,18 +1380,18 @@ class ReportController extends BaseController
             ->get();
 
         foreach ($providers as $provider) {
-            $item['total_purchase'] = DB::table('purchases')
+            $item['total_purchase'] = $this->rc(DB::table('purchases'), 'purchases.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('provider_id', $provider->id)
                 ->count();
 
-            $item['total_amount'] = DB::table('purchases')
+            $item['total_amount'] = $this->rc(DB::table('purchases'), 'purchases.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('statut', 'received')
                 ->where('provider_id', $provider->id)
                 ->sum('GrandTotal');
 
-            $item['total_paid'] = DB::table('purchases')
+            $item['total_paid'] = $this->rc(DB::table('purchases'), 'purchases.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('statut', 'received')
                 ->where('provider_id', $provider->id)
@@ -1396,12 +1399,12 @@ class ReportController extends BaseController
 
             $item['due'] = $item['total_amount'] - $item['total_paid'];
 
-            $item['total_amount_return'] = DB::table('purchase_returns')
+            $item['total_amount_return'] = $this->rc(DB::table('purchase_returns'), 'purchase_returns.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('provider_id', $provider->id)
                 ->sum('GrandTotal');
 
-            $item['total_paid_return'] = DB::table('purchase_returns')
+            $item['total_paid_return'] = $this->rc(DB::table('purchase_returns'), 'purchase_returns.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('provider_id', $provider->id)
                 ->sum('paid_amount');
@@ -1422,7 +1425,7 @@ class ReportController extends BaseController
         }
 
         // ---- Whole-set stats + top-10 chart for the summary/visual.
-        $purAgg = DB::table('purchases')
+        $purAgg = $this->rc(DB::table('purchases'), 'purchases.company_id')
             ->whereNull('deleted_at')
             ->selectRaw("COUNT(*) as cnt,
                          COALESCE(SUM(CASE WHEN statut = 'received' THEN GrandTotal ELSE 0 END),0) as grand,
@@ -1435,7 +1438,7 @@ class ReportController extends BaseController
             'due' => round((float) (($purAgg->grand ?? 0) - ($purAgg->paid ?? 0)), 2),
         ];
 
-        $chart = DB::table('purchases')
+        $chart = $this->rc(DB::table('purchases'), 'purchases.company_id')
             ->join('providers', 'providers.id', '=', 'purchases.provider_id')
             ->whereNull('purchases.deleted_at')
             ->where('purchases.statut', 'received')
@@ -1565,7 +1568,7 @@ class ReportController extends BaseController
                 }
             })
             ->where('payment_purchases.deleted_at', '=', null)
-            ->join('purchases', 'payment_purchases.purchase_id', '=', 'purchases.id')
+            ->join('purchases', 'payment_purchases.purchase_id', '=', 'purchases.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('purchases.company_id', $cid))
             ->join('payment_methods', 'payment_purchases.payment_method_id', '=', 'payment_methods.id')
             ->where('purchases.provider_id', $request->id)
              // Search With Multiple Param
@@ -1716,7 +1719,7 @@ class ReportController extends BaseController
 
         $this->authorizeForUser($request->user('api'), 'Reports_suppliers', Provider::class);
 
-        $results = DB::table('purchases')->where('purchases.deleted_at', '=', null)
+        $results = $this->rc(DB::table('purchases'), 'purchases.company_id')->where('purchases.deleted_at', '=', null)
             ->join('providers', 'purchases.provider_id', '=', 'providers.id')
             ->select(DB::raw('providers.name'), DB::raw('count(*) as count'))
             ->groupBy('providers.name')
@@ -1747,13 +1750,11 @@ class ReportController extends BaseController
         $ShowRecord = $user->hasRecordView();
 
         // ✅ Warehouse restriction
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Validate requested warehouse_id
@@ -1818,13 +1819,13 @@ class ReportController extends BaseController
         $search = $request->get('search', '');
 
         $user = auth()->user();
-        $is_all_warehouses = (bool) $user->is_all_warehouses;
+        $is_all_warehouses = (bool) $this->reportAllWarehouses();
 
         if ($is_all_warehouses) {
             $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->pluck('id')->toArray();
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
         } else {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $allowedWarehouseIds)->get(['id', 'name']);
         }
 
@@ -1843,7 +1844,11 @@ class ReportController extends BaseController
         $orderBy = $sortMap[$sortField] ?? 'p.name';
 
         $baseQuery = DB::table('product_warehouse as pw')
-            ->join('products as p', 'pw.product_id', '=', 'p.id')
+            // Multicompany: only the report's warehouses (company-aware).
+            ->when(! $this->reportAllWarehouses(), fn ($q) => $q->whereIn('pw.warehouse_id', $this->reportWarehouseIdList()))
+            ->join('products as p', 'pw.product_id', '=', 'p.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('p.company_id', $cid))
+            // Stock rows exist for every product in every warehouse -- keep the company's own products only.
+            ->when($this->reportCompanyId($request), fn ($q, $cid) => $q->where('p.company_id', $cid))
             ->join('warehouses as w', 'pw.warehouse_id', '=', 'w.id')
             ->leftJoin('product_warehouse_locations as pwl', function ($join) {
                 $join->on('pwl.product_id', '=', 'pw.product_id')
@@ -1919,13 +1924,11 @@ class ReportController extends BaseController
          /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Keep request filter but ensure it's allowed
@@ -2009,13 +2012,11 @@ class ReportController extends BaseController
         $user = Auth::user();
         $ShowRecord = $user->hasRecordView();
 
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         $warehouse_id = $request->filled('warehouse_id') ? (int) $request->warehouse_id : null;
@@ -2100,13 +2101,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
         */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Keep request filter but ensure it's allowed
@@ -2192,13 +2191,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
         */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Keep request filter but ensure it's allowed
@@ -2296,13 +2293,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Keep request filter but ensure it's allowed
@@ -2403,13 +2398,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Keep request filter but ensure it's allowed
@@ -2481,13 +2474,11 @@ class ReportController extends BaseController
 
         $user = auth()->user();
         $ShowRecord = $user->hasRecordView(); // (not used here, but added as requested)
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // ✅ Stock Count (restricted by user warehouses)
@@ -2508,7 +2499,7 @@ class ReportController extends BaseController
 
         // ✅ Stock Value (restricted by user warehouses)
         $stock_value = DB::table('product_warehouse')
-            ->leftJoin('products', 'product_warehouse.product_id', '=', 'products.id')
+            ->leftJoin('products', 'product_warehouse.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
             ->leftJoin('warehouses', 'product_warehouse.warehouse_id', '=', 'warehouses.id')
             ->leftJoin('product_variants', function ($join) {
                 $join->on('product_warehouse.product_variant_id', '=', 'product_variants.id')
@@ -2593,11 +2584,11 @@ class ReportController extends BaseController
 
         // Warehouses visible to user
         $user = $request->user('api');
-        if ($user->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
             $warehouseIds = $warehouses->pluck('id')->all();
         } else {
-            $warehouseIds = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->all();
+            $warehouseIds = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouseIds)->get(['id', 'name']);
         }
         $warehouseId = (int) ($request->warehouse_id ?: 0);
@@ -2837,11 +2828,11 @@ class ReportController extends BaseController
 
         // Warehouses visible to user
         $user = $request->user('api');
-        if ($user->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
             $warehouseIds = $warehouses->pluck('id')->all();
         } else {
-            $warehouseIds = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->all();
+            $warehouseIds = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouseIds)->get(['id', 'name']);
         }
         $warehouseId = (int) ($request->warehouse_id ?: 0);
@@ -2903,7 +2894,7 @@ class ReportController extends BaseController
             }
 
             $purchaseCost = (float) DB::table('purchase_details as pd')
-                ->join('purchases as p', 'pd.purchase_id', '=', 'p.id')
+                ->join('purchases as p', 'pd.purchase_id', '=', 'p.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('p.company_id', $cid))
                 ->leftJoin('products as pr', 'pd.product_id', '=', 'pr.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('pd.product_variant_id', '=', 'pv.id')->whereNotNull('pd.product_variant_id');
@@ -2918,7 +2909,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $purchasePrice = (float) DB::table('purchase_details as pd')
-                ->join('purchases as p', 'pd.purchase_id', '=', 'p.id')
+                ->join('purchases as p', 'pd.purchase_id', '=', 'p.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('p.company_id', $cid))
                 ->leftJoin('products as pr', 'pd.product_id', '=', 'pr.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('pd.product_variant_id', '=', 'pv.id')->whereNotNull('pd.product_variant_id');
@@ -2933,7 +2924,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $saleCost = (float) DB::table('sale_details as sd')
-                ->join('sales as s', 'sd.sale_id', '=', 's.id')
+                ->join('sales as s', 'sd.sale_id', '=', 's.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('s.company_id', $cid))
                 ->leftJoin('products as pr', 'sd.product_id', '=', 'pr.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('sd.product_variant_id', '=', 'pv.id')->whereNotNull('sd.product_variant_id');
@@ -2948,7 +2939,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $salePrice = (float) DB::table('sale_details as sd')
-                ->join('sales as s', 'sd.sale_id', '=', 's.id')
+                ->join('sales as s', 'sd.sale_id', '=', 's.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('s.company_id', $cid))
                 ->leftJoin('products as pr', 'sd.product_id', '=', 'pr.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('sd.product_variant_id', '=', 'pv.id')->whereNotNull('sd.product_variant_id');
@@ -2963,7 +2954,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $purchaseReturnCost = (float) DB::table('purchase_return_details as prd')
-                ->join('purchase_returns as pr', 'prd.purchase_return_id', '=', 'pr.id')
+                ->join('purchase_returns as pr', 'prd.purchase_return_id', '=', 'pr.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('pr.company_id', $cid))
                 ->leftJoin('products as p', 'prd.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('prd.product_variant_id', '=', 'pv.id')->whereNotNull('prd.product_variant_id');
@@ -2978,7 +2969,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $purchaseReturnPrice = (float) DB::table('purchase_return_details as prd')
-                ->join('purchase_returns as pr', 'prd.purchase_return_id', '=', 'pr.id')
+                ->join('purchase_returns as pr', 'prd.purchase_return_id', '=', 'pr.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('pr.company_id', $cid))
                 ->leftJoin('products as p', 'prd.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('prd.product_variant_id', '=', 'pv.id')->whereNotNull('prd.product_variant_id');
@@ -2993,7 +2984,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $saleReturnCost = (float) DB::table('sale_return_details as srd')
-                ->join('sale_returns as sr', 'srd.sale_return_id', '=', 'sr.id')
+                ->join('sale_returns as sr', 'srd.sale_return_id', '=', 'sr.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sr.company_id', $cid))
                 ->leftJoin('products as p', 'srd.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('srd.product_variant_id', '=', 'pv.id')->whereNotNull('srd.product_variant_id');
@@ -3008,7 +2999,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $saleReturnPrice = (float) DB::table('sale_return_details as srd')
-                ->join('sale_returns as sr', 'srd.sale_return_id', '=', 'sr.id')
+                ->join('sale_returns as sr', 'srd.sale_return_id', '=', 'sr.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sr.company_id', $cid))
                 ->leftJoin('products as p', 'srd.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('srd.product_variant_id', '=', 'pv.id')->whereNotNull('srd.product_variant_id');
@@ -3023,7 +3014,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $adjustmentNetCost = (float) DB::table('adjustment_details as ad')
-                ->join('adjustments as a', 'ad.adjustment_id', '=', 'a.id')
+                ->join('adjustments as a', 'ad.adjustment_id', '=', 'a.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('a.company_id', $cid))
                 ->leftJoin('products as p', 'ad.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('ad.product_variant_id', '=', 'pv.id')->whereNotNull('ad.product_variant_id');
@@ -3043,7 +3034,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $adjustmentNetPrice = (float) DB::table('adjustment_details as ad')
-                ->join('adjustments as a', 'ad.adjustment_id', '=', 'a.id')
+                ->join('adjustments as a', 'ad.adjustment_id', '=', 'a.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('a.company_id', $cid))
                 ->leftJoin('products as p', 'ad.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('ad.product_variant_id', '=', 'pv.id')->whereNotNull('ad.product_variant_id');
@@ -3064,7 +3055,7 @@ class ReportController extends BaseController
 
             // Sum of absolute per-row values — for the "Total Stock Adjustment" display
             $adjustmentAbsCost = (float) DB::table('adjustment_details as ad')
-                ->join('adjustments as a', 'ad.adjustment_id', '=', 'a.id')
+                ->join('adjustments as a', 'ad.adjustment_id', '=', 'a.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('a.company_id', $cid))
                 ->leftJoin('products as p', 'ad.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('ad.product_variant_id', '=', 'pv.id')->whereNotNull('ad.product_variant_id');
@@ -3078,7 +3069,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $transferOutCost = (float) DB::table('transfer_details as td')
-                ->join('transfers as t', 'td.transfer_id', '=', 't.id')
+                ->join('transfers as t', 'td.transfer_id', '=', 't.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('t.company_id', $cid))
                 ->leftJoin('products as p', 'td.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('td.product_variant_id', '=', 'pv.id')->whereNotNull('td.product_variant_id');
@@ -3093,7 +3084,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $transferOutPrice = (float) DB::table('transfer_details as td')
-                ->join('transfers as t', 'td.transfer_id', '=', 't.id')
+                ->join('transfers as t', 'td.transfer_id', '=', 't.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('t.company_id', $cid))
                 ->leftJoin('products as p', 'td.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('td.product_variant_id', '=', 'pv.id')->whereNotNull('td.product_variant_id');
@@ -3108,7 +3099,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $transferInCost = (float) DB::table('transfer_details as td')
-                ->join('transfers as t', 'td.transfer_id', '=', 't.id')
+                ->join('transfers as t', 'td.transfer_id', '=', 't.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('t.company_id', $cid))
                 ->leftJoin('products as p', 'td.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('td.product_variant_id', '=', 'pv.id')->whereNotNull('td.product_variant_id');
@@ -3123,7 +3114,7 @@ class ReportController extends BaseController
                 ->value('total');
 
             $transferInPrice = (float) DB::table('transfer_details as td')
-                ->join('transfers as t', 'td.transfer_id', '=', 't.id')
+                ->join('transfers as t', 'td.transfer_id', '=', 't.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('t.company_id', $cid))
                 ->leftJoin('products as p', 'td.product_id', '=', 'p.id')
                 ->leftJoin('product_variants as pv', function ($join) {
                     $join->on('td.product_variant_id', '=', 'pv.id')->whereNotNull('td.product_variant_id');
@@ -3282,11 +3273,11 @@ class ReportController extends BaseController
 
         // Warehouses visible to user
         $user = $request->user('api');
-        if ($user->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
             $warehouseIds = $warehouses->pluck('id')->all();
         } else {
-            $warehouseIds = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->all();
+            $warehouseIds = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouseIds)->get(['id', 'name']);
         }
         $warehouseId = (int) ($request->warehouse_id ?: 0);
@@ -3376,7 +3367,7 @@ class ReportController extends BaseController
         $scopeIds = $this->warehouseScopeIds();
 
         $base = fn () => SaleDetail::join('sales', 'sale_details.sale_id', '=', 'sales.id')
-            ->join('products', 'sale_details.product_id', '=', 'products.id')
+            ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
             ->when($scopeIds !== null, fn ($q) => $q->whereIn('sales.warehouse_id', $scopeIds))
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
@@ -3479,8 +3470,8 @@ class ReportController extends BaseController
 
         // Warehouse scope, consistent with the other reports.
         $allowed = null;
-        if (! $user->is_all_warehouses) {
-            $allowed = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->toArray();
+        if (! $this->reportAllWarehouses()) {
+            $allowed = $this->reportWarehouseIdList();
         }
 
         $base = fn () => Sale::where('sales.deleted_at', '=', null)
@@ -3576,7 +3567,7 @@ class ReportController extends BaseController
         $realCols = ['id', 'username'];
         $sqlOrder = in_array($order, $realCols, true) ? $order : 'id';
 
-        $users = User::where(function ($query) use ($request) {
+        $users = $this->rc(User::query(), 'users.company_id')->where(function ($query) use ($request) {
             return $query->when($request->filled('search'), function ($query) use ($request) {
                 return $query->where('username', 'LIKE', "%{$request->search}%");
             });
@@ -3634,37 +3625,37 @@ class ReportController extends BaseController
 
         foreach ($users as $user) {
             // Attribution-aware (same rule as the aggregate loop above).
-            $item['total_sales'] = DB::table('sales')
+            $item['total_sales'] = $this->rc(DB::table('sales'), 'sales.company_id')
                 ->where('deleted_at', '=', null)
                 ->whereRaw('COALESCE(seller_id, user_id) = ?', [$user->id])
                 ->count();
 
-            $item['total_purchases'] = DB::table('purchases')
+            $item['total_purchases'] = $this->rc(DB::table('purchases'), 'purchases.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('user_id', $user->id)
                 ->count();
 
-            $item['total_quotations'] = DB::table('quotations')
+            $item['total_quotations'] = $this->rc(DB::table('quotations'), 'quotations.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('user_id', $user->id)
                 ->count();
 
-            $item['total_return_sales'] = DB::table('sale_returns')
+            $item['total_return_sales'] = $this->rc(DB::table('sale_returns'), 'sale_returns.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('user_id', $user->id)
                 ->count();
 
-            $item['total_return_purchases'] = DB::table('purchase_returns')
+            $item['total_return_purchases'] = $this->rc(DB::table('purchase_returns'), 'purchase_returns.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('user_id', $user->id)
                 ->count();
 
-            $item['total_transfers'] = DB::table('transfers')
+            $item['total_transfers'] = $this->rc(DB::table('transfers'), 'transfers.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('user_id', $user->id)
                 ->count();
 
-            $item['total_adjustments'] = DB::table('adjustments')
+            $item['total_adjustments'] = $this->rc(DB::table('adjustments'), 'adjustments.company_id')
                 ->where('deleted_at', '=', null)
                 ->where('user_id', $user->id)
                 ->count();
@@ -4270,15 +4261,15 @@ class ReportController extends BaseController
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
             $warehouses_id = Warehouse::where('deleted_at', '=', null)->pluck('id')->toArray();
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $products_data = Product::with('unit', 'category', 'brand')
+        $products_data = $this->rc(Product::query(), 'products.company_id')->with('unit', 'category', 'brand')
             ->where('deleted_at', '=', null)
         // ->where('type', '!=', 'is_service')
         // Search With Multiple Param
@@ -4312,7 +4303,7 @@ class ReportController extends BaseController
             ->groupBy('product_id');
 
         $healthBase = function () use ($stockAgg, $request) {
-            return DB::table('products')
+            return $this->rc(DB::table('products'), 'products.company_id')
                 ->leftJoinSub($stockAgg, 'pw', 'pw.product_id', '=', 'products.id')
                 ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
                 ->whereNull('products.deleted_at')
@@ -4445,13 +4436,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Keep request filter but ensure it's allowed (optional, if your UI sends warehouse_id)
@@ -4583,13 +4572,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional filter (if UI sends it) + validate it
@@ -4720,13 +4707,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional filter (if UI sends it) + validate it
@@ -4854,13 +4839,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional filter (if UI sends it) + validate it
@@ -4986,18 +4969,18 @@ class ReportController extends BaseController
 
         // Warehouses visible to user
         $user = $request->user('api');
-        if ($user->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
             $warehouseIds = $warehouses->pluck('id')->all();
         } else {
-            $warehouseIds = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->all();
+            $warehouseIds = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouseIds)->get(['id', 'name']);
         }
         // ✅ An out-of-scope warehouse_id must not replace the allowed scope.
         $warehouseId = (int) $this->filterWarehouseId($request->warehouse_id);
 
         $rowsQuery = product_warehouse::query()
-            ->join('products', 'products.id', '=', 'product_warehouse.product_id')
+            ->join('products', 'products.id', '=', 'product_warehouse.product_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
             ->leftJoin('product_variants', 'product_variants.id', '=', 'product_warehouse.product_variant_id')
             ->join('warehouses', 'warehouses.id', '=', 'product_warehouse.warehouse_id')
             ->whereNull('product_warehouse.deleted_at')
@@ -5124,13 +5107,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional filter (if UI sends it) + validate it
@@ -5270,13 +5251,11 @@ class ReportController extends BaseController
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          * For transfers: user can see transfers where (from_warehouse_id OR to_warehouse_id) is in allowed warehouses
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional filter (if UI sends it) + validate it
@@ -5398,13 +5377,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional filter (if UI sends it) + validate it
@@ -5501,7 +5478,7 @@ class ReportController extends BaseController
         $this->authorizeForUser($request->user('api'), 'Reports_customers', Client::class);
 
         $helpers = new helpers;
-        $client = Client::where('deleted_at', '=', null)->findOrFail($id);
+        $client = $this->rc(Client::query(), 'clients.company_id')->whereNull('clients.deleted_at')->findOrFail($id);
 
         $Sales = Sale::where('deleted_at', '=', null)
             ->where([
@@ -5526,15 +5503,15 @@ class ReportController extends BaseController
         $data['client_name'] = $client->name;
         $data['phone'] = $client->phone;
 
-        $data['total_sales'] = DB::table('sales')->where('deleted_at', '=', null)->where('client_id', $id)->count();
+        $data['total_sales'] = $this->rc(DB::table('sales'), 'sales.company_id')->where('deleted_at', '=', null)->where('client_id', $id)->count();
 
-        $data['total_amount'] = DB::table('sales')
+        $data['total_amount'] = $this->rc(DB::table('sales'), 'sales.company_id')
             ->where('deleted_at', '=', null)
             ->where('statut', 'completed')
             ->where('client_id', $client->id)
             ->sum('GrandTotal');
 
-        $data['total_paid'] = DB::table('sales')
+        $data['total_paid'] = $this->rc(DB::table('sales'), 'sales.company_id')
             ->where('deleted_at', '=', null)
             ->where('statut', 'completed')
             ->where('client_id', $client->id)
@@ -5542,12 +5519,12 @@ class ReportController extends BaseController
 
         $data['due'] = $data['total_amount'] - $data['total_paid'];
 
-        $data['total_amount_return'] = DB::table('sale_returns')
+        $data['total_amount_return'] = $this->rc(DB::table('sale_returns'), 'sale_returns.company_id')
             ->where('deleted_at', '=', null)
             ->where('client_id', $client->id)
             ->sum('GrandTotal');
 
-        $data['total_paid_return'] = DB::table('sale_returns')
+        $data['total_paid_return'] = $this->rc(DB::table('sale_returns'), 'sale_returns.company_id')
             ->where('deleted_at', '=', null)
             ->where('client_id', $client->id)
             ->sum('paid_amount');
@@ -5585,7 +5562,7 @@ class ReportController extends BaseController
         $this->authorizeForUser($request->user('api'), 'Reports_suppliers', Provider::class);
 
         $helpers = new helpers;
-        $provider = Provider::where('deleted_at', '=', null)->findOrFail($id);
+        $provider = $this->rc(Provider::query(), 'providers.company_id')->whereNull('providers.deleted_at')->findOrFail($id);
 
         $purchases = Purchase::where('deleted_at', '=', null)
             ->where('payment_statut', '!=', 'paid')
@@ -5609,15 +5586,15 @@ class ReportController extends BaseController
         $data['provider_name'] = $provider->name;
         $data['phone'] = $provider->phone;
 
-        $data['total_purchase'] = DB::table('purchases')->where('deleted_at', '=', null)->where('provider_id', $id)->count();
+        $data['total_purchase'] = $this->rc(DB::table('purchases'), 'purchases.company_id')->where('deleted_at', '=', null)->where('provider_id', $id)->count();
 
-        $data['total_amount'] = DB::table('purchases')
+        $data['total_amount'] = $this->rc(DB::table('purchases'), 'purchases.company_id')
             ->where('deleted_at', '=', null)
             ->where('statut', 'received')
             ->where('provider_id', $id)
             ->sum('GrandTotal');
 
-        $data['total_paid'] = DB::table('purchases')
+        $data['total_paid'] = $this->rc(DB::table('purchases'), 'purchases.company_id')
             ->where('deleted_at', '=', null)
             ->where('statut', 'received')
             ->where('provider_id', $id)
@@ -5625,12 +5602,12 @@ class ReportController extends BaseController
 
         $data['due'] = $data['total_amount'] - $data['total_paid'];
 
-        $data['total_amount_return'] = DB::table('purchase_returns')
+        $data['total_amount_return'] = $this->rc(DB::table('purchase_returns'), 'purchase_returns.company_id')
             ->where('deleted_at', '=', null)
             ->where('provider_id', $id)
             ->sum('GrandTotal');
 
-        $data['total_paid_return'] = DB::table('purchase_returns')
+        $data['total_paid_return'] = $this->rc(DB::table('purchase_returns'), 'purchase_returns.company_id')
             ->where('deleted_at', '=', null)
             ->where('provider_id', $id)
             ->sum('paid_amount');
@@ -5687,15 +5664,15 @@ class ReportController extends BaseController
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
             $array_warehouses_id = Warehouse::where('deleted_at', '=', null)->pluck('id')->toArray();
         } else {
-            $array_warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $array_warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $array_warehouses_id)->get(['id', 'name']);
         }
 
-        $products_data = Product::where('deleted_at', '=', null)->select('id', 'name', 'code', 'is_variant', 'unit_id', 'type')
+        $products_data = $this->rc(Product::query(), 'products.company_id')->where('deleted_at', '=', null)->select('id', 'name', 'code', 'is_variant', 'unit_id', 'type')
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
                     return $query->where('name', 'LIKE', "%{$request->search}%")
@@ -5855,7 +5832,7 @@ class ReportController extends BaseController
 
         // ---- Whole-set stats + top-10 chart (cheap aggregates over the range).
         $agg = DB::table('sale_details as sd')
-            ->join('sales as s', 's.id', '=', 'sd.sale_id')
+            ->join('sales as s', 's.id', '=', 'sd.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('s.company_id', $cid))
             ->whereNull('s.deleted_at')
             ->whereBetween('sd.date', [$from, $to])
             ->when($request->warehouse_id, fn ($q) => $q->where('s.warehouse_id', $request->warehouse_id))
@@ -5873,7 +5850,7 @@ class ReportController extends BaseController
         ];
 
         $chart = (clone $agg)
-            ->join('products as p', 'p.id', '=', 'sd.product_id')
+            ->join('products as p', 'p.id', '=', 'sd.product_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('p.company_id', $cid))
             ->groupBy('p.id', 'p.name')
             ->orderByDesc(DB::raw('SUM(sd.total)'))
             ->limit(10)
@@ -5910,13 +5887,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional UI filter + validate it
@@ -6062,15 +6037,15 @@ class ReportController extends BaseController
             $data[] = $item;
         }
 
-        $customers = client::where('deleted_at', '=', null)->get(['id', 'name']);
-        $users = User::get(['id', 'username']);
+        $customers = $this->rc(Client::query(), 'clients.company_id')->whereNull('clients.deleted_at')->get(['id', 'name']);
+        $users = $this->rc(User::query(), 'users.company_id')->get(['id', 'username']);
 
         // get warehouses assigned to user (your existing logic unchanged)
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
@@ -6109,13 +6084,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional filter (if UI sends it) + validate it
@@ -6264,14 +6237,14 @@ class ReportController extends BaseController
 
         // get warehouses assigned to user (your existing logic unchanged)
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $customers = client::where('deleted_at', '=', null)->get(['id', 'name']);
+        $customers = $this->rc(Client::query(), 'clients.company_id')->whereNull('clients.deleted_at')->get(['id', 'name']);
 
         // Sort the built page for a derived column (Ref/product_name).
         if (!in_array($order, $realCols, true)) {
@@ -6306,13 +6279,11 @@ class ReportController extends BaseController
 
         $user = Auth::user();
         $view_records = $user->hasRecordView();
-        $is_all_warehouses = (bool) $user->is_all_warehouses;
+        $is_all_warehouses = (bool) $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional filters (warehouse = "till", user = "sales person")
@@ -6358,8 +6329,8 @@ class ReportController extends BaseController
 
         // ---- One row per product (per variant), aggregated over every sale in range ----
         $itemsQuery = DB::table('sale_details as sd')
-            ->join('sales as s', 's.id', '=', 'sd.sale_id')
-            ->join('products as p', 'p.id', '=', 'sd.product_id')
+            ->join('sales as s', 's.id', '=', 'sd.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('s.company_id', $cid))
+            ->join('products as p', 'p.id', '=', 'sd.product_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('p.company_id', $cid))
             ->leftJoin('categories as c', 'c.id', '=', 'p.category_id')
             ->leftJoin('product_variants as pv', 'pv.id', '=', 'sd.product_variant_id')
             ->leftJoin('units as u', 'u.id', '=', 'p.unit_sale_id');
@@ -6464,7 +6435,7 @@ class ReportController extends BaseController
         });
 
         // ---- Header counters: the whole day, independent of the category/search filters ----
-        $countersQuery = DB::table('sales as s');
+        $countersQuery = $this->rc(DB::table('sales as s'), 's.company_id');
         $applyFilters($countersQuery);
         $counters = $countersQuery
             ->select(
@@ -6502,8 +6473,8 @@ class ReportController extends BaseController
                 ->get(['id', 'name']);
         }
 
-        $users = User::where('deleted_at', '=', null)->get(['id', 'username']);
-        $categories_list = Category::where('deleted_at', '=', null)->get(['id', 'name']);
+        $users = $this->rc(User::query(), 'users.company_id')->where('deleted_at', '=', null)->get(['id', 'username']);
+        $categories_list = $this->rc(Category::query(), 'categories.company_id')->whereNull('categories.deleted_at')->get(['id', 'name']);
 
         $settings = Setting::where('deleted_at', '=', null)->first();
         $helpers = new helpers;
@@ -6575,13 +6546,11 @@ class ReportController extends BaseController
         /**
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Optional filter (if UI sends it) + validate it
@@ -6731,14 +6700,14 @@ class ReportController extends BaseController
 
         // get warehouses assigned to user (your existing logic unchanged)
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $suppliers = Provider::where('deleted_at', '=', null)->get(['id', 'name']);
+        $suppliers = $this->rc(Provider::query(), 'providers.company_id')->whereNull('providers.deleted_at')->get(['id', 'name']);
 
         // Sort the built page for a derived column (date/Ref/product_name). Y-m-d
         // dates and text sort as strings; numeric columns compare numerically.
@@ -6801,10 +6770,10 @@ class ReportController extends BaseController
 
          // get warehouses assigned to user
          $user_auth = auth()->user();
-         if ($user_auth->is_all_warehouses) {
+         if ($this->reportAllWarehouses()) {
              $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
          } else {
-             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+             $warehouses_id = $this->reportWarehouseIdList();
              $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
          }
 
@@ -6814,7 +6783,7 @@ class ReportController extends BaseController
         $selectedWarehouseIds = $warehouse_id !== 0 ? [$warehouse_id] : $allWarehouseIds;
 
         // base query + search
-        $productsQuery = Product::with('unit')
+        $productsQuery = $this->rc(Product::query(), 'products.company_id')->with('unit')
             ->whereNull('deleted_at')
             ->when($request->filled('search'), function ($q) use ($request) {
                 $s = $request->search;
@@ -6843,7 +6812,7 @@ class ReportController extends BaseController
         };
         $valuationBase = function () use ($selectedWarehouseIds, $applySearch) {
             $q = DB::table('product_warehouse')
-                ->join('products', 'product_warehouse.product_id', '=', 'products.id')
+                ->join('products', 'product_warehouse.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
                 ->leftJoin('product_variants', 'product_warehouse.product_variant_id', '=', 'product_variants.id')
                 ->whereNull('product_warehouse.deleted_at')
                 ->whereNull('products.deleted_at')
@@ -7042,11 +7011,11 @@ class ReportController extends BaseController
 
         // warehouses
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
             $allWarehouseIds = $warehouses->pluck('id')->toArray();
         } else {
-            $allWarehouseIds = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $allWarehouseIds = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $allWarehouseIds)->get(['id', 'name']);
         }
 
@@ -7055,7 +7024,7 @@ class ReportController extends BaseController
         $selectedWarehouseIds = $warehouse_id !== 0 ? [$warehouse_id] : $allWarehouseIds;
 
         // base query + search
-        $productsQuery = Product::with('unit', 'category')
+        $productsQuery = $this->rc(Product::query(), 'products.company_id')->with('unit', 'category')
             ->whereNull('deleted_at')
             ->when($request->filled('search'), function ($q) use ($request) {
                 $s = $request->search;
@@ -7117,7 +7086,7 @@ class ReportController extends BaseController
             'sales.warehouse_id',
             DB::raw('SUM(sale_details.quantity) as total')
         )
-            ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
+            ->join('sales', 'sales.id', '=', 'sale_details.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
             ->whereIn('sale_details.product_id', $productIds)
             ->whereIn('sales.warehouse_id', $selectedWarehouseIds)
             ->whereNull('sales.deleted_at');
@@ -7141,7 +7110,7 @@ class ReportController extends BaseController
             'sale_details.sale_unit_id',
             DB::raw('COUNT(*) as count')
         )
-            ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
+            ->join('sales', 'sales.id', '=', 'sale_details.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
             ->whereIn('sale_details.product_id', $productIds)
             ->whereIn('sales.warehouse_id', $selectedWarehouseIds)
             ->whereNotNull('sale_details.sale_unit_id')
@@ -7167,7 +7136,7 @@ class ReportController extends BaseController
             'transfers.from_warehouse_id as warehouse_id',
             DB::raw('SUM(transfer_details.quantity) as total')
         )
-            ->join('transfers', 'transfers.id', '=', 'transfer_details.transfer_id')
+            ->join('transfers', 'transfers.id', '=', 'transfer_details.transfer_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('transfers.company_id', $cid))
             ->whereIn('transfer_details.product_id', $productIds)
             ->whereIn('transfers.from_warehouse_id', $selectedWarehouseIds)
             ->whereNull('transfers.deleted_at');
@@ -7191,7 +7160,7 @@ class ReportController extends BaseController
             'transfer_details.purchase_unit_id',
             DB::raw('COUNT(*) as count')
         )
-            ->join('transfers', 'transfers.id', '=', 'transfer_details.transfer_id')
+            ->join('transfers', 'transfers.id', '=', 'transfer_details.transfer_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('transfers.company_id', $cid))
             ->whereIn('transfer_details.product_id', $productIds)
             ->whereIn('transfers.from_warehouse_id', $selectedWarehouseIds)
             ->whereNotNull('transfer_details.purchase_unit_id')
@@ -7217,7 +7186,7 @@ class ReportController extends BaseController
             'adjustments.warehouse_id',
             DB::raw('SUM(CASE WHEN adjustment_details.type = "add" THEN adjustment_details.quantity ELSE -adjustment_details.quantity END) as total')
         )
-            ->join('adjustments', 'adjustments.id', '=', 'adjustment_details.adjustment_id')
+            ->join('adjustments', 'adjustments.id', '=', 'adjustment_details.adjustment_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('adjustments.company_id', $cid))
             ->whereIn('adjustment_details.product_id', $productIds)
             ->whereIn('adjustments.warehouse_id', $selectedWarehouseIds)
             ->whereNull('adjustments.deleted_at');
@@ -7388,7 +7357,7 @@ class ReportController extends BaseController
 
         $purchases = PurchaseDetail::where('product_id', $product_id)
             ->where('product_variant_id', $product_variant_id)
-            ->join('purchases', 'purchases.id', '=', 'purchase_details.purchase_id')
+            ->join('purchases', 'purchases.id', '=', 'purchase_details.purchase_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('purchases.company_id', $cid))
             ->where('purchases.statut', 'received')
             ->where(function ($query) use ($warehouse_id, $array_warehouses_id) {
                 if ($warehouse_id !== 0) {
@@ -7514,11 +7483,11 @@ class ReportController extends BaseController
         // get warehouses assigned to user
         $user_auth = auth()->user();
 
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
             $array_warehouses_id = Warehouse::where('deleted_at', '=', null)->pluck('id')->toArray();
         } else {
-            $array_warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $array_warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $array_warehouses_id)->get(['id', 'name']);
         }
 
@@ -7760,13 +7729,11 @@ class ReportController extends BaseController
         $view_records = $user->hasRecordView();
 
         // ✅ Warehouse restriction
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $warehouse_ids = [];
         if (! $is_all_warehouses) {
-            $warehouse_ids = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouse_ids = $this->reportWarehouseIdList();
         }
 
 
@@ -8020,8 +7987,8 @@ class ReportController extends BaseController
             ->slice($offSet, $perPage)
             ->values();
 
-        $clients = Client::whereNull('deleted_at')->get(['id', 'name']);
-        $suppliers = Provider::whereNull('deleted_at')->get(['id', 'name']);
+        $clients = $this->rc(Client::query(), 'clients.company_id')->whereNull('clients.deleted_at')->get(['id', 'name']);
+        $suppliers = $this->rc(Provider::query(), 'providers.company_id')->whereNull('providers.deleted_at')->get(['id', 'name']);
         $salesQuery = Sale::whereNull('deleted_at');
         if (! $is_all_warehouses) {
             $salesQuery->whereIn('warehouse_id', $warehouse_ids);
@@ -8126,13 +8093,11 @@ class ReportController extends BaseController
         $viewRecords = $user->hasRecordView();
 
         // ✅ Warehouse restriction by user assignment
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $warehouse_ids = [];
         if (! $is_all_warehouses) {
-            $warehouse_ids = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouse_ids = $this->reportWarehouseIdList();
         }
 
         // ✅ If request warehouse_id is not allowed, force to allowed list (or null)
@@ -8620,13 +8585,11 @@ class ReportController extends BaseController
     // ✅ Apply view_records + assigned warehouses restriction (no other behavior changed)
     $user = Auth::user();
     $view_records = $user->hasRecordView();
-    $is_all_warehouses = (bool) $user->is_all_warehouses;
+    $is_all_warehouses = (bool) $this->reportAllWarehouses();
 
     $allowedWarehouseIds = [];
     if (! $is_all_warehouses) {
-        $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-            ->pluck('warehouse_id')
-            ->toArray();
+        $allowedWarehouseIds = $this->reportWarehouseIdList();
     }
 
     $salesQuery = Category::leftJoin('products', 'categories.id', '=', 'products.category_id')
@@ -8693,8 +8656,8 @@ class ReportController extends BaseController
 
     // Daily trend for the period, same restrictions/search as the table.
     $timeseries = DB::table('sale_details')
-        ->join('sales', 'sale_details.sale_id', '=', 'sales.id')
-        ->join('products', 'sale_details.product_id', '=', 'products.id')
+        ->join('sales', 'sale_details.sale_id', '=', 'sales.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
+        ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
         ->join('categories', 'products.category_id', '=', 'categories.id')
         ->whereNull('sales.deleted_at')
         ->whereBetween('sales.date', [$from, $to])
@@ -8774,13 +8737,11 @@ public function sales_by_brand_report(Request $request)
     // ✅ Apply view_records + assigned warehouses restriction (no other behavior changed)
     $user = Auth::user();
     $view_records = $user->hasRecordView();
-    $is_all_warehouses = (bool) $user->is_all_warehouses;
+    $is_all_warehouses = (bool) $this->reportAllWarehouses();
 
     $allowedWarehouseIds = [];
     if (! $is_all_warehouses) {
-        $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-            ->pluck('warehouse_id')
-            ->toArray();
+        $allowedWarehouseIds = $this->reportWarehouseIdList();
     }
 
     $salesQuery = Brand::leftJoin('products', 'brands.id', '=', 'products.brand_id')
@@ -8847,8 +8808,8 @@ public function sales_by_brand_report(Request $request)
 
     // Daily trend for the period, same restrictions/search as the table.
     $timeseries = DB::table('sale_details')
-        ->join('sales', 'sale_details.sale_id', '=', 'sales.id')
-        ->join('products', 'sale_details.product_id', '=', 'products.id')
+        ->join('sales', 'sale_details.sale_id', '=', 'sales.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
+        ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
         ->join('brands', 'products.brand_id', '=', 'brands.id')
         ->whereNull('sales.deleted_at')
         ->whereBetween('sales.date', [$from, $to])
@@ -8957,13 +8918,11 @@ public function sales_by_brand_report(Request $request)
          * ✅ Add restriction by user's assigned warehouses (no other behavior changed)
          */
         $authUser = Auth::user();
-        $is_all_warehouses = $authUser->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $authUser->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Keep request filter, but ensure it's within allowed warehouses (if restricted)
@@ -8978,7 +8937,7 @@ public function sales_by_brand_report(Request $request)
         }
 
         // Filter users
-        $usersQuery = User::when($request->filled('search'), function ($query) use ($request) {
+        $usersQuery = $this->rc(User::query(), 'users.company_id')->when($request->filled('search'), function ($query) use ($request) {
             $query->where('username', 'LIKE', "%{$request->search}%");
         });
 
@@ -9000,7 +8959,7 @@ public function sales_by_brand_report(Request $request)
 
         foreach ($users as $user) {
 
-            $salesQuery = DB::table('sales')
+            $salesQuery = $this->rc(DB::table('sales'), 'sales.company_id')
                 ->whereNull('deleted_at')
                 // Credit the sale to the attributed salesperson (Change Salesperson
                 // at POS), falling back to the cashier for plain sales.
@@ -9033,7 +8992,7 @@ public function sales_by_brand_report(Request $request)
             }
 
             $paymentsQuery = DB::table('payment_sales')
-                ->join('sales', 'payment_sales.sale_id', '=', 'sales.id')
+                ->join('sales', 'payment_sales.sale_id', '=', 'sales.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('sales.company_id', $cid))
                 ->whereNull('payment_sales.deleted_at')
                 ->whereNull('sales.deleted_at')
                 // Same attribution as total_sales above (the sale's credited
@@ -9201,7 +9160,7 @@ public function sales_by_brand_report(Request $request)
 
         // Basic filter data (companies, employees)
         $companies = Company::whereNull('deleted_at')->get(['id', 'name']);
-        $employees = Employee::whereNull('deleted_at')->get(['id', 'username']);
+        $employees = $this->rc(Employee::query(), 'employees.company_id')->whereNull('employees.deleted_at')->get(['id', 'username']);
 
         return response()->json([
             'report' => $data,
@@ -9237,7 +9196,7 @@ public function sales_by_brand_report(Request $request)
 
         // ---- Subquery: last completed sale per client ----
         // NOTE: you store sale date/time separately; concat to get proper latest datetime.
-        $salesAgg = DB::table('sales')
+        $salesAgg = $this->rc(DB::table('sales'), 'sales.company_id')
             ->select([
                 'client_id',
                 DB::raw('MAX(CONCAT(date, " ", IFNULL(time,"00:00:00"))) AS last_sale_dt'),
@@ -9248,7 +9207,7 @@ public function sales_by_brand_report(Request $request)
             ->groupBy('client_id');
 
         // ---- Base query: clients left-joined to last sale ----
-        $clientsBase = Client::query()
+        $clientsBase = $this->rc(Client::query(), 'clients.company_id')
             ->from('clients')
             ->leftJoinSub($salesAgg, 's', 's.client_id', '=', 'clients.id')
             ->whereNull('clients.deleted_at')
@@ -9379,12 +9338,15 @@ public function sales_by_brand_report(Request $request)
         $warehouseIds = $warehouseId ? [$warehouseId] : $scopeIds;
         $brandId = $request->input('brand_id');
         $categoryId = $request->input('category_id');
+        // Multicompany: only the acting company's products and sales.
+        $companyId = $this->reportCompanyId($request);
 
         // Sales within window (or lifetime if $cutoff null)
         $periodAgg = DB::table('sale_details as sd')
-            ->join('sales as s', 's.id', '=', 'sd.sale_id')
+            ->join('sales as s', 's.id', '=', 'sd.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('s.company_id', $cid))
             ->whereNull('s.deleted_at')
             ->where('s.statut', 'completed')
+            ->when($companyId, fn ($q) => $q->where('s.company_id', $companyId))
             ->when($warehouseIds, fn ($q) => $q->whereIn('s.warehouse_id', $warehouseIds))
             ->when($cutoff, fn ($q) => $q->whereRaw('CONCAT(s.date, " ", IFNULL(s.time, "00:00:00")) >= ?', [$cutoff]))
             ->groupBy('sd.product_id')
@@ -9395,9 +9357,10 @@ public function sales_by_brand_report(Request $request)
 
         // Lifetime last sale timestamp
         $lastAgg = DB::table('sale_details as sd2')
-            ->join('sales as s2', 's2.id', '=', 'sd2.sale_id')
+            ->join('sales as s2', 's2.id', '=', 'sd2.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('s2.company_id', $cid))
             ->whereNull('s2.deleted_at')
             ->where('s2.statut', 'completed')
+            ->when($companyId, fn ($q) => $q->where('s2.company_id', $companyId))
             ->when($warehouseIds, fn ($q) => $q->whereIn('s2.warehouse_id', $warehouseIds))
             ->groupBy('sd2.product_id')
             ->select([
@@ -9410,6 +9373,7 @@ public function sales_by_brand_report(Request $request)
             ->leftJoinSub($periodAgg, 'p', 'p.product_id', '=', 'products.id')
             ->leftJoinSub($lastAgg, 'l', 'l.product_id', '=', 'products.id')
             ->whereNull('products.deleted_at')
+            ->when($companyId, fn ($q) => $q->where('products.company_id', $companyId))
             ->where('products.type', '!=', 'ingredient') // exclude non-stock
             ->when($brandId, fn ($q) => $q->where('products.brand_id', $brandId))
             ->when($categoryId, fn ($q) => $q->where('products.category_id', $categoryId))
@@ -9523,9 +9487,9 @@ public function sales_by_brand_report(Request $request)
             'summary' => $summary,
             'idle_buckets' => $idle_buckets,
             'by_category' => $by_category,
-            // Filter dropdowns (brand / category).
-            'brands' => Brand::where('deleted_at', '=', null)->get(['id', 'name']),
-            'categories' => Category::where('deleted_at', '=', null)->get(['id', 'name']),
+            // Filter dropdowns (brand / category) -- the acting company's only, A-Z.
+            'brands' => $this->rc(Brand::query(), 'brands.company_id')->whereNull('brands.deleted_at')->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('name')->get(['id', 'name']),
+            'categories' => $this->rc(Category::query(), 'categories.company_id')->whereNull('categories.deleted_at')->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -9563,7 +9527,7 @@ public function sales_by_brand_report(Request $request)
 
         // ---------------- Movement WITHIN the period (product-level) ----------------
         $saleWithin = DB::table('sale_details as d')
-            ->join('sales as h', 'h.id', '=', 'd.sale_id')
+            ->join('sales as h', 'h.id', '=', 'd.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
             ->whereNull('h.deleted_at')
             ->where('h.statut', 'completed')
             ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
@@ -9572,7 +9536,7 @@ public function sales_by_brand_report(Request $request)
             ->select('d.product_id', DB::raw('MAX(CONCAT(h.date," ",IFNULL(h.time,"00:00:00"))) as last_dt'));
 
         $purchaseWithin = DB::table('purchase_details as d')
-            ->join('purchases as h', 'h.id', '=', 'd.purchase_id')
+            ->join('purchases as h', 'h.id', '=', 'd.purchase_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
             ->whereNull('h.deleted_at')
             ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
             ->whereRaw('COALESCE(CONCAT(h.date," ",IFNULL(h.time,"00:00:00")), h.created_at) >= ?', [$cutoff])
@@ -9580,7 +9544,7 @@ public function sales_by_brand_report(Request $request)
             ->select('d.product_id', DB::raw('MAX(COALESCE(CONCAT(h.date," ",IFNULL(h.time,"00:00:00")), h.created_at)) as last_dt'));
 
         $transferWithin = DB::table('transfer_details as d')
-            ->join('transfers as h', 'h.id', '=', 'd.transfer_id')
+            ->join('transfers as h', 'h.id', '=', 'd.transfer_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
             ->whereNull('h.deleted_at')
             ->when($warehouseIds, function ($q) use ($warehouseIds) {
                 $q->where(function ($qq) use ($warehouseIds) {
@@ -9593,7 +9557,7 @@ public function sales_by_brand_report(Request $request)
             ->select('d.product_id', DB::raw('MAX(COALESCE(CONCAT(h.date," ",IFNULL(h.time,"00:00:00")), h.created_at)) as last_dt'));
 
         $adjustWithin = DB::table('adjustment_details as d')
-            ->join('adjustments as h', 'h.id', '=', 'd.adjustment_id')
+            ->join('adjustments as h', 'h.id', '=', 'd.adjustment_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
             ->whereNull('h.deleted_at')
             ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
             ->whereRaw('COALESCE(CONCAT(h.date," ",IFNULL(h.time,"00:00:00")), h.created_at) >= ?', [$cutoff])
@@ -9601,19 +9565,19 @@ public function sales_by_brand_report(Request $request)
             ->select('d.product_id', DB::raw('MAX(COALESCE(CONCAT(h.date," ",IFNULL(h.time,"00:00:00")), h.created_at)) as last_dt'));
 
         // ---------------- Lifetime LAST movement (all-time, product-level) ----------------
-        $saleAll = DB::table('sale_details as d')->join('sales as h', 'h.id', '=', 'd.sale_id')
+        $saleAll = DB::table('sale_details as d')->join('sales as h', 'h.id', '=', 'd.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
             ->whereNull('h.deleted_at')->where('h.statut', 'completed')
             ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
             ->groupBy('d.product_id')
             ->select('d.product_id', DB::raw('MAX(CONCAT(h.date," ",IFNULL(h.time,"00:00:00"))) as last_dt'));
 
-        $purchaseAll = DB::table('purchase_details as d')->join('purchases as h', 'h.id', '=', 'd.purchase_id')
+        $purchaseAll = DB::table('purchase_details as d')->join('purchases as h', 'h.id', '=', 'd.purchase_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
             ->whereNull('h.deleted_at')
             ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
             ->groupBy('d.product_id')
             ->select('d.product_id', DB::raw('MAX(COALESCE(CONCAT(h.date," ",IFNULL(h.time,"00:00:00")), h.created_at)) as last_dt'));
 
-        $transferAll = DB::table('transfer_details as d')->join('transfers as h', 'h.id', '=', 'd.transfer_id')
+        $transferAll = DB::table('transfer_details as d')->join('transfers as h', 'h.id', '=', 'd.transfer_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
             ->whereNull('h.deleted_at')
             ->when($warehouseIds, function ($q) use ($warehouseIds) {
                 $q->where(function ($qq) use ($warehouseIds) {
@@ -9624,14 +9588,14 @@ public function sales_by_brand_report(Request $request)
             ->groupBy('d.product_id')
             ->select('d.product_id', DB::raw('MAX(COALESCE(CONCAT(h.date," ",IFNULL(h.time,"00:00:00")), h.created_at)) as last_dt'));
 
-        $adjustAll = DB::table('adjustment_details as d')->join('adjustments as h', 'h.id', '=', 'd.adjustment_id')
+        $adjustAll = DB::table('adjustment_details as d')->join('adjustments as h', 'h.id', '=', 'd.adjustment_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
             ->whereNull('h.deleted_at')
             ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
             ->groupBy('d.product_id')
             ->select('d.product_id', DB::raw('MAX(COALESCE(CONCAT(h.date," ",IFNULL(h.time,"00:00:00")), h.created_at)) as last_dt'));
 
         // ---------------- BASE (product-level only) ----------------
-        $base = DB::table('products as pr')
+        $base = $this->rc(DB::table('products as pr'), 'pr.company_id')
             ->leftJoinSub($saleWithin, 'sw', 'sw.product_id', '=', 'pr.id')
             ->leftJoinSub($purchaseWithin, 'pw', 'pw.product_id', '=', 'pr.id')
             ->leftJoinSub($transferWithin, 'tw', 'tw.product_id', '=', 'pr.id')
@@ -9803,8 +9767,8 @@ public function sales_by_brand_report(Request $request)
             'perPage' => (int) $perPage,                 // -1 when “All”
             'range' => ['from' => (int) $from, 'to' => (int) $to],
             // Filter dropdowns (brand / category).
-            'brands' => Brand::where('deleted_at', '=', null)->get(['id', 'name']),
-            'categories' => Category::where('deleted_at', '=', null)->get(['id', 'name']),
+            'brands' => $this->rc(Brand::query(), 'brands.company_id')->whereNull('brands.deleted_at')->get(['id', 'name']),
+            'categories' => $this->rc(Category::query(), 'categories.company_id')->whereNull('categories.deleted_at')->get(['id', 'name']),
         ]);
     }
 
@@ -9816,12 +9780,10 @@ public function draftInvoices(Request $request)
     $user = Auth::user();
     $view_records = $user->hasRecordView(); // you requested this
 
-    $is_all_warehouses = (bool) $user->is_all_warehouses;
+    $is_all_warehouses = (bool) $this->reportAllWarehouses();
     $allowedWarehouseIds = [];
     if (! $is_all_warehouses) {
-        $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-            ->pluck('warehouse_id')
-            ->toArray();
+        $allowedWarehouseIds = $this->reportWarehouseIdList();
     }
 
     // Paging/sort
@@ -10097,7 +10059,7 @@ public function draftInvoices(Request $request)
 
         // Base: completed sales within date range
         $detailsBase = DB::table('sale_details as sd')
-            ->join('sales as s', 's.id', '=', 'sd.sale_id')
+            ->join('sales as s', 's.id', '=', 'sd.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('s.company_id', $cid))
             ->leftJoin('users as u', 'u.id', '=', 's.user_id')
             ->whereNull('s.deleted_at')
             ->where('s.statut', 'completed')
@@ -10114,7 +10076,7 @@ public function draftInvoices(Request $request)
         $overallLine = (clone $detailsBase)->selectRaw("COALESCE(SUM($lineDiscountExpr),0) as t")->value('t') ?? 0;
 
         // Use header-only aggregation to avoid multiplying header by line count
-        $headerBase = DB::table('sales as s')
+        $headerBase = $this->rc(DB::table('sales as s'), 's.company_id')
             ->whereNull('s.deleted_at')
             ->where('s.statut', 'completed')
             ->whereBetween(DB::raw($dateExpr), $between);
@@ -10252,7 +10214,7 @@ public function draftInvoices(Request $request)
         $taxAmountExpr = "($taxPerUnitExpr) * $qtyExpr";
 
         $base = DB::table('sale_details as sd')
-            ->join('sales as s', 's.id', '=', 'sd.sale_id')
+            ->join('sales as s', 's.id', '=', 'sd.sale_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('s.company_id', $cid))
             ->leftJoin('users as u', 'u.id', '=', 's.user_id')
             ->whereNull('s.deleted_at')
             ->where('s.statut', 'completed')
@@ -10354,7 +10316,7 @@ public function draftInvoices(Request $request)
         // Base completed sales in range — a factory so the aggregate queries
         // below (timeseries, leaderboard) reuse the exact same filters.
         $makeBase = function () use ($dateExpr, $between, $search) {
-            $q = \DB::table('sales as s')
+            $q = $this->rc(DB::table('sales as s'), 's.company_id')
                 ->join('clients as c', 'c.id', '=', 's.client_id')
                 ->whereNull('s.deleted_at')
                 ->where('s.statut', 'completed')
@@ -10472,7 +10434,7 @@ public function draftInvoices(Request $request)
         // ---------- helpers to build inbound subqueries ----------
         $buildPurchaseInbound = function (array $groupCols) use ($warehouseIds) {
             return DB::table('purchase_details as d')
-                ->join('purchases as h', 'h.id', '=', 'd.purchase_id')
+                ->join('purchases as h', 'h.id', '=', 'd.purchase_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
                 ->whereNull('h.deleted_at')
                 ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
                 ->groupBy($groupCols)
@@ -10483,7 +10445,7 @@ public function draftInvoices(Request $request)
 
         $buildTransferInbound = function (array $groupCols) use ($warehouseIds) {
             return DB::table('transfer_details as d')
-                ->join('transfers as h', 'h.id', '=', 'd.transfer_id')
+                ->join('transfers as h', 'h.id', '=', 'd.transfer_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
                 ->whereNull('h.deleted_at')
                 ->when($warehouseIds, fn ($q) => $q->whereIn('h.to_warehouse_id', $warehouseIds))
                 ->groupBy($groupCols)
@@ -10494,7 +10456,7 @@ public function draftInvoices(Request $request)
 
         $buildAdjustInbound = function (array $groupCols) use ($warehouseIds) {
             return DB::table('adjustment_details as d')
-                ->join('adjustments as h', 'h.id', '=', 'd.adjustment_id')
+                ->join('adjustments as h', 'h.id', '=', 'd.adjustment_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
                 ->whereNull('h.deleted_at')
                 ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
                 ->where(function ($q) {
@@ -10516,7 +10478,7 @@ public function draftInvoices(Request $request)
             $adjustInbound = $buildAdjustInbound($cols);
 
             $base = DB::table('product_variants as pv')
-                ->join('products as pr', 'pr.id', '=', 'pv.product_id')
+                ->join('products as pr', 'pr.id', '=', 'pv.product_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('pr.company_id', $cid))
                 ->leftJoinSub($purchaseInbound, 'pi', fn ($j) => $j
                     ->on('pi.product_id', '=', 'pv.product_id')
                     ->on('pi.product_variant_id', '=', 'pv.id'))
@@ -10571,7 +10533,7 @@ public function draftInvoices(Request $request)
             // ---------------- PRODUCT dimension ----------------
             // Build product-level inbound subqueries directly (so alias `in_dt` exists here)
             $pi = DB::table('purchase_details as d')
-                ->join('purchases as h', 'h.id', '=', 'd.purchase_id')
+                ->join('purchases as h', 'h.id', '=', 'd.purchase_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
                 ->whereNull('h.deleted_at')
                 ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
                 ->groupBy('product_id')
@@ -10581,7 +10543,7 @@ public function draftInvoices(Request $request)
                 ]);
 
             $ti = DB::table('transfer_details as d')
-                ->join('transfers as h', 'h.id', '=', 'd.transfer_id')
+                ->join('transfers as h', 'h.id', '=', 'd.transfer_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
                 ->whereNull('h.deleted_at')
                 ->when($warehouseIds, fn ($q) => $q->whereIn('h.to_warehouse_id', $warehouseIds))
                 ->groupBy('product_id')
@@ -10591,7 +10553,7 @@ public function draftInvoices(Request $request)
                 ]);
 
             $ai = DB::table('adjustment_details as d')
-                ->join('adjustments as h', 'h.id', '=', 'd.adjustment_id')
+                ->join('adjustments as h', 'h.id', '=', 'd.adjustment_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
                 ->whereNull('h.deleted_at')
                 ->when($warehouseIds, fn ($q) => $q->whereIn('h.warehouse_id', $warehouseIds))
                 ->where(function ($q) {
@@ -10604,7 +10566,7 @@ public function draftInvoices(Request $request)
                     DB::raw("MAX(COALESCE(TIMESTAMP(h.`date`, IFNULL(h.`time`,'00:00:00')), h.`created_at`)) as in_dt"),
                 ]);
 
-            $base = DB::table('products as pr')
+            $base = $this->rc(DB::table('products as pr'), 'pr.company_id')
                 ->leftJoinSub($pi, 'pi', 'pi.product_id', '=', 'pr.id')
                 ->leftJoinSub($ti, 'ti', 'ti.product_id', '=', 'pr.id')
                 ->leftJoinSub($ai, 'ai', 'ai.product_id', '=', 'pr.id')
@@ -10737,13 +10699,13 @@ public function draftInvoices(Request $request)
             ->orderBy('name')
             ->get();
 
-        $brands = DB::table('brands')
+        $brands = $this->rc(DB::table('brands'), 'brands.company_id')
             ->whereNull('deleted_at')
             ->select('id', 'name')
             ->orderBy('name')
             ->get();
 
-        $categories = DB::table('categories')
+        $categories = $this->rc(DB::table('categories'), 'categories.company_id')
             ->whereNull('deleted_at')
             ->select('id', 'name')
             ->orderBy('name')
@@ -10774,13 +10736,11 @@ public function draftInvoices(Request $request)
          */
         $user         = Auth::user();
         $view_records = $user->hasRecordView(); // ✅ apply this
-        $is_all_warehouses = (bool) $user->is_all_warehouses;
+        $is_all_warehouses = (bool) $this->reportAllWarehouses();
 
         $allowedWarehouseIds = [];
         if (! $is_all_warehouses) {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
         }
 
         // Filters
@@ -10824,7 +10784,7 @@ public function draftInvoices(Request $request)
 
         // Base join (details + header)
         $base = TransferDetail::from('transfer_details as d')
-            ->join('transfers as t', 't.id', '=', 'd.transfer_id')
+            ->join('transfers as t', 't.id', '=', 'd.transfer_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('t.company_id', $cid))
             ->whereNull('t.deleted_at')
             ->whereBetween(
                 DB::raw('COALESCE(CONCAT(t.date," ",IFNULL(t.time,"00:00:00")), t.created_at)'),
@@ -10959,11 +10919,11 @@ public function draftInvoices(Request $request)
         $view_records = $user->hasRecordView(); // ✅ apply this
 
         // Warehouse scope (user)
-        if ($user->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']);
             $array_warehouses_id = Warehouse::where('deleted_at', '=', null)->pluck('id')->toArray();
         } else {
-            $array_warehouses_id = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->all();
+            $array_warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')
                 ->whereIn('id', $array_warehouses_id)
                 ->orderBy('name')
@@ -10979,13 +10939,13 @@ public function draftInvoices(Request $request)
          * - If user is restricted, and he passes a warehouse_id not allowed => ignore it (set null)
          * - Base query will always be limited to allowed warehouses when not is_all_warehouses
          */
-        if (! $user->is_all_warehouses && $warehouseId && ! in_array($warehouseId, $array_warehouses_id, true)) {
+        if (! $this->reportAllWarehouses() && $warehouseId && ! in_array($warehouseId, $array_warehouses_id, true)) {
             $warehouseId = null;
         }
 
         // Base (details + header)
         $base = AdjustmentDetail::from('adjustment_details as d')
-            ->join('adjustments as a', 'a.id', '=', 'd.adjustment_id')
+            ->join('adjustments as a', 'a.id', '=', 'd.adjustment_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('a.company_id', $cid))
             ->whereNull('a.deleted_at')
             ->whereBetween(
                 DB::raw("COALESCE(CONCAT(a.date,' ',IFNULL(a.time,'00:00:00')), a.created_at)"),
@@ -11099,11 +11059,11 @@ public function draftInvoices(Request $request)
 
         // User warehouse scope
         $user = auth()->user();
-        if ($user->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']);
             $array_warehouses_id = $warehouses->pluck('id')->all();
         } else {
-            $array_warehouses_id = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->all();
+            $array_warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $array_warehouses_id)->orderBy('name')->get(['id', 'name']);
         }
 
@@ -11112,7 +11072,7 @@ public function draftInvoices(Request $request)
         $search = trim((string) $request->get('search', ''));
 
         // Header base (purchases)
-        $hdr = DB::table('purchases as h')
+        $hdr = $this->rc(DB::table('purchases as h'), 'h.company_id')
             ->whereNull('h.deleted_at')
             ->where('h.statut', 'received')
             ->whereBetween(DB::raw("COALESCE(CONCAT(h.date,' ',IFNULL(h.time,'00:00:00')), h.created_at)"), [$start->toDateTimeString(), $end->toDateTimeString()])
@@ -11126,7 +11086,7 @@ public function draftInvoices(Request $request)
 
         // QTY by supplier (sum details quantity)
         $qtyAgg = DB::table('purchase_details as d')
-            ->join('purchases as h', 'h.id', '=', 'd.purchase_id')
+            ->join('purchases as h', 'h.id', '=', 'd.purchase_id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('h.company_id', $cid))
             ->whereNull('h.deleted_at')
             ->where('h.statut', 'received')
             ->whereBetween(DB::raw("COALESCE(CONCAT(h.date,' ',IFNULL(h.time,'00:00:00')), h.created_at)"), [$start->toDateTimeString(), $end->toDateTimeString()])
@@ -11256,8 +11216,8 @@ public function draftInvoices(Request $request)
         $nearEnd = Carbon::today()->addDays(max(0, $warningDays))->toDateString();
 
         $accessibleWarehouseIds = null;
-        if (! $user->is_all_warehouses) {
-            $accessibleWarehouseIds = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->all();
+        if (! $this->reportAllWarehouses()) {
+            $accessibleWarehouseIds = $this->reportWarehouseIdList();
         }
 
         $base = ProductBatch::query()

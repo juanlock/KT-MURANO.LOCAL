@@ -78,6 +78,8 @@ export const useAuthStore = defineStore('auth', {
         customerLoyaltyEnabled: s => !s.user || s.user.customer_loyalty_enabled !== false,
         customerCreditLimitEnabled: s => !s.user || s.user.customer_credit_limit_enabled !== false,
         customerOpeningBalanceEnabled: s => !s.user || s.user.customer_opening_balance_enabled !== false,
+        // POS Settings -> "Show POS button in header" (missing = on).
+        posButtonEnabled: s => !s.user || s.user.show_pos_button !== false,
         // DataTable "Customize Columns": per-table admin column setup for this
         // company ({tableKey: [{key, title, width, hidden}]}), and who may edit it.
         datatableColumns: s => (s.user && s.user.datatable_columns) || {},

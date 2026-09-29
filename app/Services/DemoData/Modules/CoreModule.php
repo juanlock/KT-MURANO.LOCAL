@@ -194,7 +194,7 @@ class CoreModule extends DemoModule
         }
         for ($i = 1; $i <= $count; $i++) {
             $date = $ctx->randomDate();
-            $warehouseId = $ctx->pick($ctx->warehouseIds);
+            $warehouseId = $ctx->warehouse();
             [$lines, $grandTotal] = $this->pickLines($productIds, 'price');
             [$paid, $status] = $this->paidPart($grandTotal);
             $seq = str_pad((string) $i, 4, '0', STR_PAD_LEFT).random_int(10, 99);
@@ -242,7 +242,7 @@ class CoreModule extends DemoModule
         }
         for ($i = 1; $i <= $count; $i++) {
             $date = $ctx->randomDate();
-            $warehouseId = $ctx->pick($ctx->warehouseIds);
+            $warehouseId = $ctx->warehouse();
             [$lines, $grandTotal] = $this->pickLines($productIds, 'cost');
             [$paid, $status] = $this->paidPart($grandTotal);
             $received = random_int(1, 10) <= 7;
@@ -299,7 +299,7 @@ class CoreModule extends DemoModule
                 'user_id' => $ctx->userId, 'date' => $date->toDateString(),
                 'Ref' => 'DEMO-QT-'.str_pad((string) $i, 4, '0', STR_PAD_LEFT).random_int(10, 99),
                 'client_id' => $ctx->pick($clientIds),
-                'warehouse_id' => $ctx->pick($ctx->warehouseIds),
+                'warehouse_id' => $ctx->warehouse(),
                 'statut' => random_int(1, 10) <= 6 ? 'sent' : 'pending',
                 'GrandTotal' => $grandTotal,
                 'tax_rate' => 0, 'TaxNet' => 0, 'discount' => 0, 'shipping' => 0,
@@ -331,7 +331,7 @@ class CoreModule extends DemoModule
                 'Ref' => 'DEMO-EXP-'.str_pad((string) $i, 4, '0', STR_PAD_LEFT).random_int(10, 99),
                 'user_id' => $ctx->userId,
                 'expense_category_id' => $categoryId,
-                'warehouse_id' => $ctx->pick($ctx->warehouseIds),
+                'warehouse_id' => $ctx->warehouse(),
                 'details' => $ctx->pick(self::EXPENSE_DETAILS),
                 'amount' => random_int(20, 1500) + random_int(0, 99) / 100,
                 'created_at' => $date, 'updated_at' => $date,

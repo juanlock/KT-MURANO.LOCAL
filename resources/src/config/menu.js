@@ -264,6 +264,7 @@ export const MIGRATED_ROUTES = {
     '/app/assets/reports': '/assets/reports',
     '/app/bookings/list': '/bookings',
     '/app/bookings/trays': '/bookings/trays',
+    '/app/bookings/online': '/bookings/online',
     '/app/meeting/meetings': '/meetings',
     '/app/knowledge-base': '/kb',
     '/app/knowledge-base/groups': '/kb/groups',
@@ -804,6 +805,7 @@ export const MENU = [
             { label: 'Booking_List', to: '/app/bookings/list', permissions: ['bookings'] },
             { label: 'Calendar_View', to: '/app/bookings/calendar', permissions: ['bookings'] },
             { label: 'Trays', to: '/app/bookings/trays', permissions: ['trays'] },
+            { label: 'Online_Booking', to: '/app/bookings/online', permissions: ['bookings'] },
         ],
     },
     {

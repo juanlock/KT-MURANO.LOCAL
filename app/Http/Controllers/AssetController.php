@@ -12,6 +12,26 @@ use Illuminate\Support\Facades\Artisan;
 
 class AssetController extends BaseController
 {
+    /** Multicompany: an asset belongs to the company of its warehouse. */
+    private function abortIfAssetOutOfScope($asset): void
+    {
+        $ids = $this->warehouseScopeIds();
+        abort_if($ids !== null && ! in_array((int) $asset->warehouse_id, $ids, true), 404);
+    }
+
+    /** The warehouse to save: the picked one (must be allowed), else the company's default warehouse. */
+    private function assetWarehouseId($requested): ?int
+    {
+        if ($requested) {
+            abort_unless($this->canAccessWarehouse($requested), 422, 'That warehouse does not belong to your company.');
+
+            return (int) $requested;
+        }
+        $companyId = (int) (request()->input('company_id') ?: optional(auth()->user())->company_id);
+        $default = (int) \App\Models\Setting::forCompany($companyId)->warehouse_id;
+
+        return $default ?: (int) \App\Models\Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('id')->value('id') ?: null;
+    }
     // -------------- Get All Assets ---------------\\
     public function index(Request $request)
     {
@@ -44,6 +64,8 @@ class AssetController extends BaseController
         $query = Asset::leftJoin('warehouses', 'warehouses.id', '=', 'assets.warehouse_id')
             ->leftJoin('asset_categories', 'asset_categories.id', '=', 'assets.asset_category_id')
             ->whereNull('assets.deleted_at')
+            // Multicompany: assets have no company_id -- their warehouse is the company boundary.
+            ->tap(fn ($q) => $this->scopeToWarehouses($q, 'assets.warehouse_id'))
             ->select('assets.*', 'warehouses.name as warehouse_name', 'asset_categories.name as asset_category_name')
             ->where(function ($q) use ($request) {
                 return $q->when($request->filled('search'), function ($q) use ($request) {
@@ -101,6 +123,7 @@ class AssetController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', Asset::class);
         $asset = Asset::where('deleted_at', '=', null)->findOrFail($id);
+        $this->abortIfAssetOutOfScope($asset);
 
         return response()->json([
             'id' => $asset->id,
@@ -153,7 +176,7 @@ class AssetController extends BaseController
             'useful_life_months' => $request['useful_life_months'] ?: null,
             'salvage_value' => $request['salvage_value'] ?: 0,
             'status' => $request['status'] ?: 'in_use',
-            'warehouse_id' => $request['warehouse_id'],
+            'warehouse_id' => $this->assetWarehouseId($request['warehouse_id']),
             'assigned_to_id' => $request['assigned_to_id'],
             'last_verification' => $request['last_verification'],
             'next_validation' => $request['next_validation'],
@@ -167,6 +190,7 @@ class AssetController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', Asset::class);
         $asset = Asset::findOrFail($id);
+        $this->abortIfAssetOutOfScope($asset);
 
         request()->validate([
             'tag' => 'required|unique:assets,tag,'.$id,
@@ -192,7 +216,7 @@ class AssetController extends BaseController
             'useful_life_months' => $request['useful_life_months'] ?: null,
             'salvage_value' => $request['salvage_value'] ?: 0,
             'status' => $request['status'] ?: 'in_use',
-            'warehouse_id' => $request['warehouse_id'],
+            'warehouse_id' => $this->assetWarehouseId($request['warehouse_id']),
             'assigned_to_id' => $request['assigned_to_id'],
             'last_verification' => $request['last_verification'],
             'next_validation' => $request['next_validation'],
@@ -206,6 +230,7 @@ class AssetController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', Asset::class);
         $asset = Asset::findOrFail($id);
+        $this->abortIfAssetOutOfScope($asset);
         $asset->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true], 200);
@@ -218,6 +243,7 @@ class AssetController extends BaseController
         $selectedIds = $request->selectedIds ?: [];
         foreach ($selectedIds as $assetId) {
             $asset = Asset::findOrFail($assetId);
+        $this->abortIfAssetOutOfScope($asset);
             $asset->update(['deleted_at' => Carbon::now()]);
         }
 
@@ -230,14 +256,12 @@ class AssetController extends BaseController
         $this->authorizeForUser(request()->user('api'), 'view', Asset::class);
 
         $user_auth = auth()->user();
-        if ($user_auth && $user_auth->is_all_warehouses) {
+        if ($this->warehouseScopeIds() === null) {
             $warehouses = Warehouse::where('deleted_at', '=', null)
                 ->orderBy('name')
                 ->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth ? $user_auth->id : null)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouses_id = $this->warehouseScopeIds();
             $warehouses = Warehouse::where('deleted_at', '=', null)
                 ->whereIn('id', $warehouses_id)
                 ->orderBy('name')
@@ -260,16 +284,15 @@ class AssetController extends BaseController
         $this->authorizeForUser($request->user('api'), 'view', Asset::class);
 
         $asset = Asset::where('deleted_at', '=', null)->findOrFail($id);
+        $this->abortIfAssetOutOfScope($asset);
 
         $user_auth = auth()->user();
-        if ($user_auth && $user_auth->is_all_warehouses) {
+        if ($this->warehouseScopeIds() === null) {
             $warehouses = Warehouse::where('deleted_at', '=', null)
                 ->orderBy('name')
                 ->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth ? $user_auth->id : null)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouses_id = $this->warehouseScopeIds();
             $warehouses = Warehouse::where('deleted_at', '=', null)
                 ->whereIn('id', $warehouses_id)
                 ->orderBy('name')
@@ -334,6 +357,7 @@ class AssetController extends BaseController
         $query = Asset::leftJoin('warehouses', 'warehouses.id', '=', 'assets.warehouse_id')
             ->leftJoin('asset_categories', 'asset_categories.id', '=', 'assets.asset_category_id')
             ->whereNull('assets.deleted_at')
+            ->tap(fn ($q) => $this->scopeToWarehouses($q, 'assets.warehouse_id'))
             ->whereNotNull('assets.next_validation')
             ->whereDate('assets.next_validation', '<=', $limit)
             ->select('assets.*', 'warehouses.name as warehouse_name', 'asset_categories.name as asset_category_name')
@@ -373,14 +397,12 @@ class AssetController extends BaseController
         // $this->authorizeForUser($request->user('api'), 'view', Asset::class);
 
         $user_auth = auth()->user();
-        if ($user_auth && $user_auth->is_all_warehouses) {
+        if ($this->warehouseScopeIds() === null) {
             $warehouses = Warehouse::where('deleted_at', '=', null)
                 ->orderBy('name')
                 ->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth ? $user_auth->id : null)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouses_id = $this->warehouseScopeIds();
             $warehouses = Warehouse::where('deleted_at', '=', null)
                 ->whereIn('id', $warehouses_id)
                 ->orderBy('name')

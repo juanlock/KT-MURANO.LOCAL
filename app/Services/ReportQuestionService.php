@@ -38,7 +38,7 @@ class ReportQuestionService
             ->whereBetween('date', [$dateFrom, $dateTo]);
 
         if ($warehouseId) {
-            $query->where('warehouse_id', $warehouseId);
+            $query->whereIn('warehouse_id', $warehouseIds); // checked: only an allowed warehouse
         } else {
             $query->whereIn('warehouse_id', $warehouseIds);
         }
@@ -64,7 +64,7 @@ class ReportQuestionService
             ->whereNull('deleted_at')
             ->whereBetween('date', [$dateFrom, $dateTo])
             ->when($warehouseId, function ($q) use ($warehouseId) {
-                return $q->where('warehouse_id', $warehouseId);
+                return $q->whereIn('warehouse_id', $warehouseIds); // checked: only an allowed warehouse
             }, function ($q) use ($warehouseIds) {
                 return $q->whereIn('warehouse_id', $warehouseIds);
             })
@@ -112,7 +112,7 @@ class ReportQuestionService
             ->whereBetween('sale_details.date', [$dateFrom, $dateTo]);
 
         if ($warehouseId) {
-            $query->where('s.warehouse_id', $warehouseId);
+            $query->whereIn('s.warehouse_id', $warehouseIds); // checked: only an allowed warehouse
         } else {
             $query->whereIn('s.warehouse_id', $warehouseIds);
         }
@@ -172,6 +172,8 @@ class ReportQuestionService
 
         // Get sales with outstanding amounts (only invoice date on or before today)
         $sales = Sale::whereNull('deleted_at')
+            // Multicompany: only the caller's warehouses (company-aware).
+            ->whereIn('warehouse_id', $this->getUserWarehouseIds(auth()->user()))
             ->where('statut', 'completed')
             ->whereRaw('(GrandTotal - paid_amount) > 0.01')
             ->whereDate('date', '<=', $today->toDateString())
@@ -288,22 +290,31 @@ class ReportQuestionService
      */
     private function getUserWarehouseIds($user, ?int $warehouseId = null): array
     {
+        // Multicompany: an Admin only ever sees their own company's warehouses;
+        // a SuperAdmin the company picked in the header switcher (company_id),
+        // or every company when none is picked.
+        $companyId = null;
+        if ($user && $user->type !== 'SuperAdmin') {
+            $companyId = (int) $user->company_id;
+        } elseif (request()->filled('company_id')) {
+            $companyId = (int) request()->input('company_id');
+        }
+
+        $query = \App\Models\Warehouse::whereNull('deleted_at')
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId));
+        if ($user && $user->type !== 'SuperAdmin' && ! $user->is_all_warehouses) {
+            $query->whereIn('id', \App\Models\UserWarehouse::where('user_id', $user->id)->select('warehouse_id'));
+        }
+        if (! $user) {
+            return [];
+        }
+        $allowed = $query->pluck('id')->map(fn ($id) => (int) $id)->toArray();
+
+        // A picked warehouse must be one of the allowed ones.
         if ($warehouseId) {
-            return [$warehouseId];
+            return in_array((int) $warehouseId, $allowed, true) ? [(int) $warehouseId] : [];
         }
 
-        if ($user && $user->is_all_warehouses) {
-            return \App\Models\Warehouse::whereNull('deleted_at')
-                ->pluck('id')
-                ->toArray();
-        }
-
-        if ($user) {
-            return \App\Models\UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
-        }
-
-        return [];
+        return $allowed;
     }
 }

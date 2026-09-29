@@ -38,6 +38,7 @@ class SupportController extends Controller
     {
         $cid = FrontPage::explicitCompanyId($request);
         abort_unless($cid, 404);
+        abort_unless(\App\Support\ModuleFlags::enabled($cid, 'helpdesk'), 404);
         $s = HelpdeskSetting::where('company_id', $cid)->first();
         abort_if($s && ! $s->public_form_enabled, 404);
 
@@ -60,7 +61,10 @@ class SupportController extends Controller
 
     private function ticketByToken(string $token): HelpdeskTicket
     {
-        return HelpdeskTicket::where('public_token', $token)->firstOrFail();
+        $t = HelpdeskTicket::where('public_token', $token)->firstOrFail();
+        abort_unless(\App\Support\ModuleFlags::enabled((int) $t->company_id, 'helpdesk'), 404);
+
+        return $t;
     }
 
     public function create(Request $request)

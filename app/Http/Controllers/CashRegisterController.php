@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Auth;
 
 class CashRegisterController extends BaseController
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     public function openRegister(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
@@ -178,12 +181,10 @@ class CashRegisterController extends BaseController
         // New way: Check user's record_view field (user-level boolean)
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
-        $is_all_warehouses = $user->is_all_warehouses;
+        $is_all_warehouses = $this->reportAllWarehouses();
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
-            $warehouse_ids = UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+            $warehouse_ids = $this->reportWarehouseIdList();
         }
 
         $query = CashRegister::with(['user:id,firstname,lastname,username', 'warehouse:id,name'])
@@ -262,13 +263,13 @@ class CashRegisterController extends BaseController
         }
 
         // Users & Warehouses for filters (mirror sales report)
-        $users = User::where('deleted_at', '=', null)->get(['id', 'username', 'firstname', 'lastname']);
+        $users = $this->rc(User::query(), 'users.company_id')->where('deleted_at', '=', null)->get(['id', 'username', 'firstname', 'lastname']);
 
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
         } else {
-            $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $warehouses_id = $this->reportWarehouseIdList();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 

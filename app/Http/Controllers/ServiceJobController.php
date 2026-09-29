@@ -29,6 +29,9 @@ use PDF;
 
 class ServiceJobController extends BaseController
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     use CalculatesCogsAndAverageCost;
 
     // -------------- Get All Service Jobs ---------------\\
@@ -57,6 +60,8 @@ class ServiceJobController extends BaseController
         $order = $sortableMap[$order] ?? 'service_jobs.Ref';
 
         $query = ServiceJob::leftJoin('clients', 'clients.id', '=', 'service_jobs.client_id')
+            // Multicompany: a job belongs to the company of its warehouse (or, without one, of its customer).
+            ->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))
             ->leftJoin('service_technicians', 'service_technicians.id', '=', 'service_jobs.technician_id')
             ->whereNull('service_jobs.deleted_at')
             ->select(
@@ -150,7 +155,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', ServiceJob::class);
 
-        $clients = Client::whereNull('deleted_at')
+        $clients = $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'phone']);
 
@@ -217,7 +222,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', ServiceJob::class);
 
-        $job = ServiceJob::whereNull('deleted_at')->with(['client', 'technician'])->findOrFail($id);
+        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->with(['client', 'technician'])->findOrFail($id);
 
         $checklist = $job->checklistItems()
             ->whereNull('deleted_at')
@@ -365,7 +370,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($id);
+        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->findOrFail($id);
 
         $validated = $this->validatePayload($request);
 
@@ -413,7 +418,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', ServiceJob::class);
 
-        $job = ServiceJob::findOrFail($id);
+        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->findOrFail($id);
 
         DB::transaction(function () use ($job) {
             // Deleting a delivered job has to put its parts back on the shelf,
@@ -430,7 +435,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($id);
+        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->findOrFail($id);
 
         $validated = $request->validate([
             'approved_by' => 'nullable|string|max:191',
@@ -455,7 +460,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($id);
+        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->findOrFail($id);
 
         $job->update(['status' => 'declined']);
 
@@ -467,7 +472,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($id);
+        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->findOrFail($id);
 
         $validated = $request->validate([
             'pickup_signature' => 'nullable|string|max:191',
@@ -1172,12 +1177,14 @@ class ServiceJobController extends BaseController
         // Pick a warehouse the current user can access. Prefer one referenced by the job's items.
         $warehouseId = optional($job->items->firstWhere('warehouse_id', '!=', null))->warehouse_id;
         if (! $warehouseId) {
-            if ($user->is_all_warehouses) {
-                $warehouseId = Setting::value('warehouse_id')
-                    ?? Warehouse::whereNull('deleted_at')->orderBy('id')->value('id');
-            } else {
-                $warehouseId = UserWarehouse::where('user_id', $user->id)->value('warehouse_id');
-            }
+            // The job's company DEFAULT warehouse (settings.warehouse_id) when the
+            // user may use it, else the first warehouse they may use.
+            $companyId = (int) (DB::table('clients')->where('id', $job->client_id)->value('company_id') ?: $user->company_id);
+            $default = (int) Setting::forCompany($companyId)->warehouse_id;
+            $allowed = $this->reportAllWarehouses() ? null : $this->reportWarehouseIdList();
+            $warehouseId = ($default && ($allowed === null || in_array($default, $allowed, true)))
+                ? $default
+                : ($allowed[0] ?? Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('id')->value('id'));
         }
         if (! $warehouseId) {
             return response()->json(['message' => 'No warehouse is accessible to your account; cannot create a quotation.'], 422);

@@ -23,6 +23,7 @@ class MyTicketsController extends Controller
     {
         $u = $request->user('api');
         abort_if(! $u || $u->type === 'customer' || ! $u->company_id, 403);
+        \App\Support\ModuleFlags::abortUnlessEnabled((int) $u->company_id, 'helpdesk');
 
         return $u;
     }

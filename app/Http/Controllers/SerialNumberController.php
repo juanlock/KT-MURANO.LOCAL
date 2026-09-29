@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 
 class SerialNumberController extends BaseController
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     /**
      * Paginated, filterable list of serial / IMEI units.
      * Query params (vue-good-table remote): limit, page, SortField, SortType,
@@ -250,10 +253,8 @@ class SerialNumberController extends BaseController
     private function allowedWarehouseIds(): ?array
     {
         $user = auth()->user();
-        if ($user && ! $user->is_all_warehouses) {
-            return \App\Models\UserWarehouse::where('user_id', $user->id)
-                ->pluck('warehouse_id')
-                ->toArray();
+        if ($user && ! $this->reportAllWarehouses()) {
+            return $this->reportWarehouseIdList();
         }
 
         return null;

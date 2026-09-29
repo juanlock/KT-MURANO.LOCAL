@@ -71,7 +71,7 @@ class FleetModule extends DemoModule
                     'color' => $color,
                     'type' => $type,
                     'status' => $i === 3 ? 'maintenance' : 'active',
-                    'warehouse_id' => $ctx->pick($ctx->warehouseIds),
+                    'warehouse_id' => $ctx->warehouse(),
                     'employee_id' => $employeeIds && $type !== 'forklift' ? $employeeIds[$i % count($employeeIds)] : null,
                     'fuel_type' => $fuel,
                     'tank_capacity' => $tank,

@@ -176,6 +176,10 @@ class PortalAuthController extends Controller
                 'phone' => $portalClient->client->phone,
                 'adresse' => $portalClient->client->adresse,
             ],
+            // Business Modules of the customer's company (portal nav hides what's off).
+            'modules' => [
+                'helpdesk' => \App\Support\ModuleFlags::enabled((int) $portalClient->client->company_id, 'helpdesk'),
+            ],
         ];
     }
 }

@@ -28,6 +28,12 @@ class VerifyCsrfToken extends Middleware
         // prevented by $request->session()->regenerate() inside the LoginController
         // (see app/Http/Controllers/Auth/LoginController.php) immediately after
         // Auth::attempt() succeeds.
+        // POST /book: public booking page, embedded as an iframe on external
+        // websites -- the session cookie is not sent cross-site, so a token
+        // could never match. Anonymous form (no account is acted on); spam is
+        // handled in PublicBookingController (throttle, honeypot, time-to-submit).
+        'book',
+
         'login',
         '*/login',
         'logout',

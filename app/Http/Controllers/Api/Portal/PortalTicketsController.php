@@ -36,6 +36,8 @@ class PortalTicketsController extends Controller
             ? DB::table('clients')->where('id', $pc->client_id)->whereNull('deleted_at')->first(['id', 'company_id', 'name'])
             : null;
         abort_unless($client && $client->company_id, 403, __('portal.portal_disabled'));
+        // Business Modules: Helpdesk switched off for the company -> no tickets.
+        abort_unless(\App\Support\ModuleFlags::enabled((int) $client->company_id, 'helpdesk'), 404);
 
         return [$pc, $client];
     }

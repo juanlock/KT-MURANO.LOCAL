@@ -27,9 +27,17 @@ class DemoContext
     public function __construct(
         public int $companyId,
         public int $userId,
-        /** @var int[] this company's live warehouses (at least one) */
+        /** @var int[] this company's live warehouses (at least one), DEFAULT warehouse first */
         public array $warehouseIds,
+        /** the company's default warehouse (settings.warehouse_id) -- where demo documents go */
+        public ?int $defaultWarehouseId = null,
     ) {
+    }
+
+    /** The warehouse demo documents use: the company's default warehouse. */
+    public function warehouse(): int
+    {
+        return (int) ($this->defaultWarehouseId ?: ($this->warehouseIds[0] ?? 0));
     }
 
     /** Insert one row for this company, tag it as demo, return its id. */

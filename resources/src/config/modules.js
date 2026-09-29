@@ -9,7 +9,10 @@
 // means the module is ENABLED — so existing installs see no change.
 
 export const TOGGLEABLE_MODULES = [
-    { key: 'Store', label: 'Store / E-commerce', description: 'Online storefront: orders, collections, banners, pages and Real Estate listings.', pathPrefixes: ['store', 'realestate'] },
+    { key: 'Store', label: 'Store / E-commerce', description: 'Online storefront: orders, collections, banners, gallery, portfolio, pages, menus, imported website and Real Estate listings.', pathPrefixes: ['store', 'realestate'] },
+    // One switch for both sidebar entries (Intranet for staff + Intranet Management).
+    { key: 'intranet', label: 'Intranet', description: 'Staff intranet: news, files, gallery albums, events, calendar with birthdays, and pages — plus Intranet Management for admins.', pathPrefixes: ['intranet', 'intranet-admin'], menuKeys: ['intranet', 'intranet_management'] },
+    { key: 'helpdesk', label: 'Helpdesk', description: 'Support tickets from employees, customers (portal), online customers (store), suppliers and email (mailbox import), handled by helpdesk agents.', pathPrefixes: ['helpdesk'] },
     { key: 'hrm', label: 'HRM', description: 'Employees, attendance, payroll, contracts and the knowledge base.', pathPrefixes: ['hrm', 'contracts'] },
     { key: 'recruit', label: 'Recruits & Jobs', description: 'Job postings, candidates, applications and interviews.', pathPrefixes: ['recruit'] },
     { key: 'meeting', label: 'Meetings', description: 'Meeting planning, attendance and reports.', pathPrefixes: ['meeting', 'meetings'] },
@@ -36,6 +39,12 @@ export const TOGGLEABLE_MODULES = [
 
 const MODULE_KEYS = new Set(TOGGLEABLE_MODULES.map(m => m.key));
 
+// A module can own several top-level menu entries (menuKeys): menu key -> module key.
+const MENU_KEY_TO_MODULE = {};
+for (const m of TOGGLEABLE_MODULES) {
+    for (const k of (m.menuKeys || [])) MENU_KEY_TO_MODULE[k] = m.key;
+}
+
 // First URL segment -> module key, for the router guard.
 const PREFIX_TO_MODULE = {};
 for (const m of TOGGLEABLE_MODULES) {
@@ -44,6 +53,7 @@ for (const m of TOGGLEABLE_MODULES) {
 
 /** True when `key` is enabled under the given flags map (null map = all on). */
 export function isModuleEnabled(flags, key) {
+    key = MENU_KEY_TO_MODULE[key] || key;
     if (!MODULE_KEYS.has(key)) return true; // not toggleable -> always on
     if (!flags || typeof flags !== 'object') return true;
     return flags[key] !== false;

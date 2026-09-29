@@ -64,6 +64,9 @@ class Setting extends Model
         'customer_loyalty_enabled', 'customer_credit_limit_enabled', 'customer_opening_balance_enabled',
         // Defaults -> Product: auto-generated product Code (<prefix><next number>)
         'product_code_auto', 'product_code_prefix', 'product_code_digits',
+        // Defaults -> Booking: optional fields on the Booking Create/Edit form
+        'booking_delivery_date_enabled', 'booking_delivery_time_enabled',
+        'booking_status_enabled', 'booking_delivery_address_enabled',
         // System Settings -> DataTable: company-wide table format + per-table
         // column customization (JSON)
         'datatable_settings', 'datatable_columns',
@@ -120,6 +123,10 @@ class Setting extends Model
         'customer_opening_balance_enabled' => 'boolean',
         'product_code_auto' => 'boolean',
         'product_code_digits' => 'integer',
+        'booking_delivery_date_enabled' => 'boolean',
+        'booking_delivery_time_enabled' => 'boolean',
+        'booking_status_enabled' => 'boolean',
+        'booking_delivery_address_enabled' => 'boolean',
         'sale_pdf_show_disc_column' => 'boolean',
         'sale_pdf_show_tax_column' => 'boolean',
         'sale_pdf_show_shipping_row' => 'boolean',

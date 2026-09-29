@@ -167,6 +167,8 @@ class UserController extends BaseController
             'customer_loyalty_enabled' => (bool) ($settings->customer_loyalty_enabled ?? true),
             'customer_credit_limit_enabled' => (bool) ($settings->customer_credit_limit_enabled ?? true),
             'customer_opening_balance_enabled' => (bool) ($settings->customer_opening_balance_enabled ?? true),
+            // POS Settings -> "Show POS button in header" (the topbar's blue POS button)
+            'show_pos_button' => (bool) (\App\Models\PosSetting::where('company_id', $this->resolveActingCompanyId($request))->value('show_pos_button') ?? true),
             'timezone' => $this->getEnvValue('APP_TIMEZONE', 'UTC'),
             // Admin-defined sidebar arrangement (null = default menu.js order) â€”
             // applied by the SPA for every user at boot.

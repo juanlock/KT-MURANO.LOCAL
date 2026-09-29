@@ -22,6 +22,17 @@ class SettingsController extends Controller
 {
     use ScopesToCompany;
 
+    /** A boolean setting from the request (1/'1'/'true'/true = on), else its saved value (default on). */
+    private function settingFlag(Request $request, $setting, string $key): int
+    {
+        if (! $request->has($key)) {
+            return (int) ($setting->{$key} ?? 1);
+        }
+        $v = $request[$key];
+
+        return ($v == '1' || $v == 'true' || $v === 1 || $v === true) ? 1 : 0;
+    }
+
     // -------------- Update  Settings ---------------\\
 
     public function update(Request $request, $id)
@@ -300,6 +311,12 @@ class SettingsController extends Controller
             'sale_shipping_enabled' => $request->has('sale_shipping_enabled')
                 ? (($request['sale_shipping_enabled'] == '1' || $request['sale_shipping_enabled'] == 'true' || $request['sale_shipping_enabled'] === 1 || $request['sale_shipping_enabled'] === true) ? 1 : 0)
                 : (int) ($setting->sale_shipping_enabled ?? 1),
+            // Default -- Booking: show/hide optional fields on the Booking
+            // Create/Edit form (default on)
+            'booking_delivery_date_enabled' => $this->settingFlag($request, $setting, 'booking_delivery_date_enabled'),
+            'booking_delivery_time_enabled' => $this->settingFlag($request, $setting, 'booking_delivery_time_enabled'),
+            'booking_status_enabled' => $this->settingFlag($request, $setting, 'booking_status_enabled'),
+            'booking_delivery_address_enabled' => $this->settingFlag($request, $setting, 'booking_delivery_address_enabled'),
             // Default -- Customers: optional customer features; off hides all
             // UI tied to them (form fields, columns, stats, POS/sale widgets)
             'customer_loyalty_enabled' => $request->has('customer_loyalty_enabled')
@@ -832,6 +849,11 @@ class SettingsController extends Controller
             $data['show_brands'] = ($request['show_brands'] == '1' || $request['show_brands'] == 'true' || $request['show_brands'] === true) ? 1 : 0;
         }
 
+        // Blue POS button in the admin top header (default ON)
+        if ($request->has('show_pos_button')) {
+            $data['show_pos_button'] = ($request['show_pos_button'] == '1' || $request['show_pos_button'] == 'true' || $request['show_pos_button'] === true) ? 1 : 0;
+        }
+
         // Customer purchase history panel in the POS (default ON)
         if ($request->has('show_customer_history')) {
             $data['show_customer_history'] = ($request['show_customer_history'] == '1' || $request['show_customer_history'] == 'true' || $request['show_customer_history'] === true) ? 1 : 0;
@@ -1043,6 +1065,9 @@ class SettingsController extends Controller
             $item['product_code_digits'] = (int) ($settings->product_code_digits ?? 4);
             $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
+            foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled'] as $flag) {
+                $item[$flag] = (bool) ($settings->{$flag} ?? true);
+            }
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
             $item['sale_pdf_show_shipping_row'] = (bool) ($settings->sale_pdf_show_shipping_row ?? true);
@@ -1835,6 +1860,9 @@ class SettingsController extends Controller
             $item['product_code_digits'] = (int) ($settings->product_code_digits ?? 4);
             $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
+            foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled'] as $flag) {
+                $item[$flag] = (bool) ($settings->{$flag} ?? true);
+            }
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
             $item['sale_pdf_show_shipping_row'] = (bool) ($settings->sale_pdf_show_shipping_row ?? true);

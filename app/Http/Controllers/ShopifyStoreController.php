@@ -24,6 +24,9 @@ use Illuminate\Support\Facades\DB;
  */
 class ShopifyStoreController extends BaseController
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', ShopifyStore::class);
@@ -258,10 +261,10 @@ class ShopifyStoreController extends BaseController
         $this->authorizeForUser($request->user('api'), 'view', ShopifyStore::class);
 
         $user = $request->user('api') ?: auth()->user();
-        if ($user && $user->is_all_warehouses) {
+        if ($user && $this->reportAllWarehouses()) {
             $warehouses = Warehouse::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']);
         } else {
-            $ids = UserWarehouse::where('user_id', $user ? $user->id : null)->pluck('warehouse_id')->toArray();
+            $ids = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $ids)->orderBy('name')->get(['id', 'name']);
         }
 

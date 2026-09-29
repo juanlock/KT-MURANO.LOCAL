@@ -89,7 +89,7 @@ class PromotionsModule extends DemoModule
                 'promotion_id' => $p['id'],
                 'sale_id' => null,
                 'client_id' => $ctx->pick($clients),
-                'warehouse_id' => $ctx->pick($ctx->warehouseIds),
+                'warehouse_id' => $ctx->warehouse(),
                 'discount_amount' => $discount,
                 'code' => $p['code'],
                 'used_at' => $ctx->randomDate(15),

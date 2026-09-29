@@ -20,6 +20,9 @@ class HelpdeskFetchMail extends Command
             $q->where('company_id', (int) $this->option('company'));
         }
         foreach ($q->get() as $s) {
+            if (! \App\Support\ModuleFlags::enabled((int) $s->company_id, 'helpdesk')) {
+                continue; // Helpdesk switched off in Business Modules
+            }
             try {
                 $r = HelpdeskMailFetcher::fetch($s);
                 $this->info("company {$s->company_id}: {$r['imported']} new ticket(s), {$r['replies']} repl(ies), {$r['skipped']} skipped");

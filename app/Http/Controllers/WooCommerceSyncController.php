@@ -30,6 +30,9 @@ use App\Models\Sale;
 
 class WooCommerceSyncController extends BaseController
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     private const ACTIVE_PRODUCTS_SYNC_TOKENS_KEY = 'woo_products_sync_active_tokens';
 
     private function progressCache()
@@ -914,7 +917,7 @@ class WooCommerceSyncController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', WooCommerceSetting::class);
 
-        $count = Product::whereNull('deleted_at')->whereNull('woocommerce_id')->count();
+        $count = $this->rc(Product::query(), 'products.company_id')->whereNull('deleted_at')->whereNull('woocommerce_id')->count();
 
         return response()->json(['count' => $count]);
     }
@@ -941,7 +944,7 @@ class WooCommerceSyncController extends BaseController
     public function unsyncedCustomersCount(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', WooCommerceSetting::class);
-        $count = \App\Models\Client::whereNull('deleted_at')->whereNull('woocommerce_id')->count();
+        $count = $this->rc(\App\Models\Client::query(), 'clients.company_id')->whereNull('deleted_at')->whereNull('woocommerce_id')->count();
 
         return response()->json(['count' => $count]);
     }
@@ -954,12 +957,12 @@ class WooCommerceSyncController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', WooCommerceSetting::class);
         
-        $total = \App\Models\Client::whereNull('deleted_at')->count();
+        $total = $this->rc(\App\Models\Client::query(), 'clients.company_id')->whereNull('deleted_at')->count();
         
         // Synced = customers with valid woocommerce_id (not null and > 0)
         // Count customers where woocommerce_id is NOT NULL and is a positive integer (> 0)
         // This excludes: null, 0, empty string, and negative numbers
-        $synced = \App\Models\Client::whereNull('deleted_at')
+        $synced = $this->rc(\App\Models\Client::query(), 'clients.company_id')->whereNull('deleted_at')
             ->whereNotNull('woocommerce_id')
             ->whereRaw('CAST(woocommerce_id AS UNSIGNED) > 0')
             ->count();
@@ -984,7 +987,7 @@ class WooCommerceSyncController extends BaseController
         $this->authorizeForUser($request->user('api'), 'view', WooCommerceSetting::class);
 
         // Build a set of distinct mapped Woo product IDs (parents only live on products table).
-        $localIds = Product::whereNull('deleted_at')
+        $localIds = $this->rc(Product::query(), 'products.company_id')->whereNull('deleted_at')
             ->whereNotNull('woocommerce_id')
             ->whereRaw('CAST(woocommerce_id AS UNSIGNED) > 0')
             ->distinct()
@@ -1252,12 +1255,12 @@ class WooCommerceSyncController extends BaseController
 
             $user = $request->user('api');
             if ($candidate > 0) {
-                if ($user && (int) ($user->is_all_warehouses ?? 0) === 1) {
+                if ($user && (int) ($this->reportAllWarehouses() ?? 0) === 1) {
                     if (Warehouse::where('id', $candidate)->whereNull('deleted_at')->exists()) {
                         $warehouseId = $candidate;
                     }
                 } else {
-                    $allowed = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->toArray();
+                    $allowed = $this->reportWarehouseIdList();
                     if (!empty($allowed) && in_array($candidate, $allowed, true)) {
                         $warehouseId = $candidate;
                     }
@@ -1265,10 +1268,10 @@ class WooCommerceSyncController extends BaseController
             }
 
             if ($warehouseId <= 0) {
-                if ($user && (int) ($user->is_all_warehouses ?? 0) === 1) {
+                if ($user && (int) ($this->reportAllWarehouses() ?? 0) === 1) {
                     $warehouseId = (int) (Warehouse::whereNull('deleted_at')->min('id') ?? 0);
                 } else {
-                    $allowed = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id')->toArray();
+                    $allowed = $this->reportWarehouseIdList();
                     $warehouseId = !empty($allowed) ? (int) $allowed[0] : 0;
                 }
             }
@@ -2003,7 +2006,7 @@ class WooCommerceSyncController extends BaseController
         $limit = (int) $request->query('limit', 50);
         $limit = max(1, min(500, $limit));
 
-        $unlinkedProductsQuery = Product::whereNull('deleted_at')->whereNull('woocommerce_id');
+        $unlinkedProductsQuery = $this->rc(Product::query(), 'products.company_id')->whereNull('deleted_at')->whereNull('woocommerce_id');
         $unlinkedProducts = (clone $unlinkedProductsQuery)
             ->orderBy('id', 'desc')
             ->limit($limit)

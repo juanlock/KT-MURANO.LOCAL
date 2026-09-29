@@ -11,6 +11,9 @@ use Illuminate\Validation\Rule;
 
 class WarehouseLocationController extends BaseController
 {
+    // Multicompany: company-aware warehouse scope -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', WarehouseLocation::class);
@@ -24,11 +27,11 @@ class WarehouseLocationController extends BaseController
 
         // Assigned warehouses (user scope)
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->pluck('id')->toArray();
             $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
         } else {
-            $allowedWarehouseIds = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+            $allowedWarehouseIds = $this->reportWarehouseIdList();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $allowedWarehouseIds)->get(['id', 'name']);
         }
 
@@ -183,11 +186,11 @@ class WarehouseLocationController extends BaseController
     private function allowedWarehouseIds(): array
     {
         $user_auth = auth()->user();
-        if ($user_auth->is_all_warehouses) {
+        if ($this->reportAllWarehouses()) {
             return Warehouse::whereNull('deleted_at')->pluck('id')->toArray();
         }
 
-        return UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
+        return $this->reportWarehouseIdList();
     }
 }
 

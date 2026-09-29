@@ -505,6 +505,19 @@
             </a-card>
             </a-tab-pane>
 
+            <!-- Booking: optional fields on the Booking Create/Edit form, per company. -->
+            <a-tab-pane key="booking" tab="Booking">
+            <a-card size="small" style="margin-bottom: 16px">
+              <div v-for="f in BOOKING_FIELD_TOGGLES" :key="f.key" class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t(f.label) }}</div>
+                  <div class="setting-help">{{ f.help }}</div>
+                </div>
+                <a-switch :checked="asBool(setting[f.key] ?? true)" @change="v => (setting[f.key] = v ? 1 : 0)" />
+              </div>
+            </a-card>
+            </a-tab-pane>
+
             <!-- Product: auto-generated product Code, per company. -->
             <a-tab-pane key="product" :tab="$t('Product')">
             <a-card size="small" style="margin-bottom: 16px">
@@ -1258,6 +1271,14 @@ function asBool(v) {
 // prefix/digits; while they're being edited, show the new format's shape.
 const savedProductCode = ref({ prefix: '', digits: 4, next: '' });
 
+// Defaults -> Booking: optional Booking Create/Edit form fields (settings columns, default on).
+const BOOKING_FIELD_TOGGLES = [
+  { key: 'booking_delivery_date_enabled', label: 'Delivery_Date', help: 'Show the Delivery Date field on the Booking Create/Edit form.' },
+  { key: 'booking_delivery_time_enabled', label: 'Delivery_Time', help: 'Show the Delivery Time field on the Booking Create/Edit form.' },
+  { key: 'booking_status_enabled', label: 'Status', help: 'Show the Status field on the Booking Create/Edit form. Off: new bookings are saved as Pending and editing keeps the current status (it can still be changed from the Booking List).' },
+  { key: 'booking_delivery_address_enabled', label: 'Delivery_Address', help: 'Show the Delivery Address field on the Booking Create/Edit form.' },
+];
+
 // Sub-tabs inside the Defaults and DataTable sections.
 const defaultsTab = ref('sales');
 const datatableTab = ref('table');
@@ -1423,6 +1444,7 @@ async function save() {
   fd.append('sale_default_quantity', Math.max(1, Number(s.sale_default_quantity) || 1));
   fd.append('sale_loyalty_points_enabled', asBool(s.sale_loyalty_points_enabled) ? 1 : 0);
   fd.append('sale_shipping_enabled', asBool(s.sale_shipping_enabled) ? 1 : 0);
+  for (const f of BOOKING_FIELD_TOGGLES) fd.append(f.key, asBool(s[f.key] ?? true) ? 1 : 0);
   fd.append('customer_loyalty_enabled', asBool(s.customer_loyalty_enabled) ? 1 : 0);
   fd.append('customer_credit_limit_enabled', asBool(s.customer_credit_limit_enabled) ? 1 : 0);
   fd.append('customer_opening_balance_enabled', asBool(s.customer_opening_balance_enabled) ? 1 : 0);
