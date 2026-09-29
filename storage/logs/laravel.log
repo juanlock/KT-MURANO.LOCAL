@@ -25432,3 +25432,5 @@ Stack trace:
 #10 C:\\Users\\juanlock\\AppData\\Local\\Temp\\claude\\d--WEBSITES-LOCAL-KT-MURANO-LOCAL\\dca7330e-c858-4a57-b448-08922fd14f46\\scratchpad\\verify_invoice_attachment.php(58): Illuminate\\Support\\Facades\\Facade::__callStatic('assertSent', Array)
 #11 {main}
 "} 
+[2026-09-29 16:26:48] production.WARNING: QBO update failed (no create fallback) {"sale_id":3887,"error":"No QuickBooks connection found. Connect via /quickbooks/connect first.","http":null,"body":null} 
+[2026-09-29 16:27:53] production.WARNING: QBO update failed (no create fallback) {"sale_id":3887,"error":"No QuickBooks connection found. Connect via /quickbooks/connect first.","http":null,"body":null} 
