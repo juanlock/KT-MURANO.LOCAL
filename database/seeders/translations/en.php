@@ -4344,7 +4344,7 @@ return [
 'QZ_Step_Cert' => '4. For printing with no permission popup, download the certificate below and copy it into the QZ Tray installation folder, renamed to override.crt (Windows: C:\Program Files\QZ Tray — macOS: /Applications/QZ Tray.app/Contents/Resources — Linux: /opt/qz-tray). Then quit QZ Tray and start it again.',
 'QZ_Step_Test' => '5. Click "Print test label" below. If QZ Tray asks for permission, click Allow — with the certificate installed it will not ask again.',
 'QZ_Step_Save' => '6. Click Submit to save these settings. Labels from the Print Barcode page will now print directly on this printer, with no browser print dialog.',
-'QZ_Setup_Note' => 'QZ Tray runs on the computer you are browsing from, so this works even when Stocky is hosted on a remote server. Every computer that prints labels needs QZ Tray installed.',
+'QZ_Setup_Note' => 'QZ Tray runs on the computer you are browsing from, so this works even when KcolTech - Murano is hosted on a remote server. Every computer that prints labels needs QZ Tray installed.',
 
 // PWA settings tab — installable app identity
 'PWA_Enabled' => 'Enable installable app',
@@ -4396,7 +4396,7 @@ return [
 'pos.Draft_Saved_Offline' => 'Draft saved offline. It will sync when you are back online.',
 'pos.Client_Saved_Offline' => 'Customer saved offline. They will sync when you are back online.',
 'Mobile_App_Settings' => 'Mobile App',
-'Mobile_App_Settings_Help' => 'Control the Stocky mobile app: turn it on or off, set its name, logo and colour, and choose which modules your team sees.',
+'Mobile_App_Settings_Help' => 'Control the KcolTech - Murano mobile app: turn it on or off, set its name, logo and colour, and choose which modules your team sees.',
 'Mobile_App_Enabled' => 'Mobile app enabled',
 'Mobile_App_Enabled_Help' => 'When off, nobody can sign in from the mobile app and the message below is shown instead.',
 'Mobile_App_Disabled_Notice' => 'The mobile app is currently switched off.',
@@ -4662,7 +4662,7 @@ return [
 'Ord_Guide_Intro' => 'How an order placed on your online store travels into your stock and your accounts, and where the money is actually recorded.',
 'Ord_Guide_Lifecycle_Title' => 'Order status',
 'Ord_Guide_Lifecycle_Pending' => 'A new order waiting for your review. Only a pending order can be confirmed or cancelled.',
-'Ord_Guide_Lifecycle_Confirmed' => 'You accepted the order. Stocky creates a Sale in the warehouse you picked and deducts the stock — that sale is the record your stock, payment and profit reports read from.',
+'Ord_Guide_Lifecycle_Confirmed' => 'You accepted the order. KcolTech - Murano creates a Sale in the warehouse you picked and deducts the stock — that sale is the record your stock, payment and profit reports read from.',
 'Ord_Guide_Lifecycle_Shipped' => 'You dispatched the order. Fulfilment only: the stock was already deducted when you confirmed.',
 'Ord_Guide_Lifecycle_Delivered' => 'The customer received the order. This is what starts the return window.',
 'Ord_Guide_Lifecycle_Cancelled' => 'The order was dropped before confirmation, so no sale was created and no stock was deducted.',

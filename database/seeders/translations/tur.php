@@ -4117,7 +4117,7 @@ return [
 'QZ_Step_Cert' => '4. İzin açılır penceresi olmadan yazdırmak için aşağıdaki sertifikayı indirin ve override.crt adıyla QZ Tray kurulum klasörüne kopyalayın (Windows: C:\Program Files\QZ Tray — macOS: /Applications/QZ Tray.app/Contents/Resources — Linux: /opt/qz-tray). Ardından QZ Tray\'i kapatıp yeniden başlatın.',
 'QZ_Step_Test' => '5. Aşağıdaki "Test etiketi yazdır" düğmesine tıklayın. QZ Tray izin isterse Allow\'a tıklayın — sertifika kuruluysa bir daha sormaz.',
 'QZ_Step_Save' => '6. Bu ayarları kaydetmek için Gönder\'e tıklayın. Barkod Yazdır sayfasındaki etiketler artık tarayıcı yazdırma penceresi olmadan doğrudan bu yazıcıda yazdırılacak.',
-'QZ_Setup_Note' => 'QZ Tray, tarama yaptığınız bilgisayarda çalışır; bu nedenle Stocky uzak bir sunucuda barındırılsa bile çalışır. Etiket yazdıran her bilgisayarda QZ Tray kurulu olmalıdır.',
+'QZ_Setup_Note' => 'QZ Tray, tarama yaptığınız bilgisayarda çalışır; bu nedenle KcolTech - Murano uzak bir sunucuda barındırılsa bile çalışır. Etiket yazdıran her bilgisayarda QZ Tray kurulu olmalıdır.',
 
 // PWA settings tab — installable app identity
 'PWA_Enabled' => 'Kurulabilir uygulamayı etkinleştir',
@@ -4169,7 +4169,7 @@ return [
 'pos.Draft_Saved_Offline' => 'Taslak çevrimdışı kaydedildi. Tekrar çevrimiçi olduğunuzda eşitlenecek.',
 'pos.Client_Saved_Offline' => 'Müşteri çevrimdışı kaydedildi. Tekrar çevrimiçi olduğunuzda eşitlenecek.',
 'Mobile_App_Settings' => 'Mobil Uygulama',
-'Mobile_App_Settings_Help' => 'Stocky mobil uygulamasını yönetin: açıp kapatın, adını, logosunu ve rengini belirleyin ve ekibinizin hangi modülleri göreceğini seçin.',
+'Mobile_App_Settings_Help' => 'KcolTech - Murano mobil uygulamasını yönetin: açıp kapatın, adını, logosunu ve rengini belirleyin ve ekibinizin hangi modülleri göreceğini seçin.',
 'Mobile_App_Enabled' => 'Mobil uygulama etkin',
 'Mobile_App_Enabled_Help' => 'Kapalıyken kimse mobil uygulamadan oturum açamaz ve bunun yerine aşağıdaki mesaj gösterilir.',
 'Mobile_App_Disabled_Notice' => 'Mobil uygulama şu anda kapalı.',
@@ -4435,7 +4435,7 @@ return [
 'Ord_Guide_Intro' => 'Çevrimiçi mağazanızda verilen bir siparişin stokunuza ve hesaplarınıza nasıl ulaştığı ve paranın gerçekte nereye kaydedildiği.',
 'Ord_Guide_Lifecycle_Title' => 'Sipariş durumu',
 'Ord_Guide_Lifecycle_Pending' => 'İncelemenizi bekleyen yeni bir sipariş. Yalnızca bekleyen bir sipariş onaylanabilir veya iptal edilebilir.',
-'Ord_Guide_Lifecycle_Confirmed' => 'Siparişi kabul ettiniz. Stocky, seçtiğiniz depoda bir Satış oluşturur ve stoku düşer — stok, ödeme ve kâr raporlarınızın okuduğu kayıt bu satıştır.',
+'Ord_Guide_Lifecycle_Confirmed' => 'Siparişi kabul ettiniz. KcolTech - Murano, seçtiğiniz depoda bir Satış oluşturur ve stoku düşer — stok, ödeme ve kâr raporlarınızın okuduğu kayıt bu satıştır.',
 'Ord_Guide_Lifecycle_Shipped' => 'Siparişi gönderdiniz. Yalnızca teslimat aşaması: stok, onayladığınızda zaten düşülmüştü.',
 'Ord_Guide_Lifecycle_Delivered' => 'Müşteri siparişi teslim aldı. İade süresini başlatan budur.',
 'Ord_Guide_Lifecycle_Cancelled' => 'Sipariş onaydan önce bırakıldı; bu yüzden satış oluşturulmadı ve stok düşülmedi.',

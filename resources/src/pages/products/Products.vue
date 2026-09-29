@@ -25,45 +25,51 @@
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[16, 8]">
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('ProductName') }}</div>
-          <a-input v-model:value="filters.name" :placeholder="$t('SearchByName')" allow-clear @change="crud.reload()" />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('GroupName') }}</div>
-          <a-select
-            v-model:value="filters.product_group_id" style="width: 100%" allow-clear show-search
-            option-filter-prop="label" :placeholder="$t('GroupName')" :options="productGroupFilterOptions"
-            @change="crud.reload()"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('CodeProduct') }}</div>
-          <a-input v-model:value="filters.code" :placeholder="$t('SearchByCode')" allow-clear @change="crud.reload()" />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('Categorie') }}</div>
-          <a-select
-            v-model:value="filters.category_id" style="width: 100%" allow-clear show-search
-            option-filter-prop="label" :placeholder="$t('Choose_Category')" :options="categoryOptions"
-            @change="crud.reload()"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('Brand') }}</div>
-          <a-select
-            v-model:value="filters.brand_id" style="width: 100%" allow-clear show-search
-            option-filter-prop="label" :placeholder="$t('Choose_Brand')" :options="brandOptions"
-            @change="crud.reload()"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('warehouse') }}</div>
-          <a-select
-            v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
-            option-filter-prop="label" :placeholder="$t('Choose_Warehouse')" :options="warehouseOptions"
-            @change="crud.reload()"
-          />
+        <a-col v-for="key in visibleFilterKeys" :key="key" :xs="12" :md="8" :xl="4">
+          <template v-if="key === 'product_group_id'">
+            <div class="filter-label">{{ $t('GroupName') }}</div>
+            <a-select
+              v-model:value="filters.product_group_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('GroupName')" :options="productGroupFilterOptions"
+              @change="onGroupFilterChange"
+            />
+          </template>
+          <template v-else-if="key === 'name'">
+            <div class="filter-label">{{ $t('ProductName') }}</div>
+            <a-select
+              v-model:value="filters.name" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('SearchByName')" :options="productNameFilterOptions"
+              @change="crud.reload()"
+            />
+          </template>
+          <template v-else-if="key === 'code'">
+            <div class="filter-label">{{ $t('CodeProduct') }}</div>
+            <a-input v-model:value="filters.code" :placeholder="$t('SearchByCode')" allow-clear @change="crud.reload()" />
+          </template>
+          <template v-else-if="key === 'category_id'">
+            <div class="filter-label">{{ $t('Categorie') }}</div>
+            <a-select
+              v-model:value="filters.category_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('Choose_Category')" :options="categoryOptions"
+              @change="crud.reload()"
+            />
+          </template>
+          <template v-else-if="key === 'brand_id'">
+            <div class="filter-label">{{ $t('Brand') }}</div>
+            <a-select
+              v-model:value="filters.brand_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('Choose_Brand')" :options="brandOptions"
+              @change="crud.reload()"
+            />
+          </template>
+          <template v-else-if="key === 'warehouse_id'">
+            <div class="filter-label">{{ $t('warehouse') }}</div>
+            <a-select
+              v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('Choose_Warehouse')" :options="warehouseOptions"
+              @change="crud.reload()"
+            />
+          </template>
         </a-col>
       </a-row>
       <div class="tb-bar">
@@ -76,8 +82,18 @@
             </span>
           </template>
         </a-segmented>
+        <a-tooltip v-if="auth.canCustomizeColumns" title="Customize filters">
+          <a-button @click="openCustomize">
+            <template #icon><FilterOutlined /></template>
+          </a-button>
+        </a-tooltip>
       </div>
     </a-card>
+
+    <CustomizeFiltersModal
+      v-model:open="customizeOpen" :saving="customizeSaving" :rows="customizeRows"
+      @move="moveRow" @save="saveCustomize" @reset="resetCustomize"
+    />
 
     <!-- Card view: products are recognised by photo far faster than by row -->
     <template v-if="view === 'grid'">
@@ -279,12 +295,14 @@ import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, CopyOutlined,
   FilePdfOutlined, FileExcelOutlined, UploadOutlined, ExclamationCircleOutlined,
   CarOutlined, BarcodeOutlined, QrcodeOutlined,
-  AppstoreOutlined, UnorderedListOutlined,
+  AppstoreOutlined, UnorderedListOutlined, FilterOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
+import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
 import ProductFitmentDrawer from '../../components/ProductFitmentDrawer.vue';
 import { useCrudTable, PAGE_SIZE_OPTIONS, buildPageSizeOptionText } from '../../composables/useCrudTable';
+import { useCustomizableFilters } from '../../composables/useCustomizableFilters';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf } from '../../lib/exporters';
@@ -300,6 +318,22 @@ const auth = useAuthStore();
 const filters = ref({
   code: '', name: '', category_id: undefined, brand_id: undefined, warehouse_id: undefined, product_group_id: undefined,
 });
+
+// "Customize Filters" (settings.datatable_filters, same idea as DataTable.vue's
+// "Customize Columns"): which of these filters a company shows, and in what
+// order. New filters added to this page later just show up after the saved
+// ones until an admin re-customizes.
+const {
+  visibleFilterKeys, customizeOpen, customizeSaving, customizeRows,
+  openCustomize, moveRow, saveCustomize, resetCustomize,
+} = useCustomizableFilters('products_filters', [
+  { key: 'product_group_id', label: 'Group Name' },
+  { key: 'name', label: 'Product Name' },
+  { key: 'code', label: 'Code' },
+  { key: 'category_id', label: 'Category' },
+  { key: 'brand_id', label: 'Brand' },
+  { key: 'warehouse_id', label: 'Warehouse' },
+]);
 
 const filterParams = () => ({
   code: filters.value.code || '',
@@ -335,10 +369,33 @@ const warehouseOptions = computed(() =>
 );
 
 const productGroups = ref([]);
-http.get('product-groups').then(data => { productGroups.value = data.product_groups || []; }).catch(() => {});
+const allProductNames = ref([]);
+http.get('product-groups').then(data => {
+  productGroups.value = data.product_groups || [];
+  allProductNames.value = data.products || [];
+}).catch(() => {});
 const productGroupFilterOptions = computed(() =>
   withAllOption(sortByLabel(productGroups.value.map(g => ({ value: g.id, label: g.name }))))
 );
+// Name filter: a searchable dropdown of real product names (not free text --
+// the backend's `name` filter is an exact match, so free text rarely found
+// anything anyway). Narrows to the selected group's names once one's picked.
+const productNameFilterOptions = computed(() => {
+  const inGroup = filters.value.product_group_id
+    ? allProductNames.value.filter(p => p.product_group_id === filters.value.product_group_id)
+    : allProductNames.value;
+  const names = [...new Set(inGroup.map(p => p.name))];
+
+  return withAllOption(sortByLabel(names.map(name => ({ value: name, label: name }))));
+});
+
+// Picking a different group can leave a previously-picked Name that no
+// longer belongs to it -- clear it rather than silently keep filtering by a
+// name the new group's option list doesn't even show anymore.
+function onGroupFilterChange() {
+  filters.value.name = '';
+  crud.reload();
+}
 
 const columns = computed(() => [
   // Group Name leads: the list is ordered by it by default (then Name), so it
@@ -492,7 +549,9 @@ function duplicate(record) {
 /* ---------------- view switch ---------------- */
 .tb-bar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 12px;
 }
 .seg-label {

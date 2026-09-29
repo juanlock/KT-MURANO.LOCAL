@@ -71,7 +71,18 @@ $outDir = base_path('KT-TOOLS'.DIRECTORY_SEPARATOR.'database');
 if (! is_dir($outDir)) {
     mkdir($outDir, 0777, true);
 }
-$outFile = $outDir.DIRECTORY_SEPARATOR.'dbmurano_'.now()->format('Y-m-d_His').'.sql';
+// Filename: date - host - time, with a human-readable 12-hour time (not a
+// bare digit run like "151648") so the file's own name tells you when and
+// on which machine it was made without opening it. Host comes from the OS
+// hostname (e.g. "KT-THUNDERA") -- no per-machine config needed, and it
+// already matches this project's Kelsy location naming (Thundera/Home).
+// Colons aren't valid in Windows filenames, so the time uses hyphens:
+// "11-23-06-AM", not "11:23:06 AM". now() correctly reflects the real local
+// clock since APP_TIMEZONE is set to America/New_York app-wide.
+$host = gethostname() ?: 'unknown-host';
+$date = now()->format('Y-m-d');
+$time = now()->format('h-i-s-A');
+$outFile = $outDir.DIRECTORY_SEPARATOR."dbmurano_{$date}_{$host}_{$time}.sql";
 
 $command = [
     $mysqldump,

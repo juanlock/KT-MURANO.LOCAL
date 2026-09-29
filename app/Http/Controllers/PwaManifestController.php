@@ -32,7 +32,7 @@ class PwaManifestController extends Controller
     protected array $surfaces = [
         'app' => [
             'suffix' => null,
-            'short_name' => 'Stocky',
+            'short_name' => 'KcolTech - Murano',
             'description' => 'Ultimate Inventory with POS',
             'start_url' => '/',
             'scope' => '/',
@@ -147,13 +147,13 @@ class PwaManifestController extends Controller
         $name = $this->value($setting, 'pwa_name')
             ?: $this->value($setting, 'app_name');
 
-        return $name !== '' ? $name : 'Stocky';
+        return $name !== '' ? $name : 'KcolTech - Murano';
     }
 
     /**
      * short_name must stay brief for app launchers: use the configured value,
-     * else the part before a "|" separator (e.g. "Stocky | Ultimate Inventory
-     * With POS" -> "Stocky").
+     * else the part before a "|" separator (e.g. "KcolTech - Murano | Ultimate Inventory
+     * With POS" -> "KcolTech - Murano").
      */
     protected function shortBrandName(?Setting $setting, string $brand): string
     {

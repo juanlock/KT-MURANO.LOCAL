@@ -57,6 +57,17 @@ that selector -- only a SuperAdmin can change the acting company.
 - **Murano** (aka "the new system") — lives at `KT-MURANO.LOCAL` (this repo),
   database `dbmurano`. New code, new features/modules.
 
+**App timezone: `America/New_York`** (`.env`'s `APP_TIMEZONE`, deliberately
+set — the business runs on Eastern time; this used to default to `UTC`,
+which was wrong, not intentional). Don't "fix" this back to `UTC` in a
+future session — `UTC` was the bug. This is a real Settings page feature
+already (Settings updates `APP_TIMEZONE` in `.env` + `artisan config:clear`,
+`SettingsController.php` around the `timezone`/`APP_TIMEZONE` keys), not
+something invented ad hoc. Since `now()`/`Carbon` write literal (timezone-naive
+`DATETIME`) values to the DB, changing this shifts what gets stored for
+*new* rows going forward — existing historical timestamps were written under
+the old `UTC` setting and were not retroactively converted.
+
 ## Base Product & Documentation
 
 Murano is built on **Stocky** (a commercial CodeCanyon Laravel product,
@@ -134,16 +145,18 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
 - **Copia BD** (`/copia-bd`, or "Jarvis, run protocolo copia bd") — not
   ported from billing, this one is Murano's own: dumps `dbmurano` via
   `mysqldump` (`database/scripts/protocol_copia_bd.php`) into
-  `KT-TOOLS/database/dbmurano_<timestamp>.sql` — a phpMyAdmin-independent
-  backup after a local phpMyAdmin export bug corrupted a manual backup
-  attempt. `KT-TOOLS/` is git-tracked, so the snapshot travels across every
-  machine this checkout is on, same as the other protocols.
+  `KT-TOOLS/database/dbmurano_<date>_<host>_<time>.sql` (e.g.
+  `dbmurano_2026-09-29_KT-THUNDERA_11-23-38-AM.sql` — host from
+  `gethostname()`, time human-readable 12-hour with AM/PM via `now()`, not a
+  bare digit run) — a phpMyAdmin-independent backup after a local phpMyAdmin
+  export bug corrupted a manual backup attempt. `KT-TOOLS/` is git-tracked,
+  so the snapshot travels across every machine this checkout is on, same as
+  the other protocols.
 - **A Dormir** (`/a-dormir`, or "Jarvis, run protocolo a dormir") — Murano's
   own end-of-session close-out: runs Kelsy, then Copia BD, then commits
   everything with a summary subject and a detailed description of the
   changes (one bullet per `kt_logs` request, migrations, setup steps for
   other machines, backup file) and pushes to GitHub (never force-push).
-
 Billing's originals stay untouched (billing is read-only, per the Hard Rules
 below) — these are Murano's own copies, kept in sync manually if the protocol
 logic evolves.

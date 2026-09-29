@@ -4135,7 +4135,7 @@ return [
 'QZ_Step_Cert' => '4. Don bugawa ba tare da tambayar izini ba, sauke takardar shaida a ƙasa ka kwafa ta zuwa babban fayil ɗin QZ Tray da sunan override.crt (Windows: C:\Program Files\QZ Tray — macOS: /Applications/QZ Tray.app/Contents/Resources — Linux: /opt/qz-tray). Sannan ka rufe QZ Tray ka sake kunna shi.',
 'QZ_Step_Test' => '5. Danna "Buga lakabin gwaji" a ƙasa. Idan QZ Tray ya nemi izini, danna Allow — idan an sanya takardar shaida ba zai sake tambaya ba.',
 'QZ_Step_Save' => '6. Danna Submit don adana waɗannan saituna. Yanzu lakabi daga shafin Buga Barcode za su buga kai tsaye a wannan firinta, ba tare da tagar bugawa ta browser ba.',
-'QZ_Setup_Note' => 'QZ Tray yana aiki a kwamfutar da kake amfani da ita, don haka wannan yana aiki ko da Stocky yana kan sabar mai nisa. Kowace kwamfuta da ke buga lakabi tana buƙatar QZ Tray.',
+'QZ_Setup_Note' => 'QZ Tray yana aiki a kwamfutar da kake amfani da ita, don haka wannan yana aiki ko da KcolTech - Murano yana kan sabar mai nisa. Kowace kwamfuta da ke buga lakabi tana buƙatar QZ Tray.',
 
 // PWA settings tab — installable app identity
 'PWA_Enabled' => 'Kunna manhaja mai iya sanyawa',
@@ -4187,7 +4187,7 @@ return [
 'pos.Draft_Saved_Offline' => 'An adana daftari ba tare da intanet ba. Zai daidaita idan ka dawo kan layi.',
 'pos.Client_Saved_Offline' => 'An adana abokin ciniki ba tare da intanet ba. Zai daidaita idan ka dawo kan layi.',
 'Mobile_App_Settings' => 'Manhajar waya',
-'Mobile_App_Settings_Help' => 'Sarrafa manhajar wayar Stocky: kunna ko kashe ta, saita sunanta, tambarinta da launinta, ka zaɓi sassan da ƙungiyarka za ta gani.',
+'Mobile_App_Settings_Help' => 'Sarrafa manhajar wayar KcolTech - Murano: kunna ko kashe ta, saita sunanta, tambarinta da launinta, ka zaɓi sassan da ƙungiyarka za ta gani.',
 'Mobile_App_Enabled' => 'An kunna manhajar waya',
 'Mobile_App_Enabled_Help' => 'Idan a kashe, babu wanda zai iya shiga daga manhajar waya kuma za a nuna saƙon da ke ƙasa a maimakon haka.',
 'Mobile_App_Disabled_Notice' => 'A halin yanzu an kashe manhajar waya.',
@@ -4453,7 +4453,7 @@ return [
 'Ord_Guide_Intro' => 'Yadda odar da aka yi a shagonka na kan layi take shiga hajojinka da asusunka, da inda ake ainihin rubuta kuɗin.',
 'Ord_Guide_Lifecycle_Title' => 'Matsayin oda',
 'Ord_Guide_Lifecycle_Pending' => 'Sabuwar oda tana jiran dubawarka. Odar da ke jira ce kawai za a iya tabbatarwa ko soke.',
-'Ord_Guide_Lifecycle_Confirmed' => 'Ka karɓi odar. Stocky yana ƙirƙirar sayarwa a ma\'ajiyar da ka zaɓa kuma yana rage haja — wannan sayarwar ita ce rikodin da rahotannin haja, biyan kuɗi da riba ke karanta.',
+'Ord_Guide_Lifecycle_Confirmed' => 'Ka karɓi odar. KcolTech - Murano yana ƙirƙirar sayarwa a ma\'ajiyar da ka zaɓa kuma yana rage haja — wannan sayarwar ita ce rikodin da rahotannin haja, biyan kuɗi da riba ke karanta.',
 'Ord_Guide_Lifecycle_Shipped' => 'Ka aika odar. Isarwa ce kawai: an riga an rage haja lokacin da ka tabbatar.',
 'Ord_Guide_Lifecycle_Delivered' => 'Abokin ciniki ya karɓi odar. Wannan ne ke fara lokacin mayarwa.',
 'Ord_Guide_Lifecycle_Cancelled' => 'An yar da odar kafin tabbatarwa, don haka ba a ƙirƙiri sayarwa ba kuma ba a rage haja ba.',

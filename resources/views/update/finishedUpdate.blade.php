@@ -21,6 +21,6 @@
             If a page looks blank or broken, clear your browser cache — it's still serving old files.</span>
         </div>
 
-        <a href="/" class="btn" style="margin-top: 20px; text-decoration: none">Open Stocky</a>
+        <a href="/" class="btn" style="margin-top: 20px; text-decoration: none">Open KcolTech - Murano</a>
     </div>
 @endsection

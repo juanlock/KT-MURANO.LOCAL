@@ -12,7 +12,7 @@ Run Protocol Mañanitas -- a startup/bootstrap routine meant to run once at the 
 
 3. **Surface the most recurrent changes.** From the same data, identify: the most common `category` values, the files that show up most often in `files_modified`, and any recurring theme visible in `changes_detail` (e.g. a class of bug that keeps reappearing across modules). Report this as a short ranked list directly to the user, and fold a one-line version of it into the digest memory file from step 2 under a "Recurring patterns" heading, so a future session immediately knows what tends to break in this codebase without re-deriving it.
 
-Location for kt_logs rows, if Kelsy's step 1 needs to ask: reuse whatever's already established this conversation; otherwise ask (ThinkBook1 / Home / new).
+Location for kt_logs rows, if Kelsy's step 1 needs to ask: reuse whatever's already established this conversation; otherwise ask (Thundera / Home / new).
 
 Why this exists: the user (jlock) wants a single startup command, runnable from any machine with this checkout, that keeps the activity log current, avoids re-deriving project context from scratch every session, and highlights recurring problem areas.
 

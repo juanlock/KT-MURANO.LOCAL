@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Stocky | Setup</title>
+    <title>KcolTech - Murano | Setup</title>
 
     <link rel="stylesheet" href="/assets_setup/css/bootstrap.css">
     <link rel="icon" href="/assets_setup/favicon.ico">
@@ -34,7 +34,7 @@
         <aside class="setup-rail">
             <div class="brand">
                 <div class="brand-mark">S</div>
-                <div class="brand-name">Stocky<small>Installer</small></div>
+                <div class="brand-name">KcolTech - Murano<small>Installer</small></div>
             </div>
 
             <ol class="rail-steps">
@@ -68,7 +68,7 @@
 
     </div>
 
-    <div class="setup-foot">Stocky — Ultimate Inventory with POS</div>
+    <div class="setup-foot">KcolTech - Murano — Ultimate Inventory with POS</div>
 </div>
 
 <script src="/assets_setup/js/jquery.min.js"></script>

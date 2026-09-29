@@ -29,8 +29,19 @@ class CustomEmail extends Mailable
      */
     public function build()
     {
-        return $this->subject($this->data['subject'])
+        $mail = $this->subject($this->data['subject'])
             ->markdown('emails.custom')
             ->view('emails.custom');
+
+        // Optional in-memory attachments -- e.g. an invoice PDF, generated
+        // fresh per send rather than read from disk. Each entry:
+        // ['data' => raw bytes, 'name' => filename, 'mime' => content type].
+        foreach ($this->data['attachments'] ?? [] as $attachment) {
+            $mail->attachData($attachment['data'], $attachment['name'], [
+                'mime' => $attachment['mime'] ?? 'application/pdf',
+            ]);
+        }
+
+        return $mail;
     }
 }

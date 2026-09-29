@@ -1,21 +1,21 @@
-/KT-TOOLS/apps
 /public/js
+
 */database/snapshots/
-/.claude/report/
+
+/.claude/report
 
 .env
-/storage/framework/sessions
 /node_modules
 
+/bootstrap/cache
+
+/storage/framework/sessions
 /storage/framework/views
 /storage/framework/cache
-/storage/framework/cache
-/storage/framework/views
-/storage/framework/cache
-/storage/framework/cache/data
-/storage/framework/cache
-/storage/framework/cache
+/storage/logs/laravel.log
+
+/KT-TOOLS/apps
 /KT-TOOLS/documentation
 /KT-TOOLS/VERSION
 /KT-TOOLS/sources
-/bootstrap/cache
+/KT-TOOLS/ZIP

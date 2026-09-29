@@ -12,7 +12,7 @@
             <div class="form-group full">
                 <label for="app_name">Application name</label>
                 <span class="tip" title="Shown in the browser tab, emails and printed documents"><i class="fa fa-question-circle" aria-hidden="true"></i></span>
-                <input type="text" class="form-control" id="app_name" name="app_name" placeholder="Stocky" value="{{ $data['APP_NAME'] }}" autofocus>
+                <input type="text" class="form-control" id="app_name" name="app_name" placeholder="KcolTech - Murano" value="{{ $data['APP_NAME'] }}" autofocus>
             </div>
 
             <div class="form-group">

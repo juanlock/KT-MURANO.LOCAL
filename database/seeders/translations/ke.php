@@ -4079,7 +4079,7 @@ return [
 'QZ_Step_Cert' => '4. Kwa uchapishaji bila dirisha la ruhusa, pakua cheti hapa chini na ukinakili kwenye folda ya usakinishaji ya QZ Tray, ukikipa jina override.crt (Windows: C:\Program Files\QZ Tray — macOS: /Applications/QZ Tray.app/Contents/Resources — Linux: /opt/qz-tray). Kisha funga QZ Tray na uianze tena.',
 'QZ_Step_Test' => '5. Bofya "Chapisha lebo ya majaribio" hapa chini. QZ Tray ikiomba ruhusa, bofya Allow — cheti kikiwa kimesakinishwa haitauliza tena.',
 'QZ_Step_Save' => '6. Bofya Submit kuhifadhi mipangilio hii. Lebo kutoka ukurasa wa Chapisha Barcode sasa zitachapishwa moja kwa moja kwenye printa hii, bila dirisha la uchapishaji la kivinjari.',
-'QZ_Setup_Note' => 'QZ Tray huendeshwa kwenye kompyuta unayovinjari nayo, kwa hivyo hii hufanya kazi hata Stocky ikiwa kwenye seva ya mbali. Kila kompyuta inayochapisha lebo inahitaji QZ Tray isakinishwe.',
+'QZ_Setup_Note' => 'QZ Tray huendeshwa kwenye kompyuta unayovinjari nayo, kwa hivyo hii hufanya kazi hata KcolTech - Murano ikiwa kwenye seva ya mbali. Kila kompyuta inayochapisha lebo inahitaji QZ Tray isakinishwe.',
 
 // PWA settings tab — installable app identity
 'PWA_Enabled' => 'Washa programu inayoweza kusakinishwa',
@@ -4131,7 +4131,7 @@ return [
 'pos.Draft_Saved_Offline' => 'Rasimu imehifadhiwa nje ya mtandao. Itasawazishwa utakaporudi mtandaoni.',
 'pos.Client_Saved_Offline' => 'Mteja amehifadhiwa nje ya mtandao. Atasawazishwa utakaporudi mtandaoni.',
 'Mobile_App_Settings' => 'Programu ya Simu',
-'Mobile_App_Settings_Help' => 'Dhibiti programu ya simu ya Stocky: iwashe au uizime, weka jina, nembo na rangi yake, na uchague moduli ambazo timu yako inaona.',
+'Mobile_App_Settings_Help' => 'Dhibiti programu ya simu ya KcolTech - Murano: iwashe au uizime, weka jina, nembo na rangi yake, na uchague moduli ambazo timu yako inaona.',
 'Mobile_App_Enabled' => 'Programu ya simu imewashwa',
 'Mobile_App_Enabled_Help' => 'Ikiwa imezimwa, hakuna anayeweza kuingia kutoka programu ya simu na ujumbe ulio hapa chini huonyeshwa badala yake.',
 'Mobile_App_Disabled_Notice' => 'Programu ya simu imezimwa kwa sasa.',
@@ -4397,7 +4397,7 @@ return [
 'Ord_Guide_Intro' => 'Jinsi oda iliyowekwa kwenye duka lako la mtandaoni inavyoingia kwenye hisa na hesabu zako, na mahali pesa zinaporekodiwa kwa hakika.',
 'Ord_Guide_Lifecycle_Title' => 'Hali ya oda',
 'Ord_Guide_Lifecycle_Pending' => 'Oda mpya inayosubiri ukaguzi wako. Oda inayosubiri pekee inaweza kuthibitishwa au kughairiwa.',
-'Ord_Guide_Lifecycle_Confirmed' => 'Umekubali oda. Stocky huunda Mauzo katika ghala ulilochagua na kupunguza hisa — mauzo hayo ndiyo rekodi ambayo ripoti zako za hisa, malipo na faida husoma.',
+'Ord_Guide_Lifecycle_Confirmed' => 'Umekubali oda. KcolTech - Murano huunda Mauzo katika ghala ulilochagua na kupunguza hisa — mauzo hayo ndiyo rekodi ambayo ripoti zako za hisa, malipo na faida husoma.',
 'Ord_Guide_Lifecycle_Shipped' => 'Umetuma oda. Utekelezaji tu: hisa ilikwisha punguzwa ulipothibitisha.',
 'Ord_Guide_Lifecycle_Delivered' => 'Mteja amepokea oda. Hili ndilo linaloanzisha kipindi cha kurudisha.',
 'Ord_Guide_Lifecycle_Cancelled' => 'Oda iliachwa kabla ya uthibitisho, kwa hivyo hakuna mauzo yaliyoundwa na hakuna hisa iliyopunguzwa.',

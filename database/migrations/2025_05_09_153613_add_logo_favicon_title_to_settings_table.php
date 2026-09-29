@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('settings', function (Blueprint $table) {
             $table->engine = 'InnoDB';
-            $table->string('app_name')->nullable()->after('quotation_with_stock')->default('Stocky | Ultimate Inventory With POS');
+            $table->string('app_name')->nullable()->after('quotation_with_stock')->default('KcolTech - Murano | Ultimate Inventory With POS');
             $table->string('page_title_suffix')->nullable()->after('app_name')->default('Ultimate Inventory With POS');
             $table->string('favicon')->nullable()->after('logo')->default('favicon.ico');
         });

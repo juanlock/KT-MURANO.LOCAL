@@ -106,7 +106,7 @@
         </div>
         <p class="guide-intro">These fields are used only for product images. The WooCommerce API (Store URL + Consumer key/secret) handles sync for products, stock, categories, brands, customers, and orders; the WordPress REST API handles the Media Library (search and upload images).</p>
         <ul class="guide-list">
-          <li><PictureOutlined :style="{ color: token.colorPrimary }" /><span>When syncing products or stock, Stocky can attach product images: it first searches the WordPress Media Library for an existing image by filename; if not found, it uploads the image via the WordPress API.</span></li>
+          <li><PictureOutlined :style="{ color: token.colorPrimary }" /><span>When syncing products or stock, KcolTech - Murano can attach product images: it first searches the WordPress Media Library for an existing image by filename; if not found, it uploads the image via the WordPress API.</span></li>
           <li><KeyOutlined :style="{ color: token.colorPrimary }" /><span>Use a WordPress user that can manage media (e.g. Administrator). Create an Application Password in WordPress: Users → Profile (or your user) → Application Passwords — add a new one and paste it here.</span></li>
           <li><InfoCircleOutlined :style="{ color: token.colorPrimary }" /><span>If you leave these blank, sync still works for all data (products, stock, categories, brands, customers, orders); only product image attachment (search/upload) is skipped.</span></li>
         </ul>
@@ -134,7 +134,7 @@
           Manual sync (on demand)
         </div>
         <ul class="guide-list">
-          <li><SwapOutlined :style="{ color: token.colorPrimary }" /><span>Sync works in both directions: Stocky → WooCommerce and WooCommerce → Stocky.</span></li>
+          <li><SwapOutlined :style="{ color: token.colorPrimary }" /><span>Sync works in both directions: KcolTech - Murano → WooCommerce and WooCommerce → KcolTech - Murano.</span></li>
           <li><MenuOutlined :style="{ color: token.colorPrimary }" /><span>Manual sync is available in all WooCommerce tabs (Products, Stock, etc.); use the sync actions in each tab to run sync on demand.</span></li>
         </ul>
       </div>
@@ -147,8 +147,8 @@
           Scheduled sync (cron)
         </div>
         <ul class="guide-list">
-          <li><ClockCircleOutlined :style="{ color: token.colorPrimary }" /><span>Stocky → WooCommerce runs on its own: new (not-yet-linked) products every night at 02:00 (<a-typography-text code>--scope=products --only-unsynced</a-typography-text>) and stock every hour (<a-typography-text code>--scope=stock</a-typography-text>).</span></li>
-          <li><CloudSyncOutlined :style="{ color: token.colorPrimary }" /><span>WooCommerce → Stocky runs too: orders every 15 minutes (<a-typography-text code>--scope=orders</a-typography-text>, only orders changed since the last run), products at 03:00 (<a-typography-text code>--scope=pull-products</a-typography-text>) and customers at 03:30 (<a-typography-text code>--scope=customers</a-typography-text>).</span></li>
+          <li><ClockCircleOutlined :style="{ color: token.colorPrimary }" /><span>KcolTech - Murano → WooCommerce runs on its own: new (not-yet-linked) products every night at 02:00 (<a-typography-text code>--scope=products --only-unsynced</a-typography-text>) and stock every hour (<a-typography-text code>--scope=stock</a-typography-text>).</span></li>
+          <li><CloudSyncOutlined :style="{ color: token.colorPrimary }" /><span>WooCommerce → KcolTech - Murano runs too: orders every 15 minutes (<a-typography-text code>--scope=orders</a-typography-text>, only orders changed since the last run), products at 03:00 (<a-typography-text code>--scope=pull-products</a-typography-text>) and customers at 03:30 (<a-typography-text code>--scope=customers</a-typography-text>).</span></li>
           <li><SettingOutlined :style="{ color: token.colorPrimary }" /><span>For this to work, your server needs one cron entry that runs the Laravel scheduler every minute (on cPanel: Cron Jobs section; the same cron also processes queued sync batches):</span></li>
         </ul>
         <pre class="guide-code" :style="{ background: token.colorFillTertiary, borderColor: token.colorBorderSecondary }">* * * * * cd /path/to/your/app &amp;&amp; php artisan schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</pre>
@@ -166,7 +166,7 @@
         </div>
         <ul class="guide-list">
           <li><ExclamationCircleOutlined :style="{ color: token.colorWarning }" /><span>Changing Store URL or API keys resets mappings (products, categories, brands, customers); items will sync again to the (new) store.</span></li>
-          <li><ExclamationCircleOutlined :style="{ color: token.colorWarning }" /><span>Keep SKUs consistent between Stocky and WooCommerce to avoid duplicate products and to relink safely.</span></li>
+          <li><ExclamationCircleOutlined :style="{ color: token.colorWarning }" /><span>Keep SKUs consistent between KcolTech - Murano and WooCommerce to avoid duplicate products and to relink safely.</span></li>
         </ul>
       </div>
     </a-card>

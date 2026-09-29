@@ -74,7 +74,7 @@ class TelegramSettingsController extends Controller
 
         $result = $notifier->send(
             'telegram',
-            "\u{2705} Test notification from Stocky — your Telegram integration works."
+            "\u{2705} Test notification from KcolTech - Murano — your Telegram integration works."
         );
 
         return response()->json(['ok' => $result['success'], 'error' => $result['error']], $result['success'] ? 200 : 422);

@@ -4006,7 +4006,7 @@ return [
 'QZ_Step_Cert' => '4. Pour imprimer sans fenêtre d\'autorisation, téléchargez le certificat ci-dessous et copiez-le dans le dossier d\'installation de QZ Tray en le renommant override.crt (Windows : C:\Program Files\QZ Tray — macOS : /Applications/QZ Tray.app/Contents/Resources — Linux : /opt/qz-tray). Quittez ensuite QZ Tray et relancez-le.',
 'QZ_Step_Test' => '5. Cliquez sur « Imprimer une étiquette de test » ci-dessous. Si QZ Tray demande une autorisation, cliquez sur Allow ; avec le certificat installé, il ne la demandera plus.',
 'QZ_Step_Save' => '6. Cliquez sur Envoyer pour enregistrer ces paramètres. Les étiquettes de la page Imprimer les codes-barres s\'imprimeront désormais directement sur cette imprimante, sans boîte de dialogue d\'impression du navigateur.',
-'QZ_Setup_Note' => 'QZ Tray s\'exécute sur l\'ordinateur depuis lequel vous naviguez : cela fonctionne donc même si Stocky est hébergé sur un serveur distant. Chaque ordinateur qui imprime des étiquettes doit avoir QZ Tray installé.',
+'QZ_Setup_Note' => 'QZ Tray s\'exécute sur l\'ordinateur depuis lequel vous naviguez : cela fonctionne donc même si KcolTech - Murano est hébergé sur un serveur distant. Chaque ordinateur qui imprime des étiquettes doit avoir QZ Tray installé.',
 
 // PWA settings tab — installable app identity
 'PWA_Enabled' => 'Activer l\'application installable',
@@ -4058,7 +4058,7 @@ return [
 'pos.Draft_Saved_Offline' => 'Brouillon enregistré hors ligne. Il sera synchronisé dès le retour de la connexion.',
 'pos.Client_Saved_Offline' => 'Client enregistré hors ligne. Il sera synchronisé dès le retour de la connexion.',
 'Mobile_App_Settings' => 'Application mobile',
-'Mobile_App_Settings_Help' => 'Contrôlez l\'application mobile Stocky : activez-la ou désactivez-la, définissez son nom, son logo et sa couleur, et choisissez les modules visibles par votre équipe.',
+'Mobile_App_Settings_Help' => 'Contrôlez l\'application mobile KcolTech - Murano : activez-la ou désactivez-la, définissez son nom, son logo et sa couleur, et choisissez les modules visibles par votre équipe.',
 'Mobile_App_Enabled' => 'Application mobile activée',
 'Mobile_App_Enabled_Help' => 'Lorsqu\'elle est désactivée, personne ne peut se connecter depuis l\'application mobile et le message ci-dessous est affiché à la place.',
 'Mobile_App_Disabled_Notice' => 'L\'application mobile est actuellement désactivée.',
@@ -4324,7 +4324,7 @@ return [
 'Ord_Guide_Intro' => 'Comment une commande passée sur votre boutique en ligne arrive dans votre stock et vos comptes, et où l\'argent est réellement enregistré.',
 'Ord_Guide_Lifecycle_Title' => 'Statut de la commande',
 'Ord_Guide_Lifecycle_Pending' => 'Une nouvelle commande en attente de votre examen. Seule une commande en attente peut être confirmée ou annulée.',
-'Ord_Guide_Lifecycle_Confirmed' => 'Vous avez accepté la commande. Stocky crée une vente dans l\'entrepôt choisi et déduit le stock : cette vente est l\'enregistrement sur lequel s\'appuient vos rapports de stock, de paiements et de bénéfices.',
+'Ord_Guide_Lifecycle_Confirmed' => 'Vous avez accepté la commande. KcolTech - Murano crée une vente dans l\'entrepôt choisi et déduit le stock : cette vente est l\'enregistrement sur lequel s\'appuient vos rapports de stock, de paiements et de bénéfices.',
 'Ord_Guide_Lifecycle_Shipped' => 'Vous avez expédié la commande. Étape logistique uniquement : le stock a déjà été déduit à la confirmation.',
 'Ord_Guide_Lifecycle_Delivered' => 'Le client a reçu la commande. C\'est ce qui déclenche le délai de retour.',
 'Ord_Guide_Lifecycle_Cancelled' => 'La commande a été abandonnée avant confirmation : aucune vente n\'a été créée et aucun stock déduit.',

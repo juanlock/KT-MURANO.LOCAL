@@ -3,7 +3,7 @@
 
     <p class="eyebrow">Step 3 of 4</p>
     <h1>Database connection</h1>
-    <p class="lead-text">Point Stocky at an empty MySQL database. Test the connection before you continue.</p>
+    <p class="lead-text">Point KcolTech - Murano at an empty MySQL database. Test the connection before you continue.</p>
 
     <form id="dbform" action="{{ route('setupStep2') }}" method="post">
         @csrf
@@ -14,7 +14,7 @@
         <div class="form-grid">
             <div class="form-group full">
                 <label for="db_connection">Database type</label>
-                <span class="tip" title="The database engine Stocky will use"><i class="fa fa-question-circle" aria-hidden="true"></i></span>
+                <span class="tip" title="The database engine KcolTech - Murano will use"><i class="fa fa-question-circle" aria-hidden="true"></i></span>
                 <select class="form-control" id="db_connection" name="db_connection">
                     <option value="mysql">MySQL</option>
                 </select>
@@ -35,7 +35,7 @@
             <div class="form-group full">
                 <label for="db_database" id="db_database_label">Database name</label>
                 <span class="tip" title="The name of an existing, empty database"><i class="fa fa-question-circle" aria-hidden="true"></i></span>
-                <input type="text" class="form-control" id="db_database" name="db_database" placeholder="stocky" required>
+                <input type="text" class="form-control" id="db_database" name="db_database" placeholder="kcoltech_murano" required>
             </div>
 
             <div class="form-group">

@@ -143,7 +143,7 @@
             <ol class="guide">
               <li>In Jumia <strong>Seller Center</strong>, open Settings → <strong>Integration Management</strong> and generate an API key.</li>
               <li>Enter your country's API URL (e.g. <code>https://sellercenter-api.jumia.com.ng</code> for Nigeria, <code>.co.ke</code> for Kenya, <code>.com.eg</code> for Egypt), your Seller Center account email, and the key — then run <strong>Test connection</strong>.</li>
-              <li>Make sure each Jumia listing's <strong>Seller SKU</strong> equals the Stocky product code — that is the identity used for both stock pushes and order matching.</li>
+              <li>Make sure each Jumia listing's <strong>Seller SKU</strong> equals the KcolTech - Murano product code — that is the identity used for both stock pushes and order matching.</li>
               <li>Push prices &amp; stock after inventory changes; pull orders regularly (Jumia has no webhooks in this API).</li>
               <li>Creating new listings stays in Seller Center — Jumia requires category-specific attributes and image review that only their portal handles well.</li>
             </ol>

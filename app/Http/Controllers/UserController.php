@@ -144,6 +144,11 @@ class UserController extends BaseController
             'show_language' => $settings->show_language ?? false,
             'footer' => $settings->footer ?? '',
             'developed_by' => $settings->developed_by ?? '',
+            // kt_logs.version: the running "MM.mm" track-version number that
+            // bumps by one on every logged request (Protocol Kelsy), shown in
+            // the footer for every user (all companies + SuperAdmin), not
+            // company-scoped -- kt_logs tracks the whole install, not one company.
+            'kt_log_version' => \App\Models\KtLog::orderByDesc('id')->value('version'),
             'app_name' => $settings->app_name ?? config('app.name'),
             'page_title_suffix' => $settings->page_title_suffix ?? '',
             'customize_button_visible' => (bool) ($settings->customize_button_visible ?? true),
@@ -192,6 +197,11 @@ class UserController extends BaseController
                 : null,
             'datatable_columns' => ($settings && $settings->datatable_columns)
                 ? (object) json_decode($settings->datatable_columns, true)
+                : (object) [],
+            // "Customize Filters" -- same idea, for the filter row (Products/
+            // Sales/Purchases lists) instead of the table's own columns.
+            'datatable_filters' => ($settings && $settings->datatable_filters)
+                ? (object) json_decode($settings->datatable_filters, true)
                 : (object) [],
         ];
 

@@ -87,7 +87,11 @@
       <!-- Single-line footer: the admin's custom text (settings → General),
            falling back to the default copyright line. Version pinned top-right. -->
       <a-layout-footer class="footer">
-        <span v-if="version" class="footer-version">v{{ version }}</span>
+        <span v-if="version || auth.ktLogVersion" class="footer-version">
+          <template v-if="version">v{{ version }}</template>
+          <template v-if="version && auth.ktLogVersion"> · </template>
+          <template v-if="auth.ktLogVersion">Version : {{ auth.ktLogVersion }}</template>
+        </span>
         <template v-if="auth.footerText">{{ auth.footerText }}</template>
         <template v-else>© {{ year }} {{ auth.developedBy }}. {{ tf('All_rights_reserved', 'All rights reserved') }}.</template>
       </a-layout-footer>

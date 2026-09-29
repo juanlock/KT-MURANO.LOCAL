@@ -88,7 +88,7 @@ $checks = array(
 
     <p class="eyebrow">Step 1 of 4</p>
     <h1>Server requirements</h1>
-    <p class="lead-text">Stocky checks that your server can run the application before anything is installed.</p>
+    <p class="lead-text">KcolTech - Murano checks that your server can run the application before anything is installed.</p>
 
     @if (! $allValuesAreTrue)
         <div class="alert-banner danger">

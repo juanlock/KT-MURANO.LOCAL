@@ -256,7 +256,7 @@ const moduleKeys = computed(() => setting.value.module_keys || Object.keys(MODUL
 const moduleLabel = key => MODULE_LABELS[key] || key;
 
 const effectiveName = computed(
-  () => (setting.value.mobile_app_name || '').trim() || (setting.value.app_name || 'Stocky').split('|')[0].trim(),
+  () => (setting.value.mobile_app_name || '').trim() || (setting.value.app_name || 'KcolTech - Murano').split('|')[0].trim(),
 );
 const effectiveColor = computed(() => (setting.value.mobile_primary_color || '').trim() || DEFAULT_COLOR);
 const previewLogo = computed(() => {

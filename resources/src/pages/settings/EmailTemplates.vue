@@ -128,7 +128,7 @@ import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   SaveOutlined, CheckCircleFilled, ShoppingOutlined, FileTextOutlined, DollarOutlined,
-  ShoppingCartOutlined, SendOutlined, CalendarOutlined, SafetyCertificateOutlined,
+  ShoppingCartOutlined, SendOutlined, CalendarOutlined, SafetyCertificateOutlined, BellOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import RichTextEditor from '../../components/RichTextEditor.vue';
@@ -140,6 +140,7 @@ const { t } = useI18n();
 // emails interpolate identically.
 const TEMPLATE_TYPES = [
   { type: 'sale', titleKey: 'Sale', color: '#1677ff', icon: ShoppingOutlined, vars: ['contact_name', 'business_name', 'invoice_number', 'invoice_url', 'total_amount', 'paid_amount', 'due_amount'] },
+  { type: 'payment_reminder', title: 'Payment Reminder', color: '#faad14', icon: BellOutlined, vars: ['contact_name', 'business_name', 'invoice_number', 'invoice_url', 'total_amount', 'paid_amount', 'due_amount'] },
   { type: 'quotation', titleKey: 'Quote', color: '#13c2c2', icon: FileTextOutlined, vars: ['contact_name', 'business_name', 'quotation_number', 'quotation_url', 'total_amount'] },
   { type: 'payment_received', titleKey: 'PaiementsReceived', color: '#52c41a', icon: DollarOutlined, vars: ['contact_name', 'business_name', 'payment_number', 'paid_amount'] },
   { type: 'purchase', titleKey: 'Purchase', color: '#722ed1', icon: ShoppingCartOutlined, vars: ['contact_name', 'business_name', 'invoice_number', 'invoice_url', 'total_amount', 'paid_amount', 'due_amount'] },

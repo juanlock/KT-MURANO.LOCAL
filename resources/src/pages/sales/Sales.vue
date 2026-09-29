@@ -57,49 +57,63 @@
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[16, 8]">
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('date') }}</div>
-          <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="onExactDateChange" />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('Customer') }}</div>
-          <a-select
-            v-model:value="filters.client_id" style="width: 100%" allow-clear show-search
-            option-filter-prop="label" :placeholder="$t('Choose_Customer')" :options="customerOptions"
-            @change="onOtherFilterChange"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('Status') }}</div>
-          <a-select
-            v-model:value="filters.statut" style="width: 100%" allow-clear
-            :placeholder="$t('Choose_Status')" :options="statusOptions" @change="onOtherFilterChange"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('PaymentStatus') }}</div>
-          <a-select
-            v-model:value="filters.payment_statut" style="width: 100%" allow-clear
-            :placeholder="$t('PaymentStatus')" :options="paymentStatusOptions" @change="onOtherFilterChange"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('Shipping_status') }}</div>
-          <a-select
-            v-model:value="filters.shipping_status" style="width: 100%" allow-clear
-            :placeholder="$t('Shipping_status')" :options="shippingStatusOptions" @change="onOtherFilterChange"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('warehouse') }}</div>
-          <a-select
-            v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
-            option-filter-prop="label" :placeholder="$t('Choose_Warehouse')" :options="warehouseOptions"
-            @change="onOtherFilterChange"
-          />
+        <a-col v-for="key in visibleFilterKeys" :key="key" :xs="12" :md="8" :xl="4">
+          <template v-if="key === 'date'">
+            <div class="filter-label">{{ $t('date') }}</div>
+            <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="onExactDateChange" />
+          </template>
+          <template v-else-if="key === 'client_id'">
+            <div class="filter-label">{{ $t('Customer') }}</div>
+            <a-select
+              v-model:value="filters.client_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('Choose_Customer')" :options="customerOptions"
+              @change="onOtherFilterChange"
+            />
+          </template>
+          <template v-else-if="key === 'statut'">
+            <div class="filter-label">{{ $t('Status') }}</div>
+            <a-select
+              v-model:value="filters.statut" style="width: 100%" allow-clear
+              :placeholder="$t('Choose_Status')" :options="statusOptions" @change="onOtherFilterChange"
+            />
+          </template>
+          <template v-else-if="key === 'payment_statut'">
+            <div class="filter-label">{{ $t('PaymentStatus') }}</div>
+            <a-select
+              v-model:value="filters.payment_statut" style="width: 100%" allow-clear
+              :placeholder="$t('PaymentStatus')" :options="paymentStatusOptions" @change="onOtherFilterChange"
+            />
+          </template>
+          <template v-else-if="key === 'shipping_status'">
+            <div class="filter-label">{{ $t('Shipping_status') }}</div>
+            <a-select
+              v-model:value="filters.shipping_status" style="width: 100%" allow-clear
+              :placeholder="$t('Shipping_status')" :options="shippingStatusOptions" @change="onOtherFilterChange"
+            />
+          </template>
+          <template v-else-if="key === 'warehouse_id'">
+            <div class="filter-label">{{ $t('warehouse') }}</div>
+            <a-select
+              v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('Choose_Warehouse')" :options="warehouseOptions"
+              @change="onOtherFilterChange"
+            />
+          </template>
         </a-col>
       </a-row>
+      <div class="tb-bar">
+        <a-tooltip v-if="auth.canCustomizeColumns" title="Customize filters">
+          <a-button @click="openCustomize">
+            <template #icon><FilterOutlined /></template>
+          </a-button>
+        </a-tooltip>
+      </div>
     </a-card>
+
+    <CustomizeFiltersModal
+      v-model:open="customizeOpen" :saving="customizeSaving" :rows="customizeRows"
+      @move="moveRow" @save="saveCustomize" @reset="resetCustomize"
+    />
 
     <DataTable :crud="crud" :columns="columns" :selectable="auth.can('Sales_delete')">
       <template #toolbar>
@@ -192,6 +206,18 @@
                 <template #icon><FilePdfOutlined /></template>
               </a-button>
             </a-tooltip>
+            <a-tooltip :title="$t('email_notification')">
+              <a-button type="text" size="small" @click="notify('sales_send_email', record.id, 'SendEmail', 'SMTPIncorrect')">
+                <template #icon><MailOutlined /></template>
+              </a-button>
+            </a-tooltip>
+            <!-- Only while a balance remains -- a paid/cancelled invoice has
+                 nothing to remind the customer about. -->
+            <a-tooltip v-if="isUnpaid(record)" title="Send payment reminder">
+              <a-button type="text" size="small" @click="notify('sales_send_reminder', record.id, 'ReminderSent', 'SMTPIncorrect')">
+                <template #icon><BellOutlined /></template>
+              </a-button>
+            </a-tooltip>
             <a-tooltip v-if="auth.can('Sales_add')" :title="$t('Duplicate')">
               <a-button type="text" size="small" @click="duplicateSale(record)">
                 <template #icon><CopyOutlined /></template>
@@ -244,13 +270,10 @@
                   <a-menu-item key="invoice-pos">
                     <FileTextOutlined /> {{ $t('Invoice_POS') }}
                   </a-menu-item>
-                  <a-menu-item key="whatsapp">
+                  <a-menu-item v-if="whatsappEnabled" key="whatsapp">
                     <WhatsAppOutlined /> WhatsApp Notification
                   </a-menu-item>
-                  <a-menu-item key="email">
-                    <MailOutlined /> {{ $t('email_notification') }}
-                  </a-menu-item>
-                  <a-menu-item key="sms">
+                  <a-menu-item v-if="smsEnabled" key="sms">
                     <MessageOutlined /> {{ $t('sms_notification') }}
                   </a-menu-item>
                   <a-menu-divider v-if="auth.can('Sales_delete') && record.sale_has_return === 'no'" />
@@ -481,13 +504,15 @@ import {
   MessageOutlined, CarOutlined, RollbackOutlined,
   PaperClipOutlined, UploadOutlined, DownloadOutlined, WhatsAppOutlined,
   ExclamationCircleOutlined, ShoppingCartOutlined, DollarOutlined, CheckCircleOutlined,
-  StopOutlined, CopyOutlined,
+  StopOutlined, CopyOutlined, FilterOutlined, BellOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
+import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
 import StatusHelpModal from '../../components/StatusHelpModal.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useCustomizableFilters } from '../../composables/useCustomizableFilters';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { docStatusColor, payStatusColor } from '../../lib/statusColors';
@@ -511,6 +536,22 @@ const filters = ref({
   statut: undefined, payment_statut: undefined, shipping_status: undefined,
   date_from: '', date_to: '',
 });
+
+// "Customize Filters" -- which of these filters a company shows, and in
+// what order (settings.datatable_filters, same idea as DataTable.vue's
+// "Customize Columns"). The date-range presets in the page header are a
+// separate control, not part of this filter row.
+const {
+  visibleFilterKeys, customizeOpen, customizeSaving, customizeRows,
+  openCustomize, moveRow, saveCustomize, resetCustomize,
+} = useCustomizableFilters('sales_filters', [
+  { key: 'date', label: 'Date' },
+  { key: 'client_id', label: 'Customer' },
+  { key: 'statut', label: 'Status' },
+  { key: 'payment_statut', label: 'Payment Status' },
+  { key: 'shipping_status', label: 'Shipping Status' },
+  { key: 'warehouse_id', label: 'Warehouse' },
+]);
 
 // "Only sales with a balance due" -- set by the Customers list Due link.
 const dueOnly = ref(false);
@@ -663,6 +704,16 @@ const statTiles = computed(() => {
 const customerOptions = computed(() =>
   withAllOption(sortByLabel((crud.payload.value?.customers || []).map(c => ({ value: c.id, label: c.name }))))
 );
+
+// Defaults -> Sales -> SMS/WhatsApp toggles -- hide the row-action entirely
+// (not just disable it) when the company doesn't use that channel.
+const smsEnabled = computed(() => crud.payload.value?.sale_sms_enabled !== false);
+const whatsappEnabled = computed(() => crud.payload.value?.sale_whatsapp_enabled !== false);
+
+// Reminder icon: only while a balance remains on a non-cancelled invoice.
+function isUnpaid(record) {
+  return record.payment_status && record.payment_status !== 'paid' && record.payment_status !== 'Cancelled' && record.statut !== 'cancelled';
+}
 const warehouseOptions = computed(() =>
   withAllOption(sortByLabel((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))))
 );
@@ -753,7 +804,6 @@ function onAction(key, record) {
     shipment: () => openShipment(record),
     'invoice-pos': () => invoicePos(record),
     whatsapp: () => sendWhatsApp(record),
-    email: () => notify('sales_send_email', record.id, 'SendEmail', 'SMTPIncorrect'),
     sms: () => notify('sales_send_sms', record.id, 'sms_send_successfully', 'sms_config_invalid'),
     delete: () => crud.remove(record, { label: record.Ref }),
     cancel: () => cancelSale(record),
@@ -854,10 +904,15 @@ function restoreSale(record) {
 
 async function notify(endpoint, id, okKey, failKey) {
   try {
-    await http.post(endpoint, { id });
-    message.success(t(okKey));
+    const data = await http.post(endpoint, { id });
+    message.success(data?.message || t(okKey));
   } catch (e) {
-    message.error(t(failKey));
+    // Surface the backend's actual reason (e.g. "Mail is not configured for
+    // this company yet.") instead of a generic translated fallback -- a
+    // send that silently "does nothing" is exactly what this replaces.
+    const detail = typeof e?.data?.errors === 'string' ? e.data.errors : (e?.data?.errors && JSON.stringify(e.data.errors));
+    const summary = e?.data?.message || t(failKey);
+    message.error(detail ? `${summary} ${detail}` : summary, 8);
   }
 }
 
@@ -1353,6 +1408,13 @@ function removeDocument(doc) {
   margin-bottom: 4px;
   color: rgba(0, 0, 0, 0.55);
   font-size: 13px;
+}
+.tb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 /* Summary cards — same design as the customers/suppliers lists. */

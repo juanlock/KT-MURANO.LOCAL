@@ -181,7 +181,7 @@
             <a-alert
               type="info" show-icon style="margin-top: 8px"
               message="Amounts are pushed tax-inclusive as-is"
-              description="Invoices use NoTax lines mirroring the sale exactly (items + shipping − discount + tax), so Xero totals always equal Stocky totals. Your accountant can remap the tax and shipping lines to proper accounts inside Xero."
+              description="Invoices use NoTax lines mirroring the sale exactly (items + shipping − discount + tax), so Xero totals always equal KcolTech - Murano totals. Your accountant can remap the tax and shipping lines to proper accounts inside Xero."
             />
           </a-card>
         </a-tab-pane>

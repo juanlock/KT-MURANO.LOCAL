@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\EmailMessage;
 use App\Models\Setting;
 use App\Models\SMSMessage;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 
 class Notifications_Template extends Controller
 {
+    use ScopesToCompany;
+
     // -------------- get_sms_template ---------------\\
 
     public function get_sms_template(Request $request)
@@ -125,99 +128,26 @@ class Notifications_Template extends Controller
 
         $this->authorizeForUser($request->user('api'), 'notification_template', Setting::class);
 
+        $companyId = $this->resolveActingCompanyId($request);
         $locale = $request->query('locale', 'en');
 
-        // ---get email for Sale
-
-        $email_sale = EmailMessage::where('name', 'sale')->where('locale', $locale)->where('deleted_at', '=', null)->first();
-
-        if ($email_sale) {
-            $sale['subject'] = $email_sale->subject;
-            $sale['body'] = $email_sale->body;
-        } else {
-            $sale['subject'] = '';
-            $sale['body'] = '';
+        // Each lookup is company-scoped first, falling back to the shared
+        // template pool (EmailMessage::getForLocale) so a company that
+        // hasn't customized a template yet still sees real starter content
+        // to edit, instead of a blank field -- same effective content real
+        // outgoing emails would use for this company (see the callers of
+        // EmailMessage::getForLocale() app-wide).
+        $names = ['sale', 'quotation', 'payment_received', 'purchase', 'payment_sent', 'booking', 'asset_validation_due', 'payment_reminder'];
+        $result = [];
+        foreach ($names as $name) {
+            $message = EmailMessage::getForLocale($name, $locale, $companyId);
+            $result[$name] = [
+                'subject' => $message->subject ?? '',
+                'body' => $message->body ?? '',
+            ];
         }
 
-        // ---get email for quotation
-
-        $email_quotation = EmailMessage::where('name', 'quotation')->where('locale', $locale)->where('deleted_at', '=', null)->first();
-
-        if ($email_quotation) {
-            $quotation['subject'] = $email_quotation->subject;
-            $quotation['body'] = $email_quotation->body;
-        } else {
-            $quotation['subject'] = '';
-            $quotation['body'] = '';
-        }
-
-        // ---get email for payment_received
-
-        $email_payment_received = EmailMessage::where('name', 'payment_received')->where('locale', $locale)->where('deleted_at', '=', null)->first();
-
-        if ($email_payment_received) {
-            $payment_received['subject'] = $email_payment_received->subject;
-            $payment_received['body'] = $email_payment_received->body;
-        } else {
-            $payment_received['subject'] = '';
-            $payment_received['body'] = '';
-        }
-
-        // ---get email for purchase
-
-        $email_purchase = EmailMessage::where('name', 'purchase')->where('locale', $locale)->where('deleted_at', '=', null)->first();
-
-        if ($email_purchase) {
-            $purchase['subject'] = $email_purchase->subject;
-            $purchase['body'] = $email_purchase->body;
-        } else {
-            $purchase['subject'] = '';
-            $purchase['body'] = '';
-        }
-
-        // ---get email for payment_sent
-
-        $email_payment_sent = EmailMessage::where('name', 'payment_sent')->where('locale', $locale)->where('deleted_at', '=', null)->first();
-
-        if ($email_payment_sent) {
-            $payment_sent['subject'] = $email_payment_sent->subject;
-            $payment_sent['body'] = $email_payment_sent->body;
-        } else {
-            $payment_sent['subject'] = '';
-            $payment_sent['body'] = '';
-        }
-
-        // ---get email for booking
-
-        $email_booking = EmailMessage::where('name', 'booking')->where('locale', $locale)->where('deleted_at', '=', null)->first();
-
-        if ($email_booking) {
-            $booking['subject'] = $email_booking->subject;
-            $booking['body'] = $email_booking->body;
-        } else {
-            $booking['subject'] = '';
-            $booking['body'] = '';
-        }
-
-        // ---get email for asset_validation_due
-
-        $email_asset_validation_due = EmailMessage::where('name', 'asset_validation_due')->where('locale', $locale)->where('deleted_at', '=', null)->first();
-        if ($email_asset_validation_due) {
-            $asset_validation_due['subject'] = $email_asset_validation_due->subject;
-            $asset_validation_due['body'] = $email_asset_validation_due->body;
-        } else {
-            $asset_validation_due = ['subject' => '', 'body' => ''];
-        }
-
-        return response()->json([
-            'sale' => $sale,
-            'quotation' => $quotation,
-            'payment_received' => $payment_received,
-            'purchase' => $purchase,
-            'payment_sent' => $payment_sent,
-            'booking' => $booking,
-            'asset_validation_due' => $asset_validation_due,
-        ], 200);
+        return response()->json($result, 200);
 
     }
 
@@ -241,8 +171,13 @@ class Notifications_Template extends Controller
         $custom_email_subject = $purifier->purify($requestData->get('custom_email_subject'));
 
         $locale = $requestData->get('locale', 'en');
+        $companyId = $this->resolveActingCompanyId($request);
 
-        $emailMessage = EmailMessage::firstOrNew(['name' => $email_type, 'locale' => $locale]);
+        // Saves the ACTING COMPANY's own copy -- never the shared 999 pool
+        // row or another company's row -- so customizing a template here
+        // can never affect any other company.
+        $emailMessage = EmailMessage::firstOrNew(['company_id' => $companyId, 'name' => $email_type, 'locale' => $locale]);
+        $emailMessage->company_id = $companyId;
         $emailMessage->name = $email_type;
         $emailMessage->locale = $locale;
         $emailMessage->subject = $custom_email_subject;

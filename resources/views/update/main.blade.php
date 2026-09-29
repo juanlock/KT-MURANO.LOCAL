@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Stocky — System Update</title>
+    <title>KcolTech - Murano — System Update</title>
     {{-- Deliberately self-contained: this page runs mid-upgrade, when the app's
          normal assets (and possibly the network) can't be trusted. --}}
     <style>
@@ -205,7 +205,7 @@
 <div class="wrap">
     <div class="brand">
         <div class="brand-mark">S</div>
-        <div class="brand-name">Stocky<small>System update</small></div>
+        <div class="brand-name">KcolTech - Murano<small>System update</small></div>
     </div>
     @yield('content')
     <div class="footer">Keep this tab open until the update finishes.</div>

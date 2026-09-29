@@ -70,7 +70,7 @@ class SlackSettingsController extends Controller
 
         $result = $notifier->send(
             'slack',
-            "\u{2705} Test notification from Stocky — your Slack integration works."
+            "\u{2705} Test notification from KcolTech - Murano — your Slack integration works."
         );
 
         return response()->json(['ok' => $result['success'], 'error' => $result['error']], $result['success'] ? 200 : 422);

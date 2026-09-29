@@ -180,7 +180,7 @@
             <a-alert
               type="info" show-icon style="margin-top: 8px"
               message="Product identity is the reference (SKU)"
-              description="Stocky's product code is matched to PrestaShop's reference. Keep references consistent on both sides; combinations (variants) are matched in orders by reference but are not pushed in this version."
+              description="KcolTech - Murano's product code is matched to PrestaShop's reference. Keep references consistent on both sides; combinations (variants) are matched in orders by reference but are not pushed in this version."
             />
           </a-card>
         </a-tab-pane>

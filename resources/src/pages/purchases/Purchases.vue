@@ -57,42 +57,56 @@
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[16, 8]">
-        <a-col :xs="12" :md="8" :xl="5">
-          <div class="filter-label">{{ $t('date') }}</div>
-          <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="onExactDateChange" />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="5">
-          <div class="filter-label">{{ $t('Supplier') }}</div>
-          <a-select
-            v-model:value="filters.provider_id" style="width: 100%" allow-clear show-search
-            option-filter-prop="label" :placeholder="$t('Supplier')" :options="supplierOptions"
-            @change="onOtherFilterChange"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="5">
-          <div class="filter-label">{{ $t('warehouse') }}</div>
-          <a-select
-            v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
-            option-filter-prop="label" :placeholder="$t('Choose_Warehouse')" :options="warehouseOptions"
-            @change="onOtherFilterChange"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="4">
-          <div class="filter-label">{{ $t('Status') }}</div>
-          <a-select
-            v-model:value="filters.statut" style="width: 100%" allow-clear
-            :placeholder="$t('Choose_Status')" :options="statusOptions" @change="onOtherFilterChange"
-          />
-        </a-col>
-        <a-col :xs="12" :md="8" :xl="5">
-          <div class="filter-label">{{ $t('PaymentStatus') }}</div>
-          <a-select
-            v-model:value="filters.payment_statut" style="width: 100%" allow-clear
-            :placeholder="$t('PaymentStatus')" :options="paymentStatusOptions" @change="onOtherFilterChange"
-          />
+        <a-col v-for="key in visibleFilterKeys" :key="key" :xs="12" :md="8" :xl="key === 'statut' ? 4 : 5">
+          <template v-if="key === 'date'">
+            <div class="filter-label">{{ $t('date') }}</div>
+            <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="onExactDateChange" />
+          </template>
+          <template v-else-if="key === 'provider_id'">
+            <div class="filter-label">{{ $t('Supplier') }}</div>
+            <a-select
+              v-model:value="filters.provider_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('Supplier')" :options="supplierOptions"
+              @change="onOtherFilterChange"
+            />
+          </template>
+          <template v-else-if="key === 'warehouse_id'">
+            <div class="filter-label">{{ $t('warehouse') }}</div>
+            <a-select
+              v-model:value="filters.warehouse_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('Choose_Warehouse')" :options="warehouseOptions"
+              @change="onOtherFilterChange"
+            />
+          </template>
+          <template v-else-if="key === 'statut'">
+            <div class="filter-label">{{ $t('Status') }}</div>
+            <a-select
+              v-model:value="filters.statut" style="width: 100%" allow-clear
+              :placeholder="$t('Choose_Status')" :options="statusOptions" @change="onOtherFilterChange"
+            />
+          </template>
+          <template v-else-if="key === 'payment_statut'">
+            <div class="filter-label">{{ $t('PaymentStatus') }}</div>
+            <a-select
+              v-model:value="filters.payment_statut" style="width: 100%" allow-clear
+              :placeholder="$t('PaymentStatus')" :options="paymentStatusOptions" @change="onOtherFilterChange"
+            />
+          </template>
         </a-col>
       </a-row>
+      <div class="tb-bar">
+        <a-tooltip v-if="auth.canCustomizeColumns" title="Customize filters">
+          <a-button @click="openCustomize">
+            <template #icon><FilterOutlined /></template>
+          </a-button>
+        </a-tooltip>
+      </div>
     </a-card>
+
+    <CustomizeFiltersModal
+      v-model:open="customizeOpen" :saving="customizeSaving" :rows="customizeRows"
+      @move="moveRow" @save="saveCustomize" @reset="resetCustomize"
+    />
 
     <DataTable :crud="crud" :columns="columns" :selectable="auth.can('Purchases_delete')">
       <template #toolbar>
@@ -379,13 +393,15 @@ import {
   FilePdfOutlined, FileExcelOutlined, MailOutlined, MessageOutlined,
   WalletOutlined, RollbackOutlined, PaperClipOutlined, UploadOutlined,
   DownloadOutlined, WhatsAppOutlined, BarcodeOutlined, ExclamationCircleOutlined,
-  ShoppingOutlined, DollarOutlined, CheckCircleOutlined, StopOutlined,
+  ShoppingOutlined, DollarOutlined, CheckCircleOutlined, StopOutlined, FilterOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
+import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
 import StatusHelpModal from '../../components/StatusHelpModal.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useCustomizableFilters } from '../../composables/useCustomizableFilters';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { docStatusColor, payStatusColor } from '../../lib/statusColors';
@@ -405,6 +421,20 @@ const filters = ref({
   statut: undefined, payment_statut: undefined,
   date_from: '', date_to: '',
 });
+
+// "Customize Filters" -- which of these filters a company shows, and in
+// what order (settings.datatable_filters, same idea as DataTable.vue's
+// "Customize Columns").
+const {
+  visibleFilterKeys, customizeOpen, customizeSaving, customizeRows,
+  openCustomize, moveRow, saveCustomize, resetCustomize,
+} = useCustomizableFilters('purchases_filters', [
+  { key: 'date', label: 'Date' },
+  { key: 'provider_id', label: 'Supplier' },
+  { key: 'warehouse_id', label: 'Warehouse' },
+  { key: 'statut', label: 'Status' },
+  { key: 'payment_statut', label: 'Payment Status' },
+]);
 
 const filterParams = () => ({
   Ref: '',
@@ -961,6 +991,13 @@ function removeDocument(doc) {
   margin-bottom: 4px;
   color: rgba(0, 0, 0, 0.55);
   font-size: 13px;
+}
+.tb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 /* Summary cards — same design as the sales list. */

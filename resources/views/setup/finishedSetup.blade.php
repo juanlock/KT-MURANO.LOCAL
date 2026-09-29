@@ -9,7 +9,7 @@
 
         <p class="eyebrow">Setup complete</p>
         <h1>Installation successful</h1>
-        <p class="lead-text">Stocky is installed and ready to use. Sign in with the default administrator account.</p>
+        <p class="lead-text">KcolTech - Murano is installed and ready to use. Sign in with the default administrator account.</p>
 
         <div class="credentials-card">
             <h5><i class="fa fa-key"></i> Default login credentials</h5>

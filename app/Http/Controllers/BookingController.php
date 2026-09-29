@@ -635,8 +635,12 @@ class BookingController extends BaseController
             return response()->json(['message' => 'Customer has no email address.'], 422);
         }
 
-        $settings = Setting::whereNull('deleted_at')->first();
-        $emailMessage = EmailMessage::getForLocale('booking');
+        // Bookings have no company_id of their own -- derive it from the
+        // customer, same as bookingScope() above.
+        $companyId = $customer->company_id ?? null;
+
+        $settings = Setting::forCompany($companyId);
+        $emailMessage = EmailMessage::getForLocale('booking', null, $companyId);
 
         if ($emailMessage) {
             $message_body = $emailMessage->body;
@@ -675,7 +679,7 @@ class BookingController extends BaseController
             'company_name' => $business_name,
         ];
 
-        $this->Set_config_mail();
+        $this->Set_config_mail($companyId);
 
         Mail::to($receiver_email)->send(new CustomEmail($email));
 

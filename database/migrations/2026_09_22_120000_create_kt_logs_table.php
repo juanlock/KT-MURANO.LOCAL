@@ -25,7 +25,7 @@ return new class extends Migration
             $table->date('log_date');
             $table->string('claude_user');
             // Which device/location the request came from -- e.g.
-            // 'ThinkBook1', 'Home'. Free text, not an enum, since new
+            // 'Thundera', 'Home'. Free text, not an enum, since new
             // devices/locations will show up over time.
             $table->string('location');
             $table->longText('request_user');

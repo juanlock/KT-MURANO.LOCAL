@@ -4422,7 +4422,16 @@ class ProductsController extends BaseController
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return response()->json(['product_groups' => $groups]);
+        // Lightweight name list for the Products list's searchable Name
+        // filter (a dropdown of real names, not free text) -- bundled into
+        // this same call since the page already fetches it, rather than
+        // adding a second request.
+        $products = Product::where('company_id', $companyId)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get(['id', 'name', 'product_group_id']);
+
+        return response()->json(['product_groups' => $groups, 'products' => $products]);
     }
 
     // -------------- get_products_materiels ------------------\\

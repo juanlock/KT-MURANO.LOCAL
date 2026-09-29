@@ -2,7 +2,7 @@
   <div class="page">
     <PageHeader
       title="Integrations"
-      subtitle="Connect Stocky with the platforms and services your business runs on."
+      subtitle="Connect KcolTech - Murano with the platforms and services your business runs on."
     >
       <template #actions>
         <a-segmented

@@ -46,9 +46,18 @@ class AssetValidationDueNotification extends Notification implements ShouldQueue
      *
      * @return array
      */
+    /**
+     * Assets have no company_id of their own -- derive it from the
+     * asset's warehouse, which does.
+     */
+    protected function companyId(): ?int
+    {
+        return optional($this->asset->warehouse)->company_id;
+    }
+
     protected function getReplacementTags(): array
     {
-        $settings = Setting::whereNull('deleted_at')->first();
+        $settings = Setting::forCompany($this->companyId());
         $businessName = $settings ? $settings->CompanyName : config('app.name');
         $assetName = $this->asset->name ?: $this->asset->tag;
         $nextValidation = $this->asset->next_validation ? $this->asset->next_validation->format('Y-m-d') : '—';
@@ -71,7 +80,7 @@ class AssetValidationDueNotification extends Notification implements ShouldQueue
      */
     public function toMail($notifiable)
     {
-        $emailMessage = EmailMessage::getForLocale('asset_validation_due');
+        $emailMessage = EmailMessage::getForLocale('asset_validation_due', null, $this->companyId());
         $tags = $this->getReplacementTags();
 
         $subject = __('messages.Asset validation due') . ': ' . $tags['{asset_name}'];

@@ -86,34 +86,55 @@ class BaseController extends Controller
     }
 
     // Set config mail
-    public function Set_config_mail()
+    /**
+     * Loads this company's SMTP config from the DB into Laravel's runtime
+     * mail config. $companyId defaults to the authenticated user's own
+     * company (correct for every one of this method's ~18 authenticated
+     * call sites without having to touch each one); pass it explicitly for
+     * a guest/unauthenticated context (e.g. a public storefront action)
+     * where there's a specific company to attribute the email to.
+     *
+     * Root-cause fix: this used to Config::set('mail', [...]) with a FLAT,
+     * pre-Laravel-7 shape ('driver'/'host'/'port' directly under 'mail').
+     * This app's actual config/mail.php (Laravel 10) expects the nested
+     * 'mailers.{name}.*' shape -- the old flat overwrite replaced the whole
+     * 'mail' config array including 'default' and 'mailers', so Mail::
+     * calls had no way to resolve a real transport at all. This was the
+     * actual reason "Test" always failed, independent of the multicompany
+     * gap below.
+     */
+    public function Set_config_mail(?int $companyId = null)
     {
+        $companyId = $companyId ?? optional(auth('api')->user())->company_id ?? 1;
 
-        $server = DB::table('servers')->where('deleted_at', '=', null)->first();
-        $settings = DB::table('settings')->where('deleted_at', '=', null)->first();
-        if ($server && $settings) { // checking if table is not empty
-            // Prefer sender_email from server, fallback to settings email
-            $fromEmail = ($server->sender_email ?? null) ?: $settings->email;
-            
-            $config = [
-                    'driver' => $server->mail_mailer,
-                    'host' => $server->host,
-                    'port' => $server->port,
-                    'from' => ['address' => $fromEmail, 'name' => $server->sender_name],
-                    'encryption' => $server->encryption,
-                    'username' => $server->username,
-                    'password' => $server->password,
-                    'sendmail' => '/usr/sbin/sendmail -bs',
-                    'pretend' => false,
-                    'stream' => [
-                        'ssl' => [
-                            'allow_self_signed' => true,
-                            'verify_peer' => false,
-                            'verify_peer_name' => false,
-                        ],
+        $server = \App\Models\Server::forCompany($companyId);
+        $settings = \App\Models\Setting::forCompany($companyId);
+
+        if ($server && $server->host) {
+            $fromEmail = $server->sender_email ?: ($settings->email ?? null);
+            $mailer = $server->mail_mailer ?: 'smtp';
+
+            Config::set('mail.default', $mailer);
+            Config::set("mail.mailers.{$mailer}", [
+                'transport' => $mailer,
+                'host' => $server->host,
+                'port' => $server->port,
+                'encryption' => $server->encryption === 'none' ? null : $server->encryption,
+                'username' => $server->username,
+                'password' => $server->password,
+                'timeout' => null,
+                'stream' => [
+                    'ssl' => [
+                        'allow_self_signed' => true,
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
                     ],
-                ];
-            Config::set('mail', $config);
+                ],
+            ]);
+            Config::set('mail.from', [
+                'address' => $fromEmail,
+                'name' => $server->sender_name ?: ($settings->CompanyName ?? 'KcolTech - Murano'),
+            ]);
         }
     }
 }

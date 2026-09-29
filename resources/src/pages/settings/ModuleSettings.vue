@@ -138,7 +138,7 @@ function getModuleDescription(name) {
     Reports: 'Advanced reporting and business analytics.',
     Recruit: 'Recruitment management with jobs, candidates, applications, interviews and reports.',
   };
-  return descriptions[name] || 'Extends your Stocky application with additional functionality.';
+  return descriptions[name] || 'Extends your KcolTech - Murano application with additional functionality.';
 }
 
 function onZipPicked(file) {

@@ -54,7 +54,7 @@ export const useAuthStore = defineStore('auth', {
 
         // ---- Branding (settings) — the same fields the legacy layout reads ----
         // Company name, blank when the admin chose to hide the site name.
-        companyName: s => (s.user && !s.user.hide_site_name ? (s.user.company || 'Stocky') : ''),
+        companyName: s => (s.user && !s.user.hide_site_name ? (s.user.company || 'KcolTech - Murano') : ''),
         // Uploaded logo (old bare filename under shared /images/, or the
         // new company-scoped relative path), or null to fall back to an initial.
         logoUrl: s => resolveImageUrl(s.user && s.user.logo),
@@ -69,7 +69,10 @@ export const useAuthStore = defineStore('auth', {
         brandInitial: s => ((s.user && s.user.company && s.user.company[0]) || 'S').toUpperCase(),
         // Custom footer line and the "developed by" credit.
         footerText: s => (s.user && s.user.footer) || '',
-        developedBy: s => (s.user && s.user.developed_by) || 'Stocky',
+        developedBy: s => (s.user && s.user.developed_by) || 'KcolTech - Murano',
+        // kt_logs track-version ("MM.mm"), bumps on every logged request.
+        // Same for every user (all companies + SuperAdmin) -- not company-scoped.
+        ktLogVersion: s => (s.user && s.user.kt_log_version) || '',
         // Admin module toggles (System Settings → Modules). Null map or a
         // missing key = module enabled, so fresh installs show everything.
         moduleEnabled: s => key => isModuleEnabled(s.user && s.user.module_flags, key),
@@ -84,6 +87,10 @@ export const useAuthStore = defineStore('auth', {
         // company ({tableKey: [{key, title, width, hidden}]}), and who may edit it.
         datatableColumns: s => (s.user && s.user.datatable_columns) || {},
         canCustomizeColumns: s => !!(s.user && (s.user.type === 'SuperAdmin' || s.permissions.includes('datatable_customize'))),
+        // "Customize Filters": same idea, for the filter row above a list
+        // ({tableKey: [{key, hidden}]}). Reuses the same permission/getter
+        // above -- an admin who may customize columns may customize filters.
+        datatableFilters: s => (s.user && s.user.datatable_filters) || {},
         // Global export defaults (System Settings → Export). Missing keys keep
         // the historical behavior: full data, totals on, landscape, plain names.
         exportSettings: s => ({

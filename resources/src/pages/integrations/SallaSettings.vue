@@ -233,7 +233,7 @@
             <a-alert
               type="info" show-icon style="margin-top: 8px"
               message="Product identity is the SKU"
-              description="Stocky's product code is matched to Salla's SKU. Keep SKUs consistent on both sides; variant products are matched on pull and in orders, but are not pushed in this version."
+              description="KcolTech - Murano's product code is matched to Salla's SKU. Keep SKUs consistent on both sides; variant products are matched on pull and in orders, but are not pushed in this version."
             />
           </a-card>
         </a-tab-pane>

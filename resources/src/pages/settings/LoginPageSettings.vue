@@ -31,7 +31,7 @@
           <a-row :gutter="16">
             <a-col :xs="24" :md="12">
               <a-form-item label="Page title" help="Shown in the browser tab and the login page's footer credit.">
-                <a-input v-model:value="setting.app_name" placeholder="Stocky | Ultimate Inventory With POS" />
+                <a-input v-model:value="setting.app_name" placeholder="KcolTech - Murano | Ultimate Inventory With POS" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :md="12">

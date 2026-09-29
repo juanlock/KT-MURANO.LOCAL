@@ -4,7 +4,7 @@ description: "Protocol A Dormir -- end-of-session close-out: run Kelsy (log the 
 
 Run Protocol A Dormir ("off to bed") -- the end-of-session close-out, in this order. Stop and report if a step fails; never skip ahead silently.
 
-1. **Kelsy** -- run Protocol Kelsy exactly as defined in `.claude/commands/kelsy.md`: append every request of this conversation not yet in `kt_logs` (one row per request, verbatim request and verbatim closing message in `done`). The only question allowed is the location (ThinkBook1 / Home / new) -- and only if it hasn't been answered earlier in this session.
+1. **Kelsy** -- run Protocol Kelsy exactly as defined in `.claude/commands/kelsy.md`: append every request of this conversation not yet in `kt_logs` (one row per request, verbatim request and verbatim closing message in `done`). The only question allowed is the location (Thundera / Home / new) -- and only if it hasn't been answered earlier in this session.
 
 2. **Backup (Copia BD)** -- run Protocol Copia BD exactly as defined in `.claude/commands/copia-bd.md` (`database/scripts/protocol_copia_bd.php` via tinker with its absolute path). It writes `KT-TOOLS/database/dbmurano_<Y-m-d_His>.sql`. Note the file name and size for the commit message and the report. Run it AFTER Kelsy so the dump already contains this session's log rows.
 
@@ -20,4 +20,4 @@ Run Protocol A Dormir ("off to bed") -- the end-of-session close-out, in this or
 
 5. **Report** to the user: the kt_logs rows added (ids + one line each), the backup file + size, the commit hash + subject, and the push result (branch, remote). If anything was left out of the commit, say what and why.
 
-Why this exists: the user (jlock) works on this project from several machines (Home, ThinkBook1, ...). One phrase at the end of a session logs the work, snapshots the database into the repo and pushes both, so the next machine starts from the same code, history and data. Murano's own protocol (not ported from billing). Billing (KT-BILLING.LOCAL) is never touched by it.
+Why this exists: the user (jlock) works on this project from several machines (Home, Thundera, ...). One phrase at the end of a session logs the work, snapshots the database into the repo and pushes both, so the next machine starts from the same code, history and data. Murano's own protocol (not ported from billing). Billing (KT-BILLING.LOCAL) is never touched by it.

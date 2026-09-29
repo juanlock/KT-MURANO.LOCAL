@@ -43,7 +43,7 @@ public class RawPrinter
         if (!OpenPrinter(printerName, out handle, IntPtr.Zero)) return false;
 
         DOCINFOA di = new DOCINFOA();
-        di.pDocName = "Stocky Labels";
+        di.pDocName = "KcolTech - Murano Labels";
         di.pDataType = "RAW";
 
         bool ok = false;

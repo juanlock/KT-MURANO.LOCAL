@@ -575,11 +575,16 @@ class PaymentSalesController extends BaseController
         $helpers = new helpers;
         $currency = $helpers->Get_Currency();
 
-        // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        // PaymentSale itself has no company_id column -- derive it from the
+        // sale it's a payment against.
+        $companyId = $payment->sale->company_id ?? null;
+
+        // settings -- company-scoped to the sale's company, not the
+        // acting/logged-in user's own company.
+        $settings = Setting::forCompany($companyId);
 
         // the custom msg of payment_received
-        $emailMessage = EmailMessage::getForLocale('payment_received');
+        $emailMessage = EmailMessage::getForLocale('payment_received', null, $companyId);
 
         if ($emailMessage) {
             $message_body = $emailMessage->body;
@@ -609,7 +614,7 @@ class PaymentSalesController extends BaseController
         $email['body'] = $message_body;
         $email['company_name'] = $business_name;
 
-        $this->Set_config_mail();
+        $this->Set_config_mail($companyId);
 
         Mail::to($receiver_email)->send(new CustomEmail($email));
 

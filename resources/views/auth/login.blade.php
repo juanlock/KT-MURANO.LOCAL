@@ -18,7 +18,7 @@
     {{-- PWA --}}
     @include('partials.pwa-head')
 
-    <title>{{ $app_settings->app_name ?? 'Stocky | Ultimate Inventory With POS' }}</title>
+    <title>{{ $app_settings->app_name ?? 'KcolTech - Murano | Ultimate Inventory With POS' }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -734,7 +734,7 @@
                 $loginLogoUrl = str_contains($loginLogo, '/') ? asset($loginLogo) : asset('images/'.$loginLogo);
             @endphp
             <div class="auth-logo">
-              <img src="{{ $loginLogoUrl }}" alt="{{ $app_settings->app_name ?? 'Stocky' }}">
+              <img src="{{ $loginLogoUrl }}" alt="{{ $app_settings->app_name ?? 'KcolTech - Murano' }}">
             </div>
             <h2 class="auth-card-title">{{ login_locale_text($app_settings->login_panel_title) }}</h2>
             <p class="auth-card-subtitle">
@@ -809,7 +809,7 @@
           </form>
 
           <div class="auth-footer">
-            {{ login_locale_text($app_settings->login_footer_text) ?: '© ' . date('Y') . ' ' . ($app_settings->app_name ?? 'Stocky') . '. ' . tdb('All_rights_reserved', 'All rights reserved') . '.' }}
+            {{ login_locale_text($app_settings->login_footer_text) ?: '© ' . date('Y') . ' ' . ($app_settings->app_name ?? 'KcolTech - Murano') . '. ' . tdb('All_rights_reserved', 'All rights reserved') . '.' }}
           </div>
         </div>
       </section>

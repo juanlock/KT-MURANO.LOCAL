@@ -76,7 +76,7 @@ class QzCertificateService
             throw new RuntimeException('RSA key generation failed: ' . (openssl_error_string() ?: 'unknown error'));
         }
 
-        $dn = ['commonName' => 'Stocky QZ Tray', 'organizationName' => 'Stocky'];
+        $dn = ['commonName' => 'KcolTech - Murano QZ Tray', 'organizationName' => 'KcolTech - Murano'];
         $csr = openssl_csr_new($dn, $key, $args + ['digest_alg' => 'sha256']);
         $x509 = $csr ? openssl_csr_sign($csr, null, $key, 3650, $args + ['digest_alg' => 'sha256']) : false;
         if ($x509 === false) {

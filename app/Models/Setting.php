@@ -59,7 +59,7 @@ class Setting extends Model
         'enable_multi_pack_selling', 'allow_overselling', 'sidebar_menu_order',
         'enable_pos_salesperson_switch', 'session_timeout_minutes', 'enable_multi_currency',
         'enable_wholesale_pricing', 'sale_show_price_type_dropdown', 'sale_default_quantity',
-        'sale_loyalty_points_enabled', 'sale_shipping_enabled',
+        'sale_loyalty_points_enabled', 'sale_shipping_enabled', 'sale_sms_enabled', 'sale_whatsapp_enabled',
         // Defaults -> Customers: optional customer features (hide all UI when off)
         'customer_loyalty_enabled', 'customer_credit_limit_enabled', 'customer_opening_balance_enabled',
         // Defaults -> Product: auto-generated product Code (<prefix><next number>)
@@ -69,7 +69,7 @@ class Setting extends Model
         'booking_status_enabled', 'booking_delivery_address_enabled',
         // System Settings -> DataTable: company-wide table format + per-table
         // column customization (JSON)
-        'datatable_settings', 'datatable_columns',
+        'datatable_settings', 'datatable_columns', 'datatable_filters',
         // Invoice PDF -- company-scoped section show/hide toggles + editable
         // content blocks (Company Note / Terms & Conditions), distinct from
         // the global, non-company-scoped PdfTemplate "Sections" panel.
@@ -118,6 +118,8 @@ class Setting extends Model
         'sale_default_quantity' => 'integer',
         'sale_loyalty_points_enabled' => 'boolean',
         'sale_shipping_enabled' => 'boolean',
+        'sale_sms_enabled' => 'boolean',
+        'sale_whatsapp_enabled' => 'boolean',
         'customer_loyalty_enabled' => 'boolean',
         'customer_credit_limit_enabled' => 'boolean',
         'customer_opening_balance_enabled' => 'boolean',

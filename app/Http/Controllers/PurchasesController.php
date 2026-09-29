@@ -2129,11 +2129,12 @@ class PurchasesController extends BaseController
         $docCurrency = helpers::Get_Document_Currency($purchase);
         $currency = $docCurrency['symbol'];
 
-        // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        // settings -- company-scoped to the purchase being emailed, not the
+        // acting/logged-in user's own company.
+        $settings = Setting::forCompany($purchase->company_id);
 
         // the custom msg of sale
-        $emailMessage = EmailMessage::getForLocale('purchase');
+        $emailMessage = EmailMessage::getForLocale('purchase', null, $purchase->company_id);
 
         if ($emailMessage) {
             $message_body = $emailMessage->body;
@@ -2172,7 +2173,7 @@ class PurchasesController extends BaseController
         $email['body'] = $message_body;
         $email['company_name'] = $business_name;
 
-        $this->Set_config_mail();
+        $this->Set_config_mail($purchase->company_id);
         Mail::to($receiver_email)->send(new CustomEmail($email));
 
         return response()->json(['message' => 'Email sent successfully'], 200);

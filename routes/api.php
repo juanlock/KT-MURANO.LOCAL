@@ -1217,6 +1217,8 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('product_next_code', 'ProductsController@nextProductCode');
     // DataTable "Customize Columns" (admins/SuperAdmin, per company per table)
     Route::put('datatable_columns', 'SettingsController@updateDatatableColumns');
+    // "Customize Filters" -- same idea, for the filter row instead of the table's columns
+    Route::put('datatable_filters', 'SettingsController@updateDatatableFilters');
     Route::resource('products', 'ProductsController');
     Route::post('products/{id}/duplicate', 'ProductsController@duplicate');
 
@@ -1360,6 +1362,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('convert_to_sale_data/{id}', 'SalesController@Elemens_Change_To_Sale');
     Route::get('get_payments_by_sale/{id}', 'SalesController@Payments_Sale');
     Route::post('sales_send_email', 'SalesController@Send_Email');
+    Route::post('sales_send_reminder', 'SalesController@Send_Reminder');
     Route::post('sales_send_sms', 'SalesController@Send_SMS');
     Route::post('sales_delete_by_selection', 'SalesController@delete_by_selection');
     Route::get('get_Products_by_sale/{id}', 'SalesController@get_Products_by_sale');

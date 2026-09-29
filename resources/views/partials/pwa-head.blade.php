@@ -16,7 +16,7 @@
     // The column is absent on installs that have not run the PWA migration —
     // treat that as enabled so the app keeps behaving as it did before.
     $pwaOn = (bool) ($pwaSetting->pwa_enabled ?? true);
-    $pwaName = trim((string) ($pwaSetting->pwa_name ?? '')) ?: ($pwaSetting->app_name ?? 'Stocky');
+    $pwaName = trim((string) ($pwaSetting->pwa_name ?? '')) ?: ($pwaSetting->app_name ?? 'KcolTech - Murano');
     $pwaTheme = trim((string) ($pwaSetting->pwa_theme_color ?? '')) ?: '#2f3640';
     // @include leaks every parent-view variable in here, so a layout defining
     // its own $manifest (e.g. a decoded asset manifest array) must not be

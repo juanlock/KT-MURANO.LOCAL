@@ -311,6 +311,10 @@ class SettingsController extends Controller
             'sale_shipping_enabled' => $request->has('sale_shipping_enabled')
                 ? (($request['sale_shipping_enabled'] == '1' || $request['sale_shipping_enabled'] == 'true' || $request['sale_shipping_enabled'] === 1 || $request['sale_shipping_enabled'] === true) ? 1 : 0)
                 : (int) ($setting->sale_shipping_enabled ?? 1),
+            // Default -- Sales: show/hide the SMS and WhatsApp row-action
+            // icons on the Sales list (default on).
+            'sale_sms_enabled' => $this->settingFlag($request, $setting, 'sale_sms_enabled'),
+            'sale_whatsapp_enabled' => $this->settingFlag($request, $setting, 'sale_whatsapp_enabled'),
             // Default -- Booking: show/hide optional fields on the Booking
             // Create/Edit form (default on)
             'booking_delivery_date_enabled' => $this->settingFlag($request, $setting, 'booking_delivery_date_enabled'),
@@ -982,6 +986,46 @@ class SettingsController extends Controller
         return response()->json(['success' => true, 'datatable_columns' => (object) $all]);
     }
 
+    /**
+     * "Customize Filters": save (or, with filters=null, reset) one list's
+     * filter-row setup for the acting company -- display order + per filter
+     * {key, hidden}. Same idea and same `datatable_customize` permission as
+     * updateDatatableColumns() above, just for the filter inputs instead of
+     * the table's own columns (a filter has no title/width to customize).
+     * Served back to every user of the company through get_user_auth
+     * (datatable_filters).
+     */
+    public function updateDatatableFilters(Request $request)
+    {
+        $user = $request->user('api');
+        $allowed = $user->type === 'SuperAdmin'
+            || (bool) optional($user->roles()->first())->permissions?->contains('name', 'datatable_customize');
+        abort_unless($allowed, 403);
+
+        $data = $request->validate([
+            'table_key' => ['required', 'string', 'max:120'],
+            'filters' => ['nullable', 'array', 'max:40'],
+            'filters.*.key' => ['required', 'string', 'max:80'],
+            'filters.*.hidden' => ['nullable', 'boolean'],
+        ]);
+
+        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
+        $all = json_decode($setting->datatable_filters ?: '{}', true) ?: [];
+
+        if (empty($data['filters'])) {
+            unset($all[$data['table_key']]);
+        } else {
+            $all[$data['table_key']] = array_map(fn ($f) => [
+                'key' => $f['key'],
+                'hidden' => (bool) ($f['hidden'] ?? false),
+            ], $data['filters']);
+        }
+
+        $setting->update(['datatable_filters' => $all ? json_encode($all) : null]);
+
+        return response()->json(['success' => true, 'datatable_filters' => (object) $all]);
+    }
+
     public function get_Settings_data_api(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Setting::class);
@@ -1507,7 +1551,7 @@ class SettingsController extends Controller
      */
     /** The sample label printed by Test Print, in both render modes. */
     const LABEL_TEST_SAMPLE = [
-        'name' => 'Stocky Test Label',
+        'name' => 'KcolTech - Murano Test Label',
         'barcode' => '628112345678',
         'Type_barcode' => 'CODE128',
         'Net_price' => '49.99',
@@ -2464,7 +2508,7 @@ class SettingsController extends Controller
         $bust192 = file_exists($icon192Path) ? filemtime($icon192Path) : null;
         $bust512 = file_exists($icon512Path) ? filemtime($icon512Path) : null;
 
-        $appName = $setting->app_name ?? 'Stocky';
+        $appName = $setting->app_name ?? 'KcolTech - Murano';
         $fallbackShortName = trim(explode('|', (string) ($setting->pwa_name ?? '') ?: $appName)[0]);
 
         return response()->json([

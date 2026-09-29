@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Models\Server;
 use App\Models\Setting;
 use Illuminate\Http\Request;
@@ -9,19 +10,25 @@ use Illuminate\Support\Facades\Mail;
 
 class MailSettingsController extends BaseController
 {
+    use ScopesToCompany;
+
     // -------------- Get mail_settings ---------------\\
 
     public function get_config_mail(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'mail_settings', Setting::class);
 
-        $server = Server::where('deleted_at', '=', null)->first();
+        $companyId = $this->resolveActingCompanyId($request);
+        $server = Server::forCompany($companyId);
 
-        if ($server) {
-            return response()->json(['server' => $server], 200);
-        } else {
-            return response()->json(['statut' => 'error'], 500);
-        }
+        // Same fallback chain test_config_mail uses when no destination is
+        // explicitly given, exposed here so the frontend can pre-fill the
+        // Test button's destination field with what would actually be used.
+        $user = $request->user('api');
+        $settings = Setting::forCompany($companyId);
+        $defaultTestEmail = ($user && $user->email) ? $user->email : ($settings->email ?? null);
+
+        return response()->json(['server' => $server, 'default_test_email' => $defaultTestEmail], 200);
     }
 
     // -------------- Update mail settings ---------------\\
@@ -30,7 +37,16 @@ class MailSettingsController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'mail_settings', Setting::class);
 
-        Server::whereId($id)->update([
+        $companyId = $this->resolveActingCompanyId($request);
+        // Company boundary: $id alone isn't enough -- without this check any
+        // admin could pass another company's server id and edit its SMTP
+        // credentials. Only ever update the row that actually belongs to the
+        // acting company (Server::forCompany() already guarantees $id === the
+        // company's own row for a same-company request, this is belt & braces).
+        $server = Server::where('id', $id)->where('company_id', $companyId)->first();
+        abort_unless($server, 404);
+
+        $server->update([
             'mail_mailer' => $request['mail_mailer'],
             'host' => $request['host'],
             'port' => $request['port'],
@@ -51,12 +67,13 @@ class MailSettingsController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'mail_settings', Setting::class);
 
-        // Load mail configuration from DB
-        $this->Set_config_mail();
+        $companyId = $this->resolveActingCompanyId($request);
+        // Load mail configuration from DB, for the acting company specifically.
+        $this->Set_config_mail($companyId);
 
         $user = $request->user('api');
-        $settings = Setting::where('deleted_at', '=', null)->first();
-        $server = Server::where('deleted_at', '=', null)->first();
+        $settings = Setting::forCompany($companyId);
+        $server = Server::forCompany($companyId);
 
         // Prefer explicitly provided test email, then current user email, then company email
         $to = $request->input('email')
@@ -68,7 +85,11 @@ class MailSettingsController extends BaseController
         }
 
         try {
-            Mail::raw('This is a test email to verify your mail configuration in Stocky.', function ($message) use ($to, $settings, $server) {
+            // Reflects the acting company's own name, not a hardcoded
+            // brand -- this page is per-company now, so company 2's test
+            // email shouldn't say "KcolTech".
+            $companyLabel = $settings && $settings->CompanyName ? $settings->CompanyName.' - Murano' : 'Murano';
+            Mail::raw("This is a test email to verify your mail configuration in {$companyLabel}.", function ($message) use ($to, $settings, $server) {
                 $message->to($to)
                     ->subject('Test Mail Configuration');
 
@@ -80,7 +101,7 @@ class MailSettingsController extends BaseController
                 if ($fromEmail) {
                     $fromName = ($server && $server->sender_name) 
                         ? $server->sender_name 
-                        : ($settings && $settings->CompanyName ? $settings->CompanyName : 'Stocky');
+                        : ($settings && $settings->CompanyName ? $settings->CompanyName : 'KcolTech - Murano');
                     $message->from($fromEmail, $fromName);
                 }
             });

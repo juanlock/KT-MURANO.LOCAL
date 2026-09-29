@@ -112,7 +112,7 @@
                 </a-col>
                 <a-col :xs="24" :md="12">
                   <a-form-item :label="$t('footer')" :help="'Shown in the app footer bar. Leave empty for the default copyright line.'">
-                    <a-input v-model:value="setting.footer" :placeholder="`© ${new Date().getFullYear()} Stocky. All rights reserved.`" />
+                    <a-input v-model:value="setting.footer" :placeholder="`© ${new Date().getFullYear()} KcolTech - Murano. All rights reserved.`" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
@@ -472,6 +472,20 @@
                   <div class="setting-help">Show the Shipping field and its dropdowns/options on the Sales Create/Edit form. Turn off for service-only companies that don't ship products.</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_shipping_enabled)" @change="v => (setting.sale_shipping_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">SMS notifications</div>
+                  <div class="setting-help">Show the SMS row-action icon on the Sales list and allow sending sale SMS notifications. Off hides the icon and blocks the send.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_sms_enabled ?? true)" @change="v => (setting.sale_sms_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">WhatsApp notifications</div>
+                  <div class="setting-help">Show the WhatsApp row-action icon on the Sales list and allow sending sale WhatsApp notifications. Off hides the icon and blocks the send.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_whatsapp_enabled ?? true)" @change="v => (setting.sale_whatsapp_enabled = v ? 1 : 0)" />
               </div>
             </a-card>
             </a-tab-pane>
@@ -1444,6 +1458,8 @@ async function save() {
   fd.append('sale_default_quantity', Math.max(1, Number(s.sale_default_quantity) || 1));
   fd.append('sale_loyalty_points_enabled', asBool(s.sale_loyalty_points_enabled) ? 1 : 0);
   fd.append('sale_shipping_enabled', asBool(s.sale_shipping_enabled) ? 1 : 0);
+  fd.append('sale_sms_enabled', asBool(s.sale_sms_enabled ?? true) ? 1 : 0);
+  fd.append('sale_whatsapp_enabled', asBool(s.sale_whatsapp_enabled ?? true) ? 1 : 0);
   for (const f of BOOKING_FIELD_TOGGLES) fd.append(f.key, asBool(s[f.key] ?? true) ? 1 : 0);
   fd.append('customer_loyalty_enabled', asBool(s.customer_loyalty_enabled) ? 1 : 0);
   fd.append('customer_credit_limit_enabled', asBool(s.customer_credit_limit_enabled) ? 1 : 0);

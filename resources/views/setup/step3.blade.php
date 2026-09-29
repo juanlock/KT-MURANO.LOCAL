@@ -3,7 +3,7 @@
     <meta name="csrf_token" content="{{ csrf_token() }}" />
 
     <div class="loader d-none">Loading...</div>
-    <p class="loader loader-caption d-none">Installing Stocky — writing configuration and preparing the database. This can take a few minutes, keep this tab open.</p>
+    <p class="loader loader-caption d-none">Installing KcolTech - Murano — writing configuration and preparing the database. This can take a few minutes, keep this tab open.</p>
 
     <div class="d-block" id="content">
 
@@ -74,7 +74,7 @@
 
             <div class="pane-nav">
                 <a href="/setup/step-2" class="btn btn-ghost"><i class="fa fa-angle-left"></i> Back</a>
-                <button type="submit" class="btn btn-success" id="lastStep">Install Stocky <i class="fa fa-check"></i></button>
+                <button type="submit" class="btn btn-success" id="lastStep">Install KcolTech - Murano <i class="fa fa-check"></i></button>
             </div>
         </form>
     </div>

@@ -4137,7 +4137,7 @@ return [
 'QZ_Step_Cert' => '4. Agar mencetak tanpa pop-up izin, unduh sertifikat di bawah dan salin ke folder instalasi QZ Tray dengan nama override.crt (Windows: C:\Program Files\QZ Tray — macOS: /Applications/QZ Tray.app/Contents/Resources — Linux: /opt/qz-tray). Lalu tutup QZ Tray dan jalankan kembali.',
 'QZ_Step_Test' => '5. Klik "Cetak label uji" di bawah. Jika QZ Tray meminta izin, klik Allow — dengan sertifikat terpasang, izin tidak akan diminta lagi.',
 'QZ_Step_Save' => '6. Klik Submit untuk menyimpan pengaturan ini. Label dari halaman Cetak Barcode kini akan langsung tercetak di printer ini, tanpa dialog cetak browser.',
-'QZ_Setup_Note' => 'QZ Tray berjalan di komputer tempat Anda membuka browser, sehingga tetap berfungsi meskipun Stocky di-host di server jarak jauh. Setiap komputer yang mencetak label harus memasang QZ Tray.',
+'QZ_Setup_Note' => 'QZ Tray berjalan di komputer tempat Anda membuka browser, sehingga tetap berfungsi meskipun KcolTech - Murano di-host di server jarak jauh. Setiap komputer yang mencetak label harus memasang QZ Tray.',
 
 // PWA settings tab — installable app identity
 'PWA_Enabled' => 'Aktifkan aplikasi yang dapat dipasang',
@@ -4189,7 +4189,7 @@ return [
 'pos.Draft_Saved_Offline' => 'Draf disimpan secara offline. Akan disinkronkan saat Anda kembali online.',
 'pos.Client_Saved_Offline' => 'Pelanggan disimpan secara offline. Akan disinkronkan saat Anda kembali online.',
 'Mobile_App_Settings' => 'Aplikasi Seluler',
-'Mobile_App_Settings_Help' => 'Kendalikan aplikasi seluler Stocky: aktifkan atau nonaktifkan, atur nama, logo, dan warnanya, serta pilih modul yang dilihat tim Anda.',
+'Mobile_App_Settings_Help' => 'Kendalikan aplikasi seluler KcolTech - Murano: aktifkan atau nonaktifkan, atur nama, logo, dan warnanya, serta pilih modul yang dilihat tim Anda.',
 'Mobile_App_Enabled' => 'Aplikasi seluler aktif',
 'Mobile_App_Enabled_Help' => 'Saat nonaktif, tidak ada yang bisa masuk dari aplikasi seluler dan pesan di bawah ini ditampilkan sebagai gantinya.',
 'Mobile_App_Disabled_Notice' => 'Aplikasi seluler saat ini dinonaktifkan.',
@@ -4455,7 +4455,7 @@ return [
 'Ord_Guide_Intro' => 'Bagaimana pesanan dari toko online Anda masuk ke stok dan pembukuan, serta di mana uang sebenarnya dicatat.',
 'Ord_Guide_Lifecycle_Title' => 'Status pesanan',
 'Ord_Guide_Lifecycle_Pending' => 'Pesanan baru yang menunggu peninjauan Anda. Hanya pesanan tertunda yang dapat dikonfirmasi atau dibatalkan.',
-'Ord_Guide_Lifecycle_Confirmed' => 'Anda menerima pesanan. Stocky membuat Penjualan di gudang yang Anda pilih dan mengurangi stok — penjualan itulah catatan yang dibaca oleh laporan stok, pembayaran, dan laba Anda.',
+'Ord_Guide_Lifecycle_Confirmed' => 'Anda menerima pesanan. KcolTech - Murano membuat Penjualan di gudang yang Anda pilih dan mengurangi stok — penjualan itulah catatan yang dibaca oleh laporan stok, pembayaran, dan laba Anda.',
 'Ord_Guide_Lifecycle_Shipped' => 'Anda mengirim pesanan. Hanya pemenuhan: stok sudah dikurangi saat Anda mengonfirmasi.',
 'Ord_Guide_Lifecycle_Delivered' => 'Pelanggan menerima pesanan. Inilah yang memulai masa retur.',
 'Ord_Guide_Lifecycle_Cancelled' => 'Pesanan dibatalkan sebelum konfirmasi, sehingga tidak ada penjualan yang dibuat dan tidak ada stok yang dikurangi.',

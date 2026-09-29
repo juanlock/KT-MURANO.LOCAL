@@ -224,7 +224,7 @@ const icon512List = ref([]);
 
 // What the manifest will actually contain, mirroring the server-side fallbacks
 // in PwaManifestController so the preview never lies.
-const effectiveName = computed(() => setting.value.pwa_name?.trim() || setting.value.app_name || 'Stocky');
+const effectiveName = computed(() => setting.value.pwa_name?.trim() || setting.value.app_name || 'KcolTech - Murano');
 const effectiveShortName = computed(() => {
   const explicit = setting.value.pwa_short_name?.trim();
   if (explicit) return explicit;

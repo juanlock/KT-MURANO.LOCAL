@@ -60,7 +60,7 @@
          receipt designer preview render the chosen font — offline, no
          external request. --}}
     <link rel="stylesheet" href="/css/receipt-fonts.css">
-    <title>{{ $app_settings->app_name ?? 'Stocky' }}</title>
+    <title>{{ $app_settings->app_name ?? 'KcolTech - Murano' }}</title>
     <script>window.__PAGE_TITLE_SUFFIX__ = @json($app_settings->page_title_suffix ?? '');</script>
 
     @foreach ($cssFiles as $css)
@@ -100,7 +100,7 @@
       </style>
       <div class="boot-loader">
         <div class="boot-loader__spinner"></div>
-        <div>{{ $app_settings->app_name ?? 'Stocky' }}</div>
+        <div>{{ $app_settings->app_name ?? 'KcolTech - Murano' }}</div>
       </div>
     </div>
 
@@ -112,7 +112,7 @@
       <script type="module" src="/js/{{ $entry['file'] }}"></script>
     @else
       <p style="font-family: sans-serif; padding: 24px">
-        Stocky Next assets are not built yet. Run <code>npm run vue3:build</code>.
+        KcolTech - Murano Next assets are not built yet. Run <code>npm run vue3:build</code>.
       </p>
     @endif
 

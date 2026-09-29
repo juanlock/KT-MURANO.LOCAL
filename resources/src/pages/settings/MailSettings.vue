@@ -58,13 +58,26 @@
         </a-row>
         <a-space>
           <a-button type="primary" :loading="saving" @click="save">{{ $t('submit') }}</a-button>
-          <a-button :loading="testing" @click="testMail">
+          <a-button :loading="testing" @click="openTestModal">
             <template #icon><SendOutlined /></template>
             Test
           </a-button>
         </a-space>
       </a-form>
     </a-card>
+
+    <a-modal
+      v-model:open="testModalVisible"
+      title="Send test email"
+      :confirm-loading="testing"
+      @ok="sendTest"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="Destination email">
+          <a-input v-model:value="testEmail" type="email" placeholder="you@company.com" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -87,6 +100,9 @@ const loading = ref(true);
 const saving = ref(false);
 const testing = ref(false);
 const server = ref({});
+const testModalVisible = ref(false);
+const testEmail = ref('');
+const defaultTestEmail = ref('');
 
 async function save() {
   saving.value = true;
@@ -109,14 +125,29 @@ async function save() {
   }
 }
 
-async function testMail() {
+function openTestModal() {
+  // Pre-fill with whatever destination the backend would actually use by
+  // default (current user's email, falling back to the company's settings
+  // email) -- keeps this in sync with test_config_mail()'s own fallback
+  // instead of duplicating that logic client-side.
+  testEmail.value = defaultTestEmail.value;
+  testModalVisible.value = true;
+}
+
+async function sendTest() {
   testing.value = true;
   try {
-    const data = await http.post('test_config_mail');
+    const data = await http.post('test_config_mail', { email: testEmail.value });
     message.success(data?.message || data?.msg || t('Success'));
+    testModalVisible.value = false;
   } catch (e) {
-    const msg = e?.data?.message || (e?.data?.errors && JSON.stringify(e.data.errors));
-    message.error(msg || t('SMTPIncorrect'));
+    // The backend's `errors` field carries the actual SMTP failure reason
+    // (e.g. "535 Incorrect authentication data") -- show it, not just the
+    // generic "Failed to send test email." wrapper message, so a bad
+    // password/host/port is self-diagnosable from the toast alone.
+    const detail = typeof e?.data?.errors === 'string' ? e.data.errors : (e?.data?.errors && JSON.stringify(e.data.errors));
+    const summary = e?.data?.message || t('SMTPIncorrect');
+    message.error(detail ? `${summary} ${detail}` : summary, 10);
   } finally {
     testing.value = false;
   }
@@ -126,6 +157,7 @@ onMounted(async () => {
   try {
     const data = await http.get('get_config_mail');
     server.value = data.server || {};
+    defaultTestEmail.value = data.default_test_email || '';
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {

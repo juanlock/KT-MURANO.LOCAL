@@ -4075,7 +4075,7 @@ return [
 'QZ_Step_Cert' => '4. Láti tẹ̀wé láìsí ìbéèrè ààyè, gba ìwé-ẹ̀rí ìsàlẹ̀ sílẹ̀ kí o sì da á sínú fọ́ldà ìfisínú QZ Tray pẹ̀lú orúkọ override.crt (Windows: C:\Program Files\QZ Tray — macOS: /Applications/QZ Tray.app/Contents/Resources — Linux: /opt/qz-tray). Lẹ́yìn náà pa QZ Tray kí o sì tún ṣí i.',
 'QZ_Step_Test' => '5. Tẹ "Tẹ àmì ìdánwò" ní ìsàlẹ̀. Bí QZ Tray bá béèrè ààyè, tẹ Allow — bí a bá ti fi ìwé-ẹ̀rí sínú rẹ̀, kò ní béèrè mọ́.',
 'QZ_Step_Save' => '6. Tẹ Submit láti tọ́jú àwọn ètò yìí. Àwọn àmì láti ojú-ìwé Tẹ Barcode yóò máa tẹ̀ jáde tààrà lórí ẹ̀rọ ìtẹ̀wé yìí báyìí, láìsí fèrèsé ìtẹ̀wé aṣàwákiri.',
-'QZ_Setup_Note' => 'QZ Tray ń ṣiṣẹ́ lórí kọ̀ǹpútà tí o ń lò, nítorí náà èyí ń ṣiṣẹ́ kódà nígbà tí Stocky wà lórí ẹ̀rọ olùpèsè jíjìn. Kọ̀ǹpútà kọ̀ọ̀kan tí ń tẹ àmì nílò QZ Tray.',
+'QZ_Setup_Note' => 'QZ Tray ń ṣiṣẹ́ lórí kọ̀ǹpútà tí o ń lò, nítorí náà èyí ń ṣiṣẹ́ kódà nígbà tí KcolTech - Murano wà lórí ẹ̀rọ olùpèsè jíjìn. Kọ̀ǹpútà kọ̀ọ̀kan tí ń tẹ àmì nílò QZ Tray.',
 
 // PWA settings tab — installable app identity
 'PWA_Enabled' => 'Mú ohun èlò tí a lè fi sínú ẹ̀rọ ṣiṣẹ́',
@@ -4127,7 +4127,7 @@ return [
 'pos.Draft_Saved_Offline' => 'A ti tọ́jú àkọsílẹ̀ láìsí ìtakùn. Yóò bá ara mu nígbà tí o bá padà sórí ìtakùn.',
 'pos.Client_Saved_Offline' => 'A ti tọ́jú oníbàárà láìsí ìtakùn. Yóò bá ara mu nígbà tí o bá padà sórí ìtakùn.',
 'Mobile_App_Settings' => 'Ohun Èlò Fóònù',
-'Mobile_App_Settings_Help' => 'Ṣàkóso ohun èlò fóònù Stocky: mú un ṣiṣẹ́ tàbí pa á, ṣètò orúkọ, àmì-ìdánimọ̀ àti àwọ̀ rẹ̀, kí o sì yan àwọn ẹ̀ka tí ẹgbẹ́ rẹ ń rí.',
+'Mobile_App_Settings_Help' => 'Ṣàkóso ohun èlò fóònù KcolTech - Murano: mú un ṣiṣẹ́ tàbí pa á, ṣètò orúkọ, àmì-ìdánimọ̀ àti àwọ̀ rẹ̀, kí o sì yan àwọn ẹ̀ka tí ẹgbẹ́ rẹ ń rí.',
 'Mobile_App_Enabled' => 'Ohun èlò fóònù ń ṣiṣẹ́',
 'Mobile_App_Enabled_Help' => 'Nígbà tí a bá pa á, ẹnikẹ́ni kò lè wọlé láti ohun èlò fóònù, a ó sì fi ìránṣẹ́ ìsàlẹ̀ hàn dípò rẹ̀.',
 'Mobile_App_Disabled_Notice' => 'A ti pa ohun èlò fóònù lọ́wọ́lọ́wọ́.',
@@ -4393,7 +4393,7 @@ return [
 'Ord_Guide_Intro' => 'Bí ìbéèrè tí a ṣe lórí ilé-ìtajà orí ìtakùn rẹ ṣe ń wọ inú ọjà àti àkọọ́lẹ̀ rẹ, àti ibi tí a ti ń kọ owó sílẹ̀ gan-an.',
 'Ord_Guide_Lifecycle_Title' => 'Ipò ìbéèrè',
 'Ord_Guide_Lifecycle_Pending' => 'Ìbéèrè tuntun tí ń dúró de àyẹ̀wò rẹ. Ìbéèrè tí ń dúró nìkan ni a lè fọwọ́ sí tàbí fagilé.',
-'Ord_Guide_Lifecycle_Confirmed' => 'O gba ìbéèrè náà. Stocky ń ṣẹ̀dá Títà nínú ilé-ìpamọ́ tí o yàn, ó sì ń dín ọjà kù — títà náà ni àkọsílẹ̀ tí àwọn ìròyìn ọjà, ìsanwó àti èrè rẹ ń kà.',
+'Ord_Guide_Lifecycle_Confirmed' => 'O gba ìbéèrè náà. KcolTech - Murano ń ṣẹ̀dá Títà nínú ilé-ìpamọ́ tí o yàn, ó sì ń dín ọjà kù — títà náà ni àkọsílẹ̀ tí àwọn ìròyìn ọjà, ìsanwó àti èrè rẹ ń kà.',
 'Ord_Guide_Lifecycle_Shipped' => 'O ti fi ìbéèrè ránṣẹ́. Ìmúṣẹ nìkan: a ti dín ọjà kù nígbà tí o fọwọ́ sí i.',
 'Ord_Guide_Lifecycle_Delivered' => 'Oníbàárà ti gba ìbéèrè. Èyí ni ó ń bẹ̀rẹ̀ àkókò ìdápadà.',
 'Ord_Guide_Lifecycle_Cancelled' => 'A jù ìbéèrè sílẹ̀ kí a tó fọwọ́ sí i, nítorí náà a kò ṣẹ̀dá títà a kò sì dín ọjà kù.',

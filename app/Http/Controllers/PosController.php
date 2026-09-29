@@ -949,7 +949,7 @@ class PosController extends BaseController
         $settings = Setting::forCompany($sale->company_id);
 
         // the custom msg of sale
-        $emailMessage = EmailMessage::getForLocale('sale');
+        $emailMessage = EmailMessage::getForLocale('sale', null, $sale->company_id);
 
         if ($emailMessage) {
             $message_body = $emailMessage->body;
@@ -988,7 +988,7 @@ class PosController extends BaseController
         $email['body'] = $message_body;
         $email['company_name'] = $business_name;
 
-        $this->Set_config_mail();
+        $this->Set_config_mail($sale->company_id);
 
         Mail::to($receiver_email)->send(new CustomEmail($email));
 

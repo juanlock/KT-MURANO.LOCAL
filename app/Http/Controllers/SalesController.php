@@ -25,6 +25,7 @@ use App\Models\Sale;
 use App\Models\SalesAgent;
 use App\Models\SaleDetail;
 use App\Models\SaleReturn;
+use App\Models\Server;
 use App\Models\Setting;
 use App\Models\Shipment;
 use App\Models\sms_gateway;
@@ -323,6 +324,10 @@ class SalesController extends BaseController
             'accounts' => $accounts,
             'payment_methods' => $payment_methods,
             'payment_statuses' => $payment_statuses,
+            // Defaults -> Sales toggles: hide the row-action buttons entirely
+            // (not just disable them) when a company doesn't use SMS/WhatsApp.
+            'sale_sms_enabled' => (bool) (Setting::forCompany($companyId)->sale_sms_enabled ?? true),
+            'sale_whatsapp_enabled' => (bool) (Setting::forCompany($companyId)->sale_whatsapp_enabled ?? true),
         ]);
     }
 
@@ -3178,20 +3183,18 @@ class SalesController extends BaseController
 
     // ------------- SALE PDF -----------\\
 
-    public function Sale_PDF(Request $request, $id)
+    /**
+     * Shared PDF-rendering logic for a sale's invoice -- extracted so
+     * Send_Email()/Send_Reminder() can attach the exact same PDF the
+     * download button produces, instead of duplicating this ~150-line
+     * build a third time. Returns the built PDF object, not yet saved or
+     * downloaded -- callers decide what to do with it.
+     */
+    private function buildSalePdf(Sale $sale_data)
     {
-
         $details = [];
         $helpers = new helpers;
-        $sale_data = Sale::with('details.product.unitSale')
-            ->where('deleted_at', '=', null)
-            ->findOrFail($id);
-
-        // Company boundary: no ownership check at all previously.
-        $requester = $request->user('api') ?? Auth::user();
-        if ($requester && $requester->type !== 'SuperAdmin') {
-            abort_unless((int) $sale_data->company_id === (int) $this->resolveActingCompanyId($request), 403);
-        }
+        $id = $sale_data->id;
 
         $docCurrency = helpers::Get_Document_Currency($sale_data);
 
@@ -3326,7 +3329,22 @@ class SalesController extends BaseController
             $Html = substr_replace($Html, $utf8ar, $p[$i - 1], $p[$i] - $p[$i - 1]);
         }
 
-        $pdf = PDF::loadHTML($Html, 'UTF-8');
+        return PDF::loadHTML($Html, 'UTF-8');
+    }
+
+    public function Sale_PDF(Request $request, $id)
+    {
+        $sale_data = Sale::with('details.product.unitSale')
+            ->where('deleted_at', '=', null)
+            ->findOrFail($id);
+
+        // Company boundary: no ownership check at all previously.
+        $requester = $request->user('api') ?? Auth::user();
+        if ($requester && $requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale_data->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
+        $pdf = $this->buildSalePdf($sale_data);
 
         // Keep a company-scoped copy on disk (files/company_{id}/sales/) in
         // addition to streaming the download -- same convention as every
@@ -4235,7 +4253,9 @@ class SalesController extends BaseController
         $this->authorizeForUser($request->user('api'), 'view', Sale::class);
 
         // sale
-        $sale = Sale::with('client')->where('deleted_at', '=', null)->findOrFail($request->id);
+        // details.product.unitSale eager-loaded too -- buildSalePdf() needs it
+        // for the attached invoice PDF.
+        $sale = Sale::with(['client', 'details.product.unitSale'])->where('deleted_at', '=', null)->findOrFail($request->id);
 
         // Company boundary: a non-SuperAdmin can't email an invoice from a
         // different company.
@@ -4247,11 +4267,12 @@ class SalesController extends BaseController
         $docCurrency = helpers::Get_Document_Currency($sale);
         $currency = $docCurrency['symbol'];
 
-        // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        // settings -- company-scoped to the sale being emailed, not the
+        // acting/logged-in user's own company.
+        $settings = Setting::forCompany($sale->company_id);
 
         // the custom msg of sale (by default locale with fallback to en)
-        $emailMessage = EmailMessage::getForLocale('sale');
+        $emailMessage = EmailMessage::getForLocale('sale', null, $sale->company_id);
 
         if ($emailMessage) {
             $message_body = $emailMessage->body;
@@ -4276,6 +4297,19 @@ class SalesController extends BaseController
         // receiver email
         $receiver_email = $sale['client']->email;
 
+        if (empty($receiver_email)) {
+            return $this->sendError('This customer has no email address on file.');
+        }
+
+        // Fail with a clear, actionable message instead of letting Mail::send()
+        // throw uncaught "Mailer [smtp] is not defined." -- Set_config_mail()
+        // silently no-ops when the acting company has no SMTP host configured,
+        // which used to surface to the user as "nothing happened."
+        $server = Server::forCompany($sale->company_id);
+        if (! $server || ! $server->host) {
+            return $this->sendError('Mail is not configured for this company yet. Set it up under Settings > Mail Settings, then try again.');
+        }
+
         // replace the text with tags
         $message_body = str_replace('{contact_name}', $contact_name, $message_body);
         $message_body = str_replace('{business_name}', $business_name, $message_body);
@@ -4290,11 +4324,122 @@ class SalesController extends BaseController
         $email['body'] = $message_body;
         $email['company_name'] = $business_name;
 
-        $this->Set_config_mail();
+        $this->Set_config_mail($sale->company_id);
 
-        Mail::to($receiver_email)->send(new CustomEmail($email));
+        try {
+            // Attach the same invoice PDF the download button produces.
+            $email['attachments'] = [[
+                'data' => $this->buildSalePdf($sale)->output(),
+                'name' => $sale->Ref.'.pdf',
+                'mime' => 'application/pdf',
+            ]];
+            Mail::to($receiver_email)->send(new CustomEmail($email));
+        } catch (\Exception $e) {
+            return $this->sendError('Failed to send email.', $e->getMessage());
+        }
 
         return response()->json(['message' => 'Email sent successfully'], 200);
+
+    }
+
+    // ------------- Send payment reminder on Email -----------\\
+
+    public function Send_Reminder(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', Sale::class);
+
+        // sale
+        // details.product.unitSale eager-loaded too -- buildSalePdf() needs it
+        // for the attached invoice PDF.
+        $sale = Sale::with(['client', 'details.product.unitSale'])->where('deleted_at', '=', null)->findOrFail($request->id);
+
+        // Company boundary: a non-SuperAdmin can't email an invoice from a
+        // different company.
+        $requester = $request->user('api');
+        if ($requester->type !== 'SuperAdmin') {
+            abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+
+        // Reminder only makes sense while there's still a balance due --
+        // mirrors the frontend's own visibility check (payment_statut !== 'paid'),
+        // enforced again here in case this is ever called directly.
+        if ($sale->payment_statut === 'paid') {
+            return $this->sendError('This invoice is already fully paid.');
+        }
+
+        $docCurrency = helpers::Get_Document_Currency($sale);
+        $currency = $docCurrency['symbol'];
+
+        // settings -- company-scoped to the sale being emailed, not the
+        // acting/logged-in user's own company.
+        $settings = Setting::forCompany($sale->company_id);
+
+        // A distinct template from 'sale' -- reminder wording, not the
+        // original invoice-confirmation wording.
+        $emailMessage = EmailMessage::getForLocale('payment_reminder', null, $sale->company_id);
+
+        if ($emailMessage) {
+            $message_body = $emailMessage->body;
+            $message_subject = $emailMessage->subject;
+        } else {
+            $message_body = '';
+            $message_subject = '';
+        }
+
+        // Tags -- same set as Send_Email's, so the same {token} vocabulary works.
+        $random_number = Str::random(10);
+        $invoice_url = url('/api/sale_pdf/'.$request->id.'?'.$random_number);
+        $invoice_number = $sale->Ref;
+
+        $total_amount = $currency.' '.number_format($sale->GrandTotal * $docCurrency['rate'], helpers::price_decimals(), '.', ',');
+        $paid_amount = $currency.' '.number_format($sale->paid_amount * $docCurrency['rate'], helpers::price_decimals(), '.', ',');
+        $due_amount = $currency.' '.number_format(($sale->GrandTotal - $sale->paid_amount) * $docCurrency['rate'], helpers::price_decimals(), '.', ',');
+
+        $contact_name = $sale['client']->name;
+        $business_name = $settings->CompanyName;
+
+        // receiver email
+        $receiver_email = $sale['client']->email;
+
+        if (empty($receiver_email)) {
+            return $this->sendError('This customer has no email address on file.');
+        }
+
+        $server = Server::forCompany($sale->company_id);
+        if (! $server || ! $server->host) {
+            return $this->sendError('Mail is not configured for this company yet. Set it up under Settings > Mail Settings, then try again.');
+        }
+
+        // replace the text with tags
+        $message_body = str_replace('{contact_name}', $contact_name, $message_body);
+        $message_body = str_replace('{business_name}', $business_name, $message_body);
+        $message_body = str_replace('{invoice_url}', $invoice_url, $message_body);
+        $message_body = str_replace('{invoice_number}', $invoice_number, $message_body);
+
+        $message_body = str_replace('{total_amount}', $total_amount, $message_body);
+        $message_body = str_replace('{paid_amount}', $paid_amount, $message_body);
+        $message_body = str_replace('{due_amount}', $due_amount, $message_body);
+
+        $email['subject'] = $message_subject;
+        $email['body'] = $message_body;
+        $email['company_name'] = $business_name;
+
+        $this->Set_config_mail($sale->company_id);
+
+        try {
+            // Attach the same invoice PDF the download button produces, so
+            // the customer can see exactly what's still owed.
+            $email['attachments'] = [[
+                'data' => $this->buildSalePdf($sale)->output(),
+                'name' => $sale->Ref.'.pdf',
+                'mime' => 'application/pdf',
+            ]];
+            Mail::to($receiver_email)->send(new CustomEmail($email));
+        } catch (\Exception $e) {
+            return $this->sendError('Failed to send reminder email.', $e->getMessage());
+        }
+
+        return response()->json(['message' => 'Reminder email sent successfully'], 200);
 
     }
 
@@ -4314,11 +4459,17 @@ class SalesController extends BaseController
             abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
         }
 
+        // settings -- company-scoped to the sale, not the acting user's own company.
+        $settings = Setting::forCompany($sale->company_id);
+
+        // Defaults -> Sales -> SMS toggle: block the send server-side too,
+        // not just hide the button, in case it's called directly.
+        if (! ($settings->sale_sms_enabled ?? true)) {
+            return $this->sendError('SMS notifications are disabled for this company.');
+        }
+
         $docCurrency = helpers::Get_Document_Currency($sale);
         $currency = $docCurrency['symbol'];
-
-        // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
 
         $default_sms_gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->where('deleted_at', '=', null)->first();
@@ -4464,11 +4615,17 @@ class SalesController extends BaseController
             abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
         }
 
+        // settings -- company-scoped to the sale, not the acting user's own company.
+        $settings = Setting::forCompany($sale->company_id);
+
+        // Defaults -> Sales -> WhatsApp toggle: block server-side too, not
+        // just hide the button, in case it's called directly.
+        if (! ($settings->sale_whatsapp_enabled ?? true)) {
+            return $this->sendError('WhatsApp notifications are disabled for this company.');
+        }
+
         $docCurrency = helpers::Get_Document_Currency($sale);
         $currency = $docCurrency['symbol'];
-
-        // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
 
         // the custom msg of sale (by default locale with fallback to en)
         $smsMessage = SMSMessage::getForLocale('sale');
