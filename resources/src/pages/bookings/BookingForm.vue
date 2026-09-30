@@ -329,13 +329,17 @@ async function submit() {
   }
   submitting.value = true;
   try {
+    let res;
     if (isEdit) {
-      await http.put(`bookings/${id}`, payload());
+      res = await http.put(`bookings/${id}`, payload());
       message.success(t('Successfully_Updated'));
     } else {
-      await http.post('bookings', payload());
+      res = await http.post('bookings', payload());
       message.success(t('Successfully_Created'));
     }
+    // A completed booking is invoiced on save (sale paid in cash).
+    if (res?.sale_warning) message.warning(res.sale_warning, 6);
+    else if (booking.value.status === 'completed' && res?.sale_ref) message.info(`${t('Invoice')} ${res.sale_ref}`);
     router.push('/bookings');
   } catch (e) {
     const errors = e?.data?.errors;

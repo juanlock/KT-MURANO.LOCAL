@@ -39,11 +39,15 @@ class Booking extends Model
         'google_calendar_event_id',
     ];
 
+    // sale_id (the booking's sale invoice) is set only by BookingSaleService,
+    // never mass-assigned from the form.
+
     protected $casts = [
         'customer_id' => 'integer',
         'product_id' => 'integer',
         'tray_id' => 'integer',
         'sales_person_id' => 'integer',
+        'sale_id' => 'integer',
         'price' => 'decimal:2',
         'amount' => 'decimal:2',
     ];
@@ -61,6 +65,11 @@ class Booking extends Model
     public function tray()
     {
         return $this->belongsTo(Tray::class, 'tray_id');
+    }
+
+    public function sale()
+    {
+        return $this->belongsTo(Sale::class, 'sale_id');
     }
 
     public function salesPerson()

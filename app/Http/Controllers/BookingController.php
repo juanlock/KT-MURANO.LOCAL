@@ -76,11 +76,15 @@ class BookingController extends BaseController
 
         $query = $this->bookingScope(Booking::query())->leftJoin('clients', 'clients.id', '=', 'bookings.customer_id')
             ->leftJoin('products', 'products.id', '=', 'bookings.product_id')
+            ->leftJoin('sales', function ($j) {
+                $j->on('sales.id', '=', 'bookings.sale_id')->whereNull('sales.deleted_at');
+            })
             ->whereNull('bookings.deleted_at')
             ->select(
                 'bookings.*',
                 'clients.name as customer_name',
-                'products.name as service_name'
+                'products.name as service_name',
+                'sales.Ref as sale_ref'
             )
             ->when($request->filled('status'), function ($q) use ($request) {
                 $q->where('bookings.status', $request->status);
@@ -174,6 +178,9 @@ class BookingController extends BaseController
             $item['delivery_address'] = $booking->delivery_address;
             $item['status'] = $booking->status;
             $item['notes'] = $booking->notes;
+            // Sale invoice of a completed booking (null if deleted or not made yet).
+            $item['sale_id'] = $booking->sale_ref ? $booking->sale_id : null;
+            $item['sale_ref'] = $booking->sale_ref;
 
             $data[] = $item;
         }
@@ -347,7 +354,7 @@ class BookingController extends BaseController
 
         $booking = Booking::create($validated);
 
-        return response()->json(['success' => true, 'id' => $booking->id], 201);
+        return response()->json(['success' => true, 'id' => $booking->id] + $this->saleInfo($booking), 201);
     }
 
     /**
@@ -503,7 +510,7 @@ class BookingController extends BaseController
 
         $booking->update($validated);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true] + $this->saleInfo($booking));
     }
 
     /**
@@ -539,7 +546,44 @@ class BookingController extends BaseController
         $booking->status = $validated['status'];
         $booking->save();
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true] + $this->saleInfo($booking));
+    }
+
+    /**
+     * POST bookings/{id}/sale -- create the sale invoice of a completed booking
+     * now (normally automatic on completion; this retries one that couldn't be
+     * made, e.g. the booking had no service yet).
+     */
+    public function createSale(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Booking::class);
+        $this->authorizeForUser($request->user('api'), 'create', \App\Models\Sale::class);
+        $booking = $this->bookingScope(Booking::whereNull('deleted_at'))->findOrFail($id);
+
+        $info = $this->saleInfo($booking);
+        abort_if($info['sale_warning'], 422, $info['sale_warning'] ?? '');
+
+        return response()->json(['success' => true] + $info);
+    }
+
+    /**
+     * Sale invoice of a booking for the save responses. The observer has
+     * already tried to make it on completion; calling the (idempotent) service
+     * again returns that sale, or the reason there is none.
+     */
+    private function saleInfo(Booking $booking): array
+    {
+        $booking->refresh();
+        if ($booking->status !== 'completed') {
+            return ['sale_id' => $booking->sale_id, 'sale_ref' => optional($booking->sale)->Ref, 'sale_warning' => null];
+        }
+        $res = app(\App\Services\BookingSaleService::class)->createForBooking($booking);
+
+        return [
+            'sale_id' => optional($res['sale'])->id,
+            'sale_ref' => optional($res['sale'])->Ref,
+            'sale_warning' => $res['ok'] ? null : $res['reason'],
+        ];
     }
 
     /**

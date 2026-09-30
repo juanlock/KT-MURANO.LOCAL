@@ -1156,6 +1156,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::put('bookings/{id}', 'BookingController@update');
     Route::delete('bookings/{id}', 'BookingController@destroy');
     Route::put('bookings/{id}/status', 'BookingController@changeStatus');
+    Route::post('bookings/{id}/sale', 'BookingController@createSale');
     Route::post('bookings_send_email', 'BookingController@Send_Email');
     Route::get('bookings_public_link', 'BookingController@publicLink');
 

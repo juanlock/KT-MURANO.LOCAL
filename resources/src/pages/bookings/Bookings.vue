@@ -58,6 +58,16 @@
           <template v-else-if="column.key === 'status'">
             <a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
           </template>
+          <template v-else-if="column.key === 'sale'">
+            <router-link v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.sale_ref }}</router-link>
+            <a-tooltip v-else-if="record.status === 'completed'" :title="$t('Booking_create_invoice_help')">
+              <a-button size="small" :loading="creatingSale === record.id" @click="createSale(record)">
+                <template #icon><FileAddOutlined /></template>
+                {{ $t('Create_Invoice') }}
+              </a-button>
+            </a-tooltip>
+            <span v-else style="opacity: 0.45">—</span>
+          </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-tooltip :title="$t('Edit')">
@@ -86,7 +96,9 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { message } from 'ant-design-vue';
+import { PlusOutlined, EditOutlined, DeleteOutlined, FileAddOutlined } from '@ant-design/icons-vue';
+import http from '../../lib/http';
 import PageHeader from '../../components/PageHeader.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
@@ -135,6 +147,7 @@ const columns = computed(() => [
   { title: t('Time_In'), dataIndex: 'booking_time', key: 'booking_time' },
   { title: t('Time_Out'), dataIndex: 'booking_end_time', key: 'booking_end_time' },
   { title: t('Status'), key: 'status', dataIndex: 'status', exportValue: r => statusLabel(r.status) },
+  { title: t('Invoice'), key: 'sale', dataIndex: 'sale_ref', exportValue: r => r.sale_ref || '' },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);
 
@@ -152,6 +165,22 @@ function statusColor(s) {
   if (s === 'pending') return 'warning';
   if (s === 'cancelled') return 'error';
   return 'default';
+}
+
+// Completed bookings are invoiced automatically (paid in cash); this retries
+// one that couldn't be, e.g. it had no service when it was completed.
+const creatingSale = ref(null);
+async function createSale(record) {
+  creatingSale.value = record.id;
+  try {
+    const res = await http.post(`bookings/${record.id}/sale`);
+    message.success(`${t('Invoice')} ${res.sale_ref}`);
+    crud.reload();
+  } catch (e) {
+    message.error(e?.data?.message || e?.message || t('Error'));
+  } finally {
+    creatingSale.value = null;
+  }
 }
 
 onMounted(crud.fetchRows);
