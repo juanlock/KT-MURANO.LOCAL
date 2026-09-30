@@ -11,13 +11,10 @@
   >
     <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
       <a-row :gutter="16">
+        <!-- Group Name first, then Name -- same flow as the Product form: the
+             Name box suggests the names already in the chosen group. -->
         <a-col :xs="24" :md="12">
-          <a-form-item :label="t('Name_product')" name="name">
-            <a-input v-model:value="form.name" />
-          </a-form-item>
-        </a-col>
-        <a-col :xs="24" :md="12">
-          <a-form-item :label="t('GroupName')" name="group_name">
+          <a-form-item :label="t('GroupName')" name="group_name" :help="t('GroupName_Help')">
             <a-select
               v-model:value="form.group_name"
               show-search allow-clear
@@ -25,6 +22,19 @@
               :placeholder="t('GroupName_Placeholder')"
               :options="groupNameOptions"
               @search="onGroupNameSearch"
+            />
+          </a-form-item>
+        </a-col>
+        <a-col :xs="24" :md="12">
+          <a-form-item
+            :label="t('Name_product')" name="name"
+            :validate-status="nameInGroupExists ? 'warning' : ''"
+            :help="nameInGroupExists ? t('Name_Exists_In_Group') : t('Name_In_Group_Help')"
+          >
+            <a-auto-complete
+              v-model:value="form.name" :options="groupNameSuggestions"
+              :placeholder="form.group_name ? t('Name_Pick_Or_Type') : t('Name_Choose_Group_First')"
+              :filter-option="(input, opt) => String(opt.value).toLowerCase().includes(String(input).toLowerCase())"
             />
           </a-form-item>
         </a-col>
@@ -44,7 +54,8 @@
             <a-input v-model:value="form.code" />
           </a-form-item>
         </a-col>
-        <a-col v-if="isPurchase" :xs="24" :md="12">
+        <!-- Unit / Cost / Price share one row (purchase); a sale only has Price. -->
+        <a-col v-if="isPurchase" :xs="24" :md="8">
           <a-form-item :label="t('Unit')" name="unit_id">
             <a-select
               v-model:value="form.unit_id"
@@ -54,12 +65,12 @@
             />
           </a-form-item>
         </a-col>
-        <a-col v-if="isPurchase" :xs="24" :md="12">
+        <a-col v-if="isPurchase" :xs="12" :md="8">
           <a-form-item :label="t('Cost')" name="cost">
             <a-input-number v-model:value="form.cost" style="width: 100%" :min="0" @change="onCostChange" />
           </a-form-item>
         </a-col>
-        <a-col :xs="24" :md="12">
+        <a-col :xs="isPurchase ? 12 : 24" :md="isPurchase ? 8 : 12">
           <a-form-item :label="t('Price')" name="price">
             <a-input-number v-model:value="form.price" style="width: 100%" :min="0" @change="onPriceChange" />
           </a-form-item>
@@ -92,6 +103,7 @@ import { ref, computed, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import http from '../lib/http';
+import { sortByLabel } from '../lib/filterOptions';
 import { useAuthStore } from '../stores/auth';
 
 const { t } = useI18n();
@@ -111,6 +123,7 @@ const loaded = ref(false);
 const categories = ref([]);
 const units = ref([]);
 const productGroups = ref([]);
+const groupProducts = ref([]);
 const priceTouched = ref(false);
 
 function genCode() {
@@ -131,13 +144,29 @@ const form = ref(blank());
 const groupNameSearch = ref('');
 function onGroupNameSearch(val) { groupNameSearch.value = val; }
 const groupNameOptions = computed(() => {
-  const base = productGroups.value.map(g => ({ value: g.name, label: g.name }));
+  const base = sortByLabel(productGroups.value.map(g => ({ value: g.name, label: g.name })));
   const search = (groupNameSearch.value || '').trim();
   const exists = search && base.some(o => o.value.toLowerCase() === search.toLowerCase());
   if (search && !exists) {
     base.push({ value: search, label: `${t('Create_new_group')}: "${search}"` });
   }
   return base;
+});
+
+// Name suggestions: products already in the chosen Group Name (GET
+// product-groups -> {product_groups, products}); warns on a duplicate name.
+const chosenGroupId = computed(() => {
+  const name = (form.value.group_name || '').trim().toLowerCase();
+  return productGroups.value.find(g => g.name.toLowerCase() === name)?.id || null;
+});
+const groupNameSuggestions = computed(() => {
+  if (!chosenGroupId.value) return [];
+  const names = groupProducts.value.filter(p => p.product_group_id === chosenGroupId.value).map(p => p.name);
+  return sortByLabel([...new Set(names)].map(n => ({ value: n, label: n })));
+});
+const nameInGroupExists = computed(() => {
+  const n = (form.value.name || '').trim().toLowerCase();
+  return !!n && groupNameSuggestions.value.some(o => o.value.toLowerCase() === n);
 });
 
 const categoryOptions = computed(() => categories.value.map(c => ({ value: c.id, label: c.name })));
@@ -172,6 +201,7 @@ async function loadBootstrap() {
     categories.value = productData?.categories || [];
     units.value = productData?.units || [];
     productGroups.value = groupData?.product_groups || [];
+    groupProducts.value = groupData?.products || [];
     loaded.value = true;
   } catch (e) {
     // leave dropdowns empty -- the user can still type a Group Name / pick nothing
@@ -227,6 +257,9 @@ async function submit() {
   submitting.value = true;
   try {
     await http.post('products', body);
+    // Reload groups / names next time, so the new product (and a new group)
+    // show up in the suggestions.
+    loaded.value = false;
     emit('created', { code: form.value.code, name: form.value.name });
     message.success(t('Successfully_Created'));
     close();

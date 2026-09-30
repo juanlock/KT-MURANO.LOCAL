@@ -10,7 +10,8 @@
     </PageHeader>
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[16, 8]">
+      <div class="filters-reset-wrap">
+      <a-row :gutter="[16, 8]" class="filters-reset-wrap__row">
         <a-col :xs="12" :md="8">
           <div class="filter-label">{{ $t('date') }}</div>
           <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="crud.reload()" />
@@ -32,6 +33,8 @@
           />
         </a-col>
       </a-row>
+      <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
+      </div>
     </a-card>
 
     <DataTable :crud="crud" :columns="columns">
@@ -70,6 +73,8 @@ import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vu
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 
@@ -78,6 +83,7 @@ const { money, date } = useFormat();
 const auth = useAuthStore();
 
 const filters = ref({ date: null, deposit_category_id: undefined, account_id: undefined });
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => crud.reload());
 
 const crud = useCrudTable('deposits', {
   rowsKey: 'deposits',

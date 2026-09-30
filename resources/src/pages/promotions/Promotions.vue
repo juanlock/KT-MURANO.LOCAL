@@ -45,6 +45,7 @@
           :placeholder="$t('Warehouse')" :options="warehouseOptions"
           @change="crud.reload"
         />
+        <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
       </div>
 
       <a-table
@@ -149,12 +150,15 @@ import {
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { useFormat } from '../../composables/useFormat';
 import http from '../../lib/http';
 
 const { money, date } = useFormat();
 
 const filters = ref({ kind: '', active: '', warehouse_id: undefined });
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => crud.reload());
 
 const crud = useCrudTable('promotions', {
   rowsKey: 'promotions',

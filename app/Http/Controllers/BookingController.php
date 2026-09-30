@@ -189,6 +189,8 @@ class BookingController extends BaseController
             'totalRows' => $totalRows,
             'bookings' => $data,
             'stats' => $stats,
+            // Defaults -> Booking -> Use decimals, for the Price/Amount columns.
+            'decimals' => $this->bookingFieldFlags($this->reportCompanyId() ?: null)['decimals'],
         ]);
     }
 
@@ -202,14 +204,9 @@ class BookingController extends BaseController
             ->orderBy('name', 'asc')
             ->get(['id', 'name']);
 
-        $products = $this->rc(Product::query(), 'products.company_id')->whereNull('deleted_at')
-            ->where('type', 'is_service')
-            ->orderBy('name', 'asc')
-            ->get(['id', 'name', 'code', 'price']);
-
         return response()->json([
             'customers' => $customers,
-            'products' => $products,
+            'products' => $this->serviceProducts(),
             'booking_fields' => $this->bookingFieldFlags($this->reportCompanyId() ?: (int) optional(Client::find($booking->customer_id ?? 0))->company_id),
             'trays' => $this->getTrays(),
             'sales_persons' => $this->getSalesPersons(),
@@ -253,7 +250,24 @@ class BookingController extends BaseController
             'delivery_time' => $flag('booking_delivery_time_enabled'),
             'status' => $flag('booking_status_enabled'),
             'delivery_address' => $flag('booking_delivery_address_enabled'),
+            'decimals' => $flag('booking_decimals_enabled'),
         ];
+    }
+
+    /** Defaults -> Booking -> Use decimals off: Price / Amount saved as whole numbers. */
+    private function applyDecimalsSetting(array $v): array
+    {
+        $cid = $this->reportCompanyId() ?: (int) optional(Client::find($v['customer_id'] ?? 0))->company_id;
+        if ($this->bookingFieldFlags($cid ?: null)['decimals']) {
+            return $v;
+        }
+        foreach (['price', 'amount'] as $k) {
+            if (isset($v[$k]) && $v[$k] !== null) {
+                $v[$k] = round((float) $v[$k]);
+            }
+        }
+
+        return $v;
     }
 
     /** GET bookings_public_link -- Booking Management -> Online Booking page. */
@@ -262,6 +276,29 @@ class BookingController extends BaseController
         $this->authorizeForUser($request->user('api'), 'view', Booking::class);
 
         return response()->json(['public_booking' => $this->publicBookingInfo()]);
+    }
+
+    /**
+     * Service products for the form's Group Service -> Service dropdowns, with
+     * their product group. The generic "Appointment" service that
+     * BookingSaleService invoices service-less bookings on is not offered.
+     */
+    private function serviceProducts()
+    {
+        return $this->rc(Product::query(), 'products.company_id')
+            ->leftJoin('product_groups', function ($j) {
+                $j->on('product_groups.id', '=', 'products.product_group_id')->whereNull('product_groups.deleted_at');
+            })
+            ->whereNull('products.deleted_at')
+            ->where('products.type', 'is_service')
+            ->where('products.code', '!=', \App\Services\BookingSaleService::GENERIC_CODE)
+            ->orderBy('products.name', 'asc')
+            ->get([
+                'products.id', 'products.name', 'products.code', 'products.price',
+                'products.product_group_id', 'product_groups.name as group_name',
+                // Booking form: End Time = Start Time + this (minutes)
+                'products.service_duration',
+            ]);
     }
 
     /**
@@ -348,6 +385,7 @@ class BookingController extends BaseController
             'notes' => 'nullable|string',
         ])->validate();
         $this->assertBookingRefs($validated);
+        $validated = $this->applyDecimalsSetting($validated);
 
         // Generate reference number
         $validated['Ref'] = $this->getNumberOrder();
@@ -416,11 +454,6 @@ class BookingController extends BaseController
             ->orderBy('name', 'asc')
             ->get(['id', 'name']);
 
-        $products = $this->rc(Product::query(), 'products.company_id')->whereNull('deleted_at')
-            ->where('type', 'is_service')
-            ->orderBy('name', 'asc')
-            ->get(['id', 'name', 'code', 'price']);
-
         return response()->json([
             'booking' => [
                 'id' => $booking->id,
@@ -443,7 +476,7 @@ class BookingController extends BaseController
                 'notes' => $booking->notes,
             ],
             'customers' => $customers,
-            'products' => $products,
+            'products' => $this->serviceProducts(),
             'booking_fields' => $this->bookingFieldFlags($this->reportCompanyId() ?: (int) optional(Client::find($booking->customer_id ?? 0))->company_id),
             'trays' => $this->getTrays(),
             'sales_persons' => $this->getSalesPersons(),
@@ -507,6 +540,7 @@ class BookingController extends BaseController
             'notes' => 'nullable|string',
         ])->validate();
         $this->assertBookingRefs($validated);
+        $validated = $this->applyDecimalsSetting($validated);
 
         $booking->update($validated);
 
@@ -547,23 +581,6 @@ class BookingController extends BaseController
         $booking->save();
 
         return response()->json(['success' => true] + $this->saleInfo($booking));
-    }
-
-    /**
-     * POST bookings/{id}/sale -- create the sale invoice of a completed booking
-     * now (normally automatic on completion; this retries one that couldn't be
-     * made, e.g. the booking had no service yet).
-     */
-    public function createSale(Request $request, $id)
-    {
-        $this->authorizeForUser($request->user('api'), 'update', Booking::class);
-        $this->authorizeForUser($request->user('api'), 'create', \App\Models\Sale::class);
-        $booking = $this->bookingScope(Booking::whereNull('deleted_at'))->findOrFail($id);
-
-        $info = $this->saleInfo($booking);
-        abort_if($info['sale_warning'], 422, $info['sale_warning'] ?? '');
-
-        return response()->json(['success' => true] + $info);
     }
 
     /**

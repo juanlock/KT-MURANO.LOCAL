@@ -96,6 +96,7 @@
             />
           </template>
         </div>
+        <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
         <a-tooltip v-if="auth.canCustomizeColumns" title="Customize filters">
           <a-button @click="openCustomize">
             <template #icon><FilterOutlined /></template>
@@ -448,6 +449,8 @@ import { PAYMENT_STATUSES, statusKey } from '../sales/saleVocab';
 import { PURCHASE_STATUSES } from './purchaseVocab';
 import http from '../../lib/http';
 import { withAllOption, sortByLabel } from '../../lib/filterOptions';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 
 const { t } = useI18n();
 const { money, dateTime, roundMoney } = useFormat();
@@ -459,6 +462,12 @@ const filters = ref({
   statut: undefined, payment_statut: undefined,
   date_from: '', date_to: '',
 });
+
+// Reset: every filter back to its default, date range back to This Month.
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => {
+  datePreset.value = 'month';
+  applyPreset('month');
+}, { ignore: ['date_from', 'date_to'], isDirty: () => datePreset.value !== 'month' });
 
 // "Customize Filters" -- which of these filters a company shows, and in
 // what order (settings.datatable_filters, same idea as DataTable.vue's

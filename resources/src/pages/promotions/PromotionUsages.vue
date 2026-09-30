@@ -28,10 +28,7 @@
           :placeholder="$t('Warehouse')" :options="warehouseOptions"
           @change="reload"
         />
-        <a-button @click="resetFilters">
-          <template #icon><ReloadOutlined /></template>
-          Reset
-        </a-button>
+        <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
       </div>
     </a-card>
 
@@ -153,17 +150,22 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import {
-  ArrowLeftOutlined, ReloadOutlined, NumberOutlined, PercentageOutlined,
+  ArrowLeftOutlined, NumberOutlined, PercentageOutlined,
   GiftOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { useFormat } from '../../composables/useFormat';
 import http from '../../lib/http';
 
 const { money, dateTime } = useFormat();
 
 const filters = ref({ range: null, promotion_id: undefined, warehouse_id: undefined });
+// Shared Reset button state; the reset itself is resetFilters() below (it
+// also clears the search and refreshes the summary).
+const { isDirty: filtersDirty } = useFilterReset(filters);
 
 const filterParams = () => ({
   from: filters.value.range?.[0] || '',

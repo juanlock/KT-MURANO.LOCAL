@@ -132,3 +132,17 @@ html.gdt-density-large .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr
 html.gdt-density-large .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td {
   padding: 16px 16px;
 }
+
+/* List filter rows (grid layout) + the shared Reset button
+   (components/ResetFiltersButton.vue): filters take the width, Reset sits
+   at the end, bottom-aligned with the inputs. */
+.filters-reset-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.filters-reset-wrap__row {
+  flex: 1 1 480px;
+  min-width: 0;
+}

@@ -27,10 +27,8 @@
           <div class="filter-label">{{ $t('To') }}</div>
           <a-input v-model:value="filters.to" type="date" @change="applyFilters" />
         </a-col>
-        <a-col :xs="24" :md="2">
-          <a-button v-if="hasActiveFilters" @click="clearFilters">
-            <template #icon><ClearOutlined /></template>
-          </a-button>
+        <a-col flex="none">
+          <ResetFiltersButton :dirty="hasActiveFilters" @reset="clearFilters" />
         </a-col>
       </a-row>
     </a-card>
@@ -92,10 +90,11 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
-  PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, ClearOutlined,
+  PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 
 const { t } = useI18n();

@@ -54,21 +54,123 @@ class PublicBookingController extends Controller
                 : (Str::startsWith($logo, ['files/', 'images/', '/']) ? asset(ltrim($logo, '/')) : asset('images/'.$logo));
         }
 
-        return ['name' => $co->name ?? 'Bookings', 'logo' => $url];
+        // Defaults -> Booking -> "Logo on the booking form": its own image, else
+        // the company logo above; null = switched off (or nothing to show).
+        $s = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')
+            ->first(['booking_form_logo_enabled', 'booking_form_logo', 'booking_form_logo_width']);
+        $formLogo = null;
+        if ($s && $s->booking_form_logo_enabled) {
+            $own = $s->booking_form_logo && file_exists(public_path($s->booking_form_logo))
+                ? asset($s->booking_form_logo).'?v='.filemtime(public_path($s->booking_form_logo)) : null;
+            $formLogo = ($own || $url) ? ['url' => $own ?: $url, 'width' => (int) ($s->booking_form_logo_width ?: 160)] : null;
+        }
+
+        return ['name' => $co->name ?? 'Bookings', 'logo' => $url, 'form_logo' => $formLogo];
     }
 
-    /** Active, sellable services of the company (with a duration read from the note, if any). */
+    /**
+     * Active, sellable services of the company. duration = Product form ->
+     * Details -> Service duration, else a "Duration: N min" note, else null
+     * (bookings then take 60 minutes).
+     */
     private function services(int $cid)
     {
         return DB::table('products as p')->where('p.company_id', $cid)->whereNull('p.deleted_at')
             ->where('p.type', 'is_service')->where('p.is_active', 1)->where('p.not_selling', 0)
+            // Product form -> Status -> "Show on booking form"
+            ->where('p.show_on_booking_form', 1)
             ->leftJoin('product_groups as g', fn ($j) => $j->on('g.id', '=', 'p.product_group_id')->whereNull('g.deleted_at'))
             ->orderByRaw('g.name IS NULL')->orderBy('g.name')->orderBy('p.name')
-            ->get(['p.id', 'p.name', 'p.price', 'p.note', 'g.name as group_name'])
+            ->get(['p.id', 'p.name', 'p.price', 'p.note', 'p.service_duration', 'g.name as group_name'])
             ->map(fn ($p) => (object) [
                 'id' => $p->id, 'name' => $p->name, 'price' => (float) $p->price, 'group' => $p->group_name,
-                'duration' => preg_match('/Duration:\s*(\d+)\s*min/i', (string) $p->note, $m) ? (int) $m[1] : null,
+                'duration' => $p->service_duration ? (int) $p->service_duration
+                    : (preg_match('/Duration:\s*(\d+)\s*min/i', (string) $p->note, $m) ? (int) $m[1] : null),
             ]);
+    }
+
+    /**
+     * Most bookings running at the same moment inside [from, to). Checked at
+     * `from` and at every booking start inside the window -- the only points
+     * where the count can go up. (Same logic as maxConcurrent() in the form's JS.)
+     * @param  array<int, array{0: int, 1: int}>  $intervals
+     */
+    private static function maxConcurrent(array $intervals, int $from, int $to): int
+    {
+        $points = [$from];
+        foreach ($intervals as [$s]) {
+            if ($s > $from && $s < $to) {
+                $points[] = $s;
+            }
+        }
+        $max = 0;
+        foreach ($points as $p) {
+            $max = max($max, count(array_filter($intervals, fn ($b) => $b[0] <= $p && $b[1] > $p)));
+        }
+
+        return $max;
+    }
+
+    /** Minutes a booking of this service takes (60 when the service has no duration). */
+    private function durationOf(?object $svc): int
+    {
+        return max(1, (int) ($svc->duration ?? 0) ?: 60);
+    }
+
+    /**
+     * Booked time per day from today on (not cancelled), as [startMin, endMin]
+     * pairs -- only times, nothing about who booked. The picker hides start
+     * times whose duration would overlap `capacity` of these; store() checks
+     * the same with the rows locked.
+     * @return array<string, array<int, array{0: int, 1: int}>>
+     */
+    private function busy(int $cid, ?string $onlyDate = null, bool $lock = false): array
+    {
+        $q = DB::table('bookings')->whereNull('deleted_at')->where('status', '!=', 'cancelled')
+            ->whereIn('customer_id', DB::table('clients')->where('company_id', $cid)->select('id'))
+            ->when($onlyDate, fn ($q) => $q->where('booking_date', $onlyDate),
+                fn ($q) => $q->whereBetween('booking_date', [now()->toDateString(), now()->addYear()->toDateString()]));
+        if ($lock) {
+            $q->lockForUpdate();
+        }
+        $toMin = fn (?string $t) => $t ? ((int) substr($t, 0, 2)) * 60 + (int) substr($t, 3, 2) : null;
+        $out = [];
+        foreach ($q->get(['booking_date', 'booking_time', 'booking_end_time']) as $b) {
+            $s = $toMin($b->booking_time);
+            if ($s === null) {
+                continue;
+            }
+            $e = $toMin($b->booking_end_time);
+            $out[substr((string) $b->booking_date, 0, 10)][] = [$s, $e !== null && $e > $s ? $e : $s + 60];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Settings -> Defaults -> Booking -> Online booking hours: what the day /
+     * time-slot picker offers, and what store() accepts.
+     * @return array{open: string, close: string, slot: int, closed: int[], capacity: int}
+     */
+    private function hours(int $cid): array
+    {
+        $s = DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')
+            ->first(['booking_open_time', 'booking_close_time', 'booking_slot_minutes', 'booking_closed_days', 'booking_capacity']);
+        $open = $s->booking_open_time ?? null ?: '09:00';
+        $close = $s->booking_close_time ?? null ?: '19:00';
+        if ($close <= $open) { // misconfigured -> fall back to the defaults
+            [$open, $close] = ['09:00', '19:00'];
+        }
+
+        return [
+            'open' => $open,
+            'close' => $close,
+            'slot' => in_array((int) ($s->booking_slot_minutes ?? 30), [15, 30, 45, 60], true) ? (int) $s->booking_slot_minutes : 30,
+            'closed' => collect(explode(',', (string) ($s->booking_closed_days ?? '')))
+                ->filter(fn ($d) => $d !== '' && ctype_digit($d))->map(fn ($d) => (int) $d)->values()->all(),
+            // Settings -> Defaults -> Booking -> Appointments at the same time
+            'capacity' => max(1, (int) ($s->booking_capacity ?? 1)),
+        ];
     }
 
     private function staff(int $cid)
@@ -94,6 +196,8 @@ class PublicBookingController extends Controller
             'brand' => $this->brand($cid),
             'services' => $this->services($cid),
             'staff' => $this->staff($cid),
+            'hours' => $this->hours($cid),
+            'busy' => $this->busy($cid),
             'embed' => $embed,
             'formQuery' => $query + ($embed ? ['embed' => 1] : []),
             'formTs' => encrypt(now()->timestamp),
@@ -103,6 +207,24 @@ class PublicBookingController extends Controller
         ], $errors ? 422 : 200)->header('X-Robots-Tag', 'noindex')
             // Explicitly embeddable from any site.
             ->header('Content-Security-Policy', 'frame-ancestors *');
+    }
+
+    /** US numbers stored as (555) 123-4567; "+..." international kept as typed. */
+    private function formatPhone(?string $phone): ?string
+    {
+        $raw = trim((string) $phone);
+        if ($raw === '') {
+            return null;
+        }
+        if (str_starts_with($raw, '+')) {
+            return $raw;
+        }
+        $d = preg_replace('/\D/', '', $raw);
+        if (strlen($d) === 11 && $d[0] === '1') {
+            $d = substr($d, 1);
+        }
+
+        return '('.substr($d, 0, 3).') '.substr($d, 3, 3).'-'.substr($d, 6);
     }
 
     public function create(Request $request)
@@ -116,21 +238,38 @@ class PublicBookingController extends Controller
         $services = $this->services($cid);
         $staff = $this->staff($cid);
 
+        // Same rules as the form's own checks (booking-public/form.blade.php):
+        // email user@domain.tld; phone optional, 10 digits (US, optional leading 1)
+        // or "+" and 8-15 digits for international.
+        $phoneRule = function ($attr, $value, $fail) {
+            $raw = trim((string) $value);
+            $digits = preg_replace('/\D/', '', $raw);
+            $ok = str_starts_with($raw, '+')
+                ? strlen($digits) >= 8 && strlen($digits) <= 15
+                : strlen($digits) === 10 || (strlen($digits) === 11 && $digits[0] === '1');
+            if (! $ok || preg_match('/[^\d\s().+\-]/', $raw)) {
+                $fail(__('Please enter a valid phone number: 10 digits, e.g. (555) 123-4567, or + and country code.'));
+            }
+        };
         $v = Validator::make($request->all(), [
             'name' => 'required|string|max:120',
-            'email' => 'required|email|max:190',
-            'phone' => 'nullable|string|max:40',
+            'email' => ['required', 'max:190', 'email:rfc,filter', 'regex:/\.[A-Za-z]{2,}$/'],
+            'phone' => ['nullable', 'string', 'max:25', $phoneRule],
             'service_id' => ['required', 'integer', fn ($a, $v, $fail) => $services->firstWhere('id', (int) $v) ? null : $fail(__('The selected service is invalid.'))],
             'staff_id' => ['nullable', 'integer', fn ($a, $v, $fail) => $staff->firstWhere('id', (int) $v) ? null : $fail(__('The selected staff is invalid.'))],
             'appointment_date' => 'required|date_format:Y-m-d|after_or_equal:today|before:+1 year',
             'appointment_time' => 'required|date_format:H:i',
             'special_requests' => 'nullable|string|max:2000',
             '_ts' => 'required|string|max:1000',
+        ], [
+            'email.email' => __('Please enter a valid email address, e.g. name@example.com.'),
+            'email.regex' => __('Please enter a valid email address, e.g. name@example.com.'),
         ]);
         if ($v->fails()) {
             return $this->page($request, $cid, $v->errors()->all());
         }
         $d = $v->validated();
+        $d['phone'] = $this->formatPhone($d['phone'] ?? null);
 
         try {
             $elapsed = now()->timestamp - (int) decrypt($d['_ts']);
@@ -145,14 +284,37 @@ class PublicBookingController extends Controller
         if ($start->isPast()) {
             return $this->page($request, $cid, [__('Please choose a time in the future.')]);
         }
-
         $svc = $services->firstWhere('id', (int) $d['service_id']);
+        $duration = $this->durationOf($svc);
+
+        // Must be one of the picker's slots: an open day, within opening hours,
+        // on a slot boundary, and the service's whole duration ending by closing.
+        $h = $this->hours($cid);
+        $mins = fn (string $hm) => ((int) substr($hm, 0, 2)) * 60 + (int) substr($hm, 3, 2);
+        $t = $mins($start->format('H:i'));
+        if (in_array($start->dayOfWeek, $h['closed'], true)
+            || $t < $mins($h['open']) || $t + $duration > $mins($h['close'])
+            || ($t - $mins($h['open'])) % $h['slot'] !== 0) {
+            return $this->page($request, $cid, [__('Please choose one of the available times.')]);
+        }
+
         $person = ! empty($d['staff_id']) ? $staff->firstWhere('id', (int) $d['staff_id']) : null;
-        $end = (clone $start)->addMinutes($svc->duration ?: 60);
+        $end = (clone $start)->addMinutes($duration);
         $email = strtolower(trim($d['email']));
         $name = trim($d['name']);
 
-        $booking = DB::transaction(function () use ($cid, $d, $svc, $person, $start, $end, $email, $name) {
+        $taken = false;
+        $booking = DB::transaction(function () use ($cid, $d, $svc, $person, $start, $end, $email, $name, $t, $duration, $h, &$taken) {
+            // Blocked time: with that day's bookings locked, fewer than `capacity`
+            // bookings may be running at any moment of the new [start, end). Anyone
+            // who picked the same time a moment earlier wins; this one is refused.
+            $day = $this->busy($cid, $start->toDateString(), true)[$start->toDateString()] ?? [];
+            if (self::maxConcurrent($day, $t, $t + $duration) >= $h['capacity']) {
+                $taken = true;
+
+                return null;
+            }
+
             $clientId = DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')
                 ->whereRaw('LOWER(email) = ?', [$email])->value('id');
             if (! $clientId) {
@@ -189,6 +351,9 @@ class PublicBookingController extends Controller
                 'notes' => implode("\n", $notes),
             ]);
         });
+        if ($taken) {
+            return $this->page($request, $cid, [__('Sorry, that time was just booked. Please choose another time.')]);
+        }
 
         // Emails (customer + every admin of the company) after the response is sent,
         // so the visitor never waits on SMTP; a mail failure never affects the booking.

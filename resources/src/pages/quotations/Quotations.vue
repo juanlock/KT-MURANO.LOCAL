@@ -40,7 +40,8 @@
     </a-row>
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[16, 8]">
+      <div class="filters-reset-wrap">
+      <a-row :gutter="[16, 8]" class="filters-reset-wrap__row">
         <a-col :xs="12" :md="8" :xl="6">
           <div class="filter-label">{{ $t('date') }}</div>
           <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="crud.reload()" />
@@ -69,6 +70,8 @@
           />
         </a-col>
       </a-row>
+      <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
+      </div>
     </a-card>
 
     <DataTable :crud="crud" :columns="columns" :selectable="auth.can('Quotations_delete')">
@@ -202,6 +205,8 @@ import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import http from '../../lib/http';
 import { withAllOption, sortByLabel } from '../../lib/filterOptions';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 
 const { t } = useI18n();
 const { money, dateTime } = useFormat();
@@ -211,6 +216,7 @@ const router = useRouter();
 const filters = ref({
   date: null, client_id: undefined, warehouse_id: undefined, statut: undefined,
 });
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => crud.reload());
 
 const filterParams = () => ({
   Ref: '',

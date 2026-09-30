@@ -3,7 +3,8 @@
     <PageHeader :title="$t('Batches')" :breadcrumb="[$t('Products'), $t('Batches')]" />
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[16, 8]" align="bottom">
+      <div class="filters-reset-wrap">
+      <a-row :gutter="[16, 8]" class="filters-reset-wrap__row" align="bottom">
         <a-col :xs="12" :md="7">
           <div class="filter-label">{{ $t('warehouse') }}</div>
           <a-select
@@ -28,6 +29,8 @@
           <div class="muted">{{ $t('Expiry_Warning_Days') }}: {{ expiryWarningDays }}</div>
         </a-col>
       </a-row>
+      <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
+      </div>
     </a-card>
 
     <DataTable :crud="crud" :columns="columns">
@@ -159,6 +162,8 @@ import { EditOutlined, DeleteOutlined, StopOutlined } from '@ant-design/icons-vu
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
@@ -171,6 +176,7 @@ const canManage = computed(() => auth.can('manage_batches') || auth.can('batch_m
 const canWriteOff = computed(() => auth.can('writeoff_batches') || auth.can('batch_writeoff'));
 
 const filters = ref({ warehouse_id: undefined, status: 'all', expiry_window: 'all' });
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => crud.reload());
 
 const crud = useCrudTable('product_batches', {
   rowsKey: 'batches',

@@ -67,6 +67,10 @@ class Setting extends Model
         // Defaults -> Booking: optional fields on the Booking Create/Edit form
         'booking_delivery_date_enabled', 'booking_delivery_time_enabled',
         'booking_status_enabled', 'booking_delivery_address_enabled',
+        'booking_decimals_enabled',
+        'booking_form_logo_enabled', 'booking_form_logo', 'booking_form_logo_width',
+        'booking_open_time', 'booking_close_time', 'booking_slot_minutes', 'booking_closed_days',
+        'booking_capacity',
         // System Settings -> DataTable: company-wide table format + per-table
         // column customization (JSON)
         'datatable_settings', 'datatable_columns', 'datatable_filters',
@@ -129,6 +133,9 @@ class Setting extends Model
         'booking_delivery_time_enabled' => 'boolean',
         'booking_status_enabled' => 'boolean',
         'booking_delivery_address_enabled' => 'boolean',
+        'booking_decimals_enabled' => 'boolean',
+        'booking_form_logo_enabled' => 'boolean',
+        'booking_form_logo_width' => 'integer',
         'sale_pdf_show_disc_column' => 'boolean',
         'sale_pdf_show_tax_column' => 'boolean',
         'sale_pdf_show_shipping_row' => 'boolean',

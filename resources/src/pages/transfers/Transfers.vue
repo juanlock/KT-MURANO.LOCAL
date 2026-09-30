@@ -10,7 +10,8 @@
     </PageHeader>
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[16, 8]">
+      <div class="filters-reset-wrap">
+      <a-row :gutter="[16, 8]" class="filters-reset-wrap__row">
         <a-col :xs="12" :md="8">
           <div class="filter-label">{{ $t('Status') }}</div>
           <a-select
@@ -35,6 +36,8 @@
           />
         </a-col>
       </a-row>
+      <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
+      </div>
     </a-card>
 
     <DataTable :crud="crud" :columns="columns" :selectable="auth.can('transfer_delete')">
@@ -103,6 +106,8 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
@@ -113,6 +118,7 @@ const { money, dateTime } = useFormat();
 const auth = useAuthStore();
 
 const filters = ref({ statut: undefined, from_warehouse_id: undefined, to_warehouse_id: undefined });
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => crud.reload());
 
 const crud = useCrudTable('transfers', {
   rowsKey: 'transfers',

@@ -27,11 +27,13 @@ use Illuminate\Support\Facades\Log;
  * by one Cash payment. bookings.sale_id is the link and the idempotency key.
  *
  * Called from BookingObserver (any path that completes a booking: edit form,
- * calendar, status endpoint, import), from POST bookings/{id}/sale, and from
- * `php artisan bookings:create-sales` for the backfill.
+ * calendar, status endpoint, import), from the booking save responses, and
+ * from `php artisan bookings:create-sales` for the backfill.
  */
 class BookingSaleService
 {
+    public const GENERIC_CODE = 'BOOKING-SVC';
+
     /**
      * @return array{ok: bool, sale: ?Sale, reason: ?string}
      */
@@ -43,16 +45,20 @@ class BookingSaleService
         if ($booking->sale_id) {
             return ['ok' => true, 'sale' => Sale::find($booking->sale_id), 'reason' => 'already'];
         }
-        if (! $booking->product_id) {
-            return $this->fail('The booking has no service selected -- pick one to create its sale.');
-        }
-
         $client = Client::find($booking->customer_id);
-        $product = Product::find($booking->product_id);
-        if (! $client || ! $product) {
-            return $this->fail('The booking customer or service no longer exists.');
+        if (! $client) {
+            return $this->fail('The booking customer no longer exists.');
         }
         $companyId = (int) $client->company_id;
+
+        // No service on the booking (e.g. imported after the service was
+        // removed on the booking site): invoice it anyway, on the company's
+        // generic "Appointment" service, so every completion is invoiced.
+        $product = $booking->product_id ? Product::find($booking->product_id) : null;
+        $product = $product ?: $this->genericService($companyId);
+        if (! $product) {
+            return $this->fail('The company has no product category to hold the generic Appointment service.');
+        }
         if ($product->company_id && (int) $product->company_id !== $companyId) {
             return $this->fail('The booking service belongs to another company.');
         }
@@ -121,7 +127,9 @@ class BookingSaleService
                 'total' => $lineTotal,
                 'price_type' => 'retail',
                 'pack_multiplier' => 1,
-                'note' => $locked->product_description ?: null,
+                // Generic line: keep what the booking said the service was.
+                'note' => $locked->product_description
+                    ?: ((int) $locked->product_id !== (int) $product->id ? ($locked->product_name ?: $this->serviceFromNotes($locked->notes)) : null),
             ], SaleDetail::computeWarrantyGuaranteeDates($product, $date)));
 
             // Services carry no stock; a booked physical product leaves the
@@ -160,6 +168,80 @@ class BookingSaleService
 
             return ['ok' => true, 'sale' => $sale, 'reason' => null];
         });
+    }
+
+    /**
+     * A service picked on a booking already invoiced on the generic
+     * "Appointment" service: move that sale line onto the real service. Only
+     * the product changes; price and totals stay as invoiced.
+     */
+    public function syncServiceLine(Booking $booking): void
+    {
+        if (! $booking->sale_id || ! $booking->product_id) {
+            return;
+        }
+        $product = Product::find($booking->product_id);
+        $companyId = (int) optional(Client::find($booking->customer_id))->company_id;
+        if (! $product || $product->code === self::GENERIC_CODE || (int) $product->company_id !== $companyId) {
+            return;
+        }
+        $genericIds = Product::where('company_id', $companyId)->where('code', self::GENERIC_CODE)->pluck('id');
+        if ($genericIds->isEmpty()) {
+            return;
+        }
+        SaleDetail::where('sale_id', $booking->sale_id)
+            ->whereIn('product_id', $genericIds)
+            ->update(['product_id' => $product->id, 'note' => null, 'updated_at' => now()]);
+    }
+
+    /**
+     * The company's generic "Appointment" service product (code BOOKING-SVC),
+     * created on first use: a service (no stock), price 0 (the booking's own
+     * price goes on the sale line), hidden from the online store, in the
+     * category most of the company's services use.
+     */
+    private function genericService(int $companyId): ?Product
+    {
+        $existing = Product::where('company_id', $companyId)->where('code', self::GENERIC_CODE)->whereNull('deleted_at')->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $categoryId = Product::where('company_id', $companyId)->where('type', 'is_service')->whereNull('deleted_at')
+            ->groupBy('category_id')->orderByRaw('COUNT(*) DESC')->value('category_id')
+            ?: DB::table('categories')->where('company_id', $companyId)->whereNull('deleted_at')->orderBy('id')->value('id');
+        if (! $categoryId) {
+            return null;
+        }
+
+        $product = new Product;
+        $product->forceFill([
+            'company_id' => $companyId,
+            'type' => 'is_service',
+            'code' => self::GENERIC_CODE,
+            'Type_barcode' => 'CODE128',
+            'name' => 'Appointment',
+            'cost' => 0,
+            'price' => 0,
+            'wholesale_price' => 0,
+            'min_price' => 0,
+            'category_id' => $categoryId,
+            'TaxNet' => 0,
+            'tax_method' => '1',
+            'is_active' => 1,
+            'hide_from_online_store' => 1,
+            // Internal invoice line only -- never offered on the public booking form.
+            'show_on_booking_form' => 0,
+            'note' => 'Generic service for booking invoices whose booking has no service selected.',
+        ])->save();
+
+        return $product;
+    }
+
+    /** "Service: service #7 (removed on the booking site)" line of an imported booking's notes. */
+    private function serviceFromNotes(?string $notes): ?string
+    {
+        return $notes && preg_match('/^Service:\s*(.+)$/mi', $notes, $m) ? trim($m[1]) : null;
     }
 
     /** The "Cash" payment method (payment methods are shared by all companies). */

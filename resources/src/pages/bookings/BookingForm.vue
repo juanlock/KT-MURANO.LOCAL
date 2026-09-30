@@ -50,12 +50,24 @@
             </a-form-item>
           </a-col>
 
+          <!-- Service is picked in two steps: its product group, then the service. -->
           <a-col :xs="24" :md="12" :lg="8">
-            <a-form-item :label="$t('Product')" :help="isEdit ? undefined : 'Only products type service'">
+            <a-form-item :label="$t('Group_Service')">
+              <a-select
+                v-model:value="serviceGroup" show-search option-filter-prop="label"
+                :placeholder="$t('Choose_Group_Service')" allow-clear
+                :options="groupOptions"
+                @change="onGroupChange"
+              />
+            </a-form-item>
+          </a-col>
+
+          <a-col :xs="24" :md="12" :lg="8">
+            <a-form-item :label="$t('Service')">
               <a-select
                 v-model:value="booking.product_id" show-search option-filter-prop="label"
-                :placeholder="$t('Choose_Product')" allow-clear
-                :options="products.map(p => ({ value: p.id, label: p.name }))"
+                :placeholder="$t('Choose_Service')" allow-clear
+                :options="serviceOptions"
                 @change="onProductChange"
               />
             </a-form-item>
@@ -70,7 +82,7 @@
           <a-col :xs="24" :md="12" :lg="4">
             <a-form-item :label="$t('Price')" name="price">
               <a-input-number
-                v-model:value="booking.price" :min="0" :step="0.01"
+                v-model:value="booking.price" :min="0" :step="moneyStep" :precision="moneyPrecision"
                 style="width: 100%" :placeholder="tf('Enter_Price', 'Enter price')"
               />
             </a-form-item>
@@ -79,7 +91,7 @@
           <a-col :xs="24" :md="12" :lg="4">
             <a-form-item :label="$t('Amount')" name="amount">
               <a-input-number
-                v-model:value="booking.amount" :min="0" :step="0.01"
+                v-model:value="booking.amount" :min="0" :step="moneyStep" :precision="moneyPrecision"
                 style="width: 100%" :placeholder="$t('Amount')"
               />
             </a-form-item>
@@ -104,6 +116,7 @@
             <a-form-item :label="$t('Start_Time') + ' *'" name="booking_time">
               <a-time-picker
                 v-model:value="booking.booking_time" value-format="HH:mm" format="HH:mm" style="width: 100%"
+                @change="applyServiceDuration"
               />
             </a-form-item>
           </a-col>
@@ -219,6 +232,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import OnlineBookingCard from '../../components/OnlineBookingCard.vue';
 import { t as tf } from '../../i18n';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -239,7 +253,10 @@ const publicBooking = ref(null);
 // System Settings -> Defaults -> Booking: optional fields (all shown until the API says otherwise).
 // A hidden field keeps its value: a new booking saves the defaults (status Pending,
 // no delivery), an edit sends back what the booking already has.
-const fields = ref({ delivery_date: true, delivery_time: true, status: true, delivery_address: true });
+const fields = ref({ delivery_date: true, delivery_time: true, status: true, delivery_address: true, decimals: true });
+// Defaults -> Booking -> Use decimals: off = whole numbers in Price / Amount.
+const moneyPrecision = computed(() => (fields.value.decimals ? 2 : 0));
+const moneyStep = computed(() => (fields.value.decimals ? 0.01 : 1));
 
 /** Local date, not UTC — see the note above. */
 function todayLocal() {
@@ -282,8 +299,59 @@ function normalizeTime(value) {
   return String(value).length > 5 ? String(value).substring(0, 5) : String(value);
 }
 
+/* ---------------- Group Service -> Service ----------------
+ * Groups come from the services themselves (product_group_id / group_name);
+ * services without a group sit under "Other". NO_GROUP keeps that choice
+ * distinct from "no group selected" (null = every service is offered). */
+const NO_GROUP = 0;
+const serviceGroup = ref(null);
+const groupOf = p => p.product_group_id || NO_GROUP;
+
+const groupOptions = computed(() => {
+  const seen = new Map();
+  products.value.forEach(p => {
+    const g = groupOf(p);
+    if (!seen.has(g)) seen.set(g, g === NO_GROUP ? tf('Other', 'Other') : p.group_name);
+  });
+  return sortByLabel([...seen].map(([value, label]) => ({ value, label })));
+});
+
+const serviceOptions = computed(() => sortByLabel(
+  products.value
+    .filter(p => serviceGroup.value === null || serviceGroup.value === undefined || groupOf(p) === serviceGroup.value)
+    // Duration shown with the name, e.g. "Haircut · 1 h" (Product form -> Service duration).
+    .map(p => ({ value: p.id, label: p.service_duration ? `${p.name} · ${fmtDuration(p.service_duration)}` : p.name }))
+));
+function fmtDuration(m) {
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return [h ? `${h} h` : '', r ? `${r} min` : ''].filter(Boolean).join(' ');
+}
+
+function onGroupChange(group) {
+  const current = products.value.find(p => p.id === booking.value.product_id);
+  // A service outside the newly chosen group no longer fits -- clear it.
+  if (current && group != null && groupOf(current) !== group) {
+    booking.value.product_id = null;
+    onProductChange(null);
+  }
+}
+
+/** End Time = Start Time + the service's duration (Product form -> Service duration). */
+function applyServiceDuration() {
+  const product = products.value.find(p => p.id === booking.value.product_id);
+  const dur = Number(product?.service_duration) || 0;
+  const start = booking.value.booking_time;
+  if (!dur || !/^\d{2}:\d{2}$/.test(start || '')) return;
+  const end = Math.min(Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5)) + dur, 23 * 60 + 59);
+  booking.value.booking_end_time = `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+}
+
 function onProductChange(productId) {
   const product = products.value.find(p => p.id === productId);
+  // Picking a service straight away (no group chosen) fills its group in.
+  if (product) serviceGroup.value = groupOf(product);
+  applyServiceDuration();
   if (isEdit) {
     // Edit never clobbers a price already on the booking.
     if (product?.price && !booking.value.price) booking.value.price = product.price;
@@ -426,6 +494,8 @@ onMounted(async () => {
         status: b.status,
         notes: b.notes || '',
       };
+      const current = products.value.find(p => p.id === b.product_id);
+      if (current) serviceGroup.value = groupOf(current);
     }
   } catch (e) {
     // Legacy failed silently here and left an empty form with empty selects.

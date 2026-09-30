@@ -3,7 +3,8 @@
     <PageHeader :title="$t('Serial_Numbers')" :breadcrumb="[$t('Products'), $t('Serial_Numbers')]" />
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[16, 8]">
+      <div class="filters-reset-wrap">
+      <a-row :gutter="[16, 8]" class="filters-reset-wrap__row">
         <a-col :xs="12" :md="8">
           <div class="filter-label">{{ $t('Serial_Status') }}</div>
           <a-select
@@ -20,6 +21,8 @@
           />
         </a-col>
       </a-row>
+      <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
+      </div>
     </a-card>
 
     <DataTable :crud="crud" :columns="columns">
@@ -58,11 +61,14 @@ import { EyeOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { SERIAL_STATUSES, serialStatusColor } from './serialVocab';
 
 const { t } = useI18n();
 
 const filters = ref({ status: undefined, warehouse_id: undefined });
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => crud.reload());
 
 const crud = useCrudTable('serial_numbers', {
   rowsKey: 'serials',

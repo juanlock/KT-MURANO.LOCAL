@@ -94,6 +94,22 @@
               :placeholder="$t('Shipping_status')" :options="shippingStatusOptions" @change="onOtherFilterChange"
             />
           </template>
+          <template v-else-if="key === 'product_group_id'">
+            <div class="filter-label">{{ $t('Group_Name') }}</div>
+            <a-select
+              v-model:value="filters.product_group_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('Group_Name')" :options="productGroupOptions"
+              @change="onProductGroupFilterChange"
+            />
+          </template>
+          <template v-else-if="key === 'product_id'">
+            <div class="filter-label">{{ $t('Name') }}</div>
+            <a-select
+              v-model:value="filters.product_id" style="width: 100%" allow-clear show-search
+              option-filter-prop="label" :placeholder="$t('Name')" :options="productOptions"
+              @change="onProductFilterChange"
+            />
+          </template>
           <template v-else-if="key === 'warehouse_id'">
             <div class="filter-label">{{ $t('warehouse') }}</div>
             <a-select
@@ -103,6 +119,7 @@
             />
           </template>
         </div>
+        <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
         <a-tooltip v-if="auth.canCustomizeColumns" title="Customize filters">
           <a-button @click="openCustomize">
             <template #icon><FilterOutlined /></template>
@@ -550,6 +567,8 @@ import {
 } from './saleVocab';
 import http from '../../lib/http';
 import { withAllOption, sortByLabel } from '../../lib/filterOptions';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { receiptFontHeadTags, whenPrintFontsReady } from '../../lib/receiptFont';
 import { buildPosReceiptHtml } from '../../lib/posReceiptHtml';
 
@@ -562,8 +581,18 @@ const route = useRoute();
 const filters = ref({
   date: null, client_id: undefined, warehouse_id: undefined,
   statut: undefined, payment_statut: undefined, shipping_status: undefined,
+  product_group_id: undefined, product_id: undefined,
   date_from: '', date_to: '',
 });
+
+// Reset: every filter back to its default, date range back to This Month,
+// the Customers-list "Due only" link dropped. Snapshot taken here, before
+// the deep link below writes into `filters`.
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => {
+  dueOnly.value = false;
+  datePreset.value = 'month';
+  applyPreset('month');
+}, { ignore: ['date_from', 'date_to'], isDirty: () => datePreset.value !== 'month' || dueOnly.value });
 
 // "Customize Filters" -- which of these filters a company shows, and in
 // what order (settings.datatable_filters, same idea as DataTable.vue's
@@ -579,6 +608,8 @@ const {
   { key: 'payment_statut', label: 'Payment Status' },
   { key: 'shipping_status', label: 'Shipping Status' },
   { key: 'warehouse_id', label: 'Warehouse' },
+  { key: 'product_group_id', label: 'Group Name' },
+  { key: 'product_id', label: 'Name' },
 ]);
 
 // "Only sales with a balance due" -- set by the Customers list Due link.
@@ -595,6 +626,8 @@ const filterParams = () => ({
   statut: filters.value.statut || '',
   payment_statut: filters.value.payment_statut || '',
   shipping_status: filters.value.shipping_status || '',
+  product_group_id: filters.value.product_group_id || '',
+  product_id: filters.value.product_id || '',
 });
 
 const crud = useCrudTable('sales', {
@@ -666,6 +699,21 @@ function onOtherFilterChange() {
   crud.reload();
 }
 
+// Group Name / Name: sales with a line of a product in that group / of that
+// product. Name options narrow to the chosen group; a product outside a
+// newly chosen group is cleared, and picking a product fills its group in.
+const filterProducts = computed(() => crud.payload.value?.filter_products || []);
+function onProductGroupFilterChange(groupId) {
+  const current = filterProducts.value.find(p => p.id === filters.value.product_id);
+  if (current && groupId && current.product_group_id !== groupId) filters.value.product_id = undefined;
+  crud.reload();
+}
+function onProductFilterChange(productId) {
+  const product = filterProducts.value.find(p => p.id === productId);
+  if (product?.product_group_id) filters.value.product_group_id = product.product_group_id;
+  crud.reload();
+}
+
 // Deep links (Customers list: Total Sales / # Sales / Due) arrive as
 // ?client_id=&statut=&due_only=1 -- show that customer's matching sales
 // across ALL dates instead of the This Month default.
@@ -728,6 +776,14 @@ const whatsappEnabled = computed(() => crud.payload.value?.sale_whatsapp_enabled
 function isUnpaid(record) {
   return record.payment_status && record.payment_status !== 'paid' && record.payment_status !== 'Cancelled' && record.statut !== 'cancelled';
 }
+const productGroupOptions = computed(() =>
+  withAllOption(sortByLabel((crud.payload.value?.product_groups || []).map(g => ({ value: g.id, label: g.name }))))
+);
+const productOptions = computed(() =>
+  withAllOption(sortByLabel(filterProducts.value
+    .filter(p => !filters.value.product_group_id || p.product_group_id === filters.value.product_group_id)
+    .map(p => ({ value: p.id, label: p.name }))))
+);
 const warehouseOptions = computed(() =>
   withAllOption(sortByLabel((crud.payload.value?.warehouses || []).map(w => ({ value: w.id, label: w.name }))))
 );
@@ -761,6 +817,10 @@ const columns = computed(() => [
   { title: t('Seller'), dataIndex: 'seller_name', key: 'seller_name' },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name', sorter: true },
   { title: t('Items'), dataIndex: 'items_count', key: 'items_count', align: 'center', width: 80, exportValue: r => r.items_count },
+  // Distinct product groups / product names on the sale's lines (comma-joined;
+  // long lists are cut with an ellipsis, full text on hover).
+  { title: t('Group_Name'), dataIndex: 'product_group_names', key: 'product_group_names', width: 180, ellipsis: { showTitle: true } },
+  { title: t('Name'), dataIndex: 'product_names', key: 'product_names', width: 220, ellipsis: { showTitle: true } },
   { title: t('Status'), dataIndex: 'statut', key: 'statut', sorter: true, exportValue: r => r.statut },
   // Multi-Currency: badge with the document's currency code (amounts in the
   // list stay base-currency). Hidden when the module is off.

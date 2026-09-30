@@ -530,6 +530,69 @@
                 <a-switch :checked="asBool(setting[f.key] ?? true)" @change="v => (setting[f.key] = v ? 1 : 0)" />
               </div>
             </a-card>
+
+            <!-- Online booking hours: the public form's day / time-slot picker. -->
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-label">{{ $t('Booking_Hours') }}</div>
+              <div class="setting-help" style="margin-bottom: 12px">{{ $t('Booking_Hours_Help') }}</div>
+              <a-row :gutter="[16, 8]">
+                <a-col :xs="12" :md="6">
+                  <div class="setting-help">{{ $t('Opens_At') }}</div>
+                  <a-time-picker
+                    v-model:value="setting.booking_open_time" value-format="HH:mm" format="HH:mm"
+                    :minute-step="5" :allow-clear="false" style="width: 100%"
+                  />
+                </a-col>
+                <a-col :xs="12" :md="6">
+                  <div class="setting-help">{{ $t('Closes_At') }}</div>
+                  <a-time-picker
+                    v-model:value="setting.booking_close_time" value-format="HH:mm" format="HH:mm"
+                    :minute-step="5" :allow-clear="false" style="width: 100%"
+                  />
+                </a-col>
+                <a-col :xs="24" :md="6">
+                  <div class="setting-help">{{ $t('Slot_Length') }}</div>
+                  <a-select
+                    v-model:value="setting.booking_slot_minutes" style="width: 100%"
+                    :options="[15, 30, 45, 60].map(m => ({ value: m, label: `${m} ${$t('Minutes_Short')}` }))"
+                  />
+                </a-col>
+                <a-col :xs="24" :md="6">
+                  <a-tooltip :title="$t('Booking_Capacity_Help')">
+                    <div class="setting-help">{{ $t('Booking_Capacity') }} ⓘ</div>
+                  </a-tooltip>
+                  <a-input-number v-model:value="setting.booking_capacity" :min="1" :max="50" style="width: 100%" />
+                </a-col>
+              </a-row>
+              <div class="setting-help" style="margin: 12px 0 6px">{{ $t('Closed_Days') }}</div>
+              <a-checkbox-group v-model:value="bookingClosedDays" :options="weekdayOptions" />
+            </a-card>
+
+            <!-- Logo on the public "Make an appointment" form (/book + iframe embed). -->
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Booking_Form_Logo') }}</div>
+                  <div class="setting-help">{{ $t('Booking_Form_Logo_Help') }}</div>
+                </div>
+                <a-switch :checked="asBool(setting.booking_form_logo_enabled)" @change="v => (setting.booking_form_logo_enabled = v ? 1 : 0)" />
+              </div>
+              <div v-if="asBool(setting.booking_form_logo_enabled)" class="bf-logo">
+                <div class="bf-logo__preview">
+                  <img v-if="bookingLogoPreview" :src="bookingLogoPreview" alt="" :style="{ width: `${setting.booking_form_logo_width || 160}px` }">
+                  <span v-else class="setting-help">{{ $t('Using_Company_Logo') }}</span>
+                </div>
+                <a-space wrap>
+                  <a-upload :before-upload="onBookingLogoPicked" :show-upload-list="false" accept="image/*">
+                    <a-button><UploadOutlined /> {{ $t('Upload_Logo') }}</a-button>
+                  </a-upload>
+                  <a-button v-if="bookingLogoPreview" danger @click="removeBookingLogo">{{ $t('Remove_Logo') }}</a-button>
+                </a-space>
+                <a-form-item :label="$t('Logo_Width_Px')" style="margin: 12px 0 0; max-width: 360px">
+                  <a-slider v-model:value="setting.booking_form_logo_width" :min="40" :max="400" />
+                </a-form-item>
+              </div>
+            </a-card>
             </a-tab-pane>
 
             <!-- Product: auto-generated product Code, per company. -->
@@ -1299,6 +1362,7 @@ const BOOKING_FIELD_TOGGLES = [
   { key: 'booking_delivery_time_enabled', label: 'Delivery_Time', help: 'Show the Delivery Time field on the Booking Create/Edit form.' },
   { key: 'booking_status_enabled', label: 'Status', help: 'Show the Status field on the Booking Create/Edit form. Off: new bookings are saved as Pending and editing keeps the current status (it can still be changed from the Booking List).' },
   { key: 'booking_delivery_address_enabled', label: 'Delivery_Address', help: 'Show the Delivery Address field on the Booking Create/Edit form.' },
+  { key: 'booking_decimals_enabled', label: 'Use_Decimals', help: 'Price and Amount take decimals (e.g. 45.50). Off: whole numbers only -- the form accepts no decimals, saved values are rounded and the Booking List shows them without decimals.' },
 ];
 
 // Sub-tabs inside the Defaults and DataTable sections.
@@ -1430,6 +1494,39 @@ function onLogoPicked(file) {
   return false;
 }
 
+// Defaults -> Booking: online booking hours. Closed days are stored as
+// "0,6" (0 = Sunday); edited here as a checkbox group of weekday numbers.
+// Labels come from the browser locale (Jan 4 2026 is a Sunday).
+const weekdayOptions = [1, 2, 3, 4, 5, 6, 0].map(d => ({
+  value: d,
+  label: new Date(2026, 0, 4 + d).toLocaleDateString(undefined, { weekday: 'short' }),
+}));
+const bookingClosedDays = computed({
+  get: () => String(setting.value.booking_closed_days || '').split(',').filter(x => x !== '').map(Number),
+  set: (days) => { setting.value.booking_closed_days = [...days].sort().join(','); },
+});
+
+// Defaults -> Booking: public booking form logo. Picked file previews locally
+// and is sent on Save; Remove clears the saved one (company logo is used).
+const bookingLogoFile = ref(null);
+const bookingLogoLocalUrl = ref(null);
+const bookingLogoRemoved = ref(false);
+const bookingLogoPreview = computed(() =>
+  bookingLogoLocalUrl.value || (bookingLogoRemoved.value ? null : setting.value.booking_form_logo_url));
+function onBookingLogoPicked(file) {
+  bookingLogoFile.value = file;
+  bookingLogoRemoved.value = false;
+  if (bookingLogoLocalUrl.value) URL.revokeObjectURL(bookingLogoLocalUrl.value);
+  bookingLogoLocalUrl.value = URL.createObjectURL(file);
+  return false;
+}
+function removeBookingLogo() {
+  bookingLogoFile.value = null;
+  if (bookingLogoLocalUrl.value) URL.revokeObjectURL(bookingLogoLocalUrl.value);
+  bookingLogoLocalUrl.value = null;
+  bookingLogoRemoved.value = true;
+}
+
 /* ------------------------------------------------------------------ save */
 async function save() {
   saving.value = true;
@@ -1469,6 +1566,15 @@ async function save() {
   fd.append('sale_sms_enabled', asBool(s.sale_sms_enabled ?? true) ? 1 : 0);
   fd.append('sale_whatsapp_enabled', asBool(s.sale_whatsapp_enabled ?? true) ? 1 : 0);
   for (const f of BOOKING_FIELD_TOGGLES) fd.append(f.key, asBool(s[f.key] ?? true) ? 1 : 0);
+  fd.append('booking_form_logo_enabled', asBool(s.booking_form_logo_enabled) ? 1 : 0);
+  fd.append('booking_open_time', s.booking_open_time || '09:00');
+  fd.append('booking_close_time', s.booking_close_time || '19:00');
+  fd.append('booking_slot_minutes', Number(s.booking_slot_minutes) || 30);
+  fd.append('booking_closed_days', s.booking_closed_days || '');
+  fd.append('booking_capacity', Math.max(1, Number(s.booking_capacity) || 1));
+  fd.append('booking_form_logo_width', Number(s.booking_form_logo_width) || 160);
+  if (bookingLogoFile.value) fd.append('booking_form_logo', bookingLogoFile.value);
+  else if (bookingLogoRemoved.value) fd.append('remove_booking_form_logo', 1);
   fd.append('customer_loyalty_enabled', asBool(s.customer_loyalty_enabled) ? 1 : 0);
   fd.append('customer_credit_limit_enabled', asBool(s.customer_credit_limit_enabled) ? 1 : 0);
   fd.append('customer_opening_balance_enabled', asBool(s.customer_opening_balance_enabled) ? 1 : 0);
@@ -1560,6 +1666,12 @@ async function save() {
       throw new Error(msg);
     }
     message.success(t('Successfully_Updated'));
+    // Booking form logo is saved: the local preview (if any) stays on screen
+    // as the current logo; the next Save shouldn't re-upload or re-remove it.
+    if (bookingLogoRemoved.value) setting.value.booking_form_logo_url = null;
+    if (bookingLogoFile.value) setting.value.booking_form_logo_url = bookingLogoLocalUrl.value;
+    bookingLogoFile.value = null;
+    bookingLogoRemoved.value = false;
     // Defaults -> Product: re-read the next code for the just-saved prefix.
     http.get('product_next_code').then((r) => {
       savedProductCode.value = {
@@ -1723,6 +1835,24 @@ onMounted(() => {
   font-size: 12px;
   color: #8c8c8c;
   max-width: 520px;
+}
+/* Defaults -> Booking: booking form logo preview + actions */
+.bf-logo {
+  padding: 4px 0 8px;
+}
+.bf-logo__preview {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  margin-bottom: 10px;
+  padding: 12px;
+  border: 1px dashed rgba(128, 128, 128, 0.35);
+  border-radius: 8px;
+}
+.bf-logo__preview img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 /* Embedded settings pages keep their content but drop their own page chrome
    (this hub already provides the header and section title). !important is

@@ -3,7 +3,8 @@
     <PageHeader :title="$t('Customer_Maintenance_History')" :breadcrumb="[$t('Service_Maintenance'), $t('Customer_Maintenance_History')]" />
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[12, 12]">
+      <div class="filters-reset-wrap">
+      <a-row :gutter="[12, 12]" class="filters-reset-wrap__row">
         <a-col :xs="24" :md="8">
           <div class="filter-label">{{ $t('Customer') }}</div>
           <a-select
@@ -22,6 +23,8 @@
           <a-input v-model:value="filters.to" type="date" @change="reload" />
         </a-col>
       </a-row>
+      <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
+      </div>
     </a-card>
 
     <a-card size="small" :body-style="{ padding: 0 }">
@@ -54,6 +57,8 @@ import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
 import { PAGE_SIZE_OPTIONS, buildPageSizeOptionText } from '../../composables/useCrudTable';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 
 const { t } = useI18n();
 
@@ -64,6 +69,7 @@ const clients = ref([]);
 const page = ref(1);
 const limit = ref(10);
 const filters = ref({ client_id: null, from: '', to: '' });
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => reload());
 
 const columns = computed(() => [
   { title: t('date'), dataIndex: 'scheduled_date', key: 'scheduled_date' },

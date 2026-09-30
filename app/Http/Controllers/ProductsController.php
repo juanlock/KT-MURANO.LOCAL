@@ -135,6 +135,14 @@ class ProductsController extends BaseController
                 });
             });
 
+        // Product / Service filter: 'service' = service products only,
+        // 'product' = everything else (single, variable, combo).
+        if ($request->input('kind') === 'service') {
+            $filtered->where('products.type', 'is_service');
+        } elseif ($request->input('kind') === 'product') {
+            $filtered->where('products.type', '!=', 'is_service');
+        }
+
         // Code filter: matches the product's own code OR any of its variant codes,
         // so a variant barcode typed/scanned into the Code box finds its parent.
         if ($request->filled('code')) {
@@ -771,6 +779,11 @@ class ProductsController extends BaseController
                 $Product->is_returnable = filter_var($request->input('is_returnable', true), FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
 
                 $Product->is_classified = filter_var($request->input('is_classified', false), FILTER_VALIDATE_BOOLEAN);
+                // Public booking form (/book) lists this service; default on when not sent.
+                $Product->show_on_booking_form = filter_var($request->input('show_on_booking_form', true), FILTER_VALIDATE_BOOLEAN);
+                // Service duration for bookings: 30-minute steps up to 10 h, services only.
+                $dur = (int) $request->input('service_duration');
+                $Product->service_duration = ($request['type'] ?? $Product->type) === 'is_service' && $dur >= 30 && $dur <= 600 && $dur % 30 === 0 ? $dur : null;
                 $Product->is_preorder = filter_var($request->input('is_preorder', false), FILTER_VALIDATE_BOOLEAN);
                 $Product->preorder_always = $Product->is_preorder && filter_var($request->input('preorder_always', false), FILTER_VALIDATE_BOOLEAN);
                 // Kept for ANY product, not just pre-orders: the storefront shows it as
@@ -1418,6 +1431,11 @@ class ProductsController extends BaseController
                 $Product->is_returnable = filter_var($request->input('is_returnable', true), FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
 
                 $Product->is_classified = filter_var($request->input('is_classified', false), FILTER_VALIDATE_BOOLEAN);
+                // Public booking form (/book) lists this service; default on when not sent.
+                $Product->show_on_booking_form = filter_var($request->input('show_on_booking_form', true), FILTER_VALIDATE_BOOLEAN);
+                // Service duration for bookings: 30-minute steps up to 10 h, services only.
+                $dur = (int) $request->input('service_duration');
+                $Product->service_duration = ($request['type'] ?? $Product->type) === 'is_service' && $dur >= 30 && $dur <= 600 && $dur % 30 === 0 ? $dur : null;
                 $Product->is_preorder = filter_var($request->input('is_preorder', false), FILTER_VALIDATE_BOOLEAN);
                 $Product->preorder_always = $Product->is_preorder && filter_var($request->input('preorder_always', false), FILTER_VALIDATE_BOOLEAN);
                 // Kept for ANY product, not just pre-orders: the storefront shows it as
@@ -3181,6 +3199,8 @@ class ProductsController extends BaseController
         $item['is_active'] = $Product->is_active ? true : false;
 
         $item['is_classified'] = (bool) $Product->is_classified;
+        $item['show_on_booking_form'] = (bool) ($Product->show_on_booking_form ?? true);
+        $item['service_duration'] = $Product->service_duration ? (int) $Product->service_duration : null;
         $item['is_preorder'] = (bool) $Product->is_preorder;
         $item['preorder_always'] = (bool) $Product->preorder_always;
         $item['preorder_available_date'] = $Product->preorder_available_date
@@ -4429,7 +4449,8 @@ class ProductsController extends BaseController
         $products = Product::where('company_id', $companyId)
             ->whereNull('deleted_at')
             ->orderBy('name')
-            ->get(['id', 'name', 'product_group_id']);
+            // type: Products list's Product / Service filter narrows the name list too.
+            ->get(['id', 'name', 'product_group_id', 'type']);
 
         return response()->json(['product_groups' => $groups, 'products' => $products]);
     }

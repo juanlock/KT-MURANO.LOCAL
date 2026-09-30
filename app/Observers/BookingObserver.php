@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Jobs\SyncBookingToGoogleCalendar;
 use App\Models\Booking;
 use App\Services\BookingSaleService;
+use Illuminate\Support\Facades\Log;
 
 class BookingObserver
 {
@@ -22,10 +23,10 @@ class BookingObserver
         try {
             $res = app(BookingSaleService::class)->createForBooking($booking);
             if (! $res['ok']) {
-                \Log::info('Booking sale not created: '.$res['reason'], ['booking_id' => $booking->id]);
+                Log::info('Booking sale not created: '.$res['reason'], ['booking_id' => $booking->id]);
             }
         } catch (\Throwable $e) {
-            \Log::warning('Booking sale failed (non-blocking): '.$e->getMessage(), ['booking_id' => $booking->id]);
+            Log::warning('Booking sale failed (non-blocking): '.$e->getMessage(), ['booking_id' => $booking->id]);
         }
     }
 
@@ -44,6 +45,14 @@ class BookingObserver
     public function updated(Booking $booking): void
     {
         $this->invoiceIfCompleted($booking);
+
+        if ($booking->wasChanged('product_id') && $booking->sale_id) {
+            try {
+                app(BookingSaleService::class)->syncServiceLine($booking);
+            } catch (\Throwable $e) {
+                Log::warning('Booking sale line sync failed (non-blocking): '.$e->getMessage(), ['booking_id' => $booking->id]);
+            }
+        }
 
         $relevant = ['status', 'booking_date', 'booking_time', 'booking_end_time', 'customer_id', 'product_id', 'price', 'notes'];
         if (empty(array_intersect($relevant, array_keys($booking->getChanges())))) {

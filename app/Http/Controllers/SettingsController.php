@@ -70,6 +70,29 @@ class SettingsController extends Controller
         } else {
             $filename = $currentAvatar;
         }
+        // Defaults -> Booking: logo of the public "Make an appointment" form
+        // (booking_form_logo). Upload replaces it, remove_booking_form_logo=1
+        // clears it (the form then falls back to the company logo).
+        $bookingFormLogo = $setting->booking_form_logo;
+        $dropBookingFormLogo = function () use (&$bookingFormLogo) {
+            if ($bookingFormLogo && file_exists(public_path($bookingFormLogo))) {
+                @unlink(public_path($bookingFormLogo));
+            }
+            $bookingFormLogo = null;
+        };
+        if ($request->hasFile('booking_form_logo') && $request->file('booking_form_logo')->isValid()) {
+            $request->validate(['booking_form_logo' => 'image|mimes:png,jpg,jpeg,webp,gif|max:4096']);
+            $dropBookingFormLogo();
+            $file = $request->file('booking_form_logo');
+            $bookingFormLogo = \App\Support\CompanyFiles::dir($companyId, 'logos').'/booking-form-'.time().'.'.strtolower($file->getClientOriginalExtension() ?: 'png');
+            Image::make($file->getRealPath())->resize(800, 400, function ($c) {
+                $c->aspectRatio();
+                $c->upsize();
+            })->save(public_path($bookingFormLogo));
+        } elseif ($request->boolean('remove_booking_form_logo')) {
+            $dropBookingFormLogo();
+        }
+
         if ($request['currency'] != 'null') {
             $currency = $request['currency'];
         } else {
@@ -321,6 +344,30 @@ class SettingsController extends Controller
             'booking_delivery_time_enabled' => $this->settingFlag($request, $setting, 'booking_delivery_time_enabled'),
             'booking_status_enabled' => $this->settingFlag($request, $setting, 'booking_status_enabled'),
             'booking_delivery_address_enabled' => $this->settingFlag($request, $setting, 'booking_delivery_address_enabled'),
+            // Booking Price/Amount with decimals (off: whole numbers only)
+            'booking_decimals_enabled' => $this->settingFlag($request, $setting, 'booking_decimals_enabled'),
+            // Public booking form logo (default off; see upload handling above)
+            'booking_form_logo_enabled' => $request->has('booking_form_logo_enabled')
+                ? $this->settingFlag($request, $setting, 'booking_form_logo_enabled')
+                : (int) ($setting->booking_form_logo_enabled ?? 0),
+            'booking_form_logo' => $bookingFormLogo,
+            // Online booking hours (public form's day / time-slot picker)
+            'booking_open_time' => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string) $request['booking_open_time'])
+                ? $request['booking_open_time'] : ($setting->booking_open_time ?: '09:00'),
+            'booking_close_time' => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string) $request['booking_close_time'])
+                ? $request['booking_close_time'] : ($setting->booking_close_time ?: '19:00'),
+            'booking_slot_minutes' => in_array((int) $request['booking_slot_minutes'], [15, 30, 45, 60], true)
+                ? (int) $request['booking_slot_minutes'] : ($setting->booking_slot_minutes ?: 30),
+            'booking_capacity' => $request->filled('booking_capacity')
+                ? max(1, min(50, (int) $request['booking_capacity'])) : ($setting->booking_capacity ?: 1),
+            'booking_closed_days' => $request->has('booking_closed_days')
+                ? collect(explode(',', (string) $request['booking_closed_days']))
+                    ->map(fn ($d) => trim($d))->filter(fn ($d) => $d !== '' && ctype_digit($d) && (int) $d <= 6)
+                    ->unique()->sort()->implode(',')
+                : ($setting->booking_closed_days ?? ''),
+            'booking_form_logo_width' => $request->filled('booking_form_logo_width')
+                ? max(40, min(400, (int) $request['booking_form_logo_width']))
+                : ($setting->booking_form_logo_width ?? 160),
             // Default -- Customers: optional customer features; off hides all
             // UI tied to them (form fields, columns, stats, POS/sale widgets)
             'customer_loyalty_enabled' => $request->has('customer_loyalty_enabled')
@@ -1109,9 +1156,19 @@ class SettingsController extends Controller
             $item['product_code_digits'] = (int) ($settings->product_code_digits ?? 4);
             $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
-            foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled'] as $flag) {
+            foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled', 'booking_decimals_enabled'] as $flag) {
                 $item[$flag] = (bool) ($settings->{$flag} ?? true);
             }
+            // Defaults -> Booking: public form logo (url = preview in Settings).
+            $item['booking_form_logo_enabled'] = (bool) ($settings->booking_form_logo_enabled ?? false);
+            $item['booking_form_logo_width'] = (int) ($settings->booking_form_logo_width ?: 160);
+            // Defaults -> Booking: online booking hours (public form slot picker).
+            $item['booking_open_time'] = $settings->booking_open_time ?: '09:00';
+            $item['booking_close_time'] = $settings->booking_close_time ?: '19:00';
+            $item['booking_slot_minutes'] = (int) ($settings->booking_slot_minutes ?: 30);
+            $item['booking_closed_days'] = (string) ($settings->booking_closed_days ?? '');
+            $item['booking_capacity'] = (int) ($settings->booking_capacity ?: 1);
+            $item['booking_form_logo_url'] = ($settings->booking_form_logo && file_exists(public_path($settings->booking_form_logo))) ? asset($settings->booking_form_logo).'?v='.filemtime(public_path($settings->booking_form_logo)) : null;
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
             $item['sale_pdf_show_shipping_row'] = (bool) ($settings->sale_pdf_show_shipping_row ?? true);
@@ -1904,9 +1961,19 @@ class SettingsController extends Controller
             $item['product_code_digits'] = (int) ($settings->product_code_digits ?? 4);
             $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
-            foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled'] as $flag) {
+            foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled', 'booking_decimals_enabled'] as $flag) {
                 $item[$flag] = (bool) ($settings->{$flag} ?? true);
             }
+            // Defaults -> Booking: public form logo (url = preview in Settings).
+            $item['booking_form_logo_enabled'] = (bool) ($settings->booking_form_logo_enabled ?? false);
+            $item['booking_form_logo_width'] = (int) ($settings->booking_form_logo_width ?: 160);
+            // Defaults -> Booking: online booking hours (public form slot picker).
+            $item['booking_open_time'] = $settings->booking_open_time ?: '09:00';
+            $item['booking_close_time'] = $settings->booking_close_time ?: '19:00';
+            $item['booking_slot_minutes'] = (int) ($settings->booking_slot_minutes ?: 30);
+            $item['booking_closed_days'] = (string) ($settings->booking_closed_days ?? '');
+            $item['booking_capacity'] = (int) ($settings->booking_capacity ?: 1);
+            $item['booking_form_logo_url'] = ($settings->booking_form_logo && file_exists(public_path($settings->booking_form_logo))) ? asset($settings->booking_form_logo).'?v='.filemtime(public_path($settings->booking_form_logo)) : null;
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
             $item['sale_pdf_show_shipping_row'] = (bool) ($settings->sale_pdf_show_shipping_row ?? true);

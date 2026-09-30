@@ -114,7 +114,8 @@ class SalesController extends BaseController
         $data = [];
 
         // Check If User Has Permission View  All Records
-        $Sales = Sale::with('facture.payment_method', 'client', 'warehouse', 'user', 'seller', 'currency')
+        $Sales = Sale::with('facture.payment_method', 'client', 'warehouse', 'user', 'seller', 'currency',
+            'details:id,sale_id,product_id', 'details.product:id,name,product_group_id', 'details.product.productGroup:id,name')
             ->withCount('details')
             ->where('deleted_at', '=', null)
             ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
@@ -139,6 +140,18 @@ class SalesController extends BaseController
             // balance (the same set Customers' Due column sums).
             ->when($request->boolean('due_only'), function ($query) {
                 return $query->whereColumn('paid_amount', '<', 'GrandTotal');
+            })
+            // Group / Name filters: sales with at least one line of a product
+            // in that product group / of that product.
+            ->when($request->filled('product_group_id'), function ($query) use ($request) {
+                return $query->whereHas('details', function ($q) use ($request) {
+                    $q->whereIn('product_id', Product::where('product_group_id', $request->product_group_id)->select('id'));
+                });
+            })
+            ->when($request->filled('product_id'), function ($query) use ($request) {
+                return $query->whereHas('details', function ($q) use ($request) {
+                    $q->where('product_id', $request->product_id);
+                });
             });
         if (! $is_all_warehouses) {
             $Sales->whereIn('warehouse_id', $warehouse_ids);
@@ -214,6 +227,11 @@ class SalesController extends BaseController
             // Distinct product lines on the sale (not quantity summed) -- the
             // Nro Item / # products column on the list.
             $item['items_count'] = $Sale['details_count'];
+            // Group Name / Name columns: distinct product groups and product
+            // names on the sale's lines, comma-joined.
+            $lineProducts = $Sale->details->pluck('product')->filter();
+            $item['product_group_names'] = $lineProducts->map(fn ($p) => optional($p->productGroup)->name)->filter()->unique()->implode(', ');
+            $item['product_names'] = $lineProducts->pluck('name')->filter()->unique()->implode(', ');
             $item['shipping_status'] = $Sale['shipping_status'];
             $item['discount'] = $Sale['discount'];
             $item['shipping'] = $Sale['shipping'];
@@ -284,6 +302,17 @@ class SalesController extends BaseController
                 return $query->where('company_id', $companyId);
             })
             ->get(['id', 'name']);
+        // Group / Name filter options (same company scope as customers).
+        $product_groups = DB::table('product_groups')->whereNull('deleted_at')
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->get(['id', 'name']);
+        $filter_products = Product::whereNull('deleted_at')
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
+            ->get(['id', 'name', 'product_group_id']);
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
         // Payment Status filter options: only values that actually occur for
@@ -324,6 +353,8 @@ class SalesController extends BaseController
             'stats' => $stats,
             'customers' => $customers,
             'warehouses' => $warehouses,
+            'product_groups' => $product_groups,
+            'filter_products' => $filter_products,
             'accounts' => $accounts,
             'payment_methods' => $payment_methods,
             'payment_statuses' => $payment_statuses,

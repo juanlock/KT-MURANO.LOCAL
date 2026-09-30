@@ -21,16 +21,10 @@
       </a-col>
     </a-row>
 
-    <a-card :body-style="{ padding: 0 }">
-      <div style="display: flex; gap: 12px; flex-wrap: wrap; padding: 16px; border-bottom: 1px solid rgba(5,5,5,0.06)">
-        <a-input-search
-          :value="crud.search.value"
-          :placeholder="$t('Search_this_table')"
-          allow-clear
-          style="max-width: 260px"
-          @update:value="v => (crud.search.value = v)"
-          @search="crud.reload()"
-        />
+    <!-- DataTable: search, show/hide columns (gear, remembered per user),
+         column customization, refresh. Status/date filters sit in its toolbar. -->
+    <DataTable :crud="crud" :columns="columns">
+      <template #toolbar>
         <a-select
           v-model:value="status"
           style="width: 160px"
@@ -40,51 +34,39 @@
           @change="crud.reload()"
         />
         <a-date-picker v-model:value="day" value-format="YYYY-MM-DD" allow-clear @change="crud.reload()" />
-      </div>
-
-      <a-table
-        :columns="columns"
-        :data-source="crud.rows.value"
-        :loading="crud.loading.value"
-        :pagination="crud.pagination.value"
-        row-key="id"
-        :scroll="{ x: 'max-content' }"
-        size="middle"
-        @change="crud.onChange"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'booking_date'">{{ date(record.booking_date) }}</template>
-          <template v-else-if="column.key === 'price'">{{ money(record.price) }}</template>
-          <template v-else-if="column.key === 'status'">
-            <a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
-          </template>
-          <template v-else-if="column.key === 'sale'">
-            <router-link v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.sale_ref }}</router-link>
-            <a-tooltip v-else-if="record.status === 'completed'" :title="$t('Booking_create_invoice_help')">
-              <a-button size="small" :loading="creatingSale === record.id" @click="createSale(record)">
-                <template #icon><FileAddOutlined /></template>
-                {{ $t('Create_Invoice') }}
+        <ResetFiltersButton :dirty="!!status || !!day" @reset="resetFilters" />
+      </template>
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'booking_date'">{{ date(record.booking_date) }}</template>
+        <template v-else-if="column.key === 'delivery_date'">{{ record.delivery_date ? date(record.delivery_date) : '' }}</template>
+        <template v-else-if="column.key === 'price'">{{ money(record.price, moneyDec) }}</template>
+        <template v-else-if="column.key === 'amount'">{{ money(record.amount, moneyDec) }}</template>
+        <template v-else-if="column.key === 'notes'">
+          <span class="notes-cell" :title="record.notes">{{ record.notes }}</span>
+        </template>
+        <template v-else-if="column.key === 'status'">
+          <a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
+        </template>
+        <template v-else-if="column.key === 'sale'">
+          <router-link v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.sale_ref }}</router-link>
+          <span v-else style="opacity: 0.45">—</span>
+        </template>
+        <template v-else-if="column.key === 'actions'">
+          <a-space>
+            <a-tooltip :title="$t('Edit')">
+              <a-button type="text" size="small" @click="$router.push(`/bookings/${record.id}/edit`)">
+                <template #icon><EditOutlined style="color: #52c41a" /></template>
               </a-button>
             </a-tooltip>
-            <span v-else style="opacity: 0.45">—</span>
-          </template>
-          <template v-else-if="column.key === 'actions'">
-            <a-space>
-              <a-tooltip :title="$t('Edit')">
-                <a-button type="text" size="small" @click="$router.push(`/bookings/${record.id}/edit`)">
-                  <template #icon><EditOutlined style="color: #52c41a" /></template>
-                </a-button>
-              </a-tooltip>
-              <a-tooltip :title="$t('Del')">
-                <a-button type="text" size="small" danger @click="crud.remove(record)">
-                  <template #icon><DeleteOutlined /></template>
-                </a-button>
-              </a-tooltip>
-            </a-space>
-          </template>
+            <a-tooltip :title="$t('Del')">
+              <a-button type="text" size="small" danger @click="crud.remove(record)">
+                <template #icon><DeleteOutlined /></template>
+              </a-button>
+            </a-tooltip>
+          </a-space>
         </template>
-      </a-table>
-    </a-card>
+      </template>
+    </DataTable>
   </div>
 </template>
 
@@ -96,10 +78,10 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { message } from 'ant-design-vue';
-import { PlusOutlined, EditOutlined, DeleteOutlined, FileAddOutlined } from '@ant-design/icons-vue';
-import http from '../../lib/http';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import DataTable from '../../components/DataTable.vue';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 
@@ -108,6 +90,12 @@ const { money, date } = useFormat();
 
 const status = ref(undefined);
 const day = ref(null);
+
+function resetFilters() {
+  status.value = undefined;
+  day.value = null;
+  crud.reload();
+}
 
 const filterParams = () => ({
   ...(status.value ? { status: status.value } : {}),
@@ -124,6 +112,8 @@ const crud = useCrudTable('bookings', {
 
 const loading = computed(() => crud.loading.value);
 const stats = computed(() => crud.payload.value?.stats || {});
+// Defaults -> Booking -> Use decimals off: Price/Amount without decimals.
+const moneyDec = computed(() => (crud.payload.value?.decimals === false ? 0 : undefined));
 const tiles = computed(() => [
   { label: t('Total'), value: stats.value.total || 0 },
   { label: t('Pending'), value: stats.value.pending || 0, style: { color: '#faad14' } },
@@ -142,12 +132,18 @@ const columns = computed(() => [
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   { title: t('Customer'), dataIndex: 'customer_name', key: 'customer_name' },
   { title: t('ProductName'), dataIndex: 'product_name', key: 'product_name' },
-  { title: t('Price'), key: 'price', dataIndex: 'price', align: 'right', exportValue: r => money(r.price) },
+  { title: t('Price'), key: 'price', dataIndex: 'price', align: 'right', exportValue: r => money(r.price, moneyDec.value) },
   { title: t('date'), key: 'booking_date', dataIndex: 'booking_date', sorter: true, exportValue: r => date(r.booking_date) },
   { title: t('Time_In'), dataIndex: 'booking_time', key: 'booking_time' },
   { title: t('Time_Out'), dataIndex: 'booking_end_time', key: 'booking_end_time' },
   { title: t('Status'), key: 'status', dataIndex: 'status', exportValue: r => statusLabel(r.status) },
   { title: t('Invoice'), key: 'sale', dataIndex: 'sale_ref', exportValue: r => r.sale_ref || '' },
+  // Extra columns, off until switched on in the column picker (gear).
+  { title: t('Amount'), key: 'amount', dataIndex: 'amount', align: 'right', defaultHidden: true, exportValue: r => money(r.amount, moneyDec.value) },
+  { title: t('Delivery_Date'), key: 'delivery_date', dataIndex: 'delivery_date', defaultHidden: true },
+  { title: t('Delivery_Time'), key: 'delivery_time', dataIndex: 'delivery_time', defaultHidden: true },
+  { title: t('Delivery_Address'), key: 'delivery_address', dataIndex: 'delivery_address', defaultHidden: true },
+  { title: t('Note'), key: 'notes', dataIndex: 'notes', defaultHidden: true },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);
 
@@ -167,21 +163,16 @@ function statusColor(s) {
   return 'default';
 }
 
-// Completed bookings are invoiced automatically (paid in cash); this retries
-// one that couldn't be, e.g. it had no service when it was completed.
-const creatingSale = ref(null);
-async function createSale(record) {
-  creatingSale.value = record.id;
-  try {
-    const res = await http.post(`bookings/${record.id}/sale`);
-    message.success(`${t('Invoice')} ${res.sale_ref}`);
-    crud.reload();
-  } catch (e) {
-    message.error(e?.data?.message || e?.message || t('Error'));
-  } finally {
-    creatingSale.value = null;
-  }
-}
-
 onMounted(crud.fetchRows);
 </script>
+
+<style scoped>
+.notes-cell {
+  display: inline-block;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+</style>

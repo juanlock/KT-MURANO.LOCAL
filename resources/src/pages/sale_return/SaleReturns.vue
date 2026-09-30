@@ -16,7 +16,8 @@
     </PageHeader>
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[16, 8]">
+      <div class="filters-reset-wrap">
+      <a-row :gutter="[16, 8]" class="filters-reset-wrap__row">
         <a-col :xs="12" :md="8" :xl="4">
           <div class="filter-label">{{ $t('date') }}</div>
           <a-date-picker v-model:value="filters.date" value-format="YYYY-MM-DD" style="width: 100%" @change="crud.reload()" />
@@ -53,6 +54,8 @@
           />
         </a-col>
       </a-row>
+      <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
+      </div>
     </a-card>
 
     <DataTable :crud="crud" :columns="columns" :selectable="auth.can('Sale_Returns_delete')">
@@ -166,6 +169,8 @@ import DataTable from '../../components/DataTable.vue';
 import ReturnPaymentsModal from '../../components/ReturnPaymentsModal.vue';
 import ReturnPaymentFormModal from '../../components/ReturnPaymentFormModal.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { payStatusColor } from '../../lib/statusColors';
@@ -183,6 +188,7 @@ const filters = ref({
   date: null, client_id: undefined, sale_id: undefined,
   warehouse_id: undefined, payment_statut: undefined,
 });
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => crud.reload());
 
 const filterParams = () => ({
   Ref: '',

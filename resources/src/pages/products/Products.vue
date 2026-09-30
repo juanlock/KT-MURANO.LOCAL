@@ -24,9 +24,18 @@
     </PageHeader>
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[16, 8]">
-        <a-col v-for="key in visibleFilterKeys" :key="key" :xs="12" :md="8" :xl="4">
-          <template v-if="key === 'product_group_id'">
+      <!-- All filters share one row (flex, equal widths); wraps only on narrow screens. -->
+      <div class="filters-line">
+        <div v-for="key in visibleFilterKeys" :key="key" class="filters-line__item">
+          <template v-if="key === 'kind'">
+            <div class="filter-label">{{ $t('Type_Product') }}</div>
+            <a-select
+              v-model:value="filters.kind" style="width: 100%" allow-clear
+              :placeholder="$t('All')" :options="kindOptions"
+              @change="crud.reload()"
+            />
+          </template>
+          <template v-else-if="key === 'product_group_id'">
             <div class="filter-label">{{ $t('GroupName') }}</div>
             <a-select
               v-model:value="filters.product_group_id" style="width: 100%" allow-clear show-search
@@ -70,9 +79,10 @@
               @change="crud.reload()"
             />
           </template>
-        </a-col>
-      </a-row>
+        </div>
+      </div>
       <div class="tb-bar">
+        <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
         <a-segmented v-model:value="view" :options="VIEW_OPTIONS" class="tb-view">
           <template #label="{ value, label }">
             <span class="seg-label">
@@ -308,6 +318,8 @@ import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import http from '../../lib/http';
 import { withAllOption, sortByLabel } from '../../lib/filterOptions';
+import { useFilterReset } from '../../composables/useFilterReset';
+import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { resolveImageUrl } from '../../lib/imagePath';
 import { t as tf } from '../../i18n';
 
@@ -317,7 +329,14 @@ const auth = useAuthStore();
 
 const filters = ref({
   code: '', name: '', category_id: undefined, brand_id: undefined, warehouse_id: undefined, product_group_id: undefined,
+  kind: undefined,
 });
+// Type Product filter: services vs. everything else (single, variable, combo).
+const kindOptions = computed(() => withAllOption(sortByLabel([
+  { value: 'product', label: t('Products') },
+  { value: 'service', label: t('Services') },
+])));
+const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => crud.reload());
 
 // "Customize Filters" (settings.datatable_filters, same idea as DataTable.vue's
 // "Customize Columns"): which of these filters a company shows, and in what
@@ -327,6 +346,7 @@ const {
   visibleFilterKeys, customizeOpen, customizeSaving, customizeRows,
   openCustomize, moveRow, saveCustomize, resetCustomize,
 } = useCustomizableFilters('products_filters', [
+  { key: 'kind', label: 'Type Product' },
   { key: 'product_group_id', label: 'Group Name' },
   { key: 'name', label: 'Product Name' },
   { key: 'code', label: 'Code' },
@@ -342,6 +362,7 @@ const filterParams = () => ({
   brand_id: filters.value.brand_id || '',
   warehouse_id: filters.value.warehouse_id || '',
   product_group_id: filters.value.product_group_id || '',
+  kind: filters.value.kind || '',
 });
 
 const crud = useCrudTable('products', {
@@ -381,9 +402,11 @@ const productGroupFilterOptions = computed(() =>
 // the backend's `name` filter is an exact match, so free text rarely found
 // anything anyway). Narrows to the selected group's names once one's picked.
 const productNameFilterOptions = computed(() => {
-  const inGroup = filters.value.product_group_id
-    ? allProductNames.value.filter(p => p.product_group_id === filters.value.product_group_id)
-    : allProductNames.value;
+  const kind = filters.value.kind;
+  const inGroup = allProductNames.value
+    .filter(p => !filters.value.product_group_id || p.product_group_id === filters.value.product_group_id)
+    // Product / Service filter: only names of that kind.
+    .filter(p => !kind || (kind === 'service') === (p.type === 'is_service'));
   const names = [...new Set(inGroup.map(p => p.name))];
 
   return withAllOption(sortByLabel(names.map(name => ({ value: name, label: name }))));
@@ -547,6 +570,16 @@ function duplicate(record) {
 
 <style scoped>
 /* ---------------- view switch ---------------- */
+.filters-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+.filters-line__item {
+  flex: 1 1 120px;
+  min-width: 0;
+}
 .tb-bar {
   display: flex;
   align-items: center;

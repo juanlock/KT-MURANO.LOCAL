@@ -23,7 +23,8 @@
           <!-- Basic information -->
           <a-card size="small" :title="$t('BasicInformation')" style="margin-bottom: 16px">
             <!-- Three fields per row on md+, stacked on mobile.
-                 Row 1: Type / Name / Group name -->
+                 Row 1: Type / Group name / Name -- pick the group first, then the
+                 Name box suggests the names already in that group. -->
             <a-row :gutter="16">
               <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('type')" name="type">
@@ -40,12 +41,6 @@
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item :label="$t('Name_product')" name="name">
-                  <a-input v-model:value="product.name" />
-                </a-form-item>
-              </a-col>
-
-              <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('GroupName')" name="group_name" required :help="$t('GroupName_Help')">
                   <a-select
                     v-model:value="product.group_name"
@@ -54,6 +49,22 @@
                     :placeholder="$t('GroupName_Placeholder')"
                     :options="productGroupOptions"
                     @search="onGroupNameSearch"
+                  />
+                </a-form-item>
+              </a-col>
+
+              <a-col :xs="24" :md="8">
+                <!-- Suggests the names already in the chosen group; any new name
+                     can be typed. Warns when the name is already used in that group. -->
+                <a-form-item
+                  :label="$t('Name_product')" name="name"
+                  :validate-status="nameInGroupExists ? 'warning' : ''"
+                  :help="nameInGroupExists ? $t('Name_Exists_In_Group') : $t('Name_In_Group_Help')"
+                >
+                  <a-auto-complete
+                    v-model:value="product.name" :options="groupNameSuggestions"
+                    :placeholder="product.group_name ? $t('Name_Pick_Or_Type') : $t('Name_Choose_Group_First')"
+                    :filter-option="(input, opt) => String(opt.value).toLowerCase().includes(String(input).toLowerCase())"
                   />
                 </a-form-item>
               </a-col>
@@ -303,6 +314,16 @@
           <!-- Inventory / dimensions -->
           <a-card size="small" :title="$t('Details')" style="margin-bottom: 16px">
             <a-row :gutter="16">
+              <!-- Services: appointment length, in 30-minute steps. The online
+                   booking form reserves (and blocks) this much time. -->
+              <a-col v-if="product.type === 'is_service'" :xs="24" :md="8">
+                <a-form-item :label="$t('Service_Duration')" :extra="$t('Service_Duration_Help')">
+                  <a-select
+                    v-model:value="product.service_duration" allow-clear
+                    :placeholder="$t('Not_Set')" :options="durationOptions" style="width: 100%"
+                  />
+                </a-form-item>
+              </a-col>
               <a-col :xs="12" :md="8">
                 <a-form-item :label="$t('StockAlert')">
                   <a-input-number v-model:value="product.stock_alert" :min="0" style="width: 100%" />
@@ -635,6 +656,8 @@
           <a-card size="small" :title="$t('Status')" style="margin-bottom: 16px">
             <a-space direction="vertical" size="small" style="width: 100%">
               <a-checkbox v-model:checked="product.is_active">{{ $t('Active') }}</a-checkbox>
+              <!-- Public "Make an appointment" form (/book) -- it lists services only. -->
+              <a-checkbox v-model:checked="product.show_on_booking_form">{{ $t('Show_On_Booking_Form') }}</a-checkbox>
               <a-checkbox v-model:checked="product.not_selling">{{ $t('This_Product_Not_For_Selling') }}</a-checkbox>
               <a-checkbox v-if="showSerialTracking && product.type === 'is_single'" v-model:checked="product.is_imei">
                 {{ $t('Track_Serial_IMEI') }}
@@ -804,6 +827,7 @@ import ProductScanModal from '../../components/ProductScanModal.vue';
 import http from '../../lib/http';
 import { barcodeValueError, generateBarcodeValue } from '../../lib/barcodeSymbology';
 import { resolveImageUrl } from '../../lib/imagePath';
+import { sortByLabel } from '../../lib/filterOptions';
 import { useAuthStore } from '../../stores/auth';
 
 const { t } = useI18n();
@@ -824,13 +848,31 @@ const productGroups = ref([]);
 const groupNameSearch = ref('');
 function onGroupNameSearch(val) { groupNameSearch.value = val; }
 const productGroupOptions = computed(() => {
-  const base = productGroups.value.map(g => ({ value: g.name, label: g.name }));
+  const base = sortByLabel(productGroups.value.map(g => ({ value: g.name, label: g.name })));
   const search = (groupNameSearch.value || '').trim();
   const exists = search && base.some(o => o.value.toLowerCase() === search.toLowerCase());
   if (search && !exists) {
     base.push({ value: search, label: `${t('Create_new_group')}: "${search}"` });
   }
   return base;
+});
+// Name suggestions: products already in the chosen Group Name (same
+// GET product-groups payload the Products list uses: {product_groups, products}).
+const groupProducts = ref([]);
+const chosenGroupId = computed(() => {
+  const name = (product.value.group_name || '').trim().toLowerCase();
+  return productGroups.value.find(g => g.name.toLowerCase() === name)?.id || null;
+});
+const groupNameSuggestions = computed(() => {
+  if (!chosenGroupId.value) return [];
+  const names = groupProducts.value
+    .filter(p => p.product_group_id === chosenGroupId.value && p.id !== Number(id.value))
+    .map(p => p.name);
+  return sortByLabel([...new Set(names)].map(n => ({ value: n, label: n })));
+});
+const nameInGroupExists = computed(() => {
+  const n = (product.value.name || '').trim().toLowerCase();
+  return !!n && groupNameSuggestions.value.some(o => o.value.toLowerCase() === n);
 });
 const subcategories = ref([]);
 const brands = ref([]);
@@ -923,7 +965,8 @@ const product = ref({
   // main image); there is no separate main-image picker in either UI
   image: '',
   note: '',
-  is_variant: false, is_imei: false, not_selling: false, is_active: true,
+  is_variant: false, is_imei: false, not_selling: false, is_active: true, show_on_booking_form: true,
+  service_duration: null,
   is_featured: false, hide_from_online_store: false, is_returnable: true,
   is_classified: false,
   is_preorder: false, preorder_always: false, preorder_available_date: '',
@@ -999,6 +1042,14 @@ const priceTierColumns = computed(() => [
   { title: t('Price_Per_Piece'), key: 'price', width: 150 },
   { title: '', key: 'action', width: 60 },
 ]);
+
+// Service duration choices: 30 min .. 10 h in 30-minute steps ("1 h 30 min").
+const durationOptions = computed(() => Array.from({ length: 20 }, (_, i) => {
+  const m = (i + 1) * 30;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return { value: m, label: [h ? `${h} h` : '', rest ? `${rest} min` : ''].filter(Boolean).join(' ') };
+}));
 
 const rules = computed(() => ({
   type: [{ required: true, message: t('Field_is_required') }],
@@ -1476,7 +1527,10 @@ function indexLocations(list) {
 
 onMounted(async () => {
   http.get('product-groups')
-    .then(data => { productGroups.value = data.product_groups || []; })
+    .then(data => {
+      productGroups.value = data.product_groups || [];
+      groupProducts.value = data.products || [];
+    })
     .catch(() => {});
 
   try {
