@@ -7,7 +7,11 @@
 .env
 /node_modules
 
-/bootstrap/cache
+# bootstrap/cache: the folder itself is kept (Laravel needs it to exist) via
+# bootstrap/cache/.gitignore; its generated files (config.php holds APP_KEY
+# and passwords from .env) are never committed.
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
 
 /storage/framework/sessions
 /storage/framework/views
