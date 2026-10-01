@@ -1,0 +1,78 @@
+{
+    "Products": {
+        "en": "Products",
+        "es": "Productos"
+    },
+    "productsList": {
+        "en": "All Products",
+        "es": "lista de productos"
+    },
+    "TotalProducts": {
+        "en": "Total Products",
+        "es": "Productos totales"
+    },
+    "product_report": {
+        "en": "Products report",
+        "es": "informe de producto"
+    },
+    "Products_Sold": {
+        "en": "Products sold",
+        "es": "Productos vendidos"
+    },
+    "products_sold_summary": {
+        "en": "Products Sold Summary",
+        "es": "Resumen de productos vendidos"
+    },
+    "Zero_Sales_Products_Report": {
+        "en": "Zero Sales Products Report",
+        "es": "Informe de productos sin ventas"
+    },
+    "Top_Selling_Products": {
+        "en": "Top Selling Products",
+        "es": "Productos más vendidos"
+    },
+    "Top5Products": {
+        "en": "Top 5 Products",
+        "es": "Los 5 mejores productos"
+    },
+    "Top_Products_by_Month": {
+        "en": "Top Products by Month",
+        "es": "Productos Principales por Mes"
+    },
+    "Top_Products_Chart": {
+        "en": "Top Products (Chart)",
+        "es": "Mejores productos (gráfico)"
+    },
+    "Top_Profit_Products": {
+        "en": "Top Profit Products",
+        "es": "Productos más rentables"
+    },
+    "Top_Profit_Products_Top_15_Chart": {
+        "en": "Top Profit Products (Top 15 Chart)",
+        "es": "Productos más rentables (gráfico top 15)"
+    },
+    "Top_Revenue_Products": {
+        "en": "Top Revenue Products",
+        "es": "Productos con más ingresos"
+    },
+    "Revenue_vs_Profit_Top_Products": {
+        "en": "Revenue vs Profit (Top Products)",
+        "es": "Ingresos frente a beneficio (mejores productos)"
+    },
+    "Dashboard_Chart_Top_Selling": {
+        "en": "Top Selling Products chart",
+        "es": "Gráfico de Productos Más Vendidos"
+    },
+    "Selected_Products": {
+        "en": "Selected Products",
+        "es": "Productos seleccionados"
+    },
+    "pos.Available_Products": {
+        "en": "Available Products",
+        "es": "Productos Disponibles"
+    },
+    "No_Vehicle_Catalog_Hint": {
+        "en": "No vehicle makes defined yet — create them under Products → Vehicle Fitment first.",
+        "es": "Todavía no hay marcas de vehículo definidas: créalas primero en Productos → Compatibilidad de vehículos."
+    }
+}

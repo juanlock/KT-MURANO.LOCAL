@@ -1,0 +1,262 @@
+{
+    "Access_Warehouses": {
+        "en": "Access Warehouses",
+        "es": "Acceso a almacenes"
+    },
+    "All_Warehouses": {
+        "en": "All Warehouses",
+        "es": "Todos los Almacenes"
+    },
+    "AllWarehouses": {
+        "en": "All Warehouses",
+        "es": "Todos los Almacenes"
+    },
+    "Assigned_warehouses": {
+        "en": "Access warehouses",
+        "es": "Almacenes asignados"
+    },
+    "Batch_Qty_Edit_Hint": {
+        "en": "Changing quantity will adjust warehouse on-hand stock by the difference.",
+        "es": "Cambiar la cantidad ajustará el stock disponible del almacén según la diferencia."
+    },
+    "By_Warehouse": {
+        "en": "By warehouse",
+        "es": "Por almacén"
+    },
+    "ChangeWarehouse": {
+        "en": "Change warehouse",
+        "es": "Cambiar almacén"
+    },
+    "Choose_Warehouse": {
+        "en": "Choose Warehouse",
+        "es": "Elija Almacén"
+    },
+    "ChooseWarehouse": {
+        "en": "Choose Warehouse",
+        "es": "Elija Almacén"
+    },
+    "DefaultWarehouse": {
+        "en": "Default Warehouse",
+        "es": "Almacén predeterminado"
+    },
+    "Enter_City_Warehouse": {
+        "en": "Enter Warehouse City",
+        "es": "Ingrese la ciudad del almacén"
+    },
+    "Enter_Country_Warehouse": {
+        "en": "Enter Warehouse Country",
+        "es": "Ingrese el país del almacén"
+    },
+    "Enter_Email_Warehouse": {
+        "en": "Enter Warehouse Email",
+        "es": "Ingrese el correo electrónico del almacén"
+    },
+    "Enter_Name_Warehouse": {
+        "en": "Enter Warehouse Name",
+        "es": "Ingrese el nombre del almacén"
+    },
+    "Enter_Phone_Warehouse": {
+        "en": "Enter Warehouse Phone",
+        "es": "Ingrese el teléfono del almacén"
+    },
+    "Enter_ZipCode_Warehouse": {
+        "en": "Enter Warehouse Zip Code",
+        "es": "Ingrese el código postal del almacén"
+    },
+    "Filter_by_warehouse": {
+        "en": "Filter by warehouse",
+        "es": "Filtrar por almacén"
+    },
+    "FromWarehouse": {
+        "en": "From Warehouse",
+        "es": "De almacén"
+    },
+    "ManagementWarehouse": {
+        "en": "Warehouse Management",
+        "es": "Gestion de almacenes"
+    },
+    "No_Batches_Available": {
+        "en": "No available batches for this product in the selected warehouse",
+        "es": "No hay lotes disponibles para este producto en el almacén seleccionado"
+    },
+    "No_Serials_Available": {
+        "en": "No serial numbers available in stock for this product \/ warehouse.",
+        "es": "No hay números de serie disponibles en stock para este producto \/ almacén."
+    },
+    "No_Warehouse": {
+        "en": "No warehouse",
+        "es": "Sin almacén"
+    },
+    "No_Warehouses": {
+        "en": "No warehouses available",
+        "es": "No hay almacenes disponibles"
+    },
+    "NoStoreWarehouses": {
+        "en": "No warehouse is enabled for the online store yet.",
+        "es": "Aún no hay ningún almacén activado para la tienda en línea."
+    },
+    "Opening_Batch_Help": {
+        "en": "This product has stock that is not assigned to any batch (from purchases made before batch tracking was enabled). Assign it to opening batches with expiry dates so it can be sold with batch tracking. Warehouse stock is not changed.",
+        "es": "Este producto tiene stock que no está asignado a ningún lote (de compras realizadas antes de habilitar el seguimiento por lotes). Asígnalo a lotes iniciales con fechas de caducidad para que pueda venderse con seguimiento por lotes. El stock del almacén no se modifica."
+    },
+    "Ord_Guide_Lifecycle_Confirmed": {
+        "en": "You accepted the order. KcolTech - Murano creates a Sale in the warehouse you picked and deducts the stock — that sale is the record your stock, payment and profit reports read from.",
+        "es": "Has aceptado el pedido. KcolTech - Murano crea una venta en el almacén que elegiste y descuenta el stock; esa venta es el registro del que se alimentan tus informes de stock, pagos y beneficios."
+    },
+    "Ord_Guide_Note_Warehouse": {
+        "en": "The warehouse you pick when confirming decides where the stock is taken from. Warehouses that cannot cover the whole order are marked Out of Stock in that list.",
+        "es": "El almacén que eliges al confirmar decide de dónde se toma el stock. Los almacenes que no pueden cubrir todo el pedido aparecen marcados como Sin stock en esa lista."
+    },
+    "Please_select_warehouse": {
+        "en": "Please select a warehouse",
+        "es": "Selecciona un almacén"
+    },
+    "PleaseSelectWarehouse": {
+        "en": "Please Select warehouse before choose any product",
+        "es": "Seleccione almacén antes de elegir cualquier producto"
+    },
+    "Profit by Warehouse": {
+        "en": "Profit by Warehouse",
+        "es": "Beneficio por almacén"
+    },
+    "Sales_by_Month_and_Warehouse": {
+        "en": "Sales by Month and Warehouse",
+        "es": "Ventas por Mes y Almacén"
+    },
+    "Search_quotations_ph": {
+        "en": "Search quotations (Ref, status, warehouse, customer)",
+        "es": "Buscar cotizaciones (Ref., estado, almacén, cliente)"
+    },
+    "Search_returns_ph": {
+        "en": "Search returns (Ref, status, payment status, sale ref, warehouse)",
+        "es": "Buscar devoluciones (Ref., estado, estado de pago, ref. de venta, almacén)"
+    },
+    "Search_sales_ph": {
+        "en": "Search sales (Ref, status, payment status, warehouse, customer)",
+        "es": "Buscar ventas (Ref., estado, estado de pago, almacén, cliente)"
+    },
+    "Search_Warehouses": {
+        "en": "Search warehouses…",
+        "es": "Buscar almacenes…"
+    },
+    "Select_Warehouse": {
+        "en": "Select Warehouse",
+        "es": "Seleccionar Almacén"
+    },
+    "SelectWarehouse": {
+        "en": "Please Select warehouse",
+        "es": "Por favor seleccione almacén"
+    },
+    "SendToWarehouse": {
+        "en": "Send to warehouse",
+        "es": "Enviar al almacén"
+    },
+    "Show_Warehouse": {
+        "en": "Show warehouse",
+        "es": "ver almacén"
+    },
+    "Some_warehouses": {
+        "en": "Some Warehouses",
+        "es": "algunos almacenes"
+    },
+    "Stock_Valuation_Hint": {
+        "en": "Valuations are computed for the selected warehouse.",
+        "es": "Las valoraciones se calculan para el almacén seleccionado."
+    },
+    "ToWarehouse": {
+        "en": "To Warehouse",
+        "es": "Al almacén"
+    },
+    "Value_By_Warehouse": {
+        "en": "Asset value by warehouse",
+        "es": "Valor de los activos por almacén"
+    },
+    "warehouse": {
+        "en": "Warehouse",
+        "es": "Almacén"
+    },
+    "Warehouse_Access": {
+        "en": "Warehouse Access",
+        "es": "Acceso a almacenes"
+    },
+    "Warehouse_Location": {
+        "en": "Warehouse Location",
+        "es": null
+    },
+    "Warehouse_Location_Optional_Hint": {
+        "en": "Warehouse Location (Optional): This field helps you identify the physical position of the product in the warehouse (Rack \/ Shelf \/ Zone \/ Bin). It’s for reference and faster picking during inventory checks. Stock is still tracked by warehouse, not by location.",
+        "es": null
+    },
+    "Warehouse_Locations": {
+        "en": "Warehouse Locations",
+        "es": "Ubicaciones de almacén"
+    },
+    "Location_Name": {
+        "en": "Location Name",
+        "es": null
+    },
+    "Enter_Location_Name": {
+        "en": "Enter Location Name",
+        "es": null
+    },
+    "Rack_Location_Code": {
+        "en": "Rack\/Location Code",
+        "es": null
+    },
+    "Enter_Rack_Location_Code": {
+        "en": "Enter Rack\/Location Code",
+        "es": null
+    },
+    "Internal_Location_Rack_Shelf": {
+        "en": "Internal Location (Rack\/Shelf)",
+        "es": "Ubicación interna (estantería\/balda)"
+    },
+    "Internal_Location_Report": {
+        "en": "Internal Location Report",
+        "es": "Informe de ubicaciones internas"
+    },
+    "Warehouse_Locations_Tab_Help": {
+        "en": "Define rack \/ shelf locations inside each warehouse (e.g. Aisle 2 – Rack B). Assign them to products to show where items are physically stored.",
+        "es": "Defina ubicaciones de estantería dentro de cada almacén (p. ej. Pasillo 2 – Estante B). Asígnelas a los productos para indicar dónde se guardan físicamente los artículos."
+    },
+    "Warehouse_report": {
+        "en": "Warehouses report",
+        "es": "Informe de almacén"
+    },
+    "Warehouse_Stock": {
+        "en": "Warehouse Stock",
+        "es": "Stock del Almacén"
+    },
+    "Warehouse_Variants_Stock": {
+        "en": "Warehouse Variants Stock",
+        "es": "Stock de Variantes del Almacén"
+    },
+    "WarehouseIdentical": {
+        "en": "The two warehouses cannot be identical !!",
+        "es": "Los almacenes no pueden ser iguales"
+    },
+    "Warehouses": {
+        "en": "warehouses",
+        "es": "almacenes"
+    },
+    "Warehouses_Affected": {
+        "en": "warehouses affected",
+        "es": "almacenes afectados"
+    },
+    "Warehouses_By_Profit": {
+        "en": "Warehouses by profit",
+        "es": "Almacenes por beneficio"
+    },
+    "Warehouses_Tab_Help": {
+        "en": "Manage your warehouses (stores\/branches). Each warehouse holds its own stock, and every document — sales, purchases, transfers, adjustments — is recorded against one of them.",
+        "es": "Gestione sus almacenes (tiendas\/sucursales). Cada almacén tiene su propio stock, y cada documento — ventas, compras, transferencias, ajustes — se registra en uno de ellos."
+    },
+    "WarehouseStockChart": {
+        "en": "Warehouse Stock Chart",
+        "es": "Gráfico de acciones de almacén"
+    },
+    "Write_Off_Confirm": {
+        "en": "This will zero-out batch {batch} ({product}) and decrement warehouse stock by {qty}. Continue?",
+        "es": "Esto pondrá a cero el lote {batch} ({product}) y reducirá el stock del almacén en {qty}. ¿Continuar?"
+    }
+}

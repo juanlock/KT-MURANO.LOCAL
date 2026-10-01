@@ -1,0 +1,206 @@
+{
+    "AddProduct": {
+        "en": "Create product",
+        "es": "Añadir Producto"
+    },
+    "Add_Product": {
+        "en": "Add product",
+        "es": "Añadir producto"
+    },
+    "EditProduct": {
+        "en": "Edit Product",
+        "es": "Editar producto"
+    },
+    "UpdateProduct": {
+        "en": "Update Product",
+        "es": "Actualizar producto"
+    },
+    "Save_Product": {
+        "en": "Save Product",
+        "es": "Guardar Producto"
+    },
+    "Quick_Add_Product": {
+        "en": "Quick Add Product",
+        "es": null
+    },
+    "ProductDetails": {
+        "en": "Product Details",
+        "es": "Detalles de producto"
+    },
+    "ProductSummary": {
+        "en": "Product Summary",
+        "es": "Resumen del Producto"
+    },
+    "ProductManagement": {
+        "en": "Product Management",
+        "es": "Gestion de producto"
+    },
+    "import_products": {
+        "en": "Import products",
+        "es": "Importar productos"
+    },
+    "Product": {
+        "en": "Product",
+        "es": "Producto"
+    },
+    "pdf.product": {
+        "en": "Product",
+        "es": "Producto"
+    },
+    "ProductName": {
+        "en": "Product Name",
+        "es": "Nombre del Producto"
+    },
+    "product_name": {
+        "en": "Product Name",
+        "es": "Nombre del Producto"
+    },
+    "Enter_Name_Product": {
+        "en": "Enter Name Product",
+        "es": "Ingrese el nombre del producto"
+    },
+    "Product_Code": {
+        "en": "Product Code",
+        "es": "Código del Producto"
+    },
+    "CodeProduct": {
+        "en": "Code Product",
+        "es": "Código de producto"
+    },
+    "Enter_Product_Code": {
+        "en": "Enter Product Code",
+        "es": "Ingrese el código del producto"
+    },
+    "ProductCodeName": {
+        "en": "Product (Code - Name)",
+        "es": "Producto (Código - Nombre)"
+    },
+    "Product_ID": {
+        "en": "Product ID",
+        "es": "ID del Producto"
+    },
+    "ProductPrice": {
+        "en": "Product Price",
+        "es": "Precio del producto"
+    },
+    "Enter_Product_Price": {
+        "en": "Enter Product Price",
+        "es": "Ingrese el precio del producto"
+    },
+    "ProductCost": {
+        "en": "Product Cost",
+        "es": "Costo del producto"
+    },
+    "Product_Cost": {
+        "en": "Product Cost",
+        "es": "Costo del producto"
+    },
+    "Enter_Product_Cost": {
+        "en": "Enter Product Cost",
+        "es": "Ingrese el costo del producto"
+    },
+    "ProductTax": {
+        "en": "Product Tax",
+        "es": "Impuesto de producto"
+    },
+    "TotalProductTax": {
+        "en": "Total Product Tax",
+        "es": null
+    },
+    "ProductImage": {
+        "en": "Product Image",
+        "es": "Imagen del Producto"
+    },
+    "Product_Description": {
+        "en": "Product Description",
+        "es": null
+    },
+    "SearchProduct": {
+        "en": "Search Product",
+        "es": "Buscar Producto"
+    },
+    "Search_product": {
+        "en": "Search product",
+        "es": "Buscar producto"
+    },
+    "Search_Product_by_Code_Name": {
+        "en": "Search Product by code or name",
+        "es": "Buscar producto por código o nombre"
+    },
+    "Scan_Search_Product_by_Code_Name": {
+        "en": "Scan\/Search Product by Code Or Name",
+        "es": "Escanear \/ Buscar producto por nombre de código"
+    },
+    "SelectProduct": {
+        "en": "Select Product",
+        "es": "Seleccionar producto"
+    },
+    "Choose_Product": {
+        "en": "Choose Product",
+        "es": "Elegir producto"
+    },
+    "ChooseProduct": {
+        "en": "Choose Product",
+        "es": "Elegir producto"
+    },
+    "AddProductToList": {
+        "en": "Please Add Product To List !!",
+        "es": "Agregue un producto a la lista"
+    },
+    "AlreadyAdd": {
+        "en": "This Product Already Added !!",
+        "es": "Este producto ya ha sido agregado"
+    },
+    "Product_Not_Found": {
+        "en": "Product Not Found",
+        "es": "Producto No Encontrado"
+    },
+    "Product_not_available": {
+        "en": "Product not available",
+        "es": null
+    },
+    "Product_name_minimum_3_characters": {
+        "en": "Product name minimum 3 characters",
+        "es": "El nombre del producto debe tener al menos 3 caracteres"
+    },
+    "ProductHasPromotion": {
+        "en": "Product Has Promotion",
+        "es": "El producto tiene promoción"
+    },
+    "This_Product_Not_For_Selling": {
+        "en": "This Product Not For Selling",
+        "es": "Este producto no para la venta"
+    },
+    "By Product": {
+        "en": "By Product",
+        "es": "Por producto"
+    },
+    "By_Product": {
+        "en": "By Product",
+        "es": "Por producto"
+    },
+    "Profit by Product": {
+        "en": "Profit by Product",
+        "es": "Beneficio por producto"
+    },
+    "product_sales_report": {
+        "en": "Product sales report",
+        "es": "informe de ventas de productos"
+    },
+    "Product_Performance_Table": {
+        "en": "Product Performance Table",
+        "es": "Tabla de rendimiento de productos"
+    },
+    "Show_Product_Discount": {
+        "en": "Show Product Discount",
+        "es": "Mostrar Descuento del Producto"
+    },
+    "Show_Product_Tax": {
+        "en": "Show Product Tax",
+        "es": null
+    },
+    "Show_Product_Images_in_POS": {
+        "en": "Show Product Images in POS",
+        "es": "Mostrar imágenes de productos en el POS"
+    }
+}
