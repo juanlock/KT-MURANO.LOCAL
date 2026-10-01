@@ -30,7 +30,10 @@
     @endphp
     <style>
         @page { size: A4; margin: {{ $pdfT['margin_v'] }}mm {{ $pdfT['margin_h'] }}mm; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* Reset body content only: dompdf applies the page margin above through the root html
+           element, so a bare * (or html) margin reset zeroed Settings -> Invoice PDF -> Top/bottom
+           and Left/right margin. */
+        body, body * { margin: 0; padding: 0; box-sizing: border-box; }
         body, body * { font-family: '{{ $pdfT['font_family'] }}', sans-serif !important; }
         body { font-size: {{ $pdfT['font_size'] }}pt; color: {{ $pdfT['text_color'] }}; background: {{ $pdfT['background_color'] }}; line-height: 1.4; padding: 15px 20px; max-width: 100%; }
         body.rtl { direction: rtl; text-align: right; }

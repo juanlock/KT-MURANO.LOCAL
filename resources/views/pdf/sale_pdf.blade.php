@@ -53,7 +53,10 @@
     @endphp
     <style>
         @page { size: A4; margin: {{ $pdfT['margin_v'] }}mm {{ $pdfT['margin_h'] }}mm; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* Reset body content only: dompdf applies the page margin above through the root html
+           element, so a bare * (or html) margin reset zeroed Settings -> Invoice PDF -> Top/bottom
+           and Left/right margin. */
+        body, body * { margin: 0; padding: 0; box-sizing: border-box; }
         /* DejaVu Sans has full Arabic support in DomPDF; avoid Arial/sans-serif fallback which can show ???? for Arabic */
         body, body * { 
             font-family: '{{ $pdfT['font_family'] }}', sans-serif !important; 

@@ -31,7 +31,14 @@ export const useCompanyStore = defineStore('company', {
     },
     actions: {
         async load() {
-            if (this.loaded || !this.isSuperAdmin) return;
+            // Not a SuperAdmin: drop any acting company left in this browser by an
+            // earlier SuperAdmin session (e.g. AdminSystem/999) -- an Admin always
+            // acts as their own company and never has a selector.
+            if (!this.isSuperAdmin) {
+                if (this.actingCompanyId) this.setCompany(null);
+                return;
+            }
+            if (this.loaded) return;
             this.loaded = true;
 
             try {

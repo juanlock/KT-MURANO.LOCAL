@@ -70,6 +70,67 @@ class BookingNotifier
     }
 
     /**
+     * A booking was registered by staff (Create Booking / calendar) or
+     * confirmed: every active admin of the company gets the booking details
+     * and a link to it. ($event: 'created' | 'confirmed'.) Online-form
+     * bookings use publicBookingCreated() instead; completion uses
+     * bookingCompleted() (sent with the invoice).
+     *
+     * @return array<string> admin emails it was sent to
+     */
+    public static function bookingEvent(int $companyId, int $bookingId, string $event, ?string $byName = null, ?Mailer $mailer = null): array
+    {
+        $b = \App\Models\Booking::with(['customer', 'product', 'tray', 'salesPerson'])->find($bookingId);
+        if (! $b || ! in_array($event, ['created', 'confirmed'], true)) {
+            return [];
+        }
+        $co = DB::table('companies')->where('id', $companyId)->first(['name']);
+        $settings = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['CompanyName', 'currency_id']);
+        $company = trim((string) ($co->name ?? '')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Bookings');
+        $sym = ($settings && $settings->currency_id) ? (string) DB::table('currencies')->where('id', $settings->currency_id)->value('symbol') : '$';
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer();
+
+        $sp = $b->salesPerson;
+        $staff = $sp ? (trim(($sp->firstname ?? '').' '.($sp->lastname ?? '')) ?: $sp->username) : '-';
+        $date = $b->booking_date ? \Carbon\Carbon::parse($b->booking_date)->format('l, F j, Y') : '';
+        $time = substr((string) $b->booking_time, 0, 5).($b->booking_end_time ? ' - '.substr((string) $b->booking_end_time, 0, 5) : '');
+        $service = optional($b->product)->name ?: ($b->product_name ?: '-');
+        $customer = $b->customer;
+
+        $rows = [
+            'Booking' => $b->Ref,
+            'Status' => ucfirst((string) $b->status),
+            'Customer' => optional($customer)->name ?: '-',
+            'Email' => optional($customer)->email ?: '-',
+            'Phone' => optional($customer)->phone ?: '-',
+            'Service' => $service,
+            'Date' => trim($date.', '.$time, ', '),
+            'Price' => $b->price !== null ? $sym.number_format((float) $b->price, 2) : '-',
+            'Staff' => $staff,
+            'Station' => optional($b->tray)->name ?: '-',
+        ] + ($b->notes ? ['Notes' => $b->notes] : []) + ($byName ? [$event === 'created' ? 'Registered by' : 'Confirmed by' => $byName] : []);
+
+        [$subjectStart, $intro] = $event === 'created'
+            ? ['New booking', 'A new appointment was registered.']
+            : ['Booking confirmed', 'An appointment was confirmed.'];
+        $link = url('/next/bookings/'.$b->id.'/edit');
+
+        $admins = DB::table('users')->where('company_id', $companyId)->whereNull('deleted_at')
+            ->where('type', 'admin')->where('statut', 1)->whereNotNull('email')->get(['email', 'firstname', 'lastname', 'username']);
+        $sent = [];
+        foreach ($admins as $a) {
+            $ok = self::deliver($mailer, $from, $company, $a->email, trim($a->firstname.' '.$a->lastname) ?: $a->username,
+                "{$subjectStart} - {$b->Ref} - {$service} - ".trim($date.' '.substr((string) $b->booking_time, 0, 5)),
+                $intro, $rows, "Open the booking: {$link}", optional($customer)->email ?: null, $link);
+            if ($ok) {
+                $sent[] = $a->email;
+            }
+        }
+
+        return $sent;
+    }
+
+    /**
      * A booking was completed and invoiced: every active admin of the company
      * gets the transaction report (customer, service, date/time, staff,
      * station, location, invoice, amount and payment).

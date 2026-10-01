@@ -54,6 +54,7 @@
             <BookingWhenFields
               v-model:date="edit.booking_date" v-model:start="edit.booking_time" v-model:end="edit.booking_end_time"
               :duration="Number(selectedService?.service_duration) || 0"
+              :exclude-id="edit.id" :customer-id="edit.customer_id"
             />
             <a-row :gutter="12">
               <a-col :xs="24" :md="12">

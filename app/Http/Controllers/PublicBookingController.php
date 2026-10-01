@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Services\FrontPage;
+use App\Support\BookingAvailability;
 use App\Support\CompanyDomain;
 use App\Support\ModuleFlags;
 use Carbon\Carbon;
@@ -89,26 +90,10 @@ class PublicBookingController extends Controller
             ]);
     }
 
-    /**
-     * Most bookings running at the same moment inside [from, to). Checked at
-     * `from` and at every booking start inside the window -- the only points
-     * where the count can go up. (Same logic as maxConcurrent() in the form's JS.)
-     * @param  array<int, array{0: int, 1: int}>  $intervals
-     */
+    /** See App\Support\BookingAvailability::maxConcurrent(). */
     private static function maxConcurrent(array $intervals, int $from, int $to): int
     {
-        $points = [$from];
-        foreach ($intervals as [$s]) {
-            if ($s > $from && $s < $to) {
-                $points[] = $s;
-            }
-        }
-        $max = 0;
-        foreach ($points as $p) {
-            $max = max($max, count(array_filter($intervals, fn ($b) => $b[0] <= $p && $b[1] > $p)));
-        }
-
-        return $max;
+        return BookingAvailability::maxConcurrent($intervals, $from, $to);
     }
 
     /** Minutes a booking of this service takes (60 when the service has no duration). */
@@ -126,25 +111,9 @@ class PublicBookingController extends Controller
      */
     private function busy(int $cid, ?string $onlyDate = null, bool $lock = false): array
     {
-        $q = DB::table('bookings')->whereNull('deleted_at')->where('status', '!=', 'cancelled')
-            ->whereIn('customer_id', DB::table('clients')->where('company_id', $cid)->select('id'))
-            ->when($onlyDate, fn ($q) => $q->where('booking_date', $onlyDate),
-                fn ($q) => $q->whereBetween('booking_date', [now()->toDateString(), now()->addYear()->toDateString()]));
-        if ($lock) {
-            $q->lockForUpdate();
-        }
-        $toMin = fn (?string $t) => $t ? ((int) substr($t, 0, 2)) * 60 + (int) substr($t, 3, 2) : null;
-        $out = [];
-        foreach ($q->get(['booking_date', 'booking_time', 'booking_end_time']) as $b) {
-            $s = $toMin($b->booking_time);
-            if ($s === null) {
-                continue;
-            }
-            $e = $toMin($b->booking_end_time);
-            $out[substr((string) $b->booking_date, 0, 10)][] = [$s, $e !== null && $e > $s ? $e : $s + 60];
-        }
-
-        return $out;
+        return $onlyDate
+            ? BookingAvailability::busy($cid, $onlyDate, $onlyDate, null, $lock)
+            : BookingAvailability::busy($cid, now()->toDateString(), now()->addYear()->toDateString(), null, $lock);
     }
 
     /**
@@ -154,23 +123,7 @@ class PublicBookingController extends Controller
      */
     private function hours(int $cid): array
     {
-        $s = DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')
-            ->first(['booking_open_time', 'booking_close_time', 'booking_slot_minutes', 'booking_closed_days', 'booking_capacity']);
-        $open = $s->booking_open_time ?? null ?: '09:00';
-        $close = $s->booking_close_time ?? null ?: '19:00';
-        if ($close <= $open) { // misconfigured -> fall back to the defaults
-            [$open, $close] = ['09:00', '19:00'];
-        }
-
-        return [
-            'open' => $open,
-            'close' => $close,
-            'slot' => in_array((int) ($s->booking_slot_minutes ?? 30), [15, 30, 45, 60], true) ? (int) $s->booking_slot_minutes : 30,
-            'closed' => collect(explode(',', (string) ($s->booking_closed_days ?? '')))
-                ->filter(fn ($d) => $d !== '' && ctype_digit($d))->map(fn ($d) => (int) $d)->values()->all(),
-            // Settings -> Defaults -> Booking -> Appointments at the same time
-            'capacity' => max(1, (int) ($s->booking_capacity ?? 1)),
-        ];
+        return BookingAvailability::hours($cid);
     }
 
     private function staff(int $cid)

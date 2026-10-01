@@ -19,7 +19,7 @@
 </head>
 <body>
   <h1>KT-Murano -- Daily report -- 2026-09-30</h1>
-  <div class="meta">Generated 2026-09-30 9:23 PM on KT-THUNDERA -- 37 request(s) logged on 2026-09-30</div>
+  <div class="meta">Generated 2026-09-30 10:40 PM on KTOPTIMUM_NB -- 43 request(s) logged on 2026-09-30</div>
   <div class="card">
   <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
   <div class="row"><span class="label">Request</span><span>Explained what Protocol Preparate does (rules, history, log catch-up, status card).</span></div>
@@ -386,6 +386,68 @@ pos-compat/priceFormat.js getPriceDecimals: signed-in company&#039;s user.price_
   <div class="row"><span class="label">Company</span><span>N/A</span></div>
   <div class="block"><div class="label">Changes Made</div><div class="text">No code changes; end-of-session close-out (A Dormir).</div></div>
   <div class="block"><div class="label">Actions</div><div class="text">Checked the protocol definitions; AskUserQuestion; ran A Dormir.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Preparate (Home): up to date at 25f35ed, build OK, 308 log rows read, #312 caught up, status card opened.</span></div>
+  <div class="row"><span class="label">Source</span><span>juanlock@hotmail.com &middot; Home &middot; 2026-09-30 21:48</span></div>
+  <div class="row"><span class="label">Category</span><span>tooling</span></div>
+  <div class="row"><span class="label">Company</span><span>N/A</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">kt_logs: #312 (A Dormir 2026-09-29, Home) and this row added.
+Report: KT-TOOLS/Report/kt_murano_preparate_2026-09-30.html (last 2 rows).
+Build output regenerated (public/js). No code or schema changes.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Found git (GitHub Desktop app-3.6.6); git status (only INV_3603.pdf modified, generated). git pull --no-rebase origin main -&gt; could not read Username; git merge --ff-only origin/main -&gt; Already up to date; reported FETCH_HEAD time. Checked 90ec7717f is an ancestor of origin/main and listed commits/migrations since it; php artisan migrate:status (none pending). php artisan optimize:clear; npm run build. Ran protocol_preparate_history.php; inserted kt_logs #312 (A Dormir 2026-09-29) via scratch script; ran protocol_preparate_report.php and opened the HTML with Start-Process.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Invoice PDF live preview no longer blocked as &quot;Unsafe input&quot; (nested Terms field exempted like the saved one).</span></div>
+  <div class="row"><span class="label">Source</span><span>juanlock@hotmail.com &middot; Home &middot; 2026-09-30 21:50</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>All (verified companies 999, 1, 2, 3, 1003)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">RequestSafety::$excludePaths: + &#039;$.company.sale_pdf_terms_conditions&#039; (the Invoice PDF preview&#039;s nested copy of the Terms &amp; Conditions text, which legitimately contains {{COMPANY NAME}} / {{ADDRESS COMPANY}} placeholders). All other fields, including the rest of the preview body, are still scanned.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Grepped the message (RequestSafety middleware); read its patterns and excludePaths. Found the preview route (POST pdf_templates/{type}/preview -&gt; PdfTemplateController@preview) and the request body built in resources/src/pages/settings/InvoicePdfSettings.vue (refreshPreview: { ...form, company }); save uses PUT pdf_company_settings with top-level fields. Added &#039;$.company.sale_pdf_terms_conditions&#039; to RequestSafety::$excludePaths. Test script safetytest.php: for each settings company, built the preview body from PdfTemplate::settingsFor(&#039;sale&#039;) + PdfTemplateController::companyValues() (via reflection) and ran RequestSafety::handle; ran it with the fix and with the line temporarily removed (restored afterwards), plus a &lt;script&gt; payload in sale_pdf_company_note.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Invoice/quotation/purchase PDF margins now follow Settings -&gt; Invoice PDF (a CSS reset was zeroing the page margin).</span></div>
+  <div class="row"><span class="label">Source</span><span>juanlock@hotmail.com &middot; Home &middot; 2026-09-30 21:54</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>All (design settings are global)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">sale_pdf / quotation_pdf / purchase_pdf: CSS `* { margin:0; padding:0; box-sizing:border-box }` -&gt; `body, body * { ... }` (with a comment why). Effect: the @page margin from Settings -&gt; Invoice PDF (margin_v top/bottom, margin_h left/right) is applied instead of being zeroed. Saved values (25 mm / 25 mm) now take effect on all sale, quotation and purchase PDFs.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Traced margin_v from InvoicePdfSettings.vue to PdfTemplate::DEFAULTS/settingsFor (preview override path OK) and the @page rule in the three templates. Wrote measurement scripts (margintest*.php) that render via SalesController::buildSalePdf / QuotationsController::Quotation_pdf / PurchasesController::Purchase_pdf with PdfTemplate::$preview overrides, gzuncompress the content streams and read text y positions; tested reset variants on minimal HTML via the PDF facade (dompdf v3.1.3). First tried html, body, body * (still cancelled), then body, body * (works). php artisan view:clear between runs. Quotation renders run one per process (its formatPrice() has no function_exists guard -- pre-existing, only matters when rendering twice in one process).</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Ruba Garden store Contact page: dead template form replaced by the KcolTech external form (imported site keeps external embeds).</span></div>
+  <div class="row"><span class="label">Source</span><span>juanlock@hotmail.com &middot; Home &middot; 2026-09-30 22:13</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>Company 2 (Ruba Garden Landscape / AdminRG)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">12_contact-us.html (company 2 imported site): demo contact form (action=&quot;#!&quot;, hidden project_name/admin_email test@gmail.com/form_subject, Name/Email/Subject/Message inputs, Send message button) -&gt; KcolTech embed (div#c2 fallback link + EasyForms loader, form 733DRw, height 252px). Section heading and the rest of the page unchanged. No code changes: Murano already serves imported pages with their scripts.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Looked up users named Admin* (AdminRG = company 2), store_settings columns and company 2 front-page settings; listed the imported site pages and grepped forms/KcolTech in index.html and 12_contact-us.html; read app/Services/FrontPage.php (importedResponse/rebaseRelative/withStoreBar) and SitePageEditor header + originals path; checked CSP headers (only PublicBookingController sets one). Edited 12_contact-us.html: &lt;form action=&quot;#!&quot;&gt;...&lt;/form&gt; -&gt; the KcolTech block. Fetched http://kt-murano.local/files/company_2/store/sites/rubagarden/12_contact-us.html (200, widget present, demo form absent); checked storage/app/site-originals/company_2 (none).</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>AdminSystem-only menu items (Login Page Settings) no longer show to Admins via a stale acting company left in the browser.</span></div>
+  <div class="row"><span class="label">Source</span><span>juanlock@hotmail.com &middot; Home &middot; 2026-09-30 22:28</span></div>
+  <div class="row"><span class="label">Category</span><span>security</span></div>
+  <div class="row"><span class="label">Company</span><span>All (seen with AdminNe, company 3)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">menuVisibility.js isMenuEntryAllowed(): systemOnly entries now require isSuperAdmin AND actingCompanyId === 999 (was only 999).
+company.js load(): for a non-SuperAdmin, clears a persisted acting company (setCompany(null)) instead of returning early; SuperAdmin flow unchanged.
+No server change needed: the Login Page API is SuperAdmin-only and resolveActingCompanyId ignores company_id for non-SuperAdmins.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Grepped login_page routes/menu/router; read isMenuEntryAllowed (lib/menuVisibility.js), stores/company.js, lib/actingCompany.js, SettingsController get/update_login_page_settings (SuperAdmin abort_unless), ScopesToCompany::resolveActingCompanyId; listed every getActingCompanyId/actingCompanyId use; checked router.beforeEach awaits auth.load() and AppTopbar onMounted company.load(). Edited both files; npm run build:admin; ran a node ESM test of isMenuEntryAllowed (AdminNe stale 999 -&gt; hidden, AdminNe -&gt; hidden, SuperAdmin+999 -&gt; shown, SuperAdmin+3 -&gt; hidden).</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Create/Edit Booking and the calendar modal now use the online form&#039;s visual day + time-slot picker (staff can still override).</span></div>
+  <div class="row"><span class="label">Source</span><span>juanlock@hotmail.com &middot; Home &middot; 2026-09-30 22:38</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (tested on company 3)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">BookingWhenFields.vue: plain date + start/end time pickers -&gt; visual picker: 7-day strip (paging, jump calendar, closed/today marks), time slots by company hours/slot length fitting the service duration, grouped Morning/Afternoon/Evening, booked (dashed, struck) and past (faded) slots still selectable with a warning, summary line, &#039;Other time…&#039; exact start/end inputs (auto-open for off-grid times); props excludeId, customerId; same v-model:date/start/end + duration API.
+App\Support\BookingAvailability (new): hours(), busy(), maxConcurrent() shared by public + staff pickers.
+PublicBookingController: hours/busy/maxConcurrent delegate to it (behaviour unchanged).
+BookingController::availability + route GET bookings_availability (hours, busy, today, now_min).
+BookingForm.vue / BookingCalendar.vue: pass exclude-id and customer-id to the picker.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Checked git history (45cdd237e touched BookingWhenFields/BookingForm/BookingCalendar) and read BookingWhenFields.vue and its two usages. Wrote App\Support\BookingAvailability (hours, busy(cid, from, to, excludeId, lock), maxConcurrent); PublicBookingController hours()/busy()/maxConcurrent() now delegate. Added BookingController::availability (validates from/to/exclude_id/customer_id, range &lt;= 62 days, company = reportCompanyId() ?: customer company ?: user company) + route GET bookings_availability. Rewrote BookingWhenFields.vue (dayjs, http.get with direct params, page-based week loading, slot grid, warnings, exact inputs). Passed :exclude-id/:customer-id from BookingForm and BookingCalendar. php -l, route:clear, npm run build:admin; tested availability() as AdminNe and the /book render.</div></div>
 </div>
 </body>
 </html>

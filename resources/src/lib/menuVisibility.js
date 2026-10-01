@@ -17,7 +17,10 @@
  * type server-side -- a misconfigured role must not be able to grant it.
  */
 export function isMenuEntryAllowed(entry, { can, actingCompanyId, isSuperAdmin }) {
-    if (entry.systemOnly && actingCompanyId !== 999) return false;
+    // systemOnly = SuperAdmin acting as AdminSystem. The acting company is kept
+    // in the browser, so a non-SuperAdmin can inherit a stale 999 left behind by
+    // a SuperAdmin session on the same browser -- never enough on its own.
+    if (entry.systemOnly && (!isSuperAdmin || actingCompanyId !== 999)) return false;
     if (entry.superAdminOnly && !isSuperAdmin) return false;
     if (!entry.permissions || !entry.permissions.length) return true;
     return entry.permissions.some(p => can(p));

@@ -41,6 +41,9 @@ class RequestSafety
         // {{ADDRESS COMPANY}} mustache-style placeholders (substituted server-side
         // in sale_pdf.blade.php), which otherwise trips the template-injection check below.
         '$.sale_pdf_terms_conditions',
+        // Same field inside the Invoice PDF live preview, which posts the unsaved
+        // Default-tab options nested under `company` (POST pdf_templates/{type}/preview).
+        '$.company.sale_pdf_terms_conditions',
     ];
 
     /**

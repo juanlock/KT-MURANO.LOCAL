@@ -308,6 +308,36 @@ class BookingController extends BaseController
         return $v;
     }
 
+    /**
+     * GET bookings_availability?from=&to=&exclude_id=&customer_id= -- opening
+     * hours + booked time (times only) for the staff date/time picker
+     * (components/BookingWhenFields.vue), same data as the public form's picker.
+     * Company: the acting/own company, else the chosen customer's (a SuperAdmin
+     * with no company picked), else the user's own.
+     */
+    public function availability(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', Booking::class);
+        $v = $request->validate([
+            'from' => 'required|date_format:Y-m-d',
+            'to' => 'required|date_format:Y-m-d|after_or_equal:from',
+            'exclude_id' => 'nullable|integer',
+            'customer_id' => 'nullable|integer',
+        ]);
+        abort_if(\Carbon\Carbon::parse($v['from'])->diffInDays(\Carbon\Carbon::parse($v['to'])) > 62, 422, 'Range too long.');
+
+        $cid = $this->reportCompanyId()
+            ?: (int) optional(Client::find($v['customer_id'] ?? 0))->company_id
+            ?: (int) $request->user('api')->company_id;
+
+        return response()->json([
+            'hours' => \App\Support\BookingAvailability::hours($cid),
+            'busy' => (object) \App\Support\BookingAvailability::busy($cid, $v['from'], $v['to'], $v['exclude_id'] ?? null),
+            'today' => now()->toDateString(),
+            'now_min' => now()->hour * 60 + now()->minute,
+        ]);
+    }
+
     /** GET bookings_public_link -- Booking Management -> Online Booking page. */
     public function publicLink(Request $request)
     {

@@ -135,7 +135,7 @@
           <a-col :span="24">
             <BookingWhenFields
               v-model:date="booking.booking_date" v-model:start="booking.booking_time" v-model:end="booking.booking_end_time"
-              :duration="selectedDuration"
+              :duration="selectedDuration" :exclude-id="isEdit ? id : null" :customer-id="booking.customer_id"
             />
           </a-col>
 
