@@ -104,6 +104,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
+import { DATE_PRESETS, presetRange } from '../../lib/datePresets';
 import {
   FilePdfOutlined, FileExcelOutlined, ShopOutlined, EyeOutlined, PrinterOutlined,
 } from '@ant-design/icons-vue';
@@ -140,24 +141,8 @@ let crud;
 crud = useCrudTable('sales', { rowsKey: 'sales', params: filterParams, limit: 20, showQuickJumper: true });
 
 // ---- date presets (default Today), same set as the Sales list ----
-const DATE_PRESETS = [
-  { value: 'all', labelKey: 'All' },
-  { value: 'year', labelKey: 'This_Year' },
-  { value: 'month', labelKey: 'This_Month' },
-  { value: 'today', labelKey: 'Today' },
-  { value: 'last_month', labelKey: 'Last_Month' },
-  { value: 'last_year', labelKey: 'Last_Year' },
-];
+// DATE_PRESETS / presetRange: shared list (lib/datePresets.js).
 const datePreset = ref('today');
-function presetRange(p) {
-  const now = dayjs();
-  if (p === 'year') return [now.startOf('year'), now.endOf('year')];
-  if (p === 'month') return [now.startOf('month'), now.endOf('month')];
-  if (p === 'today') return [now.startOf('day'), now.endOf('day')];
-  if (p === 'last_month') { const m = now.subtract(1, 'month'); return [m.startOf('month'), m.endOf('month')]; }
-  if (p === 'last_year') { const y = now.subtract(1, 'year'); return [y.startOf('year'), y.endOf('year')]; }
-  return [null, null];
-}
 function applyPreset(p) {
   const [from, to] = presetRange(p);
   filters.value.date_from = from ? from.format('YYYY-MM-DD') : '';

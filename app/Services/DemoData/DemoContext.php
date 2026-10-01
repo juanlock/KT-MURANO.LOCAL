@@ -58,8 +58,28 @@ class DemoContext
 
         $id = (int) DB::table($table)->insertGetId($row);
         $this->tag($table, $id);
+        $this->linkUser($table, $id, $row);
 
         return $id;
+    }
+
+    /**
+     * Demo customers / suppliers / employees get their linked user like real
+     * ones do (type customer / supplier / employee + that company role, via
+     * LinkedUserService). The user is tagged as demo too, so Remove demo data
+     * deletes it (DemoRunner::reset detaches it first).
+     */
+    private function linkUser(string $table, int $id, array $row): void
+    {
+        $map = ['clients' => ['customer', 'Customer'], 'providers' => ['supplier', 'Supplier'], 'employees' => ['employee', 'Employee']];
+        if (! isset($map[$table]) || ! empty($row['user_id']) || ! $this->hasColumn($table, 'user_id')) {
+            return;
+        }
+        [$type, $roleName] = $map[$table];
+        $name = trim((string) ($row['name'] ?? (($row['firstname'] ?? '').' '.($row['lastname'] ?? '')))) ?: ucfirst($type);
+        $userId = \App\Services\LinkedUserService::provision($this->companyId, $type, $roleName, $name, $row['email'] ?? null, $row['phone'] ?? null);
+        DB::table($table)->where('id', $id)->update(['user_id' => $userId]);
+        $this->tag('users', $userId);
     }
 
     public function tag(string $table, int $id): void

@@ -69,30 +69,6 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item :label="$t('Department')" name="department_id">
-              <a-select
-                v-model:value="form.department_id"
-                :placeholder="$t('Department')"
-                show-search
-                option-filter-prop="label"
-                :options="departmentOptions"
-                @change="onDepartmentChange"
-              />
-            </a-form-item>
-          </a-col>
-
-          <a-col :xs="24" :md="12">
-            <a-form-item :label="$t('Designation')" name="designation_id">
-              <a-select
-                v-model:value="form.designation_id"
-                :placeholder="$t('Choose_Designation')"
-                show-search
-                option-filter-prop="label"
-                :options="designationOptions"
-              />
-            </a-form-item>
-          </a-col>
-          <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Office_Shift')" name="office_shift_id">
               <a-select
                 v-model:value="form.office_shift_id"
@@ -104,6 +80,88 @@
             </a-form-item>
           </a-col>
         </a-row>
+
+        <!-- Positions: one person = one employee, who can work in several
+             departments / designations (e.g. Nail Artist + Acrylics expert).
+             The first one is the primary position. -->
+        <a-card size="small" class="access-card">
+          <div class="access-title" style="margin-bottom: 8px">{{ $t('Department') }} / {{ $t('Designation') }}</div>
+          <a-row v-for="(p, i) in positions" :key="i" :gutter="8" style="margin-bottom: 8px" align="middle">
+            <a-col :xs="24" :md="10">
+              <a-select
+                v-model:value="p.department_id" style="width: 100%" show-search option-filter-prop="label"
+                :placeholder="$t('Department')" :options="departmentOptions" :disabled="!form.company_id"
+                @change="p.designation_id = undefined"
+              />
+            </a-col>
+            <a-col :xs="20" :md="11">
+              <a-select
+                v-model:value="p.designation_id" style="width: 100%" show-search option-filter-prop="label"
+                :placeholder="$t('Choose_Designation')" :options="designationOptionsFor(p.department_id)" :disabled="!p.department_id"
+              />
+            </a-col>
+            <a-col :xs="4" :md="3" style="display: flex; gap: 6px; align-items: center">
+              <a-tag v-if="i === 0" color="blue">Primary</a-tag>
+              <a-button v-else type="text" danger size="small" @click="positions.splice(i, 1)"><DeleteOutlined /></a-button>
+            </a-col>
+          </a-row>
+          <div v-if="positionsError" style="color: #cf1322; font-size: 12px; margin-bottom: 6px">{{ positionsError }}</div>
+          <a-button type="dashed" size="small" :disabled="!form.company_id" @click="positions.push({ department_id: undefined, designation_id: undefined })">
+            <PlusOutlined /> Add position
+          </a-button>
+        </a-card>
+
+        <!-- System access: the employee's own login and the company role that
+             decides what they can see and do (Users & Roles). -->
+        <a-card size="small" class="access-card">
+          <div class="access-head">
+            <div>
+              <div class="access-title"><SafetyCertificateOutlined /> System access</div>
+              <div class="access-help">
+                <template v-if="access.has_login">Login: <b>{{ access.username }}</b>. </template>
+                Turn on to let this employee sign in to the system with the role you choose.
+              </div>
+            </div>
+            <a-switch v-model:checked="access.enabled" checked-children="Can sign in" un-checked-children="No access" />
+          </div>
+          <a-row v-if="access.enabled" :gutter="16" style="margin-top: 12px">
+            <a-col :xs="24" :md="12">
+              <a-form-item :label="$t('RoleName') + ' *'" :validate-status="accessErr.role_id ? 'error' : undefined" :help="accessErr.role_id">
+                <a-select
+                  v-model:value="access.role_id" show-search option-filter-prop="label"
+                  :placeholder="form.company_id ? $t('PleaseSelect') : $t('Choose_Company')"
+                  :options="roleOptions" :disabled="!form.company_id"
+                />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :md="12">
+              <a-form-item :label="$t('username')" :validate-status="accessErr.username ? 'error' : undefined"
+                :help="accessErr.username || 'Unique in the whole system. Empty on a new login = made from the name.'">
+                <a-input v-model:value="access.username" autocomplete="off" placeholder="e.g. amaya" />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :md="12">
+              <a-form-item label="Login email *" :validate-status="accessErr.email ? 'error' : undefined" :help="accessErr.email">
+                <a-input v-model:value="access.email" type="email" autocomplete="off" placeholder="name@company.com" />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :md="12">
+              <a-form-item
+                :label="access.has_login ? $t('password') : $t('password') + ' *'"
+                :validate-status="accessErr.password ? 'error' : undefined"
+                :help="accessErr.password || (access.has_login ? 'Leave blank to keep the current password.' : 'At least 6 characters.')"
+              >
+                <a-input-password v-model:value="access.password" autocomplete="new-password" />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :md="12">
+              <a-form-item label="Cashier PIN" :validate-status="accessErr.pin ? 'error' : undefined"
+                :help="accessErr.pin || 'Optional: 4-8 digits to open / close POS registers. Unique in the company.'">
+                <a-input v-model:value="access.pin" :maxlength="8" inputmode="numeric" autocomplete="off" allow-clear />
+              </a-form-item>
+            </a-col>
+          </a-row>
+        </a-card>
 
         <a-space style="margin-top: 8px">
           <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
@@ -128,9 +186,11 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { SafetyCertificateOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { GENDERS } from './hrmVocab';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -144,8 +204,6 @@ const submitting = ref(false);
 const formRef = ref();
 
 const companies = ref([]);
-const departments = ref([]);
-const designations = ref([]);
 const officeShifts = ref([]);
 
 const form = ref({
@@ -155,26 +213,39 @@ const form = ref({
   designation_id: undefined, office_shift_id: undefined,
 });
 
-const companyOptions = computed(() => companies.value.map(c => ({ value: c.id, label: c.name })));
-const departmentOptions = computed(() => departments.value.map(d => ({ value: d.id, label: d.department })));
-const designationOptions = computed(() => designations.value.map(d => ({ value: d.id, label: d.designation })));
-const officeShiftOptions = computed(() => officeShifts.value.map(s => ({ value: s.id, label: s.name })));
+const companyOptions = computed(() => sortByLabel(companies.value.map(c => ({ value: c.id, label: c.name }))));
+const officeShiftOptions = computed(() => sortByLabel(officeShifts.value.map(s => ({ value: s.id, label: s.name }))));
+
+// Positions: [{department_id, designation_id}], first = primary. Options are
+// the company's departments / designations (from all_departments / all_designations).
+const allDepartments = ref([]);
+const allDesignations = ref([]);
+const positions = ref([{ department_id: undefined, designation_id: undefined }]);
+const positionsError = ref('');
+const departmentOptions = computed(() => sortByLabel(allDepartments.value
+  .filter(d => Number(d.company_id) === Number(form.value.company_id))
+  .map(d => ({ value: d.id, label: d.department }))));
+function designationOptionsFor(departmentId) {
+  return sortByLabel(allDesignations.value
+    .filter(d => Number(d.department_id) === Number(departmentId))
+    .map(d => ({ value: d.id, label: d.designation })));
+}
+
+// System access (login + role) -- saved with the employee as `access`.
+const roles = ref([]);
+const access = ref({ enabled: false, has_login: false, username: '', email: '', password: '', role_id: undefined, pin: '' });
+const originalUsername = ref('');
+const accessErr = ref({});
+const roleOptions = computed(() => sortByLabel(roles.value
+  .filter(r => !form.value.company_id || Number(r.company_id) === Number(form.value.company_id))
+  .map(r => ({ value: r.id, label: r.name }))));
 
 const rules = computed(() => ({
   firstname: [{ required: true, message: t('Field_is_required') }],
-  lastname: [{ required: true, message: t('Field_is_required') }],
   gender: [{ required: true, message: t('Field_is_required') }],
   company_id: [{ required: true, message: t('Field_is_required') }],
-  department_id: [{ required: true, message: t('Field_is_required') }],
-  designation_id: [{ required: true, message: t('Field_is_required') }],
   office_shift_id: [{ required: true, message: t('Field_is_required') }],
 }));
-
-async function loadDepartments(companyId) {
-  try {
-    departments.value = await http.get('core/get_departments_by_company', { id: companyId }) || [];
-  } catch (e) { departments.value = []; }
-}
 
 async function loadOfficeShifts(companyId) {
   try {
@@ -182,29 +253,14 @@ async function loadOfficeShifts(companyId) {
   } catch (e) { officeShifts.value = []; }
 }
 
-async function loadDesignations(departmentId) {
-  try {
-    designations.value = await http.get('core/get_designations_by_department', { id: departmentId }) || [];
-  } catch (e) { designations.value = []; }
-}
-
 function onCompanyChange(value) {
-  form.value.department_id = undefined;
-  form.value.designation_id = undefined;
+  // Roles are per company: another company's role can't stay selected.
+  if (!roleOptions.value.some(o => o.value === access.value.role_id)) access.value.role_id = undefined;
+  // Positions and shift belong to the company too.
+  positions.value = [{ department_id: undefined, designation_id: undefined }];
   form.value.office_shift_id = undefined;
-  departments.value = [];
-  designations.value = [];
   officeShifts.value = [];
-  if (value) {
-    loadDepartments(value);
-    loadOfficeShifts(value);
-  }
-}
-
-function onDepartmentChange(value) {
-  form.value.designation_id = undefined;
-  designations.value = [];
-  if (value) loadDesignations(value);
+  if (value) loadOfficeShifts(value);
 }
 
 async function submit() {
@@ -213,8 +269,31 @@ async function submit() {
   } catch (e) {
     return;
   }
+  // At least one complete position; the same designation only once.
+  const filled = positions.value.filter(p => p.department_id && p.designation_id);
+  const seen = new Set();
+  positionsError.value = !filled.length
+    ? 'Add at least one department and designation.'
+    : (filled.some(p => (seen.has(p.designation_id) ? true : (seen.add(p.designation_id), false))) ? 'Each designation only once.' : '');
+  if (positionsError.value) return;
+
   submitting.value = true;
-  const payload = { ...form.value };
+  accessErr.value = {};
+  const payload = {
+    ...form.value,
+    department_id: filled[0].department_id,
+    designation_id: filled[0].designation_id,
+    positions: filled.map(p => ({ department_id: p.department_id, designation_id: p.designation_id })),
+    access: {
+      enabled: access.value.enabled,
+      role_id: access.value.role_id || null,
+      // Only when changed (blank = keep / auto-generated for a new login).
+      username: (access.value.username || '').trim() !== originalUsername.value ? (access.value.username || '').trim() : '',
+      email: (access.value.email || '').trim(),
+      password: access.value.password || '',
+      pin: (access.value.pin || '').trim(),
+    },
+  };
   try {
     if (isEdit.value) {
       await http.put(`employees/${id.value}`, payload);
@@ -226,6 +305,12 @@ async function submit() {
     router.push('/hrm/employees');
   } catch (e) {
     const errors = e?.data?.errors;
+    // System access errors show under their own fields.
+    if (errors) {
+      Object.entries(errors).forEach(([k, v]) => {
+        if (k.startsWith('access.')) accessErr.value[k.slice(7)] = [].concat(v)[0];
+      });
+    }
     if (errors) Object.values(errors).flat().forEach(msg => message.error(String(msg)));
     else message.error(e?.data?.message || t('InvalidData'));
   } finally {
@@ -239,9 +324,12 @@ async function bootstrap() {
     if (isEdit.value) {
       const data = await http.get(`employees/${id.value}/edit`);
       companies.value = data.companies || [];
-      departments.value = data.departments || [];
-      designations.value = data.designations || [];
+      allDepartments.value = data.all_departments || [];
+      allDesignations.value = data.all_designations || [];
       officeShifts.value = data.office_shifts || [];
+      positions.value = (data.positions && data.positions.length)
+        ? data.positions.map(p => ({ department_id: p.department_id, designation_id: p.designation_id }))
+        : [{ department_id: data.employee?.department_id, designation_id: data.employee?.designation_id }];
       const e = data.employee || {};
       form.value = {
         firstname: e.firstname || '', lastname: e.lastname || '',
@@ -251,9 +339,25 @@ async function bootstrap() {
         company_id: e.company_id || undefined, department_id: e.department_id || undefined,
         designation_id: e.designation_id || undefined, office_shift_id: e.office_shift_id || undefined,
       };
+      roles.value = data.roles || [];
+      const a = data.access || {};
+      access.value = {
+        enabled: !!a.enabled, has_login: !!a.has_login, username: a.username || '',
+        email: a.email || '', password: '', role_id: a.role_id || undefined, pin: a.pin || '',
+      };
+      originalUsername.value = a.username || '';
     } else {
       const data = await http.get('employees/create');
       companies.value = data.companies || [];
+      roles.value = data.roles || [];
+      allDepartments.value = data.all_departments || [];
+      allDesignations.value = data.all_designations || [];
+      // One company offered (Admin, or SuperAdmin with a company in the
+      // header switcher): pick it and load its shifts.
+      if (companies.value.length === 1) {
+        form.value.company_id = companies.value[0].id;
+        loadOfficeShifts(form.value.company_id);
+      }
     }
   } catch (e) {
     if (isEdit.value) {
@@ -269,3 +373,10 @@ async function bootstrap() {
 
 onMounted(bootstrap);
 </script>
+
+<style scoped>
+.access-card { margin-top: 8px; margin-bottom: 8px; background: rgba(22, 119, 255, 0.03); }
+.access-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.access-title { font-weight: 600; }
+.access-help { font-size: 12px; opacity: 0.65; }
+</style>

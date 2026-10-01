@@ -45,8 +45,21 @@ export default {
                             headers: {
                                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                                 'X-Requested-With': 'XMLHttpRequest',
+                                Accept: 'application/json',
                             },
-                        }).then(done, done);
+                        }).then(async res => {
+                            // 409 = a register is still open: back to the POS,
+                            // which shows its close-out in sign-out mode.
+                            if (res && res.status === 409) {
+                                const data = await res.json().catch(() => ({}));
+                                try {
+                                    sessionStorage.setItem('pos_logout_closeout', JSON.stringify({ warehouse_id: data.register && data.register.warehouse_id, at: Date.now() }));
+                                } catch (e) {}
+                                window.location.replace('/next/pos');
+                                return;
+                            }
+                            done();
+                        }, done);
                     } else if (action === 'setLanguage') {
                         localStorage.setItem('language', payload);
                         loadLocale(payload).then(() => applyDirection(payload)).catch(() => {});

@@ -36,9 +36,15 @@ class BookingObserver
      * created without one on purpose: the account only exists once staff
      * accept the booking. Never blocks the booking save.
      */
+    /**
+     * Set by PosBookingService around its create: a POS sale's booking (often
+     * the Walk-in Customer) must not create a customer login account.
+     */
+    public static bool $skipCustomerAccount = false;
+
     private function accountIfConfirmed(Booking $booking): void
     {
-        if (! in_array($booking->status, ['confirmed', 'completed'], true) || ! $booking->customer_id) {
+        if (self::$skipCustomerAccount || ! in_array($booking->status, ['confirmed', 'completed'], true) || ! $booking->customer_id) {
             return;
         }
         try {
@@ -51,10 +57,51 @@ class BookingObserver
         }
     }
 
+    /**
+     * Set by the public "Book an appointment" page around its create: that
+     * flow sends its own "new online booking" email (with the customer's
+     * request), so the staff "new booking" notice is skipped for it.
+     */
+    public static bool $muteCreatedMail = false;
+
+    /** Admin name for "Confirmed by" when confirmed from the email link (no login). */
+    public static ?string $confirmedBy = null;
+
+    /**
+     * Admin notice for a booking registered by staff or confirmed, sent after
+     * the response (BookingNotifier::bookingEvent, company mail server). The
+     * completion report goes out with its invoice (BookingSaleService).
+     */
+    private function notifyAdmins(Booking $booking, string $event): void
+    {
+        try {
+            $companyId = (int) \App\Models\Client::whereKey($booking->customer_id)->value('company_id');
+            if (! $companyId) {
+                return;
+            }
+            $u = auth('api')->user() ?? auth()->user();
+            $by = $u ? (trim(($u->firstname ?? '').' '.($u->lastname ?? '')) ?: $u->username)
+                : (self::$confirmedBy ? self::$confirmedBy.' (from the email)' : null);
+            $id = $booking->id;
+            dispatch(function () use ($companyId, $id, $event, $by) {
+                try {
+                    \App\Services\BookingNotifier::bookingEvent($companyId, $id, $event, $by);
+                } catch (\Throwable $e) {
+                    Log::warning('Booking admin mail failed (non-blocking): '.$e->getMessage(), ['booking_id' => $id]);
+                }
+            })->afterResponse();
+        } catch (\Throwable $e) {
+            Log::warning('Booking admin mail not queued: '.$e->getMessage(), ['booking_id' => $booking->id]);
+        }
+    }
+
     public function created(Booking $booking): void
     {
         $this->accountIfConfirmed($booking);
         $this->invoiceIfCompleted($booking);
+        if (! self::$muteCreatedMail) {
+            $this->notifyAdmins($booking, $booking->status === 'confirmed' ? 'confirmed' : 'created');
+        }
 
         if ($booking->status === 'confirmed') {
             SyncBookingToGoogleCalendar::dispatch(
@@ -68,6 +115,9 @@ class BookingObserver
     {
         if ($booking->wasChanged('status') || $booking->wasChanged('customer_id')) {
             $this->accountIfConfirmed($booking);
+        }
+        if ($booking->wasChanged('status') && $booking->status === 'confirmed') {
+            $this->notifyAdmins($booking, 'confirmed');
         }
         $this->invoiceIfCompleted($booking);
 

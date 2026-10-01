@@ -120,6 +120,19 @@ class DemoRunner
                 ->when($only, fn ($q) => $q->where('module', $only))
                 ->orderByDesc('id')->get(['id', 'record_type', 'record_id']);
 
+            // Demo users (linked to demo customers / suppliers / employees):
+            // detach them and drop their role rows first -- clients/employees
+            // .user_id and role_user reference users.
+            $demoUserIds = $rows->where('record_type', 'users')->pluck('record_id')->all();
+            if ($demoUserIds) {
+                foreach (['clients', 'providers', 'employees'] as $t) {
+                    if (Schema::hasColumn($t, 'user_id')) {
+                        DB::table($t)->whereIn('user_id', $demoUserIds)->update(['user_id' => null]);
+                    }
+                }
+                DB::table('role_user')->whereIn('user_id', $demoUserIds)->delete();
+            }
+
             $count = 0;
             foreach ($rows as $r) {
                 if (Schema::hasTable($r->record_type)) {
@@ -127,6 +140,10 @@ class DemoRunner
                 }
             }
             DB::table('demo_records')->whereIn('id', $rows->pluck('id'))->delete();
+            // Positions of employees that no longer exist (removed demo employees).
+            if (Schema::hasTable('employee_positions')) {
+                DB::table('employee_positions')->whereNotIn('employee_id', DB::table('employees')->select('id'))->delete();
+            }
 
             return $count;
         });

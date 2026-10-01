@@ -110,6 +110,7 @@
  */
 import { ref, computed, onMounted, nextTick } from 'vue';
 import dayjs from 'dayjs';
+import { DATE_PRESETS, presetRange as sharedPresetRange } from '../../lib/datePresets';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -190,37 +191,13 @@ const methodId = ref(undefined);
 // lists (only one of the buttons or the exact picker is ever "active":
 // picking a preset clears any highlight mismatch, picking an exact range
 // clears the preset highlight).
-const DATE_PRESETS = [
-  { value: 'all', labelKey: 'All' },
-  { value: 'year', labelKey: 'This_Year' },
-  { value: 'month', labelKey: 'This_Month' },
-  { value: 'today', labelKey: 'Today' },
-  { value: 'last_month', labelKey: 'Last_Month' },
-  { value: 'last_year', labelKey: 'Last_Year' },
-];
-// Default: Today (the preset row's middle button).
+// DATE_PRESETS: shared list (lib/datePresets.js). Default: Today.
 const datePreset = ref('today');
 
+// This report's range picker needs both ends: "All" = since 2000.
 function presetRange(preset) {
-  const now = dayjs();
-  switch (preset) {
-    case 'year':
-      return [now.startOf('year'), now.endOf('year')];
-    case 'month':
-      return [now.startOf('month'), now.endOf('month')];
-    case 'today':
-      return [now.startOf('day'), now.endOf('day')];
-    case 'last_month': {
-      const m = now.subtract(1, 'month');
-      return [m.startOf('month'), m.endOf('month')];
-    }
-    case 'last_year': {
-      const y = now.subtract(1, 'year');
-      return [y.startOf('year'), y.endOf('year')];
-    }
-    default:
-      return [dayjs('2000-01-01'), now];
-  }
+  const [from, to] = sharedPresetRange(preset);
+  return from ? [from, to] : [dayjs('2000-01-01'), dayjs()];
 }
 
 function applyPreset(preset) {

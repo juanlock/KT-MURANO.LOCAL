@@ -61,7 +61,13 @@ class Setting extends Model
         'enable_wholesale_pricing', 'sale_show_price_type_dropdown', 'sale_default_quantity',
         'sale_loyalty_points_enabled', 'sale_shipping_enabled', 'sale_sms_enabled', 'sale_whatsapp_enabled', 'pos_require_open_register',
         // POS Settings -> Company rules: PIN to open a register; email the admins on close
-        'pos_register_pin_required', 'pos_close_register_email',
+        'pos_register_pin_required', 'pos_close_register_email', 'pos_booking_integration',
+        // ... and confirm each sale with the PIN of who makes it (recorded under that user)
+        'pos_sale_pin_required',
+        // Mail Settings: SuperAdmin gets a copy of this company's admin notices
+        'notify_superadmin_copy',
+        // Defaults -> Users: inactivity logout, what users see after login, dashboard sections off
+        'idle_logout_minutes', 'start_page_mode', 'dashboard_hidden_sections', 'start_page_shortcuts',
         // Defaults -> Customers: optional customer features (hide all UI when off)
         'customer_loyalty_enabled', 'customer_credit_limit_enabled', 'customer_opening_balance_enabled',
         // Defaults -> Product: auto-generated product Code (<prefix><next number>)
@@ -91,6 +97,25 @@ class Setting extends Model
         'pwa_enabled', 'pwa_name', 'pwa_short_name', 'pwa_description', 'pwa_start_url',
         'pwa_display', 'pwa_orientation', 'pwa_theme_color', 'pwa_background_color',
     ];
+
+    // Defaults -> Users: hashed default passwords of auto-created users --
+    // never sent to the browser (the Settings page only gets "set / not set").
+    protected $hidden = [
+        'default_password_employee', 'default_password_customer', 'default_password_online_store',
+        'default_password_supplier', 'default_password_sales_agent',
+    ];
+
+    /** Hashed default password for auto-created users of $type, or null. */
+    public static function defaultPasswordHash(int $companyId, string $type): ?string
+    {
+        $key = ['employee' => 'employee', 'customer' => 'customer', 'Online_store' => 'online_store', 'online_store' => 'online_store',
+            'supplier' => 'supplier', 'sales_agent' => 'sales_agent'][$type] ?? null;
+        if (! $key || ! \Illuminate\Support\Facades\Schema::hasColumn('settings', 'default_password_'.$key)) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->value('default_password_'.$key) ?: null;
+    }
 
     protected $casts = [
         'currency_id' => 'integer',
@@ -129,7 +154,10 @@ class Setting extends Model
         'sale_sms_enabled' => 'boolean',
         'pos_require_open_register' => 'boolean',
         'pos_register_pin_required' => 'boolean',
+        'pos_sale_pin_required' => 'boolean',
         'pos_close_register_email' => 'boolean',
+        'pos_booking_integration' => 'boolean',
+        'notify_superadmin_copy' => 'boolean',
         'sale_whatsapp_enabled' => 'boolean',
         'customer_loyalty_enabled' => 'boolean',
         'customer_credit_limit_enabled' => 'boolean',

@@ -491,6 +491,11 @@ Route::middleware(['web', 'request.safety'])->prefix('book')->group(function () 
         ->middleware('throttle:60,1,book-form')->name('booking.public');
     Route::post('/', [\App\Http\Controllers\PublicBookingController::class, 'store'])
         ->middleware('throttle:5,1,book-create')->name('booking.public.store');
+    // "Confirm appointment" button in the admins' email (signed link, no login).
+    Route::get('/confirm/{booking}', [\App\Http\Controllers\BookingEmailConfirmController::class, 'show'])
+        ->middleware(['signed', 'throttle:30,1'])->whereNumber('booking')->name('booking.email.confirm');
+    Route::post('/confirm/{booking}', [\App\Http\Controllers\BookingEmailConfirmController::class, 'confirm'])
+        ->middleware(['signed', 'throttle:10,1'])->whereNumber('booking')->name('booking.email.confirm.post');
 });
 
 // SEO: public sitemap + robots (registered before the admin catch-all).

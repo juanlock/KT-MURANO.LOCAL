@@ -60,7 +60,7 @@ const route = useRoute();
 const router = useRouter();
 
 function allowed(entry) {
-  return isMenuEntryAllowed(entry, { can: p => auth.can(p), actingCompanyId: company.actingCompanyId, isSuperAdmin: auth.user?.type === 'SuperAdmin' });
+  return isMenuEntryAllowed(entry, { can: p => auth.can(p), actingCompanyId: company.actingCompanyId, isSuperAdmin: auth.user?.type === 'SuperAdmin', hiddenByRole: key => (auth.permissions || []).includes('menu_hide:' + key) });
 }
 function label(entry) {
   if (entry.raw) return entry.label;

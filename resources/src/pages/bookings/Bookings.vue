@@ -2,17 +2,34 @@
   <div class="page">
     <PageHeader :title="$t('Booking_List')" :breadcrumb="[$t('Bookings'), $t('Booking_List')]">
       <template #actions>
-        
+        <!-- Same date presets + keycard as Sales / Purchases (lib/datePresets.js);
+             they fill the date-range filter below. -->
+        <a-space wrap :size="12">
+        <a-card size="small" class="range-card">
+          <div class="range-row">
+            <span class="range-label">{{ $t('start_date') }}</span>
+            <b class="range-value">{{ dateRange?.[0] || '—' }}</b>
+          </div>
+          <div class="range-row">
+            <span class="range-label">{{ $t('to') }}</span>
+            <b class="range-value">{{ dateRange?.[1] || '—' }}</b>
+          </div>
+        </a-card>
+        <a-radio-group v-model:value="datePreset" button-style="solid" @change="applyPreset(datePreset)">
+          <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
+        </a-radio-group>
         <a-button type="primary" @click="$router.push('/bookings/create')">
           <template #icon><PlusOutlined /></template>
           {{ $t('Add') }}
         </a-button>
+        </a-space>
       </template>
     </PageHeader>
 
     <!-- Stat tiles (from the list payload) -->
     <a-row :gutter="[16, 16]" style="margin-bottom: 16px">
-      <a-col v-for="tile in tiles" :key="tile.label" :xs="12" :md="6">
+      <!-- 5 cards sharing the row (2 per row on phones). -->
+      <a-col v-for="tile in tiles" :key="tile.label" flex="1 1 170px">
         <a-card size="small">
           <a-spin :spinning="loading">
             <a-statistic :title="tile.label" :value="tile.value" :value-style="tile.style" />
@@ -21,42 +38,57 @@
       </a-col>
     </a-row>
 
-    <!-- DataTable: search, show/hide columns (gear, remembered per user),
-         column customization, refresh. Status/date filters sit in its toolbar. -->
-    <DataTable :crud="crud" :columns="columns">
-      <template #toolbar>
+    <!-- All filters on one row (wraps only on small screens). -->
+    <a-card size="small" class="bk-filters" style="margin-bottom: 12px">
+      <div class="bk-filters__row">
         <a-select
-          v-model:value="status"
-          style="width: 140px"
-          allow-clear
-          :placeholder="$t('Status')"
-          :options="statusOptions"
-          @change="crud.reload()"
-        />
+          v-model:value="status" class="bk-f bk-f--status" allow-clear
+          :placeholder="$t('Status')" :options="statusOptions" @change="crud.reload()"
+        >
+          <template #option="{ label, value }">
+            <span><span class="dot" :class="`dot--${value}`"></span>{{ label }}</span>
+          </template>
+        </a-select>
         <!-- Booking date range (one day = same start and end) -->
         <a-range-picker
-          v-model:value="dateRange" value-format="YYYY-MM-DD" allow-clear style="width: 240px"
-          :placeholder="[$t('start_date'), $t('to')]" @change="crud.reload()"
+          v-model:value="dateRange" class="bk-f bk-f--date" value-format="YYYY-MM-DD" allow-clear
+          :placeholder="[$t('start_date'), $t('to')]" @change="datePreset = dateRange?.length ? null : 'all'; crud.reload()"
         />
         <!-- Start time of day, e.g. mornings only: 08:00 - 12:00 -->
         <a-time-range-picker
-          v-model:value="timeRange" format="HH:mm" value-format="HH:mm" :minute-step="15" allow-clear
-          style="width: 170px" :placeholder="[$t('Time_In'), $t('to')]" @change="crud.reload()"
+          v-model:value="timeRange" class="bk-f bk-f--time" format="HH:mm" value-format="HH:mm" :minute-step="15" allow-clear
+          :placeholder="[$t('Time_In'), $t('to')]" @change="crud.reload()"
         />
         <a-select
-          v-model:value="customerId" style="width: 180px" allow-clear show-search option-filter-prop="label"
+          v-model:value="customerId" class="bk-f" allow-clear show-search option-filter-prop="label"
           :placeholder="$t('Customer')" :options="customerOptions" @change="crud.reload()"
-        />
+        >
+          <template #option="{ label }"><span><UserOutlined style="opacity: 0.5; margin-right: 6px" />{{ label }}</span></template>
+        </a-select>
         <a-select
-          v-model:value="serviceId" style="width: 200px" allow-clear show-search option-filter-prop="label"
+          v-model:value="serviceId" class="bk-f" allow-clear show-search option-filter-prop="label"
           :placeholder="$t('Service') || 'Service'" :options="serviceOptions" @change="crud.reload()"
-        />
+        >
+          <template #option="{ label }"><span><ScissorOutlined style="opacity: 0.5; margin-right: 6px" />{{ label }}</span></template>
+        </a-select>
+        <!-- Staff: locked to the signed-in user unless admin / "Booking to other staff". -->
         <a-select
-          v-model:value="staffId" style="width: 170px" allow-clear show-search option-filter-prop="label"
-          :placeholder="$t('Sales_Person')" :options="staffOptions" @change="crud.reload()"
-        />
+          v-model:value="staffId" class="bk-f" :allow-clear="canOtherStaff" show-search option-filter-prop="label"
+          placeholder="Staff" :options="staffOptions" :disabled="!canOtherStaff" @change="crud.reload()"
+        >
+          <template #option="{ label, avatar }">
+            <span class="opt-staff">
+              <a-avatar :size="22" :src="avatar || undefined" class="opt-staff__avatar">{{ initials(label) }}</a-avatar>{{ label }}
+            </span>
+          </template>
+        </a-select>
         <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
-      </template>
+      </div>
+    </a-card>
+
+    <!-- DataTable: search, show/hide columns (gear, remembered per user),
+         column customization, refresh. -->
+    <DataTable :crud="crud" :columns="columns">
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'booking_date'">{{ date(record.booking_date) }}</template>
         <template v-else-if="column.key === 'delivery_date'">{{ record.delivery_date ? date(record.delivery_date) : '' }}</template>
@@ -91,10 +123,21 @@
           <router-link v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.sale_ref }}</router-link>
           <span v-else style="opacity: 0.45">—</span>
         </template>
+        <template v-else-if="column.key === 'customer_name'">
+          <span class="cust-cell"><a-avatar :size="24" class="cust-cell__avatar">{{ initials(record.customer_name) }}</a-avatar>{{ record.customer_name }}</span>
+        </template>
+        <template v-else-if="column.key === 'staff'">
+          <span v-if="staffById[record.sales_person_id]" class="opt-staff">
+            <a-avatar :size="24" :src="staffById[record.sales_person_id].avatar || undefined" class="opt-staff__avatar">{{ initials(staffById[record.sales_person_id].name) }}</a-avatar>
+            {{ staffById[record.sales_person_id].name }}
+          </span>
+          <span v-else style="opacity: 0.45">—</span>
+        </template>
         <template v-else-if="column.key === 'actions'">
-          <a-space>
+          <a-space :size="2">
+            <!-- Edit: the same quick-edit window as the calendar. -->
             <a-tooltip :title="$t('Edit')">
-              <a-button type="text" size="small" @click="$router.push(`/bookings/${record.id}/edit`)">
+              <a-button type="text" size="small" @click="openEdit(record)">
                 <template #icon><EditOutlined style="color: #52c41a" /></template>
               </a-button>
             </a-tooltip>
@@ -107,6 +150,8 @@
         </template>
       </template>
     </DataTable>
+
+    <BookingEditModal v-model:open="editOpen" :booking="editRow" @saved="crud.fetchRows()" />
   </div>
 </template>
 
@@ -116,18 +161,20 @@
  * date filters. Create/edit are BookingForm.vue; the calendar is
  * BookingCalendar.vue. Still on legacy: PDF and send-email.
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { message } from 'ant-design-vue';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, DownOutlined, CheckCircleOutlined,
-  CheckSquareOutlined, StopOutlined,
+  CheckSquareOutlined, StopOutlined, UserOutlined, ScissorOutlined,
 } from '@ant-design/icons-vue';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
+import BookingEditModal from '../../components/BookingEditModal.vue';
+import { DATE_PRESETS, presetDates } from '../../lib/datePresets';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 
@@ -142,15 +189,27 @@ const serviceId = ref(undefined);
 const staffId = ref(undefined);
 
 const filtersDirty = computed(() => !!(status.value || dateRange.value?.length || timeRange.value?.length
-  || customerId.value || serviceId.value || staffId.value));
+  || customerId.value || serviceId.value || (staffId.value && crud.payload.value?.can_book_other_staff !== false)));
+
+// Quick date presets (shared list): fill the booking-date range filter.
+// Default All = no date limit (the list's previous behavior); picking a
+// range by hand clears the highlight.
+const datePreset = ref('all');
+function applyPreset(preset) {
+  const { from, to } = presetDates(preset);
+  dateRange.value = from ? [from, to] : null;
+  crud.reload();
+}
 
 function resetFilters() {
   status.value = undefined;
+  datePreset.value = 'all';
   dateRange.value = null;
   timeRange.value = null;
   customerId.value = undefined;
   serviceId.value = undefined;
-  staffId.value = undefined;
+  // Locked to the user (no "Booking to other staff"): stays on them.
+  staffId.value = crud.payload.value?.can_book_other_staff === false ? crud.payload.value.me : undefined;
   crud.reload();
 }
 
@@ -182,6 +241,7 @@ const tiles = computed(() => [
   { label: t('Pending'), value: stats.value.pending || 0, style: { color: '#faad14' } },
   { label: t('Confirmed'), value: stats.value.confirmed || 0, style: { color: '#1677ff' } },
   { label: t('Completed'), value: stats.value.completed || 0, style: { color: '#52c41a' } },
+  { label: t('Cancelled'), value: stats.value.cancelled || 0, style: { color: '#ff4d4f' } },
 ]);
 
 // Filter dropdowns from the list payload (company-scoped), alphabetical.
@@ -190,7 +250,14 @@ const customerOptions = computed(() => sortByLabel((fo.value.customers || []).ma
 const serviceOptions = computed(() => sortByLabel((fo.value.services || []).map(s => ({
   value: s.id, label: s.group_name ? `${s.group_name} › ${s.name}` : s.name,
 }))));
-const staffOptions = computed(() => sortByLabel((fo.value.staff || []).map(s => ({ value: s.id, label: s.name }))));
+const staffOptions = computed(() => sortByLabel((fo.value.staff || []).map(s => ({ value: s.id, label: s.name, avatar: s.avatar || null }))));
+const staffById = computed(() => Object.fromEntries((fo.value.staff || []).map(s => [s.id, s])));
+// Without "Booking to other staff" the server returns only the user's own
+// bookings; the Staff filter shows them, locked.
+const canOtherStaff = computed(() => crud.payload.value?.can_book_other_staff !== false);
+watch(() => crud.payload.value?.can_book_other_staff, can => {
+  if (can === false && crud.payload.value?.me) staffId.value = crud.payload.value.me;
+});
 
 const statusOptions = computed(() => [
   { value: 'pending', label: t('Pending') },
@@ -200,9 +267,12 @@ const statusOptions = computed(() => [
 ]);
 
 const columns = computed(() => [
+  // Actions first (left), as asked.
+  { title: t('Action'), key: 'actions', width: 90, align: 'center' },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   { title: t('Customer'), dataIndex: 'customer_name', key: 'customer_name' },
   { title: t('ProductName'), dataIndex: 'product_name', key: 'product_name' },
+  { title: 'Staff', key: 'staff', dataIndex: 'sales_person_id', exportValue: r => staffById.value[r.sales_person_id]?.name || '' },
   { title: t('Price'), key: 'price', dataIndex: 'price', align: 'right', exportValue: r => money(r.price, moneyDec.value) },
   { title: t('date'), key: 'booking_date', dataIndex: 'booking_date', sorter: true, exportValue: r => date(r.booking_date) },
   { title: t('Time_In'), dataIndex: 'booking_time', key: 'booking_time' },
@@ -215,8 +285,18 @@ const columns = computed(() => [
   { title: t('Delivery_Time'), key: 'delivery_time', dataIndex: 'delivery_time', defaultHidden: true },
   { title: t('Delivery_Address'), key: 'delivery_address', dataIndex: 'delivery_address', defaultHidden: true },
   { title: t('Note'), key: 'notes', dataIndex: 'notes', defaultHidden: true },
-  { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);
+
+// Quick edit = the calendar's appointment window (components/BookingEditModal.vue).
+const editOpen = ref(false);
+const editRow = ref(null);
+function openEdit(record) {
+  editRow.value = record;
+  editOpen.value = true;
+}
+function initials(name) {
+  return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+}
 
 function statusLabel(s) {
   const map = {
@@ -259,6 +339,76 @@ onMounted(crud.fetchRows);
 </script>
 
 <style scoped>
+/* Date-range keycard -- same look as Sales -> List Sales. */
+.range-card {
+  border-radius: 10px;
+}
+.range-card :deep(.ant-card-body) {
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.range-label {
+  opacity: 0.6;
+}
+.range-value {
+  font-size: 13px;
+}
+/* Filters: one row; each control shares the width (wraps on small screens). */
+.bk-filters__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bk-f {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.bk-f--status { flex: 0 1 130px; }
+.bk-f--date { flex: 1.4 1 220px; }
+.bk-f--time { flex: 1 1 160px; }
+@media (max-width: 1100px) {
+  .bk-filters__row { flex-wrap: wrap; }
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.dot--pending { background: #f97316; }
+.dot--confirmed { background: #3b82f6; }
+.dot--completed { background: #22c55e; }
+.dot--cancelled { background: #ef4444; }
+.cust-cell,
+.opt-staff {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.cust-cell__avatar {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 600;
+}
+.opt-staff__avatar {
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 600;
+}
 .status-tag--action {
   cursor: pointer;
 }

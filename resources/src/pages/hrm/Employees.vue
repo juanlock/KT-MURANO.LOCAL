@@ -25,7 +25,9 @@
             @change="crud.reload()"
           />
         </a-col>
-        <a-col :xs="24" :md="6">
+        <!-- Only for a SuperAdmin with no company picked in the header switcher;
+             otherwise the list already follows the switcher (or the Admin's company). -->
+        <a-col v-if="showCompanyFilter" :xs="24" :md="6">
           <div class="filter-label">{{ $t('Company') }}</div>
           <a-select
             v-model:value="filterCompany"
@@ -49,7 +51,20 @@
 
     <DataTable :crud="crud" :columns="columns" :selectable="auth.can('delete_employee')">
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'actions'">
+        <template v-if="column.key === 'username'">
+          <span v-if="record.username" :style="{ opacity: record.login_enabled ? 1 : 0.5 }">
+            <!-- Opens the login in Users -> Edit (when allowed to see users). -->
+            <router-link v-if="record.user_id && auth.can('users_view')" :to="`/users/${record.user_id}/edit`">{{ record.username }}</router-link>
+            <template v-else>{{ record.username }}</template>
+            <span v-if="!record.login_enabled" style="font-size: 11px"> (disabled)</span>
+          </span>
+          <span v-else style="opacity: 0.45">No login</span>
+        </template>
+        <template v-else-if="column.key === 'role_name'">
+          <a-tag v-if="record.role_name" :color="record.login_enabled ? 'blue' : 'default'">{{ record.role_name }}</a-tag>
+          <span v-else style="opacity: 0.45">—</span>
+        </template>
+        <template v-else-if="column.key === 'actions'">
           <a-space>
             <!-- Details page (1,500-line tabbed profile) stays legacy. -->
             <a-tooltip v-if="auth.can('view_employee')" :title="$t('View_Details')">
@@ -91,6 +106,8 @@ import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import { EMPLOYMENT_TYPES } from './hrmVocab';
+import { useCompanyStore } from '../../stores/company';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -110,8 +127,12 @@ const crud = useCrudTable('employees', {
 crud.fetchRows();
 
 const companyOptions = computed(() =>
-  (crud.payload.value?.companies || []).map(c => ({ value: c.id, label: c.name }))
+  sortByLabel((crud.payload.value?.companies || []).map(c => ({ value: c.id, label: c.name })))
 );
+// Multicompany: the header switcher decides the company; this filter only
+// helps a SuperAdmin who hasn't picked one (Admins never see it).
+const company = useCompanyStore();
+const showCompanyFilter = computed(() => auth.user?.type === 'SuperAdmin' && !company.actingCompanyId);
 
 // The *_name columns are joined display values, not DB columns — sorting them
 // would feed a bad field into orderBy() (500). Sort only real columns.
@@ -119,6 +140,9 @@ const columns = computed(() => [
   { title: t('FirstName'), dataIndex: 'firstname', key: 'firstname', sorter: true },
   { title: t('LastName'), dataIndex: 'lastname', key: 'lastname', sorter: true },
   { title: t('Phone'), dataIndex: 'phone', key: 'phone', sorter: true },
+  // The employee's login (linked user) and its role -- set in Edit -> System access.
+  { title: t('username'), dataIndex: 'username', key: 'username', exportValue: r => r.username || '' },
+  { title: t('RoleName'), dataIndex: 'role_name', key: 'role_name', exportValue: r => r.role_name || '' },
   { title: t('Company'), dataIndex: 'company_name', key: 'company_name' },
   { title: t('Department'), dataIndex: 'department_name', key: 'department_name' },
   { title: t('Designation'), dataIndex: 'designation_name', key: 'designation_name' },

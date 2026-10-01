@@ -112,7 +112,7 @@ onMounted(() => menuStore.loadPositions());
 
 /** Legacy rule: no permissions listed = always visible; otherwise ANY match. */
 function allowed(entry) {
-  return isMenuEntryAllowed(entry, { can: p => auth.can(p), actingCompanyId: company.actingCompanyId, isSuperAdmin: auth.user?.type === 'SuperAdmin' });
+  return isMenuEntryAllowed(entry, { can: p => auth.can(p), actingCompanyId: company.actingCompanyId, isSuperAdmin: auth.user?.type === 'SuperAdmin', hiddenByRole: key => (auth.permissions || []).includes('menu_hide:' + key) });
 }
 
 // Sidebar "filter menus" search box (below the logo, AdminLayout.vue).

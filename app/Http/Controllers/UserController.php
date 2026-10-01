@@ -79,10 +79,16 @@ class UserController extends BaseController
         if ($perPage == '-1') {
             $perPage = $totalRows;
         }
-        $users = $Filtred->offset($offSet)
+        $users = $Filtred->with('roles:id,name')
+            ->offset($offSet)
             ->limit($perPage)
             ->orderBy($order, $dir)
-            ->get();
+            ->get()
+            // The user's role (role_user), shown in the list's Role column.
+            ->each(function ($u) {
+                $u->role_name = $u->roles->first()?->name;
+                $u->unsetRelation('roles');
+            });
 
         // Roles are per-company copies (Owner/Admin/... exist once per
         // company) -- only offer the acting company's own, i.e. the company
@@ -207,6 +213,15 @@ class UserController extends BaseController
             // columns), kept on the server so they follow the user to every
             // PC/browser -- see updateUiPreference().
             'ui_preferences' => (object) (json_decode((string) $user->ui_preferences, true) ?: []),
+            // System Settings -> Defaults -> Users: inactivity logout (minutes,
+            // null = off), what users see after login, dashboard sections off.
+            'idle_logout_minutes' => $settings->idle_logout_minutes ? (int) $settings->idle_logout_minutes : null,
+            'start_page_mode' => $settings->start_page_mode ?: 'dashboard',
+            'dashboard_hidden_sections' => json_decode((string) ($settings->dashboard_hidden_sections ?? '[]'), true) ?: [],
+            // Admin-picked shortcut buttons (8 slots, null = the user's most used form).
+            'start_page_shortcuts' => array_pad(array_slice(json_decode((string) ($settings->start_page_shortcuts ?? '[]'), true) ?: [], 0, 8), 8, null),
+            // This user's own start page ({mode: recent|form, form, recent}).
+            'start_preferences' => self::startPrefsOf($user),
         ];
 
         $permissions = $user->roles()->first()?->permissions->pluck('name') ?? [];
@@ -363,6 +378,9 @@ class UserController extends BaseController
                 $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->all();
                 $requestedWarehouseIds = array_values(array_intersect($requestedWarehouseIds, $allowedWarehouseIds));
                 $User->assignedWarehouses()->sync($requestedWarehouseIds);
+                // Staff saved with no Location picked: company default Location
+                // (else their register / bookings pickers are empty).
+                \App\Services\LinkedUserService::assignDefaultLocation($User);
             }
 
             // employee/customer/sales_agent: auto-create the matching
@@ -375,6 +393,69 @@ class UserController extends BaseController
         }, 10);
 
         return response()->json(['success' => true, 'warning' => $warning]);
+    }
+
+    // ------------ Start page (own account only) -----------\\
+    // Defaults -> Users -> "Customized by each user": the signed-in user picks
+    // "Last used" shortcuts or a form that opens after login; every visit to a
+    // menu page is counted so "Last used" shows their 6 most used.
+    // users.start_preferences = {mode, form, recent: {'/path': {c: count, t: unix}}}.
+    private static function startPrefsOf($user): array
+    {
+        $p = json_decode((string) $user->start_preferences, true);
+        $p = is_array($p) ? $p : [];
+
+        return [
+            'mode' => ($p['mode'] ?? 'recent') === 'form' ? 'form' : 'recent',
+            'form' => is_string($p['form'] ?? null) ? $p['form'] : null,
+            'recent' => (object) (is_array($p['recent'] ?? null) ? $p['recent'] : []),
+            // Home Buttons: 8 slots -- null = company default, '*' = my most used form, '/path' = that form.
+            'slots' => self::cleanSlots($p['slots'] ?? []),
+        ];
+    }
+
+    private static function cleanSlots($slots): array
+    {
+        $slots = array_slice(is_array($slots) ? array_values($slots) : [], 0, 8);
+        $slots = array_map(fn ($s) => ($s === '*' || (is_string($s) && preg_match('#^/[A-Za-z0-9_\-/]*$#', $s))) ? $s : null, $slots);
+
+        return array_pad($slots, 8, null);
+    }
+
+    public function updateStartPage(Request $request)
+    {
+        $data = $request->validate([
+            'mode' => 'required|in:recent,form',
+            'form' => ['nullable', 'string', 'max:200', 'regex:/^\/[A-Za-z0-9_\-\/]*$/'],
+        ]);
+        $user = $request->user('api');
+        $p = self::startPrefsOf($user);
+        $p['mode'] = $data['mode'];
+        $p['form'] = $data['mode'] === 'form' ? ($data['form'] ?? null) : ($p['form'] ?? null);
+        if ($request->has('slots')) {
+            $p['slots'] = self::cleanSlots($request->input('slots'));
+        }
+        $user->start_preferences = json_encode($p);
+        $user->save();
+
+        return response()->json(['start_preferences' => $p]);
+    }
+
+    public function recordStartPageVisit(Request $request)
+    {
+        $data = $request->validate(['path' => ['required', 'string', 'max:200', 'regex:/^\/[A-Za-z0-9_\-\/]*$/']]);
+        $user = $request->user('api');
+        $p = self::startPrefsOf($user);
+        $recent = (array) $p['recent'];
+        $hit = (array) ($recent[$data['path']] ?? []);
+        $recent[$data['path']] = ['c' => (int) ($hit['c'] ?? 0) + 1, 't' => time()];
+        // Keep the 30 most used, so the column never grows without bound.
+        uasort($recent, fn ($a, $b) => [$b['c'], $b['t']] <=> [$a['c'], $a['t']]);
+        $p['recent'] = array_slice($recent, 0, 30, true);
+        $user->start_preferences = json_encode($p);
+        $user->save();
+
+        return response()->json(['ok' => true]);
     }
 
     // ------------ Per-user UI preference (own account only) -----------\\

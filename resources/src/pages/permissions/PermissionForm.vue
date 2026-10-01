@@ -187,7 +187,7 @@ import PermissionMatrix from './PermissionMatrix.vue';
 import { MENU_ICONS, fallbackIcon } from '../../config/menuIcons';
 import { PERMISSION_GROUPS } from '../../config/permissions';
 import { buildTopLevelMenuForEditor } from '../../lib/menuTree';
-import { buildPermissionTree, filterPermissionNode } from '../../lib/permissionTree';
+import { buildPermissionTree, filterPermissionNode, menuHideKey, MENU_HIDE_PREFIX } from '../../lib/permissionTree';
 import { isMenuEntryAllowed } from '../../lib/menuVisibility';
 import { useAuthStore } from '../../stores/auth';
 import { useMenuStore } from '../../stores/menu';
@@ -350,7 +350,7 @@ function showWholeSection(sec) {
 const allSections = computed(() => [...layout.value.sections, ...layout.value.offSections]);
 const menuStats = computed(() => {
   const leaves = allSections.value.flatMap(sectionLeaves);
-  return { total: leaves.length, on: leaves.filter(n => n.menuPerms.some(p => permissions.value.includes(p))).length };
+  return { total: leaves.length, on: leaves.filter(menuVisible).length };
 });
 const formStats = computed(() => {
   const menuSet = new Set(allSections.value.flatMap(sectionLeaves).flatMap(n => n.menuPerms));
@@ -370,12 +370,39 @@ function togglePermission(v, on) {
 function toggleMany(list, on) {
   list.forEach(v => togglePermission(v, on));
 }
-// Menu switch ON grants the item's first gate permission (its primary one --
-// granting every alternative could also reveal unrelated items that share
-// them); OFF removes all of them, since ANY one keeps the item visible.
+const menuVisible = node => node.menuPerms.some(p => permissions.value.includes(p))
+  && !permissions.value.includes(menuHideKey(node));
+// Menu switch ON clears the item's hide mark and, if needed, grants its first
+// gate permission (its primary one -- granting every alternative could also
+// reveal unrelated items that share them). OFF hides just this item: a
+// permission other still-visible items depend on is kept (the item gets a
+// menu_hide:<route> mark instead); a permission nothing visible uses any more
+// is removed, along with the hide marks it no longer needs.
 function toggleMenu(node, on) {
-  if (on) togglePermission(node.menuPerms[0], true);
-  else node.menuPerms.forEach(p => togglePermission(p, false));
+  const hide = menuHideKey(node);
+  if (on) {
+    if (hide) togglePermission(hide, false);
+    if (!node.menuPerms.some(p => permissions.value.includes(p))) {
+      // Granting a shared permission fresh would also reveal the other items
+      // behind it, which were off -- keep those hidden.
+      const p = node.menuPerms[0];
+      (layout.value.leavesByPerm?.[p] || []).forEach(n => {
+        if (n !== node && !menuVisible(n)) togglePermission(menuHideKey(n), true);
+      });
+      togglePermission(p, true);
+    }
+    return;
+  }
+  if (hide) togglePermission(hide, true);
+  node.menuPerms.forEach(p => {
+    const sharers = layout.value.leavesByPerm?.[p] || [node];
+    const stillUsed = sharers.some(n => n !== node && menuVisible(n));
+    if (stillUsed && hide) return;
+    togglePermission(p, false);
+    sharers.forEach(n => {
+      if (!n.menuPerms.some(q => permissions.value.includes(q))) togglePermission(menuHideKey(n), false);
+    });
+  });
 }
 // Items with no permission gate: only a SuperAdmin working as AdminSystem
 // (999) may force them shown / hidden -- for every company at once.
@@ -400,7 +427,8 @@ function selectAll(on) {
   const offered = new Set(offeredPerms.value);
   // Values the editor doesn't offer (SuperAdmin-only for an Admin, legacy
   // leftovers) are kept untouched either way.
-  const untouched = permissions.value.filter(v => !offered.has(v));
+  // Per-item menu hide marks go either way (all on = everything visible).
+  const untouched = permissions.value.filter(v => !offered.has(v) && !String(v).startsWith(MENU_HIDE_PREFIX));
   permissions.value = on ? [...new Set([...untouched, ...offered])] : untouched;
 }
 

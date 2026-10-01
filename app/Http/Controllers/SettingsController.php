@@ -512,6 +512,51 @@ class SettingsController extends Controller
             }
         }
 
+        // Defaults -> Users: default passwords of auto-created users (hashed).
+        // `default_password_{type}_new` sets/replaces it, `_clear` removes it;
+        // neither sent = unchanged (the page never receives the stored hash).
+        $pwChanged = false;
+        foreach (['employee', 'customer', 'online_store', 'supplier', 'sales_agent'] as $t) {
+            if ($request->filled("default_password_{$t}_new")) {
+                $request->validate(["default_password_{$t}_new" => 'string|min:6|max:100'], [
+                    "default_password_{$t}_new.min" => 'Default passwords need at least 6 characters.',
+                ]);
+                $setting->{"default_password_{$t}"} = \Illuminate\Support\Facades\Hash::make((string) $request["default_password_{$t}_new"]);
+                $pwChanged = true;
+            } elseif ($request->boolean("default_password_{$t}_clear")) {
+                $setting->{"default_password_{$t}"} = null;
+                $pwChanged = true;
+            }
+        }
+        if ($pwChanged) {
+            $setting->save();
+        }
+
+        // Defaults -> Users: inactivity logout (minutes, empty = off), what
+        // users see after login, dashboard sections switched off. Each only
+        // when sent, so other callers of this endpoint keep the stored values.
+        if ($request->has('idle_logout_minutes')) {
+            $m = (int) $request['idle_logout_minutes'];
+            $setting->idle_logout_minutes = $m > 0 ? max(1, min(1440, $m)) : null;
+        }
+        if ($request->has('start_page_mode')) {
+            $setting->start_page_mode = $request['start_page_mode'] === 'custom' ? 'custom' : 'dashboard';
+        }
+        if ($request->has('dashboard_hidden_sections')) {
+            $hidden = json_decode((string) $request['dashboard_hidden_sections'], true);
+            $setting->dashboard_hidden_sections = json_encode(array_values(array_filter(is_array($hidden) ? $hidden : [], 'is_string')));
+        }
+        // 8 shortcut slots (SPA path or null = that user's most used form).
+        if ($request->has('start_page_shortcuts')) {
+            $slots = json_decode((string) $request['start_page_shortcuts'], true);
+            $slots = array_slice(is_array($slots) ? $slots : [], 0, 8);
+            $slots = array_map(fn ($p) => (is_string($p) && preg_match('#^/[A-Za-z0-9_\-/]*$#', $p)) ? $p : null, $slots);
+            $setting->start_page_shortcuts = json_encode(array_pad($slots, 8, null));
+        }
+        if ($setting->isDirty(['idle_logout_minutes', 'start_page_mode', 'dashboard_hidden_sections', 'start_page_shortcuts'])) {
+            $setting->save();
+        }
+
         // Prepare environment values
         $envValues = [
             'APP_TIMEZONE' => $request['timezone'] !== null ? '"'.$request['timezone'].'"' : '"UTC"',
@@ -635,6 +680,8 @@ class SettingsController extends Controller
             'pos_require_open_register' => (bool) ($settings->pos_require_open_register ?? true),
             'pos_register_pin_required' => (bool) ($settings->pos_register_pin_required ?? false),
             'pos_close_register_email' => (bool) ($settings->pos_close_register_email ?? true),
+            'pos_booking_integration' => (bool) ($settings->pos_booking_integration ?? false),
+            'pos_sale_pin_required' => (bool) ($settings->pos_sale_pin_required ?? false),
         ], 200);
 
     }
@@ -676,14 +723,14 @@ class SettingsController extends Controller
 
         // Company-level POS rules edited on the POS Settings page (settings
         // row): price decimals (2/3) and "Require an open register".
-        $ruleKeys = ['enable_3_decimal_pricing', 'pos_require_open_register', 'pos_register_pin_required', 'pos_close_register_email'];
+        $ruleKeys = ['enable_3_decimal_pricing', 'pos_require_open_register', 'pos_register_pin_required', 'pos_close_register_email', 'pos_booking_integration', 'pos_sale_pin_required'];
         if ($request->hasAny($ruleKeys)) {
             $settings = Setting::forCompany($this->resolveActingCompanyId($request));
             if ($settings) {
                 if ($request->has('enable_3_decimal_pricing')) {
                     $settings->enable_3_decimal_pricing = filter_var($request->input('enable_3_decimal_pricing'), FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
                 }
-                foreach (['pos_require_open_register', 'pos_register_pin_required', 'pos_close_register_email'] as $k) {
+                foreach (['pos_require_open_register', 'pos_register_pin_required', 'pos_close_register_email', 'pos_booking_integration', 'pos_sale_pin_required'] as $k) {
                     if ($request->has($k)) {
                         $settings->{$k} = filter_var($request->input($k), FILTER_VALIDATE_BOOLEAN);
                     }
@@ -1217,6 +1264,14 @@ class SettingsController extends Controller
             $item['booking_default_client_id'] = $settings->booking_default_client_id ? (int) $settings->booking_default_client_id : null;
             $item['booking_default_tray_id'] = $settings->booking_default_tray_id ? (int) $settings->booking_default_tray_id : null;
             $item['booking_default_sales_person_self'] = (bool) ($settings->booking_default_sales_person_self ?? true);
+            // Defaults -> Users: only whether each default password is set (never the hash).
+            foreach (['employee', 'customer', 'online_store', 'supplier', 'sales_agent'] as $pwType) {
+                $item["default_password_{$pwType}_set"] = ! empty(\Illuminate\Support\Facades\DB::table('settings')->where('id', $settings->id)->value("default_password_{$pwType}"));
+            }
+            $item['idle_logout_minutes'] = $settings->idle_logout_minutes ? (int) $settings->idle_logout_minutes : null;
+            $item['start_page_mode'] = $settings->start_page_mode ?: 'dashboard';
+            $item['dashboard_hidden_sections'] = json_decode((string) ($settings->dashboard_hidden_sections ?? '[]'), true) ?: [];
+            $item['start_page_shortcuts'] = array_pad(array_slice(json_decode((string) ($settings->start_page_shortcuts ?? '[]'), true) ?: [], 0, 8), 8, null);
             $item['booking_form_logo_url'] = ($settings->booking_form_logo && file_exists(public_path($settings->booking_form_logo))) ? asset($settings->booking_form_logo).'?v='.filemtime(public_path($settings->booking_form_logo)) : null;
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
@@ -2028,6 +2083,14 @@ class SettingsController extends Controller
             $item['booking_default_client_id'] = $settings->booking_default_client_id ? (int) $settings->booking_default_client_id : null;
             $item['booking_default_tray_id'] = $settings->booking_default_tray_id ? (int) $settings->booking_default_tray_id : null;
             $item['booking_default_sales_person_self'] = (bool) ($settings->booking_default_sales_person_self ?? true);
+            // Defaults -> Users: only whether each default password is set (never the hash).
+            foreach (['employee', 'customer', 'online_store', 'supplier', 'sales_agent'] as $pwType) {
+                $item["default_password_{$pwType}_set"] = ! empty(\Illuminate\Support\Facades\DB::table('settings')->where('id', $settings->id)->value("default_password_{$pwType}"));
+            }
+            $item['idle_logout_minutes'] = $settings->idle_logout_minutes ? (int) $settings->idle_logout_minutes : null;
+            $item['start_page_mode'] = $settings->start_page_mode ?: 'dashboard';
+            $item['dashboard_hidden_sections'] = json_decode((string) ($settings->dashboard_hidden_sections ?? '[]'), true) ?: [];
+            $item['start_page_shortcuts'] = array_pad(array_slice(json_decode((string) ($settings->start_page_shortcuts ?? '[]'), true) ?: [], 0, 8), 8, null);
             $item['booking_form_logo_url'] = ($settings->booking_form_logo && file_exists(public_path($settings->booking_form_logo))) ? asset($settings->booking_form_logo).'?v='.filemtime(public_path($settings->booking_form_logo)) : null;
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);

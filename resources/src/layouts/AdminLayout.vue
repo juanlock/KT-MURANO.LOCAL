@@ -115,6 +115,10 @@ import { useUiStore } from '../stores/ui';
 import { useAuthStore } from '../stores/auth';
 import { t as tf } from '../i18n';
 import { navLoading } from '../lib/progress';
+import { startIdleLogout } from '../lib/idleLogout';
+import { message } from 'ant-design-vue';
+import http from '../lib/http';
+import { markStartPageOpened } from '../lib/startPage';
 
 const ui = useUiStore();
 const auth = useAuthStore();
@@ -173,20 +177,60 @@ const year = computed(() => new Date().getFullYear());
 // System version injected as a meta tag by next.blade.php (from version.txt).
 const version = document.querySelector('meta[name="app-version"]')?.getAttribute('content') || '';
 
-async function logout() {
-  try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) {}
+// Defaults -> Users -> "Sign out after inactivity" (skipped while the user
+// has a POS register open). Restarts when the setting changes (saved/reload).
+let stopIdle = () => {};
+watch(() => [auth.user?.idle_logout_minutes, auth.user?.id], ([minutes, userId]) => {
+  stopIdle();
+  stopIdle = minutes ? startIdleLogout({ minutes, userId, onLogout: logout }) : () => {};
+}, { immediate: true });
+onBeforeUnmount(() => stopIdle());
+
+// A user with an open POS register can't sign out without closing it: they go
+// to the POS, which shows the register's close-out in sign-out mode.
+async function openRegisterOf() {
+  if (!auth.user?.id) return null;
   try {
-    await fetch('/logout', {
+    const data = await http.get(`cash-registers/current/${auth.user.id}`);
+    return data?.register?.status === 'open' ? data.register : null;
+  } catch (e) {
+    return null; // no POS access / offline
+  }
+}
+function goCloseRegister(register) {
+  try {
+    window.sessionStorage.setItem('pos_logout_closeout', JSON.stringify({ warehouse_id: register.warehouse_id, at: Date.now() }));
+  } catch (e) { /* storage unavailable */ }
+  message.warning(`Close register #${register.id} before signing out.`);
+  router.push('/pos');
+}
+
+async function logout() {
+  const register = await openRegisterOf();
+  if (register) {
+    goCloseRegister(register);
+    return;
+  }
+  try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) {}
+  markStartPageOpened(false);
+  let res = null;
+  try {
+    res = await fetch('/logout', {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
         'X-Requested-With': 'XMLHttpRequest',
+        Accept: 'application/json',
       },
     });
-  } finally {
-    window.location.href = '/login';
+  } catch (e) { /* network error: still leave */ }
+  // The server refuses too while a register is open (opened meanwhile elsewhere).
+  if (res && res.status === 409) {
+    const data = await res.json().catch(() => ({}));
+    if (data.register) { goCloseRegister(data.register); return; }
   }
+  window.location.href = '/login';
 }
 </script>
 

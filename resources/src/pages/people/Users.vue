@@ -19,6 +19,10 @@
         <template v-else-if="column.key === 'type'">
           <a-tag :color="typeColor(record.type)">{{ typeLabel(record.type) }}</a-tag>
         </template>
+        <template v-else-if="column.key === 'role_name'">
+          <a-tag v-if="record.role_name" color="blue">{{ record.role_name }}</a-tag>
+          <span v-else style="opacity: 0.45">—</span>
+        </template>
         <template v-else-if="column.key === 'statut'">
           <!-- Activate/deactivate toggle, like the legacy switch. The logged-in
                user cannot deactivate their own account. -->
@@ -101,6 +105,7 @@ const columns = computed(() => [
   { title: t('Email'), dataIndex: 'email', key: 'email' },
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
   { title: t('type'), key: 'type', dataIndex: 'type', exportValue: r => typeLabel(r.type) },
+  { title: t('RoleName'), key: 'role_name', dataIndex: 'role_name', exportValue: r => r.role_name || '' },
   { title: t('Status'), key: 'statut', dataIndex: 'statut', exportValue: r => (Number(r.statut) ? t('ActivateUser') : t('DisActivateUser')) },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);

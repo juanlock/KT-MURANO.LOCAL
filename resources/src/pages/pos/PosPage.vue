@@ -36,9 +36,14 @@
 
       <!-- Exit POS: back to the system. With an open register it first shows
            the close-out (expected cash, sales, payments) -> close + email admins. -->
-      <button type="button" class="pos-exit-btn" :title="'Exit POS'" @click="openExitPos">
+      <button type="button" class="pos-exit-btn" :title="'Exit POS'" @click="openExitPos('exit')">
         <lucide-icon name="log-out" style="font-size: 17px; transform: scaleX(-1);" />
         <span>Exit POS</span>
+      </button>
+      <!-- Exit system: sign out (with an open register: close it first, or keep it open). -->
+      <button type="button" class="pos-exit-btn" :title="'Exit system'" @click="openExitPos('logout')">
+        <lucide-icon name="power" style="font-size: 17px;" />
+        <span>Exit system</span>
       </button>
 
       <!-- Brand block (28x28 logo only on mobile; register info follows as a sibling) -->
@@ -1226,6 +1231,7 @@
     :client-credit-limit="customer_credit_limit_enabled ? selectedClientCreditLimit : 0"
     :client-net-balance="selectedClientNetBalance"
     :is-online="isOnline"
+    :request-sale-pin="requestSalePin"
     @payment-success="onModernPaymentSuccess"
     @invoice-ready="onModalInvoiceReady"
   />
@@ -3132,11 +3138,12 @@
       <div class="pos-exit-card">
         <div class="pos-exit-head">
           <div>
-            <div class="pos-exit-title">{{ exitModal.mode === 'exit' ? 'Exit POS' : 'Close register' }}</div>
+            <div class="pos-exit-title">{{ exitModal.mode === 'logout' ? 'Exit system' : (exitModal.mode === 'exit' ? 'Exit POS' : 'Close register') }}</div>
             <div class="pos-exit-sub" v-if="exitModal.summary">
               Register #{{ exitModal.summary.register_id }} · {{ exitModal.summary.cashier }} · {{ exitModal.summary.warehouse }}
             </div>
             <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'exit'">No register is open. Leave the POS and go back to the system?</div>
+            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'logout'">No register is open. Sign out of the system?</div>
           </div>
           <button type="button" class="pos-exit-x" :disabled="exitModal.busy" @click="exitModal.open = false"><lucide-icon name="x" /></button>
         </div>
@@ -3165,6 +3172,13 @@
             <div><span>Products</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.products_total, 2) }} ({{ Number(exitModal.summary.products_qty) }})</strong></div>
             <div v-for="p in exitModal.summary.payments" :key="p.method"><span>{{ p.method }} ({{ p.count }})</span><strong>{{ formatPriceWithSymbol(currentUser.currency, p.amount, 2) }}</strong></div>
           </div>
+          <!-- Sales per user: includes sales other users confirmed with their PIN. -->
+          <div v-if="(exitModal.summary.by_user || []).length" class="pos-exit-grid" style="margin-top: 8px">
+            <div v-for="u in exitModal.summary.by_user" :key="u.user_id">
+              <span>{{ u.name }} · {{ u.count }} {{ u.count === 1 ? 'sale' : 'sales' }}</span>
+              <strong>{{ formatPriceWithSymbol(currentUser.currency, u.total, 2) }}</strong>
+            </div>
+          </div>
 
           <div class="pos-exit-fields">
             <label>Counted cash
@@ -3183,9 +3197,10 @@
           <button type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="exitModal.open = false">{{ $t('Cancel') }}</button>
           <button v-if="exitModal.mode === 'exit' && exitModal.summary" type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="leavePos">Exit, keep register open</button>
           <button v-if="exitModal.summary" type="button" class="pos-exit-action pos-exit-action--danger" :disabled="exitModal.busy" @click="confirmCloseRegister()">
-            {{ exitModal.busy ? 'Closing…' : (exitModal.mode === 'exit' ? 'Close register & exit' : 'Close register') }}
+            {{ exitModal.busy ? 'Closing…' : (exitModal.mode === 'logout' ? 'Close register & sign out' : (exitModal.mode === 'exit' ? 'Close register & exit' : 'Close register')) }}
           </button>
           <button v-else-if="!exitModal.loading && exitModal.mode === 'exit'" type="button" class="pos-exit-action pos-exit-action--danger" @click="leavePos">Exit POS</button>
+          <button v-else-if="!exitModal.loading && exitModal.mode === 'logout'" type="button" class="pos-exit-action pos-exit-action--danger" @click="logout">Sign out</button>
         </div>
       </div>
     </div>
@@ -3201,9 +3216,11 @@
             <rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
           </svg>
         </div>
-        <div class="pos-pin-title">{{ pinPad.purpose === 'close' ? 'Confirm with your PIN' : 'Who is opening the register?' }}</div>
+        <div class="pos-pin-title">{{ pinPad.purpose === 'close' ? 'Confirm with your PIN' : (pinPad.purpose === 'sale' ? 'Who is making this sale?' : 'Who is opening the register?') }}</div>
         <div class="pos-pin-sub">
-          {{ pinPad.purpose === 'close' ? 'Type your PIN to close the register.' : 'Type your PIN — the POS will work under your user.' }}
+          {{ pinPad.purpose === 'close' ? 'Type your PIN to close the register.'
+            : (pinPad.purpose === 'sale' ? 'Type your PIN — this sale is recorded under your user. The POS stays with ' + (currentUser.username || 'the register\'s cashier') + '.'
+            : 'Type your PIN — the POS will work under your user.') }}
         </div>
         <div class="pos-pin-dots" :class="{ 'is-error': pinPad.error }">
           <span v-for="i in Math.max(4, pinPad.value.length)" :key="i" class="pos-pin-dot" :class="{ 'is-filled': i <= pinPad.value.length }"></span>
@@ -4358,6 +4375,8 @@ export default {
       closeForm: { counted_cash: 0, notes: '' },
       // POS Settings -> "Open register with PIN".
       registerPinRequired: false,
+      // POS Settings -> "Confirm each sale with the cashier's PIN".
+      salePinRequired: false,
       // Exit POS / close-register confirmation (live register summary).
       exitModal: { open: false, mode: 'exit', loading: false, busy: false, summary: null, counted_cash: 0, notes: '' },
       cashMove: { type: 'in', amount: 0, notes: '' },
@@ -5001,6 +5020,15 @@ export default {
     },
     // When the warehouse changes (including being cleared), clear the current
     // checkout so we never mix products/stock from different warehouses.
+    // Sale PIN pad closed without OK (Cancel / Esc / click outside): the
+    // payment waiting for it is cancelled.
+    'pinPad.open'(open) {
+      if (!open && this._salePinResolve) {
+        const resolve = this._salePinResolve;
+        this._salePinResolve = null;
+        resolve(null);
+      }
+    },
     'sale.warehouse_id'(newVal, oldVal) {
       // Promotions are warehouse-scoped, so re-evaluate on every change.
       this.Schedule_Refresh_Promotions && this.Schedule_Refresh_Promotions();
@@ -5130,6 +5158,7 @@ export default {
         this.currentRegister = data.register || null;
         this.registerChecked = true;
         this.resumeAfterPinSwitch();
+        this.resumeLogoutCloseout();
       } catch (e) {
         this.currentRegister = null;
         // Couldn't check (offline / error): don't lock the cashier out.
@@ -5171,9 +5200,26 @@ export default {
       else if (e.key === 'Enter') { this.submitPinPad(); e.preventDefault(); }
       else if (e.key === 'Escape') { this.pinPad.open = false; }
     },
+    // POS Settings -> "Confirm each sale with the cashier's PIN": asked at
+    // payment; resolves the PIN typed (the server records the sale under its
+    // owner) or null when cancelled. The POS session itself never changes.
+    requestSalePin() {
+      if (!this.salePinRequired || !this.isOnline) return Promise.resolve('');
+      return new Promise(resolve => {
+        this._salePinResolve = resolve;
+        this.openPinPad('sale');
+      });
+    },
     async submitPinPad() {
       const pin = this.pinPad.value;
       if (pin.length < 4) { this.pinPad.error = 'Enter your 4–8 digit PIN.'; return; }
+      if (this.pinPad.purpose === 'sale') {
+        const resolve = this._salePinResolve;
+        this._salePinResolve = null;
+        this.pinPad.open = false;
+        if (resolve) resolve(pin);
+        return;
+      }
       if (this.pinPad.purpose === 'close') {
         this.pinPad.open = false;
         this.confirmCloseRegister(pin);
@@ -5188,6 +5234,10 @@ export default {
         if (res && res.switched) {
           // Reload as the new user; the POS reopens the Open Register form.
           try { sessionStorage.setItem('pos_pin_switch', JSON.stringify({ warehouse_id: warehouseId, name: res.name, at: Date.now() })); } catch (e) { /* storage unavailable */ }
+          // The new cashier starts with an empty sale, not the last user's cart
+          // (and the pagehide flush must not save it back).
+          this._discardCart = true;
+          this.clearPersistedCart();
           window.location.reload();
           return;
         }
@@ -5220,6 +5270,30 @@ export default {
       if (!(this.currentRegister && this.currentRegister.status === 'open')) {
         this.registerForm.warehouse_id = wid;
         this.$bvModal.show('OpenRegisterModal');
+      }
+    },
+    // Sign-out with a register open always goes through its close-out
+    // (AdminLayout's menu Logout sends the user here with the register's
+    // location): show the close-out in sign-out mode.
+    resumeLogoutCloseout() {
+      let flag = null;
+      try { flag = JSON.parse(sessionStorage.getItem('pos_logout_closeout') || 'null'); } catch (e) { flag = null; }
+      if (!flag) return;
+      if (!flag.at || Date.now() - flag.at > 5 * 60 * 1000) {
+        try { sessionStorage.removeItem('pos_logout_closeout'); } catch (e) { /* ignore */ }
+        return;
+      }
+      const wid = Number(flag.warehouse_id);
+      if (wid && this.sale && Number(this.sale.warehouse_id) !== wid && (this.warehouses || []).some(w => Number(w.id) === wid)) {
+        this.sale.warehouse_id = wid; // the watcher re-checks the register, then we come back here
+        return;
+      }
+      try { sessionStorage.removeItem('pos_logout_closeout'); } catch (e) { /* ignore */ }
+      if (this.currentRegister && this.currentRegister.status === 'open') {
+        this.makeToast('warning', 'Close your register before signing out.', this.$t('Warning'));
+        this.openCloseRegister('logout');
+      } else {
+        this.logout();
       }
     },
     // ---------- Customer Display helpers ----------
@@ -5291,6 +5365,9 @@ export default {
         });
         this.$bvModal.hide('OpenRegisterModal');
         this.makeToast('success', this.$t('RegisterOpened'), this.$t('Success'));
+        // A new register session starts with an empty sale (no cart left over
+        // from the last session / restored after a refresh).
+        this.startCleanSale();
         // Immediately reflect UI without waiting for fetch
         this.currentRegister = data && data.register ? data.register : this.currentRegister;
         // Fallback refresh to ensure latest from server
@@ -5313,6 +5390,7 @@ export default {
         });
         this.$bvModal.hide('CloseRegisterModal');
         this.makeToast('success', this.$t('RegisterClosed'), this.$t('Success'));
+        this.startCleanSale();
         this.refreshCurrentRegister();
       } catch (e) {
         const msg = e.response?.data?.message || this.$t('OperationFailed');
@@ -5324,11 +5402,12 @@ export default {
     // ---------- Exit POS / close-out ----------
     // Exit button: with an open register show its close-out first; otherwise
     // just confirm leaving.
-    openExitPos() {
+    // mode 'exit' = back to the system; 'logout' = Exit system (sign out).
+    openExitPos(mode = 'exit') {
       if (this.registerEnabled && this.isOnline && this.currentRegister && this.currentRegister.status === 'open') {
-        this.openCloseRegister('exit');
+        this.openCloseRegister(mode);
       } else {
-        Object.assign(this.exitModal, { open: true, mode: 'exit', loading: false, busy: false, summary: null });
+        Object.assign(this.exitModal, { open: true, mode, loading: false, busy: false, summary: null });
       }
     },
     async openCloseRegister(mode) {
@@ -5368,7 +5447,11 @@ export default {
           this.makeToast('warning', mail.error || 'The close-out email was not sent.', this.$t('Warning'));
         }
         this.exitModal.open = false;
-        if (this.exitModal.mode === 'exit') {
+        // Closing ends the session: nothing of this sale carries over.
+        this.startCleanSale();
+        if (this.exitModal.mode === 'logout') {
+          this.logout(); // register just closed: sign out for real
+        } else if (this.exitModal.mode === 'exit') {
           this.leavePos();
         } else {
           this.refreshCurrentRegister();
@@ -5378,6 +5461,12 @@ export default {
       } finally {
         this.exitModal.busy = false;
       }
+    },
+    // Empty cart / client / discounts and the saved cart snapshot, on every
+    // register open and close.
+    startCleanSale() {
+      this.clearPersistedCart();
+      Promise.resolve().then(() => this.Reset_Pos()).catch(() => {});
     },
     leavePos() {
       this.exitModal.open = false;
@@ -5612,8 +5701,14 @@ export default {
     handleFullScreen() {
       Util.toggleFullScreen();
     },
+    // Every POS "Logout" link: with a register open, sign-out goes through its
+    // close-out first (no keeping it open); otherwise straight out.
     logoutUser() {
-      this.logout();
+      if (this.currentRegister && this.currentRegister.status === 'open') {
+        this.openExitPos('logout');
+      } else {
+        this.logout();
+      }
     },
     // ==================== VEHICLE FITMENT ====================
     // $t() echoes the key when a translation is missing (truthy), so a plain
@@ -10433,6 +10528,7 @@ export default {
           this.applyCustomerFeatureFlags(response.data);
           this.requireOpenRegister = response.data.require_open_register !== false;
           this.registerPinRequired = response.data.register_pin_required === true;
+          this.salePinRequired = response.data.sale_pin_required === true;
           this.clientIsEligible = this.customer_loyalty_enabled && (response.data.default_client_eligible === true || response.data.default_client_eligible === 1);
           this.selectedClientPoints = this.clientIsEligible ? parseFloat(response.data.default_client_points) : 0;
           this.point_to_amount_rate = response.data.point_to_amount_rate;
@@ -11115,7 +11211,7 @@ export default {
       };
     },
     persistCartState() {
-      if (this._restoringCart) return;
+      if (this._restoringCart || this._discardCart) return;
       try {
         if (this._persistCartTimer) clearTimeout(this._persistCartTimer);
       } catch (e) {}
@@ -11141,7 +11237,7 @@ export default {
           this._persistCartTimer = null;
         }
       } catch (e) {}
-      if (this._restoringCart) return;
+      if (this._restoringCart || this._discardCart) return;
       try {
         if (!Util || !Util.offlinePos) return;
         if (!this.details || !this.details.length) {

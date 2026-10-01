@@ -33,6 +33,8 @@ class User extends Authenticatable
         // Cashier PIN (POS open/close register). Plain digits, unique per
         // company; kept out of API payloads -- only the user form reads it.
         'pin',
+        // Start page choice + usage counts (get_user_auth sends the user's own).
+        'start_preferences',
     ];
 
     // Does $pin confirm this user? (constant-time compare)

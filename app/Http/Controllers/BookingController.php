@@ -46,6 +46,24 @@ class BookingController extends BaseController
         abort_if(! empty($v['warehouse_id']) && ! \App\Models\Warehouse::whereKey($v['warehouse_id'])->where('company_id', $cid)->exists(), 422, 'That location does not belong to your company.');
     }
 
+    /**
+     * Who may book for / look at OTHER staff: admins (and SuperAdmin) or a
+     * role with the "Booking to other staff" permission. Anyone else is the
+     * staff of their own bookings only (form field locked to themselves,
+     * list / calendar show only theirs).
+     */
+    private function canBookOtherStaff($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+        if (in_array(strtolower((string) $user->type), ['admin', 'superadmin'], true)) {
+            return true;
+        }
+
+        return (bool) $user->roles()->first()?->permissions->contains('name', 'booking_other_staff');
+    }
+
     /** The company's locations, for the booking form's Location picker. */
     private function bookingWarehouses()
     {
@@ -85,6 +103,11 @@ class BookingController extends BaseController
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Booking::class);
+        // Without "Booking to other staff": only the user's own bookings (as staff).
+        $canOthers = $this->canBookOtherStaff($request->user('api'));
+        if (! $canOthers) {
+            $request->merge(['sales_person_id' => $request->user('api')->id]);
+        }
         $perPage = $request->limit ?: 10;
         $pageStart = (int) $request->get('page', 1);
         $offSet = ($pageStart * $perPage) - $perPage;
@@ -198,6 +221,9 @@ class BookingController extends BaseController
             'filter_options' => $filterOptions,
             // Defaults -> Booking -> Use decimals, for the Price/Amount columns.
             'decimals' => $this->bookingFieldFlags($this->reportCompanyId() ?: null)['decimals'],
+            // Staff filter locked to the user unless they may see other staff.
+            'can_book_other_staff' => $canOthers,
+            'me' => $request->user('api')->id,
         ]);
     }
 
@@ -247,6 +273,9 @@ class BookingController extends BaseController
             'booking_fields' => $this->bookingFieldFlags($this->reportCompanyId() ?: (int) optional(Client::find($booking->customer_id ?? 0))->company_id),
             'trays' => $this->getTrays(),
             'sales_persons' => $this->getSalesPersons(),
+            // Staff field editable only by admins / roles with "Booking to other staff".
+            'can_book_other_staff' => $this->canBookOtherStaff($request->user('api')),
+            'me' => $request->user('api')->id,
             'statuses' => ['pending', 'confirmed', 'cancelled', 'completed'],
             'warehouses' => $this->bookingWarehouses(),
             'defaults' => $this->bookingDefaults($request),
@@ -393,13 +422,17 @@ class BookingController extends BaseController
             ->whereNotIn('type', ['customer', 'Online_store', 'supplier'])
             ->orderBy('firstname', 'asc')
             ->orderBy('lastname', 'asc')
-            ->get(['id', 'firstname', 'lastname', 'username'])
+            ->get(['id', 'firstname', 'lastname', 'username', 'avatar'])
             ->map(function ($user) {
                 $name = trim(($user->firstname ?? '').' '.($user->lastname ?? ''));
+                // Photo for the calendar: the user's avatar, else their employee photo.
+                $avatar = $user->avatar ?: \App\Models\Employee::where('user_id', $user->id)->whereNull('deleted_at')->value('avatar');
+                $avatar = $avatar && ! str_contains($avatar, 'no_avatar') && file_exists(public_path(ltrim($avatar, '/'))) ? '/'.ltrim($avatar, '/') : null;
 
                 return [
                     'id' => $user->id,
                     'name' => $name !== '' ? $name : $user->username,
+                    'avatar' => $avatar,
                 ];
             });
     }
@@ -458,6 +491,10 @@ class BookingController extends BaseController
             'status' => 'required|string|in:pending,confirmed,cancelled,completed',
             'notes' => 'nullable|string',
         ])->validate();
+        // Without "Booking to other staff": the staff is always the user themselves.
+        if (! $this->canBookOtherStaff($request->user('api'))) {
+            $validated['sales_person_id'] = $request->user('api')->id;
+        }
         $this->assertBookingRefs($validated);
         $validated = $this->applyDecimalsSetting($validated);
 
@@ -556,6 +593,9 @@ class BookingController extends BaseController
             'booking_fields' => $this->bookingFieldFlags($this->reportCompanyId() ?: (int) optional(Client::find($booking->customer_id ?? 0))->company_id),
             'trays' => $this->getTrays(),
             'sales_persons' => $this->getSalesPersons(),
+            // Staff field editable only by admins / roles with "Booking to other staff".
+            'can_book_other_staff' => $this->canBookOtherStaff($request->user('api')),
+            'me' => $request->user('api')->id,
             'statuses' => ['pending', 'confirmed', 'cancelled', 'completed'],
             'warehouses' => $this->bookingWarehouses(),
         ]);
@@ -617,6 +657,14 @@ class BookingController extends BaseController
             'status' => 'required|string|in:pending,confirmed,cancelled,completed',
             'notes' => 'nullable|string',
         ])->validate();
+        // Without "Booking to other staff": the staff can't be changed to
+        // someone else (only kept, or set to the user themselves).
+        $me = $request->user('api');
+        if (! $this->canBookOtherStaff($me)
+            && (int) ($validated['sales_person_id'] ?? 0) !== (int) $booking->sales_person_id
+            && (int) ($validated['sales_person_id'] ?? 0) !== (int) $me->id) {
+            $validated['sales_person_id'] = $booking->sales_person_id;
+        }
         $this->assertBookingRefs($validated);
         $validated = $this->applyDecimalsSetting($validated);
 

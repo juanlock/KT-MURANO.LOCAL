@@ -61,6 +61,21 @@ class DashboardController extends Controller
             $warehouse_id = 0;
         }
 
+        // Date preset "All" (range=all): from the first sale / purchase on
+        // record in these locations to today -- the charts plot one point per
+        // day, so the start must be real data, not an arbitrary year.
+        if ($request->input('range') === 'all') {
+            $scope = $warehouse_id !== 0 ? [$warehouse_id] : $array_warehouses_id;
+            $first = collect([
+                Sale::whereNull('deleted_at')->whereIn('warehouse_id', $scope)->min('date'),
+                Purchase::whereNull('deleted_at')->whereIn('warehouse_id', $scope)->min('date'),
+            ])->filter()->min();
+            $request->merge([
+                'from' => $first ? Carbon::parse($first)->toDateString() : Carbon::today()->toDateString(),
+                'to' => Carbon::today()->toDateString(),
+            ]);
+        }
+
         // Sales & Purchases chart: use header date range + warehouse filter
         $dataSales = $this->SalesChart($warehouse_id, $array_warehouses_id, $request->from, $request->to);
         $datapurchases = $this->PurchasesChart($warehouse_id, $array_warehouses_id, $request->from, $request->to);
@@ -87,6 +102,8 @@ class DashboardController extends Controller
             'report_dashboard' => $report_dashboard,
             'sales_by_payment' => $sales_by_payment,
             'stock_value' => $stock_value,
+            // The dates actually used (shown in the header keycard).
+            'range' => ['from' => $request->from, 'to' => $request->to],
         ]);
 
     }

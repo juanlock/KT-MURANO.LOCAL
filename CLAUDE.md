@@ -24,7 +24,9 @@ request/order made to modify this project) so prior work and decisions are
 known before anything is changed, then closes out by generating and opening a small HTML
 status report (`database/scripts/protocol_preparate_report.php`, written to
 `KT-TOOLS/Report/kt_murano_preparate_<date>.html`) showing the **last 2** `kt_logs`
-requests as separate cards, what changed, and each one's **status**
+requests -- index table, then grouped by module (from the files each touched),
+each with date requested, the verbatim request, the solution (closing message),
+what changed and the files affected -- and each one's **status**
 (Completed / In Progress / Blocked -- see the `status` column note in
 `.claude/commands/kelsy.md`). This is distinct from Memorex, which reports
 the *full* `kt_logs` history.

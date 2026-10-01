@@ -3,112 +3,95 @@
     <PageHeader :title="$t('Calendar_View')" :breadcrumb="[$t('Bookings'), $t('Calendar_View')]">
       <template #extra>
         <a-space wrap>
-          <a-tag v-for="(c, s) in STATUS_COLORS" :key="s" :style="{ background: c.bg, borderColor: c.border, color: c.text }">
-            {{ statusLabel(s) }}
-          </a-tag>
           <a-tooltip title="Or click an empty day / time slot on the calendar">
             <a-button type="primary" @click="newAppointment()">
               <template #icon><PlusOutlined /></template>
               New appointment
             </a-button>
           </a-tooltip>
+          <!-- Staff photos: a staff member sees only their own appointments
+               (their photo); an admin sees everyone and can click a photo to
+               show only that person's appointments. -->
+          <div v-if="!isAdmin && me" class="staff-me">
+            <a-avatar :size="40" :src="me.avatar || undefined" class="staff-avatar staff-avatar--on">{{ initials(me.name) }}</a-avatar>
+            <div class="staff-me__text">
+              <div class="staff-me__name">{{ me.name }}</div>
+              <div class="staff-me__sub">My appointments</div>
+            </div>
+          </div>
+          <div v-else-if="isAdmin && staff.length" class="staff-strip">
+            <a-tooltip title="Everyone">
+              <a-avatar :size="36" class="staff-avatar" :class="{ 'staff-avatar--on': !staffFilter }" @click="setStaff(null)">All</a-avatar>
+            </a-tooltip>
+            <a-tooltip v-for="s in staff" :key="s.id" :title="s.name">
+              <a-avatar
+                :size="36" :src="s.avatar || undefined" class="staff-avatar"
+                :class="{ 'staff-avatar--on': staffFilter === s.id }" @click="setStaff(staffFilter === s.id ? null : s.id)"
+              >{{ initials(s.name) }}</a-avatar>
+            </a-tooltip>
+          </div>
         </a-space>
       </template>
     </PageHeader>
 
-    <a-card>
-      <a-spin :spinning="isLoading">
-        <div ref="calendarEl" style="min-height: 480px"></div>
-      </a-spin>
-    </a-card>
-
-    <!-- Appointment: edit right from the calendar (status, time, service,
-         staff, station, notes). Loads/saves the full booking through the
-         same endpoints as the Edit page, so nothing else is overwritten. -->
-    <a-modal
-      v-model:open="detailOpen"
-      :title="`${selectedBooking?.Ref || ''} — ${selectedBooking?.customer_name || ''}`"
-      width="720px"
-    >
-      <a-spin :spinning="editLoading">
-        <template v-if="edit">
-          <!-- Status + one-click moves -->
-          <div class="appt-status">
-            <span>{{ $t('Status') }}:</span>
-            <a-tag :style="tagStyle(edit.status)">{{ statusLabel(edit.status) }}</a-tag>
-            <a-space wrap>
-              <a-button v-if="edit.status === 'pending'" type="primary" size="small" :loading="statusSaving === 'confirmed'" @click="quickStatus('confirmed')">
-                <template #icon><CheckCircleOutlined /></template>{{ $t('Confirm') }}
-              </a-button>
-              <a-button v-if="edit.status === 'confirmed'" size="small" style="color: #15803d; border-color: #22c55e" :loading="statusSaving === 'completed'" @click="quickStatus('completed')">
-                <template #icon><CheckSquareOutlined /></template>{{ $t('complete') }}
-              </a-button>
-              <a-button v-if="edit.status === 'pending' || edit.status === 'confirmed'" danger size="small" :loading="statusSaving === 'cancelled'" @click="quickStatus('cancelled')">
-                <template #icon><StopOutlined /></template>{{ $t('Cancel') }}
-              </a-button>
-            </a-space>
-          </div>
-
-          <a-form layout="vertical">
-            <!-- Same date / start / end controls as Create/Edit Booking. -->
-            <BookingWhenFields
-              v-model:date="edit.booking_date" v-model:start="edit.booking_time" v-model:end="edit.booking_end_time"
-              :duration="Number(selectedService?.service_duration) || 0"
-              :exclude-id="edit.id" :customer-id="edit.customer_id"
-            />
-            <a-row :gutter="12">
-              <a-col :xs="24" :md="12">
-                <a-form-item :label="$t('Product_Name')">
-                  <a-select
-                    v-model:value="edit.product_id" show-search option-filter-prop="label" allow-clear
-                    :options="serviceOptions" :placeholder="$t('PleaseSelect')" @change="onServiceChange"
-                  />
-                </a-form-item>
-              </a-col>
-              <a-col :xs="24" :md="12">
-                <a-form-item :label="$t('Sales_Person')">
-                  <a-select
-                    v-model:value="edit.sales_person_id" show-search option-filter-prop="label" allow-clear
-                    :options="staffOptions" :placeholder="$t('PleaseSelect')"
-                  />
-                </a-form-item>
-              </a-col>
-              <a-col v-if="trayOptions.length" :xs="24" :md="12">
-                <a-form-item :label="$t('Tray')">
-                  <a-select v-model:value="edit.tray_id" allow-clear :options="trayOptions" :placeholder="$t('PleaseSelect')" />
-                </a-form-item>
-              </a-col>
-              <a-col :xs="24" :md="12">
-                <a-form-item :label="$t('warehouse')">
-                  <a-select v-model:value="edit.warehouse_id" allow-clear show-search option-filter-prop="label" :options="warehouseOptions" :placeholder="$t('PleaseSelect')" />
-                </a-form-item>
-              </a-col>
-              <a-col :xs="12" :md="6">
-                <a-form-item :label="$t('Price')">
-                  <a-input-number v-model:value="edit.price" :min="0" style="width: 100%" />
-                </a-form-item>
-              </a-col>
-              <a-col :span="24">
-                <a-form-item :label="$t('Note')">
-                  <a-textarea v-model:value="edit.notes" :rows="3" />
-                </a-form-item>
-              </a-col>
-            </a-row>
-          </a-form>
-        </template>
-      </a-spin>
-      <template #footer>
-        <div class="appt-footer">
-          <a-button type="link" style="padding: 0" :disabled="!selectedBooking" @click="$router.push(`/bookings/${selectedBooking.id}/edit`)">
-            {{ $t('Edit') }} — full form
-          </a-button>
-          <a-space>
-            <a-button @click="detailOpen = false">{{ $t('Cancel') }}</a-button>
-            <a-button type="primary" :loading="saving" :disabled="!edit || editLoading" @click="saveEdit">{{ $t('submit') }}</a-button>
-          </a-space>
+    <a-row :gutter="[16, 16]">
+      <!-- Calendar (a bit narrower) + the appointments list next to it. -->
+      <a-col :xs="24" :xl="16">
+        <a-card class="bkc-card">
+          <a-spin :spinning="isLoading">
+            <!-- --bkc-primary = the app theme color (Appearance / customizer). -->
+            <!-- Wrapper carries .bkc: FullCalendar puts its own .fc class on calendarEl itself. -->
+            <div class="bkc" :style="{ '--bkc-primary': ui.primaryColor || '#6d28d9' }">
+              <div ref="calendarEl" style="min-height: 420px"></div>
+            </div>
+          </a-spin>
+        </a-card>
+        <!-- Status summary of what the calendar shows; click = only that status. -->
+        <div class="bkc-pills">
+          <button
+            v-for="(c, s) in STATUS_COLORS" :key="s" type="button" class="bkc-pill"
+            :class="{ 'is-on': statusFilter === s, 'is-dim': statusFilter && statusFilter !== s }"
+            :style="{ '--pill-bg': c.bg, '--pill-bd': c.border, '--pill-tx': c.text }" @click="toggleStatus(s)"
+          >
+            <span class="bkc-pill__dot"></span>
+            <span class="bkc-pill__label">{{ statusLabel(s) }}</span>
+            <b>{{ statusCounts[s] }}</b>
+          </button>
+          <a-button v-if="statusFilter" type="link" size="small" @click="toggleStatus(statusFilter)">Show all</a-button>
         </div>
-      </template>
-    </a-modal>
+      </a-col>
+      <a-col :xs="24" :xl="8">
+        <a-card size="small" class="appt-list-card">
+          <template #title>
+            <span>Appointments</span>
+            <span class="appt-list-range">{{ listRangeLabel }}</span>
+          </template>
+          <a-segmented v-model:value="listPeriod" :options="LIST_PERIODS" block style="margin-bottom: 12px" @change="loadList" />
+          <a-spin :spinning="listLoading">
+            <div v-if="listGroups.length" class="appt-list">
+              <div v-for="g in listGroups" :key="g.date" class="appt-day">
+                <div class="appt-day__head">{{ g.label }} <span>{{ g.items.length }}</span></div>
+                <div v-for="b in g.items" :key="b.id" class="appt-item" :style="{ borderLeftColor: (STATUS_COLORS[b.status] || STATUS_COLORS.pending).border }" @click="openBooking(b)">
+                  <div class="appt-item__time">{{ fmtTime(b.booking_time) }}<span v-if="b.booking_end_time">{{ fmtTime(b.booking_end_time) }}</span></div>
+                  <div class="appt-item__main">
+                    <div class="appt-item__name">{{ b.customer_name || `Booking #${b.id}` }}</div>
+                    <div class="appt-item__sub">{{ b.product_name || '—' }}</div>
+                  </div>
+                  <a-tooltip v-if="staffById[b.sales_person_id]" :title="staffById[b.sales_person_id].name">
+                    <a-avatar :size="26" :src="staffById[b.sales_person_id].avatar || undefined">{{ initials(staffById[b.sales_person_id].name) }}</a-avatar>
+                  </a-tooltip>
+                  <a-tag :style="tagStyle(b.status)" style="margin: 0">{{ statusLabel(b.status) }}</a-tag>
+                </div>
+              </div>
+            </div>
+            <a-empty v-else description="No appointments in this period" />
+          </a-spin>
+        </a-card>
+      </a-col>
+    </a-row>
+
+    <!-- Appointment quick edit (shared with the Bookings list). -->
+    <BookingEditModal v-model:open="detailOpen" :booking="selectedBooking" @saved="afterSave" />
   </div>
 </template>
 
@@ -125,11 +108,14 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { CheckCircleOutlined, CheckSquareOutlined, StopOutlined, PlusOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
-import BookingWhenFields from '../../components/BookingWhenFields.vue';
+import BookingEditModal from '../../components/BookingEditModal.vue';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
+import { useAuthStore } from '../../stores/auth';
+import { useUiStore } from '../../stores/ui';
+import dayjs from 'dayjs';
 
 const { t } = useI18n();
 
@@ -183,12 +169,40 @@ function ensureFullCalendar() {
   return loadingLib;
 }
 
+// ---------------- whose appointments ----------------
+// A staff member sees only their own appointments (sales person = them); an
+// admin (or SuperAdmin) sees everyone's and can narrow to one person by
+// clicking their photo.
+const auth = useAuthStore();
+const ui = useUiStore();
+// "Admin" here = may see / book other staff: admins, SuperAdmin, or a role
+// with "Booking to other staff" (same rule the server applies).
+const isAdmin = computed(() => ['admin', 'superadmin'].includes(String(auth.user?.type || '').toLowerCase())
+  || (auth.permissions || []).includes('booking_other_staff'));
+const staff = ref([]); // [{id, name, avatar}] -- the company's staff (bookings filter_options)
+const staffById = computed(() => Object.fromEntries(staff.value.map(s => [s.id, s])));
+const staffFilter = ref(null);
+const staffParam = () => (isAdmin.value ? (staffFilter.value || undefined) : auth.user?.id);
+const me = computed(() => staffById.value[auth.user?.id]
+  || (auth.user ? { id: auth.user.id, name: auth.username, avatar: null } : null));
+function initials(name) {
+  return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+}
+function setStaff(id) {
+  staffFilter.value = id;
+  calendar?.refetchEvents();
+  loadList();
+}
+
 async function fetchEvents(startStr, endStr, success, failure) {
   try {
     const data = await http.get('bookings', {
-      from: startStr, to: endStr, limit: -1, SortField: 'booking_date', SortType: 'asc',
+      from: startStr.slice(0, 10), to: endStr.slice(0, 10), limit: -1, SortField: 'booking_date', SortType: 'asc',
+      sales_person_id: staffParam(),
     });
-    const events = (data.bookings || []).map(b => {
+    if (data.filter_options?.staff) staff.value = data.filter_options.staff;
+    visibleRows.value = data.bookings || [];
+    const events = (data.bookings || []).filter(b => !statusFilter.value || b.status === statusFilter.value).map(b => {
       if (!b.booking_date) return null;
       const date = b.booking_date;
       const startTime = (b.booking_time || '00:00').slice(0, 5);
@@ -222,128 +236,108 @@ async function fetchEvents(startStr, endStr, success, failure) {
   }
 }
 
-// ---------------- edit an appointment from the calendar ----------------
-// GET bookings/{id}/edit -> full booking + services/staff/stations; the modal
-// changes a few fields and PUT bookings/{id} sends the FULL booking back
-// (that endpoint validates and overwrites every field). Status buttons use
-// PUT bookings/{id}/status (confirming also creates the customer's account).
-const editLoading = ref(false);
-const saving = ref(false);
-const statusSaving = ref(null);
-const edit = ref(null);
-const lists = ref({ products: [], sales_persons: [], trays: [], warehouses: [] });
-const warehouseOptions = computed(() => sortByLabel((lists.value.warehouses || []).map(w => ({ value: w.id, label: w.name }))));
-
-const serviceOptions = computed(() => sortByLabel((lists.value.products || []).map(p => ({
-  value: p.id,
-  label: [p.group_name, p.name].filter(Boolean).join(' › ') + (p.service_duration ? ` · ${fmtDuration(p.service_duration)}` : ''),
-}))));
-const staffOptions = computed(() => sortByLabel((lists.value.sales_persons || []).map(s => ({ value: s.id, label: s.name }))));
-const trayOptions = computed(() => sortByLabel((lists.value.trays || []).map(s => ({ value: s.id, label: s.name }))));
-
-function fmtDuration(m) {
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  return [h ? `${h} h` : '', r ? `${r} min` : ''].filter(Boolean).join(' ');
-}
-const selectedService = computed(() => (lists.value.products || []).find(p => p.id === edit.value?.product_id));
-
-// Same rule as the booking form: picking a product/service sets its name and
-// its price (the default, still editable); End Time follows its duration
-// inside BookingWhenFields.
-function onServiceChange() {
-  const p = selectedService.value;
-  edit.value.product_name = p ? p.name : null;
-  edit.value.price = p && p.price != null ? Number(p.price) : null;
-}
-
-const hhmm = v => (v ? String(v).slice(0, 5) : null);
-
-async function loadEdit(id) {
-  editLoading.value = true;
-  edit.value = null;
-  try {
-    const data = await http.get(`bookings/${id}/edit`);
-    const b = data.booking || {};
-    lists.value = { products: data.products || [], sales_persons: data.sales_persons || [], trays: data.trays || [], warehouses: data.warehouses || [] };
-    edit.value = {
-      ...b,
-      booking_date: b.booking_date ? String(b.booking_date).slice(0, 10) : null,
-      booking_time: hhmm(b.booking_time),
-      booking_end_time: hhmm(b.booking_end_time),
-      delivery_date: b.delivery_date ? String(b.delivery_date).slice(0, 10) : null,
-      delivery_time: hhmm(b.delivery_time),
-    };
-  } catch (e) {
-    message.error(e?.data?.message || t('InvalidData'));
-    detailOpen.value = false;
-  } finally {
-    editLoading.value = false;
-  }
-}
-
-function payload() {
-  const b = edit.value;
-  return {
-    customer_id: b.customer_id,
-    sales_person_id: b.sales_person_id || null,
-    tray_id: b.tray_id || null,
-    warehouse_id: b.warehouse_id || null,
-    product_id: b.product_id || null,
-    product_name: b.product_name,
-    product_description: b.product_description,
-    price: b.price ? parseFloat(b.price) : null,
-    amount: b.amount ? parseFloat(b.amount) : null,
-    booking_date: b.booking_date,
-    booking_time: b.booking_time,
-    booking_end_time: b.booking_end_time || null,
-    delivery_date: b.delivery_date || null,
-    delivery_time: b.delivery_time || null,
-    delivery_address: b.delivery_address,
-    status: b.status,
-    notes: b.notes,
-  };
-}
-
-function afterSave(data) {
-  if (data?.customer_account_created) message.info('Customer account created');
-  if (data?.sale_warning) message.warning(data.sale_warning, 6);
+// Status summary above the calendar: counts of what the calendar is showing
+// (current month / week / day); a click shows only that status.
+const visibleRows = ref([]);
+const statusFilter = ref(null);
+const statusCounts = computed(() => {
+  const c = { pending: 0, confirmed: 0, completed: 0, cancelled: 0 };
+  visibleRows.value.forEach(b => { if (c[b.status] !== undefined) c[b.status]++; });
+  return c;
+});
+function toggleStatus(s) {
+  statusFilter.value = statusFilter.value === s ? null : s;
   calendar?.refetchEvents();
 }
 
-async function saveEdit() {
-  if (!edit.value) return;
-  if (edit.value.booking_end_time && edit.value.booking_end_time <= edit.value.booking_time) {
-    message.warning('End time must be after the start time');
-    return;
-  }
-  saving.value = true;
-  try {
-    const data = await http.put(`bookings/${edit.value.id}`, payload());
-    message.success(t('Successfully_Updated'));
-    detailOpen.value = false;
-    afterSave(data);
-  } catch (e) {
-    const errs = e?.data?.errors;
-    const first = errs && Object.values(errs)[0];
-    message.error((Array.isArray(first) ? first[0] : first) || e?.data?.message || t('InvalidData'));
-  } finally {
-    saving.value = false;
-  }
+// Appointment card inside the calendar: staff photo (or initials), time,
+// customer and service -- the status shows as the card's color.
+const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+function eventContent(arg) {
+  const b = arg.event.extendedProps.booking || {};
+  const sp = staffById.value[b.sales_person_id];
+  const avatar = sp
+    ? (sp.avatar
+      ? `<img class="bkc-av" src="${esc(sp.avatar)}" alt="">`
+      : `<span class="bkc-av bkc-av--txt">${esc(initials(sp.name))}</span>`)
+    : '';
+  const time = `${(b.booking_time || '').slice(0, 5)}${b.booking_end_time ? '–' + b.booking_end_time.slice(0, 5) : ''}`;
+  return {
+    html: `<div class="bkc-ev">${avatar}<div class="bkc-ev__txt">`
+      + `<div class="bkc-ev__top"><b>${esc(time)}</b> ${esc(b.customer_name || '')}</div>`
+      + (b.product_name ? `<div class="bkc-ev__svc">${esc(b.product_name)}</div>` : '')
+      + '</div></div>',
+  };
 }
 
-async function quickStatus(status) {
-  statusSaving.value = status;
-  try {
-    const data = await http.put(`bookings/${edit.value.id}/status`, { status });
-    edit.value.status = status;
-    message.success(`${edit.value.Ref}: ${statusLabel(status)}`);
-    afterSave(data);
-  } catch (e) {
-    message.error(e?.data?.message || t('InvalidData'));
-  } finally {
-    statusSaving.value = null;
+// The shared edit window shows its own messages; refresh both views.
+function afterSave() {
+  calendar?.refetchEvents();
+  loadList();
+}
+
+// ---------------- appointments list (next to the calendar) ----------------
+// Day / Week / Month / Year around today (default: today), same staff scope
+// as the calendar, grouped by day; a click opens the same edit modal.
+const LIST_PERIODS = [
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+  { value: 'year', label: 'Year' },
+];
+const listPeriod = ref('day');
+const listLoading = ref(false);
+const listRows = ref([]);
+function listRange() {
+  const now = dayjs();
+  if (listPeriod.value === 'week') {
+    // Weeks start on Monday, like the calendar (firstDay: 1).
+    const monday = now.subtract((now.day() + 6) % 7, 'day');
+    return [monday, monday.add(6, 'day')];
   }
+  if (listPeriod.value === 'month') return [now.startOf('month'), now.endOf('month')];
+  if (listPeriod.value === 'year') return [now.startOf('year'), now.endOf('year')];
+  return [now, now];
+}
+const listRangeLabel = computed(() => {
+  const [a, b] = listRange();
+  return listPeriod.value === 'day' ? a.format('ddd, MMM D') : `${a.format('MMM D')} – ${b.format('MMM D, YYYY')}`;
+});
+async function loadList() {
+  listLoading.value = true;
+  const [from, to] = listRange();
+  try {
+    const data = await http.get('bookings', {
+      from: from.format('YYYY-MM-DD'), to: to.format('YYYY-MM-DD'), limit: -1, SortField: 'booking_date', SortType: 'asc',
+      sales_person_id: staffParam(),
+    });
+    if (data.filter_options?.staff) staff.value = data.filter_options.staff;
+    listRows.value = (data.bookings || []).slice().sort((x, y) =>
+      `${x.booking_date} ${x.booking_time || ''}`.localeCompare(`${y.booking_date} ${y.booking_time || ''}`));
+  } catch (e) {
+    listRows.value = [];
+  } finally {
+    listLoading.value = false;
+  }
+}
+const listGroups = computed(() => {
+  const today = dayjs().format('YYYY-MM-DD');
+  const groups = [];
+  listRows.value.forEach(b => {
+    const date = String(b.booking_date || '').slice(0, 10);
+    let g = groups[groups.length - 1];
+    if (!g || g.date !== date) {
+      g = { date, label: date === today ? `Today · ${dayjs(date).format('ddd, MMM D')}` : dayjs(date).format('ddd, MMM D, YYYY'), items: [] };
+      groups.push(g);
+    }
+    g.items.push(b);
+  });
+  return groups;
+});
+const fmtTime = v => (v ? String(v).slice(0, 5) : '');
+function openBooking(b) {
+  selectedBooking.value = b;
+  detailOpen.value = true;
 }
 
 // New appointment: the button opens the booking form; clicking an empty day
@@ -367,7 +361,6 @@ function handleEventClick(info) {
   if (!data) return;
   selectedBooking.value = data;
   detailOpen.value = true;
-  loadEdit(data.id);
 }
 
 async function initCalendar() {
@@ -400,7 +393,11 @@ async function initCalendar() {
       eventDisplay: 'block',
       displayEventTime: true,
       displayEventEnd: true,
-      ...(isMobile && { dayMaxEvents: 2, moreLinkClick: 'popover' }),
+      eventContent,
+      nowIndicator: true,
+      scrollTime: '08:00:00',
+      dayMaxEvents: isMobile ? 2 : 3,
+      moreLinkClick: 'popover',
     });
     resizeHandler = () => {
       if (!calendar) return;
@@ -418,7 +415,10 @@ async function initCalendar() {
   }
 }
 
-onMounted(initCalendar);
+onMounted(() => {
+  initCalendar();
+  loadList();
+});
 
 onBeforeUnmount(() => {
   if (resizeHandler) window.removeEventListener('resize', resizeHandler);
@@ -427,6 +427,110 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* Staff photos next to "New appointment". */
+.staff-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.staff-avatar {
+  cursor: pointer;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-weight: 600;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.staff-avatar:hover {
+  transform: translateY(-1px);
+}
+.staff-avatar--on {
+  border-color: var(--ant-color-primary, #6d28d9);
+}
+.staff-me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.staff-me__name {
+  font-weight: 600;
+  line-height: 1.2;
+}
+.staff-me__sub {
+  font-size: 12px;
+  opacity: 0.6;
+}
+/* Appointments list next to the calendar. */
+.appt-list-range {
+  margin-left: 8px;
+  font-weight: 400;
+  font-size: 12px;
+  opacity: 0.6;
+}
+.appt-list {
+  max-height: 640px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.appt-day + .appt-day {
+  margin-top: 12px;
+}
+.appt-day__head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  opacity: 0.7;
+  margin-bottom: 6px;
+}
+.appt-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-left-width: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.appt-item:hover {
+  background: rgba(128, 128, 128, 0.07);
+}
+.appt-item__time {
+  width: 46px;
+  flex: none;
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+}
+.appt-item__time span {
+  font-weight: 400;
+  font-size: 11px;
+  opacity: 0.6;
+}
+.appt-item__main {
+  flex: 1;
+  min-width: 0;
+}
+.appt-item__name,
+.appt-item__sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.appt-item__name {
+  font-weight: 500;
+}
+.appt-item__sub {
+  font-size: 12px;
+  opacity: 0.65;
+}
 .appt-status {
   display: flex;
   align-items: center;
@@ -442,5 +546,189 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+</style>
+
+<style scoped>
+/* Status summary pills above the calendar. */
+.bkc-pills {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.bkc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--pill-bd);
+  background: var(--pill-bg);
+  color: var(--pill-tx);
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.bkc-pill:hover {
+  transform: translateY(-1px);
+}
+.bkc-pill.is-on {
+  box-shadow: 0 0 0 2px var(--pill-bd);
+}
+.bkc-pill.is-dim {
+  opacity: 0.45;
+}
+.bkc-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pill-bd);
+}
+.bkc-pill b {
+  font-size: 14px;
+}
+.bkc-card :deep(.ant-card-body) {
+  padding: 14px;
+}
+</style>
+
+<style>
+/* FullCalendar look (it renders its own DOM, so these are not scoped). */
+.bkc .fc .fc-toolbar-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+.bkc .fc .fc-button-primary {
+  background: #fff;
+  color: #4b5563;
+  border-color: #e5e7eb;
+  box-shadow: none;
+  text-transform: capitalize;
+  font-weight: 500;
+}
+.bkc .fc .fc-button-primary:hover {
+  background: #f5f3ff;
+  color: var(--bkc-primary);
+  border-color: var(--bkc-primary);
+}
+.bkc .fc .fc-button-primary:not(:disabled).fc-button-active,
+.bkc .fc .fc-button-primary:not(:disabled):active {
+  background: var(--bkc-primary);
+  border-color: var(--bkc-primary);
+  color: #fff;
+}
+.bkc .fc .fc-button-primary:focus {
+  box-shadow: 0 0 0 2px rgba(109, 40, 217, 0.25);
+}
+/* Day column headers: the theme color, white text. */
+.bkc .fc .fc-col-header-cell {
+  background: var(--bkc-primary);
+  border-color: var(--bkc-primary);
+}
+.bkc .fc .fc-col-header-cell-cushion {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #fff;
+  padding: 9px 4px;
+}
+.bkc .fc .fc-col-header-cell.fc-day-today {
+  background: var(--bkc-primary) !important;
+  box-shadow: inset 0 -3px 0 rgba(255, 255, 255, 0.7);
+}
+/* Day / week views: the time column on the left matches the header (theme color, white text). */
+.bkc .fc .fc-timegrid-axis,
+.bkc .fc .fc-timegrid-slot-label {
+  background: var(--bkc-primary);
+  border-color: var(--bkc-primary);
+  color: #fff;
+}
+.bkc .fc .fc-timegrid-axis-cushion,
+.bkc .fc .fc-timegrid-slot-label-cushion {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+.bkc .fc .fc-daygrid-day-number {
+  font-size: 13px;
+  color: #374151;
+}
+.bkc .fc .fc-day-today {
+  background: rgba(109, 40, 217, 0.06) !important;
+}
+.bkc .fc .fc-day-today .fc-daygrid-day-number {
+  background: var(--bkc-primary);
+  color: #fff;
+  border-radius: 999px;
+  min-width: 24px;
+  text-align: center;
+  margin: 4px;
+  padding: 2px 6px;
+}
+.bkc .fc .fc-daygrid-day:hover {
+  background: rgba(109, 40, 217, 0.03);
+  cursor: pointer;
+}
+.bkc .fc-theme-standard td,
+.bkc .fc-theme-standard th,
+.bkc .fc-theme-standard .fc-scrollgrid {
+  border-color: #eef0f3;
+}
+.bkc .fc .fc-event {
+  border-radius: 8px;
+  border-width: 0 0 0 4px;
+  padding: 2px 4px;
+  margin-bottom: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.bkc .fc .fc-event:hover {
+  filter: brightness(0.97);
+}
+.bkc .fc .fc-more-link {
+  font-weight: 600;
+  color: var(--bkc-primary);
+}
+/* Appointment card content. */
+.bkc-ev {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.bkc-av {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #fff;
+}
+.bkc-av--txt {
+  display: inline-grid;
+  place-items: center;
+  background: #6d28d9;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+.bkc-ev__txt {
+  min-width: 0;
+  line-height: 1.25;
+}
+.bkc-ev__top,
+.bkc-ev__svc {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+.bkc-ev__svc {
+  font-size: 11px;
+  opacity: 0.75;
 }
 </style>

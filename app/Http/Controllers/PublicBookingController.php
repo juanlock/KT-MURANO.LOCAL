@@ -28,8 +28,9 @@ use Illuminate\Support\Str;
  * held off like the Helpdesk public form: route throttle, honeypot, minimum
  * time-to-submit (encrypted timestamp rendered with the form).
  *
- * The visitor becomes the company's customer with the same email (else a new one);
- * staff picked here are only a preference, written into the booking notes.
+ * The visitor becomes the company's customer with the same email (never the
+ * default / Walk-in customer; never by phone), else a new one; the staff picked
+ * here becomes the booking's staff (the employee's login user) and is noted too.
  */
 class PublicBookingController extends Controller
 {
@@ -257,6 +258,8 @@ class PublicBookingController extends Controller
         $name = trim($d['name']);
 
         $taken = false;
+        // This page sends its own "new online booking" email below.
+        \App\Observers\BookingObserver::$muteCreatedMail = true;
         $booking = DB::transaction(function () use ($cid, $d, $svc, $person, $start, $end, $email, $name, $t, $duration, $h, &$taken) {
             // Blocked time: with that day's bookings locked, fewer than `capacity`
             // bookings may be running at any moment of the new [start, end). Anyone
@@ -268,7 +271,16 @@ class PublicBookingController extends Controller
                 return null;
             }
 
+            // Existing customer = same email IN THIS COMPANY (a customer is
+            // unique by email + company; the same email or phone may belong to
+            // other people in other companies -- the phone never identifies
+            // anyone). Never the company's default / Walk-in customer, which
+            // often carries the business's own email and would swallow visitors.
+            $defaults = DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->first(['client_id', 'booking_default_client_id']);
+            $exclude = array_values(array_filter([(int) ($defaults->client_id ?? 0), (int) ($defaults->booking_default_client_id ?? 0)]));
             $clientId = DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')
+                ->when($exclude, fn ($q) => $q->whereNotIn('id', $exclude))
+                ->where('name', 'not like', 'Walk-in%')
                 ->whereRaw('LOWER(email) = ?', [$email])->value('id');
             if (! $clientId) {
                 [$first, $last] = str_contains($name, ' ') ? explode(' ', $name, 2) : [$name, null];
@@ -297,6 +309,9 @@ class PublicBookingController extends Controller
             return Booking::create([
                 'Ref' => $ref,
                 'customer_id' => $clientId,
+                // The staff picked on the form (an employee) is the booking's
+                // staff -- their login user -- so it shows on their calendar.
+                'sales_person_id' => $person ? (DB::table('employees')->where('id', $person->id)->value('user_id') ?: null) : null,
                 'warehouse_id' => ($s->booking_default_warehouse_id ?? null) ?: ($s->warehouse_id ?? null),
                 'product_id' => $svc->id,
                 'product_name' => $svc->name,
@@ -308,6 +323,7 @@ class PublicBookingController extends Controller
                 'notes' => implode("\n", $notes),
             ]);
         });
+        \App\Observers\BookingObserver::$muteCreatedMail = false;
         if ($taken) {
             return $this->page($request, $cid, [__('Sorry, that time was just booked. Please choose another time.')]);
         }

@@ -63,6 +63,37 @@ class PosController extends BaseController
      * for receipts/reports) — sales.user_id always stays the authenticated
      * cashier, and NULL seller_id means the credit falls back to the cashier.
      */
+    /**
+     * POS Settings -> "Confirm each sale with the cashier's PIN": finds the
+     * active user of the location's company whose PIN was typed and sets
+     * $userId to them. Returns an error response (no / wrong PIN, too many
+     * tries), or null when fine. 5 wrong PINs per minute per POS session
+     * lock it for a minute, so PINs can't be guessed from the till.
+     */
+    private function salePinUser(Request $request, int &$userId)
+    {
+        $pin = trim((string) $request->input('sale_pin', ''));
+        if ($pin === '') {
+            return response()->json(['success' => false, 'code' => 'sale_pin_required', 'message' => 'Type the PIN of who is making this sale.'], 422);
+        }
+        $key = 'pos_sale_pin_fail:'.Auth::id();
+        if ((int) \Illuminate\Support\Facades\Cache::get($key, 0) >= 5) {
+            return response()->json(['success' => false, 'code' => 'sale_pin_locked', 'message' => 'Too many wrong PINs. Wait a minute and try again.'], 429);
+        }
+        $companyId = (int) \App\Models\Warehouse::whereKey((int) $request->warehouse_id)->value('company_id');
+        $owner = User::where('company_id', $companyId)->where('pin', $pin)
+            ->whereNull('deleted_at')->where('statut', 1)->first(['id', 'pin']);
+        if (! $owner || ! $owner->pinMatches($pin)) {
+            \Illuminate\Support\Facades\Cache::put($key, (int) \Illuminate\Support\Facades\Cache::get($key, 0) + 1, now()->addMinute());
+
+            return response()->json(['success' => false, 'code' => 'wrong_pin', 'message' => 'Wrong PIN. Nobody in this company has that PIN.'], 422);
+        }
+        \Illuminate\Support\Facades\Cache::forget($key);
+        $userId = (int) $owner->id;
+
+        return null;
+    }
+
     private function resolvePosSellerId(Request $request): ?int
     {
         if (! $request->filled('seller_id')) {
@@ -348,6 +379,26 @@ class PosController extends BaseController
             }
         }
 
+        // The register this sale is rung up on (the signed-in cashier's open
+        // register at this location): its close-out counts every sale made on
+        // it, whoever made it.
+        $registerId = \App\Models\CashRegister::where('user_id', Auth::id())
+            ->where('warehouse_id', (int) $request->warehouse_id)
+            ->where('status', 'open')
+            ->orderByDesc('id')->value('id');
+
+        // POS Settings -> "Confirm each sale with the cashier's PIN": the sale
+        // is recorded under the PIN's owner (an active user of the location's
+        // company); the POS session stays with whoever opened the register.
+        // Offline-queued sales carry no PIN and stay with the session user.
+        $saleUserId = Auth::id();
+        if (($posSettings->pos_sale_pin_required ?? false) && ! $request->filled('offline_created_at')) {
+            $pinFail = $this->salePinUser($request, $saleUserId);
+            if ($pinFail) {
+                return $pinFail;
+            }
+        }
+
         // Offline-queued sales carry the moment they were rung up; book the
         // sale (and its payments/lines) on that date rather than the sync time.
         $saleAt = $this->resolveOfflineSaleTimestamp($request, $saleUuid);
@@ -405,7 +456,7 @@ class PosController extends BaseController
         $appliedPromotions = $promotionResult['applied'] ?? [];
 
         try {
-            $sale = \DB::transaction(function () use ($request, $totalPaid, $saleUuid, $saleAt, $promotionDiscount, $promotionCodeApplied, $appliedPromotions, $walletMethodId) {
+            $sale = \DB::transaction(function () use ($request, $totalPaid, $saleUuid, $saleAt, $promotionDiscount, $promotionCodeApplied, $appliedPromotions, $walletMethodId, $saleUserId, $registerId) {
                 $helpers = new helpers;
                 $order = new Sale;
 
@@ -433,9 +484,11 @@ class PosController extends BaseController
                 $order->notes = $request->notes;
                 $order->statut = 'completed';
                 $order->payment_statut = 'unpaid';
-                // Ownership (permissions/audit) stays with the cashier; the
-                // optional Change Salesperson pick only sets the attribution.
-                $order->user_id = Auth::user()->id;
+                // Ownership (permissions/audit) stays with the cashier -- or the
+                // user whose PIN confirmed the sale; the optional Change
+                // Salesperson pick only sets the attribution.
+                $order->user_id = $saleUserId;
+                $order->cash_register_id = $registerId;
                 $order->seller_id = $this->resolvePosSellerId($request);
                 // Multi-Currency snapshot (NULL/NULL = base currency); every
                 // amount on the sale is stored in the base currency.
@@ -700,7 +753,7 @@ class PosController extends BaseController
                             'montant' => $paymentAmount,
                             'change' => $changeReturn,
                             'notes' => $request['payment_note'] ?? null,
-                            'user_id' => Auth::user()->id,
+                            'user_id' => $saleUserId,
                         ]);
 
 
@@ -911,6 +964,15 @@ class PosController extends BaseController
             ]);
         }
 
+        // ---------- POS Settings -> "Integrate POS with Booking" (best effort) ----------
+        // The sale also shows as a completed booking (list + calendar) and the
+        // company admins get the booking report.
+        try {
+            \App\Services\PosBookingService::createForSale((int) $sale->id);
+        } catch (\Throwable $e) {
+            \Log::warning('POS booking integration failed (non-blocking): '.$e->getMessage(), ['sale_id' => $sale->id]);
+        }
+
         // ---------- Collect updated stock for sold lines ----------
         // After the sale transaction has committed we query fresh stock for
         // the items that were just sold so the POS UI can patch its in-memory
@@ -946,6 +1008,14 @@ class PosController extends BaseController
             $updatedStock = [];
         }
 
+        // Keep a PDF copy of every POS receipt on disk:
+        // files/company_{id}/POS/Receipt/<date>_<time>_<user>_<amount>.pdf.
+        // After the response, so the cashier never waits on PDF rendering.
+        $saleId = (int) $sale->id;
+        dispatch(static function () use ($saleId) {
+            self::storeReceiptPdf($saleId);
+        })->afterResponse();
+
         $response = [
             'success' => true,
             'id' => $sale->id,
@@ -963,6 +1033,34 @@ class PosController extends BaseController
         }
 
         return response()->json($response, 200);
+    }
+
+    /**
+     * Saves the sale's PDF (same layout as Sales -> PDF) as
+     * files/company_{id}/POS/Receipt/2026-10-01_02-35-10PM_jorgue_45.50.pdf
+     * (date, 12-hour time, the user who made the sale, grand total). Never
+     * throws: a failed copy must not affect the sale. Returns the relative path.
+     */
+    public static function storeReceiptPdf(int $saleId): ?string
+    {
+        try {
+            $sale = Sale::with('details.product.unitSale')->whereNull('deleted_at')->find($saleId);
+            if (! $sale) {
+                return null;
+            }
+            $user = \App\Models\User::find($sale->user_id);
+            $who = \Illuminate\Support\Str::slug($user->username ?? ('user'.$sale->user_id), '_');
+            $at = \Carbon\Carbon::parse($sale->created_at ?? now());
+            $name = $at->format('Y-m-d_h-i-sA').'_'.$who.'_'.number_format((float) $sale->GrandTotal, 2, '.', '').'.pdf';
+            $dir = \App\Support\CompanyFiles::dir((int) $sale->company_id, 'POS/Receipt');
+            app(SalesController::class)->buildSalePdf($sale)->save(public_path($dir.'/'.$name));
+
+            return $dir.'/'.$name;
+        } catch (\Throwable $e) {
+            \Log::warning('POS receipt PDF save failed (non-blocking): '.$e->getMessage(), ['sale_id' => $saleId]);
+
+            return null;
+        }
     }
 
     public function Send_Email($id)
@@ -2584,6 +2682,8 @@ class PosController extends BaseController
             'require_open_register' => (bool) ($settings->pos_require_open_register ?? true),
             // POS Settings -> Company rules: the Open Register modal asks for the cashier's PIN.
             'register_pin_required' => (bool) ($settings->pos_register_pin_required ?? false),
+            // ... and each sale asks for the PIN of who makes it.
+            'sale_pin_required' => (bool) ($settings->pos_sale_pin_required ?? false),
             'default_account_id' => $settings->default_account_id ?? null,
             'default_payment_method_id' => $settings->default_payment_method_id ?? null,
             'pos_settings' => $pos_setting,

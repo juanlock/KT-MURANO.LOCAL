@@ -38,6 +38,18 @@ async function request(method, url, { params, body, formData, raw } = {}) {
     // exactly these calls, making the write fall back to the acting user's
     // own company instead of the one selected in the header.
     const actingCompanyId = getActingCompanyId();
+    // An EMPTY company_id from the caller (e.g. a list's "Company: All"
+    // filter left blank) means "no choice", not "every company" -- it must
+    // not override the switcher. Only a real value takes precedence.
+    const blank = v => v === undefined || v === null || v === '';
+    if (actingCompanyId && params && blank(params.company_id)) {
+        params = { ...params };
+        delete params.company_id;
+    }
+    if (actingCompanyId && body && typeof body === 'object' && !Array.isArray(body) && !(body instanceof FormData) && blank(body.company_id)) {
+        body = { ...body };
+        delete body.company_id;
+    }
     if (actingCompanyId) {
         params = { company_id: actingCompanyId, ...(params || {}) };
         if (formData instanceof FormData) {

@@ -48,10 +48,11 @@ class LinkedUserService
             'lastname' => $lastname,
             'username' => $username,
             'email' => $finalEmail,
-            // Backend-provisioned shadow account, not meant for direct
-            // login unless/until a separate invite/reset-password flow
-            // exists -- random, never surfaced anywhere.
-            'password' => Hash::make(Str::random(32)),
+            // System Settings -> Defaults -> Users: the company's default
+            // password for this type (stored hashed), else random -- a
+            // backend-provisioned account nobody can sign in to until a
+            // password is set.
+            'password' => \App\Models\Setting::defaultPasswordHash($companyId, $type) ?? Hash::make(Str::random(32)),
             'phone' => $phone !== null && $phone !== '' ? $phone : '',
             'role_id' => $roleId,
             'type' => $type,
@@ -61,8 +62,32 @@ class LinkedUserService
         ]);
 
         role_user::create(['user_id' => $user->id, 'role_id' => $roleId]);
+        self::assignDefaultLocation($user);
 
         return $user->id;
+    }
+
+    /**
+     * Staff logins (employee / sales agent) are created with no Location of
+     * their own (is_all_warehouses = 0), so every warehouse picker -- POS
+     * register, bookings, sales -- came up empty for them. Gives them the
+     * company's default Location (System Settings -> Defaults), else the
+     * company's only one. No-op when they already have one or the company has
+     * several and no default.
+     */
+    public static function assignDefaultLocation(User $user): void
+    {
+        if (! in_array($user->type, ['employee', 'sales_agent'], true) || $user->is_all_warehouses
+            || $user->assignedWarehouses()->exists()) {
+            return;
+        }
+        $companyId = (int) $user->company_id;
+        $locations = \App\Models\Warehouse::where('company_id', $companyId)->whereNull('deleted_at')->pluck('id');
+        $default = (int) (\App\Models\Setting::forCompany($companyId)->warehouse_id ?? 0);
+        $id = $locations->contains($default) ? $default : ($locations->count() === 1 ? $locations->first() : null);
+        if ($id) {
+            $user->assignedWarehouses()->attach($id);
+        }
     }
 
     /**

@@ -117,7 +117,7 @@ import {
   EyeInvisibleOutlined, LinkOutlined, PlusOutlined,
   EditOutlined, DeleteOutlined, KeyOutlined,
 } from '@ant-design/icons-vue';
-import { flattenNodes, permKind } from '../../lib/permissionTree';
+import { flattenNodes, permKind, menuHideKey } from '../../lib/permissionTree';
 
 const props = defineProps({
   section: { type: Object, required: true },
@@ -164,7 +164,10 @@ const rows = computed(() => {
   return out;
 });
 
-const menuOn = node => node.menuPerms.some(p => props.permissions.includes(p));
+// Visible = the role has the item's permission and hasn't hidden this one item
+// (menu_hide:<route>, used when the permission is shared with other items).
+const menuOn = node => node.menuPerms.some(p => props.permissions.includes(p))
+  && !props.permissions.includes(menuHideKey(node));
 const shared = node => Math.max(0, ...node.menuPerms.map(p => (props.shareCount[p] || 1) - 1));
 const groupCount = node => node.allPerms.filter(v => props.permissions.includes(v)).length;
 const rowDim = node => !node.isContainer && node.menuPerms.length > 0 && !menuOn(node);
@@ -172,7 +175,7 @@ const rowDim = node => !node.isContainer && node.menuPerms.length > 0 && !menuOn
 function menuTip(node) {
   const n = shared(node);
   const base = `Permission: ${node.menuPerms.join(', ')}`;
-  return n > 0 ? `${base} -- shared with ${n} other menu item(s): turning it on/off affects them too` : base;
+  return n > 0 ? `${base} -- shared with ${n} other menu item(s); this switch shows/hides only this item` : base;
 }
 </script>
 

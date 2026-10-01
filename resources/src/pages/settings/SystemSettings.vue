@@ -500,6 +500,103 @@
             </a-card>
             </a-tab-pane>
 
+            <!-- Users: default passwords of the users the system creates on its own
+                 (employee, customer, web store, supplier, sales agent). Stored
+                 hashed; the page only knows whether each one is set. -->
+            <a-tab-pane key="users" tab="Users">
+            <!-- Sign-in: inactivity logout + what users see after login. -->
+            <a-card size="small" title="Sign-in and start page" style="margin-bottom: 16px">
+              <div class="setting-row" style="border-top: none; padding-top: 0">
+                <div>
+                  <div class="setting-label">Sign out after inactivity</div>
+                  <div class="setting-help">
+                    Users of this company are signed out after this many minutes without using the system
+                    (a warning shows one minute before). Not while they have a POS register open.
+                    Empty = never.
+                  </div>
+                </div>
+                <a-input-number v-model:value="setting.idle_logout_minutes" :min="1" :max="1440" placeholder="Never" addon-after="min" style="width: 150px" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">After sign-in show</div>
+                  <div class="setting-help">
+                    <b>Dashboard</b>: the dashboard with the sections chosen below.
+                    <b>Customized by each user</b>: every user gets a "Last used" row with their 6 most used forms
+                    on top of the dashboard, and can choose a form that opens right after they sign in
+                    (saved on their own user).
+                  </div>
+                </div>
+                <a-radio-group v-model:value="setting.start_page_mode" button-style="solid">
+                  <a-radio-button value="dashboard">Dashboard</a-radio-button>
+                  <a-radio-button value="custom">Customized by each user</a-radio-button>
+                </a-radio-group>
+              </div>
+              <!-- The 8 square shortcut buttons on top of the dashboard. -->
+              <div v-if="setting.start_page_mode === 'custom'" class="setting-row" style="align-items: flex-start">
+                <div>
+                  <div class="setting-label">Shortcut buttons</div>
+                  <div class="setting-help">
+                    The 8 square buttons on top of every user's dashboard. Pick a form for any button;
+                    a button left empty shows that user's most used form (so it fills in as they work).
+                    Users only see forms their role can open.
+                  </div>
+                  <a-button size="small" style="margin-top: 6px" @click="shortcutSlots = Array(8).fill(undefined)">Clear all</a-button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 8px 12px">
+                  <a-select
+                    v-for="(slot, i) in shortcutSlots" :key="i"
+                    v-model:value="shortcutSlots[i]" allow-clear show-search option-filter-prop="label"
+                    :options="shortcutOptions" :placeholder="`Button ${i + 1}: most used form`"
+                  />
+                </div>
+              </div>
+              <div class="setting-row" style="align-items: flex-start">
+                <div>
+                  <div class="setting-label">Dashboard sections</div>
+                  <div class="setting-help">Cards, charts and tables shown on this company's dashboard.</div>
+                  <a-space style="margin-top: 6px">
+                    <a-button size="small" @click="dashboardHidden = []">Show all</a-button>
+                    <a-button size="small" @click="dashboardHidden = DASHBOARD_SECTIONS.map(s => s.id)">Hide all</a-button>
+                  </a-space>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 6px 16px">
+                  <a-checkbox
+                    v-for="sec in DASHBOARD_SECTIONS" :key="sec.id"
+                    :checked="!dashboardHidden.includes(sec.id)"
+                    @change="e => toggleDashboardSection(sec.id, e.target.checked)"
+                  >{{ sec.label }}</a-checkbox>
+                </div>
+              </div>
+            </a-card>
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-help" style="margin-bottom: 12px">
+                When the system creates a user by itself — a new employee, customer, web-store customer, supplier or sales agent —
+                it gets this password. Empty: a random password, so that user can't sign in until one is set
+                (employees: Edit → System access). Changing it only affects users created from now on.
+              </div>
+              <div v-for="p in DEFAULT_PASSWORD_TYPES" :key="p.key" class="setting-row">
+                <div>
+                  <div class="setting-label">{{ p.label }}</div>
+                  <div class="setting-help">
+                    <a-tag v-if="setting[`default_password_${p.key}_set`] && !pwClear[p.key]" color="green">Set</a-tag>
+                    <a-tag v-else>Not set — random</a-tag>
+                    {{ p.help }}
+                  </div>
+                </div>
+                <a-space>
+                  <a-input-password
+                    v-model:value="pwNew[p.key]" :placeholder="setting[`default_password_${p.key}_set`] ? 'New password (keeps current if empty)' : 'At least 6 characters'"
+                    autocomplete="new-password" style="width: 260px" @change="pwClear[p.key] = false"
+                  />
+                  <a-button v-if="setting[`default_password_${p.key}_set`]" danger :disabled="pwClear[p.key]" @click="pwClear[p.key] = true; pwNew[p.key] = ''">
+                    {{ pwClear[p.key] ? 'Will be cleared' : 'Clear' }}
+                  </a-button>
+                </a-space>
+              </div>
+            </a-card>
+            </a-tab-pane>
+
             <!-- Booking: optional fields on the Booking Create/Edit form, per company. -->
             <a-tab-pane key="booking" tab="Booking">
             <!-- What a NEW booking starts with (Create Booking, calendar "New appointment"). -->
@@ -1174,6 +1271,8 @@ import { useDatatableStore } from '../../stores/datatable';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
 import { sortByLabel } from '../../lib/filterOptions';
+import { DASHBOARD_SECTIONS } from '../../config/dashboardSections';
+import { allPages, pageFullLabel } from '../../lib/startPage';
 
 const { t, locale } = useI18n();
 const ui = useUiStore();
@@ -1308,6 +1407,25 @@ function asBool(v) {
 const savedProductCode = ref({ prefix: '', digits: 4, next: '' });
 
 // Defaults -> Booking: optional Booking Create/Edit form fields (settings columns, default on).
+// Defaults -> Users: default password per auto-created user type.
+const DEFAULT_PASSWORD_TYPES = [
+  { key: 'employee', label: 'Employees', help: 'New employees (their login starts enabled when this is set).' },
+  { key: 'customer', label: 'Customers', help: 'Customers created in the app, by import or by confirmed bookings.' },
+  { key: 'online_store', label: 'Web store customers', help: 'Customers approved from the online store.' },
+  { key: 'supplier', label: 'Suppliers', help: 'New suppliers.' },
+  { key: 'sales_agent', label: 'Sales agents', help: 'New sales agents (Commissions).' },
+];
+const pwNew = ref({});
+const pwClear = ref({});
+// Defaults -> Users: dashboard sections switched off (ids of DASHBOARD_SECTIONS).
+const dashboardHidden = ref([]);
+// Defaults -> Users: the 8 shortcut buttons (form path, or empty = user's most used).
+const shortcutSlots = ref(Array(8).fill(undefined));
+const shortcutOptions = computed(() => sortByLabel(allPages().map(p => ({ value: p.path, label: pageFullLabel(p) }))));
+function toggleDashboardSection(id, on) {
+  dashboardHidden.value = on ? dashboardHidden.value.filter(x => x !== id) : [...new Set([...dashboardHidden.value, id])];
+}
+
 const BOOKING_FIELD_TOGGLES = [
   { key: 'booking_delivery_date_enabled', label: 'Delivery_Date', help: 'Show the Delivery Date field on the Booking Create/Edit form.' },
   { key: 'booking_delivery_time_enabled', label: 'Delivery_Time', help: 'Show the Delivery Time field on the Booking Create/Edit form.' },
@@ -1527,6 +1645,15 @@ async function save() {
   fd.append('booking_default_client_id', s.booking_default_client_id || '');
   fd.append('booking_default_tray_id', s.booking_default_tray_id || '');
   fd.append('booking_default_sales_person_self', asBool(s.booking_default_sales_person_self ?? true) ? 1 : 0);
+  for (const p of DEFAULT_PASSWORD_TYPES) {
+    if (pwNew.value[p.key]) fd.append(`default_password_${p.key}_new`, pwNew.value[p.key]);
+    else if (pwClear.value[p.key]) fd.append(`default_password_${p.key}_clear`, 1);
+  }
+  // Defaults -> Users: sign-in and start page.
+  fd.append('idle_logout_minutes', s.idle_logout_minutes ? Number(s.idle_logout_minutes) : '');
+  fd.append('start_page_mode', s.start_page_mode === 'custom' ? 'custom' : 'dashboard');
+  fd.append('dashboard_hidden_sections', JSON.stringify(dashboardHidden.value));
+  fd.append('start_page_shortcuts', JSON.stringify(shortcutSlots.value.map(p => p || null)));
   fd.append('booking_form_logo_width', Number(s.booking_form_logo_width) || 160);
   if (bookingLogoFile.value) fd.append('booking_form_logo', bookingLogoFile.value);
   else if (bookingLogoRemoved.value) fd.append('remove_booking_form_logo', 1);
@@ -1604,6 +1731,13 @@ async function save() {
       throw new Error(msg);
     }
     message.success(t('Successfully_Updated'));
+    // Default passwords saved: reflect "Set / Not set" and empty the inputs.
+    for (const p of DEFAULT_PASSWORD_TYPES) {
+      if (pwNew.value[p.key]) setting.value[`default_password_${p.key}_set`] = true;
+      else if (pwClear.value[p.key]) setting.value[`default_password_${p.key}_set`] = false;
+    }
+    pwNew.value = {};
+    pwClear.value = {};
     // Booking form logo is saved: the local preview (if any) stays on screen
     // as the current logo; the next Save shouldn't re-upload or re-remove it.
     if (bookingLogoRemoved.value) setting.value.booking_form_logo_url = null;
@@ -1741,6 +1875,14 @@ onMounted(() => {
       syncExportForm();
       const stm = Number(setting.value.session_timeout_minutes);
       if (!Number.isNaN(stm) && stm > 0 && !SESSION_TIMEOUT_PRESETS.includes(stm)) sessionTimeoutCustom.value = stm;
+      if (!setting.value.start_page_mode) setting.value.start_page_mode = 'dashboard';
+      dashboardHidden.value = Array.isArray(setting.value.dashboard_hidden_sections) ? [...setting.value.dashboard_hidden_sections] : [];
+      shortcutSlots.value = Array.from({ length: 8 }, (_, i) => (setting.value.start_page_shortcuts || [])[i] || undefined);
+      // The old single "Summary cards" switch is now one switch per card.
+      if (dashboardHidden.value.includes('stat_cards')) {
+        dashboardHidden.value = [...new Set([...dashboardHidden.value.filter(x => x !== 'stat_cards'),
+          ...DASHBOARD_SECTIONS.filter(s => s.id.startsWith('card_')).map(s => s.id)])];
+      }
     })
     .catch(() => message.error(t('InvalidData')));
 

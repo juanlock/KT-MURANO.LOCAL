@@ -934,7 +934,9 @@ export const PERMISSION_GROUPS = [
         ]
     },
     {
-        "label": "HRM",
+        // Own group so its checkboxes sit under HRM > Employees (the role
+        // editor places a group under the first menu item that uses it).
+        "label": "Employees",
         "items": [
             {
                 "v": "view_employee",
@@ -952,6 +954,16 @@ export const PERMISSION_GROUPS = [
                 "v": "delete_employee",
                 "l": "delete_employee"
             },
+            {
+                "v": "employee_view_all",
+                "l": "Employee_View_All",
+                "f": "View all employees"
+            }
+        ]
+    },
+    {
+        "label": "HRM",
+        "items": [
             {
                 "v": "company",
                 "l": "Company"
@@ -990,10 +1002,23 @@ export const PERMISSION_GROUPS = [
                 "l": "contracts",
                 "f": "Contracts"
             },
+        ]
+    },
+    {
+        // Own group (was inside HRM): the role editor shows a group's
+        // checkboxes under the first menu item using it -- inside HRM, the
+        // whole HRM group landed under Booking Management > Booking List.
+        "label": "Bookings",
+        "items": [
             {
                 "v": "bookings",
                 "l": "bookings",
                 "f": "Bookings"
+            },
+            {
+                "v": "booking_other_staff",
+                "l": "Booking_Other_Staff",
+                "f": "Booking to other staff"
             },
             {
                 "v": "trays",

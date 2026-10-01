@@ -28,7 +28,14 @@ class MailSettingsController extends BaseController
         $settings = Setting::forCompany($companyId);
         $defaultTestEmail = ($user && $user->email) ? $user->email : ($settings->email ?? null);
 
-        return response()->json(['server' => $server, 'default_test_email' => $defaultTestEmail], 200);
+        return response()->json([
+            'server' => $server,
+            'default_test_email' => $defaultTestEmail,
+            // Admin notices (bookings, POS register): who gets them, and the
+            // SuperAdmin-copy switch (only a SuperAdmin may see / change it).
+            'notice_recipients' => array_values(array_filter(\App\Support\CompanyMail::recipients($companyId), fn ($r) => ! $r['copy'])),
+            'notify_superadmin_copy' => (bool) ($settings->notify_superadmin_copy ?? false),
+        ], 200);
     }
 
     // -------------- Update mail settings ---------------\\
@@ -56,6 +63,13 @@ class MailSettingsController extends BaseController
             'password' => $request['password'],
             'encryption' => $request['encryption'],
         ]);
+
+        // "Send a copy to the SuperAdmin" -- the SuperAdmin decides, per company.
+        if ($request->has('notify_superadmin_copy') && optional($request->user('api'))->type === 'SuperAdmin') {
+            $settings = Setting::forCompany($companyId);
+            $settings->notify_superadmin_copy = $request->boolean('notify_superadmin_copy');
+            $settings->save();
+        }
 
         return response()->json(['success' => true]);
 

@@ -19,6 +19,31 @@ class EmployeesController extends Controller
 {
     use ScopesToCompany;
 
+    /**
+     * Who sees every employee of the company: admins, SuperAdmin, or a role
+     * with "View all employees" (employee_view_all). Anyone else only sees
+     * their own employee record (employees.user_id = them).
+     */
+    private function canViewAllEmployees($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+        if (in_array(strtolower((string) $user->type), ['admin', 'superadmin'], true)) {
+            return true;
+        }
+
+        return (bool) $user->roles()->first()?->permissions->contains('name', 'employee_view_all');
+    }
+
+    // A single employee record: only your own unless you may view all.
+    private function abortUnlessOwnOrAll(Request $request, $employee): void
+    {
+        $user = $request->user('api');
+        abort_unless($this->canViewAllEmployees($user) || (int) $employee->user_id === (int) $user->id, 403,
+            'You can only see your own employee record.');
+    }
+
     // ------------ GET ALL employees -----------\\
 
     public function index(Request $request)
@@ -56,7 +81,9 @@ class EmployeesController extends Controller
             // regardless of what the request sends.
             ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($request) {
                 return $query->where('company_id', $this->resolveActingCompanyId($request));
-            });
+            })
+            // Without "View all employees": only their own record.
+            ->when(! $this->canViewAllEmployees($user), fn ($q) => $q->where('user_id', $user->id));
 
         // Multiple Filter
         $Filtred = $helpers->filter($employees, $columns, $param, $request)
@@ -77,15 +104,28 @@ class EmployeesController extends Controller
             ->orderBy($order, $dir)
             ->get();
 
+        // Each employee's login (linked users row) and its role, for the list.
+        $logins = \App\Models\User::whereIn('id', $employees->pluck('user_id')->filter())
+            ->get(['id', 'username', 'role_id', 'statut'])->keyBy('id');
+        $roleNames = \App\Models\Role::whereIn('id', $logins->pluck('role_id')->filter())->pluck('name', 'id');
+        // All positions of the page's employees (one employee, several departments / designations).
+        $positions = $this->positionRows($employees->pluck('id')->all())->groupBy('employee_id');
+
         foreach ($employees as $employee) {
+            $login = $employee->user_id ? $logins->get($employee->user_id) : null;
+            $item['username'] = optional($login)->username;
+            $item['user_id'] = optional($login)->id; // Username column links to Users -> Edit
+            $item['role_name'] = $login ? ($roleNames[$login->role_id] ?? null) : null;
+            $item['login_enabled'] = $login ? (int) $login->statut === 1 : false;
 
             $item['id'] = $employee->id;
             $item['firstname'] = $employee->firstname;
             $item['lastname'] = $employee->lastname;
             $item['phone'] = $employee->phone;
             $item['company_name'] = $employee['company']->name;
-            $item['department_name'] = $employee['department']->department;
-            $item['designation_name'] = $employee['designation']->designation;
+            $pos = $positions->get($employee->id);
+            $item['department_name'] = $pos ? $pos->pluck('department')->filter()->unique()->implode(', ') : optional($employee['department'])->department;
+            $item['designation_name'] = $pos ? $pos->pluck('designation')->filter()->unique()->implode(', ') : optional($employee['designation'])->designation;
             $item['office_shift_name'] = $employee['office_shift']->name;
 
             $data[] = $item;
@@ -108,11 +148,30 @@ class EmployeesController extends Controller
 
         $this->authorizeForUser($request->user('api'), 'create', Employee::class);
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
-
         return response()->json([
-            'companies' => $companies,
-        ]);
+            'companies' => $this->companyChoices($request),
+            // System access card: roles per company (filtered by the picked company).
+            'roles' => $this->rolesFor(null),
+        ] + $this->positionOptions());
+    }
+
+    /**
+     * Companies the form's Company dropdown offers (multicompany rule): an
+     * Admin only their own; a SuperAdmin only the company picked in the header
+     * switcher, or every company when none is picked / acting as AdminSystem
+     * (999). $keepId (edit) keeps the employee's current company listed.
+     */
+    private function companyChoices(Request $request, $keepId = null)
+    {
+        $user = $request->user('api');
+        $query = Company::where('deleted_at', '=', null);
+        if ($user->type !== 'SuperAdmin') {
+            $query->where('id', $user->company_id);
+        } elseif ($request->filled('company_id') && (int) $request->input('company_id') !== 999) {
+            $query->whereIn('id', array_filter([(int) $request->input('company_id'), $keepId ? (int) $keepId : null]));
+        }
+
+        return $query->orderBy('name')->get(['id', 'name']);
     }
 
     // ----------------Store  Employee ---------------\\
@@ -128,15 +187,30 @@ class EmployeesController extends Controller
             $request->merge(['company_id' => $actingUser->company_id]);
         }
 
+        // Positions form: the first position fills the primary department / designation.
+        $positions = $request->input('positions');
+        if (is_array($positions) && ! empty($positions[0])) {
+            $request->merge(['department_id' => $positions[0]['department_id'] ?? null, 'designation_id' => $positions[0]['designation_id'] ?? null]);
+        }
+
         $this->validate($request, [
             'firstname' => 'required|string',
-            'lastname' => 'required|string',
+            'lastname' => 'nullable|string',
             'gender' => 'required',
             'company_id' => 'required',
             'department_id' => 'required',
             'designation_id' => 'required',
             'office_shift_id' => 'required',
         ]);
+
+        // One person = one employee (one login): no second employee with the same name / email.
+        if ($dup = $this->duplicateOf((int) $request['company_id'], (string) $request['firstname'], $request['lastname'], $request['email'])) {
+            return response()->json([
+                'message' => "{$dup->firstname} {$dup->lastname} is already an employee of this company (#{$dup->id}). Edit that employee and add the new department / designation there instead.",
+                'errors' => ['firstname' => ["Already an employee (#{$dup->id}) -- add the position to that employee."]],
+                'duplicate_id' => $dup->id,
+            ], 422);
+        }
 
         $data = [];
         $data['firstname'] = $request['firstname'];
@@ -153,15 +227,27 @@ class EmployeesController extends Controller
         $data['office_shift_id'] = $request['office_shift_id'];
         $data['joining_date'] = $request['joining_date'];
 
-        $employee = Employee::create($data);
+        \DB::transaction(function () use ($data, $request) {
+            $employee = Employee::create($data);
 
-        // Every employee gets a matching users row (type=employee) --
-        // employees.user_id already existed as a nullable/unique FK for
-        // this, nothing ever populated it.
-        $employee->user_id = \App\Services\LinkedUserService::provision(
-            (int) $data['company_id'], 'employee', 'Employee', trim($data['firstname'].' '.$data['lastname']), $data['email'], $data['phone']
-        );
-        $employee->save();
+            // Every employee gets a matching users row (type=employee) --
+            // employees.user_id already existed as a nullable/unique FK for
+            // this, nothing ever populated it.
+            $employee->user_id = \App\Services\LinkedUserService::provision(
+                (int) $data['company_id'], 'employee', 'Employee', trim($data['firstname'].' '.$data['lastname']), $data['email'], $data['phone']
+            );
+            $employee->save();
+            $this->syncPositions($employee->fresh(), $request);
+            // System access card: can sign in? role, login email, password, PIN.
+            // Without it, the login is enabled only when the company has a
+            // default employee password (Defaults -> Users); else disabled.
+            if ($request->has('access')) {
+                $this->applySystemAccess($employee->fresh(), $request);
+            } else {
+                $hasDefault = (bool) \App\Models\Setting::defaultPasswordHash((int) $data['company_id'], 'employee');
+                \App\Models\User::whereKey($employee->user_id)->update(['statut' => $hasDefault ? 1 : 0]);
+            }
+        });
 
         return response()->json(['success' => true]);
     }
@@ -174,6 +260,7 @@ class EmployeesController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Employee::class);
 
         $employee = Employee::where('deleted_at', '=', null)->findOrFail($id);
+        $this->abortUnlessOwnOrAll($request, $employee);
 
         // Non-superadmin admins can't open an employee from a different company.
         $actingUser = $request->user('api');
@@ -201,6 +288,7 @@ class EmployeesController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Employee::class);
 
         $employee = Employee::where('deleted_at', '=', null)->findOrFail($id);
+        $this->abortUnlessOwnOrAll($request, $employee);
 
         // Non-superadmin admins can't open an employee from a different company.
         $actingUser = $request->user('api');
@@ -208,7 +296,7 @@ class EmployeesController extends Controller
             abort_unless((int) $employee->company_id === (int) $actingUser->company_id, 403);
         }
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        $companies = $this->companyChoices($request, $employee->company_id);
         $office_shifts = OfficeShift::where('company_id', $employee->company_id)->where('deleted_at', '=', null)->get(['id', 'name']);
         $departments = Department::where('company_id', $employee->company_id)->where('deleted_at', '=', null)->get(['id', 'department']);
         $designations = Designation::where('department_id', $employee->department_id)->where('deleted_at', '=', null)->get(['id', 'designation']);
@@ -219,7 +307,12 @@ class EmployeesController extends Controller
             'office_shifts' => $office_shifts,
             'departments' => $departments,
             'designations' => $designations,
-        ]);
+            // System access card: the employee's login + the roles to choose from.
+            'access' => $this->systemAccessOf($employee),
+            'roles' => $this->rolesFor(null),
+            // Positions: this employee's departments / designations + the options.
+            'positions' => $this->positionRows([(int) $employee->id])->map(fn ($p) => ['department_id' => (int) $p->department_id, 'designation_id' => (int) $p->designation_id])->values(),
+        ] + $this->positionOptions());
     }
 
     // ---------------- UPDATE Employee -------------\\
@@ -239,13 +332,25 @@ class EmployeesController extends Controller
             $request->merge(['company_id' => $actingUser->company_id]);
         }
 
+        // Positions form: the first position is the primary department / designation.
+        $positions = $request->input('positions');
+        if (is_array($positions) && ! empty($positions[0])) {
+            $request->merge(['department_id' => $positions[0]['department_id'] ?? null, 'designation_id' => $positions[0]['designation_id'] ?? null]);
+        }
+
+        // Two screens save here: the short Edit Employee form (name, contact,
+        // company, department, designation, shift, system access) and the full
+        // Employee Details page (also leave, salary, address...). Only the
+        // fields a request SENDS are validated/changed -- the short form used to
+        // fail on "The total leave field is required." and, had it passed,
+        // would have blanked every field it doesn't show.
         $this->validate($request, [
             'firstname' => 'required|string',
-            'lastname' => 'required|string',
-            'country' => 'required|string',
+            'lastname' => 'nullable|string',
+            'country' => 'nullable|string',
             'gender' => 'required',
-            'phone' => 'required',
-            'total_leave' => 'required|numeric|min:0',
+            'phone' => 'nullable',
+            'total_leave' => 'sometimes|nullable|numeric|min:0',
             'company_id' => 'required',
             'department_id' => 'required',
             'designation_id' => 'required',
@@ -254,51 +359,278 @@ class EmployeesController extends Controller
             'hourly_rate' => 'nullable|numeric',
         ]);
 
+        $employee = Employee::findOrFail($id);
+        $this->abortUnlessOwnOrAll($request, $employee);
+        if ($request->filled('firstname')
+            && ($dup = $this->duplicateOf((int) ($request['company_id'] ?: $employee->company_id), (string) $request['firstname'], $request['lastname'] ?? $employee->lastname, $request['email'] ?? null, (int) $employee->id))) {
+            return response()->json([
+                'message' => "{$dup->firstname} {$dup->lastname} is already an employee of this company (#{$dup->id}). One person = one employee: add the department / designation to one of them and remove the other.",
+                'errors' => ['firstname' => ["Same person as employee #{$dup->id}."]],
+                'duplicate_id' => $dup->id,
+            ], 422);
+        }
+        $fields = ['firstname', 'lastname', 'country', 'email', 'gender', 'phone', 'birth_date', 'company_id', 'department_id',
+            'designation_id', 'office_shift_id', 'joining_date', 'role_users_id', 'leaving_date', 'marital_status', 'employment_type',
+            'city', 'province', 'zipcode', 'address', 'basic_salary', 'hourly_rate'];
         $data = [];
-        $data['firstname'] = $request['firstname'];
-        $data['lastname'] = $request['lastname'];
-        $data['username'] = $request['firstname'].' '.$request['lastname'];
-        $data['country'] = $request['country'];
-        $data['email'] = $request['email'];
-        $data['gender'] = $request['gender'];
-        $data['phone'] = $request['phone'];
-        $data['birth_date'] = $request['birth_date'];
-        $data['company_id'] = $request['company_id'];
-        $data['department_id'] = $request['department_id'];
-        $data['designation_id'] = $request['designation_id'];
-        $data['office_shift_id'] = $request['office_shift_id'];
-        $data['joining_date'] = $request['joining_date'];
-        $data['role_users_id'] = $request['role_users_id'];
-        $data['leaving_date'] = $request['leaving_date'] ? $request['leaving_date'] : null;
-        $data['marital_status'] = $request['marital_status'];
-        $data['employment_type'] = $request['employment_type'];
-        $data['city'] = $request['city'];
-        $data['province'] = $request['province'];
-        $data['zipcode'] = $request['zipcode'];
-        $data['address'] = $request['address'];
-        $data['basic_salary'] = $request['basic_salary'];
-        $data['hourly_rate'] = $request['hourly_rate'];
+        foreach ($fields as $f) {
+            if ($request->exists($f)) {
+                $data[$f] = $request[$f];
+            }
+        }
+        if (array_key_exists('leaving_date', $data) && ! $data['leaving_date']) {
+            $data['leaving_date'] = null;
+        }
+        $data['username'] = trim(($data['firstname'] ?? $employee->firstname).' '.($data['lastname'] ?? $employee->lastname));
 
-        // calculation of total_leave & remaining_leave
-        $employee_leave_info = Employee::find($id);
-        if ($employee_leave_info->total_leave == 0) {
-            $data['total_leave'] = $request->total_leave;
-            $data['remaining_leave'] = $request->total_leave;
-        } elseif ($request->total_leave > $employee_leave_info->total_leave) {
-            $data['total_leave'] = $request->total_leave;
-            $data['remaining_leave'] = $request->remaining_leave + ($request->total_leave - $employee_leave_info->total_leave);
-        } elseif ($request->total_leave < $employee_leave_info->total_leave) {
-            $data['total_leave'] = $request->total_leave;
-            $data['remaining_leave'] = $request->remaining_leave - ($employee_leave_info->total_leave - $request->total_leave);
-
-        } else {
-            $data['total_leave'] = $request->total_leave;
-            $data['remaining_leave'] = $employee_leave_info->remaining_leave;
+        // calculation of total_leave & remaining_leave (only when the leave is sent)
+        if ($request->filled('total_leave')) {
+            $total = (float) $request->total_leave;
+            $remaining = $request->filled('remaining_leave') ? (float) $request->remaining_leave : (float) $employee->remaining_leave;
+            if ((float) $employee->total_leave == 0) {
+                $data['total_leave'] = $total;
+                $data['remaining_leave'] = $total;
+            } elseif ($total > $employee->total_leave) {
+                $data['total_leave'] = $total;
+                $data['remaining_leave'] = $remaining + ($total - $employee->total_leave);
+            } elseif ($total < $employee->total_leave) {
+                $data['total_leave'] = $total;
+                $data['remaining_leave'] = $remaining - ($employee->total_leave - $total);
+            } else {
+                $data['total_leave'] = $total;
+                $data['remaining_leave'] = $employee->remaining_leave;
+            }
         }
 
-        Employee::find($id)->update($data);
+        \DB::transaction(function () use ($employee, $data, $request) {
+            $employee->update($data);
+            $this->syncPositions($employee->fresh(), $request);
+            $this->applySystemAccess($employee->fresh(), $request);
+        });
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Employee form -> "System access" (`access` in the request): the
+     * employee's own login (their linked users row, type employee):
+     *  - enabled: can sign in (users.statut); off = login disabled, nothing deleted;
+     *  - role_id: the company's role that decides what they see/do;
+     *  - email / password: the login (password blank = keep);
+     *  - pin: cashier PIN for the POS (unique per company, blank = none).
+     * No linked user yet + enabled -> the login is created now.
+     */
+    private function applySystemAccess(Employee $employee, Request $request): void
+    {
+        if (! $request->has('access') || ! is_array($request->input('access'))) {
+            return;
+        }
+        $a = $request->input('access');
+        $enabled = filter_var($a['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $companyId = (int) $employee->company_id;
+        $roleId = ! empty($a['role_id']) ? (int) $a['role_id'] : null;
+        $email = trim((string) ($a['email'] ?? ''));
+        $password = (string) ($a['password'] ?? '');
+        $pin = trim((string) ($a['pin'] ?? ''));
+        $username = trim((string) ($a['username'] ?? ''));
+
+        $errors = [];
+        if ($username !== '' && ! preg_match('/^[A-Za-z0-9._-]{3,40}$/', $username)) {
+            $errors['access.username'] = ['3-40 letters, numbers, dot, dash or underscore.'];
+        } elseif ($username !== '' && \App\Models\User::where('username', $username)->when($employee->user_id, fn ($q) => $q->where('id', '<>', $employee->user_id))->exists()) {
+            // users.username is unique across the whole system.
+            $errors['access.username'] = ['This username is already taken.'];
+        }
+        if ($roleId && ! \App\Models\Role::whereKey($roleId)->where('company_id', $companyId)->whereNull('deleted_at')->exists()) {
+            $errors['access.role_id'] = ['That role does not belong to the employee\'s company.'];
+        }
+        if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors['access.email'] = ['Enter a valid login email.'];
+        }
+        if ($password !== '' && strlen($password) < 6) {
+            $errors['access.password'] = ['The password must be at least 6 characters.'];
+        }
+        if ($pin !== '' && ! preg_match('/^\d{4,8}$/', $pin)) {
+            $errors['access.pin'] = ['The PIN must be 4 to 8 digits.'];
+        }
+
+        $user = $employee->user_id ? \App\Models\User::find($employee->user_id) : null;
+        if ($email !== '' && \App\Models\User::where('email', $email)->whereNull('deleted_at')->when($user, fn ($q) => $q->where('id', '<>', $user->id))->exists()) {
+            $errors['access.email'] = ['This email is already used by another user.'];
+        }
+        if ($pin !== '' && \App\Models\User::pinTaken($companyId, $pin, optional($user)->id)) {
+            $errors['access.pin'] = ['This PIN is already used by another user of this company.'];
+        }
+        if (! $user && $enabled) {
+            if ($email === '' && ! filter_var((string) $employee->email, FILTER_VALIDATE_EMAIL)) {
+                $errors['access.email'] = ['A login email is required to give this employee access.'];
+            }
+            if ($password === '') {
+                $errors['access.password'] = ['Set a password for the new login.'];
+            }
+            if (! $roleId) {
+                $errors['access.role_id'] = ['Choose the role for this employee.'];
+            }
+        }
+        if ($errors) {
+            throw \Illuminate\Validation\ValidationException::withMessages($errors);
+        }
+
+        if (! $user) {
+            if (! $enabled) {
+                return; // no login and none wanted
+            }
+            $userId = \App\Services\LinkedUserService::provision(
+                $companyId, 'employee', 'Employee', trim($employee->firstname.' '.$employee->lastname), $email ?: $employee->email, $employee->phone
+            );
+            $employee->user_id = $userId;
+            $employee->save();
+            $user = \App\Models\User::find($userId);
+        }
+
+        if ($roleId) {
+            $user->role_id = $roleId;
+            \App\Models\role_user::updateOrCreate(['user_id' => $user->id], ['role_id' => $roleId]);
+        }
+        if ($email !== '') {
+            $user->email = $email;
+        }
+        if ($username !== '') {
+            $user->username = $username;
+        }
+        if ($password !== '') {
+            $user->password = \Illuminate\Support\Facades\Hash::make($password);
+        }
+        if (array_key_exists('pin', $a)) {
+            $user->pin = $pin !== '' ? $pin : null;
+        }
+        $user->statut = $enabled ? 1 : 0;
+        $user->save();
+    }
+
+    /** Departments + designations (with company) the Positions picker offers. */
+    private function positionOptions(): array
+    {
+        $actor = auth('api')->user();
+        $scope = fn ($q) => $q->whereNull('deleted_at')
+            ->when($actor && $actor->type !== 'SuperAdmin', fn ($q2) => $q2->where('company_id', $actor->company_id));
+
+        return [
+            'all_departments' => $scope(Department::query())->orderBy('department')->get(['id', 'department', 'company_id']),
+            'all_designations' => $scope(Designation::query())->orderBy('designation')->get(['id', 'designation', 'department_id', 'company_id']),
+        ];
+    }
+
+    /** Positions (department + designation names) of these employees, primary first. */
+    private function positionRows(array $employeeIds)
+    {
+        if (! $employeeIds) {
+            return collect();
+        }
+
+        return \DB::table('employee_positions as p')
+            ->leftJoin('departments as d', 'd.id', '=', 'p.department_id')
+            ->leftJoin('designations as g', 'g.id', '=', 'p.designation_id')
+            ->whereIn('p.employee_id', $employeeIds)
+            ->orderByDesc('p.is_primary')->orderBy('p.id')
+            ->get(['p.employee_id', 'p.department_id', 'p.designation_id', 'p.is_primary', 'd.department', 'g.designation']);
+    }
+
+    /**
+     * Saves the employee's positions (`positions` = [{department_id,
+     * designation_id}, ...], first = primary). The primary is mirrored on
+     * employees.department_id / designation_id. Each designation must belong
+     * to the employee's company and to the department it's listed with.
+     * No `positions` in the request: the single department/designation sent
+     * (if any) becomes / replaces the primary.
+     */
+    private function syncPositions(Employee $employee, Request $request): void
+    {
+        $companyId = (int) $employee->company_id;
+        $list = $request->input('positions');
+        if (! is_array($list)) {
+            if (! $employee->designation_id) {
+                return;
+            }
+            $list = [['department_id' => $employee->department_id, 'designation_id' => $employee->designation_id]];
+            // keep the employee's other (secondary) positions
+            $keep = \App\Models\EmployeePosition::where('employee_id', $employee->id)->where('is_primary', false)
+                ->get(['department_id', 'designation_id'])->map(fn ($p) => ['department_id' => $p->department_id, 'designation_id' => $p->designation_id])->all();
+            $list = array_merge($list, $keep);
+        }
+
+        $clean = [];
+        foreach ($list as $i => $p) {
+            $dep = (int) ($p['department_id'] ?? 0);
+            $des = (int) ($p['designation_id'] ?? 0);
+            if (! $dep || ! $des || isset($clean[$des])) {
+                continue;
+            }
+            $ok = \DB::table('designations')->where('id', $des)->where('department_id', $dep)->where('company_id', $companyId)->whereNull('deleted_at')->exists()
+                && \DB::table('departments')->where('id', $dep)->where('company_id', $companyId)->whereNull('deleted_at')->exists();
+            if (! $ok) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "positions.{$i}" => ['That department / designation does not belong to this company.'],
+                ]);
+            }
+            $clean[$des] = $dep;
+        }
+        if (! $clean) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['positions' => ['Add at least one department and designation.']]);
+        }
+
+        \App\Models\EmployeePosition::where('employee_id', $employee->id)->delete();
+        $first = true;
+        foreach ($clean as $des => $dep) {
+            \App\Models\EmployeePosition::create(['employee_id' => $employee->id, 'department_id' => $dep, 'designation_id' => $des, 'is_primary' => $first]);
+            if ($first) {
+                Employee::whereKey($employee->id)->update(['department_id' => $dep, 'designation_id' => $des]);
+            }
+            $first = false;
+        }
+    }
+
+    /**
+     * One person = one employee: refuse a second employee in the same company
+     * with the same full name -- add the extra department / designation to
+     * the existing one instead.
+     */
+    private function duplicateOf(int $companyId, string $first, ?string $last, ?string $email, ?int $exceptId = null): ?Employee
+    {
+        $full = mb_strtolower(trim($first.' '.(string) $last));
+
+        return Employee::whereNull('deleted_at')->where('company_id', $companyId)
+            ->when($exceptId, fn ($q) => $q->where('id', '<>', $exceptId))
+            // Same full name only: staff often share the business email
+            // (e.g. info@...), so email alone can't identify a person.
+            ->whereRaw("LOWER(TRIM(CONCAT(firstname, ' ', COALESCE(lastname, '')))) = ?", [$full])
+            ->first();
+    }
+
+    /** Login of an employee for the form (no password / PIN hash leak). */
+    private function systemAccessOf(Employee $employee): array
+    {
+        $u = $employee->user_id ? \App\Models\User::find($employee->user_id) : null;
+
+        return [
+            'has_login' => (bool) $u,
+            'enabled' => $u ? (int) $u->statut === 1 : false,
+            'username' => optional($u)->username,
+            'email' => $u && ! str_ends_with((string) $u->email, '@placeholder.murano.local') ? $u->email : ($employee->email ?: ''),
+            'role_id' => optional($u)->role_id,
+            'pin' => optional($u)->pin ?: '',
+        ];
+    }
+
+    /** Roles an employee can be given, per company (Owner excluded). */
+    private function rolesFor(?int $companyId)
+    {
+        $actor = auth('api')->user();
+
+        return \App\Models\Role::whereNull('deleted_at')->where('name', '!=', 'Owner')
+            ->when($actor && $actor->type !== 'SuperAdmin', fn ($q) => $q->where('company_id', $actor->company_id))
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->orderBy('name')->get(['id', 'name', 'company_id']);
     }
 
     // ------------ Delete Employee -----------\\
@@ -312,6 +644,7 @@ class EmployeesController extends Controller
             $targetCompanyId = Employee::where('id', $id)->value('company_id');
             abort_unless((int) $targetCompanyId === (int) $actingUser->company_id, 403);
         }
+        $this->abortUnlessOwnOrAll($request, Employee::findOrFail($id));
 
         Employee::whereId($id)->update([
             'deleted_at' => Carbon::now(),
@@ -334,6 +667,10 @@ class EmployeesController extends Controller
         $actingUser = $request->user('api');
         if ($actingUser->type !== 'SuperAdmin') {
             $selectedIds = Employee::whereIn('id', $selectedIds)->where('company_id', $actingUser->company_id)->pluck('id')->all();
+        }
+        // Without "View all employees": only their own record.
+        if (! $this->canViewAllEmployees($actingUser)) {
+            $selectedIds = Employee::whereIn('id', $selectedIds)->where('user_id', $actingUser->id)->pluck('id')->all();
         }
 
         foreach ($selectedIds as $employee_id) {

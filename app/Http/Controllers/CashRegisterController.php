@@ -54,6 +54,15 @@ class CashRegisterController extends BaseController
             'notes' => $data['notes'] ?? null,
         ]);
 
+        // "Register opened" notice to the company's admins, after the response
+        // (the cashier never waits on SMTP; a mail failure never blocks the POS).
+        $registerId = $register->id;
+        dispatch(static function () use ($registerId) {
+            if ($r = CashRegister::find($registerId)) {
+                app(self::class)->emailOpened($r);
+            }
+        })->afterResponse();
+
         return response()->json(['success' => true, 'register' => $register]);
     }
 
@@ -220,14 +229,38 @@ class CashRegisterController extends BaseController
      */
     private function registerSummary(CashRegister $register, Carbon $until): array
     {
+        // Sales rung up on this register (sales.cash_register_id) -- by the
+        // cashier or by anyone who confirmed a sale with their PIN -- plus,
+        // for sales from before that link existed, the cashier's own POS
+        // sales at this location while it was open.
         $saleIds = Sale::whereNull('deleted_at')
             ->where('is_pos', 1)
-            ->where('user_id', $register->user_id)
-            ->where('warehouse_id', $register->warehouse_id)
-            ->whereBetween('created_at', [$register->opened_at, $until])
+            ->where(function ($q) use ($register, $until) {
+                $q->where('cash_register_id', $register->id)
+                    ->orWhere(function ($q) use ($register, $until) {
+                        $q->whereNull('cash_register_id')
+                            ->where('user_id', $register->user_id)
+                            ->where('warehouse_id', $register->warehouse_id)
+                            ->whereBetween('created_at', [$register->opened_at, $until]);
+                    });
+            })
             ->pluck('id');
 
         $totalSales = (float) Sale::whereIn('id', $saleIds)->sum('GrandTotal');
+
+        // Sales per user (who made them) -- several when sales were confirmed with a PIN.
+        $byUser = Sale::whereIn('sales.id', $saleIds)
+            ->leftJoin('users', 'users.id', '=', 'sales.user_id')
+            ->groupBy('sales.user_id', 'users.firstname', 'users.lastname', 'users.username')
+            ->orderByDesc(DB::raw('SUM(sales.GrandTotal)'))
+            ->get(['sales.user_id', 'users.firstname', 'users.lastname', 'users.username', DB::raw('COUNT(*) as count'), DB::raw('SUM(sales.GrandTotal) as total')])
+            ->map(fn ($r) => [
+                'user_id' => (int) $r->user_id,
+                'name' => trim(($r->firstname ?? '').' '.($r->lastname ?? '')) ?: ($r->username ?? ('#'.$r->user_id)),
+                'username' => $r->username ?? '',
+                'count' => (int) $r->count,
+                'total' => round((float) $r->total, 3),
+            ])->values()->all();
 
         $payments = DB::table('payment_sales')
             ->leftJoin('payment_methods', 'payment_methods.id', '=', 'payment_sales.payment_method_id')
@@ -267,6 +300,7 @@ class CashRegisterController extends BaseController
             'until' => $until->format('Y-m-d H:i:s'),
             'sales_count' => $saleIds->count(),
             'total_sales' => round($totalSales, 3),
+            'by_user' => $byUser,
             'payments' => $payments,
             'cash_sales' => round((float) $cashSales, 3),
             'services_total' => round((float) ($lines->services_total ?? 0), 3),
@@ -290,17 +324,6 @@ class CashRegisterController extends BaseController
             return ['sent' => false, 'skipped' => true, 'to' => []];
         }
 
-        $to = User::whereNull('deleted_at')->where('company_id', $companyId)
-            ->whereRaw('LOWER(type) = ?', ['admin'])->where('statut', 1)
-            ->whereNotNull('email')->where('email', '<>', '')
-            ->pluck('email')->unique()->values()->all();
-        if (! $to && $settings && ! empty($settings->email)) {
-            $to = [$settings->email];
-        }
-        if (! $to) {
-            return ['sent' => false, 'to' => [], 'error' => 'No admin email found for this company.'];
-        }
-
         $sym = ($settings && $settings->currency_id) ? (DB::table('currencies')->where('id', $settings->currency_id)->value('symbol') ?: '') : '';
         $money = fn ($v) => $sym.number_format((float) $v, 2);
         $fmt = fn ($d) => $d ? Carbon::parse($d)->format('M j, Y g:i A') : '';
@@ -319,6 +342,11 @@ class CashRegisterController extends BaseController
             $payRows = $row('No payments', $money(0));
         }
         $diffColor = abs($s['difference']) < 0.005 ? '#1e7a44' : '#a83232';
+        // Sales per user (incl. sales other users confirmed with their PIN).
+        $userRows = '';
+        foreach ($s['by_user'] ?? [] as $u) {
+            $userRows .= $row($e($u['name']).($u['username'] ? ' ('.$e($u['username']).')' : '').' &middot; '.$u['count'].' sale'.($u['count'] === 1 ? '' : 's'), $money($u['total']));
+        }
 
         $body = '<h2 style="margin:0 0 4px">Register #'.$register->id.' closed</h2>'
             .'<p style="margin:0 0 16px;color:#666">'.$e($s['cashier']).' &middot; '.$e($s['warehouse']).'</p>'
@@ -330,6 +358,7 @@ class CashRegisterController extends BaseController
             .$row('Sales', $s['sales_count'].' &middot; '.$money($s['total_sales']), true)
             .$row('Services', $money($s['services_total']).' ('.rtrim(rtrim(number_format($s['services_qty'], 2), '0'), '.').' items)')
             .$row('Products', $money($s['products_total']).' ('.rtrim(rtrim(number_format($s['products_qty'], 2), '0'), '.').' items)')
+            .($userRows !== '' ? '<tr><td colspan="2" style="padding:12px 10px 4px;font-weight:700">Sales by user</td></tr>'.$userRows : '')
             .'<tr><td colspan="2" style="padding:12px 10px 4px;font-weight:700">Payments</td></tr>'
             .$payRows
             .'<tr><td colspan="2" style="padding:12px 10px 4px;font-weight:700">Cash drawer</td></tr>'
@@ -342,16 +371,69 @@ class CashRegisterController extends BaseController
             .'</table>'
             .(! empty($s['notes']) ? '<p style="margin-top:16px"><strong>Notes:</strong> '.nl2br($e($s['notes'])).'</p>' : '');
 
+        return $this->sendAdminMail((int) $companyId,
+            'Register #'.$register->id.' closed - '.$s['cashier'].' - '.$money($s['total_sales']), $body);
+    }
+
+    // Register opened: who, where, when, opening cash, note -> the company's admins.
+    public function emailOpened(CashRegister $register): array
+    {
+        $warehouse = Warehouse::find($register->warehouse_id);
+        $companyId = (int) optional($warehouse)->company_id;
+        $settings = \App\Models\Setting::forCompany($companyId);
+        if ($settings && isset($settings->pos_close_register_email) && ! $settings->pos_close_register_email) {
+            return ['sent' => false, 'skipped' => true, 'to' => []];
+        }
+        $u = User::find($register->user_id);
+        $cashier = $u ? (trim(($u->firstname ?? '').' '.($u->lastname ?? '')) ?: $u->username) : '';
+        $sym = ($settings && $settings->currency_id) ? (DB::table('currencies')->where('id', $settings->currency_id)->value('symbol') ?: '') : '';
+        $e = fn ($v) => e((string) $v);
+        $row = fn ($label, $value) => '<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#555">'.$label.'</td>'
+            .'<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:600">'.$value.'</td></tr>';
+
+        $body = '<h2 style="margin:0 0 4px">Register #'.$register->id.' opened</h2>'
+            .'<p style="margin:0 0 16px;color:#666">'.$e($cashier).' &middot; '.$e(optional($warehouse)->name).'</p>'
+            .'<table style="border-collapse:collapse;width:100%;max-width:520px;font-family:Arial,sans-serif;font-size:14px">'
+            .$row('Cashier', $e($cashier).($u ? ' ('.$e($u->username).')' : ''))
+            .$row('Location', $e(optional($warehouse)->name))
+            .$row('Opened', Carbon::parse($register->opened_at)->format('M j, Y g:i A'))
+            .$row('Opening cash', $sym.number_format((float) $register->opening_balance, 2))
+            .'</table>'
+            .(! empty($register->notes) ? '<p style="margin-top:16px"><strong>Notes:</strong> '.nl2br($e($register->notes)).'</p>' : '');
+
+        return $this->sendAdminMail($companyId, 'Register #'.$register->id.' opened - '.$cashier.' - '.optional($warehouse)->name, $body);
+    }
+
+    /**
+     * Sends a notice to the company's admins -- every admin user of the
+     * company (+ the SuperAdmin copy when that company enabled it), see
+     * CompanyMail::recipients -- through the company's own mail server.
+     * Never throws: returns what happened.
+     */
+    private function sendAdminMail(int $companyId, string $subject, string $body): array
+    {
+        $recipients = \App\Support\CompanyMail::recipients($companyId);
+        $to = array_column(array_filter($recipients, fn ($r) => ! $r['copy']), 'email');
+        $copy = array_column(array_filter($recipients, fn ($r) => $r['copy']), 'email');
+        if (! $to && ! $copy) {
+            return ['sent' => false, 'to' => [], 'error' => 'No admin email found for this company.'];
+        }
+
         try {
-            Mail::to($to)->send(new \App\Mail\CustomEmail([
-                'subject' => 'Register #'.$register->id.' closed - '.$s['cashier'].' - '.$money($s['total_sales']),
+            [$mailer, , $companyName] = \App\Support\CompanyMail::mailer($companyId);
+            $pending = $mailer->to($to ?: $copy);
+            if ($to && $copy) {
+                $pending->bcc($copy); // SuperAdmin copy, not shown to the company's admins
+            }
+            $pending->send(new \App\Mail\CustomEmail([
+                'subject' => $subject,
                 'body' => $body,
-                'company_name' => $settings->CompanyName ?? '',
+                'company_name' => $companyName,
             ]));
 
-            return ['sent' => true, 'to' => $to];
+            return ['sent' => true, 'to' => $to, 'copy' => $copy];
         } catch (\Throwable $ex) {
-            \Log::warning('Register close email failed: '.$ex->getMessage());
+            \Log::warning('Register email failed: '.$ex->getMessage(), ['subject' => $subject]);
 
             return ['sent' => false, 'to' => $to, 'error' => 'Email could not be sent: '.$ex->getMessage()];
         }

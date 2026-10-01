@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { moduleKeyForPath } from '../config/modules';
 import { start as progressStart, done as progressDone } from '../lib/progress';
+import { autoOpenPath, recordVisit, startPageOpened, markStartPageOpened } from '../lib/startPage';
 import { setPageTitle } from '../lib/docTitle';
 // The shell is needed on every page, so it stays in the entry bundle.
 import AdminLayout from '../layouts/AdminLayout.vue';
@@ -24,6 +25,7 @@ const lazy = (name, loader) => () =>
 const Ping = lazy('Ping', () => import('../pages/Ping.vue'));
 const PosPage = lazy('PosPage', () => import('../pages/pos/PosPage.vue'));
 const Dashboard = lazy('Dashboard', () => import('../pages/Dashboard.vue'));
+const HomeButtons = lazy('HomeButtons', () => import('../pages/HomeButtons.vue'));
 const Brands = lazy('Brands', () => import('../pages/Brands.vue'));
 const VehicleCatalog = lazy('VehicleCatalog', () => import('../pages/vehicles/VehicleCatalog.vue'));
 const Categories = lazy('Categories', () => import('../pages/Categories.vue'));
@@ -416,6 +418,8 @@ const routes = [
         children: [
             { path: '', redirect: '/dashboard' },
             { path: 'dashboard', name: 'dashboard', component: Dashboard, meta: { title: 'Dashboard', permission: 'dashboard' } },
+            // Each user's own home shortcut buttons + what opens after sign-in (no permission: own account).
+            { path: 'home-buttons', name: 'home-buttons', component: HomeButtons, meta: { title: 'Home Buttons' } },
             { path: 'brands', name: 'brands', component: Brands, meta: { title: 'Brands', permission: 'brand' } },
             { path: 'categories', name: 'categories', component: Categories, meta: { title: 'Categories', permission: 'category' } },
             { path: 'subcategories', name: 'subcategories', component: SubCategories, meta: { title: 'SubCategories', permission: 'subcategory' } },
@@ -913,12 +917,24 @@ router.beforeEach(async to => {
     if (to.meta.requiresSetting && auth[to.meta.requiresSetting] === false) {
         return { name: 'not-found' };
     }
+    // Start page (Defaults -> Users -> customized by each user): the first
+    // landing on the dashboard after sign-in opens the user's chosen form.
+    // (Only the first page of the session: a direct link elsewhere uses it up.)
+    if (!startPageOpened()) {
+        markStartPageOpened();
+        const form = to.name === 'dashboard' ? autoOpenPath(auth) : null;
+        if (form) return form;
+    }
     return true;
 });
 
 // Covers both the guard and the lazy chunk load (afterEach fires only once the
 // chunk resolved). onError catches failed chunks/guards so the bar never hangs.
-router.afterEach(() => progressDone());
+router.afterEach((to, from, failure) => {
+    progressDone();
+    // "Last used" shortcuts: count visits to menu pages.
+    if (!failure) recordVisit(useAuthStore(), to.path);
+});
 router.onError((error, to) => {
     progressDone();
     // Stale-deploy recovery: after a rebuild the old hashed chunks are deleted,

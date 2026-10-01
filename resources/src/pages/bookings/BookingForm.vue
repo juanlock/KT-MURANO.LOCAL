@@ -42,12 +42,19 @@
           </a-col>
 
           <a-col :xs="24" :md="12" :lg="8">
-            <a-form-item :label="$t('Sales_Person')">
+            <!-- Staff: locked to the signed-in user unless admin / role has
+                 "Booking to other staff" (the server enforces it too). -->
+            <a-form-item label="Staff" :extra="canOtherStaff ? '' : 'Your own booking (booking for other staff needs the “Booking to other staff” permission).'">
               <a-select
                 v-model:value="booking.sales_person_id" show-search option-filter-prop="label"
-                :placeholder="$t('Choose_Sales_Person')" allow-clear
-                :options="salesPersons.map(p => ({ value: p.id, label: p.name }))"
-              />
+                placeholder="Choose staff" :allow-clear="canOtherStaff" :disabled="!canOtherStaff"
+                :options="salesPersons.map(p => ({ value: p.id, label: p.name, avatar: p.avatar }))"
+                popup-class-name="bk-rich-pop"
+              >
+                <template #option="{ label, avatar }">
+                  <span class="opt-staff"><a-avatar :size="22" :src="avatar || undefined" class="opt-staff__avatar">{{ (label || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() }}</a-avatar>{{ label }}</span>
+                </template>
+              </a-select>
             </a-form-item>
           </a-col>
 
@@ -312,6 +319,8 @@ const customers = ref([]);
 const products = ref([]);
 const trays = ref([]);
 const salesPersons = ref([]);
+// Admins / roles with "Booking to other staff" may pick any staff; others are locked to themselves.
+const canOtherStaff = ref(true);
 const warehouses = ref([]);
 const warehouseOptions = computed(() => sortByLabel(warehouses.value.map(w => ({ value: w.id, label: w.name }))));
 const quickProductOpen = ref(false);
@@ -619,6 +628,9 @@ onMounted(async () => {
     trays.value = data?.trays || [];
     salesPersons.value = data?.sales_persons || [];
     warehouses.value = data?.warehouses || [];
+    canOtherStaff.value = data?.can_book_other_staff !== false;
+    // Staff locked to the user: a new booking is theirs.
+    if (!isEdit && !canOtherStaff.value && data?.me) booking.value.sales_person_id = data.me;
     if (data?.booking_fields) fields.value = { ...fields.value, ...data.booking_fields };
 
     // New booking: System Settings -> Defaults -> Booking (location, Walk-in
@@ -674,5 +686,21 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
+}
+</style>
+
+<style>
+/* Staff dropdown rows (popup renders outside the component). */
+.bk-rich-pop .opt-staff,
+.ant-select-selection-item .opt-staff {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.bk-rich-pop .opt-staff__avatar {
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 600;
 }
 </style>

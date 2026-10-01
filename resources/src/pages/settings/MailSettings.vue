@@ -66,6 +66,28 @@
       </a-form>
     </a-card>
 
+    <!-- Who gets this company's automatic notices (saved with Submit above). -->
+    <a-card v-if="!loading" size="small" title="Admin notices" style="margin-top: 16px">
+      <div class="notice-help">
+        Emails sent automatically to this company's admins: online booking, booking created from the panel,
+        booking confirmed, booking completed (with invoice), POS register opened and closed.
+        Every admin user of the company receives them, through the mail server above.
+      </div>
+      <div class="notice-list">
+        <a-tag v-for="r in recipients" :key="r.email" color="blue" style="margin-bottom: 4px">
+          {{ r.name ? `${r.name} — ` : '' }}{{ r.email }}
+        </a-tag>
+        <span v-if="!recipients.length" style="color: #cf1322">No admin user with an email in this company.</span>
+      </div>
+      <div v-if="isSuperAdmin" class="notice-row">
+        <div>
+          <div style="font-weight: 600">Send a copy to the SuperAdmin</div>
+          <div class="notice-help">You (SuperAdmin) also receive this company's notices, as a hidden copy. Off: only the company's admins get them.</div>
+        </div>
+        <a-switch v-model:checked="superadminCopy" />
+      </div>
+    </a-card>
+
     <a-modal
       v-model:open="testModalVisible"
       title="Send test email"
@@ -87,12 +109,13 @@
  * fields; POST test_config_mail sends a test message and answers
  * {message|msg} — shown verbatim either way.
  */
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { SendOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
+import { useAuthStore } from '../../stores/auth';
 
 const { t } = useI18n();
 
@@ -103,6 +126,11 @@ const server = ref({});
 const testModalVisible = ref(false);
 const testEmail = ref('');
 const defaultTestEmail = ref('');
+// Admin notices: recipients (the company's admins) + SuperAdmin copy switch.
+const auth = useAuthStore();
+const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
+const recipients = ref([]);
+const superadminCopy = ref(false);
 
 async function save() {
   saving.value = true;
@@ -116,6 +144,7 @@ async function save() {
       username: server.value.username,
       password: server.value.password,
       encryption: server.value.encryption,
+      ...(isSuperAdmin.value ? { notify_superadmin_copy: superadminCopy.value ? 1 : 0 } : {}),
     });
     message.success(t('Successfully_Updated'));
   } catch (e) {
@@ -158,6 +187,8 @@ onMounted(async () => {
     const data = await http.get('get_config_mail');
     server.value = data.server || {};
     defaultTestEmail.value = data.default_test_email || '';
+    recipients.value = data.notice_recipients || [];
+    superadminCopy.value = data.notify_superadmin_copy === true;
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {
@@ -165,3 +196,16 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.notice-help { font-size: 12px; opacity: 0.65; }
+.notice-list { margin: 10px 0; }
+.notice-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(128, 128, 128, 0.15);
+}
+</style>

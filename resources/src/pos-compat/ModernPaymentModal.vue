@@ -351,6 +351,8 @@ export default {
     clientNetBalance: { type: Number, default: 0 },
     // API endpoints
     createPosUrl: { type: String, default: 'pos/create_pos' },
+    // () => Promise<pin | '' | null>: per-sale cashier PIN (PosPage.requestSalePin).
+    requestSalePin: { type: Function, default: null },
     // Optional Stripe publishable key (to mirror old POS behavior)
     stripeKey: { type: String, default: '' },
     // Optional: when paying from a loaded draft sale
@@ -1127,6 +1129,8 @@ export default {
             ? this.draftSaleId
             : null,
           sale_uuid: saleUuid || null,
+          // Per-sale cashier PIN (only when POS Settings asks for it; never queued offline).
+          sale_pin: this._salePin || undefined,
           // Kitchen routing: only 'send' creates a kitchen ticket on the server (and only
           // when the feature is enabled). 'none' / 'later' leave the sales flow untouched.
           kitchen_action: this.kitchenEnabled ? this.kitchenAction : 'none'
@@ -1180,6 +1184,21 @@ export default {
           : 'Credit card payments require an internet connection.';
         this.makeToast && this.makeToast('warning', msg, this.$t ? this.$t('Warning') : 'Warning');
         return;
+      }
+
+      // POS Settings -> "Confirm each sale with the cashier's PIN": the PIN
+      // pad asks who is making the sale (the server records it under that
+      // user). Cancelled = the payment is not sent.
+      this._salePin = '';
+      if (typeof this.requestSalePin === 'function') {
+        const pin = await this.requestSalePin();
+        if (pin === null) {
+          if (typeof NProgress !== 'undefined') NProgress.done();
+          this.paymentProcessing = false;
+          this.isSubmitting = false;
+          return;
+        }
+        this._salePin = pin || '';
       }
 
       // Determine if any line requires a new card entry (no saved card selected)

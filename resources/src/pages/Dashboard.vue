@@ -7,15 +7,21 @@
         <a-typography-text type="secondary">{{ subtitle }}</a-typography-text>
       </div>
 
-      <a-space v-if="!loading" wrap class="dash-filters">
-        <a-segmented v-model:value="period" :options="periodOptions" @change="onPeriodChange" />
-        <a-range-picker
-          v-if="period === 'custom'"
-          v-model:value="customRange"
-          value-format="YYYY-MM-DD"
-          :allow-clear="false"
-          @change="load()"
-        />
+      <a-space wrap :size="12" class="dash-filters">
+        <!-- Same date presets + range keycard as Sales -> List Sales. -->
+        <a-card size="small" class="range-card">
+          <div class="range-row">
+            <span class="range-label">{{ $t('start_date') }}</span>
+            <b class="range-value">{{ activeRange.from || '—' }}</b>
+          </div>
+          <div class="range-row">
+            <span class="range-label">{{ $t('to') }}</span>
+            <b class="range-value">{{ activeRange.to || '—' }}</b>
+          </div>
+        </a-card>
+        <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" @change="load()">
+          <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
+        </a-radio-group>
         <a-select
           v-model:value="warehouseId"
           class="wh-select"
@@ -41,6 +47,27 @@
       :description="$t('Demo_Data_Notice_Help')"
     />
 
+    <!-- Start page "customized by each user" (Defaults -> Users): the user's
+         6 most used pages as shortcuts, and what opens after login. -->
+    <a-card v-if="customStart" size="small" class="lu-card" style="margin-bottom: 16px">
+      <template #title>
+        <span><HistoryOutlined /> {{ tf('Shortcuts', 'Shortcuts') }}</span>
+      </template>
+      <template #extra>
+        <!-- Buttons + what opens after sign-in are set on the Home Buttons page. -->
+        <a-button size="small" @click="$router.push('/home-buttons')"><SettingOutlined /> {{ startPrefsLabel }}</a-button>
+      </template>
+      <div v-if="recentPages.length" class="lu-grid">
+        <button v-for="p in recentPages" :key="p.path" type="button" class="lu-tile" @click="$router.push(p.path)">
+          <span class="lu-icon"><component :is="p.icon" v-if="p.icon" :size="22" /><AppstoreOutlined v-else /></span>
+          <span class="lu-label">{{ pageLabel(p) }}</span>
+        </button>
+      </div>
+      <div v-else class="lu-empty">
+        No shortcuts yet: an admin can choose them in System Settings → Defaults → Users, and the forms you use most will fill the rest.
+      </div>
+    </a-card>
+
     <!-- Full-page loader; content mounts only when data is ready so charts
          never render (and self-mutate their DOM) with empty options. -->
     <div v-if="loading" style="display: flex; justify-content: center; padding: 96px 0">
@@ -49,7 +76,7 @@
 
     <template v-else>
       <!-- ================= Stat cards (legacy's two rows of four) ========= -->
-      <a-row :gutter="[16, 16]">
+      <a-row v-if="statCards.length" :gutter="[16, 16]">
         <a-col v-for="card in statCards" :key="card.label" :xs="12" :sm="12" :md="8" :lg="6">
           <a-card :hoverable="true" class="stat-card" @click="card.link && $router.push(card.link)">
             <div class="stat-inner">
@@ -66,14 +93,14 @@
       </a-row>
 
       <!-- ================= Sales/Purchases + Top selling ================= -->
-      <a-row :gutter="[16, 16]" style="margin-top: 16px">
-        <a-col :xs="24" :xl="16">
+      <a-row v-if="show('chart_sales_purchases') || show('chart_top_selling')" :gutter="[16, 16]" style="margin-top: 16px">
+        <a-col v-if="show('chart_sales_purchases')" :xs="24" :xl="show('chart_top_selling') ? 16 : 24">
           <a-card class="chart-card" :title="$t('Sales_And_Purchases')">
             <apexchart v-if="salesChart.series.length" :key="'bar-' + loadCount" type="bar" height="320" :options="salesChart.options" :series="salesChart.series" />
             <a-empty v-else :description="$t('No_data_available')" style="padding: 48px 0" />
           </a-card>
         </a-col>
-        <a-col :xs="24" :xl="8">
+        <a-col v-if="show('chart_top_selling')" :xs="24" :xl="show('chart_sales_purchases') ? 8 : 24">
           <a-card class="chart-card" :title="$t('Top_Selling_Products')">
             <apexchart v-if="donutChart.series.length" :key="'donut-' + loadCount" type="donut" height="320" :options="donutChart.options" :series="donutChart.series" />
             <a-empty v-else :description="$t('No_data_available')" style="padding: 48px 0" />
@@ -82,14 +109,14 @@
       </a-row>
 
       <!-- ================= Payment area + Top customers ================= -->
-      <a-row :gutter="[16, 16]" style="margin-top: 16px">
-        <a-col :xs="24" :xl="12">
+      <a-row v-if="show('chart_payment_sent_received') || show('chart_top_customers')" :gutter="[16, 16]" style="margin-top: 16px">
+        <a-col v-if="show('chart_payment_sent_received')" :xs="24" :xl="show('chart_top_customers') ? 12 : 24">
           <a-card class="chart-card" :title="$t('Payment_Sent_Received')">
             <apexchart v-if="paymentChart.series.length" :key="'area-' + loadCount" type="area" height="300" :options="paymentChart.options" :series="paymentChart.series" />
             <a-empty v-else :description="$t('No_data_available')" style="padding: 48px 0" />
           </a-card>
         </a-col>
-        <a-col :xs="24" :xl="12">
+        <a-col v-if="show('chart_top_customers')" :xs="24" :xl="show('chart_payment_sent_received') ? 12 : 24">
           <a-card class="chart-card" :title="$t('Top_Customers')">
             <apexchart v-if="customerChart.series.length" :key="'pie-' + loadCount" type="pie" height="300" :options="customerChart.options" :series="customerChart.series" />
             <a-empty v-else :description="$t('No_data_available')" style="padding: 48px 0" />
@@ -100,8 +127,8 @@
       <!-- ================= Sales by payment + Stock value ================= -->
       <!-- align=stretch so the right column matches the taller left card; the
            Quick actions card then grows to fill any leftover height. -->
-      <a-row :gutter="[16, 16]" align="stretch" style="margin-top: 16px">
-        <a-col :xs="24" :lg="12">
+      <a-row v-if="show('sales_by_payment') || show('stock_value') || (show('quick_actions') && quickActions.length)" :gutter="[16, 16]" align="stretch" style="margin-top: 16px">
+        <a-col v-if="show('sales_by_payment')" :xs="24" :lg="12">
           <a-card class="fill-card" :title="$t('Sales_by_Payment')">
             <div class="paylist">
               <div v-for="p in payments" :key="p.name" class="pay-row">
@@ -123,8 +150,8 @@
             <a-empty v-if="!payments.length" :description="$t('No_data_available')" />
           </a-card>
         </a-col>
-        <a-col :xs="24" :lg="12" class="dash-right">
-          <a-card :title="$t('Stock_Value')">
+        <a-col v-if="show('stock_value') || (show('quick_actions') && quickActions.length)" :xs="24" :lg="show('sales_by_payment') ? 12 : 24" class="dash-right">
+          <a-card v-if="show('stock_value')" :title="$t('Stock_Value')">
             <template #extra>
               <a-tooltip :title="$t('Stock_Valuation_Hint')">
                 <InfoCircleOutlined style="color: rgba(0,0,0,0.35)" />
@@ -150,7 +177,7 @@
           <!-- Quick actions — grows to fill the space under Stock value so the
                column bottom lines up with Sales by payment. Desktop take on the
                legacy dashboard's quick-module shortcuts. -->
-          <a-card v-if="quickActions.length" :title="$t('Quick_Actions')" class="qa-card">
+          <a-card v-if="show('quick_actions') && quickActions.length" :title="$t('Quick_Actions')" class="qa-card">
             <div class="qa-grid">
               <button
                 v-for="a in quickActions" :key="a.label"
@@ -167,8 +194,8 @@
       </a-row>
 
       <!-- ================= Stock alert + Top selling ================= -->
-      <a-row :gutter="[16, 16]" style="margin-top: 16px">
-        <a-col :xs="24" :xl="12">
+      <a-row v-if="show('table_stock_alert') || show('table_top_selling_products')" :gutter="[16, 16]" style="margin-top: 16px">
+        <a-col v-if="show('table_stock_alert')" :xs="24" :xl="show('table_top_selling_products') ? 12 : 24">
           <a-card :title="$t('StockAlert')">
             <template #extra>
               <a-button type="link" @click="$router.push('/products')">{{ $t('View_all') }}</a-button>
@@ -194,7 +221,7 @@
             <a-empty v-else :description="$t('No_data_available')" />
           </a-card>
         </a-col>
-        <a-col :xs="24" :xl="12">
+        <a-col v-if="show('table_top_selling_products')" :xs="24" :xl="show('table_stock_alert') ? 12 : 24">
           <a-card :title="$t('Top_Selling_Products')">
             <div v-if="topProducts.length" class="toplist">
               <div v-for="(p, i) in topItems" :key="i" class="top-row">
@@ -217,7 +244,7 @@
       </a-row>
 
       <!-- ================= Recent sales ================= -->
-      <a-card style="margin-top: 16px" :title="$t('Recent_Sales')">
+      <a-card v-if="show('table_recent_sales')" style="margin-top: 16px" :title="$t('Recent_Sales')">
         <template #extra>
           <a-button type="link" @click="$router.push('/sales')">{{ $t('View_all') }}</a-button>
         </template>
@@ -247,7 +274,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
+import { DATE_PRESETS, presetDates } from '../lib/datePresets';
 import {
   ReloadOutlined, ShoppingCartOutlined, ShoppingOutlined, RollbackOutlined,
   UndoOutlined, DollarOutlined, WalletOutlined, FileTextOutlined, RiseOutlined,
@@ -260,9 +288,31 @@ import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
 import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
+import { HistoryOutlined, SettingOutlined } from '@ant-design/icons-vue';
+import { message } from 'ant-design-vue';
+import { shortcuts, pageLabel, pageFullLabel, pageOptions } from '../lib/startPage';
+import { sortByLabel } from '../lib/filterOptions';
+import { t as tf } from '../i18n';
 
 const { t } = useI18n();
 const auth = useAuthStore();
+
+/* ------------------------------------------- sections / start page (Defaults -> Users) */
+// Dashboard cards / charts / tables the company switched off.
+const hiddenSections = computed(() => new Set(auth.user?.dashboard_hidden_sections || []));
+// (The old single 'stat_cards' switch, if saved, still hides every card.)
+const show = id => !hiddenSections.value.has(id) && !(id.startsWith('card_') && hiddenSections.value.has('stat_cards'));
+
+const customStart = computed(() => auth.user?.start_page_mode === 'custom');
+// Admin-picked shortcut buttons, empty slots filled with the user's most used forms.
+const recentPages = computed(() => shortcuts(auth, 8));
+const formOptions = computed(() => sortByLabel(pageOptions(auth).map(p => ({ value: p.path, label: pageFullLabel(p) }))));
+const startPrefsLabel = computed(() => {
+  const p = auth.user?.start_preferences || {};
+  if (p.mode !== 'form' || !p.form) return 'Home Buttons';
+  const opt = formOptions.value.find(o => o.value === p.form);
+  return 'Home Buttons · after sign-in: ' + (opt ? opt.label : p.form);
+});
 // Currency/precision/separators come from the user's settings, like the legacy
 // app. money() follows the shared Multi-Currency display selector
 // (ViewCurrencySelect) automatically.
@@ -272,8 +322,7 @@ const { money } = useFormat();
 const loading = ref(true);
 const loadCount = ref(0); // bumps per fetch; keys charts so they remount cleanly
 const demoMode = ref(false);
-const period = ref('7d');
-const customRange = ref([]); // ['YYYY-MM-DD', 'YYYY-MM-DD'] when period === 'custom'
+const period = ref('today');
 const warehouseId = ref('');
 const warehouses = ref([]);
 const report = ref({});
@@ -287,15 +336,6 @@ const donutChart = ref({ series: [], options: {} });
 const paymentChart = ref({ series: [], options: {} });
 const customerChart = ref({ series: [], options: {} });
 
-// Computed so the labels follow a live locale switch (Settings saves one).
-const periodOptions = computed(() => [
-  { value: 'today', label: t('Today') },
-  { value: '7d', label: '7D' },
-  { value: '30d', label: '30D' },
-  { value: 'mtd', label: 'MTD' },
-  { value: 'ytd', label: 'YTD' },
-  { value: 'custom', label: t('Custom') },
-]);
 
 // Time-of-day greeting: morning < 12:00, afternoon < 18:00, evening after.
 const greeting = computed(() => {
@@ -340,16 +380,17 @@ const MONEY_COLS = ['GrandTotal', 'paid_amount', 'due'];
 const statCards = computed(() => {
   const r = report.value;
   const n = k => Number(r[k]) || 0;
+  // `id` = the card's switch in Defaults -> Users -> Dashboard sections.
   return [
-    { label: t('Sales'), value: n('today_sales'), money: true, icon: ShoppingCartOutlined, tint: 'rgba(109,40,217,0.12)', link: '/sales' },
-    { label: t('Purchases'), value: n('today_purchases'), money: true, icon: ShoppingOutlined, tint: 'rgba(22,119,255,0.12)', link: '/purchases' },
-    { label: t('SalesReturn'), value: n('return_sales'), money: true, icon: RollbackOutlined, tint: 'rgba(250,140,22,0.12)', link: '/sale-returns' },
-    { label: t('PurchasesReturn'), value: n('return_purchases'), money: true, icon: UndoOutlined, tint: 'rgba(245,34,45,0.12)', link: '/purchase-returns' },
-    { label: t('Sales_Due'), value: n('sales_due'), money: true, icon: DollarOutlined, tint: 'rgba(250,140,22,0.12)', link: '/sales' },
-    { label: t('Purchase_Due'), value: n('purchase_due'), money: true, icon: WalletOutlined, tint: 'rgba(22,119,255,0.12)', link: '/purchases' },
-    { label: t('Invoices'), value: n('today_invoices'), money: false, icon: FileTextOutlined, tint: 'rgba(140,140,140,0.14)', link: '/sales' },
-    { label: t('Profit'), value: n('today_profit'), money: true, icon: RiseOutlined, tint: 'rgba(82,196,26,0.14)', link: '/reports/profit-and-loss' },
-  ];
+    { id: 'card_sales', label: t('Sales'), value: n('today_sales'), money: true, icon: ShoppingCartOutlined, tint: 'rgba(109,40,217,0.12)', link: '/sales' },
+    { id: 'card_purchases', label: t('Purchases'), value: n('today_purchases'), money: true, icon: ShoppingOutlined, tint: 'rgba(22,119,255,0.12)', link: '/purchases' },
+    { id: 'card_sales_returns', label: t('SalesReturn'), value: n('return_sales'), money: true, icon: RollbackOutlined, tint: 'rgba(250,140,22,0.12)', link: '/sale-returns' },
+    { id: 'card_purchase_returns', label: t('PurchasesReturn'), value: n('return_purchases'), money: true, icon: UndoOutlined, tint: 'rgba(245,34,45,0.12)', link: '/purchase-returns' },
+    { id: 'card_sales_due', label: t('Sales_Due'), value: n('sales_due'), money: true, icon: DollarOutlined, tint: 'rgba(250,140,22,0.12)', link: '/sales' },
+    { id: 'card_purchase_due', label: t('Purchase_Due'), value: n('purchase_due'), money: true, icon: WalletOutlined, tint: 'rgba(22,119,255,0.12)', link: '/purchases' },
+    { id: 'card_invoices', label: t('Invoices'), value: n('today_invoices'), money: false, icon: FileTextOutlined, tint: 'rgba(140,140,140,0.14)', link: '/sales' },
+    { id: 'card_profit', label: t('Profit'), value: n('today_profit'), money: true, icon: RiseOutlined, tint: 'rgba(82,196,26,0.14)', link: '/reports/profit-and-loss' },
+  ].filter(c => show(c.id));
 });
 
 const stockItems = computed(() => {
@@ -411,33 +452,12 @@ const columns = computed(() => [
 ]);
 
 /* ------------------------------------------------------------------ dates */
-function fmt(d) {
-  return d.toISOString().slice(0, 10);
-}
-function rangeFor(key) {
-  if (key === 'custom' && customRange.value?.length === 2) {
-    return { from: customRange.value[0], to: customRange.value[1] };
-  }
-  const end = new Date();
-  const start = new Date();
-  if (key === '7d') start.setDate(end.getDate() - 6);
-  else if (key === '30d') start.setDate(end.getDate() - 29);
-  else if (key === 'mtd') start.setDate(1);
-  else if (key === 'ytd') { start.setMonth(0); start.setDate(1); }
-  return { from: fmt(start), to: fmt(end) };
-}
-
-// Switching to Custom pre-fills the picker with the last 7 days so the
-// dashboard always has a valid range to fetch with.
-function onPeriodChange() {
-  if (period.value === 'custom' && customRange.value?.length !== 2) {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - 6);
-    customRange.value = [fmt(start), fmt(end)];
-  }
-  load();
-}
+// Same presets as Sales / Purchases / POS Sales (lib/datePresets.js), default Today.
+// "All" = from the first sale on record (the server works it out: range=all).
+const rangeFor = presetDates;
+// Keycard: the days the active preset covers ("All": as returned by the server).
+const allRange = ref({ from: '', to: '' });
+const activeRange = computed(() => (period.value === 'all' ? allRange.value : rangeFor(period.value)));
 
 /* ------------------------------------------------------------------ charts */
 // Neutral chart chrome that reads correctly on both light and dark surfaces.
@@ -588,7 +608,9 @@ async function load() {
       warehouse_id: warehouseId.value,
       to,
       from,
+      range: period.value === 'all' ? 'all' : undefined,
     });
+    if (data.range) allRange.value = { from: data.range.from, to: data.range.to };
 
     demoMode.value = false;
     const dash = data.report_dashboard.original;
@@ -641,6 +663,77 @@ onMounted(load);
 </script>
 
 <style scoped>
+/* "Last used" shortcuts: square buttons, up to 6 in a row. */
+.lu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 12px;
+}
+.lu-tile {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.lu-tile:hover {
+  border-color: var(--ant-color-primary, #6d28d9);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+.lu-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 22px;
+  background: rgba(109, 40, 217, 0.1);
+  color: var(--ant-color-primary, #6d28d9);
+}
+.lu-label {
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.25;
+}
+.lu-empty {
+  opacity: 0.55;
+  font-size: 13px;
+  padding: 8px 0;
+}
+/* Date-range keycard -- same look as Sales -> List Sales. */
+.range-card {
+  border-radius: 10px;
+}
+.range-card :deep(.ant-card-body) {
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+}
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.range-label {
+  opacity: 0.6;
+}
+.range-value {
+  font-size: 13px;
+}
 .page-header {
   display: flex;
   align-items: flex-start;

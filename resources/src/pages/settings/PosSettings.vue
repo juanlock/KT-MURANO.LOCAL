@@ -48,10 +48,24 @@
         </div>
         <div class="pos-rule">
           <div>
-            <div class="pos-rule__label">Email the admins when a register is closed</div>
-            <div class="pos-rule__help">When a cashier closes the register (or exits the POS and closes it), the company's admins get an email: cashier, time opened / closed, sales, payments per method (Cash, Zelle…), services vs products, expected vs counted cash.</div>
+            <div class="pos-rule__label">Confirm each sale with the cashier's PIN</div>
+            <div class="pos-rule__help">At payment, the person making the sale types their PIN and the sale is recorded under their user. The POS stays signed in as whoever opened the register, so another employee can ring up a sale without signing in or closing anything. The register's close-out (screen and email) includes every user's sales, with a breakdown by user. Works with or without "Open register with PIN".</div>
+          </div>
+          <a-switch v-model:checked="salePinRequired" />
+        </div>
+        <div class="pos-rule">
+          <div>
+            <div class="pos-rule__label">Email the admins when a register is opened or closed</div>
+            <div class="pos-rule__help">Every admin user of the company gets an email when a cashier opens a register (who, where, when, opening cash) and when it is closed (time opened / closed, sales, payments per method — Cash, Zelle…, services vs products, expected vs counted cash). The SuperAdmin gets a copy only if enabled in Mail Settings.</div>
           </div>
           <a-switch v-model:checked="closeRegisterEmail" />
+        </div>
+        <div class="pos-rule">
+          <div>
+            <div class="pos-rule__label">Integrate POS with Booking</div>
+            <div class="pos-rule__help">Every POS sale also records a completed booking (customer, date and time, services, staff, location and total), linked to the sale's invoice, so it shows in the Bookings list and calendar. The company admins get the booking report by email. The sale is never invoiced twice.</div>
+          </div>
+          <a-switch v-model:checked="bookingIntegration" />
         </div>
       </a-card>
 
@@ -231,6 +245,9 @@ const priceDecimals = ref(2);
 const requireOpenRegister = ref(true);
 const registerPinRequired = ref(false);
 const closeRegisterEmail = ref(true);
+const bookingIntegration = ref(false);
+// Each POS sale confirmed with the PIN of who makes it (recorded under that user).
+const salePinRequired = ref(false);
 import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
 import {
@@ -315,6 +332,8 @@ async function save() {
     pos_require_open_register: requireOpenRegister.value ? 1 : 0,
     pos_register_pin_required: registerPinRequired.value ? 1 : 0,
     pos_close_register_email: closeRegisterEmail.value ? 1 : 0,
+    pos_booking_integration: bookingIntegration.value ? 1 : 0,
+    pos_sale_pin_required: salePinRequired.value ? 1 : 0,
   };
   ALL_FLAGS.forEach(k => {
     body[k] = k === 'cash_drawer_auto_open' ? (v[k] ? 1 : 0) : v[k];
@@ -347,6 +366,8 @@ onMounted(async () => {
     requireOpenRegister.value = data.pos_require_open_register !== false;
     registerPinRequired.value = data.pos_register_pin_required === true;
     closeRegisterEmail.value = data.pos_close_register_email !== false;
+    bookingIntegration.value = data.pos_booking_integration === true;
+    salePinRequired.value = data.pos_sale_pin_required === true;
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {

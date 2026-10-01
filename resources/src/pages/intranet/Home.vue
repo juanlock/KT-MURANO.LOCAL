@@ -3,6 +3,8 @@
     <PageHeader :title="$t('Intranet')" :subtitle="$t('Intranet_Welcome')">
       <template #extra>
         <router-link :to="{ name: 'intranet-calendar' }"><a-button><template #icon><CalendarOutlined /></template>{{ $t('Intranet_Calendar') }}</a-button></router-link>
+        <!-- Knowledge Base is part of the Intranet (menu: Intranet > Knowledge Base). -->
+        <router-link v-if="canKb" :to="{ name: 'kb' }"><a-button><template #icon><BookOutlined /></template>{{ tf('Knowledge_Base', 'Knowledge Base') }}</a-button></router-link>
         <router-link v-if="data.can_manage" :to="{ name: 'intranet-admin-news' }">
           <a-button type="primary"><template #icon><SettingOutlined /></template>{{ $t('Intranet_Management') }}</a-button>
         </router-link>
@@ -111,6 +113,24 @@
             </div>
           </a-card>
         </a-col>
+
+        <!-- knowledge base: first articles (KB order) -->
+        <a-col v-if="canKb" :span="24">
+          <a-card size="small">
+            <template #title><BookOutlined /> {{ tf('Knowledge_Base', 'Knowledge Base') }}</template>
+            <template #extra><router-link :to="{ name: 'kb' }">{{ tf('All_Articles', 'All articles') }}</router-link></template>
+            <a-empty v-if="!kbArticles.length" :image="simpleImage" :description="$t('Intranet_Nothing_Yet')" />
+            <div v-else class="kb-grid">
+              <router-link v-for="a in kbArticles" :key="a.id" :to="{ name: 'kb-article', params: { id: a.id } }" class="kb-item">
+                <span class="kb-icon"><FileTextOutlined /></span>
+                <div class="kb-main">
+                  <div class="kb-title">{{ a.title }}</div>
+                  <div class="muted">{{ [a.group?.name || a.group_name, fmtDate(a.updated_at || a.created_at)].filter(Boolean).join(' · ') }}</div>
+                </div>
+              </router-link>
+            </div>
+          </a-card>
+        </a-col>
       </a-row>
     </a-spin>
   </div>
@@ -127,15 +147,30 @@ import dayjs from 'dayjs';
 import { Empty, message } from 'ant-design-vue';
 import {
   CalendarOutlined, SettingOutlined, PushpinFilled, GiftOutlined, EnvironmentOutlined, FileTextOutlined,
-  FolderOpenOutlined, DownloadOutlined, PictureOutlined,
+  FolderOpenOutlined, DownloadOutlined, PictureOutlined, BookOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
+import { useAuthStore } from '../../stores/auth';
+import { t as tf } from '../../i18n';
 import {
   categoryLabel, categoryColor, fmtDate, eventWhen, personName, formatBytes, fileIconColor, downloadFile, apiError,
 } from './intranetShared';
 
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE;
+
+// Knowledge Base (part of the Intranet): its first 6 articles (KB order), for users who may read it.
+const auth = useAuthStore();
+const canKb = computed(() => auth.can('knowledge_base_view'));
+const kbArticles = ref([]);
+async function loadKb() {
+  if (!canKb.value) return;
+  try {
+    const res = await http.get('knowledge-base/articles', { per_page: 6, page: 1 });
+    kbArticles.value = (Array.isArray(res) ? res : res.data || []).slice(0, 6);
+  } catch (e) { kbArticles.value = []; }
+}
+onMounted(loadKb);
 const loading = ref(true);
 const data = ref({ news: [], events: [], birthdays_month: [], upcoming_birthdays: [], files: [], albums: [], photos: [], pages: [], can_manage: false });
 
@@ -198,5 +233,47 @@ onMounted(load);
 @media (max-width: 575px) {
   .news-cover { flex-basis: 90px; height: 64px; }
   .photo-grid { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+
+<style scoped>
+/* Knowledge Base card. */
+.kb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.kb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 10px;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.kb-item:hover {
+  border-color: var(--ant-color-primary, #6d28d9);
+  background: rgba(109, 40, 217, 0.04);
+}
+.kb-icon {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(109, 40, 217, 0.1);
+  color: #6d28d9;
+}
+.kb-main {
+  min-width: 0;
+}
+.kb-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

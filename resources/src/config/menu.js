@@ -16,6 +16,7 @@
 // legacy SPA path -> path in this app
 export const MIGRATED_ROUTES = {
     '/app/dashboard': '/dashboard',
+    '/app/home_buttons': '/home-buttons',
     '/app/products/store': '/products/create',
     '/app/products/list': '/products',
     '/app/products/count_stock': '/products/count-stock',
@@ -347,29 +348,43 @@ export const MENU = [
         to: '/app/dashboard',
         permissions: [],
     },
+    // Every user's own shortcut buttons + what opens after sign-in
+    // (pages/HomeButtons.vue; company defaults in Defaults -> Users).
+    {
+        key: 'home_buttons',
+        icon: 'layout-grid',
+        label: 'Home Buttons',
+        raw: true,
+        to: '/app/home_buttons',
+        permissions: [],
+    },
     {
         key: 'intranet',
         icon: 'megaphone',
         label: 'Intranet',
-        permissions: ['intranet_view'],
+        // knowledge_base_view too: the Knowledge Base lives here (was under HRM).
+        permissions: ['intranet_view', 'knowledge_base_view'],
         children: [
             { label: 'Intranet_Home', to: '/app/intranet/home', permissions: ['intranet_view'] },
             { label: 'Intranet_Calendar', to: '/app/intranet/calendar', permissions: ['intranet_view'] },
             { label: 'Intranet_Files', to: '/app/intranet/files', permissions: ['intranet_view'] },
             { label: 'Intranet_Gallery', to: '/app/intranet/gallery', permissions: ['intranet_view'] },
+            { label: 'Knowledge_Base', to: '/app/knowledge-base', permissions: ['knowledge_base_view'] },
         ],
     },
     {
         key: 'intranet_management',
         icon: 'clipboard-list',
         label: 'Intranet_Management',
-        permissions: ['intranet_manage'],
+        permissions: ['intranet_manage', 'knowledge_base_view'],
         children: [
             { label: 'Intranet_News', to: '/app/intranet-admin/news', permissions: ['intranet_manage'] },
             { label: 'Intranet_Files', to: '/app/intranet-admin/files', permissions: ['intranet_manage'] },
             { label: 'Intranet_Gallery', to: '/app/intranet-admin/gallery', permissions: ['intranet_manage'] },
             { label: 'Intranet_Events', to: '/app/intranet-admin/events', permissions: ['intranet_manage'] },
             { label: 'Intranet_Pages', to: '/app/intranet-admin/pages', permissions: ['intranet_manage'] },
+            // Knowledge Base article groups (managing the KB), moved from HRM.
+            { label: 'Article Groups', to: '/app/knowledge-base/groups', permissions: ['knowledge_base_view'] },
         ],
     },
     {
@@ -378,7 +393,7 @@ export const MENU = [
         label: 'Store',
         permissions: ['Store_settings_view', 'Orders_view', 'Collections_view', 'Banners_view', 'Subscribers_view', 'Messages_view', 'Customers_view'],
         children: [
-            { label: 'Visit_Online_Store', href: '/online_store', permissions: [] },
+            { label: 'Visit_Online_Store', href: '/online_store', permissions: ['Store_settings_view', 'Orders_view', 'Collections_view', 'Banners_view', 'Subscribers_view', 'Messages_view', 'Customers_view'] },
             { label: 'Settings', to: '/app/Store/Settings', permissions: ['Store_settings_view'] },
             { label: 'Payment_Gateway', to: '/app/Store/PaymentGateway', permissions: ['payment_gateway'] },
             { label: 'Online_Orders', to: '/app/Store/Orders', permissions: ['Orders_view'], badge: 'new_orders' },
@@ -574,7 +589,7 @@ export const MENU = [
         key: 'hrm',
         icon: 'library',
         label: 'hrm',
-        permissions: ['company', 'department', 'designation', 'office_shift', 'view_employee', 'attendance', 'leave', 'holiday', 'payroll', 'contracts', 'knowledge_base_view'],
+        permissions: ['company', 'department', 'designation', 'office_shift', 'view_employee', 'attendance', 'leave', 'holiday', 'payroll', 'contracts'],
         children: [
             { label: 'Company', to: '/app/hrm/company', permissions: ['company'] },
             { label: 'Departments', to: '/app/hrm/departments', permissions: ['department'] },
@@ -586,15 +601,13 @@ export const MENU = [
                 label: 'Leave_request',
                 permissions: ['leave'],
                 children: [
-                    { label: 'Leave_request', to: '/app/hrm/leaves/list', permissions: [] },
-                    { label: 'Leave_type', to: '/app/hrm/leaves/type', permissions: [] },
+                    { label: 'Leave_request', to: '/app/hrm/leaves/list', permissions: ['leave'] },
+                    { label: 'Leave_type', to: '/app/hrm/leaves/type', permissions: ['leave'] },
                 ],
             },
             { label: 'Holidays', to: '/app/hrm/holidays', permissions: ['holiday'] },
             { label: 'Payroll', to: '/app/hrm/payrolls', permissions: ['payroll'] },
             { label: 'Contracts', to: '/app/contracts', permissions: ['contracts'] },
-            { label: 'Knowledge_Base', to: '/app/knowledge-base', permissions: ['knowledge_base_view'] },
-            { label: 'Article Groups', to: '/app/knowledge-base/groups', permissions: ['knowledge_base_view'] },
         ],
     },
     {
@@ -669,9 +682,9 @@ export const MENU = [
         label: 'E_Wallet',
         permissions: ['ewallet'],
         children: [
-            { label: 'E_Wallet_Dashboard', to: '/app/EWallet/Dashboard', permissions: [] },
-            { label: 'Wallet_Items', to: '/app/EWallet/Items', permissions: [] },
-            { label: 'E_Wallet_Settings', to: '/app/EWallet/Settings', permissions: [] },
+            { label: 'E_Wallet_Dashboard', to: '/app/EWallet/Dashboard', permissions: ['ewallet'] },
+            { label: 'Wallet_Items', to: '/app/EWallet/Items', permissions: ['ewallet'] },
+            { label: 'E_Wallet_Settings', to: '/app/EWallet/Settings', permissions: ['ewallet'] },
         ],
     },
     {
@@ -727,7 +740,7 @@ export const MENU = [
         label: 'Integrations',
         permissions: ['woocommerce_settings', 'shopify_stores', 'salla_settings', 'prestashop_settings', 'jumia_settings', 'quickbooks_settings', 'xero_settings', 'google_sheets_settings', 'mailchimp_settings', 'slack_settings', 'telegram_settings', 'webhooks_view'],
         children: [
-            { label: 'All_Integrations', to: '/app/integrations', permissions: [] },
+            { label: 'All_Integrations', to: '/app/integrations', permissions: ['woocommerce_settings', 'shopify_stores', 'salla_settings', 'prestashop_settings', 'jumia_settings', 'quickbooks_settings', 'xero_settings', 'google_sheets_settings', 'mailchimp_settings', 'slack_settings', 'telegram_settings', 'webhooks_view'] },
             { key: 'quickbooks', label: 'Quickbooks_Sync', to: '/app/settings/quickbooks_sync', permissions: ['quickbooks_settings'] },
             { key: 'xero', label: 'Xero', raw: true, to: '/app/integrations/xero', permissions: ['xero_settings'] },
             { key: 'google_sheets', label: 'Google Sheets', raw: true, to: '/app/integrations/google-sheets', permissions: ['google_sheets_settings'] },
@@ -818,14 +831,14 @@ export const MENU = [
         label: 'Service_Maintenance',
         permissions: ['service_jobs'],
         children: [
-            { label: 'Service_Jobs', to: '/app/service/jobs', permissions: [] },
-            { label: 'Awaiting_Approval', to: '/app/service/jobs?status=quoted', permissions: [] },
-            { label: 'Ready_For_Pickup', to: '/app/service/jobs?status=ready', permissions: [] },
-            { label: 'Awaiting_Payment', to: '/app/service/jobs?payment_status=unpaid', permissions: [] },
-            { label: 'Service_Technicians', to: '/app/service/technicians', permissions: [] },
-            { label: 'Checklist_Categories', to: '/app/service/checklist-categories', permissions: [] },
-            { label: 'Checklist_Items', to: '/app/service/checklists', permissions: [] },
-            { label: 'Maintenance_History', to: '/app/service/history', permissions: [] },
+            { label: 'Service_Jobs', to: '/app/service/jobs', permissions: ['service_jobs'] },
+            { label: 'Awaiting_Approval', to: '/app/service/jobs?status=quoted', permissions: ['service_jobs'] },
+            { label: 'Ready_For_Pickup', to: '/app/service/jobs?status=ready', permissions: ['service_jobs'] },
+            { label: 'Awaiting_Payment', to: '/app/service/jobs?payment_status=unpaid', permissions: ['service_jobs'] },
+            { label: 'Service_Technicians', to: '/app/service/technicians', permissions: ['service_jobs'] },
+            { label: 'Checklist_Categories', to: '/app/service/checklist-categories', permissions: ['service_jobs'] },
+            { label: 'Checklist_Items', to: '/app/service/checklists', permissions: ['service_jobs'] },
+            { label: 'Maintenance_History', to: '/app/service/history', permissions: ['service_jobs'] },
         ],
     },
     {

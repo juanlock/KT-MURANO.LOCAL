@@ -7,9 +7,10 @@
  * Two kinds of permission per menu item:
  *  - menu permissions: the item's own `permissions` gate (sidebar shows the
  *    item when the role has ANY of them) -- rendered as the item's on/off
- *    switch. A permission shared by several items (e.g. Store_settings_view)
- *    belongs to all of them; flipping it flips every one of them, which is
- *    exactly what the sidebar would do too.
+ *    switch. A permission shared by several items (e.g. Reports_profit) is
+ *    not removed when only one of them is switched off: that item gets a
+ *    `menu_hide:<route>` value instead (see menuHideKey), which the sidebar
+ *    honors, so each item switches on its own.
  *  - special permissions: the rest of the catalogue group that item's menu
  *    permission comes from (Add/Edit/Delete/...) -- rendered as checkboxes
  *    under the FIRST item (in this company's menu order) that uses that
@@ -114,7 +115,11 @@ export function buildPermissionTree(tree, groups, opts = {}) {
   const shareCount = {};
   leavesInOrder.forEach(n => n.menuPerms.forEach(p => { shareCount[p] = (shareCount[p] || 0) + 1; }));
 
-  const firstLeaf = n => (n.isContainer ? n.children.map(firstLeaf).find(Boolean) : n);
+  // Menu items behind each permission, for hiding one of a shared group.
+  const leavesByPerm = {};
+  leavesInOrder.forEach(n => n.menuPerms.forEach(p => { (leavesByPerm[p] ||= []).push(n); }));
+
+  const firstLeaf = n =>(n.isContainer ? n.children.map(firstLeaf).find(Boolean) : n);
 
   const other = [];
   groups.forEach(group => {
@@ -176,8 +181,17 @@ export function buildPermissionTree(tree, groups, opts = {}) {
     offSections: roots.filter(n => n.off && n.allPerms.length),
     other,
     shareCount,
+    leavesByPerm,
   };
 }
+
+// Role value that hides one menu item while the role keeps its (shared)
+// permission -- checked by lib/menuVisibility.js. Null for an item without a route.
+export const MENU_HIDE_PREFIX = 'menu_hide:';
+export const menuHideKey = node => {
+  const target = node?.entry?.to || node?.entry?.href;
+  return target ? MENU_HIDE_PREFIX + target : null;
+};
 
 /**
  * What kind of action a catalogue permission is, for the editor's color

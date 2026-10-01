@@ -1531,6 +1531,9 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
 
     Route::get('get_user_auth', 'UserController@GetUserAuth');
     Route::put('user_preferences', 'UserController@updateUiPreference');
+    // Start page after login (own account): choice + "Last used" visit counter.
+    Route::put('user_start_page', 'UserController@updateStartPage');
+    Route::post('user_start_page/visit', 'UserController@recordStartPageVisit')->middleware('throttle:120,1');
     Route::get('users_list_for_select', 'UserController@listForSelect');
     Route::get('check_phone_duplicate', 'UserController@checkPhoneDuplicate');
     Route::resource('users', 'UserController');

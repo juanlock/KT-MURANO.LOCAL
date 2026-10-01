@@ -129,6 +129,24 @@ class LoginController extends Controller
         // 1) Explicitly log out the web guard
         $user = Auth::guard('web')->user();
 
+        // 0) A cashier with an open POS register signs out only after closing
+        //    it (close-out with counted cash -> admins' email): the POS
+        //    "Close register & sign out" closes first, then calls this.
+        $openRegister = $user ? \App\Models\CashRegister::where('user_id', $user->id)->where('status', 'open')
+            ->orderByDesc('id')->first(['id', 'warehouse_id']) : null;
+        if ($openRegister) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'register_open',
+                    'message' => 'Close register #'.$openRegister->id.' before signing out.',
+                    'register' => $openRegister,
+                ], 409);
+            }
+
+            return redirect('/next/pos');
+        }
+
         if ($user) {
             // Clear remember token to avoid automatic re-authentication
             $user->setRememberToken(null);

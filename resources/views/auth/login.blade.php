@@ -816,6 +816,8 @@
     </div>
 
     <script>
+      // A new sign-in gets its start page again (lib/startPage.js).
+      try { sessionStorage.removeItem('start_page_opened'); } catch (e) {}
       (function() {
         const form = document.getElementById('login_form');
         const submitBtn = document.getElementById('login_submit_btn');

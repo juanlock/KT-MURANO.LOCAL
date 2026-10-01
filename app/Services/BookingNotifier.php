@@ -13,9 +13,8 @@ use Illuminate\Support\Facades\Mail;
  *  - every active admin of that company (users.type = admin): "new online booking",
  *    with the customer's contact details and a link to the booking. Reply-To = customer.
  *
- * Sent through the install's mail server (servers table), else the default mailer, with
- * the booking's COMPANY as sender name (the server row's sender_name belongs to one
- * company). Never sends to reserved test domains (.test/.example/.invalid/.localhost,
+ * Sent through the booking company's own mail server (App\Support\CompanyMail), with
+ * the booking's COMPANY as sender name. Never sends to reserved test domains (.test/.example/.invalid/.localhost,
  * example.com/.net/.org) -- logged instead. A mail failure never breaks the booking.
  */
 class BookingNotifier
@@ -31,7 +30,7 @@ class BookingNotifier
         // companies.name first: a settings row cloned from the template can still say "Stocky".
         $company = trim((string) ($co->name ?? '')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Bookings');
         $companyEmail = filter_var($settings->email ?? '', FILTER_VALIDATE_EMAIL) && ! self::reserved($settings->email) ? $settings->email : null;
-        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer();
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
 
         $when = $b['date'].', '.$b['time'].($b['end_time'] ? ' - '.$b['end_time'] : '');
         $rows = [
@@ -50,17 +49,20 @@ class BookingNotifier
             $companyEmail);
 
         // ---- company admins
-        $admins = DB::table('users')->where('company_id', $companyId)->whereNull('deleted_at')
-            ->where('type', 'admin')->where('statut', 1)->whereNotNull('email')->get(['email', 'firstname', 'lastname', 'username']);
+        // Every admin of the company (+ SuperAdmin copy when enabled) -- CompanyMail::recipients.
+        $admins = collect(\App\Support\CompanyMail::recipients($companyId))
+            ->map(fn ($r) => (object) ['email' => $r['email'], 'firstname' => $r['name'], 'lastname' => '', 'username' => $r['name']]);
         $adminRows = $rows + [
             'Customer' => $b['name'], 'Email' => $b['email'], 'Phone' => $b['phone'] ?: '-',
         ] + ($b['requests'] ? ['Special requests' => $b['requests']] : []);
         $link = url('/next/bookings/'.$b['booking_id'].'/edit');
         foreach ($admins as $a) {
-            $ok = self::deliver($mailer, $from, $company, $a->email, trim($a->firstname.' '.$a->lastname) ?: $a->username,
+            $adminName = trim($a->firstname.' '.$a->lastname) ?: $a->username;
+            $ok = self::deliver($mailer, $from, $company, $a->email, $adminName,
                 "New online booking - {$b['ref']} - {$b['service']} - {$when}",
                 "A new appointment was booked on the online booking page. It is Pending until you confirm it.",
-                $adminRows, "Open the booking: {$link}", $b['email'], $link);
+                $adminRows, "Open the booking: {$link}", $b['email'], $link,
+                \App\Http\Controllers\BookingEmailConfirmController::link((int) $b['booking_id'], (string) $adminName));
             if ($ok) {
                 $sent['admins'][] = $a->email;
             }
@@ -88,7 +90,7 @@ class BookingNotifier
         $settings = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['CompanyName', 'currency_id']);
         $company = trim((string) ($co->name ?? '')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Bookings');
         $sym = ($settings && $settings->currency_id) ? (string) DB::table('currencies')->where('id', $settings->currency_id)->value('symbol') : '$';
-        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer();
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
 
         $sp = $b->salesPerson;
         $staff = $sp ? (trim(($sp->firstname ?? '').' '.($sp->lastname ?? '')) ?: $sp->username) : '-';
@@ -115,13 +117,17 @@ class BookingNotifier
             : ['Booking confirmed', 'An appointment was confirmed.'];
         $link = url('/next/bookings/'.$b->id.'/edit');
 
-        $admins = DB::table('users')->where('company_id', $companyId)->whereNull('deleted_at')
-            ->where('type', 'admin')->where('statut', 1)->whereNotNull('email')->get(['email', 'firstname', 'lastname', 'username']);
+        // Every admin of the company (+ SuperAdmin copy when enabled) -- CompanyMail::recipients.
+        $admins = collect(\App\Support\CompanyMail::recipients($companyId))
+            ->map(fn ($r) => (object) ['email' => $r['email'], 'firstname' => $r['name'], 'lastname' => '', 'username' => $r['name']]);
         $sent = [];
         foreach ($admins as $a) {
-            $ok = self::deliver($mailer, $from, $company, $a->email, trim($a->firstname.' '.$a->lastname) ?: $a->username,
+            $adminName = trim($a->firstname.' '.$a->lastname) ?: $a->username;
+            $ok = self::deliver($mailer, $from, $company, $a->email, $adminName,
                 "{$subjectStart} - {$b->Ref} - {$service} - ".trim($date.' '.substr((string) $b->booking_time, 0, 5)),
-                $intro, $rows, "Open the booking: {$link}", optional($customer)->email ?: null, $link);
+                $intro, $rows, "Open the booking: {$link}", optional($customer)->email ?: null, $link,
+                // A staff-registered booking still Pending can be confirmed from the email too.
+                $b->status === 'pending' ? \App\Http\Controllers\BookingEmailConfirmController::link((int) $b->id, (string) $adminName) : null);
             if ($ok) {
                 $sent[] = $a->email;
             }
@@ -149,7 +155,7 @@ class BookingNotifier
         $company = trim((string) ($co->name ?? '')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Bookings');
         $sym = ($settings && $settings->currency_id) ? (string) DB::table('currencies')->where('id', $settings->currency_id)->value('symbol') : '$';
         $money = fn ($v) => $sym.number_format((float) $v, 2);
-        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer();
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
 
         $sp = $b->salesPerson;
         $staff = $sp ? (trim(($sp->firstname ?? '').' '.($sp->lastname ?? '')) ?: $sp->username) : '-';
@@ -172,8 +178,9 @@ class BookingNotifier
         ];
         $link = url('/next/sales/'.$sale->id);
 
-        $admins = DB::table('users')->where('company_id', $companyId)->whereNull('deleted_at')
-            ->where('type', 'admin')->where('statut', 1)->whereNotNull('email')->get(['email', 'firstname', 'lastname', 'username']);
+        // Every admin of the company (+ SuperAdmin copy when enabled) -- CompanyMail::recipients.
+        $admins = collect(\App\Support\CompanyMail::recipients($companyId))
+            ->map(fn ($r) => (object) ['email' => $r['email'], 'firstname' => $r['name'], 'lastname' => '', 'username' => $r['name']]);
         $sent = [];
         foreach ($admins as $a) {
             $ok = self::deliver($mailer, $from, $company, $a->email, trim($a->firstname.' '.$a->lastname) ?: $a->username,
@@ -189,7 +196,7 @@ class BookingNotifier
     }
 
     private static function deliver(Mailer $mailer, ?string $from, string $company, ?string $to, ?string $toName, string $subject,
-        string $intro, array $rows, string $outro, ?string $replyTo = null, ?string $button = null): bool
+        string $intro, array $rows, string $outro, ?string $replyTo = null, ?string $button = null, ?string $confirmUrl = null): bool
     {
         if (! $to || ! filter_var($to, FILTER_VALIDATE_EMAIL)) {
             return false;
@@ -200,12 +207,17 @@ class BookingNotifier
             return false;
         }
 
-        $text = $intro."\n\n".collect($rows)->map(fn ($v, $k) => "{$k}: {$v}")->implode("\n")."\n\n".$outro."\n\n--\n".$company;
+        $text = $intro."\n\n".collect($rows)->map(fn ($v, $k) => "{$k}: {$v}")->implode("\n")."\n\n".$outro
+            .($confirmUrl ? "\nConfirm it without signing in: {$confirmUrl}" : '')."\n\n--\n".$company;
+        // "Confirm appointment" (signed link, no login) next to "Open booking".
+        $confirmBtn = $confirmUrl
+            ? ' <a href="'.e($confirmUrl).'" style="display:inline-block;background:#2e7d32;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;margin-left:8px">Confirm appointment</a>'
+            : '';
         $html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#222;max-width:560px">'
             .'<p>'.nl2br(e($intro)).'</p><table style="border-collapse:collapse;margin:12px 0">'
             .collect($rows)->map(fn ($v, $k) => '<tr><td style="padding:4px 16px 4px 0;color:#666;vertical-align:top">'.e($k).'</td><td style="padding:4px 0;font-weight:600">'.nl2br(e($v)).'</td></tr>')->implode('')
             .'</table>'
-            .($button ? '<p><a href="'.e($button).'" style="display:inline-block;background:#b8860b;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px">Open booking</a></p>' : '<p>'.e($outro).'</p>')
+            .($button ? '<p><a href="'.e($button).'" style="display:inline-block;background:#b8860b;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px">Open booking</a>'.$confirmBtn.'</p>' : '<p>'.e($outro).'</p>')
             .'<p style="color:#888;font-size:12px;margin-top:24px">'.e($company).'</p></div>';
 
         try {
@@ -230,24 +242,14 @@ class BookingNotifier
         return (bool) preg_match('/(\.(test|example|invalid|localhost)|@example\.(com|net|org))$/i', $email);
     }
 
-    /** [Mailer, from address] -- the install's mail server (servers table), else the default mailer. */
-    private static function mailer(): array
+    /**
+     * [Mailer, from address] -- the BOOKING'S COMPANY mail server (Settings ->
+     * Mail Settings), not the first servers row (that was another company's).
+     */
+    private static function mailer(int $companyId): array
     {
-        $srv = DB::table('servers')->whereNull('deleted_at')->first();
-        if ($srv && $srv->host) {
-            $port = (int) ($srv->port ?: 587);
+        [$mailer, $from] = \App\Support\CompanyMail::mailer($companyId);
 
-            return [Mail::build([
-                'transport' => 'smtp',
-                'host' => $srv->host,
-                'port' => $port,
-                'scheme' => ($srv->encryption === 'ssl' || $port === 465) ? 'smtps' : 'smtp',
-                'username' => $srv->username,
-                'password' => $srv->password,
-                'timeout' => 20,
-            ]), $srv->sender_email ?: config('mail.from.address')];
-        }
-
-        return [Mail::mailer(), config('mail.from.address')];
+        return [$mailer, $from];
     }
 }

@@ -551,6 +551,7 @@ import {
   StopOutlined, CopyOutlined, FilterOutlined, BellOutlined, DownOutlined, LockOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
+import { DATE_PRESETS, presetRange } from '../../lib/datePresets';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
@@ -653,38 +654,10 @@ const crud = useCrudTable('sales', {
 // date_from/date_to -- independent of the exact-day picker below (only one
 // of the two is ever active: picking a preset clears the exact date, and
 // picking an exact date clears the active preset).
-const DATE_PRESETS = [
-  { value: 'all', labelKey: 'All' },
-  { value: 'year', labelKey: 'This_Year' },
-  { value: 'month', labelKey: 'This_Month' },
-  { value: 'today', labelKey: 'Today' },
-  { value: 'last_month', labelKey: 'Last_Month' },
-  { value: 'last_year', labelKey: 'Last_Year' },
-];
-// Default: Today (the preset row's middle button).
+// DATE_PRESETS / presetRange: shared list (lib/datePresets.js) -- the same
+// buttons on Sales, Purchases, POS Sales, Payments report and Dashboard.
+// Default: Today.
 const datePreset = ref('today');
-
-function presetRange(preset) {
-  const now = dayjs();
-  switch (preset) {
-    case 'year':
-      return [now.startOf('year'), now.endOf('year')];
-    case 'month':
-      return [now.startOf('month'), now.endOf('month')];
-    case 'today':
-      return [now.startOf('day'), now.endOf('day')];
-    case 'last_month': {
-      const m = now.subtract(1, 'month');
-      return [m.startOf('month'), m.endOf('month')];
-    }
-    case 'last_year': {
-      const y = now.subtract(1, 'year');
-      return [y.startOf('year'), y.endOf('year')];
-    }
-    default:
-      return [null, null];
-  }
-}
 
 function applyPreset(preset) {
   filters.value.date = null;
