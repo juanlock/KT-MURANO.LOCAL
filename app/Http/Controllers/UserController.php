@@ -203,6 +203,10 @@ class UserController extends BaseController
             'datatable_filters' => ($settings && $settings->datatable_filters)
                 ? (object) json_decode($settings->datatable_filters, true)
                 : (object) [],
+            // This user's own UI preferences (e.g. each list's show/hide
+            // columns), kept on the server so they follow the user to every
+            // PC/browser -- see updateUiPreference().
+            'ui_preferences' => (object) (json_decode((string) $user->ui_preferences, true) ?: []),
         ];
 
         $permissions = $user->roles()->first()?->permissions->pluck('name') ?? [];
@@ -256,13 +260,20 @@ class UserController extends BaseController
         ], [
             'email.unique' => 'This Email already taken.',
         ]);
+        $this->validate($request, ['pin' => 'nullable|digits_between:4,8'], ['pin.digits_between' => 'The PIN must be 4 to 8 digits.']);
+        if ($request->filled('pin') && User::pinTaken($companyId, $request['pin'])) {
+            return response()->json([
+                'message' => 'This PIN is already used by another user of this company.',
+                'errors' => ['pin' => ['This PIN is already used by another user of this company.']],
+            ], 422);
+        }
 
         // Type defaults to plain admin (unchanged from before this field
         // existed). Only an acting SuperAdmin may create another SuperAdmin --
         // anyone else requesting it gets rejected outright rather than
         // silently downgraded, so the mistake is visible instead of hidden.
         $type = $request->input('type', 'admin');
-        if (! in_array($type, ['SuperAdmin', 'admin', 'employee', 'customer', 'sales_agent'], true)) {
+        if (! in_array($type, ['SuperAdmin', 'admin', 'employee', 'customer', 'sales_agent', 'supplier'], true)) {
             $type = 'admin';
         }
         if ($type === 'SuperAdmin' && optional($request->user('api'))->type !== 'SuperAdmin') {
@@ -273,7 +284,7 @@ class UserController extends BaseController
         // (the type's own per-company role) instead of the manually picked
         // one -- resolved up front since users.role_id/role_user.role_id are
         // both NOT NULL, so the initial insert needs a valid id either way.
-        $autoRoleNames = ['employee' => 'Employee', 'customer' => 'Customer', 'sales_agent' => 'Sales Agent'];
+        $autoRoleNames = ['employee' => 'Employee', 'customer' => 'Customer', 'sales_agent' => 'Sales Agent', 'supplier' => 'Supplier'];
         $roleId = isset($autoRoleNames[$type])
             ? (Role::where('company_id', $companyId)->where('name', $autoRoleNames[$type])->value('id') ?? $request['role'])
             : $request['role'];
@@ -322,6 +333,10 @@ class UserController extends BaseController
             // users.phone is NOT NULL and ConvertEmptyStringsToNull turns '' into null
             $User->phone = $request['phone'] ?? '';
             $User->password = Hash::make($request['password']);
+            // Cashier PIN (POS open/close register): plain digits, unique per company.
+            if ($request->filled('pin')) {
+                $User->pin = (string) $request['pin'];
+            }
             $User->avatar = $filename;
             $User->role_id = $roleId;
             $User->type = $type;
@@ -353,13 +368,48 @@ class UserController extends BaseController
             // employee/customer/sales_agent: auto-create the matching
             // Employee/Client/SalesAgent row, mirroring (in reverse) how
             // creating one of those already auto-creates a linked User.
-            if (in_array($type, ['employee', 'customer', 'sales_agent'], true)) {
+            if (in_array($type, ['employee', 'customer', 'sales_agent', 'supplier'], true)) {
                 $warning = \App\Services\LinkedUserService::attachTypedRecord($User, $type, $companyId);
             }
 
         }, 10);
 
         return response()->json(['success' => true, 'warning' => $warning]);
+    }
+
+    // ------------ Per-user UI preference (own account only) -----------\\
+    // PUT user_preferences {key, value}: sets one key of the SIGNED-IN user's
+    // ui_preferences (value null removes it). No permission needed -- it can
+    // only ever touch the caller's own row. Size-capped so it can't be used
+    // as general storage.
+    public function updateUiPreference(Request $request)
+    {
+        $data = $request->validate([
+            'key' => ['required', 'string', 'max:150', 'regex:/^[A-Za-z0-9_\-|\/.:]+$/'],
+            'value' => ['nullable'],
+        ]);
+
+        $user = $request->user('api');
+        $prefs = json_decode((string) $user->ui_preferences, true) ?: [];
+
+        if ($request->input('value') === null) {
+            unset($prefs[$data['key']]);
+        } else {
+            if (strlen(json_encode($request->input('value'))) > 20000) {
+                return response()->json(['message' => 'Preference value too large.'], 422);
+            }
+            $prefs[$data['key']] = $request->input('value');
+        }
+
+        $encoded = json_encode((object) $prefs);
+        if (strlen($encoded) > 200000) {
+            return response()->json(['message' => 'Too many saved preferences.'], 422);
+        }
+
+        $user->ui_preferences = $encoded;
+        $user->save();
+
+        return response()->json(['ui_preferences' => (object) $prefs]);
     }
 
     // ------------ function show -----------\\
@@ -399,6 +449,8 @@ class UserController extends BaseController
 
         return response()->json([
             'user' => $user,
+            // Cashier PIN (hidden from the user payload; only this form shows it).
+            'pin' => $user->pin,
             'assigned_warehouses' => $warehouses,
             'roles' => $roles,
             'companies' => $companies,
@@ -435,10 +487,18 @@ class UserController extends BaseController
             'email' => ['required', 'email', Rule::unique('users')->ignore($id)->whereNull('deleted_at')],
             // Roles are per-company copies: only this user's company's own.
             'role' => ['required', Rule::exists('roles', 'id')->where('company_id', $targetCompanyId)->whereNull('deleted_at')],
+            'pin' => 'nullable|digits_between:4,8',
         ], [
             'email.unique' => 'This Email already taken.',
             'role.exists' => 'This role does not belong to the user\'s company.',
+            'pin.digits_between' => 'The PIN must be 4 to 8 digits.',
         ]);
+        if ($request->filled('pin') && User::pinTaken($targetCompanyId, $request['pin'], $id)) {
+            return response()->json([
+                'message' => 'This PIN is already used by another user of this company.',
+                'errors' => ['pin' => ['This PIN is already used by another user of this company.']],
+            ], 422);
+        }
 
         \DB::transaction(function () use ($id, $request, $targetCompanyId) {
             $user = User::findOrFail($id);
@@ -522,6 +582,12 @@ class UserController extends BaseController
             // (User::roles()); keep exactly one row, matching users.role_id
             // (create it if a user somehow has none).
             role_user::updateOrCreate(['user_id' => $id], ['role_id' => $request['role']]);
+
+            // Cashier PIN: the form always sends it (shown to the admin);
+            // blank = no PIN. Only touched when the field is part of the request.
+            if ($request->has('pin')) {
+                User::whereId($id)->update(['pin' => $request->filled('pin') ? (string) $request['pin'] : null]);
+            }
 
             $user_saved = User::where('deleted_at', '=', null)->findOrFail($id);
 
@@ -688,6 +754,8 @@ class UserController extends BaseController
         // that still rely on statut will treat deleted users as disabled.
         $userToDelete->deleted_at = \Carbon\Carbon::now();
         $userToDelete->statut = 0;
+        // Free the cashier PIN (unique per company) for other users.
+        $userToDelete->pin = null;
         $userToDelete->save();
 
         return response()->json(['success' => true]);

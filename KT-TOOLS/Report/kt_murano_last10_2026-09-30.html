@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KT-Murano -- Last 10 requests</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: #f7f8fa; color: #1a1a1a; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .meta { color: #666; font-size: 12px; margin-bottom: 16px; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); padding: 16px 20px; max-width: 720px; margin-bottom: 16px; }
+  .row { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 13.5px; }
+  .row .label { width: 100px; flex-shrink: 0; color: #666; font-weight: 600; }
+  .badge { color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .block { padding: 10px 0; }
+  .block .label { color: #666; font-weight: 600; font-size: 12.5px; margin-bottom: 4px; }
+  .block .text { font-size: 13px; white-space: pre-wrap; }
+  .empty { color: #666; }
+</style>
+</head>
+<body>
+  <h1>KT-Murano -- Last 10 requests</h1>
+  <div class="meta">Generated 2026-09-30 2:19 PM on KT-THUNDERA -- last 10 request(s)</div>
+  <div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>All POS settings consolidated on /settings/pos (General + Company rules, Receipt, Network printing tabs); duplicates removed from System Settings and menu.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:09</span></div>
+  <div class="row"><span class="label">Category</span><span>refactor</span></div>
+  <div class="row"><span class="label">Company</span><span>All companies (per-company settings via acting company)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">SettingsController: get_pos_Settings_api returns enable_3_decimal_pricing + pos_require_open_register; update_pos_settings saves them on Setting::forCompany(acting company). PosSettings.vue: a-tabs (general/receipt/printing), Company rules card, save updates auth.user.price_decimals + app_price_decimals cache. PosReceipt/DirectNetworkPrinting: embedded prop. SystemSettings.vue: single go_pos_settings link item; removed POS defaults tab, decimals switch, POS per-page/show tax fields and pos_settings sidecar. Router: settings/pos-receipt redirect. menu.js: POS_Receipt removed.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Inventoried POS settings across System Settings (Defaults, Features, vertical tabs) and PosSettings/PosReceipt; added tabs + company rules card; extended the POS settings API; removed duplicates from System Settings; redirect + menu cleanup; php -l; npm run build:admin; tinker round-trip test in a rolled-back transaction.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS sales were saved under company 1 (company never set); fixed POS + web-store order conversion to use the warehouse&#039;s company and moved SL_0012 to NewEra.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:00</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>Company 3 (NewEraUnisexSalon); fix applies to all</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosController::CreatePOS and the draft -&gt; sale conversion: $order-&gt;company_id = warehouse&#039;s company_id (fallback acting company). Api\Store\OnlineOrdersApiController: after Sale::create, company_id = warehouse&#039;s (fallback client&#039;s) company, then save. Data: SL_0012 (id 3901) company 1 -&gt; 3.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Queried recent sales for user 4 / company 3, company 3 default client and the cash register; read CreatePOS and the draft conversion; checked which tables have company_id and all POS sales whose company differs from their warehouse (1: SL_0012); scanned other Sale creation paths; patched the three paths; php -l; updated sale 3901; tested SalesController::index as AdminNe with today&#039;s range.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Date-range presets: new Today button in the middle, now the default (Sales, Purchases, Payments report).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:58</span></div>
+  <div class="row"><span class="label">Category</span><span>ui-polish</span></div>
+  <div class="row"><span class="label">Company</span><span>All</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">Sales.vue, Purchases.vue, PaymentsReport.vue: DATE_PRESETS gain { value: &#039;today&#039;, labelKey: &#039;Today&#039; } after This Month; presetRange(&#039;today&#039;) = startOf/endOf day; datePreset default &#039;today&#039; (was &#039;month&#039; on Sales/Purchases, &#039;all&#039; on Payments); Reset returns to Today and counts as dirty when not Today; PaymentsReport initial range = today.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Grepped for DATE_PRESETS / datePreset defaults; confirmed the Today translation key exists (Today / hoy); added the preset + presetRange case, switched the default and reset (useFilterReset) from month/all to today, fixed the Payments initial range and comments; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Defaults -&gt; POS: Price decimals (2/3) and &quot;Require an open register&quot; (POS locked + sales refused without one); POS decimals now follow the logged-in company.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:56</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (per company; tested AdminNe/company 3 with rollback)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">settings.pos_require_open_register (bool, default 1) + Setting fillable/cast + SettingsController update (settingFlag).
+SystemSettings.vue: Defaults -&gt; new POS tab: Price decimals radio 2/3 (bound to enable_3_decimal_pricing) and Require an open register switch; saved with the page.
+PosController::GetELementPos: require_open_register in the payload. ::CreatePOS: 422 &#039;Open a cash register before making sales...&#039; when required and the user has no open register for the warehouse, unless offline_created_at is present; runs after the sale_uuid duplicate check.
+PosPage.vue: requireOpenRegister/registerChecked state, registerLocked computed, lock overlay (z 1030, under modals, drawer above) with Open register (warehouse preselected) / Change warehouse / Dashboard.
+pos-compat/priceFormat.js getPriceDecimals: signed-in company&#039;s user.price_decimals before the localStorage cache. stores/auth.js: refreshes app_price_decimals from the current company at login. helpers::price_decimals(): per acting company (was the first settings row).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Checked settings/pos_settings columns, per-company enable_3_decimal_pricing values, frontend decimal resolution (lib/priceFormat, pos-compat/priceFormat, get_user_auth price_decimals) and cash_registers structure/CashRegisterController; implemented the setting, lock screen, server enforcement and decimals fixes; ran the migration; tinker test with rollback; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS top-right user button shows its picture again (avatar path was built for the old storage format).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:46</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>All (seen with AdminNe)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosPage.vue user dropdown avatar: src &#039;/images/avatar/&#039;+avatar -&gt; resolveImg(avatar, &#039;avatar&#039;) (company-scoped paths as-is, old bare filenames still under /images/avatar/).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read the POS header (brand logo uses resolveImg; user dropdown hard-coded /images/avatar/); checked AdminNe avatar and company 3 logo values and that both files exist; replaced the src with resolveImg(currentUser.avatar, &quot;avatar&quot;); grepped for other hard-coded avatar paths (none); npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS product grid now shows only the acting company&#039;s products (was every company&#039;s stocked in the warehouse).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:46</span></div>
+  <div class="row"><span class="label">Category</span><span>security</span></div>
+  <div class="row"><span class="label">Company</span><span>All (tested AdminNe/company 3: 564 -&gt; 147)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosController::GetProductsByParametre and ::GetProductsChanges: product_warehouse rows limited to products of the acting company (resolveActingCompanyId).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Counted product_warehouse rows per product company for warehouse 4; added whereHas(product.company_id) to GetProductsByParametre and GetProductsChanges; php -l; tinker test of GetProductsByParametre as AdminNe (user 4).</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS: products now start as visual Group Name tiles; clicking a tile shows that group&#039;s products with a Back button (plus an All tile).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:46</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (verified company 3: 11 groups)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosController::GetProductsByParametre: eager-loads product.productGroup; each row adds product_group_id and group_name.
+PosPage.vue: data pos_group; computed posGroups, showGroupTiles (only when &gt;1 group), openedGroup, gridProducts; product_lastPage and paginate_products use gridProducts; watch pos_group -&gt; page 1; template: group tile grid (All + groups, image or initials, count badge) and Back bar; pagination bars hidden on the tiles view; CSS .pos-group-*.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read the POS products grid, getProducts(), vehicleFilteredProducts, paginate_products and product_lastPage; added group fields to GetProductsByParametre; implemented the tiles/back UI and computed filtering; checked group counts through the endpoint (11 groups for company 3); npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS lists (customers, warehouses, categories, brands, salespeople) now show only the acting company&#039;s data; customer history/wallet endpoints check the company.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:39</span></div>
+  <div class="row"><span class="label">Category</span><span>security</span></div>
+  <div class="row"><span class="label">Company</span><span>All (tested AdminNe/company 3 and SuperAdmin acting as company 2)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosController::GetELementPos: clients, warehouses (all-warehouses and assigned-warehouses cases), default warehouse/client validation, categories, brands and salespeople filtered by the acting company; customers sorted by name; salespeople exclude types customer/Online_store/supplier. Accounts (no company column) and payment methods unchanged.
+walletBalance / clientHistory / clientHistorySale: 404 unless the customer / sale belongs to the acting company.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Identified AdminNe (user 4, company 3); listed POS endpoints and the lists returned by GetELementPos; checked which tables have company_id (accounts do not); added $companyId = resolveActingCompanyId() scoping to clients, warehouses (both branches + default warehouse check), default client, categories, brands and salespeople; company checks on walletBalance/clientHistory/clientHistorySale; php -l; tinker test of GetELementPos as AdminNe and as SuperAdmin acting as company 2.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Import Sales / Import Purchases now have their own permissions, so they no longer switch together with Create Sale / Create Purchase in the role editor.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:25</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>All (existing roles keep their current access)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">New permissions sales_import, purchases_import, granted to every role holding Sales_add / Purchases_add (20 / 11 roles).
+SalePolicy::import, PurchasePolicy::import check them.
+SalesController get_import_sales/preview_import_sales/store_import_sales and PurchasesController get_import_purchases/preview_import_purchases/store_import_purchases: authorize &#039;import&#039; instead of &#039;create&#039;.
+menu.js: Import_Sales -&gt; [&#039;sales_import&#039;], Import_Purchases -&gt; [&#039;purchases_import&#039;]; router sales/import, purchases/import meta.permission likewise; permissions.js: new items Import_Sales / Import_Purchases in the Sales / Purchases groups.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Checked menu.js gates, router meta, existing *_import permissions and the import endpoints&#039; authorization; wrote and ran the migration; added policy methods; switched get/preview/store_import_sales and _purchases to authorize import; updated menu gates, route permissions and permissions.js (after the Add item of each group); php -l; npm run build:admin; verified role counts.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Roles list: Duplicate icon creates a new role pre-filled with the chosen role&#039;s permissions.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:25</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (roles of the acting company)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">GroupPermissions.vue: Duplicate icon (CopyOutlined) per row -&gt; /permissions/create?copy=&lt;id&gt;; shown with permissions_add + permissions_edit, not for Owner.
+PermissionForm.vue: create mode with ?copy=&lt;id&gt; loads roles/{id}/edit and pre-fills name &#039;&lt;name&gt; (copy)&#039;, description and permissions; Submit creates a new role (POST roles).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read GroupPermissions.vue actions column and PermissionForm onMounted; added the icon + route with ?copy=; added copyFrom handling in PermissionForm (loads source role, prefills, info message); npm run build:admin.</div></div>
+</div>
+</body>
+</html>

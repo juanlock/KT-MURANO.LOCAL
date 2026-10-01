@@ -47,7 +47,7 @@
           </a-tooltip>
         </template>
         <template v-else-if="node.menuPerms.length">
-          <a-tooltip :title="menuTip(node)">
+          <a-tooltip :title="menuTip(node)" v-bind="TIP">
             <span class="pm__switch">
               <a-switch
                 size="small"
@@ -62,16 +62,31 @@
             </span>
           </a-tooltip>
         </template>
-        <a-tooltip v-else-if="!node.plain" title="This menu item needs no permission -- every user sees it">
-          <span class="pm__always"><CheckCircleFilled /> Always visible</span>
-        </a-tooltip>
+        <!-- No permission gates this item: only a SuperAdmin working as
+             AdminSystem decides, for EVERY company, whether it's shown. -->
+        <template v-else-if="!node.plain && canForceVisibility">
+          <a-tooltip title="This item needs no permission. As AdminSystem you decide for every company: shown to everyone or hidden for everyone." v-bind="TIP">
+            <span class="pm__switch">
+              <a-switch
+                size="small"
+                :checked="!node.hidden"
+                :loading="busyKey === nodeKey(node)"
+                @change="on => $emit('force-visibility', node, !on)"
+              />
+              <span :class="!node.hidden ? 'pm__forced' : 'pm__off'">
+                {{ !node.hidden ? 'Everyone' : 'Hidden for all' }}
+              </span>
+            </span>
+          </a-tooltip>
+        </template>
+        <span v-else-if="!node.plain" class="pm__muted">—</span>
       </div>
 
       <!-- Form permissions -->
       <div class="pm__col-perms">
         <template v-for="s in node.special" :key="s.group.label">
           <span v-if="node.special.length > 1" class="pm__group-name">{{ groupLabelOf(s.group) }}</span>
-          <a-tooltip v-for="item in s.items" :key="item.v" :title="item.v">
+          <a-tooltip v-for="item in s.items" :key="item.v" :title="item.v" v-bind="TIP">
             <button
               type="button"
               class="pill"
@@ -99,7 +114,7 @@
 import { computed } from 'vue';
 import {
   QuestionCircleOutlined, FolderOpenOutlined, FileTextOutlined, EyeOutlined,
-  EyeInvisibleOutlined, LinkOutlined, CheckCircleFilled, PlusOutlined,
+  EyeInvisibleOutlined, LinkOutlined, PlusOutlined,
   EditOutlined, DeleteOutlined, KeyOutlined,
 } from '@ant-design/icons-vue';
 import { flattenNodes, permKind } from '../../lib/permissionTree';
@@ -111,13 +126,28 @@ const props = defineProps({
   labelOf: { type: Function, required: true },
   itemLabelOf: { type: Function, required: true },
   groupLabelOf: { type: Function, required: true },
+  // SuperAdmin acting as AdminSystem: may force permission-less items on/off for everyone.
+  canForceVisibility: { type: Boolean, default: false },
+  busyKey: { type: String, default: '' },
 });
-defineEmits(['toggle', 'toggle-many', 'menu']);
+defineEmits(['toggle', 'toggle-many', 'menu', 'force-visibility']);
+const nodeKey = node => (node.entry && (node.entry.to || node.entry.key)) || '';
 
 const KIND_ICON = {
   view: EyeOutlined, add: PlusOutlined, edit: EditOutlined, delete: DeleteOutlined, other: KeyOutlined,
 };
 const kind = permKind;
+
+// Hover hints sit up and to the right, appear only after a pause, and
+// never catch the mouse -- they used to cover the neighbouring pills and
+// swallow the click meant for them.
+const TIP = {
+  placement: 'topRight',
+  mouseEnterDelay: 0.8,
+  arrow: false,
+  overlayStyle: { pointerEvents: 'none' },
+  align: { offset: [24, -10] },
+};
 
 // A top-level single item (Dashboard) is its own only row; a container shows
 // its children, plus a "General" row for permissions homed on the container.
@@ -238,9 +268,9 @@ function menuTip(node) {
   color: #1677ff;
   opacity: 0.7;
 }
-.pm__always {
-  color: #52c41a;
-  font-size: 12px;
+.pm__forced {
+  color: #722ed1;
+  font-weight: 500;
 }
 .pm__muted {
   font-size: 12px;

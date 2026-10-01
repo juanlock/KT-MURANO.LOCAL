@@ -103,7 +103,7 @@
             </div>
 
             <div style="font-size: 11px; color: #a83232; background: #fef2f2; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px;">
-              {{ $t('products_refunded_alert') || 'Enter the quantity to return for each line. Stock will be returned to the warehouse.' }}
+              {{ $t('products_refunded_alert') || 'Enter the quantity to return for each line. Stock will be returned to the location.' }}
             </div>
 
             <div style="border: 1px solid #e6e6ec; border-radius: 10px; overflow: hidden;">

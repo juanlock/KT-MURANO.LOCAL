@@ -339,7 +339,7 @@ class OnlineOrdersApiController extends Controller
             // warehouse, then settings.default_warehouse_id → first warehouse.
             $requestedWh = (int) ($data['warehouse_id'] ?? 0);
             if ($requestedWh && ! Warehouse::whereKey($requestedWh)->whereNull('deleted_at')->exists()) {
-                return response()->json(['error' => 'Selected warehouse not found.'], 422);
+                return response()->json(['error' => 'Selected location not found.'], 422);
             }
 
             $warehouseId = $requestedWh ?: (int) ($order->warehouse_id ?: (DB::table('store_settings')->value('default_warehouse_id') ?: 0));
@@ -347,7 +347,7 @@ class OnlineOrdersApiController extends Controller
                 $warehouseId = (int) Warehouse::value('id');
             }
             if (! $warehouseId) {
-                return response()->json(['error' => 'No warehouse configured.'], 422);
+                return response()->json(['error' => 'No location configured.'], 422);
             }
 
             // Pre-check stock in the selected warehouse (outside tx just to
@@ -450,6 +450,13 @@ class OnlineOrdersApiController extends Controller
                     'currency_id' => $order->currency_id,
                     'exchange_rate' => $order->exchange_rate,
                 ]);
+
+                // Company = the warehouse's company (else the customer's).
+                // company_id isn't mass-assignable and was never set, so the
+                // sale would fall to the column default (company 1).
+                $sale->company_id = \App\Models\Warehouse::whereKey($warehouseId)->value('company_id')
+                    ?: \App\Models\Client::whereKey($order->client_id)->value('company_id');
+                $sale->save();
 
                 // If the online order was already paid, create a payment_sales record
                 if ($alreadyPaid) {

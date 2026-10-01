@@ -338,7 +338,7 @@ class KitchenOrderController extends Controller
         $order = KitchenOrder::findOrFail($id);
 
         if ($order->status !== 'completed') {
-            return response()->json(['error' => 'Only completed orders can be sent to a warehouse.'], 422);
+            return response()->json(['error' => 'Only completed orders can be sent to a location.'], 422);
         }
 
         $order->dispatched_warehouse_id = (int) $data['dispatched_warehouse_id'];

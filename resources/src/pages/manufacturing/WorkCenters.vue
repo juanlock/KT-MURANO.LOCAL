@@ -144,7 +144,7 @@ const crud = useCrudTable('mrp/work-centers', { rowsKey: 'work_centers' });
 
 const columns = computed(() => [
   { title: 'Work centre', key: 'name', dataIndex: 'name', sorter: true },
-  { title: 'Warehouse', dataIndex: 'warehouse_name', key: 'warehouse_name', width: 160 },
+  { title: 'Location', dataIndex: 'warehouse_name', key: 'warehouse_name', width: 160 },
   { title: 'Rates', key: 'rates', width: 180 },
   { title: 'Capacity', key: 'capacity_per_hour', dataIndex: 'capacity_per_hour', width: 110, align: 'right' },
   { title: 'Efficiency', key: 'efficiency_pct', dataIndex: 'efficiency_pct', width: 110, align: 'center' },

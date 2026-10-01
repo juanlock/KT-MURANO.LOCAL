@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <PageHeader
-      title="Import Products (Update Only)"
+      title="Import Products & Services (Update Only)"
       :breadcrumb="[$t('Products'), 'Import (Update Only)']"
     >
       <template #extra>

@@ -46,10 +46,10 @@
                 <a-input-number v-model:value="form.default_language_id" :min="1" style="width: 120px" />
                 <div class="muted" style="margin-top: 4px">Language id used for product names when pushing (1 = the shop's first language).</div>
               </a-form-item>
-              <a-form-item label="Stock warehouse">
+              <a-form-item label="Stock location">
                 <a-select
                   v-model:value="form.warehouse_id"
-                  :options="[{ value: null, label: 'All warehouses (aggregate)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
+                  :options="[{ value: null, label: 'All locations (aggregate)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
                 />
               </a-form-item>
               <a-space align="center" style="margin-bottom: 16px">
@@ -100,7 +100,7 @@
           <a-card size="small" title="Push stock levels to PrestaShop" style="margin-bottom: 16px">
             <p class="muted">
               Updates the shop's stock (stock_availables) for every linked product.
-              {{ state.warehouse_id ? 'Counting stock from the selected warehouse only.' : 'Counting stock across all warehouses.' }}
+              {{ state.warehouse_id ? 'Counting stock from the selected location only.' : 'Counting stock across all locations.' }}
             </p>
             <a-space>
               <a-button type="primary" :disabled="sync.running.value" @click="runSync('prestashop/sync/inventory', {}, 'push')">
@@ -121,10 +121,10 @@
               cancelled orders are skipped, so pulling regularly is safe. PrestaShop has no webhooks — run this after busy periods.
             </p>
             <a-form layout="inline" style="margin-bottom: 12px">
-              <a-form-item label="Import into warehouse">
+              <a-form-item label="Import into location">
                 <a-select
                   v-model:value="ordersWarehouseId" style="min-width: 220px"
-                  :options="[{ value: null, label: 'Default (settings / first warehouse)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
+                  :options="[{ value: null, label: 'Default (settings / first location)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
                 />
               </a-form-item>
             </a-form>

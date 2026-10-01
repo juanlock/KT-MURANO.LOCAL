@@ -142,7 +142,7 @@ const donutOptions = computed(() => ({
 }));
 
 const columns = computed(() => [
-  { title: t('Product'), dataIndex: 'product', key: 'product', sorter: true },
+  { title: t('Product_Only'), dataIndex: 'product', key: 'product', sorter: true },
   { title: t('Batch_No'), dataIndex: 'batch_no', key: 'batch_no' },
   { title: t('Warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name' },
   {

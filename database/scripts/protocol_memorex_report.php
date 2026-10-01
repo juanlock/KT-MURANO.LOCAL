@@ -2,8 +2,10 @@
 
 // Protocol Memorex -- generates a short, concise HTML activity report from
 // kt_logs (source/location, date_time, details, actions, changes made) and
-// saves it to a temp file. Run via: php artisan tinker --execute="require 'database/scripts/protocol_memorex_report.php';"
-// Then open the printed path (e.g. via `start <path>` on Windows).
+// saves it to KT-TOOLS/Report/kt_murano_memorex_<date>.html (git-tracked,
+// shared with every programmer; one file per day, re-runs overwrite that
+// day's). Run via: php artisan tinker --execute="require 'database/scripts/protocol_memorex_report.php';"
+// Then open the printed path (e.g. via `Start-Process <path>` on Windows).
 //
 // Ported from KT-BILLING.LOCAL as part of the kt_log module migration.
 
@@ -65,7 +67,11 @@ $html = <<<HTML
 </html>
 HTML;
 
-$outPath = sys_get_temp_dir().'/kt_murano_activity_report.html';
+$outDir = base_path('KT-TOOLS'.DIRECTORY_SEPARATOR.'Report');
+if (! is_dir($outDir)) {
+    mkdir($outDir, 0755, true);
+}
+$outPath = $outDir.DIRECTORY_SEPARATOR.'kt_murano_memorex_'.now()->format('Y-m-d').'.html';
 file_put_contents($outPath, $html);
 
 echo "Report written to: {$outPath}\n";

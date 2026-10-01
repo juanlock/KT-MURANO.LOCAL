@@ -179,7 +179,7 @@ async function loadOverview() {
 /* ----------------------------------------------------------- count stock */
 const countStock = ref([]);
 const countFields = computed(() => [
-  { key: 'items', label: t('Products') },
+  { key: 'items', label: t('Products_Only') },
   { key: 'qty', label: t('Quantity') },
 ]);
 let countLoaded = false;

@@ -43,6 +43,35 @@ class BookingController extends BaseController
         abort_unless(Client::whereKey($v['customer_id'] ?? 0)->where('company_id', $cid)->exists(), 422, 'That customer does not belong to your company.');
         abort_if(! empty($v['product_id']) && ! Product::whereKey($v['product_id'])->where('company_id', $cid)->exists(), 422, 'That product does not belong to your company.');
         abort_if(! empty($v['sales_person_id']) && ! User::whereKey($v['sales_person_id'])->where('company_id', $cid)->exists(), 422, 'That sales person does not belong to your company.');
+        abort_if(! empty($v['warehouse_id']) && ! \App\Models\Warehouse::whereKey($v['warehouse_id'])->where('company_id', $cid)->exists(), 422, 'That location does not belong to your company.');
+    }
+
+    /** The company's locations, for the booking form's Location picker. */
+    private function bookingWarehouses()
+    {
+        return $this->rc(\App\Models\Warehouse::query(), 'warehouses.company_id')->whereNull('deleted_at')
+            ->orderBy('name')->get(['id', 'name']);
+    }
+
+    /**
+     * System Settings -> Defaults -> Booking: what a NEW booking starts with.
+     * Location: the booking default, else the company default location.
+     * Customer: the booking default, else the company default (Walk-in).
+     * Sales person: the signed-in user when the switch is on (and they're staff).
+     */
+    private function bookingDefaults(Request $request): array
+    {
+        $cid = $this->reportCompanyId() ?: (int) optional($request->user('api'))->company_id;
+        $s = $cid ? Setting::where('company_id', $cid)->whereNull('deleted_at')->first() : null;
+        $user = $request->user('api');
+        $staff = $user && ! in_array($user->type, ['customer', 'Online_store', 'supplier'], true) && (int) $user->company_id === (int) $cid;
+
+        return [
+            'warehouse_id' => ($s->booking_default_warehouse_id ?? null) ?: ($s->warehouse_id ?? null),
+            'customer_id' => ($s->booking_default_client_id ?? null) ?: ($s->client_id ?? null),
+            'tray_id' => $s->booking_default_tray_id ?? null,
+            'sales_person_id' => (($s->booking_default_sales_person_self ?? true) && $staff) ? $user->id : null,
+        ];
     }
     /**
      * List bookings with optional filters.
@@ -88,25 +117,8 @@ class BookingController extends BaseController
             )
             ->when($request->filled('status'), function ($q) use ($request) {
                 $q->where('bookings.status', $request->status);
-            })
-            ->when($request->filled('date'), function ($q) use ($request) {
-                $q->whereDate('bookings.booking_date', $request->date);
-            })
-            ->when($request->filled('from'), function ($q) use ($request) {
-                $q->whereDate('bookings.booking_date', '>=', $request->from);
-            })
-            ->when($request->filled('to'), function ($q) use ($request) {
-                $q->whereDate('bookings.booking_date', '<=', $request->to);
-            })
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $s = $request->search;
-
-                $q->where(function ($sub) use ($s) {
-                    $sub->where('clients.name', 'LIKE', "%{$s}%")
-                        ->orWhere('products.name', 'LIKE', "%{$s}%")
-                        ->orWhere('bookings.notes', 'LIKE', "%{$s}%");
-                });
             });
+        $this->applyListFilters($query, $request);
 
         $totalRows = $query->count();
         if ($perPage == '-1') {
@@ -122,24 +134,8 @@ class BookingController extends BaseController
         // ignore the status filter so the breakdown always shows every status.
         $statsQuery = $this->bookingScope(Booking::query())->leftJoin('clients', 'clients.id', '=', 'bookings.customer_id')
             ->leftJoin('products', 'products.id', '=', 'bookings.product_id')
-            ->whereNull('bookings.deleted_at')
-            ->when($request->filled('date'), function ($q) use ($request) {
-                $q->whereDate('bookings.booking_date', $request->date);
-            })
-            ->when($request->filled('from'), function ($q) use ($request) {
-                $q->whereDate('bookings.booking_date', '>=', $request->from);
-            })
-            ->when($request->filled('to'), function ($q) use ($request) {
-                $q->whereDate('bookings.booking_date', '<=', $request->to);
-            })
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $s = $request->search;
-                $q->where(function ($sub) use ($s) {
-                    $sub->where('clients.name', 'LIKE', "%{$s}%")
-                        ->orWhere('products.name', 'LIKE', "%{$s}%")
-                        ->orWhere('bookings.notes', 'LIKE', "%{$s}%");
-                });
-            });
+            ->whereNull('bookings.deleted_at');
+        $this->applyListFilters($statsQuery, $request);
 
         $statusCounts = (clone $statsQuery)
             ->select('bookings.status', DB::raw('count(*) as cnt'))
@@ -185,13 +181,54 @@ class BookingController extends BaseController
             $data[] = $item;
         }
 
+        // Filter dropdowns (company-scoped): customers that have bookings,
+        // the bookable services, and staff.
+        $filterOptions = [
+            'customers' => $this->rc(Client::query(), 'clients.company_id')->whereNull('clients.deleted_at')
+                ->whereIn('clients.id', $this->bookingScope(Booking::query())->whereNull('deleted_at')->select('customer_id'))
+                ->orderBy('name')->get(['id', 'name']),
+            'services' => $this->serviceProducts()->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'group_name' => $p->group_name])->values(),
+            'staff' => $this->getSalesPersons()->values(),
+        ];
+
         return response()->json([
             'totalRows' => $totalRows,
             'bookings' => $data,
             'stats' => $stats,
+            'filter_options' => $filterOptions,
             // Defaults -> Booking -> Use decimals, for the Price/Amount columns.
             'decimals' => $this->bookingFieldFlags($this->reportCompanyId() ?: null)['decimals'],
         ]);
+    }
+
+    /**
+     * The Bookings list filters (everything except status), shared by the
+     * rows query and the summary-card stats so both always agree:
+     * date | from/to (booking date range), time_from/time_to (start time of
+     * day, HH:MM), customer_id, product_id (service), sales_person_id
+     * (staff), search. Expects the clients/products joins.
+     */
+    private function applyListFilters($q, Request $request): void
+    {
+        $time = fn ($v) => preg_match('/^\d{2}:\d{2}$/', (string) $v) ? $v.':00' : null;
+
+        $q->when($request->filled('date'), fn ($q) => $q->whereDate('bookings.booking_date', $request->date))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('bookings.booking_date', '>=', $request->from))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('bookings.booking_date', '<=', $request->to))
+            ->when($time($request->time_from), fn ($q) => $q->where('bookings.booking_time', '>=', $time($request->time_from)))
+            ->when($time($request->time_to), fn ($q) => $q->where('bookings.booking_time', '<=', $time($request->time_to)))
+            ->when($request->filled('customer_id'), fn ($q) => $q->where('bookings.customer_id', (int) $request->customer_id))
+            ->when($request->filled('product_id'), fn ($q) => $q->where('bookings.product_id', (int) $request->product_id))
+            ->when($request->filled('sales_person_id'), fn ($q) => $q->where('bookings.sales_person_id', (int) $request->sales_person_id))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $s = $request->search;
+                $q->where(function ($sub) use ($s) {
+                    $sub->where('clients.name', 'LIKE', "%{$s}%")
+                        ->orWhere('products.name', 'LIKE', "%{$s}%")
+                        ->orWhere('bookings.notes', 'LIKE', "%{$s}%")
+                        ->orWhere('bookings.Ref', 'LIKE', "%{$s}%");
+                });
+            });
     }
 
     /**
@@ -211,7 +248,8 @@ class BookingController extends BaseController
             'trays' => $this->getTrays(),
             'sales_persons' => $this->getSalesPersons(),
             'statuses' => ['pending', 'confirmed', 'cancelled', 'completed'],
-            'public_booking' => $this->publicBookingInfo(),
+            'warehouses' => $this->bookingWarehouses(),
+            'defaults' => $this->bookingDefaults($request),
         ]);
     }
 
@@ -279,9 +317,10 @@ class BookingController extends BaseController
     }
 
     /**
-     * Service products for the form's Group Service -> Service dropdowns, with
-     * their product group. The generic "Appointment" service that
-     * BookingSaleService invoices service-less bookings on is not offered.
+     * Products & services for the form's Group -> Product/Service dropdowns
+     * (services first), with their product group. The generic "Appointment"
+     * service that BookingSaleService invoices service-less bookings on is
+     * not offered.
      */
     private function serviceProducts()
     {
@@ -290,11 +329,11 @@ class BookingController extends BaseController
                 $j->on('product_groups.id', '=', 'products.product_group_id')->whereNull('product_groups.deleted_at');
             })
             ->whereNull('products.deleted_at')
-            ->where('products.type', 'is_service')
             ->where('products.code', '!=', \App\Services\BookingSaleService::GENERIC_CODE)
+            ->orderByRaw("products.type = 'is_service' DESC")
             ->orderBy('products.name', 'asc')
             ->get([
-                'products.id', 'products.name', 'products.code', 'products.price',
+                'products.id', 'products.name', 'products.code', 'products.price', 'products.type',
                 'products.product_group_id', 'product_groups.name as group_name',
                 // Booking form: End Time = Start Time + this (minutes)
                 'products.service_duration',
@@ -318,6 +357,10 @@ class BookingController extends BaseController
     {
         return $this->rc(User::query(), 'users.company_id')->whereNull('deleted_at')
             ->where('statut', 1)
+            // Staff only: not the linked accounts of customers, web-store
+            // sign-ups or suppliers (they're users too, since those flows
+            // create one).
+            ->whereNotIn('type', ['customer', 'Online_store', 'supplier'])
             ->orderBy('firstname', 'asc')
             ->orderBy('lastname', 'asc')
             ->get(['id', 'firstname', 'lastname', 'username'])
@@ -370,6 +413,7 @@ class BookingController extends BaseController
             'customer_id' => 'required|integer|exists:clients,id',
             'product_id' => 'nullable|integer|exists:products,id',
             'tray_id' => 'nullable|integer|exists:trays,id',
+            'warehouse_id' => 'nullable|integer|exists:warehouses,id',
             'sales_person_id' => 'nullable|integer|exists:users,id',
             'product_name' => 'nullable|string|max:255',
             'product_description' => 'nullable|string',
@@ -425,6 +469,7 @@ class BookingController extends BaseController
                 'product_name' => $booking->product_name,
                 'product_description' => $booking->product_description,
                 'tray_id' => $booking->tray_id,
+                'warehouse_id' => $booking->warehouse_id,
                 'tray_name' => optional($booking->tray)->name,
                 'sales_person_id' => $booking->sales_person_id,
                 'sales_person_name' => $salesPersonName,
@@ -461,6 +506,7 @@ class BookingController extends BaseController
                 'customer_id' => $booking->customer_id,
                 'product_id' => $booking->product_id,
                 'tray_id' => $booking->tray_id,
+                'warehouse_id' => $booking->warehouse_id,
                 'sales_person_id' => $booking->sales_person_id,
                 'product_name' => $booking->product_name,
                 'product_description' => $booking->product_description,
@@ -481,6 +527,7 @@ class BookingController extends BaseController
             'trays' => $this->getTrays(),
             'sales_persons' => $this->getSalesPersons(),
             'statuses' => ['pending', 'confirmed', 'cancelled', 'completed'],
+            'warehouses' => $this->bookingWarehouses(),
         ]);
     }
 
@@ -525,6 +572,7 @@ class BookingController extends BaseController
             'customer_id' => 'required|integer|exists:clients,id',
             'product_id' => 'nullable|integer|exists:products,id',
             'tray_id' => 'nullable|integer|exists:trays,id',
+            'warehouse_id' => 'nullable|integer|exists:warehouses,id',
             'sales_person_id' => 'nullable|integer|exists:users,id',
             'product_name' => 'nullable|string|max:255',
             'product_description' => 'nullable|string',
@@ -577,10 +625,16 @@ class BookingController extends BaseController
             'status' => 'required|string|in:pending,confirmed,cancelled,completed',
         ]);
 
+        // Confirming/completing gives the customer a linked user if they had
+        // none (BookingObserver) -- report it so the list can say so.
+        $hadUser = (bool) \App\Models\Client::whereKey($booking->customer_id)->value('user_id');
+
         $booking->status = $validated['status'];
         $booking->save();
 
-        return response()->json(['success' => true] + $this->saleInfo($booking));
+        $accountCreated = ! $hadUser && (bool) \App\Models\Client::whereKey($booking->customer_id)->value('user_id');
+
+        return response()->json(['success' => true, 'customer_account_created' => $accountCreated] + $this->saleInfo($booking));
     }
 
     /**

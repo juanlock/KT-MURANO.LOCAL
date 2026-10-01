@@ -63,7 +63,7 @@ class BookingSaleService
             return $this->fail('The booking service belongs to another company.');
         }
 
-        $warehouseId = $this->warehouseFor($companyId);
+        $warehouseId = $this->warehouseFor($companyId, $booking);
         if (! $warehouseId) {
             return $this->fail('The company has no warehouse to put the sale on.');
         }
@@ -158,12 +158,17 @@ class BookingSaleService
             $locked->forceFill(['sale_id' => $sale->id])->saveQuietly();
             $booking->setRawAttributes($locked->getAttributes(), true);
 
-            DB::afterCommit(function () use ($sale) {
+            DB::afterCommit(function () use ($sale, $locked, $companyId) {
                 try {
                     app(CommissionService::class)->calculateForSale($sale->fresh());
                 } catch (\Throwable $e) {
                     Log::warning('Booking sale commission failed (non-blocking): '.$e->getMessage(), ['sale_id' => $sale->id]);
                 }
+                // Completed + invoiced: email the company's admins the report
+                // (after the response; a mail failure never affects the booking).
+                $bookingId = $locked->id;
+                $saleId = $sale->id;
+                dispatch(fn () => \App\Services\BookingNotifier::bookingCompleted($companyId, $bookingId, $saleId))->afterResponse();
             });
 
             return ['ok' => true, 'sale' => $sale, 'reason' => null];
@@ -255,10 +260,22 @@ class BookingSaleService
         return ['ok' => false, 'sale' => null, 'reason' => $reason];
     }
 
-    /** The company's default warehouse (Settings), else its first one. */
-    private function warehouseFor(int $companyId): ?int
+    /**
+     * Where the sale goes: the booking's own location, else the Booking
+     * default location (Settings -> Defaults -> Booking), else the company's
+     * default location, else its first one.
+     */
+    private function warehouseFor(int $companyId, ?Booking $booking = null): ?int
     {
-        $default = optional(Setting::where('company_id', $companyId)->whereNull('deleted_at')->first())->warehouse_id;
+        $ok = fn ($id) => $id && Warehouse::whereKey($id)->where('company_id', $companyId)->whereNull('deleted_at')->exists();
+        if ($booking && $ok($booking->warehouse_id)) {
+            return (int) $booking->warehouse_id;
+        }
+        $settings = Setting::where('company_id', $companyId)->whereNull('deleted_at')->first();
+        if ($settings && $ok($settings->booking_default_warehouse_id)) {
+            return (int) $settings->booking_default_warehouse_id;
+        }
+        $default = optional($settings)->warehouse_id;
         if ($default && Warehouse::whereKey($default)->where('company_id', $companyId)->whereNull('deleted_at')->exists()) {
             return (int) $default;
         }

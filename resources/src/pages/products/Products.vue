@@ -333,7 +333,7 @@ const filters = ref({
 });
 // Type Product filter: services vs. everything else (single, variable, combo).
 const kindOptions = computed(() => withAllOption(sortByLabel([
-  { value: 'product', label: t('Products') },
+  { value: 'product', label: t('Products_Only') },
   { value: 'service', label: t('Services') },
 ])));
 const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => crud.reload());
@@ -352,7 +352,7 @@ const {
   { key: 'code', label: 'Code' },
   { key: 'category_id', label: 'Category' },
   { key: 'brand_id', label: 'Brand' },
-  { key: 'warehouse_id', label: 'Warehouse' },
+  { key: 'warehouse_id', label: 'Location' },
 ]);
 
 const filterParams = () => ({

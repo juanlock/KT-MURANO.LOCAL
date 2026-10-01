@@ -35,6 +35,11 @@
               </a-form-item>
             </a-col>
           </a-row>
+          <!-- SuperAdmin editing another company's role: say whose it is. -->
+          <a-alert
+            v-if="isSuperAdmin && role.company_name" type="info" show-icon style="margin-top: 12px"
+            :message="`Role of company: ${role.company_name}`"
+          />
         </a-form>
       </a-card>
 
@@ -134,7 +139,9 @@
             <PermissionMatrix
               :section="sec" :permissions="permissions" :share-count="layout.shareCount"
               :label-of="nodeLabel" :item-label-of="itemLabel" :group-label-of="groupLabel"
+              :can-force-visibility="canForceVisibility" :busy-key="visibilityBusy"
               @toggle="togglePermission" @toggle-many="toggleMany" @menu="toggleMenu"
+              @force-visibility="forceVisibility"
             />
           </a-card>
           <a-empty v-if="!detailSections.length" :description="$t('NodataAvailable')" style="padding: 48px 0" />
@@ -195,8 +202,11 @@ const auth = useAuthStore();
 
 const id = route.params.id || null;
 const isEdit = !!id;
+// Duplicate (roles list): /permissions/create?copy=<role id> pre-fills a NEW
+// role with that role's description and permissions.
+const copyFrom = !isEdit && /^\d+$/.test(String(route.query.copy || '')) ? String(route.query.copy) : null;
 
-const isLoading = ref(isEdit);
+const isLoading = ref(isEdit || !!copyFrom);
 const submitting = ref(false);
 const formRef = ref();
 const search = ref('');
@@ -367,6 +377,25 @@ function toggleMenu(node, on) {
   if (on) togglePermission(node.menuPerms[0], true);
   else node.menuPerms.forEach(p => togglePermission(p, false));
 }
+// Items with no permission gate: only a SuperAdmin working as AdminSystem
+// (999) may force them shown / hidden -- for every company at once.
+const canForceVisibility = computed(() => isSuperAdmin.value && Number(company.actingCompanyId) === 999);
+const visibilityBusy = ref('');
+async function forceVisibility(node, hidden) {
+  const key = node.entry && (node.entry.to || node.entry.key);
+  if (!key) return;
+  visibilityBusy.value = key;
+  try {
+    const res = await http.post('menu-positions/visibility', { key, hidden });
+    await menuStore.loadPositions();
+    message.success(`${nodeLabel(node)}: ${hidden ? 'hidden for everyone' : 'shown to everyone'} (${res?.companies ?? 0} companies)`);
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+  } finally {
+    visibilityBusy.value = '';
+  }
+}
+
 function selectAll(on) {
   const offered = new Set(offeredPerms.value);
   // Values the editor doesn't offer (SuperAdmin-only for an Admin, legacy
@@ -383,7 +412,7 @@ async function submit() {
     return;
   }
   submitting.value = true;
-  const payload = { role: role.value, permissions: permissions.value };
+  const payload = { role: { name: role.value.name, description: role.value.description }, permissions: permissions.value };
   try {
     if (isEdit) {
       await http.put(`roles/${id}`, payload);
@@ -410,6 +439,20 @@ onMounted(async () => {
   // Always re-read the company's saved menu layout, so a reorder made in
   // Manage Menus (by anyone) is reflected here right away.
   const menuReady = menuStore.loadPositions();
+  if (!isEdit && copyFrom) {
+    try {
+      const [data] = await Promise.all([http.get(`roles/${copyFrom}/edit`), menuReady]);
+      const src = data.role || {};
+      role.value = { name: `${src.name || ''} (copy)`.trim(), description: src.description || '' };
+      permissions.value = Array.isArray(data.permissions) ? [...data.permissions] : [];
+      message.info('Copy of the role loaded -- rename it and adjust permissions, then Submit to create it.', 6);
+    } catch (e) {
+      message.error(e?.data?.message || t('InvalidData'));
+    } finally {
+      isLoading.value = false;
+    }
+    return;
+  }
   if (!isEdit) {
     await menuReady;
     return;

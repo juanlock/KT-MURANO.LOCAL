@@ -34,6 +34,17 @@ class ProductPolicy
     }
 
     /**
+     * Vehicle Fitment catalog (makes / models): its own permission, so it
+     * can be granted apart from "All Products & Services".
+     */
+    public function vehicleFitment(User $user)
+    {
+        $permission = Permission::where('name', 'vehicle_fitment')->first();
+
+        return $permission ? $user->hasRole($permission->roles) : $this->view($user);
+    }
+
+    /**
      * Determine whether the user can create models.
      *
      * @return mixed

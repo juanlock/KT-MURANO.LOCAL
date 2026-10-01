@@ -282,7 +282,7 @@ class BatchReportController extends BaseController
         if (! $this->reportAllWarehouses()) {
             $accessible = $this->reportWarehouseIdList();
             if (! in_array($batch->warehouse_id, $accessible, true)) {
-                abort(403, 'Warehouse restriction.');
+                abort(403, 'Location restriction.');
             }
         }
 

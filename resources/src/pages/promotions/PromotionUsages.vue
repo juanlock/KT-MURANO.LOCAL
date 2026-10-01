@@ -208,7 +208,7 @@ const detailColumns = [
   { title: 'Code', key: 'code', width: 120 },
   { title: 'Sale', key: 'sale', width: 110 },
   { title: 'Client', key: 'client', width: 150 },
-  { title: 'Warehouse', key: 'warehouse', width: 150 },
+  { title: 'Location', key: 'warehouse', width: 150 },
   { title: 'Discount', dataIndex: 'discount_amount', key: 'discount_amount', sorter: true, width: 110, align: 'right' },
 ];
 

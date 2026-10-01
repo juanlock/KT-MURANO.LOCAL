@@ -16,6 +16,10 @@ Run Protocol Kelsy:
    - `version` -- **don't set this yourself.** A `BEFORE INSERT` trigger auto-assigns the next "MM.mm" track-version number (01.01, 01.02, ... 01.99, 02.00, ...) to every new row regardless of how it's inserted (works for a single insert or a bulk multi-row insert in one statement). This is the running version number shown in the app's own footer for every user (all companies + SuperAdmin) -- see `resources/src/layouts/AdminLayout.vue` / `UserController::GetUserAuth()`'s `kt_log_version`.
 3. The ONLY thing to ask the user about is `location` -- offer **Thundera**, **Home**, or a new location, via a quick question. Don't ask for confirmation on anything else in this protocol.
 
+Standing rule (2026-09-30, see CLAUDE.md): don't wait for this protocol -- every request is logged to `kt_logs` as soon as it's finished. Running Kelsy then only catches up rows that slipped through (check the latest rows first so nothing is logged twice).
+
+Column order in `kt_logs` (since 2026_09_30_120000, for easier reading): `id, version, log_date, location, status, category, company_context, summary` -> `request_user, claude_understand, done` -> `changes_detail, files_modified, actions, chat_transcript` -> `claude_user, created_at...`. Insert by column name, so the order never matters for writing.
+
 Why this exists: the user (jlock) wants to trigger a full activity-log append with one short phrase instead of re-explaining the process each time, from any machine that has this repo checked out.
 
 Ported from KT-BILLING.LOCAL's Protocol Kelsy as part of the kt_log module migration (billing is read-only source; this copy is Murano's own, adapted for `dbmurano` and this repo's migration). See CLAUDE.md protocol "preparate" for the billing/murano relationship.

@@ -354,7 +354,7 @@ class QuotationsController extends BaseController
                 if (empty($current_Quotation->warehouse_id) || ! in_array($current_Quotation->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (warehouse restriction).',
+                        'message' => 'You are not allowed to access this sale (location restriction).',
                     ], 403);
                 }
             }
@@ -497,7 +497,7 @@ class QuotationsController extends BaseController
                 if (empty($Quotation->warehouse_id) || ! in_array($Quotation->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (warehouse restriction).',
+                        'message' => 'You are not allowed to access this sale (location restriction).',
                     ], 403);
                 }
             }
@@ -572,7 +572,7 @@ class QuotationsController extends BaseController
                     if (empty($Quotation->warehouse_id) || ! in_array($Quotation->warehouse_id, $warehouses_id)) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'You are not allowed to access this sale (warehouse restriction).',
+                            'message' => 'You are not allowed to access this sale (location restriction).',
                         ], 403);
                     }
                 }
@@ -1138,7 +1138,7 @@ class QuotationsController extends BaseController
             if (empty($Quotation->warehouse_id) || ! in_array($Quotation->warehouse_id, $warehouses_id)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access this sale (warehouse restriction).',
+                    'message' => 'You are not allowed to access this sale (location restriction).',
                 ], 403);
             }
         }

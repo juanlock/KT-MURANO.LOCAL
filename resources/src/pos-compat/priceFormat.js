@@ -1,6 +1,8 @@
 // Price formatting helper for frontend display (e.g., POS)
 // This helper is purely presentational and does NOT affect calculations or stored values.
 
+import { useAuthStore } from '../stores/auth';
+
 // Internal map of supported formats:
 // - 'comma_dot'   => 1,234.56 (thousand ',', decimal '.')
 // - 'dot_comma'   => 1.234,56 (thousand '.', decimal ',')
@@ -124,6 +126,20 @@ export function getPriceDecimals({ settings = null, store = null } = {}) {
       || settings.enable_3_decimal_pricing === 1
       || settings.enable_3_decimal_pricing === '1';
     return enabled ? 3 : 2;
+  }
+
+  // 1b) The signed-in company's own value (get_user_auth -> user.price_decimals,
+  //     from that company's "Enable 3 Decimal Pricing" / Defaults -> POS ->
+  //     Price decimals). Checked before the localStorage cache below, which is
+  //     shared by every company used in this browser and could otherwise
+  //     carry another company's 3 decimals into this one.
+  try {
+    const authUser = useAuthStore().user;
+    const n = parseInt(authUser && authUser.price_decimals, 10);
+    if (n === 3) return 3;
+    if (n === 2) return 2;
+  } catch (e) {
+    // no active Pinia (e.g. unit context) -- fall through
   }
 
   // 2) Vuex store getter

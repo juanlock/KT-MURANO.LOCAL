@@ -34,6 +34,33 @@ const GROUP_HOME = {
   Service_Maintenance: 'service',
 };
 
+// Single permissions that belong to one specific menu item (by its `to`)
+// rather than to wherever their catalogue group happens to land first --
+// e.g. the Settings group's extras used to pile up under "Locations" (the
+// first Settings item in most companies' menus), Appearance included.
+const ITEM_HOME = {
+  appearance_settings: '/app/settings/System_settings', // System Settings -> Appearance
+  datatable_customize: '/app/settings/System_settings', // System Settings -> DataTable
+  translations_settings: '/app/settings/translations_settings',
+  warehouse_locations: '/app/settings/Warehouses', // Locations page -> Sub-Locations tab
+  multi_currency: '/app/settings/Currencies',
+  woocommerce_settings: '/app/settings/System_settings',
+  quickbooks_settings: '/app/settings/System_settings',
+  slack_settings: '/app/settings/System_settings',
+  telegram_settings: '/app/settings/System_settings',
+  salla_settings: '/app/settings/System_settings',
+  xero_settings: '/app/settings/System_settings',
+  prestashop_settings: '/app/settings/System_settings',
+  google_sheets_settings: '/app/settings/System_settings',
+  mailchimp_settings: '/app/settings/System_settings',
+  jumia_settings: '/app/settings/System_settings',
+};
+
+// A group's remaining extras go under this item when the company's menu has it.
+const GROUP_PREFERRED = {
+  Settings: '/app/settings/System_settings',
+};
+
 /**
  * @param {Array} tree       menu tree (buildTopLevelMenuForEditor output or MENU)
  * @param {Array} groups     catalogue groups [{label, raw?, items:[{v,l,f,...}]}]
@@ -94,13 +121,28 @@ export function buildPermissionTree(tree, groups, opts = {}) {
     const items = group.items.filter(i => allowPerm(i.v));
     if (!items.length) return;
     const values = items.map(i => i.v);
-    const extras = items.filter(i => !menuPermSet.has(i.v));
+    let extras = items.filter(i => !menuPermSet.has(i.v));
+    if (!extras.length) return;
+
+    // Permissions with their own home item go there (same group label shown).
+    const byTo = to => leavesInOrder.find(n => n.entry.to === to);
+    const homed = new Map();
+    extras = extras.filter(i => {
+      const home = ITEM_HOME[i.v] && byTo(ITEM_HOME[i.v]);
+      if (!home) return true;
+      if (!homed.has(home)) homed.set(home, []);
+      homed.get(home).push(i);
+      return false;
+    });
+    homed.forEach((list, node) => node.special.push({ group, items: list }));
     if (!extras.length) return;
 
     // 0) a top-level single item named like the group (e.g. Dashboard,
     //    which needs no permission to show but owns the dashboard group)
     const g = norm(group.label);
     let target = roots.find(r => !r.isContainer && (norm(r.label) === g || norm(r.entry.key) === g));
+    // 0b) the group's preferred item (Settings -> System Settings)
+    if (!target && GROUP_PREFERRED[group.label]) target = byTo(GROUP_PREFERRED[group.label]);
     // 1) first leaf, in this company's menu order, gated by this group
     if (!target) target = leavesInOrder.find(n => n.menuPerms.some(p => values.includes(p)));
     // 2) else the first item of the entry the group is homed to -- wherever

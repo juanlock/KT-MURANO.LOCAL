@@ -1113,7 +1113,7 @@ class TransferController extends BaseController
             if (! $fromAllowed && ! $toAllowed) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access this transfer (warehouse restriction).',
+                    'message' => 'You are not allowed to access this transfer (location restriction).',
                 ], 403);
             }
         }

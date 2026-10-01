@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Designation;
 use App\Models\Employee;
 use App\Models\OfficeShift;
+use App\Models\Provider;
 use App\Models\Role;
 use App\Models\SalesAgent;
 use App\Models\User;
@@ -82,7 +83,7 @@ class LinkedUserService
      */
     public static function attachTypedRecord(User $user, string $type, int $companyId): ?string
     {
-        $roleNames = ['employee' => 'Employee', 'customer' => 'Customer', 'sales_agent' => 'Sales Agent'];
+        $roleNames = ['employee' => 'Employee', 'customer' => 'Customer', 'sales_agent' => 'Sales Agent', 'supplier' => 'Supplier'];
         $roleName = $roleNames[$type] ?? null;
         if (! $roleName) {
             return null;
@@ -137,6 +138,15 @@ class LinkedUserService
             $client->company_id = $companyId;
             $client->user_id = $user->id;
             $client->save();
+        } elseif ($type === 'supplier') {
+            $provider = new Provider;
+            $provider->name = trim($user->firstname.' '.$user->lastname) ?: $user->username;
+            $provider->code = (new \App\Http\Controllers\ProvidersController)->getNumberOrder();
+            $provider->email = $user->email;
+            $provider->phone = $user->phone;
+            $provider->company_id = $companyId;
+            $provider->user_id = $user->id;
+            $provider->save();
         } elseif ($type === 'sales_agent') {
             SalesAgent::create([
                 'company_id' => $companyId,
@@ -149,6 +159,24 @@ class LinkedUserService
         }
 
         return null;
+    }
+
+    /**
+     * Gives an existing Client its linked users row if it has none yet, in
+     * the client's own company. Used where the account is only created once
+     * something is confirmed: a public booking confirmed by staff, a web
+     * store account once email-verified / admin-approved. Returns the new
+     * user id, or null when the client already had one (nothing done).
+     */
+    public static function ensureForClient(Client $client, string $type = 'customer', string $roleName = 'Customer'): ?int
+    {
+        if ($client->user_id || ! $client->company_id) {
+            return null;
+        }
+        $client->user_id = self::provision((int) $client->company_id, $type, $roleName, (string) $client->name, $client->email, $client->phone);
+        $client->save();
+
+        return $client->user_id;
     }
 
     public static function uniqueUsername(string $seed): string

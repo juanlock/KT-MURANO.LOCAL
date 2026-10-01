@@ -56,7 +56,7 @@
         <div class="kpi">
           <span class="kpi-label">Held by</span>
           <span class="kpi-value kpi-value--sm">{{ asset.holder_name || 'On the shelf' }}</span>
-          <span class="kpi-sub">{{ asset.warehouse_name || 'No warehouse' }}</span>
+          <span class="kpi-sub">{{ asset.warehouse_name || 'No location' }}</span>
         </div>
         <div class="kpi">
           <span class="kpi-label">Next validation</span>

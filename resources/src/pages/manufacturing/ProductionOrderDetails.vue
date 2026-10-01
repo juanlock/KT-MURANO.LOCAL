@@ -509,7 +509,7 @@ function confirmCancel() {
   Modal.confirm({
     title: `Cancel ${order.value.reference}?`,
     content: order.value.materials_issued
-      ? 'Everything already issued goes back to the warehouse it came from, and the order closes at zero cost.'
+      ? 'Everything already issued goes back to the location it came from, and the order closes at zero cost.'
       : 'The order closes. Nothing has been issued, so no stock moves.',
     okText: 'Cancel order',
     okType: 'danger',

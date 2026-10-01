@@ -96,17 +96,22 @@
             </td>
             <td style="width: 70%; vertical-align: top; text-align: {{ $isRtl ? 'right' : 'right' }};">
                 <div style="font-size: 18pt; font-weight: bold; color: {{ $pdfT['primary_color'] }}; margin-bottom: 6px; letter-spacing: 0.5px;">{{ $pdfT['labels']['title'] !== '' ? $pdfT['labels']['title'] : __('pdf.sales_invoice') }}</div>
-                <div style="display: inline-block; background: #f3f4f6; padding: 5px 12px; border-radius: 4px; font-size: 10pt; font-weight: bold; color: #4b5563; margin-bottom: 8px;">{{$sale['Ref']}}</div>
-                <table style="width: 100%; font-size: 8pt; margin-top: 6px;" cellpadding="3" cellspacing="0">
+                {{-- The reference once, larger, with its label (it used to show twice). --}}
+                <div style="font-size: 13pt; font-weight: bold; color: {{ $pdfT['text_color'] }}; margin-bottom: 4px;"><span style="font-size: 9pt; font-weight: 600; color: #6b7280;">{{ __('pdf.invoice_no') }}{{ $isRtl ? '' : ':' }}</span> {{$sale['Ref']}}</div>
+                <table style="width: 100%; font-size: 8pt; margin-top: 2px;" cellpadding="3" cellspacing="0">
                     <tr>
                         <td style="text-align: right; color: #6b7280; font-weight: 600;">{{ __('pdf.date') }}{{ $isRtl ? '' : ':' }}</td>
-                        <td style="text-align: right; color: {{ $pdfT['text_color'] }}; font-weight: 500;">
+                        <td style="text-align: right; width: 1%; white-space: nowrap; padding-left: 6px; color: {{ $pdfT['text_color'] }}; font-weight: 500;">
                             @php
                                 $dateFormat = $setting['date_format'] ?? 'YYYY-MM-DD';
                                 $dateTime = \Carbon\Carbon::parse($sale['date']);
                                 $phpDateFormat = str_replace(['YYYY', 'MM', 'DD'], ['Y', 'm', 'd'], $dateFormat);
                                 // Check if original date string contains time
                                 $hasTime = strpos($sale['date'], ' ') !== false && preg_match('/\d{1,2}:\d{2}/', $sale['date']);
+                                // Settings -> Invoice PDF -> Default: "Hide the time" (date only).
+                                if (! empty($setting['sale_pdf_hide_time'])) {
+                                    $hasTime = false;
+                                }
                                 if ($hasTime) {
                                     $formattedDate = $dateTime->format($phpDateFormat . ' H:i');
                                     // Preserve seconds if they exist
@@ -120,37 +125,29 @@
                             {{$formattedDate}}
                         </td>
                     </tr>
+                    {{-- Status and Payment share one row. --}}
+                    @if($pdfT['show_status'])
+                    @php
+                        $statusColors = [
+                            'completed' => ['bg' => '#d1fae5', 'color' => '#065f46'],
+                            'paid' => ['bg' => '#d1fae5', 'color' => '#065f46'],
+                            'pending' => ['bg' => '#fef3c7', 'color' => '#92400e'],
+                            'unpaid' => ['bg' => '#fef3c7', 'color' => '#92400e'],
+                            'partial' => ['bg' => '#dbeafe', 'color' => '#1e40af'],
+                        ];
+                        $statusStyle = $statusColors[strtolower($sale['statut'])] ?? ['bg' => '#e5e7eb', 'color' => '#374151'];
+                        $paymentStyle = $statusColors[strtolower($sale['payment_status'])] ?? ['bg' => '#e5e7eb', 'color' => '#374151'];
+                    @endphp
                     <tr>
-                        <td style="text-align: right; color: #6b7280; font-weight: 600;">{{ __('pdf.invoice_no') }}{{ $isRtl ? '' : ':' }}</td>
-                        <td style="text-align: right; color: {{ $pdfT['text_color'] }}; font-weight: 500;">{{$sale['Ref']}}</td>
-                    </tr>
-                    <tr style="{{ $pdfT['show_status'] ? '' : 'display:none;' }}">
-                        <td style="text-align: right; color: #6b7280; font-weight: 600;">{{ __('pdf.status') }}{{ $isRtl ? '' : ':' }}</td>
-                        <td style="text-align: right;">
-                            @php
-                                $statusColors = [
-                                    'completed' => ['bg' => '#d1fae5', 'color' => '#065f46'],
-                                    'paid' => ['bg' => '#d1fae5', 'color' => '#065f46'],
-                                    'pending' => ['bg' => '#fef3c7', 'color' => '#92400e'],
-                                    'unpaid' => ['bg' => '#fef3c7', 'color' => '#92400e'],
-                                    'partial' => ['bg' => '#dbeafe', 'color' => '#1e40af'],
-                                ];
-                                $statusKey = strtolower($sale['statut']);
-                                $statusStyle = $statusColors[$statusKey] ?? ['bg' => '#e5e7eb', 'color' => '#374151'];
-                            @endphp
+                        <td colspan="2" style="text-align: right; padding-top: 4px;">
+                            <span style="color: #6b7280; font-weight: 600;">{{ __('pdf.status') }}{{ $isRtl ? '' : ':' }}</span>
                             <span style="background: {{$statusStyle['bg']}}; color: {{$statusStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{$sale['statut']}}</span>
-                        </td>
-                    </tr>
-                    <tr style="{{ $pdfT['show_status'] ? '' : 'display:none;' }}">
-                        <td style="text-align: right; color: #6b7280; font-weight: 600;">{{ __('pdf.payment') }}{{ $isRtl ? '' : ':' }}</td>
-                        <td style="text-align: right;">
-                            @php
-                                $paymentKey = strtolower($sale['payment_status']);
-                                $paymentStyle = $statusColors[$paymentKey] ?? ['bg' => '#e5e7eb', 'color' => '#374151'];
-                            @endphp
+                            &nbsp;&nbsp;
+                            <span style="color: #6b7280; font-weight: 600;">{{ __('pdf.payment') }}{{ $isRtl ? '' : ':' }}</span>
                             <span style="background: {{$paymentStyle['bg']}}; color: {{$paymentStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{$sale['payment_status']}}</span>
                         </td>
                     </tr>
+                    @endif
                 </table>
             </td>
         </tr>
@@ -165,10 +162,10 @@
             <td style="width: 48%; vertical-align: top;">
                 <div style="border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden; {{ $pdfT['show_customer'] ? '' : 'display:none;' }}">
                     <div style="background: {{ $pdfT['primary_color'] }}; padding: 5px 10px; border-bottom: 1px solid {{ $pdfT['secondary_color'] }}; text-align: {{ $isRtl ? 'right' : 'left' }};">
-                        <div style="color: #ffffff; font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">{{ __('pdf.bill_to') }}</div>
+                        {{-- Label + customer name in the same bar (saves a line for long item lists). --}}
+                        <div style="color: #ffffff; font-size: 10pt; font-weight: bold;"><span style="font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85;">{{ __('pdf.bill_to') }}{{ $isRtl ? '' : ':' }}</span> {{$sale['client_name']}}</div>
                     </div>
-                    <div style="padding: 8px 10px; background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }};">
-                        <div style="font-size: 10pt; font-weight: bold; color: {{ $pdfT['text_color'] }}; margin-bottom: 4px; text-align: {{ $isRtl ? 'right' : 'left' }};">{{$sale['client_name']}}</div>
+                    <div style="padding: 6px 10px; background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }};">
                         <table style="width: 100%; font-size: 7.5pt; color: #6b7280; line-height: 1.5;" cellpadding="0" cellspacing="0">
                             @if($isRtl)
                             {{-- RTL: value LEFT, label RIGHT (like summary) --}}
@@ -195,10 +192,10 @@
             <td style="width: 48%; vertical-align: top;">
                 <div style="border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden; {{ $pdfT['show_company'] ? '' : 'display:none;' }}">
                     <div style="background: {{ $pdfT['primary_color'] }}; padding: 5px 10px; border-bottom: 1px solid {{ $pdfT['secondary_color'] }}; text-align: {{ $isRtl ? 'right' : 'left' }};">
-                        <div style="color: #ffffff; font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">{{ __('pdf.from') }}</div>
+                        {{-- Label + company name in the same bar. --}}
+                        <div style="color: #ffffff; font-size: 10pt; font-weight: bold;"><span style="font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85;">{{ __('pdf.from') }}{{ $isRtl ? '' : ':' }}</span> {{$setting['CompanyName']}}</div>
                     </div>
-                    <div style="padding: 8px 10px; background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }};">
-                        <div style="font-size: 10pt; font-weight: bold; color: {{ $pdfT['text_color'] }}; margin-bottom: 4px; text-align: {{ $isRtl ? 'right' : 'left' }};">{{$setting['CompanyName']}}</div>
+                    <div style="padding: 6px 10px; background: {{ $pdfT['table_striped'] ? '#f9fafb' : '#ffffff' }};">
                         <table style="width: 100%; font-size: 7.5pt; color: #6b7280; line-height: 1.5;" cellpadding="0" cellspacing="0">
                             @if($isRtl)
                             {{-- RTL: value LEFT, label RIGHT (like summary) --}}

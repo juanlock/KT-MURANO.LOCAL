@@ -126,8 +126,12 @@ function onTableChange(pag) {
 async function approve(c) {
   saving.value = true;
   try {
-    await http.post(`store/pending-customers/${c.id}/approve`);
+    const resp = await http.post(`store/pending-customers/${c.id}/approve`);
     message.success(`${c.email} ${t('approved')}`);
+    // Approval completes the confirmation -> the customer's user is created
+    // (unless email verification is also required and still pending).
+    if (resp?.account_created) message.info(`${c.email}: customer account created`);
+    else if (!c.email_verified_at) message.info(`${c.email}: account will be created once the email is verified`, 5);
     await fetchCustomers(currentPage.value);
   } catch (e) {
     message.error(t('Failed'));
@@ -167,6 +171,7 @@ function approveAll() {
         const resp = await http.post('store/pending-customers/approve-all');
         const count = (resp && resp.approved_count) || 0;
         message.success(`${count} ${t('customers_approved')}`);
+        if (resp?.accounts_created) message.info(`${resp.accounts_created} customer account(s) created`);
         await fetchCustomers(1);
       } catch (e) {
         message.error(t('Failed'));

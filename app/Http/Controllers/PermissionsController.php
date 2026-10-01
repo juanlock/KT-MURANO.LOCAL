@@ -28,8 +28,12 @@ class PermissionsController extends BaseController
         $dir = $request->SortType;
         $helpers = new helpers;
 
-        $roles = Role::where('deleted_at', '=', null)
-            ->where('company_id', $companyId)
+        // A SuperAdmin working as AdminSystem (999) sees every company's roles
+        // (with their company); otherwise the acting company's only.
+        $allCompanies = $this->superAdminAllCompanies($request, $companyId);
+        $roles = Role::where('roles.deleted_at', '=', null)
+            ->when(! $allCompanies, fn ($q) => $q->where('roles.company_id', $companyId))
+            ->when($allCompanies && $request->filled('role_company_id'), fn ($q) => $q->where('roles.company_id', $request->role_company_id))
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
@@ -47,11 +51,37 @@ class PermissionsController extends BaseController
             ->orderBy($order, $dir)
             ->get();
 
+        if ($allCompanies) {
+            $names = \App\Models\Company::whereIn('id', $roles->pluck('company_id')->unique())->pluck('name', 'id');
+            $roles->each(function ($r) use ($names) {
+                $r->company_name = $names[$r->company_id] ?? ('#'.$r->company_id);
+            });
+        }
+
         return response()->json([
             'roles' => $roles,
             'totalRows' => $totalRows,
             'totalPermissions' => Permission::count(),
+            'all_companies' => $allCompanies,
+            'companies' => $allCompanies ? \App\Models\Company::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']) : [],
         ]);
+    }
+
+    // SuperAdmin acting as AdminSystem (template company 999): every company's roles.
+    private function superAdminAllCompanies(Request $request, $companyId): bool
+    {
+        return optional($request->user('api'))->type === 'SuperAdmin'
+            && (int) $companyId === (int) \App\Models\Setting::TEMPLATE_COMPANY_ID;
+    }
+
+    // A SuperAdmin may open / edit / delete any company's role; an Admin only their company's.
+    private function canTouchRole(Request $request, ?Role $role, $companyId): bool
+    {
+        if (! $role) {
+            return false;
+        }
+
+        return optional($request->user('api'))->type === 'SuperAdmin' || (int) $role->company_id === (int) $companyId;
     }
 
     // ----------- Store new Role --------------\\
@@ -119,10 +149,7 @@ class PermissionsController extends BaseController
         // A regular admin must never be able to update a different
         // company's role by tampering with the id in the URL.
         $companyId = $this->resolveActingCompanyId($request);
-        abort_unless(
-            optional(Role::where('deleted_at', null)->find($id))->company_id === $companyId,
-            404
-        );
+        abort_unless($this->canTouchRole($request, Role::where('deleted_at', null)->find($id), $companyId), 404);
 
         try {
             request()->validate([
@@ -131,7 +158,11 @@ class PermissionsController extends BaseController
 
             \DB::transaction(function () use ($request, $id) {
 
-                Role::whereId($id)->update($request['role']);
+                // Only name / description (never company_id or anything else in the payload).
+                Role::whereId($id)->update([
+                    'name' => $request['role']['name'],
+                    'description' => $request['role']['description'] ?? null,
+                ]);
 
                 $role = Role::findOrFail($id);
                 $role->permissions()->detach();
@@ -166,10 +197,7 @@ class PermissionsController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', Role::class);
         $companyId = $this->resolveActingCompanyId($request);
-        abort_unless(
-            optional(Role::where('deleted_at', null)->find($id))->company_id === $companyId,
-            404
-        );
+        abort_unless($this->canTouchRole($request, Role::where('deleted_at', null)->find($id), $companyId), 404);
 
         Role::whereId($id)->update([
             'deleted_at' => Carbon::now(),
@@ -190,7 +218,7 @@ class PermissionsController extends BaseController
         // Scoped to the acting company -- a tampered id list can't reach
         // another company's roles.
         Role::whereIn('id', $selectedIds)
-            ->where('company_id', $companyId)
+            ->when(optional($request->user('api'))->type !== 'SuperAdmin', fn ($q) => $q->where('company_id', $companyId))
             ->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
@@ -218,13 +246,17 @@ class PermissionsController extends BaseController
         // Owner is the one un-editable role, in every company (previously a
         // hardcoded id=1 check -- wrong once every company has its own
         // Owner row with a different id).
-        abort_if($Role->name === 'Owner', 401);
+        $isSuperAdmin = optional($request->user('api'))->type === 'SuperAdmin';
+        abort_if($Role->name === 'Owner' && ! $isSuperAdmin, 401);
         // A regular admin must never be able to open a different company's
-        // role for editing by guessing/tampering with the id in the URL.
-        abort_unless($Role->company_id === $companyId, 404);
+        // role for editing by guessing/tampering with the id in the URL;
+        // a SuperAdmin may open any company's.
+        abort_unless($this->canTouchRole($request, $Role, $companyId), 404);
 
         $item['name'] = $Role->name;
         $item['description'] = $Role->description;
+        $item['company_id'] = $Role->company_id;
+        $item['company_name'] = optional(\App\Models\Company::find($Role->company_id))->name;
         $data = [];
         foreach ($Role->permissions as $permission) {
             $data[] = $permission->name;

@@ -80,6 +80,11 @@ export const PERMISSION_GROUPS = [
                 "l": "Del"
             },
             {
+                "v": "vehicle_fitment",
+                "l": "Vehicle Fitment",
+                "f": "Vehicle Fitment catalog (makes / models)"
+            },
+            {
                 "v": "barcode_view",
                 "l": "Barcode"
             },
@@ -343,6 +348,10 @@ export const PERMISSION_GROUPS = [
                 "l": "Add"
             },
             {
+                "v": "sales_import",
+                "l": "Import_Sales"
+            },
+            {
                 "v": "Sales_edit",
                 "l": "Edit"
             },
@@ -456,6 +465,10 @@ export const PERMISSION_GROUPS = [
             {
                 "v": "Purchases_add",
                 "l": "Add"
+            },
+            {
+                "v": "purchases_import",
+                "l": "Import_Purchases"
             },
             {
                 "v": "Purchases_edit",

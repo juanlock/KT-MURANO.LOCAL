@@ -337,6 +337,8 @@ class SettingsController extends Controller
             // Default -- Sales: show/hide the SMS and WhatsApp row-action
             // icons on the Sales list (default on).
             'sale_sms_enabled' => $this->settingFlag($request, $setting, 'sale_sms_enabled'),
+            // Defaults -> POS: lock the POS until a cash register is open.
+            'pos_require_open_register' => $this->settingFlag($request, $setting, 'pos_require_open_register'),
             'sale_whatsapp_enabled' => $this->settingFlag($request, $setting, 'sale_whatsapp_enabled'),
             // Default -- Booking: show/hide optional fields on the Booking
             // Create/Edit form (default on)
@@ -368,6 +370,20 @@ class SettingsController extends Controller
             'booking_form_logo_width' => $request->filled('booking_form_logo_width')
                 ? max(40, min(400, (int) $request['booking_form_logo_width']))
                 : ($setting->booking_form_logo_width ?? 160),
+            // Defaults -> Booking: new booking starts with this location /
+            // customer / station; sales person = the signed-in user (switch).
+            'booking_default_warehouse_id' => $request->has('booking_default_warehouse_id')
+                ? ($request->filled('booking_default_warehouse_id') ? (int) $request['booking_default_warehouse_id'] : null)
+                : $setting->booking_default_warehouse_id,
+            'booking_default_client_id' => $request->has('booking_default_client_id')
+                ? ($request->filled('booking_default_client_id') ? (int) $request['booking_default_client_id'] : null)
+                : $setting->booking_default_client_id,
+            'booking_default_tray_id' => $request->has('booking_default_tray_id')
+                ? ($request->filled('booking_default_tray_id') ? (int) $request['booking_default_tray_id'] : null)
+                : $setting->booking_default_tray_id,
+            'booking_default_sales_person_self' => $request->has('booking_default_sales_person_self')
+                ? $this->settingFlag($request, $setting, 'booking_default_sales_person_self')
+                : (int) ($setting->booking_default_sales_person_self ?? 1),
             // Default -- Customers: optional customer features; off hides all
             // UI tied to them (form fields, columns, stats, POS/sale widgets)
             'customer_loyalty_enabled' => $request->has('customer_loyalty_enabled')
@@ -613,6 +629,12 @@ class SettingsController extends Controller
             // (update_pos_settings already persists it back to `settings`).
             'invoice_format' => $settings && in_array($settings->invoice_format, ['thermal', 'a4'], true)
                 ? $settings->invoice_format : 'thermal',
+            // Company-level POS rules shown on the POS Settings page (they live
+            // on the settings row; update_pos_settings saves them back).
+            'enable_3_decimal_pricing' => (bool) ($settings->enable_3_decimal_pricing ?? false),
+            'pos_require_open_register' => (bool) ($settings->pos_require_open_register ?? true),
+            'pos_register_pin_required' => (bool) ($settings->pos_register_pin_required ?? false),
+            'pos_close_register_email' => (bool) ($settings->pos_close_register_email ?? true),
         ], 200);
 
     }
@@ -648,6 +670,24 @@ class SettingsController extends Controller
                 }
 
                 $settings->invoice_format = $invoice_format;
+                $settings->save();
+            }
+        }
+
+        // Company-level POS rules edited on the POS Settings page (settings
+        // row): price decimals (2/3) and "Require an open register".
+        $ruleKeys = ['enable_3_decimal_pricing', 'pos_require_open_register', 'pos_register_pin_required', 'pos_close_register_email'];
+        if ($request->hasAny($ruleKeys)) {
+            $settings = Setting::forCompany($this->resolveActingCompanyId($request));
+            if ($settings) {
+                if ($request->has('enable_3_decimal_pricing')) {
+                    $settings->enable_3_decimal_pricing = filter_var($request->input('enable_3_decimal_pricing'), FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+                }
+                foreach (['pos_require_open_register', 'pos_register_pin_required', 'pos_close_register_email'] as $k) {
+                    if ($request->has($k)) {
+                        $settings->{$k} = filter_var($request->input($k), FILTER_VALIDATE_BOOLEAN);
+                    }
+                }
                 $settings->save();
             }
         }
@@ -898,6 +938,11 @@ class SettingsController extends Controller
 
         if ($request->has('show_brands')) {
             $data['show_brands'] = ($request['show_brands'] == '1' || $request['show_brands'] == 'true' || $request['show_brands'] === true) ? 1 : 0;
+        }
+
+        // POS toolbar customer selector (off = sales use the default customer)
+        if ($request->has('show_customer_filter')) {
+            $data['show_customer_filter'] = filter_var($request['show_customer_filter'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
         }
 
         // Blue POS button in the admin top header (default ON)
@@ -1168,6 +1213,10 @@ class SettingsController extends Controller
             $item['booking_slot_minutes'] = (int) ($settings->booking_slot_minutes ?: 30);
             $item['booking_closed_days'] = (string) ($settings->booking_closed_days ?? '');
             $item['booking_capacity'] = (int) ($settings->booking_capacity ?: 1);
+            $item['booking_default_warehouse_id'] = $settings->booking_default_warehouse_id ? (int) $settings->booking_default_warehouse_id : null;
+            $item['booking_default_client_id'] = $settings->booking_default_client_id ? (int) $settings->booking_default_client_id : null;
+            $item['booking_default_tray_id'] = $settings->booking_default_tray_id ? (int) $settings->booking_default_tray_id : null;
+            $item['booking_default_sales_person_self'] = (bool) ($settings->booking_default_sales_person_self ?? true);
             $item['booking_form_logo_url'] = ($settings->booking_form_logo && file_exists(public_path($settings->booking_form_logo))) ? asset($settings->booking_form_logo).'?v='.filemtime(public_path($settings->booking_form_logo)) : null;
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
@@ -1331,6 +1380,8 @@ class SettingsController extends Controller
                 'currencies' => $Currencies,
                 'clients' => $clients,
                 'warehouses' => $warehouses,
+                // Defaults -> Booking: default station picker
+                'trays' => \App\Models\Tray::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
                 'sms_gateway' => $sms_gateway,
                 'accounts' => $accounts,
                 'payment_methods' => $payment_methods,
@@ -1973,6 +2024,10 @@ class SettingsController extends Controller
             $item['booking_slot_minutes'] = (int) ($settings->booking_slot_minutes ?: 30);
             $item['booking_closed_days'] = (string) ($settings->booking_closed_days ?? '');
             $item['booking_capacity'] = (int) ($settings->booking_capacity ?: 1);
+            $item['booking_default_warehouse_id'] = $settings->booking_default_warehouse_id ? (int) $settings->booking_default_warehouse_id : null;
+            $item['booking_default_client_id'] = $settings->booking_default_client_id ? (int) $settings->booking_default_client_id : null;
+            $item['booking_default_tray_id'] = $settings->booking_default_tray_id ? (int) $settings->booking_default_tray_id : null;
+            $item['booking_default_sales_person_self'] = (bool) ($settings->booking_default_sales_person_self ?? true);
             $item['booking_form_logo_url'] = ($settings->booking_form_logo && file_exists(public_path($settings->booking_form_logo))) ? asset($settings->booking_form_logo).'?v='.filemtime(public_path($settings->booking_form_logo)) : null;
             $item['sale_pdf_show_disc_column'] = (bool) ($settings->sale_pdf_show_disc_column ?? true);
             $item['sale_pdf_show_tax_column'] = (bool) ($settings->sale_pdf_show_tax_column ?? true);
@@ -2133,6 +2188,8 @@ class SettingsController extends Controller
                 'currencies' => $Currencies,
                 'clients' => $clients,
                 'warehouses' => $warehouses,
+                // Defaults -> Booking: default station picker
+                'trays' => \App\Models\Tray::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
                 'sms_gateway' => $sms_gateway,
                 'zones_array' => $zones_array,
                 'languages' => $languages,

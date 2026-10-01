@@ -1,8 +1,21 @@
 ---
-description: "Protocol Preparate -- reload the standing project rules (roles/multicompany, billing vs murano, migration scope) from CLAUDE.md, read the kt_logs history of every change request made to this project, then close out with an HTML status card for the last 2 requests, saved into the repo. Also triggers on \"Claude/Jarvis, run protocolo preparate\" / \"protocolo preparate\"."
+description: "Protocol Preparate -- sync this PC to the latest version (git pull, install/migrate only if needed, npm run build), reload the standing project rules (roles/multicompany, billing vs murano, migration scope) from CLAUDE.md, read the kt_logs history of every change request made to this project, then close out with an HTML status card for the last 2 requests, saved into the repo. Also triggers on \"Claude/Jarvis, run protocolo preparate\" / \"protocolo preparate\"."
 ---
 
 Run Protocol Preparate:
+
+0. **Sync this PC to the latest version** -- first, so every later step (including re-reading `CLAUDE.md`) works on the newest code. Stop and report if any sub-step fails; never skip ahead silently.
+   - **Find git:** `git` on PATH, else GitHub Desktop's bundled one -- the newest `%LOCALAPPDATA%\GitHubDesktop\app-*\resources\app\git\cmd\git.exe`.
+   - **Check the working tree first:** `git status --short`. If there are uncommitted changes (other than generated/ignored output), list them and ask before pulling -- they may be unpushed work from this machine. Never stash, reset or discard anything on your own.
+   - **Pull:** note the current commit (`git rev-parse HEAD`), then `git pull --no-rebase origin <current branch>`. If it fails only because this session has no GitHub credentials ("could not read Username"), fall back to `git merge --ff-only origin/<branch>` -- that uses whatever GitHub Desktop last fetched -- and tell the user when that fetch happened (`.git/FETCH_HEAD` time) and to click **Fetch origin** in GitHub Desktop if it looks stale. Real merge conflicts: stop and ask. Never force anything.
+   - **Report what came in:** `git log --oneline <old>..HEAD` and `git diff --stat <old> HEAD` (or "already up to date").
+   - **Only what the incoming changes need:**
+     - `composer.lock` changed -> `composer install`.
+     - `package-lock.json` changed, or `node_modules` is missing/incomplete (e.g. no `node_modules/vite/bin/vite.js`) -> `npm ci`. If it fails with EPERM on a `.node` file, a stale `vite build --watch` / `npm run dev` process is holding it: find it (`Get-CimInstance Win32_Process -Filter "name='node.exe'"`), say which one you're stopping, stop it, retry.
+     - New files under `database/migrations/` -> `php artisan migrate --force` (local `dbmurano`; list the migrations that ran).
+   - **Clear caches:** `php artisan optimize:clear` (drops any stale cached config/routes/views -- e.g. a `bootstrap/cache/config.php` that came from another machine).
+   - **Build the frontend -- always, even when nothing new was pulled** (`public/js` is gitignored, so each PC must build its own): `npm run build` (cleans `public/js`, then builds admin + customer display + portal + storefront; takes a few minutes -- use a long timeout). Report success or the error.
+   - Confirm out loud, briefly: commits pulled (or up to date), what was installed/migrated, build result.
 
 1. **Reload the standing context.** Re-read `CLAUDE.md` in the repo root (sections: Protocol "preparate", Roles & Multicompany Model, Systems, Migration Approach, Session Protocols, Hard Rules). This file is git-tracked, so it's identical on every machine this checkout runs on -- that's what makes this protocol portable across computers. Confirm out loud, briefly, that these rules are active for the rest of the session:
    - SuperAdmin = unrestricted, sees a company dropdown on scoped forms. AdminKT/AdminRG (Admin type) = locked to their own `company_id`, no selector.
@@ -21,10 +34,10 @@ Run Protocol Preparate:
 
 4. **Close out with an HTML status card (like Memorex, but scoped to just the last 2 requests).** Run `database/scripts/protocol_preparate_report.php` via tinker, using the file's **absolute path** (a bare relative `require` inside `php artisan tinker --execute="..."` fails with "Failed opening required" -- psysh's RequirePass doesn't resolve it against the project root). Example (adjust the drive/path to wherever this checkout actually lives on this machine):
    `php artisan tinker --execute="require '<absolute-path-to-repo>\database\scripts\protocol_preparate_report.php';"`
-   It reads the 2 most recent `kt_logs` rows and writes a compact HTML page -- one status card per request -- to **`.claude/report/kt_murano_preparate_report.html`** (inside the repo, not a temp dir; the directory is created if missing). Each card shows: **Status** (color-coded badge -- Completed/In Progress/Blocked), **Request** (the `summary`), **Source** (user, location, date/time), **Category**, **Company**, **Changes Made**, and **Actions**.
+   It reads the 2 most recent `kt_logs` rows and writes a compact HTML page -- one status card per request -- to **`KT-TOOLS/Report/kt_murano_preparate_<YYYY-MM-DD>.html`** (the directory is created if missing). Each card shows: **Status** (color-coded badge -- Completed/In Progress/Blocked), **Request** (the `summary`), **Source** (user, location, date/time), **Category**, **Company**, **Changes Made**, and **Actions**.
    Open it: in Windows PowerShell run `Start-Process "<path>"` (**not** `start "" "<path>"` -- that's cmd.exe syntax and fails under PowerShell's `start` alias for `Start-Process`, which parses `""` as an empty `-FilePath`) so it opens in the default browser. Report the path either way in case auto-open doesn't work in this environment.
-   `.claude/report/` is gitignored (generated output, regenerated every run) -- don't commit it.
+   **Reports are kept and shared (user's rule, 2026-09-30):** every protocol report goes to `KT-TOOLS/Report/`, which is git-tracked -- A Dormir commits it, so every programmer/machine gets them. One file per day per report: re-running the same report the same day overwrites that day's file; older days stay. Ad-hoc "report for the last N requests" = `$reportLimit = N` -> `kt_murano_last<N>_<date>.html`; a whole day = `$reportDate = 'YYYY-MM-DD'` -> `kt_murano_daily_<date>.html` (see the script header). Never write protocol reports to `.claude/report/` or a temp dir again.
 
-Why this exists: the user (jlock) works across 3 machines and wants a single phrase that both re-asserts the project's standing rules (so behavior stays consistent regardless of which machine/session) and gives a quick visual confirmation of what just happened and whether it's actually done.
+Why this exists: the user (jlock) works across 3 machines and wants a single phrase that first brings the current PC up to the latest pushed version (code, dependencies, database schema, built frontend), then re-asserts the project's standing rules (so behavior stays consistent regardless of which machine/session) and gives a quick visual confirmation of what just happened and whether it's actually done.
 
 See CLAUDE.md protocol "preparate" for the full rule set this reloads, and `.claude/commands/kelsy.md` / `memorex.md` for the logging/reporting mechanics this builds on.

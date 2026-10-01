@@ -9,9 +9,23 @@
       </template>
     </PageHeader>
 
+    <!-- SuperAdmin as AdminSystem: every company's roles, filterable by company. -->
+    <a-card v-if="allCompanies" size="small" style="margin-bottom: 12px">
+      <a-space wrap>
+        <span style="opacity: 0.7">Roles of every company. Company:</span>
+        <a-select
+          v-model:value="roleCompanyId" allow-clear show-search option-filter-prop="label"
+          style="width: 260px" :placeholder="$t('All')" :options="companyOptions" @change="crud.reload()"
+        />
+      </a-space>
+    </a-card>
+
     <DataTable :crud="crud" :columns="columns">
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'permissions_count'">
+        <template v-if="column.key === 'company_name'">
+          <a-tag color="purple">{{ record.company_name }}</a-tag>
+        </template>
+        <template v-else-if="column.key === 'permissions_count'">
           <div class="perm-count">
             <a-progress
               :percent="totalPermissions ? Math.round(((record.permissions_count || 0) / totalPermissions) * 100) : 0"
@@ -26,6 +40,13 @@
             <a-button v-if="auth.can('permissions_edit')" size="small" @click="$router.push(`/permissions/${record.id}/edit`)">
               <template #icon><EditOutlined /></template>
             </a-button>
+            <!-- Duplicate: new role pre-filled with this one's permissions
+                 (Owner can't be opened, so it can't be copied either). -->
+            <a-tooltip v-if="auth.can('permissions_add') && auth.can('permissions_edit') && record.name !== 'Owner'" :title="$t('Duplicate')">
+              <a-button size="small" @click="$router.push({ path: '/permissions/create', query: { copy: record.id } })">
+                <template #icon><CopyOutlined style="color: #722ed1" /></template>
+              </a-button>
+            </a-tooltip>
             <a-button v-if="auth.can('permissions_delete')" size="small" danger @click="crud.remove(record)">
               <template #icon><DeleteOutlined /></template>
             </a-button>
@@ -43,9 +64,10 @@
  * totalRows}; DELETE roles/{id}. Role id 1 is the built-in superadmin and
  * shows no actions (legacy row guard).
  */
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { sortByLabel } from '../../lib/filterOptions';
 import { useI18n } from 'vue-i18n';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
@@ -54,12 +76,17 @@ import { useAuthStore } from '../../stores/auth';
 const { t } = useI18n();
 const auth = useAuthStore();
 
-const crud = useCrudTable('roles', { rowsKey: 'roles' });
+// SuperAdmin working as AdminSystem gets every company's roles (all_companies).
+const roleCompanyId = ref(undefined);
+const crud = useCrudTable('roles', { rowsKey: 'roles', params: () => ({ role_company_id: roleCompanyId.value || '' }) });
+const allCompanies = computed(() => !!crud.payload.value?.all_companies);
+const companyOptions = computed(() => sortByLabel((crud.payload.value?.companies || []).map(c => ({ value: c.id, label: c.name }))));
 
 // Total number of permissions in the system, shipped alongside the rows.
 const totalPermissions = computed(() => Number(crud.payload.value?.totalPermissions) || 0);
 
 const columns = computed(() => [
+  ...(allCompanies.value ? [{ title: t('Company') || 'Company', dataIndex: 'company_name', key: 'company_name', width: 200 }] : []),
   { title: t('RoleName'), dataIndex: 'name', key: 'name', sorter: true },
   { title: t('Description'), dataIndex: 'description', key: 'description' },
   {

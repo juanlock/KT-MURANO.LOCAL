@@ -47,10 +47,10 @@
                       autocomplete="off"
                     />
                   </a-form-item>
-                  <a-form-item label="Stock warehouse">
+                  <a-form-item label="Stock location">
                     <a-select
                       v-model:value="form.warehouse_id"
-                      :options="[{ value: null, label: 'All warehouses (aggregate)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
+                      :options="[{ value: null, label: 'All locations (aggregate)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
                     />
                   </a-form-item>
                   <a-space align="center" style="margin-bottom: 16px">
@@ -152,7 +152,7 @@
           <a-card size="small" title="Push stock levels to Salla" style="margin-bottom: 16px">
             <p class="muted">
               Sends current quantities for every linked product (by SKU) and linked variant.
-              {{ state.warehouse_id ? 'Counting stock from the selected warehouse only.' : 'Counting stock across all warehouses.' }}
+              {{ state.warehouse_id ? 'Counting stock from the selected location only.' : 'Counting stock across all locations.' }}
             </p>
             <a-space>
               <a-button type="primary" :disabled="sync.running.value" @click="runSync('salla/sync/inventory', {}, 'push')">
@@ -173,10 +173,10 @@
               Use this pull to backfill orders placed before the webhook was set up — already-imported orders are skipped.
             </p>
             <a-form layout="inline" style="margin-bottom: 12px">
-              <a-form-item label="Import into warehouse">
+              <a-form-item label="Import into location">
                 <a-select
                   v-model:value="ordersWarehouseId" style="min-width: 220px"
-                  :options="[{ value: null, label: 'Default (settings / first warehouse)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
+                  :options="[{ value: null, label: 'Default (settings / first location)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
                 />
               </a-form-item>
             </a-form>

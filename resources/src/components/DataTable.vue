@@ -164,6 +164,7 @@ import { useDatatableStore } from '../stores/datatable';
 import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
 import http from '../lib/http';
+import { getUserPref, setUserPref } from '../lib/userPrefs';
 
 const props = defineProps({
   crud: { type: Object, required: true },
@@ -215,19 +216,33 @@ const stripedClass = (_record, index) => (index % 2 === 1 ? 'dt-row-striped' : '
 /* ------------------------------------------------ column visibility */
 const colKey = c => c.key ?? c.dataIndex;
 
-// Persisted per page (route name/path) so hide/unhide choices survive a
-// reload or a later visit, not just the current session.
+// Persisted per page (route name/path) on the user's account (server, see
+// lib/userPrefs.js) so hide/unhide choices follow the user to any PC/browser
+// and survive logout; localStorage is only a fallback/offline copy.
 const route = useRoute();
 const hiddenColsStorageKey = `dt_hidden_columns_${String(route.name || route.path)}`;
 
-function readStoredHiddenKeys() {
+function readLocalHiddenKeys() {
   try {
     const raw = window.localStorage.getItem(hiddenColsStorageKey);
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed;
     }
-  } catch (e) { /* storage unavailable / corrupt value -- fall back to defaults */ }
+  } catch (e) { /* storage unavailable / corrupt value */ }
+  return null;
+}
+
+function readStoredHiddenKeys() {
+  const server = getUserPref(hiddenColsStorageKey);
+  if (Array.isArray(server)) return server;
+  // A choice made before this was saved on the account: keep it and move it
+  // to the account, so it isn't lost on the next PC/browser.
+  const local = readLocalHiddenKeys();
+  if (local) {
+    setUserPref(hiddenColsStorageKey, local);
+    return local;
+  }
   // Columns flagged `defaultHidden: true` start unchecked in the picker.
   return props.columns.filter(c => c.defaultHidden).map(colKey);
 }
@@ -333,9 +348,10 @@ function resetCustomize() {
 }
 
 function persistHiddenKeys() {
+  setUserPref(hiddenColsStorageKey, [...hiddenKeys.value]);
   try {
     window.localStorage.setItem(hiddenColsStorageKey, JSON.stringify(hiddenKeys.value));
-  } catch (e) { /* storage unavailable (private mode, quota) -- stays session-only */ }
+  } catch (e) { /* storage unavailable (private mode, quota) -- the account copy still holds it */ }
 }
 
 // The actions column stays out of the picker — hiding it strands the row menu.
@@ -385,6 +401,7 @@ function toggleColumn(key) {
 // flags, and forgets the persisted override entirely (not just this session).
 function resetHiddenColumns() {
   hiddenKeys.value = props.columns.filter(c => c.defaultHidden).map(colKey);
+  setUserPref(hiddenColsStorageKey, null);
   try {
     window.localStorage.removeItem(hiddenColsStorageKey);
   } catch (e) { /* storage unavailable */ }

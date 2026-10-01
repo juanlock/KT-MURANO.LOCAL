@@ -59,7 +59,9 @@ class Setting extends Model
         'enable_multi_pack_selling', 'allow_overselling', 'sidebar_menu_order',
         'enable_pos_salesperson_switch', 'session_timeout_minutes', 'enable_multi_currency',
         'enable_wholesale_pricing', 'sale_show_price_type_dropdown', 'sale_default_quantity',
-        'sale_loyalty_points_enabled', 'sale_shipping_enabled', 'sale_sms_enabled', 'sale_whatsapp_enabled',
+        'sale_loyalty_points_enabled', 'sale_shipping_enabled', 'sale_sms_enabled', 'sale_whatsapp_enabled', 'pos_require_open_register',
+        // POS Settings -> Company rules: PIN to open a register; email the admins on close
+        'pos_register_pin_required', 'pos_close_register_email',
         // Defaults -> Customers: optional customer features (hide all UI when off)
         'customer_loyalty_enabled', 'customer_credit_limit_enabled', 'customer_opening_balance_enabled',
         // Defaults -> Product: auto-generated product Code (<prefix><next number>)
@@ -71,6 +73,8 @@ class Setting extends Model
         'booking_form_logo_enabled', 'booking_form_logo', 'booking_form_logo_width',
         'booking_open_time', 'booking_close_time', 'booking_slot_minutes', 'booking_closed_days',
         'booking_capacity',
+        // Defaults -> Booking: what a new booking starts with
+        'booking_default_warehouse_id', 'booking_default_client_id', 'booking_default_tray_id', 'booking_default_sales_person_self',
         // System Settings -> DataTable: company-wide table format + per-table
         // column customization (JSON)
         'datatable_settings', 'datatable_columns', 'datatable_filters',
@@ -80,7 +84,7 @@ class Setting extends Model
         'sale_pdf_show_disc_column', 'sale_pdf_show_tax_column', 'sale_pdf_show_shipping_row',
         'sale_pdf_show_discount_row', 'sale_pdf_show_previous_dues',
         'sale_pdf_show_company_note', 'sale_pdf_company_note',
-        'sale_pdf_show_terms_conditions', 'sale_pdf_terms_conditions',
+        'sale_pdf_show_terms_conditions', 'sale_pdf_terms_conditions', 'sale_pdf_hide_time',
         'vehicle_fitment_enabled', 'module_flags', 'barcode_label_settings', 'export_settings',
         'auto_journal_enabled', 'product_image_resize', 'product_image_max_size',
         // Installable app (PWA) identity — see PwaManifestController
@@ -123,6 +127,9 @@ class Setting extends Model
         'sale_loyalty_points_enabled' => 'boolean',
         'sale_shipping_enabled' => 'boolean',
         'sale_sms_enabled' => 'boolean',
+        'pos_require_open_register' => 'boolean',
+        'pos_register_pin_required' => 'boolean',
+        'pos_close_register_email' => 'boolean',
         'sale_whatsapp_enabled' => 'boolean',
         'customer_loyalty_enabled' => 'boolean',
         'customer_credit_limit_enabled' => 'boolean',

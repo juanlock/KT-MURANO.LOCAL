@@ -32,7 +32,7 @@
               <template v-else>{{ tf('No_Dead_Stock', 'No dead stock in this period.') }}</template>
             </div>
             <a-typography-text v-if="hasDeadStock && !crud.loading.value" type="secondary">
-              {{ fmt(summary.products) }} {{ $t('Products') }}
+              {{ fmt(summary.products) }} {{ $t('Products_Only') }}
               · {{ fmt(summary.units) }} {{ tf('Units_On_Hand', 'units on hand') }}
               · {{ fmt(summary.never_moved) }} {{ tf('Never_Moved', 'never moved') }}
             </a-typography-text>
@@ -63,7 +63,7 @@
                 <div class="cat-text">
                   <a-typography-text strong class="cat-name">{{ c.name }}</a-typography-text>
                   <a-typography-text type="secondary" class="cat-sub">
-                    {{ fmt(c.count) }} {{ $t('Products') }}
+                    {{ fmt(c.count) }} {{ $t('Products_Only') }}
                   </a-typography-text>
                 </div>
                 <div class="cat-meter">
@@ -227,7 +227,7 @@ function shareOf(c) {
 /* ----------------------------------------------------------------- table */
 const columns = computed(() => [
   { title: t('Code'), dataIndex: 'code', key: 'code', sorter: true },
-  { title: t('Product'), dataIndex: 'product_name', key: 'product_name', sorter: true },
+  { title: t('Product_Only'), dataIndex: 'product_name', key: 'product_name', sorter: true },
   { title: t('OnHand'), dataIndex: 'on_hand', key: 'on_hand', sorter: true, align: 'right', sum: true },
   {
     title: t('LastMovement'),

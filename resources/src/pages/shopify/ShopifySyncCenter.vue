@@ -222,7 +222,7 @@ const blockers = computed(() => {
   if (!s) return [];
   const out = [];
   if (s.status !== 'connected') out.push('The connection has not been verified — test it from the store page.');
-  if (!s.warehouse_id) out.push('No ERP warehouse is set, so stock and orders have nowhere to go.');
+  if (!s.warehouse_id) out.push('No ERP location is set, so stock and orders have nowhere to go.');
   if (!s.location_id) out.push('No Shopify location is set, so inventory cannot be matched.');
   return out;
 });

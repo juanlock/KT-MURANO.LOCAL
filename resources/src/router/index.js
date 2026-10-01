@@ -92,6 +92,7 @@ const ProfitAndLossReport = lazy('ProfitAndLossReport', () => import('../pages/r
 const ProfitReport = lazy('ProfitReport', () => import('../pages/reports/profit/ProfitReport.vue'));
 const AnalyticsReport = lazy('AnalyticsReport', () => import('../pages/reports/AnalyticsReport.vue'));
 const Sales = lazy('Sales', () => import('../pages/sales/Sales.vue'));
+const PosSales = lazy('PosSales', () => import('../pages/pos/PosSales.vue'));
 const SaleDetails = lazy('SaleDetails', () => import('../pages/sales/SaleDetails.vue'));
 const SaleForm = lazy('SaleForm', () => import('../pages/sales/SaleForm.vue'));
 const Purchases = lazy('Purchases', () => import('../pages/purchases/Purchases.vue'));
@@ -134,7 +135,6 @@ const CustomersWithLogin = lazy('CustomersWithLogin', () => import('../pages/peo
 const LoyaltyRewards = lazy('LoyaltyRewards', () => import('../pages/loyalty/LoyaltyRewards.vue'));
 const RealTimeSalesCounter = lazy('RealTimeSalesCounter', () => import('../pages/RealTimeSalesCounter.vue'));
 const CustomerDisplaySetup = lazy('CustomerDisplaySetup', () => import('../pages/CustomerDisplaySetup.vue'));
-const PosReceipt = lazy('PosReceipt', () => import('../pages/settings/PosReceipt.vue'));
 const ModuleSettings = lazy('ModuleSettings', () => import('../pages/settings/ModuleSettings.vue'));
 const Modules = lazy('Modules', () => import('../pages/settings/Modules.vue'));
 const UpdateSettings = lazy('UpdateSettings', () => import('../pages/settings/UpdateSettings.vue'));
@@ -422,10 +422,10 @@ const routes = [
             { path: 'units', name: 'units', component: Units, meta: { title: 'Units', permission: 'unit' } },
             { path: 'size-guides', name: 'size-guides', component: SizeGuides, meta: { title: 'Size Guides', permission: 'size_guides' } },
             { path: 'currencies', name: 'currencies', component: Currencies, meta: { title: 'Currencies', permission: 'currency' } },
-            { path: 'warehouses', name: 'warehouses', component: Warehouses, meta: { title: 'Warehouses', permission: 'warehouse' } },
+            { path: 'warehouses', name: 'warehouses', component: Warehouses, meta: { title: 'Locations', permission: 'warehouse' } },
             // Reports
             { path: 'reports/dead-stock', name: 'dead-stock-report', component: DeadStockReport, meta: { title: 'Dead Stock Report', permission: 'Dead_Stock_Report' } },
-            { path: 'reports/zero-sales', name: 'zero-sales-report', component: ZeroSalesReport, meta: { title: 'Zero Sales Products', permission: 'zeroSalesProducts' } },
+            { path: 'reports/zero-sales', name: 'zero-sales-report', component: ZeroSalesReport, meta: { title: 'Zero Sales Products & Services', permission: 'zeroSalesProducts' } },
             { path: 'reports/negative-stock', name: 'negative-stock-report', component: NegativeStockReport, meta: { title: 'Negative Stock', permission: 'negative_stock_report' } },
             { path: 'reports/expiry', name: 'expiry-report', component: ExpiryReport, meta: { title: 'Expiry Report', permission: 'expiry_report' } },
             { path: 'reports/discount-summary', name: 'discount-summary-report', component: DiscountSummaryReport, meta: { title: 'Discount Summary', permission: 'discount_summary_report' } },
@@ -456,7 +456,7 @@ const routes = [
             { path: 'reports/users', name: 'users-report', component: UsersReport, meta: { title: 'Users Report', permission: 'users_report' } },
             { path: 'reports/login-activity', name: 'login-activity-report', component: LoginActivityReport, meta: { title: 'Login Activity', permission: 'report_device_management' } },
             { path: 'reports/error-logs', name: 'error-logs-report', component: ErrorLogsReport, meta: { title: 'Error Logs', permission: 'report_error_logs' } },
-            { path: 'reports/top-selling-products', name: 'top-selling-products-report', component: TopSellingProductsReport, meta: { title: 'Top Selling Products', permission: 'Top_products' } },
+            { path: 'reports/top-selling-products', name: 'top-selling-products-report', component: TopSellingProductsReport, meta: { title: 'Top Selling Products & Services', permission: 'Top_products' } },
             { path: 'reports/top-customers', name: 'top-customers-report', component: TopCustomersReport, meta: { title: 'Top Customers', permission: 'Top_customers' } },
             { path: 'reports/expenses', name: 'expenses-report', component: ExpensesReport, meta: { title: 'Expenses Report', permission: 'expenses_report' } },
             { path: 'reports/deposits', name: 'deposits-report', component: DepositsReport, meta: { title: 'Deposits Report', permission: 'deposits_report' } },
@@ -464,15 +464,15 @@ const routes = [
             { path: 'reports/purchases', name: 'purchases-report', component: PurchasesReport, meta: { title: 'Purchases Report', permission: 'Reports_purchase' } },
             { path: 'reports/quantity-alerts', name: 'quantity-alerts-report', component: QuantityAlertsReport, meta: { title: 'Quantity Alerts', permission: 'Reports_quantity_alerts' } },
             { path: 'reports/stock', name: 'stock-report', component: StockReport, meta: { title: 'Stock Report', permission: 'stock_report' } },
-            { path: 'reports/product', name: 'product-report', component: ProductReport, meta: { title: 'Product Report', permission: 'product_report' } },
+            { path: 'reports/product', name: 'product-report', component: ProductReport, meta: { title: 'Products & Services Report', permission: 'product_report' } },
             { path: 'reports/customers/:id(\\d+)', name: 'customer-detail-report', component: CustomerDetailReport, meta: { title: 'Customer Report', permission: 'Reports_customers' } },
             { path: 'reports/suppliers/:id(\\d+)', name: 'supplier-detail-report', component: SupplierDetailReport, meta: { title: 'Supplier Report', permission: 'Reports_suppliers' } },
-            { path: 'reports/product/:id(\\d+)', name: 'product-detail-report', component: ProductDetailReport, meta: { title: 'Product Report', permission: 'product_report' } },
+            { path: 'reports/product/:id(\\d+)', name: 'product-detail-report', component: ProductDetailReport, meta: { title: 'Products & Services Report', permission: 'product_report' } },
             { path: 'reports/stock/:id(\\d+)', name: 'stock-detail-report', component: StockDetailReport, meta: { title: 'Stock Report', permission: 'stock_report' } },
             { path: 'reports/users/:id(\\d+)', name: 'user-detail-report', component: UserDetailReport, meta: { title: 'User Report', permission: 'users_report' } },
             { path: 'reports/batch-history/:id(\\d+)', name: 'batch-history-report', component: BatchHistoryReport, meta: { title: 'Batch History', permission: 'Batch_Register_Report' } },
-            { path: 'reports/product-sales', name: 'product-sales-report', component: ProductSalesReport, meta: { title: 'Product Sales Report', permission: 'product_sales_report' } },
-            { path: 'reports/products-sold-summary', name: 'products-sold-summary-report', component: ProductsSoldSummaryReport, meta: { title: 'Products Sold Summary', permission: 'products_sold_summary' } },
+            { path: 'reports/product-sales', name: 'product-sales-report', component: ProductSalesReport, meta: { title: 'Product/Service Sales Report', permission: 'product_sales_report' } },
+            { path: 'reports/products-sold-summary', name: 'products-sold-summary-report', component: ProductsSoldSummaryReport, meta: { title: 'Products & Services Sold Summary', permission: 'products_sold_summary' } },
             { path: 'reports/product-purchases', name: 'product-purchases-report', component: ProductPurchasesReport, meta: { title: 'Product Purchases Report', permission: 'product_purchases_report' } },
             { path: 'reports/seller', name: 'seller-report', component: SellerReport, meta: { title: 'Seller Report', permission: 'seller_report' } },
             { path: 'reports/transactions', name: 'transactions-report', component: TransactionsReport, meta: { title: 'Transactions', permission: 'report_transactions' } },
@@ -481,12 +481,12 @@ const routes = [
             { path: 'reports/sales-by-brand', name: 'sales-by-brand-report', component: SalesByGroupReport, meta: { title: 'Sales by Brand', permission: 'report_sales_by_brand', kind: 'brand' } },
             { path: 'reports/profit-and-loss', name: 'profit-and-loss-report', component: ProfitAndLossReport, meta: { title: 'Profit and Loss', permission: 'Reports_profit' } },
             // Profit analysis — one component, dimension picked by route meta.
-            { path: 'reports/profit/product', name: 'profit-by-product', component: ProfitReport, meta: { title: 'Profit by Product', permission: 'Reports_profit', dimension: 'product' } },
+            { path: 'reports/profit/product', name: 'profit-by-product', component: ProfitReport, meta: { title: 'Profit by Product/Service', permission: 'Reports_profit', dimension: 'product' } },
             { path: 'reports/profit/category', name: 'profit-by-category', component: ProfitReport, meta: { title: 'Profit by Category', permission: 'Reports_profit', dimension: 'category' } },
             { path: 'reports/profit/unit', name: 'profit-by-unit', component: ProfitReport, meta: { title: 'Profit by Unit', permission: 'Reports_profit', dimension: 'unit' } },
             { path: 'reports/profit/customer', name: 'profit-by-customer', component: ProfitReport, meta: { title: 'Profit by Customer', permission: 'Reports_profit', dimension: 'customer' } },
             { path: 'reports/profit/date', name: 'profit-by-date', component: ProfitReport, meta: { title: 'Profit by Date', permission: 'Reports_profit', dimension: 'date' } },
-            { path: 'reports/profit/warehouse', name: 'profit-by-warehouse', component: ProfitReport, meta: { title: 'Profit by Warehouse', permission: 'Reports_profit', dimension: 'warehouse' } },
+            { path: 'reports/profit/warehouse', name: 'profit-by-warehouse', component: ProfitReport, meta: { title: 'Profit by Location', permission: 'Reports_profit', dimension: 'warehouse' } },
             { path: 'reports/analytics', name: 'analytics-report', component: AnalyticsReport, meta: { title: 'Analytics Report', permission: 'analytics_report' } },
             { path: 'reports/cash-flow', name: 'cash-flow-report', component: CashFlowReport, meta: { title: 'Cash Flow', permission: 'cash_flow_report' } },
             { path: 'reports/stock-transfer', name: 'stock-transfer-report', component: StockTransferReport, meta: { title: 'Stock Transfer', permission: 'Stock_Transfer_Report' } },
@@ -494,7 +494,7 @@ const routes = [
             { path: 'reports/stock-aging', name: 'stock-aging-report', component: StockAgingReport, meta: { title: 'Stock Aging', permission: 'Stock_Aging_Report' } },
             { path: 'reports/inventory-valuation-summary', name: 'inventory-valuation-summary-report', component: InventoryValuationSummaryReport, meta: { title: 'Inventory Valuation', permission: 'inventory_valuation' } },
             { path: 'reports/stock-inventory-valuation', name: 'stock-inventory-valuation-report', component: StockInventoryValuationReport, meta: { title: 'Stock Inventory Valuation', permission: 'Stock_Inventory_Valuation' } },
-            { path: 'reports/warehouse', name: 'warehouse-report', component: WarehouseReport, meta: { title: 'Warehouse Report', permission: 'Warehouse_report' } },
+            { path: 'reports/warehouse', name: 'warehouse-report', component: WarehouseReport, meta: { title: 'Location Report', permission: 'Warehouse_report' } },
             // People
             { path: 'customers', name: 'customers', component: Customers, meta: { title: 'Customers', permission: 'Customers_view' } },
             { path: 'customers/import', name: 'customers-import', component: ImportCustomers, meta: { title: 'Import Customers', permission: 'customers_import' } },
@@ -753,14 +753,15 @@ const routes = [
             { path: 'marketing/reports', name: 'marketing-reports', component: MarketingReports, meta: { title: 'Marketing Reports', permission: 'marketing_reports' } },
             { path: 'marketing/settings', name: 'marketing-settings', component: MarketingSettings, meta: { title: 'Marketing Settings', permission: 'marketing_settings' } },
             { path: 'sales', name: 'sales', component: Sales, meta: { title: 'Sales', permission: 'Sales_view' } },
+            { path: 'pos-sales', name: 'pos-sales', component: PosSales, meta: { title: 'POS Sales', permission: 'Sales_view' } },
             { path: 'sales/create', name: 'sale-create', component: SaleForm, meta: { title: 'Add Sale', permission: 'Sales_add' } },
-            { path: 'sales/import', name: 'sales-import', component: ImportSales, meta: { title: 'Import Sales', permission: 'Sales_add' } },
+            { path: 'sales/import', name: 'sales-import', component: ImportSales, meta: { title: 'Import Sales', permission: 'sales_import' } },
             { path: 'sales/:id(\\d+)/edit', name: 'sale-edit', component: SaleForm, meta: { title: 'Edit Sale', permission: 'Sales_edit' } },
             { path: 'sales/from-quotation/:id(\\d+)', name: 'sale-from-quotation', component: SaleForm, meta: { title: 'Create Sale', permission: 'Sales_add', mode: 'convert' } },
             { path: 'sales/:id(\\d+)', name: 'sale-details', component: SaleDetails, meta: { title: 'Sale Detail', permission: 'Sales_view' } },
             { path: 'purchases', name: 'purchases', component: Purchases, meta: { title: 'Purchases', permission: 'Purchases_view' } },
             { path: 'purchases/create', name: 'purchase-create', component: PurchaseForm, meta: { title: 'Add Purchase', permission: 'Purchases_add' } },
-            { path: 'purchases/import', name: 'purchases-import', component: ImportPurchases, meta: { title: 'Import Purchases', permission: 'Purchases_add' } },
+            { path: 'purchases/import', name: 'purchases-import', component: ImportPurchases, meta: { title: 'Import Purchases', permission: 'purchases_import' } },
             { path: 'purchases/:id(\\d+)/edit', name: 'purchase-edit', component: PurchaseForm, meta: { title: 'Edit Purchase', permission: 'Purchases_edit' } },
             { path: 'purchases/:id(\\d+)', name: 'purchase-details', component: PurchaseDetails, meta: { title: 'Purchase Detail', permission: 'Purchases_view' } },
             { path: 'quotations', name: 'quotations', component: Quotations, meta: { title: 'Quotations', permission: 'Quotations_view' } },
@@ -783,11 +784,11 @@ const routes = [
             { path: 'transfers/create', name: 'transfer-create', component: TransferForm, meta: { title: 'Create Transfer', permission: 'transfer_add' } },
             { path: 'transfers/:id(\\d+)/edit', name: 'transfer-edit', component: TransferForm, meta: { title: 'Edit Transfer', permission: 'transfer_edit' } },
             { path: 'transfers/:id(\\d+)', name: 'transfer-details', component: TransferDetails, meta: { title: 'Transfer Detail', permission: 'transfer_view' } },
-            { path: 'products', name: 'products', component: Products, meta: { title: 'Products', permission: 'products_view' } },
+            { path: 'products', name: 'products', component: Products, meta: { title: 'Products & Services', permission: 'products_view' } },
             { path: 'products/count-stock', name: 'count-stock', component: CountStock, meta: { title: 'Count Stock', permission: 'count_stock' } },
             { path: 'products/batches', name: 'batches', component: Batches, meta: { title: 'Batches', permission: ['view_batches', 'batch_view'] } },
-            { path: 'products/import', name: 'products-import', component: ImportProducts, meta: { title: 'Import Products', permission: 'product_import' } },
-            { path: 'products/import-update', name: 'products-import-update', component: ImportProductsUpdate, meta: { title: 'Import Products (Update Only)', permission: 'product_import' } },
+            { path: 'products/import', name: 'products-import', component: ImportProducts, meta: { title: 'Import Products & Services', permission: 'product_import' } },
+            { path: 'products/import-update', name: 'products-import-update', component: ImportProductsUpdate, meta: { title: 'Import Products & Services (Update Only)', permission: 'product_import' } },
             { path: 'products/opening-stock-import', name: 'opening-stock-import', component: OpeningStockImport, meta: { title: 'Opening Stock', permission: 'opening_stock_import' } },
             { path: 'products/barcode', name: 'products-barcode', component: Barcode, meta: { title: 'Print Barcode', permission: 'barcode_view' } },
             // Accounting
@@ -807,12 +808,12 @@ const routes = [
             { path: 'loyalty/rewards', name: 'loyalty-rewards', component: LoyaltyRewards, meta: { title: 'Loyalty Rewards', permission: 'loyalty_rewards', requiresSetting: 'customerLoyaltyEnabled' } },
             { path: 'real-time-sales-counter', name: 'real-time-sales-counter', component: RealTimeSalesCounter, meta: { title: 'Real-time Sales Counter', permission: 'real_time_sales_counter' } },
             { path: 'customer-display/setup', name: 'customer-display-setup', component: CustomerDisplaySetup, meta: { title: 'Customer Screen', permission: 'customer_display_screen_setup' } },
-            { path: 'products/vehicle-fitment', name: 'vehicle-fitment', component: VehicleCatalog, meta: { title: 'Vehicle Fitment', permission: 'products_view' } },
-            { path: 'products/create', name: 'product-create', component: ProductForm, meta: { title: 'Add Product', permission: 'products_add' } },
-            { path: 'products/:id(\\d+)/edit', name: 'product-edit', component: ProductForm, meta: { title: 'Edit Product', permission: 'products_edit' } },
+            { path: 'products/vehicle-fitment', name: 'vehicle-fitment', component: VehicleCatalog, meta: { title: 'Vehicle Fitment', permission: 'vehicle_fitment' } },
+            { path: 'products/create', name: 'product-create', component: ProductForm, meta: { title: 'Create Product/Service', permission: 'products_add' } },
+            { path: 'products/:id(\\d+)/edit', name: 'product-edit', component: ProductForm, meta: { title: 'Edit Product/Service', permission: 'products_edit' } },
             { path: 'serial-numbers', name: 'serial-numbers', component: SerialNumbers, meta: { title: 'Serial Numbers', permission: 'serial_numbers' } },
             { path: 'serial-numbers/:id(\\d+)', name: 'serial-number-details', component: SerialNumberDetails, meta: { title: 'Serial Number', permission: 'serial_numbers' } },
-            { path: 'products/:id(\\d+)', name: 'product-details', component: ProductDetails, meta: { title: 'Product Details', permission: 'products_view' } },
+            { path: 'products/:id(\\d+)', name: 'product-details', component: ProductDetails, meta: { title: 'Product/Service Details', permission: 'products_view' } },
             { path: 'deposits', name: 'deposits', component: Deposits, meta: { title: 'Deposits', permission: 'deposit_view' } },
             { path: 'deposits/create', name: 'deposit-create', component: DepositForm, meta: { title: 'Create Deposit', permission: 'deposit_add' } },
             { path: 'deposits/:id/edit', name: 'deposit-edit', component: DepositForm, meta: { title: 'Edit Deposit', permission: 'deposit_edit' } },
@@ -846,7 +847,8 @@ const routes = [
             { path: 'settings/languages', name: 'languages', component: Languages, meta: { title: 'Languages', permission: 'translations_settings' } },
             { path: 'settings/translations/:locale', name: 'translations-view', component: TranslationsView, meta: { title: 'Translations', permission: 'translations_settings' } },
             { path: 'settings/webhooks', name: 'webhooks', component: Webhooks, meta: { title: 'Webhooks', permission: 'webhooks_view' } },
-            { path: 'settings/pos-receipt', name: 'pos-receipt', component: PosReceipt, meta: { title: 'POS Receipt', permission: 'pos_settings' } },
+            // POS Receipt is a tab of POS Settings now; old links land on it.
+            { path: 'settings/pos-receipt', redirect: { path: '/settings/pos', query: { tab: 'receipt' } } },
             { path: 'settings/modules', name: 'module-settings', component: ModuleSettings, meta: { title: 'Module Settings', permission: 'module_settings' } },
             { path: 'settings/business-modules', name: 'business-modules', component: Modules, meta: { title: 'Modules', permission: ['business_modules', 'setting_system'], superAdminOnly: true } },
             { path: 'settings/update', name: 'update-settings', component: UpdateSettings, meta: { title: 'Update Settings', permission: 'update_settings', superAdminOnly: true } },

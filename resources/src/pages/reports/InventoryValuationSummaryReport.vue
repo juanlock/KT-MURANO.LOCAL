@@ -52,7 +52,7 @@
           <ReportChart
             :data="crud.payload.value?.warehouse_values"
             :fields="[{ key: 'value', label: t('ASSET_VALUE') }]"
-            :title="tf('Value_By_Warehouse', 'Asset value by warehouse')"
+            :title="tf('Value_By_Warehouse', 'Asset value by location')"
             type="bar"
             x-key="name"
             :format="money"
@@ -125,7 +125,7 @@ const kpiTiles = computed(() => {
   return [
     { key: 'value', label: t('ASSET_VALUE'), value: money(n('asset_value')), icon: DollarOutlined, color: '#6d28d9', tint: 'rgba(109, 40, 217, 0.12)' },
     { key: 'units', label: tf('Units_On_Hand', 'Units on hand'), value: n('units'), icon: DatabaseOutlined, color: '#1677ff', tint: 'rgba(22, 119, 255, 0.12)' },
-    { key: 'products', label: t('Products'), value: n('products'), icon: AppstoreOutlined, color: '#13c2c2', tint: 'rgba(19, 194, 194, 0.12)' },
+    { key: 'products', label: t('Products_Only'), value: n('products'), icon: AppstoreOutlined, color: '#13c2c2', tint: 'rgba(19, 194, 194, 0.12)' },
     { key: 'in_stock', label: tf('In_Stock', 'In stock'), value: `${n('in_stock')} / ${n('products')}`, icon: CheckCircleOutlined, color: '#22c55e', tint: 'rgba(34, 197, 94, 0.12)' },
   ];
 });

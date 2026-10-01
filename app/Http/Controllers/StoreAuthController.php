@@ -7,6 +7,8 @@ use App\Models\Client;
 use App\Models\EcommerceClient;
 use App\Models\InviteCode;
 use App\Models\StoreSetting;
+use App\Services\FrontPage;
+use App\Services\StoreAccountService;
 use DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -58,8 +60,9 @@ class StoreAuthController extends BaseController
             'redirect' => ['nullable', 'string'],
         ]);
 
-        $s = StoreSetting::first();
         $ecomClient = EcommerceClient::where('email', $cred['email'])->first();
+        // The account's own company's settings (verification required?).
+        $s = $ecomClient ? StoreAccountService::settingsForAccount($ecomClient) : StoreSetting::first();
 
         if ($ecomClient && Hash::check($cred['password'], $ecomClient->password)) {
             if ($ecomClient->is_blocked) {
@@ -103,7 +106,7 @@ class StoreAuthController extends BaseController
     /** GET /store/register */
     public function showRegister(Request $request)
     {
-        $s = StoreSetting::first();
+        $s = StoreAccountService::settingsFor(FrontPage::companyIdForRequest($request));
         $redirect = $this->safeRedirect($request);
 
         $registrationEnabled = $s->registration_enabled ?? true;
@@ -117,7 +120,11 @@ class StoreAuthController extends BaseController
     /** POST /store/register */
     public function register(Request $request)
     {
-        $s = StoreSetting::first();
+        // The store's company (its own domain, ?company=, else the shared
+        // store's) -- the new customer, its settings and later its user all
+        // belong to it.
+        $companyId = FrontPage::companyIdForRequest($request);
+        $s = StoreAccountService::settingsFor($companyId);
 
         if (! ($s->registration_enabled ?? true)) {
             return back()->withErrors(['registration' => __('messages.RegistrationDisabled')]);
@@ -165,27 +172,24 @@ class StoreAuthController extends BaseController
         $requireApproval = $s->require_admin_approval ?? false;
         $initialStatus = $requireApproval ? 0 : 1;
 
-        $user = DB::transaction(function () use ($data, $initialStatus, $inviteCode, $requireVerification) {
-            $client = Client::firstOrCreate(
-                ['email' => $data['email']],
-                [
-                    'name' => $data['name'],
-                    'code' => $this->getNumberOrder(),
-                    'phone' => $data['phone'],
-                    'adresse' => $data['address'],
-                ]
-            );
+        $user = DB::transaction(function () use ($data, $initialStatus, $inviteCode, $requireVerification, $companyId) {
+            // The email is unique across customers (validated above), so this
+            // is always a new customer -- created in the store's company
+            // (company_id used to be missing here, which clients.company_id
+            // NOT NULL rejects).
+            $client = new Client;
+            $client->company_id = $companyId;
+            $client->name = $data['name'];
+            $client->code = $this->getNumberOrder();
+            $client->email = $data['email'];
+            $client->phone = $data['phone'];
+            $client->adresse = $data['address'];
+            $client->save();
 
-            // Every storefront account gets a matching users row too
-            // (type=Online_store, distinct from an admin/POS-created
-            // customer's type=customer) -- skip if this Client row already
-            // has one (firstOrCreate may have found an existing customer).
-            if (! $client->user_id) {
-                $client->user_id = \App\Services\LinkedUserService::provision(
-                    (int) $client->company_id, 'Online_store', 'Customer', $client->name, $client->email, $client->phone
-                );
-                $client->save();
-            }
+            // No users row yet: it is created once the account is confirmed
+            // (email and/or admin approval, per Store Settings) -- see
+            // StoreAccountService::activateIfConfirmed() below and in
+            // verifyEmail() / Pending Customers approval.
 
             $ecomClient = EcommerceClient::create([
                 'client_id' => $client->id,
@@ -204,6 +208,9 @@ class StoreAuthController extends BaseController
 
             return $ecomClient;
         });
+
+        // Neither confirmation required -> the account is live right away.
+        StoreAccountService::activateIfConfirmed($user);
 
         if ($requireVerification) {
             $this->sendVerificationEmail($user, $s);
@@ -238,7 +245,11 @@ class StoreAuthController extends BaseController
             $user->save();
         }
 
-        $s = StoreSetting::first();
+        // Email confirmed: creates the linked user now, unless the company
+        // also requires admin approval that hasn't happened yet.
+        StoreAccountService::activateIfConfirmed($user);
+
+        $s = StoreAccountService::settingsForAccount($user);
 
         if ((int) $user->status === 0 && ($s->require_admin_approval ?? false)) {
             return redirect()->route('store.login.show')
@@ -261,7 +272,7 @@ class StoreAuthController extends BaseController
             ->first();
 
         if ($user) {
-            $this->sendVerificationEmail($user, StoreSetting::first());
+            $this->sendVerificationEmail($user, StoreAccountService::settingsForAccount($user));
         }
 
         // Same response whether or not the account exists, to avoid leaking emails.
@@ -275,7 +286,9 @@ class StoreAuthController extends BaseController
     protected function sendVerificationEmail(EcommerceClient $user, ?StoreSetting $s = null): bool
     {
         try {
-            $this->Set_config_mail();
+            // The store's company's own mail server (no admin is signed in
+            // here, so the default would otherwise fall back to company 1).
+            $this->Set_config_mail(optional($user->client)->company_id);
 
             $url = URL::temporarySignedRoute(
                 'store.verification.verify',

@@ -514,7 +514,7 @@
                   <template v-if="isEdit">
                     <a-select
                       v-model:value="warehouseRows[w.id].warehouse_location_id"
-                      allow-clear :placeholder="$t('Location')" class="wh-loc"
+                      allow-clear :placeholder="$t('Warehouse_Location')" class="wh-loc"
                       :options="(locationsByWarehouse[w.id] || []).map(l => ({ value: l.id, label: l.label }))"
                     />
                     <a-tooltip :title="$t('Add')">
@@ -779,7 +779,7 @@
       </a-form>
     </a-modal>
 
-    <a-modal v-model:open="quickLocationOpen" :title="$t('Add') + ' ' + $t('Location')" :confirm-loading="quickBusy" @ok="saveQuickLocation">
+    <a-modal v-model:open="quickLocationOpen" :title="$t('Add') + ' ' + $t('Warehouse_Location')" :confirm-loading="quickBusy" @ok="saveQuickLocation">
       <a-form layout="vertical" style="margin-top: 12px">
         <a-form-item :label="$t('Code')"><a-input v-model:value="quickLocation.code" /></a-form-item>
         <a-form-item :label="$t('Name')"><a-input v-model:value="quickLocation.name" /></a-form-item>

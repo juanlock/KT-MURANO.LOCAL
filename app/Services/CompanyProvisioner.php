@@ -72,7 +72,7 @@ class CompanyProvisioner
 
             // Warehouse.
             $warehouseId = DB::table('warehouses')->insertGetId([
-                'company_id' => $cid, 'name' => 'Main Warehouse',
+                'company_id' => $cid, 'name' => 'Main Location',
                 'email' => $company['email'] ?? null, 'mobile' => $company['phone'] ?? null,
                 'country' => $company['country'] ?? null,
                 'created_at' => $now, 'updated_at' => $now,

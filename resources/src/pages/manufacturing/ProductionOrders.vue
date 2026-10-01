@@ -29,7 +29,7 @@
         />
         <a-select
           v-model:value="filters.warehouse_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All warehouses"
+          option-filter-prop="label" placeholder="All locations"
           :options="warehouseOptions" @change="crud.reload"
         />
         <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
@@ -248,7 +248,7 @@ function confirmCancel(record) {
   Modal.confirm({
     title: `Cancel ${record.reference}?`,
     content: record.materials_issued
-      ? 'Everything already issued goes back to the warehouse it came from, and the order closes at zero cost.'
+      ? 'Everything already issued goes back to the location it came from, and the order closes at zero cost.'
       : 'The order closes. Nothing has been issued, so no stock moves.',
     okText: 'Cancel order',
     okType: 'danger',

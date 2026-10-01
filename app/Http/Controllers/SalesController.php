@@ -152,6 +152,19 @@ class SalesController extends BaseController
                 return $query->whereHas('details', function ($q) use ($request) {
                     $q->where('product_id', $request->product_id);
                 });
+            })
+            // POS Management -> POS Sales: only sales rung up at the POS,
+            // optionally by cashier and by payment method.
+            ->when($request->boolean('is_pos'), function ($query) {
+                return $query->where('is_pos', 1);
+            })
+            ->when($request->filled('cashier_id'), function ($query) use ($request) {
+                return $query->where('user_id', $request->cashier_id);
+            })
+            ->when($request->filled('payment_method_id'), function ($query) use ($request) {
+                return $query->whereHas('facture', function ($q) use ($request) {
+                    $q->whereNull('deleted_at')->where('payment_method_id', $request->payment_method_id);
+                });
             });
         if (! $is_all_warehouses) {
             $Sales->whereIn('warehouse_id', $warehouse_ids);
@@ -175,6 +188,14 @@ class SalesController extends BaseController
                             return $query->whereHas('warehouse', function ($q) use ($request) {
                                 $q->where('name', 'LIKE', "%{$request->search}%");
                             });
+                        })
+                        // Product name or product group name on any line of
+                        // the invoice.
+                        ->orWhereHas('details.product', function ($q) use ($request) {
+                            $q->where('name', 'LIKE', "%{$request->search}%")
+                                ->orWhereHas('productGroup', function ($g) use ($request) {
+                                    $g->where('name', 'LIKE', "%{$request->search}%");
+                                });
                         });
                 });
             });
@@ -195,6 +216,18 @@ class SalesController extends BaseController
             'paid' => (float) ($sums->paid ?? 0),
             'due' => (float) (($sums->grand ?? 0) - ($sums->paid ?? 0)),
         ];
+        // POS Sales page: money taken per payment method over the same set.
+        if ($request->boolean('is_pos')) {
+            $stats['by_method'] = DB::table('payment_sales')
+                ->leftJoin('payment_methods', 'payment_methods.id', '=', 'payment_sales.payment_method_id')
+                ->whereNull('payment_sales.deleted_at')
+                ->whereIn('payment_sales.sale_id', (clone $Filtred)->reorder()->select('sales.id'))
+                ->groupBy('payment_methods.name')
+                ->orderByRaw('SUM(payment_sales.montant) DESC')
+                ->get([DB::raw("COALESCE(payment_methods.name, 'Other') as method"), DB::raw('SUM(payment_sales.montant) as amount'), DB::raw('COUNT(*) as count')])
+                ->map(fn ($r) => ['method' => $r->method, 'amount' => (float) $r->amount, 'count' => (int) $r->count])
+                ->values();
+        }
 
         $Sales = $Filtred->offset($offSet)
             ->limit($perPage)
@@ -358,6 +391,13 @@ class SalesController extends BaseController
             'accounts' => $accounts,
             'payment_methods' => $payment_methods,
             'payment_statuses' => $payment_statuses,
+            // POS Sales page: cashier filter = users who rang up POS sales here.
+            'cashiers' => $request->boolean('is_pos')
+                ? \App\Models\User::whereIn('id', Sale::whereNull('deleted_at')->where('is_pos', 1)
+                    ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), fn ($q) => $q->where('company_id', $companyId))
+                    ->distinct()->select('user_id'))
+                    ->get(['id', 'username', 'firstname', 'lastname'])
+                : [],
             // Defaults -> Sales toggles: hide the row-action buttons entirely
             // (not just disable them) when a company doesn't use SMS/WhatsApp.
             'sale_sms_enabled' => (bool) (Setting::forCompany($companyId)->sale_sms_enabled ?? true),
@@ -897,7 +937,7 @@ class SalesController extends BaseController
                 if (empty($current_Sale->warehouse_id) || ! in_array($current_Sale->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (warehouse restriction).',
+                        'message' => 'You are not allowed to access this sale (location restriction).',
                     ], 403);
                 }
             }
@@ -1368,7 +1408,7 @@ class SalesController extends BaseController
                     // closure -- DB::transaction() treats that as success, and the
                     // method falls through to the real success response below
                     // regardless (the record silently never gets deleted).
-                    abort(403, 'You are not allowed to access this sale (warehouse restriction).');
+                    abort(403, 'You are not allowed to access this sale (location restriction).');
                 }
             }
 
@@ -1580,7 +1620,7 @@ class SalesController extends BaseController
                     ->toArray();
 
                 if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
-                    abort(403, 'You are not allowed to access this sale (warehouse restriction).');
+                    abort(403, 'You are not allowed to access this sale (location restriction).');
                 }
             }
 
@@ -1767,7 +1807,7 @@ class SalesController extends BaseController
             if (! $user_auth->is_all_warehouses) {
                 $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
                 if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
-                    abort(403, 'You are not allowed to access this sale (warehouse restriction).');
+                    abort(403, 'You are not allowed to access this sale (location restriction).');
                 }
             }
 
@@ -1871,7 +1911,7 @@ class SalesController extends BaseController
                             ->toArray();
 
                         if (empty($current_Sale->warehouse_id) || ! in_array($current_Sale->warehouse_id, $warehouses_id)) {
-                            abort(403, 'You are not allowed to access this sale (warehouse restriction).');
+                            abort(403, 'You are not allowed to access this sale (location restriction).');
                         }
                     }
 
@@ -2615,7 +2655,7 @@ class SalesController extends BaseController
 
     public function get_import_sales(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'create', Sale::class);
+        $this->authorizeForUser($request->user('api'), 'import', Sale::class);
 
         // Company boundary: these dropdowns feed the CSV-import form and must
         // not leak another company's warehouses/clients. sales_agents has no
@@ -2646,7 +2686,7 @@ class SalesController extends BaseController
 
     public function store_import_sales(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'create', Sale::class);
+        $this->authorizeForUser($request->user('api'), 'import', Sale::class);
 
         $data = $this->request_products_csv($request);
         if ($data instanceof \Illuminate\Http\JsonResponse) {
@@ -2913,7 +2953,7 @@ class SalesController extends BaseController
 
     public function preview_import_sales(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'create', Sale::class);
+        $this->authorizeForUser($request->user('api'), 'import', Sale::class);
 
         $data = $this->request_products_csv($request);
         if ($data instanceof \Illuminate\Http\JsonResponse) {
@@ -3224,7 +3264,7 @@ class SalesController extends BaseController
      * build a third time. Returns the built PDF object, not yet saved or
      * downloaded -- callers decide what to do with it.
      */
-    private function buildSalePdf(Sale $sale_data)
+    public function buildSalePdf(Sale $sale_data, array $settingOverrides = [])
     {
         $details = [];
         $helpers = new helpers;
@@ -3315,7 +3355,7 @@ class SalesController extends BaseController
 
             $tax_price = $detail->TaxNet * (($detail->price - $data['DiscountNet']) / 100);
             $data['Unit_price'] = number_format($detail->price, helpers::price_decimals(), '.', '');
-            $data['discount'] = number_format($detail->discount, helpers::price_decimals(), '.', '');
+            $data['discount'] = number_format((float) $detail->discount, helpers::price_decimals(), '.', '');
 
             if ($detail->tax_method == '1') {
                 $data['Net_price'] = $detail->price - $data['DiscountNet'];
@@ -3343,6 +3383,10 @@ class SalesController extends BaseController
         // table (logo, name, phone, email, address all come from here),
         // regardless of which company the sale actually belongs to.
         $settings = Setting::forCompany((int) $sale_data->company_id);
+        // Invoice PDF live preview: unsaved "Default" tab values (in memory only).
+        foreach ($settingOverrides as $k => $v) {
+            $settings->{$k} = $v;
+        }
         $symbol = $docCurrency['code'];
         $pos_setting_pdf = PosSetting::forCompany((int) $sale_data->company_id);
         $show_items_tax = $pos_setting_pdf ? (int) ($pos_setting_pdf->show_items_tax ?? 0) : 0;
@@ -3500,7 +3544,7 @@ class SalesController extends BaseController
 
             $tax_price = $detail->TaxNet * (($detail->price - $data['DiscountNet']) / 100);
             $data['Unit_price'] = number_format($detail->price, helpers::price_decimals(), '.', '');
-            $data['discount'] = number_format($detail->discount, helpers::price_decimals(), '.', '');
+            $data['discount'] = number_format((float) $detail->discount, helpers::price_decimals(), '.', '');
 
             if ($detail->tax_method == '1') {
                 $data['Net_price'] = $detail->price - $data['DiscountNet'];
@@ -3667,7 +3711,7 @@ class SalesController extends BaseController
                 if (empty($Sale_data->warehouse_id) || ! in_array($Sale_data->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (warehouse restriction).',
+                        'message' => 'You are not allowed to access this sale (location restriction).',
                     ], 403);
                 }
             }
@@ -3951,7 +3995,7 @@ class SalesController extends BaseController
             if (empty($Quotation->warehouse_id) || ! in_array($Quotation->warehouse_id, $warehouses_id)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access this sale (warehouse restriction).',
+                    'message' => 'You are not allowed to access this sale (location restriction).',
                 ], 403);
             }
         }

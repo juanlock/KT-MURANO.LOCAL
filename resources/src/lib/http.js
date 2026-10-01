@@ -133,7 +133,36 @@ async function blob(url) {
     return raw.type === 'application/pdf' ? raw : new Blob([raw], { type: 'application/pdf' });
 }
 
+/**
+ * POST to a WEB route (session + CSRF, not /api/) -- e.g. the POS cashier PIN
+ * switch, which has to change the browser session's user. Throws like
+ * request() (err.status / err.data) but never redirects on 401/419.
+ */
+async function webPost(url, body) {
+    const res = await fetch('/' + url.replace(/^\//, ''), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...csrfHeaders(),
+        },
+        body: JSON.stringify(body || {}),
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* not JSON */ }
+    if (!res.ok) {
+        const err = new Error(`HTTP ${res.status}`);
+        err.status = res.status;
+        err.data = data;
+        throw err;
+    }
+    return data;
+}
+
 export default {
+    webPost,
     get: (url, params) => request('GET', url, { params }),
     post: (url, body) => request('POST', url, { body }),
     postForm: (url, formData) => request('POST', url, { formData }),

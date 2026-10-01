@@ -796,7 +796,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::post('cash-registers/open', 'CashRegisterController@openRegister');
     Route::post('cash-registers/close', 'CashRegisterController@closeRegister');
     Route::get('cash-registers/current/{user_id}', 'CashRegisterController@getCurrentRegister');
-    Route::post('cash-registers/cash-move', 'CashRegisterController@cashInOut');
+    Route::get('cash-registers/{id}/summary', 'CashRegisterController@summary')->whereNumber('id');    Route::post('cash-registers/cash-move', 'CashRegisterController@cashInOut');
     Route::get('report/cash_registers', 'CashRegisterController@report');
     Route::get('report/warranty_guarantee', 'ReportController@warrantyGuaranteeReport');
 
@@ -1529,6 +1529,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // ------------------------------------------------------------------\\
 
     Route::get('get_user_auth', 'UserController@GetUserAuth');
+    Route::put('user_preferences', 'UserController@updateUiPreference');
     Route::get('users_list_for_select', 'UserController@listForSelect');
     Route::get('check_phone_duplicate', 'UserController@checkPhoneDuplicate');
     Route::resource('users', 'UserController');
@@ -1547,6 +1548,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // ------------------------------------------------------------------\\
     Route::get('menu-positions', 'MenuPositionController@index');
     Route::post('menu-positions', 'MenuPositionController@store');
+    Route::post('menu-positions/visibility', 'MenuPositionController@visibility');
     Route::delete('menu-positions', 'MenuPositionController@reset');
 
     // ------------------------------- Settings ------------------------\\
@@ -1657,6 +1659,10 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // Invoice PDF customization (System Settings > Invoice PDF)
     Route::get('pdf_templates/{type}', 'PdfTemplateController@show');
     Route::post('pdf_templates/{type}', 'PdfTemplateController@update');
+    // Invoice PDF: real-PDF live preview (unsaved settings) + the company "Default" tab.
+    Route::post('pdf_templates/{type}/preview', 'PdfTemplateController@preview');
+    Route::get('pdf_company_settings', 'PdfTemplateController@companyShow');
+    Route::put('pdf_company_settings', 'PdfTemplateController@companyUpdate');
     Route::post('payment_gateway', 'Payment_gateway_SettingsController@Update_payment_gateway');
     Route::get('get_payment_gateway', 'Payment_gateway_SettingsController@Get_payment_gateway');
     Route::get('get_payment_gateway_ws', 'Payment_gateway_SettingsController@get_payment_gateway_ws');

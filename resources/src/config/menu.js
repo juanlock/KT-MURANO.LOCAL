@@ -310,6 +310,7 @@ export const MIGRATED_ROUTES = {
     '/app/sales/store': '/sales/create',
     '/app/sales/list': '/sales',
     '/app/pos': '/pos',
+    '/app/pos/sales': '/pos-sales',
     '/app/purchases/store': '/purchases/create',
     '/app/purchases/list': '/purchases',
     '/app/quotations/store': '/quotations/create',
@@ -469,7 +470,8 @@ export const MENU = [
             { label: 'Brand', to: '/app/products/Brands', permissions: ['brand'] },
             { label: 'Size_Guides', to: '/app/products/SizeGuides', permissions: ['size_guides'] },
             { label: 'Units', to: '/app/products/Units', permissions: ['unit'] },
-            { label: 'Vehicle Fitment', to: '/app/products/vehicle_fitment', permissions: ['products_view'] },
+            // Own permission: shared products_view tied it to "All Products & Services" in the role editor.
+            { label: 'Vehicle Fitment', to: '/app/products/vehicle_fitment', permissions: ['vehicle_fitment'] },
             { label: 'Batches', to: '/app/products/Batches', permissions: ['view_batches', 'batch_view'] },
             { label: 'Serial_Numbers', to: '/app/serial_numbers/list', permissions: ['serial_numbers'] },
         ],
@@ -482,8 +484,10 @@ export const MENU = [
         children: [
             { label: 'ListSales', to: '/app/sales/list', permissions: ['Sales_view'] },
             { label: 'AddSale', to: '/app/sales/store', permissions: ['Sales_add'] },
-            { label: 'Import_Sales', to: '/app/sales/import_sales', permissions: ['Sales_add'] },
+            { label: 'Import_Sales', to: '/app/sales/import_sales', permissions: ['sales_import'] },
             { label: 'POS', to: '/app/pos', permissions: ['Pos_view'] },
+            // Sales list narrowed to POS sales (companies' "POS Management" group).
+            { label: 'POS_Sales', to: '/app/pos/sales', permissions: ['Sales_view'] },
             { label: 'Customer_Screen', to: '/app/customer-display/setup', permissions: ['customer_display_screen_setup'] },
             { label: 'Shipments', to: '/app/sales/shipment', permissions: ['shipment'] },
             { label: 'Real_time_Sales_Counter', to: '/app/real-time-sales-counter', permissions: ['real_time_sales_counter'] },
@@ -516,7 +520,7 @@ export const MENU = [
         children: [
             { label: 'AddPurchase', to: '/app/purchases/store', permissions: ['Purchases_add'] },
             { label: 'ListPurchases', to: '/app/purchases/list', permissions: ['Purchases_view'] },
-            { label: 'Import_Purchases', to: '/app/purchases/import_purchases', permissions: ['Purchases_add'] },
+            { label: 'Import_Purchases', to: '/app/purchases/import_purchases', permissions: ['purchases_import'] },
         ],
     },
     {
@@ -919,7 +923,6 @@ export const MENU = [
             { label: 'mail_settings', to: '/app/settings/mail_settings', permissions: ['mail_settings'] },
             { label: 'email_templates', to: '/app/settings/email_templates', permissions: ['notification_template'] },
             { label: 'Pos_Settings', to: '/app/settings/pos_settings', permissions: ['pos_settings'] },
-            { label: 'POS_Receipt', to: '/app/settings/pos_receipt', permissions: ['pos_settings'] },
             { label: 'Payment_Gateway', to: '/app/settings/payment_gateway', permissions: ['payment_gateway'] },
             { label: 'Currencies', to: '/app/settings/Currencies', permissions: ['currency'] },
             { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true },

@@ -207,7 +207,7 @@ const moneyKeys = ['purchase_cost', 'accumulated_depreciation', 'book_value', 'm
 const registerColumns = [
   { title: t('Asset', 'Asset'), key: 'name', dataIndex: 'name', width: 200, fixed: 'left' },
   { title: t('Category', 'Category'), dataIndex: 'category_name', key: 'category_name', width: 140 },
-  { title: t('Warehouse', 'Warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name', width: 140 },
+  { title: t('Warehouse', 'Location'), dataIndex: 'warehouse_name', key: 'warehouse_name', width: 140 },
   { title: t('Status', 'Status'), key: 'status', dataIndex: 'status', width: 120 },
   { title: t('Cost', 'Cost'), key: 'purchase_cost', dataIndex: 'purchase_cost', width: 120, align: 'right' },
   { title: t('Depreciated', 'Depreciated'), key: 'accumulated_depreciation', dataIndex: 'accumulated_depreciation', width: 130, align: 'right' },

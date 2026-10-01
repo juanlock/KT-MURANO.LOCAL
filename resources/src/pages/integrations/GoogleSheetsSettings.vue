@@ -209,7 +209,7 @@ const logLevel = ref('');
 const sync = useBatchSync();
 
 const exportJobs = [
-  { key: 'sales', title: 'Sales', url: 'google-sheets/export/sales', desc: 'Every sale with customer, totals, payment status and warehouse.' },
+  { key: 'sales', title: 'Sales', url: 'google-sheets/export/sales', desc: 'Every sale with customer, totals, payment status and location.' },
   { key: 'products', title: 'Products', url: 'google-sheets/export/products', desc: 'The full catalog with prices, costs and current stock quantities.' },
   { key: 'customers', title: 'Customers', url: 'google-sheets/export/customers', desc: 'All customers with their contact details.' },
 ];

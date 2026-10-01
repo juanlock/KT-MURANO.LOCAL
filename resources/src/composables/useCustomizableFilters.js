@@ -29,24 +29,34 @@ export function useCustomizableFilters(tableKey, defaultFilters) {
     return Array.isArray(cfg) && cfg.length ? cfg : null;
   });
 
-  // Ordered, visible keys for the actual filter row: saved order for known
-  // keys (dropping hidden ones), then any of the page's own filters that
-  // aren't in the saved config yet (e.g. a filter added after the company
-  // last customized) appended at the end -- same forward-compat rule as
-  // DataTable.vue's customizedColumns().
+  // A saved order + the page's filters that aren't in it yet (e.g. a filter
+  // added after the company last customized). A missing filter goes where
+  // the built-in default order puts it relative to its neighbours -- right
+  // after the nearest earlier default filter that is present, or before the
+  // first later one -- instead of always at the end (a new "first" filter,
+  // like Products' Type Product, would otherwise land last for every
+  // company that saved an order before it existed).
+  function mergeWithDefaults(order) {
+    const out = order.filter((k, i) => labelByKey.has(k) && order.indexOf(k) === i);
+    defaultKeys.forEach((k, i) => {
+      if (out.includes(k)) return;
+      for (let j = i - 1; j >= 0; j--) {
+        const at = out.indexOf(defaultKeys[j]);
+        if (at >= 0) { out.splice(at + 1, 0, k); return; }
+      }
+      const later = out.findIndex(x => defaultKeys.indexOf(x) > i);
+      if (later >= 0) out.splice(later, 0, k); else out.push(k);
+    });
+    return out;
+  }
+
+  // Ordered, visible keys for the actual filter row (saved hidden ones
+  // dropped; filters new since the save are visible).
   const visibleFilterKeys = computed(() => {
     const cfg = savedCfg.value;
     if (! cfg) return [...defaultKeys];
-    const seen = new Set();
-    const out = [];
-    cfg.forEach(entry => {
-      if (! labelByKey.has(entry.key) || seen.has(entry.key)) return;
-      seen.add(entry.key);
-      if (! entry.hidden) out.push(entry.key);
-    });
-    defaultKeys.forEach(k => { if (! seen.has(k)) out.push(k); });
-
-    return out;
+    const hidden = new Set(cfg.filter(e => e.hidden).map(e => e.key));
+    return mergeWithDefaults(cfg.map(e => e.key)).filter(k => ! hidden.has(k));
   });
 
   const customizeOpen = ref(false);
@@ -56,10 +66,7 @@ export function useCustomizableFilters(tableKey, defaultFilters) {
   function openCustomize() {
     const cfg = savedCfg.value;
     const hiddenByKey = new Map((cfg || []).map(c => [c.key, !!c.hidden]));
-    const order = cfg
-      ? cfg.filter(c => labelByKey.has(c.key)).map(c => c.key)
-      : [...defaultKeys];
-    defaultKeys.forEach(k => { if (! order.includes(k)) order.push(k); });
+    const order = cfg ? mergeWithDefaults(cfg.map(c => c.key)) : [...defaultKeys];
     customizeRows.value = order.map(key => ({
       key,
       label: labelByKey.get(key) || key,

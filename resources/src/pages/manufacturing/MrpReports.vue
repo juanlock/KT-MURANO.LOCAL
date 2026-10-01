@@ -323,7 +323,7 @@ const materialColumns = [
 ];
 
 const qualityColumns = [
-  { title: t('Product', 'Product'), key: 'name', dataIndex: 'name' },
+  { title: t('Product_Only', 'Product'), key: 'name', dataIndex: 'name' },
   { title: t('Inspections', 'Inspections'), dataIndex: 'checks', key: 'checks', width: 110, align: 'right' },
   { title: t('Failed', 'Failed'), key: 'failed_checks', dataIndex: 'failed_checks', width: 100, align: 'center' },
   { title: t('Inspected', 'Inspected'), dataIndex: 'inspected', key: 'inspected', width: 110, align: 'right' },

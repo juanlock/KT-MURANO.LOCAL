@@ -23,6 +23,8 @@ class Booking extends Model
         'customer_id',
         'product_id',
         'tray_id',
+        // Location of the appointment (and of its invoice).
+        'warehouse_id',
         'sales_person_id',
         'product_name',
         'product_description',

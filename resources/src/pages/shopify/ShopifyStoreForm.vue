@@ -82,12 +82,12 @@
           <a-row :gutter="16">
             <a-col :xs="24" :md="12">
               <a-form-item
-                label="ERP warehouse" name="warehouse_id"
-                extra="Stock levels and imported orders belong to this warehouse."
+                label="ERP location" name="warehouse_id"
+                extra="Stock levels and imported orders belong to this location."
               >
                 <a-select
                   v-model:value="form.warehouse_id" show-search option-filter-prop="label"
-                  :options="warehouseOptions" allow-clear placeholder="Select a warehouse"
+                  :options="warehouseOptions" allow-clear placeholder="Select a location"
                 />
               </a-form-item>
             </a-col>

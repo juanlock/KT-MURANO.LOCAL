@@ -46,6 +46,17 @@ class SalePolicy
     }
 
     /**
+     * Import Sales (its own permission since 2026_09_30_150000; it used to
+     * share Sales_add).
+     */
+    public function import(User $user)
+    {
+        $permission = Permission::where('name', 'sales_import')->first();
+
+        return $permission ? $user->hasRole($permission->roles) : false;
+    }
+
+    /**
      * Determine whether the user can update the model.
      *
      * @param  \App\Models\Sale  $sale

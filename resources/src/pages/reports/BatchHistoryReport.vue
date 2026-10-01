@@ -24,7 +24,7 @@
         <a-row :gutter="24">
           <a-col :xs="24" :md="12">
             <a-descriptions :column="1" size="small">
-              <a-descriptions-item :label="$t('Product')">
+              <a-descriptions-item :label="$t('Product_Only')">
                 {{ batch.product_name }}
                 <span v-if="batch.product_code" class="muted">[{{ batch.product_code }}]</span>
                 <div v-if="batch.generic_name" class="muted">
@@ -292,7 +292,7 @@ function print() {
     filtered.value,
     {
       subtitle: [
-        `${t('Product')}: ${batch.value.product_name || ''}${batch.value.product_code ? ` [${batch.value.product_code}]` : ''}`,
+        `${t('Product_Only')}: ${batch.value.product_name || ''}${batch.value.product_code ? ` [${batch.value.product_code}]` : ''}`,
         `${t('Warehouse')}: ${batch.value.warehouse_name || ''}`,
         `${t('Mfg_Date')}: ${batch.value.mfg_date || '—'}`,
         `${t('Expiry_Date')}: ${batch.value.expiry_date || '—'}`,

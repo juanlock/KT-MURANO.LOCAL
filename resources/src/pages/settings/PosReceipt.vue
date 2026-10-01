@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <PageHeader :title="$t('POS_Receipt')" :breadcrumb="[$t('Settings'), $t('POS_Receipt')]" />
+    <PageHeader v-if="!embedded" :title="$t('POS_Receipt')" :breadcrumb="[$t('Settings'), $t('POS_Receipt')]" />
 
     <div v-if="isLoading" style="display: flex; justify-content: center; padding: 96px 0">
       <a-spin size="large" />
@@ -48,7 +48,7 @@
                               <small v-show="pos_settings.show_date !== 0">Date: 2025-12-10 12:34</small><br>
                               <small v-show="pos_settings.show_seller !== 0">Seller: John Doe</small><br>
                               <small v-show="pos_settings.show_customer">Customer: Jane Smith</small><br>
-                              <small v-show="pos_settings.show_Warehouse">Warehouse: Main Store</small>
+                              <small v-show="pos_settings.show_Warehouse">Location: Main Store</small>
                             </div>
                           </div>
                           <table class="table_data w-100 mb-2" style="font-size:11px;">
@@ -152,7 +152,7 @@
                               <small v-show="pos_settings.show_date !== 0">Date: 2025-12-10 12:34</small><br>
                               <small v-show="pos_settings.show_seller !== 0">Seller: John Doe</small><br>
                               <small v-show="pos_settings.show_customer">Customer: Jane Smith</small><br>
-                              <small v-show="pos_settings.show_Warehouse">Warehouse: Main Store</small>
+                              <small v-show="pos_settings.show_Warehouse">Location: Main Store</small>
                             </div>
                           </div>
                           <table class="table_data w-100 mb-2" style="font-size:11px;">
@@ -276,7 +276,7 @@
                               <div v-show="pos_settings.show_date !== 0">Date: 2025-12-10 12:34</div>
                               <div v-show="pos_settings.show_seller !== 0">Seller: John Doe</div>
                               <div v-show="pos_settings.show_customer">Customer: Jane Smith</div>
-                              <div v-show="pos_settings.show_Warehouse">Warehouse: Main Store</div>
+                              <div v-show="pos_settings.show_Warehouse">Location: Main Store</div>
                             </div>
                           </div>
                           <table class="table_data w-100 mb-2" style="font-size:11px;">
@@ -418,7 +418,7 @@
                               <span class="bl4-meta-ar">العميل</span>
                             </div>
                             <div v-show="pos_settings.show_Warehouse" class="bl4-meta-row">
-                              <span class="bl4-meta-en">Warehouse</span>
+                              <span class="bl4-meta-en">Location</span>
                               <span class="bl4-meta-val">Main Store</span>
                               <span class="bl4-meta-ar">المستودع</span>
                             </div>
@@ -584,7 +584,7 @@
                               <span>Customer</span><span>Jane Smith</span>
                             </div>
                             <div v-show="pos_settings.show_Warehouse" class="minimal-meta-row">
-                              <span>Warehouse</span><span>Main Store</span>
+                              <span>Location</span><span>Main Store</span>
                             </div>
                           </div>
 
@@ -807,7 +807,10 @@ import PageHeader from '../../components/PageHeader.vue';
 import BarcodeSvg from '../../components/BarcodeSvg.vue';
 import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
-import { receiptFontHeadTags, whenPrintFontsReady } from '../../lib/receiptFont';
+import { receiptFontHeadTags, whenPrintFontsReady } from '../../lib/receiptFont';
+
+// Shown as a tab inside Settings -> POS Settings: no page header of its own there.
+defineProps({ embedded: { type: Boolean, default: false } });
 
 const { t } = useI18n();
 

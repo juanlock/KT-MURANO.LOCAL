@@ -17,7 +17,7 @@
                 { value: '', label: $t('All') },
                 { value: 'gift_card', label: $t('Gift_Card') },
                 { value: 'voucher', label: $t('Voucher') },
-                { value: 'product', label: $t('Product') },
+                { value: 'product', label: $t('Product_Only') },
               ]"
               @change="fetchRewards"
             />
@@ -186,7 +186,7 @@
                 :options="[
                   { value: 'gift_card', label: $t('Gift_Card') },
                   { value: 'voucher', label: $t('Voucher') },
-                  { value: 'product', label: $t('Product') },
+                  { value: 'product', label: $t('Product_Only') },
                 ]"
               />
             </a-form-item>
@@ -281,7 +281,7 @@ const rewardColumns = computed(() => [
 
 function num(v) { return Number(v || 0).toLocaleString(); }
 function typeLabel(ty) {
-  return { gift_card: t('Gift_Card'), voucher: t('Voucher'), product: t('Product') }[ty] || ty;
+  return { gift_card: t('Gift_Card'), voucher: t('Voucher'), product: t('Product_Only') }[ty] || ty;
 }
 function statusLabel(s) {
   return { issued: t('Issued'), fulfilled: t('Fulfilled'), cancelled: t('Cancelled') }[s] || s;

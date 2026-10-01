@@ -446,7 +446,7 @@ class PurchasesController extends BaseController
                 if (empty($current_Purchase->warehouse_id) || ! in_array($current_Purchase->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (warehouse restriction).',
+                        'message' => 'You are not allowed to access this sale (location restriction).',
                     ], 403);
                 }
             }
@@ -741,7 +741,7 @@ class PurchasesController extends BaseController
                     // closure -- DB::transaction() treats that as success, and the
                     // method falls through to the real success response below
                     // regardless (the record silently never gets deleted).
-                    abort(403, 'You are not allowed to access this purchase (warehouse restriction).');
+                    abort(403, 'You are not allowed to access this purchase (location restriction).');
                 }
             }
 
@@ -889,7 +889,7 @@ class PurchasesController extends BaseController
                     ->toArray();
 
                 if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
-                    abort(403, 'You are not allowed to access this purchase (warehouse restriction).');
+                    abort(403, 'You are not allowed to access this purchase (location restriction).');
                 }
             }
 
@@ -1021,7 +1021,7 @@ class PurchasesController extends BaseController
                             ->toArray();
 
                         if (empty($current_Purchase->warehouse_id) || ! in_array($current_Purchase->warehouse_id, $warehouses_id)) {
-                            abort(403, 'You are not allowed to access this purchase (warehouse restriction).');
+                            abort(403, 'You are not allowed to access this purchase (location restriction).');
                         }
                     }
 
@@ -1693,7 +1693,7 @@ class PurchasesController extends BaseController
                 if (empty($Purchase_data->warehouse_id) || ! in_array($Purchase_data->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (warehouse restriction).',
+                        'message' => 'You are not allowed to access this sale (location restriction).',
                     ], 403);
                 }
             }
@@ -2421,7 +2421,7 @@ class PurchasesController extends BaseController
     public function get_import_purchases(Request $request)
     {
 
-        $this->authorizeForUser($request->user('api'), 'create', Purchase::class);
+        $this->authorizeForUser($request->user('api'), 'import', Purchase::class);
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
@@ -2444,7 +2444,7 @@ class PurchasesController extends BaseController
 
     public function preview_import_purchases(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'create', Purchase::class);
+        $this->authorizeForUser($request->user('api'), 'import', Purchase::class);
 
         $data = $this->request_products_csv($request);
 
@@ -2507,7 +2507,7 @@ class PurchasesController extends BaseController
 
     public function store_import_purchases(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'create', Purchase::class);
+        $this->authorizeForUser($request->user('api'), 'import', Purchase::class);
 
         $data = $this->request_products_csv($request);
 

@@ -267,20 +267,36 @@ class helpers
      */
     public static function price_decimals()
     {
-        static $decimals = null;
+        // Per company: the CURRENT company's "Enable 3 Decimal Pricing"
+        // (Defaults -> POS -> Price decimals) -- an Admin's own company, a
+        // SuperAdmin's switcher pick (company_id on the request). It used to
+        // read the first settings row for every company.
+        static $byCompany = [];
 
-        if ($decimals === null) {
+        try {
+            $user = auth('api')->user() ?? auth()->user();
+            $companyId = $user ? (int) $user->company_id : 0;
+            if ($user && $user->type === 'SuperAdmin' && (int) request()->input('company_id') > 0) {
+                $companyId = (int) request()->input('company_id');
+            }
+        } catch (\Throwable $e) {
+            $companyId = 0;
+        }
+
+        if (! array_key_exists($companyId, $byCompany)) {
             try {
-                $enabled = (bool) Setting::where('deleted_at', '=', null)
-                    ->value('enable_3_decimal_pricing');
-                $decimals = $enabled ? 3 : 2;
+                $setting = $companyId ? Setting::forCompany($companyId) : null;
+                $enabled = $setting
+                    ? (bool) $setting->enable_3_decimal_pricing
+                    : (bool) Setting::where('deleted_at', '=', null)->value('enable_3_decimal_pricing');
+                $byCompany[$companyId] = $enabled ? 3 : 2;
             } catch (\Throwable $e) {
                 // Settings table/column may not exist yet (e.g. during migration) — fall back.
-                $decimals = 2;
+                $byCompany[$companyId] = 2;
             }
         }
 
-        return $decimals;
+        return $byCompany[$companyId];
     }
 
     /**

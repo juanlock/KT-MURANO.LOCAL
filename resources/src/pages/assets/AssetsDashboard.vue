@@ -167,7 +167,7 @@
           </a-card>
         </a-col>
         <a-col :xs="24" :xl="12">
-          <a-card size="small" title="By warehouse" class="panel">
+          <a-card size="small" title="By location" class="panel">
             <a-empty v-if="!data.by_warehouse?.length" :image="simpleImage" />
             <a-table
               v-else
@@ -223,7 +223,7 @@ const maxCategoryValue = computed(
 );
 
 const warehouseColumns = [
-  { title: 'Warehouse', dataIndex: 'label', key: 'label' },
+  { title: 'Location', dataIndex: 'label', key: 'label' },
   { title: 'Assets', dataIndex: 'count', key: 'count', width: 90, align: 'right' },
   { title: 'Cost', key: 'value', dataIndex: 'value', width: 130, align: 'right' },
 ];

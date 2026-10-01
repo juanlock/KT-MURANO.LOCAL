@@ -17,9 +17,20 @@
               <template #label>
                 <div class="label-row">
                   <span>{{ $t('Customer') }} *</span>
-                  <a-button type="link" size="small" style="padding: 0" @click="openQuickAdd">
-                    {{ $t('New_Customer') }}
-                  </a-button>
+                  <span>
+                    <!-- Edit the selected customer's details in a modal,
+                         without leaving the booking. -->
+                    <a-button
+                      v-if="booking.customer_id && auth.can('Customers_edit')"
+                      type="link" size="small" style="padding: 0; margin-right: 10px"
+                      @click="openEditCustomer"
+                    >
+                      <EditOutlined /> {{ $t('Edit') }}
+                    </a-button>
+                    <a-button type="link" size="small" style="padding: 0" @click="openQuickAdd">
+                      {{ $t('New_Customer') }}
+                    </a-button>
+                  </span>
                 </div>
               </template>
               <a-select
@@ -50,7 +61,19 @@
             </a-form-item>
           </a-col>
 
-          <!-- Service is picked in two steps: its product group, then the service. -->
+          <!-- Location of the appointment (and of its invoice). -->
+          <a-col :xs="24" :md="12" :lg="8">
+            <a-form-item :label="$t('warehouse')">
+              <a-select
+                v-model:value="booking.warehouse_id" show-search option-filter-prop="label"
+                :placeholder="$t('Choose_Warehouse')" allow-clear
+                :options="warehouseOptions"
+              />
+            </a-form-item>
+          </a-col>
+
+          <!-- Product/Service: optional Group filter, then the dropdown (like
+               the Sales / Purchase forms) with "New" to create one on the spot. -->
           <a-col :xs="24" :md="12" :lg="8">
             <a-form-item :label="$t('Group_Service')">
               <a-select
@@ -63,19 +86,21 @@
           </a-col>
 
           <a-col :xs="24" :md="12" :lg="8">
-            <a-form-item :label="$t('Service')">
+            <a-form-item name="product_id">
+              <template #label>
+                <div class="label-row">
+                  <span>{{ $t('Product_Name') }}</span>
+                  <a-button v-if="auth.can('products_add')" type="link" size="small" style="padding: 0" @click="quickProductOpen = true">
+                    <PlusOutlined /> {{ $t('New') || 'New' }}
+                  </a-button>
+                </div>
+              </template>
               <a-select
                 v-model:value="booking.product_id" show-search option-filter-prop="label"
                 :placeholder="$t('Choose_Service')" allow-clear
                 :options="serviceOptions"
                 @change="onProductChange"
               />
-            </a-form-item>
-          </a-col>
-
-          <a-col :xs="24" :md="12" :lg="8">
-            <a-form-item :label="$t('Product_Name')" name="product_name">
-              <a-input v-model:value="booking.product_name" :placeholder="$t('Product_Name')" />
             </a-form-item>
           </a-col>
 
@@ -106,27 +131,12 @@
             </a-form-item>
           </a-col>
 
-          <a-col :xs="24" :md="12" :lg="8">
-            <a-form-item :label="$t('Date') + ' *'" name="booking_date">
-              <a-date-picker v-model:value="booking.booking_date" value-format="YYYY-MM-DD" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-
-          <a-col :xs="24" :md="12" :lg="8">
-            <a-form-item :label="$t('Start_Time') + ' *'" name="booking_time">
-              <a-time-picker
-                v-model:value="booking.booking_time" value-format="HH:mm" format="HH:mm" style="width: 100%"
-                @change="applyServiceDuration"
-              />
-            </a-form-item>
-          </a-col>
-
-          <a-col :xs="24" :md="12" :lg="8">
-            <a-form-item :label="$t('End_Time')">
-              <a-time-picker
-                v-model:value="booking.booking_end_time" value-format="HH:mm" format="HH:mm" style="width: 100%"
-              />
-            </a-form-item>
+          <!-- Date / start / end: the same control set as the calendar modal. -->
+          <a-col :span="24">
+            <BookingWhenFields
+              v-model:date="booking.booking_date" v-model:start="booking.booking_time" v-model:end="booking.booking_end_time"
+              :duration="selectedDuration"
+            />
           </a-col>
 
           <a-col v-if="fields.delivery_date" :xs="24" :md="12" :lg="8">
@@ -174,8 +184,8 @@
       </a-form>
     </a-card>
 
-    <!-- Public booking page + iframe code for external websites (create only) -->
-    <OnlineBookingCard v-if="!isEdit && !loading" :public-booking="publicBooking" style="margin-top: 16px" />
+    <!-- New product/service without leaving the booking (same modal as Sales). -->
+    <QuickAddProduct v-model:open="quickProductOpen" context="sale" @created="onProductCreated" />
 
     <!-- Quick add customer -->
     <a-modal
@@ -197,6 +207,54 @@
           <a-textarea v-model:value="client.adresse" :rows="2" />
         </a-form-item>
       </a-form>
+    </a-modal>
+
+    <!-- Edit the selected customer -->
+    <a-modal
+      v-model:open="editCustomerOpen" :title="`${$t('Edit')} — ${editCustomer.name || $t('Customer')}`"
+      :confirm-loading="editCustomerSaving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
+      :ok-button-props="{ disabled: editCustomerLoading }"
+      @ok="submitEditCustomer"
+    >
+      <a-spin :spinning="editCustomerLoading">
+        <a-form ref="editCustomerRef" :model="editCustomer" :rules="editCustomerRules" layout="vertical">
+          <a-form-item :label="$t('CustomerName') + ' *'" name="name">
+            <a-input v-model:value="editCustomer.name" />
+          </a-form-item>
+          <a-row :gutter="12">
+            <a-col :span="12">
+              <a-form-item :label="$t('Email')" name="email">
+                <a-input v-model:value="editCustomer.email" type="email" />
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item :label="$t('Phone')" name="phone">
+                <a-input v-model:value="editCustomer.phone" />
+              </a-form-item>
+            </a-col>
+          </a-row>
+          <a-form-item :label="$t('Address')" name="adresse">
+            <a-textarea v-model:value="editCustomer.adresse" :rows="2" />
+          </a-form-item>
+          <a-row :gutter="12">
+            <a-col :span="10">
+              <a-form-item :label="$t('City')" name="city">
+                <a-input v-model:value="editCustomer.city" />
+              </a-form-item>
+            </a-col>
+            <a-col :span="7">
+              <a-form-item :label="$t('State')" name="state">
+                <a-input v-model:value="editCustomer.state" />
+              </a-form-item>
+            </a-col>
+            <a-col :span="7">
+              <a-form-item :label="$t('ZipCode')" name="zip">
+                <a-input v-model:value="editCustomer.zip" />
+              </a-form-item>
+            </a-col>
+          </a-row>
+        </a-form>
+      </a-spin>
     </a-modal>
   </div>
 </template>
@@ -229,10 +287,15 @@ import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
-import OnlineBookingCard from '../../components/OnlineBookingCard.vue';
+import BookingWhenFields from '../../components/BookingWhenFields.vue';
+import QuickAddProduct from '../../components/QuickAddProduct.vue';
 import { t as tf } from '../../i18n';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
+import { EditOutlined, PlusOutlined } from '@ant-design/icons-vue';
+import { useAuthStore } from '../../stores/auth';
+
+const auth = useAuthStore();
 
 const { t } = useI18n();
 const route = useRoute();
@@ -249,7 +312,9 @@ const customers = ref([]);
 const products = ref([]);
 const trays = ref([]);
 const salesPersons = ref([]);
-const publicBooking = ref(null);
+const warehouses = ref([]);
+const warehouseOptions = computed(() => sortByLabel(warehouses.value.map(w => ({ value: w.id, label: w.name }))));
+const quickProductOpen = ref(false);
 // System Settings -> Defaults -> Booking: optional fields (all shown until the API says otherwise).
 // A hidden field keeps its value: a new booking saves the defaults (status Pending,
 // no delivery), an edit sends back what the booking already has.
@@ -265,11 +330,16 @@ function todayLocal() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+// New booking opened from the calendar: ?date=YYYY-MM-DD&time=HH:mm prefill
+// the day/time that was clicked.
+const qDate = /^\d{4}-\d{2}-\d{2}$/.test(String(route.query.date || '')) ? String(route.query.date) : null;
+const qTime = /^\d{2}:\d{2}$/.test(String(route.query.time || '')) ? String(route.query.time) : '';
+
 const booking = ref({
-  customer_id: null, sales_person_id: null, tray_id: null, product_id: null,
+  customer_id: null, sales_person_id: null, tray_id: null, warehouse_id: null, product_id: null,
   product_name: '', product_description: '', price: null, amount: null,
-  booking_date: isEdit ? '' : todayLocal(),
-  booking_time: '', booking_end_time: '',
+  booking_date: isEdit ? '' : (qDate || todayLocal()),
+  booking_time: isEdit ? '' : qTime, booking_end_time: '',
   delivery_date: '', delivery_time: '', delivery_address: '',
   status: 'pending', notes: '',
 });
@@ -319,9 +389,15 @@ const groupOptions = computed(() => {
 const serviceOptions = computed(() => sortByLabel(
   products.value
     .filter(p => serviceGroup.value === null || serviceGroup.value === undefined || groupOf(p) === serviceGroup.value)
-    // Duration shown with the name, e.g. "Haircut · 1 h" (Product form -> Service duration).
-    .map(p => ({ value: p.id, label: p.service_duration ? `${p.name} · ${fmtDuration(p.service_duration)}` : p.name }))
+    // Duration shown with the name, e.g. "Haircut · 1 h" (Product form -> Service
+    // duration); physical products are marked so they stand apart from services.
+    .map(p => ({
+      value: p.id,
+      label: (p.service_duration ? `${p.name} · ${fmtDuration(p.service_duration)}` : p.name)
+        + (p.type && p.type !== 'is_service' ? ` (${tf('Product_Only', 'Product')})` : ''),
+    }))
 ));
+const selectedDuration = computed(() => Number(products.value.find(p => p.id === booking.value.product_id)?.service_duration) || 0);
 function fmtDuration(m) {
   const h = Math.floor(m / 60);
   const r = m % 60;
@@ -337,31 +413,32 @@ function onGroupChange(group) {
   }
 }
 
-/** End Time = Start Time + the service's duration (Product form -> Service duration). */
-function applyServiceDuration() {
-  const product = products.value.find(p => p.id === booking.value.product_id);
-  const dur = Number(product?.service_duration) || 0;
-  const start = booking.value.booking_time;
-  if (!dur || !/^\d{2}:\d{2}$/.test(start || '')) return;
-  const end = Math.min(Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5)) + dur, 23 * 60 + 59);
-  booking.value.booking_end_time = `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
-}
+// End Time follows the service's duration inside BookingWhenFields.
 
+/**
+ * Picking a product/service (a user action, create or edit) fills its name
+ * and its price -- the price is the default and can still be typed over.
+ * Clearing it clears both.
+ */
 function onProductChange(productId) {
   const product = products.value.find(p => p.id === productId);
-  // Picking a service straight away (no group chosen) fills its group in.
+  // Picking one straight away (no group chosen) fills its group in.
   if (product) serviceGroup.value = groupOf(product);
-  applyServiceDuration();
-  if (isEdit) {
-    // Edit never clobbers a price already on the booking.
-    if (product?.price && !booking.value.price) booking.value.price = product.price;
-    return;
-  }
-  if (productId) {
-    if (product?.price) booking.value.price = product.price;
-  } else {
-    booking.value.price = null;
-  }
+  booking.value.product_name = product ? product.name : '';
+  booking.value.price = product && product.price != null ? Number(product.price) : null;
+}
+
+// Quick Add Product/Service: reload the list, then pick the new one by its code.
+async function onProductCreated({ code }) {
+  try {
+    const data = await http.get('bookings/create');
+    products.value = data?.products || products.value;
+    const created = products.value.find(p => p.code === code);
+    if (created) {
+      booking.value.product_id = created.id;
+      onProductChange(created.id);
+    }
+  } catch (e) { /* the list just isn't refreshed */ }
 }
 
 function payload() {
@@ -370,6 +447,7 @@ function payload() {
     customer_id: b.customer_id,
     sales_person_id: b.sales_person_id,
     tray_id: b.tray_id,
+    warehouse_id: b.warehouse_id || null,
     product_id: b.product_id,
     product_name: b.product_name,
     product_description: b.product_description,
@@ -462,6 +540,77 @@ async function submitQuickAdd() {
   }
 }
 
+// ---------------- edit the selected customer (modal) ----------------
+// GET clients/{id} -> the full customer; the modal edits a few fields and
+// PUT clients/{id} sends the FULL record back -- that endpoint overwrites
+// every field it receives, so sending only the edited ones would blank the
+// rest (tax number, country, credit limit...).
+
+const editCustomerOpen = ref(false);
+const editCustomerLoading = ref(false);
+const editCustomerSaving = ref(false);
+const editCustomerRef = ref();
+const editCustomer = ref({});
+let editCustomerFull = {};
+const editCustomerRules = computed(() => ({
+  name: [{ required: true, message: t('Field_is_required') }],
+  email: [{ type: 'email', message: t('InvalidData') }],
+}));
+
+async function openEditCustomer() {
+  const id = booking.value.customer_id;
+  if (!id) return;
+  editCustomer.value = { name: customers.value.find(c => c.id === id)?.name || '' };
+  editCustomerRef.value?.clearValidate?.();
+  editCustomerOpen.value = true;
+  editCustomerLoading.value = true;
+  try {
+    const data = await http.get(`clients/${id}`);
+    editCustomerFull = data?.client || data || {};
+    const c = editCustomerFull;
+    editCustomer.value = {
+      name: c.name || '', email: c.email || '', phone: c.phone || '',
+      adresse: c.adresse || '', city: c.city || '', state: c.state || '', zip: c.zip || '',
+    };
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+    editCustomerOpen.value = false;
+  } finally {
+    editCustomerLoading.value = false;
+  }
+}
+
+async function submitEditCustomer() {
+  try {
+    await editCustomerRef.value.validate();
+  } catch (e) {
+    return;
+  }
+  const id = booking.value.customer_id;
+  const c = editCustomerFull;
+  editCustomerSaving.value = true;
+  try {
+    await http.put(`clients/${id}`, {
+      // untouched fields, exactly as loaded
+      firstname: c.firstname ?? '', lastname: c.lastname ?? '', country: c.country ?? '',
+      tax_number: c.tax_number ?? '', is_royalty_eligible: !!c.is_royalty_eligible,
+      credit_limit: Number(c.credit_limit) || 0,
+      // edited here
+      ...editCustomer.value,
+    });
+    const row = customers.value.find(x => x.id === id);
+    if (row) row.name = editCustomer.value.name;
+    message.success(t('Successfully_Updated'));
+    editCustomerOpen.value = false;
+  } catch (e) {
+    const errs = e?.data?.errors;
+    const first = errs && Object.values(errs)[0];
+    message.error((Array.isArray(first) ? first[0] : first) || e?.data?.message || t('InvalidData'));
+  } finally {
+    editCustomerSaving.value = false;
+  }
+}
+
 onMounted(async () => {
   try {
     const data = await http.get(isEdit ? `bookings/${id}/edit` : 'bookings/create');
@@ -469,8 +618,19 @@ onMounted(async () => {
     products.value = data?.products || [];
     trays.value = data?.trays || [];
     salesPersons.value = data?.sales_persons || [];
-    publicBooking.value = data?.public_booking || null;
+    warehouses.value = data?.warehouses || [];
     if (data?.booking_fields) fields.value = { ...fields.value, ...data.booking_fields };
+
+    // New booking: System Settings -> Defaults -> Booking (location, Walk-in
+    // customer, station, signed-in user as sales person).
+    if (!isEdit && data?.defaults) {
+      const d = data.defaults;
+      const has = (list, v) => v && list.some(x => x.id === v);
+      if (has(warehouses.value, d.warehouse_id)) booking.value.warehouse_id = d.warehouse_id;
+      if (has(customers.value, d.customer_id)) booking.value.customer_id = d.customer_id;
+      if (has(trays.value, d.tray_id)) booking.value.tray_id = d.tray_id;
+      if (has(salesPersons.value, d.sales_person_id)) booking.value.sales_person_id = d.sales_person_id;
+    }
 
     if (isEdit) {
       const b = data?.booking || {};
@@ -478,6 +638,7 @@ onMounted(async () => {
         customer_id: b.customer_id,
         sales_person_id: b.sales_person_id,
         tray_id: b.tray_id,
+        warehouse_id: b.warehouse_id || null,
         product_id: b.product_id,
         product_name: b.product_name || '',
         product_description: b.product_description || '',

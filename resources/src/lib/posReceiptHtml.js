@@ -344,7 +344,7 @@ export function buildPosReceiptHtml(opts) {
         ${on('show_date') ? `<div class="bl4-meta-row"><span class="bl4-meta-en">Date</span><span class="bl4-meta-val">${esc(s.date)}</span><span class="bl4-meta-ar">التاريخ</span></div>` : ''}
         ${on('show_seller') ? `<div class="bl4-meta-row"><span class="bl4-meta-en">Seller</span><span class="bl4-meta-val">${esc(s.seller_name)}</span><span class="bl4-meta-ar">البائع</span></div>` : ''}
         ${set('show_customer') ? `<div class="bl4-meta-row"><span class="bl4-meta-en">Customer</span><span class="bl4-meta-val">${esc(s.client_name)}</span><span class="bl4-meta-ar">العميل</span></div>` : ''}
-        ${set('show_Warehouse') ? `<div class="bl4-meta-row"><span class="bl4-meta-en">Warehouse</span><span class="bl4-meta-val">${esc(s.warehouse_name)}</span><span class="bl4-meta-ar">المستودع</span></div>` : ''}
+        ${set('show_Warehouse') ? `<div class="bl4-meta-row"><span class="bl4-meta-en">Location</span><span class="bl4-meta-val">${esc(s.warehouse_name)}</span><span class="bl4-meta-ar">المستودع</span></div>` : ''}
       </div>
       <table class="bl4-items">
         <colgroup><col style="width:44%"><col style="width:14%"><col style="width:20%"><col style="width:22%"></colgroup>

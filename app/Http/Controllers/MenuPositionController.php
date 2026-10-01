@@ -134,15 +134,16 @@ class MenuPositionController extends Controller
             }
         }
 
-        DB::transaction(function () use ($positions, $companyId, $user) {
+        $toAllCompanies = $this->appliesToAllCompanies($user, $companyId);
+
+        DB::transaction(function () use ($positions, $companyId, $toAllCompanies) {
             $this->writeCompanyPositions($companyId, $positions);
 
-            // A SuperAdmin's edit is the platform-wide standard, not just
-            // this one company's -- replicate the exact same layout to
-            // every OTHER company too, so all companies stay in sync. An
-            // Admin's save (reorder/hide only, enforced above) stays local
-            // to their own company.
-            if ($user->type === 'SuperAdmin') {
+            // Only a SuperAdmin working as AdminSystem (the template company,
+            // 999) sets the platform-wide menu: the exact same layout is
+            // copied to EVERY company. Any other save -- an Admin's, or a
+            // SuperAdmin acting as one real company -- stays in that company.
+            if ($toAllCompanies) {
                 // Company has no SoftDeletes trait/global scope (deleted_at is
                 // filtered manually elsewhere), so this already includes
                 // soft-deleted rows like 999 with no withTrashed() needed.
@@ -153,7 +154,39 @@ class MenuPositionController extends Controller
             }
         });
 
-        return response()->json(['message' => 'Menu layout saved.']);
+        return response()->json([
+            'message' => $toAllCompanies ? 'Menu layout saved for every company.' : 'Menu layout saved for this company.',
+            'scope' => $toAllCompanies ? 'all' : 'company',
+        ]);
+    }
+
+    /**
+     * POST menu-positions/visibility {key, hidden}: force ONE menu item shown
+     * or hidden for everyone -- used by the role editor for items that need
+     * no permission (they used to read "Always visible" with no way to turn
+     * them off). SuperAdmin acting as AdminSystem (999) only; flips the
+     * item's `hidden` flag in every company's layout, nothing else.
+     */
+    public function visibility(Request $request)
+    {
+        $user = $request->user('api');
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_unless($this->appliesToAllCompanies($user, $companyId), 403, 'Only a SuperAdmin working as AdminSystem can force a menu item for everyone.');
+
+        $data = $request->validate([
+            'key' => 'required|string|max:191',
+            'hidden' => 'required|boolean',
+        ]);
+
+        $updated = MenuPosition::where('item_key', $data['key'])->update(['hidden' => (bool) $data['hidden'], 'updated_at' => now()]);
+
+        return response()->json(['success' => true, 'companies' => $updated]);
+    }
+
+    /** SuperAdmin acting as AdminSystem (template company 999) -> every company. */
+    private function appliesToAllCompanies($user, int $companyId): bool
+    {
+        return $user->type === 'SuperAdmin' && $companyId === \App\Models\Setting::TEMPLATE_COMPANY_ID;
     }
 
     /**
@@ -201,14 +234,23 @@ class MenuPositionController extends Controller
         abort_unless($user->type === 'SuperAdmin', 403);
         $companyId = $this->resolveActingCompanyId($request);
 
-        DB::transaction(function () use ($companyId) {
+        // Same scope rule as store(): as AdminSystem -> every company;
+        // acting as one company -> only that company.
+        $toAllCompanies = $this->appliesToAllCompanies($user, $companyId);
+
+        DB::transaction(function () use ($companyId, $toAllCompanies) {
             MenuPosition::where('company_id', $companyId)->delete();
-            $otherCompanyIds = Company::where('id', '!=', $companyId)->pluck('id');
-            foreach ($otherCompanyIds as $otherId) {
-                MenuPosition::where('company_id', $otherId)->delete();
+            if ($toAllCompanies) {
+                $otherCompanyIds = Company::where('id', '!=', $companyId)->pluck('id');
+                foreach ($otherCompanyIds as $otherId) {
+                    MenuPosition::where('company_id', $otherId)->delete();
+                }
             }
         });
 
-        return response()->json(['message' => 'Menu layout reset.']);
+        return response()->json([
+            'message' => $toAllCompanies ? 'Menu layout reset for every company.' : 'Menu layout reset for this company.',
+            'scope' => $toAllCompanies ? 'all' : 'company',
+        ]);
     }
 }

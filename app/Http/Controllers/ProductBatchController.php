@@ -377,7 +377,7 @@ class ProductBatchController extends BaseController
             return;
         }
         if (! in_array($warehouseId, $ids, true)) {
-            abort(403, 'Warehouse access denied');
+            abort(403, 'Location access denied');
         }
     }
 

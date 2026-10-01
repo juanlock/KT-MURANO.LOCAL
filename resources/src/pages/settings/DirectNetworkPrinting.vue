@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <PageHeader
+    <PageHeader v-if="!embedded"
       :title="$t('Direct_Network_Printing') || 'Direct Network Printing'"
       :breadcrumb="[$t('Settings'), 'Direct Network Printing']"
     />
@@ -273,6 +273,9 @@ import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
 import { qzPrintRaw, qzListPrinters, isQzConnectError } from '../../lib/qzPrint';
 import { renderLabelRaster } from '../../lib/labelRaster';
+
+// Shown as a tab inside Settings -> POS Settings: no page header of its own there.
+defineProps({ embedded: { type: Boolean, default: false } });
 
 const { t } = useI18n();
 

@@ -1,7 +1,7 @@
 <script>
 import {
   // navigation / chevrons / arrows
-  Plus, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, CircleArrowUp as ArrowUpCircle,
+  Plus, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, CircleArrowUp as ArrowUpCircle, LogOut,
   // files / folders
   FilePlus, Files, Folder, FileText, ClipboardList, Copy,
   // commerce
@@ -52,6 +52,7 @@ const REGISTRY = {
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
   'arrow-left': ArrowLeft,
+  'log-out': LogOut,
   'arrow-up-circle': ArrowUpCircle,
   // files
   'file-plus': FilePlus,

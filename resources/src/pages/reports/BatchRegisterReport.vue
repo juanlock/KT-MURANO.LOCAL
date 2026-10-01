@@ -128,7 +128,7 @@ const expiryWindowOptions = computed(() => [
 ]);
 
 const columns = computed(() => [
-  { title: t('Product'), dataIndex: 'product', key: 'product', sorter: true },
+  { title: t('Product_Only'), dataIndex: 'product', key: 'product', sorter: true },
   { title: t('Batch_No'), dataIndex: 'batch_no', key: 'batch_no' },
   { title: t('Warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name' },
   { title: t('Mfg_Date'), key: 'mfg_date', dataIndex: 'mfg_date', sorter: true, exportValue: r => (r.mfg_date ? date(r.mfg_date) : '') },

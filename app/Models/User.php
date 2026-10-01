@@ -30,7 +30,26 @@ class User extends Authenticatable
      */
     protected $hidden = [
         'password', 'remember_token', 'invitation_token',
+        // Cashier PIN (POS open/close register). Plain digits, unique per
+        // company; kept out of API payloads -- only the user form reads it.
+        'pin',
     ];
+
+    // Does $pin confirm this user? (constant-time compare)
+    public function pinMatches($pin): bool
+    {
+        return $this->pin !== null && $this->pin !== '' && $pin !== null && $pin !== ''
+            && hash_equals((string) $this->pin, (string) $pin);
+    }
+
+    // Is $pin already held by another (non-deleted) user of the same company?
+    public static function pinTaken($companyId, $pin, $exceptUserId = null): bool
+    {
+        return static::where('company_id', $companyId)->where('pin', (string) $pin)
+            ->whereNull('deleted_at')
+            ->when($exceptUserId, fn ($q) => $q->where('id', '<>', $exceptUserId))
+            ->exists();
+    }
 
     /**
      * The attributes that should be cast to native types.

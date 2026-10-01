@@ -22,7 +22,7 @@
             </template>
           </div>
           <a-typography-text type="secondary">
-            {{ fmt(summary.products) }} {{ $t('Products') }}
+            {{ fmt(summary.products) }} {{ $t('Products_Only') }}
           </a-typography-text>
         </div>
 

@@ -49,11 +49,8 @@
               <a-menu-item key="demo"><ExperimentOutlined /> Demo Data</a-menu-item>
               <a-menu-item key="calendar"><CalendarOutlined /> {{ $t('Calendar') }}</a-menu-item>
             </a-menu-item-group>
-            <a-menu-item-group :title="'POS'">
-              <a-menu-item key="pos_settings"><ControlOutlined /> {{ $t('Pos_Settings') }}</a-menu-item>
-              <a-menu-item key="pos_receipt"><FileTextOutlined /> {{ $t('POS_Receipt') }}</a-menu-item>
-              <a-menu-item key="network_printing"><PrinterOutlined /> Direct Network Printing</a-menu-item>
-            </a-menu-item-group>
+            <!-- No POS group here: all POS settings (general, company rules,
+                 receipt, network printing) live on Settings -> POS Settings. -->
             <a-menu-item-group :title="'Integrations'">
               <a-menu-item key="appearance"><SkinOutlined /> Appearance</a-menu-item>
               <a-menu-item key="pwa"><MobileOutlined /> PWA</a-menu-item>
@@ -243,13 +240,7 @@
 
           <!-- ============================== Features ============================== -->
           <template v-else-if="activeTab === 'features'">
-            <div class="setting-row">
-              <div>
-                <div class="setting-label">{{ $t('Enable_3_Decimal_Pricing') }}</div>
-                <div class="setting-help">{{ $t('Enable_3_Decimal_Pricing_Help') }}</div>
-              </div>
-              <a-switch v-model:checked="setting.enable_3_decimal_pricing" />
-            </div>
+            <!-- Price decimals (Enable 3 Decimal Pricing) moved to Settings -> POS Settings -> Company rules. -->
             <div class="setting-row">
               <div>
                 <div class="setting-label">{{ $t('EnableKitchenDisplay') }}</div>
@@ -430,11 +421,7 @@
                       />
                     </a-form-item>
                   </a-col>
-                  <a-col :xs="24" :md="8">
-                    <a-form-item :label="$t('How_many_items_do_you_want_to_display_in_POS')">
-                      <a-input-number v-model:value="pos_settings.products_per_page" :min="1" style="width: 100%" />
-                    </a-form-item>
-                  </a-col>
+                  <!-- POS items per page moved to Settings -> POS Settings. -->
                 </a-row>
               </a-form>
               <a-divider style="margin: 8px 0 0" />
@@ -445,13 +432,7 @@
                 </div>
                 <a-switch :checked="asBool(setting.quotation_with_stock)" @change="v => (setting.quotation_with_stock = v ? 1 : 0)" />
               </div>
-              <div class="setting-row">
-                <div>
-                  <div class="setting-label">{{ $t('Show_Items_Tax') }}</div>
-                  <div class="setting-help">Show the total items tax line on POS receipts.</div>
-                </div>
-                <a-switch :checked="asBool(pos_settings.show_items_tax)" @change="v => (pos_settings.show_items_tax = v ? 1 : 0)" />
-              </div>
+              <!-- Show Items Tax (POS receipt) lives in Settings -> POS Settings -> Receipt. -->
               <div class="setting-row">
                 <div>
                   <div class="setting-label">Show price type dropdown</div>
@@ -521,6 +502,45 @@
 
             <!-- Booking: optional fields on the Booking Create/Edit form, per company. -->
             <a-tab-pane key="booking" tab="Booking">
+            <!-- What a NEW booking starts with (Create Booking, calendar "New appointment"). -->
+            <a-card size="small" title="New booking defaults" style="margin-bottom: 16px">
+              <a-row :gutter="16">
+                <a-col :xs="24" :md="12">
+                  <a-form-item :label="$t('warehouse')" extra="Location of new bookings (and of their invoices). Empty = the company default location." style="margin-bottom: 12px">
+                    <a-select
+                      v-model:value="setting.booking_default_warehouse_id" allow-clear show-search option-filter-prop="label" style="width: 100%"
+                      :placeholder="$t('DefaultWarehouse')" :options="sortByLabel(warehouses.map(w => ({ label: w.name, value: w.id })))"
+                    />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :md="12">
+                  <a-form-item :label="$t('Customer')" extra="Empty = the company default customer (e.g. Walk-in Customer)." style="margin-bottom: 12px">
+                    <a-select
+                      v-model:value="setting.booking_default_client_id" allow-clear show-search option-filter-prop="label" style="width: 100%"
+                      :placeholder="$t('DefaultCustomer')" :options="sortByLabel(clients.map(c => ({ label: c.name, value: c.id })))"
+                    />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :md="12">
+                  <a-form-item :label="$t('Tray')" style="margin-bottom: 12px">
+                    <a-select
+                      v-model:value="setting.booking_default_tray_id" allow-clear show-search option-filter-prop="label" style="width: 100%"
+                      :placeholder="$t('Choose_Tray')" :options="sortByLabel(trays.map(t2 => ({ label: t2.name, value: t2.id })))"
+                    />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :md="12">
+                  <div class="setting-row" style="padding-top: 4px">
+                    <div>
+                      <div class="setting-label">{{ $t('Sales_Person') }} = signed-in user</div>
+                      <div class="setting-help">New bookings start with the user who creates them as sales person.</div>
+                    </div>
+                    <a-switch :checked="asBool(setting.booking_default_sales_person_self ?? true)" @change="v => (setting.booking_default_sales_person_self = v ? 1 : 0)" />
+                  </div>
+                </a-col>
+              </a-row>
+            </a-card>
+
             <a-card size="small" style="margin-bottom: 16px">
               <div v-for="f in BOOKING_FIELD_TOGGLES" :key="f.key" class="setting-row">
                 <div>
@@ -627,70 +647,8 @@
             </a-card>
             </a-tab-pane>
 
-            <!-- Invoice PDF: company-scoped section show/hide toggles + editable
-                 Company Note / Terms & Conditions content, distinct from the
-                 global Invoice PDF appearance page (Settings -> Invoice PDF). -->
-            <a-tab-pane key="invoice_pdf" tab="Invoice PDF">
-            <a-card size="small" style="margin-bottom: 16px">
-              <div class="setting-row">
-                <div>
-                  <div class="setting-label">Discount column</div>
-                  <div class="setting-help">Show the DISC column in the invoice's line-items table.</div>
-                </div>
-                <a-switch :checked="asBool(setting.sale_pdf_show_disc_column)" @change="v => (setting.sale_pdf_show_disc_column = v ? 1 : 0)" />
-              </div>
-              <div class="setting-row">
-                <div>
-                  <div class="setting-label">Tax column</div>
-                  <div class="setting-help">Show the TAX column in the invoice's line-items table. Only appears when at least one item has an individual tax.</div>
-                </div>
-                <a-switch :checked="asBool(setting.sale_pdf_show_tax_column)" @change="v => (setting.sale_pdf_show_tax_column = v ? 1 : 0)" />
-              </div>
-              <div class="setting-row">
-                <div>
-                  <div class="setting-label">Shipping row</div>
-                  <div class="setting-help">Show the Shipping row in the invoice's totals summary. Only appears when the invoice has a shipping amount.</div>
-                </div>
-                <a-switch :checked="asBool(setting.sale_pdf_show_shipping_row)" @change="v => (setting.sale_pdf_show_shipping_row = v ? 1 : 0)" />
-              </div>
-              <div class="setting-row">
-                <div>
-                  <div class="setting-label">Discount row</div>
-                  <div class="setting-help">Show the Discount row in the invoice's totals summary. Only appears when the invoice has a discount amount.</div>
-                </div>
-                <a-switch :checked="asBool(setting.sale_pdf_show_discount_row)" @change="v => (setting.sale_pdf_show_discount_row = v ? 1 : 0)" />
-              </div>
-              <div class="setting-row">
-                <div>
-                  <div class="setting-label">Previous Dues / Net Balance</div>
-                  <div class="setting-help">Show the Previous Dues and Net Balance rows on invoices for a customer with an outstanding balance.</div>
-                </div>
-                <a-switch :checked="asBool(setting.sale_pdf_show_previous_dues)" @change="v => (setting.sale_pdf_show_previous_dues = v ? 1 : 0)" />
-              </div>
-              <a-divider style="margin: 8px 0" />
-              <div class="setting-row">
-                <div>
-                  <div class="setting-label">Company Note</div>
-                  <div class="setting-help">Show a Company Note block below the totals on the invoice.</div>
-                </div>
-                <a-switch :checked="asBool(setting.sale_pdf_show_company_note)" @change="v => (setting.sale_pdf_show_company_note = v ? 1 : 0)" />
-              </div>
-              <a-form-item label="Company Note content" style="margin-top: 8px">
-                <a-textarea v-model:value="setting.sale_pdf_company_note" :rows="3" placeholder="e.g. We accept credit card for payment with 3.5% extra fee..." />
-              </a-form-item>
-              <a-divider style="margin: 8px 0" />
-              <div class="setting-row">
-                <div>
-                  <div class="setting-label">Terms &amp; Conditions</div>
-                  <div class="setting-help">Show a Terms &amp; Conditions block below the totals on the invoice.</div>
-                </div>
-                <a-switch :checked="asBool(setting.sale_pdf_show_terms_conditions)" @change="v => (setting.sale_pdf_show_terms_conditions = v ? 1 : 0)" />
-              </div>
-              <a-form-item label="Terms & Conditions content" help="{{COMPANY NAME}} and {{ADDRESS COMPANY}} are replaced with this company's own name/address when the invoice is generated." style="margin-top: 8px">
-                <a-textarea v-model:value="setting.sale_pdf_terms_conditions" :rows="3" placeholder="e.g. Make all checks payable to: {{COMPANY NAME}}..." />
-              </a-form-item>
-            </a-card>
-            </a-tab-pane>
+            <!-- Invoice PDF options (hide time, columns, rows, note, terms) moved to
+                 Settings -> Invoice PDF -> Default, next to the design + live preview. -->
             </a-tabs>
           </template>
 
@@ -1191,7 +1149,6 @@
  *   languages}
  * - POST settings/{id} (FormData + _method=put) — sends the FULL legacy field
  *   list every save, so unrendered fields still round-trip losslessly
- * - sidecar PUT pos_settings/{id} {products_per_page, show_items_tax}
  * - GET clear_cache; GET/PATCH settings/calendar (Google Calendar)
  * Post-save side effects kept: date_format → localStorage app_date_format,
  * price format + decimals caches, ui-store dark/rtl sync, locale switch.
@@ -1265,9 +1222,6 @@ const embeddedPages = {
   appearance: lazySection(() => import('./AppearanceSettings.vue')),
   pwa: lazySection(() => import('./PwaSettings.vue')),
   mobile_app: lazySection(() => import('./MobileAppSettings.vue')),
-  pos_settings: lazySection(() => import('./PosSettings.vue')),
-  pos_receipt: lazySection(() => import('./PosReceipt.vue')),
-  network_printing: lazySection(() => import('./DirectNetworkPrinting.vue')),
   mail: lazySection(() => import('./MailSettings.vue')),
   sms: lazySection(() => import('./SmsSettings.vue')),
   payment: lazySection(() => import('./PaymentGateway.vue')),
@@ -1323,9 +1277,6 @@ const currentSection = computed(() => ({
   appearance: { title: 'Appearance', desc: 'Branding and login page look.' },
   pwa: { title: t('PWA_Settings'), desc: t('PWA_Settings_Help') },
   mobile_app: { title: t('Mobile_App_Settings'), desc: t('Mobile_App_Settings_Help') },
-  pos_settings: { title: t('Pos_Settings'), desc: 'Point-of-sale behavior and hardware.' },
-  pos_receipt: { title: t('POS_Receipt'), desc: 'Receipt layout and printed content.' },
-  network_printing: { title: 'Direct Network Printing', desc: 'Send receipts straight to a network thermal printer (RAW / port 9100) without the OS print dialog.' },
   mail: { title: 'Mail', desc: 'Outgoing email (SMTP) configuration.' },
   sms: { title: 'SMS', desc: 'SMS provider configuration.' },
   payment: { title: t('Payment_Gateway'), desc: 'Online payment provider keys.' },
@@ -1335,10 +1286,10 @@ const currentSection = computed(() => ({
 }[activeTab.value] || { title: '', desc: '' }));
 
 const setting = ref({});
-const pos_settings = ref({});
 const currencies = ref([]);
 const clients = ref([]);
 const warehouses = ref([]);
+const trays = ref([]);
 const accounts = ref([]);
 const paymentMethods = ref([]);
 const smsGateways = ref([]);
@@ -1572,6 +1523,10 @@ async function save() {
   fd.append('booking_slot_minutes', Number(s.booking_slot_minutes) || 30);
   fd.append('booking_closed_days', s.booking_closed_days || '');
   fd.append('booking_capacity', Math.max(1, Number(s.booking_capacity) || 1));
+  fd.append('booking_default_warehouse_id', s.booking_default_warehouse_id || '');
+  fd.append('booking_default_client_id', s.booking_default_client_id || '');
+  fd.append('booking_default_tray_id', s.booking_default_tray_id || '');
+  fd.append('booking_default_sales_person_self', asBool(s.booking_default_sales_person_self ?? true) ? 1 : 0);
   fd.append('booking_form_logo_width', Number(s.booking_form_logo_width) || 160);
   if (bookingLogoFile.value) fd.append('booking_form_logo', bookingLogoFile.value);
   else if (bookingLogoRemoved.value) fd.append('remove_booking_form_logo', 1);
@@ -1581,15 +1536,6 @@ async function save() {
   fd.append('product_code_auto', asBool(s.product_code_auto ?? true) ? 1 : 0);
   fd.append('product_code_prefix', s.product_code_prefix || '');
   fd.append('product_code_digits', Math.max(1, Number(s.product_code_digits) || 4));
-  fd.append('sale_pdf_show_disc_column', asBool(s.sale_pdf_show_disc_column) ? 1 : 0);
-  fd.append('sale_pdf_show_tax_column', asBool(s.sale_pdf_show_tax_column) ? 1 : 0);
-  fd.append('sale_pdf_show_shipping_row', asBool(s.sale_pdf_show_shipping_row) ? 1 : 0);
-  fd.append('sale_pdf_show_discount_row', asBool(s.sale_pdf_show_discount_row) ? 1 : 0);
-  fd.append('sale_pdf_show_previous_dues', asBool(s.sale_pdf_show_previous_dues) ? 1 : 0);
-  fd.append('sale_pdf_show_company_note', asBool(s.sale_pdf_show_company_note) ? 1 : 0);
-  fd.append('sale_pdf_company_note', s.sale_pdf_company_note || '');
-  fd.append('sale_pdf_show_terms_conditions', asBool(s.sale_pdf_show_terms_conditions) ? 1 : 0);
-  fd.append('sale_pdf_terms_conditions', s.sale_pdf_terms_conditions || '');
   fd.append('show_language', s.show_language);
   fd.append('timezone', s.timezone);
   fd.append('date_format', s.date_format || 'YYYY-MM-DD');
@@ -1604,7 +1550,6 @@ async function save() {
   fd.append('rtl', s.rtl ? 1 : 0);
   fd.append('debug_mode', s.debug_mode ? 1 : 0);
   fd.append('offline_sync_enabled', s.offline_sync_enabled ? 1 : 0);
-  fd.append('enable_3_decimal_pricing', s.enable_3_decimal_pricing ? 1 : 0);
   fd.append('enable_kitchen_display', s.enable_kitchen_display ? 1 : 0);
   fd.append('kitchen_target_minutes', (s.kitchen_target_minutes == null) ? '' : s.kitchen_target_minutes);
   fd.append('kitchen_auto_online_orders', s.kitchen_auto_online_orders ? 1 : 0);
@@ -1653,13 +1598,6 @@ async function save() {
   fd.append('_method', 'put');
 
   try {
-    // Defaults-tab fields living on pos_settings save alongside (legacy sidecar).
-    if (pos_settings.value.id) {
-      http.put(`pos_settings/${pos_settings.value.id}`, {
-        products_per_page: pos_settings.value.products_per_page,
-        show_items_tax: asBool(pos_settings.value.show_items_tax) ? 1 : 0,
-      }).catch(() => {});
-    }
     const resp = await uploadForm(`settings/${s.id}`, fd);
     if (resp.status >= 400) {
       const msg = resp.data?.message || resp.data?.error || t('InvalidData');
@@ -1686,7 +1624,7 @@ async function save() {
     // Legacy post-save side effects.
     try {
       if (s.date_format) localStorage.setItem('app_date_format', s.date_format);
-      localStorage.setItem('app_price_decimals', s.enable_3_decimal_pricing ? '3' : '2');
+      // app_price_decimals: set by POS Settings (and refreshed at login) now.
       if (s.price_format) localStorage.setItem('app_price_format', s.price_format);
     } catch (e) { /* storage unavailable */ }
     if (typeof s.dark_mode === 'boolean' || s.dark_mode != null) {
@@ -1793,6 +1731,7 @@ onMounted(() => {
       currencies.value = data.currencies || [];
       clients.value = data.clients || [];
       warehouses.value = data.warehouses || [];
+      trays.value = data.trays || [];
       accounts.value = data.accounts || [];
       paymentMethods.value = data.payment_methods || [];
       smsGateways.value = data.sms_gateway || [];
@@ -1804,10 +1743,6 @@ onMounted(() => {
       if (!Number.isNaN(stm) && stm > 0 && !SESSION_TIMEOUT_PRESETS.includes(stm)) sessionTimeoutCustom.value = stm;
     })
     .catch(() => message.error(t('InvalidData')));
-
-  http.get('get_pos_Settings')
-    .then(pos => { pos_settings.value = pos?.pos_settings || {}; })
-    .catch(() => { /* sidecar optional */ });
 
   main.finally(() => { isLoading.value = false; });
 });

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Store;
 
 use App\Http\Controllers\BaseController;
+use App\Http\Controllers\Concerns\ScopesToCompany;
+use App\Services\StoreAccountService;
 use App\Mail\StoreAccountApproved;
 use App\Mail\StoreAccountRejected;
 use App\Models\EcommerceClient;
@@ -13,11 +15,25 @@ use Illuminate\Support\Facades\Mail;
 
 class PendingCustomersController extends BaseController
 {
+    use ScopesToCompany;
+
+    /**
+     * Web store accounts of the acting company only (multicompany rule --
+     * this used to list/approve every company's sign-ups): an account
+     * belongs to its customer's company.
+     */
+    private function companyAccounts(Request $request)
+    {
+        $companyId = $this->resolveActingCompanyId($request);
+
+        return EcommerceClient::whereHas('client', fn ($q) => $q->where('company_id', $companyId));
+    }
+
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
 
-        $query = EcommerceClient::with('client', 'inviteCode')
+        $query = $this->companyAccounts($request)->with('client', 'inviteCode')
             ->where('status', 0)
             ->whereNull('deleted_at')
             ->orderBy('created_at', 'desc');
@@ -42,15 +58,20 @@ class PendingCustomersController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
 
-        $ecomClient = EcommerceClient::findOrFail($id);
+        $ecomClient = $this->companyAccounts($request)->findOrFail($id);
         $ecomClient->status = 1;
         $ecomClient->save();
 
-        $this->notifyDecision($ecomClient->email, true);
+        // Approved: creates the linked user now (unless the company also
+        // requires email verification the customer hasn't done yet).
+        $userId = StoreAccountService::activateIfConfirmed($ecomClient);
+
+        $this->notifyDecision($ecomClient->email, true, $ecomClient);
 
         return response()->json([
             'success' => true,
-            'message' => 'Customer approved successfully.',
+            'message' => $userId ? 'Customer approved; their account was created.' : 'Customer approved successfully.',
+            'account_created' => (bool) $userId,
             'customer' => $ecomClient->load('client'),
         ]);
     }
@@ -59,11 +80,11 @@ class PendingCustomersController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
 
-        $ecomClient = EcommerceClient::findOrFail($id);
+        $ecomClient = $this->companyAccounts($request)->findOrFail($id);
         $email = $ecomClient->email;
         $ecomClient->delete();
 
-        $this->notifyDecision($email, false);
+        $this->notifyDecision($email, false, $ecomClient);
 
         return response()->json([
             'success' => true,
@@ -75,21 +96,24 @@ class PendingCustomersController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
 
-        $pending = EcommerceClient::where('status', 0)
+        $pending = $this->companyAccounts($request)->where('status', 0)
             ->whereNull('deleted_at')
             ->get();
 
-        $count = EcommerceClient::where('status', 0)
-            ->whereNull('deleted_at')
-            ->update(['status' => 1]);
-
+        $created = 0;
         foreach ($pending as $ecomClient) {
-            $this->notifyDecision($ecomClient->email, true);
+            $ecomClient->status = 1;
+            $ecomClient->save();
+            if (StoreAccountService::activateIfConfirmed($ecomClient)) {
+                $created++;
+            }
+            $this->notifyDecision($ecomClient->email, true, $ecomClient);
         }
 
         return response()->json([
             'success' => true,
-            'approved_count' => $count,
+            'approved_count' => $pending->count(),
+            'accounts_created' => $created,
         ]);
     }
 
@@ -97,12 +121,14 @@ class PendingCustomersController extends BaseController
      * Email the customer about the approval decision; failures are logged
      * so the admin action never fails because of SMTP issues.
      */
-    protected function notifyDecision(string $email, bool $approved): void
+    protected function notifyDecision(string $email, bool $approved, ?EcommerceClient $account = null): void
     {
         try {
-            $this->Set_config_mail();
+            $companyId = optional(optional($account)->client)->company_id;
+            // The account's company's mail server and store name.
+            $this->Set_config_mail($companyId);
 
-            $storeName = StoreSetting::first()->store_name ?? null;
+            $storeName = optional(StoreAccountService::settingsFor($companyId))->store_name;
 
             if ($approved) {
                 Mail::to($email)->send(new StoreAccountApproved(route('store.login.show'), $storeName));

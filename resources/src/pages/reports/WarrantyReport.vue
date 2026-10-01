@@ -76,7 +76,7 @@
       />
       <a-select
         v-model:value="productId" allow-clear show-search option-filter-prop="label" style="width: 200px"
-        :placeholder="$t('Product')" :options="opts('products')" @change="crud.reload()"
+        :placeholder="$t('Product_Only')" :options="opts('products')" @change="crud.reload()"
       />
     </template>
 
@@ -192,7 +192,7 @@ const donutOptions = computed(() => ({
 const columns = computed(() => [
   { title: t('Invoice'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   { title: t('date'), key: 'sale_date', dataIndex: 'sale_date', sorter: true, exportValue: r => date(r.sale_date) },
-  { title: t('Product'), dataIndex: 'product_name', key: 'product_name' },
+  { title: t('Product_Only'), dataIndex: 'product_name', key: 'product_name' },
   { title: t('qty'), dataIndex: 'quantity', key: 'quantity', align: 'right', sum: true },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name' },
   { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name' },

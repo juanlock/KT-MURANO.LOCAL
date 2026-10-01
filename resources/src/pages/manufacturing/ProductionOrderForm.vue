@@ -51,14 +51,14 @@
                 <a-form-item label="Build in *" name="warehouse_id" extra="Materials are drawn from here">
                   <a-select
                     v-model:value="form.warehouse_id" show-search option-filter-prop="label"
-                    :options="warehouseOptions" placeholder="Select a warehouse"
+                    :options="warehouseOptions" placeholder="Select a location"
                   />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
                 <a-form-item
                   label="Finished goods to" name="fg_warehouse_id"
-                  extra="Leave blank to receive back into the build warehouse"
+                  extra="Leave blank to receive back into the build location"
                 >
                   <a-select
                     v-model:value="form.fg_warehouse_id" show-search option-filter-prop="label"

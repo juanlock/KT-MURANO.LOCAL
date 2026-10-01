@@ -2,7 +2,7 @@
   <div class="page">
     <PageHeader
       title="Transfers"
-      subtitle="Every move an asset has made between warehouses."
+      subtitle="Every move an asset has made between locations."
       :breadcrumb="['Asset Management', 'Transfers']"
     >
       <template #actions>
@@ -16,7 +16,7 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search asset, warehouse or reason…"
+          v-model:value="crud.search.value" placeholder="Search asset, location or reason…"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
@@ -26,7 +26,7 @@
         />
         <a-select
           v-model:value="filters.warehouse_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All warehouses"
+          option-filter-prop="label" placeholder="All locations"
           :options="warehouseOptions" @change="crud.reload"
         />
         <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
@@ -81,7 +81,7 @@
         <a-form-item label="Move to *" name="to_warehouse_id">
           <a-select
             v-model:value="form.to_warehouse_id" show-search option-filter-prop="label"
-            :options="destinationOptions" placeholder="Select a warehouse"
+            :options="destinationOptions" placeholder="Select a location"
           />
         </a-form-item>
         <a-form-item label="Date *" name="transfer_date">

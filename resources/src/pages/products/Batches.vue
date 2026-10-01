@@ -80,7 +80,7 @@
       @ok="saveEdit"
     >
       <a-form layout="vertical">
-        <a-form-item :label="$t('Product')">
+        <a-form-item :label="$t('Product_Only')">
           <a-input :value="editing.product_name" disabled />
         </a-form-item>
         <a-row :gutter="12">
@@ -208,7 +208,7 @@ const expiryOptions = computed(() => [
 ]);
 
 const columns = computed(() => [
-  { title: t('Product'), key: 'product' },
+  { title: t('Product_Only'), key: 'product' },
   { title: t('Batch_No'), dataIndex: 'batch_no', key: 'batch_no', sorter: true },
   { title: t('Warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name' },
   { title: t('Expiry_Date'), dataIndex: 'expiry_date', key: 'expiry_date', sorter: true },

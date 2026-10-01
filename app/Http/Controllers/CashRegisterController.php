@@ -11,6 +11,9 @@ use App\Models\Warehouse;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 class CashRegisterController extends BaseController
 {
@@ -25,9 +28,14 @@ class CashRegisterController extends BaseController
             'warehouse_id' => 'required|integer|exists:warehouses,id',
             'opening_balance' => 'required|numeric',
             'notes' => 'nullable|string',
+            'pin' => 'nullable|string|max:20',
         ]);
 
         $user_id = Auth::user()->id;
+
+        if ($fail = $this->pinFailure($data['warehouse_id'], $data['pin'] ?? null)) {
+            return $fail;
+        }
 
         $existing = CashRegister::where('user_id', $user_id)
             ->where('warehouse_id', $data['warehouse_id'])
@@ -104,49 +112,249 @@ class CashRegisterController extends BaseController
             'counted_cash' => 'required|numeric',
             'closing_balance' => 'nullable|numeric',
             'notes' => 'nullable|string',
+            'pin' => 'nullable|string|max:20',
         ]);
 
         $register = CashRegister::findOrFail($data['register_id']);
+        $this->assertRegisterAccess($register);
         if ($register->status !== 'open') {
             return response()->json(['success' => false, 'message' => 'Register already closed'], 409);
         }
+        if ($fail = $this->pinFailure($register->warehouse_id, $data['pin'] ?? null)) {
+            return $fail;
+        }
 
         $now = Carbon::now();
-        $from = $register->opened_at;
-        $to = $now;
+        $summary = $this->registerSummary($register, $now);
 
-        $totalSales = Sale::whereNull('deleted_at')
-            ->where('is_pos', 1)
-            ->where('user_id', $register->user_id)
-            ->where('warehouse_id', $register->warehouse_id)
-            ->whereBetween('created_at', [$from, $to])
-            ->sum('GrandTotal');
-
-        $register->total_sales = $totalSales;
-
-        $expectedCash = ($register->opening_balance ?? 0) + ($register->cash_in ?? 0) - ($register->cash_out ?? 0) + ($register->total_sales ?? 0);
+        // Only cash payments end up in the drawer (Zelle, card... don't).
+        $expectedCash = $summary['expected_cash'];
         $counted = (float) $data['counted_cash'];
         $difference = $counted - $expectedCash;
 
+        $register->total_sales = $summary['total_sales'];
         $register->closing_balance = $data['closing_balance'] ?? $counted;
         $register->difference = $difference;
         $register->status = 'closed';
         $register->closed_at = $now;
-        
+
         if (! empty($data['notes'])) {
             $register->notes = trim(($register->notes ?? '')."\n".$data['notes']);
         }
         $register->save();
 
+        $summary['counted_cash'] = $counted;
+        $summary['difference'] = $difference;
+        $summary['closed_at'] = $now->format('Y-m-d H:i:s');
+        $summary['notes'] = $data['notes'] ?? null;
+
+        // POS Settings -> "Email the admins when a register is closed".
+        $email = $this->emailCloseSummary($register, $summary);
+
         return response()->json([
             'success' => true,
             'register' => $register,
-            'summary' => [
-                'expected_cash' => $expectedCash,
-                'counted_cash' => $counted,
-                'difference' => $difference,
-            ],
+            'summary' => $summary,
+            'email' => $email,
         ]);
+    }
+
+    // Live figures for an open register (POS "Exit" / close confirmation).
+    public function summary(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
+
+        $register = CashRegister::findOrFail($id);
+        $this->assertRegisterAccess($register);
+
+        return response()->json(['success' => true, 'summary' => $this->registerSummary($register, Carbon::now())]);
+    }
+
+    /**
+     * POS Settings -> "Open register with PIN" (company of the warehouse):
+     * the register is opened / closed by the cashier's own PIN (users.pin,
+     * unique per company). Opening: the POS PIN pad already switched the
+     * session to the PIN's user (PosPinController), which leaves a 5-minute
+     * confirmation for that user + location -- consumed here. Closing: the
+     * PIN of the signed-in cashier is sent with the close. Returns an error
+     * response, or null when fine / not required.
+     */
+    private function pinFailure($warehouseId, $pin)
+    {
+        $companyId = Warehouse::where('id', $warehouseId)->value('company_id');
+        $settings = \App\Models\Setting::forCompany($companyId);
+        if (! ($settings && $settings->pos_register_pin_required)) {
+            return null;
+        }
+
+        $user = Auth::user();
+        if (($pin === null || $pin === '') && (int) \Illuminate\Support\Facades\Cache::get('pos_pin_ok:'.$user->id) === (int) $warehouseId) {
+            \Illuminate\Support\Facades\Cache::forget('pos_pin_ok:'.$user->id);
+
+            return null;
+        }
+        if ($user->pin === null || $user->pin === '') {
+            return response()->json(['success' => false, 'code' => 'no_pin', 'message' => 'You don\'t have a PIN yet. Ask an admin to set one on your user (Users > Edit > PIN).'], 422);
+        }
+        if (! $user->pinMatches($pin)) {
+            return response()->json(['success' => false, 'code' => 'wrong_pin', 'message' => 'Wrong PIN. Use the PIN of the cashier signed in to the POS.'], 422);
+        }
+
+        return null;
+    }
+
+    // Multicompany: an Admin only touches registers of their own company's warehouses.
+    private function assertRegisterAccess(CashRegister $register): void
+    {
+        $user = Auth::user();
+        if ($user && $user->type !== 'SuperAdmin') {
+            $companyId = Warehouse::where('id', $register->warehouse_id)->value('company_id');
+            abort_unless((int) $companyId === (int) $user->company_id, 403);
+        }
+    }
+
+    /**
+     * What the register did between opening and $until: POS sales made by the
+     * cashier in that warehouse, payments per method, services vs products,
+     * and the cash that should be in the drawer.
+     */
+    private function registerSummary(CashRegister $register, Carbon $until): array
+    {
+        $saleIds = Sale::whereNull('deleted_at')
+            ->where('is_pos', 1)
+            ->where('user_id', $register->user_id)
+            ->where('warehouse_id', $register->warehouse_id)
+            ->whereBetween('created_at', [$register->opened_at, $until])
+            ->pluck('id');
+
+        $totalSales = (float) Sale::whereIn('id', $saleIds)->sum('GrandTotal');
+
+        $payments = DB::table('payment_sales')
+            ->leftJoin('payment_methods', 'payment_methods.id', '=', 'payment_sales.payment_method_id')
+            ->whereIn('payment_sales.sale_id', $saleIds)
+            ->whereNull('payment_sales.deleted_at')
+            ->groupBy('payment_methods.name')
+            ->orderBy('payment_methods.name')
+            ->get([DB::raw("COALESCE(payment_methods.name, 'Other') as method"), DB::raw('SUM(payment_sales.montant) as amount'), DB::raw('COUNT(*) as count')])
+            ->map(fn ($p) => ['method' => $p->method, 'amount' => round((float) $p->amount, 3), 'count' => (int) $p->count])
+            ->values()->all();
+
+        $cashSales = collect($payments)->filter(fn ($p) => strtolower($p['method']) === 'cash')->sum('amount');
+
+        $lines = DB::table('sale_details')
+            ->join('products', 'products.id', '=', 'sale_details.product_id')
+            ->whereIn('sale_details.sale_id', $saleIds)
+            ->selectRaw("SUM(CASE WHEN products.type = 'is_service' THEN sale_details.total ELSE 0 END) as services_total,
+                SUM(CASE WHEN products.type = 'is_service' THEN sale_details.quantity ELSE 0 END) as services_qty,
+                SUM(CASE WHEN products.type <> 'is_service' THEN sale_details.total ELSE 0 END) as products_total,
+                SUM(CASE WHEN products.type <> 'is_service' THEN sale_details.quantity ELSE 0 END) as products_qty")
+            ->first();
+
+        $opening = (float) ($register->opening_balance ?? 0);
+        $cashIn = (float) ($register->cash_in ?? 0);
+        $cashOut = (float) ($register->cash_out ?? 0);
+
+        $user = $register->user()->first();
+        $warehouse = Warehouse::find($register->warehouse_id);
+
+        return [
+            'register_id' => $register->id,
+            'cashier' => $user ? trim(($user->firstname ?? '').' '.($user->lastname ?? '')) ?: $user->username : '',
+            'cashier_username' => $user->username ?? '',
+            'warehouse' => $warehouse->name ?? '',
+            'company_id' => $warehouse->company_id ?? null,
+            'opened_at' => optional($register->opened_at)->format('Y-m-d H:i:s'),
+            'until' => $until->format('Y-m-d H:i:s'),
+            'sales_count' => $saleIds->count(),
+            'total_sales' => round($totalSales, 3),
+            'payments' => $payments,
+            'cash_sales' => round((float) $cashSales, 3),
+            'services_total' => round((float) ($lines->services_total ?? 0), 3),
+            'services_qty' => (float) ($lines->services_qty ?? 0),
+            'products_total' => round((float) ($lines->products_total ?? 0), 3),
+            'products_qty' => (float) ($lines->products_qty ?? 0),
+            'opening_balance' => $opening,
+            'cash_in' => $cashIn,
+            'cash_out' => $cashOut,
+            'expected_cash' => round($opening + $cashIn - $cashOut + (float) $cashSales, 3),
+        ];
+    }
+
+    // Emails the register close-out to the company's admin users (fallback:
+    // the company email). Never fails the close: returns what happened.
+    private function emailCloseSummary(CashRegister $register, array $s): array
+    {
+        $companyId = $s['company_id'];
+        $settings = \App\Models\Setting::forCompany($companyId);
+        if ($settings && isset($settings->pos_close_register_email) && ! $settings->pos_close_register_email) {
+            return ['sent' => false, 'skipped' => true, 'to' => []];
+        }
+
+        $to = User::whereNull('deleted_at')->where('company_id', $companyId)
+            ->whereRaw('LOWER(type) = ?', ['admin'])->where('statut', 1)
+            ->whereNotNull('email')->where('email', '<>', '')
+            ->pluck('email')->unique()->values()->all();
+        if (! $to && $settings && ! empty($settings->email)) {
+            $to = [$settings->email];
+        }
+        if (! $to) {
+            return ['sent' => false, 'to' => [], 'error' => 'No admin email found for this company.'];
+        }
+
+        $sym = ($settings && $settings->currency_id) ? (DB::table('currencies')->where('id', $settings->currency_id)->value('symbol') ?: '') : '';
+        $money = fn ($v) => $sym.number_format((float) $v, 2);
+        $fmt = fn ($d) => $d ? Carbon::parse($d)->format('M j, Y g:i A') : '';
+        $e = fn ($v) => e((string) $v);
+        $minutes = (int) abs(Carbon::parse($s['opened_at'])->diffInMinutes(Carbon::parse($s['closed_at'])));
+        $duration = intdiv($minutes, 60).'h '.($minutes % 60).'m';
+
+        $row = fn ($label, $value, $strong = false) => '<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#555">'.$label.'</td>'
+            .'<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;'.($strong ? 'font-weight:700' : '').'">'.$value.'</td></tr>';
+
+        $payRows = '';
+        foreach ($s['payments'] as $p) {
+            $payRows .= $row($e($p['method']).' ('.$p['count'].')', $money($p['amount']));
+        }
+        if ($payRows === '') {
+            $payRows = $row('No payments', $money(0));
+        }
+        $diffColor = abs($s['difference']) < 0.005 ? '#1e7a44' : '#a83232';
+
+        $body = '<h2 style="margin:0 0 4px">Register #'.$register->id.' closed</h2>'
+            .'<p style="margin:0 0 16px;color:#666">'.$e($s['cashier']).' &middot; '.$e($s['warehouse']).'</p>'
+            .'<table style="border-collapse:collapse;width:100%;max-width:520px;font-family:Arial,sans-serif;font-size:14px">'
+            .$row('Cashier', $e($s['cashier']).' ('.$e($s['cashier_username']).')')
+            .$row('Opened', $fmt($s['opened_at']))
+            .$row('Closed', $fmt($s['closed_at']))
+            .$row('Time open', $duration)
+            .$row('Sales', $s['sales_count'].' &middot; '.$money($s['total_sales']), true)
+            .$row('Services', $money($s['services_total']).' ('.rtrim(rtrim(number_format($s['services_qty'], 2), '0'), '.').' items)')
+            .$row('Products', $money($s['products_total']).' ('.rtrim(rtrim(number_format($s['products_qty'], 2), '0'), '.').' items)')
+            .'<tr><td colspan="2" style="padding:12px 10px 4px;font-weight:700">Payments</td></tr>'
+            .$payRows
+            .'<tr><td colspan="2" style="padding:12px 10px 4px;font-weight:700">Cash drawer</td></tr>'
+            .$row('Opening cash', $money($s['opening_balance']))
+            .$row('Cash sales', $money($s['cash_sales']))
+            .$row('Cash in / out', $money($s['cash_in']).' / '.$money($s['cash_out']))
+            .$row('Expected in drawer', $money($s['expected_cash']), true)
+            .$row('Counted', $money($s['counted_cash']), true)
+            .$row('Difference', '<span style="color:'.$diffColor.'">'.$money($s['difference']).'</span>', true)
+            .'</table>'
+            .(! empty($s['notes']) ? '<p style="margin-top:16px"><strong>Notes:</strong> '.nl2br($e($s['notes'])).'</p>' : '');
+
+        try {
+            Mail::to($to)->send(new \App\Mail\CustomEmail([
+                'subject' => 'Register #'.$register->id.' closed - '.$s['cashier'].' - '.$money($s['total_sales']),
+                'body' => $body,
+                'company_name' => $settings->CompanyName ?? '',
+            ]));
+
+            return ['sent' => true, 'to' => $to];
+        } catch (\Throwable $ex) {
+            \Log::warning('Register close email failed: '.$ex->getMessage());
+
+            return ['sent' => false, 'to' => $to, 'error' => 'Email could not be sent: '.$ex->getMessage()];
+        }
     }
 
     public function report(Request $request)

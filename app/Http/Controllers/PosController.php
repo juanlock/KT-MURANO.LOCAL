@@ -108,6 +108,8 @@ class PosController extends BaseController
     public function walletBalance(Request $request, $clientId)
     {
         $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
+        // Only the acting company's customers (multicompany rule).
+        abort_unless(Client::whereKey((int) $clientId)->where('company_id', $this->resolveActingCompanyId($request))->exists(), 404);
 
         $balance = \App\Models\Wallet::where('client_id', (int) $clientId)->value('balance');
 
@@ -131,6 +133,8 @@ class PosController extends BaseController
 
         $client = Client::query()
             ->whereNull('deleted_at')
+            // Only the acting company's customers (multicompany rule).
+            ->where('company_id', $this->resolveActingCompanyId($request))
             ->select('id', 'name', 'phone', 'email', 'points', 'opening_balance')
             ->findOrFail((int) $clientId);
 
@@ -224,6 +228,8 @@ class PosController extends BaseController
 
         $sale = Sale::query()
             ->whereNull('deleted_at')
+            // Only the acting company's sales (multicompany rule).
+            ->where('company_id', $this->resolveActingCompanyId($request))
             ->with(['details.product'])
             ->findOrFail((int) $saleId);
 
@@ -324,6 +330,24 @@ class PosController extends BaseController
             }
         }
 
+        // Defaults -> POS -> "Require an open register": no sale without an
+        // open cash register for this cashier and warehouse. Sales rung up
+        // while offline (offline_created_at) are accepted when they sync --
+        // the register may have been closed since, and the sale did happen.
+        $posSettings = Setting::forCompany($this->resolveActingCompanyId($request));
+        if (($posSettings->pos_require_open_register ?? true) && ! $request->filled('offline_created_at')) {
+            $hasOpenRegister = \App\Models\CashRegister::where('user_id', Auth::id())
+                ->where('warehouse_id', (int) $request->warehouse_id)
+                ->where('status', 'open')
+                ->exists();
+            if (! $hasOpenRegister) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Open a cash register before making sales (Defaults -> POS requires an open register).',
+                ], 422);
+            }
+        }
+
         // Offline-queued sales carry the moment they were rung up; book the
         // sale (and its payments/lines) on that date rather than the sync time.
         $saleAt = $this->resolveOfflineSaleTimestamp($request, $saleUuid);
@@ -391,6 +415,12 @@ class PosController extends BaseController
                 $order->Ref = app('App\Http\Controllers\SalesController')->getNumberOrder();
                 $order->client_id = $request->client_id;
                 $order->warehouse_id = $request->warehouse_id;
+                // Company = the warehouse's company (already checked against
+                // the cashier). It was never set, so POS sales fell to the
+                // column default (company 1) and vanished from their own
+                // company's Sales list.
+                $order->company_id = \App\Models\Warehouse::whereKey($request->warehouse_id)->value('company_id')
+                    ?: $this->resolveActingCompanyId($request);
                 $order->tax_rate = $request->tax_rate;
                 $order->TaxNet = $request->TaxNet;
                 $order->discount = $request->discount;
@@ -1376,6 +1406,9 @@ class PosController extends BaseController
                 $order->Ref = app('App\Http\Controllers\SalesController')->getNumberOrder();
                 $order->client_id = $request->client_id;
                 $order->warehouse_id = $request->warehouse_id;
+                // Same as CreatePOS: the sale belongs to the warehouse's company.
+                $order->company_id = \App\Models\Warehouse::whereKey($request->warehouse_id)->value('company_id')
+                    ?: $this->resolveActingCompanyId($request);
                 $order->tax_rate = $request->tax_rate;
                 $order->TaxNet = $request->TaxNet;
                 $order->discount = $request->discount;
@@ -1998,9 +2031,15 @@ class PosController extends BaseController
         $mpSetting = Setting::forCompany($this->resolveActingCompanyId($request));
         $allow_overselling = (bool) ($mpSetting->allow_overselling ?? false);
 
+        $posCompanyId = $this->resolveActingCompanyId($request);
         $product_warehouse_query = product_warehouse::where('warehouse_id', $request->warehouse_id)
-            ->with('product', 'product.unitSale')
+            ->with('product', 'product.unitSale', 'product.productGroup:id,name')
             ->where('deleted_at', '=', null)
+            // Multicompany: only the acting company's products. A warehouse
+            // holds stock rows for EVERY company's products (a new product
+            // gets a row in each warehouse), so the warehouse alone doesn't
+            // filter them.
+            ->whereHas('product', fn ($q) => $q->where('company_id', $posCompanyId))
             ->where(function ($query) use ($request, $allow_overselling) {
                 return $query->whereHas('product', function ($q) {
                     $q->where('not_selling', '=', 0);
@@ -2123,6 +2162,11 @@ class PosController extends BaseController
                 && $productsVariants->image !== 'no-image.png') {
                 $item['image'] = $productsVariants->image;
             }
+
+            // Product group (Group Name) -- the POS shows groups as tiles first
+            // and opens a group's products on click.
+            $item['product_group_id'] = $product_warehouse['product']->product_group_id;
+            $item['group_name'] = optional($product_warehouse['product']->productGroup)->name;
 
             // Common product flags & meta
             $item['product_type'] = $product_warehouse['product']->type;
@@ -2336,6 +2380,8 @@ class PosController extends BaseController
 
         $query = product_warehouse::where('warehouse_id', $warehouseId)
             ->whereNull('deleted_at')
+            // Only the acting company's products (see GetProductsByParametre).
+            ->whereHas('product', fn ($q) => $q->where('company_id', $this->resolveActingCompanyId($request)))
             ->with('product.unitSale');
 
         if (!empty($since)) {
@@ -2395,17 +2441,22 @@ class PosController extends BaseController
     public function GetELementPos(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
-        $clients = Client::where('deleted_at', '=', null)->get(['id', 'name', 'phone']);
-        $settings = Setting::forCompany($this->resolveActingCompanyId($request));
+        // Multicompany: every list below is the ACTING company's only (an
+        // Admin's own company; a SuperAdmin's switcher pick) -- the POS used
+        // to receive every company's customers, warehouses, categories,
+        // brands and staff.
+        $companyId = $this->resolveActingCompanyId($request);
+        $clients = Client::where('deleted_at', '=', null)->where('company_id', $companyId)->orderBy('name')->get(['id', 'name', 'phone']);
+        $settings = Setting::forCompany($companyId);
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
 
-        // get warehouses assigned to user
+        // get warehouses assigned to user (within the acting company)
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
 
             if ($settings->warehouse_id) {
-                if (Warehouse::where('id', $settings->warehouse_id)->where('deleted_at', '=', null)->first()) {
+                if (Warehouse::where('id', $settings->warehouse_id)->where('company_id', $companyId)->where('deleted_at', '=', null)->first()) {
                     $defaultWarehouse = $settings->warehouse_id;
                 } else {
                     $defaultWarehouse = '';
@@ -2416,10 +2467,10 @@ class PosController extends BaseController
 
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)->where('company_id', $companyId)->whereIn('id', $warehouses_id)->get(['id', 'name']);
 
             if ($settings->warehouse_id) {
-                if (Warehouse::where('id', $settings->warehouse_id)->whereIn('id', $warehouses_id)->where('deleted_at', '=', null)->first()) {
+                if (Warehouse::where('id', $settings->warehouse_id)->where('company_id', $companyId)->whereIn('id', $warehouses_id)->where('deleted_at', '=', null)->first()) {
                     $defaultWarehouse = $settings->warehouse_id;
                 } else {
                     $defaultWarehouse = '';
@@ -2431,6 +2482,7 @@ class PosController extends BaseController
 
         if ($settings->client_id) {
             $client = Client::where('id', $settings->client_id)
+                ->where('company_id', $companyId)
                 ->whereNull('deleted_at')
                 ->first();
 
@@ -2452,10 +2504,10 @@ class PosController extends BaseController
             $default_client_eligible = false;
         }
 
-        $categories = Category::where('deleted_at', '=', null)->get(['id', 'name']);
-        $brands = Brand::where('deleted_at', '=', null)->get();
+        $categories = Category::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
+        $brands = Brand::where('deleted_at', '=', null)->where('company_id', $companyId)->get();
         $stripe_key = config('app.STRIPE_KEY');
-        $pos_setting = PosSetting::forCompany($this->resolveActingCompanyId($request));
+        $pos_setting = PosSetting::forCompany($companyId);
 
         // Allow Overselling lives on the global settings row (Settings > Features),
         // not on pos_settings — that column is a dead duplicate that never gets
@@ -2473,6 +2525,9 @@ class PosController extends BaseController
         $salespeople = $salesperson_switch_enabled
             ? User::where('deleted_at', '=', null)
                 ->where('statut', 1)
+                ->where('company_id', $companyId)
+                // staff only -- not customers' / web-store / suppliers' linked accounts
+                ->whereNotIn('type', ['customer', 'Online_store', 'supplier'])
                 ->orderBy('username')
                 ->get(['id', 'username', 'firstname', 'lastname'])
                 ->map(fn ($u) => [
@@ -2525,6 +2580,10 @@ class PosController extends BaseController
             'customer_credit_limit_enabled' => (bool) ($settings->customer_credit_limit_enabled ?? true),
             'customer_opening_balance_enabled' => (bool) ($settings->customer_opening_balance_enabled ?? true),
             'default_tax' => $settings->default_tax ?? 0,
+            // Defaults -> POS: the POS is locked until a register is open.
+            'require_open_register' => (bool) ($settings->pos_require_open_register ?? true),
+            // POS Settings -> Company rules: the Open Register modal asks for the cashier's PIN.
+            'register_pin_required' => (bool) ($settings->pos_register_pin_required ?? false),
             'default_account_id' => $settings->default_account_id ?? null,
             'default_payment_method_id' => $settings->default_payment_method_id ?? null,
             'pos_settings' => $pos_setting,

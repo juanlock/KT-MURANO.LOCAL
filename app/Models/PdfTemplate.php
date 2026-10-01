@@ -50,9 +50,23 @@ class PdfTemplate extends Model
 
     public const TYPES = ['sale', 'quotation', 'purchase'];
 
+    /**
+     * Unsaved settings for the Invoice PDF live preview: when set for a type,
+     * settingsFor() returns these (merged over the defaults) instead of the
+     * saved row, so the preview is rendered by the very same blade.
+     */
+    public static array $preview = [];
+
     /** Saved settings for a document type, merged over the defaults. */
     public static function settingsFor(string $type): array
     {
+        if (isset(static::$preview[$type]) && is_array(static::$preview[$type])) {
+            $p = static::$preview[$type];
+            $merged = array_replace(self::DEFAULTS, $p);
+            $merged['labels'] = array_replace(self::DEFAULTS['labels'], (array) ($p['labels'] ?? []));
+
+            return $merged;
+        }
         static $cache = [];
         if (isset($cache[$type])) {
             return $cache[$type];

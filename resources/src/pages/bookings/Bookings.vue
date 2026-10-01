@@ -27,14 +27,35 @@
       <template #toolbar>
         <a-select
           v-model:value="status"
-          style="width: 160px"
+          style="width: 140px"
           allow-clear
           :placeholder="$t('Status')"
           :options="statusOptions"
           @change="crud.reload()"
         />
-        <a-date-picker v-model:value="day" value-format="YYYY-MM-DD" allow-clear @change="crud.reload()" />
-        <ResetFiltersButton :dirty="!!status || !!day" @reset="resetFilters" />
+        <!-- Booking date range (one day = same start and end) -->
+        <a-range-picker
+          v-model:value="dateRange" value-format="YYYY-MM-DD" allow-clear style="width: 240px"
+          :placeholder="[$t('start_date'), $t('to')]" @change="crud.reload()"
+        />
+        <!-- Start time of day, e.g. mornings only: 08:00 - 12:00 -->
+        <a-time-range-picker
+          v-model:value="timeRange" format="HH:mm" value-format="HH:mm" :minute-step="15" allow-clear
+          style="width: 170px" :placeholder="[$t('Time_In'), $t('to')]" @change="crud.reload()"
+        />
+        <a-select
+          v-model:value="customerId" style="width: 180px" allow-clear show-search option-filter-prop="label"
+          :placeholder="$t('Customer')" :options="customerOptions" @change="crud.reload()"
+        />
+        <a-select
+          v-model:value="serviceId" style="width: 200px" allow-clear show-search option-filter-prop="label"
+          :placeholder="$t('Service') || 'Service'" :options="serviceOptions" @change="crud.reload()"
+        />
+        <a-select
+          v-model:value="staffId" style="width: 170px" allow-clear show-search option-filter-prop="label"
+          :placeholder="$t('Sales_Person')" :options="staffOptions" @change="crud.reload()"
+        />
+        <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
       </template>
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'booking_date'">{{ date(record.booking_date) }}</template>
@@ -45,7 +66,26 @@
           <span class="notes-cell" :title="record.notes">{{ record.notes }}</span>
         </template>
         <template v-else-if="column.key === 'status'">
-          <a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
+          <!-- Pending / Confirmed tags are clickable: move the booking on
+               (Confirm, Complete) or Cancel it. Confirming gives a customer
+               without an account (e.g. from the public booking page) its
+               user. -->
+          <a-dropdown v-if="NEXT_STATUSES[record.status]" :trigger="['click']">
+            <a-tag :color="statusColor(record.status)" class="status-tag--action">
+              {{ statusLabel(record.status) }} <DownOutlined style="font-size: 9px" />
+            </a-tag>
+            <template #overlay>
+              <a-menu @click="({ key }) => changeStatus(record, key)">
+                <a-menu-item v-for="s in NEXT_STATUSES[record.status]" :key="s" :danger="s === 'cancelled'">
+                  <CheckCircleOutlined v-if="s === 'confirmed'" style="color: #1677ff" />
+                  <CheckSquareOutlined v-else-if="s === 'completed'" style="color: #52c41a" />
+                  <StopOutlined v-else />
+                  {{ statusActionLabel(s) }}
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
+          <a-tag v-else :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
         </template>
         <template v-else-if="column.key === 'sale'">
           <router-link v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.sale_ref }}</router-link>
@@ -78,7 +118,13 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { message } from 'ant-design-vue';
+import {
+  PlusOutlined, EditOutlined, DeleteOutlined, DownOutlined, CheckCircleOutlined,
+  CheckSquareOutlined, StopOutlined,
+} from '@ant-design/icons-vue';
+import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
@@ -89,17 +135,34 @@ const { t } = useI18n();
 const { money, date } = useFormat();
 
 const status = ref(undefined);
-const day = ref(null);
+const dateRange = ref(null); // [from, to] booking date
+const timeRange = ref(null); // [from, to] start time of day, HH:mm
+const customerId = ref(undefined);
+const serviceId = ref(undefined);
+const staffId = ref(undefined);
+
+const filtersDirty = computed(() => !!(status.value || dateRange.value?.length || timeRange.value?.length
+  || customerId.value || serviceId.value || staffId.value));
 
 function resetFilters() {
   status.value = undefined;
-  day.value = null;
+  dateRange.value = null;
+  timeRange.value = null;
+  customerId.value = undefined;
+  serviceId.value = undefined;
+  staffId.value = undefined;
   crud.reload();
 }
 
 const filterParams = () => ({
   ...(status.value ? { status: status.value } : {}),
-  ...(day.value ? { date: day.value } : {}),
+  ...(dateRange.value?.[0] ? { from: dateRange.value[0] } : {}),
+  ...(dateRange.value?.[1] ? { to: dateRange.value[1] } : {}),
+  ...(timeRange.value?.[0] ? { time_from: timeRange.value[0] } : {}),
+  ...(timeRange.value?.[1] ? { time_to: timeRange.value[1] } : {}),
+  ...(customerId.value ? { customer_id: customerId.value } : {}),
+  ...(serviceId.value ? { product_id: serviceId.value } : {}),
+  ...(staffId.value ? { sales_person_id: staffId.value } : {}),
 });
 
 // Payload: { bookings, totalRows, stats: {total, pending, confirmed, completed} }
@@ -120,6 +183,14 @@ const tiles = computed(() => [
   { label: t('Confirmed'), value: stats.value.confirmed || 0, style: { color: '#1677ff' } },
   { label: t('Completed'), value: stats.value.completed || 0, style: { color: '#52c41a' } },
 ]);
+
+// Filter dropdowns from the list payload (company-scoped), alphabetical.
+const fo = computed(() => crud.payload.value?.filter_options || {});
+const customerOptions = computed(() => sortByLabel((fo.value.customers || []).map(c => ({ value: c.id, label: c.name }))));
+const serviceOptions = computed(() => sortByLabel((fo.value.services || []).map(s => ({
+  value: s.id, label: s.group_name ? `${s.group_name} › ${s.name}` : s.name,
+}))));
+const staffOptions = computed(() => sortByLabel((fo.value.staff || []).map(s => ({ value: s.id, label: s.name }))));
 
 const statusOptions = computed(() => [
   { value: 'pending', label: t('Pending') },
@@ -155,6 +226,27 @@ function statusLabel(s) {
   return map[s] || s;
 }
 
+// Quick status moves from the Status tag (PUT bookings/{id}/status).
+const NEXT_STATUSES = {
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['completed', 'cancelled'],
+};
+const statusActionLabel = s => ({ confirmed: t('Confirm'), completed: t('complete'), cancelled: t('Cancel') }[s] || s);
+
+async function changeStatus(record, status) {
+  try {
+    const data = await http.put(`bookings/${record.id}/status`, { status });
+    message.success(`${record.Ref}: ${statusLabel(status)}`);
+    if (data?.customer_account_created) {
+      message.info(`${record.customer_name || t('Customer')}: customer account created`);
+    }
+    if (data?.sale_warning) message.warning(data.sale_warning, 6);
+    crud.fetchRows();
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+  }
+}
+
 function statusColor(s) {
   if (s === 'confirmed') return 'processing';
   if (s === 'completed') return 'success';
@@ -167,6 +259,9 @@ onMounted(crud.fetchRows);
 </script>
 
 <style scoped>
+.status-tag--action {
+  cursor: pointer;
+}
 .notes-cell {
   display: inline-block;
   max-width: 280px;

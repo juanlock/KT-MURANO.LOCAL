@@ -21,8 +21,22 @@
         show-icon
         message="Drag and drop to rearrange the menu"
         :description="isSuperAdmin
-          ? 'Reorder modules, reorder items inside a module, or drag an item into a different module. Modules always stay at the top level and items cannot become modules. Use the pencil to rename a module, group or item, the + to add a submenu item inside a module or group, the eye icon to hide one, or the trash icon to remove a custom item. Your changes apply to every company (use the company switcher in the top bar to view a specific company first, if needed).'
+          ? 'Reorder modules, reorder items inside a module, or drag an item into a different module. Modules always stay at the top level and items cannot become modules. Use the pencil to rename a module, group or item, the + to add a submenu item inside a module or group, the eye icon to hide one, or the trash icon to remove a custom item.'
           : 'You can reorder items and drag them between modules, and hide/show them with the eye icon. Only a SuperAdmin can add, remove or rename menu items.'"
+        style="margin-bottom: 12px"
+      />
+      <!-- Where a Save / Reset lands: AdminSystem = every company; any
+           other company (SuperAdmin acting as it, or its own Admin) = only
+           that company. Same rule as MenuPositionController. -->
+      <a-alert
+        :type="appliesToAll ? 'warning' : 'success'"
+        show-icon
+        :message="appliesToAll
+          ? 'Working as AdminSystem: Submit and Reset apply to EVERY company (replacing each company\'s own menu order).'
+          : `Submit and Reset apply only to ${actingCompanyName}.`"
+        :description="isSuperAdmin && !appliesToAll
+          ? 'To change the menu for every company, pick AdminSystem in the company switcher (top bar) first.'
+          : undefined"
         style="margin-bottom: 16px"
       />
 
@@ -165,9 +179,10 @@
  * other ScopesToCompany resource. Which company is acted on comes from the
  * GLOBAL company switcher (AppTopbar.vue, SuperAdmin only -- see
  * lib/actingCompany.js / stores/company.js), not anything local to this
- * page. SuperAdmin has full CRUD, and a save/reset REPLICATES to every
- * other company too (MenuPositionController::store()/reset()) -- a
- * SuperAdmin's edit is the platform-wide standard, not just one company's.
+ * page. SuperAdmin has full CRUD. A SuperAdmin's save/reset while acting as
+ * AdminSystem (company 999) REPLICATES to every company -- that's the
+ * platform-wide standard; acting as any real company it changes only that
+ * company (MenuPositionController::store()/reset()).
  * Anyone else (a plain Admin) manages only their own company and may only
  * reorder (drag/drop) and hide/show items -- adding, removing, renaming or
  * re-typing an item is SuperAdmin-only, enforced both here (isSuperAdmin
@@ -233,6 +248,7 @@ import { buildTopLevelMenuForEditor, hasNestedPositions } from '../../lib/menuTr
 import { MENU } from '../../config/menu';
 import { useAuthStore } from '../../stores/auth';
 import { useMenuStore } from '../../stores/menu';
+import { useCompanyStore } from '../../stores/company';
 import http from '../../lib/http';
 
 const { t } = useI18n();
@@ -247,6 +263,12 @@ const menuStore = useMenuStore();
 // backend. A plain Admin may only reorder/hide -- see the template's
 // isSuperAdmin gates and MenuPositionController::store()'s matching check.
 const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
+// Save/Reset scope (MenuPositionController): SuperAdmin acting as
+// AdminSystem (999) -> every company; anyone else -> the acting company only.
+const companyStore = useCompanyStore();
+const appliesToAll = computed(() => isSuperAdmin.value && Number(companyStore.actingCompanyId) === 999);
+const actingCompanyName = computed(() =>
+  (isSuperAdmin.value ? companyStore.activeCompanyName : auth.user?.company) || 'this company');
 
 const saving = ref(false);
 const resetting = ref(false);
@@ -654,19 +676,16 @@ async function save() {
   saving.value = true;
   try {
     const order = serialize(treeData.value);
-    // sidebar_menu_order is NOT company-scoped (one global legacy fallback,
-    // stored on the single Settings row) -- harmless in practice since it's
-    // only ever consulted for a company that hasn't customized below the
-    // top level yet (hasNestedPositions()), but it does mean saving here
-    // while managing one company nudges every OTHER not-yet-customized
-    // company's top-level order too. Scoping it per-company would need its
-    // own Settings-table change; out of scope for this pass.
+    // sidebar_menu_order: the acting company's legacy top-level order
+    // (Setting::forCompany) -- only consulted while a company has no nested
+    // menu_positions rows.
     await http.put('sidebar_menu_order', { order });
     const positions = flattenPositions(treeData.value);
-    // company_id attached automatically from the global switcher; a
-    // SuperAdmin's save replicates server-side to every OTHER company too
-    // (MenuPositionController::store()) -- nothing extra to send for that.
-    await http.post('menu-positions', { positions });
+    // company_id attached automatically from the global switcher. Scope is
+    // decided server-side (MenuPositionController::store()): a SuperAdmin
+    // acting as AdminSystem (999) -> copied to every company; otherwise
+    // only the acting company.
+    const res = await http.post('menu-positions', { positions });
     menuPositions.value = positions;
     // Live-update the sidebar for this session; other users get it at next boot.
     if (auth.user) auth.user.sidebar_menu_order = order;
@@ -675,9 +694,9 @@ async function save() {
     // without a page reload.
     menuStore.loadPositions();
     dirty.value = false;
-    message.success(t('Successfully_Updated'));
+    message.success(res?.message || t('Successfully_Updated'));
   } catch (e) {
-    message.error(e?.message || t('InvalidData'));
+    message.error(e?.data?.message || e?.message || t('InvalidData'));
   } finally {
     saving.value = false;
   }
@@ -686,7 +705,9 @@ async function save() {
 function confirmReset() {
   Modal.confirm({
     title: t('Reset_to_Default'),
-    content: 'Restore the original menu structure for every company? Custom items, renames and hidden items at every level are cleared, everywhere.',
+    content: appliesToAll.value
+      ? 'Restore the original menu structure for EVERY company? Custom items, renames and hidden items at every level are cleared, everywhere.'
+      : `Restore the original menu structure for ${actingCompanyName.value} only? Its custom items, renames and hidden items are cleared.`,
     okText: t('Reset_to_Default'),
     okType: 'danger',
     onOk: reset,
@@ -701,16 +722,17 @@ async function reset() {
     // Also wipe menu_positions: once it covers anything below the top level
     // it's the authoritative structure/order source (see this file's
     // docblock), so sidebar_menu_order alone can no longer restore the
-    // factory layout -- both must go for a true reset. A SuperAdmin's reset
-    // replicates server-side to every company (MenuPositionController::reset()).
-    await http.delete('menu-positions');
+    // factory layout -- both must go for a true reset. Scope as for save:
+    // AdminSystem -> every company, otherwise the acting company only
+    // (MenuPositionController::reset()).
+    const res = await http.delete('menu-positions');
     menuPositions.value = null;
     treeData.value = buildTree(null, null);
     menuStore.loadPositions();
     dirty.value = false;
-    message.success(t('Successfully_Updated'));
+    message.success(res?.message || t('Successfully_Updated'));
   } catch (e) {
-    message.error(e?.message || t('InvalidData'));
+    message.error(e?.data?.message || e?.message || t('InvalidData'));
   } finally {
     resetting.value = false;
   }

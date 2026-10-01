@@ -136,7 +136,7 @@
         <a-form-item :label="$t('Warehouse')" extra="Leave blank to plan across all of them">
           <a-select
             v-model:value="runForm.warehouse_id" show-search option-filter-prop="label"
-            :options="warehouseOptions" allow-clear placeholder="All warehouses"
+            :options="warehouseOptions" allow-clear placeholder="All locations"
           />
         </a-form-item>
         <a-form-item label="Demand window">

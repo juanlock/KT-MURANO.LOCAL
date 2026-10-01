@@ -233,7 +233,7 @@ async function download(kind) {
       { title: 'Tag', dataIndex: 'tag' },
       { title: 'Asset', dataIndex: 'name' },
       { title: 'Category', dataIndex: 'category_name' },
-      { title: 'Warehouse', dataIndex: 'warehouse_name' },
+      { title: 'Location', dataIndex: 'warehouse_name' },
       { title: 'Purchased', dataIndex: 'purchase_date' },
       { title: 'Method', dataIndex: 'method', exportValue: r => labelOf(DEPRECIATION_METHODS, r.method || 'none') },
       { title: 'Life (months)', dataIndex: 'useful_life_months' },

@@ -1,16 +1,39 @@
 <?php
 
 // Protocol Preparate -- generates a short HTML snapshot of the LAST 2
-// kt_logs requests (what was asked, what changed, and status) and saves it
-// into the repo at .claude/report/. Unlike Memorex (full history table),
-// this is a small, focused status card meant to close out a Preparate run.
+// kt_logs requests (what was asked, what changed, and status). Unlike
+// Memorex (full history table), this is a small, focused status card meant
+// to close out a Preparate run.
 // Run via:
 // php artisan tinker --execute="require 'database/scripts/protocol_preparate_report.php';"
 // Then open the printed path (e.g. via `Start-Process <path>` on Windows).
+// Another count (e.g. "report for the last 3 requests"): set $reportLimit
+// first -- php artisan tinker --execute="$reportLimit = 3; require '...';"
+// A whole day's requests (A Dormir's daily report): set $reportDate
+// ('Y-m-d') instead -- php artisan tinker --execute="$reportDate = '2026-09-30'; require '...';"
+//
+// Output: KT-TOOLS/Report/ (git-tracked, so every programmer gets them),
+// one file per day per report -- re-running the same report the same day
+// overwrites that day's file, older days are kept:
+//   kt_murano_preparate_<date>.html     (last 2 requests)
+//   kt_murano_last<N>_<date>.html       ($reportLimit = N)
+//   kt_murano_daily_<date>.html         ($reportDate: every request of that day)
 
 use App\Models\KtLog;
 
-$rows = KtLog::orderByDesc('id')->take(2)->get();
+$reportDate = isset($reportDate) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $reportDate) ? (string) $reportDate : null;
+$reportLimit = isset($reportLimit) ? max(1, min(50, (int) $reportLimit)) : 2;
+if ($reportDate) {
+    $rows = KtLog::whereDate('log_date', $reportDate)->orderBy('id')->get();
+    $reportTitle = "Daily report -- {$reportDate}";
+    $reportScope = "{$rows->count()} request(s) logged on {$reportDate}";
+    $reportFile = "kt_murano_daily_{$reportDate}.html";
+} else {
+    $rows = KtLog::orderByDesc('id')->take($reportLimit)->get();
+    $reportTitle = $reportLimit === 2 ? 'Protocol Preparate' : "Last {$reportLimit} requests";
+    $reportScope = "last {$rows->count()} request(s)";
+    $reportFile = ($reportLimit === 2 ? 'kt_murano_preparate_' : "kt_murano_last{$reportLimit}_").now()->format('Y-m-d').'.html';
+}
 
 function esc($v) {
     return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
@@ -49,10 +72,13 @@ function renderCard($row) {
     HTML;
 }
 
-$generatedAt = now()->format('Y-m-d H:i');
+$generatedAt = now()->format('Y-m-d g:i A');
+$generatedHost = esc(gethostname());
 
 if ($rows->isEmpty()) {
-    $body = '<p class="empty">No kt_logs rows found yet -- run Protocol Kelsy first.</p>';
+    $body = $reportDate
+        ? '<p class="empty">No kt_logs rows logged on this day.</p>'
+        : '<p class="empty">No kt_logs rows found yet -- run Protocol Kelsy first.</p>';
 } else {
     $body = $rows->map(fn ($row) => renderCard($row))->implode("\n");
 }
@@ -62,7 +88,7 @@ $html = <<<HTML
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KT-Murano -- Protocol Preparate</title>
+<title>KT-Murano -- {$reportTitle}</title>
 <style>
   body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: #f7f8fa; color: #1a1a1a; }
   h1 { font-size: 18px; margin-bottom: 4px; }
@@ -78,18 +104,18 @@ $html = <<<HTML
 </style>
 </head>
 <body>
-  <h1>KT-Murano -- Protocol Preparate</h1>
-  <div class="meta">Generated {$generatedAt} -- last {$rows->count()} request(s)</div>
+  <h1>KT-Murano -- {$reportTitle}</h1>
+  <div class="meta">Generated {$generatedAt} on {$generatedHost} -- {$reportScope}</div>
   {$body}
 </body>
 </html>
 HTML;
 
-$outDir = base_path('.claude/report');
+$outDir = base_path('KT-TOOLS'.DIRECTORY_SEPARATOR.'Report');
 if (! is_dir($outDir)) {
     mkdir($outDir, 0755, true);
 }
-$outPath = $outDir.DIRECTORY_SEPARATOR.'kt_murano_preparate_report.html';
+$outPath = $outDir.DIRECTORY_SEPARATOR.$reportFile;
 file_put_contents($outPath, $html);
 
 echo "Report written to: {$outPath}\n";

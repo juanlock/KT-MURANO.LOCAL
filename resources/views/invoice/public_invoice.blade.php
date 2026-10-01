@@ -144,7 +144,7 @@
             @endif
             @if($sale->warehouse)
             <div class="info-row">
-                <span class="label-en">Warehouse</span>
+                <span class="label-en">Location</span>
                 <span class="value">{{ $sale->warehouse->name }}</span>
                 <span class="label-ar">المستودع</span>
             </div>

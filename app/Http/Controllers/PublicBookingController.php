@@ -338,9 +338,13 @@ class PublicBookingController extends Controller
                 ! empty($d['special_requests']) ? 'Request: '.trim($d['special_requests']) : null,
             ]);
 
+            // Location: Defaults -> Booking location, else the company default.
+            $s = DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->first(['booking_default_warehouse_id', 'warehouse_id']);
+
             return Booking::create([
                 'Ref' => $ref,
                 'customer_id' => $clientId,
+                'warehouse_id' => ($s->booking_default_warehouse_id ?? null) ?: ($s->warehouse_id ?? null),
                 'product_id' => $svc->id,
                 'product_name' => $svc->name,
                 'price' => $svc->price, 'amount' => $svc->price,

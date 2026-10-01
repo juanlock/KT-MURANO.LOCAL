@@ -69,6 +69,64 @@ class BookingNotifier
         return $sent;
     }
 
+    /**
+     * A booking was completed and invoiced: every active admin of the company
+     * gets the transaction report (customer, service, date/time, staff,
+     * station, location, invoice, amount and payment).
+     *
+     * @return array<string> admin emails it was sent to
+     */
+    public static function bookingCompleted(int $companyId, int $bookingId, int $saleId, ?Mailer $mailer = null): array
+    {
+        $b = \App\Models\Booking::with(['customer', 'product', 'tray', 'salesPerson'])->find($bookingId);
+        $sale = \App\Models\Sale::find($saleId);
+        if (! $b || ! $sale) {
+            return [];
+        }
+        $co = DB::table('companies')->where('id', $companyId)->first(['name']);
+        $settings = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['CompanyName', 'currency_id']);
+        $company = trim((string) ($co->name ?? '')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Bookings');
+        $sym = ($settings && $settings->currency_id) ? (string) DB::table('currencies')->where('id', $settings->currency_id)->value('symbol') : '$';
+        $money = fn ($v) => $sym.number_format((float) $v, 2);
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer();
+
+        $sp = $b->salesPerson;
+        $staff = $sp ? (trim(($sp->firstname ?? '').' '.($sp->lastname ?? '')) ?: $sp->username) : '-';
+        $method = DB::table('payment_sales')->leftJoin('payment_methods', 'payment_methods.id', '=', 'payment_sales.payment_method_id')
+            ->where('payment_sales.sale_id', $sale->id)->whereNull('payment_sales.deleted_at')->pluck('payment_methods.name')->filter()->unique()->implode(', ');
+        $date = $b->booking_date ? \Carbon\Carbon::parse($b->booking_date)->format('l, F j, Y') : '';
+        $time = substr((string) $b->booking_time, 0, 5).($b->booking_end_time ? ' - '.substr((string) $b->booking_end_time, 0, 5) : '');
+
+        $rows = [
+            'Booking' => $b->Ref,
+            'Customer' => optional($b->customer)->name ?: '-',
+            'Service' => optional($b->product)->name ?: ($b->product_name ?: '-'),
+            'Date' => trim($date.', '.$time, ', '),
+            'Staff' => $staff,
+            'Station' => optional($b->tray)->name ?: '-',
+            'Location' => (string) DB::table('warehouses')->where('id', $sale->warehouse_id)->value('name') ?: '-',
+            'Invoice' => $sale->Ref,
+            'Amount' => $money($sale->GrandTotal),
+            'Paid' => $money($sale->paid_amount).($method ? ' ('.$method.')' : ''),
+        ];
+        $link = url('/next/sales/'.$sale->id);
+
+        $admins = DB::table('users')->where('company_id', $companyId)->whereNull('deleted_at')
+            ->where('type', 'admin')->where('statut', 1)->whereNotNull('email')->get(['email', 'firstname', 'lastname', 'username']);
+        $sent = [];
+        foreach ($admins as $a) {
+            $ok = self::deliver($mailer, $from, $company, $a->email, trim($a->firstname.' '.$a->lastname) ?: $a->username,
+                "Booking completed - {$b->Ref} - invoice {$sale->Ref} - {$money($sale->GrandTotal)}",
+                'An appointment was completed and invoiced.',
+                $rows, "Open the invoice: {$link}", null, $link);
+            if ($ok) {
+                $sent[] = $a->email;
+            }
+        }
+
+        return $sent;
+    }
+
     private static function deliver(Mailer $mailer, ?string $from, string $company, ?string $to, ?string $toName, string $subject,
         string $intro, array $rows, string $outro, ?string $replyTo = null, ?string $button = null): bool
     {

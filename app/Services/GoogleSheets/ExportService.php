@@ -76,7 +76,7 @@ class ExportService
     public function exportSales(int $startAfterId = 0, int $batch = 200): array
     {
         return $this->exportTab('Sales', $startAfterId, $batch,
-            ['Ref', 'Date', 'Time', 'Customer', 'Warehouse', 'Status', 'Payment status', 'Grand total', 'Paid', 'Due', 'Discount', 'Shipping', 'Tax'],
+            ['Ref', 'Date', 'Time', 'Customer', 'Location', 'Status', 'Payment status', 'Grand total', 'Paid', 'Due', 'Discount', 'Shipping', 'Tax'],
             function (int $cursor, int $limit) {
                 return Sale::whereNull('sales.deleted_at')
                     ->where('sales.id', '>', $cursor)

@@ -98,6 +98,22 @@
                   </a-input-password>
                 </a-form-item>
               </a-col>
+              <!-- Cashier PIN: typed on the POS keypad to open / close a cash
+                   register (the POS then works under this user). Unique per
+                   company; blank = no PIN. -->
+              <a-col :xs="24" :md="12">
+                <a-form-item
+                  label="Cashier PIN" name="pin"
+                  extra="4 to 8 digits, unique within the company. Used on the POS to open and close the register. Blank = no PIN."
+                >
+                  <a-input
+                    v-model:value="form.pin" :maxlength="8" inputmode="numeric"
+                    autocomplete="off" placeholder="4-8 digits" allow-clear
+                  >
+                    <template #prefix><LockOutlined class="field-prefix" /></template>
+                  </a-input>
+                </a-form-item>
+              </a-col>
               <a-col v-if="!isEdit" :xs="24" :md="12">
                 <a-form-item :label="$t('Type')" name="type">
                   <a-select v-model:value="form.type" :options="typeOptions" :placeholder="$t('PleaseSelect')" />
@@ -205,7 +221,7 @@ const warehouses = ref([]);
 const form = ref({
   firstname: '', lastname: '', username: '', email: '', phone: '',
   password: '', role_id: undefined, type: 'admin', is_all_warehouses: false,
-  record_view: false, assigned_to: [],
+  record_view: false, assigned_to: [], pin: '',
 });
 
 const roleOptions = computed(() => sortByLabel(roles.value.map(r => ({ value: r.id, label: r.name }))));
@@ -220,17 +236,18 @@ const typeOptions = computed(() => {
     { value: 'employee', label: t('Employee') },
     { value: 'customer', label: t('Customer') },
     { value: 'sales_agent', label: t('Sales_Agent') },
+    { value: 'supplier', label: t('Supplier') },
   ];
   if (authStore.user?.type === 'SuperAdmin') {
     base.unshift({ value: 'SuperAdmin', label: t('SuperAdmin') });
   }
   return base;
 });
-// employee/customer/sales_agent auto-create their matching record and get
-// their role auto-assigned -- the manual role picker doesn't apply to them.
-const isAutoProvisionType = computed(() => ['employee', 'customer', 'sales_agent'].includes(form.value.type));
+// employee/customer/sales_agent/supplier auto-create their matching record
+// and get their role auto-assigned -- the manual role picker doesn't apply.
+const isAutoProvisionType = computed(() => ['employee', 'customer', 'sales_agent', 'supplier'].includes(form.value.type));
 const autoProvisionHint = computed(() => {
-  const labels = { employee: t('Employee'), customer: t('Customer'), sales_agent: t('Sales_Agent') };
+  const labels = { employee: t('Employee'), customer: t('Customer'), sales_agent: t('Sales_Agent'), supplier: t('Supplier') };
   return t('AutoProvision_Hint', { type: labels[form.value.type] || form.value.type });
 });
 
@@ -261,6 +278,7 @@ const rules = computed(() => ({
   // Auto-provisioned types (employee/customer/sales_agent) get their role
   // assigned automatically on create -- no manual pick required there.
   role_id: (isEdit.value || !isAutoProvisionType.value) ? [{ required: true, message: t('Field_is_required') }] : [],
+  pin: [{ pattern: /^\d{4,8}$/, message: 'The PIN must be 4 to 8 digits.' }],
 }));
 
 function beforeUpload(file) {
@@ -306,6 +324,8 @@ function buildFormData() {
   // Legacy field name differs by mode: password on create, NewPassword on edit.
   if (isEdit.value) fd.append('NewPassword', form.value.password || '');
   else fd.append('password', form.value.password);
+  // Always sent: blank clears the PIN (the backend treats an empty value as none).
+  fd.append('pin', (form.value.pin || '').trim());
   return fd;
 }
 
@@ -357,6 +377,7 @@ async function bootstrap() {
         is_all_warehouses: !!Number(u.is_all_warehouses),
         record_view: !!Number(u.record_view),
         assigned_to: data.assigned_warehouses || [],
+        pin: data.pin || '',
       };
       // Show the current avatar in the profile panel (placeholder file aside);
       // picking a new file replaces this preview with a local object URL.

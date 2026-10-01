@@ -180,7 +180,7 @@ const kind = KINDS[route.meta.kind] || KINDS.sale;
 const endpoint = kind.endpoint;
 const titleKey = kind.titleKey;
 
-const range = ref(presetRange('all'));
+const range = ref(presetRange('today'));
 const refFilter = ref('');
 const partyId = ref(undefined);
 const docId = ref(undefined);
@@ -194,11 +194,12 @@ const DATE_PRESETS = [
   { value: 'all', labelKey: 'All' },
   { value: 'year', labelKey: 'This_Year' },
   { value: 'month', labelKey: 'This_Month' },
+  { value: 'today', labelKey: 'Today' },
   { value: 'last_month', labelKey: 'Last_Month' },
   { value: 'last_year', labelKey: 'Last_Year' },
 ];
-// Default: All -- the report opens with every payment (This Month often shows 0).
-const datePreset = ref('all');
+// Default: Today (the preset row's middle button).
+const datePreset = ref('today');
 
 function presetRange(preset) {
   const now = dayjs();
@@ -207,6 +208,8 @@ function presetRange(preset) {
       return [now.startOf('year'), now.endOf('year')];
     case 'month':
       return [now.startOf('month'), now.endOf('month')];
+    case 'today':
+      return [now.startOf('day'), now.endOf('day')];
     case 'last_month': {
       const m = now.subtract(1, 'month');
       return [m.startOf('month'), m.endOf('month')];
@@ -227,7 +230,7 @@ function applyPreset(preset) {
 
 // DateRangePicker fires a spurious @change once during initial mount (its
 // internal value syncs to the v-model default), which would otherwise clear
-// the default (All) highlight before the user ever touches anything. Ignore
+// the default (Today) highlight before the user ever touches anything. Ignore
 // that one mount-time firing; only real picker interaction should un-highlight it.
 let ignoreNextExactRangeChange = true;
 onMounted(() => {

@@ -78,7 +78,7 @@ return [
     // Adjustment
     'inventory_adjustment' => 'INVENTORY ADJUSTMENT',
     'adjustment_no' => 'Adjustment #',
-    'warehouse' => 'Warehouse',
+    'warehouse' => 'Location',
     'quantity' => 'QUANTITY',
     'purchase_cost' => 'PURCHASE COST',
     'sale_price' => 'SALE PRICE',
@@ -89,8 +89,8 @@ return [
     // Transfer
     'stock_transfer' => 'STOCK TRANSFER',
     'transfer_no' => 'Transfer #',
-    'from_warehouse' => 'FROM WAREHOUSE',
-    'to_warehouse' => 'TO WAREHOUSE',
+    'from_warehouse' => 'FROM LOCATION',
+    'to_warehouse' => 'TO LOCATION',
     'total_quantity' => 'Total Qty',
     'transfer_completed' => 'Stock Transfer Completed',
     // Return payment
@@ -130,7 +130,7 @@ return [
     'reference' => 'Reference',
     'status' => 'Status',
     'name' => 'Name',
-    'warehouse' => 'Warehouse',
+    'warehouse' => 'Location',
     'created_by' => 'Created by',
     'description' => 'Description',
     'summary' => 'Summary',

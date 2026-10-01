@@ -536,6 +536,8 @@ Route::get('login', 'Auth\LoginController@showLoginForm')->name('login');
 // 5 attempts per minute per IP — blocks credential-stuffing / brute force.
 Route::post('login', 'Auth\LoginController@login')->middleware('throttle:5,1');
 Route::post('logout', 'Auth\LoginController@logout')->name('logout');
+// POS cashier PIN: switches this browser session to the PIN's user (see PosPinController).
+Route::post('pos/pin-switch', 'PosPinController@switchUser')->middleware(['auth:web', 'throttle:10,1'])->name('pos.pin_switch');
 
 // Password Reset Routes...
 Route::get('password/reset', 'Auth\\ForgotPasswordController@showLinkRequestForm')->name('password.request');

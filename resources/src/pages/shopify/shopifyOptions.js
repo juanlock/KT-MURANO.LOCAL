@@ -33,7 +33,7 @@ export const ENTITIES = [
         label: 'Inventory',
         icon: Boxes,
         directions: ['push', 'pull'],
-        hint: 'Stock on hand for the mapped warehouse and location.',
+        hint: 'Stock on hand for the mapped ERP location and Shopify location.',
     },
     {
         value: 'customers',

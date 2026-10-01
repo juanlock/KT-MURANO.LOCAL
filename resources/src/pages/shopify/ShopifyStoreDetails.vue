@@ -45,7 +45,7 @@
           <span class="kpi-sub">{{ store.currency || '' }} {{ store.shop_email || '' }}</span>
         </div>
         <div class="kpi">
-          <span class="kpi-label">Warehouse</span>
+          <span class="kpi-label">Location</span>
           <span class="kpi-value kpi-value--sm">{{ store.warehouse_name || 'Not set' }}</span>
           <span class="kpi-sub">Shopify location {{ store.location_id || '—' }}</span>
         </div>

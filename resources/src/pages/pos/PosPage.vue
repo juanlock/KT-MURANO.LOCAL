@@ -2,10 +2,44 @@
   <div class="pos-scope">
   <div class="pos-codecanyon" style="display: flex; flex-direction: column; height: 100vh; background: #f7f7fb; color: #1f1f2c; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden;">
 
+    <!-- Register lock: Defaults -> POS "Require an open register". Covers
+         the POS (below the Open Register modal) until the cashier opens one. -->
+    <div v-if="registerLocked" class="pos-register-lock">
+      <div class="pos-register-lock__card">
+        <div class="pos-register-lock__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width: 34px; height: 34px;">
+            <rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+          </svg>
+        </div>
+        <h2 class="pos-register-lock__title">{{ $t('Open Register') || 'Open register' }}</h2>
+        <p class="pos-register-lock__text">
+          The POS is locked until you open a cash register for
+          <strong>{{ selectedWarehouseLabel }}</strong>.
+          Opening records who opens it, the location, the opening cash in the drawer, the date and time, and an optional note.
+        </p>
+        <div class="pos-register-lock__actions">
+          <button type="button" class="pos-register-lock__btn pos-register-lock__btn--primary" @click="openRegisterFromLock">
+            {{ $t('Open Register') || 'Open register' }}
+          </button>
+          <button type="button" class="pos-register-lock__btn" @click="whDrawerOpen = true">
+            {{ $t('Select_Warehouse') || 'Change location' }}
+          </button>
+          <router-link to="/dashboard" class="pos-register-lock__btn">{{ $t('dashboard') || 'Dashboard' }}</router-link>
+        </div>
+      </div>
+    </div>
+
     <!-- ============================================================
          TOP TOOLBAR (desktop / tablet)
          ============================================================ -->
     <nav v-if="productsReady" class="pos-shell-header" style="display: flex; align-items: center; gap: 8px; padding: 0 16px; flex-shrink: 0; flex-grow: 0; border-bottom: 1px solid #e6e6ec; background: #ffffff;">
+
+      <!-- Exit POS: back to the system. With an open register it first shows
+           the close-out (expected cash, sales, payments) -> close + email admins. -->
+      <button type="button" class="pos-exit-btn" :title="'Exit POS'" @click="openExitPos">
+        <lucide-icon name="log-out" style="font-size: 17px; transform: scaleX(-1);" />
+        <span>Exit POS</span>
+      </button>
 
       <!-- Brand block (28x28 logo only on mobile; register info follows as a sibling) -->
       <div class="pos-shell-brand-block" style="display: flex; align-items: center; gap: 10px; padding-right: 12px; border-right: 1px solid #e6e6ec; height: 32px;">
@@ -23,7 +57,7 @@
         <button
           v-if="isOnline"
           type="button"
-          @click="(currentRegister && currentRegister.status === 'open') ? $bvModal.show('CloseRegisterModal') : $bvModal.show('OpenRegisterModal')"
+          @click="(currentRegister && currentRegister.status === 'open') ? openCloseRegister('close') : requestOpenRegister()"
           :title="(currentRegister && currentRegister.status === 'open') ? $t('Close Register') : $t('Open Register')"
           style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: inherit; text-transform: uppercase; cursor: pointer; border: 0;"
           :style="{ background: (currentRegister && currentRegister.status === 'open') ? '#eaf7ef' : '#fdecec', color: (currentRegister && currentRegister.status === 'open') ? '#1e7a44' : '#a83232' }">
@@ -49,7 +83,7 @@
           <span class="pos-wh-trigger-icon-pulse" v-if="sale.warehouse_id"></span>
         </span>
         <span class="pos-wh-trigger-body">
-          <span class="pos-wh-trigger-eyebrow">{{ $t('Warehouse') || 'Warehouse' }}</span>
+          <span class="pos-wh-trigger-eyebrow">{{ $t('Warehouse') || 'Location' }}</span>
           <span class="pos-wh-trigger-label">{{ selectedWarehouseLabel }}</span>
         </span>
         <lucide-icon name="chevron-down" class="pos-wh-trigger-caret" />
@@ -115,8 +149,10 @@
       <!-- Spacer pushes everything that follows to the right side (matches POS.html) -->
       <div style="flex: 1;"></div>
 
-      <!-- Customer select (right side, like POS.html "Walk-in customer") -->
+      <!-- Customer select (right side, like POS.html "Walk-in customer").
+           POS Settings -> Toolbar filters can hide it (sales use the default customer). -->
       <div
+        v-if="pos_settings.show_customer_filter !== false"
         role="button"
         tabindex="0"
         class="pos-cust-trigger"
@@ -295,7 +331,10 @@
       <div class="pos-shell-user-dd-wrapper" style="display: inline-flex;">
         <b-dropdown id="user-dd" right toggle-class="dropdown-toggle-no-caret p-0 bg-transparent border-0" no-caret variant="link">
           <template #button-content>
-            <img v-if="currentUser && currentUser.avatar" :src="'/images/avatar/'+currentUser.avatar" alt="avatar" style="width: 32px; height: 32px; border-radius: 99px; object-fit: cover; display: block;" />
+            <!-- Avatars are stored as a company-scoped path now
+                 (files/company_N/avatar/x.png); resolveImg keeps old bare
+                 filenames working (/images/avatar/x.png). -->
+            <img v-if="currentUser && currentUser.avatar" :src="resolveImg(currentUser.avatar, 'avatar')" alt="avatar" style="width: 32px; height: 32px; border-radius: 99px; object-fit: cover; display: block;" />
             <div v-else style="width: 32px; height: 32px; border-radius: 99px; background: linear-gradient(135deg, #6f53d9, #b65cd6); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600;">{{ currentUser && currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U' }}</div>
           </template>
           <div style="padding: 6px; min-width: 200px;">
@@ -498,7 +537,7 @@
                   <button type="button" @click="add_batch_to_detail(item)" style="height: 24px; padding: 0 8px; background: #f5f3fd; color: #6f53d9; border: 0; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer;">+ {{ $t('Add') || 'Add' }}</button>
                 </div>
                 <div v-if="item.batches_loading" style="font-size: 11px; color: #8d8da0; padding: 4px 0;">{{ $t('Loading') || 'Loading...' }}</div>
-                <div v-else-if="!(item.available_batches && item.available_batches.length)" style="font-size: 11px; color: #d64545; padding: 4px 0;">{{ $t('No_Batches_Available') || 'No available batches for this product in the selected warehouse' }}</div>
+                <div v-else-if="!(item.available_batches && item.available_batches.length)" style="font-size: 11px; color: #d64545; padding: 4px 0;">{{ $t('No_Batches_Available') || 'No available batches for this product in the selected location' }}</div>
                 <div v-else-if="!item.batches || item.batches.length === 0" style="font-size: 11px; color: #d64545; padding: 4px 0;">{{ $t('Choose_Batch') || 'Choose a batch' }}</div>
                 <div v-else style="display: flex; flex-direction: column; gap: 6px;">
                   <div v-for="(b, bIdx) in item.batches" :key="'pb-' + item.detail_id + '-' + bIdx" style="display: grid; grid-template-columns: 1fr 80px 24px; gap: 6px; align-items: center;">
@@ -740,6 +779,42 @@
           @touchmove.passive="onProductsTouchMove"
           @touchend="onProductsTouchEnd"
           @touchcancel="onProductsTouchEnd">
+          <!-- Visual picker: one tile per Group Name; clicking opens its
+               products (with a Back button). "All" shows everything. -->
+          <div v-if="showGroupTiles" class="pos-group-grid">
+            <button type="button" class="pos-group-tile pos-group-tile--all" @click="pos_group = 'all'">
+              <span class="pos-group-tile__pic"><span class="pos-group-tile__initials">&#9776;</span></span>
+              <span class="pos-group-tile__name">{{ tf('All', 'All') }}</span>
+              <span class="pos-group-tile__count">{{ vehicleFilteredProducts.length }}</span>
+            </button>
+            <button
+              v-for="g in posGroups" :key="'grp-' + g.id"
+              type="button" class="pos-group-tile" :title="g.name" @click="pos_group = g.id">
+              <span
+                class="pos-group-tile__pic"
+                :style="(pos_settings.show_product_images && g.image)
+                  ? { backgroundImage: 'url(' + resolveProductImage(g.image) + ')' }
+                  : { background: 'hsl(' + ((g.id * 47) % 360) + ', 70%, 93%)' }">
+                <span v-if="!(pos_settings.show_product_images && g.image)" class="pos-group-tile__initials" :style="{ color: 'hsl(' + ((g.id * 47) % 360) + ', 45%, 38%)' }">
+                  {{ (g.name || '?').split(/[\s/&-]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() }}
+                </span>
+              </span>
+              <span class="pos-group-tile__name">{{ g.name }}</span>
+              <span class="pos-group-tile__count">{{ g.count }}</span>
+            </button>
+          </div>
+
+          <template v-else>
+          <!-- Back to the group tiles -->
+          <div v-if="pos_group !== null && posGroups.length > 1" class="pos-group-back">
+            <button type="button" class="pos-group-back__btn" @click="pos_group = null">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M12 4l-6 6 6 6"/></svg>
+              {{ tf('Back', 'Back') }}
+            </button>
+            <span class="pos-group-back__title">{{ openedGroup ? openedGroup.name : tf('All', 'All') }}</span>
+            <span class="pos-group-back__count">{{ gridProducts.length }}</span>
+          </div>
+
           <!-- Empty state -->
           <div v-if="paginated_Products.length === 0" style="padding: 48px 16px; text-align: center; color: #8d8da0;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 40px; height: 40px; opacity: 0.3; margin: 0 auto 8px;">
@@ -815,10 +890,11 @@
               </div>
             </button>
           </div>
+          </template>
         </div>
 
         <!-- Mobile-only pagination dots (matches mockup) -->
-        <div v-if="paginated_Products.length > 0 && product_lastPage > 1" class="pos-shell-mobile-pagination-dots">
+        <div v-if="!showGroupTiles && paginated_Products.length > 0 && product_lastPage > 1" class="pos-shell-mobile-pagination-dots">
           <button
             v-for="page in product_lastPage"
             :key="'pdot-' + page"
@@ -830,7 +906,7 @@
         </div>
 
         <!-- Pagination -->
-        <div v-if="paginated_Products.length > 0" class="pos-shell-pagination" style="padding: 0px 16px; border-top: 1px solid rgb(230, 230, 236); background: rgb(255, 255, 255); display: flex; align-items: center; justify-content: space-between; gap: 7px; font-size: 11px; color: rgb(141, 141, 160); min-height: 30px;">
+        <div v-if="!showGroupTiles && paginated_Products.length > 0" class="pos-shell-pagination" style="padding: 0px 16px; border-top: 1px solid rgb(230, 230, 236); background: rgb(255, 255, 255); display: flex; align-items: center; justify-content: space-between; gap: 7px; font-size: 11px; color: rgb(141, 141, 160); min-height: 30px;">
           <button
             @click="Product_onPageChanged(product_currentPage - 1)"
             :disabled="product_currentPage === 1"
@@ -1811,7 +1887,7 @@
                   <span class="bl4-meta-ar">العميل</span>
                 </div>
                 <div v-show="pos_settings.show_Warehouse" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Warehouse</span>
+                  <span class="bl4-meta-en">Location</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.warehouse_name}}</span>
                   <span class="bl4-meta-ar">المستودع</span>
                 </div>
@@ -3049,6 +3125,105 @@
       </div>
     </b-modal>
 
+    <!-- Exit POS / Close register: live close-out of the open register.
+         Closing emails the company admins (POS Settings), then (exit mode)
+         leaves the POS. -->
+    <div v-if="exitModal.open" class="pos-exit-overlay" @click.self="exitModal.busy || (exitModal.open = false)">
+      <div class="pos-exit-card">
+        <div class="pos-exit-head">
+          <div>
+            <div class="pos-exit-title">{{ exitModal.mode === 'exit' ? 'Exit POS' : 'Close register' }}</div>
+            <div class="pos-exit-sub" v-if="exitModal.summary">
+              Register #{{ exitModal.summary.register_id }} · {{ exitModal.summary.cashier }} · {{ exitModal.summary.warehouse }}
+            </div>
+            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'exit'">No register is open. Leave the POS and go back to the system?</div>
+          </div>
+          <button type="button" class="pos-exit-x" :disabled="exitModal.busy" @click="exitModal.open = false"><lucide-icon name="x" /></button>
+        </div>
+
+        <div v-if="exitModal.loading" style="padding: 32px; text-align: center;"><div class="spinner spinner-primary"></div></div>
+
+        <template v-else-if="exitModal.summary">
+          <div class="pos-exit-expected">
+            <div class="pos-exit-expected__label">Cash that should be in the register</div>
+            <div class="pos-exit-expected__value">{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.expected_cash, 2) }}</div>
+            <div class="pos-exit-expected__hint">
+              Opening {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.opening_balance, 2) }}
+              + cash sales {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_sales, 2) }}
+              <span v-if="exitModal.summary.cash_in || exitModal.summary.cash_out">
+                + in {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_in, 2) }}
+                − out {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_out, 2) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="pos-exit-grid">
+            <div><span>Opened</span><strong>{{ fmtRegisterTime(exitModal.summary.opened_at) }}</strong></div>
+            <div><span>Time open</span><strong>{{ registerDuration(exitModal.summary.opened_at, exitModal.summary.until) }}</strong></div>
+            <div><span>Sales</span><strong>{{ exitModal.summary.sales_count }} · {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.total_sales, 2) }}</strong></div>
+            <div><span>Services</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.services_total, 2) }} ({{ Number(exitModal.summary.services_qty) }})</strong></div>
+            <div><span>Products</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.products_total, 2) }} ({{ Number(exitModal.summary.products_qty) }})</strong></div>
+            <div v-for="p in exitModal.summary.payments" :key="p.method"><span>{{ p.method }} ({{ p.count }})</span><strong>{{ formatPriceWithSymbol(currentUser.currency, p.amount, 2) }}</strong></div>
+          </div>
+
+          <div class="pos-exit-fields">
+            <label>Counted cash
+              <input type="number" min="0" step="0.01" class="form-control" v-model.number="exitModal.counted_cash" />
+            </label>
+            <div class="pos-exit-diff" :class="{ 'is-off': Math.abs(exitDifference) >= 0.005 }">
+              Difference: {{ formatPriceWithSymbol(currentUser.currency, exitDifference, 2) }}
+            </div>
+            <label>Notes
+              <textarea class="form-control" rows="2" v-model="exitModal.notes"></textarea>
+            </label>
+          </div>
+        </template>
+
+        <div class="pos-exit-actions">
+          <button type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="exitModal.open = false">{{ $t('Cancel') }}</button>
+          <button v-if="exitModal.mode === 'exit' && exitModal.summary" type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="leavePos">Exit, keep register open</button>
+          <button v-if="exitModal.summary" type="button" class="pos-exit-action pos-exit-action--danger" :disabled="exitModal.busy" @click="confirmCloseRegister()">
+            {{ exitModal.busy ? 'Closing…' : (exitModal.mode === 'exit' ? 'Close register & exit' : 'Close register') }}
+          </button>
+          <button v-else-if="!exitModal.loading && exitModal.mode === 'exit'" type="button" class="pos-exit-action pos-exit-action--danger" @click="leavePos">Exit POS</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cashier PIN pad (POS Settings -> "Open register with PIN").
+         Open: the PIN says WHO is at the till -- the POS session switches to
+         that user. Close: confirms the close with the cashier's PIN. -->
+    <div v-if="pinPad.open" ref="pinPadEl" tabindex="0" class="pos-pin-overlay"
+      @keydown="onPinPadKeydown" @click.self="pinPad.busy || (pinPad.open = false)">
+      <div class="pos-pin-card">
+        <div class="pos-pin-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width: 28px; height: 28px;">
+            <rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+          </svg>
+        </div>
+        <div class="pos-pin-title">{{ pinPad.purpose === 'close' ? 'Confirm with your PIN' : 'Who is opening the register?' }}</div>
+        <div class="pos-pin-sub">
+          {{ pinPad.purpose === 'close' ? 'Type your PIN to close the register.' : 'Type your PIN — the POS will work under your user.' }}
+        </div>
+        <div class="pos-pin-dots" :class="{ 'is-error': pinPad.error }">
+          <span v-for="i in Math.max(4, pinPad.value.length)" :key="i" class="pos-pin-dot" :class="{ 'is-filled': i <= pinPad.value.length }"></span>
+        </div>
+        <div class="pos-pin-error">{{ pinPad.error }}</div>
+        <div class="pos-pin-keys">
+          <button v-for="k in ['1','2','3','4','5','6','7','8','9']" :key="k" type="button" class="pos-pin-key" :disabled="pinPad.busy" @click="pinPadKey(k)">{{ k }}</button>
+          <button type="button" class="pos-pin-key pos-pin-key--muted" :disabled="pinPad.busy" @click="pinPadKey('clear')">C</button>
+          <button type="button" class="pos-pin-key" :disabled="pinPad.busy" @click="pinPadKey('0')">0</button>
+          <button type="button" class="pos-pin-key pos-pin-key--muted" :disabled="pinPad.busy" @click="pinPadKey('back')">⌫</button>
+        </div>
+        <div class="pos-pin-actions">
+          <button type="button" class="pos-exit-action" :disabled="pinPad.busy" @click="pinPad.open = false">{{ $t('Cancel') }}</button>
+          <button type="button" class="pos-exit-action pos-exit-action--primary" :disabled="pinPad.busy || pinPad.value.length < 4" @click="submitPinPad">
+            {{ pinPad.busy ? '…' : 'OK' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Online reload confirmation modal (non-blocking) -->
     <b-modal
       id="OnlineReloadModal"
@@ -3328,7 +3503,7 @@
               <div class="wh-drawer-hero-eyebrow">{{ $t('Locations') || 'Locations' }}</div>
               <div class="wh-drawer-hero-title">{{ $t('Warehouses') || 'Warehouses' }}</div>
               <div class="wh-drawer-hero-sub">
-                {{ warehouses.length }} {{ ((warehouses.length === 1) ? ($t('warehouse') || 'warehouse') : ($t('warehouses') || 'warehouses')) }}<span v-if="sale.warehouse_id"> · {{ $t('Currently_Active') || '1 active' }}</span>
+                {{ warehouses.length }} {{ ((warehouses.length === 1) ? ($t('warehouse') || 'location') : ($t('warehouses') || 'locations')) }}<span v-if="sale.warehouse_id"> · {{ $t('Currently_Active') || '1 active' }}</span>
               </div>
             </div>
           </header>
@@ -3338,7 +3513,7 @@
             <input
               v-model="whDrawerSearch"
               type="text"
-              :placeholder="$t('Search_Warehouses') || 'Search warehouses…'"
+              :placeholder="$t('Search_Warehouses') || 'Search locations…'"
             />
             <button
               v-if="whDrawerSearch"
@@ -3362,7 +3537,7 @@
                 <lucide-icon name="x-circle" />
               </div>
               <div class="wh-drawer-card-body">
-                <div class="wh-drawer-card-name">{{ $t('No_Warehouse') || 'No warehouse' }}</div>
+                <div class="wh-drawer-card-name">{{ $t('No_Warehouse') || 'No location' }}</div>
                 <div class="wh-drawer-card-meta">
                   <span class="wh-drawer-card-hint">{{ $t('Clear_Selection') || 'Clear selection' }}</span>
                 </div>
@@ -3406,7 +3581,7 @@
             </div>
             <div class="wh-drawer-empty" v-else-if="!warehouses.length">
               <div class="wh-drawer-empty-icon"><lucide-icon name="warehouse" /></div>
-              <div class="wh-drawer-empty-text">{{ $t('No_Warehouses') || 'No warehouses available' }}</div>
+              <div class="wh-drawer-empty-text">{{ $t('No_Warehouses') || 'No locations available' }}</div>
             </div>
           </div>
         </aside>
@@ -3813,6 +3988,7 @@ import { openCashDrawer } from "../../pos-compat/cashDrawerQz";
 import { receiptFontHeadTags, whenPrintFontsReady } from "../../lib/receiptFont";
 import { productDisplayName, isMainSubName } from "../../lib/productDisplayName";
 import { resolveImageUrl } from "../../lib/imagePath";
+import http from "../../lib/http";
 import posKeyboardShortcutsMixin, {
   POS_SHORTCUTS,
   posShortcutsEnabled,
@@ -3928,6 +4104,9 @@ export default {
       focused: false,
       timer:null,
       search_input:'',
+      // Product grid: null = group tiles (visual picker), 'all' = every
+      // product, a group id (0 = no group) = that group's products.
+      pos_group: null,
       product_filter:[],
       isLoading: true,
       load_product: true,
@@ -3966,6 +4145,7 @@ export default {
         enable_customer_points: true,
         show_categories: true,
         show_brands: true,
+        show_customer_filter: true,
         show_customer_history: true,
         allow_overselling: false,
         receipt_paper_size: 80,
@@ -4165,9 +4345,21 @@ export default {
       // Cash Register state (optional module)
       registerEnabled: true,
       currentRegister: null,
+      // Defaults -> POS -> "Require an open register" (from pos/data_create_pos)
+      // and whether the current-register check has come back yet (no lock
+      // flash while loading; never locks when the check couldn't run offline).
+      requireOpenRegister: true,
+      registerChecked: false,
       registerBusy: false,
       registerForm: { warehouse_id: '', opening_balance: 0, notes: '' },
+      // Cashier PIN pad (POS Settings -> "Open register with PIN"): 'open'
+      // switches the session to the PIN's user; 'close' confirms the close.
+      pinPad: { open: false, purpose: 'open', value: '', error: '', busy: false },
       closeForm: { counted_cash: 0, notes: '' },
+      // POS Settings -> "Open register with PIN".
+      registerPinRequired: false,
+      // Exit POS / close-register confirmation (live register summary).
+      exitModal: { open: false, mode: 'exit', loading: false, busy: false, summary: null, counted_cash: 0, notes: '' },
       cashMove: { type: 'in', amount: 0, notes: '' },
       warehouseOptions: [],
       selectedClientId: "",
@@ -4214,6 +4406,48 @@ export default {
     // Reads from the Vuex store, falling back to the localStorage cache for offline POS.
     priceDecimals() {
       return getPriceDecimals({ store: this.$store });
+    },
+
+    // Group tiles for the visual picker: one per Group Name present in the
+    // current list (vehicle/category/brand filters already applied), with a
+    // product count and the first product image as the tile picture.
+    posGroups() {
+      const map = new Map();
+      this.vehicleFilteredProducts.forEach(p => {
+        const id = Number(p.product_group_id) || 0;
+        if (!map.has(id)) {
+          map.set(id, { id, name: p.group_name || this.tf('Other', 'Other'), count: 0, image: null });
+        }
+        const g = map.get(id);
+        g.count++;
+        if (!g.image && p.image && p.image !== 'no-image.png') g.image = p.image;
+      });
+      return [...map.values()].sort((a, b) => (a.id === 0) - (b.id === 0) || a.name.localeCompare(b.name));
+    },
+    // POS locked: the company requires an open register and this cashier
+    // has none for the selected warehouse (only once the check came back
+    // online -- offline selling is never blocked).
+    exitDifference() {
+      const s = this.exitModal.summary;
+      return s ? (Number(this.exitModal.counted_cash) || 0) - Number(s.expected_cash || 0) : 0;
+    },
+    registerLocked() {
+      return this.registerEnabled && this.requireOpenRegister && this.isOnline && this.registerChecked
+        && !(this.currentRegister && this.currentRegister.status === 'open');
+    },
+    // Show the tiles only while no group is open and there's a real choice.
+    showGroupTiles() {
+      return this.pos_group === null && this.posGroups.length > 1;
+    },
+    openedGroup() {
+      if (this.pos_group === null || this.pos_group === 'all') return null;
+      return this.posGroups.find(g => g.id === this.pos_group) || null;
+    },
+    // What the product grid paginates: the list, narrowed to the open group.
+    gridProducts() {
+      const base = this.vehicleFilteredProducts;
+      if (this.pos_group === null || this.pos_group === 'all') return base;
+      return base.filter(p => (Number(p.product_group_id) || 0) === this.pos_group);
     },
 
     // Vehicle Fitment: the grid list minus parts that do not fit the selected
@@ -4448,9 +4682,9 @@ export default {
 
     // Label shown on the warehouse trigger
     selectedWarehouseLabel() {
-      if (!this.sale.warehouse_id) return this.$t('Select_Warehouse') || 'Select warehouse';
+      if (!this.sale.warehouse_id) return this.$t('Select_Warehouse') || 'Select location';
       const wh = (this.warehouses || []).find(x => x.id === this.sale.warehouse_id);
-      return wh ? wh.name : (this.$t('Select_Warehouse') || 'Select warehouse');
+      return wh ? wh.name : (this.$t('Select_Warehouse') || 'Select location');
     },
 
     // Warehouses filtered by the drawer's search box
@@ -4513,9 +4747,10 @@ export default {
 
     // Total pages for product list
     product_lastPage() {
-      // With a vehicle selected the grid paginates the client-filtered list.
-      const total = this.pos_vehicle
-        ? this.vehicleFilteredProducts.length
+      // With a vehicle selected or a group open, the grid paginates the
+      // client-filtered list.
+      const total = (this.pos_vehicle || (this.pos_group !== null && this.pos_group !== 'all'))
+        ? this.gridProducts.length
         : Number(this.product_totalRows || 0);
       const per = Number(this.product_perPage || 1);
       const pages = Math.ceil(total / per);
@@ -4759,6 +4994,11 @@ export default {
   // twice, and in a JS object literal the second key silently replaced the
   // first, leaving the warehouse-change watcher dead. Merged here.
   watch: {
+    // Opening / leaving a group (tiles <-> products): back to page 1.
+    pos_group() {
+      this.product_currentPage = 1;
+      this.Product_paginatePerPage();
+    },
     // When the warehouse changes (including being cleared), clear the current
     // checkout so we never mix products/stock from different warehouses.
     'sale.warehouse_id'(newVal, oldVal) {
@@ -4888,8 +5128,98 @@ export default {
         if (this.sale && this.sale.warehouse_id) params.warehouse_id = this.sale.warehouse_id;
         const { data } = await axios.get(`cash-registers/current/${this.currentUser.id}`, { params });
         this.currentRegister = data.register || null;
+        this.registerChecked = true;
+        this.resumeAfterPinSwitch();
       } catch (e) {
         this.currentRegister = null;
+        // Couldn't check (offline / error): don't lock the cashier out.
+        this.registerChecked = false;
+      }
+    },
+    // Lock screen "Open register" button: preselect the POS warehouse.
+    openRegisterFromLock() {
+      this.requestOpenRegister();
+    },
+    // Open register: with "Open register with PIN" the cashier types their
+    // PIN first (keypad); otherwise straight to the Open Register form.
+    requestOpenRegister() {
+      if (this.registerForm && !this.registerForm.warehouse_id && this.sale && this.sale.warehouse_id) {
+        this.registerForm.warehouse_id = this.sale.warehouse_id;
+      }
+      if (this.registerPinRequired && this.isOnline) {
+        this.openPinPad('open');
+      } else {
+        this.$bvModal.show('OpenRegisterModal');
+      }
+    },
+    openPinPad(purpose) {
+      Object.assign(this.pinPad, { open: true, purpose, value: '', error: '', busy: false });
+      // Focus the pad so the physical keyboard / numpad types into it.
+      this.$nextTick(() => { try { this.$refs.pinPadEl && this.$refs.pinPadEl.focus(); } catch (e) { /* ignore */ } });
+    },
+    pinPadKey(k) {
+      if (this.pinPad.busy) return;
+      this.pinPad.error = '';
+      if (k === 'back') this.pinPad.value = this.pinPad.value.slice(0, -1);
+      else if (k === 'clear') this.pinPad.value = '';
+      else if (this.pinPad.value.length < 8) this.pinPad.value += k;
+    },
+    onPinPadKeydown(e) {
+      if (!this.pinPad.open) return;
+      if (/^[0-9]$/.test(e.key)) { this.pinPadKey(e.key); e.preventDefault(); }
+      else if (e.key === 'Backspace') { this.pinPadKey('back'); e.preventDefault(); }
+      else if (e.key === 'Enter') { this.submitPinPad(); e.preventDefault(); }
+      else if (e.key === 'Escape') { this.pinPad.open = false; }
+    },
+    async submitPinPad() {
+      const pin = this.pinPad.value;
+      if (pin.length < 4) { this.pinPad.error = 'Enter your 4–8 digit PIN.'; return; }
+      if (this.pinPad.purpose === 'close') {
+        this.pinPad.open = false;
+        this.confirmCloseRegister(pin);
+        return;
+      }
+      // 'open': identify the cashier by PIN; the session becomes that user.
+      const warehouseId = this.registerForm.warehouse_id || (this.sale && this.sale.warehouse_id);
+      if (!warehouseId) { this.pinPad.error = this.$t('Please_select_warehouse'); return; }
+      this.pinPad.busy = true;
+      try {
+        const res = await http.webPost('pos/pin-switch', { warehouse_id: warehouseId, pin });
+        if (res && res.switched) {
+          // Reload as the new user; the POS reopens the Open Register form.
+          try { sessionStorage.setItem('pos_pin_switch', JSON.stringify({ warehouse_id: warehouseId, name: res.name, at: Date.now() })); } catch (e) { /* storage unavailable */ }
+          window.location.reload();
+          return;
+        }
+        this.pinPad.open = false;
+        this.$bvModal.show('OpenRegisterModal');
+      } catch (e) {
+        this.pinPad.value = '';
+        this.pinPad.error = (e && e.data && e.data.message) || (e && e.status === 429 ? 'Too many attempts. Wait a minute.' : this.$t('OperationFailed'));
+      } finally {
+        this.pinPad.busy = false;
+      }
+    },
+    // After a PIN switch reloaded the POS as the cashier: continue to the
+    // Open Register form for the location the PIN was typed at.
+    resumeAfterPinSwitch() {
+      let flag = null;
+      try { flag = JSON.parse(sessionStorage.getItem('pos_pin_switch') || 'null'); } catch (e) { flag = null; }
+      if (!flag) return;
+      if (!flag.at || Date.now() - flag.at > 5 * 60 * 1000) {
+        try { sessionStorage.removeItem('pos_pin_switch'); } catch (e) { /* ignore */ }
+        return;
+      }
+      const wid = Number(flag.warehouse_id);
+      if (this.sale && Number(this.sale.warehouse_id) !== wid && (this.warehouses || []).some(w => Number(w.id) === wid)) {
+        this.sale.warehouse_id = wid; // the watcher re-checks the register, then we come back here
+        return;
+      }
+      try { sessionStorage.removeItem('pos_pin_switch'); } catch (e) { /* ignore */ }
+      this.makeToast('success', 'Signed in as ' + (flag.name || ''), this.$t('Success'));
+      if (!(this.currentRegister && this.currentRegister.status === 'open')) {
+        this.registerForm.warehouse_id = wid;
+        this.$bvModal.show('OpenRegisterModal');
       }
     },
     // ---------- Customer Display helpers ----------
@@ -4990,6 +5320,80 @@ export default {
       } finally {
         this.registerBusy = false;
       }
+    },
+    // ---------- Exit POS / close-out ----------
+    // Exit button: with an open register show its close-out first; otherwise
+    // just confirm leaving.
+    openExitPos() {
+      if (this.registerEnabled && this.isOnline && this.currentRegister && this.currentRegister.status === 'open') {
+        this.openCloseRegister('exit');
+      } else {
+        Object.assign(this.exitModal, { open: true, mode: 'exit', loading: false, busy: false, summary: null });
+      }
+    },
+    async openCloseRegister(mode) {
+      if (!this.currentRegister) return;
+      Object.assign(this.exitModal, { open: true, mode, loading: true, busy: false, summary: null, notes: '' });
+      try {
+        const { data } = await axios.get(`cash-registers/${this.currentRegister.id}/summary`);
+        this.exitModal.summary = data.summary;
+        this.exitModal.counted_cash = Number(data.summary.expected_cash || 0);
+      } catch (e) {
+        this.exitModal.open = false;
+        this.makeToast('danger', e.response?.data?.message || this.$t('OperationFailed'), this.$t('Failed'));
+      } finally {
+        this.exitModal.loading = false;
+      }
+    },
+    async confirmCloseRegister(pin) {
+      if (!this.currentRegister) return;
+      // "Open register with PIN": closing is confirmed with the cashier's PIN too.
+      if (this.registerPinRequired && typeof pin !== 'string') {
+        this.openPinPad('close');
+        return;
+      }
+      this.exitModal.busy = true;
+      try {
+        const { data } = await axios.post('cash-registers/close', {
+          register_id: this.currentRegister.id,
+          counted_cash: Number(this.exitModal.counted_cash) || 0,
+          notes: this.exitModal.notes || '',
+          pin: typeof pin === 'string' ? pin : undefined
+        });
+        this.makeToast('success', this.$t('RegisterClosed'), this.$t('Success'));
+        const mail = data && data.email;
+        if (mail && mail.sent) {
+          this.makeToast('success', 'Close-out emailed to ' + mail.to.join(', '), this.$t('Success'));
+        } else if (mail && !mail.skipped) {
+          this.makeToast('warning', mail.error || 'The close-out email was not sent.', this.$t('Warning'));
+        }
+        this.exitModal.open = false;
+        if (this.exitModal.mode === 'exit') {
+          this.leavePos();
+        } else {
+          this.refreshCurrentRegister();
+        }
+      } catch (e) {
+        this.makeToast('danger', e.response?.data?.message || this.$t('OperationFailed'), this.$t('Failed'));
+      } finally {
+        this.exitModal.busy = false;
+      }
+    },
+    leavePos() {
+      this.exitModal.open = false;
+      this.$router.push('/dashboard');
+    },
+    fmtRegisterTime(v) {
+      if (!v) return '';
+      const d = new Date(String(v).replace(' ', 'T'));
+      return isNaN(d) ? v : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    },
+    registerDuration(from, to) {
+      const a = new Date(String(from).replace(' ', 'T'));
+      const b = new Date(String(to).replace(' ', 'T'));
+      if (isNaN(a) || isNaN(b)) return '';
+      const m = Math.max(0, Math.round((b - a) / 60000));
+      return Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
     },
     resolveProductImage(imagePath) {
       if (!imagePath) return '';
@@ -5281,8 +5685,8 @@ export default {
       }
     },
     paginate_products(pageSize, pageNumber) {
-      // vehicleFilteredProducts === this.products when no vehicle is selected.
-      const itemsToParse = this.vehicleFilteredProducts;
+      // gridProducts === this.products when no vehicle and no group is selected.
+      const itemsToParse = this.gridProducts;
       this.paginated_Products = itemsToParse.slice(
         pageNumber * pageSize,
         (pageNumber + 1) * pageSize
@@ -7842,7 +8246,7 @@ export default {
       const available = Array.isArray(detail.available_batches) ? detail.available_batches : [];
       // No availability in this warehouse — block the sale (cashier must change warehouse / restock).
       if (available.length === 0) {
-        return this.$t('No_Batches_Available') || 'No available batches for this product in the selected warehouse';
+        return this.$t('No_Batches_Available') || 'No available batches for this product in the selected location';
       }
       const batches = Array.isArray(detail.batches) ? detail.batches : [];
       if (batches.length === 0) {
@@ -10027,6 +10431,8 @@ export default {
           this.selectedClientId = response.data.defaultClient;
           this.client_name = response.data.default_client_name;
           this.applyCustomerFeatureFlags(response.data);
+          this.requireOpenRegister = response.data.require_open_register !== false;
+          this.registerPinRequired = response.data.register_pin_required === true;
           this.clientIsEligible = this.customer_loyalty_enabled && (response.data.default_client_eligible === true || response.data.default_client_eligible === 1);
           this.selectedClientPoints = this.clientIsEligible ? parseFloat(response.data.default_client_points) : 0;
           this.point_to_amount_rate = response.data.point_to_amount_rate;
@@ -10104,6 +10510,10 @@ export default {
             if (typeof this.pos_settings.show_brands === 'number') {
               this.pos_settings.show_brands = this.pos_settings.show_brands === 1;
             }
+            // Missing (older cached payloads) = shown.
+            this.pos_settings.show_customer_filter = this.pos_settings.show_customer_filter == null
+              ? true
+              : (this.pos_settings.show_customer_filter === true || Number(this.pos_settings.show_customer_filter) === 1);
             if (typeof this.pos_settings.show_customer_history === 'number') {
               this.pos_settings.show_customer_history = this.pos_settings.show_customer_history === 1;
             }
@@ -11295,7 +11705,7 @@ export default {
         return;
       }
       if (!this.sale || !this.sale.warehouse_id) {
-        const msg = this.$t ? this.$t('SelectWarehouse') : 'Please select a warehouse before paying.';
+        const msg = this.$t ? this.$t('SelectWarehouse') : 'Please select a location before paying.';
         this.makeToast && this.makeToast('warning', msg, this.$t ? this.$t('Warning') : 'Warning');
         return;
       }
@@ -18607,6 +19017,255 @@ $transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-auto-rows: max-content;
   gap: 5px;
+}
+
+/* Exit POS button (top left, a bit bigger than the icon buttons) */
+.pos-codecanyon .pos-exit-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px;
+  border-radius: 10px; border: 1px solid #f3c7c7; background: #fdf1f1; color: #a83232;
+  font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease; flex-shrink: 0;
+}
+.pos-codecanyon .pos-exit-btn:hover { background: #fbe3e3; border-color: #e9a9a9; }
+
+/* Exit POS / close-register close-out modal */
+.pos-codecanyon .pos-exit-overlay {
+  position: fixed; inset: 0; z-index: 2100; background: rgba(20, 20, 32, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.pos-codecanyon .pos-exit-card {
+  width: 100%; max-width: 560px; max-height: calc(100vh - 32px); overflow: auto;
+  background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25); padding: 20px;
+}
+.pos-codecanyon .pos-exit-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.pos-codecanyon .pos-exit-title { font-size: 18px; font-weight: 700; color: #1f1f2c; }
+.pos-codecanyon .pos-exit-sub { font-size: 13px; color: #6b6b80; margin-top: 2px; }
+.pos-codecanyon .pos-exit-x { border: 0; background: transparent; color: #8d8da0; cursor: pointer; font-size: 18px; height: 32px; }
+.pos-codecanyon .pos-exit-expected { background: #f5f3fd; border-radius: 12px; padding: 14px 16px; text-align: center; margin-bottom: 14px; }
+.pos-codecanyon .pos-exit-expected__label { font-size: 12px; color: #6f53d9; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.pos-codecanyon .pos-exit-expected__value { font-size: 30px; font-weight: 800; color: #1f1f2c; font-family: 'JetBrains Mono', monospace; }
+.pos-codecanyon .pos-exit-expected__hint { font-size: 12px; color: #6b6b80; }
+.pos-codecanyon .pos-exit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.pos-codecanyon .pos-exit-grid > div { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid #ececf2; border-radius: 8px; font-size: 13px; }
+.pos-codecanyon .pos-exit-grid span { color: #6b6b80; }
+.pos-codecanyon .pos-exit-fields label { display: block; font-size: 13px; font-weight: 600; color: #1f1f2c; margin-bottom: 8px; }
+.pos-codecanyon .pos-exit-diff { font-size: 13px; font-weight: 700; color: #1e7a44; margin: -2px 0 10px; }
+.pos-codecanyon .pos-exit-diff.is-off { color: #a83232; }
+.pos-codecanyon .pos-exit-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.pos-codecanyon .pos-exit-action {
+  height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #e6e6ec; background: #fff;
+  color: #1f1f2c; font-weight: 600; font-size: 14px; cursor: pointer; font-family: inherit;
+}
+.pos-codecanyon .pos-exit-action--danger { background: #d64545; border-color: #d64545; color: #fff; }
+.pos-codecanyon .pos-exit-action:disabled { opacity: 0.6; cursor: default; }
+.pos-codecanyon .pos-exit-action--primary { background: #6f53d9; border-color: #6f53d9; color: #fff; }
+
+/* Cashier PIN pad */
+.pos-codecanyon .pos-pin-overlay {
+  position: fixed; inset: 0; z-index: 2200; background: rgba(20, 20, 32, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 16px; outline: none;
+}
+.pos-codecanyon .pos-pin-card {
+  width: 100%; max-width: 340px; background: #fff; border-radius: 16px; padding: 22px 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); text-align: center;
+}
+.pos-codecanyon .pos-pin-icon { width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 10px; display: grid; place-items: center; background: #f5f3fd; color: #6f53d9; }
+.pos-codecanyon .pos-pin-title { font-size: 17px; font-weight: 700; color: #1f1f2c; }
+.pos-codecanyon .pos-pin-sub { font-size: 13px; color: #6b6b80; margin-top: 2px; }
+.pos-codecanyon .pos-pin-dots { display: flex; justify-content: center; gap: 12px; margin: 18px 0 6px; }
+.pos-codecanyon .pos-pin-dot { width: 14px; height: 14px; border-radius: 99px; border: 2px solid #c9c4ef; }
+.pos-codecanyon .pos-pin-dot.is-filled { background: #6f53d9; border-color: #6f53d9; }
+.pos-codecanyon .pos-pin-dots.is-error .pos-pin-dot { border-color: #d64545; }
+.pos-codecanyon .pos-pin-error { min-height: 18px; font-size: 12.5px; color: #d64545; font-weight: 600; }
+.pos-codecanyon .pos-pin-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0 14px; }
+.pos-codecanyon .pos-pin-key {
+  height: 56px; border-radius: 12px; border: 1px solid #e6e6ec; background: #fafafe; color: #1f1f2c;
+  font-size: 22px; font-weight: 600; font-family: 'JetBrains Mono', monospace; cursor: pointer;
+}
+.pos-codecanyon .pos-pin-key:active { background: #ece9fb; }
+.pos-codecanyon .pos-pin-key--muted { color: #6b6b80; font-size: 18px; }
+.pos-codecanyon .pos-pin-actions { display: flex; gap: 8px; }
+.pos-codecanyon .pos-pin-actions .pos-exit-action { flex: 1; }
+@media (max-width: 560px) {
+  .pos-codecanyon .pos-exit-grid { grid-template-columns: 1fr; }
+  .pos-codecanyon .pos-exit-btn span { display: none; }
+  .pos-codecanyon .pos-exit-btn { padding: 0 12px; }
+}
+
+/* Register lock (Defaults -> POS -> Require an open register) */
+.pos-codecanyon .pos-register-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 1030; /* below Bootstrap modals (1050) so Open Register shows on top */
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(31, 31, 44, 0.55);
+  backdrop-filter: blur(3px);
+}
+.pos-codecanyon .pos-register-lock__card {
+  width: min(460px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+.pos-codecanyon .pos-register-lock__icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: #f0ecfb;
+  color: #6f53d9;
+}
+.pos-codecanyon .pos-register-lock__title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: #1f1f2c;
+}
+.pos-codecanyon .pos-register-lock__text {
+  font-size: 13px;
+  color: #54546a;
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+.pos-codecanyon .pos-register-lock__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.pos-codecanyon .pos-register-lock__btn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid #d9d2f7;
+  background: #fff;
+  color: #6f53d9;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+}
+.pos-codecanyon .pos-register-lock__btn--primary {
+  background: #6f53d9;
+  border-color: #6f53d9;
+  color: #fff;
+}
+
+/* Group picker (tiles shown before the products) */
+.pos-codecanyon .pos-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+  padding: 6px 0 10px;
+}
+.pos-codecanyon .pos-group-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #e6e6ec;
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+.pos-codecanyon .pos-group-tile:hover {
+  transform: translateY(-2px);
+  border-color: #6f53d9;
+  box-shadow: 0 6px 16px rgba(111, 83, 217, 0.15);
+}
+.pos-codecanyon .pos-group-tile__pic {
+  height: 64px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background-color: #f5f3fd;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+.pos-codecanyon .pos-group-tile__initials {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  color: #6f53d9;
+}
+.pos-codecanyon .pos-group-tile--all .pos-group-tile__pic {
+  background: linear-gradient(135deg, #6f53d9, #9b86ec);
+}
+.pos-codecanyon .pos-group-tile--all .pos-group-tile__initials {
+  color: #fff;
+}
+.pos-codecanyon .pos-group-tile__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f1f2c;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pos-codecanyon .pos-group-tile__count {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #6f53d9;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.pos-codecanyon .pos-group-back {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px 8px;
+}
+.pos-codecanyon .pos-group-back__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: 1px solid #d9d2f7;
+  border-radius: 999px;
+  background: #f0ecfb;
+  color: #6f53d9;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.pos-codecanyon .pos-group-back__btn:hover {
+  background: #e4dcfa;
+}
+.pos-codecanyon .pos-group-back__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f1f2c;
+}
+.pos-codecanyon .pos-group-back__count {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6f53d9;
+  background: #f0ecfb;
+  border-radius: 999px;
+  padding: 1px 8px;
 }
 
 /* ============================================================

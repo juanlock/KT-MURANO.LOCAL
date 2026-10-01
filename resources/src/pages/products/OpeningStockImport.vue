@@ -19,19 +19,19 @@
           <a-alert
             type="info" show-icon style="margin-bottom: 16px"
             message="Opening stock"
-            description="Adds initial quantities for existing products in the chosen warehouse. Codes must match products already in the system."
+            description="Adds initial quantities for existing products in the chosen location. Codes must match products already in the system."
           />
 
           <a-form-item
             :label="$t('warehouse') + ' *'" layout="vertical"
             :validate-status="warehouseTouched && !warehouseId ? 'error' : undefined"
-            :help="warehouseTouched && !warehouseId ? 'Please choose a warehouse.' : 'Stock will be added to this warehouse.'"
+            :help="warehouseTouched && !warehouseId ? 'Please choose a location.' : 'Stock will be added to this location.'"
           >
             <a-select
               v-model:value="warehouseId"
               style="width: 100%"
               :options="warehouseOptions"
-              :placeholder="'Choose a warehouse...'"
+              :placeholder="'Choose a location...'"
               show-search
               option-filter-prop="label"
               allow-clear
@@ -237,7 +237,7 @@ function collectErrorsFromResponse(data) {
 async function submit() {
   warehouseTouched.value = true;
   if (!warehouseId.value) {
-    errorMessages.value = ['Please choose a warehouse.'];
+    errorMessages.value = ['Please choose a location.'];
     return;
   }
   if (!file.value) {

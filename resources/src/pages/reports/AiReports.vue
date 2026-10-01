@@ -321,7 +321,7 @@ const activeFilters = computed(() => {
   }
   if (reportResult.value.filters.warehouse_id) {
     const w = warehouses.value.find(x => x.id === reportResult.value.filters.warehouse_id);
-    filters.push({ label: t('Warehouse', 'Warehouse'), value: w ? w.name : '' });
+    filters.push({ label: t('Warehouse', 'Location'), value: w ? w.name : '' });
   }
   return filters;
 });

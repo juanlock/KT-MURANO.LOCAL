@@ -23,7 +23,7 @@ class AssetController extends BaseController
     private function assetWarehouseId($requested): ?int
     {
         if ($requested) {
-            abort_unless($this->canAccessWarehouse($requested), 422, 'That warehouse does not belong to your company.');
+            abort_unless($this->canAccessWarehouse($requested), 422, 'That location does not belong to your company.');
 
             return (int) $requested;
         }

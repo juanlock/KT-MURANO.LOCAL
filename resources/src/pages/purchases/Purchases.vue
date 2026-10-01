@@ -463,11 +463,11 @@ const filters = ref({
   date_from: '', date_to: '',
 });
 
-// Reset: every filter back to its default, date range back to This Month.
+// Reset: every filter back to its default, date range back to Today.
 const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => {
-  datePreset.value = 'month';
-  applyPreset('month');
-}, { ignore: ['date_from', 'date_to'], isDirty: () => datePreset.value !== 'month' });
+  datePreset.value = 'today';
+  applyPreset('today');
+}, { ignore: ['date_from', 'date_to'], isDirty: () => datePreset.value !== 'today' });
 
 // "Customize Filters" -- which of these filters a company shows, and in
 // what order (settings.datatable_filters, same idea as DataTable.vue's
@@ -478,7 +478,7 @@ const {
 } = useCustomizableFilters('purchases_filters', [
   { key: 'date', label: 'Date' },
   { key: 'provider_id', label: 'Supplier' },
-  { key: 'warehouse_id', label: 'Warehouse' },
+  { key: 'warehouse_id', label: 'Location' },
   { key: 'statut', label: 'Status' },
   { key: 'payment_statut', label: 'Payment Status' },
 ]);
@@ -511,10 +511,12 @@ const DATE_PRESETS = [
   { value: 'all', labelKey: 'All' },
   { value: 'year', labelKey: 'This_Year' },
   { value: 'month', labelKey: 'This_Month' },
+  { value: 'today', labelKey: 'Today' },
   { value: 'last_month', labelKey: 'Last_Month' },
   { value: 'last_year', labelKey: 'Last_Year' },
 ];
-const datePreset = ref('month');
+// Default: Today (the preset row's middle button).
+const datePreset = ref('today');
 
 function presetRange(preset) {
   const now = dayjs();
@@ -523,6 +525,8 @@ function presetRange(preset) {
       return [now.startOf('year'), now.endOf('year')];
     case 'month':
       return [now.startOf('month'), now.endOf('month')];
+    case 'today':
+      return [now.startOf('day'), now.endOf('day')];
     case 'last_month': {
       const m = now.subtract(1, 'month');
       return [m.startOf('month'), m.endOf('month')];
@@ -563,7 +567,7 @@ function onOtherFilterChange() {
   crud.reload();
 }
 
-// Default: This Month, applied before the first fetch.
+// Default: Today, applied before the first fetch.
 applyPreset(datePreset.value);
 
 // What the keycard shows: the exact day (picker) takes priority, then the

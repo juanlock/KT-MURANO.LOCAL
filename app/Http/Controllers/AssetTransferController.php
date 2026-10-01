@@ -127,7 +127,7 @@ class AssetTransferController extends BaseController
             if ((int) $asset->warehouse_id === (int) $request->to_warehouse_id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'The asset is already in that warehouse.',
+                    'message' => 'The asset is already in that location.',
                 ], 422);
             }
 

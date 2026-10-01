@@ -24,7 +24,7 @@ class VehicleFitmentController extends Controller
     /** GET vehicles/catalog — makes with their models, for the admin page. */
     public function catalog(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'view', Product::class);
+        $this->authorizeForUser($request->user('api'), 'vehicleFitment', Product::class);
 
         $makes = VehicleMake::with(['models' => fn ($q) => $q->orderBy('name')])
             ->orderBy('name')
@@ -63,7 +63,7 @@ class VehicleFitmentController extends Controller
 
     public function storeMake(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'update', Product::class);
+        $this->authorizeForUser($request->user('api'), 'vehicleFitment', Product::class);
         $data = $request->validate(['name' => 'required|string|max:100|unique:vehicle_makes,name']);
 
         return response()->json(VehicleMake::create(['name' => trim($data['name'])]), 201);
@@ -71,7 +71,7 @@ class VehicleFitmentController extends Controller
 
     public function updateMake(Request $request, $id)
     {
-        $this->authorizeForUser($request->user('api'), 'update', Product::class);
+        $this->authorizeForUser($request->user('api'), 'vehicleFitment', Product::class);
         $make = VehicleMake::findOrFail($id);
         $data = $request->validate([
             'name' => 'required|string|max:100|unique:vehicle_makes,name,'.$make->id,
@@ -88,7 +88,7 @@ class VehicleFitmentController extends Controller
 
     public function destroyMake(Request $request, $id)
     {
-        $this->authorizeForUser($request->user('api'), 'update', Product::class);
+        $this->authorizeForUser($request->user('api'), 'vehicleFitment', Product::class);
         $make = VehicleMake::findOrFail($id);
 
         DB::transaction(function () use ($make) {
@@ -104,7 +104,7 @@ class VehicleFitmentController extends Controller
 
     public function storeModel(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'update', Product::class);
+        $this->authorizeForUser($request->user('api'), 'vehicleFitment', Product::class);
         $data = $request->validate([
             'vehicle_make_id' => 'required|integer|exists:vehicle_makes,id',
             'name' => 'required|string|max:100',
@@ -125,7 +125,7 @@ class VehicleFitmentController extends Controller
 
     public function updateModel(Request $request, $id)
     {
-        $this->authorizeForUser($request->user('api'), 'update', Product::class);
+        $this->authorizeForUser($request->user('api'), 'vehicleFitment', Product::class);
         $model = VehicleModel::findOrFail($id);
         $data = $request->validate([
             'name' => 'required|string|max:100',
@@ -142,7 +142,7 @@ class VehicleFitmentController extends Controller
 
     public function destroyModel(Request $request, $id)
     {
-        $this->authorizeForUser($request->user('api'), 'update', Product::class);
+        $this->authorizeForUser($request->user('api'), 'vehicleFitment', Product::class);
         $model = VehicleModel::findOrFail($id);
 
         DB::transaction(function () use ($model) {

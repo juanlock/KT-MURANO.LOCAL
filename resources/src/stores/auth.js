@@ -115,6 +115,12 @@ export const useAuthStore = defineStore('auth', {
                 // Tab title suffix = the acting company's own Appearance
                 // setting (re-applied on reload(), e.g. right after saving it).
                 if (this.user) setTitleSuffix(this.user.page_title_suffix);
+                // Price decimals cache (read by legacy/POS helpers when no
+                // better source is at hand): always the CURRENT company's
+                // value, so another company's 3 decimals can't linger.
+                if (this.user && (this.user.price_decimals === 2 || this.user.price_decimals === 3)) {
+                    try { window.localStorage.setItem('app_price_decimals', String(this.user.price_decimals)); } catch (e) { /* storage unavailable */ }
+                }
 
                 // The SPA's locale otherwise lives entirely in localStorage
                 // ('language', written on every boot including the very

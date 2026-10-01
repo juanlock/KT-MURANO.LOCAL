@@ -1187,7 +1187,7 @@ class ServiceJobController extends BaseController
                 : ($allowed[0] ?? Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('id')->value('id'));
         }
         if (! $warehouseId) {
-            return response()->json(['message' => 'No warehouse is accessible to your account; cannot create a quotation.'], 422);
+            return response()->json(['message' => 'No location is accessible to your account; cannot create a quotation.'], 422);
         }
 
         $itemsTotal = (float) $job->items->sum('total');

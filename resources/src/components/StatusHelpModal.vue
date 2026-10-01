@@ -69,7 +69,7 @@ const copy = computed(() => {
     statusRows: [
       {
         value: doneValue, labelKey: doneLabelKey,
-        desc: `Final state. Stock is ${stockVerb} the warehouse the moment it becomes ${isPurchase.value ? 'Received' : 'Completed'} -- batches/serials are also consumed/released at this point, and deleting a document in this state reverses all of it.`,
+        desc: `Final state. Stock is ${stockVerb} the location the moment it becomes ${isPurchase.value ? 'Received' : 'Completed'} -- batches/serials are also consumed/released at this point, and deleting a document in this state reverses all of it.`,
       },
       {
         value: 'pending', labelKey: 'Pending',

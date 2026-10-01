@@ -176,7 +176,7 @@ const columns = computed(() => [
   { title: 'Promotion', dataIndex: 'name', key: 'name', sorter: true },
   { title: 'Type', dataIndex: 'kind', key: 'kind', sorter: true, width: 120 },
   { title: 'Value', dataIndex: 'discount_value', key: 'value', sorter: true, width: 110 },
-  { title: 'Warehouses', key: 'warehouses', width: 220 },
+  { title: 'Locations', key: 'warehouses', width: 220 },
   { title: 'Window', key: 'window', width: 200 },
   { title: 'Priority', dataIndex: 'priority', key: 'priority', sorter: true, width: 90 },
   { title: 'Active', key: 'is_active', width: 80 },

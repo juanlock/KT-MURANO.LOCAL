@@ -33,7 +33,7 @@
               <template v-else>{{ tf('No_Negative_Stock', 'No negative stock — all clear.') }}</template>
             </div>
             <a-typography-text v-if="hasIssues && !crud.loading.value" type="secondary">
-              {{ fmt(summary.products) }} {{ $t('Products') }}
+              {{ fmt(summary.products) }} {{ $t('Products_Only') }}
               · {{ fmt(summary.warehouses_affected) }} {{ tf('Warehouses_Affected', 'warehouses affected') }}
               · {{ tf('Shortage_Value', 'shortage value') }} ≈ <strong>{{ money(summary.shortage_value) }}</strong>
             </a-typography-text>
@@ -58,7 +58,7 @@
           </a-card>
         </a-col>
         <a-col :xs="24" :xl="9">
-          <a-card size="small" class="chart-card" :title="tf('By_Warehouse', 'By warehouse')">
+          <a-card size="small" class="chart-card" :title="tf('By_Warehouse', 'By location')">
             <template v-if="byWarehouse.length">
               <div v-for="w in byWarehouse" :key="w.name" class="wh-row">
                 <div class="wh-text">

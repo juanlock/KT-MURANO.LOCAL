@@ -2,11 +2,70 @@
   <div class="page">
     <PageHeader :title="$t('Pos_Settings')" :breadcrumb="[$t('Settings'), $t('Pos_Settings')]" />
 
+    <!-- Everything POS in one place: General (this page's settings + the
+         company-level POS rules), Receipt (POS Receipt editor) and Direct
+         Network Printing. ?tab=general|receipt|printing opens a tab. -->
+    <a-tabs v-model:activeKey="tab" class="pos-settings-tabs" @change="k => $router.replace({ query: { ...$route.query, tab: k } })">
+      <a-tab-pane key="general" :tab="$t('General') || 'General'" />
+      <a-tab-pane key="receipt" :tab="$t('POS_Receipt') || 'Receipt'" />
+      <a-tab-pane key="printing" tab="Network printing" />
+    </a-tabs>
+
+    <PosReceipt v-if="tab === 'receipt'" embedded />
+    <DirectNetworkPrinting v-else-if="tab === 'printing'" embedded />
+
+    <template v-else>
     <div v-if="loading" style="display: flex; justify-content: center; padding: 96px 0">
       <a-spin size="large" />
     </div>
 
     <a-form v-else layout="vertical">
+      <!-- Company-level POS rules (settings row, saved with this page). -->
+      <a-card size="small" title="Company rules" style="margin-bottom: 16px">
+        <div class="pos-rule">
+          <div>
+            <div class="pos-rule__label">Price decimals</div>
+            <div class="pos-rule__help">How many decimals prices and totals use in the POS, sales and invoices: 2 (12.50) or 3 (12.500). Applies to the whole company.</div>
+          </div>
+          <a-radio-group v-model:value="priceDecimals" button-style="solid">
+            <a-radio-button :value="2">2</a-radio-button>
+            <a-radio-button :value="3">3</a-radio-button>
+          </a-radio-group>
+        </div>
+        <div class="pos-rule">
+          <div>
+            <div class="pos-rule__label">Require an open register</div>
+            <div class="pos-rule__help">The POS stays locked until the cashier opens a cash register (opening cash + note), and sales can't be submitted without one. Sales rung up offline are still accepted when they sync.</div>
+          </div>
+          <a-switch v-model:checked="requireOpenRegister" />
+        </div>
+        <div class="pos-rule">
+          <div>
+            <div class="pos-rule__label">Open register with PIN</div>
+            <div class="pos-rule__help">Opening a register shows a PIN keypad: the cashier types their personal PIN and the POS switches to that user (whoever was signed in), so the register and its sales are recorded under the person at the till. Closing is confirmed with the PIN too. PINs are unique per company and set on each user (Users → Edit → Cashier PIN).</div>
+          </div>
+          <a-switch v-model:checked="registerPinRequired" />
+        </div>
+        <div class="pos-rule">
+          <div>
+            <div class="pos-rule__label">Email the admins when a register is closed</div>
+            <div class="pos-rule__help">When a cashier closes the register (or exits the POS and closes it), the company's admins get an email: cashier, time opened / closed, sales, payments per method (Cash, Zelle…), services vs products, expected vs counted cash.</div>
+          </div>
+          <a-switch v-model:checked="closeRegisterEmail" />
+        </div>
+      </a-card>
+
+      <!-- POS top toolbar: which filters/selectors the cashier sees. -->
+      <a-card size="small" title="Toolbar filters" style="margin-bottom: 16px">
+        <div v-for="f in TOOLBAR_FLAGS" :key="f.key" class="pos-rule">
+          <div>
+            <div class="pos-rule__label">{{ f.label }}</div>
+            <div class="pos-rule__help">{{ f.help }}</div>
+          </div>
+          <a-switch v-model:checked="s[f.key]" />
+        </div>
+      </a-card>
+
       <a-card size="small" :title="$t('Receipt') || 'Receipt'" style="margin-bottom: 16px">
         <a-row :gutter="16">
           <a-col :xs="24" :md="8">
@@ -20,7 +79,7 @@
           <a-col :xs="24" :md="8">
             <a-form-item
               label="Receipt layout"
-              extra="Preview each layout live in Settings → POS Receipt."
+              extra="Preview each layout live in the Receipt tab."
             >
               <a-select
                 v-model:value="s.receipt_layout"
@@ -42,7 +101,7 @@
           <a-col :span="24">
             <a-alert
               type="info" show-icon
-              message="The receipt content — note and show/hide toggles (logo, reference, taxes, payments…) — is configured in Settings → POS Receipt, with a live preview."
+              message="The receipt content — note and show/hide toggles (logo, reference, taxes, payments…) — is configured in the Receipt tab, with a live preview."
             />
           </a-col>
         </a-row>
@@ -51,7 +110,7 @@
       <a-card size="small" title="POS" style="margin-bottom: 16px">
         <a-row :gutter="16">
           <a-col :xs="24" :md="8">
-            <a-form-item label="Products per page">
+            <a-form-item label="Products & services per page">
               <a-input-number v-model:value="s.products_per_page" style="width: 100%" :min="1" />
             </a-form-item>
           </a-col>
@@ -117,6 +176,7 @@
 
       <a-button type="primary" size="large" :loading="saving" @click="save">{{ $t('submit') }}</a-button>
     </a-form>
+    </template>
 
     <!-- POS Keyboard Shortcuts Guide (read-only reference) -->
     <a-modal
@@ -153,10 +213,24 @@
  * other with stale values. allow_overselling lives in System Settings >
  * Features now.
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue';
+import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
+
+// Receipt / Network printing tabs: the existing pages, embedded (loaded on demand).
+const PosReceipt = defineAsyncComponent(() => import('./PosReceipt.vue'));
+const DirectNetworkPrinting = defineAsyncComponent(() => import('./DirectNetworkPrinting.vue'));
+const TABS = ['general', 'receipt', 'printing'];
+const route = useRoute();
+const tab = ref(TABS.includes(String(route.query.tab)) ? String(route.query.tab) : 'general');
+
+// Company-level POS rules (settings row), loaded/saved with this page.
+const priceDecimals = ref(2);
+const requireOpenRegister = ref(true);
+const registerPinRequired = ref(false);
+const closeRegisterEmail = ref(true);
 import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
 import {
@@ -171,20 +245,25 @@ const auth = useAuthStore();
 const POS_FLAGS = [
   // The blue POS button in the admin top header (off: reach the POS from the sidebar / account menu).
   { key: 'show_pos_button', label: 'Show POS button in header' },
-  { key: 'quick_add_customer', label: 'Quick add customer' },
   { key: 'barcode_scanning_sound', label: 'Barcode scanning sound' },
   { key: 'show_product_images', label: 'Show product images' },
   { key: 'show_stock_quantity', label: 'Show stock quantity' },
   { key: 'enable_hold_sales', label: 'Enable hold sales' },
   { key: 'enable_customer_points', label: 'Enable customer points' },
-  { key: 'show_categories', label: 'Show categories' },
-  { key: 'show_brands', label: 'Show brands' },
   { key: 'show_customer_history', label: 'Show customer purchase history' },
   // allow_overselling moved to System Settings > Features (global switch).
   // cash_drawer_auto_open has its own card below (legacy "Cash Drawer" section).
 ];
 
-const ALL_FLAGS = [...POS_FLAGS.map(f => f.key), 'cash_drawer_auto_open'];
+// POS top toolbar (own card): hide what the cashier doesn't use.
+const TOOLBAR_FLAGS = [
+  { key: 'show_categories', label: 'Category filter ("All Categories")', help: 'Filter the products & services grid by category.' },
+  { key: 'show_brands', label: 'Brand filter ("All Brands")', help: 'Filter the products & services grid by brand.' },
+  { key: 'show_customer_filter', label: 'Customer selector', help: 'Pick the customer for the sale. Hidden: every sale goes to the default customer (e.g. Walk-in Customer).' },
+  { key: 'quick_add_customer', label: 'Quick add customer', help: 'The + button next to the customer selector to create a new customer on the spot.' },
+];
+
+const ALL_FLAGS = [...POS_FLAGS.map(f => f.key), ...TOOLBAR_FLAGS.map(f => f.key), 'cash_drawer_auto_open'];
 
 // Loyalty off (System Settings → Defaults → Customers) hides the customer
 // points checkbox; its stored value still round-trips via ALL_FLAGS.
@@ -232,6 +311,10 @@ async function save() {
     products_per_page: v.products_per_page,
     cash_drawer_printer_name: v.cash_drawer_printer_name || null,
     invoice_format: invoiceFormat.value,
+    enable_3_decimal_pricing: priceDecimals.value === 3 ? 1 : 0,
+    pos_require_open_register: requireOpenRegister.value ? 1 : 0,
+    pos_register_pin_required: registerPinRequired.value ? 1 : 0,
+    pos_close_register_email: closeRegisterEmail.value ? 1 : 0,
   };
   ALL_FLAGS.forEach(k => {
     body[k] = k === 'cash_drawer_auto_open' ? (v[k] ? 1 : 0) : v[k];
@@ -240,6 +323,9 @@ async function save() {
     await http.put(`pos_settings/${v.id}`, body);
     // The topbar's POS button follows this setting right away (no reload needed).
     if (auth.user) auth.user.show_pos_button = !!v.show_pos_button;
+    // Decimals apply app-wide: refresh the signed-in company's value now.
+    if (auth.user) auth.user.price_decimals = priceDecimals.value;
+    try { window.localStorage.setItem('app_price_decimals', String(priceDecimals.value)); } catch (e) { /* storage unavailable */ }
     message.success(t('Successfully_Updated'));
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData'));
@@ -257,6 +343,10 @@ onMounted(async () => {
     // Global invoice format comes as a top-level field on the response
     // (it lives on the `settings` row, not `pos_settings`).
     invoiceFormat.value = data.invoice_format || ps.invoice_format || 'thermal';
+    priceDecimals.value = data.enable_3_decimal_pricing ? 3 : 2;
+    requireOpenRegister.value = data.pos_require_open_register !== false;
+    registerPinRequired.value = data.pos_register_pin_required === true;
+    closeRegisterEmail.value = data.pos_close_register_email !== false;
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {
@@ -264,3 +354,28 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.pos-settings-tabs {
+  margin-bottom: 8px;
+}
+.pos-rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+.pos-rule:last-child {
+  border-bottom: 0;
+}
+.pos-rule__label {
+  font-weight: 600;
+}
+.pos-rule__help {
+  font-size: 12px;
+  opacity: 0.65;
+  max-width: 640px;
+}
+</style>

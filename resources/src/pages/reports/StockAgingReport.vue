@@ -96,7 +96,7 @@ const dimensionOptions = computed(() => [
 
 const columns = computed(() => [
   { title: t('Code'), dataIndex: 'code', key: 'code', sorter: true },
-  { title: t('Product'), dataIndex: 'product_name', key: 'product_name', sorter: true },
+  { title: t('Product_Only'), dataIndex: 'product_name', key: 'product_name', sorter: true },
   { title: t('Variant'), dataIndex: 'variant_name', key: 'variant_name' },
   { title: t('OnHand'), dataIndex: 'on_hand', key: 'on_hand', sorter: true, align: 'right', sum: true },
   {

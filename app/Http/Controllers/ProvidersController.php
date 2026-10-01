@@ -155,6 +155,13 @@ class ProvidersController extends BaseController
             'company_id' => $this->resolveActingCompanyId($request),
         ]);
 
+        // Every supplier gets a matching users row (type=supplier, the
+        // company's "Supplier" role) -- same as customers and employees.
+        $provider->user_id = \App\Services\LinkedUserService::provision(
+            (int) $provider->company_id, 'supplier', 'Supplier', $provider->name, $provider->email, $provider->phone
+        );
+        $provider->save();
+
         return response()->json([
             'success' => true,
             'id' => $provider->id,
@@ -793,9 +800,20 @@ class ProvidersController extends BaseController
             ];
         }
 
-        DB::transaction(function () use ($insertRows) {
+        DB::transaction(function () use ($insertRows, $companyId, $now) {
             foreach (array_chunk($insertRows, 1000) as $chunk) {
                 Provider::insert($chunk);
+            }
+
+            // Linked users for the suppliers just inserted (same as store()):
+            // they are this company's rows stamped with this import's time.
+            $imported = Provider::where('company_id', $companyId)->whereNull('user_id')
+                ->where('created_at', $now)->get();
+            foreach ($imported as $provider) {
+                $provider->user_id = \App\Services\LinkedUserService::provision(
+                    $companyId, 'supplier', 'Supplier', $provider->name, $provider->email, $provider->phone
+                );
+                $provider->save();
             }
         });
 

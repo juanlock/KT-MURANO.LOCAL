@@ -41,7 +41,7 @@
         </template>
         <template v-else-if="column.key === 'target'">
           <div v-if="record.warehouse_name || record.location_id" class="target">
-            <span>{{ record.warehouse_name || 'No warehouse' }}</span>
+            <span>{{ record.warehouse_name || 'No location' }}</span>
             <span class="sub">Location {{ record.location_id || '—' }}</span>
           </div>
           <a-tag v-else color="warning">Not configured</a-tag>

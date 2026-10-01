@@ -88,8 +88,8 @@ const initials = record =>
   `${(record.firstname || '')[0] || ''}${(record.lastname || '')[0] || ''}`.toUpperCase()
   || (record.username || '?')[0].toUpperCase();
 
-const TYPE_COLORS = { SuperAdmin: 'gold', admin: 'blue', employee: 'green', customer: 'purple', sales_agent: 'orange' };
-const TYPE_LABELS = { SuperAdmin: 'SuperAdmin', admin: 'Admin', employee: 'Employee', customer: 'Customer', sales_agent: 'Sales_Agent' };
+const TYPE_COLORS = { SuperAdmin: 'gold', admin: 'blue', employee: 'green', customer: 'purple', sales_agent: 'orange', supplier: 'cyan', Online_store: 'magenta' };
+const TYPE_LABELS = { SuperAdmin: 'SuperAdmin', admin: 'Admin', employee: 'Employee', customer: 'Customer', sales_agent: 'Sales_Agent', supplier: 'Supplier', Online_store: 'Online_Store' };
 const typeColor = type => TYPE_COLORS[type] || 'default';
 const typeLabel = type => t(TYPE_LABELS[type] || type);
 

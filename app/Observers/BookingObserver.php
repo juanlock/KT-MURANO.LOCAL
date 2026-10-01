@@ -30,8 +30,30 @@ class BookingObserver
         }
     }
 
+    /**
+     * Confirmed (or completed) booking -> its customer gets a linked users
+     * row if they don't have one yet. A public-booking-page customer is
+     * created without one on purpose: the account only exists once staff
+     * accept the booking. Never blocks the booking save.
+     */
+    private function accountIfConfirmed(Booking $booking): void
+    {
+        if (! in_array($booking->status, ['confirmed', 'completed'], true) || ! $booking->customer_id) {
+            return;
+        }
+        try {
+            $client = \App\Models\Client::whereNull('deleted_at')->find($booking->customer_id);
+            if ($client) {
+                \App\Services\LinkedUserService::ensureForClient($client);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Booking customer account not created (non-blocking): '.$e->getMessage(), ['booking_id' => $booking->id]);
+        }
+    }
+
     public function created(Booking $booking): void
     {
+        $this->accountIfConfirmed($booking);
         $this->invoiceIfCompleted($booking);
 
         if ($booking->status === 'confirmed') {
@@ -44,6 +66,9 @@ class BookingObserver
 
     public function updated(Booking $booking): void
     {
+        if ($booking->wasChanged('status') || $booking->wasChanged('customer_id')) {
+            $this->accountIfConfirmed($booking);
+        }
         $this->invoiceIfCompleted($booking);
 
         if ($booking->wasChanged('product_id') && $booking->sale_id) {

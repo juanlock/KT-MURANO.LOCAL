@@ -41,10 +41,10 @@
                   autocomplete="off"
                 />
               </a-form-item>
-              <a-form-item label="Stock warehouse">
+              <a-form-item label="Stock location">
                 <a-select
                   v-model:value="form.warehouse_id"
-                  :options="[{ value: null, label: 'All warehouses (aggregate)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
+                  :options="[{ value: null, label: 'All locations (aggregate)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
                 />
               </a-form-item>
               <a-space align="center" style="margin-bottom: 16px">
@@ -91,10 +91,10 @@
               marked paid only for delivered orders (Jumia is COD-dominant).
             </p>
             <a-form layout="inline" style="margin-bottom: 12px">
-              <a-form-item label="Import into warehouse">
+              <a-form-item label="Import into location">
                 <a-select
                   v-model:value="ordersWarehouseId" style="min-width: 220px"
-                  :options="[{ value: null, label: 'Default (settings / first warehouse)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
+                  :options="[{ value: null, label: 'Default (settings / first location)' }, ...state.warehouses.map(w => ({ value: w.id, label: w.name }))]"
                 />
               </a-form-item>
             </a-form>

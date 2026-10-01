@@ -258,7 +258,7 @@
               <span class="choice-check"><CheckOutlined /></span>
             </button>
           </div>
-          <a-empty v-else description="No warehouses configured yet." style="padding: 16px 0" />
+          <a-empty v-else description="No locations configured yet." style="padding: 16px 0" />
         </a-card>
 
         <!-- 6 · Stacking & limits -->
@@ -336,7 +336,7 @@
             <div v-if="selectedWarehouses.length" class="chip-row">
               <a-tag v-for="w in selectedWarehouses" :key="w.id">{{ w.name }}</a-tag>
             </div>
-            <div v-else class="hint" style="margin: 0">Pick at least one warehouse.</div>
+            <div v-else class="hint" style="margin: 0">Pick at least one location.</div>
           </a-card>
 
           <a-card size="small" class="side-card">

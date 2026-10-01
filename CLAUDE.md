@@ -13,17 +13,30 @@ this file (this section and the ones below). Re-read this file to refresh
 context when invoked.
 
 Also available as a slash command (`.claude/commands/preparate.md`), so it's
-usable the same way on every machine this repo is checked out on: it reloads
+usable the same way on every machine this repo is checked out on: it first
+syncs the current PC to the latest pushed version (git pull -- falling back
+to what GitHub Desktop last fetched when the session has no GitHub
+credentials -- then `composer install` / `npm ci` / `php artisan migrate`
+only when the incoming changes need them, `php artisan optimize:clear`, and
+always `npm run build`, since `public/js` isn't in git), then reloads
 this file's rules, reads the `kt_logs` table (the history of every
 request/order made to modify this project) so prior work and decisions are
 known before anything is changed, then closes out by generating and opening a small HTML
 status report (`database/scripts/protocol_preparate_report.php`, written to
-`.claude/report/kt_murano_preparate_report.html` -- inside the repo, not a
-temp dir; gitignored, regenerated every run) showing the **last 2** `kt_logs`
+`KT-TOOLS/Report/kt_murano_preparate_<date>.html`) showing the **last 2** `kt_logs`
 requests as separate cards, what changed, and each one's **status**
 (Completed / In Progress / Blocked -- see the `status` column note in
 `.claude/commands/kelsy.md`). This is distinct from Memorex, which reports
 the *full* `kt_logs` history.
+
+**Protocol reports are kept and shared (user's rule, 2026-09-30):** every
+HTML report a protocol (or an ad-hoc "report for the last N requests")
+generates goes to **`KT-TOOLS/Report/`** -- git-tracked, committed by A
+Dormir, so every programmer gets them. One file per day per report
+(`kt_murano_preparate_<date>`, `kt_murano_memorex_<date>`,
+`kt_murano_last<N>_<date>`, and A Dormir's `kt_murano_daily_<date>` with all
+of that day's requests); a re-run the same day overwrites that day's file,
+older days are never deleted. Not `.claude/report/` or a temp dir.
 
 **Glossary — "multicompany"**: when the user uses this word, it refers to the
 rule spelled out below in "Roles & Multicompany Model" -- the system is
@@ -132,16 +145,26 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
 
 - **Kelsy** (`/kelsy`, or "Claude/Jarvis, run protocol Kelsy") — append this
   conversation's activity to `kt_logs`.
+  **Standing rule (user's request, 2026-09-30): log every request right away.**
+  As soon as a request is finished -- code change, question, check, anything
+  -- append its `kt_logs` row immediately (same column rules as Kelsy,
+  including the verbatim closing message in `done`), without waiting for
+  Kelsy / A Dormir to be invoked and without asking first. Those protocols
+  then only have to catch up anything that slipped through. Location comes
+  from the machine (`KT-THUNDERA` -> Thundera, Home PC -> Home); ask only if
+  it's genuinely unclear.
 - **Mañanitas** (`/mananitas`, or "Claude/Jarvis, run protocol Mañanitas") —
   session bootstrap: catch up `kt_logs` via Kelsy, digest project history into
   a memory file, surface recurring change patterns.
 - **Memorex** (`/memorex`, or "Claude/Jarvis, run protocol Memorex") —
   generate and open an HTML activity report from `kt_logs`
   (`database/scripts/protocol_memorex_report.php`, writes to
-  `%TEMP%/kt_murano_activity_report.html`).
+  `KT-TOOLS/Report/kt_murano_memorex_<date>.html`).
 - **Preparate** (`/preparate`, or "Jarvis, run protocolo preparate") — not
-  ported from billing, this one is Murano's own: reloads this file's rules,
-  then closes out with an HTML status card for the last request (see above).
+  ported from billing, this one is Murano's own: syncs this PC to the latest
+  version (pull + only-if-needed install/migrate + `npm run build`), reloads
+  this file's rules, then closes out with an HTML status card for the last
+  2 requests (see above). The start-of-session counterpart of A Dormir.
 - **Copia BD** (`/copia-bd`, or "Jarvis, run protocolo copia bd") — not
   ported from billing, this one is Murano's own: dumps `dbmurano` via
   `mysqldump` (`database/scripts/protocol_copia_bd.php`) into
@@ -153,7 +176,8 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   so the snapshot travels across every machine this checkout is on, same as
   the other protocols.
 - **A Dormir** (`/a-dormir`, or "Jarvis, run protocolo a dormir") — Murano's
-  own end-of-session close-out: runs Kelsy, then Copia BD, then commits
+  own end-of-session close-out: runs Kelsy, writes the day's report
+  (`KT-TOOLS/Report/kt_murano_daily_<date>.html`), then Copia BD, then commits
   everything with a summary subject and a detailed description of the
   changes (one bullet per `kt_logs` request, migrations, setup steps for
   other machines, backup file) and pushes to GitHub (never force-push).

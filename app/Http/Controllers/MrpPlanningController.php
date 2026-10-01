@@ -95,7 +95,7 @@ class MrpPlanningController extends BaseController
             'id' => $run->id,
             'reference' => $run->reference,
             'warehouse_id' => $run->warehouse_id,
-            'warehouse_name' => $run->warehouse ? $run->warehouse->name : 'All warehouses',
+            'warehouse_name' => $run->warehouse ? $run->warehouse->name : 'All locations',
             'horizon_start' => $run->horizon_start ? $run->horizon_start->format('Y-m-d') : null,
             'horizon_end' => $run->horizon_end ? $run->horizon_end->format('Y-m-d') : null,
             'status' => $run->status,

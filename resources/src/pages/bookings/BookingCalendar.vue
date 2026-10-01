@@ -6,6 +6,12 @@
           <a-tag v-for="(c, s) in STATUS_COLORS" :key="s" :style="{ background: c.bg, borderColor: c.border, color: c.text }">
             {{ statusLabel(s) }}
           </a-tag>
+          <a-tooltip title="Or click an empty day / time slot on the calendar">
+            <a-button type="primary" @click="newAppointment()">
+              <template #icon><PlusOutlined /></template>
+              New appointment
+            </a-button>
+          </a-tooltip>
         </a-space>
       </template>
     </PageHeader>
@@ -16,25 +22,91 @@
       </a-spin>
     </a-card>
 
-    <!-- Booking details -->
+    <!-- Appointment: edit right from the calendar (status, time, service,
+         staff, station, notes). Loads/saves the full booking through the
+         same endpoints as the Edit page, so nothing else is overwritten. -->
     <a-modal
       v-model:open="detailOpen"
-      :title="$t('Booking_Details') || 'Booking Details'"
-      :footer="null" width="720px"
+      :title="`${selectedBooking?.Ref || ''} — ${selectedBooking?.customer_name || ''}`"
+      width="720px"
     >
-      <a-descriptions v-if="selectedBooking" :column="{ xs: 1, md: 2 }" size="small" bordered>
-        <a-descriptions-item :label="$t('Customer')">{{ selectedBooking.customer_name || '-' }}</a-descriptions-item>
-        <a-descriptions-item :label="$t('ProductName')">{{ selectedBooking.product_name || '-' }}</a-descriptions-item>
-        <a-descriptions-item :label="$t('date')">{{ selectedBooking.booking_date }}</a-descriptions-item>
-        <a-descriptions-item :label="$t('Start_Time') || 'Start Time'">{{ selectedBooking.booking_time }}</a-descriptions-item>
-        <a-descriptions-item :label="$t('End_Time') || 'End Time'">{{ selectedBooking.booking_end_time || '-' }}</a-descriptions-item>
-        <a-descriptions-item :label="$t('Status')">
-          <a-tag :style="tagStyle(selectedBooking.status)">{{ statusLabel(selectedBooking.status) }}</a-tag>
-        </a-descriptions-item>
-        <a-descriptions-item :label="$t('Note')" :span="2">
-          <span style="white-space: pre-line">{{ selectedBooking.notes || '-' }}</span>
-        </a-descriptions-item>
-      </a-descriptions>
+      <a-spin :spinning="editLoading">
+        <template v-if="edit">
+          <!-- Status + one-click moves -->
+          <div class="appt-status">
+            <span>{{ $t('Status') }}:</span>
+            <a-tag :style="tagStyle(edit.status)">{{ statusLabel(edit.status) }}</a-tag>
+            <a-space wrap>
+              <a-button v-if="edit.status === 'pending'" type="primary" size="small" :loading="statusSaving === 'confirmed'" @click="quickStatus('confirmed')">
+                <template #icon><CheckCircleOutlined /></template>{{ $t('Confirm') }}
+              </a-button>
+              <a-button v-if="edit.status === 'confirmed'" size="small" style="color: #15803d; border-color: #22c55e" :loading="statusSaving === 'completed'" @click="quickStatus('completed')">
+                <template #icon><CheckSquareOutlined /></template>{{ $t('complete') }}
+              </a-button>
+              <a-button v-if="edit.status === 'pending' || edit.status === 'confirmed'" danger size="small" :loading="statusSaving === 'cancelled'" @click="quickStatus('cancelled')">
+                <template #icon><StopOutlined /></template>{{ $t('Cancel') }}
+              </a-button>
+            </a-space>
+          </div>
+
+          <a-form layout="vertical">
+            <!-- Same date / start / end controls as Create/Edit Booking. -->
+            <BookingWhenFields
+              v-model:date="edit.booking_date" v-model:start="edit.booking_time" v-model:end="edit.booking_end_time"
+              :duration="Number(selectedService?.service_duration) || 0"
+            />
+            <a-row :gutter="12">
+              <a-col :xs="24" :md="12">
+                <a-form-item :label="$t('Product_Name')">
+                  <a-select
+                    v-model:value="edit.product_id" show-search option-filter-prop="label" allow-clear
+                    :options="serviceOptions" :placeholder="$t('PleaseSelect')" @change="onServiceChange"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="12">
+                <a-form-item :label="$t('Sales_Person')">
+                  <a-select
+                    v-model:value="edit.sales_person_id" show-search option-filter-prop="label" allow-clear
+                    :options="staffOptions" :placeholder="$t('PleaseSelect')"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col v-if="trayOptions.length" :xs="24" :md="12">
+                <a-form-item :label="$t('Tray')">
+                  <a-select v-model:value="edit.tray_id" allow-clear :options="trayOptions" :placeholder="$t('PleaseSelect')" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="12">
+                <a-form-item :label="$t('warehouse')">
+                  <a-select v-model:value="edit.warehouse_id" allow-clear show-search option-filter-prop="label" :options="warehouseOptions" :placeholder="$t('PleaseSelect')" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="12" :md="6">
+                <a-form-item :label="$t('Price')">
+                  <a-input-number v-model:value="edit.price" :min="0" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="24">
+                <a-form-item :label="$t('Note')">
+                  <a-textarea v-model:value="edit.notes" :rows="3" />
+                </a-form-item>
+              </a-col>
+            </a-row>
+          </a-form>
+        </template>
+      </a-spin>
+      <template #footer>
+        <div class="appt-footer">
+          <a-button type="link" style="padding: 0" :disabled="!selectedBooking" @click="$router.push(`/bookings/${selectedBooking.id}/edit`)">
+            {{ $t('Edit') }} — full form
+          </a-button>
+          <a-space>
+            <a-button @click="detailOpen = false">{{ $t('Cancel') }}</a-button>
+            <a-button type="primary" :loading="saving" :disabled="!edit || editLoading" @click="saveEdit">{{ $t('submit') }}</a-button>
+          </a-space>
+        </div>
+      </template>
     </a-modal>
   </div>
 </template>
@@ -48,11 +120,15 @@
  * booking_end_time is empty). Status colors and the click-to-details modal
  * match legacy.
  */
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
+import { CheckCircleOutlined, CheckSquareOutlined, StopOutlined, PlusOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import BookingWhenFields from '../../components/BookingWhenFields.vue';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 
@@ -145,11 +221,152 @@ async function fetchEvents(startStr, endStr, success, failure) {
   }
 }
 
+// ---------------- edit an appointment from the calendar ----------------
+// GET bookings/{id}/edit -> full booking + services/staff/stations; the modal
+// changes a few fields and PUT bookings/{id} sends the FULL booking back
+// (that endpoint validates and overwrites every field). Status buttons use
+// PUT bookings/{id}/status (confirming also creates the customer's account).
+const editLoading = ref(false);
+const saving = ref(false);
+const statusSaving = ref(null);
+const edit = ref(null);
+const lists = ref({ products: [], sales_persons: [], trays: [], warehouses: [] });
+const warehouseOptions = computed(() => sortByLabel((lists.value.warehouses || []).map(w => ({ value: w.id, label: w.name }))));
+
+const serviceOptions = computed(() => sortByLabel((lists.value.products || []).map(p => ({
+  value: p.id,
+  label: [p.group_name, p.name].filter(Boolean).join(' › ') + (p.service_duration ? ` · ${fmtDuration(p.service_duration)}` : ''),
+}))));
+const staffOptions = computed(() => sortByLabel((lists.value.sales_persons || []).map(s => ({ value: s.id, label: s.name }))));
+const trayOptions = computed(() => sortByLabel((lists.value.trays || []).map(s => ({ value: s.id, label: s.name }))));
+
+function fmtDuration(m) {
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return [h ? `${h} h` : '', r ? `${r} min` : ''].filter(Boolean).join(' ');
+}
+const selectedService = computed(() => (lists.value.products || []).find(p => p.id === edit.value?.product_id));
+
+// Same rule as the booking form: picking a product/service sets its name and
+// its price (the default, still editable); End Time follows its duration
+// inside BookingWhenFields.
+function onServiceChange() {
+  const p = selectedService.value;
+  edit.value.product_name = p ? p.name : null;
+  edit.value.price = p && p.price != null ? Number(p.price) : null;
+}
+
+const hhmm = v => (v ? String(v).slice(0, 5) : null);
+
+async function loadEdit(id) {
+  editLoading.value = true;
+  edit.value = null;
+  try {
+    const data = await http.get(`bookings/${id}/edit`);
+    const b = data.booking || {};
+    lists.value = { products: data.products || [], sales_persons: data.sales_persons || [], trays: data.trays || [], warehouses: data.warehouses || [] };
+    edit.value = {
+      ...b,
+      booking_date: b.booking_date ? String(b.booking_date).slice(0, 10) : null,
+      booking_time: hhmm(b.booking_time),
+      booking_end_time: hhmm(b.booking_end_time),
+      delivery_date: b.delivery_date ? String(b.delivery_date).slice(0, 10) : null,
+      delivery_time: hhmm(b.delivery_time),
+    };
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+    detailOpen.value = false;
+  } finally {
+    editLoading.value = false;
+  }
+}
+
+function payload() {
+  const b = edit.value;
+  return {
+    customer_id: b.customer_id,
+    sales_person_id: b.sales_person_id || null,
+    tray_id: b.tray_id || null,
+    warehouse_id: b.warehouse_id || null,
+    product_id: b.product_id || null,
+    product_name: b.product_name,
+    product_description: b.product_description,
+    price: b.price ? parseFloat(b.price) : null,
+    amount: b.amount ? parseFloat(b.amount) : null,
+    booking_date: b.booking_date,
+    booking_time: b.booking_time,
+    booking_end_time: b.booking_end_time || null,
+    delivery_date: b.delivery_date || null,
+    delivery_time: b.delivery_time || null,
+    delivery_address: b.delivery_address,
+    status: b.status,
+    notes: b.notes,
+  };
+}
+
+function afterSave(data) {
+  if (data?.customer_account_created) message.info('Customer account created');
+  if (data?.sale_warning) message.warning(data.sale_warning, 6);
+  calendar?.refetchEvents();
+}
+
+async function saveEdit() {
+  if (!edit.value) return;
+  if (edit.value.booking_end_time && edit.value.booking_end_time <= edit.value.booking_time) {
+    message.warning('End time must be after the start time');
+    return;
+  }
+  saving.value = true;
+  try {
+    const data = await http.put(`bookings/${edit.value.id}`, payload());
+    message.success(t('Successfully_Updated'));
+    detailOpen.value = false;
+    afterSave(data);
+  } catch (e) {
+    const errs = e?.data?.errors;
+    const first = errs && Object.values(errs)[0];
+    message.error((Array.isArray(first) ? first[0] : first) || e?.data?.message || t('InvalidData'));
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function quickStatus(status) {
+  statusSaving.value = status;
+  try {
+    const data = await http.put(`bookings/${edit.value.id}/status`, { status });
+    edit.value.status = status;
+    message.success(`${edit.value.Ref}: ${statusLabel(status)}`);
+    afterSave(data);
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+  } finally {
+    statusSaving.value = null;
+  }
+}
+
+// New appointment: the button opens the booking form; clicking an empty day
+// (month view) or time slot (week/day view) pre-fills that date/time.
+const router = useRouter();
+function newAppointment(date, time) {
+  const query = {};
+  if (date) query.date = date;
+  if (time) query.time = time;
+  router.push({ path: '/bookings/create', query });
+}
+function handleDateClick(info) {
+  const d = info.date;
+  const pad = n => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  newAppointment(date, info.allDay ? null : `${pad(d.getHours())}:${pad(d.getMinutes())}`);
+}
+
 function handleEventClick(info) {
   const data = info?.event?.extendedProps?.booking || null;
   if (!data) return;
   selectedBooking.value = data;
   detailOpen.value = true;
+  loadEdit(data.id);
 }
 
 async function initCalendar() {
@@ -178,6 +395,7 @@ async function initCalendar() {
       eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
       events: (info, success, failure) => fetchEvents(info.startStr, info.endStr, success, failure),
       eventClick: handleEventClick,
+      dateClick: handleDateClick,
       eventDisplay: 'block',
       displayEventTime: true,
       displayEventEnd: true,
@@ -200,8 +418,28 @@ async function initCalendar() {
 }
 
 onMounted(initCalendar);
+
 onBeforeUnmount(() => {
   if (resizeHandler) window.removeEventListener('resize', resizeHandler);
   if (calendar) { calendar.destroy(); calendar = null; }
 });
 </script>
+
+<style scoped>
+.appt-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(128, 128, 128, 0.08);
+}
+.appt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+</style>

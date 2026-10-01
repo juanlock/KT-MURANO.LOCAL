@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KT-Murano -- Daily report -- 2026-09-30</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: #f7f8fa; color: #1a1a1a; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .meta { color: #666; font-size: 12px; margin-bottom: 16px; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); padding: 16px 20px; max-width: 720px; margin-bottom: 16px; }
+  .row { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 13.5px; }
+  .row .label { width: 100px; flex-shrink: 0; color: #666; font-weight: 600; }
+  .badge { color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .block { padding: 10px 0; }
+  .block .label { color: #666; font-weight: 600; font-size: 12.5px; margin-bottom: 4px; }
+  .block .text { font-size: 13px; white-space: pre-wrap; }
+  .empty { color: #666; }
+</style>
+</head>
+<body>
+  <h1>KT-Murano -- Daily report -- 2026-09-30</h1>
+  <div class="meta">Generated 2026-09-30 9:23 PM on KT-THUNDERA -- 37 request(s) logged on 2026-09-30</div>
+  <div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Explained what Protocol Preparate does (rules, history, log catch-up, status card).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 08:34</span></div>
+  <div class="row"><span class="label">Category</span><span>support</span></div>
+  <div class="row"><span class="label">Company</span><span>N/A</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">No code or data changes.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Answered from the protocol definition already in context; no commands.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Protocol Preparate now starts by syncing the PC: git pull, install/migrate only if needed, clear caches, npm run build.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 08:34</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>N/A</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">preparate.md: new step 0 (sync: git pull w/ ff-only fallback, conditional composer install / npm ci / migrate, optimize:clear, always npm run build); description + why updated.
+CLAUDE.md: Preparate described as syncing the PC first (pull, conditional install/migrate, build) and as the start-of-session counterpart of A Dormir.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read preparate.md; inserted step 0 with the sub-steps above; edited the description and why-paragraph; edited CLAUDE.md in the Protocol &quot;preparate&quot; section and the Session Protocols list. No commands run (the step was exercised in the next request&#039;s Preparate run).</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Audited linked-user creation: customers/employees OK; suppliers, public-booking customers and web-store sign-ups did not get a user (store sign-up had no company).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:14</span></div>
+  <div class="row"><span class="label">Category</span><span>support</span></div>
+  <div class="row"><span class="label">Company</span><span>All</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">No code or data changes (analysis only).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read app/Services/LinkedUserService.php; grepped Client/Provider/Employee/EcommerceClient creation and raw inserts; read PublicBookingController (client insert), StoreAuthController::register, SettingsController::ensureDefaultClient, BookingForm.vue quick-add; checked roles per company, users.type counts, role_user/clients nullability; ran a read-only SQL audit of links between records, users and roles.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Supplier + Online Store roles; suppliers get users; public-booking customers get a user when staff confirm; web-store sign-up fixed (store company) with user created after email/admin confirm</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:14</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (per company roles/settings; tested with rollback on companies 2 and 3)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">Migration 2026_09_30_100000: providers.user_id int NULL UNIQUE; roles Supplier + Online Store for every company (with permission_role rows).
+LinkedUserService: attachTypedRecord supports &#039;supplier&#039; (creates Provider); new ensureForClient(Client, type, role).
+ProvidersController: store() and import() provision a supplier user (type supplier, role Supplier).
+UserController: user type &#039;supplier&#039; accepted, auto role Supplier, attachTypedRecord.
+BookingObserver: accountIfConfirmed() on create and on status/customer change (confirmed|completed).
+BookingController::changeStatus: returns customer_account_created.
+StoreAccountService (new): settingsFor/settingsForAccount/isConfirmed/activateIfConfirmed (type Online_store, role Online Store).
+StoreAuthController: showRegister/register use the store&#039;s company (FrontPage::companyIdForRequest) and its settings; client created with company_id; no user until confirmed; verifyEmail activates; login/resend use the account&#039;s company settings; verification mail uses the company mail server.
+PendingCustomersController: scoped to the acting company; approve/approveAll activate and report account_created/accounts_created; decision mail uses the company mail server and store name.
+Bookings.vue: clickable status tag (Confirm/Complete/Cancel) + &#039;customer account created&#039; notice. PendingCustomers.vue: account-created notices. UserForm.vue: Supplier type. Users.vue/Profile.vue: supplier and Online_store badges.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read CompanyProvisioner (roles copied from company 999), the Sales Agent role migration pattern, existing role permissions, booking statuses/observer/changeStatus, Bookings.vue, storefront company resolution (store_settings.php, ServeCompanyWebsite, CompanyDomain, FrontPage::companyIdForRequest), StoreAuthController register/verify/login/resend, PendingCustomersController, EcommerceClient fillable, UserController type handling, supplier import. Wrote the migration and ran it; implemented the service/controller/observer/UI changes; php -l on all PHP; ran test_linked.php inside DB::beginTransaction/rollBack covering supplier provision, Users-form supplier, pending-&gt;confirmed booking, store company resolution (domain and ?company=), email-only, approval-only and no-confirmation store accounts, idempotency; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>List column show/hide choices now saved on the user account (server), so they survive logout and follow the user to any PC.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:14</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (per user)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">users: new nullable JSON ui_preferences.
+UserController::GetUserAuth: user.ui_preferences. New UserController::updateUiPreference (PUT user_preferences {key, value}; key regex, 20 KB per value, 200 KB total; null removes).
+lib/userPrefs.js: getUserPref/setUserPref (updates auth.user at once, PUT debounced 600 ms per key).
+DataTable.vue: hidden columns read from the account first, then localStorage (moved up to the account), then defaultHidden; toggle saves to the account + localStorage; reset clears both.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Grepped localStorage/sessionStorage usage and logout handlers; read DataTable.vue column visibility and admin customization code, useCustomizableFilters, ui.js storage keys, lib/actingCompany.js and get_user_auth settings. Added the migration (ran it), GetUserAuth ui_preferences, updateUiPreference() + route, userPrefs.js, DataTable read/persist/reset through it. Tested save / second key / remove / invalid key with a rolled-back tinker script; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Confirmed the saved-columns closing message was not yet in kt_logs (3 requests pending).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:14</span></div>
+  <div class="row"><span class="label">Category</span><span>support</span></div>
+  <div class="row"><span class="label">Company</span><span>N/A</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">No code or data changes.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Tinker query on kt_logs: last 3 rows and a LIKE search on done/summary.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Every request is now logged to kt_logs right away (standing rule); kt_logs columns reordered for easier reading; 4 pending requests logged.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:14</span></div>
+  <div class="row"><span class="label">Category</span><span>improvement</span></div>
+  <div class="row"><span class="label">Company</span><span>N/A</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">kt_logs column order: id, version, log_date, location, status, category, company_context, summary | request_user, claude_understand, done | changes_detail, files_modified, actions, chat_transcript | claude_user, created_at, updated_at, deleted_at (cosmetic; down() restores the old order).
+CLAUDE.md + kelsy.md: standing rule -- log every request to kt_logs as soon as it is finished; Kelsy/A Dormir only catch up.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">SHOW CREATE TABLE kt_logs and SHOW TRIGGERS to copy exact column definitions; wrote and ran the reorder migration (ALTER TABLE ... MODIFY COLUMN ... AFTER, one statement); verified column list and row count (273 before/after). Edited CLAUDE.md and kelsy.md; wrote the memory files; inserted rows via a PHP script run through tinker.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Sales list search now also finds product name and group name, and searches all dates while text is typed (fixes &quot;lock&quot; showing nothing).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:17</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>All (tested on company 2)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">SalesController::index search: + product name or product group name on any sale line (whereHas details.product / productGroup); existing fields kept (Ref, statut, GrandTotal, payment_statut, shipping_status, customer name, warehouse name).
+Sales.vue: while the search box has text, date / date_from / date_to are not sent (search covers all dates); clearing it restores the range; the range card reads &quot;All dates (searching)&quot;.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read the index() search clause; queried clients/sales/products/product_groups matching &quot;lock&quot; per company; checked Product::productGroup and Sale::details relations; added orWhereHas(details.product name | productGroup name); added searchActive() and blanked date/date_from/date_to in filterParams while searching; activeRange shows &quot;All dates (searching)&quot;; php -l; tinker test calling SalesController::index with search variants; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Booking form: Edit link beside Customer opens a modal to edit that customer (name, email, phone, address) without leaving the booking.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:25</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (tested on company 3 customer, rolled back)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">BookingForm.vue: &#039;Edit&#039; link beside Customer (booking.customer_id set + Customers_edit) -&gt; modal (name*, email, phone, address, city, state, zip); GET clients/{id}; PUT clients/{id} sends firstname, lastname, country, tax_number, is_royalty_eligible, credit_limit as loaded + edited fields; server field errors shown; customer dropdown name refreshed.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read BookingForm customer field and quick-add modal and ClientController::update/show; added openEditCustomer/submitEditCustomer with full-record merge; imported EditOutlined + auth store; tinker test of ClientController::update with the modal payload inside a rolled-back transaction; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Booking calendar: appointment modal is now editable (confirm/complete/cancel, date, times, service, staff, station, notes).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:25</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">BookingCalendar.vue: event click loads GET bookings/{id}/edit; modal fields date, Time In/Out (HH:mm), service, staff, station, notes; status buttons Confirm (pending), Complete (confirmed), Cancel; Save sends the full booking (same shape as BookingForm payload); end must be after start; product_name follows the chosen service, existing price kept; notices for customer account created / invoice warning; calendar.refetchEvents() after changes; footer link to /bookings/{id}/edit.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read BookingCalendar.vue, BookingController edit/update/changeStatus and serviceProducts/getSalesPersons, BookingForm duration/payload logic; implemented loadEdit/payload/saveEdit/quickStatus/applyServiceDuration and the modal; added scoped styles; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Bookings list: new filters for date range, start-time range, customer, service and staff (cards follow the filters).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:25</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (tested on company 3)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">BookingController: new applyListFilters() (date, from/to, time_from/time_to HH:MM on booking_time, customer_id, product_id, sales_person_id, search incl. Ref) applied to rows and stats; index() returns filter_options {customers (with bookings), services (id,name,group_name), staff}; getSalesPersons() excludes types customer, Online_store, supplier.
+Bookings.vue: single-day picker -&gt; date range; new start-time range, customer, service, staff selects (alphabetical); Reset clears all.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read BookingController::index and the stats query; extracted applyListFilters(); added filter_options; excluded non-staff user types in getSalesPersons(); rewrote the Bookings.vue toolbar and filterParams; php -l; tinker test calling BookingController::index with each filter; checked company-3 user types; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Booking calendar: New appointment button, and clicking an empty day/time slot opens a new booking pre-filled with it.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 09:25</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">BookingCalendar.vue: header button &#039;New appointment&#039; -&gt; /bookings/create; dateClick -&gt; /bookings/create?date=YYYY-MM-DD[&amp;time=HH:mm] (time only from week/day slots).
+BookingForm.vue: create mode pre-fills booking_date / booking_time from ?date= / ?time= (validated formats).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Added newAppointment()/handleDateClick() and the header button in BookingCalendar.vue (dateClick option); BookingForm.vue initial booking_date/booking_time from validated route.query date/time when creating; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Catalog label renamed &quot;Products&quot; -&gt; &quot;Products &amp; Services&quot; (translations en/es, seeders, screens, tab titles, storefront); physical-only spots keep &quot;Products&quot;.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 11:47</span></div>
+  <div class="row"><span class="label">Category</span><span>refactor</span></div>
+  <div class="row"><span class="label">Company</span><span>All</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">translations (en | es): Products -&gt; Products &amp; Services | Productos y Servicios; productsList -&gt; All Products &amp; Services; TotalProducts; product_report; Products_Sold; products_sold_summary; Zero_Sales_Products_Report; Top_Selling_Products; Top5Products; Top_Products_by_Month; Top_Products_Chart; Top_Profit_Products; Top_Profit_Products_Top_15_Chart; Top_Revenue_Products; Revenue_vs_Profit_Top_Products; Dashboard_Chart_Top_Selling; Selected_Products; pos.Available_Products; No_Vehicle_Catalog_Hint (menu name). New key Products_Only = Products | Productos.
+Not renamed: Products_Per_Aisle, ProductsExpired, AddProducts, Combined_Products, ComboProducts, Products_in_Collection, Related_Products_Hint, lowercase sentence mentions.
+Vue: Products_Only in Products.vue Type filter and 5 stock reports; router meta titles (Products, Import Products, Import Products (Update Only), Zero Sales, Top Selling, Products Sold Summary) and ImportProductsUpdate title, PosSettings &#039;Products &amp; services per page&#039;.
+Storefront lang: en Products / AllProducts / ViewAllProducts; es Products / AllProducts / ViewAllProducts.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Queried translations for &quot;Products&quot; (en/es) and customized_locales (none); grepped Vue/JS/Blade/lang files for hardcoded and $t(&#039;Products&#039;) uses; checked company languages (all en) and the translation cache (forget_db_translations, 600 s); wrote the migration (backup of previous values to storage/app/migration_backups for down()); updated seeders through tinker with the same map; ran the migration; replaced physical-only usages with Products_Only; updated router titles and hardcoded labels; restored es/messages.php from git after the scripting mistake and re-applied the 3 edits by hand; php -l; npm run build (admin, customer display, portal, storefront).</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Manage Menus: SuperAdmin as AdminSystem updates every company; any other save/reset stays in that company only.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 11:47</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (tested companies 999, 1, 2, 3, 1003 with rollback)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">MenuPositionController: new appliesToAllCompanies() = SuperAdmin &amp;&amp; acting company 999; store() copies the layout to every other company only then (before: any SuperAdmin save); reset() clears every company only then (before: always for SuperAdmin); responses include message + scope (&#039;all&#039; | &#039;company&#039;).
+SidebarMenuManager.vue: scope banner (warning for AdminSystem, success for one company, hint to pick AdminSystem), reset confirmation text per scope, success/error text from the server, comments/docblock updated.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read MenuPositionController store/reset, SettingsController sidebar_menu_order (already per company), SidebarMenuManager texts/save/reset and stores/company.js; added appliesToAllCompanies(); scoped store() and reset(); UI banner, reset text, server messages, docblock; tinker test of store() for the three cases inside a rolled-back transaction; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Status report for the last 3 requests (#286-#288) generated and opened; report script now takes an optional count.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 11:47</span></div>
+  <div class="row"><span class="label">Category</span><span>ops</span></div>
+  <div class="row"><span class="label">Company</span><span>N/A</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">protocol_preparate_report.php: row count = $reportLimit if set before require (clamped 1..50), else 2 (Preparate unchanged).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Edited the report script ($reportLimit, 1..50, default 2); php -l; ran it through tinker with $reportLimit = 3; verified 3 cards and their contents; Start-Process to open it.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Singular label renamed &quot;Product&quot; -&gt; &quot;Product/Service&quot; (e.g. menu Create Product/Service) in translations en/es, seeders, tab titles, storefront and portal; physical-only spots keep &quot;Product&quot;.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 11:57</span></div>
+  <div class="row"><span class="label">Category</span><span>refactor</span></div>
+  <div class="row"><span class="label">Company</span><span>All</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">translations en | es -&gt; &#039;Product/Service&#039; | &#039;Producto/Servicio&#039; for: AddProduct (Create Product/Service), Add_Product, EditProduct, UpdateProduct, Save_Product, Quick_Add_Product, ProductDetails, ProductSummary, ProductManagement, Product, pdf.product, ProductName, product_name, Enter_Name_Product, Product_Code, CodeProduct, Enter_Product_Code, ProductCodeName, Product_ID, ProductPrice, Enter_Product_Price, ProductCost, Product_Cost, Enter_Product_Cost, ProductTax, TotalProductTax, ProductImage, Product_Description, SearchProduct, Search_product, Search_Product_by_Code_Name, Scan_Search_Product_by_Code_Name, SelectProduct, Choose_Product, ChooseProduct, AddProductToList, AlreadyAdd, Product_Not_Found, Product_not_available, Product_name_minimum_3_characters, ProductHasPromotion, This_Product_Not_For_Selling, By Product, By_Product, Profit by Product, product_sales_report, Product_Performance_Table, Show_Product_Discount, Show_Product_Tax, Show_Product_Images_in_POS; import_products -&gt; Import Products &amp; Services.
+New key Product_Only (Product | Producto) used in Batches, BatchHistory, BatchRegister, DeadStock, Expiry, StockAging, Warranty, MrpReports, LoyaltyRewards.
+Router titles: Create/Edit Product/Service, Product/Service Details, Products &amp; Services Report (x2), Product/Service Sales Report, Profit by Product/Service.
+Storefront messages &#039;Product&#039; and portal &#039;product&#039;: Product/Service | Producto/Servicio.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Queried translations for the word Product (73) and lowercase product labels; chose the rename set; wrote the migration (backup to storage/app/migration_backups) and ran it; updated seeders via tinker from the migration constant; grepped t(&#039;Product&#039;) uses and switched 13 physical-only uses in 9 files to Product_Only (new migration + seeders); fixed router titles (first attempt matched nothing because of a bad lookahead, redone with exact strings); updated storefront and portal language files; php -l; npm run build; spot-checked live values.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Products list: Type Product filter shows first again; filters added after a company saved its order now take their default position instead of the end.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 12:24</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>All (company 3 was affected; verified 2 and 3)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">useCustomizableFilters.js: filters missing from a company&#039;s saved order are no longer appended last -- mergeWithDefaults() inserts each at its default position (after the nearest earlier default key present, or before the first later one); used for the visible filter row and the Customize Filters dialog. Saved order and hidden flags unchanged. Affects Products, Sales and Purchases filter rows.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read Products.vue filter defaults and each company&#039;s saved settings.datatable_filters for products_filters; read the composable; added mergeWithDefaults() used by visibleFilterKeys and openCustomize; tested the merge with a node script against the saved orders; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Roles list: Duplicate icon creates a new role pre-filled with the chosen role&#039;s permissions.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:25</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (roles of the acting company)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">GroupPermissions.vue: Duplicate icon (CopyOutlined) per row -&gt; /permissions/create?copy=&lt;id&gt;; shown with permissions_add + permissions_edit, not for Owner.
+PermissionForm.vue: create mode with ?copy=&lt;id&gt; loads roles/{id}/edit and pre-fills name &#039;&lt;name&gt; (copy)&#039;, description and permissions; Submit creates a new role (POST roles).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read GroupPermissions.vue actions column and PermissionForm onMounted; added the icon + route with ?copy=; added copyFrom handling in PermissionForm (loads source role, prefills, info message); npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Import Sales / Import Purchases now have their own permissions, so they no longer switch together with Create Sale / Create Purchase in the role editor.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:25</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>All (existing roles keep their current access)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">New permissions sales_import, purchases_import, granted to every role holding Sales_add / Purchases_add (20 / 11 roles).
+SalePolicy::import, PurchasePolicy::import check them.
+SalesController get_import_sales/preview_import_sales/store_import_sales and PurchasesController get_import_purchases/preview_import_purchases/store_import_purchases: authorize &#039;import&#039; instead of &#039;create&#039;.
+menu.js: Import_Sales -&gt; [&#039;sales_import&#039;], Import_Purchases -&gt; [&#039;purchases_import&#039;]; router sales/import, purchases/import meta.permission likewise; permissions.js: new items Import_Sales / Import_Purchases in the Sales / Purchases groups.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Checked menu.js gates, router meta, existing *_import permissions and the import endpoints&#039; authorization; wrote and ran the migration; added policy methods; switched get/preview/store_import_sales and _purchases to authorize import; updated menu gates, route permissions and permissions.js (after the Add item of each group); php -l; npm run build:admin; verified role counts.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS lists (customers, warehouses, categories, brands, salespeople) now show only the acting company&#039;s data; customer history/wallet endpoints check the company.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:39</span></div>
+  <div class="row"><span class="label">Category</span><span>security</span></div>
+  <div class="row"><span class="label">Company</span><span>All (tested AdminNe/company 3 and SuperAdmin acting as company 2)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosController::GetELementPos: clients, warehouses (all-warehouses and assigned-warehouses cases), default warehouse/client validation, categories, brands and salespeople filtered by the acting company; customers sorted by name; salespeople exclude types customer/Online_store/supplier. Accounts (no company column) and payment methods unchanged.
+walletBalance / clientHistory / clientHistorySale: 404 unless the customer / sale belongs to the acting company.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Identified AdminNe (user 4, company 3); listed POS endpoints and the lists returned by GetELementPos; checked which tables have company_id (accounts do not); added $companyId = resolveActingCompanyId() scoping to clients, warehouses (both branches + default warehouse check), default client, categories, brands and salespeople; company checks on walletBalance/clientHistory/clientHistorySale; php -l; tinker test of GetELementPos as AdminNe and as SuperAdmin acting as company 2.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS: products now start as visual Group Name tiles; clicking a tile shows that group&#039;s products with a Back button (plus an All tile).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:46</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (verified company 3: 11 groups)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosController::GetProductsByParametre: eager-loads product.productGroup; each row adds product_group_id and group_name.
+PosPage.vue: data pos_group; computed posGroups, showGroupTiles (only when &gt;1 group), openedGroup, gridProducts; product_lastPage and paginate_products use gridProducts; watch pos_group -&gt; page 1; template: group tile grid (All + groups, image or initials, count badge) and Back bar; pagination bars hidden on the tiles view; CSS .pos-group-*.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read the POS products grid, getProducts(), vehicleFilteredProducts, paginate_products and product_lastPage; added group fields to GetProductsByParametre; implemented the tiles/back UI and computed filtering; checked group counts through the endpoint (11 groups for company 3); npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS product grid now shows only the acting company&#039;s products (was every company&#039;s stocked in the warehouse).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:46</span></div>
+  <div class="row"><span class="label">Category</span><span>security</span></div>
+  <div class="row"><span class="label">Company</span><span>All (tested AdminNe/company 3: 564 -&gt; 147)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosController::GetProductsByParametre and ::GetProductsChanges: product_warehouse rows limited to products of the acting company (resolveActingCompanyId).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Counted product_warehouse rows per product company for warehouse 4; added whereHas(product.company_id) to GetProductsByParametre and GetProductsChanges; php -l; tinker test of GetProductsByParametre as AdminNe (user 4).</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS top-right user button shows its picture again (avatar path was built for the old storage format).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:46</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>All (seen with AdminNe)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosPage.vue user dropdown avatar: src &#039;/images/avatar/&#039;+avatar -&gt; resolveImg(avatar, &#039;avatar&#039;) (company-scoped paths as-is, old bare filenames still under /images/avatar/).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read the POS header (brand logo uses resolveImg; user dropdown hard-coded /images/avatar/); checked AdminNe avatar and company 3 logo values and that both files exist; replaced the src with resolveImg(currentUser.avatar, &quot;avatar&quot;); grepped for other hard-coded avatar paths (none); npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Defaults -&gt; POS: Price decimals (2/3) and &quot;Require an open register&quot; (POS locked + sales refused without one); POS decimals now follow the logged-in company.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:56</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All (per company; tested AdminNe/company 3 with rollback)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">settings.pos_require_open_register (bool, default 1) + Setting fillable/cast + SettingsController update (settingFlag).
+SystemSettings.vue: Defaults -&gt; new POS tab: Price decimals radio 2/3 (bound to enable_3_decimal_pricing) and Require an open register switch; saved with the page.
+PosController::GetELementPos: require_open_register in the payload. ::CreatePOS: 422 &#039;Open a cash register before making sales...&#039; when required and the user has no open register for the warehouse, unless offline_created_at is present; runs after the sale_uuid duplicate check.
+PosPage.vue: requireOpenRegister/registerChecked state, registerLocked computed, lock overlay (z 1030, under modals, drawer above) with Open register (warehouse preselected) / Change warehouse / Dashboard.
+pos-compat/priceFormat.js getPriceDecimals: signed-in company&#039;s user.price_decimals before the localStorage cache. stores/auth.js: refreshes app_price_decimals from the current company at login. helpers::price_decimals(): per acting company (was the first settings row).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Checked settings/pos_settings columns, per-company enable_3_decimal_pricing values, frontend decimal resolution (lib/priceFormat, pos-compat/priceFormat, get_user_auth price_decimals) and cash_registers structure/CashRegisterController; implemented the setting, lock screen, server enforcement and decimals fixes; ran the migration; tinker test with rollback; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Date-range presets: new Today button in the middle, now the default (Sales, Purchases, Payments report).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 13:58</span></div>
+  <div class="row"><span class="label">Category</span><span>ui-polish</span></div>
+  <div class="row"><span class="label">Company</span><span>All</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">Sales.vue, Purchases.vue, PaymentsReport.vue: DATE_PRESETS gain { value: &#039;today&#039;, labelKey: &#039;Today&#039; } after This Month; presetRange(&#039;today&#039;) = startOf/endOf day; datePreset default &#039;today&#039; (was &#039;month&#039; on Sales/Purchases, &#039;all&#039; on Payments); Reset returns to Today and counts as dirty when not Today; PaymentsReport initial range = today.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Grepped for DATE_PRESETS / datePreset defaults; confirmed the Today translation key exists (Today / hoy); added the preset + presetRange case, switched the default and reset (useFilterReset) from month/all to today, fixed the Payments initial range and comments; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS sales were saved under company 1 (company never set); fixed POS + web-store order conversion to use the warehouse&#039;s company and moved SL_0012 to NewEra.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:00</span></div>
+  <div class="row"><span class="label">Category</span><span>bug-fix</span></div>
+  <div class="row"><span class="label">Company</span><span>Company 3 (NewEraUnisexSalon); fix applies to all</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">PosController::CreatePOS and the draft -&gt; sale conversion: $order-&gt;company_id = warehouse&#039;s company_id (fallback acting company). Api\Store\OnlineOrdersApiController: after Sale::create, company_id = warehouse&#039;s (fallback client&#039;s) company, then save. Data: SL_0012 (id 3901) company 1 -&gt; 3.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Queried recent sales for user 4 / company 3, company 3 default client and the cash register; read CreatePOS and the draft conversion; checked which tables have company_id and all POS sales whose company differs from their warehouse (1: SL_0012); scanned other Sale creation paths; patched the three paths; php -l; updated sale 3901; tested SalesController::index as AdminNe with today&#039;s range.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>All POS settings consolidated on /settings/pos (General + Company rules, Receipt, Network printing tabs); duplicates removed from System Settings and menu.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:09</span></div>
+  <div class="row"><span class="label">Category</span><span>refactor</span></div>
+  <div class="row"><span class="label">Company</span><span>All companies (per-company settings via acting company)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">SettingsController: get_pos_Settings_api returns enable_3_decimal_pricing + pos_require_open_register; update_pos_settings saves them on Setting::forCompany(acting company). PosSettings.vue: a-tabs (general/receipt/printing), Company rules card, save updates auth.user.price_decimals + app_price_decimals cache. PosReceipt/DirectNetworkPrinting: embedded prop. SystemSettings.vue: single go_pos_settings link item; removed POS defaults tab, decimals switch, POS per-page/show tax fields and pos_settings sidecar. Router: settings/pos-receipt redirect. menu.js: POS_Receipt removed.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Inventoried POS settings across System Settings (Defaults, Features, vertical tabs) and PosSettings/PosReceipt; added tabs + company rules card; extended the POS settings API; removed duplicates from System Settings; redirect + menu cleanup; php -l; npm run build:admin; tinker round-trip test in a rolled-back transaction.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Status report for the last 10 requests (#292-#301) generated and opened.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:20</span></div>
+  <div class="row"><span class="label">Category</span><span>report</span></div>
+  <div class="row"><span class="label">Company</span><span>N/A (project log)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">No code changes; report generated for kt_logs #292-#301.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">tinker: $reportLimit = 10; require protocol_preparate_report.php; Start-Process; listed the 10 summaries.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS: Exit button with close-out modal (expected cash) that closes the register and emails the admins; register PIN (users.pin) option; toolbar filter toggles incl. customer selector; Zelle pa</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:20</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All companies (per-company settings); tested on company 3 (NewEra)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">users.pin (hashed, hidden; edit returns has_pin). settings.pos_register_pin_required, pos_close_register_email. pos_settings.show_customer_filter. payment_methods + Zelle. CashRegister: PIN check on open; GET cash-registers/{id}/summary; close = expected from cash payments only + admin email (CustomEmail) with cashier, opened/closed, time open, sales count/total, services/products, payments per method, drawer (opening, cash sales, in/out, expected, counted, difference), notes; response carries email {sent,to,error}. POS: Exit POS button + close-out modal, PIN in Open Register, customer selector toggle. POS Settings: Toolbar filters card; Company rules gain PIN + email switches. UserForm: Register PIN field.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read the POS toolbar, register modals and CashRegisterController; checked payment_sales/payment_methods/products.type/users schema and admin users; migration + run; backend (PIN, summary, close + email, access); frontend (exit button/modal, PIN, toolbar toggle, settings cards, user PIN); php -l; npm run build:admin; tinker test with mail.default=array in a rolled-back transaction.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Protocol reports now saved per day in KT-TOOLS/Report (git-tracked, shared); A Dormir adds a daily report of all the day&#039;s requests.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:20</span></div>
+  <div class="row"><span class="label">Category</span><span>tooling</span></div>
+  <div class="row"><span class="label">Company</span><span>N/A (Claude protocols)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">Reports -&gt; KT-TOOLS/Report/kt_murano_{preparate|memorex|last&lt;N&gt;|daily}_&lt;Y-m-d&gt;.html; one per day per report (same-day re-run overwrites, older days kept); header shows the generating host. A Dormir writes the daily report after Kelsy and commits KT-TOOLS/Report.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Found every report output path; changed both scripts; added $reportDate daily mode; updated protocol docs + CLAUDE.md; renamed folder; generated reports; git check-ignore.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>UI wording refactor: Warehouse -&gt; Location, Warehouses -&gt; Locations, Warehouse Locations -&gt; Sub-Locations (translations en/es, filters, screens, PDFs, messages).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:34</span></div>
+  <div class="row"><span class="label">Category</span><span>refactor</span></div>
+  <div class="row"><span class="label">Company</span><span>All companies</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">UI only: Warehouse -&gt; Location, Warehouses -&gt; Locations, Warehouse Locations -&gt; Sub-Locations (es: Ubicación / Ubicaciones / Sub-ubicaciones). 65 translation keys (migration with backup/down), seeders, ~60 files of literal text, PDFs/public invoice/portal, backend messages and export headers, new companies&#039; default location &#039;Main Location&#039;. Unchanged: tables/columns/routes/permission names and existing location names.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Reviewed the Products &amp; Services rename approach (#287/#290); listed every translation with warehouse (59) plus the sub-location keys; wrote the en/es map by hand; migration + seeders via script; scanned Vue/JS/Blade/lang/PHP for visible literals (3 passes) and replaced exact phrases per file with a checked script (every phrase must match); checked the i18n case-insensitive rescue ($t(&#039;Warehouse&#039;) -&gt; warehouse key) and menu labels; ProductForm sub-location key; rollback + re-migrate after adding 6 keys; php -l; npm run build.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>System Settings: removed the duplicate POS group/link; POS settings only on Settings &gt; POS Settings.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:37</span></div>
+  <div class="row"><span class="label">Category</span><span>refactor</span></div>
+  <div class="row"><span class="label">Company</span><span>All companies</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">System Settings vertical menu: POS group removed (no link, no handler); unused useRouter removed.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Located the go_pos_settings item and handler; removed them and the unused router; checked no other references; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>POS cashier PIN: own keypad on open/close; PIN (unique per company) switches the POS session to that user; users.pin unique index; user form Cashier PIN.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 14:48</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All companies; tested on company 3 (NewEra)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">users.pin: plain digits, UNIQUE(company_id, pin). POST /pos/pin-switch switches the browser session to the PIN owner (same company, staff, POS permission, location access). Open register: keypad -&gt; switch -&gt; Open Register form (no PIN field). Close / exit-close: keypad PIN of the signed-in cashier. User form: Cashier PIN (visible, unique per company). Only active when POS Settings -&gt; &quot;Open register with PIN&quot; is on.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Checked users.pin contents and indexes; migration; model helpers; user CRUD; checked auth (web session + Passport laravel_token cookie) to decide on a web route; PosPinController + route; register PIN rules; POS keypad + resume after reload; UserForm; php -l; npm run build:admin; two tinker test scripts in rolled-back transactions.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>New POS Sales page (POS Management): POS-only sales list with per-method totals, cashier/method filters and receipt reprint.</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 20:58</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All companies (menu added to each company&#039;s POS Management group)</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">GET sales?is_pos=1[&amp;cashier_id][&amp;payment_method_id] -&gt; POS sales only, stats.by_method, cashiers. POS Management -&gt; POS Sales page. Shared printPosReceipt().</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Found the per-company custom POS Management menu group (menu_positions custom_pos); reused the Sales index endpoint with new filters; extracted the receipt printer; page + route + menu + migration; php -l; tinker API test; npm run build:admin.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Role editor fixes (Vehicle Fitment own permission, tooltips, force show/hide for all, SuperAdmin all-company roles, Settings permissions homed) + bookings (completion email, defaults, locatio</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 21:09</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All companies; SuperAdmin/AdminSystem features; tested on company 3</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">Permissions: vehicle_fitment split; tooltips non-blocking; SuperAdmin@AdminSystem force show/hide for permission-less menu items (all companies); SuperAdmin sees/edits all companies&#039; roles; Settings permissions homed on System Settings / Locations / Currencies. Bookings: completion email to admins; booking defaults (location, customer, station, sales person = me); bookings.warehouse_id used for the invoice; shared date/time fields; Product/Service dropdown + quick add + default price; Online Booking card removed from Create.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read the role editor (PermissionForm/Matrix, permissionTree, permissions catalogue), MenuPositionController, PermissionsController, VehicleFitmentController, booking form/calendar/controller, public booking flow, BookingSaleService/Notifier/Observer, settings defaults; implemented the 11 points; migrations; php -l; npm run build:admin; tinker tests in rolled-back transactions.</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>Invoice PDF: options moved to a Default tab with &quot;hide time&quot;, real-PDF live preview, cleaner header (ref once, status+payment one row, names in Bill To / From bars).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 21:20</span></div>
+  <div class="row"><span class="label">Category</span><span>feature</span></div>
+  <div class="row"><span class="label">Company</span><span>All companies (design is global; Default options per company); checked on company 2 INV_3291</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">Invoice PDF: Default tab (company options + hide time) and Design tab; real-PDF live preview; invoice header: &quot;Invoice #: REF&quot; once and bigger, Status + Payment one row, names in BILL TO / FROM bars.</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Read the Invoice PDF page, the Defaults tab, sale_pdf blade, buildSalePdf and PdfTemplate; backend preview + company endpoints; blade header/boxes; moved the Default options; php -l; tinker preview test + rendered INV_3291 and read the PDF; npm run build:admin (fixed a template-parse error).</div></div>
+</div>
+<div class="card">
+  <div class="row"><span class="label">Status</span><span class="badge" style="background:#0f9d58">Completed</span></div>
+  <div class="row"><span class="label">Request</span><span>&quot;Pa llevar&quot; -&gt; ran Protocol A Dormir (log, daily report, backup, commit, push).</span></div>
+  <div class="row"><span class="label">Source</span><span>jlock@htdbroker.com &middot; Thundera &middot; 2026-09-30 21:23</span></div>
+  <div class="row"><span class="label">Category</span><span>tooling</span></div>
+  <div class="row"><span class="label">Company</span><span>N/A</span></div>
+  <div class="block"><div class="label">Changes Made</div><div class="text">No code changes; end-of-session close-out (A Dormir).</div></div>
+  <div class="block"><div class="label">Actions</div><div class="text">Checked the protocol definitions; AskUserQuestion; ran A Dormir.</div></div>
+</div>
+</body>
+</html>
