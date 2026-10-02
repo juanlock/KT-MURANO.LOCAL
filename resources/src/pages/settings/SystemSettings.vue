@@ -569,7 +569,7 @@
                 </div>
               </div>
             </a-card>
-            <a-card size="small" style="margin-bottom: 16px">
+            <a-card size="small" title="Password by Default" style="margin-bottom: 16px">
               <div class="setting-help" style="margin-bottom: 12px">
                 When the system creates a user by itself — a new employee, customer, web-store customer, supplier or sales agent —
                 it gets this password. Empty: a random password, so that user can't sign in until one is set

@@ -16,13 +16,15 @@ class ContractTemplate extends Model
      */
     public function render(Contract $contract)
     {
-        $contract->load('client', 'project');
+        // Employee contracts only (customer contracts are Sales Contracts).
+        $contract->load('employee', 'project');
+        $e = $contract->employee;
         $replace = [
             '{contract_number}' => $contract->contract_number,
-            '{customer_name}'   => $contract->client ? $contract->client->name : '',
-            '{customer_email}' => $contract->client ? $contract->client->email : '',
-            '{customer_phone}'  => $contract->client ? $contract->client->phone : '',
-            '{customer_address}' => $contract->client ? $contract->client->adresse : '',
+            '{employee_name}'   => $e ? trim($e->firstname.' '.$e->lastname) : '',
+            '{employee_email}'  => $e->email ?? '',
+            '{employee_phone}'  => $e->phone ?? '',
+            '{employee_address}' => $e->address ?? '',
             '{project_name}'    => $contract->project ? $contract->project->title : '',
             '{subject}'         => $contract->subject,
             '{contract_value}'  => number_format($contract->value, 2),

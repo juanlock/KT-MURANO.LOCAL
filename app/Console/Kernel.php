@@ -33,6 +33,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('database:backup');
 
         $schedule->command('assets:check-validation-due')->daily();
+        // Sales Contracts: recurring invoices whose date has come.
+        $schedule->command('sales-contracts:invoice')->dailyAt('06:00')->withoutOverlapping();
 
         $schedule->command('meetings:send-reminders')->everyMinute()->withoutOverlapping();
 

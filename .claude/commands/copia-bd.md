@@ -14,7 +14,8 @@ Run Protocol Copia BD:
    - Collations only MariaDB 11 (`utf8mb4_uca1400_*`) or MySQL 8 (`utf8mb4_0900_*`) know are rewritten to `utf8mb4_unicode_ci` -- on structure lines only; INSERT data is never altered.
    - `DROP TABLE IF EXISTS` before each table, so a re-import replaces the tables.
    Verified 2026-10-01 by importing a dump into a scratch local DB with the `mysql` client: 327 tables, 66,165 rows, zero count mismatches, trigger present.
-5. Report the output path and file size back to the user.
+5. **Other folder:** to write the dump somewhere else under `KT-TOOLS/` (e.g. an export for an external backup program -> `KT-TOOLS/SQL/`), set `$outSubdir` before the require: `php artisan tinker --execute="$outSubdir = 'SQL'; require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"`. Same format and file naming; default is `database`.
+6. Report the output path and file size back to the user.
 
 Why this exists: the user (jlock) hit a phpMyAdmin bug on this machine (`Export::exportDatabase()` `TypeError` on PHP 8.1+) where a failed export silently wrote phpMyAdmin's HTML error page into the `.sql` file instead of real SQL, which then failed to restore. This protocol is a reliable, phpMyAdmin-independent way to snapshot `dbmurano`, and since `KT-TOOLS/` is git-tracked (matching the existing manually-made dumps already in `KT-TOOLS/SQL/`), the snapshot travels with the repo across every machine this checkout is on -- same multi-machine intent as Kelsy/Mañanitas/Memorex/Preparate.
 

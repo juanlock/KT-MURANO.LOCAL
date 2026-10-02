@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Client;
 use App\Models\Contract;
 use App\Models\ContractAttachment;
 use App\Models\ContractComment;
@@ -21,8 +20,34 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PDF;
 
+/**
+ * HRM > Employee Contracts. Employees ONLY (customer contracts are Sales >
+ * Sales Contracts, SalesContractController -- split 2026-10-02). Scoped to
+ * the acting company (Admin: own; SuperAdmin: the selected one).
+ */
 class ContractController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ScopesToCompany;
+
+    /** Employee contracts of the acting company. */
+    private function scoped(Request $request)
+    {
+        return Contract::where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee');
+    }
+
+    /** Child routes (attachments, comments, tasks, notes): the contract must be ours. */
+    private function ownContract(Request $request, $contractId): void
+    {
+        abort_unless($this->scoped($request)->whereKey($contractId)->exists(), 404);
+    }
+
+    /** The acting company's employees, for the form. */
+    private function companyEmployees(Request $request)
+    {
+        return Employee::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))
+            ->orderBy('firstname')->get(['id', 'firstname', 'lastname']);
+    }
+
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
@@ -35,15 +60,16 @@ class ContractController extends Controller
         $helpers = new helpers;
 
         $param = [0 => 'like', 1 => '=', 2 => '=', 3 => '=', 4 => '='];
-        $columns = [0 => 'contract_number', 1 => 'client_id', 2 => 'status', 3 => 'type', 4 => 'project_id'];
+        $columns = [0 => 'contract_number', 1 => 'employee_id', 2 => 'status', 3 => 'type', 4 => 'project_id'];
 
-        $query = Contract::with('client', 'employee', 'project')->whereNull('deleted_at');
+        $query = $this->scoped($request)->with('employee', 'project')->whereNull('deleted_at');
         $query = $helpers->filter($query, $columns, $param, $request);
         $query->where(function ($q) use ($request) {
             $q->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('contract_number', 'LIKE', "%{$request->search}%")
-                    ->orWhere('subject', 'LIKE', "%{$request->search}%")
-                    ->orWhereHas('client', fn ($c) => $c->where('name', 'LIKE', "%{$request->search}%"));
+                $s = $request->search;
+                $q->where('contract_number', 'LIKE', "%{$s}%")
+                    ->orWhere('subject', 'LIKE', "%{$s}%")
+                    ->orWhereHas('employee', fn ($e) => $e->where('firstname', 'LIKE', "%{$s}%")->orWhere('lastname', 'LIKE', "%{$s}%"));
             });
         });
 
@@ -55,19 +81,14 @@ class ContractController extends Controller
 
         $data = [];
         foreach ($contracts as $c) {
-            $partyType = $c->party_type ?: 'customer';
+            $employeeName = $c->employee ? trim($c->employee->firstname . ' ' . $c->employee->lastname) : '';
             $data[] = [
                 'id' => $c->id,
                 'contract_number' => $c->contract_number,
                 'subject' => $c->subject,
-                'party_type' => $partyType,
-                'client_id' => $c->client_id,
-                'client_name' => $c->client ? $c->client->name : '',
                 'employee_id' => $c->employee_id,
-                'employee_name' => $c->employee ? trim($c->employee->firstname . ' ' . $c->employee->lastname) : '',
-                'party_name' => $partyType === 'employee'
-                    ? ($c->employee ? trim($c->employee->firstname . ' ' . $c->employee->lastname) : '')
-                    : ($c->client ? $c->client->name : ''),
+                'employee_name' => $employeeName,
+                'party_name' => $employeeName,
                 'project_id' => $c->project_id,
                 'project_name' => $c->project ? $c->project->title : null,
                 'value' => (float) $c->value,
@@ -75,19 +96,15 @@ class ContractController extends Controller
                 'start_date' => $c->start_date,
                 'end_date' => $c->end_date,
                 'status' => $c->status,
-                'hide_from_customer' => (bool) $c->hide_from_customer,
             ];
         }
 
-        $clients = Client::whereNull('deleted_at')->orderBy('id', 'desc')->get(['id', 'name']);
-        $employees = Employee::orderBy('id', 'desc')->get(['id', 'firstname', 'lastname']);
         $projects = Project::whereNull('deleted_at')->orderBy('id', 'desc')->get(['id', 'title']);
 
         return response()->json([
             'totalRows' => $totalRows,
             'contracts' => $data,
-            'clients' => $clients,
-            'employees' => $employees,
+            'employees' => $this->companyEmployees($request),
             'projects' => $projects,
         ]);
     }
@@ -96,16 +113,20 @@ class ContractController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Contract::class);
 
-        $clients = Client::whereNull('deleted_at')->orderBy('id', 'desc')->get(['id', 'name']);
-        $employees = Employee::orderBy('id', 'desc')->get(['id', 'firstname', 'lastname']);
         $projects = Project::whereNull('deleted_at')->orderBy('id', 'desc')->get(['id', 'title']);
 
         return response()->json([
-            'clients' => $clients,
-            'employees' => $employees,
+            'employees' => $this->companyEmployees($request),
             'projects' => $projects,
             'next_contract_number' => Contract::generateContractNumber(),
         ]);
+    }
+
+    /** The employee must belong to the acting company. */
+    private function assertEmployee(Request $request): void
+    {
+        abort_unless(Employee::whereKey($request->employee_id)->whereNull('deleted_at')
+            ->where('company_id', $this->resolveActingCompanyId($request))->exists(), 422, 'That employee does not belong to this company.');
     }
 
     public function store(Request $request)
@@ -113,24 +134,23 @@ class ContractController extends Controller
         $this->authorizeForUser($request->user('api'), 'create', Contract::class);
 
         $request->validate([
-            'party_type' => 'required|in:customer,employee',
-            'client_id' => 'required_if:party_type,customer|nullable|exists:clients,id',
-            'employee_id' => 'required_if:party_type,employee|nullable|exists:employees,id',
+            'employee_id' => 'required|integer',
             'subject' => 'required|string|max:255',
             'value' => 'required|numeric|min:0',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'status' => 'required|in:draft,active,expired,cancelled',
         ], $this->contractDateMessages($request), $this->contractAttributes());
+        $this->assertEmployee($request);
 
         $contract_number = $request->contract_number ?: Contract::generateContractNumber();
-        $partyType = $request->party_type;
 
         Contract::create([
+            'company_id' => $this->resolveActingCompanyId($request),
             'contract_number' => $contract_number,
-            'party_type' => $partyType,
-            'client_id' => $partyType === 'customer' ? $request->client_id : null,
-            'employee_id' => $partyType === 'employee' ? $request->employee_id : null,
+            'party_type' => 'employee',
+            'client_id' => null,
+            'employee_id' => $request->employee_id,
             'project_id' => $request->project_id,
             'subject' => $request->subject,
             'value' => $request->value,
@@ -138,7 +158,6 @@ class ContractController extends Controller
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'description' => $request->description,
-            'hide_from_customer' => (bool) $request->hide_from_customer,
             'status' => $request->status,
         ]);
 
@@ -149,24 +168,19 @@ class ContractController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
 
-        $contract = Contract::with(['client', 'employee', 'project', 'attachments', 'comments.user', 'renewals', 'contractTasks', 'notes.user'])
+        $contract = Contract::with(['employee', 'project', 'attachments', 'comments.user', 'renewals', 'contractTasks', 'notes.user'])
             ->whereNull('deleted_at')
-            ->findOrFail($id);
+            ->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
 
-        $partyType = $contract->party_type ?: 'customer';
         $employeeName = $contract->employee ? trim($contract->employee->firstname . ' ' . $contract->employee->lastname) : '';
-        $clientName = $contract->client ? $contract->client->name : '';
 
         $item = [
             'id' => $contract->id,
             'contract_number' => $contract->contract_number,
             'subject' => $contract->subject,
-            'party_type' => $partyType,
-            'client_id' => $contract->client_id,
-            'client_name' => $clientName,
             'employee_id' => $contract->employee_id,
             'employee_name' => $employeeName,
-            'party_name' => $partyType === 'employee' ? $employeeName : $clientName,
+            'party_name' => $employeeName,
             'project_id' => $contract->project_id,
             'project_name' => $contract->project ? $contract->project->title : null,
             'value' => (float) $contract->value,
@@ -174,7 +188,6 @@ class ContractController extends Controller
             'start_date' => $contract->start_date,
             'end_date' => $contract->end_date,
             'description' => $contract->description,
-            'hide_from_customer' => (bool) $contract->hide_from_customer,
             'status' => $contract->status,
             'signer_name' => $contract->signer_name,
             'signed_at' => $contract->signed_at ? $contract->signed_at->toIso8601String() : null,
@@ -204,18 +217,12 @@ class ContractController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
 
-        $contract = Contract::with('client', 'employee', 'project')->whereNull('deleted_at')->findOrFail($id);
-        if (empty($contract->party_type)) {
-            $contract->party_type = $contract->employee_id ? 'employee' : 'customer';
-        }
-        $clients = Client::whereNull('deleted_at')->orderBy('id', 'desc')->get(['id', 'name']);
-        $employees = Employee::orderBy('id', 'desc')->get(['id', 'firstname', 'lastname']);
+        $contract = Contract::with('employee', 'project')->whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $projects = Project::whereNull('deleted_at')->orderBy('id', 'desc')->get(['id', 'title']);
 
         return response()->json([
             'contract' => $contract,
-            'clients' => $clients,
-            'employees' => $employees,
+            'employees' => $this->companyEmployees($request),
             'projects' => $projects,
         ]);
     }
@@ -225,23 +232,18 @@ class ContractController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
 
         $request->validate([
-            'party_type' => 'required|in:customer,employee',
-            'client_id' => 'required_if:party_type,customer|nullable|exists:clients,id',
-            'employee_id' => 'required_if:party_type,employee|nullable|exists:employees,id',
+            'employee_id' => 'required|integer',
             'subject' => 'required|string|max:255',
             'value' => 'required|numeric|min:0',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'status' => 'required|in:draft,active,expired,cancelled',
         ], $this->contractDateMessages($request), $this->contractAttributes());
+        $this->assertEmployee($request);
 
-        $partyType = $request->party_type;
-
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $contract->update([
-            'party_type' => $partyType,
-            'client_id' => $partyType === 'customer' ? $request->client_id : null,
-            'employee_id' => $partyType === 'employee' ? $request->employee_id : null,
+            'employee_id' => $request->employee_id,
             'project_id' => $request->project_id,
             'subject' => $request->subject,
             'value' => $request->value,
@@ -249,7 +251,6 @@ class ContractController extends Controller
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'description' => $request->description,
-            'hide_from_customer' => (bool) $request->hide_from_customer,
             'status' => $request->status,
             'signer_name' => $request->signer_name ?? $contract->signer_name,
             'signed_at' => $request->signed_at ?? $contract->signed_at,
@@ -263,7 +264,7 @@ class ContractController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', Contract::class);
 
-        Contract::whereId($id)->update(['deleted_at' => Carbon::now()]);
+        $this->scoped($request)->whereId($id)->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
@@ -273,7 +274,7 @@ class ContractController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', Contract::class);
 
         $ids = $request->ids ?? [];
-        Contract::whereIn('id', $ids)->update(['deleted_at' => Carbon::now()]);
+        $this->scoped($request)->whereIn('id', $ids)->update(['deleted_at' => Carbon::now()]);
 
         return response()->json(['success' => true]);
     }
@@ -288,22 +289,22 @@ class ContractController extends Controller
         $recentlyAddedDays = 7;
         $recentlyAddedStart = Carbon::now()->subDays($recentlyAddedDays)->toDateString();
 
-        $countActive = Contract::whereNull('deleted_at')->where('status', 'active')
+        $countActive = $this->scoped($request)->whereNull('deleted_at')->where('status', 'active')
             ->where('start_date', '<=', $now)->where('end_date', '>=', $now)->count();
-        $countExpired = Contract::whereNull('deleted_at')->where('end_date', '<', $now)->count();
-        $countAboutToExpire = Contract::whereNull('deleted_at')
+        $countExpired = $this->scoped($request)->whereNull('deleted_at')->where('end_date', '<', $now)->count();
+        $countAboutToExpire = $this->scoped($request)->whereNull('deleted_at')
             ->where('status', 'active')
             ->whereBetween('end_date', [$now, $aboutToExpireEnd])->count();
-        $countRecentlyAdded = Contract::whereNull('deleted_at')->where('created_at', '>=', $recentlyAddedStart)->count();
-        $countTrash = Contract::onlyTrashed()->count();
+        $countRecentlyAdded = $this->scoped($request)->whereNull('deleted_at')->where('created_at', '>=', $recentlyAddedStart)->count();
+        $countTrash = $this->scoped($request)->onlyTrashed()->count();
 
-        $byType = Contract::whereNull('deleted_at')
+        $byType = $this->scoped($request)->whereNull('deleted_at')
             ->select('type', DB::raw('count(*) as total'))
             ->groupBy('type')
             ->get()
             ->map(fn ($r) => ['type' => $r->type ?: 'Other', 'count' => $r->total]);
 
-        $valueByType = Contract::whereNull('deleted_at')
+        $valueByType = $this->scoped($request)->whereNull('deleted_at')
             ->select('type', DB::raw('SUM(value) as total_value'))
             ->groupBy('type')
             ->get()
@@ -326,21 +327,17 @@ class ContractController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
 
-        $contract = Contract::with('client', 'employee', 'project')->whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::with('employee', 'project')->whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
 
-        $partyType = $contract->party_type ?: 'customer';
         $employeeName = $contract->employee ? trim($contract->employee->firstname . ' ' . $contract->employee->lastname) : '-';
-        $clientName = $contract->client ? $contract->client->name : '-';
-        $partyName = $partyType === 'employee' ? $employeeName : $clientName;
-        $partyLabel = $partyType === 'employee' ? 'Employee' : 'Customer';
 
         $contractData = [
             'contract_number' => $contract->contract_number,
             'subject' => $contract->subject,
-            'party_type' => $partyType,
-            'party_label' => $partyLabel,
-            'party_name' => $partyName,
-            'customer_name' => $partyName,
+            'party_type' => 'employee',
+            'party_label' => 'Employee',
+            'party_name' => $employeeName,
+            'customer_name' => $employeeName,
             'project_name' => $contract->project ? $contract->project->title : null,
             'value_formatted' => number_format($contract->value, 2),
             'type' => $contract->type ?? '-',
@@ -381,7 +378,7 @@ class ContractController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
 
-        $contract = Contract::with('client', 'project', 'employee')->whereNull('deleted_at')->findOrFail($contractId);
+        $contract = Contract::with('project', 'employee')->whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($contractId);
         $template = ContractTemplate::findOrFail($templateId);
         $body = $template->render($contract);
 
@@ -407,10 +404,10 @@ class ContractController extends Controller
 
         $fields = [
             ['key' => '{contract_number}', 'label' => 'Contract Number'],
-            ['key' => '{customer_name}', 'label' => 'Customer Name'],
-            ['key' => '{customer_email}', 'label' => 'Customer Email'],
-            ['key' => '{customer_phone}', 'label' => 'Customer Phone'],
-            ['key' => '{customer_address}', 'label' => 'Customer Address'],
+            ['key' => '{employee_name}', 'label' => 'Employee Name'],
+            ['key' => '{employee_email}', 'label' => 'Employee Email'],
+            ['key' => '{employee_phone}', 'label' => 'Employee Phone'],
+            ['key' => '{employee_address}', 'label' => 'Employee Address'],
             ['key' => '{project_name}', 'label' => 'Project Name'],
             ['key' => '{subject}', 'label' => 'Subject'],
             ['key' => '{contract_value}', 'label' => 'Contract Value (USD)'],
@@ -431,7 +428,7 @@ class ContractController extends Controller
     public function attachmentsIndex(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $list = $contract->attachments->map(fn ($a) => ['id' => $a->id, 'file_name' => $a->file_name, 'file_path' => $a->file_path]);
         return response()->json(['attachments' => $list]);
     }
@@ -439,7 +436,7 @@ class ContractController extends Controller
     public function attachmentsStore(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $request->validate(['file' => 'required|file|max:10240']);
         $file = $request->file('file');
         $path = $file->store('contracts/' . $id, 'public');
@@ -450,6 +447,7 @@ class ContractController extends Controller
     public function attachmentsDestroy(Request $request, $contractId, $attachmentId)
     {
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
+        $this->ownContract($request, $contractId);
         $att = ContractAttachment::where('contract_id', $contractId)->findOrFail($attachmentId);
         Storage::disk('public')->delete($att->file_path);
         $att->delete();
@@ -459,6 +457,7 @@ class ContractController extends Controller
     public function attachmentsDownload(Request $request, $contractId, $attachmentId)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
+        $this->ownContract($request, $contractId);
         $att = ContractAttachment::where('contract_id', $contractId)->findOrFail($attachmentId);
         $path = Storage::disk('public')->path($att->file_path);
         if (!file_exists($path)) {
@@ -471,7 +470,7 @@ class ContractController extends Controller
     public function commentsIndex(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $list = $contract->comments()->with('user')->orderBy('created_at', 'desc')->get()
             ->map(fn ($c) => ['id' => $c->id, 'body' => $c->body, 'user_id' => $c->user_id, 'user_name' => $c->user ? $c->user->username : '', 'created_at' => $c->created_at->toIso8601String()]);
         return response()->json(['comments' => $list]);
@@ -480,7 +479,7 @@ class ContractController extends Controller
     public function commentsStore(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $request->validate(['body' => 'required|string|max:5000']);
         $c = ContractComment::create(['contract_id' => $id, 'user_id' => Auth::id(), 'body' => $request->body]);
         $c->load('user');
@@ -490,6 +489,7 @@ class ContractController extends Controller
     public function commentsDestroy(Request $request, $contractId, $commentId)
     {
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
+        $this->ownContract($request, $contractId);
         ContractComment::where('contract_id', $contractId)->where('id', $commentId)->delete();
         return response()->json(['success' => true]);
     }
@@ -498,7 +498,7 @@ class ContractController extends Controller
     public function renewalsIndex(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $list = $contract->renewals;
         return response()->json(['renewals' => $list]);
     }
@@ -506,7 +506,7 @@ class ContractController extends Controller
     public function renewalsStore(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $request->validate(['renewal_date' => 'required|date', 'new_end_date' => 'required|date', 'notes' => 'nullable|string']);
         ContractRenewal::create([
             'contract_id' => $id,
@@ -521,7 +521,7 @@ class ContractController extends Controller
     public function tasksIndex(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $list = $contract->contractTasks;
         return response()->json(['tasks' => $list]);
     }
@@ -529,7 +529,7 @@ class ContractController extends Controller
     public function tasksStore(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
-        Contract::whereNull('deleted_at')->findOrFail($id);
+        Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $request->validate(['title' => 'required|string|max:255', 'due_date' => 'nullable|date', 'status' => 'nullable|in:pending,in_progress,completed,cancelled', 'description' => 'nullable|string']);
         $t = ContractTask::create([
             'contract_id' => $id,
@@ -544,6 +544,7 @@ class ContractController extends Controller
     public function tasksUpdate(Request $request, $contractId, $taskId)
     {
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
+        $this->ownContract($request, $contractId);
         $task = ContractTask::where('contract_id', $contractId)->findOrFail($taskId);
         $task->update($request->only(['title', 'due_date', 'status', 'description']));
         return response()->json(['success' => true]);
@@ -552,6 +553,7 @@ class ContractController extends Controller
     public function tasksDestroy(Request $request, $contractId, $taskId)
     {
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
+        $this->ownContract($request, $contractId);
         ContractTask::where('contract_id', $contractId)->where('id', $taskId)->delete();
         return response()->json(['success' => true]);
     }
@@ -560,7 +562,7 @@ class ContractController extends Controller
     public function notesIndex(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $list = $contract->notes()->with('user')->orderBy('created_at', 'desc')->get()
             ->map(fn ($n) => ['id' => $n->id, 'content' => $n->content, 'user_name' => $n->user ? $n->user->username : '', 'created_at' => $n->created_at->toIso8601String()]);
         return response()->json(['notes' => $list]);
@@ -569,7 +571,7 @@ class ContractController extends Controller
     public function notesStore(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
-        $contract = Contract::whereNull('deleted_at')->findOrFail($id);
+        $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $request->validate(['content' => 'required|string|max:10000']);
         $n = ContractNote::create(['contract_id' => $id, 'user_id' => Auth::id(), 'content' => $request->content]);
         $n->load('user');
@@ -579,6 +581,7 @@ class ContractController extends Controller
     public function notesDestroy(Request $request, $contractId, $noteId)
     {
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
+        $this->ownContract($request, $contractId);
         ContractNote::where('contract_id', $contractId)->where('id', $noteId)->delete();
         return response()->json(['success' => true]);
     }
@@ -625,7 +628,7 @@ class ContractController extends Controller
     public function templateRender(Request $request, $contractId, $templateId)
     {
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
-        $contract = Contract::with('client', 'project')->whereNull('deleted_at')->findOrFail($contractId);
+        $contract = Contract::with('project', 'employee')->whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($contractId);
         $template = ContractTemplate::findOrFail($templateId);
         $html = $template->render($contract);
         return response()->json(['content' => $html]);

@@ -67,7 +67,11 @@ if (! $mysqldump) {
     return;
 }
 
-$outDir = base_path('KT-TOOLS'.DIRECTORY_SEPARATOR.'database');
+// Target folder under KT-TOOLS: "database" (default, the protocol's backup
+// history) or another one set before the require, e.g. $outSubdir = 'SQL'
+// for an export handed to an external backup program.
+$outSubdir = isset($outSubdir) && preg_match('/^[A-Za-z0-9_-]+$/', (string) $outSubdir) ? $outSubdir : 'database';
+$outDir = base_path('KT-TOOLS'.DIRECTORY_SEPARATOR.$outSubdir);
 if (! is_dir($outDir)) {
     mkdir($outDir, 0777, true);
 }

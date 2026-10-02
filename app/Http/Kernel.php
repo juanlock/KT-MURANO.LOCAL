@@ -67,6 +67,8 @@ class Kernel extends HttpKernel
             // 'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\SetPdfLocale::class,
+            // Business Modules switched off for the acting company -> 403 on that module's API.
+            \App\Http\Middleware\EnforceModuleFlags::class,
         ],
     ];
 

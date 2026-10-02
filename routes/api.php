@@ -801,6 +801,12 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('report/warranty_guarantee', 'ReportController@warrantyGuaranteeReport');
 
     // ------------------------------- Contracts -----------------------\\
+    // Sales > Sales Contracts (customer contracts + recurring invoices).
+    Route::get('sales_contracts/create', 'SalesContractController@create');
+    Route::get('sales_contracts/{id}/edit', 'SalesContractController@edit');
+    Route::post('sales_contracts/{id}/invoice', 'SalesContractController@invoice');
+    Route::resource('sales_contracts', 'SalesContractController')->only(['index', 'store', 'show', 'update', 'destroy']);
+
     Route::get('contracts/dashboard', 'ContractController@dashboard');
     Route::get('contracts/merge-fields', 'ContractController@mergeFields');
     Route::get('contracts/{id}/pdf', 'ContractController@pdf');

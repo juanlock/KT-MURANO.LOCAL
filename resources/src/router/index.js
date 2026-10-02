@@ -351,6 +351,9 @@ const Promotions = lazy('Promotions', () => import('../pages/promotions/Promotio
 const PromotionForm = lazy('PromotionForm', () => import('../pages/promotions/PromotionForm.vue'));
 const PromotionUsages = lazy('PromotionUsages', () => import('../pages/promotions/PromotionUsages.vue'));
 const Contracts = lazy('Contracts', () => import('../pages/contracts/Contracts.vue'));
+const SalesContracts = lazy('SalesContracts', () => import('../pages/sales_contracts/SalesContracts.vue'));
+const SalesContractForm = lazy('SalesContractForm', () => import('../pages/sales_contracts/SalesContractForm.vue'));
+const SalesContractView = lazy('SalesContractView', () => import('../pages/sales_contracts/SalesContractView.vue'));
 const ContractForm = lazy('ContractForm', () => import('../pages/contracts/ContractForm.vue'));
 const ContractView = lazy('ContractView', () => import('../pages/contracts/ContractView.vue'));
 const DocumentArchive = lazy('DocumentArchive', () => import('../pages/documents/DocumentArchive.vue'));
@@ -687,7 +690,12 @@ const routes = [
             { path: 'promotions/create', name: 'promotion-create', component: PromotionForm, meta: { title: 'Add Promotion', permission: 'promotion' } },
             { path: 'promotions/:id(\\d+)/edit', name: 'promotion-edit', component: PromotionForm, meta: { title: 'Edit Promotion', permission: 'promotion' } },
             { path: 'promotions/usages', name: 'promotion-usages', component: PromotionUsages, meta: { title: 'Promotion Usage Report', permission: 'promotion' } },
-            { path: 'contracts', name: 'contracts', component: Contracts, meta: { title: 'Contracts', permission: 'contracts' } },
+            // Sales > Sales Contracts (customer contracts + recurring invoices).
+            { path: 'sales-contracts', name: 'sales-contracts', component: SalesContracts, meta: { title: 'Sales Contracts', permission: 'sales_contracts_view' } },
+            { path: 'sales-contracts/create', name: 'sales-contract-create', component: SalesContractForm, meta: { title: 'New Sales Contract', permission: 'sales_contracts_add' } },
+            { path: 'sales-contracts/:id(\\d+)/edit', name: 'sales-contract-edit', component: SalesContractForm, meta: { title: 'Edit Sales Contract', permission: 'sales_contracts_edit' } },
+            { path: 'sales-contracts/:id(\\d+)', name: 'sales-contract-view', component: SalesContractView, meta: { title: 'Sales Contract', permission: 'sales_contracts_view' } },
+            { path: 'contracts', name: 'contracts', component: Contracts, meta: { title: 'Employee Contracts', permission: 'contracts' } },
             { path: 'contracts/create', name: 'contract-create', component: ContractForm, meta: { title: 'Add Contract', permission: 'contracts' } },
             { path: 'contracts/:id/edit', name: 'contract-edit', component: ContractForm, meta: { title: 'Edit Contract', permission: 'contracts' } },
             { path: 'contracts/:id(\\d+)', name: 'contract-view', component: ContractView, meta: { title: 'View Contract', permission: 'contracts' } },

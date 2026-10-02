@@ -2,7 +2,7 @@
   <div class="page">
     <PageHeader
       :title="contract ? `${contract.contract_number} — ${contract.subject}` : $t('Contract')"
-      :breadcrumb="[$t('Contracts'), $t('Contract')]"
+      :breadcrumb="['Employee Contracts', $t('Contract')]"
     >
       <template #actions>
         <a-button :loading="pdfLoading" @click="previewContractPdf">
@@ -40,16 +40,12 @@
               <span class="hero-number">{{ contract.contract_number }}</span>
               <a-tag :color="contractStatusColor(contract.status)">{{ contractStatusLabel(contract.status) }}</a-tag>
               <a-tag v-if="contractTypeLabel(contract.type)">{{ contractTypeLabel(contract.type) }}</a-tag>
-              <a-tag v-if="contract.hide_from_customer && contract.party_type !== 'employee'">
-                <template #icon><EyeInvisibleOutlined /></template>
-                Hidden from customer
-              </a-tag>
             </div>
             <h2 class="hero-subject">{{ contract.subject }}</h2>
 
             <div class="hero-meta">
               <div class="meta-item">
-                <span class="meta-label">{{ contract.party_type === 'employee' ? $t('Employee') : $t('Customer') }}</span>
+                <span class="meta-label">{{ $t('Employee') }}</span>
                 <span class="meta-value">
                   <a-avatar size="small" :style="{ background: avatarColor(partyName) }">{{ initial(partyName) }}</a-avatar>
                   {{ partyName || '-' }}
@@ -264,7 +260,7 @@
           <a-card size="small">
             <a-alert
               type="info" style="margin-bottom: 12px"
-              message="Use merge fields in templates: {contract_number}, {customer_name}, {start_date}, {end_date}, {contract_value}, etc."
+              message="Use merge fields in templates: {contract_number}, {employee_name}, {start_date}, {end_date}, {contract_value}, etc."
             />
             <a-button type="link" style="padding: 0" @click="loadMergeFields">View available merge fields</a-button>
             <div v-if="mergeFields.length" class="merge-list">
@@ -323,7 +319,7 @@
         <a-form-item label="Name *">
           <a-input v-model:value="templateForm.name" placeholder="e.g. Standard service contract" />
         </a-form-item>
-        <a-form-item label="Content (HTML supported, use merge fields like {customer_name})">
+        <a-form-item label="Content (HTML supported, use merge fields like {employee_name})">
           <a-textarea v-model:value="templateForm.content" :rows="12" />
         </a-form-item>
       </a-form>
@@ -387,7 +383,7 @@ const tab = ref('contract');
 const canEdit = computed(() => auth.can('contracts'));
 const partyName = computed(() => {
   const c = contract.value || {};
-  return c.party_name || (c.party_type === 'employee' ? c.employee_name : c.client_name);
+  return c.employee_name || c.party_name;
 });
 const safeDescription = computed(() => DOMPurify.sanitize(contract.value?.description || ''));
 

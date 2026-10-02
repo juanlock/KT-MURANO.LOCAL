@@ -1005,6 +1005,17 @@ export const PERMISSION_GROUPS = [
         ]
     },
     {
+        // Sales > Sales Contracts (customer contracts + recurring invoices).
+        "label": "Sales Contracts",
+        "items": [
+            { "v": "sales_contracts_view", "l": "Sales_Contracts_View", "f": "View sales contracts" },
+            { "v": "sales_contracts_add", "l": "Sales_Contracts_Add", "f": "Add sales contracts" },
+            { "v": "sales_contracts_edit", "l": "Sales_Contracts_Edit", "f": "Edit sales contracts" },
+            { "v": "sales_contracts_delete", "l": "Sales_Contracts_Delete", "f": "Delete sales contracts" },
+            { "v": "sales_contracts_invoice", "l": "Sales_Contracts_Invoice", "f": "Generate contract invoices" }
+        ]
+    },
+    {
         // Own group (was inside HRM): the role editor shows a group's
         // checkboxes under the first menu item using it -- inside HRM, the
         // whole HRM group landed under Booking Management > Booking List.

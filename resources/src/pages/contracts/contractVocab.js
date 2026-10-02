@@ -1,6 +1,6 @@
 /**
  * Contract vocabularies — values and English labels hardcoded in legacy too.
- * Party types: customer | employee.
+ * Employee contracts only (customer contracts: pages/sales_contracts).
  */
 export const CONTRACT_TYPES = [
     { value: 'service', label: 'Service' },

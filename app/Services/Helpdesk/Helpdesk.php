@@ -98,8 +98,14 @@ class Helpdesk
                 'public_token' => Str::random(48),
                 'last_message_at' => now(),
             ]);
-            self::addMessage($ticket, 'requester', $body, [
-                'user_id' => $r['user_id'] ?? null, 'name' => $ticket->requester_name, 'email' => $ticket->requester_email,
+            // first_author 'agent': a conversation the helpdesk started (an
+            // email written from its mailbox in webmail) -- the first message
+            // is the agent's, to the requester.
+            $agentFirst = ($opts['first_author'] ?? 'requester') === 'agent';
+            self::addMessage($ticket, $agentFirst ? 'agent' : 'requester', $body, [
+                'user_id' => $agentFirst ? null : ($r['user_id'] ?? null),
+                'name' => $agentFirst ? ($opts['author_name'] ?? null) : $ticket->requester_name,
+                'email' => $agentFirst ? ($opts['author_email'] ?? null) : $ticket->requester_email,
                 'via' => $source === 'admin' ? 'app' : $source, 'email_message_id' => $opts['email_message_id'] ?? null,
                 'attachments' => $opts['attachments'] ?? [], 'notify' => false,
             ]);
@@ -108,7 +114,7 @@ class Helpdesk
         });
 
         // Acknowledgement to the requester (not for tickets agents open for themselves).
-        if ($s->auto_reply && $ticket->requester_email && $source !== 'admin') {
+        if ($s->auto_reply && $ticket->requester_email && $source !== 'admin' && empty($opts['no_auto_reply'])) {
             HelpdeskMailer::send($ticket, 'Your request '.$ticket->number.' has been received',
                 "Hello ".($ticket->requester_name ?: '').",\n\nThanks for contacting us. We received your request and will answer soon.\n\nYou can reply to this email to add information.");
         }

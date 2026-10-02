@@ -5279,7 +5279,10 @@ export default {
       let flag = null;
       try { flag = JSON.parse(sessionStorage.getItem('pos_logout_closeout') || 'null'); } catch (e) { flag = null; }
       if (!flag) return;
-      if (!flag.at || Date.now() - flag.at > 5 * 60 * 1000) {
+      // Stale, or left by ANOTHER user of this browser tab (e.g. an earlier
+      // login's logout attempt): drop it -- never act on someone else's note.
+      const me = this.currentUser && this.currentUser.id;
+      if (!flag.at || Date.now() - flag.at > 5 * 60 * 1000 || !flag.user_id || Number(flag.user_id) !== Number(me)) {
         try { sessionStorage.removeItem('pos_logout_closeout'); } catch (e) { /* ignore */ }
         return;
       }

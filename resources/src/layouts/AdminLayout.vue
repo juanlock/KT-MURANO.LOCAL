@@ -199,7 +199,9 @@ async function openRegisterOf() {
 }
 function goCloseRegister(register) {
   try {
-    window.sessionStorage.setItem('pos_logout_closeout', JSON.stringify({ warehouse_id: register.warehouse_id, at: Date.now() }));
+    // user_id: the POS only acts on its own user's note (another login in
+    // this tab must never inherit it).
+    window.sessionStorage.setItem('pos_logout_closeout', JSON.stringify({ warehouse_id: register.warehouse_id, user_id: auth.user?.id, at: Date.now() }));
   } catch (e) { /* storage unavailable */ }
   message.warning(`Close register #${register.id} before signing out.`);
   router.push('/pos');

@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <PageHeader :title="$t('Contracts')" :breadcrumb="[$t('Contracts')]">
+    <PageHeader title="Employee Contracts" :breadcrumb="[$t('hrm'), 'Employee Contracts']">
       <template #actions>
         <a-button type="primary" @click="$router.push('/contracts/create')">
           <template #icon><PlusOutlined /></template>
@@ -30,9 +30,6 @@
     <DataTable :crud="crud" :columns="columns">
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'value'">{{ money(record.value) }}</template>
-        <template v-else-if="column.key === 'party_type'">
-          <a-tag>{{ record.party_type === 'employee' ? $t('Employee') : $t('Customer') }}</a-tag>
-        </template>
         <template v-else-if="column.key === 'type'">{{ typeLabel(record.type) }}</template>
         <template v-else-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
         <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : '—' }}</template>
@@ -105,8 +102,7 @@ const tiles = computed(() => [
 const columns = computed(() => [
   { title: '#', dataIndex: 'contract_number', key: 'contract_number', sorter: true },
   { title: t('Subject'), dataIndex: 'subject', key: 'subject', sorter: true },
-  { title: t('Type'), key: 'party_type', dataIndex: 'party_type', exportValue: r => r.party_type },
-  { title: t('Name'), dataIndex: 'party_name', key: 'party_name' },
+  { title: t('Employee'), dataIndex: 'employee_name', key: 'employee_name' },
   { title: t('Amount'), key: 'value', dataIndex: 'value', sorter: true, align: 'right', exportValue: r => money(r.value) },
   { title: t('Categorie'), key: 'type', dataIndex: 'type', exportValue: r => typeLabel(r.type) },
   { title: t('start_date'), key: 'start_date', dataIndex: 'start_date', sorter: true, exportValue: r => (r.start_date ? date(r.start_date) : '') },

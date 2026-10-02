@@ -141,6 +141,7 @@ class LoginController extends Controller
                     'code' => 'register_open',
                     'message' => 'Close register #'.$openRegister->id.' before signing out.',
                     'register' => $openRegister,
+                    'user_id' => $user->id,
                 ], 409);
             }
 

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Portal;
 
 use App\Http\Controllers\Controller;
-use App\Models\Contract;
+// Customer contracts live in Sales > Sales Contracts since the 2026-10-02 split
+// (App\Models\Contract is employee contracts only).
+use App\Models\SalesContract as Contract;
 use App\Models\ContractAttachment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -103,7 +105,6 @@ class PortalContractsController extends Controller
         $this->assertPortalActive($portalClient);
 
         $contract = $this->findVisibleContract($portalClient->client_id, $id);
-        $contract->load('attachments:id,contract_id,file_name,file_path');
 
         return response()->json([
             'id' => $contract->id,
@@ -117,10 +118,8 @@ class PortalContractsController extends Controller
             'status' => $contract->status,
             'signer_name' => $contract->signer_name,
             'signed_at' => optional($contract->signed_at)->toIso8601String(),
-            'attachments' => $contract->attachments->map(fn ($a) => [
-                'id' => $a->id,
-                'file_name' => $a->file_name,
-            ]),
+            // Sales contracts have no attachments (yet).
+            'attachments' => [],
         ]);
     }
 
@@ -132,8 +131,10 @@ class PortalContractsController extends Controller
         $portalClient = Auth::guard('portal')->user();
         $this->assertPortalActive($portalClient);
 
-        $contract = $this->findVisibleContract($portalClient->client_id, $id);
-        $att = ContractAttachment::where('contract_id', $contract->id)->findOrFail($attachmentId);
+        $this->findVisibleContract($portalClient->client_id, $id);
+        // Sales contracts have no attachments (yet).
+        abort(404);
+        $att = ContractAttachment::findOrFail($attachmentId);
 
         $path = Storage::disk('public')->path($att->file_path);
         if (! file_exists($path)) {

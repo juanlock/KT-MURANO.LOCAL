@@ -11,8 +11,9 @@ class Contract extends Model
 
     protected $dates = ['deleted_at', 'signed_at'];
 
+    // Employee contracts only (HRM). Customer contracts are App\Models\SalesContract.
     protected $fillable = [
-        'contract_number', 'party_type', 'client_id', 'employee_id', 'project_id', 'subject', 'value', 'type',
+        'company_id', 'contract_number', 'party_type', 'client_id', 'employee_id', 'project_id', 'subject', 'value', 'type',
         'start_date', 'end_date', 'description', 'hide_from_customer', 'status',
         'signer_name', 'signed_at', 'signed_ip',
     ];

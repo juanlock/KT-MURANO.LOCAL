@@ -50,7 +50,7 @@ class HelpdeskMailer
         try {
             [$mailer, $from] = self::mailer($s);
             $replyTo = $s->address() ?: $from;
-            $mailer->html($html, function ($m) use ($to, $ticket, $tagged, $from, $replyTo, $s, $company, $attachments, $text) {
+            $sent = $mailer->html($html, function ($m) use ($to, $ticket, $tagged, $from, $replyTo, $s, $company, $attachments, $text) {
                 $m->to($to, $ticket->requester_name ?: null)
                     ->from($from, $s->from_name ?: $company ?: 'Support')
                     ->replyTo($replyTo)
@@ -63,6 +63,18 @@ class HelpdeskMailer
                     }
                 }
             });
+
+            // A copy in the mailbox's Sent folder, like any email sent from it
+            // (webmail shows the whole conversation). After the response; a
+            // failure is only logged. It carries X-Helpdesk-Ticket, so the
+            // Sent-folder import (HelpdeskMailFetcher) never re-imports it.
+            if ($sent && $s->imap_enabled && $s->imap_host) {
+                $raw = $sent->toString();
+                $settingId = $s->id;
+                dispatch(static function () use ($settingId, $raw) {
+                    HelpdeskMailFetcher::appendToSent(HelpdeskSetting::find($settingId), $raw);
+                })->afterResponse();
+            }
 
             return true;
         } catch (\Throwable $e) {

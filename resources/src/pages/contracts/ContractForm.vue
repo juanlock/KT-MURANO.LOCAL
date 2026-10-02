@@ -2,7 +2,7 @@
   <div class="page">
     <PageHeader
       :title="isEdit ? $t('Edit') : $t('Add')"
-      :breadcrumb="[$t('Contracts'), isEdit ? $t('Edit') : $t('Add')]"
+      :breadcrumb="['Employee Contracts', isEdit ? $t('Edit') : $t('Add')]"
     />
 
     <div v-if="loadingRecord" style="display: flex; justify-content: center; padding: 96px 0">
@@ -23,27 +23,9 @@
             </a-form-item>
           </a-col>
 
+          <!-- Employee contracts only: customer contracts are Sales > Sales Contracts. -->
           <a-col :xs="24" :md="12">
-            <a-form-item :label="$t('Type')" name="party_type">
-              <a-select
-                v-model:value="form.party_type"
-                :options="[
-                  { value: 'customer', label: $t('Customer') },
-                  { value: 'employee', label: $t('Employee') },
-                ]"
-                @change="onPartyTypeChange"
-              />
-            </a-form-item>
-          </a-col>
-          <a-col :xs="24" :md="12">
-            <a-form-item
-              v-if="form.party_type === 'customer'"
-              :label="$t('Customer')"
-              name="client_id"
-            >
-              <a-select v-model:value="form.client_id" show-search option-filter-prop="label" :options="clientOptions" />
-            </a-form-item>
-            <a-form-item v-else :label="$t('Employee')" name="employee_id">
+            <a-form-item :label="$t('Employee')" name="employee_id">
               <a-select v-model:value="form.employee_id" show-search option-filter-prop="label" :options="employeeOptions" />
             </a-form-item>
           </a-col>
@@ -80,14 +62,7 @@
               <a-select v-model:value="form.status" :options="CONTRACT_STATUSES" />
             </a-form-item>
           </a-col>
-          <a-col :xs="24" :md="12">
-            <a-form-item label=" ">
-              <!-- Hardcoded English in legacy too — no i18n key exists. -->
-              <a-checkbox v-model:checked="form.hide_from_customer">
-                Hide from customer
-              </a-checkbox>
-            </a-form-item>
-          </a-col>
+
 
           <a-col :span="24">
             <a-form-item :label="$t('Description')" name="description">
@@ -107,12 +82,12 @@
 
 <script setup>
 /**
- * Create: GET contracts/create → {clients, employees, projects,
- * next_contract_number}; POST contracts (whole form; blank contract_number is
- * omitted so the backend numbers it). Edit: GET contracts/{id}/edit →
- * {contract, clients, employees, projects}; PUT contracts/{id}. Party type is
- * customer|employee, switching the party select. Backend 422s carry field
- * errors — surfaced as messages, matching legacy.
+ * HRM > Employee Contracts (employees only -- customer contracts are Sales >
+ * Sales Contracts). Create: GET contracts/create → {employees, projects,
+ * next_contract_number}; POST contracts (blank contract_number is omitted so
+ * the backend numbers it). Edit: GET contracts/{id}/edit → {contract,
+ * employees, projects}; PUT contracts/{id}. Employees are the acting
+ * company's. Backend 422s carry field errors — surfaced as messages.
  */
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -122,6 +97,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import RichTextEditor from '../../components/RichTextEditor.vue';
 import { CONTRACT_TYPES, CONTRACT_STATUSES } from './contractVocab';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -134,31 +110,24 @@ const loadingRecord = ref(true);
 const submitting = ref(false);
 const formRef = ref();
 
-const clients = ref([]);
 const employees = ref([]);
 const projects = ref([]);
 
 const form = ref({
-  contract_number: '', subject: '', party_type: 'customer',
-  client_id: undefined, employee_id: undefined, project_id: undefined,
+  contract_number: '', subject: '',
+  employee_id: undefined, project_id: undefined,
   type: 'service', value: 0, start_date: null, end_date: null,
-  status: 'draft', hide_from_customer: false, description: '',
+  status: 'draft', description: '',
 });
 
-const clientOptions = computed(() => clients.value.map(c => ({ value: c.id, label: c.name })));
-const employeeOptions = computed(() => employees.value.map(e => ({ value: e.id, label: e.username || e.name })));
-const projectOptions = computed(() => projects.value.map(p => ({ value: p.id, label: p.title || p.name })));
+const employeeOptions = computed(() => sortByLabel(employees.value.map(e => ({ value: e.id, label: [e.firstname, e.lastname].filter(Boolean).join(' ') || e.username || e.name }))));
+const projectOptions = computed(() => sortByLabel(projects.value.map(p => ({ value: p.id, label: p.title || p.name }))));
 
 const rules = computed(() => ({
   subject: [{ required: true, message: t('Field_is_required') }],
-  party_type: [{ required: true, message: t('Field_is_required') }],
+  employee_id: [{ required: true, message: t('Field_is_required') }],
   status: [{ required: true, message: t('Field_is_required') }],
 }));
-
-function onPartyTypeChange() {
-  form.value.client_id = undefined;
-  form.value.employee_id = undefined;
-}
 
 async function submit() {
   try {
@@ -193,15 +162,12 @@ async function bootstrap() {
   try {
     if (isEdit.value) {
       const data = await http.get(`contracts/${id.value}/edit`);
-      clients.value = data.clients || [];
       employees.value = data.employees || [];
       projects.value = data.projects || [];
       const c = data.contract || {};
-      if (!c.party_type) c.party_type = c.employee_id ? 'employee' : 'customer';
-      form.value = { ...form.value, ...c, hide_from_customer: !!c.hide_from_customer };
+      form.value = { ...form.value, ...c };
     } else {
       const data = await http.get('contracts/create');
-      clients.value = data.clients || [];
       employees.value = data.employees || [];
       projects.value = data.projects || [];
       form.value.contract_number = data.next_contract_number || '';

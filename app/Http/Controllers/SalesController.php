@@ -232,6 +232,8 @@ class SalesController extends BaseController
         $Sales = $Filtred->offset($offSet)
             ->limit($perPage)
             ->orderBy($order, $dir)
+            // Same-day sales: latest time first, then latest created.
+            ->when($order === 'date', fn ($q) => $q->orderBy('time', $dir)->orderBy('id', $dir))
             ->get();
 
         // "Other due invoices" per customer -- one grouped query for the
@@ -2658,8 +2660,7 @@ class SalesController extends BaseController
         $this->authorizeForUser($request->user('api'), 'import', Sale::class);
 
         // Company boundary: these dropdowns feed the CSV-import form and must
-        // not leak another company's warehouses/clients. sales_agents has no
-        // company_id column (pre-existing, out of scope).
+        // not leak another company's warehouses/clients/sales agents.
         $companyId = $this->resolveActingCompanyId($request);
         $user_auth = Auth::user();
         $scopeCompany = fn ($query) => $query->when($user_auth->type !== 'SuperAdmin' || $request->filled('company_id'), function ($q) use ($companyId) {
@@ -2673,7 +2674,7 @@ class SalesController extends BaseController
         }
 
         $clients = $scopeCompany(Client::whereNull('deleted_at'))->get(['id', 'name']);
-        $sales_agents = SalesAgent::where('deleted_at', '=', null)->get(['id', 'name']);
+        $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null))->get(['id', 'name']);
 
         return response()->json([
             'warehouses' => $warehouses,
@@ -3618,8 +3619,8 @@ class SalesController extends BaseController
         $this->authorizeForUser($request->user('api'), 'create', Sale::class);
 
         // Company boundary: these dropdowns feed the new-sale form and must
-        // not leak another company's warehouses/clients/staff. Accounts,
-        // payment_methods and sales_agents have no company_id column
+        // not leak another company's warehouses/clients/staff/sales agents.
+        // Accounts and payment_methods have no company_id column
         // (pre-existing, out of scope -- same note as index()).
         $companyId = $this->resolveActingCompanyId($request);
         $user_auth = auth()->user();
@@ -3638,7 +3639,7 @@ class SalesController extends BaseController
         $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
         $accounts = Account::where('deleted_at', '=', null)->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
-        $sales_agents = SalesAgent::where('deleted_at', '=', null)->get(['id', 'name']);
+        $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null))->get(['id', 'name']);
         $stripe_key = config('app.STRIPE_KEY');
         $settings = Setting::where('deleted_at', '=', null)->first();
         $salesperson_switch_enabled = (bool) ($settings->enable_pos_salesperson_switch ?? false);
@@ -3931,7 +3932,7 @@ class SalesController extends BaseController
             }
 
             $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
-            $sales_agents = SalesAgent::where('deleted_at', '=', null)->get(['id', 'name']);
+            $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null))->get(['id', 'name']);
             $settings = Setting::where('deleted_at', '=', null)->first();
 
             $salesperson_switch_enabled = (bool) ($settings->enable_pos_salesperson_switch ?? false);
@@ -4155,7 +4156,7 @@ class SalesController extends BaseController
         }
 
         $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
-        $sales_agents = SalesAgent::where('deleted_at', '=', null)->get(['id', 'name']);
+        $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null))->get(['id', 'name']);
 
         return response()->json([
             'details' => $details,

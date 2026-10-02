@@ -53,7 +53,8 @@ export default {
                             if (res && res.status === 409) {
                                 const data = await res.json().catch(() => ({}));
                                 try {
-                                    sessionStorage.setItem('pos_logout_closeout', JSON.stringify({ warehouse_id: data.register && data.register.warehouse_id, at: Date.now() }));
+                                    // user_id: only that user's POS acts on this note.
+                                    sessionStorage.setItem('pos_logout_closeout', JSON.stringify({ warehouse_id: data.register && data.register.warehouse_id, user_id: data.user_id, at: Date.now() }));
                                 } catch (e) {}
                                 window.location.replace('/next/pos');
                                 return;

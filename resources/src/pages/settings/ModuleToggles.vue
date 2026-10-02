@@ -4,7 +4,7 @@
       type="info"
       show-icon
       message="Turn business modules on or off"
-      description="A disabled module disappears from the sidebar and its pages become unreachable for every user. No data is deleted — switching a module back on restores it exactly as it was."
+      description="For the selected company: a disabled module disappears from the sidebar, its pages become unreachable and the server refuses its requests, for every user and role. Roles keep their permissions and no data is deleted — switching a module back on restores it exactly as it was."
       style="margin-bottom: 16px"
     />
 

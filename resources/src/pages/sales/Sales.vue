@@ -647,6 +647,9 @@ const crud = useCrudTable('sales', {
   params: filterParams,
   limit: 20,
   showQuickJumper: true,
+  // Most recent sale first (by sale date; the server breaks ties by time, then id).
+  sortField: 'date',
+  sortType: 'desc',
 });
 
 // ---------------- quick date-range presets ----------------
@@ -800,7 +803,7 @@ const shippingStatusOptions = computed(() => withAllOption(sortByLabel(SHIPPING_
 
 const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 130, align: 'center', fixed: 'left' },
-  { title: t('date'), dataIndex: 'date', key: 'date', sorter: true, exportValue: r => dateTime(r.date) },
+  { title: t('date'), dataIndex: 'date', key: 'date', sorter: true, defaultSortOrder: 'descend', exportValue: r => dateTime(r.date) },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   { title: t('Seller'), dataIndex: 'seller_name', key: 'seller_name' },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name', sorter: true },

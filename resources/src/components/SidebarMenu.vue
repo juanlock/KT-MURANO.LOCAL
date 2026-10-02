@@ -606,8 +606,9 @@ watch(openKeys, (nv, ov) => {
    menu — collapsed mode uses flyout popups, which are untouched. */
 .sidebar-menu :deep(.ant-menu-sub.ant-menu-inline) {
   position: relative;
-  /* Distinct inset background so the open submenu reads as a nested panel. */
-  background: rgba(0, 0, 0, 0.025);
+  /* Level 2: a light tint of the theme colour, so an open submenu reads as
+     its own panel (level 3 below gets a stronger tint). */
+  background: color-mix(in srgb, var(--sb-primary, #6d28d9) 7%, #fff);
 }
 /* Open/close submenus INSTANTLY — Ant's height expand/collapse motion over a
    250-item menu is what read as slow; killing the transition makes it snap. */
@@ -619,7 +620,15 @@ watch(openKeys, (nv, ov) => {
   animation: none !important;
 }
 .sidebar-menu.ant-menu-dark :deep(.ant-menu-sub.ant-menu-inline) {
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(0, 0, 0, 0.18);
+}
+/* "Where am I": the groups holding the current page show their title bold
+   (light theme also in the theme colour). */
+.sidebar-menu :deep(.ant-menu-submenu-selected > .ant-menu-submenu-title) {
+  font-weight: 600 !important;
+}
+.sidebar-menu.ant-menu-light :deep(.ant-menu-submenu-selected > .ant-menu-submenu-title) {
+  color: var(--sb-primary, #6d28d9);
 }
 /* The guide line itself, sitting just under the parent group's label. */
 .sidebar-menu :deep(.ant-menu-sub.ant-menu-inline)::before {
@@ -689,12 +698,13 @@ watch(openKeys, (nv, ov) => {
    depth, tighter indent, and labels wrap so the full name always shows. */
 .sidebar-menu :deep(.ant-menu-sub.ant-menu-inline .ant-menu-sub.ant-menu-inline) {
   margin-inline-start: 14px;
-  border-inline-start: 2px solid rgba(0, 0, 0, 0.12);
-  background: transparent;
+  border-inline-start: 2px solid color-mix(in srgb, var(--sb-primary, #6d28d9) 45%, #fff);
+  /* Level 3: a stronger tint than level 2. */
+  background: color-mix(in srgb, var(--sb-primary, #6d28d9) 15%, #fff);
 }
 .sidebar-menu.ant-menu-dark :deep(.ant-menu-sub.ant-menu-inline .ant-menu-sub.ant-menu-inline) {
   border-inline-start-color: var(--sb-overlay);
-  background: transparent;
+  background: rgba(0, 0, 0, 0.2);
 }
 /* The inherited pseudo rail is redundant inside the nested panel. */
 .sidebar-menu :deep(.ant-menu-sub.ant-menu-inline .ant-menu-sub.ant-menu-inline)::before {

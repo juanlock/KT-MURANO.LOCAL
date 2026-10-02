@@ -277,6 +277,7 @@ export const MIGRATED_ROUTES = {
     '/app/projects/reports': '/projects/reports',
     '/app/tasks/board': '/tasks/board',
     '/app/contracts': '/contracts',
+    '/app/sales_contracts': '/sales-contracts',
     '/app/documents': '/documents',
     '/app/fleet/dashboard': '/fleet/dashboard',
     '/app/fleet/vehicles': '/fleet/vehicles',
@@ -495,11 +496,13 @@ export const MENU = [
         key: 'sales',
         icon: 'shopping-cart',
         label: 'Sales',
-        permissions: ['Sales_view', 'Sales_add', 'Pos_view', 'customer_display_screen_setup', 'shipment', 'real_time_sales_counter'],
+        permissions: ['Sales_view', 'Sales_add', 'Pos_view', 'customer_display_screen_setup', 'shipment', 'real_time_sales_counter', 'sales_contracts_view'],
         children: [
             { label: 'ListSales', to: '/app/sales/list', permissions: ['Sales_view'] },
             { label: 'AddSale', to: '/app/sales/store', permissions: ['Sales_add'] },
             { label: 'Import_Sales', to: '/app/sales/import_sales', permissions: ['sales_import'] },
+            // Customer contracts with recurring invoices (employee contracts: HRM).
+            { label: 'Sales Contracts', raw: true, to: '/app/sales_contracts', permissions: ['sales_contracts_view'] },
             { label: 'POS', to: '/app/pos', permissions: ['Pos_view'] },
             // Sales list narrowed to POS sales (companies' "POS Management" group).
             { label: 'POS_Sales', to: '/app/pos/sales', permissions: ['Sales_view'] },
@@ -607,7 +610,8 @@ export const MENU = [
             },
             { label: 'Holidays', to: '/app/hrm/holidays', permissions: ['holiday'] },
             { label: 'Payroll', to: '/app/hrm/payrolls', permissions: ['payroll'] },
-            { label: 'Contracts', to: '/app/contracts', permissions: ['contracts'] },
+            // Employees only (customer contracts: Sales > Sales Contracts).
+            { label: 'Employee Contracts', raw: true, to: '/app/contracts', permissions: ['contracts'] },
         ],
     },
     {

@@ -818,6 +818,9 @@
     <script>
       // A new sign-in gets its start page again (lib/startPage.js).
       try { sessionStorage.removeItem('start_page_opened'); } catch (e) {}
+      // A previous user's "close your register before signing out" note must
+      // never carry over to whoever signs in next in this tab.
+      try { sessionStorage.removeItem('pos_logout_closeout'); } catch (e) {}
       (function() {
         const form = document.getElementById('login_form');
         const submitBtn = document.getElementById('login_submit_btn');

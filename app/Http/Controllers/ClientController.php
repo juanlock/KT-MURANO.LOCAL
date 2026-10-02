@@ -205,16 +205,18 @@ class ClientController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'create', Client::class);
 
+        // A customer's email is unique WITHIN its company (user's rule): the
+        // same email may belong to customers of other companies.
+        $emailCompanyId = $this->resolveActingCompanyId($request);
         $this->validate($request, [
             'name' => 'required',
             'firstname' => ['nullable', 'string', 'max:255'],
             'lastname' => ['nullable', 'string', 'max:255'],
             'email' => [
                 'nullable', 'email', 'max:255',
-                // Ensure email is unique in clients table (exclude soft-deleted)
-                Rule::unique('clients', 'email')->whereNull('deleted_at'),
-                // Ensure email is unique in ecommerce_clients table (exclude soft-deleted)
-                Rule::unique('ecommerce_clients', 'email')->whereNull('deleted_at'),
+                Rule::unique('clients', 'email')->whereNull('deleted_at')->where('company_id', $emailCompanyId),
+                Rule::unique('ecommerce_clients', 'email')->whereNull('deleted_at')
+                    ->where(fn ($q) => $q->whereIn('client_id', Client::where('company_id', $emailCompanyId)->select('id'))),
             ],
             'additional_emails' => ['nullable', 'array', 'max:10'],
             'additional_emails.*' => ['email', 'max:255'],
@@ -303,6 +305,8 @@ class ClientController extends BaseController
             ->whereNull('deleted_at')
             ->first();
         $ecommerceClientId = $existingEcommerceClient ? $existingEcommerceClient->id : null;
+        // The customer's own company (email uniqueness is per company).
+        $emailCompanyId = (int) (Client::whereKey($id)->value('company_id') ?: $this->resolveActingCompanyId($request));
 
         // Validate input for both Client and EcommerceClient
         $validated = $request->validate([
@@ -313,14 +317,16 @@ class ClientController extends BaseController
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => [
                 'nullable', 'email', 'max:255',
-                // Ensure email is unique in clients table (ignore current client, exclude soft-deleted)
+                // Unique WITHIN the customer's company (other companies may
+                // have a customer with the same email). Ignores this customer.
                 Rule::unique('clients', 'email')
                     ->ignore($id)
-                    ->whereNull('deleted_at'),
-                // Ensure email is unique in ecommerce_clients table (ignore current ecommerce_client if exists, exclude soft-deleted)
+                    ->whereNull('deleted_at')
+                    ->where('company_id', $emailCompanyId),
                 Rule::unique('ecommerce_clients', 'email')
                     ->ignore($ecommerceClientId)
-                    ->whereNull('deleted_at'),
+                    ->whereNull('deleted_at')
+                    ->where(fn ($q) => $q->whereIn('client_id', Client::where('company_id', $emailCompanyId)->select('id'))),
             ],
             'additional_emails' => ['nullable', 'array', 'max:10'],
             'additional_emails.*' => ['email', 'max:255'],
