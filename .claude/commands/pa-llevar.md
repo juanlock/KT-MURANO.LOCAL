@@ -1,8 +1,8 @@
 ---
-description: "Protocol Pa Llevar (formerly A Dormir) -- end-of-session close-out: check the build (npm run build), run Kelsy (log the session to kt_logs), write the day's report, back up dbmurano into KT-TOOLS/database (Copia BD), then commit everything with a summary + detailed description and push to GitHub. Triggers on \"Claude/Jarvis, run protocol pa llevar\" / \"protocolo pa llevar\" and also on \"run protocol a dormir\" / \"protocolo a dormir\"."
+description: "Protocol Pa Llevar (formerly A Dormir) -- end-of-session close-out: check the build (npm run build), run Kelsy (log the session to kt_logs), write the day's report, back up dbmurano into KT-TOOLS/database (Copia BD), then commit everything with a summary + detailed description and push to GitHub. Triggers on \"Claude/Jarvis, run protocol pa llevar\" / \"protocolo pa llevar\"."
 ---
 
-Run Protocol Pa Llevar ("to go") -- the end-of-session close-out (A Dormir merged into it; both names run this). In this order. Stop and report if a step fails; never skip ahead silently.
+Run Protocol Pa Llevar ("to go") -- the end-of-session close-out (it absorbed the old A Dormir protocol, which no longer exists). In this order. Stop and report if a step fails; never skip ahead silently.
 
 0. **Build check** -- `npm run build` (all bundles: admin, customer display, portal, storefront). It must finish without errors: a broken build is never committed/pushed. If it fails, stop and report the error. (`public/js` itself is not in git -- this step only proves the code that is about to be pushed builds; every machine still builds after pulling, see Preparate.)
 

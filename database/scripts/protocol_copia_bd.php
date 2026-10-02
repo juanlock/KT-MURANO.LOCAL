@@ -84,24 +84,90 @@ $date = now()->format('Y-m-d');
 $time = now()->format('h-i-s-A');
 $outFile = $outDir.DIRECTORY_SEPARATOR."dbmurano_{$date}_{$host}_{$time}.sql";
 
-$command = [
+// phpMyAdmin-ready (user's rule, 2026-10-01): the file must import as-is
+// through phpMyAdmin -> Import on shared hosting (e.g. Hostinger), into
+// whatever database is selected there. So:
+//  - one database, no --databases: no CREATE DATABASE / USE inside;
+//  - --skip-add-locks: no LOCK TABLES (that privilege isn't always granted);
+//  - utf8mb4 throughout; DROP TABLE IF EXISTS before each table (default),
+//    so re-importing replaces the tables;
+//  - each line is cleaned while streaming (see $clean below).
+// Three passes, in this order in the file (user's rule, 2026-10-01):
+//  1. structure: every CREATE TABLE (+ routines) -- all tables exist before any data;
+//  2. data: every INSERT;
+//  3. triggers last -- created after the data so they don't fire on the
+//     imported rows (kt_logs' BEFORE INSERT trigger would rewrite versions).
+$base = [
     $mysqldump,
     '-h', (string) $conn['host'],
     '-P', (string) $conn['port'],
     '-u', (string) $conn['username'],
     '-p'.$conn['password'],
-    '--routines',
-    '--triggers',
     '--single-transaction',
-    (string) $conn['database'],
+    '--skip-add-locks',
+    '--default-character-set=utf8mb4',
+];
+$db = (string) $conn['database'];
+$passes = [
+    '1. TABLES (structure only)' => array_merge($base, ['--no-data', '--routines', '--skip-triggers', $db]),
+    '2. DATA' => array_merge($base, ['--no-create-info', '--skip-triggers', $db]),
+    '3. TRIGGERS' => array_merge($base, ['--no-create-info', '--no-data', '--triggers', $db]),
 ];
 
-$fh = fopen($outFile, 'w');
-$result = Process::timeout(600)->run($command, function ($type, $chunk) use ($fh) {
-    if ($type === \Symfony\Component\Process\Process::OUT) {
-        fwrite($fh, $chunk);
+// Line clean-up for portability (structure lines only -- INSERT data rows
+// are written untouched, so no text inside the data is ever altered):
+//  - drop MariaDB 11's "/*M!999999\- enable the sandbox mode */" first line
+//    (MySQL / older MariaDB clients choke on it);
+//  - collations only MariaDB 11 (uca1400) or MySQL 8 (0900) know become
+//    utf8mb4_unicode_ci, which every MySQL / MariaDB version supports
+//    ("Unknown collation" otherwise);
+//  - DEFINER=`user`@`host` removed from triggers / routines / views (needs
+//    SUPER on shared hosting; without it they run as the importing user).
+$clean = function (string $line): ?string {
+    if (str_starts_with($line, '/*M!999999\\- enable the sandbox mode')) {
+        return null;
     }
-});
+    if (str_starts_with($line, 'INSERT INTO')) {
+        return $line;
+    }
+    $line = preg_replace('/\b(utf8mb[34])_(?:uca1400|0900)_[a-z_]+\b/', '$1_unicode_ci', $line);
+    $line = preg_replace('#/\*!50017 DEFINER=`[^`]*`@`[^`]*`\s*\*/\s*#', '', $line);
+    $line = preg_replace('/\s*DEFINER\s*=\s*`[^`]*`@`[^`]*`/', '', $line);
+
+    return $line;
+};
+
+$fh = fopen($outFile, 'w');
+fwrite($fh, "-- Murano database export (Protocol Copia BD), phpMyAdmin-ready:\n"
+    ."-- phpMyAdmin -> select the target database -> Import -> this file.\n"
+    ."-- Order: 1) all CREATE TABLE  2) all data (INSERT)  3) triggers.\n"
+    ."-- No CREATE DATABASE / USE, no LOCK TABLES, no DEFINER, only portable\n"
+    ."-- collations (utf8mb4_unicode_ci). Existing tables are replaced.\n\n");
+$result = null;
+foreach ($passes as $title => $command) {
+    fwrite($fh, "\n-- ============================================================\n-- {$title}\n-- ============================================================\n\n");
+    $buffer = '';
+    $result = Process::timeout(600)->run($command, function ($type, $chunk) use ($fh, $clean, &$buffer) {
+        if ($type !== \Symfony\Component\Process\Process::OUT) {
+            return;
+        }
+        // Chunks don't end on line breaks: clean complete lines only.
+        $buffer .= $chunk;
+        while (($pos = strpos($buffer, "\n")) !== false) {
+            $line = $clean(substr($buffer, 0, $pos + 1));
+            $buffer = substr($buffer, $pos + 1);
+            if ($line !== null) {
+                fwrite($fh, $line);
+            }
+        }
+    });
+    if ($buffer !== '' && ($line = $clean($buffer)) !== null) {
+        fwrite($fh, $line);
+    }
+    if (! $result->successful()) {
+        break;
+    }
+}
 fclose($fh);
 
 if (! $result->successful()) {

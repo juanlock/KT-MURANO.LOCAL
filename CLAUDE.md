@@ -33,10 +33,10 @@ the *full* `kt_logs` history.
 
 **Protocol reports are kept and shared (user's rule, 2026-09-30):** every
 HTML report a protocol (or an ad-hoc "report for the last N requests")
-generates goes to **`KT-TOOLS/Report/`** -- git-tracked, committed by A
-Dormir, so every programmer gets them. One file per day per report
+generates goes to **`KT-TOOLS/Report/`** -- git-tracked, committed by Pa
+Llevar, so every programmer gets them. One file per day per report
 (`kt_murano_preparate_<date>`, `kt_murano_memorex_<date>`,
-`kt_murano_last<N>_<date>`, and A Dormir's `kt_murano_daily_<date>` with all
+`kt_murano_last<N>_<date>`, and Pa Llevar's `kt_murano_daily_<date>` with all
 of that day's requests); a re-run the same day overwrites that day's file,
 older days are never deleted. Not `.claude/report/` or a temp dir.
 
@@ -151,7 +151,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   As soon as a request is finished -- code change, question, check, anything
   -- append its `kt_logs` row immediately (same column rules as Kelsy,
   including the verbatim closing message in `done`), without waiting for
-  Kelsy / A Dormir to be invoked and without asking first. Those protocols
+  Kelsy / Pa Llevar to be invoked and without asking first. Those protocols
   then only have to catch up anything that slipped through. Location comes
   from the machine (`KT-THUNDERA` -> Thundera, Home PC -> Home); ask only if
   it's genuinely unclear.
@@ -166,7 +166,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   ported from billing, this one is Murano's own: syncs this PC to the latest
   version (pull + only-if-needed install/migrate + `npm run build`), reloads
   this file's rules, then closes out with an HTML status card for the last
-  2 requests (see above). The start-of-session counterpart of A Dormir.
+  2 requests (see above). The start-of-session counterpart of Pa Llevar.
 - **Copia BD** (`/copia-bd`, or "Jarvis, run protocolo copia bd") — not
   ported from billing, this one is Murano's own: dumps `dbmurano` via
   `mysqldump` (`database/scripts/protocol_copia_bd.php`) into
@@ -174,15 +174,22 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   `dbmurano_2026-09-29_KT-THUNDERA_11-23-38-AM.sql` — host from
   `gethostname()`, time human-readable 12-hour with AM/PM via `now()`, not a
   bare digit run) — a phpMyAdmin-independent backup after a local phpMyAdmin
-  export bug corrupted a manual backup attempt. `KT-TOOLS/` is git-tracked,
+  export bug corrupted a manual backup attempt. Every dump is phpMyAdmin-ready
+  (imports as-is into any selected database, e.g. Hostinger): all CREATE TABLE
+  first, then data, then triggers; no CREATE DATABASE / USE / LOCK TABLES /
+  DEFINER; portable utf8mb4_unicode_ci collations. `KT-TOOLS/` is git-tracked,
   so the snapshot travels across every machine this checkout is on, same as
   the other protocols.
-- **A Dormir** (`/a-dormir`, or "Jarvis, run protocolo a dormir") — Murano's
-  own end-of-session close-out: runs Kelsy, writes the day's report
-  (`KT-TOOLS/Report/kt_murano_daily_<date>.html`), then Copia BD, then commits
-  everything with a summary subject and a detailed description of the
-  changes (one bullet per `kt_logs` request, migrations, setup steps for
-  other machines, backup file) and pushes to GitHub (never force-push).
+- **Pa Llevar** (`/pa-llevar`, or "Jarvis, run protocolo pa llevar") —
+  Murano's own end-of-session close-out (A Dormir was merged into it and
+  then deleted, user's request 2026-10-01): checks `npm run build`, runs
+  Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
+  then Copia BD, then commits everything with a summary subject and a
+  detailed description of the changes (one bullet per `kt_logs` request,
+  migrations, setup steps for other machines, backup file) and pushes to
+  GitHub (never force-push; without CLI credentials the user pushes from
+  GitHub Desktop). It syncs the user's machines through GitHub -- it is NOT a
+  production deploy.
 Billing's originals stay untouched (billing is read-only, per the Hard Rules
 below) — these are Murano's own copies, kept in sync manually if the protocol
 logic evolves.
