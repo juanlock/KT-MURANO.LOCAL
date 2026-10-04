@@ -163,6 +163,26 @@
           </a-row>
         </a-card>
 
+        <!-- Other modules: the same person in the modules that work with
+             employees. Saved with the employee (Submit). -->
+        <a-card size="small" class="access-card">
+          <div class="access-title"><AppstoreAddOutlined /> Other modules</div>
+          <div class="access-help" style="margin-bottom: 10px">Add this employee to other modules. Changes are saved when you submit.</div>
+          <div v-for="m in SALES_MODULES" :key="m.key" class="module-row">
+            <div>
+              <div style="font-weight: 500">{{ m.label }}</div>
+              <div class="access-help">{{ m.help }}</div>
+            </div>
+            <a-space v-if="salesRoles[m.key]">
+              <a-tag color="green" style="margin: 0"><CheckOutlined /> {{ m.label }}</a-tag>
+              <a-button type="link" danger size="small" @click="salesRoles[m.key] = false">Remove</a-button>
+            </a-space>
+            <a-button v-else size="small" @click="salesRoles[m.key] = true">
+              <PlusOutlined /> Add to {{ m.label }}
+            </a-button>
+          </div>
+        </a-card>
+
         <a-space style="margin-top: 8px">
           <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
           <a-button @click="$router.push('/hrm/employees')">{{ $t('Cancel') }}</a-button>
@@ -186,7 +206,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { SafetyCertificateOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { SafetyCertificateOutlined, PlusOutlined, DeleteOutlined, AppstoreAddOutlined, CheckOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { GENDERS } from './hrmVocab';
 import http from '../../lib/http';
@@ -239,6 +259,13 @@ const accessErr = ref({});
 const roleOptions = computed(() => sortByLabel(roles.value
   .filter(r => !form.value.company_id || Number(r.company_id) === Number(form.value.company_id))
   .map(r => ({ value: r.id, label: r.name }))));
+
+// Other modules card -- saved with the employee as `sales_roles`.
+const SALES_MODULES = [
+  { key: 'sales_staff', label: 'Sales Staff', help: 'Can be picked as the Seller / Salesperson on sales and in the POS.' },
+  { key: 'sales_agent', label: 'Sales Agent', help: 'Commissions sales agent, selectable as Sales Agent on sales. Remove = deactivate (history stays).' },
+];
+const salesRoles = ref({ sales_staff: false, sales_agent: false });
 
 const rules = computed(() => ({
   firstname: [{ required: true, message: t('Field_is_required') }],
@@ -293,6 +320,7 @@ async function submit() {
       password: access.value.password || '',
       pin: (access.value.pin || '').trim(),
     },
+    sales_roles: { ...salesRoles.value },
   };
   try {
     if (isEdit.value) {
@@ -346,6 +374,8 @@ async function bootstrap() {
         email: a.email || '', password: '', role_id: a.role_id || undefined, pin: a.pin || '',
       };
       originalUsername.value = a.username || '';
+      const sr = data.sales_roles || {};
+      salesRoles.value = { sales_staff: !!sr.sales_staff, sales_agent: !!sr.sales_agent };
     } else {
       const data = await http.get('employees/create');
       companies.value = data.companies || [];
@@ -379,4 +409,5 @@ onMounted(bootstrap);
 .access-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .access-title { font-weight: 600; }
 .access-help { font-size: 12px; opacity: 0.65; }
+.module-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0; border-top: 1px solid rgba(0, 0, 0, 0.06); }
 </style>

@@ -34,7 +34,7 @@
           v-model:value="filters.status" class="tb-item" allow-clear
           placeholder="All statuses" :options="INVOICE_STATUSES" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <a-checkbox v-model:checked="filters.outstanding" class="tb-check" @change="crud.reload">
           Unpaid only
         </a-checkbox>
@@ -262,6 +262,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Hospital billing.
  *

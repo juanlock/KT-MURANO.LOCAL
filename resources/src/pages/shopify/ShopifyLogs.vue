@@ -32,7 +32,7 @@
           v-model:value="filters.entity" class="tb-item" allow-clear
           placeholder="All entities" :options="entityOptions" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <a-tag v-if="filters.run_id" closable color="purple" class="tb-run" @close="clearRunFilter">
           Run #{{ filters.run_id }}
         </a-tag>
@@ -100,6 +100,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * The audit trail.
  *

@@ -27,7 +27,7 @@
           v-model:value="filters.type" class="tb-item-sm" allow-clear
           placeholder="Type" :options="VISIT_TYPES" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
       </div>
     </a-card>
 
@@ -84,6 +84,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Consultation log. "Bill this consultation" hands the visit to the billing
  * page, which drafts the lines (consultation fee + prescribed medicines) from

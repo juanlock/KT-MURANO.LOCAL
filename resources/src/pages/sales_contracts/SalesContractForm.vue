@@ -260,6 +260,9 @@ onMounted(async () => {
     } else {
       form.value.contract_number = data.next_contract_number || '';
       form.value.start_date = new Date().toISOString().slice(0, 10);
+      // Opened from a customer's details (Contracts tab -> New contract).
+      const qc = Number(route.query.client_id);
+      if (qc && lists.value.clients.some(c => Number(c.id) === qc)) form.value.client_id = qc;
     }
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData'));

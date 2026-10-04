@@ -23,7 +23,7 @@
           v-model:value="crud.search.value" :placeholder="$t('Search_vehicle')"
           allow-clear class="tb-search" @search="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <template v-if="report !== 'drivers'">
           <a-select
             v-model:value="filters.warehouse_id" class="tb-item" allow-clear show-search
@@ -75,6 +75,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Fleet reports — four views over one shell, because they share every filter
  * and only differ in columns and endpoint. Switching tabs swaps the endpoint on

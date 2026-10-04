@@ -70,7 +70,7 @@
           v-model:value="search" :placeholder="$t('Search')"
           allow-clear style="width: 260px" @search="reload"
         />
-        <a-range-picker v-model:value="range" value-format="YYYY-MM-DD" @change="reload" />
+        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" @change="reload" />
         <a-button @click="clearFilters">
           <template #icon><CloseOutlined /></template>
           {{ $t('Clear') }}
@@ -306,6 +306,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Kitchen display board — legacy KitchenDisplay.vue. Four status lanes
  * (pending / preparing / completed / on hold) fed by GET kitchen/orders,

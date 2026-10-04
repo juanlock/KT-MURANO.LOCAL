@@ -9,7 +9,7 @@
             show-search option-filter-prop="label" allow-clear
             style="width: 220px" @change="fetchData"
           />
-          <a-range-picker v-model:value="dateRange" value-format="YYYY-MM-DD" @change="fetchData" />
+          <PresetRangeFilter v-model:value="dateRange" :allow-all="false" value-format="YYYY-MM-DD" @change="fetchData" />
         </a-space>
       </template>
     </PageHeader>
@@ -79,6 +79,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * 3D sales dashboard — GET sales_3d_dashboard_data?warehouse_id&from&to →
  * {warehouses, kpis, sales_by_month_warehouse, top_products_by_month,

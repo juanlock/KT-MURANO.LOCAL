@@ -32,7 +32,7 @@
           v-model:value="filters.status" class="tb-item" allow-clear
           placeholder="All statuses" :options="statusFilterOptions" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <a-tag v-if="totalCost" color="purple" class="tb-total">Total: {{ money(totalCost) }}</a-tag>
       </div>
     </a-card>
@@ -171,6 +171,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * The maintenance log for the whole register, with a per-asset filter the
  * asset detail page links into.

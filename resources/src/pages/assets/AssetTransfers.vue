@@ -29,7 +29,7 @@
           option-filter-prop="label" placeholder="All locations"
           :options="warehouseOptions" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
       </div>
     </a-card>
 
@@ -99,6 +99,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * The movement log.
  *

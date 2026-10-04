@@ -12,7 +12,7 @@
     <!-- Filters -->
     <a-card size="small" style="margin-bottom: 16px">
       <div class="filters">
-        <a-range-picker
+        <PresetRangeFilter
           v-model:value="filters.range" value-format="YYYY-MM-DD"
           class="filter-range" @change="reload"
         />
@@ -143,6 +143,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Promotion usage report — ported from the ksa project's promotions/usages.vue.
  * GET promotions/usages (paginated, from/to/promotion_id/warehouse_id filters)

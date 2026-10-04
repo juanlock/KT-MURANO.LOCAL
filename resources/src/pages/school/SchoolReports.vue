@@ -36,7 +36,7 @@
           v-model:value="examId" class="tb-item" allow-clear show-search
           option-filter-prop="label" :placeholder="$t('Latest_Exam')" :options="examOptions" @change="crud.reload"
         />
-        <a-range-picker
+        <PresetRangeFilter
           v-if="current.dateRange"
           v-model:value="range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload"
         />
@@ -89,6 +89,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * School reports — six views over one shell, because they share every filter
  * and differ only in columns and endpoint. Switching tabs swaps the endpoint on

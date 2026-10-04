@@ -157,7 +157,7 @@
               v-model:value="filters.tag" class="tb-item" allow-clear show-search
               placeholder="All tags" :options="tagOptions" @change="crud.reload"
             />
-            <a-range-picker
+            <PresetRangeFilter
               v-model:value="filters.range" class="tb-range"
               value-format="YYYY-MM-DD" @change="crud.reload"
             />
@@ -413,6 +413,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Document Archive — the whole module on one screen: folder rail, filters,
  * grid/list browsing, upload, preview and versions.

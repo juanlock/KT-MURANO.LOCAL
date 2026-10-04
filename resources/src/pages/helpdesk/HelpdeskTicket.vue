@@ -37,7 +37,7 @@
             <div><b>{{ t.requester_name || '—' }}</b></div>
             <div v-if="t.requester_email"><a :href="`mailto:${t.requester_email}`">{{ t.requester_email }}</a></div>
             <div class="muted">{{ REQUESTER[t.requester_type] }} · via {{ SOURCE[t.source] }}</div>
-            <div v-if="t.client_id" style="margin-top: 6px"><a @click="$router.push(`/customers/${t.client_id}/ledger`)">Open customer</a></div>
+            <div v-if="t.client_id" style="margin-top: 6px"><a @click="$router.push(`/customers/${t.client_id}/details`)">Open customer</a></div>
             <div v-if="publicUrl && ['guest', 'supplier'].includes(t.requester_type)" class="muted" style="margin-top: 6px">
               The requester follows the ticket with a private link sent by email.
             </div>

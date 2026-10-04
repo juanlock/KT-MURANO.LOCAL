@@ -19,17 +19,42 @@
             <b class="range-value">{{ activeRange.to || '—' }}</b>
           </div>
         </a-card>
-        <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" @change="load()">
-          <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
-        </a-radio-group>
-        <a-select
-          v-model:value="warehouseId"
-          class="wh-select"
-          :options="warehouseOptions"
-          @change="load()"
-        />
+        <!-- Double-click any filter choice = your default when the Dashboard
+             opens (★ marks it; double-click it again to clear). Saved on the
+             user's account, so it follows them to every PC. -->
+        <div class="preset-wrap" :title="DEFAULT_HINT">
+          <!-- The first click of a double-click already selects the button,
+               so the double-click saves the current choice. -->
+          <div class="preset-buttons" @dblclick="toggleDefault('period', period, presetLabel(period))">
+            <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" @change="load()">
+              <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">
+                {{ $t(p.labelKey) }}<StarFilled v-if="defaults.period === p.value" class="def-star" />
+              </a-radio-button>
+            </a-radio-group>
+          </div>
+          <!-- Phones: the 8 preset buttons don't fit in a row (they overlapped
+               the other filters), so the same choice is a dropdown. Kept in
+               the presets' own order (All -> Last Year), not alphabetical. -->
+          <div class="preset-select" @dblclick="toggleDefault('period', period, presetLabel(period))">
+            <a-select
+              v-model:value="period" style="width: 100%" :disabled="loading"
+              :options="DATE_PRESETS.map(p => ({ value: p.value, label: starred('period', p.value, $t(p.labelKey)) }))"
+              @change="load()"
+            />
+          </div>
+        </div>
+        <div :title="DEFAULT_HINT" @dblclick="toggleDefault('warehouse_id', warehouseId, warehouseLabel(warehouseId))">
+          <a-select
+            v-model:value="warehouseId"
+            class="wh-select"
+            :options="warehouseOptions"
+            @change="load()"
+          />
+        </div>
         <!-- Multi-Currency: view the base-currency figures converted -->
-        <ViewCurrencySelect class="wh-select" />
+        <div v-if="currencyVisible" :title="DEFAULT_HINT" @dblclick="toggleDefault('currency_id', currentCurrencyId, currencyLabel(currentCurrencyId))">
+          <ViewCurrencySelect class="wh-select" />
+        </div>
         <a-button type="primary" :loading="loading" @click="load()">
           <template #icon><ReloadOutlined /></template>
           {{ $t('Refresh') }}
@@ -288,8 +313,10 @@ import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
 import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
-import { HistoryOutlined, SettingOutlined } from '@ant-design/icons-vue';
+import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
+import { getUserPref, setUserPref } from '../lib/userPrefs';
+import { viewCurrencies, viewCurrencyId, viewBaseCurrencyId } from '../lib/viewCurrencyState';
 import { shortcuts, pageLabel, pageFullLabel, pageOptions } from '../lib/startPage';
 import { sortByLabel } from '../lib/filterOptions';
 import { t as tf } from '../i18n';
@@ -322,8 +349,35 @@ const { money } = useFormat();
 const loading = ref(true);
 const loadCount = ref(0); // bumps per fetch; keys charts so they remount cleanly
 const demoMode = ref(false);
-const period = ref('today');
-const warehouseId = ref('');
+// Filter defaults (double-click a choice): {period, warehouse_id, currency_id}
+// on the user's account (users.ui_preferences via lib/userPrefs).
+const DEFAULTS_KEY = 'dashboard_filter_defaults';
+const DEFAULT_HINT = 'Double-click to make this your default (again to clear)';
+const defaults = ref({ ...(getUserPref(DEFAULTS_KEY) || {}) });
+const period = ref(DATE_PRESETS.some(p => p.value === defaults.value.period) ? defaults.value.period : 'today');
+const warehouseId = ref(defaults.value.warehouse_id ?? '');
+// The currency choice is shared by every report page: only start from the
+// default when nothing was picked yet this session.
+if (defaults.value.currency_id != null && viewCurrencyId.value == null) viewCurrencyId.value = defaults.value.currency_id;
+const currencyVisible = computed(() => auth.multiCurrencyEnabled && viewCurrencies.value.length > 1);
+const currentCurrencyId = computed(() => viewCurrencyId.value ?? viewBaseCurrencyId.value);
+
+function toggleDefault(field, value, label) {
+  const d = { ...defaults.value };
+  if (d[field] === value) {
+    delete d[field];
+    message.info(`${label}: no longer your default`);
+  } else {
+    d[field] = value;
+    message.success(`${label} is now your default`);
+  }
+  defaults.value = d;
+  setUserPref(DEFAULTS_KEY, Object.keys(d).length ? d : null);
+}
+const starred = (field, value, label) => (defaults.value[field] === value ? `${label} ★` : label);
+const presetLabel = v => t(DATE_PRESETS.find(p => p.value === v)?.labelKey || v);
+const warehouseLabel = v => (v === '' ? t('All_Warehouses') : warehouses.value.find(w => w.id === v)?.name || String(v));
+const currencyLabel = v => viewCurrencies.value.find(c => Number(c.id) === Number(v))?.code || String(v);
 const warehouses = ref([]);
 const report = ref({});
 const payments = ref([]);
@@ -349,8 +403,8 @@ const subtitle = computed(() =>
 );
 
 const warehouseOptions = computed(() => [
-  { value: '', label: t('All_Warehouses') },
-  ...warehouses.value.map(w => ({ value: w.id, label: w.name })),
+  { value: '', label: starred('warehouse_id', '', t('All_Warehouses')) },
+  ...sortByLabel(warehouses.value.map(w => ({ value: w.id, label: starred('warehouse_id', w.id, w.name) }))),
 ]);
 
 /* ------------------------------------------------------------ formatting */
@@ -626,6 +680,11 @@ async function load() {
       today_profit: Number(r.today_profit) || 0,
     };
     warehouses.value = data.warehouses || [];
+    // A default Location the user can no longer see: back to all of them.
+    if (warehouseId.value !== '' && !warehouses.value.some(w => w.id === warehouseId.value)) {
+      warehouseId.value = '';
+      setTimeout(load);
+    }
     sales.value = dash.last_sales || [];
     stockAlerts.value = dash.stock_alert || [];
     topProducts.value = dash.products || [];
@@ -744,6 +803,14 @@ onMounted(load);
 }
 .wh-select {
   min-width: 180px;
+}
+.preset-select {
+  display: none;
+}
+.def-star {
+  font-size: 10px;
+  margin-left: 4px;
+  color: #faad14;
 }
 /* Soft elevation on every dashboard card (stat tiles, charts, lists, table). */
 .page :deep(.ant-card) {
@@ -1084,15 +1151,32 @@ onMounted(load);
     gap: 12px;
     margin-bottom: 16px;
   }
+  /* One filter per row, each full width -- side by side they overlapped. */
   .dash-filters {
     width: 100%;
+    flex-direction: column;
+    align-items: stretch !important;
   }
-  .dash-filters :deep(.ant-space-item:nth-child(2)) {
-    flex: 1;
+  .dash-filters :deep(.ant-space-item) {
+    width: 100%;
+    min-width: 0;
+  }
+  .range-card :deep(.ant-card-body) {
+    justify-content: space-between;
+  }
+  .preset-buttons {
+    display: none;
+  }
+  .preset-select {
+    display: block;
+    width: 100%;
   }
   .wh-select {
     width: 100%;
     min-width: 0;
+  }
+  .dash-filters :deep(.ant-btn) {
+    width: 100%;
   }
   /* Two quick-action tiles per row instead of three. */
   .qa-grid {

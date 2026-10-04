@@ -34,7 +34,7 @@
           v-model:value="status" class="tb-item-sm" allow-clear
           :placeholder="$t('Status')" :options="PROJECT_STATUSES" @change="crud.reload"
         />
-        <a-range-picker
+        <PresetRangeFilter
           v-if="current.dateRange"
           v-model:value="range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload"
         />
@@ -96,6 +96,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Project reports — three views over one shell, sharing the same filters and
  * differing only in columns and endpoint. Switching tabs swaps the endpoint on

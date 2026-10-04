@@ -6,6 +6,10 @@
           <template #icon><LeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>
+        <a-button :loading="exporting" @click="exportPdf">
+          <template #icon><FilePdfOutlined /></template>
+          {{ exporting ? $t('Generating') : $t('Download_PDF') }}
+        </a-button>
         <a-button
           v-if="totalDue > 0 && auth.can('pay_due')"
           type="primary" @click="openPayDue"
@@ -21,125 +25,100 @@
     </div>
 
     <template v-else>
-      <a-card size="small" style="margin-bottom: 16px">
-        <a-descriptions :title="client.name" :column="{ xs: 1, sm: 2, lg: 3 }" size="small">
-          <a-descriptions-item :label="$t('Code')">{{ client.code }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('Email')">{{ client.email || '-' }}</a-descriptions-item>
-          <a-descriptions-item v-if="client.additional_emails?.length" label="Additional Emails">{{ client.additional_emails.join(', ') }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('Phone')">{{ client.phone || '-' }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('City')">{{ client.city || '-' }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('Country')">{{ client.country || '-' }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('Tax_Number')">{{ client.tax_number || '-' }}</a-descriptions-item>
-          <a-descriptions-item v-if="auth.customerCreditLimitEnabled" :label="$t('Credit_Limit')">{{ creditLimitText }}</a-descriptions-item>
-        </a-descriptions>
+      <!-- Customer profile banner -->
+      <a-card :bordered="false" class="ledger-hero" style="margin-bottom: 16px">
+        <div class="hero-main">
+          <a-avatar :size="60" class="hero-avatar">{{ initials }}</a-avatar>
+          <div class="hero-info">
+            <div class="hero-name-row">
+              <span class="hero-name">{{ client.name || '-' }}</span>
+              <a-tag v-if="client.code" color="blue" class="hero-code">#{{ client.code }}</a-tag>
+            </div>
+            <div class="hero-meta">
+              <span v-if="client.email" class="meta-chip"><MailOutlined /> {{ client.email }}</span>
+              <span v-if="client.additional_emails?.length" class="meta-chip"><MailOutlined /> {{ client.additional_emails.join(', ') }}</span>
+              <span v-if="client.phone" class="meta-chip"><PhoneOutlined /> {{ client.phone }}</span>
+              <span v-if="cityCountry" class="meta-chip"><EnvironmentOutlined /> {{ cityCountry }}</span>
+              <span v-if="client.tax_number" class="meta-chip"><IdcardOutlined /> {{ client.tax_number }}</span>
+            </div>
+          </div>
+        </div>
       </a-card>
 
+      <!-- KPI tiles -->
       <a-row :gutter="[16, 16]" style="margin-bottom: 16px">
-        <a-col v-if="auth.customerOpeningBalanceEnabled" :xs="24" :md="8">
-          <a-card size="small">
-            <a-statistic
-              :title="$t('Opening_Balance')" :value="money(openingBalance)"
-              :value-style="{ color: openingBalance > 0 ? '#ff4d4f' : '#52c41a' }"
-            />
-            <div class="muted">{{ $t('Previous_Dues') }}</div>
-          </a-card>
-        </a-col>
-        <a-col :xs="24" :md="8">
-          <a-card size="small">
-            <a-statistic
-              :title="$t('Total_Sales')" :value="money(totalSales)"
-              :value-style="{ color: '#52c41a' }"
-            />
-            <div class="muted">{{ $t('Lifetime_Sales_Value') }}</div>
-          </a-card>
-        </a-col>
-        <a-col :xs="24" :md="8">
-          <a-card size="small">
-            <a-statistic
-              :title="$t('Sales_Due')" :value="money(salesDue)"
-              :value-style="{ color: salesDue > 0 ? '#ff4d4f' : '#52c41a' }"
-            />
-            <div class="muted">{{ $t('Current_Sales') }}</div>
-          </a-card>
-        </a-col>
-        <a-col :xs="24" :md="8">
-          <a-card size="small">
-            <a-statistic
-              :title="$t('Service_Due')" :value="money(serviceDue)"
-              :value-style="{ color: serviceDue > 0 ? '#ff4d4f' : '#52c41a' }"
-            />
-            <div class="muted">{{ $t('Open_Service_Jobs') }}</div>
-          </a-card>
-        </a-col>
-        <a-col v-if="auth.customerCreditLimitEnabled" :xs="24" :md="8">
-          <a-card size="small">
-            <a-statistic :title="$t('Credit_Limit')" :value="creditLimitText" :value-style="{ color: '#1677ff' }" />
-            <div class="muted">{{ $t('Maximum_credit_amount_allowed_for_this_customer') }}</div>
-          </a-card>
-        </a-col>
-        <a-col v-if="walletEnabled" :xs="24" :md="8">
-          <a-card size="small">
-            <a-statistic
-              :title="$t('WalletBalance')" :value="money(walletBalance)"
-              :value-style="{ color: walletBalance < 0 ? '#ff4d4f' : '#52c41a' }"
-            />
-            <div class="muted">{{ $t('E_Wallet') }}</div>
-          </a-card>
-        </a-col>
-        <a-col v-if="auth.customerLoyaltyEnabled" :xs="24" :md="8">
-          <a-card size="small">
-            <a-statistic :title="$t('Loyalty_Points')" :value="loyaltyPoints" :value-style="{ color: '#faad14' }" />
-            <div class="muted">{{ $t('Points') }}</div>
+        <a-col v-for="kpi in kpis" :key="kpi.label" :xs="12" :sm="8" :md="6" :xl="6">
+          <a-card :bordered="false" class="kpi-card">
+            <div class="kpi-inner">
+              <div class="kpi-icon" :style="{ background: kpi.tint, color: kpi.color }">
+                <component :is="kpi.icon" />
+              </div>
+              <div class="kpi-text">
+                <div class="kpi-label">{{ $t(kpi.label) }}</div>
+                <div class="kpi-value" :style="kpi.style">{{ kpi.text }}</div>
+              </div>
+            </div>
           </a-card>
         </a-col>
       </a-row>
 
+      <!-- One DataTable per tab: search, show/hide columns (gear, per user),
+           Customize columns (rename / reorder, admins), page totals. -->
       <a-tabs v-model:activeKey="tab">
-        <a-tab-pane v-for="pane in panes" :key="pane.key" :tab="$t(pane.label)">
-          <a-card size="small">
-            <a-input-search
-              v-model:value="pane.state.search"
-              :placeholder="$t('Search')"
-              allow-clear style="max-width: 280px; margin-bottom: 12px"
-              @search="() => reload(pane)"
-            />
-            <a-table
-              :columns="pane.columns" :data-source="pane.state.rows" :loading="pane.state.loading"
-              :pagination="{ current: pane.state.page, pageSize: pane.state.limit, total: pane.state.total, showSizeChanger: false }"
-              size="middle" :row-key="r => r.id ?? r.Ref" :scroll="{ x: 'max-content' }"
-              @change="p => { pane.state.page = p.current; fetchPane(pane); }"
-            >
-              <template #bodyCell="{ column, record }">
-                <template v-if="MONEY_KEYS.includes(column.key)">
-                  <span :class="dueClass(column.key, record)">{{ money(record[column.key]) }}</span>
-                </template>
-                <template v-else-if="column.key === 'payment_status'">
-                  <a-tag :color="paymentStatusColor(record.payment_status)">{{ record.payment_status }}</a-tag>
-                </template>
-                <template v-else-if="column.key === 'payment_type'">
-                  <a-tag :color="paymentTypeColor(record.payment_type)">
-                    {{ paymentTypeLabel(record.payment_type) }}
-                  </a-tag>
-                </template>
-                <template v-else-if="column.key === 'statut' && pane.key === 'service_jobs'">
-                  <a-tag :color="jobStatusColor(record.statut)">{{ record.statut }}</a-tag>
-                  <a-tooltip v-if="!record.counts_toward_due" :title="$t('Not_Counted_In_Due')">
-                    <a-tag color="default">{{ $t('Not_Counted_In_Due') }}</a-tag>
-                  </a-tooltip>
-                </template>
-                <template v-else-if="column.key === 'Ref' && pane.key === 'service_jobs'">
-                  <router-link :to="`/service/jobs/details/${record.id}`">{{ record.Ref }}</router-link>
-                </template>
-                <template v-else-if="column.key === 'Sale_Ref'">
-                  <span v-if="record.Sale_Ref">{{ record.Sale_Ref }}</span>
-                  <span v-else class="muted">-</span>
-                </template>
+        <a-tab-pane v-for="pane in panes" :key="pane.key" :tab="$t(pane.label) === pane.label ? (pane.title || pane.label) : $t(pane.label)">
+          <DataTable :crud="pane.crud" :columns="pane.columns" :row-key="pane.rowKey || 'id'" :table-key="`customer-details|${pane.key}`">
+            <template v-if="pane.key === 'contracts' && can('sales_contracts_add')" #toolbar>
+              <a-button type="primary" @click="$router.push({ path: '/sales-contracts/create', query: { client_id: id } })">
+                <template #icon><PlusOutlined /></template>
+                New contract
+              </a-button>
+            </template>
+            <template #bodyCell="{ column, record }">
+              <template v-if="MONEY_KEYS.includes(column.key)">
+                <span :class="dueClass(column.key, record)">{{ money(record[column.key]) }}</span>
               </template>
-              <template #emptyText>
-                <a-empty :description="$t('NodataAvailable')" style="padding: 24px 0" />
+              <template v-else-if="column.key === 'payment_status'">
+                <a-tag :color="paymentStatusColor(record.payment_status)">{{ record.payment_status }}</a-tag>
               </template>
-            </a-table>
-          </a-card>
+              <template v-else-if="column.key === 'payment_type'">
+                <a-tag :color="paymentTypeColor(record.payment_type)">{{ paymentTypeLabel(record.payment_type) }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'statut' && pane.key === 'service_jobs'">
+                <a-tag :color="jobStatusColor(record.statut)">{{ record.statut }}</a-tag>
+                <a-tooltip v-if="!record.counts_toward_due" :title="$t('Not_Counted_In_Due')">
+                  <a-tag color="default">{{ $t('Not_Counted_In_Due') }}</a-tag>
+                </a-tooltip>
+              </template>
+              <template v-else-if="column.key === 'statut'">
+                <a-tag :color="docStatusColor(record.statut)">{{ record.statut }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'Ref' && pane.link">
+                <router-link :to="pane.link(record)">{{ record.Ref }}</router-link>
+              </template>
+              <template v-else-if="column.key === 'Sale_Ref'">
+                <span v-if="record.Sale_Ref">{{ record.Sale_Ref }}</span>
+                <span v-else class="muted">-</span>
+              </template>
+              <!-- Contracts tab -->
+              <template v-else-if="column.key === 'contract_number'">
+                <router-link :to="`/sales-contracts/${record.id}`">{{ record.contract_number }}</router-link>
+              </template>
+              <template v-else-if="column.key === 'value'">{{ money(record.value) }}</template>
+              <template v-else-if="column.key === 'status'">
+                <a-tag :color="STATUS_COLORS[record.status]">{{ statusLabel(record.status) }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'billing'">
+                <span v-if="record.billing_enabled"><SyncOutlined style="color: #6d28d9" /> {{ billingLabel(record) }}</span>
+                <span v-else class="muted">One-off</span>
+              </template>
+              <template v-else-if="column.key === 'next_invoice_date'">
+                <span v-if="record.next_invoice_date">{{ date(record.next_invoice_date) }}</span>
+                <span v-else class="muted">—</span>
+              </template>
+              <template v-else-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
+              <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : 'Open-ended' }}</template>
+            </template>
+          </DataTable>
         </a-tab-pane>
       </a-tabs>
 
@@ -169,45 +148,51 @@
 
 <script setup>
 /**
- * Customer details — legacy CustomerDetails.vue. Header + figures, five
- * independently paginated tabs (sales / service jobs / payments / returns /
- * payment returns), custom fields, and the pay-due flow with its printable
- * credit note. Service jobs are part of what the customer owes: the brief
- * endpoint returns service_due (accepted / in-progress / delivered jobs only)
- * and clients_pay_due allocates to open jobs after sales.
+ * Customer details -- the one customer page (the former Customer Ledger,
+ * /customers/:id/ledger, was merged in here and removed; its route now
+ * redirects here). Profile banner + KPI tiles from GET clients/{id}/brief,
+ * the ledger PDF (client_ledger_pdf), Pay Due, and one tab per document
+ * type: sales / service jobs / payments / quotations / returns / payment
+ * returns / sales contracts (SalesContractController, ?client_id=).
+ * Every tab is a DataTable: search, page size, show/hide columns (per user),
+ * Customize columns -- rename / reorder -- (admins, company-wide) and
+ * page totals (sum: 'money' columns).
  *
- * TWO legacy defects are deliberately not reproduced, both of which mislead
- * about money:
- *
- * 1. Sales Due was summed from the LOADED PAGE of the sales table, so a
- *    customer with more than ten sales showed too small a due — and that same
- *    figure capped the pay-due amount and decided whether the Pay Due button
- *    appeared at all. The true aggregate comes from GET clients/{id}/brief
- *    (sale_due / netBalance), the endpoint the ledger page already uses, so
- *    this needs no new permission.
- * 2. The payment-status badge tested `includes('paid')` before `'unpaid'`,
- *    and "unpaid" contains "paid" — every unpaid row rendered green. Ordering
- *    the check on 'unpaid' first fixes it.
+ * Two legacy defects stay fixed (both misled about money): Sales Due comes
+ * from the brief aggregate, not the loaded page; the payment-status badge
+ * tests 'unpaid' before 'paid'. The ledger's Returns tab read
+ * `returns_customer` from a payload keyed `returns` -- useCrudTable reads
+ * the `returns` key directly.
  */
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { LeftOutlined, DollarOutlined } from '@ant-design/icons-vue';
+import {
+  LeftOutlined, DollarOutlined, FilePdfOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined, IdcardOutlined,
+  ShoppingOutlined, CheckCircleOutlined, CalculatorOutlined, ExclamationCircleOutlined, ToolOutlined,
+  WalletOutlined, RollbackOutlined, CreditCardOutlined, PayCircleOutlined, StarOutlined,
+  PlusOutlined, SyncOutlined,
+} from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import PayDueModal from '../../components/PayDueModal.vue';
+import DataTable from '../../components/DataTable.vue';
+import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import { useFormat } from '../../composables/useFormat';
 import http from '../../lib/http';
+import { STATUS_COLORS, statusLabel, billingLabel } from '../sales_contracts/salesContractVocab';
 
 const { t } = useI18n();
-const { money, roundMoney } = useFormat();
+const { money, roundMoney, date } = useFormat();
 const auth = useAuthStore();
+const can = p => auth.user?.type === 'SuperAdmin' || auth.can(p);
 const route = useRoute();
 const router = useRouter();
 const id = route.params.id;
 
 const loading = ref(true);
+const exporting = ref(false);
 const tab = ref('sales');
 const client = ref({});
 const brief = ref({});
@@ -219,18 +204,62 @@ const company = ref({ CompanyName: '', CompanyAdress: '', CompanyPhone: '' });
 const MONEY_KEYS = ['GrandTotal', 'paid_amount', 'due', 'montant'];
 
 const openingBalance = computed(() => Number(brief.value.opening_balance ?? client.value.opening_balance) || 0);
-const totalSales = computed(() => Number(brief.value.salesGrand) || 0);
 const salesDue = computed(() => Number(brief.value.sale_due) || 0);
 const serviceDue = computed(() => Number(brief.value.service_due) || 0);
-/** Opening balance + sales due + service due. netBalance also nets off return dues. */
+/** Opening balance + sales due + service due -- what Pay Due can settle. */
 // Rounded: the raw float sum is the :max of the paying-amount input, and the
 // clamp would otherwise display something like 121.99999999999994.
 const totalDue = computed(() => roundMoney(openingBalance.value + salesDue.value + serviceDue.value));
-const creditLimitText = computed(() =>
-  Number(client.value.credit_limit) > 0 ? money(client.value.credit_limit) : t('No_limit'));
-const walletEnabled = computed(() => !!brief.value.wallet_enabled);
-const walletBalance = computed(() => Number(brief.value.wallet_balance) || 0);
-const loyaltyPoints = computed(() => Number(brief.value.points ?? client.value.points) || 0);
+
+const initials = computed(() =>
+  (client.value.name || '?')
+    .split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?'
+);
+const cityCountry = computed(() => [client.value.city, client.value.country].filter(Boolean).join(', '));
+
+// Accent colours + matching soft tints for the KPI icon chips.
+const C = {
+  blue: ['#1677ff', 'rgba(22, 119, 255, 0.12)'],
+  green: ['#52c41a', 'rgba(82, 196, 26, 0.12)'],
+  purple: ['#722ed1', 'rgba(114, 46, 209, 0.12)'],
+  red: ['#ff4d4f', 'rgba(255, 77, 79, 0.12)'],
+  indigo: ['#2f54eb', 'rgba(47, 84, 235, 0.12)'],
+  amber: ['#faad14', 'rgba(250, 173, 20, 0.14)'],
+  teal: ['#13c2c2', 'rgba(19, 194, 194, 0.12)'],
+};
+const RED = { color: '#ff4d4f' };
+const GREEN = { color: '#52c41a' };
+
+const kpis = computed(() => {
+  const b = brief.value;
+  const n = k => Number(b[k]) || 0;
+  const sign = v => (v > 0 ? RED : GREEN);
+  const tile = (label, text, color, extra = {}) => ({ label, text, icon: extra.icon, color: color[0], tint: color[1], style: extra.style });
+  // Opening balance / credit limit / loyalty tiles follow the per-company
+  // feature flags (Total_Due still includes the opening balance -- display only).
+  const tiles = [
+    tile('Sales_Grand', money(n('salesGrand')), C.blue, { icon: ShoppingOutlined }),
+    tile('Sales_Paid', money(n('salesPaid')), C.green, { icon: CheckCircleOutlined }),
+    ...(auth.customerOpeningBalanceEnabled
+      ? [tile('Opening_Balance', money(openingBalance.value), C.purple, { icon: CalculatorOutlined, style: sign(openingBalance.value) })]
+      : []),
+    tile('Sales_Due', money(salesDue.value), C.red, { icon: ExclamationCircleOutlined, style: sign(salesDue.value) }),
+    tile('Service_Due', money(serviceDue.value), C.red, { icon: ToolOutlined, style: sign(serviceDue.value) }),
+    tile('Total_Due', money(n('netBalance')), C.indigo, { icon: WalletOutlined, style: sign(n('netBalance')) }),
+    tile('Returns_Due', money(n('return_due')), C.amber, { icon: RollbackOutlined, style: { color: '#faad14' } }),
+    tile('Payments_Total', money(n('paymentsTotal')), C.teal, { icon: DollarOutlined }),
+    ...(auth.customerCreditLimitEnabled
+      ? [tile('Credit_Limit', Number(client.value.credit_limit) > 0 ? money(client.value.credit_limit) : t('No_limit'), C.blue, { icon: CreditCardOutlined, style: { color: '#1677ff' } })]
+      : []),
+  ];
+  if (b.wallet_enabled) {
+    tiles.push(tile('WalletBalance', money(n('wallet_balance')), C.green, { icon: PayCircleOutlined, style: { color: n('wallet_balance') < 0 ? '#ff4d4f' : '#52c41a' } }));
+  }
+  if (auth.customerLoyaltyEnabled) {
+    tiles.push(tile('Loyalty_Points', String(Number(b.points ?? client.value.points) || 0), C.amber, { icon: StarOutlined, style: { color: '#faad14' } }));
+  }
+  return tiles;
+});
 
 function paymentStatusColor(status) {
   const s = String(status || '').toLowerCase();
@@ -238,6 +267,14 @@ function paymentStatusColor(status) {
   if (s.includes('unpaid')) return 'error';
   if (s.includes('partial')) return 'warning';
   if (s.includes('paid')) return 'success';
+  return 'default';
+}
+function docStatusColor(st) {
+  const s = String(st || '').toLowerCase();
+  if (s.includes('completed') || s.includes('approved')) return 'success';
+  if (s.includes('pending')) return 'warning';
+  if (s.includes('sent')) return 'processing';
+  if (s.includes('canceled') || s.includes('cancelled') || s.includes('rejected')) return 'error';
   return 'default';
 }
 function dueClass(key, record) {
@@ -270,98 +307,93 @@ function customFieldValue(f) {
 
 // ---------------- tabs ----------------
 
-const makeState = () => reactive({ rows: [], total: 0, page: 1, limit: 10, search: '', loading: false });
+const tableFor = (endpoint, rowsKey) => useCrudTable(endpoint, { rowsKey, limit: 10, params: () => ({ id }) });
+const cruds = {
+  sales: tableFor('sales_client', 'sales'),
+  service_jobs: tableFor('service_jobs_client', 'service_jobs'),
+  payments: tableFor('payments_client', 'payments'),
+  quotations: tableFor('quotations_client', 'quotations'),
+  returns: tableFor('returns_client', 'returns'),
+  payment_returns: tableFor('payment_returns_client', 'payment_returns'),
+  contracts: useCrudTable('sales_contracts', { rowsKey: 'contracts', limit: 10, params: () => ({ client_id: id }) }),
+};
+
+const col = (label, key, opts = {}) => ({ title: t(label), dataIndex: key, key, ...opts });
+const moneyCol = (label, key) => col(label, key, { align: 'right', sum: 'money' });
 
 const panes = computed(() => [
   {
-    key: 'sales', label: 'Sales', endpoint: 'sales_client', rowsKey: 'sales', state: states.sales,
+    key: 'sales', label: 'Sales', crud: cruds.sales, link: r => `/sales/${r.id}`,
     columns: [
-      { title: t('Ref'), dataIndex: 'Ref', key: 'Ref' },
-      { title: t('date'), dataIndex: 'date', key: 'date' },
-      { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name' },
-      { title: t('Grand_Total'), dataIndex: 'GrandTotal', key: 'GrandTotal', align: 'right' },
-      { title: t('Paid'), dataIndex: 'paid_amount', key: 'paid_amount', align: 'right' },
-      { title: t('Due'), dataIndex: 'due', key: 'due', align: 'right' },
-      { title: t('Payment_Status'), dataIndex: 'payment_status', key: 'payment_status' },
-      { title: t('Status'), dataIndex: 'statut', key: 'statut' },
+      col('Ref', 'Ref'), col('date', 'date'), col('warehouse', 'warehouse_name'), col('Status', 'statut'),
+      moneyCol('Grand_Total', 'GrandTotal'), moneyCol('Paid', 'paid_amount'), moneyCol('Due', 'due'),
+      col('Payment_Status', 'payment_status'), col('Shipping_Status', 'shipping_status'),
     ],
   },
   {
-    key: 'service_jobs', label: 'Service_Jobs', endpoint: 'service_jobs_client', rowsKey: 'service_jobs',
-    state: states.service_jobs,
+    key: 'service_jobs', label: 'Service_Jobs', crud: cruds.service_jobs, link: r => `/service/jobs/details/${r.id}`,
     columns: [
-      { title: t('Ref'), dataIndex: 'Ref', key: 'Ref' },
-      { title: t('date'), dataIndex: 'date', key: 'date' },
-      { title: t('Service_Item'), dataIndex: 'service_item', key: 'service_item' },
-      { title: t('Technician'), dataIndex: 'technician_name', key: 'technician_name' },
-      { title: t('Grand_Total'), dataIndex: 'GrandTotal', key: 'GrandTotal', align: 'right' },
-      { title: t('Paid'), dataIndex: 'paid_amount', key: 'paid_amount', align: 'right' },
-      { title: t('Due'), dataIndex: 'due', key: 'due', align: 'right' },
-      { title: t('Payment_Status'), dataIndex: 'payment_status', key: 'payment_status' },
-      { title: t('Status'), dataIndex: 'statut', key: 'statut' },
+      col('Ref', 'Ref'), col('date', 'date'), col('Service_Item', 'service_item'), col('Technician', 'technician_name'),
+      moneyCol('Grand_Total', 'GrandTotal'), moneyCol('Paid', 'paid_amount'), moneyCol('Due', 'due'),
+      col('Payment_Status', 'payment_status'), col('Status', 'statut'),
     ],
   },
   {
-    key: 'payments', label: 'Payments', endpoint: 'payments_client', rowsKey: 'payments', state: states.payments,
+    key: 'payments', label: 'Payments', crud: cruds.payments, rowKey: 'Ref',
     columns: [
-      { title: t('Ref'), dataIndex: 'Ref', key: 'Ref' },
-      { title: t('date'), dataIndex: 'date', key: 'date' },
-      { title: t('Type'), dataIndex: 'payment_type', key: 'payment_type' },
-      { title: t('Document_Ref'), dataIndex: 'Sale_Ref', key: 'Sale_Ref' },
-      { title: t('Payment_Method'), dataIndex: 'payment_method', key: 'payment_method' },
-      { title: t('Amount'), dataIndex: 'montant', key: 'montant', align: 'right' },
+      col('Ref', 'Ref'), col('date', 'date'), col('Type', 'payment_type'), col('Document_Ref', 'Sale_Ref'),
+      col('Payment_Method', 'payment_method'), moneyCol('Amount', 'montant'),
     ],
   },
   {
-    key: 'returns', label: 'Returns', endpoint: 'returns_client', rowsKey: 'returns', state: states.returns,
+    key: 'quotations', label: 'Quotations', crud: cruds.quotations, link: r => `/quotations/${r.id}`,
     columns: [
-      { title: t('Ref'), dataIndex: 'Ref', key: 'Ref' },
-      { title: t('date'), dataIndex: 'date', key: 'date' },
-      { title: t('Sale_Ref'), dataIndex: 'sale_ref', key: 'sale_ref' },
-      { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name' },
-      { title: t('Grand_Total'), dataIndex: 'GrandTotal', key: 'GrandTotal', align: 'right' },
-      { title: t('Paid'), dataIndex: 'paid_amount', key: 'paid_amount', align: 'right' },
-      { title: t('Due'), dataIndex: 'due', key: 'due', align: 'right' },
-      { title: t('Payment_Status'), dataIndex: 'payment_status', key: 'payment_status' },
-      { title: t('Status'), dataIndex: 'statut', key: 'statut' },
+      col('Ref', 'Ref'), col('date', 'date'), col('warehouse', 'warehouse_name'), col('Status', 'statut'),
+      moneyCol('Grand_Total', 'GrandTotal'),
     ],
   },
   {
-    key: 'payment_returns', label: 'Payment_Returns', endpoint: 'payment_returns_client',
-    rowsKey: 'payment_returns', state: states.payment_returns,
+    key: 'returns', label: 'Returns', crud: cruds.returns, link: r => `/sale-returns/${r.id}`,
     columns: [
-      { title: t('Ref'), dataIndex: 'Ref', key: 'Ref' },
-      { title: t('date'), dataIndex: 'date', key: 'date' },
-      { title: t('Sale_Return_Ref'), dataIndex: 'Sale_Return_Ref', key: 'Sale_Return_Ref' },
-      { title: t('Payment_Method'), dataIndex: 'payment_method', key: 'payment_method' },
-      { title: t('Amount'), dataIndex: 'montant', key: 'montant', align: 'right' },
+      col('Ref', 'Ref'), col('date', 'date'), col('Sale_Ref', 'sale_ref'), col('warehouse', 'warehouse_name'),
+      moneyCol('Grand_Total', 'GrandTotal'), moneyCol('Paid', 'paid_amount'), moneyCol('Due', 'due'),
+      col('Payment_Status', 'payment_status'), col('Status', 'statut'),
     ],
   },
+  {
+    key: 'payment_returns', label: 'Payment_Returns', crud: cruds.payment_returns, rowKey: 'Ref',
+    columns: [
+      col('Ref', 'Ref'), col('date', 'date'), col('Sale_Return_Ref', 'Sale_Return_Ref'),
+      col('Payment_Method', 'payment_method'), moneyCol('Amount', 'montant'),
+    ],
+  },
+  // Sales > Sales Contracts of this customer (employee contracts are HRM's).
+  ...(can('sales_contracts_view') ? [{
+    key: 'contracts', label: 'Contracts', title: 'Contracts', crud: cruds.contracts,
+    columns: [
+      { title: '#', dataIndex: 'contract_number', key: 'contract_number' },
+      { title: 'Subject', dataIndex: 'subject', key: 'subject' },
+      { title: 'Value', dataIndex: 'value', key: 'value', align: 'right', sum: 'money' },
+      { title: 'Billing', key: 'billing' },
+      { title: 'Next invoice', dataIndex: 'next_invoice_date', key: 'next_invoice_date' },
+      { title: 'Start', dataIndex: 'start_date', key: 'start_date' },
+      { title: 'End', dataIndex: 'end_date', key: 'end_date' },
+      { title: 'Status', dataIndex: 'status', key: 'status' },
+    ],
+  }] : []),
 ]);
 
-const states = {
-  sales: makeState(), service_jobs: makeState(), payments: makeState(), returns: makeState(), payment_returns: makeState(),
-};
+// ---------------- PDF ----------------
 
-async function fetchPane(pane) {
-  const s = pane.state;
-  s.loading = true;
+async function exportPdf() {
+  exporting.value = true;
   try {
-    const data = await http.get(pane.endpoint, {
-      id, page: s.page, limit: s.limit, search: s.search,
-    });
-    s.rows = data?.[pane.rowsKey] || [];
-    s.total = Number(data?.totalRows) || 0;
+    await http.download(`client_ledger_pdf?id=${id}`, `customer_ledger_${id}.pdf`);
   } catch (e) {
-    s.rows = [];
+    message.error(t('Failed_to_export'));
   } finally {
-    s.loading = false;
+    exporting.value = false;
   }
-}
-/** A new search starts from page 1 — legacy kept the old page and showed nothing. */
-function reload(pane) {
-  pane.state.page = 1;
-  fetchPane(pane);
 }
 
 // ---------------- pay due ----------------
@@ -374,7 +406,7 @@ function openPayDue() {
 
 async function onPaid() {
   await loadCustomer();
-  panes.value.forEach(fetchPane);
+  panes.value.forEach(p => p.crud.fetchRows());
 }
 
 // ---------------- load ----------------
@@ -420,7 +452,7 @@ onMounted(async () => {
       };
     }
 
-    panes.value.forEach(fetchPane);
+    panes.value.forEach(p => p.crud.fetchRows());
   } finally {
     loading.value = false;
   }
@@ -428,6 +460,102 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Customer profile banner ---------------------------------------------- */
+.ledger-hero {
+  border: 1px solid rgba(22, 119, 255, 0.18);
+  background: linear-gradient(120deg, rgba(22, 119, 255, 0.08), rgba(114, 46, 209, 0.05));
+}
+.hero-main {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.hero-avatar {
+  flex: 0 0 auto;
+  background: #1677ff;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 600;
+}
+.hero-info { min-width: 0; }
+.hero-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.hero-name {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.hero-code { margin: 0; }
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 8px;
+}
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.6);
+}
+.meta-chip :deep(svg) { color: rgba(0, 0, 0, 0.35); }
+
+/* KPI tiles ------------------------------------------------------------- */
+.kpi-card {
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  height: 100%;
+}
+.kpi-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.kpi-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex: 0 0 auto;
+}
+.kpi-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.kpi-label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  line-height: 1.3;
+  margin-bottom: 3px;
+  /* allow up to two lines rather than clipping the label */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.kpi-value {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 575px) {
+  .hero-main { gap: 12px; }
+  .hero-name { font-size: 18px; }
+  .kpi-value { font-size: 16px; }
+}
+
 .muted {
   color: rgba(0, 0, 0, 0.45);
   font-size: 12px;

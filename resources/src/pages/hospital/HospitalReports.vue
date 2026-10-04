@@ -23,7 +23,7 @@
           v-model:value="crud.search.value" :placeholder="current.searchHint"
           allow-clear class="tb-search" @search="crud.reload"
         />
-        <a-range-picker v-model:value="range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <a-select
           v-if="current.departmentFilter"
           v-model:value="departmentId" class="tb-item" allow-clear show-search
@@ -68,6 +68,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Hospital reports — five views over one shell, because they share every filter
  * and differ only in columns and endpoint. Switching tabs swaps the endpoint on

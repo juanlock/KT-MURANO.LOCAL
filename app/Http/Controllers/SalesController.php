@@ -416,7 +416,7 @@ class SalesController extends BaseController
      * null. Stored in sales.seller_id (attribution) â€” sales.user_id always
      * stays the authenticated creator, and NULL means credit goes to them.
      */
-    private function resolveSellerId(Request $request): ?int
+    private function resolveSellerId(Request $request, ?int $keepId = null): ?int
     {
         if (! $request->filled('seller_id')) {
             return null;
@@ -431,25 +431,30 @@ class SalesController extends BaseController
         // user_id from another company (users table has company_id).
         $companyId = $this->resolveActingCompanyId($request);
 
+        // Sales Staff only (users.is_sales_staff, set from the Employee form);
+        // a sale already credited to this seller keeps them on update.
         return User::where('id', (int) $request->seller_id)
             ->where('deleted_at', '=', null)
-            ->where('statut', 1)
             ->where('company_id', $companyId)
+            ->where(fn ($q) => $q->where('is_sales_staff', 1)->when($keepId, fn ($q2) => $q2->orWhere('id', $keepId)))
             ->value('id');
     }
 
     /**
-     * Active-user list for the Salesperson select (same shape as the POS
+     * Sales Staff list for the Salesperson select (same shape as the POS
      * bootstrap); empty when the feature is off so the form hides the field.
+     * Sales Staff = users.is_sales_staff, set from the Employee form's
+     * "Sales Staff" button. $keepId (edit) keeps the sale's current seller
+     * listed even if no longer Sales Staff.
      * Company boundary: scoped to the acting company (users table has
      * company_id) so the picker never lists another company's staff.
      */
-    private function salespeopleList(bool $enabled, int $companyId)
+    private function salespeopleList(bool $enabled, int $companyId, ?int $keepId = null)
     {
         return $enabled
             ? User::where('deleted_at', '=', null)
-                ->where('statut', 1)
                 ->where('company_id', $companyId)
+                ->where(fn ($q) => $q->where('is_sales_staff', 1)->when($keepId, fn ($q2) => $q2->orWhere('id', $keepId)))
                 ->orderBy('username')
                 ->get(['id', 'username', 'firstname', 'lastname'])
                 ->map(fn ($u) => [
@@ -1284,7 +1289,7 @@ class SalesController extends BaseController
                     // Only forms that carry the field may change it (clearing the
                     // select sends null â†’ credit reverts to the creator); other
                     // API callers leave the stored attribution untouched.
-                    'seller_id' => $request->has('seller_id') ? $this->resolveSellerId($request) : $current_Sale->seller_id,
+                    'seller_id' => $request->has('seller_id') ? $this->resolveSellerId($request, $current_Sale->seller_id ? (int) $current_Sale->seller_id : null) : $current_Sale->seller_id,
                     'tax_rate' => $request['tax_rate'],
                     'TaxNet' => $request['TaxNet'],
                     // Ensure order-level tax method stays in sync when editing
@@ -2674,7 +2679,7 @@ class SalesController extends BaseController
         }
 
         $clients = $scopeCompany(Client::whereNull('deleted_at'))->get(['id', 'name']);
-        $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null))->get(['id', 'name']);
+        $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null)->where('is_active', true))->get(['id', 'name']);
 
         return response()->json([
             'warehouses' => $warehouses,
@@ -3639,7 +3644,7 @@ class SalesController extends BaseController
         $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
         $accounts = Account::where('deleted_at', '=', null)->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
-        $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null))->get(['id', 'name']);
+        $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null)->where('is_active', true))->get(['id', 'name']);
         $stripe_key = config('app.STRIPE_KEY');
         $settings = Setting::where('deleted_at', '=', null)->first();
         $salesperson_switch_enabled = (bool) ($settings->enable_pos_salesperson_switch ?? false);
@@ -3932,7 +3937,12 @@ class SalesController extends BaseController
             }
 
             $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
-            $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null))->get(['id', 'name']);
+            // Active agents only (Employee form "Remove" deactivates), plus
+            // the agent this sale already has.
+            $currentAgentId = (int) ($Sale_data->sales_agent_id ?? 0);
+            $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null)
+                ->where(fn ($q) => $q->where('is_active', true)->when($currentAgentId, fn ($q2) => $q2->orWhere('id', $currentAgentId))))
+                ->get(['id', 'name']);
             $settings = Setting::where('deleted_at', '=', null)->first();
 
             $salesperson_switch_enabled = (bool) ($settings->enable_pos_salesperson_switch ?? false);
@@ -3946,7 +3956,7 @@ class SalesController extends BaseController
                 'discount_from_points' => $Sale_data->discount_from_points,
                 'point_to_amount_rate' => $settings->point_to_amount_rate,
                 'enable_pos_salesperson_switch' => $salesperson_switch_enabled,
-                'salespeople' => $this->salespeopleList($salesperson_switch_enabled, $companyId),
+                'salespeople' => $this->salespeopleList($salesperson_switch_enabled, $companyId, $Sale_data->seller_id ? (int) $Sale_data->seller_id : null),
                 // Company-scoped on purpose -- see the same note in create() above.
                 'sale_show_price_type_dropdown' => (bool) (Setting::forCompany($companyId)->sale_show_price_type_dropdown ?? true),
                 'sale_default_quantity' => (int) (Setting::forCompany($companyId)->sale_default_quantity ?: 1),
@@ -4156,7 +4166,7 @@ class SalesController extends BaseController
         }
 
         $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
-        $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null))->get(['id', 'name']);
+        $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null)->where('is_active', true))->get(['id', 'name']);
 
         return response()->json([
             'details' => $details,

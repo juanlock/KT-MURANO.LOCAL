@@ -247,6 +247,7 @@ class EmployeesController extends Controller
                 $hasDefault = (bool) \App\Models\Setting::defaultPasswordHash((int) $data['company_id'], 'employee');
                 \App\Models\User::whereKey($employee->user_id)->update(['statut' => $hasDefault ? 1 : 0]);
             }
+            $this->applySalesRoles($employee->fresh(), $request);
         });
 
         return response()->json(['success' => true]);
@@ -310,6 +311,8 @@ class EmployeesController extends Controller
             // System access card: the employee's login + the roles to choose from.
             'access' => $this->systemAccessOf($employee),
             'roles' => $this->rolesFor(null),
+            // Other modules card: Sales Staff (Seller picker) / Sales Agent (Commissions).
+            'sales_roles' => $this->salesRolesOf($employee),
             // Positions: this employee's departments / designations + the options.
             'positions' => $this->positionRows([(int) $employee->id])->map(fn ($p) => ['department_id' => (int) $p->department_id, 'designation_id' => (int) $p->designation_id])->values(),
         ] + $this->positionOptions());
@@ -406,9 +409,95 @@ class EmployeesController extends Controller
             $employee->update($data);
             $this->syncPositions($employee->fresh(), $request);
             $this->applySystemAccess($employee->fresh(), $request);
+            $this->applySalesRoles($employee->fresh(), $request);
         });
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Employee form -> "Other modules" (`sales_roles` in the request):
+     *  - sales_staff: listed in the Seller / Salesperson picker of the sale
+     *    form and the POS (users.is_sales_staff on the employee's login);
+     *  - sales_agent: a Commissions sales agent linked to the employee's login
+     *    (sales_agents.user_id). Remove = deactivate, never delete -- the
+     *    agent's commissions / receipts stay.
+     * Both need the employee's users row; one is created (login disabled) if
+     * the employee has none yet. Keys not sent are left as they are.
+     */
+    private function applySalesRoles(Employee $employee, Request $request): void
+    {
+        $roles = $request->input('sales_roles');
+        if (! is_array($roles) || ! array_intersect(['sales_staff', 'sales_agent'], array_keys($roles))) {
+            return;
+        }
+        $companyId = (int) $employee->company_id;
+        $name = trim($employee->firstname.' '.$employee->lastname);
+
+        if (! $employee->user_id) {
+            $wanted = filter_var($roles['sales_staff'] ?? false, FILTER_VALIDATE_BOOLEAN) || filter_var($roles['sales_agent'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            if (! $wanted) {
+                return;
+            }
+            $employee->user_id = \App\Services\LinkedUserService::provision($companyId, 'employee', 'Employee', $name, $employee->email, $employee->phone);
+            $employee->save();
+            \App\Models\User::whereKey($employee->user_id)->update(['statut' => 0]);
+        }
+        $userId = (int) $employee->user_id;
+
+        if (array_key_exists('sales_staff', $roles)) {
+            \App\Models\User::whereKey($userId)->update(['is_sales_staff' => filter_var($roles['sales_staff'], FILTER_VALIDATE_BOOLEAN)]);
+        }
+
+        if (array_key_exists('sales_agent', $roles)) {
+            $agent = $this->salesAgentOf($employee, true);
+            if (filter_var($roles['sales_agent'], FILTER_VALIDATE_BOOLEAN)) {
+                if (! $agent) {
+                    \App\Models\SalesAgent::create([
+                        'company_id' => $companyId, 'user_id' => $userId, 'name' => $name ?: $employee->username,
+                        'email' => $employee->email, 'phone' => $employee->phone, 'is_active' => true,
+                    ]);
+                } else {
+                    if ($agent->trashed()) {
+                        $agent->restore();
+                    }
+                    $agent->user_id = $userId;
+                    $agent->is_active = true;
+                    $agent->save();
+                }
+            } elseif ($agent && ! $agent->trashed() && $agent->is_active) {
+                $agent->is_active = false;
+                $agent->save();
+            }
+        }
+    }
+
+    /**
+     * The employee's sales agent in their company: the one linked to their
+     * login, else (only when $adopt, i.e. about to link it) an unlinked agent
+     * of the company with the employee's email -- agents made by hand on the
+     * Sales Agents screen before this button existed.
+     */
+    private function salesAgentOf(Employee $employee, bool $adopt = false): ?\App\Models\SalesAgent
+    {
+        $q = fn () => \App\Models\SalesAgent::withTrashed()->where('company_id', (int) $employee->company_id)->orderByRaw('deleted_at IS NOT NULL')->orderByDesc('is_active');
+        $agent = $employee->user_id ? $q()->where('user_id', $employee->user_id)->first() : null;
+        if (! $agent && $adopt && filter_var((string) $employee->email, FILTER_VALIDATE_EMAIL)) {
+            $agent = $q()->whereNull('user_id')->where('email', $employee->email)->first();
+        }
+
+        return $agent;
+    }
+
+    /** Sales Staff / Sales Agent status of an employee for the form. */
+    private function salesRolesOf(Employee $employee): array
+    {
+        $agent = $this->salesAgentOf($employee);
+
+        return [
+            'sales_staff' => $employee->user_id ? (bool) \App\Models\User::whereKey($employee->user_id)->value('is_sales_staff') : false,
+            'sales_agent' => $agent && ! $agent->trashed() && $agent->is_active,
+        ];
     }
 
     /**

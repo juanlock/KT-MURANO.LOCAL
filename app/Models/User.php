@@ -64,6 +64,7 @@ class User extends Authenticatable
         'statut' => 'integer',
         'is_all_warehouses' => 'integer',
         'record_view' => 'boolean',
+        'is_sales_staff' => 'boolean',
         'portal_enabled' => 'integer',
         'invitation_sent_at' => 'datetime',
     ];

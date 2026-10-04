@@ -104,9 +104,12 @@ class PosController extends BaseController
             return null;
         }
 
+        // Sales Staff of the acting company only (users.is_sales_staff, set
+        // from the Employee form) -- same list the picker shows.
         return User::where('id', (int) $request->seller_id)
             ->where('deleted_at', '=', null)
-            ->where('statut', 1)
+            ->where('is_sales_staff', 1)
+            ->where('company_id', $this->resolveActingCompanyId($request))
             ->value('id');
     }
 
@@ -2622,10 +2625,9 @@ class PosController extends BaseController
         $salesperson_switch_enabled = (bool) ($settings->enable_pos_salesperson_switch ?? false);
         $salespeople = $salesperson_switch_enabled
             ? User::where('deleted_at', '=', null)
-                ->where('statut', 1)
                 ->where('company_id', $companyId)
-                // staff only -- not customers' / web-store / suppliers' linked accounts
-                ->whereNotIn('type', ['customer', 'Online_store', 'supplier'])
+                // Sales Staff only (Employee form -> "Sales Staff" button)
+                ->where('is_sales_staff', 1)
                 ->orderBy('username')
                 ->get(['id', 'username', 'firstname', 'lastname'])
                 ->map(fn ($u) => [

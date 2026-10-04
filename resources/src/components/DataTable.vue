@@ -219,8 +219,10 @@ const colKey = c => c.key ?? c.dataIndex;
 // Persisted per page (route name/path) on the user's account (server, see
 // lib/userPrefs.js) so hide/unhide choices follow the user to any PC/browser
 // and survive logout; localStorage is only a fallback/offline copy.
+// A page with several tables (e.g. the customer details tabs) passes a
+// tableKey so each table remembers its own hidden columns.
 const route = useRoute();
-const hiddenColsStorageKey = `dt_hidden_columns_${String(route.name || route.path)}`;
+const hiddenColsStorageKey = `dt_hidden_columns_${String(route.name || route.path)}${props.tableKey ? `|${props.tableKey}` : ''}`;
 
 function readLocalHiddenKeys() {
   try {

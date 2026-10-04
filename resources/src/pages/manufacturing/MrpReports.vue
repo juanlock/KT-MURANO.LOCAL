@@ -20,7 +20,7 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-segmented v-model:value="report" :options="reportOptions" @change="load" />
-        <a-range-picker v-model:value="range" class="tb-range" value-format="YYYY-MM-DD" @change="load" />
+        <PresetRangeFilter v-model:value="range" class="tb-range" value-format="YYYY-MM-DD" @change="load" />
         <a-select
           v-if="report === 'cost' || report === 'material'"
           v-model:value="warehouseId" class="tb-item" allow-clear show-search
@@ -237,6 +237,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * The four questions a plant is judged on: what it cost, how the floor
  * performed, where material went, and whether quality held.

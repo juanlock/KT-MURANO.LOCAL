@@ -27,7 +27,7 @@
           v-model:value="filters.priority" class="tb-item-sm" allow-clear
           placeholder="Priority" :options="LAB_PRIORITIES" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <a-checkbox v-model:checked="filters.pending" class="tb-check" @change="crud.reload">
           Pending only
         </a-checkbox>
@@ -168,6 +168,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Lab orders and result entry.
  *

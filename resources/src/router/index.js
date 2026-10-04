@@ -336,7 +336,6 @@ const KnowledgeBaseArticle = lazy('KnowledgeBaseArticle', () => import('../pages
 const KnowledgeBaseArticleForm = lazy('KnowledgeBaseArticleForm', () => import('../pages/knowledge_base/KnowledgeBaseArticleForm.vue'));
 const Profile = lazy('Profile', () => import('../pages/profile/Profile.vue'));
 const CustomerDetails = lazy('CustomerDetails', () => import('../pages/people/CustomerDetails.vue'));
-const CustomerLedger = lazy('CustomerLedger', () => import('../pages/people/CustomerLedger.vue'));
 // --- Projects (Wave C) ---
 const Projects = lazy('Projects', () => import('../pages/projects/Projects.vue'));
 const ProjectForm = lazy('ProjectForm', () => import('../pages/projects/ProjectForm.vue'));
@@ -509,7 +508,8 @@ const routes = [
             // Edit permission isn't gated client-side in legacy; list access + server checks.
             { path: 'customers/:id/edit', name: 'customer-edit', component: CustomerForm, meta: { title: 'Edit Customer', permission: 'Customers_view' } },
             { path: 'customers/:id/details', name: 'customer-details', component: CustomerDetails, meta: { title: 'Customer Details', permission: 'Customers_view' } },
-            { path: 'customers/:id/ledger', name: 'customer-ledger', component: CustomerLedger, meta: { title: 'Customer Ledger', permission: 'Customers_view' } },
+            // The Customer Ledger page was merged into Customer Details; old links / bookmarks land there.
+            { path: 'customers/:id/ledger', redirect: to => `/customers/${to.params.id}/details` },
             { path: 'suppliers', name: 'suppliers', component: Suppliers, meta: { title: 'Suppliers', permission: 'Suppliers_view' } },
             { path: 'suppliers/import', name: 'suppliers-import', component: ImportSuppliers, meta: { title: 'Import Suppliers', permission: 'Suppliers_import' } },
             { path: 'suppliers/create', name: 'supplier-create', component: SupplierForm, meta: { title: 'Add Supplier', permission: 'Suppliers_add' } },

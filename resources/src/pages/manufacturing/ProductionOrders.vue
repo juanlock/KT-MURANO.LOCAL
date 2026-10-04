@@ -32,7 +32,7 @@
           option-filter-prop="label" placeholder="All locations"
           :options="warehouseOptions" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <a-tag v-if="totals.cost" color="purple" class="tb-total">Cost: {{ money(totals.cost) }}</a-tag>
       </div>
     </a-card>
@@ -137,6 +137,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * The order list.
  *

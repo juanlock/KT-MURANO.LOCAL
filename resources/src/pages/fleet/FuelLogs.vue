@@ -25,7 +25,7 @@
           option-filter-prop="label" placeholder="All drivers"
           :options="employeeOptions" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <a-space class="tb-totals" :size="6">
           <a-tag color="purple">{{ money(totals.cost || 0) }}</a-tag>
           <a-tag>{{ number(totals.quantity || 0, 2) }} units</a-tag>
@@ -139,6 +139,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Fuel log. Quantity x unit price keeps the total in step as you type, but the
  * total stays editable — a receipt rounds differently than the maths does, and

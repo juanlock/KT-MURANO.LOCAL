@@ -97,10 +97,10 @@
 
     <DataTable :crud="crud" :columns="columns" selectable>
       <template #bodyCell="{ column, record }">
-        <!-- Name opens the customer's ledger; Total Sales / # Sales / Due open
+        <!-- Name opens the customer's details; Total Sales / # Sales / Due open
              the Sales list filtered to exactly the sales behind that number. -->
         <template v-if="column.key === 'name'">
-          <a @click="router.push(`/customers/${record.id}/ledger`)">{{ record.name }}</a>
+          <a @click="router.push(`/customers/${record.id}/details`)">{{ record.name }}</a>
         </template>
         <template v-else-if="column.key === 'total_amount'">
           <a @click="openSales(record)">{{ money(record.total_amount) }}</a>
@@ -132,9 +132,6 @@
             </a-button>
             <template #overlay>
               <a-menu @click="({ key }) => onAction(key, record)">
-                <a-menu-item key="ledger">
-                  <ProfileOutlined /> {{ $t('Customer_Ledger') }}
-                </a-menu-item>
                 <a-menu-item
                   v-if="record.client_ecommerce === 'yes' && auth.can('Customers_edit')"
                   key="online-store"
@@ -372,7 +369,7 @@ import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined, RollbackOutlined,
-  EyeOutlined, ProfileOutlined, MoreOutlined, TeamOutlined, CreditCardOutlined,
+  EyeOutlined, MoreOutlined, TeamOutlined, CreditCardOutlined,
   ShopOutlined, StarOutlined, CalculatorOutlined, KeyOutlined,
   UserOutlined, LockOutlined, MailOutlined, FilePdfOutlined, FileExcelOutlined,
 } from '@ant-design/icons-vue';
@@ -490,7 +487,6 @@ watch(() => crud.total.value, () => { if (!initialLoading.value) loadTotals(); }
 /* --------------------------------------------------- row action dispatch */
 function onAction(key, record) {
   const go = {
-    ledger: () => router.push(`/customers/${record.id}/ledger`),
     'online-store': () => openStore(record),
     'pay-due': () => openPay(record, 'due'),
     'pay-return': () => openPay(record, 'return'),

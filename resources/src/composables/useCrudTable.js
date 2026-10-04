@@ -86,7 +86,12 @@ export function useCrudTable(endpoint, options = {}) {
         return firstArray || [];
     }
 
+    // Overlapping fetches (e.g. a filter that applies a saved default right
+    // after the first load started): only the latest one may write the rows.
+    let fetchSeq = 0;
+
     async function fetchRows() {
+        const seq = ++fetchSeq;
         loading.value = true;
         try {
             const data = await http.get(resolveEndpoint(), {
@@ -97,6 +102,7 @@ export function useCrudTable(endpoint, options = {}) {
                 limit: limit.value,
                 ...(params ? params() : {}),
             });
+            if (seq !== fetchSeq) return;
             payload.value = data;
             if (select) {
                 const picked = select(data) || {};
@@ -108,10 +114,11 @@ export function useCrudTable(endpoint, options = {}) {
             }
             selectedIds.value = [];
         } catch (e) {
+            if (seq !== fetchSeq) return;
             if (onError) onError(e);
             else message.error(t('InvalidData', 'Could not load data'));
         } finally {
-            loading.value = false;
+            if (seq === fetchSeq) loading.value = false;
         }
     }
 

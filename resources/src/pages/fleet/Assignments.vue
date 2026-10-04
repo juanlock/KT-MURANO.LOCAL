@@ -29,7 +29,7 @@
           v-model:value="filters.status" class="tb-item" allow-clear
           placeholder="All statuses" :options="ASSIGNMENT_STATUSES" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
       </div>
     </a-card>
 
@@ -169,6 +169,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Driver assignments. The backend refuses a second open assignment for the same
  * vehicle (422), so a double-booking surfaces as a message rather than as two

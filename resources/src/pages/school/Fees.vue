@@ -54,7 +54,7 @@
           v-model:value="filters.status" class="tb-item-sm" allow-clear
           placeholder="Status" :options="INVOICE_STATUSES" @change="crud.reload"
         />
-        <a-range-picker
+        <PresetRangeFilter
           v-if="tab !== 'structures'"
           v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload"
         />
@@ -412,6 +412,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Fees, as three views over one endpoint family: what the school charges
  * (structures), what it has billed (invoices) and what it has received

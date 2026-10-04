@@ -21,15 +21,20 @@ only when the incoming changes need them, `php artisan optimize:clear`, and
 always `npm run build`, since `public/js` isn't in git), then reloads
 this file's rules, reads the `kt_logs` table (the history of every
 request/order made to modify this project) so prior work and decisions are
-known before anything is changed, then closes out by generating and opening a small HTML
+known before anything is changed, digests that history into a memory file and
+surfaces the most recurrent changes (the former Mañanitas), then closes out by generating and opening a small HTML
 status report (`database/scripts/protocol_preparate_report.php`, written to
 `KT-TOOLS/Report/kt_murano_preparate_<date>.html`) showing the **last 2** `kt_logs`
 requests -- index table, then grouped by module (from the files each touched),
 each with date requested, the verbatim request, the solution (closing message),
 what changed and the files affected -- and each one's **status**
 (Completed / In Progress / Blocked -- see the `status` column note in
-`.claude/commands/kelsy.md`). This is distinct from Memorex, which reports
-the *full* `kt_logs` history.
+`.claude/commands/kelsy.md`), plus the full-history activity report
+(`database/scripts/protocol_memorex_report.php` ->
+`KT-TOOLS/Report/kt_murano_memorex_<date>.html`, the former Memorex).
+**Mañanitas and Memorex were merged into Preparate and their command files
+deleted (user's request, 2026-10-04)** -- "protocol Mañanitas" / "protocol
+Memorex" now mean the matching steps of Preparate.
 
 **Protocol reports are kept and shared (user's rule, 2026-09-30):** every
 HTML report a protocol (or an ad-hoc "report for the last N requests")
@@ -153,20 +158,18 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   including the verbatim closing message in `done`), without waiting for
   Kelsy / Pa Llevar to be invoked and without asking first. Those protocols
   then only have to catch up anything that slipped through. Location comes
-  from the machine (`KT-THUNDERA` -> Thundera, Home PC -> Home); ask only if
+  from the machine (`KT-THUNDERA` -> Thundera, `KTOPTIMUM_NB` -> Optimum,
+  Home PC -> Home); ask only if
   it's genuinely unclear.
-- **Mañanitas** (`/mananitas`, or "Claude/Jarvis, run protocol Mañanitas") —
-  session bootstrap: catch up `kt_logs` via Kelsy, digest project history into
-  a memory file, surface recurring change patterns.
-- **Memorex** (`/memorex`, or "Claude/Jarvis, run protocol Memorex") —
-  generate and open an HTML activity report from `kt_logs`
-  (`database/scripts/protocol_memorex_report.php`, writes to
-  `KT-TOOLS/Report/kt_murano_memorex_<date>.html`).
 - **Preparate** (`/preparate`, or "Jarvis, run protocolo preparate") — not
   ported from billing, this one is Murano's own: syncs this PC to the latest
   version (pull + only-if-needed install/migrate + `npm run build`), reloads
-  this file's rules, then closes out with an HTML status card for the last
-  2 requests (see above). The start-of-session counterpart of Pa Llevar.
+  this file's rules, reads `kt_logs`, digests it into a memory file and
+  surfaces recurring change patterns, then closes out with an HTML status
+  card for the last 2 requests plus the full-history activity report (see
+  above). The start-of-session counterpart of Pa Llevar. **Mañanitas and
+  Memorex (both ported from billing) were merged into it and their
+  `/mananitas` / `/memorex` commands deleted (user's request, 2026-10-04).**
 - **Copia BD** (`/copia-bd`, or "Jarvis, run protocolo copia bd") — not
   ported from billing, this one is Murano's own: dumps `dbmurano` via
   `mysqldump` (`database/scripts/protocol_copia_bd.php`) into

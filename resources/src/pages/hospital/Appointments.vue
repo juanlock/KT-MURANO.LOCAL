@@ -31,7 +31,7 @@
             v-model:value="filters.type" class="tb-item" allow-clear
             placeholder="All types" :options="APPOINTMENT_TYPES" @change="crud.reload"
           />
-          <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+          <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
           <a-checkbox v-model:checked="filters.today" class="tb-check" @change="crud.reload">Today</a-checkbox>
         </div>
       </a-card>
@@ -203,6 +203,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Appointment diary, as a list or a per-doctor day board.
  *

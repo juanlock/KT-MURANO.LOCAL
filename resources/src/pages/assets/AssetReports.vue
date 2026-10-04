@@ -20,7 +20,7 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-segmented v-model:value="report" :options="reportOptions" @change="load" />
-        <a-range-picker
+        <PresetRangeFilter
           v-if="report !== 'register'"
           v-model:value="range" class="tb-range" value-format="YYYY-MM-DD" @change="load"
         />
@@ -163,6 +163,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Three questions the register cannot answer on its own: what is it all worth,
  * what is it costing to keep, and who never brings anything back.

@@ -164,7 +164,7 @@
           </a-tooltip>
         </template>
         <template v-else-if="column.key === 'client_name'">
-          <a v-if="record.client_id" @click="$router.push(`/customers/${record.client_id}/ledger`)">{{ record.client_name }}</a>
+          <a v-if="record.client_id" @click="$router.push(`/customers/${record.client_id}/details`)">{{ record.client_name }}</a>
           <span v-else>{{ record.client_name }}</span>
         </template>
         <template v-else-if="column.key === 'statut'">

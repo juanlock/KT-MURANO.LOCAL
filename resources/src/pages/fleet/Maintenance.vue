@@ -28,7 +28,7 @@
           v-model:value="filters.status" class="tb-item" allow-clear
           placeholder="All statuses" :options="MAINTENANCE_STATUSES" @change="crud.reload"
         />
-        <a-range-picker v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <a-tag v-if="totalCost" color="purple" class="tb-total">Total: {{ money(totalCost) }}</a-tag>
       </div>
     </a-card>
@@ -151,6 +151,7 @@
 </template>
 
 <script setup>
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Service and repair log for the whole fleet, with a per-vehicle filter that
  * the vehicle detail page links into.
