@@ -199,8 +199,10 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
 - **Copia BD** (`/copia-bd`, or "Jarvis, run protocolo copia bd") — not
   ported from billing, this one is Murano's own: dumps `dbmurano` via
   `mysqldump` (`database/scripts/protocol_copia_bd.php`) into
-  `KT-TOOLS/database/dbmurano_<date>_<host>_<time>.sql` (e.g.
-  `dbmurano_2026-09-29_KT-THUNDERA_11-23-38-AM.sql` — host from
+  `KT-TOOLS/database/dbmurano_<date>_<host>_<time>.zip` (e.g.
+  `dbmurano_2026-09-29_KT-THUNDERA_11-23-38-AM.zip` — **zipped since
+  2026-10-05 (user's rule)**: the plain `.sql` outgrew GitHub's 100 MB limit,
+  so the script zips it and deletes the `.sql`; unzip to restore — host from
   `gethostname()`, time human-readable 12-hour with AM/PM via `now()`, not a
   bare digit run) — a phpMyAdmin-independent backup after a local phpMyAdmin
   export bug corrupted a manual backup attempt. Every dump is phpMyAdmin-ready
@@ -213,7 +215,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   Murano's own end-of-session close-out (A Dormir was merged into it and
   then deleted, user's request 2026-10-01): checks `npm run build`, runs
   Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
-  then Copia BD, then commits everything with a summary subject and a
+  then Copia BD (+ copy to `KT-TOOLS/SQL/backup db.zip`), then commits everything with a summary subject and a
   detailed description of the changes (one bullet per `kt_logs` request,
   migrations, setup steps for other machines, backup file) and pushes to
   GitHub (never force-push; without CLI credentials the user pushes from

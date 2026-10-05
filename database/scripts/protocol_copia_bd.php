@@ -181,4 +181,18 @@ if (! $result->successful()) {
 }
 
 $sizeMb = round(filesize($outFile) / 1024 / 1024, 2);
-echo "Backup written to: {$outFile} ({$sizeMb} MB)\n";
+
+// The .sql grew past GitHub's 100 MB file limit (office_emails), so the final
+// backup is a .zip holding the .sql (same name). Unzip, then import as before.
+$zipFile = substr($outFile, 0, -4).'.zip';
+$zip = new ZipArchive();
+if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true
+    || ! $zip->addFile($outFile, basename($outFile))
+    || ! $zip->close()) {
+    echo "WARNING: could not zip the backup, kept the plain .sql.\n";
+    echo "Backup written to: {$outFile} ({$sizeMb} MB)\n";
+    return;
+}
+@unlink($outFile);
+$zipMb = round(filesize($zipFile) / 1024 / 1024, 2);
+echo "Backup written to: {$zipFile} ({$zipMb} MB zip of a {$sizeMb} MB .sql)\n";

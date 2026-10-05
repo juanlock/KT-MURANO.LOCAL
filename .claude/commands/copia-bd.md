@@ -1,5 +1,5 @@
 ---
-description: "Protocol Copia BD -- dumps dbmurano via mysqldump into KT-TOOLS/database/ as a timestamped .sql file. Also triggers on \"Claude/Jarvis, run protocolo copia bd\" / \"protocolo copia bd\"."
+description: "Protocol Copia BD -- dumps dbmurano via mysqldump into KT-TOOLS/database/ as a timestamped .zip (holding the .sql). Also triggers on \"Claude/Jarvis, run protocolo copia bd\" / \"protocolo copia bd\"."
 ---
 
 Run Protocol Copia BD:
@@ -14,6 +14,7 @@ Run Protocol Copia BD:
    - Collations only MariaDB 11 (`utf8mb4_uca1400_*`) or MySQL 8 (`utf8mb4_0900_*`) know are rewritten to `utf8mb4_unicode_ci` -- on structure lines only; INSERT data is never altered.
    - `DROP TABLE IF EXISTS` before each table, so a re-import replaces the tables.
    Verified 2026-10-01 by importing a dump into a scratch local DB with the `mysql` client: 327 tables, 66,165 rows, zero count mismatches, trigger present.
+4b. **Zipped (user's rule, 2026-10-05):** the database outgrew GitHub's 100 MB file limit (`office_emails` -- the Email Office import made the `.sql` ~123 MB), so the final backup is **`dbmurano_<date>_<host>_<time>.zip`**, holding the `.sql` of the same name (PHP `ZipArchive`, ~8x smaller). The plain `.sql` is deleted once the zip is written; if zipping fails the `.sql` is kept and a warning is printed. To restore: unzip, then import the `.sql` (phpMyAdmin also accepts the `.zip` directly when its upload limit allows the size). `*.zip` is stored with Git LFS (`.gitattributes`).
 5. **Other folder:** to write the dump somewhere else under `KT-TOOLS/` (e.g. an export for an external backup program -> `KT-TOOLS/SQL/`), set `$outSubdir` before the require: `php artisan tinker --execute="$outSubdir = 'SQL'; require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"`. Same format and file naming; default is `database`.
 6. Report the output path and file size back to the user.
 
