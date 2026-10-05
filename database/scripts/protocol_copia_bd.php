@@ -94,7 +94,7 @@ $stem = $outDir.DIRECTORY_SEPARATOR."dbmurano_{$date}_{$host}_{$time}";
 // >130 MB (imported mailboxes), so they go to their own file and the main
 // backup stays small. Both are zipped. Restore = import the main file, then
 // the _office_emails one (no foreign keys link them to other tables).
-$emailTables = ['office_emails', 'email_office_settings'];
+$emailTables = ['office_emails', 'email_office_settings', 'email_office_rules', 'email_office_folders', 'email_office_payees'];
 
 // phpMyAdmin-ready (user's rule, 2026-10-01): the file must import as-is
 // through phpMyAdmin -> Import on shared hosting (e.g. Hostinger), into
