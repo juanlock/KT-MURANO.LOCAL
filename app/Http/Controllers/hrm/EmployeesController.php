@@ -428,6 +428,9 @@ class EmployeesController extends Controller
     private function applySalesRoles(Employee $employee, Request $request): void
     {
         $roles = $request->input('sales_roles');
+        if (is_array($roles) && array_key_exists('service_technician', $roles)) {
+            $this->applyServiceTechnician($employee, filter_var($roles['service_technician'], FILTER_VALIDATE_BOOLEAN));
+        }
         if (! is_array($roles) || ! array_intersect(['sales_staff', 'sales_agent'], array_keys($roles))) {
             return;
         }
@@ -489,14 +492,57 @@ class EmployeesController extends Controller
         return $agent;
     }
 
-    /** Sales Staff / Sales Agent status of an employee for the form. */
+    /**
+     * Employee form -> "Service Technician": the employee is one of the
+     * company's Service Job technicians (service_technicians.employee_id, no
+     * login needed). Remove = deactivate (their jobs keep the technician).
+     * A technician typed by hand with the same email is adopted. Only with
+     * the company's Service module.
+     */
+    private function applyServiceTechnician(Employee $employee, bool $on): void
+    {
+        $companyId = (int) $employee->company_id;
+        if (! \App\Support\ModuleFlags::enabled($companyId, 'service')) {
+            return;
+        }
+        $tech = $this->technicianOf($employee, true);
+        $name = trim($employee->firstname.' '.$employee->lastname) ?: $employee->username;
+        if ($on) {
+            if (! $tech) {
+                \App\Models\ServiceTechnician::create([
+                    'company_id' => $companyId, 'employee_id' => $employee->id, 'name' => $name,
+                    'phone' => $employee->phone, 'email' => $employee->email, 'is_active' => true,
+                ]);
+            } else {
+                $tech->forceFill(['employee_id' => $employee->id, 'is_active' => true, 'deleted_at' => null])->save();
+            }
+        } elseif ($tech && $tech->is_active && ! $tech->deleted_at) {
+            $tech->forceFill(['is_active' => false])->save();
+        }
+    }
+
+    /** The employee's technician: linked by employee_id, else (when $adopt) an unlinked one of the company with their email. */
+    private function technicianOf(Employee $employee, bool $adopt = false): ?\App\Models\ServiceTechnician
+    {
+        $q = fn () => \App\Models\ServiceTechnician::where('company_id', (int) $employee->company_id)->orderByRaw('deleted_at IS NOT NULL')->orderByDesc('is_active');
+        $tech = $q()->where('employee_id', $employee->id)->first();
+        if (! $tech && $adopt && filter_var((string) $employee->email, FILTER_VALIDATE_EMAIL)) {
+            $tech = $q()->whereNull('employee_id')->whereNull('deleted_at')->where('email', $employee->email)->first();
+        }
+
+        return $tech;
+    }
+
+    /** Sales Staff / Sales Agent / Service Technician status of an employee for the form. */
     private function salesRolesOf(Employee $employee): array
     {
         $agent = $this->salesAgentOf($employee);
+        $tech = $this->technicianOf($employee);
 
         return [
             'sales_staff' => $employee->user_id ? (bool) \App\Models\User::whereKey($employee->user_id)->value('is_sales_staff') : false,
             'sales_agent' => $agent && ! $agent->trashed() && $agent->is_active,
+            'service_technician' => $tech && ! $tech->deleted_at && (bool) $tech->is_active,
         ];
     }
 

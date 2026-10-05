@@ -3,6 +3,10 @@
     <PageHeader :title="$t('Customers')" :breadcrumb="[$t('People'), $t('Customers')]">
       <template #actions>
         <a-space wrap :size="12">
+          <!-- Date buttons: Total Sales / # Sales / Due / Return Due count only
+               documents dated in the range; every customer stays listed. -->
+          <DateRangeFields :value="rangeFields" @change="onRangeEdit" />
+          <DatePresetButtons v-model:value="datePreset" @change="onDatePreset" />
           <a-button :loading="exporting === 'pdf'" @click="exportList('pdf')">
             <template #icon><FilePdfOutlined /></template>
             PDF
@@ -108,6 +112,10 @@
         <template v-else-if="column.key === 'sales_count'">
           <a @click="openSales(record)">{{ record.sales_count || 0 }}</a>
         </template>
+        <template v-else-if="column.key === 'contracts_count'">
+          <a v-if="record.contracts_count" @click="router.push(`/customers/${record.id}/details?tab=contracts`)">{{ record.contracts_count }}</a>
+          <span v-else style="opacity: 0.45">0</span>
+        </template>
         <template v-else-if="MONEY_KEYS.includes(column.key)">{{ money(record[column.key]) }}</template>
         <template v-else-if="column.key === 'due'">
           <a v-if="Number(record.due) > 0" @click="openSales(record, true)">
@@ -142,12 +150,12 @@
                      allocates opening balance first, then sales, then service jobs,
                      same as the details page's Pay Due button. -->
                 <a-menu-item
-                  v-if="(Number(record.due) || 0) + (Number(record.service_due) || 0) + (Number(record.opening_balance) || 0) > 0 && auth.can('pay_due')"
+                  v-if="(Number(record.due_all ?? record.due) || 0) + (Number(record.service_due) || 0) + (Number(record.opening_balance) || 0) > 0 && auth.can('pay_due')"
                   key="pay-due"
                 >
                   <DollarOutlined /> {{ $t('pay_all_sell_due_at_a_time') }}
                 </a-menu-item>
-                <a-menu-item v-if="Number(record.return_Due) > 0 && auth.can('pay_sale_return_due')" key="pay-return">
+                <a-menu-item v-if="Number(record.return_due_all ?? record.return_Due) > 0 && auth.can('pay_sale_return_due')" key="pay-return">
                   <DollarOutlined /> {{ $t('pay_all_sell_return_due_at_a_time') }}
                 </a-menu-item>
                 <a-menu-item key="details">
@@ -181,7 +189,7 @@
       ref="payDueModal"
       :client="payTarget"
       :opening-balance="Number(payTarget?.opening_balance) || 0"
-      :sales-due="Number(payTarget?.due) || 0"
+      :sales-due="Number(payTarget?.due_all ?? payTarget?.due) || 0"
       :service-due="Number(payTarget?.service_due) || 0"
       :payment-methods="crud.payload.value?.payment_methods || []"
       :accounts="crud.payload.value?.accounts || []"
@@ -377,6 +385,10 @@ import { exportExcel, exportPdf } from '../../lib/exporters';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import PayDueModal from '../../components/PayDueModal.vue';
+import DatePresetButtons from '../../components/DatePresetButtons.vue';
+import DateRangeFields from '../../components/DateRangeFields.vue';
+import { presetDates, presetOf } from '../../lib/datePresets';
+import { startPreset } from '../../lib/datePresetDefault';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
@@ -389,8 +401,33 @@ const router = useRouter();
 
 const MONEY_KEYS = ['credit_limit', 'opening_balance', 'total_amount'];
 
+// Date buttons (shared presets, user's default ★ -- else All = lifetime
+// totals, the list's previous behavior). Sent as date_from/date_to: the
+// server limits each customer's sales/returns figures to that range.
+// Editing Start date / to = a custom range (datePreset null).
+const datePreset = ref(startPreset('all'));
+const customRange = ref({ from: '', to: '' });
+const activeDates = () => (datePreset.value ? presetDates(datePreset.value) : customRange.value);
+const dateParams = () => {
+  const { from, to } = activeDates();
+  return { date_from: from, date_to: to };
+};
+const rangeFields = computed(() => {
+  const { from, to } = activeDates();
+  return from ? [from, to] : null;
+});
+function onDatePreset() {
+  crud.reload();
+  loadTotals();
+}
+function onRangeEdit(range) {
+  datePreset.value = range ? presetOf(range[0], range[1]) : 'all';
+  if (!datePreset.value) customRange.value = { from: range[0], to: range[1] };
+  onDatePreset();
+}
+
 // Payload: { clients, totalRows, company_info, accounts, payment_methods }
-const crud = useCrudTable('clients', { rowsKey: 'clients' });
+const crud = useCrudTable('clients', { rowsKey: 'clients', params: dateParams });
 
 // Accounts come from the API as { id, account_name }, payment methods as { id, name }.
 const opts = key =>
@@ -411,17 +448,25 @@ const columns = computed(() => [
     : []),
   { title: t('Total_Sales'), key: 'total_amount', dataIndex: 'total_amount', align: 'right', exportValue: r => money(r.total_amount) },
   { title: '# ' + t('Sales'), key: 'sales_count', dataIndex: 'sales_count', align: 'center', width: 90, exportValue: r => String(r.sales_count || 0) },
+  // Sales Contracts of the customer (all, not date-filtered); opens their Contracts tab.
+  { title: 'Contracts', key: 'contracts_count', dataIndex: 'contracts_count', align: 'center', width: 100, exportValue: r => String(r.contracts_count || 0) },
   { title: t('Due'), key: 'due', dataIndex: 'due', sorter: true, align: 'right', exportValue: r => money(r.due) },
   { title: t('Service_Due'), key: 'service_due', dataIndex: 'service_due', align: 'right', exportValue: r => money(r.service_due) },
   { title: t('Total_Sell_Return_Due'), key: 'return_Due', dataIndex: 'return_Due', align: 'right', exportValue: r => money(r.return_Due) },
 ]);
 
 // Sales list filtered to this customer's completed sales (the set Total Sales
-// and # Sales count); dueOnly narrows it to the ones making up Due.
+// and # Sales count), in the same date range; dueOnly narrows it to the ones
+// making up Due.
 function openSales(record, dueOnly = false) {
   router.push({
     path: '/sales',
-    query: { client_id: record.id, statut: 'completed', ...(dueOnly ? { due_only: '1' } : {}) },
+    query: {
+      client_id: record.id, statut: 'completed',
+      ...(datePreset.value && datePreset.value !== 'all' ? { preset: datePreset.value } : {}),
+      ...(!datePreset.value ? { date_from: customRange.value.from, date_to: customRange.value.to } : {}),
+      ...(dueOnly ? { due_only: '1' } : {}),
+    },
   });
 }
 
@@ -437,6 +482,7 @@ async function exportList(kind) {
       SortType: crud.sortType.value,
       search: crud.search.value,
       limit: -1,
+      ...dateParams(),
     });
     const rows = data.clients || [];
     const cols = columns.value.filter(c => c.key !== 'actions');
@@ -463,7 +509,7 @@ const cardsLoading = computed(() => initialLoading.value || crud.loading.value |
 async function loadTotals() {
   totalsLoading.value = true;
   try {
-    const data = await http.get('clients', { page: 1, limit: -1 });
+    const data = await http.get('clients', { page: 1, limit: -1, ...dateParams() });
     const rows = data.clients || [];
     totals.value = {
       sales: rows.reduce((s, r) => s + (Number(r.total_amount) || 0), 0),
@@ -657,7 +703,9 @@ const payForm = ref({ amount: 0, payment_method_id: undefined, account_id: undef
 
 // Rounded: this is the paying-amount input's :max and prefill — a raw float
 // due would surface as e.g. 121.99999999999994 in the field.
-const payMax = computed(() => roundMoney(payTarget.value?.return_Due));
+// Lifetime return due (return_due_all), not the date range's: a payment
+// settles the whole balance.
+const payMax = computed(() => roundMoney(payTarget.value?.return_due_all ?? payTarget.value?.return_Due));
 
 function openPay(record, kind) {
   payTarget.value = record;

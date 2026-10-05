@@ -69,6 +69,8 @@
         </div>
         <div class="inv-ref">
           <div class="inv-ref-badge">{{ sale.Ref }}</div>
+          <!-- Draft (Pending, for review): also printed, so a draft isn't sent as final. -->
+          <a-tag v-if="sale.is_draft" color="purple" style="margin: 0 0 8px 8px; font-weight: 600">DRAFT</a-tag>
           <table class="inv-meta">
             <tr><td>{{ $t('date') }}</td><td>{{ dateTime(sale.date) }}</td></tr>
             <tr>
@@ -148,9 +150,19 @@
 
       <div class="inv-summary">
         <!-- Summary labels hardcoded English in legacy's invoice too. -->
+        <!-- Subtotal is before tax; then item tax (the lines' own tax) and
+             order tax (the sale's rate on the discounted total), so
+             Subtotal + taxes - discount + shipping = Total. -->
         <table>
-          <tr><td>Subtotal:</td><td>{{ docMoney(subtotal) }}</td></tr>
-          <tr><td>Order Tax:</td><td>{{ docMoney(sale.TaxNet) }}</td></tr>
+          <tr><td>Subtotal:</td><td>{{ docMoney(netSubtotal) }}</td></tr>
+          <tr v-if="itemTax > 0">
+            <td>Item Tax<template v-if="itemTaxRate"> ({{ itemTaxRate }}%)</template>:</td>
+            <td>{{ docMoney(itemTax) }}</td>
+          </tr>
+          <tr v-if="Number(sale.TaxNet) > 0 || itemTax <= 0">
+            <td>Order Tax<template v-if="Number(sale.tax_rate) > 0 && String(sale.tax_Method || '1') === '1'"> ({{ Number(sale.tax_rate) }}%)</template>:</td>
+            <td>{{ docMoney(sale.TaxNet) }}</td>
+          </tr>
           <tr v-if="Number(sale.discount) > 0">
             <td>Discount:</td>
             <td class="neg">
@@ -164,7 +176,8 @@
             <td>Discount from Points:</td>
             <td class="neg">- {{ docMoney(sale.discount_from_points) }}</td>
           </tr>
-          <tr><td>Shipping:</td><td>{{ docMoney(sale.shipping) }}</td></tr>
+          <!-- Only when the company uses shipping (Defaults -> Sales), or this sale has some. -->
+          <tr v-if="Number(sale.shipping) > 0 || shippingEnabled"><td>Shipping:</td><td>{{ docMoney(sale.shipping) }}</td></tr>
           <tr class="grand"><td>{{ $t('Total') }}:</td><td>{{ docMoney(sale.GrandTotal) }}</td></tr>
           <tr><td>{{ $t('Paid') }}:</td><td style="color: #52c41a">{{ docMoney(sale.paid_amount) }}</td></tr>
           <tr><td>{{ $t('Due') }}:</td><td style="color: #ff4d4f">{{ docMoney(sale.due) }}</td></tr>
@@ -181,6 +194,42 @@
       <div v-if="company.is_invoice_footer && company.invoice_footer" class="inv-footer">
         {{ company.invoice_footer }}
       </div>
+    </a-card>
+
+    <!-- Related records (not printed): Service jobs -- the visits a contract
+         invoice bills, else the customer's latest jobs. Only with the
+         company's Service module and the service_jobs permission. -->
+    <a-card v-if="!loading && serviceJobs" size="small" class="sale-related no-print" style="margin-top: 16px">
+      <a-tabs v-model:activeKey="relatedTab" size="small">
+        <a-tab-pane key="service_jobs" :tab="`${$t('Service_Jobs')} (${serviceJobs.jobs.length})`">
+          <div class="related-help">
+            <template v-if="serviceJobs.context === 'contract'">
+              Visits of contract
+              <router-link :to="`/sales-contracts/${serviceJobs.contract.id}`">{{ serviceJobs.contract.number }}</router-link>
+              billed by this invoice ({{ date(serviceJobs.contract.period_start) }} – {{ date(serviceJobs.contract.period_end) }}).
+            </template>
+            <template v-else-if="serviceJobs.context === 'sale'">
+              Service jobs created with this sale.
+            </template>
+            <template v-else>
+              This customer's latest service jobs.
+              <router-link :to="{ path: `/customers/${serviceJobs.client_id}/details`, query: { tab: 'service_jobs' } }">See all</router-link>
+            </template>
+          </div>
+          <a-table :data-source="serviceJobs.jobs" :columns="jobColumns" :pagination="{ pageSize: 10, hideOnSinglePage: true }" size="small" row-key="id">
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'ref'">
+                <router-link :to="`/service/jobs/details/${record.id}`">{{ record.ref }}</router-link>
+              </template>
+              <template v-else-if="column.key === 'scheduled_date'">
+                {{ record.scheduled_date ? `${date(record.scheduled_date)} ${String(record.scheduled_date).slice(11, 16)}` : '—' }}
+              </template>
+              <template v-else-if="column.key === 'status'"><a-tag>{{ record.status }}</a-tag></template>
+              <template v-else-if="column.key === 'total'">{{ docMoney(record.total) }}</template>
+            </template>
+          </a-table>
+        </a-tab-pane>
+      </a-tabs>
     </a-card>
   </div>
 </template>
@@ -224,6 +273,17 @@ const sale = ref({});
 const { docMoney, currencyOptions, currencySelectId, showCurrencySelect } = useDetailsCurrency(sale);
 const details = ref([]);
 const company = ref({});
+// "Service jobs" tab under the invoice (null = hidden).
+const serviceJobs = ref(null);
+const relatedTab = ref('service_jobs');
+const jobColumns = computed(() => [
+  { title: t('Ref'), key: 'ref' },
+  { title: 'Scheduled', key: 'scheduled_date' },
+  { title: t('Service_Item'), dataIndex: 'title', key: 'title', ellipsis: true },
+  { title: t('Technician'), dataIndex: 'technician', key: 'technician' },
+  { title: t('Status'), key: 'status' },
+  { title: t('Total'), key: 'total', align: 'right' },
+]);
 const sendingEmail = ref(false);
 const sendingSms = ref(false);
 const downloadingPdf = ref(false);
@@ -236,6 +296,23 @@ const num = v => {
 const subtotal = computed(() =>
   details.value.reduce((sum, d) => sum + (Number(d?.total) || 0), 0)
 );
+
+// Subtotal before any tax: each line's net price x quantity.
+const netLines = computed(() =>
+  details.value.reduce((sum, d) => sum + (Number(d?.Net_price) || 0) * (Number(d?.quantity) || 0), 0)
+);
+// Tax charged on the lines themselves (each line's own tax %): what the saved
+// line totals hold beyond the net, so the rows always add up to them.
+const itemTax = computed(() => Math.max(0, +(subtotal.value - netLines.value).toFixed(6)));
+// The lines' rate when they all share one (e.g. 6.625), else none.
+const itemTaxRate = computed(() => {
+  const rates = [...new Set(details.value.filter(d => Number(d?.taxe) > 0).map(d => Number(d.tax_percent) || 0))];
+  return rates.length === 1 && rates[0] > 0 ? rates[0] : null;
+});
+const netSubtotal = computed(() => subtotal.value - itemTax.value);
+// Defaults -> Sales -> Shipping (on unless switched off).
+const shippingEnabled = computed(() => company.value.sale_shipping_enabled === undefined
+  || company.value.sale_shipping_enabled === null || !!Number(company.value.sale_shipping_enabled) || company.value.sale_shipping_enabled === true);
 
 const discountAmount = computed(() => {
   const method = String(sale.value.discount_Method || '2');
@@ -320,6 +397,7 @@ onMounted(async () => {
     sale.value = data.sale || {};
     details.value = data.details || [];
     company.value = data.company || {};
+    serviceJobs.value = data.service_jobs || null;
   } catch (e) {
     message.error(t('InvalidData'));
     router.push('/sales');
@@ -425,5 +503,14 @@ onMounted(async () => {
     box-shadow: none !important;
     border: none !important;
   }
+  /* Related tabs (Service jobs) are screen-only. */
+  .no-print {
+    display: none !important;
+  }
+}
+.related-help {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-bottom: 8px;
 }
 </style>

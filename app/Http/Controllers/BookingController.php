@@ -44,6 +44,31 @@ class BookingController extends BaseController
         abort_if(! empty($v['product_id']) && ! Product::whereKey($v['product_id'])->where('company_id', $cid)->exists(), 422, 'That product does not belong to your company.');
         abort_if(! empty($v['sales_person_id']) && ! User::whereKey($v['sales_person_id'])->where('company_id', $cid)->exists(), 422, 'That sales person does not belong to your company.');
         abort_if(! empty($v['warehouse_id']) && ! \App\Models\Warehouse::whereKey($v['warehouse_id'])->where('company_id', $cid)->exists(), 422, 'That location does not belong to your company.');
+        abort_if(! empty($v['tray_id']) && ! Tray::whereKey($v['tray_id'])->where('company_id', $cid)->exists(), 422, 'That station does not belong to your company.');
+    }
+
+    /** Appointment mode fields: the link only for remote, the address only for on-site. */
+    private function normalizeMode(array $v): array
+    {
+        $mode = $v['mode'] ?? null;
+        if ($mode !== 'remote') {
+            $v['meeting_link'] = null;
+        }
+        if ($mode !== 'onsite') {
+            $v['site_address'] = null;
+        }
+
+        return $v;
+    }
+
+    /** Validation rules for the appointment mode fields (Settings -> Booking -> Appointment mode). */
+    private function modeRules(): array
+    {
+        return [
+            'mode' => 'nullable|string|in:office,remote,onsite',
+            'meeting_link' => 'nullable|url|max:500',
+            'site_address' => 'nullable|string|max:2000',
+        ];
     }
 
     /**
@@ -195,6 +220,9 @@ class BookingController extends BaseController
             $item['delivery_date'] = $booking->delivery_date;
             $item['delivery_time'] = $booking->delivery_time;
             $item['delivery_address'] = $booking->delivery_address;
+            $item['mode'] = $booking->mode;
+            $item['meeting_link'] = $booking->meeting_link;
+            $item['site_address'] = $booking->site_address;
             $item['status'] = $booking->status;
             $item['notes'] = $booking->notes;
             // Sale invoice of a completed booking (null if deleted or not made yet).
@@ -263,9 +291,7 @@ class BookingController extends BaseController
     public function create(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', Booking::class);
-        $customers = $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')
-            ->orderBy('name', 'asc')
-            ->get(['id', 'name']);
+        $customers = $this->formCustomers();
 
         return response()->json([
             'customers' => $customers,
@@ -318,7 +344,22 @@ class BookingController extends BaseController
             'status' => $flag('booking_status_enabled'),
             'delivery_address' => $flag('booking_delivery_address_enabled'),
             'decimals' => $flag('booking_decimals_enabled'),
+            // Appointment mode (office / remote + link / on-site + address): default off.
+            'mode' => (bool) ($s->booking_mode_enabled ?? false),
         ];
+    }
+
+    /** Customers for the form, with their address (on-site appointments start from it). */
+    private function formCustomers()
+    {
+        return $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')
+            ->orderBy('name', 'asc')
+            ->get(['id', 'name', 'adresse', 'city', 'state', 'zip'])
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'address' => collect([$c->adresse, trim(implode(' ', array_filter([$c->city, $c->state, $c->zip])))])->filter()->implode(', '),
+            ]);
     }
 
     /** Defaults -> Booking -> Use decimals off: Price / Amount saved as whole numbers. */
@@ -400,11 +441,12 @@ class BookingController extends BaseController
     }
 
     /**
-     * Active trays for the booking form dropdown.
+     * Active trays (stations) of the company for the booking form dropdown.
+     * A company without stations gets none, and the form hides the field.
      */
     private function getTrays()
     {
-        return Tray::whereNull('deleted_at')
+        return $this->rc(Tray::query(), 'trays.company_id')->whereNull('deleted_at')
             ->orderBy('name', 'asc')
             ->get(['id', 'name']);
     }
@@ -490,7 +532,8 @@ class BookingController extends BaseController
             'delivery_address' => 'nullable|string',
             'status' => 'required|string|in:pending,confirmed,cancelled,completed',
             'notes' => 'nullable|string',
-        ])->validate();
+        ] + $this->modeRules())->validate();
+        $validated = $this->normalizeMode($validated);
         // Without "Booking to other staff": the staff is always the user themselves.
         if (! $this->canBookOtherStaff($request->user('api'))) {
             $validated['sales_person_id'] = $request->user('api')->id;
@@ -548,6 +591,9 @@ class BookingController extends BaseController
                 'delivery_date' => $booking->delivery_date,
                 'delivery_time' => $booking->delivery_time,
                 'delivery_address' => $booking->delivery_address,
+                'mode' => $booking->mode,
+                'meeting_link' => $booking->meeting_link,
+                'site_address' => $booking->site_address,
                 'status' => $booking->status,
                 'notes' => $booking->notes,
             ],
@@ -562,9 +608,7 @@ class BookingController extends BaseController
         $this->authorizeForUser($request->user('api'), 'update', Booking::class);
         $booking = $this->bookingScope(Booking::whereNull('deleted_at'))->findOrFail($id);
 
-        $customers = $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')
-            ->orderBy('name', 'asc')
-            ->get(['id', 'name']);
+        $customers = $this->formCustomers();
 
         return response()->json([
             'booking' => [
@@ -585,6 +629,9 @@ class BookingController extends BaseController
                 'delivery_date' => $booking->delivery_date,
                 'delivery_time' => $booking->delivery_time,
                 'delivery_address' => $booking->delivery_address,
+                'mode' => $booking->mode,
+                'meeting_link' => $booking->meeting_link,
+                'site_address' => $booking->site_address,
                 'status' => $booking->status,
                 'notes' => $booking->notes,
             ],
@@ -656,7 +703,13 @@ class BookingController extends BaseController
             'delivery_address' => 'nullable|string',
             'status' => 'required|string|in:pending,confirmed,cancelled,completed',
             'notes' => 'nullable|string',
-        ])->validate();
+        ] + $this->modeRules())->validate();
+        // A form without the mode fields (mode switched off) keeps what the booking has.
+        if (! array_key_exists('mode', $requestData)) {
+            unset($validated['mode'], $validated['meeting_link'], $validated['site_address']);
+        } else {
+            $validated = $this->normalizeMode($validated);
+        }
         // Without "Booking to other staff": the staff can't be changed to
         // someone else (only kept, or set to the user themselves).
         $me = $request->user('api');

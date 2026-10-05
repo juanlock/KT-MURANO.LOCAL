@@ -10,6 +10,8 @@ class Sale extends Model
 
     protected $fillable = [
         'date', 'Ref', 'is_pos', 'client_id', 'GrandTotal', 'qte_retturn', 'TaxNet', 'tax_rate', 'notes',
+        // Draft: a Pending sale saved for review ("Save as draft", recurring invoices).
+        'is_draft',
         'total_retturn', 'warehouse_id', 'user_id', 'seller_id', 'statut', 'discount', 'discount_Method', 'shipping', 'time', 'used_points', 'earned_points', 'discount_from_points',
         'paid_amount', 'payment_statut', 'created_at', 'updated_at', 'deleted_at', 'shipping_status', 'subscription_id', 'sales_agent_id',
         // Idempotency key for POS sales; nullable for legacy rows and non-POS flows
@@ -26,6 +28,7 @@ class Sale extends Model
     ];
 
     protected $casts = [
+        'is_draft' => 'boolean',
         'is_pos' => 'integer',
         'GrandTotal' => 'double',
         'qte_retturn' => 'double',
@@ -112,6 +115,13 @@ class Sale extends Model
 
     protected static function booted()
     {
+        // A draft is a Pending sale: once it's Ordered / Completed / Cancelled
+        // it's no longer a draft.
+        static::saving(function ($sale) {
+            if ($sale->is_draft && $sale->statut !== 'pending') {
+                $sale->is_draft = false;
+            }
+        });
         static::updating(function ($sale) {
             if ($sale->isDirty('quickbooks_invoice_id')) {
                 $original = $sale->getOriginal('quickbooks_invoice_id');

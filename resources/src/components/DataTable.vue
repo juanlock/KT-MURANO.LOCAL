@@ -1,7 +1,7 @@
 <template>
   <a-card
     :body-style="{ padding: 0 }" :style="cardVars"
-    :class="{ 'dt-th-bg': !!dt.headerBg, 'dt-th-color': !!dt.headerColor }"
+    :class="{ 'dt-th-bg': !!thBg, 'dt-th-color': !!dt.headerColor }"
   >
     <div v-if="toolbarVisible" class="datatable-toolbar">
       <a-input-search
@@ -58,6 +58,14 @@
           </a-button>
         </a-tooltip>
 
+        <!-- Fit to width: no horizontal scroll bar -- the columns share the
+             screen and long text wraps. Remembered per table, per user. -->
+        <a-tooltip :title="fitWidth ? 'Fit to width: on (click for full-width columns)' : 'Fit to width (no horizontal scroll bar)'">
+          <a-button :type="fitWidth ? 'primary' : 'default'" @click="toggleFitWidth">
+            <template #icon><ShrinkOutlined /></template>
+          </a-button>
+        </a-tooltip>
+
         <!-- Refresh -->
         <a-tooltip v-if="dt.showRefresh" :title="$t('Refresh')">
           <a-button @click="crud.fetchRows()">
@@ -69,13 +77,14 @@
 
     <a-table
       class="dt-managed"
-      :columns="visibleColumns"
+      :class="{ 'dt-fit': fitWidth }"
+      :columns="fitWidth ? fitColumns : visibleColumns"
       :data-source="crud.rows.value"
       :loading="crud.loading.value"
       :pagination="crud.pagination.value"
       :row-selection="selectionEnabled ? crud.rowSelection.value : undefined"
       :row-key="rowKey"
-      :scroll="{ x: 'max-content' }"
+      :scroll="fitWidth ? undefined : { x: 'max-content' }"
       :size="dt.density"
       :bordered="dt.bordered"
       :show-sorter-tooltip="false"
@@ -85,6 +94,10 @@
       <!-- Forward cell rendering to the page. -->
       <template #bodyCell="slotProps">
         <slot name="bodyCell" v-bind="slotProps" />
+      </template>
+      <!-- Custom header cells (e.g. a help tooltip) only when the page asks. -->
+      <template v-if="$slots.headerCell" #headerCell="slotProps">
+        <slot name="headerCell" v-bind="slotProps" />
       </template>
       <template #emptyText>
         <a-empty :description="$t('NodataAvailable')" style="padding: 32px 0" />
@@ -158,9 +171,9 @@ import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import {
-  DeleteOutlined, SettingOutlined, ReloadOutlined, ColumnWidthOutlined, ArrowUpOutlined, ArrowDownOutlined,
+  DeleteOutlined, SettingOutlined, ReloadOutlined, ColumnWidthOutlined, ArrowUpOutlined, ArrowDownOutlined, ShrinkOutlined,
 } from '@ant-design/icons-vue';
-import { useDatatableStore } from '../stores/datatable';
+import { useDatatableStore, headerBgCss } from '../stores/datatable';
 import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
 import http from '../lib/http';
@@ -199,15 +212,16 @@ const toolbarVisible = computed(() =>
 );
 
 // tbody/thead styling via CSS vars, so 'default' cleanly inherits Ant's stack.
-// Header colors are only emitted when set — the theme's own header colors
-// (light AND dark) stay untouched otherwise.
+// Header background: the theme tint by default, a custom colour, or none
+// ('plain' = Ant's own header) -- headerBgCss(). Header text colour only when set.
+const thBg = computed(() => headerBgCss(dt.headerBg));
 const cardVars = computed(() => ({
   '--dt-font': dt.fontStack || 'inherit',
   '--dt-font-size': `${dt.fontSize}px`,
   '--dt-th-weight': dt.headerWeight || '600',
   '--dt-th-size': `${dt.headerFontSize || 14}px`,
   '--dt-th-transform': dt.headerUppercase ? 'uppercase' : 'none',
-  ...(dt.headerBg ? { '--dt-th-bg': dt.headerBg } : {}),
+  ...(thBg.value ? { '--dt-th-bg': thBg.value } : {}),
   ...(dt.headerColor ? { '--dt-th-color': dt.headerColor } : {}),
 }));
 
@@ -250,6 +264,18 @@ function readStoredHiddenKeys() {
 }
 
 const hiddenKeys = ref(readStoredHiddenKeys());
+
+/* ------------------------------------------------ fit to width */
+// On (the default -- no horizontal scroll bar): ellipsis columns wrap
+// instead (else they'd cut to "...") and fixed columns stop sticking. The
+// button turns it off for that table (full-width columns + scroll bar);
+// only the "off" choice is saved, on the user's account per table.
+const fitStorageKey = hiddenColsStorageKey.replace('dt_hidden_columns_', 'dt_fit_width_');
+const fitWidth = ref(getUserPref(fitStorageKey) !== false);
+function toggleFitWidth() {
+  fitWidth.value = !fitWidth.value;
+  setUserPref(fitStorageKey, fitWidth.value ? null : false);
+}
 
 /* ------------------------------------------------ admin column customization
  * Company-wide, per table (settings.datatable_columns via get_user_auth):
@@ -387,6 +413,8 @@ const sortedColumns = computed(() => {
 });
 
 const visibleColumns = computed(() => sortedColumns.value.filter(c => !hiddenKeys.value.includes(colKey(c))));
+// Fit to width: same columns, wrapping instead of ellipsis, not pinned.
+const fitColumns = computed(() => visibleColumns.value.map(c => ({ ...c, ellipsis: false, fixed: undefined })));
 
 // The auto-summary "Total" label goes on the first data column, in case a page
 // leads with its actions column.
@@ -508,6 +536,25 @@ function sumFor(col) {
      transient scrollbar flashes on .ant-popover-content while it animates.
      Scrolling happens ONLY inside .col-toggle-list. -->
 <style>
+/* Fit to width: text wraps between words instead of widening the table past
+   the screen. Headers never split a word; a cell splits one only when it
+   can't fit on its own (long emails, references). */
+.dt-fit .ant-table-thead > tr > th,
+.dt-fit .ant-table-tbody > tr > td {
+  white-space: normal !important;
+}
+.dt-fit .ant-table-thead > tr > th {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.dt-fit .ant-table-tbody > tr > td {
+  overflow-wrap: break-word;
+}
+.dt-fit .ant-table-content > table {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
 .dt-cols-pop .ant-popover-content,
 .dt-cols-pop .ant-popover-inner,
 .dt-cols-pop .ant-popover-inner-content {

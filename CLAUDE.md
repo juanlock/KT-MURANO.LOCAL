@@ -131,6 +131,32 @@ rather than being a built-in concept.
   6. Translations
   7. kt_log
 
+## Development Standards
+
+Applies every time a module is **created or modified** (Preparate reloads it at
+the start of each session).
+
+### File uploads (user's rule, 2026-10-04)
+
+- **Every file a module stores** -- uploads, imported email attachments,
+  generated documents -- goes to **`public/files/company_{id}/{module}/`**
+  (e.g. `files/company_2/helpdesk/2026/10/…`, `files/company_2/email-office/…`,
+  `files/company_1/products/…`). One folder per company, one sub-folder per
+  module. Never `storage/app`, never a shared folder for the whole install.
+- Use **`App\Support\CompanyFiles`**: `dir($companyId, $module)`,
+  `putUpload(...)` / `putBytes(...)` (adds `{Y}/{m}/{random}-{name}`),
+  `owns($path, $companyId, $module)` before serving, `download($path, $name)`.
+  Store the path relative to `public/` in the DB (`files/company_…`).
+- **Private modules** (bills, attachments, contracts, anything nobody should
+  open by URL) pass `$private = true`: the module folder gets a `.htaccess`
+  that blocks direct web access, and files are served only through an
+  authorized controller (permission + same company + `owns()`).
+- **Only a SuperAdmin, for install-wide/global settings** (system logo,
+  defaults), may write elsewhere under `public/` (e.g. `public/images/`).
+  Company Admins never write outside their own `files/company_{id}/`.
+- Company folders are git-tracked like the rest of `public/files` (they travel
+  between machines with Pa Llevar) -- keep big imports in mind.
+
 ## Frontend Conventions
 
 - **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox

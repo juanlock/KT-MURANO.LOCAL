@@ -35,13 +35,19 @@ class Kernel extends ConsoleKernel
         $schedule->command('assets:check-validation-due')->daily();
         // Sales Contracts: recurring invoices whose date has come.
         $schedule->command('sales-contracts:invoice')->dailyAt('06:00')->withoutOverlapping();
+        // Recurring expenses (rent, internet...): the ones whose date has come.
+        $schedule->command('expenses:recurring')->dailyAt('06:10')->withoutOverlapping();
 
         $schedule->command('meetings:send-reminders')->everyMinute()->withoutOverlapping();
+        // Bookings: reminder emails before appointments (Settings -> Booking -> Reminders).
+        $schedule->command('bookings:send-reminders')->everyFiveMinutes()->withoutOverlapping();
 
         $schedule->command('marketing:process-scheduled')->everyMinute()->withoutOverlapping();
 
         // Helpdesk: import new emails from each company's mailbox into tickets.
         $schedule->command('helpdesk:fetch-mail')->everyFiveMinutes()->withoutOverlapping();
+        // Email Office: each company's mailbox, at its own "check every" interval.
+        $schedule->command('email-office:fetch')->everyMinute()->withoutOverlapping(30);
 
         // Keep integration OAuth connections alive: Salla refresh tokens die
         // after 1 month idle, Xero's after 60 days. A daily authenticated ping

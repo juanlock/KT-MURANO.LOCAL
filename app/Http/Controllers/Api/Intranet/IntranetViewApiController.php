@@ -140,7 +140,7 @@ class IntranetViewApiController extends IntranetBaseController
         $companyId = $this->viewCompany($request);
         $f = $this->own(IntranetFile::class, $companyId, $id);
         $abs = $f->absolutePath();
-        abort_unless(str_starts_with($f->path, 'intranet/company_'.$companyId.'/files/') && ! str_contains($f->path, '..') && is_file($abs), 404);
+        abort_unless($f->ownedBy($companyId) && is_file($abs), 404);
         IntranetFile::whereKey($f->id)->increment('downloads');
 
         return response()->download($abs, $f->original_name, [

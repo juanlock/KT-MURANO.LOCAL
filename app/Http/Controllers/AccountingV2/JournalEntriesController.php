@@ -16,6 +16,21 @@ use Illuminate\Support\Facades\Schema;
  */
 class JournalEntriesController extends Controller
 {
+    // Multicompany: entries of the acting company (acc_journal_entries.company_id);
+    // a SuperAdmin working as AdminSystem (999) sees every company's.
+    use \App\Http\Controllers\Concerns\ScopesToCompany;
+
+    private function allCompanies(Request $request): bool
+    {
+        return optional($request->user('api'))->type === 'SuperAdmin' && $this->resolveActingCompanyId($request) === 999;
+    }
+
+    private function entries(Request $request)
+    {
+        return JournalEntry::query()->when(! $this->allCompanies($request),
+            fn ($q) => $q->where('acc_journal_entries.company_id', $this->resolveActingCompanyId($request)));
+    }
+
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'journal_entries', Account::class);
@@ -23,30 +38,80 @@ class JournalEntriesController extends Controller
         if (! Schema::hasTable('acc_journal_entries')) {
             return response()->json(['data' => [], 'total' => 0]);
         }
-        $q = JournalEntry::query()->orderByDesc('date')->orderByDesc('id');
+        $dir = strtolower((string) $request->get('SortType')) === 'asc' ? 'asc' : 'desc';
+        $q = $this->entries($request)->orderBy('acc_journal_entries.date', $dir)->orderBy('acc_journal_entries.id', $dir);
         if ($request->filled('status')) {
             $q->where('status', $request->get('status'));
         }
         if ($request->filled('reference_type')) {
             $q->where('reference_type', $request->get('reference_type'));
         }
-        if ($request->filled('from')) {
-            $q->where('date', '>=', $request->get('from'));
+        // Date range (PresetRangeFilter): from / to, or date_from / date_to.
+        if ($from = $request->get('from') ?: $request->get('date_from')) {
+            $q->where('date', '>=', $from);
         }
-        if ($request->filled('to')) {
-            $q->where('date', '<=', $request->get('to'));
+        if ($to = $request->get('to') ?: $request->get('date_to')) {
+            $q->where('date', '<=', $to);
+        }
+        // An entry with a line on this account.
+        if ($request->filled('coa_id')) {
+            $q->whereIn('acc_journal_entries.id', JournalEntryLine::where('coa_id', (int) $request->coa_id)->select('journal_entry_id'));
+        }
+        // Entry amount (its total debits) between min and max.
+        $amount = '(SELECT COALESCE(SUM(debit),0) FROM acc_journal_entry_lines WHERE journal_entry_id = acc_journal_entries.id)';
+        if (is_numeric($request->get('amount_min'))) {
+            $q->whereRaw("{$amount} >= ?", [(float) $request->amount_min]);
+        }
+        if (is_numeric($request->get('amount_max'))) {
+            $q->whereRaw("{$amount} <= ?", [(float) $request->amount_max]);
+        }
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $q->where(fn ($w) => $w->where('description', 'like', "%{$s}%")
+                ->orWhere('acc_journal_entries.id', (int) ltrim($s, '#') ?: 0)
+                ->orWhereIn('acc_journal_entries.id', JournalEntryLine::where('memo', 'like', "%{$s}%")->select('journal_entry_id')));
         }
         $items = $q->with('lines')->paginate($request->get('limit', 20));
 
-        return response()->json($items);
+        // Source of each entry ("Sale SL_0019 · Customer") and its amount.
+        $refs = collect($items->items())->filter(fn ($e) => $e->reference_type && $e->reference_id && $e->reference_type !== 'manual')
+            ->map(fn ($e) => ['type' => $e->reference_type, 'id' => $e->reference_id])->values()->all();
+        $sources = \App\Services\AccountingV2\JournalSource::summaries($refs);
+        $companies = $this->allCompanies($request) ? DB::table('companies')->pluck('name', 'id') : collect();
+        $items->getCollection()->transform(function ($e) use ($sources, $companies) {
+            $e->source_label = $sources["{$e->reference_type}:{$e->reference_id}"] ?? null;
+            $e->source_type_label = \App\Services\AccountingV2\JournalSource::label($e->reference_type);
+            $e->amount = round((float) $e->lines->sum('debit'), 6);
+            $e->company_name = $e->company_id ? ($companies[$e->company_id] ?? null) : null;
+
+            return $e;
+        });
+
+        $payload = $items->toArray();
+        // Filter lists: the source types used, the company's accounts.
+        $payload['source_types'] = $this->entries($request)->distinct()->pluck('reference_type')->filter()->values()
+            ->map(fn ($t) => ['value' => $t, 'label' => \App\Services\AccountingV2\JournalSource::label($t)]);
+        $payload['all_companies'] = $this->allCompanies($request);
+
+        return response()->json($payload);
     }
 
     public function show(Request $request, int $id)
     {
         $this->authorizeForUser($request->user('api'), 'journal_entries', Account::class);
-        $entry = JournalEntry::with('lines')->findOrFail($id);
+        $entry = $this->entries($request)->with('lines')->findOrFail($id);
 
         return response()->json($entry);
+    }
+
+    /** "Source" modal: the document the entry comes from (sale, payment, expense...). */
+    public function source(Request $request, int $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'journal_entries', Account::class);
+        $entry = $this->entries($request)->findOrFail($id);
+        $src = \App\Services\AccountingV2\JournalSource::describe($entry->reference_type, $entry->reference_id);
+
+        return response()->json(['source' => $src, 'entry' => ['id' => $entry->id, 'date' => $entry->date, 'description' => $entry->description, 'reference_type' => $entry->reference_type]]);
     }
 
     public function store(Request $request)
@@ -62,10 +127,15 @@ class JournalEntriesController extends Controller
 
         $data = $request->only(['date', 'description', 'reference_type', 'reference_id']);
         $lines = $request->get('lines', []);
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_if($this->allCompanies($request), 422, 'Pick a company in the header to add a journal entry.');
+        $this->assertCompanyAccounts($lines, $companyId);
         // Allow saving unbalanced drafts; balance will be enforced on posting
 
-        $entry = DB::transaction(function () use ($data, $lines) {
+        $entry = DB::transaction(function () use ($data, $lines, $companyId) {
             $entry = JournalEntry::create([
+                // Manual entries belong to the acting company.
+                'company_id' => $companyId,
                 'date' => $data['date'],
                 'description' => $data['description'] ?? null,
                 'reference_type' => $data['reference_type'] ?? 'manual',
@@ -90,10 +160,21 @@ class JournalEntriesController extends Controller
         return response()->json($entry, 201);
     }
 
+    /** Lines may only use the company's own accounts or the shared (no-company) ones. */
+    private function assertCompanyAccounts(array $lines, int $companyId): void
+    {
+        $ids = collect($lines)->pluck('coa_id')->filter()->unique();
+        if ($ids->isEmpty() || ! Schema::hasColumn('acc_chart_of_accounts', 'company_id')) {
+            return;
+        }
+        $foreign = DB::table('acc_chart_of_accounts')->whereIn('id', $ids)->whereNotNull('company_id')->where('company_id', '!=', $companyId)->exists();
+        abort_if($foreign, 422, 'An account belongs to another company.');
+    }
+
     public function post(Request $request, int $id)
     {
         $this->authorizeForUser($request->user('api'), 'journal_entries', Account::class);
-        $entry = JournalEntry::findOrFail($id);
+        $entry = $this->entries($request)->findOrFail($id);
         if ($entry->status === 'posted') {
             return response()->json($entry);
         }
@@ -118,9 +199,12 @@ class JournalEntriesController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'journal_entries', Account::class);
 
-        $entry = JournalEntry::with('lines')->findOrFail($id);
+        $entry = $this->entries($request)->with('lines')->findOrFail($id);
         if ($entry->status === 'posted') {
             return response()->json(['message' => 'Posted entries cannot be edited. Create an adjusting entry instead.'], 422);
+        }
+        if ($entry->company_id) {
+            $this->assertCompanyAccounts($request->get('lines', []), (int) $entry->company_id);
         }
 
         $this->validate($request, [
@@ -159,7 +243,7 @@ class JournalEntriesController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'journal_entries', Account::class);
 
-        $entry = JournalEntry::findOrFail($id);
+        $entry = $this->entries($request)->findOrFail($id);
         if ($entry->status === 'posted') {
             return response()->json(['message' => 'Posted entries cannot be deleted. Create a reversing entry instead.'], 422);
         }

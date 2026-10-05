@@ -8,6 +8,15 @@ use Illuminate\Http\Request;
 
 class ServiceTechnicianController extends BaseController
 {
+    // Multicompany: technicians belong to a company (service_technicians.company_id).
+    use \App\Http\Controllers\Concerns\ScopesServiceJobsToCompany;
+
+    /** The company's technicians. */
+    private function technicians()
+    {
+        return $this->rc(ServiceTechnician::query(), 'service_technicians.company_id')->whereNull('deleted_at');
+    }
+
     // -------------- Get All Technicians ---------------\\
     public function index(Request $request)
     {
@@ -29,7 +38,7 @@ class ServiceTechnicianController extends BaseController
         ];
         $order = $sortableMap[$order] ?? 'service_technicians.id';
 
-        $query = ServiceTechnician::whereNull('deleted_at')
+        $query = $this->technicians()
             ->where(function ($q) use ($request) {
                 return $q->when($request->filled('search'), function ($q) use ($request) {
                     $s = $request->search;
@@ -68,8 +77,11 @@ class ServiceTechnicianController extends BaseController
             'notes' => 'nullable|string',
             'is_active' => 'nullable|boolean',
         ]);
+        $companyId = $this->serviceCompanyId();
+        abort_unless($companyId, 422, 'Pick a company in the header first.');
 
         ServiceTechnician::create([
+            'company_id' => $companyId,
             'name' => $validated['name'],
             'phone' => $validated['phone'] ?? null,
             'email' => $validated['email'] ?? null,
@@ -85,7 +97,7 @@ class ServiceTechnicianController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $technician = ServiceTechnician::whereNull('deleted_at')->findOrFail($id);
+        $technician = $this->technicians()->findOrFail($id);
 
         $validated = $request->validate([
             'name' => 'required|string|max:191',
@@ -105,26 +117,9 @@ class ServiceTechnicianController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', ServiceJob::class);
 
-        $technician = ServiceTechnician::findOrFail($id);
+        $technician = $this->technicians()->findOrFail($id);
         $technician->update(['deleted_at' => now()]);
 
         return response()->json(['success' => true]);
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

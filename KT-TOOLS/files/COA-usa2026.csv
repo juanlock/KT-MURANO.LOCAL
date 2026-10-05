@@ -1,0 +1,67 @@
+﻿Code,Cuenta (Español),Account (English)
+1000-1099,Activos Corrientes,Current Assets
+1010,Efectivo,Cash
+1020,Cuenta bancaria de ahorros,Savings Account
+1030,Cuentas por cobrar,Accounts Receivable
+1040,Facturas pendientes de cobro,Billed but Unpaid Services
+1050,Inventario (hardware/licencias/suministros),Inventory (Hardware/Software Licenses/Supplies)
+1060,Gastos pagados por anticipado,Prepaid Expenses
+1100-1999,Activos Fijos,Fixed Assets
+1110,Equipo de computación,Computer Equipment
+1120,Equipo de redes y servidores,Networking & Server Hardware
+1130,Mobiliario y equipo de oficina,Office Furniture & Equipment
+1140,Vehículos,Vehicles
+1500,Depreciación acumulada (contra-cuenta),Accumulated Depreciation
+2000-2099,Pasivos Corrientes,Current Liabilities
+2010,Cuentas por pagar,Accounts Payable
+2020,Gastos acumulados,Accrued Expenses
+2030,Impuestos sobre nómina por pagar,Payroll Taxes Payable
+2040,Impuestos sobre ventas por pagar,Sales Tax Payable
+2050,Ingresos diferidos,Deferred Revenue
+2100-2999,Pasivos a Largo Plazo,Long-Term Liabilities
+2110,Préstamos a largo plazo,Long-Term Loans
+3000-3099,Patrimonio,Equity
+3010,Capital del propietario / capital social,Owner’s Capital / Share Capital
+3020,Utilidades retenidas,Retained Earnings
+3030,Retiros del propietario / dividendos,Owner’s Draws / Dividends
+4000-4999,Ingresos por servicios de TI,IT Service Revenue
+4010,Soporte técnico remoto,Remote Technical Support Revenue
+4020,Soporte técnico en sitio,On-Site Technical Support Revenue
+4030,Servicios gestionados (mensual/contratos),Managed Services Revenue
+4040,Instalación y configuración,Installation & Configuration Revenue
+4050,Consultoría de TI,IT Consulting Revenue
+4060,Recuperación de datos,Data Recovery Services Revenue
+4070,Seguridad informática,Cybersecurity Services Revenue
+4080,Reparación de hardware,Hardware Repair Revenue
+5000-5999,Ingresos por ventas (si aplica),Sales Revenue (if applicable)
+5010,Venta de hardware,Hardware Sales
+5020,Venta de licencias de software,Software License Sales
+5030,Venta de suministros de TI,IT Supplies Sales
+6000-6999,Costo de Bienes Vendidos (COGS),Cost of Goods Sold (COGS)
+6010,Costo de hardware vendido,Cost of Hardware Sold
+6020,Costo de licencias vendidas,Cost of Software Licenses Sold
+6030,Costo de suministros vendidos,Cost of IT Supplies Sold
+7000-7499,Gastos de personal,Personnel Expenses
+7010,Salarios y sueldos,Salaries & Wages
+7020,Impuestos sobre nómina,Payroll Taxes
+7030,Beneficios para empleados,Employee Benefits
+7040,Comisiones (si aplica),Commissions (if applicable)
+7500-7999,Gastos operativos de TI,IT Operations Expenses
+7510,Herramientas de soporte y software,Cost of Support Tools & Software
+7520,Licencias internas de software,Cost of Internal Software Licenses
+7530,Mantenimiento de equipo interno,Internal Equipment Maintenance
+7540,Viáticos / desplazamiento,Travel Expenses
+7550,Depreciación de equipo,Equipment Depreciation Expense
+8000-8499,Marketing y ventas,Marketing & Sales Expenses
+8010,Marketing y publicidad,Marketing & Advertising
+8020,Costos de adquisición de clientes,Customer Acquisition Costs
+8030,Comisiones por procesamiento de tarjetas,Credit Card Processing Fees
+8500-8999,Generales y administrativos,General & Administrative Expenses
+8510,Alquiler de oficina,Office Rent
+8520,Servicios públicos,Utilities
+8530,Seguros (liability / E&O),"Insurance (Liability, E&O)"
+8540,Honorarios profesionales (contab/legal),Professional Fees (Accounting/Legal)
+8550,Licencias y permisos,Licenses & Permits
+8560,Papelería/suministros de oficina,Office Supplies
+8570,Viaje y representación,Travel & Entertainment
+8580,Gastos varios,Miscellaneous Expenses

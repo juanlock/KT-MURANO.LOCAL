@@ -333,6 +333,7 @@
 </template>
 
 <script setup>
+import { productSearchLabel } from '../../lib/productDisplayName';
 /**
  * Print Barcode page — logic ported VERBATIM from legacy barcode.vue:
  * barcode_create_page for warehouses, get_Products_by_warehouse/{id}
@@ -788,7 +789,7 @@ function search() {
 }
 
 function getResultValue(result) {
-  return result.code + ' (' + result.name + ')';
+  return `${result.code} — ${productSearchLabel(result.name, result.group_name)}`;
 }
 
 function SearchProduct(result) {

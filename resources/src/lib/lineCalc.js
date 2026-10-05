@@ -14,7 +14,33 @@
  *   taxe            computed tax amount per unit
  *   Net_price       computed net unit price
  *   subtotal        quantity * Net_price + taxe * quantity
+ *
+ * Money is rounded to the company's price decimals (Settings -> Defaults ->
+ * General: 2 or 3), not a fixed 2 -- and the order tax is rounded too, so
+ * subtotal - discount + tax + shipping = total exactly as the invoice shows it
+ * (it used to keep the tax unrounded while the total was rounded to 2: in
+ * 3-decimal mode 390.000 + 25.838 showed a total of 415.840).
  */
+import { resolvePriceDecimals } from './priceFormat';
+
+/** The company's money precision (2 or 3). */
+function moneyDecimals() {
+    let fromUser;
+    try {
+        // eslint-disable-next-line no-undef
+        fromUser = window.__appPriceDecimals;
+    } catch (e) { /* no window */ }
+    return resolvePriceDecimals(fromUser);
+}
+/**
+ * Round half-up to d decimals via the exponent string: 25.8375 -> 25.838
+ * (toFixed gives 25.837, since 25.8375 is 25.83749999... in binary).
+ */
+const r = (v, d) => {
+    const n = Number(v) || 0;
+    const sign = n < 0 ? -1 : 1;
+    return sign * Number(`${Math.round(Number(`${Math.abs(n)}e${d}`))}e-${d}`);
+};
 
 /** Recompute DiscountNet / taxe / Net_price / subtotal in place. */
 export function recomputeLine(line) {
@@ -38,7 +64,7 @@ export function recomputeLine(line) {
         line.Net_price = parseFloat(price - line.taxe - line.DiscountNet);
     }
 
-    line.subtotal = parseFloat((qty * line.Net_price + line.taxe * qty).toFixed(2));
+    line.subtotal = r(qty * line.Net_price + line.taxe * qty, moneyDecimals());
     return line;
 }
 
@@ -65,7 +91,7 @@ export function recomputeCostLine(line) {
         line.Net_cost = parseFloat(cost - line.taxe - line.DiscountNet);
     }
 
-    line.subtotal = parseFloat((qty * line.Net_cost + line.taxe * qty).toFixed(2));
+    line.subtotal = r(qty * line.Net_cost + line.taxe * qty, moneyDecimals());
     return line;
 }
 
@@ -79,20 +105,23 @@ export function recomputeCostLine(line) {
  */
 function computeTaxAmount(base, taxRate, taxMethod = '1') {
     const rate = Number(taxRate) || 0;
+    const d = moneyDecimals();
+    // Rounded to the money precision, like the total it adds into.
     return String(taxMethod) === '2'
-        ? parseFloat(Math.max(rate, 0).toFixed(6))
-        : parseFloat(((base * rate) / 100).toFixed(6));
+        ? r(Math.max(rate, 0), d)
+        : r((base * rate) / 100, d);
 }
 
 export function computeSimpleTotals(lines, { discount = 0, taxRate = 0, taxMethod = '1', shipping = 0 } = {}, recompute = recomputeLine) {
+    const d = moneyDecimals();
     let total = 0;
     for (const line of lines) {
         recompute(line);
-        total = parseFloat((total + line.subtotal).toFixed(2));
+        total = r(total + line.subtotal, d);
     }
-    const totalAfterDiscount = parseFloat((total - (Number(discount) || 0)).toFixed(6));
+    const totalAfterDiscount = r(total - (Number(discount) || 0), d);
     const TaxNet = computeTaxAmount(totalAfterDiscount, taxRate, taxMethod);
-    const GrandTotal = parseFloat((totalAfterDiscount + TaxNet + (Number(shipping) || 0)).toFixed(2));
+    const GrandTotal = r(totalAfterDiscount + TaxNet + (Number(shipping) || 0), d);
     return { total, discountAmount: Number(discount) || 0, TaxNet, GrandTotal };
 }
 
@@ -108,27 +137,28 @@ export function computeTotals(lines, {
     shipping = 0,
     discountFromPoints = 0,
 } = {}) {
+    const d = moneyDecimals();
     let total = 0;
     for (const line of lines) {
         recomputeLine(line);
-        total = parseFloat((total + line.subtotal).toFixed(2));
+        total = r(total + line.subtotal, d);
     }
 
     const discountValue = Number(discount) || 0;
     let discountAmount;
     if (String(discountMethod) === '1') {
-        const percentAmount = parseFloat((total * (discountValue / 100)).toFixed(2));
+        const percentAmount = r(total * (discountValue / 100), d);
         const remaining = Math.max(total - percentAmount, 0);
-        discountAmount = percentAmount + parseFloat(Math.min(Number(discountFromPoints) || 0, remaining).toFixed(2));
+        discountAmount = r(percentAmount + Math.min(Number(discountFromPoints) || 0, remaining), d);
     } else {
-        const manual = parseFloat(Math.min(discountValue, total).toFixed(2));
+        const manual = r(Math.min(discountValue, total), d);
         const remaining = Math.max(total - manual, 0);
-        discountAmount = manual + parseFloat(Math.min(Number(discountFromPoints) || 0, remaining).toFixed(2));
+        discountAmount = r(manual + Math.min(Number(discountFromPoints) || 0, remaining), d);
     }
 
-    const totalAfterDiscount = parseFloat((total - discountAmount).toFixed(2));
+    const totalAfterDiscount = r(total - discountAmount, d);
     const TaxNet = computeTaxAmount(totalAfterDiscount, taxRate, taxMethod);
-    const GrandTotal = parseFloat((totalAfterDiscount + TaxNet + (Number(shipping) || 0)).toFixed(2));
+    const GrandTotal = r(totalAfterDiscount + TaxNet + (Number(shipping) || 0), d);
 
     return { total, discountAmount, TaxNet, GrandTotal };
 }

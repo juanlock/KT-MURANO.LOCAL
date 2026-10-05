@@ -8,37 +8,31 @@
       </div>
 
       <a-space wrap :size="12" class="dash-filters">
-        <!-- Same date presets + range keycard as Sales -> List Sales. -->
-        <a-card size="small" class="range-card">
-          <div class="range-row">
-            <span class="range-label">{{ $t('start_date') }}</span>
-            <b class="range-value">{{ activeRange.from || '—' }}</b>
-          </div>
-          <div class="range-row">
-            <span class="range-label">{{ $t('to') }}</span>
-            <b class="range-value">{{ activeRange.to || '—' }}</b>
-          </div>
-        </a-card>
+        <!-- Same date presets + editable Start date / to as Sales -> List Sales. -->
+        <DateRangeFields :value="rangeFields" :disabled="loading" @change="onRangeEdit" />
         <!-- Double-click any filter choice = your default when the Dashboard
              opens (★ marks it; double-click it again to clear). Saved on the
              user's account, so it follows them to every PC. -->
-        <div class="preset-wrap" :title="DEFAULT_HINT">
+        <div class="preset-wrap">
           <!-- The first click of a double-click already selects the button,
                so the double-click saves the current choice. -->
-          <div class="preset-buttons" @dblclick="toggleDefault('period', period, presetLabel(period))">
+          <!-- The date default is the user's ONE default for every page with
+               these buttons (lib/datePresetDefault.js). -->
+          <div class="preset-buttons" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(period)">
             <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" @change="load()">
               <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">
-                {{ $t(p.labelKey) }}<StarFilled v-if="defaults.period === p.value" class="def-star" />
+                {{ $t(p.labelKey) }}<StarFilled v-if="savedDatePreset === p.value" class="def-star" />
               </a-radio-button>
             </a-radio-group>
           </div>
           <!-- Phones: the 8 preset buttons don't fit in a row (they overlapped
                the other filters), so the same choice is a dropdown. Kept in
                the presets' own order (All -> Last Year), not alphabetical. -->
-          <div class="preset-select" @dblclick="toggleDefault('period', period, presetLabel(period))">
+          <div class="preset-select" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(period)">
             <a-select
-              v-model:value="period" style="width: 100%" :disabled="loading"
-              :options="DATE_PRESETS.map(p => ({ value: p.value, label: starred('period', p.value, $t(p.labelKey)) }))"
+              :value="period ?? undefined" style="width: 100%" :disabled="loading" placeholder="Custom range"
+              @update:value="v => (period = v)"
+              :options="DATE_PRESETS.map(p => ({ value: p.value, label: savedDatePreset === p.value ? `${$t(p.labelKey)} ★` : $t(p.labelKey) }))"
               @change="load()"
             />
           </div>
@@ -300,7 +294,8 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { DATE_PRESETS, presetDates } from '../lib/datePresets';
+import { DATE_PRESETS, presetDates, presetOf } from '../lib/datePresets';
+import DateRangeFields from '../components/DateRangeFields.vue';
 import {
   ReloadOutlined, ShoppingCartOutlined, ShoppingOutlined, RollbackOutlined,
   UndoOutlined, DollarOutlined, WalletOutlined, FileTextOutlined, RiseOutlined,
@@ -316,6 +311,7 @@ import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import { getUserPref, setUserPref } from '../lib/userPrefs';
+import { DATE_DEFAULT_KEY, DATE_DEFAULT_HINT, savedDatePreset, startPreset, toggleDatePreset } from '../lib/datePresetDefault';
 import { viewCurrencies, viewCurrencyId, viewBaseCurrencyId } from '../lib/viewCurrencyState';
 import { shortcuts, pageLabel, pageFullLabel, pageOptions } from '../lib/startPage';
 import { sortByLabel } from '../lib/filterOptions';
@@ -349,12 +345,20 @@ const { money } = useFormat();
 const loading = ref(true);
 const loadCount = ref(0); // bumps per fetch; keys charts so they remount cleanly
 const demoMode = ref(false);
-// Filter defaults (double-click a choice): {period, warehouse_id, currency_id}
-// on the user's account (users.ui_preferences via lib/userPrefs).
+// Filter defaults (double-click a choice): Location / Currency are this
+// page's own {warehouse_id, currency_id} on the user's account
+// (users.ui_preferences via lib/userPrefs); the date preset is the user's
+// default for every page (lib/datePresetDefault.js).
 const DEFAULTS_KEY = 'dashboard_filter_defaults';
 const DEFAULT_HINT = 'Double-click to make this your default (again to clear)';
 const defaults = ref({ ...(getUserPref(DEFAULTS_KEY) || {}) });
-const period = ref(DATE_PRESETS.some(p => p.value === defaults.value.period) ? defaults.value.period : 'today');
+// A Dashboard-only date default saved before it became global: promote it.
+if (defaults.value.period) {
+  if (!savedDatePreset.value) setUserPref(DATE_DEFAULT_KEY, defaults.value.period);
+  delete defaults.value.period;
+  setUserPref(DEFAULTS_KEY, Object.keys(defaults.value).length ? { ...defaults.value } : null);
+}
+const period = ref(startPreset('today'));
 const warehouseId = ref(defaults.value.warehouse_id ?? '');
 // The currency choice is shared by every report page: only start from the
 // default when nothing was picked yet this session.
@@ -375,7 +379,6 @@ function toggleDefault(field, value, label) {
   setUserPref(DEFAULTS_KEY, Object.keys(d).length ? d : null);
 }
 const starred = (field, value, label) => (defaults.value[field] === value ? `${label} ★` : label);
-const presetLabel = v => t(DATE_PRESETS.find(p => p.value === v)?.labelKey || v);
 const warehouseLabel = v => (v === '' ? t('All_Warehouses') : warehouses.value.find(w => w.id === v)?.name || String(v));
 const currencyLabel = v => viewCurrencies.value.find(c => Number(c.id) === Number(v))?.code || String(v);
 const warehouses = ref([]);
@@ -509,9 +512,18 @@ const columns = computed(() => [
 // Same presets as Sales / Purchases / POS Sales (lib/datePresets.js), default Today.
 // "All" = from the first sale on record (the server works it out: range=all).
 const rangeFor = presetDates;
-// Keycard: the days the active preset covers ("All": as returned by the server).
+// Start date / to: the days the active preset covers ("All": as returned by
+// the server). Editing them = a custom range (period null, no button active).
 const allRange = ref({ from: '', to: '' });
-const activeRange = computed(() => (period.value === 'all' ? allRange.value : rangeFor(period.value)));
+const customRange = ref({ from: '', to: '' });
+const queryRange = () => (period.value ? rangeFor(period.value) : customRange.value);
+const activeRange = computed(() => (period.value === 'all' ? allRange.value : queryRange()));
+const rangeFields = computed(() => (activeRange.value.from ? [activeRange.value.from, activeRange.value.to] : null));
+function onRangeEdit(range) {
+  period.value = range ? presetOf(range[0], range[1]) : 'all';
+  if (!period.value) customRange.value = { from: range[0], to: range[1] };
+  load();
+}
 
 /* ------------------------------------------------------------------ charts */
 // Neutral chart chrome that reads correctly on both light and dark surfaces.
@@ -657,7 +669,7 @@ function applyDemo() {
 async function load() {
   loading.value = true;
   try {
-    const { from, to } = rangeFor(period.value);
+    const { from, to } = queryRange();
     const data = await http.get('dashboard_data', {
       warehouse_id: warehouseId.value,
       to,

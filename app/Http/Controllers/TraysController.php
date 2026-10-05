@@ -8,6 +8,17 @@ use Illuminate\Http\Request;
 
 class TraysController extends Controller
 {
+    // Multicompany: stations (trays) belong to a company (trays.company_id).
+    // An Admin sees / edits their company's only; a SuperAdmin the company
+    // picked in the header (all of them when none is picked).
+    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+
+    /** A station the user's company may change (404 otherwise). */
+    private function ownTray($id): Tray
+    {
+        return $this->rc(Tray::query(), 'trays.company_id')->whereNull('deleted_at')->findOrFail($id);
+    }
+
     // ------------ GET ALL Trays -----------\\
 
     public function index(Request $request)
@@ -20,7 +31,7 @@ class TraysController extends Controller
         $order = $request->SortField ?: 'id';
         $dir = $request->SortType ?: 'desc';
 
-        $trays = Tray::where('deleted_at', '=', null)
+        $trays = $this->rc(Tray::query(), 'trays.company_id')->where('deleted_at', '=', null)
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
                     return $query->where('name', 'LIKE', "%{$request->search}%")
@@ -53,8 +64,11 @@ class TraysController extends Controller
         request()->validate([
             'name' => 'required',
         ]);
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_unless($companyId, 422, 'Pick a company in the header first.');
 
         $tray = new Tray;
+        $tray->company_id = $companyId;
         $tray->name = $request['name'];
         $tray->description = $request['description'];
         $tray->save();
@@ -82,7 +96,7 @@ class TraysController extends Controller
             'name' => 'required',
         ]);
 
-        Tray::whereId($id)->update([
+        $this->ownTray($id)->update([
             'name' => $request['name'],
             'description' => $request['description'],
         ]);
@@ -96,7 +110,7 @@ class TraysController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', Tray::class);
 
-        Tray::whereId($id)->update([
+        Tray::whereKey($this->ownTray($id)->id)->update([
             'deleted_at' => Carbon::now(),
         ]);
 
@@ -110,11 +124,9 @@ class TraysController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', Tray::class);
 
         $selectedIds = $request->selectedIds;
-        foreach ($selectedIds as $tray_id) {
-            Tray::whereId($tray_id)->update([
-                'deleted_at' => Carbon::now(),
-            ]);
-        }
+        $this->rc(Tray::query(), 'trays.company_id')->whereIn('id', (array) $selectedIds)->update([
+            'deleted_at' => Carbon::now(),
+        ]);
 
         return response()->json(['success' => true]);
     }

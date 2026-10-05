@@ -1,29 +1,33 @@
 <template>
   <!-- Date filter: the shared preset buttons (All, This Year ... Last Year,
        lib/datePresets.js -- same as Sales / Purchases / Dashboard) plus the
-       calendar for an exact range. Phones get the presets as a dropdown.
-       Double-click a preset = this user's default for this page (★). -->
-  <div class="prf">
-    <div class="prf-buttons" :title="DEFAULT_HINT" @dblclick="toggleDefault(active)">
+       editable Start date ... to ... End date (DateRangeFields): a preset
+       fills them, editing either one makes it a custom range. Phones get
+       the presets as a dropdown.
+       Double-click a preset = this user's default date range on every page
+       with these buttons (★, lib/datePresetDefault.js). `compact`: the
+       presets as a dropdown on every screen, for narrow filter columns. -->
+  <div class="prf" :class="{ 'prf--compact': compact }">
+    <div class="prf-buttons" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(active)">
       <a-radio-group :value="active" button-style="solid" @change="e => pick(e.target.value)">
         <a-radio-button v-for="p in presets" :key="p.value" :value="p.value">
-          {{ $t(p.labelKey) }}<StarFilled v-if="savedDefault === p.value" class="prf-star" />
+          {{ $t(p.labelKey) }}<StarFilled v-if="savedDatePreset === p.value" class="prf-star" />
         </a-radio-button>
       </a-radio-group>
     </div>
-    <div class="prf-select" :title="DEFAULT_HINT" @dblclick="toggleDefault(active)">
+    <div class="prf-select" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(active)">
       <a-select
         :value="active ?? undefined" style="width: 100%" placeholder="Custom range"
-        :options="presets.map(p => ({ value: p.value, label: savedDefault === p.value ? `${$t(p.labelKey)} ★` : $t(p.labelKey) }))"
+        :options="presets.map(p => ({ value: p.value, label: savedDatePreset === p.value ? `${$t(p.labelKey)} ★` : $t(p.labelKey) }))"
         @change="pick"
       />
     </div>
-    <a-range-picker
-      v-bind="$attrs"
+    <DateRangeFields
+      v-bind="fieldAttrs"
       :value="value"
-      value-format="YYYY-MM-DD"
+      :allow-clear="canAll"
       @update:value="v => emit('update:value', v)"
-      @change="(...args) => emit('change', ...args)"
+      @change="v => emit('change', v)"
     />
   </div>
 </template>
@@ -33,24 +37,23 @@
  * Drop-in for `<a-range-picker v-model:value="range" value-format="YYYY-MM-DD"
  * @change="reload">`: same v-model (['YYYY-MM-DD', 'YYYY-MM-DD'] or null =
  * no date filter) and the same @change, plus the preset buttons in front.
- * class/style/other attrs go to the calendar (pages size it with e.g.
- * .tb-range), not to the whole bar.
+ * Other attrs go to the Start/End dates box -- except class/style: pages
+ * sized the old one-input calendar (.tb-range { width: 240px }), which
+ * would squeeze the two dates; the box sizes itself.
  *
  * The active button is derived from the value, so a page that resets its
  * filters (range = null) shows "All" again, and a hand-picked calendar range
  * that matches no preset leaves every button off.
  *
- * Default: double-click a preset -> saved on the user's account
- * (users.ui_preferences, key date_filter_default|<route>[|prefKey]) and
- * applied when the page opens; double-click it again to clear.
+ * Default: double-click a preset -> the user's default date range on every
+ * page with the shared date buttons (lib/datePresetDefault.js), applied when
+ * the page opens; double-click it again to clear.
  */
-import { computed, ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
-import { message } from 'ant-design-vue';
+import { computed, onMounted, useAttrs } from 'vue';
 import { StarFilled } from '@ant-design/icons-vue';
+import DateRangeFields from './DateRangeFields.vue';
 import { DATE_PRESETS, presetDates } from '../lib/datePresets';
-import { getUserPref, setUserPref } from '../lib/userPrefs';
-import { t } from '../i18n';
+import { DATE_DEFAULT_HINT, savedDatePreset, startPreset, toggleDatePreset } from '../lib/datePresetDefault';
 
 defineOptions({ inheritAttrs: false });
 
@@ -59,17 +62,30 @@ const props = defineProps({
   // false where an empty range doesn't mean "everything" (e.g. a dashboard
   // that falls back to the last 30 days) -- hides the All button.
   allowAll: { type: Boolean, default: true },
-  // Tells several date filters on the same page apart for their defaults.
-  prefKey: { type: String, default: '' },
+  // a-range-picker leftovers some pages still pass: allow-clear=false keeps
+  // the dates required; value-format is always YYYY-MM-DD here.
+  allowClear: { type: Boolean, default: true },
+  valueFormat: { type: String, default: 'YYYY-MM-DD' },
+  compact: { type: Boolean, default: false },
+  // false when the page opens on a range given to it (e.g. a link with
+  // ?from=&to=): the user's default preset must not replace it.
+  applyDefault: { type: Boolean, default: true },
 });
 const emit = defineEmits(['update:value', 'change']);
 
-const DEFAULT_HINT = 'Double-click a preset to make it your default (again to clear)';
-const presets = computed(() => DATE_PRESETS.filter(p => props.allowAll || p.value !== 'all'));
+const attrs = useAttrs();
+const fieldAttrs = computed(() => {
+  const { class: _c, style: _s, ...rest } = attrs;
+  return rest;
+});
+
+// "All" = no range (null); off when the page needs the dates set.
+const canAll = computed(() => props.allowAll && props.allowClear);
+const presets = computed(() => DATE_PRESETS.filter(p => canAll.value || p.value !== 'all'));
 
 const active = computed(() => {
   const v = props.value;
-  if (!v || !v.length || (!v[0] && !v[1])) return props.allowAll ? 'all' : null;
+  if (!v || !v.length || (!v[0] && !v[1])) return canAll.value ? 'all' : null;
   const hit = presets.value.find(p => {
     const d = presetDates(p.value);
     return p.value !== 'all' && d.from === v[0] && d.to === v[1];
@@ -90,34 +106,13 @@ function pick(preset) {
   emit('change', range);
 }
 
-// ---------------- per-user default ----------------
-
-const route = useRoute();
-const PREF_KEY = `date_filter_default|${String(route.name || route.path)}${props.prefKey ? `|${props.prefKey}` : ''}`;
-const savedDefault = ref(getUserPref(PREF_KEY) ?? null);
-
-function toggleDefault(preset) {
-  if (!preset) {
-    message.info('Pick one of the preset buttons first, then double-click it.');
-    return;
-  }
-  const label = t(DATE_PRESETS.find(p => p.value === preset)?.labelKey || preset);
-  if (savedDefault.value === preset) {
-    savedDefault.value = null;
-    setUserPref(PREF_KEY, null);
-    message.info(`${label}: no longer your default here`);
-  } else {
-    savedDefault.value = preset;
-    setUserPref(PREF_KEY, preset);
-    message.success(`${label} is now your default here`);
-  }
-}
-
-// Open the page on the saved default. On mount (not during setup) so the
-// page's own state exists; `change` makes pages that already fetched reload.
+// Open the page on the user's default date range. On mount (not during
+// setup) so the page's own state exists; `change` makes pages that already
+// fetched reload.
 onMounted(() => {
-  const d = savedDefault.value;
-  if (d && presets.value.some(p => p.value === d) && d !== active.value) pick(d);
+  if (!props.applyDefault) return;
+  const d = startPreset(null, presets.value.map(p => p.value));
+  if (d && d !== active.value) pick(d);
 });
 </script>
 
@@ -138,21 +133,41 @@ onMounted(() => {
   color: #faad14;
 }
 
+/* Compact (narrow filter columns, report toolbars): the presets as a
+   dropdown in front of the dates, wrapping as one block. */
+.prf--compact {
+  display: flex;
+  width: 100%;
+}
+.prf--compact .prf-buttons {
+  display: none;
+}
+.prf--compact .prf-select {
+  display: block;
+  flex: 0 0 140px;
+}
+.prf--compact > .drf {
+  flex: 1 1 260px;
+}
+
 /* Phones: 8 buttons can't fit in a row -- the same choice as a dropdown,
-   then the calendar, each full width. */
+   then the dates, each full width. */
 @media (max-width: 767px) {
   .prf {
     display: flex;
     width: 100%;
+    min-width: 220px; /* inside an a-space row 100% alone can collapse */
   }
   .prf-buttons {
     display: none;
   }
-  .prf-select {
+  .prf-select,
+  .prf--compact .prf-select {
     display: block;
+    flex: 1 1 100%;
     width: 100%;
   }
-  .prf > :deep(.ant-picker) {
+  .prf > .drf {
     width: 100% !important;
   }
 }

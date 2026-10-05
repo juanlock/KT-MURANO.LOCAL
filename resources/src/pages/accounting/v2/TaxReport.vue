@@ -3,16 +3,12 @@
     <PageHeader :title="$t('Tax_Summary_Report')" :breadcrumb="[$t('Accounting'), $t('Tax_Summary_Report')]" />
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[12, 12]" align="bottom">
-        <a-col :xs="12" :md="8">
-          <div class="filter-label">{{ $t('From') }}</div>
-          <a-input v-model:value="filters.from" type="date" @change="fetch" />
+      <!-- The system date filter: presets + editable Start date / to. -->
+      <a-row :gutter="[12, 12]" align="middle">
+        <a-col flex="auto">
+          <PresetRangeFilter v-model:value="range" @change="fetch" />
         </a-col>
-        <a-col :xs="12" :md="8">
-          <div class="filter-label">{{ $t('To') }}</div>
-          <a-input v-model:value="filters.to" type="date" @change="fetch" />
-        </a-col>
-        <a-col :xs="24" :md="8">
+        <a-col>
           <a-button type="primary" :loading="isLoading" @click="fetch">
             <template #icon><ReloadOutlined /></template>
             {{ $t('Refresh') }}
@@ -61,11 +57,13 @@
  * output/input tax breakdown + net_tax. Defaults to the current month
  * (legacy initializeDates).
  */
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { ReloadOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../../components/PageHeader.vue';
+import PresetRangeFilter from '../../../components/PresetRangeFilter.vue';
+import { presetDates } from '../../../lib/datePresets';
 import { useFormat } from '../../../composables/useFormat';
 import http from '../../../lib/http';
 
@@ -74,23 +72,14 @@ const { number } = useFormat();
 
 const isLoading = ref(false);
 const error = ref(null);
-const filters = ref({ from: '', to: '' });
+// Opens on this month (legacy default); null = All dates.
+const thisMonth = presetDates('month');
+const range = ref([thisMonth.from, thisMonth.to]);
+const filters = computed(() => ({ from: range.value?.[0] || '', to: range.value?.[1] || '' }));
 const data = ref({
   sales: 0, sale_returns: 0, taxable_sales: 0, output_tax: 0,
   purchases: 0, purchase_returns: 0, taxable_purchases: 0, input_tax: 0, net_tax: 0,
 });
-
-function initializeDates() {
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const fmt = d => {
-    const p = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-  };
-  filters.value.from = fmt(firstDay);
-  filters.value.to = fmt(lastDay);
-}
 
 async function fetch() {
   isLoading.value = true;
@@ -118,10 +107,7 @@ async function fetch() {
   }
 }
 
-onMounted(() => {
-  initializeDates();
-  fetch();
-});
+onMounted(fetch);
 </script>
 
 <style scoped>

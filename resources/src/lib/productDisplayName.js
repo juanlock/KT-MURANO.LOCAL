@@ -16,6 +16,26 @@ export function productDisplayName(name) {
   return name.replace(/ \(Main\)$/i, '');
 }
 
+/**
+ * Product search label with the Group Name shown once: names are stored as
+ * "{Group} ({Item})", so "Group — Group (Item)" repeated the group. Gives
+ * "Landscape Maintenance Services — Monthly", just the group for its
+ * "(Main)" item, and the plain name when the product has no group or its
+ * name doesn't follow that pattern.
+ */
+export function productSearchLabel(name, groupName) {
+  const n = String(name || '');
+  const g = String(groupName || '').trim();
+  if (!g) return productDisplayName(n);
+  const prefix = `${g} (`;
+  if (n.startsWith(prefix) && n.endsWith(')')) {
+    const item = n.slice(prefix.length, -1).trim();
+    return !item || item.toLowerCase() === 'main' ? g : `${g} — ${item}`;
+  }
+  if (n === g || n.startsWith(`${g} `)) return productDisplayName(n);
+  return `${g} — ${productDisplayName(n)}`;
+}
+
 /** Kept for old callers still passing a (now nonexistent) sub_name -- always true. */
 export function isMainSubName() {
   return true;

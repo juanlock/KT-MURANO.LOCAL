@@ -19,8 +19,7 @@
           { label: $t('Failed'), value: 'error' },
         ]"
       />
-      <a-date-picker v-model:value="filterFrom" value-format="YYYY-MM-DD" :placeholder="$t('From')" />
-      <a-date-picker v-model:value="filterTo" value-format="YYYY-MM-DD" :placeholder="$t('To')" />
+      <PresetRangeFilter v-model:value="range" compact />
       <a-popconfirm :title="$t('AreYouSure')" :ok-text="$t('Yes')" :cancel-text="$t('No')" @confirm="clearLogs">
         <a-button danger :loading="processing" style="margin-left: auto">
           <DeleteOutlined /> {{ $t('Clear') || $t('Reset') }}
@@ -57,6 +56,7 @@ import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { DeleteOutlined } from '@ant-design/icons-vue';
 import http from '../../../lib/http';
+import PresetRangeFilter from '../../../components/PresetRangeFilter.vue';
 import {
   formatLogDate, formatAction, formatDirection, formatStatus, levelColor,
 } from './wooLog';
@@ -69,8 +69,10 @@ const processing = ref(false);
 const logs = ref([]);
 const filterAction = ref('all');
 const filterStatus = ref('all');
-const filterFrom = ref(null);
-const filterTo = ref(null);
+// The shared date filter (presets + editable Start date / to).
+const range = ref(null);
+const filterFrom = computed(() => range.value?.[0] || null);
+const filterTo = computed(() => range.value?.[1] || null);
 
 const filteredLogs = computed(() => {
   let out = logs.value.slice();

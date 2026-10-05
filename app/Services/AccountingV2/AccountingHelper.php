@@ -13,11 +13,86 @@ use Illuminate\Support\Facades\Schema;
  *
  * Generates double-entry journal entries without modifying legacy modules.
  * All writes are to new acc_* tables only.
+ *
+ * Per-company charts: each posting first finds the company of its document
+ * (companyOf()) and posts to that company's own accounts -- the old fixed
+ * codes map to the company chart via DefaultAccounting::POSTING_CODES, and an
+ * expense posts to its category's account (coa_code). A company without its
+ * own chart (or a document whose company can't be told) keeps posting to the
+ * older shared accounts, exactly as before.
  */
 class AccountingHelper
 {
+    /** Company of the document being posted (null = shared accounts). */
+    protected static ?int $companyId = null;
+
+    /** The company a document belongs to: its own, its location's, its parent document's, or its user's. */
+    protected static function companyOf($doc): ?int
+    {
+        return self::safeReturn(function () use ($doc) {
+            if (! $doc) {
+                return null;
+            }
+            $get = fn ($k) => is_array($doc) ? ($doc[$k] ?? null) : ($doc->{$k} ?? null);
+            if ($get('company_id')) {
+                return (int) $get('company_id');
+            }
+            if ($get('warehouse_id')) {
+                $cid = DB::table('warehouses')->where('id', $get('warehouse_id'))->value('company_id');
+                if ($cid) {
+                    return (int) $cid;
+                }
+            }
+            foreach (['sale_id' => 'sales', 'purchase_id' => 'purchases', 'sale_return_id' => 'sale_returns', 'purchase_return_id' => 'purchase_returns'] as $fk => $table) {
+                if ($get($fk)) {
+                    $cid = DB::table($table)->where('id', $get($fk))->value('company_id');
+                    if ($cid) {
+                        return (int) $cid;
+                    }
+                }
+            }
+            if ($get('user_id')) {
+                $cid = DB::table('users')->where('id', $get('user_id'))->value('company_id');
+                if ($cid) {
+                    return (int) $cid;
+                }
+            }
+
+            return null;
+        });
+    }
+
+    /** The company's own account for a posting code (null when it has none). */
+    protected static function companyCoa(string $legacyCode): ?int
+    {
+        $cid = self::$companyId;
+        $code = \App\Support\DefaultAccounting::POSTING_CODES[$legacyCode] ?? null;
+        if (! $cid || ! $code || ! Schema::hasColumn('acc_chart_of_accounts', 'company_id')) {
+            return null;
+        }
+        $id = DB::table('acc_chart_of_accounts')->where('company_id', $cid)->where('code', $code)->value('id');
+
+        return $id ? (int) $id : null;
+    }
+
+    /** An expense's account: its category's account in the company chart, else the general expense account. */
+    protected static function expenseCoa($expense): int
+    {
+        $cid = self::$companyId;
+        $categoryId = $expense->expense_category_id ?? null;
+        if ($cid && $categoryId && Schema::hasColumn('expense_categories', 'coa_code')) {
+            $code = DB::table('expense_categories')->where('id', $categoryId)->value('coa_code');
+            $id = $code ? DB::table('acc_chart_of_accounts')->where('company_id', $cid)->where('code', $code)->value('id') : null;
+            if ($id) {
+                return (int) $id;
+            }
+        }
+
+        return self::getOrCreateCoa('EXP', 'Expenses', 'expense');
+    }
     public static function fromSale($sale): void
     {
+        self::$companyId = self::companyOf($sale);
         self::safe(function () use ($sale) {
             $arCoaId = self::getOrCreateCoa('1100-AR', 'Accounts Receivable', 'asset');
             $revCoaId = self::getOrCreateCoa('4000-REV', 'Sales Revenue', 'income');
@@ -42,6 +117,7 @@ class AccountingHelper
 
     public static function fromPurchase($purchase): void
     {
+        self::$companyId = self::companyOf($purchase);
         self::safe(function () use ($purchase) {
             $invCoaId = self::getOrCreateCoa('1200-INV', 'Inventory', 'asset');
             $apCoaId = self::getOrCreateCoa('2100-AP', 'Accounts Payable', 'liability');
@@ -66,6 +142,7 @@ class AccountingHelper
 
     public static function fromSaleReturn($saleReturn): void
     {
+        self::$companyId = self::companyOf($saleReturn);
         self::safe(function () use ($saleReturn) {
             $arCoaId = self::getOrCreateCoa('1100-AR', 'Accounts Receivable', 'asset');
             $retCoaId = self::getOrCreateCoa('4010-RET', 'Sales Returns', 'income');
@@ -90,6 +167,7 @@ class AccountingHelper
 
     public static function fromSaleAdjustment($sale): void
     {
+        self::$companyId = self::companyOf($sale);
         self::safe(function () use ($sale) {
             $current = self::getPostedAmount('sale', $sale->id ?? 0);
             $target = (float) ($sale->GrandTotal ?? 0);
@@ -132,6 +210,7 @@ class AccountingHelper
 
     public static function fromPurchaseAdjustment($purchase): void
     {
+        self::$companyId = self::companyOf($purchase);
         self::safe(function () use ($purchase) {
             $current = self::getPostedAmount('purchase', $purchase->id ?? 0);
             $target = (float) ($purchase->GrandTotal ?? 0);
@@ -174,6 +253,7 @@ class AccountingHelper
 
     public static function fromExpenseAdjustment($expense): void
     {
+        self::$companyId = self::companyOf($expense);
         self::safe(function () use ($expense) {
             $current = self::getPostedAmount('expense', $expense->id ?? 0);
             $target = (float) ($expense->amount ?? $expense->total ?? 0);
@@ -181,8 +261,8 @@ class AccountingHelper
             if (abs($delta) <= 0.0001) {
                 return;
             }
-            $cashCoaId = self::getOrCreateCoaForLegacyAccount($expense->account_id);
-            $expenseCoaId = self::getOrCreateCoa('EXP', 'Expenses', 'expense');
+            $cashCoaId = self::getOrCreateCoaForLegacyAccount($expense->account_id) ?: self::getOrCreateCoa('1000-CASH', 'Cash', 'asset');
+            $expenseCoaId = self::expenseCoa($expense);
             if ($delta > 0) {
                 self::createBalancedEntry([
                     'journal' => [
@@ -216,16 +296,19 @@ class AccountingHelper
 
     public static function reverseSale($sale): void
     {
+        self::$companyId = self::companyOf($sale);
         self::reverseByReference('sale', $sale->id ?? 0, 'Reverse Sale #'.($sale->Ref ?? $sale->id ?? ''));
     }
 
     public static function reversePurchase($purchase): void
     {
+        self::$companyId = self::companyOf($purchase);
         self::reverseByReference('purchase', $purchase->id ?? 0, 'Reverse Purchase #'.($purchase->Ref ?? $purchase->id ?? ''));
     }
 
     public static function reverseExpense($expense): void
     {
+        self::$companyId = self::companyOf($expense);
         self::reverseByReference('expense', $expense->id ?? 0, 'Reverse Expense #'.($expense->id ?? ''));
     }
 
@@ -306,9 +389,10 @@ class AccountingHelper
 
     public static function fromExpense($expense): void
     {
+        self::$companyId = self::companyOf($expense);
         self::safe(function () use ($expense) {
-            $cashCoaId = self::getOrCreateCoaForLegacyAccount($expense->account_id);
-            $expenseCoaId = self::getOrCreateCoa('EXP', 'Expenses', 'expense');
+            $cashCoaId = self::getOrCreateCoaForLegacyAccount($expense->account_id) ?: self::getOrCreateCoa('1000-CASH', 'Cash', 'asset');
+            $expenseCoaId = self::expenseCoa($expense);
             $amount = (float) ($expense->amount ?? $expense->total ?? 0);
             if ($amount <= 0) {
                 return;
@@ -330,6 +414,7 @@ class AccountingHelper
 
     public static function fromPaymentSale($payment): void
     {
+        self::$companyId = self::companyOf($payment);
         self::safe(function () use ($payment) {
             $cashCoaId = self::getOrCreateCoaForLegacyAccount($payment->account_id);
             if (! $cashCoaId) {
@@ -357,13 +442,16 @@ class AccountingHelper
 
     public static function fromPaymentPurchase($payment): void
     {
+        self::$companyId = self::companyOf($payment);
         self::safe(function () use ($payment) {
             $cashCoaId = self::getOrCreateCoaForLegacyAccount($payment->account_id);
             if (! $cashCoaId) {
                 $cashCoaId = self::getOrCreateCoa('1000-CASH', 'Cash', 'asset');
             }
             $apCoaId = self::getOrCreateCoa('2100-AP', 'Accounts Payable', 'liability');
-            $amount = (float) ($payment->amount ?? 0);
+            // payment_purchases keeps the amount in `montant` (like the other
+            // payments); reading only `amount` skipped every purchase payment.
+            $amount = (float) ($payment->montant ?? $payment->amount ?? 0);
             if ($amount <= 0) {
                 return;
             }
@@ -384,6 +472,7 @@ class AccountingHelper
 
     public static function reversePaymentSale($payment): void
     {
+        self::$companyId = self::companyOf($payment);
         self::safe(function () use ($payment) {
             $cashCoaId = self::getOrCreateCoaForLegacyAccount($payment->account_id);
             if (! $cashCoaId) {
@@ -411,6 +500,7 @@ class AccountingHelper
 
     public static function reversePaymentPurchase($payment): void
     {
+        self::$companyId = self::companyOf($payment);
         self::safe(function () use ($payment) {
             $cashCoaId = self::getOrCreateCoaForLegacyAccount($payment->account_id);
             if (! $cashCoaId) {
@@ -438,6 +528,7 @@ class AccountingHelper
 
     public static function fromDeposit($deposit): void
     {
+        self::$companyId = self::companyOf($deposit);
         self::safe(function () use ($deposit) {
             $cashCoaId = self::getOrCreateCoaForLegacyAccount($deposit->account_id);
             $equityCoaId = self::getOrCreateCoa(Config::get('accounting_v2.codes.retained_earnings', '3100'), 'Retained Earnings', 'equity');
@@ -462,6 +553,7 @@ class AccountingHelper
 
     public static function fromTransferMoney($transfer): void
     {
+        self::$companyId = self::companyOf($transfer);
         self::safe(function () use ($transfer) {
             $fromCoaId = self::getOrCreateCoaForLegacyAccount($transfer->from_account_id ?? $transfer->account_from_id ?? null);
             $toCoaId = self::getOrCreateCoaForLegacyAccount($transfer->to_account_id ?? $transfer->account_to_id ?? null);
@@ -486,6 +578,7 @@ class AccountingHelper
 
     public static function fromPurchaseReturn($purchaseReturn): void
     {
+        self::$companyId = self::companyOf($purchaseReturn);
         self::safe(function () use ($purchaseReturn) {
             $apCoaId = self::getOrCreateCoa('2100-AP', 'Accounts Payable', 'liability');
             $retCoaId = self::getOrCreateCoa('5010-PRET', 'Purchase Returns', 'expense');
@@ -510,6 +603,7 @@ class AccountingHelper
 
     public static function fromPurchaseReturnAdjustment($purchaseReturn): void
     {
+        self::$companyId = self::companyOf($purchaseReturn);
         self::safe(function () use ($purchaseReturn) {
             $current = self::getPostedAmount('purchase_return', $purchaseReturn->id ?? 0);
             $target = (float) ($purchaseReturn->GrandTotal ?? 0);
@@ -552,11 +646,13 @@ class AccountingHelper
 
     public static function reversePurchaseReturn($purchaseReturn): void
     {
+        self::$companyId = self::companyOf($purchaseReturn);
         self::reverseByReference('purchase_return', $purchaseReturn->id ?? 0, 'Reverse Purchase Return #'.($purchaseReturn->Ref ?? $purchaseReturn->id ?? ''));
     }
 
     public static function fromSaleReturnAdjustment($saleReturn): void
     {
+        self::$companyId = self::companyOf($saleReturn);
         self::safe(function () use ($saleReturn) {
             $current = self::getPostedAmount('sale_return', $saleReturn->id ?? 0);
             $target = (float) ($saleReturn->GrandTotal ?? 0);
@@ -599,11 +695,13 @@ class AccountingHelper
 
     public static function reverseSaleReturn($saleReturn): void
     {
+        self::$companyId = self::companyOf($saleReturn);
         self::reverseByReference('sale_return', $saleReturn->id ?? 0, 'Reverse Sale Return #'.($saleReturn->Ref ?? $saleReturn->id ?? ''));
     }
 
     public static function fromPaymentSaleReturn($payment): void
     {
+        self::$companyId = self::companyOf($payment);
         self::safe(function () use ($payment) {
             $cashCoaId = self::getOrCreateCoaForLegacyAccount($payment->account_id);
             if (! $cashCoaId) {
@@ -631,6 +729,7 @@ class AccountingHelper
 
     public static function reversePaymentSaleReturn($payment): void
     {
+        self::$companyId = self::companyOf($payment);
         self::safe(function () use ($payment) {
             $cashCoaId = self::getOrCreateCoaForLegacyAccount($payment->account_id);
             if (! $cashCoaId) {
@@ -658,6 +757,7 @@ class AccountingHelper
 
     public static function fromPaymentPurchaseReturn($payment): void
     {
+        self::$companyId = self::companyOf($payment);
         self::safe(function () use ($payment) {
             $cashCoaId = self::getOrCreateCoaForLegacyAccount($payment->account_id);
             if (! $cashCoaId) {
@@ -685,6 +785,7 @@ class AccountingHelper
 
     public static function reversePaymentPurchaseReturn($payment): void
     {
+        self::$companyId = self::companyOf($payment);
         self::safe(function () use ($payment) {
             $cashCoaId = self::getOrCreateCoaForLegacyAccount($payment->account_id);
             if (! $cashCoaId) {
@@ -712,6 +813,7 @@ class AccountingHelper
 
     public static function fromCashRegisterOpening($cashRegister): void
     {
+        self::$companyId = self::companyOf($cashRegister);
         self::safe(function () use ($cashRegister) {
             $amount = (float) ($cashRegister->opening_balance ?? 0);
             if ($amount <= 0) {
@@ -743,6 +845,9 @@ class AccountingHelper
 
             DB::transaction(function () use ($data) {
                 $journalId = DB::table('acc_journal_entries')->insertGetId([
+                    // Multicompany: the posting's company, else its source document's.
+                    'company_id' => self::$companyId
+                        ?? JournalSource::companyOf($data['journal']['reference_type'] ?? null, $data['journal']['reference_id'] ?? null),
                     'date' => $data['journal']['date'] ?? Carbon::now()->toDateString(),
                     'reference_type' => $data['journal']['reference_type'] ?? null,
                     'reference_id' => $data['journal']['reference_id'] ?? null,
@@ -808,7 +913,14 @@ class AccountingHelper
             if (! Schema::hasTable('acc_chart_of_accounts')) {
                 return 0;
             }
-            $existing = DB::table('acc_chart_of_accounts')->where('code', $code)->first();
+            // The posting company's own account (per-company charts).
+            if ($own = self::companyCoa($code)) {
+                return $own;
+            }
+            // Older shared accounts only -- never another company's row.
+            $existing = DB::table('acc_chart_of_accounts')->where('code', $code)
+                ->when(Schema::hasColumn('acc_chart_of_accounts', 'company_id'), fn ($q) => $q->whereNull('company_id'))
+                ->first();
             if ($existing) {
                 return (int) $existing->id;
             }

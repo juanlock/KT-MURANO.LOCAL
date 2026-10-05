@@ -28,13 +28,9 @@
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[12, 12]" align="bottom">
-        <a-col :xs="12" :md="6">
-          <div class="filter-label">{{ $t('From') }}</div>
-          <a-input v-model:value="filters.from" type="date" />
-        </a-col>
-        <a-col :xs="12" :md="6">
-          <div class="filter-label">{{ $t('To') }}</div>
-          <a-input v-model:value="filters.to" type="date" />
+        <a-col :span="24">
+          <div class="filter-label">{{ $t('date') }}</div>
+          <PresetRangeFilter v-model:value="range" :apply-default="!linked" @change="crud.reload()" />
         </a-col>
         <a-col :xs="12" :md="6">
           <div class="filter-label">{{ $t('Type') }}</div>
@@ -83,8 +79,11 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 import { ReloadOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../../components/PageHeader.vue';
+import PresetRangeFilter from '../../../components/PresetRangeFilter.vue';
+import { rangeModel } from '../../../lib/datePresets';
 import DataTable from '../../../components/DataTable.vue';
 import { useCrudTable } from '../../../composables/useCrudTable';
 import { useFormat } from '../../../composables/useFormat';
@@ -93,6 +92,18 @@ const { t } = useI18n();
 const { number } = useFormat();
 
 const filters = ref({ from: '', to: '', type: '' });
+// ?from=&to=&type= (the Accounting dashboard's Income / Expense cards): open
+// on that range and type instead of the user's default preset.
+const q = useRoute().query;
+const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+const linked = isDate(q.from) && isDate(q.to);
+if (linked) {
+  filters.value.from = String(q.from);
+  filters.value.to = String(q.to);
+}
+if (['income', 'expense'].includes(String(q.type || ''))) filters.value.type = String(q.type);
+// The system date filter (presets + editable Start date / to); none = All.
+const range = rangeModel(() => [filters.value.from, filters.value.to], (a, b) => { filters.value.from = a; filters.value.to = b; });
 const summary = ref({ income: 0, expense: 0, net_profit: 0 });
 
 const crud = useCrudTable('accounting/v2/reports/profit-loss', {

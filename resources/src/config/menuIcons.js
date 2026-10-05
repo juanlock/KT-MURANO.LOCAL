@@ -12,7 +12,7 @@ import {
     Library, CalendarDays, Megaphone, DollarSign, Wrench, Settings, Archive,
     ClipboardList, Check, Book, DatabaseZap, Lightbulb, TrendingUp, Percent,
     FolderArchive, Truck, HeartPulse, GraduationCap, Plug, ChefHat, Menu,
-    LifeBuoy, LayoutGrid,
+    LifeBuoy, LayoutGrid, Mails,
 } from 'lucide-vue-next';
 
 /**
@@ -31,6 +31,7 @@ export function fallbackIcon(seed) {
 
 export const MENU_ICONS = {
     'life-buoy': LifeBuoy,
+    'mails': Mails,
     'layout-grid': LayoutGrid,
     'bar-chart': BarChart3,
     'shopping-bag': ShoppingBag,

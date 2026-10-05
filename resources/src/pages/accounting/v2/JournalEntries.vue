@@ -9,9 +9,62 @@
       </template>
     </PageHeader>
 
+    <!-- Filters: the shared date range (presets, double-click = default) + source,
+         status, account, amount. -->
+    <a-card size="small" style="margin-bottom: 16px">
+      <a-row :gutter="[12, 12]" align="bottom">
+        <!-- Full width: the preset buttons and the calendar stay on one row. -->
+        <a-col :span="24">
+          <div class="filter-label">{{ $t('date') }}</div>
+          <PresetRangeFilter v-model:value="filters.range" :apply-default="!linkedRange" @change="reload" />
+        </a-col>
+        <a-col :xs="12" :md="6" :lg="5">
+          <div class="filter-label">{{ $t('Source') }}</div>
+          <a-select v-model:value="filters.reference_type" allow-clear style="width: 100%" placeholder="All" :options="sourceTypeOptions" @change="reload" />
+        </a-col>
+        <a-col :xs="12" :md="6" :lg="3">
+          <div class="filter-label">{{ $t('Status') }}</div>
+          <a-select
+            v-model:value="filters.status" allow-clear style="width: 100%" placeholder="All" @change="reload"
+            :options="[{ value: 'posted', label: t('Journal_Status_Posted') }, { value: 'draft', label: t('Journal_Status_Draft') }]"
+          />
+        </a-col>
+        <a-col :xs="24" :md="12" :lg="6">
+          <div class="filter-label">{{ $t('Account') }}</div>
+          <a-select
+            v-model:value="filters.coa_id" allow-clear show-search option-filter-prop="label" style="width: 100%"
+            :placeholder="$t('Select_Account')" :options="accountOptions" @change="reload"
+          />
+        </a-col>
+        <a-col :xs="12" :md="6" :lg="3">
+          <div class="filter-label">Amount from</div>
+          <a-input-number v-model:value="filters.amount_min" :min="0" style="width: 100%" @change="reloadSoon" />
+        </a-col>
+        <a-col :xs="12" :md="6" :lg="3">
+          <div class="filter-label">Amount to</div>
+          <a-input-number v-model:value="filters.amount_max" :min="0" style="width: 100%" @change="reloadSoon" />
+        </a-col>
+        <a-col flex="none">
+          <ResetFiltersButton :dirty="hasFilters" @reset="resetFilters" />
+        </a-col>
+      </a-row>
+    </a-card>
+
     <DataTable :crud="crud" :columns="columns">
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'status'">
+        <template v-if="column.key === 'id'">#{{ record.id }}</template>
+        <!-- Description + the source document: click to see it. -->
+        <template v-else-if="column.key === 'description'">
+          <div>{{ record.description || '—' }}</div>
+          <a v-if="record.source_label" class="je-source" @click="openSource(record)">
+            <LinkOutlined /> {{ record.source_label }}
+          </a>
+        </template>
+        <template v-else-if="column.key === 'reference_type'">
+          <a-tag>{{ record.source_type_label || record.reference_type }}</a-tag>
+        </template>
+        <template v-else-if="column.key === 'amount'">{{ money(record.amount) }}</template>
+        <template v-else-if="column.key === 'status'">
           <a-tag :color="record.status === 'posted' ? 'success' : 'warning'">{{ statusLabel(record.status) }}</a-tag>
         </template>
         <template v-else-if="column.key === 'actions'">
@@ -68,7 +121,7 @@
               v-model:value="record.coa_id" :placeholder="$t('Select_Account')"
               show-search option-filter-prop="label" style="width: 100%"
               :status="showErrors && !record.coa_id ? 'error' : ''"
-              :options="accounts.map(a => ({ label: `${a.code} — ${a.name}`, value: a.id }))"
+              :options="accounts.filter(a => !(a.company_id != null && String(a.code).includes('-'))).map(a => ({ label: `${a.code} — ${localName(a)}`, value: a.id }))"
             />
           </template>
           <template v-else-if="column.key === 'debit'">
@@ -109,11 +162,43 @@
       </div>
     </a-modal>
 
+    <!-- Source document of an entry (sale, payment, expense...). -->
+    <a-modal v-model:open="sourceOpen" :title="source?.title || $t('Source')" :footer="null" width="760px">
+      <a-spin :spinning="sourceLoading">
+        <template v-if="source">
+          <a-descriptions :column="2" size="small" bordered style="margin-top: 8px">
+            <a-descriptions-item :label="$t('Type')">{{ source.type_label }}</a-descriptions-item>
+            <a-descriptions-item label="Ref">{{ source.ref || '—' }}</a-descriptions-item>
+            <a-descriptions-item v-for="(v, k) in source.fields" :key="k" :label="k">
+              {{ ['Total', 'Amount', 'Opening cash'].includes(k) ? money(v) : v }}
+            </a-descriptions-item>
+          </a-descriptions>
+          <a-table
+            v-if="source.lines && source.lines.length" style="margin-top: 12px" size="small" :pagination="false" row-key="name"
+            :data-source="source.lines" :columns="sourceLineColumns"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'price' || column.key === 'total'">{{ money(record[column.key]) }}</template>
+            </template>
+          </a-table>
+          <div style="margin-top: 12px; text-align: right">
+            <a-button v-if="source.link" type="primary" @click="goSource">
+              <template #icon><LinkOutlined /></template> Open {{ source.type_label.toLowerCase() }}
+            </a-button>
+          </div>
+        </template>
+        <a-empty v-else-if="!sourceLoading" description="This entry has no source document (manual entry)." />
+      </a-spin>
+    </a-modal>
+
     <!-- View -->
     <a-modal v-model:open="viewOpen" :title="$t('Journal_Number', { number: current && current.id })" :footer="null" width="860px">
       <template v-if="current">
         <div style="margin: 12px 0 4px"><strong>{{ $t('date') }}:</strong> {{ current.date }}</div>
         <div style="margin-bottom: 12px"><strong>{{ $t('Description') }}:</strong> {{ current.description || '-' }}</div>
+        <div v-if="current.source_label" style="margin-bottom: 12px">
+          <strong>{{ $t('Source') }}:</strong> <a @click="openSource(current)"><LinkOutlined /> {{ current.source_label }}</a>
+        </div>
         <a-table
           :columns="viewColumns" :data-source="current.lines || []"
           :pagination="false" size="small" :row-key="(_r, i) => i"
@@ -141,28 +226,99 @@
  * be posted via POST .../{id}/post.
  */
 import { ref, computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
-  PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, CheckOutlined,
+  PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, CheckOutlined, LinkOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../../components/PageHeader.vue';
 import DataTable from '../../../components/DataTable.vue';
+import PresetRangeFilter from '../../../components/PresetRangeFilter.vue';
+import ResetFiltersButton from '../../../components/ResetFiltersButton.vue';
 import { useCrudTable } from '../../../composables/useCrudTable';
 import { useFormat } from '../../../composables/useFormat';
+import { sortByLabel } from '../../../lib/filterOptions';
 import http from '../../../lib/http';
+import { localName } from '../../../lib/localName';
 
 const { t } = useI18n();
-const { number } = useFormat();
+const { number, money } = useFormat();
+const router = useRouter();
+
+// ---------------- filters ----------------
+const emptyFilters = () => ({ range: null, reference_type: undefined, status: undefined, coa_id: undefined, amount_min: null, amount_max: null });
+const filters = ref(emptyFilters());
+// ?from=&to= (e.g. the Accounting dashboard's Journal Entries card): open
+// on that range instead of the user's default preset.
+const route = useRoute();
+const linkedRange = /^\d{4}-\d{2}-\d{2}$/.test(String(route.query.from || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(route.query.to || ''))
+  ? [String(route.query.from), String(route.query.to)]
+  : null;
+if (linkedRange) filters.value.range = linkedRange;
+const hasFilters = computed(() => {
+  const f = filters.value;
+  return !!(f.reference_type || f.status || f.coa_id || f.amount_min != null || f.amount_max != null);
+});
 
 const crud = useCrudTable('accounting/v2/journal-entries', {
   sortField: 'date',
   sortType: 'desc',
+  params: () => {
+    const f = filters.value;
+    return {
+      from: f.range?.[0] || '', to: f.range?.[1] || '',
+      reference_type: f.reference_type || '', status: f.status || '', coa_id: f.coa_id || '',
+      amount_min: f.amount_min ?? '', amount_max: f.amount_max ?? '',
+    };
+  },
   select: p => {
     const rows = (p && (p.data || p.rows)) || [];
     return { rows, total: (p && (p.total ?? p.totalRows ?? rows.length)) || 0 };
   },
 });
+const sourceTypeOptions = computed(() => sortByLabel(crud.payload.value?.source_types || []));
+const allCompanies = computed(() => !!crud.payload.value?.all_companies);
+const accountOptions = computed(() => sortByLabel(accounts.value.map(a => ({ label: `${a.code} — ${localName(a)}`, value: a.id }))));
+
+function reload() { crud.reload ? crud.reload() : crud.fetchRows(); }
+let amountTimer = null;
+function reloadSoon() { clearTimeout(amountTimer); amountTimer = setTimeout(reload, 400); }
+function resetFilters() {
+  const range = filters.value.range;
+  filters.value = { ...emptyFilters(), range };
+  reload();
+}
+
+// ---------------- source modal ----------------
+const sourceOpen = ref(false);
+const sourceLoading = ref(false);
+const source = ref(null);
+const sourceLineColumns = [
+  { title: 'Product / service', dataIndex: 'name', key: 'name' },
+  { title: 'Qty', dataIndex: 'quantity', key: 'quantity', align: 'right' },
+  { title: 'Price', key: 'price', align: 'right' },
+  { title: 'Total', key: 'total', align: 'right' },
+];
+async function openSource(entryRow) {
+  source.value = null;
+  sourceOpen.value = true;
+  sourceLoading.value = true;
+  try {
+    const data = await http.get(`accounting/v2/journal-entries/${entryRow.id}/source`);
+    source.value = data?.source || null;
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+  } finally {
+    sourceLoading.value = false;
+  }
+}
+function goSource() {
+  if (!source.value?.link) return;
+  sourceOpen.value = false;
+  viewOpen.value = false;
+  router.push(source.value.link);
+}
 
 const accounts = ref([]);
 const modalOpen = ref(false);
@@ -177,9 +333,13 @@ const emptyLine = () => ({ coa_id: null, debit: 0, credit: 0, memo: '' });
 const entry = ref({ id: null, date: '', description: '', lines: [] });
 
 const columns = computed(() => [
+  { title: '#', dataIndex: 'id', key: 'id', width: 70 },
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true },
+  // AdminSystem (all companies): whose entry it is.
+  ...(allCompanies.value ? [{ title: t('Company'), dataIndex: 'company_name', key: 'company_name' }] : []),
   { title: t('Description'), dataIndex: 'description', key: 'description' },
   { title: t('Source'), dataIndex: 'reference_type', key: 'reference_type' },
+  { title: t('Amount'), dataIndex: 'amount', key: 'amount', align: 'right', sum: 'money' },
   { title: t('Status'), key: 'status', width: 100, align: 'center' },
   { title: t('Action'), key: 'actions', width: 160 },
 ]);
@@ -217,7 +377,7 @@ function statusLabel(status) {
 }
 function accountName(id) {
   const a = accounts.value.find(x => x.id === id);
-  return a ? `${a.code} — ${a.name}` : id;
+  return a ? `${a.code} — ${localName(a)}` : id;
 }
 function validRow(l) {
   const debit = Number(l.debit || 0);
@@ -344,3 +504,14 @@ onMounted(() => {
   fetchAccounts();
 });
 </script>
+
+<style scoped>
+.filter-label {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+.je-source {
+  font-size: 12px;
+}
+</style>

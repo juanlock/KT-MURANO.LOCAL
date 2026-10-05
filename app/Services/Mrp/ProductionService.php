@@ -401,8 +401,10 @@ class ProductionService
     private function postJournalEntry(MrpProductionOrder $order): void
     {
         try {
-            $fg = $this->accountId(['finished goods', 'inventory', 'stock']);
-            $raw = $this->accountId(['raw material', 'inventory', 'stock']);
+            // Per-company charts: the company of the order's location.
+            $companyId = (int) \App\Models\Warehouse::whereKey($order->warehouse_id)->value('company_id');
+            $fg = $this->accountId(['finished goods', 'inventory', 'stock'], $companyId);
+            $raw = $this->accountId(['raw material', 'inventory', 'stock'], $companyId);
             if (! $fg || ! $raw) {
                 return;
             }
@@ -413,6 +415,7 @@ class ProductionService
             }
 
             $entry = JournalEntry::create([
+                'company_id' => $companyId ?: null,
                 'date' => now()->toDateString(),
                 'description' => 'Production order '.$order->reference,
                 'reference_type' => 'mrp_production_order',
@@ -445,12 +448,19 @@ class ProductionService
         }
     }
 
-    /** First active account whose name matches one of the given hints. */
-    private function accountId(array $hints): ?int
+    /**
+     * First active account whose name matches one of the given hints -- in
+     * the company's own chart first, then the older shared accounts (never
+     * another company's).
+     */
+    private function accountId(array $hints, int $companyId = 0): ?int
     {
         foreach ($hints as $hint) {
             $id = ChartOfAccount::where('is_active', 1)
+                // own company's accounts (not its group headers) or shared ones
+                ->where(fn ($q) => $q->where(fn ($q2) => $q2->where('company_id', $companyId)->where('level', '>', 0))->orWhereNull('company_id'))
                 ->where('name', 'LIKE', '%'.$hint.'%')
+                ->orderByRaw('company_id IS NULL')
                 ->value('id');
             if ($id) {
                 return (int) $id;

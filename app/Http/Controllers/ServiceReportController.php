@@ -94,7 +94,7 @@ class ServiceReportController extends BaseController
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $technicians = ServiceTechnician::whereNull('deleted_at')
+        $technicians = $this->rc(ServiceTechnician::query(), 'service_technicians.company_id')->whereNull('deleted_at')
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'email']);
@@ -168,12 +168,12 @@ class ServiceReportController extends BaseController
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $technicians = ServiceTechnician::whereNull('deleted_at')
+        $technicians = $this->rc(ServiceTechnician::query(), 'service_technicians.company_id')->whereNull('deleted_at')
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'email']);
 
-        $categories = DB::table('service_checklist_categories')
+        $categories = $this->rc(DB::table('service_checklist_categories'), 'service_checklist_categories.company_id')
             ->whereNull('deleted_at')
             ->orderBy('name')
             ->get(['id', 'name']);

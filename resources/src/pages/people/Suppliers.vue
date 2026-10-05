@@ -2,10 +2,16 @@
   <div class="page">
     <PageHeader :title="$t('Suppliers')" :breadcrumb="[$t('People'), $t('Suppliers')]">
       <template #actions>
-        <a-button v-if="auth.can('Suppliers_add')" type="primary" @click="$router.push('/suppliers/create')">
-          <template #icon><PlusOutlined /></template>
-          {{ $t('Add') }}
-        </a-button>
+        <a-space wrap :size="12">
+          <!-- Date buttons: Due / Return Due count only purchases and
+               returns dated in the range; every supplier stays listed. -->
+          <DateRangeFields :value="rangeFields" @change="onRangeEdit" />
+          <DatePresetButtons v-model:value="datePreset" @change="onDatePreset" />
+          <a-button v-if="auth.can('Suppliers_add')" type="primary" @click="$router.push('/suppliers/create')">
+            <template #icon><PlusOutlined /></template>
+            {{ $t('Add') }}
+          </a-button>
+        </a-space>
       </template>
     </PageHeader>
 
@@ -76,10 +82,10 @@
             </a-button>
             <template #overlay>
               <a-menu @click="({ key }) => onAction(key, record)">
-                <a-menu-item v-if="Number(record.due) > 0 && auth.can('pay_supplier_due')" key="pay-due">
+                <a-menu-item v-if="Number(record.due_all ?? record.due) > 0 && auth.can('pay_supplier_due')" key="pay-due">
                   <DollarOutlined /> {{ $t('pay_all_purchase_due_at_a_time') }}
                 </a-menu-item>
-                <a-menu-item v-if="Number(record.return_Due) > 0 && auth.can('pay_purchase_return_due')" key="pay-return">
+                <a-menu-item v-if="Number(record.return_due_all ?? record.return_Due) > 0 && auth.can('pay_purchase_return_due')" key="pay-return">
                   <DollarOutlined /> {{ $t('pay_all_purchase_return_due_at_a_time') }}
                 </a-menu-item>
                 <a-menu-item v-if="auth.can('Suppliers_view')" key="details">
@@ -181,6 +187,10 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import DatePresetButtons from '../../components/DatePresetButtons.vue';
+import DateRangeFields from '../../components/DateRangeFields.vue';
+import { presetDates, presetOf } from '../../lib/datePresets';
+import { startPreset } from '../../lib/datePresetDefault';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
@@ -192,8 +202,33 @@ const router = useRouter();
 
 const MONEY_KEYS = ['credit_limit', 'opening_balance'];
 
+// Date buttons (shared presets, user's default ★ -- else All = lifetime
+// figures, the list's previous behavior). Sent as date_from/date_to: the
+// server limits each supplier's purchases/returns figures to that range.
+// Editing Start date / to = a custom range (datePreset null).
+const datePreset = ref(startPreset('all'));
+const customRange = ref({ from: '', to: '' });
+const activeDates = () => (datePreset.value ? presetDates(datePreset.value) : customRange.value);
+const dateParams = () => {
+  const { from, to } = activeDates();
+  return { date_from: from, date_to: to };
+};
+const rangeFields = computed(() => {
+  const { from, to } = activeDates();
+  return from ? [from, to] : null;
+});
+function onDatePreset() {
+  crud.reload();
+  loadTotals();
+}
+function onRangeEdit(range) {
+  datePreset.value = range ? presetOf(range[0], range[1]) : 'all';
+  if (!datePreset.value) customRange.value = { from: range[0], to: range[1] };
+  onDatePreset();
+}
+
 // Payload: { providers, totalRows, accounts, payment_methods }
-const crud = useCrudTable('providers', { rowsKey: 'providers' });
+const crud = useCrudTable('providers', { rowsKey: 'providers', params: dateParams });
 
 const opts = key =>
   (crud.payload.value?.[key] || []).map(x => ({ value: x.id, label: x.name }));
@@ -230,7 +265,7 @@ const cardsLoading = computed(() => initialLoading.value || crud.loading.value |
 async function loadTotals() {
   totalsLoading.value = true;
   try {
-    const data = await http.get('providers', { page: 1, limit: -1, SortField: 'id', SortType: 'desc' });
+    const data = await http.get('providers', { page: 1, limit: -1, SortField: 'id', SortType: 'desc', ...dateParams() });
     const rows = data.providers || [];
     totals.value = {
       due: rows.reduce((s, r) => s + (Number(r.due) || 0), 0),
@@ -270,10 +305,13 @@ const payForm = ref({ amount: 0, payment_method_id: undefined, account_id: undef
 
 // Opening balance is paid first, then purchases — so the due total for a
 // payment is opening_balance + purchase due (matches pay_supplier_due). Returns
-// have no opening-balance component.
+// have no opening-balance component. Lifetime dues (due_all / return_due_all),
+// not the date range's: a payment settles the whole balance.
 const openingBalance = computed(() => Number(payTarget.value?.opening_balance) || 0);
 const dueAmount = computed(() =>
-  Number(payKind.value === 'due' ? payTarget.value?.due : payTarget.value?.return_Due) || 0
+  Number(payKind.value === 'due'
+    ? (payTarget.value?.due_all ?? payTarget.value?.due)
+    : (payTarget.value?.return_due_all ?? payTarget.value?.return_Due)) || 0
 );
 // Rounded: this is the paying-amount input's :max and prefill — a raw float
 // sum would surface as e.g. 121.99999999999994 in the field.

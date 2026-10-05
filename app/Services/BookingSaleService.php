@@ -23,8 +23,10 @@ use Illuminate\Support\Facades\Log;
 /**
  * Booking -> Sale invoice. A completed booking (appointment) gets exactly one
  * sale: one line for the booked service at the booking's price, dated on the
- * booking date, in the customer's company, status completed and paid in full
- * by one Cash payment. bookings.sale_id is the link and the idempotency key.
+ * booking date, in the customer's company, status completed and -- per
+ * Settings -> Booking -> On completion (booking_invoice_mode) -- paid in full
+ * by one Cash payment (cash), left open on credit (unpaid), or not invoiced at
+ * all (none). bookings.sale_id is the link and the idempotency key.
  *
  * Called from BookingObserver (any path that completes a booking: edit form,
  * calendar, status endpoint, import), from the booking save responses, and
@@ -51,6 +53,14 @@ class BookingSaleService
         }
         $companyId = (int) $client->company_id;
 
+        // Settings -> Booking -> "On completion": cash (sale paid in cash, the
+        // salon default) | unpaid (sale on credit, paid later) | none (no sale,
+        // e.g. the work is covered by a monthly contract).
+        $invoiceMode = Setting::where('company_id', $companyId)->whereNull('deleted_at')->value('booking_invoice_mode') ?: 'cash';
+        if ($invoiceMode === 'none') {
+            return ['ok' => true, 'sale' => null, 'reason' => 'disabled'];
+        }
+
         // No service on the booking (e.g. imported after the service was
         // removed on the booking site): invoice it anyway, on the company's
         // generic "Appointment" service, so every completion is invoiced.
@@ -73,7 +83,7 @@ class BookingSaleService
             return $this->fail('No user of the company to record the sale under.');
         }
 
-        return DB::transaction(function () use ($booking, $client, $product, $companyId, $warehouseId, $userId) {
+        return DB::transaction(function () use ($booking, $client, $product, $companyId, $warehouseId, $userId, $invoiceMode) {
             // Re-read under lock: two saves completing the same booking at once
             // must not create two invoices.
             $locked = Booking::whereKey($booking->id)->lockForUpdate()->first();
@@ -138,9 +148,12 @@ class BookingSaleService
                 $this->deductStock($product, $warehouseId);
             }
 
-            // Appointments are paid in cash at the visit: the sale is settled
-            // in full by one Cash payment on the booking date.
-            if ($lineTotal > 0) {
+            // "cash": paid in cash at the visit -- the sale is settled in full
+            // by one Cash payment on the booking date. "unpaid": the sale stays
+            // open (on credit) for a payment later.
+            if ($invoiceMode === 'unpaid') {
+                $sale->forceFill(['paid_amount' => 0, 'payment_statut' => 'unpaid'])->save();
+            } elseif ($lineTotal > 0) {
                 PaymentSale::create([
                     'sale_id' => $sale->id,
                     'Ref' => app(PaymentSalesController::class)->getNumberOrder(),
@@ -152,8 +165,10 @@ class BookingSaleService
                     'notes' => 'Booking '.$locked->Ref,
                     'user_id' => $userId,
                 ]);
+                $sale->forceFill(['paid_amount' => $lineTotal, 'payment_statut' => 'paid'])->save();
+            } else {
+                $sale->forceFill(['paid_amount' => $lineTotal, 'payment_statut' => 'paid'])->save();
             }
-            $sale->forceFill(['paid_amount' => $lineTotal, 'payment_statut' => 'paid'])->save();
 
             $locked->forceFill(['sale_id' => $sale->id])->saveQuietly();
             $booking->setRawAttributes($locked->getAttributes(), true);

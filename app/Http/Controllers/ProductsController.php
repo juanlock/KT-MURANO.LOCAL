@@ -4376,7 +4376,9 @@ class ProductsController extends BaseController
         $stockExport = new StockExport($stock);
 
         $excelFileName = 'stock_export_'.now()->format('YmdHis').'.xlsx';
-        $excelFolderPath = public_path().'/images/count_stock/';
+        // Project standard: public/files/company_{id}/count_stock (CompanyFiles) -- the warehouse's company.
+        $countDir = \App\Support\CompanyFiles::dir((int) (Warehouse::whereKey($request->warehouse_id)->value('company_id') ?: $this->resolveActingCompanyId($request)), 'count_stock');
+        $excelFolderPath = public_path($countDir).'/';
         $excelFilePath = $excelFolderPath.$excelFileName;
 
         // Check if the directory exists, if not, create it
@@ -4393,7 +4395,7 @@ class ProductsController extends BaseController
             'warehouse_id' => $request->warehouse_id,
             'category_id' => $request->category_id,
             'user_id' => Auth::user()->id,
-            'file_stock' => $excelFileName,
+            'file_stock' => $countDir.'/'.$excelFileName,
         ]);
 
         return response()->json(['success' => true]);

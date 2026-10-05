@@ -5,6 +5,7 @@
  * Weeks run Monday-Sunday, like the booking calendar.
  */
 import dayjs from 'dayjs';
+import { computed } from 'vue';
 
 export const DATE_PRESETS = [
   { value: 'all', labelKey: 'All' },
@@ -53,4 +54,35 @@ export function presetRange(preset, now = dayjs()) {
 export function presetDates(preset) {
   const [a, b] = presetRange(preset);
   return { from: a ? a.format('YYYY-MM-DD') : '', to: b ? b.format('YYYY-MM-DD') : '' };
+}
+
+/**
+ * v-model for PresetRangeFilter on a page that keeps its dates as two
+ * 'YYYY-MM-DD' strings (from / to, '' = open): read(): [from, to],
+ * write(from, to). Null range <-> both ''.
+ *   const range = rangeModel(() => [f.value.from, f.value.to], (a, b) => { f.value.from = a; f.value.to = b; });
+ */
+export function rangeModel(read, write) {
+  return computed({
+    get: () => {
+      const [a, b] = read();
+      return a || b ? [a || b, b || a] : null;
+    },
+    set: r => write(r ? r[0] : '', r ? r[1] : ''),
+  });
+}
+
+/**
+ * The preset a 'YYYY-MM-DD' range is ('all' when both ends are empty), or
+ * null for a hand-edited custom range -- so a page whose Start/End dates were
+ * edited shows no preset button active, and one typed back to e.g. this
+ * month's dates lights "This Month" again.
+ */
+export function presetOf(from, to) {
+  if (!from && !to) return 'all';
+  const hit = DATE_PRESETS.find(p => {
+    const d = presetDates(p.value);
+    return p.value !== 'all' && d.from === from && d.to === to;
+  });
+  return hit ? hit.value : null;
 }

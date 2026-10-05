@@ -45,7 +45,10 @@ class PermissionsController extends BaseController
         if ($perPage == '-1') {
             $perPage = $totalRows;
         }
-        $roles = $roles->withCount('permissions')
+        // menu_hide:<route> rows only hide a menu item for the role -- they
+        // aren't permissions, so they don't count on either side of "x / y"
+        // (otherwise Owner, with everything, shows 323 / 326).
+        $roles = $roles->withCount(['permissions' => fn ($q) => $q->where('permissions.name', 'not like', 'menu\_hide:%')])
             ->offset($offSet)
             ->limit($perPage)
             ->orderBy($order, $dir)
@@ -61,7 +64,7 @@ class PermissionsController extends BaseController
         return response()->json([
             'roles' => $roles,
             'totalRows' => $totalRows,
-            'totalPermissions' => Permission::count(),
+            'totalPermissions' => Permission::where('name', 'not like', 'menu\_hide:%')->count(),
             'all_companies' => $allCompanies,
             'companies' => $allCompanies ? \App\Models\Company::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']) : [],
         ]);

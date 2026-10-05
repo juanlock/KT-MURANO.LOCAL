@@ -58,8 +58,9 @@ class HelpdeskMailer
                 $m->getSymfonyMessage()->text($text);
                 $m->getSymfonyMessage()->getHeaders()->addTextHeader('X-Helpdesk-Ticket', $ticket->number);
                 foreach ($attachments as $a) {
-                    if (! empty($a['path']) && Storage::disk('local')->exists($a['path'])) {
-                        $m->attach(Storage::disk('local')->path($a['path']), ['as' => $a['name'] ?? basename($a['path'])]);
+                    // public/files/company_{id}/helpdesk/... (CompanyFiles).
+                    if (! empty($a['path']) && ! str_contains($a['path'], '..') && is_file(public_path($a['path']))) {
+                        $m->attach(public_path($a['path']), ['as' => $a['name'] ?? basename($a['path'])]);
                     }
                 }
             });

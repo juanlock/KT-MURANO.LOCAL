@@ -12,13 +12,9 @@
     <!-- Filters -->
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[12, 12]">
-        <a-col :xs="12" :md="6">
-          <div class="filter-label">{{ $t('Date_From') }}</div>
-          <a-input v-model:value="filterDateFrom" type="date" />
-        </a-col>
-        <a-col :xs="12" :md="6">
-          <div class="filter-label">{{ $t('Date_To') }}</div>
-          <a-input v-model:value="filterDateTo" type="date" />
+        <a-col :span="24">
+          <div class="filter-label">{{ $t('date') }}</div>
+          <PresetRangeFilter v-model:value="range" @change="applyFilters" />
         </a-col>
         <a-col :xs="12" :md="6">
           <div class="filter-label">{{ $t('Sales_Agent') }}</div>
@@ -158,6 +154,8 @@ import { message, Modal } from 'ant-design-vue';
 import { ExclamationCircleOutlined, ReloadOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons-vue';
 import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
+import { rangeModel } from '../../lib/datePresets';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
@@ -167,6 +165,8 @@ const auth = useAuthStore();
 
 const filterDateFrom = ref('');
 const filterDateTo = ref('');
+// The system date filter (presets + editable Start date / to); none = All.
+const range = rangeModel(() => [filterDateFrom.value, filterDateTo.value], (a, b) => { filterDateFrom.value = a; filterDateTo.value = b; });
 const filterAgentId = ref(null);
 const filterStatus = ref('');
 const agentsList = ref([]);

@@ -102,6 +102,7 @@ import { ref, computed, onMounted, createVNode } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { ThunderboltOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const loading = ref(true);
 const generating = ref(false);
@@ -135,7 +136,9 @@ function summary(map) {
 async function loadStatus() {
   try {
     const data = await http.get('demo_data/status');
-    modules.value = data.modules || [];
+    // Shown alphabetically by label (the server's order is the generation
+    // order -- Core first -- which still applies when generating).
+    modules.value = sortByLabel(data.modules || []);
     companyName.value = data.company_name || '';
     demoTotal.value = Number(data.demo_total) || 0;
     selected.value = selected.value.filter(k => availableKeys.value.includes(k));
@@ -149,7 +152,7 @@ async function generate() {
   try {
     const data = await http.post('demo_data/generate', { modules: selected.value });
     const byKey = Object.fromEntries(modules.value.map(m => [m.key, m.label]));
-    lastResults.value = Object.entries(data.results || {}).map(([key, r]) => ({ key, label: byKey[key] || key, ...r }));
+    lastResults.value = sortByLabel(Object.entries(data.results || {}).map(([key, r]) => ({ key, label: byKey[key] || key, ...r })));
     const ok = lastResults.value.filter(r => r.status === 'created').length;
     const failed = lastResults.value.filter(r => r.status === 'error').length;
     if (failed) message.warning(`${ok} module(s) generated, ${failed} failed — see "Last run".`, 6);

@@ -181,9 +181,61 @@ class LinkedUserService
                 'user_id' => $user->id,
                 'is_active' => true,
             ]);
+            // A sales agent is staff: an Employee too (same login).
+            if (self::ensureEmployee($user, $companyId) === 'employee_missing_hr_setup') {
+                return 'employee_missing_hr_setup';
+            }
         }
 
         return null;
+    }
+
+    /**
+     * Makes a person who works for the company an Employee too, linked to
+     * their existing login (employees.user_id): a sales agent created under
+     * Commissions -> Sales Agents is staff, so it also appears in HRM ->
+     * Employees (and their Employee form shows "Sales Agent" under Other
+     * modules). Uses the company's first department / designation / office
+     * shift (all NOT NULL on employees). No-op when the user already has an
+     * employee record.
+     *
+     * @return int|string the employee id, or 'employee_missing_hr_setup' when the company has no department / designation / shift yet
+     */
+    public static function ensureEmployee(User $user, int $companyId)
+    {
+        $existing = Employee::where('user_id', $user->id)->whereNull('deleted_at')->value('id');
+        if ($existing) {
+            return (int) $existing;
+        }
+        $departmentId = Department::where('company_id', $companyId)->whereNull('deleted_at')->value('id');
+        $designationId = Designation::where('company_id', $companyId)->whereNull('deleted_at')
+            ->when($departmentId, fn ($q) => $q->orderByRaw('department_id = ? desc', [$departmentId]))->value('id');
+        $officeShiftId = OfficeShift::where('company_id', $companyId)->whereNull('deleted_at')->value('id');
+        if (! $departmentId || ! $designationId || ! $officeShiftId) {
+            return 'employee_missing_hr_setup';
+        }
+
+        $employee = new Employee;
+        $employee->firstname = $user->firstname;
+        $employee->lastname = $user->lastname ?: '';
+        $employee->username = trim($user->firstname.' '.$user->lastname) ?: $user->username;
+        $employee->email = $user->email;
+        $employee->phone = $user->phone;
+        $employee->gender = 'other';
+        $employee->joining_date = now()->toDateString();
+        $employee->company_id = $companyId;
+        $employee->department_id = $departmentId;
+        $employee->designation_id = $designationId;
+        $employee->office_shift_id = $officeShiftId;
+        $employee->user_id = $user->id;
+        $employee->save();
+        if (class_exists(\App\Models\EmployeePosition::class)) {
+            \App\Models\EmployeePosition::create([
+                'employee_id' => $employee->id, 'department_id' => $departmentId, 'designation_id' => $designationId, 'is_primary' => true,
+            ]);
+        }
+
+        return (int) $employee->id;
     }
 
     /**

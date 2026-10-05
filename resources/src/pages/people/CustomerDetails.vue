@@ -10,6 +10,10 @@
           <template #icon><FilePdfOutlined /></template>
           {{ exporting ? $t('Generating') : $t('Download_PDF') }}
         </a-button>
+        <a-button v-if="can('Customers_edit')" @click="$router.push(`/customers/${id}/edit`)">
+          <template #icon><EditOutlined /></template>
+          {{ $t('Edit') }}
+        </a-button>
         <a-button
           v-if="totalDue > 0 && auth.can('pay_due')"
           type="primary" @click="openPayDue"
@@ -99,6 +103,15 @@
                 <span v-if="record.Sale_Ref">{{ record.Sale_Ref }}</span>
                 <span v-else class="muted">-</span>
               </template>
+              <!-- Service Jobs tab: visit date + the contract a visit comes from -->
+              <template v-else-if="column.key === 'scheduled_date'">
+                <span v-if="record.scheduled_date">{{ date(record.scheduled_date) }} {{ String(record.scheduled_date).slice(11, 16) }}</span>
+                <span v-else class="muted">—</span>
+              </template>
+              <template v-else-if="column.key === 'job_contract'">
+                <router-link v-if="record.sales_contract_id" :to="`/sales-contracts/${record.sales_contract_id}`">{{ record.contract_number || '#' + record.sales_contract_id }}</router-link>
+                <span v-else class="muted">—</span>
+              </template>
               <!-- Contracts tab -->
               <template v-else-if="column.key === 'contract_number'">
                 <router-link :to="`/sales-contracts/${record.id}`">{{ record.contract_number }}</router-link>
@@ -115,12 +128,24 @@
                 <span v-if="record.next_invoice_date">{{ date(record.next_invoice_date) }}</span>
                 <span v-else class="muted">—</span>
               </template>
+              <!-- Email conversation tab -->
+              <template v-else-if="column.key === 'email_date'">{{ dateTime(record.sent_at) }}</template>
+              <template v-else-if="column.key === 'email_direction'">
+                <a-tag :color="record.direction === 'in' ? 'green' : 'blue'">{{ record.direction === 'in' ? 'From customer' : 'To customer' }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'email_subject'">
+                <a @click="openEmail(record)">{{ record.subject }}</a>
+                <div class="muted" style="font-size: 12px">{{ record.snippet }}</div>
+              </template>
+              <template v-else-if="column.key === 'email_category'">{{ ({ bill: 'Bill', claim: 'Claim', reminder: 'Reminder', general: 'General' })[record.category] }}</template>
               <template v-else-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
               <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : 'Open-ended' }}</template>
             </template>
           </DataTable>
         </a-tab-pane>
       </a-tabs>
+
+      <EmailViewerDrawer v-model:open="emailOpen" :email-id="emailId" @changed="cruds.emails.fetchRows()" @filter-address="a => $router.push({ path: '/email-office/received', query: { address: a } })" />
 
       <a-card v-if="customFields.length" size="small" :title="$t('CustomFields')" style="margin-top: 16px">
         <a-descriptions :column="{ xs: 1, md: 2 }" size="small">
@@ -172,11 +197,12 @@ import {
   LeftOutlined, DollarOutlined, FilePdfOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined, IdcardOutlined,
   ShoppingOutlined, CheckCircleOutlined, CalculatorOutlined, ExclamationCircleOutlined, ToolOutlined,
   WalletOutlined, RollbackOutlined, CreditCardOutlined, PayCircleOutlined, StarOutlined,
-  PlusOutlined, SyncOutlined,
+  PlusOutlined, SyncOutlined, EditOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import PayDueModal from '../../components/PayDueModal.vue';
 import DataTable from '../../components/DataTable.vue';
+import EmailViewerDrawer from '../../components/EmailViewerDrawer.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import { useFormat } from '../../composables/useFormat';
@@ -184,7 +210,7 @@ import http from '../../lib/http';
 import { STATUS_COLORS, statusLabel, billingLabel } from '../sales_contracts/salesContractVocab';
 
 const { t } = useI18n();
-const { money, roundMoney, date } = useFormat();
+const { money, roundMoney, date, dateTime } = useFormat();
 const auth = useAuthStore();
 const can = p => auth.user?.type === 'SuperAdmin' || auth.can(p);
 const route = useRoute();
@@ -193,7 +219,8 @@ const id = route.params.id;
 
 const loading = ref(true);
 const exporting = ref(false);
-const tab = ref('sales');
+// ?tab= opens a given tab (e.g. the Customers list's Contracts count -> contracts).
+const tab = ref(String(route.query.tab || 'sales'));
 const client = ref({});
 const brief = ref({});
 const paymentMethods = ref([]);
@@ -316,6 +343,7 @@ const cruds = {
   returns: tableFor('returns_client', 'returns'),
   payment_returns: tableFor('payment_returns_client', 'payment_returns'),
   contracts: useCrudTable('sales_contracts', { rowsKey: 'contracts', limit: 10, params: () => ({ client_id: id }) }),
+  emails: useCrudTable('email-office/party', { rowsKey: 'emails', limit: 10, params: () => ({ type: 'client', id }) }),
 };
 
 const col = (label, key, opts = {}) => ({ title: t(label), dataIndex: key, key, ...opts });
@@ -330,14 +358,16 @@ const panes = computed(() => [
       col('Payment_Status', 'payment_status'), col('Shipping_Status', 'shipping_status'),
     ],
   },
-  {
+  // Service Jobs: only when the company has the Service module and the user may see jobs.
+  ...(auth.moduleEnabled('service') && can('service_jobs') ? [{
     key: 'service_jobs', label: 'Service_Jobs', crud: cruds.service_jobs, link: r => `/service/jobs/details/${r.id}`,
     columns: [
-      col('Ref', 'Ref'), col('date', 'date'), col('Service_Item', 'service_item'), col('Technician', 'technician_name'),
+      col('Ref', 'Ref'), { title: 'Scheduled', dataIndex: 'scheduled_date', key: 'scheduled_date' }, col('date', 'date'),
+      col('Service_Item', 'service_item'), col('Technician', 'technician_name'), { title: 'Contract', key: 'job_contract' },
       moneyCol('Grand_Total', 'GrandTotal'), moneyCol('Paid', 'paid_amount'), moneyCol('Due', 'due'),
       col('Payment_Status', 'payment_status'), col('Status', 'statut'),
     ],
-  },
+  }] : []),
   {
     key: 'payments', label: 'Payments', crud: cruds.payments, rowKey: 'Ref',
     columns: [
@@ -381,7 +411,25 @@ const panes = computed(() => [
       { title: 'Status', dataIndex: 'status', key: 'status' },
     ],
   }] : []),
+  // Email Office: every email from / to this customer (their address or matched to them).
+  ...(auth.moduleEnabled('email_office') && can('email_office_view') ? [{
+    key: 'emails', label: 'Email_Conversation', title: 'Email conversation', crud: cruds.emails,
+    columns: [
+      { title: 'Date', dataIndex: 'sent_at', key: 'email_date' },
+      { title: '', dataIndex: 'direction', key: 'email_direction', width: 110 },
+      { title: 'Subject', dataIndex: 'subject', key: 'email_subject' },
+      { title: 'Type', dataIndex: 'category', key: 'email_category' },
+    ],
+  }] : []),
 ]);
+
+// Email conversation: one email in the side panel.
+const emailOpen = ref(false);
+const emailId = ref(null);
+function openEmail(r) {
+  emailId.value = r.id;
+  emailOpen.value = true;
+}
 
 // ---------------- PDF ----------------
 

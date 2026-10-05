@@ -325,7 +325,7 @@ import { resolveScan } from '../../lib/scanMatch';
 import BatchAllocator from '../../components/BatchAllocator.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useDocCurrency } from '../../composables/useDocCurrency';
-import { productDisplayName } from '../../lib/productDisplayName';
+import { productDisplayName, productSearchLabel } from '../../lib/productDisplayName';
 import { recomputeLine, computeSimpleTotals } from '../../lib/lineCalc';
 import { hasBatchSelectErrors, firstBatchSelectError } from '../../lib/batchValidation';
 import { sortByLabel } from '../../lib/filterOptions';
@@ -399,14 +399,14 @@ const shippingInput = computed({
 const clientOptions = computed(() => sortByLabel(clients.value.map(c => ({ value: c.id, label: c.name }))));
 const warehouseOptions = computed(() => sortByLabel(warehouses.value.map(w => ({ value: w.id, label: w.name }))));
 const productOptions = computed(() =>
-  sortByLabel(products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productDisplayName(p.name)}` })))
+  sortByLabel(products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productSearchLabel(p.name, p.group_name)}` })))
 );
 
 // A variant's label carries the VARIANT code, so also match the parent
 // product's code — otherwise typing the main code finds none of its variants.
 function filterProduct(input, option) {
   const p = products.value[option.value];
-  return `${option.label} ${p?.product_code ?? ''}`
+  return `${option.label} ${p?.name ?? ''} ${p?.product_code ?? ''}`
     .toLowerCase()
     .includes(String(input).toLowerCase());
 }

@@ -69,7 +69,7 @@
 <script setup>
 /**
  * Intranet Management -> Files (intranet_manage): the document library.
- * Files are private (storage/app/intranet/company_{id}/files); downloads go
+ * Files are private (public/files/company_{id}/intranet/files (private folder, no direct URL)); downloads go
  * through GET intranet/files/{id}/download.
  */
 import { ref, computed, onMounted } from 'vue';

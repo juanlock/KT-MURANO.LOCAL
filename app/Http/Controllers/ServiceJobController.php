@@ -29,8 +29,9 @@ use PDF;
 
 class ServiceJobController extends BaseController
 {
-    // Multicompany: company-aware warehouse scope -- see the trait.
-    use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
+    // Multicompany: a job belongs to its location's (else its customer's)
+    // company; technicians / checklists have company_id -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesServiceJobsToCompany;
 
     use CalculatesCogsAndAverageCost;
 
@@ -101,12 +102,28 @@ class ServiceJobController extends BaseController
             ->when($request->filled('job_type'), function ($q) use ($request) {
                 $q->where('service_jobs.job_type', $request->job_type);
             })
+            // Service menu: Service Jobs vs Device Repairs.
+            ->when(in_array($request->kind, ['service', 'device'], true), function ($q) use ($request) {
+                $q->where('service_jobs.job_kind', $request->kind);
+            })
             ->when($request->filled('from'), function ($q) use ($request) {
                 $q->whereDate('service_jobs.scheduled_date', '>=', $request->from);
             })
             ->when($request->filled('to'), function ($q) use ($request) {
                 $q->whereDate('service_jobs.scheduled_date', '<=', $request->to);
+            })
+            // Day view: every job on that day -- all-day tasks and timed jobs,
+            // and multi-day jobs whose range covers it.
+            ->when(preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->day), function ($q) use ($request) {
+                $q->onDay($request->day);
             });
+        // Day view: all-day tasks first, then by time.
+        // (Unless the user sorted by another column than the default Ref.)
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->day) && in_array((string) $request->SortField, ['', 'Ref'], true)) {
+            $order = 'service_jobs.scheduled_date';
+            $dir = 'asc';
+            $query->orderByDesc('service_jobs.all_day');
+        }
 
         $totalRows = $query->count();
         if ($perPage == '-1') {
@@ -137,6 +154,8 @@ class ServiceJobController extends BaseController
             $item['balance_due'] = (float) $job->total_amount - (float) $job->paid_amount;
             $item['scheduled_date'] = $job->scheduled_date;
             $item['scheduled_end_date'] = $job->scheduled_end_date;
+            $item['all_day'] = (bool) $job->all_day;
+            $item['job_kind'] = $job->job_kind ?: 'service';
             $item['started_at'] = $job->started_at;
             $item['completed_at'] = $job->completed_at;
             $item['delivered_at'] = $job->delivered_at;
@@ -159,12 +178,14 @@ class ServiceJobController extends BaseController
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'phone']);
 
-        $technicians = ServiceTechnician::whereNull('deleted_at')
+        $technicians = $this->rc(ServiceTechnician::query(), 'service_technicians.company_id')->whereNull('deleted_at')
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'email']);
 
+        // The company's locations (the user's assigned ones when restricted).
         $warehouses = Warehouse::where('deleted_at', '=', null)
+            ->when(! $this->reportAllWarehouses(), fn ($q) => $q->whereIn('id', $this->reportWarehouseIdList()))
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -222,7 +243,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', ServiceJob::class);
 
-        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->with(['client', 'technician'])->findOrFail($id);
+        $job = $this->scopedJobs()->whereNull('service_jobs.deleted_at')->with(['client', 'technician'])->findOrFail($id);
 
         $checklist = $job->checklistItems()
             ->whereNull('deleted_at')
@@ -322,6 +343,8 @@ class ServiceJobController extends BaseController
                 'status' => $job->status,
                 'scheduled_date' => $job->scheduled_date,
                 'scheduled_end_date' => $job->scheduled_end_date,
+                'all_day' => (bool) $job->all_day,
+                'job_kind' => $job->job_kind ?: 'service',
                 'started_at' => $job->started_at,
                 'completed_at' => $job->completed_at,
                 'notes' => $job->notes,
@@ -370,7 +393,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->findOrFail($id);
+        $job = $this->scopedJobs()->whereNull('service_jobs.deleted_at')->findOrFail($id);
 
         $validated = $this->validatePayload($request);
 
@@ -418,7 +441,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'delete', ServiceJob::class);
 
-        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->findOrFail($id);
+        $job = $this->scopedJobs()->findOrFail($id);
 
         DB::transaction(function () use ($job) {
             // Deleting a delivered job has to put its parts back on the shelf,
@@ -435,7 +458,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->findOrFail($id);
+        $job = $this->scopedJobs()->whereNull('service_jobs.deleted_at')->findOrFail($id);
 
         $validated = $request->validate([
             'approved_by' => 'nullable|string|max:191',
@@ -460,7 +483,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->findOrFail($id);
+        $job = $this->scopedJobs()->whereNull('service_jobs.deleted_at')->findOrFail($id);
 
         $job->update(['status' => 'declined']);
 
@@ -472,7 +495,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::query()->when(! $this->reportAllWarehouses(), fn ($q) => $q->where(fn ($w) => $w->whereIn('service_jobs.warehouse_id', $this->reportWarehouseIdList())->orWhere(fn ($x) => $x->whereNull('service_jobs.warehouse_id')->whereIn('service_jobs.client_id', $this->rc(Client::query(), 'clients.company_id')->select('id')))))->whereNull('service_jobs.deleted_at')->findOrFail($id);
+        $job = $this->scopedJobs()->whereNull('service_jobs.deleted_at')->findOrFail($id);
 
         $validated = $request->validate([
             'pickup_signature' => 'nullable|string|max:191',
@@ -511,6 +534,36 @@ class ServiceJobController extends BaseController
     // -------------- Helper: validation rules (shared by store + update) ---------------\\
     protected function validatePayload(Request $request): array
     {
+        $validated = $this->validateRules($request);
+        $this->assertJobRefs($validated);
+
+        return $validated;
+    }
+
+    /**
+     * Customer, technician, location, parent job and the parts' products /
+     * locations must all be the acting company's (a SuperAdmin with no
+     * company picked is not restricted).
+     */
+    protected function assertJobRefs(array $v): void
+    {
+        $cid = $this->reportCompanyId();
+        if (! $cid) {
+            return;
+        }
+        $warehouses = $this->reportWarehouseIdList();
+        abort_unless(Client::whereKey($v['client_id'] ?? 0)->where('company_id', $cid)->exists(), 422, 'That customer does not belong to your company.');
+        abort_if(! empty($v['technician_id']) && ! ServiceTechnician::whereKey($v['technician_id'])->where('company_id', $cid)->exists(), 422, 'That technician does not belong to your company.');
+        abort_if(! empty($v['warehouse_id']) && ! in_array((int) $v['warehouse_id'], $warehouses, true), 422, 'That location does not belong to your company.');
+        abort_if(! empty($v['parent_job_id']) && ! $this->scopedJobs()->whereKey($v['parent_job_id'])->exists(), 422, 'That parent job does not belong to your company.');
+        foreach ($v['items'] ?? [] as $item) {
+            abort_if(! empty($item['warehouse_id']) && ! in_array((int) $item['warehouse_id'], $warehouses, true), 422, 'A part line uses a location of another company.');
+            abort_if(! empty($item['product_id']) && ! DB::table('products')->where('id', $item['product_id'])->where('company_id', $cid)->exists(), 422, 'A part line uses a product of another company.');
+        }
+    }
+
+    protected function validateRules(Request $request): array
+    {
         return $request->validate([
             'client_id' => 'required|integer|exists:clients,id',
             'technician_id' => 'nullable|integer|exists:service_technicians,id',
@@ -520,6 +573,9 @@ class ServiceJobController extends BaseController
             'status' => 'nullable|string|max:50',
             'scheduled_date' => 'nullable|date',
             'scheduled_end_date' => 'nullable|date|after_or_equal:scheduled_date',
+            // No time chosen: an all-day task on its day(s).
+            'all_day' => 'nullable|boolean',
+            'job_kind' => 'nullable|in:service,device',
             'started_at' => 'nullable|date',
             'completed_at' => 'nullable|date',
             'notes' => 'nullable|string',
@@ -578,8 +634,9 @@ class ServiceJobController extends BaseController
             'service_item' => $validated['service_item'],
             'job_type' => $validated['job_type'] ?? null,
             'status' => $validated['status'] ?? ($existing->status ?? 'pending'),
-            'scheduled_date' => $validated['scheduled_date'] ?? null,
-            'scheduled_end_date' => $validated['scheduled_end_date'] ?? null,
+            // One day or a range, at a time or all day (ServiceJob::normalizeSchedule).
+            ...ServiceJob::normalizeSchedule($validated),
+            'job_kind' => $validated['job_kind'] ?? ($existing->job_kind ?? 'service'),
             'started_at' => $validated['started_at'] ?? null,
             'completed_at' => $validated['completed_at'] ?? null,
             'notes' => $validated['notes'] ?? null,
@@ -1116,7 +1173,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', ServiceJob::class);
         $helpers = new helpers;
-        $job = ServiceJob::with(['client', 'technician'])
+        $job = $this->scopedJobs()->with(['client', 'technician'])
             ->whereNull('deleted_at')
             ->findOrFail($id);
 
@@ -1134,7 +1191,7 @@ class ServiceJobController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', ServiceJob::class);
         $helpers = new helpers;
-        $job = ServiceJob::with(['client', 'technician'])
+        $job = $this->scopedJobs()->with(['client', 'technician'])
             ->whereNull('deleted_at')
             ->findOrFail($id);
 
@@ -1154,7 +1211,7 @@ class ServiceJobController extends BaseController
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
         $this->authorizeForUser($request->user('api'), 'create', Quotation::class);
 
-        $job = ServiceJob::with('items')->whereNull('deleted_at')->findOrFail($id);
+        $job = $this->scopedJobs()->with('items')->whereNull('deleted_at')->findOrFail($id);
 
         if ($job->quotation_id) {
             $existing = Quotation::find($job->quotation_id);

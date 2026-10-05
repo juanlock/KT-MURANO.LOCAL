@@ -835,7 +835,7 @@ class PosController extends BaseController
                 // If converting from a draft, remove the draft after successful sale creation
                 if ($request->filled('draft_sale_id')) {
                     try {
-                        $draft = DraftSale::find($request->draft_sale_id);
+                        $draft = $this->companyDrafts($request)->find($request->draft_sale_id);
                         if ($draft) {
                             $draft->details()->delete();
                             $draft->update(['deleted_at' => Carbon::now()]);
@@ -1268,6 +1268,18 @@ class PosController extends BaseController
 
     // ------------- get_draft_sales -----------\\
 
+    /**
+     * Multicompany: POS drafts of the acting company only (a SuperAdmin
+     * working as AdminSystem -- 999 -- sees all of them).
+     */
+    private function companyDrafts(Request $request)
+    {
+        $cid = $this->resolveActingCompanyId($request);
+        $all = optional($request->user('api'))->type === 'SuperAdmin' && (int) $cid === 999;
+
+        return DraftSale::query()->when(! $all, fn ($q) => $q->where('draft_sales.company_id', $cid));
+    }
+
     public function get_draft_sales(request $request)
     {
         $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
@@ -1295,7 +1307,7 @@ class PosController extends BaseController
         $data = [];
 
         // Check If User Has Permission View  All Records
-        $draft_sales = DraftSale::with('client', 'warehouse', 'user')
+        $draft_sales = $this->companyDrafts($request)->with('client', 'warehouse', 'user')
             ->where('deleted_at', '=', null)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
@@ -1354,7 +1366,7 @@ class PosController extends BaseController
 
             // If draft_sale_id present, update existing draft; otherwise create new
             if ($request->filled('draft_sale_id')) {
-                $order = DraftSale::whereNull('deleted_at')->findOrFail($request->draft_sale_id);
+                $order = $this->companyDrafts($request)->whereNull('deleted_at')->findOrFail($request->draft_sale_id);
                
                 // Update header
                 $order->update([
@@ -1401,6 +1413,9 @@ class PosController extends BaseController
                 }
             } else {
                 $order = new DraftSale;
+                // The draft belongs to its location's company.
+                $order->company_id = DB::table('warehouses')->where('id', $request->warehouse_id)->value('company_id')
+                    ?: $this->resolveActingCompanyId($request);
                 $order->date = Carbon::now();
                 $order->Ref = $this->getNumberOrderDraft();
                 $order->client_id = $request->client_id;
@@ -1464,7 +1479,7 @@ class PosController extends BaseController
             $user = Auth::user();
             // New way: Check user's record_view field (user-level boolean)
             // Backward compatibility: If record_view is null, fall back to role permission check
-            $draft = DraftSale::findOrFail($id);
+            $draft = $this->companyDrafts($request)->findOrFail($id);
 
             $draft->details()->delete();
             $draft->update([
@@ -1491,7 +1506,7 @@ class PosController extends BaseController
         // Multi-Pack Selling: reject pack lines that would oversell base stock.
         $this->assertPackStockSufficient($request);
 
-        $draft = DraftSale::findOrFail($request['draft_sale_id']);
+        $draft = $this->companyDrafts($request)->findOrFail($request['draft_sale_id']);
         if ($draft) {
 
             $sale = \DB::transaction(function () use ($request, $draft) {
@@ -1869,7 +1884,7 @@ class PosController extends BaseController
         $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
 
-        $draft_sale_data = DraftSale::with('details.product.unitSale')->where('deleted_at', '=', null)->findOrFail($id);
+        $draft_sale_data = $this->companyDrafts($request)->with('details.product.unitSale')->where('deleted_at', '=', null)->findOrFail($id);
 
         // get warehouses assigned to user
         $user_auth = auth()->user();

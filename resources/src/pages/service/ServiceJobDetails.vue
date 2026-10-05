@@ -43,8 +43,8 @@
               <a-tag>{{ job.Ref }}</a-tag>
               <a-tag :color="statusColor(job.status)">{{ statusLabel(job.status) }}</a-tag>
               <span v-if="job.service_item" class="job-head-meta">{{ job.service_item }}</span>
-              <span v-if="job.technician_name" class="job-head-meta">· {{ job.technician_name }}</span>
-              <span v-if="job.scheduled_date" class="job-head-meta">· {{ formatDateTime(job.scheduled_date) }}</span>
+              <span v-if="job.technician_name" class="job-head-meta">Â· {{ job.technician_name }}</span>
+              <span v-if="job.scheduled_date" class="job-head-meta">Â· {{ scheduleLabel(job) }}</span>
             </a-space>
           </div>
         </div>
@@ -115,7 +115,7 @@
           <a-descriptions-item :label="$t('Status')">
             <a-tag :color="statusColor(job.status)">{{ statusLabel(job.status) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item v-if="job.scheduled_date" :label="$t('Scheduled_Date')">{{ formatDateTime(job.scheduled_date) }}</a-descriptions-item>
+          <a-descriptions-item v-if="job.scheduled_date" :label="$t('Scheduled_Date')">{{ scheduleLabel(job) }}</a-descriptions-item>
           <a-descriptions-item v-if="job.started_at" :label="$t('Started_At')">{{ formatDateTime(job.started_at) }}</a-descriptions-item>
           <a-descriptions-item v-if="job.completed_at" :label="$t('Completed_At')">{{ formatDateTime(job.completed_at) }}</a-descriptions-item>
         </a-descriptions>
@@ -187,7 +187,7 @@
           <a-descriptions-item v-if="job.quote_approved_at" :label="$t('Approved')">
             <span style="color: #3f8600">
               <CheckOutlined /> {{ formatDateTime(job.quote_approved_at) }}
-              <span v-if="job.quote_approved_by"> · {{ job.quote_approved_by }}</span>
+              <span v-if="job.quote_approved_by"> Â· {{ job.quote_approved_by }}</span>
             </span>
           </a-descriptions-item>
         </a-descriptions>
@@ -262,7 +262,7 @@
               <a-tag :color="kindColor(record.payment_kind)">{{ record.payment_kind || 'payment' }}</a-tag>
             </template>
             <template v-else-if="column.key === 'payment_method'">
-              {{ record.payment_method || '—' }}
+              {{ record.payment_method || 'â€”' }}
             </template>
             <template v-else-if="column.key === 'montant'">
               <span :style="{ color: record.payment_kind === 'refund' ? '#cf1322' : undefined, fontWeight: 600 }">
@@ -270,7 +270,7 @@
               </span>
             </template>
             <template v-else-if="column.key === 'notes'">
-              {{ record.notes || '—' }}
+              {{ record.notes || 'â€”' }}
             </template>
           </template>
         </a-table>
@@ -287,7 +287,7 @@
 
 <script setup>
 /**
- * Service job details — GET service_jobs/{id} → {job, checklist, items,
+ * Service job details â€” GET service_jobs/{id} â†’ {job, checklist, items,
  * payments, photos}. PDF via service_job_pdf/{id} blob; print opens a popup
  * with the same minimal job sheet legacy printed via $htmlToPaper.
  */
@@ -400,6 +400,17 @@ function formatDateTime(d) {
   if (!d) return '-';
   return new Date(d).toLocaleString();
 }
+/** The job's schedule: "10/8/2026 Â· All day", "10/8/2026 10:30 â€“ 12:00", or a date range. */
+function scheduleLabel(j) {
+  if (!j?.scheduled_date) return '-';
+  const s = String(j.scheduled_date).replace('T', ' ');
+  const e = j.scheduled_end_date ? String(j.scheduled_end_date).replace('T', ' ') : '';
+  const day = x => new Date(`${x.slice(0, 10)}T00:00:00`).toLocaleDateString();
+  const multi = e && e.slice(0, 10) !== s.slice(0, 10);
+  const days = multi ? `${day(s)} â€“ ${day(e)}` : day(s);
+  if (j.all_day) return `${days} Â· All day`;
+  return `${days} ${s.slice(11, 16)}${e ? ` â€“ ${e.slice(11, 16)}` : ''}`;
+}
 function isWarrantyActive(d) {
   if (!d) return false;
   try { return new Date(d) >= new Date(); } catch (e) { return false; }
@@ -447,7 +458,7 @@ function printJob() {
             <p style="margin:5px 0;"><strong>Service Item:</strong> ${esc(j.service_item || '-')}</p>
             ${j.job_type ? `<p style="margin:5px 0;"><strong>Job Type:</strong> ${esc(j.job_type)}</p>` : ''}
             <p style="margin:5px 0;"><strong>Technician:</strong> ${esc(j.technician_name || '-')}</p>
-            ${j.scheduled_date ? `<p style="margin:5px 0;"><strong>Scheduled Date:</strong> ${esc(formatDateTime(j.scheduled_date))}</p>` : ''}
+            ${j.scheduled_date ? `<p style="margin:5px 0;"><strong>Scheduled Date:</strong> ${esc(scheduleLabel(j))}</p>` : ''}
             <p style="margin:5px 0;"><strong>Status:</strong> ${esc(statusLabel(j.status))}</p>
           </td>
         </tr>

@@ -361,7 +361,7 @@ import QuickAddParty from '../../components/QuickAddParty.vue';
 import QuickAddProduct from '../../components/QuickAddProduct.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useDocCurrency } from '../../composables/useDocCurrency';
-import { productDisplayName } from '../../lib/productDisplayName';
+import { productDisplayName, productSearchLabel } from '../../lib/productDisplayName';
 import { recomputeCostLine, computeSimpleTotals } from '../../lib/lineCalc';
 import { hasBatchEntryErrors, batchTotalQty } from '../../lib/batchValidation';
 import { sortByLabel } from '../../lib/filterOptions';
@@ -437,7 +437,7 @@ function onSupplierCreated(supplier) {
 }
 const warehouseOptions = computed(() => sortByLabel(warehouses.value.map(w => ({ value: w.id, label: w.name }))));
 const productOptions = computed(() =>
-  sortByLabel(products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productDisplayName(p.name)}` })))
+  sortByLabel(products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productSearchLabel(p.name, p.group_name)}` })))
 );
 
 // Matches Group Name / Name only -- Code is de-prioritized here (there's a

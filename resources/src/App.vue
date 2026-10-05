@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, watchEffect } from 'vue';
 import { theme as antTheme } from 'ant-design-vue';
 import enUS from 'ant-design-vue/es/locale/en_US';
 import frFR from 'ant-design-vue/es/locale/fr_FR';
@@ -16,6 +16,15 @@ import { hexToRgb } from './lib/colorUtils';
 
 const ui = useUiStore();
 ui.initTheme();
+
+// The theme's primary colour as a CSS variable ("r, g, b") for plain CSS that
+// must follow the theme -- e.g. the default table header tint
+// (stores/datatable.js headerBgCss).
+watchEffect(() => {
+  try {
+    document.documentElement.style.setProperty('--app-primary-rgb', hexToRgb(ui.primaryColor).join(', '));
+  } catch (e) { /* no DOM */ }
+});
 
 // ---------------------------------------------------------------- keepalive
 // The SPA authenticates API calls with Passport's laravel_token cookie, whose

@@ -165,6 +165,10 @@ class SalesController extends BaseController
                 return $query->whereHas('facture', function ($q) use ($request) {
                     $q->whereNull('deleted_at')->where('payment_method_id', $request->payment_method_id);
                 });
+            })
+            // Drafts only (draft=1) / without drafts (draft=0).
+            ->when($request->filled('draft'), function ($query) use ($request) {
+                return $query->where('is_draft', $request->boolean('draft'));
             });
         if (! $is_all_warehouses) {
             $Sales->whereIn('warehouse_id', $warehouse_ids);
@@ -259,6 +263,7 @@ class SalesController extends BaseController
             // Attributed salesperson (Change Salesperson at POS); cashier otherwise.
             $item['seller_name'] = optional($Sale['seller'])->username ?? $Sale['user']->username;
             $item['statut'] = $Sale['statut'];
+            $item['is_draft'] = (bool) $Sale['is_draft'];
             // Distinct product lines on the sale (not quantity summed) -- the
             // Nro Item / # products column on the list.
             $item['items_count'] = $Sale['details_count'];
@@ -479,9 +484,56 @@ class SalesController extends BaseController
         return $permission && $user->hasRole($permission->roles);
     }
 
+    /**
+     * Sale / line notes may use the invoice-note placeholders ({{month}},
+     * {{invoice_date}}, {{weekday}}...): on a single sale they're filled with
+     * the sale's own date when it's saved (SalesContractBilling::renderNote),
+     * so the stored and printed note is the final text.
+     */
+    private function fillNotePlaceholders(Request $request): void
+    {
+        $date = \Carbon\Carbon::parse($request->input('date') ?: now())->startOfDay();
+        $fill = fn ($t) => is_string($t) && str_contains($t, '{{')
+            ? \App\Services\SalesContractBilling::renderNote($t, $date, null, 1, null, $date) : $t;
+        $merge = [];
+        if ($request->has('notes')) {
+            $merge['notes'] = $fill($request->input('notes'));
+        }
+        if (is_array($request->input('details'))) {
+            $merge['details'] = array_map(function ($d) use ($fill) {
+                if (is_array($d) && isset($d['note'])) {
+                    $d['note'] = $fill($d['note']);
+                }
+
+                return $d;
+            }, $request->input('details'));
+        }
+        if ($merge) {
+            $request->merge($merge);
+            request()->merge($merge);
+        }
+    }
+
+    /**
+     * "Save as draft" (save_as_draft=1): the sale is kept Pending -- no stock
+     * out, no payment -- and flagged as a draft until it's finalized.
+     */
+    private function applyDraftRequest(Request $request): bool
+    {
+        if (! $request->boolean('save_as_draft')) {
+            return false;
+        }
+        $request->merge(['statut' => 'pending']);
+        request()->merge(['statut' => 'pending']);
+
+        return true;
+    }
+
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', Sale::class);
+        $this->fillNotePlaceholders($request);
+        $asDraft = $this->applyDraftRequest($request);
 
         request()->validate([
             'client_id' => 'required',
@@ -849,12 +901,89 @@ class SalesController extends BaseController
             \Log::warning('ZATCA submit dispatch failed (non-blocking): '.$e->getMessage(), ['sale_id' => $sale->id]);
         }
 
+        if ($asDraft) {
+            Sale::whereKey($sale->id)->update(['is_draft' => true]);
+        }
+
         return response()->json([
             'success' => true,
             'sale_id' => $sale->id,
+            'is_draft' => $asDraft,
             'quickbooks_invoice_id' => $sale->quickbooks_invoice_id,
             'qbo_sync' => $qboSync,
+            'service_job' => $this->createSaleServiceJob($sale, $request),
         ]);
+    }
+
+    /**
+     * Create Sale -> "Service job" (service_job.enabled): one Service Job for
+     * this sale's customer and location, linked by sale_id -- status Pending,
+     * no price (the sale bills the work). Needs the company's Service module;
+     * the technician must be the company's. Never blocks the sale: a problem
+     * comes back as a warning.
+     */
+    private function createSaleServiceJob(Sale $sale, Request $request): ?array
+    {
+        $in = (array) $request->input('service_job', []);
+        if (empty($in['enabled'])) {
+            return null;
+        }
+        $companyId = (int) $sale->company_id;
+        if (! \App\Support\ModuleFlags::enabled($companyId, 'service')) {
+            return ['warning' => 'Service job not created: the Service module is off for this company.'];
+        }
+        $technicianId = ! empty($in['technician_id']) && \App\Models\ServiceTechnician::whereKey($in['technician_id'])
+            ->where('company_id', $companyId)->whereNull('deleted_at')->exists() ? (int) $in['technician_id'] : null;
+
+        // When: one day or a range (scheduled_date / scheduled_end_date), at a
+        // time or all day; "several dates" (dates[]) = one job per date.
+        // Nothing chosen = the sale date, all day.
+        $schedules = [];
+        $dates = collect((array) ($in['dates'] ?? []))->filter(fn ($d) => preg_match('/^\d{4}-\d{2}-\d{2}/', (string) $d))->unique()->sort()->take(60)->values();
+        if ($dates->isNotEmpty()) {
+            foreach ($dates as $d) {
+                $schedules[] = \App\Models\ServiceJob::normalizeSchedule([
+                    'scheduled_date' => substr($d, 0, 10).(! empty($in['time']) ? ' '.$in['time'] : ''),
+                    'scheduled_end_date' => ! empty($in['time']) && ! empty($in['end_time']) ? substr($d, 0, 10).' '.$in['end_time'] : null,
+                    'all_day' => empty($in['time']),
+                ]);
+            }
+        } else {
+            $schedules[] = \App\Models\ServiceJob::normalizeSchedule([
+                'scheduled_date' => $in['scheduled_date'] ?? $sale->date,
+                'scheduled_end_date' => $in['scheduled_end_date'] ?? null,
+                'all_day' => empty($in['scheduled_date']) ? true : ($in['all_day'] ?? false),
+            ]);
+        }
+
+        $made = [];
+        try {
+            $count = count($schedules);
+            $titleTemplate = trim((string) ($in['title'] ?? '')) ?: ('Sale '.$sale->Ref);
+            foreach ($schedules as $i => $when) {
+                // Title placeholders filled per job: its date, its number in the series.
+                $jobDay = \Carbon\Carbon::parse($when['scheduled_date'] ?? $sale->date)->startOfDay();
+                $title = \App\Services\SalesContractBilling::renderNote($titleTemplate, $jobDay, null, $i + 1, $count, $jobDay) ?: $titleTemplate;
+                $job = \App\Models\ServiceJob::create([
+                    'Ref' => app(\App\Http\Controllers\ServiceJobController::class)->getNumberOrder(),
+                    'sale_id' => $sale->id,
+                    'client_id' => $sale->client_id,
+                    'technician_id' => $technicianId,
+                    'warehouse_id' => $sale->warehouse_id,
+                    'service_item' => mb_substr($title, 0, 191),
+                    'job_type' => ! empty($in['job_type']) ? mb_substr((string) $in['job_type'], 0, 191) : null,
+                    'status' => 'pending',
+                    'notes' => 'Created with sale '.$sale->Ref.($count > 1 ? ' - visit '.($i + 1).' of '.$count : ''),
+                ] + $when);
+                $made[] = $job->Ref;
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Sale service job failed (non-blocking): '.$e->getMessage(), ['sale_id' => $sale->id]);
+
+            return ['warning' => 'The sale was saved, but its service job could not be created.'];
+        }
+
+        return ['id' => $job->id, 'ref' => implode(', ', $made), 'count' => count($made)];
     }
 
     /**
@@ -883,6 +1012,8 @@ class SalesController extends BaseController
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Sale::class);
+        $this->fillNotePlaceholders($request);
+        $asDraft = $this->applyDraftRequest($request);
 
         request()->validate([
             'warehouse_id' => 'required',
@@ -1362,10 +1493,18 @@ class SalesController extends BaseController
             $qboSync = 'failed';
         }
 
+        // Edit: "Save as draft" keeps it a draft; Submit finalizes it.
+        if ($request->has('save_as_draft')) {
+            Sale::whereKey($sale->id)->update(['is_draft' => $asDraft]);
+        }
+
         return response()->json([
             'success' => true,
             'sale_id' => $sale->id,
+            'is_draft' => $asDraft,
             'qbo_sync' => $qboSync,
+            // Edit Sale -> "Add a service job" (same as on create).
+            'service_job' => $this->createSaleServiceJob($sale, $request),
         ]);
     }
 
@@ -2098,6 +2237,7 @@ class SalesController extends BaseController
         $sale_details['date'] = $sale_data->date.' '.$sale_data->time;
         $sale_details['note'] = $sale_data->notes;
         $sale_details['statut'] = $sale_data->statut;
+        $sale_details['is_draft'] = (bool) $sale_data->is_draft;
         $sale_details['warehouse'] = $sale_data['warehouse']->name;
         // Multi-Currency: amounts below are converted into the document
         // currency â€” the page must render them with THIS symbol, not the base.
@@ -2200,6 +2340,8 @@ class SalesController extends BaseController
                 $data['Net_price'] = ($detail->price - $data['DiscountNet'] - $tax_price);
                 $data['taxe'] = $detail->price - $data['Net_price'] - $data['DiscountNet'];
             }
+            // Sale Detail summary: the item tax rate next to "Item tax".
+            $data['tax_percent'] = (float) $detail->TaxNet;
 
             $data['is_imei'] = $detail['product']['is_imei'];
             $data['imei_number'] = $detail->imei_number;
@@ -2222,8 +2364,57 @@ class SalesController extends BaseController
             'details' => $details,
             'sale' => $sale_details,
             'company' => $company,
+            'service_jobs' => $this->saleServiceJobs($sale_data, $request),
         ]);
 
+    }
+
+    /**
+     * Sale Detail -> "Service jobs" tab (null when the company has no Service
+     * module or the user can't see jobs). A recurring-contract invoice shows
+     * the contract's visits in the period it bills ("contract"); any other
+     * sale, the customer's latest jobs ("customer").
+     */
+    private function saleServiceJobs(Sale $sale, Request $request): ?array
+    {
+        $user = $request->user('api');
+        $canSee = $user && ($user->type === 'SuperAdmin' || (bool) $user->roles()->first()?->permissions->contains('name', 'service_jobs'));
+        if (! $canSee || ! \App\Support\ModuleFlags::enabled((int) $sale->company_id, 'service')) {
+            return null;
+        }
+        $invoice = \App\Models\SalesContractInvoice::where('sale_id', $sale->id)->first();
+        $contract = $invoice ? \App\Models\SalesContract::find($invoice->sales_contract_id) : null;
+        $q = \App\Models\ServiceJob::whereNull('deleted_at')->with('technician:id,name');
+        $ownJobs = \App\Models\ServiceJob::whereNull('deleted_at')->where('sale_id', $sale->id)->exists();
+        if ($ownJobs) {
+            // Jobs created with this sale (Create Sale -> Service job).
+            $q->where('sale_id', $sale->id)->orderBy('scheduled_date');
+            $context = 'sale';
+        } elseif ($contract && $invoice->period_start) {
+            $q->where('sales_contract_id', $contract->id)
+                ->whereDate('scheduled_date', '>=', $invoice->period_start)
+                ->whereDate('scheduled_date', '<=', $invoice->period_end ?: $invoice->period_start)
+                ->orderBy('scheduled_date');
+            $context = 'contract';
+        } else {
+            $q->where('client_id', $sale->client_id)
+                ->whereIn('client_id', Client::where('company_id', $sale->company_id)->select('id'))
+                ->orderByDesc('id')->limit(20);
+            $context = 'customer';
+        }
+
+        return [
+            'context' => $context,
+            'contract' => $contract ? ['id' => $contract->id, 'number' => $contract->contract_number,
+                'period_start' => $invoice->period_start, 'period_end' => $invoice->period_end] : null,
+            'client_id' => $sale->client_id,
+            'jobs' => $q->get()->map(fn ($j) => [
+                'id' => $j->id, 'ref' => $j->Ref, 'title' => $j->service_item, 'status' => $j->status,
+                'scheduled_date' => $j->scheduled_date ? \Carbon\Carbon::parse($j->scheduled_date)->format('Y-m-d H:i') : null,
+                'technician' => $j->technician->name ?? null, 'total' => (float) $j->total_amount,
+                'contract_occurrence' => $j->contract_occurrence,
+            ])->values(),
+        ];
     }
 
     // -------------- Print Invoice ---------------\\
@@ -3666,6 +3857,12 @@ class SalesController extends BaseController
             'sale_default_quantity' => (int) (Setting::forCompany($companyId)->sale_default_quantity ?: 1),
             'sale_loyalty_points_enabled' => (bool) (Setting::forCompany($companyId)->sale_loyalty_points_enabled ?? true),
             'sale_shipping_enabled' => (bool) (Setting::forCompany($companyId)->sale_shipping_enabled ?? true),
+            'sale_sales_agent_enabled' => (bool) (Setting::forCompany($companyId)->sale_sales_agent_enabled ?? true),
+            // Create Sale -> "Service job" (one-off, or visits when Recurring):
+            // only with the company's Service module; its technicians.
+            'service_job_enabled' => \App\Support\ModuleFlags::enabled((int) $companyId, 'service'),
+            'service_technicians' => \App\Models\ServiceTechnician::whereNull('deleted_at')->where('company_id', $companyId)
+                ->where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
 
     }
@@ -3770,6 +3967,7 @@ class SalesController extends BaseController
             $sale['discount_Method'] = $Sale_data->discount_Method ?? '2'; // ensure method is sent
             $sale['shipping'] = $Sale_data->shipping;
             $sale['statut'] = $Sale_data->statut;
+            $sale['is_draft'] = (bool) $Sale_data->is_draft;
             $sale['notes'] = $Sale_data->notes;
             // Multi-Currency snapshot (null = base currency)
             $sale['currency_id'] = $Sale_data->currency_id;
@@ -3962,6 +4160,17 @@ class SalesController extends BaseController
                 'sale_default_quantity' => (int) (Setting::forCompany($companyId)->sale_default_quantity ?: 1),
                 'sale_loyalty_points_enabled' => (bool) (Setting::forCompany($companyId)->sale_loyalty_points_enabled ?? true),
                 'sale_shipping_enabled' => (bool) (Setting::forCompany($companyId)->sale_shipping_enabled ?? true),
+                'sale_sales_agent_enabled' => (bool) (Setting::forCompany($companyId)->sale_sales_agent_enabled ?? true),
+                // Edit Sale -> "Service job": the jobs made with this sale, and
+                // adding one (same as Create Sale; Service module only).
+                'service_job_enabled' => \App\Support\ModuleFlags::enabled((int) $companyId, 'service'),
+                'service_technicians' => \App\Models\ServiceTechnician::whereNull('deleted_at')->where('company_id', $companyId)
+                    ->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+                'sale_service_jobs' => \App\Models\ServiceJob::whereNull('deleted_at')->where('sale_id', $Sale_data->id)
+                    ->with('technician:id,name')->orderBy('scheduled_date')->get()
+                    ->map(fn ($j) => ['id' => $j->id, 'ref' => $j->Ref, 'title' => $j->service_item, 'status' => $j->status,
+                        'scheduled_date' => $j->scheduled_date ? \Carbon\Carbon::parse($j->scheduled_date)->format('Y-m-d H:i') : null,
+                        'technician' => $j->technician->name ?? null]),
             ]);
         }
 

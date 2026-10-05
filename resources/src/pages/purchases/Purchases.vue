@@ -4,21 +4,11 @@
       <template #actions>
         <a-space wrap :size="12">
           <!-- Quick date-range presets — filters both the summary cards and
-               the table (server-side, via date_from/date_to). The keycard
-               shows exactly which days that active range covers. -->
-          <a-card size="small" class="range-card">
-            <div class="range-row">
-              <span class="range-label">{{ $t('start_date') }}</span>
-              <b class="range-value">{{ activeRange.from }}</b>
-            </div>
-            <div class="range-row">
-              <span class="range-label">{{ $t('to') }}</span>
-              <b class="range-value">{{ activeRange.to }}</b>
-            </div>
-          </a-card>
-          <a-radio-group v-model:value="datePreset" button-style="solid" @change="applyPreset(datePreset)">
-            <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
-          </a-radio-group>
+               the table (server-side, via date_from/date_to). Start date /
+               to shows the days that range covers, and editing them makes it
+               a custom range. -->
+          <DateRangeFields :value="rangeFields" @change="onRangeEdit" />
+          <DatePresetButtons v-model:value="datePreset" @change="applyPreset(datePreset)" />
           <a-button :loading="exporting === 'pdf'" @click="exportList('pdf')">
             <template #icon><FilePdfOutlined /></template>
             PDF
@@ -407,6 +397,9 @@
 </template>
 
 <script setup>
+import DatePresetButtons from '../../components/DatePresetButtons.vue';
+import DateRangeFields from '../../components/DateRangeFields.vue';
+import { startPreset } from '../../lib/datePresetDefault';
 /**
  * Full legacy action surface, mirroring Sales.vue with the purchase endpoint
  * family. Differences that matter:
@@ -434,7 +427,7 @@ import {
   DownOutlined, LockOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
-import { DATE_PRESETS, presetRange } from '../../lib/datePresets';
+import { presetOf, presetRange } from '../../lib/datePresets';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
@@ -464,11 +457,12 @@ const filters = ref({
   date_from: '', date_to: '',
 });
 
-// Reset: every filter back to its default, date range back to Today.
+// Reset: every filter back to its default, date range back to the user's
+// default date (else Today).
 const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => {
-  datePreset.value = 'today';
-  applyPreset('today');
-}, { ignore: ['date_from', 'date_to'], isDirty: () => datePreset.value !== 'today' });
+  datePreset.value = startPreset('today');
+  applyPreset(datePreset.value);
+}, { ignore: ['date_from', 'date_to'], isDirty: () => datePreset.value !== startPreset('today') });
 
 // "Customize Filters" -- which of these filters a company shows, and in
 // what order (settings.datatable_filters, same idea as DataTable.vue's
@@ -509,8 +503,8 @@ const crud = useCrudTable('purchases', {
 // of the two is ever active: picking a preset clears the exact date, and
 // picking an exact date clears the active preset).
 // DATE_PRESETS / presetRange: shared list (lib/datePresets.js).
-// Default: Today.
-const datePreset = ref('today');
+// Default: the user's default date (double-click a button, ★), else Today.
+const datePreset = ref(startPreset('today'));
 
 function applyPreset(preset) {
   filters.value.date = null;
@@ -542,15 +536,20 @@ function onOtherFilterChange() {
 // Default: Today, applied before the first fetch.
 applyPreset(datePreset.value);
 
-// What the keycard shows: the exact day (picker) takes priority, then the
-// active preset's range, then '—' when neither is set (the "All" preset).
-const activeRange = computed(() => {
-  if (filters.value.date) return { from: filters.value.date, to: filters.value.date };
-  return {
-    from: filters.value.date_from || '—',
-    to: filters.value.date_to || '—',
-  };
+// Start date / to: the exact day (picker) takes priority, then the active
+// range; empty for "All".
+const rangeFields = computed(() => {
+  if (filters.value.date) return [filters.value.date, filters.value.date];
+  return filters.value.date_from || filters.value.date_to ? [filters.value.date_from, filters.value.date_to] : null;
 });
+// Edited dates = a custom range (or the preset whose dates they match).
+function onRangeEdit(range) {
+  filters.value.date = null;
+  filters.value.date_from = range ? range[0] : '';
+  filters.value.date_to = range ? range[1] : '';
+  datePreset.value = presetOf(filters.value.date_from, filters.value.date_to);
+  crud.reload();
+}
 
 // Summary cards — `stats` ships with the list payload (sums over ALL pages of
 // the current filtered set, not just the visible page).

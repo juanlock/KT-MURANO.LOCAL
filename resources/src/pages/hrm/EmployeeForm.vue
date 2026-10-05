@@ -211,6 +211,10 @@ import PageHeader from '../../components/PageHeader.vue';
 import { GENDERS } from './hrmVocab';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
+import { useAuthStore } from '../../stores/auth';
+
+// Service Technician button: only with the company's Service module.
+const auth = useAuthStore();
 
 const { t } = useI18n();
 const route = useRoute();
@@ -261,11 +265,13 @@ const roleOptions = computed(() => sortByLabel(roles.value
   .map(r => ({ value: r.id, label: r.name }))));
 
 // Other modules card -- saved with the employee as `sales_roles`.
-const SALES_MODULES = [
+const SALES_MODULES = computed(() => [
   { key: 'sales_staff', label: 'Sales Staff', help: 'Can be picked as the Seller / Salesperson on sales and in the POS.' },
   { key: 'sales_agent', label: 'Sales Agent', help: 'Commissions sales agent, selectable as Sales Agent on sales. Remove = deactivate (history stays).' },
-];
-const salesRoles = ref({ sales_staff: false, sales_agent: false });
+  // Service module only: a technician for Service Jobs (no login needed).
+  ...(auth.moduleEnabled('service') ? [{ key: 'service_technician', label: 'Service Technician', help: 'Can be assigned to Service Jobs and contract visits (technician / crew lead). Remove = deactivate (their jobs stay).' }] : []),
+]);
+const salesRoles = ref({ sales_staff: false, sales_agent: false, service_technician: false });
 
 const rules = computed(() => ({
   firstname: [{ required: true, message: t('Field_is_required') }],
@@ -375,7 +381,7 @@ async function bootstrap() {
       };
       originalUsername.value = a.username || '';
       const sr = data.sales_roles || {};
-      salesRoles.value = { sales_staff: !!sr.sales_staff, sales_agent: !!sr.sales_agent };
+      salesRoles.value = { sales_staff: !!sr.sales_staff, sales_agent: !!sr.sales_agent, service_technician: !!sr.service_technician };
     } else {
       const data = await http.get('employees/create');
       companies.value = data.companies || [];

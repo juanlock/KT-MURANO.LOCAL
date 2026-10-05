@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\Employee;
 use App\Models\PaymentMethod;
 use App\Models\Payroll;
+use App\Services\PayrollExpenseSync;
 use Carbon\Carbon;
 use DB;
 use Illuminate\Http\Request;
@@ -105,7 +106,7 @@ class PayrollController extends Controller
 
         \DB::transaction(function () use ($request) {
 
-            Payroll::create([
+            $payroll = Payroll::create([
                 'user_id' => Auth::user()->id,
                 'Ref' => $this->getNumberOrder(),
                 'date' => $request['date'],
@@ -125,6 +126,9 @@ class PayrollController extends Controller
                     'balance' => $account->balance - $request['amount'],
                 ]);
             }
+
+            // Accounting: linked "Salaries and wages" expense + journal entry.
+            PayrollExpenseSync::sync($payroll);
 
         }, 10);
 
@@ -192,6 +196,8 @@ class PayrollController extends Controller
                 ]);
             }
 
+            PayrollExpenseSync::sync($payroll->fresh());
+
         }, 10);
 
         return response()->json(['success' => true]);
@@ -218,6 +224,8 @@ class PayrollController extends Controller
                     'balance' => $account->balance + $payroll->amount,
                 ]);
             }
+
+            PayrollExpenseSync::remove($payroll);
 
         }, 10);
 

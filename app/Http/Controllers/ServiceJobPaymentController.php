@@ -13,12 +13,15 @@ use Illuminate\Support\Facades\DB;
 
 class ServiceJobPaymentController extends BaseController
 {
+    // Multicompany: only the company's jobs (location / customer) -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesServiceJobsToCompany;
+
     // -------------- List payments for a service job ---------------\\
     public function index(Request $request, $serviceJobId)
     {
         $this->authorizeForUser($request->user('api'), 'view', ServiceJob::class);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($serviceJobId);
+        $job = $this->scopedJobs()->whereNull('deleted_at')->findOrFail($serviceJobId);
 
         $payments = ServiceJobPayment::where('service_job_id', $job->id)
             ->whereNull('deleted_at')
@@ -67,7 +70,7 @@ class ServiceJobPaymentController extends BaseController
             'notes' => 'nullable|string',
         ]);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($serviceJobId);
+        $job = $this->scopedJobs()->whereNull('deleted_at')->findOrFail($serviceJobId);
 
         DB::transaction(function () use ($validated, $job) {
             try {
@@ -115,7 +118,7 @@ class ServiceJobPaymentController extends BaseController
             'notes' => 'nullable|string',
         ]);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($serviceJobId);
+        $job = $this->scopedJobs()->whereNull('deleted_at')->findOrFail($serviceJobId);
         $payment = ServiceJobPayment::whereNull('deleted_at')
             ->where('service_job_id', $job->id)
             ->findOrFail($id);
@@ -158,7 +161,7 @@ class ServiceJobPaymentController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($serviceJobId);
+        $job = $this->scopedJobs()->whereNull('deleted_at')->findOrFail($serviceJobId);
         $payment = ServiceJobPayment::whereNull('deleted_at')
             ->where('service_job_id', $job->id)
             ->findOrFail($id);

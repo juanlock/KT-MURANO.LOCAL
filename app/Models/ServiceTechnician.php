@@ -14,6 +14,9 @@ class ServiceTechnician extends Model
     protected $dates = ['deleted_at'];
 
     protected $fillable = [
+        'company_id',
+        // Set when the technician is one of the company's employees (Employee form).
+        'employee_id',
         'name',
         'phone',
         'email',

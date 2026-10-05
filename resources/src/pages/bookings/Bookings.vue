@@ -2,22 +2,12 @@
   <div class="page">
     <PageHeader :title="$t('Booking_List')" :breadcrumb="[$t('Bookings'), $t('Booking_List')]">
       <template #actions>
-        <!-- Same date presets + keycard as Sales / Purchases (lib/datePresets.js);
-             they fill the date-range filter below. -->
+        <!-- Same date presets + Start date / to as Sales / Purchases
+             (lib/datePresets.js): the booking date filter. Editing a date
+             makes it a custom range (one day = same start and end). -->
         <a-space wrap :size="12">
-        <a-card size="small" class="range-card">
-          <div class="range-row">
-            <span class="range-label">{{ $t('start_date') }}</span>
-            <b class="range-value">{{ dateRange?.[0] || '—' }}</b>
-          </div>
-          <div class="range-row">
-            <span class="range-label">{{ $t('to') }}</span>
-            <b class="range-value">{{ dateRange?.[1] || '—' }}</b>
-          </div>
-        </a-card>
-        <a-radio-group v-model:value="datePreset" button-style="solid" @change="applyPreset(datePreset)">
-          <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
-        </a-radio-group>
+        <DateRangeFields v-model:value="dateRange" @change="datePreset = presetOf(dateRange?.[0], dateRange?.[1]); crud.reload()" />
+        <DatePresetButtons v-model:value="datePreset" @change="applyPreset(datePreset)" />
         <a-button type="primary" @click="$router.push('/bookings/create')">
           <template #icon><PlusOutlined /></template>
           {{ $t('Add') }}
@@ -49,11 +39,6 @@
             <span><span class="dot" :class="`dot--${value}`"></span>{{ label }}</span>
           </template>
         </a-select>
-        <!-- Booking date range (one day = same start and end) -->
-        <a-range-picker
-          v-model:value="dateRange" class="bk-f bk-f--date" value-format="YYYY-MM-DD" allow-clear
-          :placeholder="[$t('start_date'), $t('to')]" @change="datePreset = dateRange?.length ? null : 'all'; crud.reload()"
-        />
         <!-- Start time of day, e.g. mornings only: 08:00 - 12:00 -->
         <a-time-range-picker
           v-model:value="timeRange" class="bk-f bk-f--time" format="HH:mm" value-format="HH:mm" :minute-step="15" allow-clear
@@ -156,6 +141,9 @@
 </template>
 
 <script setup>
+import DatePresetButtons from '../../components/DatePresetButtons.vue';
+import DateRangeFields from '../../components/DateRangeFields.vue';
+import { startPreset } from '../../lib/datePresetDefault';
 /**
  * Bookings list: GET bookings → {bookings, totalRows, stats} with status and
  * date filters. Create/edit are BookingForm.vue; the calendar is
@@ -174,7 +162,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import BookingEditModal from '../../components/BookingEditModal.vue';
-import { DATE_PRESETS, presetDates } from '../../lib/datePresets';
+import { presetDates, presetOf } from '../../lib/datePresets';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 
@@ -192,19 +180,24 @@ const filtersDirty = computed(() => !!(status.value || dateRange.value?.length |
   || customerId.value || serviceId.value || (staffId.value && crud.payload.value?.can_book_other_staff !== false)));
 
 // Quick date presets (shared list): fill the booking-date range filter.
-// Default All = no date limit (the list's previous behavior); picking a
-// range by hand clears the highlight.
-const datePreset = ref('all');
-function applyPreset(preset) {
+// Default: the user's default date (double-click a button, ★), else All =
+// no date limit (the list's previous behavior); picking a range by hand
+// clears the highlight.
+const datePreset = ref(startPreset('all'));
+const rangeOf = preset => {
   const { from, to } = presetDates(preset);
-  dateRange.value = from ? [from, to] : null;
+  return from ? [from, to] : null;
+};
+dateRange.value = rangeOf(datePreset.value); // before the first fetch (onMounted)
+function applyPreset(preset) {
+  dateRange.value = rangeOf(preset);
   crud.reload();
 }
 
 function resetFilters() {
   status.value = undefined;
-  datePreset.value = 'all';
-  dateRange.value = null;
+  datePreset.value = startPreset('all');
+  dateRange.value = rangeOf(datePreset.value);
   timeRange.value = null;
   customerId.value = undefined;
   serviceId.value = undefined;
@@ -373,7 +366,6 @@ onMounted(crud.fetchRows);
   min-width: 0;
 }
 .bk-f--status { flex: 0 1 130px; }
-.bk-f--date { flex: 1.4 1 220px; }
 .bk-f--time { flex: 1 1 160px; }
 @media (max-width: 1100px) {
   .bk-filters__row { flex-wrap: wrap; }

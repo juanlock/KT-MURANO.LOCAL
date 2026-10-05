@@ -131,6 +131,19 @@ export function applyDirection(locale) {
     document.documentElement.setAttribute('lang', locale);
 }
 
+/**
+ * A data text (e.g. an expense category name) in the active language, read
+ * straight from the loaded translations map: the text itself is the key,
+ * so no vue-i18n key-path / message parsing (names may hold dots, @, |...).
+ * Undefined when there's no translation.
+ */
+export function dataTranslation(text) {
+    if (!text) return undefined;
+    const messages = i18n.global.getLocaleMessage(i18n.global.locale.value) || {};
+    const v = messages[text];
+    return typeof v === 'string' && v.trim() ? v : undefined;
+}
+
 /** Translate with a human-readable fallback when a key is missing. */
 export function t(key, fallback) {
     const out = i18n.global.t(key);

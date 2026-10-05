@@ -14,4 +14,17 @@ class ContractAttachment extends Model
     {
         return $this->belongsTo(Contract::class, 'contract_id', 'id');
     }
+
+    /**
+     * The file on disk: new 'files/company_{id}/contracts/...' under public/
+     * (CompanyFiles, private folder); legacy rows: the storage/app/public disk.
+     */
+    public function absolutePath(): string
+    {
+        $p = (string) $this->file_path;
+
+        return str_starts_with($p, 'files/company_') && ! str_contains($p, '..')
+            ? public_path($p)
+            : \Illuminate\Support\Facades\Storage::disk('public')->path($p);
+    }
 }

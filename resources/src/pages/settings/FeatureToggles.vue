@@ -15,13 +15,7 @@
       </a-button>
     </div>
 
-    <div class="setting-row">
-      <div>
-        <div class="setting-label">{{ $t('Enable_3_Decimal_Pricing') }}</div>
-        <div class="setting-help">{{ $t('Enable_3_Decimal_Pricing_Help') }}</div>
-      </div>
-      <a-switch v-model:checked="features.enable_3_decimal_pricing" @change="dirty = true" />
-    </div>
+    <!-- 3-decimal pricing moved to System Settings -> Defaults -> General (Price decimals). -->
     <div class="setting-row">
       <div>
         <div class="setting-label">{{ $t('EnableKitchenDisplay') }}</div>
@@ -161,8 +155,9 @@ const loading = ref(true);
 const saving = ref(false);
 const dirty = ref(false);
 
+// enable_3_decimal_pricing is not sent from here any more (Defaults -> General),
+// so this page can't overwrite it.
 const features = reactive({
-  enable_3_decimal_pricing: false,
   enable_kitchen_display: false,
   kitchen_target_minutes: null,
   kitchen_auto_online_orders: false,
@@ -184,6 +179,8 @@ async function save() {
   try {
     const payload = {};
     for (const key of Object.keys(features)) {
+      // Loaded with the others, but owned by Defaults -> General now.
+      if (key === 'enable_3_decimal_pricing') continue;
       if (key === 'product_image_max_size') {
         payload[key] = features.product_image_max_size || 800;
       } else if (key === 'kitchen_target_minutes') {
@@ -196,11 +193,6 @@ async function save() {
     await http.put('feature_settings', payload);
     dirty.value = false;
     message.success(t('Successfully_Updated'));
-    // Same post-save side effect as System Settings: price inputs across the
-    // app read their decimal count from this cache.
-    try {
-      localStorage.setItem('app_price_decimals', features.enable_3_decimal_pricing ? '3' : '2');
-    } catch (e) { /* storage unavailable */ }
   } catch (e) {
     message.error(e?.message || t('InvalidData'));
   } finally {

@@ -131,9 +131,18 @@ class DemoRunner
                     }
                 }
                 DB::table('role_user')->whereIn('user_id', $demoUserIds)->delete();
+                // Their warehouse access rows (user_warehouse.user_id FK).
+                if (Schema::hasTable('user_warehouse')) {
+                    DB::table('user_warehouse')->whereIn('user_id', $demoUserIds)->delete();
+                }
             }
 
-            $count = 0;
+            // Journal entries of the demo documents being removed, even when
+            // they weren't tagged (posted later, e.g. by
+            // accounting:post-missing) -- else Accounting keeps counting
+            // documents that no longer exist.
+            $count = self::purgeJournalOf($rows);
+
             foreach ($rows as $r) {
                 if (Schema::hasTable($r->record_type)) {
                     $count += DB::table($r->record_type)->where('id', $r->record_id)->delete();
@@ -147,5 +156,33 @@ class DemoRunner
 
             return $count;
         });
+    }
+
+    /** Document table => acc_journal_entries.reference_type. */
+    private const JOURNAL_SOURCES = [
+        'sales' => 'sale', 'payment_sales' => 'payment_sale', 'purchases' => 'purchase', 'payment_purchases' => 'payment_purchase',
+        'sale_returns' => 'sale_return', 'payment_sale_returns' => 'payment_sale_return',
+        'purchase_returns' => 'purchase_return', 'payment_purchase_returns' => 'payment_purchase_return', 'expenses' => 'expense',
+    ];
+
+    /** Delete the journal entries (and lines) posted for these demo rows' documents. Returns rows deleted. */
+    private static function purgeJournalOf($rows): int
+    {
+        if (! Schema::hasTable('acc_journal_entries')) {
+            return 0;
+        }
+        $count = 0;
+        foreach (self::JOURNAL_SOURCES as $table => $type) {
+            $ids = $rows->where('record_type', $table)->pluck('record_id')->all();
+            foreach (array_chunk($ids, 500) as $chunk) {
+                $entryIds = DB::table('acc_journal_entries')->where('reference_type', $type)->whereIn('reference_id', $chunk)->pluck('id')->all();
+                if ($entryIds) {
+                    $count += DB::table('acc_journal_entry_lines')->whereIn('journal_entry_id', $entryIds)->delete();
+                    $count += DB::table('acc_journal_entries')->whereIn('id', $entryIds)->delete();
+                }
+            }
+        }
+
+        return $count;
     }
 }

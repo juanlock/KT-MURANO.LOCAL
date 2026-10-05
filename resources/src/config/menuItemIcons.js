@@ -61,6 +61,9 @@ export const MENU_ITEM_ICONS = {
     "/app/Store/Banners": Wallet,
     "/app/Store/Gallery": Camera,
     "/app/Store/Portfolio": LayoutGrid,
+    "/app/email-office/settings": Settings,
+    "/app/email-office/received": Mail,
+    "/app/email-office/sent": MonitorUp,
     "/app/helpdesk/dashboard": LayoutDashboard,
     "/app/helpdesk/tickets": Ticket,
     "/app/helpdesk/my": User,
@@ -293,6 +296,14 @@ export const MENU_ITEM_ICONS = {
     "/app/service/jobs?status=quoted": Clock,
     "/app/service/jobs?status=ready": PackageCheck,
     "/app/service/jobs?payment_status=unpaid": CircleDollarSign,
+    // Service menu split (Today / Service Jobs / Device Repairs).
+    "/app/service/jobs?day=today": CalendarCheck,
+    "/app/service/jobs?kind=service": Wrench,
+    "/app/service/jobs?kind=service&payment_status=unpaid": CircleDollarSign,
+    "/app/service/jobs?kind=device": Package,
+    "/app/service/jobs?kind=device&status=quoted": Clock,
+    "/app/service/jobs?kind=device&status=ready": PackageCheck,
+    "/app/service/jobs?kind=device&payment_status=unpaid": CircleDollarSign,
     "/app/loyalty/rewards": Gift,
 
     // Vehicle & Fleet Management

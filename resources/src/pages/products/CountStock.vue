@@ -13,7 +13,7 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'date'">{{ date(record.date) }}</template>
         <template v-else-if="column.key === 'file_stock'">
-          <a :href="'/images/count_stock/' + record.file_stock" target="_blank">
+          <a :href="stockFileUrl(record.file_stock)" target="_blank">
             <DownloadOutlined /> {{ $t('Download') }}
           </a>
         </template>
@@ -52,7 +52,7 @@
 /**
  * GET count_stock → {stocks, warehouses, categories, totalRows}. Generate a
  * count sheet: POST store_count_stock {date, warehouse_id, category_id} →
- * produces a downloadable file under /images/count_stock/{file_stock}.
+ * produces a downloadable file under /files/company_{id}/count_stock/ (file_stock holds that path; old rows: /images/count_stock/{name}).
  */
 import { ref, computed } from 'vue';
 import { message } from 'ant-design-vue';
@@ -69,6 +69,8 @@ const { t } = useI18n();
 const { date } = useFormat();
 
 const crud = useCrudTable('count_stock', { rowsKey: 'stocks' });
+// New rows: 'files/company_{id}/count_stock/...'; legacy rows: a bare name in images/count_stock.
+const stockFileUrl = f => (String(f || '').includes('/') ? '/' + String(f).replace(/^\/+/, '') : '/images/count_stock/' + f);
 crud.fetchRows();
 
 const warehouseOptions = computed(() =>

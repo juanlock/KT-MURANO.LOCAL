@@ -14,6 +14,7 @@ class ServiceChecklistItem extends Model
     protected $dates = ['deleted_at'];
 
     protected $fillable = [
+        'company_id',
         'category_id',
         'name',
         'description',

@@ -104,6 +104,16 @@ class ClientController extends BaseController
                 ->get();
         }
 
+        // Date filter (Customers list date buttons): ?date_from=&date_to=
+        // limit the sales / returns figures below to documents dated in that
+        // range -- every customer stays listed. Empty = lifetime, as before.
+        // due_all / return_due_all stay lifetime: Pay Due settles the whole
+        // balance, not one period's.
+        $from = $request->input('date_from');
+        $to = $request->input('date_to');
+        $inRange = fn ($q) => $q->when($from, fn ($q) => $q->whereDate('date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('date', '<=', $to));
+
         foreach ($clients as $client) {
 
             $client_exist = EcommerceClient::where('deleted_at', '=', null)
@@ -115,38 +125,33 @@ class ClientController extends BaseController
                 $item['client_ecommerce'] = 'no';
             }
 
-            $item['total_amount'] = DB::table('sales')
+            $sales = fn () => DB::table('sales')
                 ->where('deleted_at', '=', null)
                 ->where('statut', 'completed')
-                ->where('client_id', $client->id)
-                ->sum('GrandTotal');
-
-            $item['total_paid'] = DB::table('sales')
+                ->where('client_id', $client->id);
+            $returns = fn () => DB::table('sale_returns')
                 ->where('deleted_at', '=', null)
-                ->where('statut', 'completed')
-                ->where('client_id', $client->id)
-                ->sum('paid_amount');
+                ->where('client_id', $client->id);
 
+            $item['total_amount'] = $inRange($sales())->sum('GrandTotal');
+            $item['total_paid'] = $inRange($sales())->sum('paid_amount');
             $item['due'] = $item['total_amount'] - $item['total_paid'];
+            $item['due_all'] = ($from || $to) ? $sales()->sum('GrandTotal') - $sales()->sum('paid_amount') : $item['due'];
 
             // "# Sales": same set as Total Sales (completed, not deleted).
-            $item['sales_count'] = DB::table('sales')
-                ->where('deleted_at', '=', null)
-                ->where('statut', 'completed')
+            $item['sales_count'] = $inRange($sales())->count();
+
+            $item['total_amount_return'] = $inRange($returns())->sum('GrandTotal');
+            $item['total_paid_return'] = $inRange($returns())->sum('paid_amount');
+            $item['return_Due'] = $item['total_amount_return'] - $item['total_paid_return'];
+            $item['return_due_all'] = ($from || $to) ? $returns()->sum('GrandTotal') - $returns()->sum('paid_amount') : $item['return_Due'];
+
+            // "Contracts" column: the customer's Sales Contracts (any status,
+            // not deleted) -- a count of what exists, so not date-filtered.
+            $item['contracts_count'] = DB::table('sales_contracts')
+                ->whereNull('deleted_at')
                 ->where('client_id', $client->id)
                 ->count();
-
-            $item['total_amount_return'] = DB::table('sale_returns')
-                ->where('deleted_at', '=', null)
-                ->where('client_id', $client->id)
-                ->sum('GrandTotal');
-
-            $item['total_paid_return'] = DB::table('sale_returns')
-                ->where('sale_returns.deleted_at', '=', null)
-                ->where('sale_returns.client_id', $client->id)
-                ->sum('paid_amount');
-
-            $item['return_Due'] = $item['total_amount_return'] - $item['total_paid_return'];
 
             $service = ServiceJob::dueTotalsForClient($client->id);
             $item['service_total_amount'] = $service['total'];
@@ -1257,10 +1262,16 @@ class ClientController extends BaseController
             ->get();
 
         $data = [];
+        // Contract visits: the contract number for the Contract column.
+        $contracts = DB::table('sales_contracts')->whereIn('id', $rows->pluck('sales_contract_id')->filter()->unique())->pluck('contract_number', 'id');
         foreach ($rows as $job) {
             $data[] = [
                 'id' => $job->id,
                 'date' => $job->created_at ? $job->created_at->format('Y-m-d') : null,
+                // When the job is scheduled (a contract visit's date and time).
+                'scheduled_date' => $job->scheduled_date ? \Carbon\Carbon::parse($job->scheduled_date)->format('Y-m-d H:i') : null,
+                'sales_contract_id' => $job->sales_contract_id,
+                'contract_number' => $job->sales_contract_id ? ($contracts[$job->sales_contract_id] ?? null) : null,
                 'Ref' => $job->Ref,
                 'service_item' => $job->service_item,
                 'technician_name' => optional($job->technician)->name,

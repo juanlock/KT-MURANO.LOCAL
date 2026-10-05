@@ -25,8 +25,15 @@ class ModuleSettingsController extends Controller
         return response()->json($result);
     }
 
+    /** Installing / switching code modules affects the whole install: SuperAdmin only. */
+    private function abortUnlessSuperAdmin(Request $request): void
+    {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can manage code modules.');
+    }
+
     public function update_status_module(Request $request)
     {
+        $this->abortUnlessSuperAdmin($request);
         $request->validate([
             'name'   => 'required|string',
             'status' => 'required',
@@ -49,6 +56,7 @@ class ModuleSettingsController extends Controller
 
     public function upload_module(Request $request)
     {
+        $this->abortUnlessSuperAdmin($request);
         $request->validate([
             'module_zip' => 'required|file|mimes:zip',
         ]);

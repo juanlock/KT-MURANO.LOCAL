@@ -6,6 +6,7 @@ use App\Models\HelpdeskMessage;
 use App\Models\HelpdeskSetting;
 use App\Models\HelpdeskTicket;
 use App\Models\User;
+use App\Support\CompanyFiles;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -173,7 +174,14 @@ class Helpdesk
         ])->save();
     }
 
-    /** Stores uploads for a ticket (private disk); returns the attachments list. */
+    /**
+     * Ticket attachments live in public/files/company_{id}/helpdesk/{Y}/{m}/
+     * (project standard, App\Support\CompanyFiles), private: no direct URL,
+     * served by download() after the ticket's access checks.
+     */
+    public const FILES_MODULE = 'helpdesk';
+
+    /** Stores uploads for a ticket; returns the attachments list. */
     public static function storeUploads(int $companyId, array $files): array
     {
         $out = [];
@@ -181,9 +189,11 @@ class Helpdesk
             if (! $f instanceof UploadedFile || ! $f->isValid()) {
                 continue;
             }
-            $name = Str::limit(preg_replace('/[^\w.\- ]+/u', '_', $f->getClientOriginalName()), 120, '');
-            $path = $f->storeAs('helpdesk/company_'.$companyId.'/'.date('Y/m'), Str::random(12).'-'.$name, 'local');
-            $out[] = ['name' => $name, 'path' => $path, 'size' => $f->getSize(), 'mime' => $f->getMimeType()];
+            $name = CompanyFiles::safeName($f->getClientOriginalName());
+            $size = $f->getSize();
+            $mime = $f->getMimeType();
+            $path = CompanyFiles::putUpload($companyId, self::FILES_MODULE, $f, true);
+            $out[] = ['name' => $name, 'path' => $path, 'size' => $size, 'mime' => $mime];
         }
 
         return $out;
@@ -192,9 +202,8 @@ class Helpdesk
     /** Stores raw bytes (email attachments). */
     public static function storeBytes(int $companyId, string $name, string $bytes, ?string $mime): array
     {
-        $name = Str::limit(preg_replace('/[^\w.\- ]+/u', '_', $name ?: 'attachment'), 120, '');
-        $path = 'helpdesk/company_'.$companyId.'/'.date('Y/m').'/'.Str::random(12).'-'.$name;
-        Storage::disk('local')->put($path, $bytes);
+        $name = CompanyFiles::safeName($name ?: 'attachment');
+        $path = CompanyFiles::putBytes($companyId, self::FILES_MODULE, $name, $bytes, true);
 
         return ['name' => $name, 'path' => $path, 'size' => strlen($bytes), 'mime' => $mime];
     }
@@ -203,10 +212,9 @@ class Helpdesk
     public static function download(HelpdeskMessage $msg, int $index)
     {
         $a = ($msg->attachments ?? [])[$index] ?? null;
-        abort_unless($a && str_starts_with($a['path'] ?? '', 'helpdesk/company_'.$msg->company_id.'/')
-            && Storage::disk('local')->exists($a['path']), 404);
+        abort_unless($a && CompanyFiles::owns($a['path'] ?? null, (int) $msg->company_id, self::FILES_MODULE), 404);
 
-        return Storage::disk('local')->download($a['path'], $a['name']);
+        return CompanyFiles::download($a['path'], $a['name']);
     }
 
     /** The ticket + its thread, for display. Internal notes only for agents. */

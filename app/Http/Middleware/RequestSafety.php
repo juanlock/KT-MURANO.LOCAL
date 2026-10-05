@@ -47,6 +47,27 @@ class RequestSafety
     ];
 
     /**
+     * Fields that legitimately hold {{placeholder}} templates, per URI: only
+     * the template-injection patterns are skipped there -- the HTML/JS checks
+     * still apply. '*' in a path = any array index.
+     * Sales Contracts: each line's invoice note ("Note: {{month}} installment
+     * services"), filled per invoice by SalesContractBilling::renderNote()
+     * (unknown placeholders are rejected by SalesContractController).
+     *
+     * @var array<string, array<int, string>>
+     */
+    protected array $templateFields = [
+        'api/sales_contracts' => ['$.items.*.note', '$.invoice_note', '$.jobs_service_item'],
+        // Sale / line notes and the service job title: placeholders filled on save.
+        'api/sales' => ['$.notes', '$.details.*.note', '$.service_job.title'],
+        'api/sales/*' => ['$.notes', '$.details.*.note', '$.service_job.title'],
+        'api/sales_contracts/*' => ['$.items.*.note', '$.notes.*', '$.invoice_note', '$.jobs_service_item'],
+    ];
+
+    /** Regexes of the template-field paths that apply to this request. */
+    private array $templatePathRegexes = [];
+
+    /**
      * Max characters to scan per string (perf guard).
      */
     protected int $maxScanLen = 4096;
@@ -62,6 +83,15 @@ class RequestSafety
         foreach ($this->skipUris as $uri) {
             if ($request->is($uri)) {
                 return $next($request);
+            }
+        }
+
+        $this->templatePathRegexes = [];
+        foreach ($this->templateFields as $uri => $paths) {
+            if ($request->is($uri)) {
+                foreach ($paths as $p) {
+                    $this->templatePathRegexes[] = '/^'.str_replace('\*', '[^.]+', preg_quote($p, '/')).'$/';
+                }
             }
         }
 
@@ -95,7 +125,14 @@ class RequestSafety
         }
 
         if (is_string($value)) {
-            if ($this->isTextUnsafe($value)) {
+            $allowTemplates = false;
+            foreach ($this->templatePathRegexes as $re) {
+                if (preg_match($re, $path)) {
+                    $allowTemplates = true;
+                    break;
+                }
+            }
+            if ($this->isTextUnsafe($value, $allowTemplates)) {
                 return ['path' => $path, 'value' => $value];
             }
 
@@ -131,7 +168,7 @@ class RequestSafety
     /**
      * Detects common XSS vectors (NO mutation).
      */
-    private function isTextUnsafe(string $s): bool
+    private function isTextUnsafe(string $s, bool $allowTemplates = false): bool
     {
         if ($s === '') {
             return false;
@@ -167,10 +204,13 @@ class RequestSafety
             '/vbscript\s*:/i',
             '/data\s*:\s*text\/html/i',
 
-            // Template-style injections (optional—keep if relevant to your stack)
-            '/\{\{.*\}\}/s',
-            '/\$\{.*\}/s',
         ];
+        // Template-style injections (optional—keep if relevant to your stack);
+        // skipped on fields declared in $templateFields.
+        if (! $allowTemplates) {
+            $patterns[] = '/\{\{.*\}\}/s';
+            $patterns[] = '/\$\{.*\}/s';
+        }
 
         foreach ($patterns as $re) {
             if (preg_match($re, $s)) {

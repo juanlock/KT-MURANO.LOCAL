@@ -4,13 +4,9 @@
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[12, 12]" align="bottom">
-        <a-col :xs="12" :md="6">
-          <div class="filter-label">{{ $t('From') }}</div>
-          <a-input v-model:value="filters.from" type="date" />
-        </a-col>
-        <a-col :xs="12" :md="6">
-          <div class="filter-label">{{ $t('To') }}</div>
-          <a-input v-model:value="filters.to" type="date" />
+        <a-col :span="24">
+          <div class="filter-label">{{ $t('date') }}</div>
+          <PresetRangeFilter v-model:value="range" @change="crud.reload()" />
         </a-col>
         <a-col :xs="12" :md="6">
           <div class="filter-label">{{ $t('Type') }}</div>
@@ -61,6 +57,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ReloadOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../../components/PageHeader.vue';
+import PresetRangeFilter from '../../../components/PresetRangeFilter.vue';
+import { rangeModel } from '../../../lib/datePresets';
 import DataTable from '../../../components/DataTable.vue';
 import { useCrudTable } from '../../../composables/useCrudTable';
 import { useFormat } from '../../../composables/useFormat';
@@ -69,6 +67,8 @@ const { t } = useI18n();
 const { number } = useFormat();
 
 const filters = ref({ from: '', to: '', type: '' });
+// The system date filter (presets + editable Start date / to); none = All.
+const range = rangeModel(() => [filters.value.from, filters.value.to], (a, b) => { filters.value.from = a; filters.value.to = b; });
 
 const crud = useCrudTable('accounting/v2/reports/trial-balance', {
   sortField: 'code',

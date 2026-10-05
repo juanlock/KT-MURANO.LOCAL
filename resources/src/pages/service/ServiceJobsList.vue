@@ -1,8 +1,8 @@
 <template>
   <div class="page">
-    <PageHeader :title="$t('Service_Jobs')" :breadcrumb="[$t('Service_Maintenance'), $t('Service_Jobs')]">
+    <PageHeader :title="pageTitle" :breadcrumb="[$t('Service_Maintenance'), pageTitle]">
       <template #extra>
-        <a-button type="primary" @click="$router.push('/service/jobs/create')">
+        <a-button type="primary" @click="$router.push({ path: '/service/jobs/create', query: filters.kind ? { kind: filters.kind } : {} })">
           <template #icon><PlusOutlined /></template>
           {{ $t('Add') }}
         </a-button>
@@ -11,21 +11,36 @@
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[12, 12]" align="bottom">
-        <a-col :xs="24" :md="6">
+        <!-- Service jobs (work at the customer) vs device / product repairs. -->
+        <a-col :xs="24" :md="5">
+          <div class="filter-label">Kind</div>
+          <a-select v-model:value="filters.kind" :options="kindOptions" style="width: 100%" @change="applyFilters" />
+        </a-col>
+        <a-col :xs="24" :md="4">
           <div class="filter-label">{{ $t('Status') }}</div>
           <a-select v-model:value="filters.status" :options="statusFilterOptions" style="width: 100%" @change="applyFilters" />
         </a-col>
-        <a-col :xs="24" :md="6">
+        <a-col :xs="24" :md="4">
           <div class="filter-label">{{ $t('Payment') }}</div>
           <a-select v-model:value="filters.payment_status" :options="paymentFilterOptions" style="width: 100%" @change="applyFilters" />
         </a-col>
-        <a-col :xs="12" :md="5">
-          <div class="filter-label">{{ $t('From') }}</div>
-          <a-input v-model:value="filters.from" type="date" @change="applyFilters" />
+        <!-- Day view: that day's jobs -- all-day tasks first, then by time,
+             including multi-day jobs that cover it. -->
+        <a-col :xs="24" :md="7">
+          <div class="filter-label">Day</div>
+          <a-space-compact style="width: 100%">
+            <a-button @click="shiftDay(-1)">‹</a-button>
+            <a-date-picker v-model:value="filters.day" value-format="YYYY-MM-DD" placeholder="Any day" style="flex: 1" @change="onDayChange" />
+            <a-button @click="shiftDay(1)">›</a-button>
+            <a-button :type="filters.day === todayStr ? 'primary' : 'default'" @click="setDay(todayStr)">Today</a-button>
+          </a-space-compact>
         </a-col>
-        <a-col :xs="12" :md="5">
-          <div class="filter-label">{{ $t('To') }}</div>
-          <a-input v-model:value="filters.to" type="date" @change="applyFilters" />
+        <!-- Date range (presets + editable Start date / to), when no single
+             day is picked. v-show, not v-if: remounting would re-apply the
+             user's default preset over the range. -->
+        <a-col v-show="!filters.day" :span="24">
+          <div class="filter-label">{{ $t('date') }}</div>
+          <PresetRangeFilter v-model:value="range" @change="applyFilters" />
         </a-col>
         <a-col flex="none">
           <ResetFiltersButton :dirty="hasActiveFilters" @reset="clearFilters" />
@@ -40,6 +55,14 @@
             {{ record.device_brand }} {{ record.device_model }}
           </span>
           <span v-else style="color: #999">{{ record.service_item || '-' }}</span>
+        </template>
+        <template v-else-if="column.key === 'scheduled_date'">
+          <template v-if="record.scheduled_date">
+            <span>{{ scheduleText(record).day }}</span>
+            <a-tag v-if="record.all_day" color="blue" style="margin-left: 6px">All day</a-tag>
+            <span v-else class="sched-time">{{ scheduleText(record).time }}</span>
+          </template>
+          <span v-else style="color: #999">—</span>
         </template>
         <template v-else-if="column.key === 'status'">
           <a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
@@ -93,15 +116,35 @@ import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
+import { rangeModel } from '../../lib/datePresets';
 import DataTable from '../../components/DataTable.vue';
 import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useFormat } from '../../composables/useFormat';
+import dayjs from 'dayjs';
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
-const filters = ref({ status: '', payment_status: '', from: '', to: '' });
+const filters = ref({ status: '', payment_status: '', from: '', to: '', day: null, kind: '' });
+const range = rangeModel(() => [filters.value.from, filters.value.to], (a, b) => { filters.value.from = a; filters.value.to = b; });
+const kindOptions = [
+  { value: '', label: 'All jobs' },
+  { value: 'service', label: t('Service_Jobs_Group') === 'Service_Jobs_Group' ? 'Service Jobs' : t('Service_Jobs_Group') },
+  { value: 'device', label: t('Device_Repairs') === 'Device_Repairs' ? 'Device Repairs' : t('Device_Repairs') },
+];
+// Title follows the menu entry: Service Jobs / Device Repairs / Today's Jobs.
+const pageTitle = computed(() => {
+  const label = k => (t(k) === k ? null : t(k));
+  if (filters.value.kind === 'device') return label('Device_Repairs') || 'Device Repairs';
+  if (filters.value.kind === 'service') return label('Service_Jobs_Group') || 'Service Jobs';
+  if (filters.value.day === todayStr) return label('Todays_Jobs') || "Today's Jobs";
+  return t('Service_Jobs');
+});
+const { date } = useFormat();
+const todayStr = dayjs().format('YYYY-MM-DD');
 
 const crud = useCrudTable('service_jobs', {
   rowsKey: 'jobs',
@@ -109,16 +152,42 @@ const crud = useCrudTable('service_jobs', {
   sortType: 'desc',
   params: () => {
     const p = {};
+    if (filters.value.kind) p.kind = filters.value.kind;
     if (filters.value.status) p.status = filters.value.status;
     if (filters.value.payment_status) p.payment_status = filters.value.payment_status;
-    if (filters.value.from) p.from = filters.value.from;
-    if (filters.value.to) p.to = filters.value.to;
+    if (filters.value.day) {
+      // Day view: the server orders all-day first, then by time.
+      p.day = filters.value.day;
+    } else {
+      if (filters.value.from) p.from = filters.value.from;
+      if (filters.value.to) p.to = filters.value.to;
+    }
     return p;
   },
 });
 
 const hasActiveFilters = computed(() =>
-  !!(filters.value.status || filters.value.payment_status || filters.value.from || filters.value.to));
+  !!(filters.value.status || filters.value.payment_status || filters.value.from || filters.value.to || filters.value.day || filters.value.kind));
+
+function setDay(d) {
+  filters.value.day = d;
+  crud.reload();
+}
+function onDayChange() { crud.reload(); }
+function shiftDay(n) {
+  setDay(dayjs(filters.value.day || todayStr).add(n, 'day').format('YYYY-MM-DD'));
+}
+/** "Oct 8" or "Oct 8 – Oct 10" + "10:30 – 12:00" (no time for all-day jobs). */
+function scheduleText(r) {
+  const s = String(r.scheduled_date || '').replace('T', ' ');
+  const e = String(r.scheduled_end_date || '').replace('T', ' ');
+  const d1 = s.slice(0, 10);
+  const d2 = e ? e.slice(0, 10) : '';
+  const day = d2 && d2 !== d1 ? `${date(d1)} – ${date(d2)}` : date(d1);
+  const t1 = s.slice(11, 16);
+  const t2 = e.slice(11, 16);
+  return { day, time: t1 ? `${t1}${t2 && t2 !== t1 ? ` – ${t2}` : ''}` : '' };
+}
 
 const statusFilterOptions = [
   { value: '', label: 'All' },
@@ -199,10 +268,14 @@ function applyQueryFilters() {
   filters.value.payment_status = q.payment_status || '';
   filters.value.from = q.from || '';
   filters.value.to = q.to || '';
+  // ?day=YYYY-MM-DD (or ?day=today) opens that day's jobs.
+  filters.value.day = q.day === 'today' ? todayStr : (/^\d{4}-\d{2}-\d{2}$/.test(String(q.day || '')) ? String(q.day) : null);
+  // ?kind=service | device (Service menu -> Service Jobs / Device Repairs).
+  filters.value.kind = ['service', 'device'].includes(q.kind) ? q.kind : '';
   applyFilters();
 }
 function clearFilters() {
-  filters.value = { status: '', payment_status: '', from: '', to: '' };
+  filters.value = { status: '', payment_status: '', from: '', to: '', day: null, kind: '' };
   if (Object.keys(route.query).length > 0) {
     router.replace({ path: route.path });
   } else {
@@ -222,5 +295,9 @@ onMounted(applyQueryFilters);
   font-size: 12px;
   color: rgba(0, 0, 0, 0.55);
   margin-bottom: 4px;
+}
+.sched-time {
+  margin-left: 6px;
+  font-weight: 600;
 }
 </style>

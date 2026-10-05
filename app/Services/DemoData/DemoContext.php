@@ -137,6 +137,32 @@ class DemoContext
         return self::$columnCache[$table] ??= Schema::hasTable($table) ? Schema::getColumnListing($table) : [];
     }
 
+    /**
+     * Post demo documents to the journal, the way the forms do
+     * (AccountingHelper::$method per row -- direct inserts skip it), and tag
+     * the new entries + lines as demo so reset removes them with the
+     * documents. Returns entries posted.
+     */
+    public function postJournal(string $table, string $method, array $ids): int
+    {
+        if (! $ids || ! Schema::hasTable('acc_journal_entries') || ! method_exists(\App\Services\AccountingV2\AccountingHelper::class, $method)) {
+            return 0;
+        }
+        $before = (int) DB::table('acc_journal_entries')->max('id');
+        foreach (DB::table($table)->whereIn('id', $ids)->orderBy('id')->get() as $row) {
+            \App\Services\AccountingV2\AccountingHelper::$method($row);
+        }
+        $entryIds = DB::table('acc_journal_entries')->where('id', '>', $before)->orderBy('id')->pluck('id');
+        foreach ($entryIds as $entryId) {
+            $this->tag('acc_journal_entries', (int) $entryId);
+            foreach (DB::table('acc_journal_entry_lines')->where('journal_entry_id', $entryId)->pluck('id') as $lineId) {
+                $this->tag('acc_journal_entry_lines', (int) $lineId);
+            }
+        }
+
+        return $entryIds->count();
+    }
+
     /** A random moment in the last $days days, business hours. */
     public function randomDate(int $days = 90): Carbon
     {

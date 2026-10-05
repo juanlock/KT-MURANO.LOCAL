@@ -170,6 +170,14 @@ export const MIGRATED_ROUTES = {
     '/app/service/jobs?status=quoted': '/service/jobs?status=quoted',
     '/app/service/jobs?status=ready': '/service/jobs?status=ready',
     '/app/service/jobs?payment_status=unpaid': '/service/jobs?payment_status=unpaid',
+    // Service menu split: Today's Jobs, Service Jobs, Device Repairs.
+    '/app/service/jobs?day=today': '/service/jobs?day=today',
+    '/app/service/jobs?kind=service': '/service/jobs?kind=service',
+    '/app/service/jobs?kind=service&payment_status=unpaid': '/service/jobs?kind=service&payment_status=unpaid',
+    '/app/service/jobs?kind=device': '/service/jobs?kind=device',
+    '/app/service/jobs?kind=device&status=quoted': '/service/jobs?kind=device&status=quoted',
+    '/app/service/jobs?kind=device&status=ready': '/service/jobs?kind=device&status=ready',
+    '/app/service/jobs?kind=device&payment_status=unpaid': '/service/jobs?kind=device&payment_status=unpaid',
     '/app/service/technicians': '/service/technicians',
     '/app/service/checklist-categories': '/service/checklist-categories',
     '/app/service/checklists': '/service/checklists',
@@ -195,6 +203,9 @@ export const MIGRATED_ROUTES = {
     '/app/Store/ShippingMethods': '/store/shipping-methods',
     '/app/Store/ShippingZones': '/store/shipping-zones',
     '/app/Store/Banners': '/store/banners',
+    '/app/email-office/settings': '/email-office/settings',
+    '/app/email-office/received': '/email-office/received',
+    '/app/email-office/sent': '/email-office/sent',
     '/app/helpdesk/dashboard': '/helpdesk/dashboard',
     '/app/helpdesk/tickets': '/helpdesk/tickets',
     '/app/helpdesk/my': '/helpdesk/my',
@@ -441,6 +452,18 @@ export const MENU = [
             { label: 'Helpdesk_Tickets', to: '/app/helpdesk/tickets', permissions: ['helpdesk_view'] },
             { label: 'Helpdesk_My_Tickets', to: '/app/helpdesk/my', permissions: [] },
             { label: 'Helpdesk_Settings', to: '/app/helpdesk/settings', permissions: ['helpdesk_manage'] },
+        ],
+    },
+    {
+        // Email Office: the company mailbox (settings, received, sent).
+        key: 'email_office',
+        icon: 'mails',
+        label: 'Email_Office',
+        permissions: ['email_office_view', 'email_office_manage'],
+        children: [
+            { label: 'Email_Office_Settings', to: '/app/email-office/settings', permissions: ['email_office_manage'] },
+            { label: 'Email_Received', to: '/app/email-office/received', permissions: ['email_office_view'] },
+            { label: 'Email_Sent', to: '/app/email-office/sent', permissions: ['email_office_view'] },
         ],
     },
     {
@@ -834,15 +857,40 @@ export const MENU = [
         icon: 'wrench',
         label: 'Service_Maintenance',
         permissions: ['service_jobs'],
+        // Two kinds of jobs (service_jobs.job_kind): Service Jobs -- work at the
+        // customer (landscaping, IT visits) -- and Device Repairs (brand,
+        // model, IMEI, quotes, pickup). Today's Jobs = the day view.
         children: [
-            { label: 'Service_Jobs', to: '/app/service/jobs', permissions: ['service_jobs'] },
-            { label: 'Awaiting_Approval', to: '/app/service/jobs?status=quoted', permissions: ['service_jobs'] },
-            { label: 'Ready_For_Pickup', to: '/app/service/jobs?status=ready', permissions: ['service_jobs'] },
-            { label: 'Awaiting_Payment', to: '/app/service/jobs?payment_status=unpaid', permissions: ['service_jobs'] },
-            { label: 'Service_Technicians', to: '/app/service/technicians', permissions: ['service_jobs'] },
-            { label: 'Checklist_Categories', to: '/app/service/checklist-categories', permissions: ['service_jobs'] },
-            { label: 'Checklist_Items', to: '/app/service/checklists', permissions: ['service_jobs'] },
+            { label: 'Todays_Jobs', to: '/app/service/jobs?day=today', permissions: ['service_jobs'] },
+            {
+                label: 'Service_Jobs_Group',
+                permissions: ['service_jobs'],
+                children: [
+                    { label: 'All_Service_Jobs', to: '/app/service/jobs?kind=service', permissions: ['service_jobs'] },
+                    { label: 'Awaiting_Payment', to: '/app/service/jobs?kind=service&payment_status=unpaid', permissions: ['service_jobs'] },
+                ],
+            },
+            {
+                label: 'Device_Repairs',
+                permissions: ['service_jobs'],
+                children: [
+                    { label: 'All_Device_Repairs', to: '/app/service/jobs?kind=device', permissions: ['service_jobs'] },
+                    { label: 'Awaiting_Approval', to: '/app/service/jobs?kind=device&status=quoted', permissions: ['service_jobs'] },
+                    { label: 'Ready_For_Pickup', to: '/app/service/jobs?kind=device&status=ready', permissions: ['service_jobs'] },
+                    { label: 'Awaiting_Payment', to: '/app/service/jobs?kind=device&payment_status=unpaid', permissions: ['service_jobs'] },
+                ],
+            },
+            { label: 'All_Jobs', to: '/app/service/jobs', permissions: ['service_jobs'] },
             { label: 'Maintenance_History', to: '/app/service/history', permissions: ['service_jobs'] },
+            {
+                label: 'Service_Setup',
+                permissions: ['service_jobs'],
+                children: [
+                    { label: 'Service_Technicians', to: '/app/service/technicians', permissions: ['service_jobs'] },
+                    { label: 'Checklist_Categories', to: '/app/service/checklist-categories', permissions: ['service_jobs'] },
+                    { label: 'Checklist_Items', to: '/app/service/checklists', permissions: ['service_jobs'] },
+                ],
+            },
         ],
     },
     {

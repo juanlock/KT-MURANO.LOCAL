@@ -1,0 +1,42 @@
+﻿Account type,Expense group,Expense category,Typical account,Period,Approximate amount (USD),Most commonly used in group
+Cost of Goods Sold (COGS),COGS,Inventory purchases,Cost of Goods Sold â€” Inventory,As purchased / recurring,Variable; commonly 20%â€“60% of sales,Yes
+Cost of Goods Sold (COGS),COGS,Direct labor,Cost of Goods Sold â€” Direct Labor,Weekly or biweekly,Variable; commonly 10%â€“30% of sales,No
+Cost of Goods Sold (COGS),COGS,Manufacturing overhead,Cost of Goods Sold â€” Manufacturing Overhead,Monthly,Variable; commonly 5%â€“20% of sales,No
+Operating Expense,Payroll and Employee Expenses,Salaries and wages,Payroll Expense,Weekly or biweekly,"USD 3,000â€“USD 15,000+ per employee/month",Yes
+Operating Expense,Payroll and Employee Expenses,Employer payroll taxes,Payroll Tax Expense,Each payroll / quarterly,Approximately 7%â€“12% of payroll,No
+Operating Expense,Payroll and Employee Expenses,Employee benefits,Employee Benefits Expense,Monthly,"Approximately USD 500â€“USD 2,500 per employee/month",No
+Operating Expense,Payroll and Employee Expenses,Recruiting,Recruiting Expense,As incurred / one-time,"USD 500â€“USD 15,000 per hire",No
+Operating Expense,Payroll and Employee Expenses,Training and education,Training and Education Expense,As incurred / annual,"USD 500â€“USD 5,000 per employee/year",No
+Operating Expense,Payroll and Employee Expenses,Uniforms and protective equipment,Uniforms and Safety Equipment Expense,As needed / one-time,"USD 50â€“USD 1,500 per employee",No
+Operating Expense,Facilities and Office Expenses,Office rent,Rent Expense,Monthly,"USD 1,500â€“USD 25,000+ per month",Yes
+Operating Expense,Facilities and Office Expenses,Utilities,Utilities Expense,Monthly,"USD 200â€“USD 5,000 per month",No
+Operating Expense,Facilities and Office Expenses,Internet and telecommunications,Telephone and Internet Expense,Monthly,"USD 100â€“USD 2,000 per month",No
+Operating Expense,Facilities and Office Expenses,Office supplies,Office Supplies Expense,As purchased / recurring,"USD 50â€“USD 2,000 per month",No
+Operating Expense,Facilities and Office Expenses,Repairs and maintenance,Repairs and Maintenance Expense,As incurred,"USD 100â€“USD 10,000 per occurrence",No
+Operating Expense,Facilities and Office Expenses,Shipping and delivery,Shipping and Delivery Expense,As incurred / recurring,"USD 100â€“USD 10,000+ per month",No
+Operating Expense,Technology and Equipment Expenses,Software subscriptions,Software and SaaS Expense,Monthly or annual,"USD 100â€“USD 10,000+ per month",Yes
+Asset Account,Technology and Equipment Expenses,Computer equipment,Computer Equipment â€” Fixed Asset,One-time / as purchased,"USD 800â€“USD 3,000 per employee",No
+Operating Expense,Technology and Equipment Expenses,Depreciation,Depreciation Expense,Monthly or annual,Approximately 10%â€“33% of asset cost/year,No
+Operating Expense,Professional and Administrative Services,Professional services,Professional Fees Expense,As incurred / monthly,"USD 500â€“USD 15,000+ per month",Yes
+Operating Expense,Professional and Administrative Services,Legal services,Legal Expense,As incurred,"USD 500â€“USD 25,000+ per matter",No
+Operating Expense,Professional and Administrative Services,Accounting services,Accounting and Tax Expense,Monthly quarterly or annual,"USD 300â€“USD 5,000+ per month",No
+Operating Expense,Professional and Administrative Services,Business licenses and permits,Licenses and Permits Expense,Annual or one-time,"USD 50â€“USD 5,000 per year",No
+Operating Expense,Professional and Administrative Services,Dues and memberships,Dues and Subscriptions Expense,Monthly or annual,"USD 100â€“USD 5,000 per year",No
+Operating Expense,Professional and Administrative Services,Insurance,Insurance Expense,Monthly quarterly or annual,"USD 500â€“USD 20,000+ per year",No
+Operating Expense,Sales and Marketing Expenses,Advertising,Advertising Expense,As incurred / recurring,"USD 500â€“USD 50,000+ per month",Yes
+Operating Expense,Sales and Marketing Expenses,Marketing,Marketing Expense,Monthly or as incurred,"USD 1,000â€“USD 50,000+ per month",No
+Operating Expense,Sales and Marketing Expenses,Charitable donations,Charitable Contributions Expense,One-time / as incurred,"USD 100â€“USD 10,000 per contribution",No
+Operating Expense,Travel and Transportation Expenses,Travel,Travel Expense,As incurred,"USD 500â€“USD 5,000 per trip",Yes
+Operating Expense,Travel and Transportation Expenses,Meals and entertainment,Meals and Entertainment Expense,As incurred,USD 25â€“USD 200 per person/event,No
+Operating Expense,Travel and Transportation Expenses,Automobile and mileage,Vehicle or Mileage Expense,As incurred / monthly,"USD 200â€“USD 3,000 per vehicle/month",No
+Operating Expense,Financial and Banking Expenses,Bank fees,Bank Service Charges,Monthly or as incurred,USD 10â€“USD 500 per month,Yes
+Operating Expense,Financial and Banking Expenses,Credit card processing fees,Merchant Fees,Per transaction / monthly,Approximately 2%â€“4% of card sales,No
+Operating Expense,Financial and Banking Expenses,Bad debt,Bad Debt Expense,Monthly or annual adjustment,Approximately 0.5%â€“3% of credit sales,No
+Operating Expense,General Expenses,Taxes and government fees,Taxes and Fees Expense,Monthly quarterly or annual,"USD 100â€“USD 20,000+ per year, excluding income/payroll taxes",Yes
+Operating Expense,General Expenses,Miscellaneous expenses,Miscellaneous Expense,As incurred,"USD 50â€“USD 2,000 per month",No
+Other Expense,Other Expenses,Interest paid,Interest Expense,Monthly,"USD 100â€“USD 20,000+ per month",Yes
+Other Expense,Other Expenses,Foreign exchange losses,Foreign Exchange Loss,As incurred / monthly,Variable; commonly 0.5%â€“3% of foreign-currency transactions,No
+Asset Account,Fixed Assets,Computer equipment,Computer Equipment â€” Fixed Asset,One-time / as purchased,"USD 800â€“USD 3,000 per employee",Yes
+Asset Account,Fixed Assets,Vehicles,Vehicles â€” Fixed Asset,One-time / as purchased,"USD 25,000â€“USD 80,000 per vehicle",No
+Asset Account,Fixed Assets,Machinery,Machinery and Equipment â€” Fixed Asset,One-time / as purchased,"USD 5,000â€“USD 250,000+ per machine",No
+Asset Account,Fixed Assets,Leasehold improvements,Leasehold Improvements â€” Fixed Asset,One-time / as incurred,"USD 10,000â€“USD 250,000+ per project",No

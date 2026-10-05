@@ -10,7 +10,7 @@ class Expense extends Model
 
     protected $fillable = [
         'date', 'user_id', 'expense_category_id', 'warehouse_id', 'details', 'account_id', 'payment_method_id',
-        'amount', 'Ref', 'created_at', 'updated_at', 'deleted_at',
+        'amount', 'Ref', 'payroll_id', 'recurring_expense_id', 'created_at', 'updated_at', 'deleted_at',
     ];
 
     protected $casts = [

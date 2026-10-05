@@ -18,32 +18,18 @@ class ReportsController extends Controller
     use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
 
     /**
-     * Multicompany for journal-based reports: acc_journal_entries has no
-     * company_id, so an entry belongs to a company through its SOURCE
-     * document (sale, purchase, their returns and payments) or, for manual
-     * entries, through the user who created it.
+     * Multicompany for journal-based reports: the entry's own company_id
+     * (2026_10_05_180000 backfilled it; every posting sets it) -- the same
+     * scope as the Journal Entries list and the Accounting dashboard. It
+     * used to be guessed from the source document (sales, purchases, their
+     * returns / payments) or the creating user, which left out expenses,
+     * payroll and anything else posted by the system.
      */
     private function scopeJournalCompany($q, string $j = 'j')
     {
         $cid = $this->reportCompanyId();
-        if (! $cid) {
-            return $q;
-        }
-        $docs = [
-            'sale' => DB::table('sales')->where('company_id', $cid)->select('id'),
-            'purchase' => DB::table('purchases')->where('company_id', $cid)->select('id'),
-            'sale_return' => DB::table('sale_returns')->where('company_id', $cid)->select('id'),
-            'purchase_return' => DB::table('purchase_returns')->where('company_id', $cid)->select('id'),
-            'payment_sale' => DB::table('payment_sales as ps')->join('sales as s', 's.id', '=', 'ps.sale_id')->where('s.company_id', $cid)->select('ps.id'),
-            'payment_purchase' => DB::table('payment_purchases as pp')->join('purchases as p', 'p.id', '=', 'pp.purchase_id')->where('p.company_id', $cid)->select('pp.id'),
-        ];
 
-        return $q->where(function ($w) use ($j, $cid, $docs) {
-            $w->whereIn("$j.created_by", DB::table('users')->where('company_id', $cid)->select('id'));
-            foreach ($docs as $type => $ids) {
-                $w->orWhere(fn ($x) => $x->where("$j.reference_type", $type)->whereIn("$j.reference_id", $ids));
-            }
-        });
+        return $cid ? $q->where("$j.company_id", $cid) : $q;
     }
     public function trialBalance(Request $request)
     {

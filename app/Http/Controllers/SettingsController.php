@@ -334,6 +334,11 @@ class SettingsController extends Controller
             'sale_shipping_enabled' => $request->has('sale_shipping_enabled')
                 ? (($request['sale_shipping_enabled'] == '1' || $request['sale_shipping_enabled'] == 'true' || $request['sale_shipping_enabled'] === 1 || $request['sale_shipping_enabled'] === true) ? 1 : 0)
                 : (int) ($setting->sale_shipping_enabled ?? 1),
+            // Default -- Sales: enable/disable the Sales Agent field on the
+            // Sales Create/Edit form (like Shipping, default on)
+            'sale_sales_agent_enabled' => $request->has('sale_sales_agent_enabled')
+                ? (($request['sale_sales_agent_enabled'] == '1' || $request['sale_sales_agent_enabled'] == 'true' || $request['sale_sales_agent_enabled'] === 1 || $request['sale_sales_agent_enabled'] === true) ? 1 : 0)
+                : (int) ($setting->sale_sales_agent_enabled ?? 1),
             // Default -- Sales: show/hide the SMS and WhatsApp row-action
             // icons on the Sales list (default on).
             'sale_sms_enabled' => $this->settingFlag($request, $setting, 'sale_sms_enabled'),
@@ -384,6 +389,21 @@ class SettingsController extends Controller
             'booking_default_sales_person_self' => $request->has('booking_default_sales_person_self')
                 ? $this->settingFlag($request, $setting, 'booking_default_sales_person_self')
                 : (int) ($setting->booking_default_sales_person_self ?? 1),
+            // Defaults -> Booking: appointment mode (office / remote / on-site),
+            // what completing a booking invoices, and reminder emails.
+            'booking_mode_enabled' => $request->has('booking_mode_enabled')
+                ? $this->settingFlag($request, $setting, 'booking_mode_enabled')
+                : (int) ($setting->booking_mode_enabled ?? 0),
+            'booking_invoice_mode' => in_array($request['booking_invoice_mode'], ['cash', 'unpaid', 'none'], true)
+                ? $request['booking_invoice_mode'] : ($setting->booking_invoice_mode ?: 'cash'),
+            'booking_reminders_enabled' => $request->has('booking_reminders_enabled')
+                ? $this->settingFlag($request, $setting, 'booking_reminders_enabled')
+                : (int) ($setting->booking_reminders_enabled ?? 0),
+            'booking_reminder_hours' => $request->has('booking_reminder_hours')
+                ? (collect(explode(',', (string) $request['booking_reminder_hours']))
+                    ->map(fn ($h) => (int) trim($h))->filter(fn ($h) => $h >= 1 && $h <= 168)
+                    ->unique()->sortDesc()->take(3)->implode(',') ?: '24')
+                : ($setting->booking_reminder_hours ?? '24,1'),
             // Default -- Customers: optional customer features; off hides all
             // UI tied to them (form fields, columns, stats, POS/sale widgets)
             'customer_loyalty_enabled' => $request->has('customer_loyalty_enabled')
@@ -1248,6 +1268,7 @@ class SettingsController extends Controller
             $item['product_code_digits'] = (int) ($settings->product_code_digits ?? 4);
             $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
+            $item['sale_sales_agent_enabled'] = (bool) ($settings->sale_sales_agent_enabled ?? true);
             foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled', 'booking_decimals_enabled'] as $flag) {
                 $item[$flag] = (bool) ($settings->{$flag} ?? true);
             }
@@ -1264,6 +1285,11 @@ class SettingsController extends Controller
             $item['booking_default_client_id'] = $settings->booking_default_client_id ? (int) $settings->booking_default_client_id : null;
             $item['booking_default_tray_id'] = $settings->booking_default_tray_id ? (int) $settings->booking_default_tray_id : null;
             $item['booking_default_sales_person_self'] = (bool) ($settings->booking_default_sales_person_self ?? true);
+            // Defaults -> Booking: appointment mode, invoicing on completion, reminders.
+            $item['booking_mode_enabled'] = (bool) ($settings->booking_mode_enabled ?? false);
+            $item['booking_invoice_mode'] = $settings->booking_invoice_mode ?: 'cash';
+            $item['booking_reminders_enabled'] = (bool) ($settings->booking_reminders_enabled ?? false);
+            $item['booking_reminder_hours'] = (string) ($settings->booking_reminder_hours ?? '24,1');
             // Defaults -> Users: only whether each default password is set (never the hash).
             foreach (['employee', 'customer', 'online_store', 'supplier', 'sales_agent'] as $pwType) {
                 $item["default_password_{$pwType}_set"] = ! empty(\Illuminate\Support\Facades\DB::table('settings')->where('id', $settings->id)->value("default_password_{$pwType}"));
@@ -1436,7 +1462,7 @@ class SettingsController extends Controller
                 'clients' => $clients,
                 'warehouses' => $warehouses,
                 // Defaults -> Booking: default station picker
-                'trays' => \App\Models\Tray::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
+                'trays' => \App\Models\Tray::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('name')->get(['id', 'name']),
                 'sms_gateway' => $sms_gateway,
                 'accounts' => $accounts,
                 'payment_methods' => $payment_methods,
@@ -2067,6 +2093,7 @@ class SettingsController extends Controller
             $item['product_code_digits'] = (int) ($settings->product_code_digits ?? 4);
             $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
+            $item['sale_sales_agent_enabled'] = (bool) ($settings->sale_sales_agent_enabled ?? true);
             foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled', 'booking_decimals_enabled'] as $flag) {
                 $item[$flag] = (bool) ($settings->{$flag} ?? true);
             }
@@ -2083,6 +2110,11 @@ class SettingsController extends Controller
             $item['booking_default_client_id'] = $settings->booking_default_client_id ? (int) $settings->booking_default_client_id : null;
             $item['booking_default_tray_id'] = $settings->booking_default_tray_id ? (int) $settings->booking_default_tray_id : null;
             $item['booking_default_sales_person_self'] = (bool) ($settings->booking_default_sales_person_self ?? true);
+            // Defaults -> Booking: appointment mode, invoicing on completion, reminders.
+            $item['booking_mode_enabled'] = (bool) ($settings->booking_mode_enabled ?? false);
+            $item['booking_invoice_mode'] = $settings->booking_invoice_mode ?: 'cash';
+            $item['booking_reminders_enabled'] = (bool) ($settings->booking_reminders_enabled ?? false);
+            $item['booking_reminder_hours'] = (string) ($settings->booking_reminder_hours ?? '24,1');
             // Defaults -> Users: only whether each default password is set (never the hash).
             foreach (['employee', 'customer', 'online_store', 'supplier', 'sales_agent'] as $pwType) {
                 $item["default_password_{$pwType}_set"] = ! empty(\Illuminate\Support\Facades\DB::table('settings')->where('id', $settings->id)->value("default_password_{$pwType}"));
@@ -2252,7 +2284,7 @@ class SettingsController extends Controller
                 'clients' => $clients,
                 'warehouses' => $warehouses,
                 // Defaults -> Booking: default station picker
-                'trays' => \App\Models\Tray::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
+                'trays' => \App\Models\Tray::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('name')->get(['id', 'name']),
                 'sms_gateway' => $sms_gateway,
                 'zones_array' => $zones_array,
                 'languages' => $languages,
@@ -2269,6 +2301,12 @@ class SettingsController extends Controller
         Artisan::call('cache:clear');
         Artisan::call('view:clear');
         Artisan::call('route:clear');
+        // The button's help says "views, config and route caches".
+        Artisan::call('config:clear');
+
+        // A JSON answer: the SPA's http.get() parses the body, and the old
+        // empty 200 made the button report "Failed" although it had worked.
+        return response()->json(['success' => true]);
     }
 
     // -------------- Get Environment Value Directly from .env File ---------------\\
@@ -2752,6 +2790,12 @@ class SettingsController extends Controller
             'pwa_theme_color' => 'sometimes|nullable|string|regex:/^#[0-9a-fA-F]{6}$/',
             'pwa_background_color' => 'sometimes|nullable|string|regex:/^#[0-9a-fA-F]{6}$/',
         ]);
+
+        // The icons are install-wide files in public/pwa_images: only a
+        // SuperAdmin may replace them (project standard -- company admins
+        // never write outside their own files/company_{id}/).
+        abort_if(($request->hasFile('icon_192') || $request->hasFile('icon_512')) && optional($request->user('api'))->type !== 'SuperAdmin',
+            403, 'Only a SuperAdmin can change the app icons (they are shared by every company).');
 
         $this->savePwaIdentity($request);
 

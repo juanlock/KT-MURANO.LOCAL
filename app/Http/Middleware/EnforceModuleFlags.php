@@ -31,6 +31,7 @@ class EnforceModuleFlags
     private const PREFIXES = [
         'intranet' => 'intranet', 'intranet-admin' => 'intranet',
         'helpdesk' => 'helpdesk',
+        'email-office' => 'email_office',
         'recruit' => 'recruit',
         'meeting' => 'meeting',
         'marketing' => 'marketing',

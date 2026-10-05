@@ -182,7 +182,7 @@ class SchoolTeacherController extends Controller
             'notes' => $t->notes,
             'is_active' => (bool) $t->is_active,
             'image' => $t->image,
-            'image_url' => $t->image ? asset(self::IMAGE_DIR . '/' . $t->image) : null,
+            'image_url' => $t->image ? asset(self::imagePath($t->image)) : null,
         ];
     }
 
@@ -225,16 +225,21 @@ class SchoolTeacherController extends Controller
         }
 
         $file = $request->file('image');
-        $path = public_path(self::IMAGE_DIR);
-        if (! file_exists($path)) {
-            mkdir($path, 0755, true);
-        }
+        // Project standard: public/files/company_{id}/teachers (CompanyFiles); the DB keeps that path.
+        $rel = \App\Support\CompanyFiles::dir(\App\Support\CompanyFiles::actingCompanyId($request), 'teachers');
+        $path = public_path($rel);
 
         $extension = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
         $filename = time() . '_' . Str::random(10) . '.' . $extension;
         $file->move($path, $filename);
 
-        return $filename;
+        return $rel . '/' . $filename;
+    }
+
+    /** Stored image: 'files/company_{id}/teachers/...' (new) or a bare file name in images/teachers (legacy). */
+    private static function imagePath(string $image): string
+    {
+        return str_contains($image, '/') ? $image : self::IMAGE_DIR . '/' . $image;
     }
 
     private function deleteImage($filename)
@@ -242,7 +247,7 @@ class SchoolTeacherController extends Controller
         if (! $filename) {
             return;
         }
-        $path = public_path(self::IMAGE_DIR . '/' . $filename);
+        $path = public_path(self::imagePath($filename));
         if (file_exists($path)) {
             @unlink($path);
         }

@@ -181,6 +181,8 @@ const StorePopups = lazy('StorePopups', () => import('../pages/store/Popups.vue'
 const StoreShippingMethods = lazy('StoreShippingMethods', () => import('../pages/store/ShippingMethods.vue'));
 const StoreShippingZones = lazy('StoreShippingZones', () => import('../pages/store/ShippingZones.vue'));
 const StoreBanners = lazy('StoreBanners', () => import('../pages/store/Banners.vue'));
+const EmailOfficeSettings = lazy('EmailOfficeSettings', () => import('../pages/email-office/EmailOfficeSettings.vue'));
+const EmailOfficeList = lazy('EmailOfficeList', () => import('../pages/email-office/EmailOfficeList.vue'));
 const HelpdeskDashboard = lazy('HelpdeskDashboard', () => import('../pages/helpdesk/HelpdeskDashboard.vue'));
 const HelpdeskTickets = lazy('HelpdeskTickets', () => import('../pages/helpdesk/HelpdeskTickets.vue'));
 const HelpdeskTicket = lazy('HelpdeskTicket', () => import('../pages/helpdesk/HelpdeskTicket.vue'));
@@ -614,6 +616,9 @@ const routes = [
             { path: 'intranet-admin/pages', name: 'intranet-admin-pages', component: IntranetAdminPages, meta: { title: 'Intranet Management - Pages', permission: 'intranet_manage' } },
             { path: 'store/portfolio', name: 'store-portfolio', component: StorePortfolio, meta: { title: 'Portfolio', permission: 'Store_settings_view' } },
             { path: 'store/gallery', name: 'store-gallery', component: StoreGallery, meta: { title: 'Gallery', permission: 'Store_settings_view' } },
+            { path: 'email-office/settings', name: 'email-office-settings', component: EmailOfficeSettings, meta: { title: 'Email Office settings', permission: 'email_office_manage' } },
+            { path: 'email-office/received', name: 'email-office-received', component: EmailOfficeList, props: { direction: 'in' }, meta: { title: 'Email received', permission: 'email_office_view' } },
+            { path: 'email-office/sent', name: 'email-office-sent', component: EmailOfficeList, props: { direction: 'out' }, meta: { title: 'Email sent', permission: 'email_office_view' } },
             { path: 'helpdesk/dashboard', name: 'helpdesk-dashboard', component: HelpdeskDashboard, meta: { title: 'Helpdesk', permission: 'helpdesk_view' } },
             { path: 'helpdesk/tickets', name: 'helpdesk-tickets', component: HelpdeskTickets, meta: { title: 'Tickets', permission: 'helpdesk_view' } },
             { path: 'helpdesk/tickets/:id', name: 'helpdesk-ticket', component: HelpdeskTicket, meta: { title: 'Ticket', permission: 'helpdesk_view' } },

@@ -163,6 +163,7 @@
 </template>
 
 <script setup>
+import { productSearchLabel } from '../../lib/productDisplayName';
 /**
  * Transfer create/edit. Contracts:
  * - bootstrap GET transfers/create → {warehouses, to_warehouses}; edit
@@ -234,14 +235,14 @@ const productOptions = computed(() =>
   products.value
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => oversellingAllowed.value || Number(p.qte) > 0)
-    .map(({ p, i }) => ({ value: i, label: `${p.code} — ${p.name} (${p.qte ?? ''})` }))
+    .map(({ p, i }) => ({ value: i, label: `${p.code} — ${productSearchLabel(p.name, p.group_name)}${p.qte !== undefined && p.qte !== null && p.qte !== '---' ? ` (${p.qte})` : ''}` }))
 );
 
 // A variant's label carries the VARIANT code, so also match the parent
 // product's code — otherwise typing the main code finds none of its variants.
 function filterProduct(input, option) {
   const p = products.value[option.value];
-  return `${option.label} ${p?.product_code ?? ''}`
+  return `${option.label} ${p?.name ?? ''} ${p?.product_code ?? ''}`
     .toLowerCase()
     .includes(String(input).toLowerCase());
 }

@@ -52,11 +52,9 @@
             <a-select-option value="no">{{ $t('No') }} {{ $t('PreOrder') }}</a-select-option>
           </a-select>
         </a-col>
-        <a-col :xs="12" :md="4">
-          <a-input v-model:value="dateFrom" type="date" @change="reload" />
-        </a-col>
-        <a-col :xs="12" :md="4">
-          <a-input v-model:value="dateTo" type="date" @change="reload" />
+        <!-- The system date filter: presets + editable Start date / to. -->
+        <a-col :span="24">
+          <PresetRangeFilter v-model:value="range" @change="reload" />
         </a-col>
       </a-row>
     </a-card>
@@ -269,6 +267,8 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
+import { rangeModel } from '../../lib/datePresets';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
 import { PAGE_SIZE_OPTIONS, buildPageSizeOptionText } from '../../composables/useCrudTable';
@@ -288,6 +288,7 @@ const proofFilter = ref('');
 const preorderFilter = ref('');
 const dateFrom = ref('');
 const dateTo = ref('');
+const range = rangeModel(() => [dateFrom.value, dateTo.value], (a, b) => { dateFrom.value = a; dateTo.value = b; });
 const actionBusyId = ref(null);
 const page = ref(1);
 const perPage = ref(10);

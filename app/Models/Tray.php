@@ -11,7 +11,9 @@ class Tray extends Model
 
     protected $dates = ['deleted_at'];
 
+    // Stations are per company (company_id).
     protected $fillable = [
+        'company_id',
         'name',
         'description',
     ];

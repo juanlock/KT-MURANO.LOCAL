@@ -89,6 +89,13 @@ class LanguageController extends Controller
         });
     }
 
+    /** Install-wide files (public/flags...) may only be written by a SuperAdmin (project standard). */
+    private function abortUnlessSuperAdminForGlobalFile(Request $request, string $field): void
+    {
+        abort_if($request->hasFile($field) && optional($request->user('api'))->type !== 'SuperAdmin', 403,
+            'Only a SuperAdmin can upload language flags (they are shared by every company).');
+    }
+
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'translations_settings', Setting::class);
@@ -106,6 +113,9 @@ class LanguageController extends Controller
             // Laravel 12: image rule excludes SVG by default; use file + mimes for SVG support
             'flag' => 'nullable|file|mimes:png,jpg,jpeg,svg|max:2048',
         ]);
+
+        // Flags are install-wide files in public/flags: SuperAdmin only.
+        $this->abortUnlessSuperAdminForGlobalFile($request, 'flag');
 
         if ($request->hasFile('flag')) {
 
@@ -166,7 +176,8 @@ class LanguageController extends Controller
             }
         }
 
-        // Handle flag upload
+        // Handle flag upload (install-wide file in public/flags: SuperAdmin only)
+        $this->abortUnlessSuperAdminForGlobalFile($request, 'flag');
         if ($request->hasFile('flag')) {
             // Delete old flag if not default
             if ($language->flag && $language->flag !== 'no-image.png') {

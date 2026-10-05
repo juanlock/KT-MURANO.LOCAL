@@ -11,7 +11,15 @@
 
     <DataTable :crud="crud" :columns="columns">
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'parent'">
+        <template v-if="column.key === 'code'">
+          <span :class="{ 'coa-group': isGroup(record) }" :style="{ paddingLeft: record.level > 0 ? '16px' : 0 }">{{ record.code }}</span>
+          <a-tag v-if="record.company_id == null" style="margin-left: 6px" :title="sharedHelp">Shared</a-tag>
+        </template>
+        <template v-else-if="column.key === 'name'">
+          <span :class="{ 'coa-group': isGroup(record) }">{{ localName(record) }}</span>
+          <div v-if="otherName(record)" class="coa-other">{{ otherName(record) }}</div>
+        </template>
+        <template v-else-if="column.key === 'parent'">
           {{ parentName(record.parent_id) }}
         </template>
         <template v-else-if="column.key === 'type'">
@@ -43,8 +51,11 @@
         <a-form-item :label="$t('Code') + ' *'">
           <a-input v-model:value="form.code" :placeholder="$t('Example_Code')" />
         </a-form-item>
-        <a-form-item :label="$t('Name') + ' *'">
+        <a-form-item :label="(es ? 'Nombre (inglés)' : 'Name (English)') + ' *'">
           <a-input v-model:value="form.name" :placeholder="$t('Example_Name')" />
+        </a-form-item>
+        <a-form-item :label="es ? 'Nombre (español)' : 'Name (Spanish)'">
+          <a-input v-model:value="form.name_es" />
         </a-form-item>
         <a-row :gutter="16">
           <a-col :span="12">
@@ -62,8 +73,8 @@
             <a-form-item :label="$t('Parent')">
               <a-select v-model:value="form.parent_id" show-search option-filter-prop="label">
                 <a-select-option :value="null">{{ $t('None') }}</a-select-option>
-                <a-select-option v-for="p in crud.rows.value" :key="p.id" :value="p.id" :label="p.code + ' — ' + p.name">
-                  {{ p.code }} — {{ p.name }}
+                <a-select-option v-for="p in crud.rows.value.filter(x => x.company_id != null)" :key="p.id" :value="p.id" :label="p.code + ' — ' + localName(p)">
+                  {{ p.code }} — {{ localName(p) }}
                 </a-select-option>
               </a-select>
             </a-form-item>
@@ -96,19 +107,31 @@ import PageHeader from '../../../components/PageHeader.vue';
 import DataTable from '../../../components/DataTable.vue';
 import { useCrudTable } from '../../../composables/useCrudTable';
 import http from '../../../lib/http';
+import { localName, isSpanish } from '../../../lib/localName';
 
 const { t } = useI18n();
+// Per company (multicompany): the acting company's own chart -- default set
+// from App\Support\DefaultAccounting, English + Spanish names shown in the
+// user's language -- plus the older shared accounts (company_id null, still
+// used by existing journal entries; editable by a SuperAdmin only).
+const es = computed(() => isSpanish());
+const sharedHelp = computed(() => (es.value
+  ? 'Cuenta compartida anterior (la usan asientos existentes). Solo un SuperAdmin puede cambiarla.'
+  : 'Older shared account (used by existing journal entries). Only a SuperAdmin can change it.'));
+const isGroup = r => String(r.code || '').includes('-') && r.company_id != null;
+const otherName = r => (es.value ? (r.name_es ? r.name : '') : (r.name_es || ''));
 
 const crud = useCrudTable('accounting/v2/coa', {
   sortField: 'code',
   sortType: 'asc',
+  limit: 100,
   select: p => ({ rows: (p && p.data) || [], total: (p && (p.totalRows ?? 0)) || 0 }),
 });
 
 const modalOpen = ref(false);
 const editing = ref(false);
 const saving = ref(false);
-const form = ref({ id: null, code: '', name: '', type: undefined, parent_id: null, is_active: 1 });
+const form = ref({ id: null, code: '', name: '', name_es: '', type: undefined, parent_id: null, is_active: 1 });
 
 const canSave = computed(() => !!(form.value.code && form.value.name && form.value.type));
 
@@ -124,17 +147,17 @@ const columns = computed(() => [
 function parentName(id) {
   if (!id) return t('None');
   const p = crud.rows.value.find(x => x.id === id);
-  return p ? `${p.code} — ${p.name}` : '-';
+  return p ? `${p.code} — ${localName(p)}` : '-';
 }
 function openCreate() {
   editing.value = false;
-  form.value = { id: null, code: '', name: '', type: undefined, parent_id: null, is_active: 1 };
+  form.value = { id: null, code: '', name: '', name_es: '', type: undefined, parent_id: null, is_active: 1 };
   modalOpen.value = true;
 }
 function openEdit(row) {
   editing.value = true;
   form.value = {
-    id: row.id, code: row.code, name: row.name, type: row.type,
+    id: row.id, code: row.code, name: row.name, name_es: row.name_es || '', type: row.type,
     parent_id: row.parent_id, is_active: row.is_active ? 1 : 0,
   };
   modalOpen.value = true;
@@ -153,7 +176,7 @@ async function save() {
     modalOpen.value = false;
     await crud.fetchRows();
   } catch (e) {
-    message.error(t('Operation_Failed'));
+    message.error(e?.data?.message || t('Operation_Failed'));
   } finally {
     saving.value = false;
   }
@@ -179,3 +202,13 @@ function confirmRemove(row) {
 
 onMounted(crud.fetchRows);
 </script>
+
+<style scoped>
+.coa-group {
+  font-weight: 600;
+}
+.coa-other {
+  font-size: 12px;
+  opacity: 0.55;
+}
+</style>

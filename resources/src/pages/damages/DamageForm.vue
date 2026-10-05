@@ -109,6 +109,7 @@
 </template>
 
 <script setup>
+import { productSearchLabel } from '../../lib/productDisplayName';
 /**
  * Damage create/edit — the adjustment form with type ALWAYS "sub". Contracts
  * from legacy Create_Damage/Edit_Damage.vue:
@@ -164,7 +165,7 @@ const damage = ref({
 
 const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id, label: w.name })));
 const productOptions = computed(() =>
-  products.value.map((p, i) => ({ value: i, label: `${p.code} — ${p.name}` }))
+  products.value.map((p, i) => ({ value: i, label: `${p.code} — ${productSearchLabel(p.name, p.group_name)}` }))
 );
 const expandedKeys = computed(() => lines.value.filter(l => l.is_batch_tracked).map(l => l.detail_id));
 
@@ -172,7 +173,7 @@ const expandedKeys = computed(() => lines.value.filter(l => l.is_batch_tracked).
 // product's code — otherwise typing the main code finds none of its variants.
 function filterProduct(input, option) {
   const p = products.value[option.value];
-  return `${option.label} ${p?.product_code ?? ''}`
+  return `${option.label} ${p?.name ?? ''} ${p?.product_code ?? ''}`
     .toLowerCase()
     .includes(String(input).toLowerCase());
 }

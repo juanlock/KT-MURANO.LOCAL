@@ -3,13 +3,8 @@
     <PageHeader :title="$t('POS_Sales')" :breadcrumb="['POS', $t('POS_Sales')]">
       <template #actions>
         <a-space wrap :size="12">
-          <a-card size="small" class="range-card">
-            <div class="range-row"><span class="range-label">{{ $t('start_date') }}</span><b>{{ activeRange.from }}</b></div>
-            <div class="range-row"><span class="range-label">{{ $t('to') }}</span><b>{{ activeRange.to }}</b></div>
-          </a-card>
-          <a-radio-group v-model:value="datePreset" button-style="solid" @change="applyPreset(datePreset)">
-            <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
-          </a-radio-group>
+          <DateRangeFields :value="rangeFields" :disabled="searching" @change="onRangeEdit" />
+          <DatePresetButtons v-model:value="datePreset" @change="applyPreset(datePreset)" />
           <a-button :loading="exporting === 'pdf'" @click="exportList('pdf')"><template #icon><FilePdfOutlined /></template>PDF</a-button>
           <a-button :loading="exporting === 'xlsx'" @click="exportList('xlsx')"><template #icon><FileExcelOutlined /></template>EXCEL</a-button>
           <a-button v-if="auth.can('Pos_view')" type="primary" @click="$router.push('/pos')">
@@ -94,6 +89,9 @@
 </template>
 
 <script setup>
+import DatePresetButtons from '../../components/DatePresetButtons.vue';
+import DateRangeFields from '../../components/DateRangeFields.vue';
+import { startPreset } from '../../lib/datePresetDefault';
 /**
  * POS Management -> POS Sales: the Sales list narrowed to sales rung up at
  * the POS (GET sales?is_pos=1). Same company / location / record-view
@@ -104,7 +102,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import { DATE_PRESETS, presetRange } from '../../lib/datePresets';
+import { presetOf, presetRange } from '../../lib/datePresets';
 import {
   FilePdfOutlined, FileExcelOutlined, ShopOutlined, EyeOutlined, PrinterOutlined,
 } from '@ant-design/icons-vue';
@@ -140,9 +138,9 @@ const filterParams = () => ({
 let crud;
 crud = useCrudTable('sales', { rowsKey: 'sales', params: filterParams, limit: 20, showQuickJumper: true });
 
-// ---- date presets (default Today), same set as the Sales list ----
+// ---- date presets (default: the user's default date, else Today), same set as the Sales list ----
 // DATE_PRESETS / presetRange: shared list (lib/datePresets.js).
-const datePreset = ref('today');
+const datePreset = ref(startPreset('today'));
 function applyPreset(p) {
   const [from, to] = presetRange(p);
   filters.value.date_from = from ? from.format('YYYY-MM-DD') : '';
@@ -151,10 +149,18 @@ function applyPreset(p) {
 }
 applyPreset(datePreset.value);
 
-const activeRange = computed(() => {
-  if (String(crud.search.value || '').trim()) return { from: 'All dates', to: '(searching)' };
-  return { from: filters.value.date_from || '—', to: filters.value.date_to || '—' };
-});
+// Start date / to: the active range (empty for All / while searching);
+// editing a date makes it a custom range.
+const searching = computed(() => !!String(crud.search.value || '').trim());
+const rangeFields = computed(() => (!searching.value && (filters.value.date_from || filters.value.date_to)
+  ? [filters.value.date_from, filters.value.date_to]
+  : null));
+function onRangeEdit(range) {
+  filters.value.date_from = range ? range[0] : '';
+  filters.value.date_to = range ? range[1] : '';
+  datePreset.value = presetOf(filters.value.date_from, filters.value.date_to);
+  crud.reload();
+}
 
 // ---- totals ----
 const statTiles = computed(() => {

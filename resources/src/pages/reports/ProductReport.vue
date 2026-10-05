@@ -24,7 +24,7 @@
     <!-- Filters -->
     <a-card size="small" style="margin-bottom: 16px">
       <a-row :gutter="[16, 8]">
-        <a-col :xs="24" :md="8" :xl="6">
+        <a-col :span="24">
           <div class="filter-label">{{ $t('date') }}</div>
           <DateRangePicker v-model:value="range" style="width: 100%" :allow-clear="false" @change="crud.reload()" />
         </a-col>

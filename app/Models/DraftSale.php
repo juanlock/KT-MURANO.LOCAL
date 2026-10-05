@@ -9,6 +9,8 @@ class DraftSale extends Model
     protected $dates = ['deleted_at'];
 
     protected $fillable = [
+        // Multicompany: the draft's company (its location's).
+        'company_id',
         'date', 'Ref', 'client_id', 'GrandTotal', 'TaxNet', 'tax_rate',
         'warehouse_id', 'user_id', 'discount', 'discount_Method', 'shipping',
         'created_at', 'updated_at', 'deleted_at',

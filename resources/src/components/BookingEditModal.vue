@@ -1,6 +1,6 @@
 <template>
   <!-- Appointment quick edit (status, time, service, staff, station, location,
-       price, notes) -- shared by Bookings -> Calendar and the Bookings list.
+       appointment mode, price, notes) -- shared by Bookings -> Calendar and the Bookings list.
        Loads/saves the full booking through the same endpoints as the Edit
        page (GET bookings/{id}/edit, PUT bookings/{id}), so nothing else is
        overwritten; status buttons use PUT bookings/{id}/status. -->
@@ -96,6 +96,28 @@
                 </a-select>
               </a-form-item>
             </a-col>
+            <!-- Appointment mode (Settings -> Booking): office / remote + link / on-site + address. -->
+            <template v-if="modeOn">
+              <a-col :xs="24" :md="12">
+                <a-form-item :label="tf('Appointment_Mode', 'Appointment mode')">
+                  <a-select v-model:value="edit.mode" :options="modeOptions" @change="m => { if (m === 'onsite' && !edit.site_address) edit.site_address = customerAddress }" />
+                </a-form-item>
+              </a-col>
+              <a-col v-if="edit.mode === 'remote'" :xs="24" :md="12">
+                <a-form-item :label="tf('Meeting_Link', 'Meeting link')">
+                  <a-input v-model:value="edit.meeting_link" placeholder="https://" allow-clear>
+                    <template #suffix>
+                      <a v-if="/^https?:\/\/\S+$/i.test(edit.meeting_link || '')" :href="edit.meeting_link" target="_blank" rel="noopener">{{ tf('Join_Meeting', 'Join meeting') }}</a>
+                    </template>
+                  </a-input>
+                </a-form-item>
+              </a-col>
+              <a-col v-if="edit.mode === 'onsite'" :xs="24" :md="12">
+                <a-form-item :label="tf('Site_Address', 'Site address')">
+                  <a-textarea v-model:value="edit.site_address" :rows="2" />
+                </a-form-item>
+              </a-col>
+            </template>
             <a-col :xs="12" :md="6">
               <a-form-item :label="$t('Price')">
                 <a-input-number v-model:value="edit.price" :min="0" style="width: 100%" />
@@ -134,6 +156,7 @@ import {
 } from '@ant-design/icons-vue';
 import BookingWhenFields from './BookingWhenFields.vue';
 import http from '../lib/http';
+import { t as tf } from '../i18n';
 import { sortByLabel } from '../lib/filterOptions';
 import { useFormat } from '../composables/useFormat';
 
@@ -190,6 +213,14 @@ const staffOptions = computed(() => sortByLabel((lists.value.sales_persons || []
 const trayOptions = computed(() => sortByLabel((lists.value.trays || []).map(s => ({ value: s.id, label: s.name }))));
 const warehouseOptions = computed(() => sortByLabel((lists.value.warehouses || []).map(w => ({ value: w.id, label: w.name }))));
 const selectedService = computed(() => (lists.value.products || []).find(p => p.id === edit.value?.product_id));
+// Appointment mode on for the booking's company (booking_fields.mode).
+const modeOn = ref(false);
+const modeOptions = computed(() => [
+  { value: 'office', label: tf('Mode_Office', 'At our office') },
+  { value: 'remote', label: tf('Mode_Remote', 'Remote (online)') },
+  { value: 'onsite', label: tf('Mode_Onsite', "At the customer's site") },
+]);
+const customerAddress = computed(() => (lists.value.customers || []).find(c => c.id === edit.value?.customer_id)?.address || '');
 
 // Same rule as the booking form: picking a service sets its name and its
 // price (the default, still editable); End Time follows its duration.
@@ -207,10 +238,12 @@ async function loadEdit(id) {
   try {
     const data = await http.get(`bookings/${id}/edit`);
     const b = data.booking || {};
-    lists.value = { products: data.products || [], sales_persons: data.sales_persons || [], trays: data.trays || [], warehouses: data.warehouses || [] };
+    lists.value = { products: data.products || [], sales_persons: data.sales_persons || [], trays: data.trays || [], warehouses: data.warehouses || [], customers: data.customers || [] };
     canOtherStaff.value = data.can_book_other_staff !== false;
+    modeOn.value = !!data.booking_fields?.mode;
     edit.value = {
       ...b,
+      mode: b.mode || 'office',
       booking_date: b.booking_date ? String(b.booking_date).slice(0, 10) : null,
       booking_time: hhmm(b.booking_time),
       booking_end_time: hhmm(b.booking_end_time),
@@ -244,6 +277,7 @@ function payload() {
     delivery_date: b.delivery_date || null,
     delivery_time: b.delivery_time || null,
     delivery_address: b.delivery_address,
+    ...(modeOn.value ? { mode: b.mode || 'office', meeting_link: b.meeting_link || null, site_address: b.site_address || null } : {}),
     status: b.status,
     notes: b.notes,
   };

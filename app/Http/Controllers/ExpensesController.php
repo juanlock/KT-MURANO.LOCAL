@@ -7,6 +7,8 @@ use App\Models\Account;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
+use App\Models\RecurringExpense;
+use App\Services\RecurringExpenses;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserWarehouse;
@@ -30,6 +32,10 @@ class ExpensesController extends BaseController
     public function index(request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Expense::class);
+
+        // Recurring expenses whose date has come are created first, so the
+        // list is complete even when the daily scheduler isn't running.
+        RecurringExpenses::generateDue((int) $this->resolveActingCompanyId($request) ?: null);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -65,6 +71,14 @@ class ExpensesController extends BaseController
             if (! $is_all_warehouses) {
                 $Expenses->whereIn('warehouse_id', $warehouse_ids);
             }
+
+        // Date range (the list's Start date / to filter), YYYY-MM-DD each end.
+        foreach (['date_from' => '>=', 'date_to' => '<='] as $key => $op) {
+            $d = (string) $request->input($key, '');
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) {
+                $Expenses->whereDate('date', $op, $d);
+            }
+        }
 
         // Multiple Filter
         $Filtred = $helpers->filter($Expenses, $columns, $param, $request)
@@ -115,7 +129,15 @@ class ExpensesController extends BaseController
             $item['payment_method'] = $Expense['payment_method'] ? $Expense['payment_method']->name : '---';
             $item['warehouse_name'] = $Expense['warehouse']->name;
             $item['category_name'] = $Expense['expense_category']->name;
+            // Group (expense-list columns); the name is translated client-side
+            // (translations table, lib/localName).
+            $item['category_group'] = $Expense['expense_category']->expense_group;
+            $item['category_group_es'] = $Expense['expense_category']->expense_group_es;
             $item['account_name'] = $Expense['account'] ? $Expense['account']->account_name : 'N/D';
+            // Set when the expense comes from HRM Payroll (read-only here).
+            $item['payroll_id'] = $Expense->payroll_id;
+            // Created automatically by a recurring expense (Expenses -> Recurring).
+            $item['recurring_expense_id'] = $Expense->recurring_expense_id;
 
             // Get documents count
             $item['documents_count'] = DB::table('expense_documents')
@@ -126,7 +148,12 @@ class ExpensesController extends BaseController
             $data[] = $item;
         }
 
-        $Expenses_category = ExpenseCategory::where('deleted_at', '=', null)->get(['id', 'name']);
+        // The acting company's categories (per company), with the Spanish
+        // names and groups so the dropdown follows the user's language.
+        $Expenses_category = ExpenseCategory::where('deleted_at', '=', null)
+            ->where('company_id', $this->resolveActingCompanyId($request))
+            ->orderBy('sort_order')->orderBy('name')
+            ->get(['id', 'name', 'reference', 'expense_group', 'expense_group_es', 'is_common', 'period', 'period_es', 'approximate_amount']);
         $accounts = Account::where('deleted_at', '=', null)->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 
@@ -146,11 +173,33 @@ class ExpensesController extends BaseController
             'accounts' => $accounts,
             'totalRows' => $totalRows,
             'payment_methods' => $payment_methods,
+            'recurring_count' => RecurringExpense::where('company_id', $this->resolveActingCompanyId($request))->count(),
         ]);
 
     }
 
     // -------------- Store New Expense -----------\\
+
+    /**
+     * Expense categories are per company: the category must belong to the
+     * company of the expense's location (Warehouse has company_id).
+     */
+    private function abortIfCategoryOfOtherCompany($categoryId, $warehouseId): void
+    {
+        $companyId = Warehouse::whereKey($warehouseId)->value('company_id');
+        $catCompany = ExpenseCategory::whereKey($categoryId)->whereNull('deleted_at')->value('company_id');
+        abort_if($companyId && $catCompany && (int) $catCompany !== (int) $companyId, 422, 'That expense category belongs to another company.');
+    }
+
+    /**
+     * A payroll's expense (App\Services\PayrollExpenseSync) follows its
+     * payroll -- which also owns the bank balance -- so it's changed or
+     * deleted from HRM -> Payroll, never here.
+     */
+    private function abortIfPayrollExpense(Expense $expense): void
+    {
+        abort_if(! empty($expense->payroll_id), 422, 'This expense comes from HRM Payroll. Edit or delete the payroll instead.');
+    }
 
     public function store(Request $request)
     {
@@ -165,8 +214,9 @@ class ExpensesController extends BaseController
                 'expense.amount' => 'required',
                 'expense.payment_method_id' => 'required',
             ]);
+            $this->abortIfCategoryOfOtherCompany($request['expense']['category_id'], $request['expense']['warehouse_id']);
 
-            Expense::create([
+            $expense = Expense::create([
                 'user_id' => Auth::user()->id,
                 'date' => $request['expense']['date'],
                 'Ref' => $this->getNumberOrder(),
@@ -186,7 +236,108 @@ class ExpensesController extends BaseController
                 ]);
             }
 
+            // "How often?" = same amount every period: save the schedule;
+            // this expense is the first one, the next ones are created on
+            // their dates (App\Services\RecurringExpenses).
+            $repeat = (array) ($request['expense']['repeat'] ?? []);
+            if (in_array($repeat['frequency'] ?? null, RecurringExpense::FREQUENCIES, true)) {
+                $end = ! empty($repeat['end_date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $repeat['end_date']) ? $repeat['end_date'] : null;
+                $plan = RecurringExpense::create([
+                    'company_id' => (int) Warehouse::whereKey($expense->warehouse_id)->value('company_id'),
+                    'user_id' => Auth::user()->id,
+                    'warehouse_id' => $expense->warehouse_id,
+                    'expense_category_id' => $expense->expense_category_id,
+                    'payment_method_id' => $expense->payment_method_id,
+                    'account_id' => $expense->account_id ?: null,
+                    'amount' => $expense->amount,
+                    'details' => $expense->details,
+                    'frequency' => $repeat['frequency'],
+                    'start_date' => Carbon::parse($expense->date)->toDateString(),
+                    'next_date' => RecurringExpenses::advance(Carbon::parse($expense->date)->toDateString(), $repeat['frequency']),
+                    'end_date' => $end,
+                    'is_active' => true,
+                    'last_generated_on' => Carbon::parse($expense->date)->toDateString(),
+                    'generated_count' => 1,
+                ]);
+                $expense->update(['recurring_expense_id' => $plan->id]);
+            }
+
         }, 10);
+
+        // Created from a bill in Email Office (?email=): link that email to it.
+        if ($request->filled('expense.office_email_id') && \Illuminate\Support\Facades\Schema::hasTable('office_emails')) {
+            $newest = Expense::where('user_id', Auth::user()->id)->latest('id')->value('id');
+            \App\Models\OfficeEmail::whereKey((int) $request->input('expense.office_email_id'))
+                ->where('company_id', (int) $this->resolveActingCompanyId($request))
+                ->update(['linked_type' => 'expense', 'linked_id' => $newest, 'category' => 'bill']);
+        }
+
+        // A first date in the past: catch up the periods since then.
+        RecurringExpenses::generateDue((int) $this->resolveActingCompanyId($request) ?: null);
+
+        return response()->json(['success' => true]);
+    }
+
+    // ------------- Recurring expenses (Expenses -> Recurring) ----------\\
+
+    /** The acting company's recurring expenses. */
+    public function recurringIndex(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', Expense::class);
+        $rows = RecurringExpense::with(['expense_category:id,name', 'warehouse:id,name', 'payment_method:id,name'])
+            ->where('company_id', $this->resolveActingCompanyId($request))
+            ->orderByDesc('is_active')->orderBy('next_date')->get()
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'category_name' => $p->expense_category->name ?? '—',
+                'warehouse_name' => $p->warehouse->name ?? '—',
+                'payment_method' => $p->payment_method->name ?? '—',
+                'details' => $p->details,
+                'amount' => $p->amount,
+                'frequency' => $p->frequency,
+                'start_date' => $p->start_date,
+                'next_date' => $p->next_date,
+                'end_date' => $p->end_date,
+                'is_active' => $p->is_active,
+                'generated_count' => $p->generated_count,
+            ]);
+
+        return response()->json(['recurring' => $rows]);
+    }
+
+    private function findRecurring(Request $request, $id): RecurringExpense
+    {
+        return RecurringExpense::where('company_id', $this->resolveActingCompanyId($request))->findOrFail($id);
+    }
+
+    /** Pause / resume, or change the amount / end date of the next ones. */
+    public function recurringUpdate(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Expense::class);
+        $plan = $this->findRecurring($request, $id);
+        $v = $request->validate([
+            'is_active' => 'sometimes|boolean',
+            'amount' => 'sometimes|numeric|min:0.01',
+            'end_date' => 'sometimes|nullable|date_format:Y-m-d',
+        ]);
+        // Resuming after a pause starts from the next date still ahead, so
+        // the paused periods aren't created all at once.
+        if (($v['is_active'] ?? false) && ! $plan->is_active) {
+            $today = Carbon::today()->toDateString();
+            while ($plan->next_date < $today) {
+                $plan->next_date = RecurringExpenses::advance($plan->next_date, $plan->frequency);
+            }
+        }
+        $plan->fill($v)->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    /** Stop for good. Expenses already created stay (delete them one by one if needed). */
+    public function recurringDestroy(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'delete', Expense::class);
+        $this->findRecurring($request, $id)->delete();
 
         return response()->json(['success' => true]);
     }
@@ -356,6 +507,7 @@ class ExpensesController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $view_records = $user->hasRecordView();
             $expense = Expense::findOrFail($id);
+            $this->abortIfPayrollExpense($expense);
 
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
@@ -375,6 +527,7 @@ class ExpensesController extends BaseController
                 'expense.amount' => 'required',
                 'expense.payment_method_id' => 'required',
             ]);
+            $this->abortIfCategoryOfOtherCompany($request['expense']['category_id'], $request['expense']['warehouse_id']);
 
             $account = Account::find($expense->account_id);
 
@@ -416,6 +569,7 @@ class ExpensesController extends BaseController
         // Backward compatibility: If record_view is null, fall back to role permission check
         $view_records = $user->hasRecordView();
         $expense = Expense::findOrFail($id);
+        $this->abortIfPayrollExpense($expense);
 
         // Check If User Has Permission view All Records
         // Warehouse half of the same rule: record_view says whose documents,
@@ -457,6 +611,9 @@ class ExpensesController extends BaseController
 
         foreach ($selectedIds as $expense_id) {
             $expense = Expense::findOrFail($expense_id);
+            if (! empty($expense->payroll_id)) {
+                continue; // payroll expenses are deleted with their payroll
+            }
 
             // Check If User Has Permission view All Records
             // Warehouse half of the same rule: record_view says whose documents,
@@ -528,7 +685,12 @@ class ExpensesController extends BaseController
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $Expenses_category = ExpenseCategory::where('deleted_at', '=', null)->get(['id', 'name']);
+        // The acting company's categories (per company), with the Spanish
+        // names and groups so the dropdown follows the user's language.
+        $Expenses_category = ExpenseCategory::where('deleted_at', '=', null)
+            ->where('company_id', $this->resolveActingCompanyId($request))
+            ->orderBy('sort_order')->orderBy('name')
+            ->get(['id', 'name', 'reference', 'expense_group', 'expense_group_es', 'is_common', 'period', 'period_es', 'approximate_amount']);
         $accounts = Account::where('deleted_at', '=', null)->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 
@@ -602,6 +764,8 @@ class ExpensesController extends BaseController
         $data['amount'] = $Expense->amount;
         $data['details'] = $Expense->details;
         $data['payment_method_id'] = $Expense->payment_method_id;
+        // Made by a recurring expense: the form says so (edits change only this one).
+        $data['recurring_expense_id'] = $Expense->recurring_expense_id;
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
@@ -612,7 +776,12 @@ class ExpensesController extends BaseController
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $Expenses_category = ExpenseCategory::where('deleted_at', '=', null)->get(['id', 'name']);
+        // The acting company's categories (per company), with the Spanish
+        // names and groups so the dropdown follows the user's language.
+        $Expenses_category = ExpenseCategory::where('deleted_at', '=', null)
+            ->where('company_id', $this->resolveActingCompanyId($request))
+            ->orderBy('sort_order')->orderBy('name')
+            ->get(['id', 'name', 'reference', 'expense_group', 'expense_group_es', 'is_common', 'period', 'period_es', 'approximate_amount']);
         $accounts = Account::where('deleted_at', '=', null)->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 

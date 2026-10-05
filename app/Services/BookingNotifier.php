@@ -109,8 +109,8 @@ class BookingNotifier
             'Date' => trim($date.', '.$time, ', '),
             'Price' => $b->price !== null ? $sym.number_format((float) $b->price, 2) : '-',
             'Staff' => $staff,
-            'Station' => optional($b->tray)->name ?: '-',
-        ] + ($b->notes ? ['Notes' => $b->notes] : []) + ($byName ? [$event === 'created' ? 'Registered by' : 'Confirmed by' => $byName] : []);
+        ] + ($b->tray ? ['Station' => $b->tray->name] : []) + self::modeRows($b)
+          + ($b->notes ? ['Notes' => $b->notes] : []) + ($byName ? [$event === 'created' ? 'Registered by' : 'Confirmed by' => $byName] : []);
 
         [$subjectStart, $intro] = $event === 'created'
             ? ['New booking', 'A new appointment was registered.']
@@ -189,6 +189,83 @@ class BookingNotifier
                 $rows, "Open the invoice: {$link}", null, $link);
             if ($ok) {
                 $sent[] = $a->email;
+            }
+        }
+
+        return $sent;
+    }
+
+    /** Appointment mode rows (Settings -> Booking -> Appointment mode): where / how it happens. */
+    private static function modeRows($b): array
+    {
+        return match ($b->mode) {
+            'remote' => ['Mode' => 'Remote (online)'] + ($b->meeting_link ? ['Meeting link' => $b->meeting_link] : []),
+            'onsite' => ['Mode' => 'At the customer\'s site'] + ($b->site_address ? ['Address' => $b->site_address] : []),
+            'office' => ['Mode' => 'At our office'],
+            default => [],
+        };
+    }
+
+    /**
+     * Reminder before an appointment (bookings:send-reminders): to the
+     * customer and to the booking's staff member, with date, time, service,
+     * staff and where / how (office, meeting link or the customer's address).
+     *
+     * @return array<string> emails it was sent to
+     */
+    public static function bookingReminder(int $companyId, int $bookingId, int $hours, ?Mailer $mailer = null): array
+    {
+        $b = \App\Models\Booking::with(['customer', 'product', 'tray', 'salesPerson'])->find($bookingId);
+        if (! $b) {
+            return [];
+        }
+        $co = DB::table('companies')->where('id', $companyId)->first(['name']);
+        $settings = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['CompanyName', 'email', 'CompanyPhone']);
+        $company = trim((string) ($co->name ?? '')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Bookings');
+        $companyEmail = filter_var($settings->email ?? '', FILTER_VALIDATE_EMAIL) && ! self::reserved($settings->email) ? $settings->email : null;
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
+
+        $sp = $b->salesPerson;
+        $staff = $sp ? (trim(($sp->firstname ?? '').' '.($sp->lastname ?? '')) ?: $sp->username) : null;
+        $date = $b->booking_date ? \Carbon\Carbon::parse($b->booking_date)->format('l, F j, Y') : '';
+        $time = substr((string) $b->booking_time, 0, 5).($b->booking_end_time ? ' - '.substr((string) $b->booking_end_time, 0, 5) : '');
+        $service = optional($b->product)->name ?: ($b->product_name ?: 'Appointment');
+        $customer = $b->customer;
+        // Wording from the real date (a booking made 3 h before still says "today").
+        $day = $b->booking_date ? \Carbon\Carbon::parse($b->booking_date)->startOfDay() : null;
+        $at = 'at '.substr((string) $b->booking_time, 0, 5);
+        $when = ! $day ? $at : ($day->isToday() ? "today {$at}" : ($day->isTomorrow() ? "tomorrow {$at}" : 'on '.$day->format('l, F j').' '.$at));
+
+        $rows = [
+            'Booking' => $b->Ref,
+            'Service' => $service,
+            'Date' => trim($date.', '.$time, ', '),
+        ] + ($staff ? ['With' => $staff] : []) + self::modeRows($b);
+        $sent = [];
+
+        // ---- customer
+        if ($customer && $customer->email) {
+            $ok = self::deliver($mailer, $from, $company, $customer->email, $customer->name,
+                "Reminder: your appointment {$when} - {$service} - {$company}",
+                "Hello {$customer->name},\n\nThis is a reminder of your appointment with {$company} {$when}.",
+                $rows,
+                'If you need to change or cancel it, simply reply to this email.'.(! empty($settings->CompanyPhone) ? " You can also call us at {$settings->CompanyPhone}." : ''),
+                $companyEmail);
+            if ($ok) {
+                $sent[] = $customer->email;
+            }
+        }
+
+        // ---- staff member
+        if ($sp && $sp->email) {
+            $link = url('/next/bookings/'.$b->id.'/edit');
+            $ok = self::deliver($mailer, $from, $company, $sp->email, $staff,
+                "Reminder: appointment {$when} - ".(optional($customer)->name ?: '-')." - {$service}",
+                "You have an appointment {$when}.",
+                ['Customer' => optional($customer)->name ?: '-', 'Email' => optional($customer)->email ?: '-', 'Phone' => optional($customer)->phone ?: '-'] + $rows,
+                "Open the booking: {$link}", optional($customer)->email ?: null, $link);
+            if ($ok) {
+                $sent[] = $sp->email;
             }
         }
 

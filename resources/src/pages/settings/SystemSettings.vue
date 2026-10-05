@@ -240,7 +240,7 @@
 
           <!-- ============================== Features ============================== -->
           <template v-else-if="activeTab === 'features'">
-            <!-- Price decimals (Enable 3 Decimal Pricing) moved to Settings -> POS Settings -> Company rules. -->
+            <!-- Price decimals (Enable 3 Decimal Pricing): Defaults -> General. -->
             <div class="setting-row">
               <div>
                 <div class="setting-label">{{ $t('EnableKitchenDisplay') }}</div>
@@ -362,6 +362,24 @@
                  Purchases etc. can follow the same pattern later). All tabs edit
                  the same `setting` object, so the page's Save covers every tab. -->
             <a-tabs v-model:activeKey="defaultsTab">
+            <!-- General: company-wide rules that aren't tied to one module. -->
+            <a-tab-pane key="general" tab="General">
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Price decimals</div>
+                  <div class="setting-help">How many decimals prices, totals and amounts use everywhere -- forms, lists, POS, sales and invoices: 2 (12.50) or 3 (12.500). Applies to the whole company.</div>
+                </div>
+                <a-radio-group
+                  :value="asBool(setting.enable_3_decimal_pricing) ? 3 : 2" button-style="solid"
+                  @change="e => (setting.enable_3_decimal_pricing = e.target.value === 3 ? 1 : 0)"
+                >
+                  <a-radio-button :value="2">2</a-radio-button>
+                  <a-radio-button :value="3">3</a-radio-button>
+                </a-radio-group>
+              </div>
+            </a-card>
+            </a-tab-pane>
             <a-tab-pane key="sales" :tab="$t('Sales')">
             <a-card size="small" style="margin-bottom: 16px">
               <a-form layout="vertical" style="max-width: 680px">
@@ -453,6 +471,13 @@
                   <div class="setting-help">Show the Shipping field and its dropdowns/options on the Sales Create/Edit form. Turn off for service-only companies that don't ship products.</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_shipping_enabled)" @change="v => (setting.sale_shipping_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Sales Agent</div>
+                  <div class="setting-help">Show the Sales Agent field on the Sales Create/Edit form (needs the Commissions module). Turn off for companies that don't work with sales agents.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_sales_agent_enabled ?? true)" @change="v => (setting.sale_sales_agent_enabled = v ? 1 : 0)" />
               </div>
               <div class="setting-row">
                 <div>
@@ -646,6 +671,45 @@
                 </div>
                 <a-switch :checked="asBool(setting[f.key] ?? true)" @change="v => (setting[f.key] = v ? 1 : 0)" />
               </div>
+            </a-card>
+
+            <!-- Not only salons: appointment mode (office / remote / on-site),
+                 what completing a booking invoices, and reminder emails. -->
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Appointment_Mode') }}</div>
+                  <div class="setting-help">{{ $t('Appointment_Mode_Setting_Help') }}</div>
+                </div>
+                <a-switch :checked="asBool(setting.booking_mode_enabled)" @change="v => (setting.booking_mode_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Booking_On_Completion') }}</div>
+                  <div class="setting-help">{{ $t('Booking_On_Completion_Help') }}</div>
+                </div>
+                <a-select
+                  v-model:value="setting.booking_invoice_mode" style="width: 320px; max-width: 100%"
+                  :options="[
+                    { value: 'cash', label: $t('Invoice_Cash') },
+                    { value: 'unpaid', label: $t('Invoice_Unpaid') },
+                    { value: 'none', label: $t('Invoice_None') },
+                  ]"
+                />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">{{ $t('Booking_Reminders') }}</div>
+                  <div class="setting-help">{{ $t('Booking_Reminders_Help') }}</div>
+                </div>
+                <a-switch :checked="asBool(setting.booking_reminders_enabled)" @change="v => (setting.booking_reminders_enabled = v ? 1 : 0)" />
+              </div>
+              <a-form-item v-if="asBool(setting.booking_reminders_enabled)" :label="$t('Reminder_Hours_Before')" style="margin: 8px 0 0; max-width: 360px">
+                <a-select
+                  v-model:value="bookingReminderHours" mode="multiple" style="width: 100%" :max-tag-count="3"
+                  :options="[1, 2, 3, 6, 12, 24, 48, 72].map(h => ({ value: h, label: `${h} h` }))"
+                />
+              </a-form-item>
             </a-card>
 
             <!-- Online booking hours: the public form's day / time-slot picker. -->
@@ -902,17 +966,30 @@
                 </a-col>
               </a-row>
               <a-row :gutter="[16, 8]">
-                <a-col :xs="12" :md="6">
+                <!-- Background: Theme (default) = a light tint of the theme's
+                     primary colour, follows it (and dark mode); Plain = Ant's
+                     grey header (the old default); Custom = the colour picker. -->
+                <a-col :xs="24" :md="12">
                   <a-form-item label="Background color">
-                    <a-space>
+                    <a-space wrap>
+                      <a-radio-group
+                        :value="dtHeaderBgMode" button-style="solid" size="small"
+                        @change="e => setDtHeaderBgMode(e.target.value)"
+                      >
+                        <a-radio-button value="theme">
+                          <span class="dt-swatch" :style="{ background: headerBgCss('') }" /> Theme (default)
+                        </a-radio-button>
+                        <a-radio-button value="plain">
+                          <span class="dt-swatch dt-swatch--plain" /> Plain
+                        </a-radio-button>
+                        <a-radio-button value="custom">Custom</a-radio-button>
+                      </a-radio-group>
                       <input
+                        v-if="dtHeaderBgMode === 'custom'"
                         type="color" class="dt-color-input"
-                        :value="dtStore.headerBg || '#fafafa'"
+                        :value="dtStore.headerBg"
                         @input="e => dtStore.set({ headerBg: e.target.value })"
                       />
-                      <a-button v-if="dtStore.headerBg" size="small" @click="dtStore.set({ headerBg: '' })">
-                        {{ $t('Reset') }}
-                      </a-button>
                     </a-space>
                   </a-form-item>
                 </a-col>
@@ -972,11 +1049,11 @@
                   '--dtp-th-weight': dtStore.headerWeight || '600',
                   '--dtp-th-size': (dtStore.headerFontSize || 14) + 'px',
                   '--dtp-th-transform': dtStore.headerUppercase ? 'uppercase' : 'none',
-                  ...(dtStore.headerBg ? { '--dtp-th-bg': dtStore.headerBg } : {}),
+                  ...(headerBgCss(dtStore.headerBg) ? { '--dtp-th-bg': headerBgCss(dtStore.headerBg) } : {}),
                   ...(dtStore.headerColor ? { '--dtp-th-color': dtStore.headerColor } : {}),
                 }"
                 class="dt-preview dt-managed"
-                :class="{ 'dtp-th-bg': !!dtStore.headerBg, 'dtp-th-color': !!dtStore.headerColor }"
+                :class="{ 'dtp-th-bg': !!headerBgCss(dtStore.headerBg), 'dtp-th-color': !!dtStore.headerColor }"
               />
             </a-form>
           </template>
@@ -1267,7 +1344,7 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import { useUiStore } from '../../stores/ui';
 import { useAuthStore } from '../../stores/auth';
-import { useDatatableStore } from '../../stores/datatable';
+import { useDatatableStore, headerBgCss } from '../../stores/datatable';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
 import { sortByLabel } from '../../lib/filterOptions';
@@ -1284,6 +1361,15 @@ const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
 
 /* --------------------------- DataTable preferences (device-local) */
 const dtStore = useDatatableStore();
+// DataTable -> Header -> Background: '' = theme (default), 'plain', '#hex' = custom.
+const dtHeaderBgMode = computed(() =>
+  (!dtStore.headerBg ? 'theme' : dtStore.headerBg === 'plain' ? 'plain' : 'custom'));
+function setDtHeaderBgMode(mode) {
+  if (mode === 'theme') dtStore.set({ headerBg: '' });
+  else if (mode === 'plain') dtStore.set({ headerBg: 'plain' });
+  // Custom starts from the current colour (or Ant's grey) until one is picked.
+  else if (dtHeaderBgMode.value !== 'custom') dtStore.set({ headerBg: '#fafafa' });
+}
 // Leaving with unsaved DataTable previews: go back to the company's saved
 // format (after a Save, auth.reload() has already refreshed it).
 onBeforeUnmount(() => {
@@ -1435,7 +1521,7 @@ const BOOKING_FIELD_TOGGLES = [
 ];
 
 // Sub-tabs inside the Defaults and DataTable sections.
-const defaultsTab = ref('sales');
+const defaultsTab = ref('general');
 const datatableTab = ref('table');
 const productCodeChanged = computed(() =>
   (setting.value.product_code_prefix || '') !== savedProductCode.value.prefix
@@ -1575,6 +1661,12 @@ const bookingClosedDays = computed({
   set: (days) => { setting.value.booking_closed_days = [...days].sort().join(','); },
 });
 
+// Defaults -> Booking: reminder hours, stored as "24,1" (largest first, up to 3).
+const bookingReminderHours = computed({
+  get: () => String(setting.value.booking_reminder_hours || '').split(',').filter(x => x !== '').map(Number),
+  set: (hours) => { setting.value.booking_reminder_hours = [...hours].sort((a, b) => b - a).slice(0, 3).join(','); },
+});
+
 // Defaults -> Booking: public booking form logo. Picked file previews locally
 // and is sent on Save; Remove clears the saved one (company logo is used).
 const bookingLogoFile = ref(null);
@@ -1632,6 +1724,7 @@ async function save() {
   fd.append('sale_default_quantity', Math.max(1, Number(s.sale_default_quantity) || 1));
   fd.append('sale_loyalty_points_enabled', asBool(s.sale_loyalty_points_enabled) ? 1 : 0);
   fd.append('sale_shipping_enabled', asBool(s.sale_shipping_enabled) ? 1 : 0);
+  fd.append('sale_sales_agent_enabled', asBool(s.sale_sales_agent_enabled ?? true) ? 1 : 0);
   fd.append('sale_sms_enabled', asBool(s.sale_sms_enabled ?? true) ? 1 : 0);
   fd.append('sale_whatsapp_enabled', asBool(s.sale_whatsapp_enabled ?? true) ? 1 : 0);
   for (const f of BOOKING_FIELD_TOGGLES) fd.append(f.key, asBool(s[f.key] ?? true) ? 1 : 0);
@@ -1645,6 +1738,12 @@ async function save() {
   fd.append('booking_default_client_id', s.booking_default_client_id || '');
   fd.append('booking_default_tray_id', s.booking_default_tray_id || '');
   fd.append('booking_default_sales_person_self', asBool(s.booking_default_sales_person_self ?? true) ? 1 : 0);
+  // Defaults -> General: price decimals (2 / 3), company-wide.
+  fd.append('enable_3_decimal_pricing', asBool(s.enable_3_decimal_pricing) ? 1 : 0);
+  fd.append('booking_mode_enabled', asBool(s.booking_mode_enabled) ? 1 : 0);
+  fd.append('booking_invoice_mode', s.booking_invoice_mode || 'cash');
+  fd.append('booking_reminders_enabled', asBool(s.booking_reminders_enabled) ? 1 : 0);
+  fd.append('booking_reminder_hours', s.booking_reminder_hours || '24');
   for (const p of DEFAULT_PASSWORD_TYPES) {
     if (pwNew.value[p.key]) fd.append(`default_password_${p.key}_new`, pwNew.value[p.key]);
     else if (pwClear.value[p.key]) fd.append(`default_password_${p.key}_clear`, 1);
@@ -1758,7 +1857,8 @@ async function save() {
     // Legacy post-save side effects.
     try {
       if (s.date_format) localStorage.setItem('app_date_format', s.date_format);
-      // app_price_decimals: set by POS Settings (and refreshed at login) now.
+      // Defaults -> General -> Price decimals: every screen reads this now.
+      localStorage.setItem('app_price_decimals', asBool(s.enable_3_decimal_pricing) ? '3' : '2');
       if (s.price_format) localStorage.setItem('app_price_format', s.price_format);
     } catch (e) { /* storage unavailable */ }
     if (typeof s.dark_mode === 'boolean' || s.dark_mode != null) {
@@ -1962,6 +2062,18 @@ onMounted(() => {
 }
 .dtp-th-color :deep(.ant-table-thead > tr > th) {
   color: var(--dtp-th-color);
+}
+.dt-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+}
+.dt-swatch--plain {
+  background: #fafafa;
 }
 .dt-color-input {
   width: 48px;

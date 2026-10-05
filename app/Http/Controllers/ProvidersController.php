@@ -72,33 +72,35 @@ class ProvidersController extends BaseController
             ->orderBy($order, $dir)
             ->get();
 
+        // Date filter (Suppliers list date buttons): ?date_from=&date_to=
+        // limit the purchases / returns figures below to documents dated in
+        // that range -- every supplier stays listed. Empty = lifetime, as
+        // before. due_all / return_due_all stay lifetime: Pay Due settles the
+        // whole balance, not one period's.
+        $from = $request->input('date_from');
+        $to = $request->input('date_to');
+        $inRange = fn ($q) => $q->when($from, fn ($q) => $q->whereDate('date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('date', '<=', $to));
+
         foreach ($providers as $provider) {
 
-            $item['total_amount'] = DB::table('purchases')
+            $purchases = fn () => DB::table('purchases')
                 ->where('deleted_at', '=', null)
                 ->where('statut', 'received')
-                ->where('provider_id', $provider->id)
-                ->sum('GrandTotal');
-
-            $item['total_paid'] = DB::table('purchases')
+                ->where('provider_id', $provider->id);
+            $returns = fn () => DB::table('purchase_returns')
                 ->where('deleted_at', '=', null)
-                ->where('statut', 'received')
-                ->where('provider_id', $provider->id)
-                ->sum('paid_amount');
+                ->where('provider_id', $provider->id);
 
+            $item['total_amount'] = $inRange($purchases())->sum('GrandTotal');
+            $item['total_paid'] = $inRange($purchases())->sum('paid_amount');
             $item['due'] = $item['total_amount'] - $item['total_paid'];
+            $item['due_all'] = ($from || $to) ? $purchases()->sum('GrandTotal') - $purchases()->sum('paid_amount') : $item['due'];
 
-            $item['total_amount_return'] = DB::table('purchase_returns')
-                ->where('deleted_at', '=', null)
-                ->where('provider_id', $provider->id)
-                ->sum('GrandTotal');
-
-            $item['total_paid_return'] = DB::table('purchase_returns')
-                ->where('deleted_at', '=', null)
-                ->where('provider_id', $provider->id)
-                ->sum('paid_amount');
-
+            $item['total_amount_return'] = $inRange($returns())->sum('GrandTotal');
+            $item['total_paid_return'] = $inRange($returns())->sum('paid_amount');
             $item['return_Due'] = $item['total_amount_return'] - $item['total_paid_return'];
+            $item['return_due_all'] = ($from || $to) ? $returns()->sum('GrandTotal') - $returns()->sum('paid_amount') : $item['return_Due'];
 
             $item['id'] = $provider->id;
             $item['name'] = $provider->name;

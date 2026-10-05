@@ -10,12 +10,15 @@ use Illuminate\Support\Str;
 
 class ServiceJobPhotoController extends BaseController
 {
+    // Multicompany: only the company's jobs (location / customer) -- see the trait.
+    use \App\Http\Controllers\Concerns\ScopesServiceJobsToCompany;
+
     // -------------- List photos for a service job ---------------\\
     public function index(Request $request, $serviceJobId)
     {
         $this->authorizeForUser($request->user('api'), 'view', ServiceJob::class);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($serviceJobId);
+        $job = $this->scopedJobs()->whereNull('deleted_at')->findOrFail($serviceJobId);
 
         $photos = ServiceJobPhoto::where('service_job_id', $job->id)
             ->whereNull('deleted_at')
@@ -50,13 +53,12 @@ class ServiceJobPhotoController extends BaseController
             'photos.*' => 'file|image|max:10240', // 10MB per file
         ]);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($serviceJobId);
+        $job = $this->scopedJobs()->whereNull('deleted_at')->findOrFail($serviceJobId);
         $stage = $validated['stage'] ?? 'intake';
 
-        $uploadPath = public_path('images/service_photos/'.$job->id);
-        if (! file_exists($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
-        }
+        // Project standard: public/files/company_{id}/service_photos/{job} (CompanyFiles).
+        $relDir = \App\Support\CompanyFiles::dir($this->jobCompanyId($job, $request), 'service_photos/'.$job->id);
+        $uploadPath = public_path($relDir);
 
         $created = [];
         foreach ($request->file('photos') as $file) {
@@ -67,7 +69,7 @@ class ServiceJobPhotoController extends BaseController
             $filename = time().'_'.Str::random(10).'_'.$originalName;
             $file->move($uploadPath, $filename);
 
-            $relativePath = 'images/service_photos/'.$job->id.'/'.$filename;
+            $relativePath = $relDir.'/'.$filename;
 
             $photo = ServiceJobPhoto::create([
                 'service_job_id' => $job->id,
@@ -95,12 +97,21 @@ class ServiceJobPhotoController extends BaseController
         return response()->json(['success' => true, 'photos' => $created], 201);
     }
 
+    /** A job has no company_id: its location's company, else its customer's, else the acting company. */
+    private function jobCompanyId(ServiceJob $job, Request $request): int
+    {
+        $cid = $job->warehouse_id ? \Illuminate\Support\Facades\DB::table('warehouses')->where('id', $job->warehouse_id)->value('company_id') : null;
+        $cid = $cid ?: ($job->client_id ? \Illuminate\Support\Facades\DB::table('clients')->where('id', $job->client_id)->value('company_id') : null);
+
+        return (int) ($cid ?: \App\Support\CompanyFiles::actingCompanyId($request));
+    }
+
     // -------------- Delete a photo ---------------\\
     public function destroy(Request $request, $serviceJobId, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
 
-        $job = ServiceJob::whereNull('deleted_at')->findOrFail($serviceJobId);
+        $job = $this->scopedJobs()->whereNull('deleted_at')->findOrFail($serviceJobId);
 
         $photo = ServiceJobPhoto::whereNull('deleted_at')
             ->where('service_job_id', $job->id)

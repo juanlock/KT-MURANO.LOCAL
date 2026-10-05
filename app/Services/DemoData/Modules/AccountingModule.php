@@ -7,8 +7,9 @@ use App\Services\DemoData\DemoModule;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Accounting (V2): a few balanced manual journal entries, a budget and a VAT
- * report. The acc_* tables are not company-scoped in this install.
+ * Accounting (V2): a year of balanced manual journal entries (monthly rent
+ * and utilities, quarterly invoices / collections / supplies), a budget and
+ * a VAT report. Journal entries carry company_id (DemoContext::insert).
  *
  * Detection uses the tables people fill by hand (budgets, tax reports), not
  * acc_journal_entries: sales/payments auto-post journal entries, so that table
@@ -50,7 +51,18 @@ class AccountingModule extends DemoModule
             ->where('record_type', 'acc_chart_of_accounts')
             ->where('company_id', '!=', $ctx->companyId)
             ->pluck('record_id')->all();
-        $coa = function (string $systemCode, string $demoCode, string $name, string $type) use ($ctx, $foreignDemo, &$createdAccounts): int {
+        // The company's own chart (App\Support\DefaultAccounting): demo
+        // entries post to its accounts -- the old shared codes below are only
+        // the fallback for an install without per-company charts.
+        $ownChart = DB::table('acc_chart_of_accounts')->where('company_id', $ctx->companyId)->pluck('id', 'code')->all();
+        $companyCode = [
+            '1000-CASH' => '1010', '1100-AR' => '1030', '4000-REV' => '5000', '3000-CAP' => '3010',
+            '2200-ACCR' => '2020', '6100-RENT' => '8510', '6200-UTIL' => '8520', '6300-SAL' => '7010', '6400-SUP' => '8560',
+        ];
+        $coa = function (string $systemCode, string $demoCode, string $name, string $type) use ($ctx, $foreignDemo, &$createdAccounts, $ownChart, $companyCode): int {
+            if (isset($companyCode[$systemCode], $ownChart[$companyCode[$systemCode]])) {
+                return (int) $ownChart[$companyCode[$systemCode]];
+            }
             foreach ([$systemCode, $demoCode] as $code) {
                 $id = DB::table('acc_chart_of_accounts')->where('code', $code)
                     ->when($foreignDemo, fn ($q) => $q->whereNotIn('id', $foreignDemo))
@@ -77,26 +89,45 @@ class AccountingModule extends DemoModule
         $salaries = $coa('6300-SAL', '6300-SAL', 'Salaries Expense', 'expense');
         $supplies = $coa('6400-SUP', '6400-SUP', 'Office Supplies Expense', 'expense');
 
-        $entries = [
-            ['Owner capital contribution', 'posted', 85, [[$cash, 15000, 0], [$capital, 0, 15000]]],
-            ['Monthly office rent', 'posted', 60, [[$rent, 1800, 0], [$cash, 0, 1800]]],
-            ['Electricity and internet bill', 'posted', 45, [[$util, 342.75, 0], [$cash, 0, 342.75]]],
-            ['Invoice to corporate customer (on credit)', 'posted', 30, [[$ar, 4200, 0], [$rev, 0, 4200]]],
-            ['Partial collection from corporate customer', 'posted', 15, [[$cash, 2500, 0], [$ar, 0, 2500]]],
-            ['Printer paper and toner', 'posted', 10, [[$supplies, 186.4, 0], [$cash, 0, 186.4]]],
-            ['Month-end salary accrual (to review)', 'draft', 2, [[$salaries, 6400, 0], [$accrued, 0, 6400]]],
-        ];
+        // A year of history: the opening capital 12 months back, then every
+        // month rent + utilities, every quarter an invoice on credit, its
+        // partial collection and office supplies; one draft accrual to review.
+        $today = now()->startOfDay();
+        $entries = [['Owner capital contribution', 'posted', $today->copy()->subMonthsNoOverflow(12)->startOfMonth(), [[$cash, 15000, 0], [$capital, 0, 15000]]]];
+        for ($m = 11; $m >= 0; $m--) {
+            $month = $today->copy()->startOfMonth()->subMonthsNoOverflow($m);
+            $label = $month->format('F Y');
+            $bill = round(300 + random_int(-60, 90) + random_int(0, 99) / 100, 2);
+            $rows = [
+                ["Office rent -- {$label}", 1, [[$rent, 1800, 0], [$cash, 0, 1800]]],
+                ["Electricity and internet bill -- {$label}", 12, [[$util, $bill, 0], [$cash, 0, $bill]]],
+            ];
+            if ($m % 3 === 0) {
+                $invoice = (float) (3000 + 100 * random_int(0, 25));
+                $rows[] = ["Invoice to corporate customer (on credit) -- {$label}", 8, [[$ar, $invoice, 0], [$rev, 0, $invoice]]];
+                $rows[] = ["Partial collection from corporate customer -- {$label}", 22, [[$cash, round($invoice * 0.6, 2), 0], [$ar, 0, round($invoice * 0.6, 2)]]];
+                $supply = round(120 + random_int(0, 120) + random_int(0, 99) / 100, 2);
+                $rows[] = ["Printer paper and toner -- {$label}", 18, [[$supplies, $supply, 0], [$cash, 0, $supply]]];
+            }
+            foreach ($rows as [$description, $day, $lines]) {
+                $date = $month->copy()->day(min($day, $month->daysInMonth));
+                if ($date->lte($today)) {
+                    $entries[] = [$description, 'posted', $date, $lines];
+                }
+            }
+        }
+        $entries[] = ['Month-end salary accrual (to review)', 'draft', $today->copy()->subDays(2), [[$salaries, 6400, 0], [$accrued, 0, 6400]]];
 
         $entryCount = 0;
         $lineCount = 0;
-        foreach ($entries as [$description, $status, $daysAgo, $lines]) {
-            $date = now()->subDays($daysAgo)->toDateString();
+        foreach ($entries as [$description, $status, $when, $lines]) {
+            $date = $when->toDateString();
             $entryId = $ctx->insert('acc_journal_entries', [
                 'date' => $date,
                 'reference_type' => 'manual',
                 'reference_id' => null,
                 'status' => $status,
-                'posted_at' => $status === 'posted' ? now()->subDays($daysAgo) : null,
+                'posted_at' => $status === 'posted' ? $when->copy()->setTime(10, 0) : null,
                 'description' => $description,
                 'created_by' => $ctx->userId,
             ]);

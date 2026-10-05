@@ -538,7 +538,7 @@ class DocumentArchiveController extends Controller
     // ------------------------------------------------------------------
 
     /**
-     * Move an upload into public/images/documents and return the columns both
+     * Move an upload into public/files/company_{id}/documents and return the columns both
      * `documents` and `document_versions` store (their names line up, so the
      * result is spread straight into either create()).
      *
@@ -555,10 +555,9 @@ class DocumentArchiveController extends Controller
             abort(422, 'Files of type .' . $extension . ' cannot be archived.');
         }
 
-        $uploadPath = public_path(self::UPLOAD_DIR);
-        if (! file_exists($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
-        }
+        // Project standard: public/files/company_{id}/documents (CompanyFiles).
+        $relDir = \App\Support\CompanyFiles::dir(\App\Support\CompanyFiles::actingCompanyId(), 'documents');
+        $uploadPath = public_path($relDir);
 
         // Capture metadata BEFORE move() — the temp file is unreadable after.
         $size = $file->getSize();
@@ -572,7 +571,7 @@ class DocumentArchiveController extends Controller
 
         return [
             'file_name' => $original,
-            'file_path' => self::UPLOAD_DIR . '/' . $filename,
+            'file_path' => $relDir . '/' . $filename,
             'mime_type' => $mime,
             'extension' => $extension,
             'size' => $size,

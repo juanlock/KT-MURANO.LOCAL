@@ -32,14 +32,23 @@ class ServiceJob extends Model
 
     protected $fillable = [
         'Ref',
+        // Visit created by a Sales Contract (App\Services\SalesContractJobs).
+        'sales_contract_id',
+        'contract_occurrence',
+        // Job created with a sale (Create Sale -> Service job).
+        'sale_id',
         'client_id',
         'technician_id',
         'warehouse_id',
         'service_item',
         'job_type',
+        // service (work at the customer, no device) | device (device / product repair).
+        'job_kind',
         'status',
         'scheduled_date',
         'scheduled_end_date',
+        // No hour chosen: the job is that day's task (scheduled_date .. scheduled_end_date by date).
+        'all_day',
         'started_at',
         'completed_at',
         'notes',
@@ -97,7 +106,48 @@ class ServiceJob extends Model
         'warehouse_id' => 'integer',
         'parent_job_id' => 'integer',
         'quotation_id' => 'integer',
+        'all_day' => 'boolean',
     ];
+
+    /**
+     * Schedule from the "When" control: one day or a range, with or without
+     * a time ($in: scheduled_date, scheduled_end_date, all_day). All-day jobs
+     * keep only dates (start 00:00, end = the last day at 00:00); a timed job
+     * keeps its times. Returns the three columns.
+     */
+    public static function normalizeSchedule(array $in): array
+    {
+        $start = ! empty($in['scheduled_date']) ? \Carbon\Carbon::parse($in['scheduled_date']) : null;
+        $end = ! empty($in['scheduled_end_date']) ? \Carbon\Carbon::parse($in['scheduled_end_date']) : null;
+        $allDay = filter_var($in['all_day'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if (! $start) {
+            return ['scheduled_date' => null, 'scheduled_end_date' => null, 'all_day' => false];
+        }
+        if ($allDay) {
+            $start = $start->copy()->startOfDay();
+            $end = $end ? $end->copy()->startOfDay() : null;
+        }
+        if ($end && $end->lt($start)) {
+            $end = null;
+        }
+        // An all-day job on one day needs no end.
+        if ($allDay && $end && $end->isSameDay($start)) {
+            $end = null;
+        }
+
+        return [
+            'scheduled_date' => $start->toDateTimeString(),
+            'scheduled_end_date' => $end?->toDateTimeString(),
+            'all_day' => $allDay,
+        ];
+    }
+
+    /** Jobs on $day (Y-m-d): starting that day, or a range that covers it. */
+    public function scopeOnDay($query, string $day, string $table = 'service_jobs')
+    {
+        return $query->whereDate("{$table}.scheduled_date", '<=', $day)
+            ->whereRaw("DATE(COALESCE({$table}.scheduled_end_date, {$table}.scheduled_date)) >= ?", [$day]);
+    }
 
     public function client()
     {

@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Core examples: products (with stock), customers, suppliers, sales,
- * purchases, quotations and expenses over the last 90 days -- ported from
+ * purchases and expenses over the last 12 months (quotations: last 90 days),
+ * posted to the journal like form-made documents -- ported from
  * the original DemoDataController, now per company and with every child row
  * (details, payments, product_warehouse) tagged for a clean reset.
  * Documents only reference DEMO products/customers/suppliers, so removing
@@ -23,6 +24,12 @@ class CoreModule extends DemoModule
     ];
     private const COMPANY_WORDS = ['Global', 'Prime', 'Atlas', 'Delta', 'Nova', 'Summit', 'Horizon', 'Union', 'Vertex', 'Coastal'];
     private const COMPANY_TYPES = ['Supplies', 'Trading', 'Distribution', 'Wholesale', 'Logistics', 'Industries'];
+    /** Days back that sales / purchases / expenses spread over (a year, so accounting has history). */
+    private const HISTORY_DAYS = 365;
+
+    /** Demo document ids per table, posted to the journal at the end. */
+    private array $posted = [];
+
     private const EXPENSE_DETAILS = ['Office rent', 'Electricity bill', 'Internet subscription', 'Fuel and transport', 'Cleaning services', 'Printer supplies', 'Team lunch', 'Equipment repair'];
 
     public function key(): string
@@ -50,16 +57,32 @@ class CoreModule extends DemoModule
         $productIds = $this->makeProducts($ctx, 12);
         $clientIds = $this->makeClients($ctx, 8);
         $providerIds = $this->makeProviders($ctx, 5);
+        // One demo sales agent, credited on about half of the demo sales, so
+        // the Sales Agent field / Commissions have something to show.
+        $agentId = $this->makeSalesAgent($ctx);
 
         return [
             'Products' => count($productIds),
             'Customers' => count($clientIds),
             'Suppliers' => count($providerIds),
-            'Sales' => $this->makeSales($ctx, 20, $clientIds, $productIds, $paymentMethodId),
-            'Purchases' => $this->makePurchases($ctx, 8, $providerIds, $productIds, $paymentMethodId),
+            'Sales agents' => $agentId ? 1 : 0,
+            'Sales' => $this->makeSales($ctx, 48, $clientIds, $productIds, $paymentMethodId, $agentId),
+            'Purchases' => $this->makePurchases($ctx, 24, $providerIds, $productIds, $paymentMethodId),
             'Quotations' => $this->makeQuotations($ctx, 5, $clientIds, $productIds),
-            'Expenses' => $this->makeExpenses($ctx, 8),
+            'Expenses' => $this->makeExpenses($ctx, 24),
+            'Journal entries' => $this->postJournal($ctx),
         ];
+    }
+
+    /** Sales, purchases, their payments and expenses -> journal (tagged demo). */
+    private function postJournal(DemoContext $ctx): int
+    {
+        $n = 0;
+        foreach (['sales' => 'fromSale', 'payment_sales' => 'fromPaymentSale', 'purchases' => 'fromPurchase', 'payment_purchases' => 'fromPaymentPurchase', 'expenses' => 'fromExpense'] as $table => $method) {
+            $n += $ctx->postJournal($table, $method, $this->posted[$table] ?? []);
+        }
+
+        return $n;
     }
 
     /* ---------------------------------------------------------- entities */
@@ -187,24 +210,48 @@ class CoreModule extends DemoModule
         return [$paid, $paid >= $grandTotal ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid')];
     }
 
-    private function makeSales(DemoContext $ctx, int $count, array $clientIds, array $productIds, $paymentMethodId): int
+    /**
+     * A demo sales agent (no login -- demo agents shouldn't provision real
+     * accounts, same as CommissionsModule). Tagged like every demo row, so a
+     * demo reset removes it. 0 when the install has no sales_agents table.
+     */
+    private function makeSalesAgent(DemoContext $ctx): int
+    {
+        if (! $ctx->columns('sales_agents')) {
+            return 0;
+        }
+        [$first, $last] = $ctx->personName();
+
+        return $ctx->insert('sales_agents', [
+            'user_id' => null,
+            'code' => 'SA-DEMO'.random_int(10, 99),
+            'name' => "$first $last",
+            'email' => strtolower("$first.$last").random_int(10, 99).'@example.com',
+            'phone' => '+1 555 '.random_int(100, 999).' '.random_int(1000, 9999),
+            'is_active' => 1,
+            'notes' => 'Demo sales agent',
+        ]);
+    }
+
+    private function makeSales(DemoContext $ctx, int $count, array $clientIds, array $productIds, $paymentMethodId, int $agentId = 0): int
     {
         if (! $clientIds || ! $productIds) {
             return 0;
         }
         for ($i = 1; $i <= $count; $i++) {
-            $date = $ctx->randomDate();
+            $date = $ctx->randomDate(self::HISTORY_DAYS);
             $warehouseId = $ctx->warehouse();
             [$lines, $grandTotal] = $this->pickLines($productIds, 'price');
             [$paid, $status] = $this->paidPart($grandTotal);
             $seq = str_pad((string) $i, 4, '0', STR_PAD_LEFT).random_int(10, 99);
 
-            $saleId = $ctx->insert('sales', [
+            $saleId = $this->posted['sales'][] = $ctx->insert('sales', [
                 'user_id' => $ctx->userId,
                 'date' => $date->toDateString(), 'time' => $date->format('H:i:s'),
                 'Ref' => 'DEMO-SL-'.$seq,
                 'client_id' => $ctx->pick($clientIds),
                 'warehouse_id' => $warehouseId,
+                'sales_agent_id' => $agentId && $i % 2 === 0 ? $agentId : null,
                 'statut' => random_int(1, 10) <= 8 ? 'completed' : 'pending',
                 'payment_statut' => $status,
                 'paid_amount' => $paid, 'GrandTotal' => $grandTotal,
@@ -223,7 +270,7 @@ class CoreModule extends DemoModule
                 $this->adjustStock($line['product_id'], $warehouseId, -$line['quantity']);
             }
             if ($paid > 0) {
-                $ctx->insert('payment_sales', [
+                $this->posted['payment_sales'][] = $ctx->insert('payment_sales', [
                     'user_id' => $ctx->userId, 'date' => $date->toDateString(),
                     'Ref' => 'DEMO-INV-SL-'.$seq, 'sale_id' => $saleId,
                     'montant' => $paid, 'change' => 0, 'payment_method_id' => $paymentMethodId,
@@ -241,14 +288,14 @@ class CoreModule extends DemoModule
             return 0;
         }
         for ($i = 1; $i <= $count; $i++) {
-            $date = $ctx->randomDate();
+            $date = $ctx->randomDate(self::HISTORY_DAYS);
             $warehouseId = $ctx->warehouse();
             [$lines, $grandTotal] = $this->pickLines($productIds, 'cost');
             [$paid, $status] = $this->paidPart($grandTotal);
             $received = random_int(1, 10) <= 7;
             $seq = str_pad((string) $i, 4, '0', STR_PAD_LEFT).random_int(10, 99);
 
-            $purchaseId = $ctx->insert('purchases', [
+            $purchaseId = $this->posted['purchases'][] = $ctx->insert('purchases', [
                 'user_id' => $ctx->userId,
                 'date' => $date->toDateString(), 'time' => $date->format('H:i:s'),
                 'Ref' => 'DEMO-PR-'.$seq,
@@ -275,7 +322,7 @@ class CoreModule extends DemoModule
                 }
             }
             if ($paid > 0) {
-                $ctx->insert('payment_purchases', [
+                $this->posted['payment_purchases'][] = $ctx->insert('payment_purchases', [
                     'user_id' => $ctx->userId, 'date' => $date->toDateString(),
                     'Ref' => 'DEMO-INV-PR-'.$seq, 'purchase_id' => $purchaseId,
                     'montant' => $paid, 'change' => 0, 'payment_method_id' => $paymentMethodId,
@@ -325,8 +372,8 @@ class CoreModule extends DemoModule
             'name' => 'Demo Expenses', 'user_id' => $ctx->userId, 'description' => 'Demo data',
         ]);
         for ($i = 1; $i <= $count; $i++) {
-            $date = $ctx->randomDate();
-            $ctx->insert('expenses', [
+            $date = $ctx->randomDate(self::HISTORY_DAYS);
+            $this->posted['expenses'][] = $ctx->insert('expenses', [
                 'date' => $date->toDateString(),
                 'Ref' => 'DEMO-EXP-'.str_pad((string) $i, 4, '0', STR_PAD_LEFT).random_int(10, 99),
                 'user_id' => $ctx->userId,

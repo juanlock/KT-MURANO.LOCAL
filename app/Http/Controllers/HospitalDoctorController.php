@@ -190,7 +190,7 @@ class HospitalDoctorController extends Controller
             'is_active' => (bool) $doctor->is_active,
             'notes' => $doctor->notes,
             'image' => $doctor->image,
-            'image_url' => $doctor->image ? asset(self::IMAGE_DIR . '/' . $doctor->image) : null,
+            'image_url' => $doctor->image ? asset(self::imagePath($doctor->image)) : null,
         ];
     }
 
@@ -253,16 +253,21 @@ class HospitalDoctorController extends Controller
         }
 
         $file = $request->file('image');
-        $path = public_path(self::IMAGE_DIR);
-        if (! file_exists($path)) {
-            mkdir($path, 0755, true);
-        }
+        // Project standard: public/files/company_{id}/doctors (CompanyFiles); the DB keeps that path.
+        $rel = \App\Support\CompanyFiles::dir(\App\Support\CompanyFiles::actingCompanyId($request), 'doctors');
+        $path = public_path($rel);
 
         $extension = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
         $filename = time() . '_' . Str::random(10) . '.' . $extension;
         $file->move($path, $filename);
 
-        return $filename;
+        return $rel . '/' . $filename;
+    }
+
+    /** Stored image: 'files/company_{id}/doctors/...' (new) or a bare file name in images/doctors (legacy). */
+    private static function imagePath(string $image): string
+    {
+        return str_contains($image, '/') ? $image : self::IMAGE_DIR . '/' . $image;
     }
 
     private function deleteImage($filename)
@@ -270,7 +275,7 @@ class HospitalDoctorController extends Controller
         if (! $filename) {
             return;
         }
-        $path = public_path(self::IMAGE_DIR . '/' . $filename);
+        $path = public_path(self::imagePath($filename));
         if (file_exists($path)) {
             @unlink($path);
         }

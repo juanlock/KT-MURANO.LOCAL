@@ -14,13 +14,9 @@
             style="width: 100%" @change="reload"
           />
         </a-col>
-        <a-col :xs="12" :md="5">
-          <div class="filter-label">{{ $t('From') }}</div>
-          <a-input v-model:value="filters.from" type="date" @change="reload" />
-        </a-col>
-        <a-col :xs="12" :md="5">
-          <div class="filter-label">{{ $t('To') }}</div>
-          <a-input v-model:value="filters.to" type="date" @change="reload" />
+        <a-col :span="24">
+          <div class="filter-label">{{ $t('date') }}</div>
+          <PresetRangeFilter v-model:value="range" @change="reload" />
         </a-col>
       </a-row>
       <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
@@ -55,6 +51,8 @@ import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
+import { rangeModel } from '../../lib/datePresets';
 import http from '../../lib/http';
 import { PAGE_SIZE_OPTIONS, buildPageSizeOptionText } from '../../composables/useCrudTable';
 import { useFilterReset } from '../../composables/useFilterReset';
@@ -70,6 +68,8 @@ const page = ref(1);
 const limit = ref(10);
 const filters = ref({ client_id: null, from: '', to: '' });
 const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => reload());
+// The system date filter (presets + editable Start date / to); none = All.
+const range = rangeModel(() => [filters.value.from, filters.value.to], (a, b) => { filters.value.from = a; filters.value.to = b; });
 
 const columns = computed(() => [
   { title: t('date'), dataIndex: 'scheduled_date', key: 'scheduled_date' },

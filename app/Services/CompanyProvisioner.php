@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\Hash;
  *    named after the company
  *  - a main warehouse (set as the Default Warehouse)
  *  - a Walk-in Customer (set as the Default Customer)
+ *  - the default chart of accounts and expense categories
+ *    (CompanyAccountingSeeder)
  *  - HR basics: an office shift, an "Administration" department and an
  *    "Administrator" designation (employees need all three)
  *  - the company's admin user (type admin, all warehouses) + its employee
@@ -194,6 +196,9 @@ class CompanyProvisioner
                     'created_at' => $now, 'updated_at' => $now,
                 ]);
             }
+
+            // Default chart of accounts + expense categories (English/Spanish).
+            CompanyAccountingSeeder::seed($cid);
 
             return ['company' => $co, 'user' => $user, 'employee_id' => $employeeId, 'helpdesk_user' => $helpdeskUser];
         });

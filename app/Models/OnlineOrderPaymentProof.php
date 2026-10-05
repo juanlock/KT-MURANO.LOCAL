@@ -41,6 +41,11 @@ class OnlineOrderPaymentProof extends Model
     /** Public URL of the uploaded file, or null when nothing was attached. */
     public function fileUrl(): ?string
     {
-        return $this->file_path ? url('/images/payment_proofs/'.$this->file_path) : null;
+        if (! $this->file_path) {
+            return null;
+        }
+
+        // New: 'files/company_{id}/payment_proofs/...'; legacy: a bare name in images/payment_proofs.
+        return url(str_contains($this->file_path, '/') ? '/'.ltrim($this->file_path, '/') : '/images/payment_proofs/'.$this->file_path);
     }
 }

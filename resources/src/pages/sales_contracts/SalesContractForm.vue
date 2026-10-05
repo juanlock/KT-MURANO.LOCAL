@@ -66,7 +66,12 @@
           <!-- Lines -->
           <a-card size="small" title="Products / services billed" style="margin-bottom: 16px">
             <template #extra>
-              <a-button size="small" @click="addLine()"><template #icon><PlusOutlined /></template>Add line</a-button>
+              <a-space>
+                <!-- A product/service that doesn't exist yet: create it here
+                     (same Quick Add as the sale form) and bill it on a new line. -->
+                <a-button size="small" @click="quickProductOpen = true"><template #icon><PlusOutlined /></template>New product / service</a-button>
+                <a-button size="small" @click="addLine()"><template #icon><PlusOutlined /></template>Add line</a-button>
+              </a-space>
             </template>
             <a-table :data-source="form.items" :columns="lineColumns" :pagination="false" size="small" row-key="_k">
               <template #bodyCell="{ column, record, index }">
@@ -76,6 +81,19 @@
                     :options="productOptions" placeholder="Product / service (optional)" @change="v => onProduct(record, v)"
                   />
                   <a-input v-model:value="record.name" placeholder="Description on the invoice" style="margin-top: 4px" />
+                  <!-- The line's note on each invoice: static text, or with
+                       placeholders filled per invoice ({{month}}, {{number}}...). -->
+                  <a-input
+                    v-model:value="record.note" allow-clear style="margin-top: 4px"
+                    placeholder="Note on each invoice, e.g. Note: {{month}} installment services"
+                  >
+                    <template #addonAfter>
+                      <NotePlaceholderHelp @insert="tk => (record.note = appendToken(record.note, tk))" @use="ex => (record.note = ex)" />
+                    </template>
+                  </a-input>
+                  <div v-if="record.note && scheduleRef?.firstNote(index)" class="note-preview">
+                    1st invoice: <i>{{ scheduleRef.firstNote(index) }}</i>
+                  </div>
                 </template>
                 <template v-else-if="column.key === 'quantity'">
                   <a-input-number v-model:value="record.quantity" :min="0.001" style="width: 100%" />
@@ -92,8 +110,19 @@
                 </template>
               </template>
             </a-table>
-            <div class="sc-total">Contract value per invoice: <b>{{ money(contractTotal) }}</b></div>
+            <!-- Order Tax on each invoice (like a sale's Order Tax); a new
+                 contract starts with the company's Default Tax. -->
+            <div class="sc-total">
+              <span class="sc-tax">
+                Order tax
+                <a-input-number v-model:value="form.order_tax_rate" :min="0" :max="100" :step="0.001" addon-after="%" size="small" style="width: 130px" />
+              </span>
+              <span>Lines {{ money(linesTotal) }}</span>
+              <span v-if="orderTax > 0">+ tax {{ money(orderTax) }}</span>
+              <span>= per invoice <b>{{ money(contractTotal) }}</b></span>
+            </div>
           </a-card>
+          <QuickAddProduct v-model:open="quickProductOpen" context="sale" @created="onProductCreated" />
         </a-col>
 
         <a-col :xs="24" :xl="8">
@@ -102,23 +131,94 @@
             <a-form-item style="margin-bottom: 8px">
               <a-switch v-model:checked="form.billing_enabled" /> <span style="margin-left: 8px">Invoice this contract automatically</span>
             </a-form-item>
-            <template v-if="form.billing_enabled">
-              <a-form-item label="Every">
-                <a-input-group compact>
-                  <a-input-number v-model:value="form.billing_interval" :min="1" :max="24" style="width: 30%" />
-                  <a-select v-model:value="form.billing_frequency" :options="FREQUENCY_OPTIONS" style="width: 70%" />
-                </a-input-group>
-              </a-form-item>
-              <a-form-item label="First / next invoice date" extra="Empty = the start date. Each invoice moves it one period on.">
-                <a-date-picker v-model:value="form.next_invoice_date" value-format="YYYY-MM-DD" style="width: 100%" />
-              </a-form-item>
-              <a-alert
-                type="info" show-icon
-                :message="`${billingLabel(form)} invoice of ${money(contractTotal)} to the customer, created automatically every morning it's due (unpaid, like any sale). Only while the contract is Active.`"
-              />
-            </template>
+            <!-- Each invoice created as a Draft (Pending) to review and finalize
+                 -- no stock out until it's completed. -->
+            <a-form-item v-if="form.billing_enabled" style="margin-bottom: 8px" extra="Each invoice is created as a Draft (Pending, no stock out) for you to review and finalize. Off: created final (Completed, unpaid).">
+              <a-switch v-model:checked="form.invoice_as_draft" size="small" /> <span style="margin-left: 8px">Create invoices as drafts (review first)</span>
+            </a-form-item>
+            <!-- The note on each invoice: fixed text or placeholders filled
+                 per invoice (empty = the automatic contract text). -->
+            <a-form-item v-if="form.billing_enabled" label="Invoice note" style="margin-bottom: 12px">
+              <a-input v-model:value="form.invoice_note" allow-clear placeholder="e.g. Service made on {{month}}">
+                <template #addonAfter>
+                  <NotePlaceholderHelp @insert="tk => (form.invoice_note = appendToken(form.invoice_note, tk))" @use="ex => (form.invoice_note = ex)" />
+                </template>
+              </a-input>
+              <div v-if="form.invoice_note && scheduleRef?.firstInvoiceNote()" class="note-preview">
+                1st invoice: <i>{{ scheduleRef.firstInvoiceNote() }}</i>
+              </div>
+            </a-form-item>
+            <RecurringSchedule
+              v-if="form.billing_enabled" ref="scheduleRef"
+              :value="form" :start-date="form.start_date" :end-date="form.end_date"
+              :notes="form.items.map(l => l.note)" :invoice-note="form.invoice_note || ''" :contract-id="isEdit ? Number(id) : null"
+            >
+              <template #summary>
+                <a-alert
+                  type="info" show-icon style="margin-bottom: 12px"
+                  :message="`${billingLabel(form)} invoice of ${money(contractTotal)} to the customer, created automatically every morning it's due (unpaid, like any sale). Only while the contract is Active.`"
+                />
+              </template>
+            </RecurringSchedule>
             <div v-else style="opacity: 0.6; font-size: 13px">
               Off: invoices are created only with "Generate invoice" on the contract.
+            </div>
+          </a-card>
+
+          <!-- Recurring service jobs (visits): e.g. weekly mowing billed monthly.
+               Own schedule; each visit becomes a Service Job (no price -- the
+               invoices above bill the work). Needs the Service module. -->
+          <a-card v-if="serviceEnabled" size="small" :title="$t('Contract_Service_Jobs')" style="margin-bottom: 16px">
+            <a-form-item style="margin-bottom: 8px">
+              <a-switch v-model:checked="form.jobs_enabled" /> <span style="margin-left: 8px">{{ $t('Contract_Jobs_Switch') }}</span>
+            </a-form-item>
+            <template v-if="form.jobs_enabled">
+              <a-form-item label="Visit title" name="jobs_service_item" style="margin-bottom: 12px">
+                <a-input v-model:value="form.jobs_service_item" allow-clear placeholder="e.g. Lawn mowing - {{weekday}} {{date}}">
+                  <template #addonAfter>
+                    <NotePlaceholderHelp @insert="tk => (form.jobs_service_item = appendToken(form.jobs_service_item, tk))" @use="ex => (form.jobs_service_item = ex)" />
+                  </template>
+                </a-input>
+                <div class="note-preview">Empty = the contract subject.</div>
+              </a-form-item>
+              <a-row :gutter="8">
+                <a-col :span="12">
+                  <a-form-item label="Technician / crew lead">
+                    <a-select v-model:value="form.jobs_technician_id" allow-clear :options="technicianOptions" placeholder="Assign later" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                  <a-form-item label="Job type">
+                    <a-input v-model:value="form.jobs_job_type" placeholder="e.g. Maintenance" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                  <a-form-item label="Visit time" extra="Empty = all-day task on the visit day.">
+                    <a-time-picker v-model:value="form.jobs_time" value-format="HH:mm" format="HH:mm" :minute-step="15" placeholder="All day" style="width: 100%" />
+                  </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                  <a-form-item label="Create ahead" extra="Days before each visit.">
+                    <a-input-number v-model:value="form.jobs_lead_days" :min="0" :max="60" addon-after="days" style="width: 100%" />
+                  </a-form-item>
+                </a-col>
+              </a-row>
+              <RecurringSchedule
+                :value="jobSchedule" :start-date="form.start_date" :end-date="form.end_date"
+                :invoice-note="form.jobs_service_item || ''" :contract-id="null"
+                noun="visit" day-label="Visit day" note-label="Title" :show-period="false"
+                first-date-label="First / next visit date" first-date-help="Empty = the start date, moved to the first matching visit day."
+              >
+                <template #summary>
+                  <a-alert
+                    type="info" show-icon style="margin-bottom: 12px"
+                    message="Each visit is created as a Service Job (status Pending) for this customer, so it shows up in Service Jobs. No price on the job: the invoices bill the work. Only while the contract is Active."
+                  />
+                </template>
+              </RecurringSchedule>
+            </template>
+            <div v-else style="opacity: 0.6; font-size: 13px">
+              Off: no service jobs are created from this contract.
             </div>
           </a-card>
 
@@ -146,15 +246,18 @@ import { useI18n } from 'vue-i18n';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import RichTextEditor from '../../components/RichTextEditor.vue';
+import QuickAddProduct from '../../components/QuickAddProduct.vue';
+import RecurringSchedule from '../../components/RecurringSchedule.vue';
+import NotePlaceholderHelp, { appendToken } from '../../components/NotePlaceholderHelp.vue';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useFormat } from '../../composables/useFormat';
-import { STATUS_OPTIONS, FREQUENCY_OPTIONS, billingLabel } from './salesContractVocab';
+import { STATUS_OPTIONS, billingLabel } from './salesContractVocab';
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const { money } = useFormat();
+const { money, date, roundMoney } = useFormat();
 const id = computed(() => route.params.id);
 const isEdit = computed(() => !!id.value);
 
@@ -168,13 +271,49 @@ const saving = ref(false);
 const formRef = ref();
 const lists = ref({ clients: [], warehouses: [], products: [] });
 let seq = 0;
-const newLine = (o = {}) => ({ _k: ++seq, product_id: undefined, name: '', quantity: 1, price: 0, tax_percent: 0, tax_method: '1', ...o });
+const newLine = (o = {}) => ({ _k: ++seq, product_id: undefined, name: '', note: '', quantity: 1, price: 0, tax_percent: 0, tax_method: '1', ...o });
 const form = ref({
   contract_number: '', subject: '', client_id: undefined, warehouse_id: undefined, type: 'service',
-  start_date: null, end_date: null, status: 'draft', hide_from_customer: false, description: '',
+  start_date: null, end_date: null, status: 'draft', hide_from_customer: false, description: '', invoice_note: '',
+  order_tax_rate: 0,
+  // New recurring contracts: invoices start as drafts to review.
+  invoice_as_draft: true,
   billing_enabled: false, billing_frequency: 'monthly', billing_interval: 1, next_invoice_date: null,
+  billing_count: null, billing_day_mode: 'same', billing_day: null,
+  jobs_enabled: false, jobs_service_item: '', jobs_job_type: '', jobs_technician_id: undefined,
+  jobs_time: null, jobs_lead_days: 7,
   items: [newLine()],
 });
+
+// Visit schedule: RecurringSchedule edits billing_* keys, so the visits get
+// their own object, mapped to/from the contract's jobs_* fields.
+const jobSchedule = ref({
+  billing_frequency: 'weekly', billing_interval: 1, billing_count: null,
+  billing_day_mode: 'same', billing_day: null, next_invoice_date: null,
+});
+const serviceEnabled = ref(false);
+const technicianOptions = computed(() => sortByLabel((lists.value.technicians || []).map(t2 => ({ value: t2.id, label: t2.name }))));
+
+// Recurring settings + invoice preview: components/RecurringSchedule.vue
+// (ref scheduleRef -> firstNote(i) for the line notes).
+const scheduleRef = ref(null);
+
+// ---------------- new product / service ----------------
+const quickProductOpen = ref(false);
+async function onProductCreated({ code }) {
+  try {
+    const data = await http.get('sales_contracts/create');
+    lists.value.products = data.products || lists.value.products;
+    const p = lists.value.products.find(x => x.code === code);
+    if (!p) return;
+    // Use the first line if it's still empty, else add one.
+    const empty = form.value.items.find(l => !l.product_id && !(l.name || '').trim());
+    const line = empty || newLine();
+    if (!empty) form.value.items.push(line);
+    line.product_id = p.id;
+    onProduct(line, p.id);
+  } catch (e) { /* the list just isn't refreshed */ }
+}
 
 const clientOptions = computed(() => sortByLabel(lists.value.clients.map(c => ({ value: c.id, label: c.name }))));
 const warehouseOptions = computed(() => sortByLabel(lists.value.warehouses.map(w => ({ value: w.id, label: w.name }))));
@@ -196,7 +335,10 @@ function lineTotal(l) {
   const base = (Number(l.quantity) || 0) * (Number(l.price) || 0);
   return Math.round((base + (String(l.tax_method) === '1' ? base * (Number(l.tax_percent) || 0) / 100 : 0)) * 100) / 100;
 }
-const contractTotal = computed(() => form.value.items.reduce((s, l) => s + lineTotal(l), 0));
+const linesTotal = computed(() => form.value.items.reduce((s, l) => s + lineTotal(l), 0));
+// Order Tax on the lines' total (rounded like the invoice: company decimals).
+const orderTax = computed(() => roundMoney(linesTotal.value * (Number(form.value.order_tax_rate) || 0) / 100));
+const contractTotal = computed(() => roundMoney(linesTotal.value + orderTax.value));
 
 const lineColumns = [
   { title: 'Product / description', key: 'product' },
@@ -218,21 +360,30 @@ async function submit() {
   try { await formRef.value.validate(); } catch (e) { return; }
   const items = form.value.items.filter(l => (l.name || '').trim() || l.product_id).map(l => ({
     product_id: l.product_id || null, name: (l.name || '').trim() || productById.value[l.product_id]?.name || 'Item',
+    note: (l.note || '').trim() || null,
     quantity: Number(l.quantity) || 1, price: Number(l.price) || 0, tax_percent: Number(l.tax_percent) || 0, tax_method: String(l.tax_method || '1'),
   }));
   if (form.value.billing_enabled && !items.length) { message.warning('Add at least one line to invoice.'); return; }
   saving.value = true;
-  const payload = { ...form.value, items };
+  const js = jobSchedule.value;
+  const payload = {
+    ...form.value, items,
+    jobs_technician_id: form.value.jobs_technician_id || null,
+    jobs_frequency: js.billing_frequency, jobs_interval: js.billing_interval || 1, jobs_count: js.billing_count || null,
+    jobs_day_mode: js.billing_day_mode, jobs_day: js.billing_day || null, next_job_date: js.next_invoice_date || null,
+  };
   try {
+    let res;
     if (isEdit.value) {
-      await http.put(`sales_contracts/${id.value}`, payload);
+      res = await http.put(`sales_contracts/${id.value}`, payload);
       message.success(t('Successfully_Updated'));
-      router.push(`/sales-contracts/${id.value}`);
     } else {
-      const res = await http.post('sales_contracts', payload);
+      res = await http.post('sales_contracts', payload);
       message.success(t('Successfully_Created'));
-      router.push(`/sales-contracts/${res.id}`);
     }
+    // Visits already due were created right away.
+    if (res?.jobs_created?.length) message.info(`${res.jobs_created.length} service job(s) created: ${res.jobs_created.map(j => j.ref).join(', ')}`, 6);
+    router.push(`/sales-contracts/${isEdit.value ? id.value : res.id}`);
   } catch (e) {
     const errors = e?.data?.errors;
     if (errors) Object.values(errors).flat().forEach(m => message.error(String(m)));
@@ -245,21 +396,34 @@ async function submit() {
 onMounted(async () => {
   try {
     const data = await http.get(isEdit.value ? `sales_contracts/${id.value}/edit` : 'sales_contracts/create');
-    lists.value = { clients: data.clients || [], warehouses: data.warehouses || [], products: data.products || [] };
+    lists.value = { clients: data.clients || [], warehouses: data.warehouses || [], products: data.products || [], technicians: data.technicians || [] };
+    serviceEnabled.value = !!data.service_enabled;
     if (isEdit.value) {
       const c = data.contract || {};
+      jobSchedule.value = {
+        billing_frequency: c.jobs_frequency || 'weekly', billing_interval: c.jobs_interval || 1, billing_count: c.jobs_count || null,
+        billing_day_mode: c.jobs_day_mode || 'same', billing_day: c.jobs_day || null,
+        next_invoice_date: c.next_job_date ? String(c.next_job_date).slice(0, 10) : null,
+      };
       form.value = {
         ...form.value, ...c,
         start_date: c.start_date ? String(c.start_date).slice(0, 10) : null,
         end_date: c.end_date ? String(c.end_date).slice(0, 10) : null,
         next_invoice_date: c.next_invoice_date ? String(c.next_invoice_date).slice(0, 10) : null,
-        billing_enabled: !!c.billing_enabled, hide_from_customer: !!c.hide_from_customer,
-        items: (c.items || []).map(i => newLine({ ...i, quantity: Number(i.quantity), price: Number(i.price), tax_percent: Number(i.tax_percent) })),
+        billing_enabled: !!c.billing_enabled, hide_from_customer: !!c.hide_from_customer, invoice_as_draft: !!c.invoice_as_draft,
+        billing_count: c.billing_count || null, billing_day_mode: c.billing_day_mode || 'same', billing_day: c.billing_day || null,
+        jobs_enabled: !!c.jobs_enabled, jobs_service_item: c.jobs_service_item || '', jobs_job_type: c.jobs_job_type || '',
+        jobs_technician_id: c.jobs_technician_id || undefined, jobs_time: c.jobs_time || null, jobs_lead_days: c.jobs_lead_days ?? 7,
+        items: (c.items || []).map(i => newLine({ ...i, note: i.note || '', quantity: Number(i.quantity), price: Number(i.price), tax_percent: Number(i.tax_percent) })),
       };
       if (!form.value.items.length) form.value.items = [newLine()];
     } else {
       form.value.contract_number = data.next_contract_number || '';
+      // New contract: the company's Default Tax as its Order Tax.
+      form.value.order_tax_rate = Number(data.default_tax) || 0;
       form.value.start_date = new Date().toISOString().slice(0, 10);
+      // System Settings -> Defaults -> default Location.
+      if (data.default_warehouse_id) form.value.warehouse_id = data.default_warehouse_id;
       // Opened from a customer's details (Contracts tab -> New contract).
       const qc = Number(route.query.client_id);
       if (qc && lists.value.clients.some(c => Number(c.id) === qc)) form.value.client_id = qc;
@@ -275,8 +439,23 @@ onMounted(async () => {
 
 <style scoped>
 .sc-total {
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-top: 10px;
   font-size: 14px;
+}
+.sc-tax {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+.note-preview {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 2px;
 }
 </style>

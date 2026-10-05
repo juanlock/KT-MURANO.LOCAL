@@ -16,16 +16,12 @@
     </PageHeader>
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-space wrap>
+      <a-space wrap align="end">
         <div>
-          <div class="filter-label">{{ $t('Date_From') }}</div>
-          <a-date-picker v-model:value="dateFrom" value-format="YYYY-MM-DD" />
+          <div class="filter-label">{{ $t('date') }}</div>
+          <PresetRangeFilter v-model:value="range" @change="load" />
         </div>
-        <div>
-          <div class="filter-label">{{ $t('Date_To') }}</div>
-          <a-date-picker v-model:value="dateTo" value-format="YYYY-MM-DD" />
-        </div>
-        <a-button type="primary" style="margin-top: 21px" :loading="loading" @click="load">
+        <a-button type="primary" :loading="loading" @click="load">
           <template #icon><SearchOutlined /></template>
           {{ $t('Filter') }}
         </a-button>
@@ -96,6 +92,7 @@ import {
   SearchOutlined, FileExcelOutlined, FilePdfOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 import { channelLabel, plainLabel, campaignStatusColor } from './marketingVocab';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import http from '../../lib/http';
@@ -104,8 +101,10 @@ const { t } = useI18n();
 
 const loading = ref(false);
 const exporting = ref(null);
-const dateFrom = ref(null);
-const dateTo = ref(null);
+// The shared date filter: presets + editable Start date / to.
+const range = ref(null);
+const dateFrom = computed(() => range.value?.[0] || null);
+const dateTo = computed(() => range.value?.[1] || null);
 const report = ref({ summary: {}, by_type: [] });
 const campaigns = ref([]);
 

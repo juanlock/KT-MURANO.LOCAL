@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 
 /**
  * Intranet Management -> Files (intranet_manage, acting company only).
- * Files are stored PRIVATELY under storage/app/intranet/company_{id}/files
+ * Files are stored PRIVATELY under public/files/company_{id}/intranet/files (private folder, no direct URL)
  * with a random name; employees download them through
  * GET intranet/files/{id}/download (IntranetViewApiController).
  *
@@ -65,11 +65,9 @@ class IntranetFilesApiController extends IntranetBaseController
             'description' => 'nullable|string|max:2000',
         ]);
 
-        $relDir = 'intranet/company_'.$companyId.'/files';
-        $absDir = storage_path('app/'.$relDir);
-        if (! is_dir($absDir)) {
-            mkdir($absDir, 0755, true);
-        }
+        // Project standard: public/files/company_{id}/intranet/files (CompanyFiles, private).
+        $relDir = \App\Support\CompanyFiles::dir($companyId, 'intranet/files', true);
+        $absDir = public_path($relDir);
         $single = count($request->file('files')) === 1;
         $folder = isset($data['folder']) ? (trim($data['folder']) ?: null) : null;
         $created = [];
@@ -118,7 +116,7 @@ class IntranetFilesApiController extends IntranetBaseController
     {
         $companyId = $this->manageCompany($request);
         $f = $this->own(IntranetFile::class, $companyId, $id);
-        if (str_starts_with($f->path, 'intranet/company_'.$companyId.'/files/') && ! str_contains($f->path, '..') && is_file($f->absolutePath())) {
+        if ($f->ownedBy($companyId) && is_file($f->absolutePath())) {
             @unlink($f->absolutePath());
         }
         $f->delete();

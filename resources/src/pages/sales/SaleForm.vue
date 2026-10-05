@@ -66,6 +66,17 @@
               />
             </a-form-item>
           </a-col>
+          <!-- One invoice (a normal sale) or Recurring: the same lines billed
+               on a schedule -- saved as an active Sales Contract that creates
+               each invoice (SalesContractBilling). -->
+          <a-col v-if="canRecurring" :xs="24" :md="8">
+            <a-form-item label="Invoice">
+              <a-radio-group v-model:value="invoiceMode" button-style="solid">
+                <a-radio-button value="single">Only 1 invoice</a-radio-button>
+                <a-radio-button value="recurring"><SyncOutlined /> Recurring</a-radio-button>
+              </a-radio-group>
+            </a-form-item>
+          </a-col>
         </a-row>
       </a-card>
 
@@ -190,6 +201,149 @@
 
       <a-row :gutter="16">
         <a-col :xs="24" :lg="14">
+          <!-- Recurring: the schedule (same settings + preview as Sales Contracts). -->
+          <a-card v-if="isRecurring" size="small" title="Recurring invoices" style="margin-bottom: 16px">
+            <a-row :gutter="12">
+              <a-col :xs="24" :md="16">
+                <a-form-item label="Subject" required extra="Name of the recurring billing (Sales Contract).">
+                  <a-input v-model:value="recurring.subject" :placeholder="recurringSubjectDefault" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="8">
+                <a-form-item label="End date" extra="Optional.">
+                  <a-date-picker v-model:value="recurring.end_date" value-format="YYYY-MM-DD" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+            </a-row>
+            <!-- Notes on each invoice: static text or placeholders filled per
+                 invoice ({{month}}, {{weekday}}, {{occurrence}}...). The
+                 invoice note goes on each invoice; a line note on that line. -->
+            <div class="rec-notes">
+              <div class="rec-notes__title">Notes on each invoice</div>
+              <div class="rec-notes__help">
+                Fixed text, or placeholders that change on every invoice: month, day, weekday, invoice date,
+                occurrence number… Click <QuestionCircleOutlined /> to add them; the list below shows each invoice's result.
+              </div>
+              <a-form-item label="Invoice note" style="margin-bottom: 8px">
+                <a-input
+                  v-model:value="recurring.invoice_note" allow-clear
+                  placeholder="e.g. Service made on {{month}} — empty = automatic text"
+                >
+                  <template #addonAfter>
+                    <NotePlaceholderHelp
+                      @insert="tk => (recurring.invoice_note = appendToken(recurring.invoice_note, tk))"
+                      @use="ex => (recurring.invoice_note = ex)"
+                    />
+                  </template>
+                </a-input>
+                <div v-if="recurring.invoice_note && scheduleRef?.firstInvoiceNote()" class="rec-notes__preview">
+                  1st invoice: <i>{{ scheduleRef.firstInvoiceNote() }}</i>
+                </div>
+              </a-form-item>
+              <div v-if="!lines.length" class="rec-notes__empty">Add products to write a note per line.</div>
+              <a-form-item v-for="(l, i) in lines" :key="l.detail_id" :label="`Line note — ${productDisplayName(l.name)}`" style="margin-bottom: 8px">
+                <a-input v-model:value="l.note" allow-clear placeholder="e.g. Note: {{month}} installment services">
+                  <template #addonAfter>
+                    <NotePlaceholderHelp @insert="tk => (l.note = appendToken(l.note, tk))" @use="ex => (l.note = ex)" />
+                  </template>
+                </a-input>
+                <div v-if="l.note && scheduleRef?.firstNote(i)" class="rec-notes__preview">
+                  1st invoice: <i>{{ scheduleRef.firstNote(i) }}</i>
+                </div>
+              </a-form-item>
+            </div>
+
+            <RecurringSchedule
+              ref="scheduleRef"
+              :value="recurring" :start-date="sale.date" :end-date="recurring.end_date"
+              :notes="lines.map(l => l.note)" :invoice-note="recurring.invoice_note"
+              first-date-label="First invoice date"
+              first-date-help="Empty = the sale date, moved to the first matching invoice day."
+            >
+              <template #summary>
+                <a-alert
+                  type="info" show-icon style="margin-bottom: 12px"
+                  message="Each invoice repeats these lines (their prices, discounts and taxes) and the order tax %, and is created unpaid. Invoices dated today or earlier are created now; later ones are created automatically on their date."
+                />
+              </template>
+            </RecurringSchedule>
+          </a-card>
+
+          <!-- Service job: one job with this sale (One invoice), or recurring
+               visits on their own schedule (Recurring). Service module only. -->
+          <a-card v-if="serviceJobAvailable" size="small" :title="isRecurring ? $t('Contract_Service_Jobs') : $t('Service_Jobs')" style="margin-bottom: 16px">
+            <!-- Edit: the jobs already made with this sale. -->
+            <div v-if="saleServiceJobs.length" class="sale-jobs">
+              <div v-for="j in saleServiceJobs" :key="j.id" class="sale-jobs__row">
+                <router-link :to="`/service/jobs/details/${j.id}`">{{ j.ref }}</router-link>
+                <span>{{ j.title }}</span>
+                <span class="muted">{{ j.scheduled_date || '' }}{{ j.technician ? ` · ${j.technician}` : '' }}</span>
+                <a-tag style="margin: 0">{{ j.status }}</a-tag>
+              </div>
+            </div>
+            <a-form-item style="margin-bottom: 8px">
+              <a-switch v-model:checked="serviceJob.enabled" />
+              <span style="margin-left: 8px">{{ isRecurring ? 'Create a service job for each visit' : (saleServiceJobs.length ? 'Add another service job' : 'Create a service job for this sale') }}</span>
+            </a-form-item>
+            <template v-if="serviceJob.enabled">
+              <a-row :gutter="12">
+                <a-col :xs="24" :md="isRecurring ? 24 : 12">
+                  <a-form-item :label="isRecurring ? 'Visit title' : 'Job title'">
+                    <a-input v-model:value="serviceJob.title" allow-clear :placeholder="isRecurring ? 'e.g. Lawn mowing - {{weekday}} {{date}}' : `${serviceJobTitleDefault} -- or e.g. Visit {{number}} of {{count}} - {{weekday}}`">
+                      <!-- Placeholders filled per job: its own date, its number in the series. -->
+                      <template #addonAfter>
+                        <NotePlaceholderHelp
+                          :hint="isRecurring ? 'Click to add. Each visit fills them in with its own date.' : 'Click to add. Each job fills them in with its own date ({{number}} / {{count}} with Repeat or Specific dates).'"
+                          @insert="tk => (serviceJob.title = appendToken(serviceJob.title, tk))" @use="ex => (serviceJob.title = ex)"
+                        />
+                      </template>
+                    </a-input>
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :md="isRecurring ? 12 : 12">
+                  <a-form-item label="Technician / crew lead">
+                    <a-select v-model:value="serviceJob.technician_id" allow-clear :options="technicianOptions" placeholder="Assign later" />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :md="12">
+                  <a-form-item label="Job type">
+                    <a-input v-model:value="serviceJob.job_type" placeholder="e.g. Maintenance" />
+                  </a-form-item>
+                </a-col>
+                <!-- One invoice: when -- one day, several days, or specific
+                     dates (one job each); no time = all-day task. -->
+                <a-col v-if="!isRecurring" :span="24">
+                  <ServiceJobWhen :value="serviceJobWhen" allow-dates />
+                </a-col>
+                <!-- Recurring: visit time + how early each job is created. -->
+                <template v-else>
+                  <a-col :xs="12">
+                    <a-form-item label="Visit time" extra="Empty = all-day task on the visit day.">
+                      <a-time-picker v-model:value="serviceJob.time" value-format="HH:mm" format="HH:mm" :minute-step="15" placeholder="All day" style="width: 100%" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="12">
+                    <a-form-item label="Create ahead" extra="Days before each visit.">
+                      <a-input-number v-model:value="serviceJob.lead_days" :min="0" :max="60" addon-after="days" style="width: 100%" />
+                    </a-form-item>
+                  </a-col>
+                </template>
+              </a-row>
+              <RecurringSchedule
+                v-if="isRecurring"
+                :value="jobSchedule" :start-date="sale.date" :end-date="recurring.end_date"
+                :invoice-note="serviceJob.title || ''"
+                noun="visit" day-label="Visit day" note-label="Title" :show-period="false"
+                first-date-label="First visit date" first-date-help="Empty = the sale date, moved to the first matching visit day."
+              >
+                <template #summary>
+                  <a-alert type="info" show-icon style="margin-bottom: 12px" message="Each visit becomes a Service Job (Pending, no price: the invoices bill the work), on its own schedule -- e.g. weekly visits, monthly invoices." />
+                </template>
+              </RecurringSchedule>
+              <a-alert v-else type="info" show-icon message="The job is created for this customer and location when the sale is saved (status Pending, no price: the sale bills the work), and shows on the sale under Service Jobs." />
+            </template>
+          </a-card>
+
           <a-card size="small" style="margin-bottom: 16px">
             <a-row :gutter="12">
               <a-col :xs="12" :md="8">
@@ -212,12 +366,12 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col :xs="12" :md="8">
+              <a-col v-if="!isRecurring" :xs="12" :md="8">
                 <a-form-item :label="$t('Discount')">
                   <a-input-number v-model:value="discountInput" style="width: 100%" :min="0" />
                 </a-form-item>
               </a-col>
-              <a-col :xs="12" :md="8">
+              <a-col v-if="!isRecurring" :xs="12" :md="8">
                 <a-form-item :label="$t('Discount_Method') || 'Discount Method'">
                   <a-select
                     v-model:value="sale.discount_Method"
@@ -228,12 +382,12 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col v-if="shippingEnabled" :xs="12" :md="8">
+              <a-col v-if="shippingEnabled && !isRecurring" :xs="12" :md="8">
                 <a-form-item :label="$t('Shipping')">
                   <a-input-number v-model:value="shippingInput" style="width: 100%" :min="0" />
                 </a-form-item>
               </a-col>
-              <a-col :xs="12" :md="8">
+              <a-col v-if="!isRecurring" :xs="12" :md="8">
                 <a-form-item :label="$t('Status')">
                   <a-select
                     v-model:value="sale.statut"
@@ -247,7 +401,7 @@
               </a-col>
               <!-- Sales agents belong to the Commissions module; hide the field
                    when the module is toggled off (Settings → Modules). -->
-              <a-col v-if="auth.moduleEnabled('commissions')" :xs="24" :md="8">
+              <a-col v-if="auth.moduleEnabled('commissions') && salesAgentEnabled && !isRecurring" :xs="24" :md="8">
                 <a-form-item :label="$t('Sales_Agent') || 'Sales Agent'">
                   <a-select
                     v-model:value="sale.sales_agent_id" allow-clear show-search
@@ -256,7 +410,7 @@
                 </a-form-item>
               </a-col>
               <!-- Change Salesperson (same opt-in feature as the POS picker) -->
-              <a-col v-if="salesSwitchEnabled" :xs="24" :md="8">
+              <a-col v-if="salesSwitchEnabled && !isRecurring" :xs="24" :md="8">
                 <a-form-item :label="$t('Seller')">
                   <a-select
                     v-model:value="sale.seller_id" allow-clear show-search
@@ -268,7 +422,7 @@
               <!-- Loyalty points -> discount. Legacy gates this on the customer
                    being royalty-eligible AND the tax/discount edit permission. -->
               <!-- Also hidden when the company switched loyalty off (Settings -> customer_loyalty_enabled). -->
-              <a-col v-if="auth.customerLoyaltyEnabled && loyaltyPointsEnabled && clientIsEligible && auth.can('edit_tax_discount_shipping_sale')" :span="24">
+              <a-col v-if="!isRecurring && auth.customerLoyaltyEnabled && loyaltyPointsEnabled && clientIsEligible && auth.can('edit_tax_discount_shipping_sale')" :span="24">
                 <a-form-item label="Points to convert">
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
                     <a-input-number
@@ -299,7 +453,19 @@
                 </a-form-item>
               </a-col>
               <a-col :span="24">
-                <a-form-item :label="$t('Note')">
+                <!-- Recurring: this becomes the contract's internal description;
+                     the invoices' own note is "Notes on each invoice" above. -->
+                <a-form-item :label="isRecurring ? 'Contract description (internal, not printed on the invoices)' : $t('Note')">
+                  <!-- One invoice: placeholders are filled with the sale's own date when saved. -->
+                  <template v-if="!isRecurring" #extra>
+                    <span>Variables like <code v-text="'{{month}}'" /> or <code v-text="'{{invoice_date}}'" /> are filled with this sale's date when you save.</span>
+                    <NotePlaceholderHelp
+                      hint="Click to add. Filled with this sale's date when you save."
+                      @insert="tk => (sale.notes = appendToken(sale.notes, tk))" @use="ex => (sale.notes = ex)"
+                    >
+                      <a-button type="link" size="small">Variables &amp; examples</a-button>
+                    </NotePlaceholderHelp>
+                  </template>
                   <a-textarea v-model:value="sale.notes" :rows="2" :placeholder="$t('Afewwords')" />
                 </a-form-item>
               </a-col>
@@ -307,7 +473,7 @@
           </a-card>
 
           <!-- Payment (create + completed only, like legacy) -->
-          <a-card v-if="!isEdit && sale.statut === 'completed'" size="small" :title="$t('Payment')" style="margin-bottom: 16px">
+          <a-card v-if="!isEdit && !isRecurring && sale.statut === 'completed'" size="small" :title="$t('Payment')" style="margin-bottom: 16px">
             <a-row :gutter="12">
               <a-col :xs="12" :md="8">
                 <a-form-item :label="$t('PaymentStatus')">
@@ -394,9 +560,18 @@
             type="primary" block size="large" style="margin-top: 16px"
             :loading="submitting"
             :disabled="(!isEdit && hasMinPriceViolation) || (sale.statut === 'completed' && hasBatchValidationErrors)"
-            @click="submit"
+            @click="submit(false)"
           >
-            {{ $t('submit') }}
+            {{ isRecurring ? 'Create recurring invoices' : (isDraft ? 'Finalize (no longer a draft)' : $t('submit')) }}
+          </a-button>
+          <!-- Draft: saved as Pending (no stock out, no payment), labelled Draft;
+               finalize it later. Not for Recurring (those are contracts). -->
+          <a-button
+            v-if="!isRecurring && (!isEdit || isDraft || sale.statut === 'pending')"
+            block style="margin-top: 8px" :loading="submitting" @click="submit(true)"
+          >
+            <template #icon><FileTextOutlined /></template>
+            {{ isDraft ? 'Save draft' : 'Save as draft' }}
           </a-button>
           <div v-if="!isEdit && hasMinPriceViolation" class="form-warn">{{ $t('Price_below_min_not_allowed') }}</div>
           <div v-else-if="sale.statut === 'completed' && hasBatchValidationErrors" class="form-warn">
@@ -466,6 +641,19 @@
                shown in the items table in place of the product code. -->
           <a-col :span="24">
             <a-form-item :label="$t('Description')">
+              <!-- Placeholders: filled per invoice (Recurring) or with this
+                   sale's date when saved (one invoice). -->
+              <template #extra>
+                <span v-if="isRecurring">Recurring: use placeholders that change per invoice, e.g. <code v-text="'Note: {{month}} installment services'" />.</span>
+                <span v-else>Variables like <code v-text="'{{month}}'" /> are filled with this sale's date when you save, e.g. <code v-text="'Service made on {{month}}'" />.</span>
+                <NotePlaceholderHelp
+                  :hint="isRecurring ? undefined : 'Click to add. Filled with this sale\'s date when you save.'"
+                  @insert="tk => (lineDraft.note = appendToken(lineDraft.note, tk))"
+                  @use="ex => (lineDraft.note = ex)"
+                >
+                  <a-button type="link" size="small">Placeholders &amp; examples</a-button>
+                </NotePlaceholderHelp>
+              </template>
               <a-textarea v-model:value="lineDraft.note" :rows="3" />
             </a-form-item>
           </a-col>
@@ -520,7 +708,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons-vue';
+import { EditOutlined, DeleteOutlined, PlusOutlined, SyncOutlined, QuestionCircleOutlined, FileTextOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import QuickAddParty from '../../components/QuickAddParty.vue';
@@ -528,10 +716,13 @@ import QuickAddProduct from '../../components/QuickAddProduct.vue';
 import SerialPicker from '../../components/SerialPicker.vue';
 import BatchAllocator from '../../components/BatchAllocator.vue';
 import ProductScanModal from '../../components/ProductScanModal.vue';
+import RecurringSchedule from '../../components/RecurringSchedule.vue';
+import ServiceJobWhen, { emptyWhen, whenToSchedule } from '../../components/ServiceJobWhen.vue';
+import NotePlaceholderHelp, { appendToken } from '../../components/NotePlaceholderHelp.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useDocCurrency } from '../../composables/useDocCurrency';
 import { useAuthStore } from '../../stores/auth';
-import { productDisplayName } from '../../lib/productDisplayName';
+import { productDisplayName, productSearchLabel } from '../../lib/productDisplayName';
 import { recomputeLine, computeTotals } from '../../lib/lineCalc';
 import { hasBatchSelectErrors, firstBatchSelectError } from '../../lib/batchValidation';
 import { resolveScan } from '../../lib/scanMatch';
@@ -580,6 +771,86 @@ const isDuplicate = computed(() => !isEdit.value && !isConvert.value && !!duplic
 const loadingRecord = ref(true);
 const submitting = ref(false);
 
+// ---------------- One invoice / Recurring ----------------
+// Recurring = the same lines billed on a schedule, saved as an active Sales
+// Contract (POST sales_contracts, generate_due) whose billing creates each
+// invoice -- same invoice-day / count / note-placeholder features as the
+// Sales Contract form. New sales only, and only for users who may create
+// Sales Contracts.
+const canRecurring = computed(() => !isEdit.value
+  && (auth.user?.type === 'SuperAdmin' || auth.can('sales_contracts_add')));
+const invoiceMode = ref('single');
+const isRecurring = computed(() => canRecurring.value && invoiceMode.value === 'recurring');
+const recurring = ref({
+  subject: '', end_date: null, invoice_note: '',
+  billing_frequency: 'monthly', billing_interval: 1, billing_day_mode: 'same', billing_day: null,
+  billing_count: null, next_invoice_date: null,
+});
+const scheduleRef = ref(null);
+// Switching to Recurring: the order discount / shipping fields are hidden
+// (generated invoices don't repeat them), so clear what was typed there.
+watch(isRecurring, on => {
+  if (!on) return;
+  if ((Number(sale.value.discount) || 0) || (Number(sale.value.shipping) || 0)) {
+    sale.value.discount = 0;
+    sale.value.shipping = 0;
+    message.info('Order discount and shipping don\'t apply to recurring invoices: cleared.');
+  }
+});
+
+// ---------------- Service job (Create Sale) ----------------
+// One invoice: one Service Job created with the sale (sales.store ->
+// service_job, linked by sale_id). Recurring: visits on their own schedule,
+// created by the Sales Contract (jobs_* fields, see SalesContractJobs).
+// Only for new sales of a company with the Service module.
+const serviceJobAvailable = ref(false);
+const serviceTechnicians = ref([]);
+const serviceJob = ref({ enabled: false, title: '', technician_id: undefined, job_type: '', time: null, lead_days: 7 });
+// One invoice: when the job(s) happen (components/ServiceJobWhen.vue); empty date = the sale date.
+const serviceJobWhen = ref(emptyWhen());
+const jobSchedule = ref({
+  billing_frequency: 'weekly', billing_interval: 1, billing_count: null,
+  billing_day_mode: 'same', billing_day: null, next_invoice_date: null,
+});
+const technicianOptions = computed(() => sortByLabel(serviceTechnicians.value.map(t2 => ({ value: t2.id, label: t2.name }))));
+// Edit Sale: the jobs already made with this sale (listed in the card).
+const saleServiceJobs = ref([]);
+// Editing a draft (Save as draft / a recurring invoice to review).
+const isDraft = ref(false);
+function loadServiceJobOptions(data) {
+  serviceJobAvailable.value = data?.service_job_enabled === true;
+  serviceTechnicians.value = data?.service_technicians || [];
+  saleServiceJobs.value = data?.sale_service_jobs || [];
+}
+/** The one-off service job for the sales POST / PUT (null when switched off). */
+function serviceJobPayload() {
+  const sj = serviceJob.value;
+  if (!serviceJobAvailable.value || !sj.enabled || isRecurring.value) return {};
+  const w = serviceJobWhen.value;
+  // No date picked: the sale's date.
+  const when = whenToSchedule(w.mode !== 'dates' && !w.date ? { ...w, date: sale.value.date } : w);
+  return {
+    service_job: {
+      enabled: 1,
+      title: (sj.title || '').trim() || serviceJobTitleDefault.value,
+      technician_id: sj.technician_id || null,
+      job_type: sj.job_type || null,
+      ...when,
+    },
+  };
+}
+function serviceJobMessage(res) {
+  if (res?.service_job?.ref) message.info(res.service_job.count > 1 ? `${res.service_job.count} service jobs created: ${res.service_job.ref}.` : `Service job ${res.service_job.ref} created.`, 6);
+  else if (res?.service_job?.warning) message.warning(res.service_job.warning, 6);
+}
+// Default title: the first line's product (e.g. "Lawn mowing"), else the customer.
+const serviceJobTitleDefault = computed(() => {
+  const first = lines.value[0];
+  if (first?.name) return productDisplayName(first.name);
+  const c = clients.value.find(x => Number(x.id) === Number(sale.value.client_id));
+  return c ? `Service for ${c.name}` : 'Service';
+});
+
 const clients = ref([]);
 const warehouses = ref([]);
 const agents = ref([]);
@@ -598,6 +869,9 @@ const defaultQuantity = ref(1);
 // (e.g. service-only businesses that don't ship products) (both default on).
 const loyaltyPointsEnabled = ref(true);
 const shippingEnabled = ref(true);
+// Settings -> Defaults -> Default - Sales: show/hide the Sales Agent field
+// (like Shipping, default on; it also needs the Commissions module).
+const salesAgentEnabled = ref(true);
 
 // New sales start credited to the authenticated user (matches the POS
 // default); edit mode keeps whatever the sale already stores.
@@ -839,7 +1113,10 @@ const paymentMethodOptions = computed(() => sortByLabel(paymentMethods.value.map
 const productOptions = computed(() =>
   sortByLabel(products.value.map((p, i) => ({
     value: i,
-    label: `${p.group_name ? p.group_name + ' — ' : ''}${p.name}${p.qte !== undefined ? ` (${p.qte})` : ''}`,
+    // Group Name once + the item ("Landscape Maintenance Services — Monthly"),
+    // not "Group — Group (Item)"; stock only for stocked products (services
+    // report '---').
+    label: `${productSearchLabel(p.name, p.group_name)}${p.qte !== undefined && p.qte !== '---' ? ` (${p.qte})` : ''}`,
   })))
 );
 
@@ -1024,7 +1301,13 @@ async function onProductPicked(idx) {
       // Overselling: never seed the line with the (zero/negative) stock —
       // fall back to the configured default quantity (Settings -> Defaults
       // -> Default - Sales) so the product can actually be sold.
-      quantity: !isOversellingAllowed.value && d.qte_sale !== undefined && d.qte_sale < defaultQuantity.value ? d.qte_sale : defaultQuantity.value,
+      // Services have no stock: always the default quantity (a service can
+      // carry a meaningless negative stock row, e.g. -4, which used to become
+      // the line's quantity). Stocked products without overselling start at
+      // what's left, never below 0.
+      quantity: d.product_type !== 'is_service' && !isOversellingAllowed.value && d.qte_sale !== undefined && d.qte_sale < defaultQuantity.value
+        ? Math.max(0, Number(d.qte_sale) || 0)
+        : defaultQuantity.value,
       Unit_price: d.Unit_price,
       Net_price: d.Net_price,
       discount: d.discount,
@@ -1438,11 +1721,130 @@ function detailsPayload() {
   }));
 }
 
-async function submit() {
+const recurringSubjectDefault = computed(() => {
+  const c = clients.value.find(x => Number(x.id) === Number(sale.value.client_id));
+  return c ? `Recurring invoice - ${c.name}` : 'Recurring invoice';
+});
+
+/**
+ * Recurring: the lines become a Sales Contract's lines with the same totals
+ * (discount folded into Net_price; an inclusive-tax price keeps its tax,
+ * like the contract's tax_method 2), each line's note becomes its per-
+ * invoice note template. Order-level tax/discount/shipping, payments, serials,
+ * batches and variants can't repeat on generated invoices, so they're refused.
+ */
+async function submitRecurring() {
+  if (!sale.value.client_id) { message.warning(`${t('Customer')}: ${t('Field_is_required')}`); return; }
+  if (!sale.value.warehouse_id) { message.warning(`${t('warehouse')}: ${t('Field_is_required')}`); return; }
+  if (!lines.value.length) { message.warning(t('AddProductToList')); return; }
+  if (lines.value.some(l => !(Number(l.quantity) > 0))) { message.warning(t('AddQuantity')); return; }
+  if ((Number(sale.value.discount) || 0) || (Number(sale.value.shipping) || 0)) {
+    message.warning('Recurring invoices don\'t repeat the order discount or shipping: set them to 0 (use the line discounts instead).');
+    return;
+  }
+  // Order tax (e.g. the company's default 6.625%) becomes the contract's
+  // Order Tax, so each invoice carries it as its own Order Tax (not as a tax
+  // on every line). A fixed-amount order tax can't repeat.
+  const orderRate = Number(sale.value.tax_rate) || 0;
+  if (orderRate && String(sale.value.tax_Method || '1') === '2') {
+    message.warning('A fixed-amount order tax can\'t repeat on recurring invoices: use a percentage (Tax Method) or line taxes.');
+    return;
+  }
+  if (!dcIsBase.value) { message.warning('Recurring invoices are in the base currency: switch the currency back first.'); return; }
+  const unsupported = lines.value.find(l => l.product_variant_id || l.is_imei || l.is_batch_tracked);
+  if (unsupported) {
+    message.warning(`${productDisplayName(unsupported.name)}: products with variants, serial numbers or batches can't be invoiced automatically.`);
+    return;
+  }
+
+  const items = lines.value.map(l => {
+    const inclusive = String(l.tax_method || '1') === '2';
+    const unit = (Number(l.Net_price) || 0) + (inclusive ? (Number(l.taxe) || 0) : 0);
+    return {
+      product_id: l.product_id,
+      name: l.name || 'Item',
+      note: (l.note || '').trim() || null,
+      quantity: Number(l.quantity) || 1,
+      price: Math.round(unit * 10000) / 10000,
+      // The line's own tax only; the order tax goes on the contract.
+      tax_percent: Number(l.tax_percent) || 0,
+      tax_method: inclusive ? '2' : '1',
+    };
+  });
+  const r = recurring.value;
+  const payload = {
+    subject: (r.subject || '').trim() || recurringSubjectDefault.value,
+    client_id: sale.value.client_id,
+    warehouse_id: sale.value.warehouse_id,
+    type: 'service',
+    status: 'active',
+    start_date: sale.value.date,
+    end_date: r.end_date || null,
+    description: sale.value.notes || '',
+    invoice_note: (r.invoice_note || '').trim() || null,
+    // Order Tax % of each invoice.
+    order_tax_rate: orderRate,
+    billing_enabled: true,
+    // The NEXT invoices (created on their dates) come in as drafts to review;
+    // the ones made now, while saving this form, are final.
+    invoice_as_draft: true,
+    billing_frequency: r.billing_frequency,
+    billing_interval: r.billing_interval || 1,
+    billing_count: r.billing_count || null,
+    billing_day_mode: r.billing_day_mode,
+    billing_day: r.billing_day || null,
+    next_invoice_date: r.next_invoice_date || sale.value.date,
+    items,
+    generate_due: true,
+    // Recurring service jobs (visits), when switched on.
+    ...(serviceJobAvailable.value && serviceJob.value.enabled ? {
+      jobs_enabled: true,
+      jobs_service_item: (serviceJob.value.title || '').trim() || null,
+      jobs_technician_id: serviceJob.value.technician_id || null,
+      jobs_job_type: serviceJob.value.job_type || null,
+      // Empty = all-day visits.
+      jobs_time: serviceJob.value.time || null,
+      jobs_lead_days: serviceJob.value.lead_days ?? 7,
+      jobs_frequency: jobSchedule.value.billing_frequency,
+      jobs_interval: jobSchedule.value.billing_interval || 1,
+      jobs_count: jobSchedule.value.billing_count || null,
+      jobs_day_mode: jobSchedule.value.billing_day_mode,
+      jobs_day: jobSchedule.value.billing_day || null,
+      next_job_date: jobSchedule.value.next_invoice_date || null,
+    } : {}),
+  };
+  submitting.value = true;
+  try {
+    const res = await http.post('sales_contracts', payload);
+    const made = res.invoices_created || [];
+    message.success(made.length
+      ? `Recurring billing created: ${made.length} invoice${made.length === 1 ? '' : 's'} so far (${made.map(m => m.ref).join(', ')}).`
+      : 'Recurring billing created: the first invoice will be created on its date.', 6);
+    if (res.jobs_created?.length) message.info(`${res.jobs_created.length} service job(s) created: ${res.jobs_created.map(j => j.ref).join(', ')}`, 6);
+    router.push(`/sales-contracts/${res.id}`);
+  } catch (e) {
+    const errors = e?.data?.errors;
+    if (errors) Object.values(errors).flat().forEach(m => message.error(String(m)));
+    else message.error(e?.data?.message || t('InvalidData'));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function submit(asDraft = false) {
+  if (isRecurring.value) {
+    await submitRecurring();
+    return;
+  }
+  // Save as draft: kept Pending (no stock out, no payment) and labelled Draft.
+  const draft = asDraft === true;
+  if (draft) sale.value.statut = 'pending';
   if (!validateForm()) return;
   submitting.value = true;
 
   const base = {
+    // Edit: always say whether it stays a draft (Submit = finalize).
+    ...(draft || isDraft.value ? { save_as_draft: draft ? 1 : 0 } : {}),
     date: sale.value.date,
     client_id: sale.value.client_id,
     warehouse_id: sale.value.warehouse_id,
@@ -1469,8 +1871,9 @@ async function submit() {
 
   try {
     if (isEdit.value) {
-      await http.put(`sales/${id.value}`, base);
-      message.success(t('Successfully_Updated'));
+      const res = await http.put(`sales/${id.value}`, { ...base, ...serviceJobPayload() });
+      message.success(draft ? 'Draft saved' : t('Successfully_Updated'));
+      serviceJobMessage(res);
     } else {
       const effective = sale.value.statut === 'completed' ? payment.value.status : 'pending';
       // Legacy sends the summed payment lines as the sale's amount, not the
@@ -1485,7 +1888,9 @@ async function submit() {
             }))
         : [];
       const amount = effective === 'pending' ? 0 : totalPaidLines.value;
-      await http.post('sales', {
+      const res = await http.post('sales', {
+        // One service job with this sale, when switched on.
+        ...serviceJobPayload(),
         ...base,
         // Conversion: link the new sale back to its source quotation.
         ...(isConvert.value ? { quotation_id: id.value } : {}),
@@ -1503,7 +1908,8 @@ async function submit() {
         received_amount: amount.toFixed(2),
         change: paymentChange.value.toFixed(2),
       });
-      message.success(t('Successfully_Created'));
+      message.success(draft ? 'Saved as draft (Pending): finalize it when ready.' : t('Successfully_Created'));
+      serviceJobMessage(res);
     }
     router.push('/sales');
   } catch (e) {
@@ -1545,6 +1951,8 @@ onMounted(async () => {
       defaultQuantity.value = Math.max(1, Number(create.sale_default_quantity) || 1);
       loyaltyPointsEnabled.value = create.sale_loyalty_points_enabled !== false;
       shippingEnabled.value = create.sale_shipping_enabled !== false;
+      salesAgentEnabled.value = create.sale_sales_agent_enabled !== false;
+      loadServiceJobOptions(create);
       accounts.value = create.accounts || [];
       paymentMethods.value = create.payment_methods || [];
       point_to_amount_rate.value = Number(create.point_to_amount_rate) || 0;
@@ -1604,7 +2012,10 @@ onMounted(async () => {
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
       loyaltyPointsEnabled.value = data.sale_loyalty_points_enabled !== false;
       shippingEnabled.value = data.sale_shipping_enabled !== false;
+      salesAgentEnabled.value = data.sale_sales_agent_enabled !== false;
+      loadServiceJobOptions(data);
       const s = data.sale || {};
+      isDraft.value = !!s.is_draft;
       const dm = String(s.discount_Method ?? '2').toLowerCase().trim();
       sale.value = {
         date: s.date,
@@ -1670,6 +2081,8 @@ onMounted(async () => {
       defaultQuantity.value = Math.max(1, Number(create.sale_default_quantity) || 1);
       loyaltyPointsEnabled.value = create.sale_loyalty_points_enabled !== false;
       shippingEnabled.value = create.sale_shipping_enabled !== false;
+      salesAgentEnabled.value = create.sale_sales_agent_enabled !== false;
+      loadServiceJobOptions(create);
       accounts.value = create.accounts || [];
       paymentMethods.value = create.payment_methods || [];
       point_to_amount_rate.value = Number(create.point_to_amount_rate) || 0;
@@ -1728,6 +2141,8 @@ onMounted(async () => {
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
       loyaltyPointsEnabled.value = data.sale_loyalty_points_enabled !== false;
       shippingEnabled.value = data.sale_shipping_enabled !== false;
+      salesAgentEnabled.value = data.sale_sales_agent_enabled !== false;
+      loadServiceJobOptions(data);
       defaultSellerToSelf();
       accounts.value = data.accounts || [];
       paymentMethods.value = data.payment_methods || [];
@@ -1790,6 +2205,36 @@ onMounted(async () => {
   font-size: 13px;
   text-align: center;
 }
+/* Service job card: jobs already made with the sale (Edit) */
+.sale-jobs {
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+.sale-jobs__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-top: 1px solid rgba(128, 128, 128, 0.12);
+}
+.sale-jobs__row:first-child {
+  border-top: 0;
+}
+
+/* Recurring: notes on each invoice */
+.rec-notes {
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  border-radius: 8px;
+  padding: 10px 12px 4px;
+  margin-bottom: 16px;
+}
+.rec-notes__title { font-weight: 600; }
+.rec-notes__help { font-size: 12px; opacity: 0.65; margin: 2px 0 10px; }
+.rec-notes__preview { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+.rec-notes__empty { font-size: 12px; opacity: 0.6; margin-bottom: 10px; }
 .pay-line {
   display: flex;
   flex-wrap: wrap;

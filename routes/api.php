@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Store\PagesApiController;
 use App\Http\Controllers\Api\Store\PendingCustomersController;
 use App\Http\Controllers\Api\Store\SettingsApiController;
 use App\Http\Controllers\Api\Store\SitePagesApiController;
+use App\Http\Controllers\Api\EmailOffice\EmailOfficeController;
 use App\Http\Controllers\Api\Helpdesk\HelpdeskAdminController;
 use App\Http\Controllers\Api\Helpdesk\MyTicketsController;
 use App\Http\Controllers\Api\Store\FlashSalesController;
@@ -149,6 +150,24 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('/admin/store/site-pages/{file}', [SitePagesApiController::class, 'show'])->where('file', '[A-Za-z0-9._-]+');
     Route::put('/admin/store/site-pages/{file}', [SitePagesApiController::class, 'update'])->where('file', '[A-Za-z0-9._-]+');
     Route::post('/admin/store/site-pages/{file}/restore', [SitePagesApiController::class, 'restore'])->where('file', '[A-Za-z0-9._-]+');
+
+    // ---- Email Office (email_office_view / email_office_manage; per company) ----
+    Route::get('/email-office/settings', [EmailOfficeController::class, 'settings']);
+    Route::put('/email-office/settings', [EmailOfficeController::class, 'saveSettings']);
+    Route::post('/email-office/settings/test', [EmailOfficeController::class, 'test']);
+    Route::post('/email-office/settings/fetch', [EmailOfficeController::class, 'fetchNow']);
+    Route::post('/email-office/import-all', [EmailOfficeController::class, 'importAll']);
+    Route::get('/email-office/emails', [EmailOfficeController::class, 'index']);
+    Route::get('/email-office/emails/{id}', [EmailOfficeController::class, 'show'])->whereNumber('id');
+    Route::put('/email-office/emails/{id}', [EmailOfficeController::class, 'update'])->whereNumber('id');
+    Route::get('/email-office/emails/{id}/attachments/{index}', [EmailOfficeController::class, 'attachment'])->whereNumber('id')->whereNumber('index');
+    Route::post('/email-office/emails/{id}/ticket', [EmailOfficeController::class, 'ticket'])->whereNumber('id');
+    Route::post('/email-office/compose', [EmailOfficeController::class, 'compose']);
+    Route::get('/email-office/party', [EmailOfficeController::class, 'party']);
+    Route::get('/email-office/link-options', [EmailOfficeController::class, 'linkOptions']);
+    Route::get('/email-office/addresses', [EmailOfficeController::class, 'addresses']);
+    Route::get('/email-office/party-options', [EmailOfficeController::class, 'partyOptions']);
+    Route::post('/email-office/assign-address', [EmailOfficeController::class, 'assignAddress']);
 
     // ---- Helpdesk (agents: helpdesk_view, managers: helpdesk_manage; per company) ----
     Route::get('/helpdesk/dashboard', [HelpdeskAdminController::class, 'dashboard']);
@@ -803,6 +822,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     // ------------------------------- Contracts -----------------------\\
     // Sales > Sales Contracts (customer contracts + recurring invoices).
     Route::get('sales_contracts/create', 'SalesContractController@create');
+    Route::post('sales_contracts/schedule', 'SalesContractController@schedulePreview');
     Route::get('sales_contracts/{id}/edit', 'SalesContractController@edit');
     Route::post('sales_contracts/{id}/invoice', 'SalesContractController@invoice');
     Route::resource('sales_contracts', 'SalesContractController')->only(['index', 'store', 'show', 'update', 'destroy']);
@@ -1421,6 +1441,10 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // ------------------------------- Expenses --------------------------\\
     // ------------------------------------------------------------------\\
 
+    // Recurring expenses (before the resource: 'expenses/{expense}' would catch them).
+    Route::get('expenses/recurring', 'ExpensesController@recurringIndex');
+    Route::put('expenses/recurring/{id}', 'ExpensesController@recurringUpdate');
+    Route::delete('expenses/recurring/{id}', 'ExpensesController@recurringDestroy');
     Route::resource('expenses', 'ExpensesController');
     Route::post('expenses_delete_by_selection', 'ExpensesController@delete_by_selection');
     // ------------------------------- Expense Documents --------------------------\\
@@ -1995,6 +2019,8 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety'])->group(function (
         // Journal Entries
         Route::get('journal-entries', 'AccountingV2\\JournalEntriesController@index');
         Route::get('journal-entries/{id}', 'AccountingV2\\JournalEntriesController@show');
+        // "Source" modal: the document an entry comes from.
+        Route::get('journal-entries/{id}/source', 'AccountingV2\\JournalEntriesController@source');
         Route::post('journal-entries', 'AccountingV2\\JournalEntriesController@store');
         Route::post('journal-entries/{id}/post', 'AccountingV2\\JournalEntriesController@post');
         Route::put('journal-entries/{id}', 'AccountingV2\\JournalEntriesController@update');

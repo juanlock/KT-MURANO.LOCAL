@@ -85,18 +85,23 @@
                     <a-select v-model:value="form.status" :options="statusOptions" />
                   </a-form-item>
                 </a-col>
-                <a-col :xs="24" :md="4">
-                  <a-form-item :label="$t('Scheduled_Date')">
-                    <a-input v-model:value="form.scheduled_date" type="datetime-local" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="4">
-                  <a-form-item :label="$t('End_Time')">
-                    <a-input v-model:value="form.scheduled_end_date" type="datetime-local" />
+                <!-- What the job is: a service (on-site work, labor -- no device)
+                     or a device / product repair (shows the device fields). -->
+                <a-col :xs="24" :md="8">
+                  <a-form-item label="Job for">
+                    <a-radio-group v-model:value="jobKind" button-style="solid">
+                      <a-radio-button value="service">Service</a-radio-button>
+                      <a-radio-button value="device">Device / product repair</a-radio-button>
+                    </a-radio-group>
                   </a-form-item>
                 </a-col>
               </a-row>
 
+              <!-- When: one day or several days, at a time or all day. -->
+              <a-divider orientation="left">{{ $t('Scheduled_Date') }}</a-divider>
+              <ServiceJobWhen :value="when" />
+
+              <template v-if="jobKind === 'device'">
               <a-divider orientation="left">{{ $t('Device_Information') }}</a-divider>
               <a-row :gutter="16">
                 <a-col :xs="12" :md="6">
@@ -135,15 +140,16 @@
                   </a-form-item>
                 </a-col>
               </a-row>
+              </template>
 
               <a-row :gutter="16">
-                <a-col :xs="24" :md="12">
+                <a-col v-if="jobKind === 'device'" :xs="24" :md="12">
                   <a-form-item :label="$t('Condition_On_Arrival')">
                     <a-textarea v-model:value="form.condition_on_arrival" :rows="3" :placeholder="$t('Pre_existing_damage_scratches_etc')" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('Reported_Issue')">
+                  <a-form-item :label="jobKind === 'device' ? $t('Reported_Issue') : 'Work requested'">
                     <a-textarea v-model:value="form.reported_issue" :rows="3" :placeholder="$t('What_the_customer_said')" />
                   </a-form-item>
                 </a-col>
@@ -563,6 +569,7 @@ import {
   SafetyCertificateOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import ServiceJobWhen, { emptyWhen, whenFromJob, whenToSchedule } from '../../components/ServiceJobWhen.vue';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
 import { useAuthStore } from '../../stores/auth';
@@ -608,6 +615,15 @@ const form = ref({
 });
 const jobMeta = ref(null);
 const totals = ref({ total_amount: 0, paid_amount: 0, balance_due: 0 });
+
+// When the job happens (components/ServiceJobWhen.vue): one day or a range,
+// at a time or all day -> scheduled_date / scheduled_end_date / all_day.
+const when = ref(emptyWhen(new Date().toISOString().slice(0, 10)));
+// Service (no device) or device / product repair. New jobs start as a
+// service; an existing job with device details opens as a repair.
+const DEVICE_FIELDS = ['device_brand', 'device_model', 'device_serial', 'device_imei', 'device_color', 'device_password', 'condition_on_arrival'];
+// (?kind=device from Device Repairs -> Add opens a repair.)
+const jobKind = ref(route.query.kind === 'device' ? 'device' : 'service');
 
 const clients = ref([]);
 const technicians = ref([]);
@@ -793,9 +809,11 @@ async function loadJobIfNeeded() {
   form.value.service_item = job.service_item || '';
   form.value.job_type = job.job_type || '';
   form.value.status = job.status || 'pending';
-  form.value.scheduled_date = job.scheduled_date ? String(job.scheduled_date).slice(0, 16).replace(' ', 'T') : '';
-  form.value.scheduled_end_date = job.scheduled_end_date ? String(job.scheduled_end_date).slice(0, 16).replace(' ', 'T') : '';
+  when.value = whenFromJob(job);
   form.value.notes = job.notes || '';
+  jobKind.value = job.job_kind === 'device' || job.job_kind === 'service'
+    ? job.job_kind
+    : (DEVICE_FIELDS.some(k => job[k]) || (Array.isArray(job.accessories) && job.accessories.length) ? 'device' : 'service');
 
   form.value.device_brand = job.device_brand || '';
   form.value.device_model = job.device_model || '';
@@ -950,6 +968,10 @@ async function submit() {
   SubmitProcessing.value = true;
   const payload = {
     ...form.value,
+    // Service: no device details (cleared if the job was switched from a repair).
+    ...(jobKind.value === 'service' ? { ...Object.fromEntries(DEVICE_FIELDS.map(k => [k, ''])), accessories: [] } : {}),
+    ...whenToSchedule(when.value),
+    job_kind: jobKind.value,
     checklist: buildChecklistPayload(),
     warehouse_id: selectedWarehouseId.value || null,
     items: form.value.items.map(it => ({

@@ -4,21 +4,11 @@
       <template #actions>
         <a-space wrap :size="12">
           <!-- Quick date-range presets — filters both the summary cards and
-               the table (server-side, via date_from/date_to). The keycard
-               shows exactly which days that active range covers. -->
-          <a-card size="small" class="range-card">
-            <div class="range-row">
-              <span class="range-label">{{ $t('start_date') }}</span>
-              <b class="range-value">{{ activeRange.from }}</b>
-            </div>
-            <div class="range-row">
-              <span class="range-label">{{ $t('to') }}</span>
-              <b class="range-value">{{ activeRange.to }}</b>
-            </div>
-          </a-card>
-          <a-radio-group v-model:value="datePreset" button-style="solid" @change="applyPreset(datePreset)">
-            <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
-          </a-radio-group>
+               the table (server-side, via date_from/date_to). Start date /
+               to shows the days that range covers, and editing them makes it
+               a custom range. -->
+          <DateRangeFields :value="rangeFields" :disabled="searching" @change="onRangeEdit" />
+          <DatePresetButtons v-model:value="datePreset" @change="applyPreset(datePreset)" />
           <a-button :loading="exporting === 'pdf'" @click="exportList('pdf')">
             <template #icon><FilePdfOutlined /></template>
             PDF
@@ -184,6 +174,8 @@
           <a-tag v-else :color="docStatusColor(record.statut)">
             {{ statusKey(SALE_STATUSES, record.statut) ? $t(statusKey(SALE_STATUSES, record.statut)) : record.statut }}
           </a-tag>
+          <!-- Draft: saved for review (Save as draft / recurring invoice); finalize from Edit. -->
+          <a-tag v-if="record.is_draft" color="purple" style="cursor: pointer" @click="$router.push(`/sales/${record.id}/edit`)">Draft</a-tag>
         </template>
         <template v-else-if="column.key === 'currency_code'">
           <a-tag v-if="record.currency_code" color="blue">{{ record.currency_code }}</a-tag>
@@ -514,6 +506,9 @@
 </template>
 
 <script setup>
+import DatePresetButtons from '../../components/DatePresetButtons.vue';
+import DateRangeFields from '../../components/DateRangeFields.vue';
+import { startPreset } from '../../lib/datePresetDefault';
 /**
  * Full legacy action surface for the sales list. Contracts:
  * - list GET sales (+filters) → {sales, customers, accounts, warehouses,
@@ -551,7 +546,7 @@ import {
   StopOutlined, CopyOutlined, FilterOutlined, BellOutlined, DownOutlined, LockOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
-import { DATE_PRESETS, presetRange } from '../../lib/datePresets';
+import { presetOf, presetRange } from '../../lib/datePresets';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
@@ -585,14 +580,14 @@ const filters = ref({
   date_from: '', date_to: '',
 });
 
-// Reset: every filter back to its default, date range back to Today,
-// the Customers-list "Due only" link dropped. Snapshot taken here, before
-// the deep link below writes into `filters`.
+// Reset: every filter back to its default, date range back to the user's
+// default date (else Today), the Customers-list "Due only" link dropped.
+// Snapshot taken here, before the deep link below writes into `filters`.
 const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => {
   dueOnly.value = false;
-  datePreset.value = 'today';
-  applyPreset('today');
-}, { ignore: ['date_from', 'date_to'], isDirty: () => datePreset.value !== 'today' || dueOnly.value });
+  datePreset.value = startPreset('today');
+  applyPreset(datePreset.value);
+}, { ignore: ['date_from', 'date_to'], isDirty: () => datePreset.value !== startPreset('today') || dueOnly.value });
 
 // "Customize Filters" -- which of these filters a company shows, and in
 // what order (settings.datatable_filters, same idea as DataTable.vue's
@@ -634,7 +629,8 @@ const filterParams = () => ({
   date_to: searchActive() ? '' : (filters.value.date_to || ''),
   client_id: filters.value.client_id || '',
   warehouse_id: filters.value.warehouse_id || '',
-  statut: filters.value.statut || '',
+  statut: filters.value.statut === '__draft' ? '' : (filters.value.statut || ''),
+  draft: filters.value.statut === '__draft' ? 1 : '',
   payment_statut: filters.value.payment_statut || '',
   shipping_status: filters.value.shipping_status || '',
   product_group_id: filters.value.product_group_id || '',
@@ -659,8 +655,8 @@ const crud = useCrudTable('sales', {
 // picking an exact date clears the active preset).
 // DATE_PRESETS / presetRange: shared list (lib/datePresets.js) -- the same
 // buttons on Sales, Purchases, POS Sales, Payments report and Dashboard.
-// Default: Today.
-const datePreset = ref('today');
+// Default: the user's default date (double-click a button, ★), else Today.
+const datePreset = ref(startPreset('today'));
 
 function applyPreset(preset) {
   filters.value.date = null;
@@ -709,15 +705,19 @@ function onProductFilterChange(productId) {
 // across ALL dates instead of the This Month default.
 const linkedQuery = route.query;
 if (linkedQuery.client_id) {
-  datePreset.value = 'all';
-  filters.value.date_from = '';
-  filters.value.date_to = '';
+  // ?preset= (Customers list in a date range, e.g. This Month): the same
+  // range, so the list matches the number clicked. Without it: All.
+  // ?date_from=&date_to=: a custom range edited there.
+  const [pFrom, pTo] = presetRange(String(linkedQuery.preset || ''));
+  filters.value.date_from = pFrom ? pFrom.format('YYYY-MM-DD') : String(linkedQuery.date_from || '');
+  filters.value.date_to = pTo ? pTo.format('YYYY-MM-DD') : String(linkedQuery.date_to || '');
+  datePreset.value = presetOf(filters.value.date_from, filters.value.date_to);
   filters.value.client_id = Number(linkedQuery.client_id);
   if (linkedQuery.statut) filters.value.statut = String(linkedQuery.statut);
   dueOnly.value = linkedQuery.due_only === '1';
   crud.reload();
 } else {
-  // Default: Today, applied before the first fetch.
+  // Default (user's default date, else Today), applied before the first fetch.
   applyPreset(datePreset.value);
 }
 
@@ -726,16 +726,22 @@ function clearDueOnly() {
   crud.reload();
 }
 
-// What the keycard shows: the exact day (picker) takes priority, then the
-// active preset's range, then '—' when neither is set (the "All" preset).
-const activeRange = computed(() => {
-  if (String(crud.search.value || '').trim()) return { from: 'All dates', to: '(searching)' };
-  if (filters.value.date) return { from: filters.value.date, to: filters.value.date };
-  return {
-    from: filters.value.date_from || '—',
-    to: filters.value.date_to || '—',
-  };
+// Start date / to: the exact day (picker) takes priority, then the active
+// range; empty for "All" and while searching (a search spans all dates).
+const searching = computed(() => !!String(crud.search.value || '').trim());
+const rangeFields = computed(() => {
+  if (searching.value) return null;
+  if (filters.value.date) return [filters.value.date, filters.value.date];
+  return filters.value.date_from || filters.value.date_to ? [filters.value.date_from, filters.value.date_to] : null;
 });
+// Edited dates = a custom range (or the preset whose dates they match).
+function onRangeEdit(range) {
+  filters.value.date = null;
+  filters.value.date_from = range ? range[0] : '';
+  filters.value.date_to = range ? range[1] : '';
+  datePreset.value = presetOf(filters.value.date_from, filters.value.date_to);
+  crud.reload();
+}
 
 // Summary cards — `stats` ships with the list payload (sums over ALL pages of
 // the current filtered set, not just the visible page).
@@ -786,7 +792,11 @@ const paymentMethodOptions = computed(() =>
 const accountOptions = computed(() =>
   sortByLabel((crud.payload.value?.accounts || []).map(a => ({ value: a.id, label: a.account_name })))
 );
-const statusOptions = computed(() => withAllOption(sortByLabel(SALE_STATUSES.map(s => ({ value: s.value, label: t(s.key) })))));
+// + "Draft": the drafts (Pending sales saved for review), via ?draft=1.
+const statusOptions = computed(() => withAllOption(sortByLabel([
+  ...SALE_STATUSES.map(s => ({ value: s.value, label: t(s.key) })),
+  { value: '__draft', label: 'Draft' },
+])));
 // Built from the REAL distinct payment_statut values for this company (not
 // the full static vocab) -- a company with no legacy 'pending' rows, for
 // example, never sees that option, so it can't collide/near-duplicate with

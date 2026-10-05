@@ -35,7 +35,7 @@
               <a-descriptions-item label="Location">{{ c.warehouse?.name || 'Company default' }}</a-descriptions-item>
               <a-descriptions-item label="Start">{{ date(c.start_date) }}</a-descriptions-item>
               <a-descriptions-item label="End">{{ c.end_date ? date(c.end_date) : 'Open-ended' }}</a-descriptions-item>
-              <a-descriptions-item label="Value per invoice"><b>{{ money(c.value) }}</b></a-descriptions-item>
+              <a-descriptions-item label="Value per invoice"><b>{{ money(c.value) }}</b><span v-if="c.order_tax_rate > 0" style="opacity: 0.7"> (incl. order tax {{ c.order_tax_rate }}%)</span></a-descriptions-item>
               <a-descriptions-item label="Signed">{{ c.signed_at ? `${c.signer_name || ''} · ${date(c.signed_at)}` : '—' }}</a-descriptions-item>
             </a-descriptions>
             <div v-if="c.description" class="sc-desc" v-html="c.description"></div>
@@ -44,7 +44,11 @@
           <a-card size="small" title="Products / services billed" style="margin-bottom: 16px">
             <a-table :data-source="c.items" :columns="lineColumns" :pagination="false" size="small" row-key="id">
               <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'price'">{{ money(record.price) }}</template>
+                <template v-if="column.key === 'name'">
+                  {{ record.name }}
+                  <div v-if="record.note" style="font-size: 12px; opacity: 0.65">Invoice note: {{ record.note }}</div>
+                </template>
+                <template v-else-if="column.key === 'price'">{{ money(record.price) }}</template>
                 <template v-else-if="column.key === 'tax'">{{ record.tax_percent ? record.tax_percent + '%' : '—' }}</template>
                 <template v-else-if="column.key === 'total'">{{ money(record.total) }}</template>
               </template>
@@ -67,6 +71,19 @@
               </template>
             </a-table>
           </a-card>
+
+          <!-- Service jobs (visits) this contract created. -->
+          <a-card v-if="c.jobs_enabled || (c.service_jobs || []).length" size="small" :title="`Service jobs created (${(c.service_jobs || []).length})`" style="margin-top: 16px">
+            <a-table :data-source="c.service_jobs || []" :columns="jobColumns" :pagination="{ pageSize: 10 }" size="small" row-key="id">
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'ref'">
+                  <router-link :to="`/service/jobs/details/${record.id}`">{{ record.ref }}</router-link>
+                </template>
+                <template v-else-if="column.key === 'date'">{{ record.date ? `${date(record.date)} ${String(record.date).slice(11, 16)}` : '—' }}</template>
+                <template v-else-if="column.key === 'status'"><a-tag>{{ record.status }}</a-tag></template>
+              </template>
+            </a-table>
+          </a-card>
         </a-col>
 
         <a-col :xs="24" :xl="8">
@@ -79,11 +96,27 @@
                   <template v-else>{{ c.next_invoice_date ? date(c.next_invoice_date) : '—' }}</template>
                 </a-descriptions-item>
                 <a-descriptions-item label="Last invoice">{{ c.last_invoice_date ? date(c.last_invoice_date) : '—' }}</a-descriptions-item>
+                <a-descriptions-item label="Invoices created">
+                  {{ c.invoices_created || 0 }}{{ c.billing_count ? ` of ${c.billing_count}` : '' }}
+                </a-descriptions-item>
                 <a-descriptions-item label="Amount">{{ money(c.value) }}</a-descriptions-item>
+                <a-descriptions-item v-if="c.invoice_note" label="Invoice note">{{ c.invoice_note }}</a-descriptions-item>
               </a-descriptions>
               <div v-if="c.status !== 'active'" style="color: #f97316; font-size: 12px">Paused: the contract is not Active.</div>
             </template>
             <div v-else style="opacity: 0.6">One-off: no automatic invoices. Use "Generate invoice" when needed.</div>
+          </a-card>
+
+          <a-card v-if="c.jobs_enabled" size="small" :title="$t('Contract_Service_Jobs')" style="margin-top: 16px">
+            <div class="sc-big"><SyncOutlined /> Every {{ c.jobs_interval > 1 ? `${c.jobs_interval} ` : '' }}{{ { weekly: 'week', monthly: 'month', quarterly: 'quarter', yearly: 'year' }[c.jobs_frequency] }}{{ c.jobs_interval > 1 ? 's' : '' }}{{ c.jobs_time ? ` at ${c.jobs_time}` : '' }}</div>
+            <a-descriptions :column="1" size="small" style="margin-top: 8px">
+              <a-descriptions-item label="Next visit">{{ c.next_job_date ? date(c.next_job_date) : '—' }}</a-descriptions-item>
+              <a-descriptions-item label="Visits created">{{ c.jobs_created || 0 }}{{ c.jobs_count ? ` of ${c.jobs_count}` : '' }}</a-descriptions-item>
+              <a-descriptions-item label="Technician">{{ c.jobs_technician || 'Not assigned' }}</a-descriptions-item>
+              <a-descriptions-item v-if="c.jobs_service_item" label="Visit title">{{ c.jobs_service_item }}</a-descriptions-item>
+              <a-descriptions-item label="Created ahead">{{ c.jobs_lead_days }} day(s) before each visit</a-descriptions-item>
+            </a-descriptions>
+            <div v-if="c.status !== 'active'" style="color: #f97316; font-size: 12px">Paused: the contract is not Active.</div>
           </a-card>
         </a-col>
       </a-row>
@@ -132,6 +165,15 @@ const invoiceColumns = [
   { title: 'Total', key: 'total', align: 'right' },
   { title: 'Payment', key: 'payment' },
   { title: 'How', key: 'how' },
+];
+
+const jobColumns = [
+  { title: 'Job', key: 'ref' },
+  { title: '#', dataIndex: 'number', key: 'number', width: 60 },
+  { title: 'Visit', key: 'date' },
+  { title: 'Title', dataIndex: 'title', key: 'title', ellipsis: true },
+  { title: 'Technician', dataIndex: 'technician', key: 'technician' },
+  { title: 'Status', key: 'status' },
 ];
 
 async function load() {

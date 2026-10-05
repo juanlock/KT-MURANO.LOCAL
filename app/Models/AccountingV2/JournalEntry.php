@@ -12,6 +12,7 @@ class JournalEntry extends Model
     protected $table = 'acc_journal_entries';
 
     protected $fillable = [
+        'company_id', // multicompany: the company the entry belongs to
         'date', 'description', 'reference_type', 'reference_id', 'status', 'posted_at', 'created_by',
     ];
 

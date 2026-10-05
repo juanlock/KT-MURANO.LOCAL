@@ -25,6 +25,11 @@ class Booking extends Model
         'tray_id',
         // Location of the appointment (and of its invoice).
         'warehouse_id',
+        // Appointment mode (Settings -> Booking -> Appointment mode):
+        // office | remote (meeting_link) | onsite (site_address).
+        'mode',
+        'meeting_link',
+        'site_address',
         'sales_person_id',
         'product_name',
         'product_description',

@@ -17,12 +17,20 @@ class SalesContract extends Model
 
     public const STATUSES = ['draft', 'active', 'expired', 'cancelled'];
     public const FREQUENCIES = ['weekly', 'monthly', 'quarterly', 'yearly'];
+    // Which day each invoice falls on (see SalesContractBilling::align()).
+    public const DAY_MODES = ['same', 'first', 'last', 'day'];
 
     protected $fillable = [
         'company_id', 'contract_number', 'client_id', 'warehouse_id', 'subject', 'type', 'value',
-        'start_date', 'end_date', 'description', 'status', 'hide_from_customer',
+        // Order tax % on each invoice (sales.tax_rate), like a sale's Order Tax.
+        'order_tax_rate',
+        'start_date', 'end_date', 'description', 'invoice_note', 'status', 'hide_from_customer',
         'signer_name', 'signed_at', 'signed_ip',
-        'billing_enabled', 'billing_frequency', 'billing_interval', 'next_invoice_date', 'last_invoice_date',
+        'billing_enabled', 'invoice_as_draft', 'billing_frequency', 'billing_interval', 'billing_count', 'billing_day_mode', 'billing_day',
+        'next_invoice_date', 'last_invoice_date',
+        // Recurring service jobs (visits) -- App\Services\SalesContractJobs.
+        'jobs_enabled', 'jobs_service_item', 'jobs_job_type', 'jobs_technician_id', 'jobs_frequency', 'jobs_interval',
+        'jobs_count', 'jobs_day_mode', 'jobs_day', 'jobs_time', 'jobs_lead_days', 'next_job_date',
         'created_by',
     ];
 
@@ -31,9 +39,19 @@ class SalesContract extends Model
         'client_id' => 'integer',
         'warehouse_id' => 'integer',
         'value' => 'decimal:2',
+        'order_tax_rate' => 'float',
         'hide_from_customer' => 'boolean',
         'billing_enabled' => 'boolean',
+        'invoice_as_draft' => 'boolean',
         'billing_interval' => 'integer',
+        'billing_count' => 'integer',
+        'billing_day' => 'integer',
+        'jobs_enabled' => 'boolean',
+        'jobs_technician_id' => 'integer',
+        'jobs_interval' => 'integer',
+        'jobs_count' => 'integer',
+        'jobs_day' => 'integer',
+        'jobs_lead_days' => 'integer',
         'signed_at' => 'datetime',
     ];
 
@@ -55,6 +73,12 @@ class SalesContract extends Model
     public function invoices()
     {
         return $this->hasMany(SalesContractInvoice::class, 'sales_contract_id')->orderByDesc('id');
+    }
+
+    /** Service jobs (visits) this contract created. */
+    public function serviceJobs()
+    {
+        return $this->hasMany(ServiceJob::class, 'sales_contract_id')->orderBy('scheduled_date');
     }
 
     public static function generateNumber(): string

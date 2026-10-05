@@ -18,6 +18,10 @@ class EventServiceProvider extends ServiceProvider
         Registered::class => [
             SendEmailVerificationNotification::class,
         ],
+        // Email Office -> Email sent: every email the system sends.
+        \Illuminate\Mail\Events\MessageSent::class => [
+            \App\Listeners\LogSentEmail::class,
+        ],
         \App\Events\SaleCreated::class => [
             \App\Listeners\AccountingV2\GenerateSaleJournal::class,
         ],

@@ -86,7 +86,15 @@ class SalesAgentController extends BaseController
             'notes' => $request->notes,
         ]);
 
-        return $this->sendResponse($agent, __('Created successfully'));
+        // A sales agent works for the company: also an Employee (HRM ->
+        // Employees), linked to the same login.
+        $employee = LinkedUserService::ensureEmployee(\App\Models\User::find($userId), $companyId);
+        $message = __('Created successfully');
+        if ($employee === 'employee_missing_hr_setup') {
+            $message .= ' -- not added to Employees yet: the company needs a department, designation and office shift first (HRM).';
+        }
+
+        return $this->sendResponse($agent->setAttribute('employee_id', is_int($employee) ? $employee : null), $message);
     }
 
     public function show(Request $request, $id)

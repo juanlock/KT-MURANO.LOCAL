@@ -10,8 +10,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Bookings / appointments: a few trays (resources/stations) and bookings
  * spread over past and upcoming days in every status. Bookings prefer the
- * company's service products. Neither table has company_id; the customer
- * ties a booking to the company. No Google Calendar event is created.
+ * company's service products. Trays are the company's own (trays.company_id,
+ * set by DemoContext::insert); a booking has no company_id -- the customer
+ * ties it to the company. No Google Calendar event is created.
  */
 class BookingsModule extends DemoModule
 {

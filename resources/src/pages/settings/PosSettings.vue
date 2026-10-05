@@ -22,16 +22,7 @@
     <a-form v-else layout="vertical">
       <!-- Company-level POS rules (settings row, saved with this page). -->
       <a-card size="small" title="Company rules" style="margin-bottom: 16px">
-        <div class="pos-rule">
-          <div>
-            <div class="pos-rule__label">Price decimals</div>
-            <div class="pos-rule__help">How many decimals prices and totals use in the POS, sales and invoices: 2 (12.50) or 3 (12.500). Applies to the whole company.</div>
-          </div>
-          <a-radio-group v-model:value="priceDecimals" button-style="solid">
-            <a-radio-button :value="2">2</a-radio-button>
-            <a-radio-button :value="3">3</a-radio-button>
-          </a-radio-group>
-        </div>
+        <!-- Price decimals moved to System Settings -> Defaults -> General (company-wide). -->
         <div class="pos-rule">
           <div>
             <div class="pos-rule__label">Require an open register</div>
@@ -241,7 +232,6 @@ const route = useRoute();
 const tab = ref(TABS.includes(String(route.query.tab)) ? String(route.query.tab) : 'general');
 
 // Company-level POS rules (settings row), loaded/saved with this page.
-const priceDecimals = ref(2);
 const requireOpenRegister = ref(true);
 const registerPinRequired = ref(false);
 const closeRegisterEmail = ref(true);
@@ -328,7 +318,6 @@ async function save() {
     products_per_page: v.products_per_page,
     cash_drawer_printer_name: v.cash_drawer_printer_name || null,
     invoice_format: invoiceFormat.value,
-    enable_3_decimal_pricing: priceDecimals.value === 3 ? 1 : 0,
     pos_require_open_register: requireOpenRegister.value ? 1 : 0,
     pos_register_pin_required: registerPinRequired.value ? 1 : 0,
     pos_close_register_email: closeRegisterEmail.value ? 1 : 0,
@@ -342,9 +331,6 @@ async function save() {
     await http.put(`pos_settings/${v.id}`, body);
     // The topbar's POS button follows this setting right away (no reload needed).
     if (auth.user) auth.user.show_pos_button = !!v.show_pos_button;
-    // Decimals apply app-wide: refresh the signed-in company's value now.
-    if (auth.user) auth.user.price_decimals = priceDecimals.value;
-    try { window.localStorage.setItem('app_price_decimals', String(priceDecimals.value)); } catch (e) { /* storage unavailable */ }
     message.success(t('Successfully_Updated'));
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData'));
@@ -362,7 +348,6 @@ onMounted(async () => {
     // Global invoice format comes as a top-level field on the response
     // (it lives on the `settings` row, not `pos_settings`).
     invoiceFormat.value = data.invoice_format || ps.invoice_format || 'thermal';
-    priceDecimals.value = data.enable_3_decimal_pricing ? 3 : 2;
     requireOpenRegister.value = data.pos_require_open_register !== false;
     registerPinRequired.value = data.pos_register_pin_required === true;
     closeRegisterEmail.value = data.pos_close_register_email !== false;

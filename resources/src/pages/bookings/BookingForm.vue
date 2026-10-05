@@ -58,7 +58,8 @@
             </a-form-item>
           </a-col>
 
-          <a-col :xs="24" :md="12" :lg="8">
+          <!-- Stations are per company: a company without any (e.g. IT services) doesn't see the field. -->
+          <a-col v-if="trays.length" :xs="24" :md="12" :lg="8">
             <a-form-item :label="$t('Tray')">
               <a-select
                 v-model:value="booking.tray_id" show-search option-filter-prop="label"
@@ -145,6 +146,37 @@
               :duration="selectedDuration" :exclude-id="isEdit ? id : null" :customer-id="booking.customer_id"
             />
           </a-col>
+
+          <!-- Appointment mode (Settings -> Booking): office / remote + link / on-site + address. -->
+          <template v-if="fields.mode">
+            <a-col :xs="24" :md="12" :lg="8">
+              <a-form-item :label="tf('Appointment_Mode', 'Appointment mode')">
+                <a-select v-model:value="booking.mode" :options="modeOptions" @change="onModeChange" />
+              </a-form-item>
+            </a-col>
+            <a-col v-if="booking.mode === 'remote'" :xs="24" :md="12" :lg="16">
+              <a-form-item :label="tf('Meeting_Link', 'Meeting link')" name="meeting_link" :extra="tf('Meeting_Link_Help', 'Zoom, Google Meet, Teams... It goes in the emails and reminders.')">
+                <a-input v-model:value="booking.meeting_link" placeholder="https://" allow-clear>
+                  <template #suffix>
+                    <a v-if="isUrl(booking.meeting_link)" :href="booking.meeting_link" target="_blank" rel="noopener">{{ tf('Join_Meeting', 'Join meeting') }}</a>
+                  </template>
+                </a-input>
+              </a-form-item>
+            </a-col>
+            <a-col v-if="booking.mode === 'onsite'" :xs="24" :md="12" :lg="16">
+              <a-form-item>
+                <template #label>
+                  <div class="label-row">
+                    <span>{{ tf('Site_Address', 'Site address') }}</span>
+                    <a-button v-if="customerAddress" type="link" size="small" style="padding: 0" @click="booking.site_address = customerAddress">
+                      {{ tf('Use_Customer_Address', "Use the customer's address") }}
+                    </a-button>
+                  </div>
+                </template>
+                <a-textarea v-model:value="booking.site_address" :rows="2" />
+              </a-form-item>
+            </a-col>
+          </template>
 
           <a-col v-if="fields.delivery_date" :xs="24" :md="12" :lg="8">
             <a-form-item :label="$t('Delivery_Date')">
@@ -327,7 +359,20 @@ const quickProductOpen = ref(false);
 // System Settings -> Defaults -> Booking: optional fields (all shown until the API says otherwise).
 // A hidden field keeps its value: a new booking saves the defaults (status Pending,
 // no delivery), an edit sends back what the booking already has.
-const fields = ref({ delivery_date: true, delivery_time: true, status: true, delivery_address: true, decimals: true });
+const fields = ref({ delivery_date: true, delivery_time: true, status: true, delivery_address: true, decimals: true, mode: false });
+
+// Appointment mode: office / remote (meeting link) / on-site (customer's address).
+const modeOptions = computed(() => [
+  { value: 'office', label: tf('Mode_Office', 'At our office') },
+  { value: 'remote', label: tf('Mode_Remote', 'Remote (online)') },
+  { value: 'onsite', label: tf('Mode_Onsite', "At the customer's site") },
+]);
+const customerAddress = computed(() => customers.value.find(c => c.id === booking.value.customer_id)?.address || '');
+const isUrl = v => /^https?:\/\/\S+$/i.test(String(v || ''));
+function onModeChange(mode) {
+  // On-site starts from the customer's address (still editable).
+  if (mode === 'onsite' && !booking.value.site_address) booking.value.site_address = customerAddress.value;
+}
 // Defaults -> Booking -> Use decimals: off = whole numbers in Price / Amount.
 const moneyPrecision = computed(() => (fields.value.decimals ? 2 : 0));
 const moneyStep = computed(() => (fields.value.decimals ? 0.01 : 1));
@@ -350,6 +395,7 @@ const booking = ref({
   booking_date: isEdit ? '' : (qDate || todayLocal()),
   booking_time: isEdit ? '' : qTime, booking_end_time: '',
   delivery_date: '', delivery_time: '', delivery_address: '',
+  mode: 'office', meeting_link: '', site_address: '',
   status: 'pending', notes: '',
 });
 
@@ -370,6 +416,7 @@ const rules = computed(() => ({
   product_name: [{ max: 255, message: t('Please_fill_the_form_correctly') }],
   price: [{ type: 'number', min: 0, message: t('Please_fill_the_form_correctly') }],
   amount: [{ type: 'number', min: 0, message: t('Please_fill_the_form_correctly') }],
+  meeting_link: [{ type: 'url', message: t('Please_fill_the_form_correctly') }],
 }));
 
 /** The API stores HH:mm:ss; the pickers only accept HH:mm. */
@@ -470,6 +517,8 @@ function payload() {
     delivery_date: b.delivery_date || null,
     delivery_time: b.delivery_time || null,
     delivery_address: b.delivery_address,
+    // Only sent when the mode is on (otherwise the booking keeps what it has).
+    ...(fields.value.mode ? { mode: b.mode || 'office', meeting_link: b.meeting_link || null, site_address: b.site_address || null } : {}),
     status: b.status,
     notes: b.notes,
   };
@@ -664,6 +713,9 @@ onMounted(async () => {
         delivery_date: String(b.delivery_date || '').slice(0, 10),
         delivery_time: normalizeTime(b.delivery_time),
         delivery_address: b.delivery_address || '',
+        mode: b.mode || 'office',
+        meeting_link: b.meeting_link || '',
+        site_address: b.site_address || '',
         status: b.status,
         notes: b.notes || '',
       };

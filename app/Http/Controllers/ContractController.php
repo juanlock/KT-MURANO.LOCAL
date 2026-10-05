@@ -439,7 +439,8 @@ class ContractController extends Controller
         $contract = Contract::whereNull('deleted_at')->where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee')->findOrFail($id);
         $request->validate(['file' => 'required|file|max:10240']);
         $file = $request->file('file');
-        $path = $file->store('contracts/' . $id, 'public');
+        // Project standard: public/files/company_{id}/contracts/{Y}/{m} (CompanyFiles, private: downloaded through attachmentsDownload).
+        $path = \App\Support\CompanyFiles::putUpload((int) $contract->company_id, 'contracts', $file, true);
         ContractAttachment::create(['contract_id' => $id, 'file_name' => $file->getClientOriginalName(), 'file_path' => $path]);
         return response()->json(['success' => true, 'path' => $path]);
     }
@@ -449,7 +450,7 @@ class ContractController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Contract::class);
         $this->ownContract($request, $contractId);
         $att = ContractAttachment::where('contract_id', $contractId)->findOrFail($attachmentId);
-        Storage::disk('public')->delete($att->file_path);
+        @unlink($att->absolutePath());
         $att->delete();
         return response()->json(['success' => true]);
     }
@@ -459,7 +460,7 @@ class ContractController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Contract::class);
         $this->ownContract($request, $contractId);
         $att = ContractAttachment::where('contract_id', $contractId)->findOrFail($attachmentId);
-        $path = Storage::disk('public')->path($att->file_path);
+        $path = $att->absolutePath();
         if (!file_exists($path)) {
             return response()->json(['message' => 'File not found'], 404);
         }

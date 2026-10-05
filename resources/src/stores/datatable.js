@@ -22,7 +22,9 @@ export const DATATABLE_DEFAULTS = {
     showSearch: true,
     showColumns: true,
     showRefresh: true,
-    // Header (thead) — empty color = keep the theme's default.
+    // Header (thead). Background: '' = Theme (default) -- a light tint of
+    // the theme's primary colour, so it follows the theme; 'plain' = Ant's
+    // own grey header; '#rrggbb' = a custom colour. Text: '' = theme default.
     headerBg: '',
     headerColor: '',
     headerWeight: '600',
@@ -37,6 +39,17 @@ export const FONT_STACKS = {
     system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', Times, serif",
 };
+
+/**
+ * CSS background for the table header from the headerBg pref, or null for
+ * Ant's own (plain) header. The theme tint reads --app-primary-rgb, which
+ * App.vue keeps in sync with the theme's primary colour.
+ */
+export function headerBgCss(headerBg) {
+    if (headerBg === 'plain') return null;
+    if (headerBg) return headerBg;
+    return 'rgba(var(--app-primary-rgb, 0, 120, 212), 0.10)';
+}
 
 function pick(obj) {
     const out = {};
@@ -68,13 +81,13 @@ function applyGlobal(p) {
             '--gdt-th-weight': p.headerWeight || '600',
             '--gdt-th-size': `${p.headerFontSize || 14}px`,
             '--gdt-th-transform': p.headerUppercase ? 'uppercase' : 'none',
-            '--gdt-th-bg': p.headerBg || '',
+            '--gdt-th-bg': headerBgCss(p.headerBg) || '',
             '--gdt-th-color': p.headerColor || '',
         };
         Object.entries(vars).forEach(([k, v]) => (v ? root.style.setProperty(k, v) : root.style.removeProperty(k)));
         root.classList.toggle('gdt-striped', !!p.striped);
         root.classList.toggle('gdt-bordered', !!p.bordered);
-        root.classList.toggle('gdt-th-bg', !!p.headerBg);
+        root.classList.toggle('gdt-th-bg', !!headerBgCss(p.headerBg));
         root.classList.toggle('gdt-th-color', !!p.headerColor);
         ['small', 'middle', 'large'].forEach(d => root.classList.toggle(`gdt-density-${d}`, p.density === d));
     } catch (e) { /* no DOM (SSR/tests) */ }

@@ -20,6 +20,7 @@ class DemoModules
         Modules\MarketingModule::class,
         // Money & sales add-ons
         Modules\AccountingModule::class,
+        Modules\RegularExpensesModule::class,
         Modules\EWalletModule::class,
         Modules\CommissionsModule::class,
         Modules\PromotionsModule::class,

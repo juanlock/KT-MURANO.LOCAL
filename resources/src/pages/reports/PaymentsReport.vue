@@ -14,10 +14,8 @@
       <ViewCurrencySelect />
     </template>
     <template #filters>
-      <a-radio-group v-model:value="datePreset" button-style="solid" @change="applyPreset(datePreset)">
-        <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">{{ $t(p.labelKey) }}</a-radio-button>
-      </a-radio-group>
-      <DateRangePicker v-model:value="range" :allow-clear="false" @change="onExactRangeChange" />
+      <DateRangeFields :value="rangeFields" :allow-clear="false" @change="onExactRangeChange" />
+      <DatePresetButtons v-model:value="datePreset" @change="applyPreset(datePreset)" />
       <a-input
         v-model:value="refFilter" allow-clear :placeholder="$t('Reference')" style="width: 200px"
         @press-enter="crud.reload()" @change="e => { if (!e.target.value) crud.reload(); }"
@@ -97,6 +95,8 @@
 </template>
 
 <script setup>
+import DatePresetButtons from '../../components/DatePresetButtons.vue';
+import { startPreset } from '../../lib/datePresetDefault';
 /**
  * One component for the four payment reports — they differ only by endpoint and
  * their document/party columns. The route supplies `kind` via meta:
@@ -108,9 +108,9 @@
  *
  * NOTE: these endpoints are NOT under `report/` like the other reports.
  */
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import dayjs from 'dayjs';
-import { DATE_PRESETS, presetRange as sharedPresetRange } from '../../lib/datePresets';
+import { presetOf, presetRange as sharedPresetRange } from '../../lib/datePresets';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -122,7 +122,7 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { useUiStore } from '../../stores/ui';
 import { t as tf } from '../../i18n';
-import DateRangePicker from '../../components/DateRangePicker.vue';
+import DateRangeFields from '../../components/DateRangeFields.vue';
 import ViewCurrencySelect from '../../components/ViewCurrencySelect.vue';
 
 const { t } = useI18n();
@@ -181,7 +181,7 @@ const kind = KINDS[route.meta.kind] || KINDS.sale;
 const endpoint = kind.endpoint;
 const titleKey = kind.titleKey;
 
-const range = ref(presetRange('today'));
+const range = ref(presetRange(startPreset('today')));
 const refFilter = ref('');
 const partyId = ref(undefined);
 const docId = ref(undefined);
@@ -191,8 +191,9 @@ const methodId = ref(undefined);
 // lists (only one of the buttons or the exact picker is ever "active":
 // picking a preset clears any highlight mismatch, picking an exact range
 // clears the preset highlight).
-// DATE_PRESETS: shared list (lib/datePresets.js). Default: Today.
-const datePreset = ref('today');
+// DATE_PRESETS: shared list (lib/datePresets.js). Default: the user's
+// default date (double-click a button, ★), else Today.
+const datePreset = ref(startPreset('today'));
 
 // This report's range picker needs both ends: "All" = since 2000.
 function presetRange(preset) {
@@ -205,21 +206,15 @@ function applyPreset(preset) {
   crud.reload();
 }
 
-// DateRangePicker fires a spurious @change once during initial mount (its
-// internal value syncs to the v-model default), which would otherwise clear
-// the default (Today) highlight before the user ever touches anything. Ignore
-// that one mount-time firing; only real picker interaction should un-highlight it.
-let ignoreNextExactRangeChange = true;
-onMounted(() => {
-  nextTick(() => { ignoreNextExactRangeChange = false; });
-});
-
-function onExactRangeChange() {
-  if (ignoreNextExactRangeChange) {
-    ignoreNextExactRangeChange = false;
-    return;
-  }
-  datePreset.value = null;
+// Start date / to (editable): the range as strings; an edit = a custom range
+// (or the preset whose dates it matches). Both ends required here.
+const rangeFields = computed(() => (range.value?.[0]
+  ? [range.value[0].format('YYYY-MM-DD'), range.value[1].format('YYYY-MM-DD')]
+  : null));
+function onExactRangeChange(r) {
+  if (!r) return;
+  range.value = [dayjs(r[0]).startOf('day'), dayjs(r[1]).endOf('day')];
+  datePreset.value = presetOf(r[0], r[1]);
   crud.reload();
 }
 

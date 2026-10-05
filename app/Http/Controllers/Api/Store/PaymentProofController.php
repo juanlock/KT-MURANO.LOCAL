@@ -21,7 +21,7 @@ use Illuminate\Support\Str;
  */
 class PaymentProofController extends Controller
 {
-    /** Where the screenshots live (public/images per this project's convention). */
+    /** Legacy folder (bare file names in old rows); new proofs go to files/company_{id}/payment_proofs. */
     public const UPLOAD_DIR = 'images/payment_proofs';
 
     /** GET /store/my/orders/{id}/payment-proofs */
@@ -65,10 +65,12 @@ class PaymentProofController extends Controller
             'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
         ]);
 
-        $dir = public_path(self::UPLOAD_DIR);
-        if (! File::exists($dir)) {
-            File::makeDirectory($dir, 0755, true);
-        }
+        // Project standard: public/files/company_{id}/payment_proofs (CompanyFiles) --
+        // the company of the order's location (online_orders has no company_id).
+        $companyId = (int) (\Illuminate\Support\Facades\DB::table('warehouses')->where('id', $order->warehouse_id)->value('company_id')
+            ?: \Illuminate\Support\Facades\DB::table('clients')->where('id', $order->client_id)->value('company_id') ?: 1);
+        $relDir = \App\Support\CompanyFiles::dir($companyId, 'payment_proofs');
+        $dir = public_path($relDir);
 
         $file = $request->file('file');
         $ext = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'jpg');
@@ -80,7 +82,7 @@ class PaymentProofController extends Controller
             'reference_number' => trim($data['reference_number']),
             'amount' => round((float) $data['amount'], 2),
             'paid_at' => $data['paid_at'] ?? now()->toDateString(),
-            'file_path' => $filename,
+            'file_path' => $relDir.'/'.$filename,
             'note' => $data['note'] ?? null,
             'status' => 'pending',
         ]);

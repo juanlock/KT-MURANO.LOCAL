@@ -136,7 +136,7 @@ class PortalContractsController extends Controller
         abort(404);
         $att = ContractAttachment::findOrFail($attachmentId);
 
-        $path = Storage::disk('public')->path($att->file_path);
+        $path = $att->absolutePath();
         if (! file_exists($path)) {
             return response()->json(['message' => __('portal.file_not_found')], 404);
         }
