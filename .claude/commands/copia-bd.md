@@ -1,5 +1,5 @@
 ---
-description: "Protocol Copia BD -- dumps dbmurano via mysqldump into KT-TOOLS/database/ as a timestamped .zip (holding the .sql). Also triggers on \"Claude/Jarvis, run protocolo copia bd\" / \"protocolo copia bd\"."
+description: "Protocol Copia BD -- dumps dbmurano via mysqldump into KT-TOOLS/database/ as two timestamped zips (each holding a .sql): one with every table except the Email Office ones, one with only the Email Office tables. Also triggers on \"Claude/Jarvis, run protocolo copia bd\" / \"protocolo copia bd\"."
 ---
 
 Run Protocol Copia BD:
@@ -14,7 +14,11 @@ Run Protocol Copia BD:
    - Collations only MariaDB 11 (`utf8mb4_uca1400_*`) or MySQL 8 (`utf8mb4_0900_*`) know are rewritten to `utf8mb4_unicode_ci` -- on structure lines only; INSERT data is never altered.
    - `DROP TABLE IF EXISTS` before each table, so a re-import replaces the tables.
    Verified 2026-10-01 by importing a dump into a scratch local DB with the `mysql` client: 327 tables, 66,165 rows, zero count mismatches, trigger present.
-4b. **Zipped (user's rule, 2026-10-05):** the database outgrew GitHub's 100 MB file limit (`office_emails` -- the Email Office import made the `.sql` ~123 MB), so the final backup is **`dbmurano_<date>_<host>_<time>.zip`**, holding the `.sql` of the same name (PHP `ZipArchive`, ~8x smaller). The plain `.sql` is deleted once the zip is written; if zipping fails the `.sql` is kept and a warning is printed. To restore: unzip, then import the `.sql` (phpMyAdmin also accepts the `.zip` directly when its upload limit allows the size). `*.zip` is stored with Git LFS (`.gitattributes`).
+4b. **Two files, both zipped (user's rule, 2026-10-05):** the Email Office tables outgrew everything else (`office_emails` alone is ~130 MB of imported mailboxes, which pushed the single `.sql` past GitHub's 100 MB file limit). So every run writes:
+   - **`dbmurano_<date>_<host>_<time>.zip`** -- every table **except** the Email Office ones (`--ignore-table`), plus routines and triggers. Small (~4 MB zip / ~19 MB `.sql` on 2026-10-05).
+   - **`dbmurano_<date>_<host>_<time>_office_emails.zip`** -- **only** the Email Office tables (`office_emails`, `email_office_settings`: structure + data). ~12 MB zip / ~104 MB `.sql`.
+   The list of tables is `$emailTables` at the top of the script -- add any new Email Office table there. Each zip holds the `.sql` of the same name (PHP `ZipArchive`); the plain `.sql` is deleted once its zip is written (if zipping fails the `.sql` is kept with a warning). If mysqldump fails, no partial backup is left (the files already written in that run are removed too).
+   **To restore:** unzip both, import the main `.sql` first, then the `_office_emails` one into the same database (no foreign keys link them to the other tables, so the order is only a convention). phpMyAdmin also accepts a `.zip` directly when its upload limit allows the size. Verified 2026-10-05 by importing both into a scratch DB: 333 tables, 95,539 rows, zero mismatches, trigger present. `*.zip` is stored with Git LFS (`.gitattributes`).
 5. **Other folder:** to write the dump somewhere else under `KT-TOOLS/` (e.g. an export for an external backup program -> `KT-TOOLS/SQL/`), set `$outSubdir` before the require: `php artisan tinker --execute="$outSubdir = 'SQL'; require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"`. Same format and file naming; default is `database`.
 6. Report the output path and file size back to the user.
 

@@ -1,8 +1,10 @@
 <?php
 
 // Protocol Copia BD -- dumps the dbmurano MySQL database via mysqldump and
-// saves it to KT-TOOLS/database/ as a timestamped .sql file, so a snapshot
-// travels with the repo across every machine this checkout is on.
+// saves it to KT-TOOLS/database/ as two timestamped zips (each holding a .sql):
+// dbmurano_<date>_<host>_<time>.zip (all tables except the Email Office ones)
+// and ..._office_emails.zip (only those), so a snapshot travels with the repo
+// across every machine this checkout is on.
 // Run via: php artisan tinker --execute="require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"
 //
 // Reads connection details from Laravel's own config (never hardcoded), so
@@ -86,7 +88,13 @@ if (! is_dir($outDir)) {
 $host = gethostname() ?: 'unknown-host';
 $date = now()->format('Y-m-d');
 $time = now()->format('h-i-s-A');
-$outFile = $outDir.DIRECTORY_SEPARATOR."dbmurano_{$date}_{$host}_{$time}.sql";
+$stem = $outDir.DIRECTORY_SEPARATOR."dbmurano_{$date}_{$host}_{$time}";
+
+// Two backups (user's rule, 2026-10-05): the Email Office tables alone are
+// >130 MB (imported mailboxes), so they go to their own file and the main
+// backup stays small. Both are zipped. Restore = import the main file, then
+// the _office_emails one (no foreign keys link them to other tables).
+$emailTables = ['office_emails', 'email_office_settings'];
 
 // phpMyAdmin-ready (user's rule, 2026-10-01): the file must import as-is
 // through phpMyAdmin -> Import on shared hosting (e.g. Hostinger), into
@@ -112,10 +120,26 @@ $base = [
     '--default-character-set=utf8mb4',
 ];
 $db = (string) $conn['database'];
-$passes = [
-    '1. TABLES (structure only)' => array_merge($base, ['--no-data', '--routines', '--skip-triggers', $db]),
-    '2. DATA' => array_merge($base, ['--no-create-info', '--skip-triggers', $db]),
-    '3. TRIGGERS' => array_merge($base, ['--no-create-info', '--no-data', '--triggers', $db]),
+$ignore = array_map(fn ($t) => "--ignore-table={$db}.{$t}", $emailTables);
+$parts = [
+    // Main backup: every table except the Email Office ones (+ routines).
+    "{$stem}.sql" => [
+        'title' => 'all tables except the Email Office ones ('.implode(', ', $emailTables).')',
+        'passes' => [
+            '1. TABLES (structure only)' => array_merge($base, ['--no-data', '--routines', '--skip-triggers'], $ignore, [$db]),
+            '2. DATA' => array_merge($base, ['--no-create-info', '--skip-triggers'], $ignore, [$db]),
+            '3. TRIGGERS' => array_merge($base, ['--no-create-info', '--no-data', '--triggers'], $ignore, [$db]),
+        ],
+    ],
+    // Email Office backup: only those tables (structure + data).
+    "{$stem}_office_emails.sql" => [
+        'title' => 'only the Email Office tables ('.implode(', ', $emailTables).') -- import after the main file',
+        'passes' => [
+            '1. TABLES (structure only)' => array_merge($base, ['--no-data', '--skip-triggers', $db], $emailTables),
+            '2. DATA' => array_merge($base, ['--no-create-info', '--skip-triggers', $db], $emailTables),
+            '3. TRIGGERS' => array_merge($base, ['--no-create-info', '--no-data', '--triggers', $db], $emailTables),
+        ],
+    ],
 ];
 
 // Line clean-up for portability (structure lines only -- INSERT data rows
@@ -141,58 +165,68 @@ $clean = function (string $line): ?string {
     return $line;
 };
 
-$fh = fopen($outFile, 'w');
-fwrite($fh, "-- Murano database export (Protocol Copia BD), phpMyAdmin-ready:\n"
-    ."-- phpMyAdmin -> select the target database -> Import -> this file.\n"
-    ."-- Order: 1) all CREATE TABLE  2) all data (INSERT)  3) triggers.\n"
-    ."-- No CREATE DATABASE / USE, no LOCK TABLES, no DEFINER, only portable\n"
-    ."-- collations (utf8mb4_unicode_ci). Existing tables are replaced.\n\n");
-$result = null;
-foreach ($passes as $title => $command) {
-    fwrite($fh, "\n-- ============================================================\n-- {$title}\n-- ============================================================\n\n");
-    $buffer = '';
-    $result = Process::timeout(600)->run($command, function ($type, $chunk) use ($fh, $clean, &$buffer) {
-        if ($type !== \Symfony\Component\Process\Process::OUT) {
-            return;
-        }
-        // Chunks don't end on line breaks: clean complete lines only.
-        $buffer .= $chunk;
-        while (($pos = strpos($buffer, "\n")) !== false) {
-            $line = $clean(substr($buffer, 0, $pos + 1));
-            $buffer = substr($buffer, $pos + 1);
-            if ($line !== null) {
-                fwrite($fh, $line);
+$written = [];
+foreach ($parts as $outFile => $part) {
+    $fh = fopen($outFile, 'w');
+    fwrite($fh, "-- Murano database export (Protocol Copia BD), phpMyAdmin-ready:\n"
+        ."-- Contains: {$part['title']}.\n"
+        ."-- phpMyAdmin -> select the target database -> Import -> this file.\n"
+        ."-- Order: 1) all CREATE TABLE  2) all data (INSERT)  3) triggers.\n"
+        ."-- No CREATE DATABASE / USE, no LOCK TABLES, no DEFINER, only portable\n"
+        ."-- collations (utf8mb4_unicode_ci). Existing tables are replaced.\n\n");
+    $result = null;
+    foreach ($part['passes'] as $title => $command) {
+        fwrite($fh, "\n-- ============================================================\n-- {$title}\n-- ============================================================\n\n");
+        $buffer = '';
+        $result = Process::timeout(600)->run($command, function ($type, $chunk) use ($fh, $clean, &$buffer) {
+            if ($type !== \Symfony\Component\Process\Process::OUT) {
+                return;
             }
+            // Chunks don't end on line breaks: clean complete lines only.
+            $buffer .= $chunk;
+            while (($pos = strpos($buffer, "\n")) !== false) {
+                $line = $clean(substr($buffer, 0, $pos + 1));
+                $buffer = substr($buffer, $pos + 1);
+                if ($line !== null) {
+                    fwrite($fh, $line);
+                }
+            }
+        });
+        if ($buffer !== '' && ($line = $clean($buffer)) !== null) {
+            fwrite($fh, $line);
         }
-    });
-    if ($buffer !== '' && ($line = $clean($buffer)) !== null) {
-        fwrite($fh, $line);
+        if (! $result->successful()) {
+            break;
+        }
     }
+    fclose($fh);
+
     if (! $result->successful()) {
-        break;
+        // No half backup: drop this file and the ones already written.
+        @unlink($outFile);
+        foreach ($written as $f) {
+            @unlink($f);
+        }
+        echo "ERROR: mysqldump failed.\n".$result->errorOutput()."\n";
+        return;
     }
-}
-fclose($fh);
 
-if (! $result->successful()) {
+    $sizeMb = round(filesize($outFile) / 1024 / 1024, 2);
+
+    // The .sql grew past GitHub's 100 MB file limit (office_emails), so each final
+    // backup is a .zip holding the .sql (same name). Unzip, then import as before.
+    $zipFile = substr($outFile, 0, -4).'.zip';
+    $zip = new ZipArchive();
+    if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true
+        || ! $zip->addFile($outFile, basename($outFile))
+        || ! $zip->close()) {
+        echo "WARNING: could not zip the backup, kept the plain .sql.\n";
+        echo "Backup written to: {$outFile} ({$sizeMb} MB)\n";
+        $written[] = $outFile;
+        continue;
+    }
     @unlink($outFile);
-    echo "ERROR: mysqldump failed.\n".$result->errorOutput()."\n";
-    return;
+    $written[] = $zipFile;
+    $zipMb = round(filesize($zipFile) / 1024 / 1024, 2);
+    echo "Backup written to: {$zipFile} ({$zipMb} MB zip of a {$sizeMb} MB .sql)\n";
 }
-
-$sizeMb = round(filesize($outFile) / 1024 / 1024, 2);
-
-// The .sql grew past GitHub's 100 MB file limit (office_emails), so the final
-// backup is a .zip holding the .sql (same name). Unzip, then import as before.
-$zipFile = substr($outFile, 0, -4).'.zip';
-$zip = new ZipArchive();
-if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true
-    || ! $zip->addFile($outFile, basename($outFile))
-    || ! $zip->close()) {
-    echo "WARNING: could not zip the backup, kept the plain .sql.\n";
-    echo "Backup written to: {$outFile} ({$sizeMb} MB)\n";
-    return;
-}
-@unlink($outFile);
-$zipMb = round(filesize($zipFile) / 1024 / 1024, 2);
-echo "Backup written to: {$zipFile} ({$zipMb} MB zip of a {$sizeMb} MB .sql)\n";
