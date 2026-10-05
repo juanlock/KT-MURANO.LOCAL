@@ -203,6 +203,11 @@ export const MIGRATED_ROUTES = {
     '/app/Store/ShippingMethods': '/store/shipping-methods',
     '/app/Store/ShippingZones': '/store/shipping-zones',
     '/app/Store/Banners': '/store/banners',
+    '/app/portfolio/sections': '/portfolio/sections',
+    '/app/portfolio/works': '/portfolio/works',
+    '/app/portfolio/categories': '/portfolio/categories',
+    '/app/portfolio/website': '/portfolio/website',
+    '/app/portfolio/messages': '/portfolio/messages',
     '/app/email-office/settings': '/email-office/settings',
     '/app/email-office/received': '/email-office/received',
     '/app/email-office/sent': '/email-office/sent',
@@ -452,6 +457,20 @@ export const MENU = [
             { label: 'Helpdesk_Tickets', to: '/app/helpdesk/tickets', permissions: ['helpdesk_view'] },
             { label: 'Helpdesk_My_Tickets', to: '/app/helpdesk/my', permissions: [] },
             { label: 'Helpdesk_Settings', to: '/app/helpdesk/settings', permissions: ['helpdesk_manage'] },
+        ],
+    },
+    {
+        // Portfolio: the company's public portfolio website (/portfolio/{slug}).
+        key: 'portfolio',
+        icon: 'camera',
+        label: 'Portfolio',
+        permissions: ['portfolio_manage'],
+        children: [
+            { label: 'Home sections', raw: true, to: '/app/portfolio/sections', permissions: ['portfolio_manage'] },
+            { label: 'Works', raw: true, to: '/app/portfolio/works', permissions: ['portfolio_manage'] },
+            { label: 'Categories', raw: true, to: '/app/portfolio/categories', permissions: ['portfolio_manage'] },
+            { label: 'Website', raw: true, to: '/app/portfolio/website', permissions: ['portfolio_manage'] },
+            { label: 'Messages', raw: true, to: '/app/portfolio/messages', permissions: ['portfolio_manage'] },
         ],
     },
     {

@@ -20,6 +20,22 @@
         </template>
       </a-alert>
 
+      <!-- What the company does: accounting / expenses examples (and their
+           categories + accounts) follow it. Saved on the company. -->
+      <a-card size="small" style="margin-bottom: 16px" :class="{ 'ddg-type--need': needsType }">
+        <div class="ddg-type">
+          <div>
+            <div class="ddg-type__title">What kind of business is {{ companyName || 'this company' }}?</div>
+            <div class="ddg-muted">
+              Accounting and Regular expenses examples use it: a landscaper gets fuel, mulch and subcontractor bills;
+              a salon, hair color and laundry; a restaurant, food orders. Its own expense categories and accounts are
+              added too (they stay after removing demo data).
+            </div>
+          </div>
+          <a-select v-model:value="businessType" :options="businessTypeOptions" style="width: 320px" placeholder="Choose the type of business" />
+        </div>
+      </a-card>
+
       <a-card size="small">
         <template #title>
           Modules
@@ -122,6 +138,13 @@ const columns = [
 
 const availableKeys = computed(() => modules.value.filter(m => m.available).map(m => m.key));
 
+// Business type (companies.business_type): asked before generating accounting / expenses.
+const businessType = ref(undefined);
+const businessTypes = ref([]);
+const businessTypeOptions = computed(() => sortByLabel(businessTypes.value));
+const TYPE_MODULES = ['accounting', 'regular_expenses'];
+const needsType = computed(() => selected.value.some(k => TYPE_MODULES.includes(k)));
+
 function selectAvailable() {
   selected.value = [...availableKeys.value];
 }
@@ -141,6 +164,8 @@ async function loadStatus() {
     modules.value = sortByLabel(data.modules || []);
     companyName.value = data.company_name || '';
     demoTotal.value = Number(data.demo_total) || 0;
+    businessTypes.value = data.business_types || [];
+    businessType.value = data.business_type || undefined;
     selected.value = selected.value.filter(k => availableKeys.value.includes(k));
   } catch (e) {
     message.error(e?.data?.message || e?.message || 'Could not load demo data status');
@@ -148,9 +173,13 @@ async function loadStatus() {
 }
 
 async function generate() {
+  if (needsType.value && !businessType.value) {
+    message.warning('Choose what kind of business this is first — Accounting and Regular expenses examples follow it.');
+    return;
+  }
   generating.value = true;
   try {
-    const data = await http.post('demo_data/generate', { modules: selected.value });
+    const data = await http.post('demo_data/generate', { modules: selected.value, business_type: businessType.value || null });
     const byKey = Object.fromEntries(modules.value.map(m => [m.key, m.label]));
     lastResults.value = sortByLabel(Object.entries(data.results || {}).map(([key, r]) => ({ key, label: byKey[key] || key, ...r })));
     const ok = lastResults.value.filter(r => r.status === 'created').length;
@@ -199,5 +228,9 @@ onMounted(async () => {
 <style scoped>
 .ddg-result { padding: 2px 0; }
 .ddg-muted { opacity: 0.6; }
+.ddg-type { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ddg-type__title { font-weight: 600; margin-bottom: 2px; }
+/* Accounting / Regular expenses selected: the business type matters -- highlight it. */
+.ddg-type--need { border-color: #b37feb; box-shadow: 0 0 0 2px rgba(146, 84, 222, 0.12); }
 .ddg-error { color: #ff4d4f; }
 </style>

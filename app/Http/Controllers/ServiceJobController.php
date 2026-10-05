@@ -235,6 +235,13 @@ class ServiceJobController extends BaseController
             return $job;
         });
 
+        // A customer's request / work order from Email Office (?email=): link that email to the job.
+        if ($request->filled('office_email_id')) {
+            // service_jobs has no company_id: the job's location (warehouse) says which company.
+            $companyId = (int) DB::table('warehouses')->where('id', $job->warehouse_id)->value('company_id');
+            \App\Services\EmailOffice\EmailOffice::linkTo((int) $request->input('office_email_id'), $companyId, 'service_job', (int) $job->id, 'client', (int) $job->client_id);
+        }
+
         return response()->json(['success' => true, 'id' => $job->id], 201);
     }
 

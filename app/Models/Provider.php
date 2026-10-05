@@ -11,6 +11,7 @@ class Provider extends Model
     protected $fillable = [
         'name', 'code', 'adresse', 'phone', 'country', 'email', 'additional_emails', 'city', 'tax_number',
         'opening_balance', 'credit_limit', 'company_id',
+        'state', 'zip', 'contact_name', 'contact_email', 'contact_phone',
     ];
 
     protected $casts = [

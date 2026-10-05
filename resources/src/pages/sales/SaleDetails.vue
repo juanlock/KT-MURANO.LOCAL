@@ -231,6 +231,31 @@
         </a-tab-pane>
       </a-tabs>
     </a-card>
+
+    <!-- Email history: every invoice / reminder / receipt emailed for this sale (sale_email_logs). -->
+    <a-card v-if="!loading" size="small" class="no-print" style="margin-top: 16px">
+      <template #title>
+        Email history
+        <span v-if="emailSummary" class="em-sum">
+          <template v-if="emailSummary.emailed_at">· invoice sent {{ date(emailSummary.emailed_at) }}</template>
+          <template v-if="emailSummary.reminders"> · {{ emailSummary.reminders }} reminder{{ emailSummary.reminders > 1 ? 's' : '' }}, last {{ date(emailSummary.last_reminder_at) }}</template>
+        </span>
+      </template>
+      <a-table v-if="emailLog.length" :data-source="emailLog" :columns="emailColumns" :pagination="{ pageSize: 10, hideOnSinglePage: true }" size="small" row-key="id">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'sent_at'">{{ dateTime(record.sent_at) }}</template>
+          <template v-else-if="column.key === 'kind'">
+            <a-tag :color="{ invoice: 'blue', reminder: 'orange', receipt: 'green' }[record.kind]">{{ { invoice: 'Invoice', reminder: 'Reminder', receipt: 'POS receipt' }[record.kind] }}</a-tag>
+          </template>
+          <template v-else-if="column.key === 'status'">
+            <a-tooltip v-if="record.status === 'failed'" :title="record.error"><a-tag color="red">Failed</a-tag></a-tooltip>
+            <a-tag v-else-if="record.status === 'ok'" color="green">Sent</a-tag>
+            <a-tag v-else>Sending…</a-tag>
+          </template>
+        </template>
+      </a-table>
+      <div v-else class="em-none">Not emailed yet — use Email above, or Send Reminder in the Sales list.</div>
+    </a-card>
   </div>
 </template>
 
@@ -345,7 +370,26 @@ async function sendEmail() {
     message.error(t('SMTPIncorrect'));
   } finally {
     sendingEmail.value = false;
+    loadEmailLog();
   }
+}
+
+// Email history card (GET sales/{id}/email-log).
+const emailLog = ref([]);
+const emailSummary = ref(null);
+const emailColumns = [
+  { title: 'Date', key: 'sent_at', width: 170 },
+  { title: 'Type', key: 'kind', width: 110 },
+  { title: 'To', dataIndex: 'recipients', key: 'recipients' },
+  { title: 'Sent by', dataIndex: 'sent_by', key: 'sent_by', width: 120 },
+  { title: 'Status', key: 'status', width: 90 },
+];
+async function loadEmailLog() {
+  try {
+    const d = await http.get(`sales/${route.params.id}/email-log`);
+    emailLog.value = d.log || [];
+    emailSummary.value = d.summary || null;
+  } catch (e) { /* history is only extra info */ }
 }
 
 async function sendSms() {
@@ -398,6 +442,7 @@ onMounted(async () => {
     details.value = data.details || [];
     company.value = data.company || {};
     serviceJobs.value = data.service_jobs || null;
+    loadEmailLog();
   } catch (e) {
     message.error(t('InvalidData'));
     router.push('/sales');
@@ -408,6 +453,14 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.em-sum {
+  font-weight: 400;
+  color: #888;
+  font-size: 13px;
+}
+.em-none {
+  color: #888;
+}
 .inv-head {
   display: flex;
   justify-content: space-between;

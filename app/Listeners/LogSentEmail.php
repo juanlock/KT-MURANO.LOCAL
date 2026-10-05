@@ -44,7 +44,17 @@ class LogSentEmail
                 $attachments[] = ['name' => $part->getFilename() ?: 'attachment', 'size' => strlen((string) $part->getBody()), 'mime' => $part->getMediaType().'/'.$part->getMediaSubtype()];
             }
 
-            EmailOffice::record($companyId ?: null, [
+            // An invoice / reminder / receipt sent through App\Services\SaleEmailLog.
+            $saleLogId = (int) ($headers->get('X-Sale-Email-Log')?->getBodyAsString() ?? 0);
+            $saleLog = $saleLogId && Schema::hasTable('sale_email_logs') ? DB::table('sale_email_logs')->where('id', $saleLogId)->first() : null;
+            if (! $companyId && $saleLog) {
+                $companyId = (int) $saleLog->company_id;
+                if ($companyId && ! ModuleFlags::enabled($companyId, 'email_office')) {
+                    return; // the sale's own log already has it
+                }
+            }
+
+            $row = EmailOffice::record($companyId ?: null, [
                 'direction' => 'out',
                 'source' => $source,
                 'message_id' => $event->sent->getMessageId(),
@@ -58,6 +68,14 @@ class LogSentEmail
                 'body_html' => is_string($msg->getHtmlBody()) ? $msg->getHtmlBody() : null,
                 'attachments' => $attachments,
             ]);
+            // Link the Email Office copy to its sale (and the sale's log to it).
+            if ($row && $saleLog) {
+                $row->update([
+                    'linked_type' => 'sale', 'linked_id' => (int) $saleLog->sale_id,
+                    'category' => $saleLog->kind === 'reminder' ? 'reminder' : 'general', 'category_manual' => true,
+                ]);
+                DB::table('sale_email_logs')->where('id', $saleLog->id)->update(['office_email_id' => $row->id]);
+            }
         } catch (\Throwable $e) {
             report($e);
         }

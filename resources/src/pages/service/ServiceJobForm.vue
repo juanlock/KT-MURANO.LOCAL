@@ -46,6 +46,11 @@
         </a-row>
       </a-card>
 
+      <!-- A customer's work order / request from Email Office (?email=ID). -->
+      <FromEmailCard :email="fromEmail" :open-text="false">
+        Customer, work requested and notes are taken from the email — check them. The email is marked as recorded when you save.
+      </FromEmailCard>
+
       <a-card>
         <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
           <a-tabs v-model:activeKey="activeTab">
@@ -569,6 +574,7 @@ import {
   SafetyCertificateOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import FromEmailCard from '../../components/FromEmailCard.vue';
 import ServiceJobWhen, { emptyWhen, whenFromJob, whenToSchedule } from '../../components/ServiceJobWhen.vue';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
@@ -774,10 +780,26 @@ async function bootstrap() {
     checklistCategories.value = catData.categories || [];
     await loadChecklist();
     await loadJobIfNeeded();
+    if (!isEdit.value && route.query.email) await prefillFromEmail(route.query.email);
   } catch (e) {
     message.error(t('InvalidData'));
   }
   isLoading.value = false;
+}
+
+// A customer's work order / request from Email Office (?email=ID): customer,
+// what they asked for and the work requested come from the email; saving links it.
+const fromEmail = ref(null);
+async function prefillFromEmail(emailId) {
+  try {
+    const e = (await http.get(`email-office/emails/${emailId}`)).email;
+    fromEmail.value = e;
+    const cid = Number(route.query.client_id || (e.party_type === 'client' ? e.party_id : 0));
+    if (cid && clients.value.some(c => c.id === cid)) form.value.client_id = cid;
+    form.value.service_item = form.value.service_item || String(e.subject || '').replace(/^\s*((re|fw|fwd)\s*:\s*)+/i, '').slice(0, 190);
+    form.value.reported_issue = form.value.reported_issue || String(e.body_text || '').trim().slice(0, 2000);
+    form.value.notes = form.value.notes || `From the email "${e.subject}" (${String(e.sent_at || '').slice(0, 10)}).`;
+  } catch (err) { /* email gone or no access: plain form */ }
 }
 async function loadMeta() {
   const data = await http.get('service_jobs/create');
@@ -999,9 +1021,10 @@ async function submit() {
       showStockWarnings(data);
       await loadJobIfNeeded();
     } else {
-      const data = await http.post('service_jobs', payload);
+      const data = await http.post('service_jobs', fromEmail.value ? { ...payload, office_email_id: fromEmail.value.id } : payload);
       message.success(t('Successfully_Created'));
-      if (data && data.id) router.replace(`/service/jobs/edit/${data.id}`);
+      if (fromEmail.value) router.push('/email-office/received');
+      else if (data && data.id) router.replace(`/service/jobs/edit/${data.id}`);
       else router.push('/service/jobs');
     }
   } catch (e) {

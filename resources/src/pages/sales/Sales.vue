@@ -77,6 +77,14 @@
               :placeholder="$t('PaymentStatus')" :options="paymentStatusOptions" @change="onOtherFilterChange"
             />
           </template>
+          <!-- Emailed: invoice / reminder emails sent (sale_email_logs). -->
+          <template v-else-if="key === 'emailed'">
+            <div class="filter-label">Emailed</div>
+            <a-select
+              v-model:value="filters.emailed" style="width: 100%" allow-clear
+              placeholder="Emailed" :options="EMAILED_OPTIONS" @change="onOtherFilterChange"
+            />
+          </template>
           <template v-else-if="key === 'shipping_status'">
             <div class="filter-label">{{ $t('Shipping_status') }}</div>
             <a-select
@@ -93,10 +101,10 @@
             />
           </template>
           <template v-else-if="key === 'product_id'">
-            <div class="filter-label">{{ $t('Name') }}</div>
+            <div class="filter-label">{{ $t('Name_product') }}</div>
             <a-select
               v-model:value="filters.product_id" style="width: 100%" allow-clear show-search
-              option-filter-prop="label" :placeholder="$t('Name')" :options="productOptions"
+              option-filter-prop="label" :placeholder="$t('Name_product')" :options="productOptions"
               @change="onProductFilterChange"
             />
           </template>
@@ -204,6 +212,17 @@
             </template>
             <a-tag color="warning" style="cursor: pointer">{{ record.other_due_count }}</a-tag>
           </a-popover>
+        </template>
+        <template v-else-if="column.key === 'emailed'">
+          <template v-if="record.email_log">
+            <a-tooltip :title="emailedText(record)">
+              <span v-if="record.email_log.emailed_at" class="em-sent"><MailOutlined /> {{ shortDate(record.email_log.emailed_at) }}</span>
+              <a-tag v-if="record.email_log.reminders" color="orange" style="margin-inline-start: 4px">
+                <BellOutlined /> {{ record.email_log.reminders }} · {{ shortDate(record.email_log.last_reminder_at) }}
+              </a-tag>
+            </a-tooltip>
+          </template>
+          <span v-else style="opacity: 0.45">—</span>
         </template>
         <template v-else-if="column.key === 'payment_status'">
           <!-- Confusing next to Status when the sale is still Pending (same
@@ -576,9 +595,16 @@ const route = useRoute();
 const filters = ref({
   date: null, client_id: undefined, warehouse_id: undefined,
   statut: undefined, payment_statut: undefined, shipping_status: undefined,
-  product_group_id: undefined, product_id: undefined,
+  product_group_id: undefined, product_id: undefined, emailed: undefined,
   date_from: '', date_to: '',
 });
+// Emailed filter. "Needs a reminder" = still owes, no reminder in 15 days --
+// searched over ALL dates (old unpaid invoices are exactly the ones wanted).
+const EMAILED_OPTIONS = sortByLabel([
+  { value: 'needs_reminder', label: 'Owes, no reminder in 15 days' },
+  { value: 'never_emailed', label: 'Never emailed' },
+  { value: 'reminded', label: 'Reminder sent' },
+]);
 
 // Reset: every filter back to its default, date range back to the user's
 // default date (else Today), the Customers-list "Due only" link dropped.
@@ -601,10 +627,12 @@ const {
   { key: 'client_id', label: 'Customer' },
   { key: 'statut', label: 'Status' },
   { key: 'payment_statut', label: 'Payment Status' },
+  { key: 'emailed', label: 'Emailed' },
   { key: 'shipping_status', label: 'Shipping Status' },
   { key: 'warehouse_id', label: 'Location' },
-  { key: 'product_group_id', label: 'Group Name' },
-  { key: 'product_id', label: 'Name' },
+  // The company's own names for Group Name / Name (Defaults -> Products).
+  { key: 'product_group_id', label: t('Group_Name') },
+  { key: 'product_id', label: t('Name_product') },
 ]);
 
 // "Only sales with a balance due" -- set by the Customers list Due link.
@@ -621,12 +649,14 @@ function searchActive() {
   }
 }
 
+const allDates = () => filters.value.emailed === 'needs_reminder';
 const filterParams = () => ({
   due_only: dueOnly.value ? 1 : '',
   Ref: '',
-  date: searchActive() ? '' : (filters.value.date || ''),
-  date_from: searchActive() ? '' : (filters.value.date_from || ''),
-  date_to: searchActive() ? '' : (filters.value.date_to || ''),
+  date: searchActive() || allDates() ? '' : (filters.value.date || ''),
+  date_from: searchActive() || allDates() ? '' : (filters.value.date_from || ''),
+  date_to: searchActive() || allDates() ? '' : (filters.value.date_to || ''),
+  emailed: filters.value.emailed || '',
   client_id: filters.value.client_id || '',
   warehouse_id: filters.value.warehouse_id || '',
   statut: filters.value.statut === '__draft' ? '' : (filters.value.statut || ''),
@@ -836,6 +866,8 @@ const columns = computed(() => [
   // don't show nothing"). exportValue mirrors that: '' not '0'.
   { title: 'Other Due', dataIndex: 'other_due_count', key: 'other_due', align: 'center', width: 100, exportValue: r => (r.other_due_count > 0 ? String(r.other_due_count) : '') },
   { title: t('PaymentStatus'), dataIndex: 'payment_status', key: 'payment_status', exportValue: r => r.payment_status },
+  // Invoice / reminder emails sent (sale_email_logs).
+  { title: 'Emailed', key: 'emailed', width: 150, exportValue: r => emailedText(r) },
   { title: t('Shipping_status'), dataIndex: 'shipping_status', key: 'shipping_status', exportValue: r => r.shipping_status || '' },
   { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name', sorter: true },
 ]);
@@ -1028,9 +1060,20 @@ async function sendEmailModal(emails, hasNew) {
   m.sending = false;
   if (ok) {
     m.open = false;
-    // New addresses were saved to the customer -- refresh so the next open offers them.
-    if (hasNew) crud.fetchRows();
+    // Refresh: the Emailed column shows this send (and new addresses saved to the customer).
+    crud.fetchRows();
   }
+}
+
+// Emailed column: "Invoice emailed Oct 1 · 2 reminders, last Oct 20".
+const shortDate = d => (d ? dayjs(d).format('MMM D') : '');
+function emailedText(r) {
+  const l = r.email_log;
+  if (!l) return 'Never emailed';
+  const parts = [];
+  if (l.emailed_at) parts.push(`Invoice emailed ${dayjs(l.emailed_at).format('MMM D, YYYY')}`);
+  if (l.reminders) parts.push(`${l.reminders} reminder${l.reminders > 1 ? 's' : ''}, last ${dayjs(l.last_reminder_at).format('MMM D, YYYY')}`);
+  return parts.join(' · ') || 'Never emailed';
 }
 
 async function sendWhatsApp(record) {

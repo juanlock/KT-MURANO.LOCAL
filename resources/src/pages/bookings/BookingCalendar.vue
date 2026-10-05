@@ -19,17 +19,8 @@
               <div class="staff-me__sub">My appointments</div>
             </div>
           </div>
-          <div v-else-if="isAdmin && staff.length" class="staff-strip">
-            <a-tooltip title="Everyone">
-              <a-avatar :size="36" class="staff-avatar" :class="{ 'staff-avatar--on': !staffFilter }" @click="setStaff(null)">All</a-avatar>
-            </a-tooltip>
-            <a-tooltip v-for="s in staff" :key="s.id" :title="s.name">
-              <a-avatar
-                :size="36" :src="s.avatar || undefined" class="staff-avatar"
-                :class="{ 'staff-avatar--on': staffFilter === s.id }" @click="setStaff(staffFilter === s.id ? null : s.id)"
-              >{{ initials(s.name) }}</a-avatar>
-            </a-tooltip>
-          </div>
+          <!-- Click = only that person's appointments; hover = employee details link. -->
+          <StaffStrip v-else-if="isAdmin && staff.length" :staff="staff" :model-value="staffFilter" @change="setStaff" />
         </a-space>
       </template>
     </PageHeader>
@@ -77,8 +68,13 @@
                     <div class="appt-item__name">{{ b.customer_name || `Booking #${b.id}` }}</div>
                     <div class="appt-item__sub">{{ b.product_name || '—' }}</div>
                   </div>
-                  <a-tooltip v-if="staffById[b.sales_person_id]" :title="staffById[b.sales_person_id].name">
-                    <a-avatar :size="26" :src="staffById[b.sales_person_id].avatar || undefined">{{ initials(staffById[b.sales_person_id].name) }}</a-avatar>
+                  <!-- Staff photo: opens their employee details (the row opens the appointment). -->
+                  <a-tooltip v-if="staffById[b.sales_person_id]" :title="staffById[b.sales_person_id].employee_id && canEmployee ? `${staffById[b.sales_person_id].name} — employee details` : staffById[b.sales_person_id].name">
+                    <a-avatar
+                      :size="26" :src="staffById[b.sales_person_id].avatar || undefined"
+                      :style="staffById[b.sales_person_id].employee_id && canEmployee ? 'cursor: pointer' : ''"
+                      @click="e => openEmployee(staffById[b.sales_person_id], e)"
+                    >{{ initials(staffById[b.sales_person_id].name) }}</a-avatar>
                   </a-tooltip>
                   <a-tag :style="tagStyle(b.status)" style="margin: 0">{{ statusLabel(b.status) }}</a-tag>
                 </div>
@@ -111,6 +107,7 @@ import { useRouter } from 'vue-router';
 import { PlusOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import BookingEditModal from '../../components/BookingEditModal.vue';
+import StaffStrip from '../../components/StaffStrip.vue';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useAuthStore } from '../../stores/auth';
@@ -187,6 +184,16 @@ const me = computed(() => staffById.value[auth.user?.id]
   || (auth.user ? { id: auth.user.id, name: auth.username, avatar: null } : null));
 function initials(name) {
   return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+}
+const canEmployee = computed(() => auth.can('view_employee'));
+/**
+ * A staff photo in the appointments list: their employee details when linked
+ * (and allowed); otherwise the click goes on to the row (opens the appointment).
+ */
+function openEmployee(s, e) {
+  if (!s || !s.employee_id || !canEmployee.value) return;
+  e.stopPropagation();
+  router.push(`/hrm/employees/${s.employee_id}/details`);
 }
 function setStaff(id) {
   staffFilter.value = id;

@@ -264,12 +264,13 @@ class ExpensesController extends BaseController
 
         }, 10);
 
-        // Created from a bill in Email Office (?email=): link that email to it.
+        // Created from a bill in Email Office (?email=): link that email to it
+        // (as the expense's bill; its reminders / payments can join its history).
         if ($request->filled('expense.office_email_id') && \Illuminate\Support\Facades\Schema::hasTable('office_emails')) {
             $newest = Expense::where('user_id', Auth::user()->id)->latest('id')->value('id');
             \App\Models\OfficeEmail::whereKey((int) $request->input('expense.office_email_id'))
                 ->where('company_id', (int) $this->resolveActingCompanyId($request))
-                ->update(['linked_type' => 'expense', 'linked_id' => $newest, 'category' => 'bill']);
+                ->update(['linked_type' => 'expense', 'linked_id' => $newest, 'category' => 'bill', 'link_role' => 'bill']);
         }
 
         // A first date in the past: catch up the periods since then.
@@ -676,30 +677,60 @@ class ExpensesController extends BaseController
 
         $this->authorizeForUser($request->user('api'), 'create', Expense::class);
 
-        // get warehouses assigned to user
-        $user_auth = auth()->user();
+        // get warehouses assigned to user -- only the acting company's (company boundary)
+        $cid = (int) $this->resolveActingCompanyId($request);
         if ($this->reportAllWarehouses()) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)->where('company_id', $cid)->get(['id', 'name']);
         } else {
             $warehouses_id = $this->reportWarehouseIdList();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)->where('company_id', $cid)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
         // The acting company's categories (per company), with the Spanish
         // names and groups so the dropdown follows the user's language.
         $Expenses_category = ExpenseCategory::where('deleted_at', '=', null)
-            ->where('company_id', $this->resolveActingCompanyId($request))
+            ->where('company_id', $cid)
             ->orderBy('sort_order')->orderBy('name')
             ->get(['id', 'name', 'reference', 'expense_group', 'expense_group_es', 'is_common', 'period', 'period_es', 'approximate_amount']);
         $accounts = Account::where('deleted_at', '=', null)->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
+
+        // Defaults -> Expenses: what a new expense starts with (when still valid).
+        $settings = \App\Models\Setting::forCompany($cid);
+        $defPm = (int) ($settings->expense_default_payment_method_id ?? 0);
+        $defAcc = (int) ($settings->expense_default_account_id ?? 0);
 
         return response()->json([
             'Expenses_category' => $Expenses_category,
             'warehouses' => $warehouses,
             'accounts' => $accounts,
             'payment_methods' => $payment_methods,
+            'default_payment_method_id' => $payment_methods->contains('id', $defPm) ? $defPm : null,
+            'default_account_id' => $accounts->contains('id', $defAcc) ? $defAcc : null,
         ]);
+    }
+
+    /**
+     * POST expenses/defaults {payment_method_id?, account_id?} -- "Make
+     * default" on the expense form: saves Defaults -> Expenses / Payments for
+     * the acting company (same permission as System Settings).
+     */
+    public function saveDefaults(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', \App\Models\Setting::class);
+        $v = $request->validate(['payment_method_id' => 'nullable|integer', 'account_id' => 'nullable|integer']);
+        $settings = \App\Models\Setting::forCompany((int) $this->resolveActingCompanyId($request));
+        if (array_key_exists('payment_method_id', $v)) {
+            abort_if($v['payment_method_id'] && ! PaymentMethod::whereKey($v['payment_method_id'])->whereNull('deleted_at')->exists(), 422, 'Unknown payment method.');
+            $settings->expense_default_payment_method_id = $v['payment_method_id'] ?: null;
+        }
+        if (array_key_exists('account_id', $v)) {
+            abort_if($v['account_id'] && ! Account::whereKey($v['account_id'])->whereNull('deleted_at')->exists(), 422, 'Unknown account.');
+            $settings->expense_default_account_id = $v['account_id'] ?: null;
+        }
+        $settings->save();
+
+        return response()->json(['success' => true]);
     }
 
     // ------------- Show Form Edit Expense -----------\\

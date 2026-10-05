@@ -85,6 +85,9 @@ async function request(method, url, { params, body, formData, raw } = {}) {
     const res = await fetch(full, {
         method,
         credentials: 'same-origin',
+        // Always the server's current answer: a browser-cached GET showed
+        // old data (e.g. an email reopened after it was recorded).
+        cache: 'no-store',
         headers,
         body: payload,
     });
@@ -129,9 +132,10 @@ async function download(url, filename) {
 /**
  * GET a binary response as a Blob, for previewing (rather than saving) a PDF.
  * The type is coerced so an error page returned as a blob still renders as
- * something rather than silently failing in an iframe.
+ * something rather than silently failing in an iframe. keepType: return the
+ * file's own type (an image / any attachment preview), not coerced to PDF.
  */
-async function blob(url) {
+async function blob(url, keepType = false) {
     const res = await fetch(BASE + url.replace(/^\//, ''), {
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest', ...csrfHeaders() },
@@ -142,6 +146,7 @@ async function blob(url) {
         throw err;
     }
     const raw = await res.blob();
+    if (keepType) return raw;
     return raw.type === 'application/pdf' ? raw : new Blob([raw], { type: 'application/pdf' });
 }
 

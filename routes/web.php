@@ -498,6 +498,17 @@ Route::middleware(['web', 'request.safety'])->prefix('book')->group(function () 
         ->middleware(['signed', 'throttle:10,1'])->whereNumber('booking')->name('booking.email.confirm.post');
 });
 
+// Portfolio module: each company's public portfolio website (PortfolioSiteController).
+Route::middleware(['web', 'request.safety'])->prefix('portfolio/{site}')->where(['site' => '[a-z0-9]+(?:-[a-z0-9]+)*'])->group(function () {
+    $c = \App\Http\Controllers\PortfolioSiteController::class;
+    Route::get('/', [$c, 'home'])->middleware('throttle:120,1')->name('portfolio.home');
+    Route::get('/work', [$c, 'work'])->middleware('throttle:120,1')->name('portfolio.work');
+    Route::get('/project/{slug}', [$c, 'project'])->where('slug', '[a-z0-9-]+')->middleware('throttle:120,1')->name('portfolio.project');
+    Route::get('/about', [$c, 'about'])->middleware('throttle:120,1')->name('portfolio.about');
+    Route::get('/contact', [$c, 'contact'])->middleware('throttle:120,1')->name('portfolio.contact');
+    Route::post('/contact', [$c, 'sendContact'])->middleware('throttle:5,1,portfolio-contact')->name('portfolio.contact.send');
+});
+
 // SEO: public sitemap + robots (registered before the admin catch-all).
 Route::get('sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index'])->name('store.sitemap');
 Route::get('robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('store.robots');

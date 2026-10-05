@@ -56,8 +56,16 @@
         >
           <template #option="{ label }"><span><ScissorOutlined style="opacity: 0.5; margin-right: 6px" />{{ label }}</span></template>
         </a-select>
+        <!-- Staff photos (same as the calendar), on the filter row: click = only that
+             person's bookings, hover = link to their employee details. Up to 8 staff;
+             with more (or when locked to the signed-in user) the Staff dropdown instead. -->
+        <StaffStrip
+          v-if="showStaffStrip" class="bk-f--staff" :size="30" :staff="fo.staff" :model-value="staffId || null"
+          @change="id => { staffId = id || undefined; crud.reload(); }"
+        />
         <!-- Staff: locked to the signed-in user unless admin / "Booking to other staff". -->
         <a-select
+          v-else
           v-model:value="staffId" class="bk-f" :allow-clear="canOtherStaff" show-search option-filter-prop="label"
           placeholder="Staff" :options="staffOptions" :disabled="!canOtherStaff" @change="crud.reload()"
         >
@@ -112,7 +120,15 @@
           <span class="cust-cell"><a-avatar :size="24" class="cust-cell__avatar">{{ initials(record.customer_name) }}</a-avatar>{{ record.customer_name }}</span>
         </template>
         <template v-else-if="column.key === 'staff'">
-          <span v-if="staffById[record.sales_person_id]" class="opt-staff">
+          <!-- Linked to their employee details when there is an employee record. -->
+          <router-link
+            v-if="staffById[record.sales_person_id] && staffById[record.sales_person_id].employee_id && canEmployee"
+            :to="`/hrm/employees/${staffById[record.sales_person_id].employee_id}/details`" class="opt-staff" title="Employee details"
+          >
+            <a-avatar :size="24" :src="staffById[record.sales_person_id].avatar || undefined" class="opt-staff__avatar">{{ initials(staffById[record.sales_person_id].name) }}</a-avatar>
+            {{ staffById[record.sales_person_id].name }}
+          </router-link>
+          <span v-else-if="staffById[record.sales_person_id]" class="opt-staff">
             <a-avatar :size="24" :src="staffById[record.sales_person_id].avatar || undefined" class="opt-staff__avatar">{{ initials(staffById[record.sales_person_id].name) }}</a-avatar>
             {{ staffById[record.sales_person_id].name }}
           </span>
@@ -162,6 +178,8 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import BookingEditModal from '../../components/BookingEditModal.vue';
+import StaffStrip from '../../components/StaffStrip.vue';
+import { useAuthStore } from '../../stores/auth';
 import { presetDates, presetOf } from '../../lib/datePresets';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
@@ -248,6 +266,8 @@ const staffById = computed(() => Object.fromEntries((fo.value.staff || []).map(s
 // Without "Booking to other staff" the server returns only the user's own
 // bookings; the Staff filter shows them, locked.
 const canOtherStaff = computed(() => crud.payload.value?.can_book_other_staff !== false);
+const canEmployee = computed(() => useAuthStore().can('view_employee'));
+const showStaffStrip = computed(() => canOtherStaff.value && (fo.value.staff || []).length > 0 && fo.value.staff.length <= 8);
 watch(() => crud.payload.value?.can_book_other_staff, can => {
   if (can === false && crud.payload.value?.me) staffId.value = crud.payload.value.me;
 });
@@ -367,6 +387,7 @@ onMounted(crud.fetchRows);
 }
 .bk-f--status { flex: 0 1 130px; }
 .bk-f--time { flex: 1 1 160px; }
+.bk-filters__row .bk-f--staff { flex: 0 0 auto; flex-wrap: nowrap; }
 @media (max-width: 1100px) {
   .bk-filters__row { flex-wrap: wrap; }
 }

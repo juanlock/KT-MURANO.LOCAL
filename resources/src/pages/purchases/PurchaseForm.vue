@@ -10,6 +10,29 @@
     </div>
 
     <a-form v-else layout="vertical">
+      <!-- Created from a supplier's email in Email Office (?email=ID): supplier,
+           date and notes are filled from it; the email is linked when saved. -->
+      <a-card v-if="fromEmail" size="small" class="pf-email">
+        <div style="font-weight: 600">
+          <MailOutlined /> From the email “{{ fromEmail.subject }}” — {{ fromEmail.from_name || fromEmail.from_email }}
+          <span class="muted" style="font-weight: 400"> · {{ String(fromEmail.sent_at || '').slice(0, 10) }}</span>
+        </div>
+        <div class="muted">
+          <template v-if="purchase.supplier_id">Supplier and date are taken from the email.</template>
+          <template v-else>No supplier matches this sender yet — pick one or add it with <PlusOutlined />.</template>
+          Add the products bought below; the email is marked as recorded when you save.
+        </div>
+        <div v-if="emailAmounts.length" style="margin-top: 6px">
+          <span class="muted">Amounts in the email: </span>
+          <a-tag v-for="a in emailAmounts" :key="a">{{ a }}</a-tag>
+        </div>
+        <a-collapse ghost size="small" style="margin-top: 4px">
+          <a-collapse-panel key="text" header="Read the email">
+            <pre class="pf-email__text">{{ fromEmail.body_text || '(empty message)' }}</pre>
+          </a-collapse-panel>
+        </a-collapse>
+      </a-card>
+
       <a-card size="small" style="margin-bottom: 16px">
         <a-row :gutter="16">
           <a-col :xs="24" :md="8">
@@ -351,7 +374,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons-vue';
+import { EditOutlined, DeleteOutlined, PlusOutlined, MailOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import ProductScanModal from '../../components/ProductScanModal.vue';
@@ -759,6 +782,8 @@ async function submit() {
     details: detailsPayload(),
     // Multi-Currency snapshot ({} when the module is off)
     ...currencyPayload(),
+    // From Email Office: the server links that email to the new purchase.
+    ...(fromEmail.value && !isEdit.value ? { office_email_id: fromEmail.value.id } : {}),
   };
   try {
     if (isEdit.value) {
@@ -767,6 +792,10 @@ async function submit() {
     } else {
       await http.post('purchases', body);
       message.success(t('Successfully_Created'));
+      if (fromEmail.value) {
+        router.push('/email-office/received');
+        return;
+      }
     }
     router.push('/purchases');
   } catch (e) {
@@ -776,6 +805,29 @@ async function submit() {
   } finally {
     submitting.value = false;
   }
+}
+
+// ---------------- from a supplier's email (Email Office, ?email=ID) ----------------
+const fromEmail = ref(null);
+// Money amounts written in the email ($1,234.56), to help type the lines.
+const emailAmounts = computed(() => {
+  const hits = String(fromEmail.value?.body_text || '').match(/\$\s?\d{1,3}(?:,\d{3})*(?:\.\d{2})?/g) || [];
+  return [...new Set(hits.map(a => a.replace(/\s/g, '')))].slice(0, 8);
+});
+async function prefillFromEmail(emailId) {
+  try {
+    const e = (await http.get(`email-office/emails/${emailId}`)).email;
+    fromEmail.value = e;
+    purchase.value.date = String(e.sent_at || '').slice(0, 10) || purchase.value.date;
+    purchase.value.notes = `${e.subject} — ${e.from_name || e.from_email}`;
+    // Supplier: the one the email is assigned to, else by sender name / address.
+    const name = String(e.from_name || '').trim().replace(/^"+|"+$/g, '').trim().toLowerCase();
+    const from = String(e.from_email || '').toLowerCase();
+    const hit = (e.party_type === 'provider' && suppliers.value.find(s => s.id === e.party_id))
+      || suppliers.value.find(s => name && String(s.name || '').trim().toLowerCase() === name)
+      || suppliers.value.find(s => from && String(s.email || '').toLowerCase() === from);
+    if (hit) purchase.value.supplier_id = hit.id;
+  } catch (err) { /* email gone or no access: plain form */ }
 }
 
 // ---------------- bootstrap ----------------
@@ -821,6 +873,8 @@ onMounted(async () => {
       const data = await http.get('purchases/create');
       suppliers.value = data.suppliers || [];
       warehouses.value = data.warehouses || [];
+      if (warehouses.value.length === 1) purchase.value.warehouse_id = warehouses.value[0].id;
+      if (route.query.email) await prefillFromEmail(route.query.email);
     }
   } catch (e) {
     message.error(t('InvalidData'));
@@ -833,6 +887,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.pf-email {
+  margin-bottom: 12px;
+}
+.pf-email__text {
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  margin: 0;
+}
 .muted {
   color: rgba(0, 0, 0, 0.45);
   font-size: 12px;

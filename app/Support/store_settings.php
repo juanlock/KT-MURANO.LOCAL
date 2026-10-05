@@ -27,6 +27,7 @@ if (! function_exists('store_reserved_paths')) {
             'pwa', 'manifest.webmanifest', 'sitemap.xml', 'robots.txt', 'sw.js',
             'offline.html', 'storage', 'vendor', 'images', 'css', 'js', 'fonts',
             'pwa_images', 'customer', 'support', // helpdesk public form + ticket links
+            'portfolio', 'portfolio-theme', // Portfolio module public website + its theme files
         ];
     }
 }

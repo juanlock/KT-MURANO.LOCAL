@@ -405,6 +405,13 @@ class EmailOfficeFetcher
                 $date = now(); // the fallback for an unreadable Date header
             }
 
+            // The Sent folder can hold mail someone ELSE sent (forwards, synced
+            // copies): it was received from that sender, not sent by the company.
+            $own = (string) $s->address();
+            if ($direction === 'out' && $own !== '' && ($fromAddr = strtolower(trim((string) ($from->mail ?? '')))) !== '' && $fromAddr !== $own) {
+                $direction = 'in';
+            }
+
             return (bool) EmailOffice::record((int) $s->company_id, [
                 'direction' => $direction,
                 'source' => 'mailbox',

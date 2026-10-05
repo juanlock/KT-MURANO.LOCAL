@@ -10,6 +10,10 @@
     </div>
 
     <a-form v-else layout="vertical">
+      <!-- A customer's request from Email Office (?email=ID). -->
+      <FromEmailCard :email="fromEmail">
+        The customer is taken from the email; add what they asked for below. The email is marked as recorded when you save.
+      </FromEmailCard>
       <a-card size="small" style="margin-bottom: 16px">
         <a-row :gutter="16">
           <a-col :xs="24" :md="8">
@@ -320,6 +324,7 @@ import { useI18n } from 'vue-i18n';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
+import FromEmailCard from '../../components/FromEmailCard.vue';
 import ProductScanModal from '../../components/ProductScanModal.vue';
 import { resolveScan } from '../../lib/scanMatch';
 import BatchAllocator from '../../components/BatchAllocator.vue';
@@ -729,8 +734,15 @@ async function submit() {
       message.success(t('Successfully_Updated'));
     } else {
       // Legacy create sends capital-D `Discount`.
-      await http.post('quotations', { ...shared, Discount: Number(quote.value.discount) || 0 });
+      await http.post('quotations', {
+        ...shared, Discount: Number(quote.value.discount) || 0,
+        ...(fromEmail.value ? { office_email_id: fromEmail.value.id } : {}),
+      });
       message.success(t('Successfully_Created'));
+      if (fromEmail.value) {
+        router.push('/email-office/received');
+        return;
+      }
     }
     router.push('/quotations');
   } catch (e) {
@@ -741,6 +753,9 @@ async function submit() {
     submitting.value = false;
   }
 }
+
+// From a customer's email in Email Office (?email=ID): linked when saved.
+const fromEmail = ref(null);
 
 // ---------------- bootstrap ----------------
 
@@ -789,6 +804,17 @@ onMounted(async () => {
       quotationWithStock.value = data.quotation_with_stock || '';
       showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
+      if (warehouses.value.length === 1) quote.value.warehouse_id = warehouses.value[0].id;
+      // From a customer's email (Email Office): customer + notes from it.
+      if (route.query.email) {
+        try {
+          const e = (await http.get(`email-office/emails/${route.query.email}`)).email;
+          fromEmail.value = e;
+          const cid = Number(route.query.client_id || (e.party_type === 'client' ? e.party_id : 0));
+          if (cid && clients.value.some(c => c.id === cid)) quote.value.client_id = cid;
+          quote.value.notes = `Requested by email: ${e.subject} (${String(e.sent_at || '').slice(0, 10)})`;
+        } catch (err) { /* email gone or no access: plain form */ }
+      }
     }
   } catch (e) {
     message.error(t('InvalidData'));

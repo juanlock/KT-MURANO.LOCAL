@@ -42,6 +42,17 @@ class CustomEmail extends Mailable
             ]);
         }
 
+        // Optional extra headers -- e.g. X-Sale-Email-Log (App\Services\SaleEmailLog),
+        // read back by the Email Office sent-email listener.
+        if (! empty($this->data['headers'])) {
+            $headers = $this->data['headers'];
+            $mail->withSymfonyMessage(function ($message) use ($headers) {
+                foreach ($headers as $name => $value) {
+                    $message->getHeaders()->addTextHeader($name, (string) $value);
+                }
+            });
+        }
+
         return $mail;
     }
 }

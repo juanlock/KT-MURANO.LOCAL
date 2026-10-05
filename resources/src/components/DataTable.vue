@@ -23,6 +23,11 @@
           <template #icon><DeleteOutlined /></template>
           {{ $t('Del') }} ({{ crud.selectedIds.value.length }})
         </a-button>
+        <!-- Safe bulk actions for the selected rows (bulkSelect pages). -->
+        <template v-if="bulkSelect && crud.selectedIds.value.length">
+          <span class="dt-bulk-count">{{ crud.selectedIds.value.length }} selected</span>
+          <slot name="bulk" :ids="crud.selectedIds.value" />
+        </template>
         <slot name="toolbar" />
 
         <!-- Column visibility -->
@@ -82,15 +87,20 @@
       :data-source="crud.rows.value"
       :loading="crud.loading.value"
       :pagination="crud.pagination.value"
-      :row-selection="selectionEnabled ? crud.rowSelection.value : undefined"
+      :row-selection="checkboxes ? crud.rowSelection.value : undefined"
       :row-key="rowKey"
       :scroll="fitWidth ? undefined : { x: 'max-content' }"
       :size="dt.density"
       :bordered="dt.bordered"
       :show-sorter-tooltip="false"
       :row-class-name="dt.striped ? stripedClass : undefined"
+      :row-expandable="$slots.expandedRowRender ? rowExpandable : undefined"
       @change="crud.onChange"
     >
+      <!-- Expandable rows only when the page supplies the content. -->
+      <template v-if="$slots.expandedRowRender" #expandedRowRender="slotProps">
+        <slot name="expandedRowRender" v-bind="slotProps" />
+      </template>
       <!-- Forward cell rendering to the page. -->
       <template #bodyCell="slotProps">
         <slot name="bodyCell" v-bind="slotProps" />
@@ -109,11 +119,11 @@
       <template v-if="$slots.summary || hasAutoSummary" #summary>
         <slot name="summary">
           <a-table-summary-row>
-            <a-table-summary-cell v-if="selectionEnabled" :index="0" />
+            <a-table-summary-cell v-if="checkboxes" :index="0" />
             <a-table-summary-cell
               v-for="(col, i) in visibleColumns"
               :key="colKey(col) || i"
-              :index="i + (selectionEnabled ? 1 : 0)"
+              :index="i + (checkboxes ? 1 : 0)"
               :align="col.align"
             >
               <b v-if="col.sum">{{ sumFor(col) }}</b>
@@ -183,6 +193,8 @@ const props = defineProps({
   crud: { type: Object, required: true },
   columns: { type: Array, required: true },
   rowKey: { type: String, default: 'id' },
+  // With an #expandedRowRender slot: which rows get the expand arrow (default all).
+  rowExpandable: { type: Function, default: undefined },
   searchable: { type: Boolean, default: true },
   // Row checkboxes + bulk delete (endpoint must support /delete/by_selection).
   // Disabled system-wide (2026-09-23) -- a real server bug let a blocked bulk
@@ -194,6 +206,9 @@ const props = defineProps({
   // enabled across every list in the app. The prop/wiring stays in place
   // (harmless, ignored) rather than ripped out of every page that passes it.
   selectable: { type: Boolean, default: false },
+  // The exception: row checkboxes for SAFE bulk actions only (the page's
+  // #bulk slot, e.g. Email Office "set type"), never the bulk delete above.
+  bulkSelect: { type: Boolean, default: false },
   // Identifies this table for admin column customization. Defaults to the
   // route + the crud endpoint, which keeps pages with several tables apart.
   tableKey: { type: String, default: '' },
@@ -206,9 +221,11 @@ const auth = useAuthStore();
 // this makes it a no-op everywhere instead of requiring every call site to be
 // edited individually. See the `selectable` prop comment above for why.
 const selectionEnabled = false;
+// Checkboxes shown: only for a page that opted into safe bulk actions (bulkSelect).
+const checkboxes = computed(() => selectionEnabled || props.bulkSelect);
 
 const toolbarVisible = computed(() =>
-  (props.searchable && dt.showSearch) || selectionEnabled || dt.showColumns || dt.showRefresh
+  (props.searchable && dt.showSearch) || checkboxes.value || dt.showColumns || dt.showRefresh
 );
 
 // tbody/thead styling via CSS vars, so 'default' cleanly inherits Ant's stack.
@@ -412,7 +429,16 @@ const sortedColumns = computed(() => {
   });
 });
 
-const visibleColumns = computed(() => sortedColumns.value.filter(c => !hiddenKeys.value.includes(colKey(c))));
+// A column with a width (its own, or set in Customize columns) keeps it: the
+// table lays out at max-content, where one long unwrapped text (e.g. an
+// email preview) would otherwise stretch its column and ignore the width.
+const withWidth = c => {
+  const w = Number(c.width);
+  if (!w || c.customCell) return c;
+  const style = { maxWidth: `${w}px`, whiteSpace: 'normal', overflowWrap: 'anywhere' };
+  return { ...c, customCell: () => ({ style }) };
+};
+const visibleColumns = computed(() => sortedColumns.value.filter(c => !hiddenKeys.value.includes(colKey(c))).map(withWidth));
 // Fit to width: same columns, wrapping instead of ellipsis, not pinned.
 const fitColumns = computed(() => visibleColumns.value.map(c => ({ ...c, ellipsis: false, fixed: undefined })));
 
@@ -454,6 +480,10 @@ function sumFor(col) {
 </script>
 
 <style scoped>
+.dt-bulk-count {
+  font-weight: 600;
+  color: #6d28d9;
+}
 .datatable-toolbar {
   display: flex;
   align-items: center;

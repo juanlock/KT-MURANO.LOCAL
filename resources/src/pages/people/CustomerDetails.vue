@@ -70,7 +70,19 @@
            Customize columns (rename / reorder, admins), page totals. -->
       <a-tabs v-model:activeKey="tab">
         <a-tab-pane v-for="pane in panes" :key="pane.key" :tab="$t(pane.label) === pane.label ? (pane.title || pane.label) : $t(pane.label)">
-          <DataTable :crud="pane.crud" :columns="pane.columns" :row-key="pane.rowKey || 'id'" :table-key="`customer-details|${pane.key}`">
+          <DataTable :crud="pane.crud" :columns="pane.columns" :row-key="pane.rowKey || 'id'" :table-key="`customer-details|${pane.key}`"
+            :row-expandable="pane.key === 'emails' ? (r => r.thread_count > 1) : undefined">
+            <!-- Email conversation: the other emails of a conversation, newest first. -->
+            <template v-if="pane.key === 'emails'" #expandedRowRender="{ record }">
+              <div class="thread-list">
+                <div v-for="m in record.messages" :key="m.id" class="thread-msg" :class="{ unread: m.direction === 'in' && !m.is_read }" @click="openEmail(m, record.messages)">
+                  <a-tag :color="m.direction === 'in' ? 'green' : 'blue'" style="margin: 0">{{ m.direction === 'in' ? 'From customer' : 'To customer' }}</a-tag>
+                  <span class="thread-date">{{ dateTime(m.sent_at) }}</span>
+                  <span class="thread-text"><b>{{ m.from_name || m.from_email }}</b> — {{ m.snippet }}</span>
+                  <PaperClipOutlined v-if="m.attachments_count" />
+                </div>
+              </div>
+            </template>
             <template v-if="pane.key === 'contracts' && can('sales_contracts_add')" #toolbar>
               <a-button type="primary" @click="$router.push({ path: '/sales-contracts/create', query: { client_id: id } })">
                 <template #icon><PlusOutlined /></template>
@@ -134,10 +146,14 @@
                 <a-tag :color="record.direction === 'in' ? 'green' : 'blue'">{{ record.direction === 'in' ? 'From customer' : 'To customer' }}</a-tag>
               </template>
               <template v-else-if="column.key === 'email_subject'">
-                <a @click="openEmail(record)">{{ record.subject }}</a>
-                <div class="muted" style="font-size: 12px">{{ record.snippet }}</div>
+                <a @click="openEmail(record, record.messages || [])">{{ record.thread_count > 1 ? record.thread_subject : record.subject }}</a>
+                <a-tooltip v-if="record.thread_count > 1" title="Emails in this conversation (expand the row to see them all)">
+                  <a-tag color="purple" style="margin-left: 6px">{{ record.thread_count }}</a-tag>
+                </a-tooltip>
+                <a-tag v-if="record.thread_unread" color="red">{{ record.thread_unread }} unread</a-tag>
+                <div class="muted email-snippet">{{ record.thread_count > 1 ? 'Latest: ' : '' }}{{ record.snippet }}</div>
               </template>
-              <template v-else-if="column.key === 'email_category'">{{ ({ bill: 'Bill', claim: 'Claim', reminder: 'Reminder', general: 'General' })[record.category] }}</template>
+              <template v-else-if="column.key === 'email_category'">{{ emailCategoryLabel(record.category) }}</template>
               <template v-else-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
               <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : 'Open-ended' }}</template>
             </template>
@@ -145,7 +161,8 @@
         </a-tab-pane>
       </a-tabs>
 
-      <EmailViewerDrawer v-model:open="emailOpen" :email-id="emailId" @changed="cruds.emails.fetchRows()" @filter-address="a => $router.push({ path: '/email-office/received', query: { address: a } })" />
+      <!-- Read-only: see the email and its conversation; classifying is done in Email Office. -->
+      <EmailViewerDrawer v-model:open="emailOpen" :email-id="emailId" :thread="emailThread" read-only />
 
       <a-card v-if="customFields.length" size="small" :title="$t('CustomFields')" style="margin-top: 16px">
         <a-descriptions :column="{ xs: 1, md: 2 }" size="small">
@@ -197,12 +214,16 @@ import {
   LeftOutlined, DollarOutlined, FilePdfOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined, IdcardOutlined,
   ShoppingOutlined, CheckCircleOutlined, CalculatorOutlined, ExclamationCircleOutlined, ToolOutlined,
   WalletOutlined, RollbackOutlined, CreditCardOutlined, PayCircleOutlined, StarOutlined,
-  PlusOutlined, SyncOutlined, EditOutlined,
+  PlusOutlined, SyncOutlined, EditOutlined, PaperClipOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import PayDueModal from '../../components/PayDueModal.vue';
 import DataTable from '../../components/DataTable.vue';
 import EmailViewerDrawer from '../../components/EmailViewerDrawer.vue';
+import { emailCategoryLabel, loadEmailFolders } from '../../lib/emailCategories';
+
+// Names of the company's own email folders (Email conversation tab "Type").
+loadEmailFolders();
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import { useFormat } from '../../composables/useFormat';
@@ -343,7 +364,7 @@ const cruds = {
   returns: tableFor('returns_client', 'returns'),
   payment_returns: tableFor('payment_returns_client', 'payment_returns'),
   contracts: useCrudTable('sales_contracts', { rowsKey: 'contracts', limit: 10, params: () => ({ client_id: id }) }),
-  emails: useCrudTable('email-office/party', { rowsKey: 'emails', limit: 10, params: () => ({ type: 'client', id }) }),
+  emails: useCrudTable('email-office/party', { rowsKey: 'emails', limit: 10, params: () => ({ type: 'client', id, threads: 1 }) }),
 };
 
 const col = (label, key, opts = {}) => ({ title: t(label), dataIndex: key, key, ...opts });
@@ -415,10 +436,11 @@ const panes = computed(() => [
   ...(auth.moduleEnabled('email_office') && can('email_office_view') ? [{
     key: 'emails', label: 'Email_Conversation', title: 'Email conversation', crud: cruds.emails,
     columns: [
-      { title: 'Date', dataIndex: 'sent_at', key: 'email_date' },
-      { title: '', dataIndex: 'direction', key: 'email_direction', width: 110 },
-      { title: 'Subject', dataIndex: 'subject', key: 'email_subject' },
-      { title: 'Type', dataIndex: 'category', key: 'email_category' },
+      { title: 'Date', dataIndex: 'sent_at', key: 'email_date', width: 160 },
+      { title: '', dataIndex: 'direction', key: 'email_direction', width: 120 },
+      // A default width: the preview below the subject wraps inside it (2 lines).
+      { title: 'Subject', dataIndex: 'subject', key: 'email_subject', width: 480 },
+      { title: 'Type', dataIndex: 'category', key: 'email_category', width: 100 },
     ],
   }] : []),
 ]);
@@ -426,7 +448,9 @@ const panes = computed(() => [
 // Email conversation: one email in the side panel.
 const emailOpen = ref(false);
 const emailId = ref(null);
-function openEmail(r) {
+const emailThread = ref([]);
+function openEmail(r, thread = []) {
+  emailThread.value = thread;
   emailId.value = r.id;
   emailOpen.value = true;
 }
@@ -602,6 +626,54 @@ onMounted(async () => {
   .hero-main { gap: 12px; }
   .hero-name { font-size: 18px; }
   .kpi-value { font-size: 16px; }
+}
+
+/* Email conversation: the preview under the subject -- 2 lines, wrapping
+   inside the column (never stretching it). */
+.email-snippet {
+  font-size: 12px;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Email conversation: the emails of one conversation (expanded row). */
+.thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 8px;
+  border-left: 3px solid #d3adf7;
+}
+.thread-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+.thread-msg:hover {
+  background: rgba(114, 46, 209, 0.06);
+}
+.thread-msg.unread .thread-text {
+  font-weight: 600;
+}
+.thread-date {
+  flex: none;
+  color: #888;
+  font-size: 12px;
+  width: 130px;
+}
+.thread-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .muted {

@@ -13,6 +13,7 @@ class Client extends Model
         'name', 'code', 'adresse', 'email', 'additional_emails', 'phone', 'country', 'city', 'state', 'zip', 'tax_number',
         'is_royalty_eligible', 'points', 'opening_balance', 'credit_limit',
         'woocommerce_id', 'company_id', 'user_id',
+        'contact_name', 'contact_email', 'contact_phone',
         'sync_issue_type', 'sync_issue_message', 'sync_issue_source', 'sync_issue_at',
     ];
 

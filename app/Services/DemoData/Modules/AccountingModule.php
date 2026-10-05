@@ -89,6 +89,14 @@ class AccountingModule extends DemoModule
         $salaries = $coa('6300-SAL', '6300-SAL', 'Salaries Expense', 'expense');
         $supplies = $coa('6400-SUP', '6400-SUP', 'Office Supplies Expense', 'expense');
 
+        // Wording + supplies account for what the company does (BusinessTypes):
+        // a landscaper's quarterly purchase is mulch and plants, not toner.
+        \App\Support\BusinessTypes::ensure($ctx->companyId, $ctx->businessType);
+        [$invoiceText, $suppliesText, $suppliesCode] = \App\Support\BusinessTypes::journal($ctx->businessType);
+        if ($suppliesCode && ($own = DB::table('acc_chart_of_accounts')->where('company_id', $ctx->companyId)->where('code', $suppliesCode)->value('id'))) {
+            $supplies = (int) $own;
+        }
+
         // A year of history: the opening capital 12 months back, then every
         // month rent + utilities, every quarter an invoice on credit, its
         // partial collection and office supplies; one draft accrual to review.
@@ -104,10 +112,13 @@ class AccountingModule extends DemoModule
             ];
             if ($m % 3 === 0) {
                 $invoice = (float) (3000 + 100 * random_int(0, 25));
-                $rows[] = ["Invoice to corporate customer (on credit) -- {$label}", 8, [[$ar, $invoice, 0], [$rev, 0, $invoice]]];
-                $rows[] = ["Partial collection from corporate customer -- {$label}", 22, [[$cash, round($invoice * 0.6, 2), 0], [$ar, 0, round($invoice * 0.6, 2)]]];
-                $supply = round(120 + random_int(0, 120) + random_int(0, 99) / 100, 2);
-                $rows[] = ["Printer paper and toner -- {$label}", 18, [[$supplies, $supply, 0], [$cash, 0, $supply]]];
+                $rows[] = ["{$invoiceText} -- {$label}", 8, [[$ar, $invoice, 0], [$rev, 0, $invoice]]];
+                $rows[] = ["Partial collection of that invoice -- {$label}", 22, [[$cash, round($invoice * 0.6, 2), 0], [$ar, 0, round($invoice * 0.6, 2)]]];
+                // Supplies bought for the business itself are bigger than toner.
+                $supply = $suppliesCode
+                    ? round(600 + random_int(0, 900) + random_int(0, 99) / 100, 2)
+                    : round(120 + random_int(0, 120) + random_int(0, 99) / 100, 2);
+                $rows[] = ["{$suppliesText} -- {$label}", 18, [[$supplies, $supply, 0], [$cash, 0, $supply]]];
             }
             foreach ($rows as [$description, $day, $lines]) {
                 $date = $month->copy()->day(min($day, $month->daysInMonth));

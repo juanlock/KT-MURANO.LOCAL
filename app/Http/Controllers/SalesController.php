@@ -169,6 +169,25 @@ class SalesController extends BaseController
             // Drafts only (draft=1) / without drafts (draft=0).
             ->when($request->filled('draft'), function ($query) use ($request) {
                 return $query->where('is_draft', $request->boolean('draft'));
+            })
+            // Emailed filter (sale_email_logs, ok sends): never_emailed = the
+            // invoice was never emailed; reminded = got a reminder;
+            // needs_reminder = still owes and no reminder in the last N days
+            // (reminder_days, default 15).
+            ->when(in_array($request->input('emailed'), ['never_emailed', 'reminded', 'needs_reminder'], true) && Schema::hasTable('sale_email_logs'), function ($query) use ($request) {
+                $sent = fn ($kinds, $since = null) => DB::table('sale_email_logs')->where('status', 'ok')->whereIn('kind', $kinds)
+                    ->when($since, fn ($q) => $q->where('sent_at', '>=', $since))->select('sale_id');
+                switch ($request->input('emailed')) {
+                    case 'never_emailed':
+                        return $query->whereNotIn('id', $sent(['invoice', 'receipt', 'reminder']));
+                    case 'reminded':
+                        return $query->whereIn('id', $sent(['reminder']));
+                    default:
+                        $days = max(1, min(365, (int) $request->input('reminder_days', 15)));
+
+                        return $query->whereColumn('paid_amount', '<', 'GrandTotal')->where('is_draft', false)
+                            ->whereNotIn('id', $sent(['reminder'], now()->subDays($days)));
+                }
             });
         if (! $is_all_warehouses) {
             $Sales->whereIn('warehouse_id', $warehouse_ids);
@@ -254,9 +273,13 @@ class SalesController extends BaseController
             ->filter(fn ($s) => round((float) $s->GrandTotal - (float) $s->paid_amount, 2) > 0)
             ->groupBy('client_id');
 
+        // "Emailed" column: invoice sent / reminders per sale (one grouped query).
+        $emailSummary = \App\Services\SaleEmailLog::summary($Sales->pluck('id')->all());
+
         foreach ($Sales as $Sale) {
 
             $item['id'] = $Sale['id'];
+            $item['email_log'] = $emailSummary[(int) $Sale['id']] ?? null;
             $item['date'] = $Sale['date'].' '.$Sale['time'];
             $item['Ref'] = $Sale['Ref'];
             $item['created_by'] = $Sale['user']->username;
@@ -2197,6 +2220,23 @@ class SalesController extends BaseController
     }
 
     // ---------------- Get Details Sale-----------------\\
+
+    /** GET sales/{id}/email-log -- every invoice / reminder / receipt email of the sale, newest first. */
+    public function emailLog(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', Sale::class);
+        $sale = Sale::whereNull('deleted_at')->findOrFail($id);
+        if ($request->user('api')->type !== 'SuperAdmin') {
+            abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
+        }
+        $rows = Schema::hasTable('sale_email_logs')
+            ? DB::table('sale_email_logs as l')->leftJoin('users as u', 'u.id', '=', 'l.user_id')->where('l.sale_id', $sale->id)
+                ->orderByDesc('l.sent_at')->orderByDesc('l.id')
+                ->get(['l.id', 'l.kind', 'l.recipients', 'l.subject', 'l.sent_at', 'l.status', 'l.error', 'l.office_email_id', 'u.username as sent_by'])
+            : collect();
+
+        return response()->json(['log' => $rows, 'summary' => \App\Services\SaleEmailLog::summary([$sale->id])[$sale->id] ?? null]);
+    }
 
     public function show(Request $request, $id)
     {
@@ -4630,7 +4670,8 @@ class SalesController extends BaseController
                 'name' => $sale->Ref.'.pdf',
                 'mime' => 'application/pdf',
             ]];
-            Mail::to($recipients)->send(new CustomEmail($email));
+            // Sent + recorded on the sale (sale_email_logs).
+            \App\Services\SaleEmailLog::send($sale, 'invoice', $recipients, $email);
         } catch (\Exception $e) {
             return $this->sendError('Failed to send email.', $e->getMessage());
         }
@@ -4730,7 +4771,8 @@ class SalesController extends BaseController
                 'name' => $sale->Ref.'.pdf',
                 'mime' => 'application/pdf',
             ]];
-            Mail::to($recipients)->send(new CustomEmail($email));
+            // Sent + recorded on the sale as a reminder (sale_email_logs).
+            \App\Services\SaleEmailLog::send($sale, 'reminder', $recipients, $email);
         } catch (\Exception $e) {
             return $this->sendError('Failed to send reminder email.', $e->getMessage());
         }

@@ -13,6 +13,7 @@ export const TOGGLEABLE_MODULES = [
     // One switch for both sidebar entries (Intranet for staff + Intranet Management).
     { key: 'intranet', label: 'Intranet', description: 'Staff intranet: news, files, gallery albums, events, calendar with birthdays, and pages — plus Intranet Management for admins.', pathPrefixes: ['intranet', 'intranet-admin'], menuKeys: ['intranet', 'intranet_management'] },
     { key: 'email_office', label: 'Email Office', description: 'The company mailbox inside Murano: received emails sorted into bills (purchases / expenses), claims (helpdesk) and general, every email sent (reminders included), and each customer’s email conversation.', pathPrefixes: ['email-office'] },
+    { key: 'portfolio', label: 'Portfolio', description: 'A public portfolio website for the company (/portfolio/your-name): works with photos, sliders or videos, filter categories, About and Contact pages, and the messages sent from it.', pathPrefixes: ['portfolio'] },
     { key: 'helpdesk', label: 'Helpdesk', description: 'Support tickets from employees, customers (portal), online customers (store), suppliers and email (mailbox import), handled by helpdesk agents.', pathPrefixes: ['helpdesk'] },
     { key: 'hrm', label: 'HRM', description: 'Employees, attendance, payroll, contracts and the knowledge base.', pathPrefixes: ['hrm', 'contracts'] },
     { key: 'recruit', label: 'Recruits & Jobs', description: 'Job postings, candidates, applications and interviews.', pathPrefixes: ['recruit'] },

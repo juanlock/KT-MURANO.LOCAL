@@ -191,6 +191,12 @@ class UserController extends BaseController
             'module_flags' => ($settings && $settings->module_flags)
                 ? json_decode($settings->module_flags, true)
                 : null,
+            // Defaults -> Products: the company's names for "Group Name" / "Name"
+            // (null = standard), applied to every form's labels by the SPA's i18n.
+            'product_labels' => [
+                'group' => $settings->product_group_label ?? null,
+                'name' => $settings->product_name_label ?? null,
+            ],
             // Global export defaults for list/report exports (null = built-in
             // defaults in the SPA's exporters lib).
             'export_settings' => ($settings && $settings->export_settings)
@@ -224,6 +230,7 @@ class UserController extends BaseController
             'start_preferences' => self::startPrefsOf($user),
         ];
 
+        // Exactly the role's permissions (the role is mandatory, Admins included).
         $permissions = $user->roles()->first()?->permissions->pluck('name') ?? [];
 
         $productsAlerts = product_warehouse::join('products', 'product_warehouse.product_id', '=', 'products.id')

@@ -22,6 +22,9 @@ class DemoContext
 {
     public string $module = 'core';
 
+    /** What the company does (App\Support\BusinessTypes) -- accounting / expenses demo rows follow it. */
+    public string $businessType = \App\Support\BusinessTypes::DEFAULT;
+
     private static array $columnCache = [];
 
     public function __construct(

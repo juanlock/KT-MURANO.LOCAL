@@ -1374,6 +1374,31 @@ export const PERMISSION_GROUPS = [
         ]
     },
     {
+        "label": "Portfolio",
+        "items": [
+            {
+                "v": "portfolio_manage",
+                "l": "Portfolio_Manage",
+                "f": "Portfolio website: works, categories, website, messages"
+            }
+        ]
+    },
+    {
+        "label": "Email_Office",
+        "items": [
+            {
+                "v": "email_office_view",
+                "l": "Email_Office_View",
+                "f": "Read emails (Received / Sent)"
+            },
+            {
+                "v": "email_office_manage",
+                "l": "Email_Office_Manage",
+                "f": "Settings menu, rules, Check now, Confirm sale"
+            }
+        ]
+    },
+    {
         "label": "Intranet",
         "items": [
             {

@@ -156,18 +156,41 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::put('/email-office/settings', [EmailOfficeController::class, 'saveSettings']);
     Route::post('/email-office/settings/test', [EmailOfficeController::class, 'test']);
     Route::post('/email-office/settings/fetch', [EmailOfficeController::class, 'fetchNow']);
+    Route::post('/email-office/auto-check', [EmailOfficeController::class, 'autoCheck']);
+    Route::get('/email-office/folders', [EmailOfficeController::class, 'folders']);
+    Route::post('/email-office/folders', [EmailOfficeController::class, 'createFolder']);
+    Route::delete('/email-office/folders/{id}', [EmailOfficeController::class, 'deleteFolder'])->whereNumber('id');
+    Route::get('/email-office/rules', [EmailOfficeController::class, 'rules']);
+    Route::post('/email-office/rules', [EmailOfficeController::class, 'saveRule']);
+    Route::put('/email-office/rules/{id}', [EmailOfficeController::class, 'saveRule'])->whereNumber('id');
+    Route::delete('/email-office/rules/{id}', [EmailOfficeController::class, 'deleteRule'])->whereNumber('id');
+    Route::post('/email-office/rules/run-all', [EmailOfficeController::class, 'runAllRules']);
+    Route::post('/email-office/rules/{id}/run', [EmailOfficeController::class, 'runRule'])->whereNumber('id');
     Route::post('/email-office/import-all', [EmailOfficeController::class, 'importAll']);
     Route::get('/email-office/emails', [EmailOfficeController::class, 'index']);
+    Route::post('/email-office/emails/bulk', [EmailOfficeController::class, 'bulk']);
     Route::get('/email-office/emails/{id}', [EmailOfficeController::class, 'show'])->whereNumber('id');
     Route::put('/email-office/emails/{id}', [EmailOfficeController::class, 'update'])->whereNumber('id');
+    Route::get('/email-office/emails/{id}/similar', [EmailOfficeController::class, 'similar'])->whereNumber('id');
+    Route::get('/email-office/emails/{id}/history', [EmailOfficeController::class, 'history'])->whereNumber('id');
+    Route::get('/email-office/emails/{id}/pdf', [EmailOfficeController::class, 'pdf'])->whereNumber('id');
+    Route::get('/email-office/emails/{id}/sale-draft', [EmailOfficeController::class, 'saleDraft'])->whereNumber('id');
+    Route::post('/email-office/emails/{id}/sale-draft', [EmailOfficeController::class, 'confirmSaleDraft'])->whereNumber('id');
+    Route::get('/email-office/emails/{id}/payment-draft', [EmailOfficeController::class, 'paymentDraft'])->whereNumber('id');
+    Route::post('/email-office/emails/{id}/payment-draft', [EmailOfficeController::class, 'confirmPaymentDraft'])->whereNumber('id');
+    Route::get('/email-office/emails/{id}/conversation', [EmailOfficeController::class, 'conversation'])->whereNumber('id');
+    Route::post('/email-office/emails/{id}/history', [EmailOfficeController::class, 'attachHistory'])->whereNumber('id');
+    Route::get('/email-office/linked', [EmailOfficeController::class, 'linked']);
     Route::get('/email-office/emails/{id}/attachments/{index}', [EmailOfficeController::class, 'attachment'])->whereNumber('id')->whereNumber('index');
     Route::post('/email-office/emails/{id}/ticket', [EmailOfficeController::class, 'ticket'])->whereNumber('id');
     Route::post('/email-office/compose', [EmailOfficeController::class, 'compose']);
     Route::get('/email-office/party', [EmailOfficeController::class, 'party']);
     Route::get('/email-office/link-options', [EmailOfficeController::class, 'linkOptions']);
     Route::get('/email-office/addresses', [EmailOfficeController::class, 'addresses']);
+    Route::get('/email-office/subjects', [EmailOfficeController::class, 'subjects']);
     Route::get('/email-office/party-options', [EmailOfficeController::class, 'partyOptions']);
     Route::post('/email-office/assign-address', [EmailOfficeController::class, 'assignAddress']);
+    Route::post('/email-office/assign-sender', [EmailOfficeController::class, 'assignSender']);
 
     // ---- Helpdesk (agents: helpdesk_view, managers: helpdesk_manage; per company) ----
     Route::get('/helpdesk/dashboard', [HelpdeskAdminController::class, 'dashboard']);
@@ -640,6 +663,34 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
 
     // ------------------------------Employee------------------------------------\\
 
+    // Portfolio module (back office of the public /portfolio/{slug} website).
+    Route::prefix('portfolio')->controller(\App\Http\Controllers\Api\Portfolio\PortfolioController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::put('/site', 'updateSite');
+        Route::match(['post', 'delete'], '/site/image', 'siteImage');
+        Route::post('/sections', 'storeSection');
+        Route::post('/sections/reorder', 'reorderSections');
+        Route::put('/sections/{id}', 'updateSection')->whereNumber('id');
+        Route::delete('/sections/{id}', 'destroySection')->whereNumber('id');
+        Route::match(['post', 'delete'], '/sections/{id}/image', 'sectionImage')->whereNumber('id');
+        Route::post('/categories', 'storeCategory');
+        Route::post('/categories/reorder', 'reorderCategories');
+        Route::put('/categories/{id}', 'updateCategory')->whereNumber('id');
+        Route::delete('/categories/{id}', 'destroyCategory')->whereNumber('id');
+        Route::post('/projects', 'storeProject');
+        Route::post('/projects/reorder', 'reorderProjects');
+        Route::put('/projects/{id}', 'updateProject')->whereNumber('id');
+        Route::delete('/projects/{id}', 'destroyProject')->whereNumber('id');
+        Route::post('/projects/{id}/cover', 'projectCover')->whereNumber('id');
+        Route::post('/projects/{id}/media', 'addMedia')->whereNumber('id');
+        Route::post('/projects/{id}/media/reorder', 'reorderMedia')->whereNumber('id');
+        Route::delete('/media/{id}', 'destroyMedia')->whereNumber('id');
+        Route::get('/messages', 'messages');
+        Route::put('/messages/{id}', 'updateMessage')->whereNumber('id');
+        Route::delete('/messages/{id}', 'destroyMessage')->whereNumber('id');
+    });
+    Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
+    Route::match(['post', 'delete'], 'employees/{id}/photo', 'hrm\EmployeesController@photo')->whereNumber('id');
     Route::resource('employees', 'hrm\EmployeesController');
     Route::post('employees/import/csv', 'hrm\EmployeesController@import_employees');
     Route::post('employees/delete/by_selection', 'hrm\EmployeesController@delete_by_selection');
@@ -1403,6 +1454,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
 
     // ------------------------------- Sales Documents --------------------------\\
     Route::get('sales/{id}/documents', 'SalesController@getDocuments');
+    Route::get('sales/{id}/email-log', 'SalesController@emailLog')->whereNumber('id');
     Route::post('sales/{id}/documents', 'SalesController@uploadDocuments');
     Route::get('sales/documents/{id}/download', 'SalesController@downloadDocument');
     Route::delete('sales/documents/{id}', 'SalesController@deleteDocument');
@@ -1445,6 +1497,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('expenses/recurring', 'ExpensesController@recurringIndex');
     Route::put('expenses/recurring/{id}', 'ExpensesController@recurringUpdate');
     Route::delete('expenses/recurring/{id}', 'ExpensesController@recurringDestroy');
+    Route::post('expenses/defaults', 'ExpensesController@saveDefaults');
     Route::resource('expenses', 'ExpensesController');
     Route::post('expenses_delete_by_selection', 'ExpensesController@delete_by_selection');
     // ------------------------------- Expense Documents --------------------------\\

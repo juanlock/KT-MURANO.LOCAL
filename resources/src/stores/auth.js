@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import http from '../lib/http';
 import { isModuleEnabled } from '../config/modules';
-import { loadLocale } from '../i18n';
+import { loadLocale, setProductLabels } from '../i18n';
 import { useUiStore } from './ui';
 import { resolveImageUrl } from '../lib/imagePath';
 import { useDatatableStore } from './datatable';
@@ -115,6 +115,9 @@ export const useAuthStore = defineStore('auth', {
                 // Tab title suffix = the acting company's own Appearance
                 // setting (re-applied on reload(), e.g. right after saving it).
                 if (this.user) setTitleSuffix(this.user.page_title_suffix);
+                // Defaults -> Products: the company's names for "Group Name" / "Name"
+                // on every form (null = standard; switching company resets them).
+                setProductLabels(this.user && this.user.product_labels);
                 // Price decimals cache (read by legacy/POS helpers when no
                 // better source is at hand): always the CURRENT company's
                 // value, so another company's 3 decimals can't linger.

@@ -93,6 +93,23 @@
               <a-textarea v-model:value="form.adresse" :rows="2" :placeholder="$t('Enter_Address')" />
             </a-form-item>
           </a-col>
+          <!-- Contact person: who to talk to at this customer (e.g. a business's office manager). -->
+          <a-col :span="24"><div class="cf-section">Contact person</div></a-col>
+          <a-col :xs="24" :md="8">
+            <a-form-item label="Name" name="contact_name">
+              <a-input v-model:value="form.contact_name" />
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="8">
+            <a-form-item label="Email" name="contact_email" :rules="[{ type: 'email', message: $t('InvalidData') }]">
+              <a-input v-model:value="form.contact_email" type="email" />
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="8">
+            <a-form-item label="Phone" name="contact_phone">
+              <a-input v-model:value="form.contact_phone" />
+            </a-form-item>
+          </a-col>
 
           <!-- Per-company feature flags: a hidden field keeps its loaded/default
                value in `form`, so the save payload is unchanged. -->
@@ -189,6 +206,7 @@ const emptyForm = () => ({
   // US-city picker below.
   country: isEdit.value ? '' : 'United States', city: '', state: '', zip: '', adresse: '',
   opening_balance: 0, credit_limit: 0, is_royalty_eligible: false,
+  contact_name: '', contact_email: '', contact_phone: '',
 });
 const form = ref(emptyForm());
 
@@ -343,3 +361,12 @@ onMounted(() => {
   if (isEdit.value) loadRecord();
 });
 </script>
+
+<style scoped>
+.cf-section {
+  font-weight: 600;
+  margin: 4px 0 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+}
+</style>

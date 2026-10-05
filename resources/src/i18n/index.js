@@ -115,6 +115,8 @@ export async function loadLocale(locale) {
             i18n.global.setLocaleMessage(locale, messages || {});
             indexLocale(locale, messages);
             loaded.add(locale);
+            baseMessages.set(locale, messages);
+            applyProductLabels(locale);
         }
     }
 
@@ -123,6 +125,80 @@ export async function loadLocale(locale) {
     try {
         window.localStorage.setItem('language', locale);
     } catch (e) { /* ignore storage errors */ }
+}
+
+/**
+ * Per-company names for the product "Group Name" / "Name" fields (System
+ * Settings -> Defaults -> Products; get_user_auth -> user.product_labels), e.g.
+ * Group Name = "Main Service", Name = "Service". Rewrites those labels and
+ * the help texts around them in the loaded translations, so every form that
+ * uses the keys below follows (products, quick add, sale / purchase /
+ * quotation pickers, lists, filters). Empty = the standard texts.
+ */
+const baseMessages = new Map(); // locale -> messages as fetched (before renaming)
+let productLabels = { group: null, name: null };
+const LABEL_KEYS = ['GroupName', 'Group_Name', 'GroupName_Help', 'Name_product', 'Name_Exists_In_Group', 'Name_In_Group_Help', 'Name_Pick_Or_Type', 'Name_Choose_Group_First', 'Create_new_group'];
+// The plain words inside the help texts, per language.
+const LABEL_WORDS = { en: { group: 'group', name: 'name' }, es: { group: 'grupo', name: 'nombre' }, fr: { group: 'groupe', name: 'nom' } };
+
+const escRe = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// One pass over the text (so a new label is never renamed again): the
+// language's "Group Name" phrase -> the group label as is; the plain words
+// "group(s)" / "name(s)" -> the labels in lower case ("Group" at the start
+// of a sentence keeps its capital, a plural keeps its "s").
+function relabel(key, text, base, locale) {
+    const { group, name } = productLabels;
+    if (typeof text !== 'string') return text;
+    if (key === 'GroupName' || key === 'Group_Name') return group || text;
+    if (key === 'Name_product') return name || text;
+    const words = LABEL_WORDS[locale] || {};
+    const parts = [];
+    if (group) parts.push(`(${escRe(base.GroupName || 'Group Name')})`);
+    else parts.push('(\u0000)'); // keeps the group numbering stable
+    parts.push(group && words.group ? `\\b(${escRe(words.group)})(s|es)?\\b` : '(\u0000)(\u0000)?');
+    parts.push(name && words.name ? `\\b(${escRe(words.name)})(s|es)?\\b` : '(\u0000)(\u0000)?');
+    const word = (w, label, plural) => {
+        const lower = label.toLowerCase();
+        return (w[0] === w[0].toUpperCase() ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower) + (plural ? 's' : '');
+    };
+    let out = text.replace(new RegExp(parts.join('|'), 'gi'), (m, phrase, gw, gp, nw, np) => {
+        if (phrase) return group;
+        if (gw) return word(gw, group, gp);
+        if (nw) return word(nw, name, np);
+        return m;
+    });
+    // English article: "a area" -> "an area".
+    if (locale === 'en') {
+        for (const label of [group, name]) {
+            if (label && /^[aeiou]/i.test(label)) out = out.replace(new RegExp(`\\b([Aa]) (${escRe(label)})`, 'gi'), '$1n $2');
+        }
+    }
+    return out;
+}
+
+function applyProductLabels(locale) {
+    const base = baseMessages.get(locale);
+    if (!base) return;
+    const patch = {};
+    for (const k of LABEL_KEYS) {
+        if (base[k] !== undefined) patch[k] = relabel(k, base[k], base, locale);
+    }
+    i18n.global.mergeLocaleMessage(locale, patch);
+}
+
+/** Set the acting company's labels ({group, name}) and rewrite every loaded language. */
+export function setProductLabels(labels) {
+    productLabels = {
+        group: (labels && String(labels.group || '').trim()) || null,
+        name: (labels && String(labels.name || '').trim()) || null,
+    };
+    for (const locale of baseMessages.keys()) applyProductLabels(locale);
+}
+
+/** The acting company's label for "Group Name" / "Name" (for texts built in code). */
+export function productLabel(which) {
+    return productLabels[which] || null;
 }
 
 export function applyDirection(locale) {

@@ -253,6 +253,160 @@ class EmployeesController extends Controller
         return response()->json(['success' => true]);
     }
 
+    // ------------ Photo (employee photo / linked user's avatar) -----------\\
+
+    /**
+     * POST employees/{id}/photo?for=employee|user  (file "photo")  -- upload
+     * DELETE employees/{id}/photo?for=employee|user                  -- remove
+     * employee: employees.avatar in files/company_{id}/employees/ (400 px);
+     * user: the linked user's avatar in files/company_{id}/avatar/ (128 px,
+     * same folder as Users). Same access as editing the employee; the old
+     * file is deleted only when it lives in this company's folder.
+     */
+    public function photo(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Employee::class);
+        $employee = Employee::where('deleted_at', '=', null)->findOrFail($id);
+        $this->abortUnlessOwnOrAll($request, $employee);
+        $actingUser = $request->user('api');
+        if ($actingUser->type !== 'SuperAdmin') {
+            abort_unless((int) $employee->company_id === (int) $actingUser->company_id, 403);
+        }
+        $cid = (int) $employee->company_id;
+        $forUser = $request->input('for') === 'user';
+        if ($forUser) {
+            abort_unless($employee->user_id, 422, 'No user is linked to this employee.');
+            $user = \App\Models\User::findOrFail($employee->user_id);
+            abort_unless((int) $user->company_id === $cid, 403);
+            $current = $user->avatar;
+        } else {
+            $current = $employee->avatar;
+        }
+
+        $path = 'no_avatar.png';
+        if ($request->isMethod('post')) {
+            $request->validate(['photo' => 'required|image|mimes:jpg,jpeg,png,webp,gif|max:5120']);
+            $dir = \App\Support\CompanyFiles::dir($cid, $forUser ? 'avatar' : 'employees');
+            $size = $forUser ? 128 : 400;
+            $name = \Illuminate\Support\Str::random(10).'-'.\App\Support\CompanyFiles::safeName(pathinfo($request->file('photo')->getClientOriginalName(), PATHINFO_FILENAME)).'.jpg';
+            $img = \Intervention\Image\ImageManagerStatic::make($request->file('photo')->getRealPath());
+            try {
+                $img->orientate(); // phone photos: turn upright (needs the exif extension)
+            } catch (\Throwable $e) {
+            }
+            $img->fit($size, $size)->save(public_path($dir.'/'.$name), 85, 'jpg');
+            $path = $dir.'/'.$name;
+        }
+
+        // The old photo: deleted only when it is a file of this company.
+        if ($current && str_starts_with((string) $current, 'files/company_'.$cid.'/') && ! str_contains((string) $current, '..') && is_file(public_path($current))) {
+            @unlink(public_path($current));
+        }
+        if ($forUser) {
+            $user->avatar = $path;
+            $user->save();
+        } else {
+            $employee->avatar = $path;
+            $employee->save();
+        }
+
+        return response()->json(['success' => true, 'avatar' => $path === 'no_avatar.png' ? null : $path]);
+    }
+
+    // ------------ Production (services done / payments received) -----------\\
+
+    /**
+     * GET employees/{id}/production?from&to -- what an employee produced and
+     * what they were paid, in a date range (empty = everything):
+     *  - services: bookings where they are the staff (not cancelled), plus
+     *    sales where they are the sales agent that have no booking (a sale
+     *    with a booking counts once, under the booking's staff);
+     *  - payments: HRM payroll, plus expenses recorded from Zelle payments
+     *    sent to them (email linked to the employee, e.g. 1099 contractors).
+     * Same access as the employee record (own company; own record unless
+     * the user may view all employees).
+     */
+    public function production(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', Employee::class);
+        $employee = Employee::where('deleted_at', '=', null)->findOrFail($id);
+        $this->abortUnlessOwnOrAll($request, $employee);
+        $actingUser = $request->user('api');
+        if ($actingUser->type !== 'SuperAdmin') {
+            abort_unless((int) $employee->company_id === (int) $actingUser->company_id, 403);
+        }
+        $cid = (int) $employee->company_id;
+        $from = $request->filled('from') ? Carbon::parse($request->from)->toDateString() : null;
+        $to = $request->filled('to') ? Carbon::parse($request->to)->toDateString() : null;
+        $range = fn ($q, $col) => $q->when($from, fn ($q) => $q->where($col, '>=', $from))->when($to, fn ($q) => $q->where($col, '<=', $to));
+        $db = \Illuminate\Support\Facades\DB::class;
+
+        $services = collect();
+        if ($employee->user_id) {
+            $bookings = $range($db::table('bookings as b'), 'b.booking_date')
+                ->join('warehouses as w', 'w.id', '=', 'b.warehouse_id')->where('w.company_id', $cid)
+                ->leftJoin('clients as c', 'c.id', '=', 'b.customer_id')
+                ->leftJoin('sales as s', 's.id', '=', 'b.sale_id')
+                ->where('b.sales_person_id', $employee->user_id)->whereNull('b.deleted_at')->where('b.status', '!=', 'cancelled')
+                ->get(['b.id', 'b.Ref', 'b.booking_date as date', 'b.booking_time as time', 'b.product_name as service', 'b.amount', 'b.status',
+                    'c.name as customer', 'b.sale_id', 's.Ref as sale_ref']);
+            foreach ($bookings as $b) {
+                $services->push(['source' => 'booking', 'id' => $b->id, 'ref' => $b->Ref, 'date' => $b->date, 'time' => $b->time,
+                    'service' => $b->service, 'customer' => $b->customer, 'amount' => (float) $b->amount, 'status' => $b->status,
+                    'sale_id' => $b->sale_id, 'sale_ref' => $b->sale_ref]);
+            }
+            $agentIds = $db::table('sales_agents')->where('company_id', $cid)->where('user_id', $employee->user_id)->pluck('id');
+            if ($agentIds->isNotEmpty()) {
+                $sales = $range($db::table('sales as s'), 's.date')->where('s.company_id', $cid)->whereIn('s.sales_agent_id', $agentIds)->whereNull('s.deleted_at')
+                    ->whereNotExists(fn ($q) => $q->select($db::raw(1))->from('bookings')->whereColumn('bookings.sale_id', 's.id')->whereNull('bookings.deleted_at'))
+                    ->leftJoin('clients as c', 'c.id', '=', 's.client_id')
+                    ->get(['s.id', 's.Ref', 's.date', 's.time', 's.GrandTotal', 's.statut', 'c.name as customer']);
+                $names = $db::table('sale_details as d')->join('products as p', 'p.id', '=', 'd.product_id')->whereIn('d.sale_id', $sales->pluck('id'))
+                    ->get(['d.sale_id', 'p.name'])->groupBy('sale_id')->map(fn ($g) => $g->pluck('name')->unique()->implode(', '));
+                foreach ($sales as $s) {
+                    $services->push(['source' => 'sale', 'id' => $s->id, 'ref' => $s->Ref, 'date' => $s->date, 'time' => $s->time,
+                        'service' => $names[$s->id] ?? null, 'customer' => $s->customer, 'amount' => (float) $s->GrandTotal, 'status' => $s->statut,
+                        'sale_id' => $s->id, 'sale_ref' => $s->Ref]);
+                }
+            }
+        }
+
+        $payments = collect();
+        foreach ($range($db::table('payrolls as p'), 'p.date')->where('p.employee_id', $employee->id)->whereNull('p.deleted_at')
+            ->leftJoin('payment_methods as m', 'm.id', '=', 'p.payment_method_id')
+            ->get(['p.id', 'p.Ref', 'p.date', 'p.amount', 'p.payment_status', 'm.name as method']) as $p) {
+            $payments->push(['source' => 'payroll', 'id' => $p->id, 'ref' => $p->Ref, 'date' => $p->date, 'amount' => (float) $p->amount,
+                'method' => $p->method, 'category' => 'Payroll', 'details' => $p->payment_status]);
+        }
+        if (\Illuminate\Support\Facades\Schema::hasTable('office_emails')) {
+            $expIds = $db::table('office_emails')->where('company_id', $cid)->where('party_type', 'employee')->where('party_id', $employee->id)
+                ->where('linked_type', 'expense')->pluck('linked_id')->unique();
+            foreach ($range($db::table('expenses as x'), 'x.date')->whereIn('x.id', $expIds)->whereNull('x.deleted_at')->whereNull('x.payroll_id')
+                ->leftJoin('payment_methods as m', 'm.id', '=', 'x.payment_method_id')
+                ->leftJoin('expense_categories as c', 'c.id', '=', 'x.expense_category_id')
+                ->get(['x.id', 'x.Ref', 'x.date', 'x.amount', 'x.details', 'm.name as method', 'c.name as category']) as $x) {
+                $payments->push(['source' => 'expense', 'id' => $x->id, 'ref' => $x->Ref, 'date' => $x->date, 'amount' => (float) $x->amount,
+                    'method' => $x->method, 'category' => $x->category, 'details' => $x->details]);
+            }
+        }
+
+        $services = $services->sortByDesc(fn ($r) => $r['date'].' '.$r['time'])->values();
+        $payments = $payments->sortByDesc('date')->values();
+        $produced = round($services->sum('amount'), 2);
+        $paid = round($payments->sum('amount'), 2);
+
+        return response()->json([
+            'services' => $services,
+            'payments' => $payments,
+            'summary' => [
+                'services_count' => $services->count(), 'services_total' => $produced,
+                'payments_count' => $payments->count(), 'payments_total' => $paid,
+                'payout_pct' => $produced > 0 ? round($paid / $produced * 100, 1) : null,
+                'has_user' => (bool) $employee->user_id,
+            ],
+        ]);
+    }
+
     // ------------ function show -----------\\
 
     public function show(Request $request, $id)
@@ -269,7 +423,8 @@ class EmployeesController extends Controller
             abort_unless((int) $employee->company_id === (int) $actingUser->company_id, 403);
         }
 
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        // Multicompany: an Admin only gets their own company in the Company select.
+        $companies = $this->companyChoices($request, $employee->company_id);
         $office_shifts = OfficeShift::where('company_id', $employee->company_id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
         $departments = Department::where('company_id', $employee->company_id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'department']);
         $designations = Designation::where('department_id', $employee->department_id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'designation']);
@@ -280,8 +435,39 @@ class EmployeesController extends Controller
             'office_shifts' => $office_shifts,
             'departments' => $departments,
             'designations' => $designations,
+            'user' => $this->linkedUser($employee),
         ]);
 
+    }
+
+    /**
+     * The user account linked to an employee (employees.user_id), for the
+     * employee's User tab -- safe fields only (never password / PIN / tokens).
+     */
+    private function linkedUser($employee): ?array
+    {
+        if (! $employee->user_id) {
+            return null;
+        }
+        $db = \Illuminate\Support\Facades\DB::class;
+        $u = $db::table('users')->where('id', $employee->user_id)->first([
+            'id', 'company_id', 'firstname', 'lastname', 'username', 'email', 'phone', 'avatar', 'type', 'role_id', 'statut',
+            'is_sales_staff', 'is_all_warehouses', 'record_view', 'portal_enabled', 'preferred_locale', 'created_at', 'deleted_at',
+        ]);
+        if (! $u) {
+            return null;
+        }
+        $row = (array) $u;
+        $row['role'] = $u->role_id ? $db::table('roles')->where('id', $u->role_id)->value('name') : null;
+        $row['company'] = $db::table('companies')->where('id', $u->company_id)->value('name');
+        $row['warehouses'] = $u->is_all_warehouses ? [] : $db::table('user_warehouse as uw')->join('warehouses as w', 'w.id', '=', 'uw.warehouse_id')
+            ->where('uw.user_id', $u->id)->orderBy('w.name')->pluck('w.name')->all();
+        $row['sales_agents'] = $db::table('sales_agents')->where('user_id', $u->id)->whereNull('deleted_at')->pluck('name')->all();
+        $row['last_login'] = \Illuminate\Support\Facades\Schema::hasTable('user_login_sessions')
+            ? $db::table('user_login_sessions')->where('user_id', $u->id)->max('logged_in_at') : null;
+        $row['bookings_count'] = $db::table('bookings')->where('sales_person_id', $u->id)->whereNull('deleted_at')->count();
+
+        return $row;
     }
 
     public function edit(Request $request, $id)

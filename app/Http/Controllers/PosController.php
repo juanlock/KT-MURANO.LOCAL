@@ -1121,7 +1121,8 @@ class PosController extends BaseController
 
         $this->Set_config_mail($sale->company_id);
 
-        Mail::to($receiver_email)->send(new CustomEmail($email));
+        // Sent + recorded on the sale as a POS receipt (sale_email_logs).
+        \App\Services\SaleEmailLog::send($sale, 'receipt', [$receiver_email], $email);
 
         return response()->json(['message' => 'Email sent successfully'], 200);
 

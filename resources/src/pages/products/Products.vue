@@ -44,7 +44,7 @@
             />
           </template>
           <template v-else-if="key === 'name'">
-            <div class="filter-label">{{ $t('ProductName') }}</div>
+            <div class="filter-label">{{ $t('Name_product') }}</div>
             <a-select
               v-model:value="filters.name" style="width: 100%" allow-clear show-search
               option-filter-prop="label" :placeholder="$t('SearchByName')" :options="productNameFilterOptions"
@@ -347,8 +347,9 @@ const {
   openCustomize, moveRow, saveCustomize, resetCustomize,
 } = useCustomizableFilters('products_filters', [
   { key: 'kind', label: 'Type Product' },
-  { key: 'product_group_id', label: 'Group Name' },
-  { key: 'name', label: 'Product Name' },
+  // The company's own names for Group Name / Name (Defaults -> Products).
+  { key: 'product_group_id', label: t('GroupName') },
+  { key: 'name', label: t('Name_product') },
   { key: 'code', label: 'Code' },
   { key: 'category_id', label: 'Category' },
   { key: 'brand_id', label: 'Brand' },

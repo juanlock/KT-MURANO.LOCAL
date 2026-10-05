@@ -82,8 +82,10 @@ class DashboardController extends Controller
 
         // Payment Sent & Received chart: also use header date range + warehouse filter
         $Payment_chart = $this->Payment_chart($warehouse_id, $array_warehouses_id, $request->from, $request->to);
-        $TopCustomers = $this->TopCustomers($warehouse_id, $array_warehouses_id);
-        $Top_Products_Year = $this->Top_Products_Year($warehouse_id, $array_warehouses_id);
+        // Top customers / top products: the header date range too (they used a
+        // fixed this-month / this-year window whatever range was picked).
+        $TopCustomers = $this->TopCustomers($warehouse_id, $array_warehouses_id, $request->from, $request->to);
+        $Top_Products_Year = $this->Top_Products_Year($warehouse_id, $array_warehouses_id, $request->from, $request->to);
         
         // Stat cards and Sales by Payment: Use date range + warehouse filter
         $report_dashboard = $this->report_dashboard($request, $warehouse_id, $array_warehouses_id);
@@ -249,8 +251,10 @@ class DashboardController extends Controller
 
     // -------------------- Get Top 5 Customers -------------\\
 
-    public function TopCustomers($warehouse_id, $array_warehouses_id)
+    public function TopCustomers($warehouse_id, $array_warehouses_id, $from = null, $to = null)
     {
+        $from = $from ?: Carbon::now()->startOfMonth()->toDateString();
+        $to = $to ?: Carbon::now()->endOfMonth()->toDateString();
         $user = Auth::user();
         // New way: Check user's record_view field (user-level boolean)
         // Backward compatibility: If record_view is null, fall back to role permission check
@@ -261,10 +265,7 @@ class DashboardController extends Controller
             $warehouse_ids = $this->reportWarehouseIdList();
         }
 
-        $data = Sale::whereBetween('date', [
-            Carbon::now()->startOfMonth(),
-            Carbon::now()->endOfMonth(),
-        ])->where('sales.deleted_at', '=', null)
+        $data = Sale::whereBetween('sales.date', [$from, $to])->where('sales.deleted_at', '=', null)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('sales.user_id', '=', Auth::user()->id);
@@ -291,8 +292,10 @@ class DashboardController extends Controller
 
     // -------------------- Get Top 5 Products This YEAR -------------\\
 
-    public function Top_Products_Year($warehouse_id, $array_warehouses_id)
+    public function Top_Products_Year($warehouse_id, $array_warehouses_id, $from = null, $to = null)
     {
+        $from = $from ?: Carbon::now()->startOfYear()->toDateString();
+        $to = $to ?: Carbon::now()->endOfYear()->toDateString();
 
         $user = Auth::user();
         // New way: Check user's record_view field (user-level boolean)
@@ -306,10 +309,8 @@ class DashboardController extends Controller
 
         $products = SaleDetail::join('sales', 'sale_details.sale_id', '=', 'sales.id')
             ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
-            ->whereBetween('sale_details.date', [
-                Carbon::now()->startOfYear(),
-                Carbon::now()->endOfYear(),
-            ])
+            ->whereBetween('sales.date', [$from, $to])
+            ->whereNull('sales.deleted_at')
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('sales.user_id', '=', Auth::user()->id);
@@ -346,13 +347,11 @@ class DashboardController extends Controller
         $view_records = $user->hasRecordView();
         
 
-        // top selling product this month
+        // Top selling products & services in the header date range (was always this month).
         $products = SaleDetail::join('sales', 'sale_details.sale_id', '=', 'sales.id')
             ->join('products', 'sale_details.product_id', '=', 'products.id')->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('products.company_id', $cid))
-            ->whereBetween('sale_details.date', [
-                Carbon::now()->startOfMonth(),
-                Carbon::now()->endOfMonth(),
-            ])
+            ->whereBetween('sales.date', [$request->from, $request->to])
+            ->whereNull('sales.deleted_at')
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('sales.user_id', '=', Auth::user()->id);

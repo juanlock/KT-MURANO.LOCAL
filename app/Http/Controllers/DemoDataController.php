@@ -43,6 +43,9 @@ class DemoDataController extends Controller
             'company_name' => DB::table('companies')->where('id', $companyId)->value('name'),
             'modules' => $modules,
             'demo_total' => DB::table('demo_records')->where('company_id', $companyId)->count(),
+            // What the company does -- accounting / expenses examples follow it.
+            'business_type' => \App\Support\BusinessTypes::of($companyId),
+            'business_types' => collect(\App\Support\BusinessTypes::LABELS)->map(fn ($label, $value) => compact('value', 'label'))->values(),
         ]);
     }
 
@@ -52,8 +55,13 @@ class DemoDataController extends Controller
         $data = $request->validate([
             'modules' => ['required', 'array', 'min:1'],
             'modules.*' => ['string', 'max:40'],
+            'business_type' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Support\BusinessTypes::LABELS))],
         ]);
         $companyId = (int) $this->resolveActingCompanyId($request);
+        // Saved on the company: the next run (and other features) know it.
+        if (! empty($data['business_type'])) {
+            \App\Support\BusinessTypes::set($companyId, $data['business_type']);
+        }
 
         $results = DemoRunner::run($companyId, (int) $request->user('api')->id, $data['modules']);
 

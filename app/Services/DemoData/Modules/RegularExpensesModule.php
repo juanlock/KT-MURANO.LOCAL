@@ -23,19 +23,9 @@ use Illuminate\Support\Facades\DB;
  */
 class RegularExpensesModule extends DemoModule
 {
-    /** [category (default set name), base amount, variation (0-1), day of the month]. */
-    private const BILLS = [
-        ['Office rent', 1800, 0, 1],
-        ['Software subscriptions', 180, 0.2, 3],
-        ['Internet and telecommunications', 95, 0, 5],
-        ['Utilities', 260, 0.35, 12],
-        ['Insurance', 240, 0, 15],
-        ['Office supplies', 110, 0.6, 18],
-        ['Advertising', 450, 0.5, 20],
-        ['Accounting services', 350, 0, 25],
-        ['Credit card processing fees', 140, 0.4, 28],
-        ['Bank fees', 28, 0.4, 28],
-    ];
+    // The bills themselves depend on what the company does (a landscaper
+    // buys mulch and fuel, a salon hair color, a restaurant food):
+    // App\Support\BusinessTypes::bills($ctx->businessType).
 
     private const MONTHS = 12;
 
@@ -66,8 +56,11 @@ class RegularExpensesModule extends DemoModule
         $byName = $categories();
         if ($byName->isEmpty()) {
             CompanyAccountingSeeder::seed($ctx->companyId);
-            $byName = $categories();
         }
+        // The business type's own categories + accounts (real setup, kept after reset).
+        \App\Support\BusinessTypes::ensure($ctx->companyId, $ctx->businessType);
+        $byName = $categories();
+        $bills = \App\Support\BusinessTypes::bills($ctx->businessType);
         $paymentMethodId = DB::table('payment_methods')->whereNull('deleted_at')
             ->when($ctx->hasColumn('payment_methods', 'is_active'), fn ($q) => $q->where('is_active', 1))
             ->orderByRaw("LOWER(name) LIKE '%bank%' desc")->orderBy('id')->value('id');
@@ -78,7 +71,7 @@ class RegularExpensesModule extends DemoModule
         $ids = [];
         for ($m = self::MONTHS - 1; $m >= 0; $m--) {
             $month = $today->copy()->startOfMonth()->subMonthsNoOverflow($m);
-            foreach (self::BILLS as $i => [$name, $base, $vary, $day]) {
+            foreach ($bills as $i => [$name, $base, $vary, $day]) {
                 $categoryId = $byName[$name] ?? null;
                 $date = $month->copy()->day(min($day, $month->daysInMonth));
                 if (! $categoryId || $date->gt($today)) {
@@ -106,6 +99,7 @@ class RegularExpensesModule extends DemoModule
         // Posted to the journal like a form-made expense (Accounting shows them).
         $journal = $ctx->postJournal('expenses', 'fromExpense', $ids);
 
-        return ['Regular expenses' => $count, 'Months' => self::MONTHS, 'Total amount' => (int) round($total), 'Journal entries' => $journal];
+        return ['Business type' => \App\Support\BusinessTypes::LABELS[$ctx->businessType] ?? $ctx->businessType,
+            'Regular expenses' => $count, 'Months' => self::MONTHS, 'Total amount' => (int) round($total), 'Journal entries' => $journal];
     }
 }

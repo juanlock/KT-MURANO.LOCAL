@@ -467,14 +467,17 @@ class BookingController extends BaseController
             ->get(['id', 'firstname', 'lastname', 'username', 'avatar'])
             ->map(function ($user) {
                 $name = trim(($user->firstname ?? '').' '.($user->lastname ?? ''));
-                // Photo for the calendar: the user's avatar, else their employee photo.
-                $avatar = $user->avatar ?: \App\Models\Employee::where('user_id', $user->id)->whereNull('deleted_at')->value('avatar');
-                $avatar = $avatar && ! str_contains($avatar, 'no_avatar') && file_exists(public_path(ltrim($avatar, '/'))) ? '/'.ltrim($avatar, '/') : null;
+                $employee = \App\Models\Employee::where('user_id', $user->id)->whereNull('deleted_at')->first(['id', 'avatar']);
+                // Photo for the calendar: the user's avatar, else their employee photo
+                // ("no_avatar.png" = no photo, so it falls through to the employee's).
+                $real = fn ($p) => $p && ! str_contains($p, 'no_avatar') && file_exists(public_path(ltrim($p, '/'))) ? '/'.ltrim($p, '/') : null;
 
                 return [
                     'id' => $user->id,
                     'name' => $name !== '' ? $name : $user->username,
-                    'avatar' => $avatar,
+                    'avatar' => $real($user->avatar) ?: $real($employee?->avatar),
+                    // Employee record behind this user (Employee details link), or null.
+                    'employee_id' => $employee?->id,
                 ];
             });
     }

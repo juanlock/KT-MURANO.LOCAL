@@ -395,6 +395,7 @@ const SchoolFees = lazy('SchoolFees', () => import('../pages/school/Fees.vue'));
 const SchoolReports = lazy('SchoolReports', () => import('../pages/school/SchoolReports.vue'));
 const Employees = lazy('Employees', () => import('../pages/hrm/Employees.vue'));
 const EmployeeForm = lazy('EmployeeForm', () => import('../pages/hrm/EmployeeForm.vue'));
+const PortfolioAdmin = lazy('PortfolioAdmin', () => import('../pages/portfolio/PortfolioAdmin.vue'));
 const EmployeeDetails = lazy('EmployeeDetails', () => import('../pages/hrm/EmployeeDetails.vue'));
 const Attendance = lazy('Attendance', () => import('../pages/hrm/Attendance.vue'));
 const Leaves = lazy('Leaves', () => import('../pages/hrm/Leaves.vue'));
@@ -616,6 +617,13 @@ const routes = [
             { path: 'intranet-admin/pages', name: 'intranet-admin-pages', component: IntranetAdminPages, meta: { title: 'Intranet Management - Pages', permission: 'intranet_manage' } },
             { path: 'store/portfolio', name: 'store-portfolio', component: StorePortfolio, meta: { title: 'Portfolio', permission: 'Store_settings_view' } },
             { path: 'store/gallery', name: 'store-gallery', component: StoreGallery, meta: { title: 'Gallery', permission: 'Store_settings_view' } },
+            // Portfolio module: one page, one route per tab (= one menu entry each).
+            { path: 'portfolio', redirect: '/portfolio/sections' },
+            { path: 'portfolio/sections', name: 'portfolio-sections', component: PortfolioAdmin, meta: { title: 'Portfolio · Home sections', permission: 'portfolio_manage', tab: 'sections' } },
+            { path: 'portfolio/works', name: 'portfolio-works', component: PortfolioAdmin, meta: { title: 'Portfolio · Works', permission: 'portfolio_manage', tab: 'projects' } },
+            { path: 'portfolio/categories', name: 'portfolio-categories', component: PortfolioAdmin, meta: { title: 'Portfolio · Categories', permission: 'portfolio_manage', tab: 'categories' } },
+            { path: 'portfolio/website', name: 'portfolio-website', component: PortfolioAdmin, meta: { title: 'Portfolio · Website', permission: 'portfolio_manage', tab: 'site' } },
+            { path: 'portfolio/messages', name: 'portfolio-messages', component: PortfolioAdmin, meta: { title: 'Portfolio · Messages', permission: 'portfolio_manage', tab: 'messages' } },
             { path: 'email-office/settings', name: 'email-office-settings', component: EmailOfficeSettings, meta: { title: 'Email Office settings', permission: 'email_office_manage' } },
             { path: 'email-office/received', name: 'email-office-received', component: EmailOfficeList, props: { direction: 'in' }, meta: { title: 'Email received', permission: 'email_office_view' } },
             { path: 'email-office/sent', name: 'email-office-sent', component: EmailOfficeList, props: { direction: 'out' }, meta: { title: 'Email sent', permission: 'email_office_view' } },
@@ -754,7 +762,8 @@ const routes = [
             { path: 'school/reports', name: 'school-reports', component: SchoolReports, meta: { title: 'School Reports', permission: 'school_reports' } },
             { path: 'hrm/employees', name: 'employees', component: Employees, meta: { title: 'Employees', permission: 'view_employee' } },
             { path: 'hrm/employees/create', name: 'employee-create', component: EmployeeForm, meta: { title: 'Add Employee', permission: 'add_employee' } },
-            { path: 'hrm/employees/:id/edit', name: 'employee-edit', component: EmployeeForm, meta: { title: 'Edit Employee', permission: 'edit_employee' } },
+            // Edit = the same tabbed page as Details (Basic information / Company / User / Production / Payments...).
+            { path: 'hrm/employees/:id(\\d+)/edit', name: 'employee-edit', component: EmployeeDetails, meta: { title: 'Edit Employee', permission: 'edit_employee' } },
             { path: 'hrm/employees/:id(\\d+)/details', name: 'employee-details', component: EmployeeDetails, meta: { title: 'Employee Details', permission: 'view_employee' } },
             { path: 'hrm/attendance', name: 'attendance', component: Attendance, meta: { title: 'Attendance', permission: 'attendance' } },
             { path: 'hrm/leaves', name: 'leaves', component: Leaves, meta: { title: 'Leave Requests', permission: 'leave' } },

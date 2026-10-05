@@ -146,6 +146,72 @@
         </ReportTab>
       </a-tab-pane>
 
+      <!-- Supplier info: contact details, address, contact person. -->
+      <a-tab-pane key="info" tab="Supplier info">
+        <a-card size="small" :loading="!info">
+          <template #extra>
+            <a-button v-if="auth.can('Suppliers_edit')" size="small" @click="$router.push(`/suppliers/${id}/edit`)">
+              <template #icon><EditOutlined /></template>
+              {{ $t('Edit') }}
+            </a-button>
+          </template>
+          <a-descriptions v-if="info" :column="{ xs: 1, md: 2 }" size="small" bordered>
+            <a-descriptions-item :label="$t('SupplierName')">{{ info.name }}</a-descriptions-item>
+            <a-descriptions-item label="Code">{{ info.code || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('Email')">
+              <a v-if="info.email" :href="`mailto:${info.email}`">{{ info.email }}</a><span v-else>—</span>
+              <div v-if="(info.additional_emails || []).length" class="muted">{{ info.additional_emails.join(', ') }}</div>
+            </a-descriptions-item>
+            <a-descriptions-item :label="$t('Phone')">{{ info.phone || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('Adress')" :span="2">{{ addressLine || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('Tax_Number')">{{ info.tax_number || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('Credit_Limit')">{{ Number(info.credit_limit) > 0 ? money(info.credit_limit) : $t('No_limit') }}</a-descriptions-item>
+            <a-descriptions-item label="Contact person" :span="2">
+              <template v-if="info.contact_name || info.contact_email || info.contact_phone">
+                <b>{{ info.contact_name || '—' }}</b>
+                <span v-if="info.contact_email"> · <a :href="`mailto:${info.contact_email}`">{{ info.contact_email }}</a></span>
+                <span v-if="info.contact_phone"> · {{ info.contact_phone }}</span>
+              </template>
+              <span v-else class="muted">Not set — add it with Edit.</span>
+            </a-descriptions-item>
+          </a-descriptions>
+        </a-card>
+      </a-tab-pane>
+
+      <!-- Email Office: every email from / to this supplier, one row per conversation. -->
+      <a-tab-pane v-if="showEmails" key="emails" :tab="`Email conversation${emailsCrud.total.value ? ` (${emailsCrud.total.value})` : ''}`">
+        <DataTable
+          :crud="emailsCrud" :columns="emailColumns" :table-key="'supplier-details|emails'"
+          :row-expandable="r => r.thread_count > 1"
+        >
+          <template #expandedRowRender="{ record }">
+            <div class="thread-list">
+              <div v-for="m in record.messages" :key="m.id" class="thread-msg" @click="openEmail(m, record.messages)">
+                <a-tag :color="m.direction === 'in' ? 'green' : 'blue'" style="margin: 0">{{ m.direction === 'in' ? 'From supplier' : 'To supplier' }}</a-tag>
+                <span class="thread-date">{{ dateTime(m.sent_at) }}</span>
+                <span class="thread-text"><b>{{ m.from_name || m.from_email }}</b> — {{ m.snippet }}</span>
+              </div>
+            </div>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'email_date'">{{ dateTime(record.sent_at) }}</template>
+            <template v-else-if="column.key === 'email_direction'">
+              <a-tag :color="record.direction === 'in' ? 'green' : 'blue'">{{ record.direction === 'in' ? 'From supplier' : 'To supplier' }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'email_subject'">
+              <a @click="openEmail(record, record.messages || [])">{{ record.thread_count > 1 ? record.thread_subject : record.subject }}</a>
+              <a-tag v-if="record.thread_count > 1" color="purple" style="margin-left: 6px">{{ record.thread_count }}</a-tag>
+              <div class="muted email-snippet">{{ record.thread_count > 1 ? 'Latest: ' : '' }}{{ record.snippet }}</div>
+            </template>
+            <template v-else-if="column.key === 'email_category'">{{ emailCategoryLabel(record.category) }}</template>
+            <template v-else-if="column.key === 'email_linked'">
+              <a-tag v-if="record.linked_label" color="purple">{{ record.linked_label }}</a-tag>
+              <span v-else class="muted">—</span>
+            </template>
+          </template>
+        </DataTable>
+      </a-tab-pane>
+
       <a-tab-pane key="payments" :tab="$t('PurchaseInvoice')">
         <ReportTab
           endpoint="provider_details/payments" rows-key="payments" row-key="Ref"
@@ -158,6 +224,9 @@
         </ReportTab>
       </a-tab-pane>
     </a-tabs>
+
+    <!-- Read-only: the email and its conversation (classify in Email Office). -->
+    <EmailViewerDrawer v-model:open="emailOpen" :email-id="emailId" :thread="emailThread" read-only />
   </div>
 </template>
 
@@ -181,10 +250,14 @@ import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   LeftOutlined, ShoppingCartOutlined, DollarOutlined, CheckCircleOutlined,
-  ExclamationCircleOutlined, CalculatorOutlined, CreditCardOutlined,
+  ExclamationCircleOutlined, CalculatorOutlined, CreditCardOutlined, EditOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import ReportTab from '../../components/ReportTab.vue';
+import DataTable from '../../components/DataTable.vue';
+import EmailViewerDrawer from '../../components/EmailViewerDrawer.vue';
+import { emailCategoryLabel, loadEmailFolders } from '../../lib/emailCategories';
+import { useCrudTable } from '../../composables/useCrudTable';
 import StatusTag from '../../components/StatusTag.vue';
 import { TAG_KEYS, documentTag } from '../../lib/statusTags';
 import { useFormat } from '../../composables/useFormat';
@@ -192,12 +265,47 @@ import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
 
 const { t } = useI18n();
-const { money, roundMoney } = useFormat();
+const { money, roundMoney, dateTime } = useFormat();
 const auth = useAuthStore();
 const route = useRoute();
 const id = route.params.id;
 
-const tab = ref('purchases');
+const tab = ref(String(route.query.tab || 'purchases'));
+
+/* ---- Supplier info tab (GET providers/{id}) ---- */
+const info = ref(null);
+const addressLine = computed(() => {
+  const p = info.value || {};
+  const cityLine = [p.city, [p.state, p.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return [p.adresse, cityLine, p.country].filter(Boolean).join(', ');
+});
+async function loadInfo() {
+  try {
+    const d = await http.get(`providers/${id}`);
+    info.value = d.provider || d;
+  } catch (e) { info.value = { name: provider.value.name }; }
+}
+
+/* ---- Email conversation tab (Email Office, one row per conversation) ---- */
+const showEmails = computed(() => auth.moduleEnabled('email_office') && auth.can('email_office_view'));
+if (showEmails.value) loadEmailFolders(); // names of the company's own email folders
+const emailsCrud = useCrudTable('email-office/party', { rowsKey: 'emails', limit: 10, params: () => ({ type: 'provider', id, threads: 1 }) });
+const emailColumns = [
+  { title: 'Date', dataIndex: 'sent_at', key: 'email_date', width: 170 },
+  { title: '', dataIndex: 'direction', key: 'email_direction', width: 120 },
+  // A default width: the preview below the subject wraps inside it (2 lines).
+  { title: 'Subject', dataIndex: 'subject', key: 'email_subject', width: 480 },
+  { title: 'Type', dataIndex: 'category', key: 'email_category', width: 100 },
+  { title: 'Recorded in Murano', key: 'email_linked', width: 160 },
+];
+const emailOpen = ref(false);
+const emailId = ref(null);
+const emailThread = ref([]);
+function openEmail(r, thread = []) {
+  emailThread.value = thread;
+  emailId.value = r.id;
+  emailOpen.value = true;
+}
 const loading = ref(true);
 const provider = ref({ total_purchase: 0, total_amount: 0, total_paid: 0, due: 0, opening_balance: 0, credit_limit: 0, return_Due: 0, name: '' });
 const accounts = ref([]);
@@ -337,13 +445,61 @@ async function submitPay() {
   }
 }
 
-onMounted(loadSummary);
+onMounted(() => {
+  loadSummary();
+  loadInfo();
+  if (showEmails.value) emailsCrud.fetchRows();
+});
 </script>
 
 <style scoped>
 .muted {
   color: rgba(0, 0, 0, 0.45);
   font-size: 12px;
+}
+
+/* Email conversation: the preview under the subject -- 2 lines, wrapping
+   inside the column (never stretching it). */
+.email-snippet {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Email conversation: the emails of one conversation (expanded row). */
+.thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 8px;
+  border-left: 3px solid #d3adf7;
+}
+.thread-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+.thread-msg:hover {
+  background: rgba(114, 46, 209, 0.06);
+}
+.thread-date {
+  flex: none;
+  color: #888;
+  font-size: 12px;
+  width: 130px;
+}
+.thread-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* KPI tiles — shared design with the customer ledger. */

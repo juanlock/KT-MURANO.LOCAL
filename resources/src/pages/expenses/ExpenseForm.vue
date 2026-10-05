@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page" :class="{ 'ef-has-viewer': preview.open }">
     <PageHeader
       :title="isEdit ? $t('Edit') : $t('Create_Expense')"
       :breadcrumb="[$t('Accounting'), isEdit ? $t('Edit') : $t('Create_Expense')]"
@@ -43,6 +43,13 @@
       <a-card v-if="fromEmail" size="small" class="ef-pick">
         <div class="ef-help__title">
           <MailOutlined /> From the email “{{ fromEmail.subject }}” — {{ fromEmail.from_name || fromEmail.from_email }}
+          <span class="ef-muted" style="font-weight: 400"> · {{ String(fromEmail.sent_at || '').slice(0, 10) }}</span>
+        </div>
+        <!-- Going through similar bills: progress + skip / stop. -->
+        <div v-if="step" class="ef-batch">
+          <a-tag color="purple" style="margin: 0">Bill {{ step }} of {{ total }}</a-tag>
+          <a-button size="small" @click="skipThis">Skip this one</a-button>
+          <a-button size="small" @click="router.push('/email-office/received')">Stop, back to emails</a-button>
         </div>
         <div class="ef-muted" style="margin-bottom: 8px">Pick what's in this bill — click a value to use it (the likely ones are already picked). The email is marked as recorded when you save.</div>
 
@@ -60,6 +67,19 @@
           <span v-else class="ef-muted">none found</span>
         </div>
 
+        <!-- The bill is often only in the attachment (a photo or PDF of the receipt). -->
+        <div v-if="(fromEmail.attachments || []).length" class="ef-pick__row">
+          <span class="ef-pick__label">Attachments</span>
+          <a-button
+            v-for="a in fromEmail.attachments" :key="a.index" size="small"
+            :type="preview.index === a.index ? 'primary' : 'default'" :disabled="!a.downloadable" @click="openAttachment(a)"
+          >
+            <template #icon><PaperClipOutlined /></template>
+            {{ a.name }}
+          </a-button>
+          <span class="ef-muted">— opens beside the form so you can type the amount and date from it</span>
+        </div>
+
         <a-collapse ghost size="small" style="margin-top: 4px">
           <a-collapse-panel key="text" header="Read the email">
             <pre class="ef-pick__text">{{ fromEmail.body_text || '(empty message)' }}</pre>
@@ -67,11 +87,51 @@
         </a-collapse>
       </a-card>
 
+      <!-- Attachment viewer: fixed beside the form while filling it in. -->
+      <div v-if="preview.open" class="ef-viewer">
+        <div class="ef-viewer__bar">
+          <PaperClipOutlined />
+          <span class="ef-viewer__name">{{ preview.name }}</span>
+          <template v-if="preview.kind === 'image'">
+            <a-button size="small" @click="preview.zoom = Math.max(0.25, preview.zoom - 0.25)">−</a-button>
+            <span class="ef-muted">{{ Math.round(preview.zoom * 100) }}%</span>
+            <a-button size="small" @click="preview.zoom = Math.min(4, preview.zoom + 0.25)">+</a-button>
+            <a-button size="small" @click="preview.rotate = (preview.rotate + 90) % 360">Rotate</a-button>
+          </template>
+          <a-button v-if="preview.url" size="small" :href="preview.url" target="_blank">Open</a-button>
+          <a-button size="small" type="text" @click="closePreview">✕</a-button>
+        </div>
+        <div class="ef-viewer__body">
+          <a-spin v-if="preview.loading" style="margin: 48px auto; display: block" />
+          <img
+            v-else-if="preview.kind === 'image'" :src="preview.url" :alt="preview.name" class="ef-viewer__img"
+            :style="{ width: `${preview.zoom * 100}%`, transform: `rotate(${preview.rotate}deg)` }"
+          >
+          <iframe v-else-if="preview.kind === 'pdf'" :src="preview.url" class="ef-viewer__pdf" :title="preview.name" />
+          <div v-else-if="preview.url" class="ef-muted" style="padding: 24px">
+            This file type can't be shown here — use <b>Open</b> to see it.
+          </div>
+        </div>
+      </div>
+
       <a-alert
         v-if="isEdit && form.recurring_expense_id" type="info" show-icon style="margin-bottom: 16px"
         message="This expense was created automatically by a recurring expense."
         description="Changes here affect only this one. To change or stop the next ones, open Expenses → Recurring."
       />
+
+      <!-- Email history (Email Office): the bill this expense was recorded from,
+           then its payment reminders and payment confirmations. -->
+      <a-card v-if="isEdit && emailHistory.length" size="small" title="Email history" style="margin-bottom: 16px">
+        <div v-for="m in emailHistory" :key="m.id" class="ef-hist" @click="openHistory(m)">
+          <a-tag :color="{ bill: 'orange', reminder: 'blue', payment: 'green' }[m.link_role] || 'default'" style="margin: 0; min-width: 76px; text-align: center">
+            {{ { bill: 'Bill', reminder: 'Reminder', payment: 'Payment' }[m.link_role] || 'Email' }}
+          </a-tag>
+          <span class="ef-muted" style="flex: none; width: 92px">{{ String(m.sent_at || '').slice(0, 10) }}</span>
+          <span class="ef-hist__text"><b>{{ m.subject }}</b> — {{ m.snippet }}</span>
+        </div>
+      </a-card>
+      <EmailViewerDrawer v-model:open="historyOpen" :email-id="historyId" :thread="emailHistory" read-only />
 
       <a-card>
         <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
@@ -111,6 +171,9 @@
                   :options="sortByLabel(paymentMethods.map(p => ({ label: p.name, value: p.id })))"
                   show-search option-filter-prop="label"
                 />
+                <!-- Defaults -> Expenses / Payments, right from here. -->
+                <a v-if="!isEdit && form.payment_method_id && form.payment_method_id !== expenseDefaults.payment_method_id" class="ef-default" @click="makeDefault('payment_method_id')">Make default for new expenses</a>
+                <span v-else-if="!isEdit && form.payment_method_id" class="ef-muted ef-default">Default for new expenses</span>
               </a-form-item>
             </a-col>
             <a-col :xs="24" :md="12">
@@ -120,6 +183,8 @@
                   :options="sortByLabel(accounts.map(a => ({ label: a.account_name, value: a.id })))"
                   show-search option-filter-prop="label" allow-clear
                 />
+                <a v-if="!isEdit && form.account_id && form.account_id !== expenseDefaults.account_id" class="ef-default" @click="makeDefault('account_id')">Make default for new expenses</a>
+                <span v-else-if="!isEdit && form.account_id" class="ef-muted ef-default">Default for new expenses</span>
               </a-form-item>
             </a-col>
             <a-col :span="24">
@@ -155,9 +220,14 @@
             </a-col>
           </a-row>
 
-          <a-space style="margin-top: 8px">
-            <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
-            <a-button @click="$router.push('/expenses')">{{ $t('Cancel') }}</a-button>
+          <a-space style="margin-top: 8px" wrap>
+            <!-- From an email, going through similar bills: next one, or stop and go back. -->
+            <template v-if="fromEmail && step && queue.length">
+              <a-button type="primary" :loading="submitting" @click="submit('next')">Save &amp; next bill ({{ step + 1 }} of {{ total }})</a-button>
+              <a-button :loading="submitting" @click="submit('back')">Save &amp; back to emails</a-button>
+            </template>
+            <a-button v-else type="primary" :loading="submitting" @click="submit('next')">{{ $t('submit') }}</a-button>
+            <a-button @click="$router.push(fromEmail ? '/email-office/received' : '/expenses')">{{ $t('Cancel') }}</a-button>
           </a-space>
         </a-form>
       </a-card>
@@ -181,13 +251,14 @@
  * (expense.repeat {frequency, end_date}); the server creates the next ones
  * on their dates (App\Services\RecurringExpenses).
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch, h } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { message } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import dayjs from 'dayjs';
-import { BulbOutlined, MailOutlined } from '@ant-design/icons-vue';
+import { BulbOutlined, MailOutlined, PaperClipOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import EmailViewerDrawer from '../../components/EmailViewerDrawer.vue';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { localName } from '../../lib/localName';
@@ -424,8 +495,39 @@ function pick(key, value) {
   if (key === 'date') form.value.date = value || String(fromEmail.value.sent_at || '').slice(0, 10);
   composeDetails();
 }
+/* ---- the email's attachments, viewed beside the form ---- */
+const preview = ref({ open: false, index: null, name: '', kind: '', url: '', loading: false, zoom: 1, rotate: 0 });
+const kindOf = name => (/\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(name) ? 'image' : /\.pdf$/i.test(name) ? 'pdf' : 'other');
+function closePreview() {
+  if (preview.value.url) URL.revokeObjectURL(preview.value.url);
+  preview.value = { open: false, index: null, name: '', kind: '', url: '', loading: false, zoom: 1, rotate: 0 };
+}
+async function openAttachment(a) {
+  if (preview.value.index === a.index && preview.value.open) {
+    closePreview();
+    return;
+  }
+  closePreview();
+  preview.value = { ...preview.value, open: true, index: a.index, name: a.name, kind: kindOf(a.name), loading: true };
+  try {
+    const b = await http.blob(`email-office/emails/${fromEmail.value.id}/attachments/${a.index}`, true);
+    // A PDF served as octet-stream still needs the PDF type for the iframe.
+    const typed = preview.value.kind === 'pdf' && b.type !== 'application/pdf' ? new Blob([b], { type: 'application/pdf' }) : b;
+    preview.value.url = URL.createObjectURL(typed);
+  } catch (e) {
+    message.error('Could not open the attachment.');
+    closePreview();
+    return;
+  } finally {
+    preview.value.loading = false;
+  }
+}
+
 function prefillFromEmail(e) {
   fromEmail.value = e;
+  // The bill is usually the attachment: show the first photo / PDF right away.
+  const first = (e.attachments || []).find(a => a.downloadable && kindOf(a.name) !== 'other');
+  if (first) openAttachment(first);
   const f = facts.value;
   const amount = f.amounts.find(a => a.likely) || f.amounts.slice().sort((a, b) => b.value - a.value)[0];
   picked.value = {
@@ -439,6 +541,116 @@ function prefillFromEmail(e) {
   if (picked.value.amount) form.value.amount = picked.value.amount;
   composeDetails();
 }
+/*
+ * Several bills of the same kind (e.g. every monthly AT&T bill): after the
+ * first expense from an email, ask to record the similar ones (same sender
+ * name + subject, not recorded yet -- email-office/emails/{id}/similar). They
+ * then open one after another (?queue=ids&step&total), keeping the category,
+ * location, payment method and account; at the end -> Email Office.
+ */
+const queue = computed(() => String(route.query.queue || '').split(',').map(Number).filter(Boolean));
+const step = computed(() => Number(route.query.step) || 0);
+const total = computed(() => Number(route.query.total) || 0);
+function goNext(ids, stepNo, totalNo) {
+  if (!ids.length) {
+    message.success('All the bills are recorded.');
+    router.push({ path: '/email-office/received' });
+    return;
+  }
+  const f = form.value;
+  router.push({
+    path: '/expenses/create',
+    query: {
+      email: ids[0], queue: ids.slice(1).join(',') || undefined, step: stepNo, total: totalNo,
+      category: f.category_id || undefined, wh: f.warehouse_id || undefined, pm: f.payment_method_id || undefined, acc: f.account_id || undefined,
+    },
+  });
+}
+// Defaults -> Expenses / Payments (System Settings): shown + changeable here.
+const expenseDefaults = ref({ payment_method_id: null, account_id: null });
+async function makeDefault(key) {
+  try {
+    await http.post('expenses/defaults', { [key]: form.value[key] });
+    expenseDefaults.value[key] = form.value[key];
+    message.success(`Saved: new expenses start with this ${key === 'account_id' ? 'account' : 'payment method'}.`);
+  } catch (e) {
+    message.error(e?.status === 403 ? 'Only users who can change System Settings can set the defaults.' : (e?.data?.message || 'Could not save the default.'));
+  }
+}
+
+// Edit: the expense's emails (bill + reminders + payment confirmations).
+const emailHistory = ref([]);
+const historyOpen = ref(false);
+const historyId = ref(null);
+async function loadEmailHistory() {
+  emailHistory.value = [];
+  if (!isEdit.value) return;
+  try {
+    emailHistory.value = (await http.get('email-office/linked', { type: 'expense', id: id.value })).emails || [];
+  } catch (e) { /* no Email Office access: no history card */ }
+}
+function openHistory(m) {
+  historyId.value = m.id;
+  historyOpen.value = true;
+}
+
+// The bill's reminders / payment confirmations (same supplier = same card /
+// account, same period): offered to join this expense's email history.
+async function offerHistory() {
+  let rows = [];
+  try {
+    rows = (await http.get(`email-office/emails/${fromEmail.value.id}/history`)).emails || [];
+  } catch (e) { return; }
+  if (!rows.length) return;
+  const n = k => rows.filter(r => r.category === k).length;
+  const parts = [n('reminder') && `${n('reminder')} payment reminder${n('reminder') > 1 ? 's' : ''}`, n('payment') && `${n('payment')} payment confirmation${n('payment') > 1 ? 's' : ''}`].filter(Boolean);
+  const yes = await new Promise(resolve => Modal.confirm({
+    title: `Found ${parts.join(' and ')} for this bill`,
+    content: h('div', [
+      ...rows.map(r => h('div', { style: 'font-size: 12px' }, `${String(r.sent_at).slice(0, 10)} · ${r.category === 'payment' ? 'Payment' : 'Reminder'} — ${r.subject}`)),
+      h('div', { style: 'margin-top: 8px' }, "Add them to this expense's history? They won't show as bills to record."),
+    ]),
+    okText: 'Yes, add to history',
+    cancelText: 'No',
+    onOk: () => resolve(true),
+    onCancel: () => resolve(false),
+  }));
+  if (!yes) return;
+  try {
+    const r = await http.post(`email-office/emails/${fromEmail.value.id}/history`, { ids: rows.map(x => x.id) });
+    message.success(`${r.attached} email${r.attached === 1 ? '' : 's'} added to the expense's history.`);
+  } catch (e) { /* the expense is saved either way */ }
+}
+
+async function nextFromEmail() {
+  await offerHistory();
+  if (step.value) { // already going through a batch
+    goNext(queue.value, step.value + 1, total.value);
+    return;
+  }
+  let similar = [];
+  try {
+    similar = (await http.get(`email-office/emails/${fromEmail.value.id}/similar`)).emails || [];
+  } catch (e) { /* no similar list: just go back */ }
+  if (!similar.length) {
+    goNext([], 0, 0);
+    return;
+  }
+  const yes = await new Promise(resolve => Modal.confirm({
+    title: `I found ${similar.length} similar email${similar.length > 1 ? 's' : ''} not recorded yet`,
+    content: `From ${fromEmail.value.from_name || fromEmail.value.from_email} — “${fromEmail.value.subject}”. Create their expenses now? Each one opens with the same category, location and payment method; you check the amount and date.`,
+    okText: `Yes, create ${similar.length} more`,
+    cancelText: 'No, back to emails',
+    onOk: () => resolve(true),
+    onCancel: () => resolve(false),
+  }));
+  if (yes) goNext(similar.map(e => e.id), 2, similar.length + 1);
+  else goNext([], 0, 0);
+}
+function skipThis() {
+  goNext(queue.value, step.value + 1, total.value);
+}
+
 const exampleCategoryFound = ref(true);
 const monthLabel = computed(() => (form.value.date ? dayjs(form.value.date).format('MMMM YYYY') : dayjs().format('MMMM YYYY')));
 
@@ -464,7 +676,9 @@ const rules = computed(() => ({
   ],
 }));
 
-async function submit() {
+// mode (from an email): 'next' = the next similar bill (or the "similar
+// emails" question), 'back' = stop here and return to Email Office.
+async function submit(mode = 'next') {
   try {
     await formRef.value.validate();
   } catch (e) {
@@ -492,6 +706,16 @@ async function submit() {
       message.success(repeatOn.value
         ? `${t('Successfully_Created')} — the next one will be created on ${nextDate.value}.`
         : t('Successfully_Created'));
+      // From a bill email: offer its similar emails, then back to Email Office.
+      if (fromEmail.value) {
+        if (mode === 'back') {
+          await offerHistory();
+          router.push('/email-office/received');
+        } else {
+          await nextFromEmail();
+        }
+        return;
+      }
     }
     router.push('/expenses');
   } catch (e) {
@@ -501,7 +725,12 @@ async function submit() {
   }
 }
 
-onMounted(async () => {
+async function init() {
+  loadingRecord.value = true;
+  fromEmail.value = null;
+  closePreview();
+  form.value = { date: new Date().toISOString().slice(0, 10), warehouse_id: undefined, account_id: undefined, category_id: undefined, payment_method_id: undefined, details: '', amount: '' };
+  repeat.value = { mode: 'once', frequency: 'monthly', end_date: '' };
   try {
     if (isEdit.value) {
       const data = await http.get(`expenses/${id.value}/edit`);
@@ -510,6 +739,7 @@ onMounted(async () => {
       warehouses.value = data.warehouses || [];
       accounts.value = data.accounts || [];
       paymentMethods.value = data.payment_methods || [];
+      loadEmailHistory();
     } else {
       const data = await http.get('expenses/create');
       categories.value = data.Expenses_category || [];
@@ -518,6 +748,10 @@ onMounted(async () => {
       paymentMethods.value = data.payment_methods || [];
       // One location: pre-pick it (a beginner shouldn't have to).
       if (warehouses.value.length === 1) form.value.warehouse_id = warehouses.value[0].id;
+      // Defaults -> Expenses (System Settings): payment method / account to start with.
+      if (data.default_payment_method_id) form.value.payment_method_id = data.default_payment_method_id;
+      if (data.default_account_id) form.value.account_id = data.default_account_id;
+      expenseDefaults.value = { payment_method_id: data.default_payment_method_id || null, account_id: data.default_account_id || null };
       if (route.query.email) {
         try {
           prefillFromEmail((await http.get(`email-office/emails/${route.query.email}`)).email);
@@ -527,18 +761,117 @@ onMounted(async () => {
       if (route.query.category && categories.value.some(c => String(c.id) === String(route.query.category))) {
         form.value.category_id = Number(route.query.category);
       }
+      // Next bill of a batch: same location / payment method / account as the last one.
+      const keep = (q, list, key) => { if (q && list.value.some(x => String(x.id) === String(q))) form.value[key] = Number(q); };
+      keep(route.query.wh, warehouses, 'warehouse_id');
+      keep(route.query.pm, paymentMethods, 'payment_method_id');
+      keep(route.query.acc, accounts, 'account_id');
     }
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {
     loadingRecord.value = false;
   }
-});
+}
+onMounted(init);
+onBeforeUnmount(closePreview);
+// The next bill of a batch opens on this same page: reload for its email.
+watch(() => route.query.email, (v, old) => { if (v && v !== old && !isEdit.value) init(); });
 </script>
 
 <style scoped>
 .ef-help {
   margin-bottom: 16px;
+}
+/* Attachment viewer: fixed on the right; the page makes room for it on wide screens. */
+.ef-viewer {
+  position: fixed;
+  top: 76px;
+  right: 16px;
+  bottom: 16px;
+  width: min(44vw, 640px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+.ef-viewer__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.ef-viewer__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.ef-viewer__body {
+  flex: 1;
+  overflow: auto;
+  background: #fafafa;
+  text-align: center;
+}
+.ef-viewer__img {
+  max-width: none;
+  transition: transform 0.15s;
+}
+.ef-viewer__pdf {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+@media (min-width: 992px) {
+  .ef-has-viewer {
+    padding-right: calc(min(44vw, 640px) + 16px);
+  }
+}
+@media (max-width: 991px) {
+  .ef-viewer {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    height: 55vh;
+  }
+}
+.ef-default {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.ef-hist {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+.ef-hist:hover {
+  background: rgba(114, 46, 209, 0.06);
+}
+.ef-hist__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ef-batch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .ef-help__title {
   font-weight: 600;

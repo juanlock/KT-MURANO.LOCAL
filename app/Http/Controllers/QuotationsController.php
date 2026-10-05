@@ -236,7 +236,8 @@ class QuotationsController extends BaseController
             'Warehouse does not belong to your company.'
         );
 
-        \DB::transaction(function () use ($request, $companyId) {
+        $newId = null;
+        \DB::transaction(function () use ($request, $companyId, &$newId) {
 
             $order = new Quotation;
 
@@ -260,6 +261,7 @@ class QuotationsController extends BaseController
             $order->exchange_rate = $docCurrency['exchange_rate'];
 
             $order->save();
+            $newId = $order->id;
 
             $data = $request['details'];
 
@@ -297,7 +299,12 @@ class QuotationsController extends BaseController
             }
         }, 10);
 
-        return response()->json(['success' => true]);
+        // From a customer's email in Email Office (?email=): link that email to it.
+        if ($newId && $request->filled('office_email_id')) {
+            \App\Services\EmailOffice\EmailOffice::linkTo((int) $request->input('office_email_id'), $companyId, 'quotation', $newId, 'client', (int) $request->client_id);
+        }
+
+        return response()->json(['success' => true, 'id' => $newId]);
     }
 
     // ------------ Update Quotation -------------\\

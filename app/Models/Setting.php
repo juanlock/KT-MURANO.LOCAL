@@ -68,6 +68,12 @@ class Setting extends Model
         'notify_superadmin_copy',
         // Defaults -> Users: inactivity logout, what users see after login, dashboard sections off
         'idle_logout_minutes', 'start_page_mode', 'dashboard_hidden_sections', 'start_page_shortcuts',
+        // Defaults -> Expenses: what a new expense starts with
+        'expense_default_payment_method_id', 'expense_default_account_id',
+        // Defaults -> Email Office: hidden summary cards (JSON list)
+        'email_office_hidden_cards',
+        // Defaults -> Products: the company's names for "Group Name" / "Name"
+        'product_group_label', 'product_name_label',
         // Defaults -> Customers: optional customer features (hide all UI when off)
         'customer_loyalty_enabled', 'customer_credit_limit_enabled', 'customer_opening_balance_enabled',
         // Defaults -> Product: auto-generated product Code (<prefix><next number>)

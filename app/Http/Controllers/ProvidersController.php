@@ -139,6 +139,7 @@ class ProvidersController extends BaseController
             'name' => 'required',
             'additional_emails' => ['nullable', 'array', 'max:10'],
             'additional_emails.*' => ['email', 'max:255'],
+            'contact_email' => ['nullable', 'email', 'max:190'],
         ]);
         $provider = Provider::create([
             'name' => $request['name'],
@@ -149,6 +150,11 @@ class ProvidersController extends BaseController
             'additional_emails' => $this->normalizeAdditionalEmails($request->input('additional_emails'), $request['email']),
             'country' => $request['country'],
             'city' => $request['city'],
+            'state' => $request['state'],
+            'zip' => $request['zip'],
+            'contact_name' => $request['contact_name'],
+            'contact_email' => $request['contact_email'],
+            'contact_phone' => $request['contact_phone'],
             'tax_number' => $request['tax_number'],
             'opening_balance' => $request['opening_balance'] ?? 0,
             'credit_limit' => $request['credit_limit'] ?? 0,
@@ -203,6 +209,7 @@ class ProvidersController extends BaseController
             'name' => 'required',
             'additional_emails' => ['nullable', 'array', 'max:10'],
             'additional_emails.*' => ['email', 'max:255'],
+            'contact_email' => ['nullable', 'email', 'max:190'],
         ]);
 
         // Company boundary: a non-SuperAdmin can't update a supplier from a
@@ -227,6 +234,11 @@ class ProvidersController extends BaseController
             'email' => $request['email'],
             'country' => $request['country'],
             'city' => $request['city'],
+            'state' => $request['state'],
+            'zip' => $request['zip'],
+            'contact_name' => $request['contact_name'],
+            'contact_email' => $request['contact_email'],
+            'contact_phone' => $request['contact_phone'],
             'tax_number' => $request['tax_number'],
             'credit_limit' => $request->input('credit_limit', 0),
         ]);

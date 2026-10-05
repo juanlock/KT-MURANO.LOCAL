@@ -496,6 +496,63 @@
             </a-card>
             </a-tab-pane>
 
+            <!-- Expenses / payments: what a new expense starts with (the expense
+                 form, and expenses created from Email Office bills). -->
+            <!-- Email Office: which summary cards Received / Sent show (per company). -->
+            <a-tab-pane v-if="auth.moduleEnabled('email_office')" key="email_office" tab="Email Office">
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-help" style="margin-bottom: 12px">
+                The cards on top of Email Office (they count the emails and filter the list on click). Switch off the
+                ones this company doesn't need — the emails are not affected, only the card is hidden.
+              </div>
+              <a-row :gutter="24">
+                <a-col :xs="24" :md="12">
+                  <div class="setting-label" style="margin-bottom: 8px">Received</div>
+                  <div v-for="c in receivedCards" :key="c.key" style="margin-bottom: 6px">
+                    <a-switch size="small" :checked="!eoHidden.includes(`in:${c.key}`)" @change="v => toggleEoCard(`in:${c.key}`, v)" />
+                    <span style="margin-left: 8px">{{ c.label }}</span>
+                  </div>
+                </a-col>
+                <a-col :xs="24" :md="12">
+                  <div class="setting-label" style="margin-bottom: 8px">Sent</div>
+                  <div v-for="c in EMAIL_OFFICE_CARDS.out" :key="c.key" style="margin-bottom: 6px">
+                    <a-switch size="small" :checked="!eoHidden.includes(`out:${c.key}`)" @change="v => toggleEoCard(`out:${c.key}`, v)" />
+                    <span style="margin-left: 8px">{{ c.label }}</span>
+                  </div>
+                </a-col>
+              </a-row>
+            </a-card>
+            </a-tab-pane>
+
+            <a-tab-pane key="expenses" tab="Expenses / Payments">
+            <a-card size="small" style="margin-bottom: 16px">
+              <div class="setting-help" style="margin-bottom: 12px">
+                A new expense starts with these — the person filling it in can still change them.
+                (Sales have their own defaults in the <b>Sales</b> tab.)
+              </div>
+              <a-form layout="vertical" style="max-width: 680px">
+                <a-row :gutter="16">
+                  <a-col :xs="24" :md="12">
+                    <a-form-item label="Default payment method for expenses" extra="How the company usually pays its bills (bank transfer, card…).">
+                      <a-select
+                        v-model:value="setting.expense_default_payment_method_id" allow-clear show-search option-filter-prop="label"
+                        placeholder="None" :options="sortByLabel(paymentMethods.map(p => ({ label: p.name, value: p.id })))"
+                      />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="12">
+                    <a-form-item label="Default account for expenses" extra="The bank / cash account bills are paid from.">
+                      <a-select
+                        v-model:value="setting.expense_default_account_id" allow-clear show-search option-filter-prop="label"
+                        placeholder="None" :options="sortByLabel(accounts.map(a => ({ label: a.account_name, value: a.id })))"
+                      />
+                    </a-form-item>
+                  </a-col>
+                </a-row>
+              </a-form>
+            </a-card>
+            </a-tab-pane>
+
             <!-- Customers: optional customer features. Off hides every UI tied
                  to the feature, company-wide (customer form, list columns,
                  stats, POS/sale widgets). -->
@@ -778,6 +835,28 @@
 
             <!-- Product: auto-generated product Code, per company. -->
             <a-tab-pane key="product" :tab="$t('Product')">
+            <!-- The company's own names for the product "Group Name" / "Name"
+                 fields: renamed on every form, list, filter and help text. -->
+            <a-card size="small" title="Field names" style="margin-bottom: 16px">
+              <div class="setting-help" style="margin-bottom: 12px">
+                What this company calls the product <b>Group Name</b> and <b>Name</b> fields, e.g. Main Service / Service,
+                or Service / Area. Every form, list, filter and help text uses these names. Leave empty for the standard ones.
+              </div>
+              <a-form layout="vertical" style="max-width: 680px">
+                <a-row :gutter="16">
+                  <a-col :xs="24" :md="12">
+                    <a-form-item label="Name for &quot;Group Name&quot;">
+                      <a-input v-model:value="setting.product_group_label" :maxlength="60" allow-clear placeholder="Group Name" />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :xs="24" :md="12">
+                    <a-form-item label="Name for &quot;Name&quot;">
+                      <a-input v-model:value="setting.product_name_label" :maxlength="60" allow-clear placeholder="Name" />
+                    </a-form-item>
+                  </a-col>
+                </a-row>
+              </a-form>
+            </a-card>
             <a-card size="small" style="margin-bottom: 16px">
               <div class="setting-row">
                 <div>
@@ -1348,6 +1427,7 @@ import { useDatatableStore, headerBgCss } from '../../stores/datatable';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
 import { sortByLabel } from '../../lib/filterOptions';
+import { EMAIL_OFFICE_CARDS, EMAIL_FOLDERS, loadEmailFolders } from '../../lib/emailCategories';
 import { DASHBOARD_SECTIONS } from '../../config/dashboardSections';
 import { allPages, pageFullLabel } from '../../lib/startPage';
 
@@ -1689,6 +1769,16 @@ function removeBookingLogo() {
 }
 
 /* ------------------------------------------------------------------ save */
+// Defaults -> Email Office: the hidden cards ("in:spam", "out:reminder", "in:f12").
+const eoHidden = ref([]);
+const receivedCards = computed(() => [
+  ...EMAIL_OFFICE_CARDS.in,
+  ...EMAIL_FOLDERS.map(f => ({ key: f.key, label: `${f.name} (your folder)` })),
+]);
+function toggleEoCard(key, on) {
+  eoHidden.value = on ? eoHidden.value.filter(k => k !== key) : [...new Set([...eoHidden.value, key])];
+}
+
 async function save() {
   saving.value = true;
   const s = setting.value;
@@ -1750,6 +1840,11 @@ async function save() {
   }
   // Defaults -> Users: sign-in and start page.
   fd.append('idle_logout_minutes', s.idle_logout_minutes ? Number(s.idle_logout_minutes) : '');
+  // Defaults -> Expenses / Payments
+  fd.append('expense_default_payment_method', s.expense_default_payment_method_id || '');
+  fd.append('expense_default_account', s.expense_default_account_id || '');
+  // Defaults -> Email Office: hidden summary cards
+  fd.append('email_office_hidden_cards', JSON.stringify(eoHidden.value));
   fd.append('start_page_mode', s.start_page_mode === 'custom' ? 'custom' : 'dashboard');
   fd.append('dashboard_hidden_sections', JSON.stringify(dashboardHidden.value));
   fd.append('start_page_shortcuts', JSON.stringify(shortcutSlots.value.map(p => p || null)));
@@ -1761,6 +1856,8 @@ async function save() {
   fd.append('customer_opening_balance_enabled', asBool(s.customer_opening_balance_enabled) ? 1 : 0);
   fd.append('product_code_auto', asBool(s.product_code_auto ?? true) ? 1 : 0);
   fd.append('product_code_prefix', s.product_code_prefix || '');
+  fd.append('product_group_label', s.product_group_label || '');
+  fd.append('product_name_label', s.product_name_label || '');
   fd.append('product_code_digits', Math.max(1, Number(s.product_code_digits) || 4));
   fd.append('show_language', s.show_language);
   fd.append('timezone', s.timezone);
@@ -1952,6 +2049,8 @@ onMounted(() => {
   const main = http.get('get_Settings_data_api', { include_secrets: 1 })
     .then(data => {
       setting.value = { ...(data.settings || {}) };
+      eoHidden.value = Array.isArray(setting.value.email_office_hidden_cards) ? [...setting.value.email_office_hidden_cards] : [];
+      if (auth.moduleEnabled('email_office')) loadEmailFolders(true);
       // DataTable tab edits the acting company's saved format.
       try {
         const saved = setting.value.datatable_settings ? JSON.parse(setting.value.datatable_settings) : null;

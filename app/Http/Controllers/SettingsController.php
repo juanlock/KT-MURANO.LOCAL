@@ -573,7 +573,28 @@ class SettingsController extends Controller
             $slots = array_map(fn ($p) => (is_string($p) && preg_match('#^/[A-Za-z0-9_\-/]*$#', $p)) ? $p : null, $slots);
             $setting->start_page_shortcuts = json_encode(array_pad($slots, 8, null));
         }
-        if ($setting->isDirty(['idle_logout_minutes', 'start_page_mode', 'dashboard_hidden_sections', 'start_page_shortcuts'])) {
+        // Defaults -> Expenses: payment method / account a new expense starts with
+        // (only when sent; empty = none).
+        foreach (['expense_default_payment_method' => 'expense_default_payment_method_id', 'expense_default_account' => 'expense_default_account_id'] as $in => $col) {
+            if ($request->has($in) && \Illuminate\Support\Facades\Schema::hasColumn('settings', $col)) {
+                $v = $request[$in];
+                $setting->{$col} = ($v !== '' && $v !== 'null' && $v !== null) ? (int) $v : null;
+            }
+        }
+        // Defaults -> Email Office: the hidden summary cards ("in:spam", "out:reminder", "in:f12").
+        if ($request->has('email_office_hidden_cards') && \Illuminate\Support\Facades\Schema::hasColumn('settings', 'email_office_hidden_cards')) {
+            $cards = json_decode((string) $request['email_office_hidden_cards'], true);
+            $cards = array_values(array_unique(array_filter(is_array($cards) ? $cards : [], fn ($c) => is_string($c) && preg_match('/^(in|out):[a-z0-9_]{1,20}$/', $c))));
+            $setting->email_office_hidden_cards = json_encode($cards);
+        }
+        // Defaults -> Products: the company's names for "Group Name" / "Name" (empty = standard).
+        foreach (['product_group_label', 'product_name_label'] as $col) {
+            if ($request->has($col) && \Illuminate\Support\Facades\Schema::hasColumn('settings', $col)) {
+                $v = trim(strip_tags((string) $request[$col]));
+                $setting->{$col} = ($v !== '' && $v !== 'null') ? mb_substr($v, 0, 60) : null;
+            }
+        }
+        if ($setting->isDirty(['idle_logout_minutes', 'start_page_mode', 'dashboard_hidden_sections', 'start_page_shortcuts', 'expense_default_payment_method_id', 'expense_default_account_id', 'email_office_hidden_cards', 'product_group_label', 'product_name_label'])) {
             $setting->save();
         }
 
@@ -1295,6 +1316,11 @@ class SettingsController extends Controller
                 $item["default_password_{$pwType}_set"] = ! empty(\Illuminate\Support\Facades\DB::table('settings')->where('id', $settings->id)->value("default_password_{$pwType}"));
             }
             $item['idle_logout_minutes'] = $settings->idle_logout_minutes ? (int) $settings->idle_logout_minutes : null;
+            $item['expense_default_payment_method_id'] = $settings->expense_default_payment_method_id ? (int) $settings->expense_default_payment_method_id : null;
+            $item['expense_default_account_id'] = $settings->expense_default_account_id ? (int) $settings->expense_default_account_id : null;
+            $item['email_office_hidden_cards'] = json_decode((string) ($settings->email_office_hidden_cards ?? '[]'), true) ?: [];
+            $item['product_group_label'] = $settings->product_group_label ?? null;
+            $item['product_name_label'] = $settings->product_name_label ?? null;
             $item['start_page_mode'] = $settings->start_page_mode ?: 'dashboard';
             $item['dashboard_hidden_sections'] = json_decode((string) ($settings->dashboard_hidden_sections ?? '[]'), true) ?: [];
             $item['start_page_shortcuts'] = array_pad(array_slice(json_decode((string) ($settings->start_page_shortcuts ?? '[]'), true) ?: [], 0, 8), 8, null);
@@ -2120,6 +2146,11 @@ class SettingsController extends Controller
                 $item["default_password_{$pwType}_set"] = ! empty(\Illuminate\Support\Facades\DB::table('settings')->where('id', $settings->id)->value("default_password_{$pwType}"));
             }
             $item['idle_logout_minutes'] = $settings->idle_logout_minutes ? (int) $settings->idle_logout_minutes : null;
+            $item['expense_default_payment_method_id'] = $settings->expense_default_payment_method_id ? (int) $settings->expense_default_payment_method_id : null;
+            $item['expense_default_account_id'] = $settings->expense_default_account_id ? (int) $settings->expense_default_account_id : null;
+            $item['email_office_hidden_cards'] = json_decode((string) ($settings->email_office_hidden_cards ?? '[]'), true) ?: [];
+            $item['product_group_label'] = $settings->product_group_label ?? null;
+            $item['product_name_label'] = $settings->product_name_label ?? null;
             $item['start_page_mode'] = $settings->start_page_mode ?: 'dashboard';
             $item['dashboard_hidden_sections'] = json_decode((string) ($settings->dashboard_hidden_sections ?? '[]'), true) ?: [];
             $item['start_page_shortcuts'] = array_pad(array_slice(json_decode((string) ($settings->start_page_shortcuts ?? '[]'), true) ?: [], 0, 8), 8, null);

@@ -32,6 +32,7 @@ class EnforceModuleFlags
         'intranet' => 'intranet', 'intranet-admin' => 'intranet',
         'helpdesk' => 'helpdesk',
         'email-office' => 'email_office',
+        'portfolio' => 'portfolio',
         'recruit' => 'recruit',
         'meeting' => 'meeting',
         'marketing' => 'marketing',

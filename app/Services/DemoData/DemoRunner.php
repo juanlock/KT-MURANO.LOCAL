@@ -26,6 +26,7 @@ class DemoRunner
             $warehouseIds = array_values(array_unique(array_merge([$default], $warehouseIds)));
         }
         $ctx = new DemoContext($companyId, $userId, $warehouseIds, $default ?: null);
+        $ctx->businessType = \App\Support\BusinessTypes::of($companyId);
         if (! $warehouseIds && $ensureWarehouse) {
             $ctx->module = 'core';
             $ctx->warehouseIds = [$ctx->insert('warehouses', ['name' => 'Demo Warehouse'])];

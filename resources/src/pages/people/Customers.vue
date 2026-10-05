@@ -112,6 +112,16 @@
         <template v-else-if="column.key === 'sales_count'">
           <a @click="openSales(record)">{{ record.sales_count || 0 }}</a>
         </template>
+        <template v-else-if="column.key === 'email'">
+          {{ record.email }}
+          <a-tooltip v-if="record.additional_emails?.length" :title="record.additional_emails.join(', ')">
+            <a-tag style="margin-inline-start: 4px">+{{ record.additional_emails.length }}</a-tag>
+          </a-tooltip>
+        </template>
+        <template v-else-if="column.key === 'emails_count'">
+          <a v-if="record.emails_count" @click="router.push(`/customers/${record.id}/details?tab=emails`)">{{ record.emails_count }}</a>
+          <span v-else style="opacity: 0.45">0</span>
+        </template>
         <template v-else-if="column.key === 'contracts_count'">
           <a v-if="record.contracts_count" @click="router.push(`/customers/${record.id}/details?tab=contracts`)">{{ record.contracts_count }}</a>
           <span v-else style="opacity: 0.45">0</span>
@@ -438,7 +448,9 @@ const columns = computed(() => [
   { title: t('CustomerCode'), dataIndex: 'code', key: 'code', sorter: true },
   { title: t('CustomerName'), dataIndex: 'name', key: 'name', sorter: true },
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
-  { title: t('Email'), dataIndex: 'email', key: 'email' },
+  { title: t('Email'), dataIndex: 'email', key: 'email', exportValue: r => [r.email, ...(r.additional_emails || [])].filter(Boolean).join(', ') },
+  // Email Office emails from / to the customer; opens their Email conversation tab.
+  ...(auth.moduleEnabled?.('email_office') && auth.can('email_office_view') ? [{ title: 'Emails', key: 'emails_count', dataIndex: 'emails_count', align: 'center', width: 90, exportValue: r => String(r.emails_count || 0) }] : []),
   // Columns also drive the exports, so a disabled feature drops out of both.
   ...(auth.customerCreditLimitEnabled
     ? [{ title: t('Credit_Limit'), key: 'credit_limit', dataIndex: 'credit_limit', align: 'right', exportValue: r => money(r.credit_limit) }]

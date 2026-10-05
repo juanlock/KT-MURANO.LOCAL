@@ -153,6 +153,21 @@ class ClientController extends BaseController
                 ->where('client_id', $client->id)
                 ->count();
 
+            // "Emails" column: Email Office emails from / to the customer (linked
+            // to them, or with one of their addresses) -- same rule as the
+            // Email conversation tab (EmailOfficeController@party).
+            $extra = is_array($client->additional_emails) ? $client->additional_emails : (json_decode((string) $client->additional_emails, true) ?: []);
+            $item['additional_emails'] = array_values(array_filter($extra));
+            $addrs = array_values(array_filter(array_map(fn ($e) => strtolower(trim((string) $e)), array_merge([$client->email], $extra))));
+            $item['emails_count'] = \Illuminate\Support\Facades\Schema::hasTable('office_emails')
+                ? DB::table('office_emails')->where('company_id', $client->company_id)->where(function ($w) use ($client, $addrs) {
+                    $w->where(fn ($x) => $x->where('party_type', 'client')->where('party_id', $client->id));
+                    foreach ($addrs as $e) {
+                        $w->orWhere('from_email', $e)->orWhere('to_emails', 'like', "%$e%");
+                    }
+                })->count()
+                : 0;
+
             $service = ServiceJob::dueTotalsForClient($client->id);
             $item['service_total_amount'] = $service['total'];
             $item['service_total_paid'] = $service['paid'];
@@ -225,6 +240,7 @@ class ClientController extends BaseController
             ],
             'additional_emails' => ['nullable', 'array', 'max:10'],
             'additional_emails.*' => ['email', 'max:255'],
+            'contact_email' => ['nullable', 'email', 'max:190'],
         ]);
 
         if ($request['is_royalty_eligible'] == '1' || $request['is_royalty_eligible'] == 'true') {
@@ -250,6 +266,9 @@ class ClientController extends BaseController
             'zip' => $request['zip'],
             'company_id' => $companyId,
             'tax_number' => $request['tax_number'],
+            'contact_name' => $request['contact_name'],
+            'contact_email' => $request['contact_email'],
+            'contact_phone' => $request['contact_phone'],
             'is_royalty_eligible' => $is_royalty_eligible,
             'opening_balance' => $request['opening_balance'] ?? 0,
             'credit_limit' => $request['credit_limit'] ?? 0,
@@ -341,6 +360,9 @@ class ClientController extends BaseController
             'zip' => ['nullable', 'string', 'max:20'],
             'tax_number' => ['nullable', 'string', 'max:100'],
             'credit_limit' => ['nullable', 'numeric', 'min:0'],
+            'contact_name' => ['nullable', 'string', 'max:190'],
+            'contact_email' => ['nullable', 'email', 'max:190'],
+            'contact_phone' => ['nullable', 'string', 'max:50'],
 
             // EcommerceClient-specific (optional)
             'username' => [
@@ -382,6 +404,11 @@ class ClientController extends BaseController
                 'is_royalty_eligible' => $isRoyaltyEligible,
                 'credit_limit' => $request->input('credit_limit', 0),
             ]);
+            // Contact person: only when the caller sent it (older callers don't know it).
+            $contact = $request->only(['contact_name', 'contact_email', 'contact_phone']); // only the keys sent
+            if ($contact) {
+                Client::whereKey($id)->update($contact);
+            }
 
             // 2) Sync the linked store account, if the customer has one.
             // Never CREATE one here: store accounts are managed through the

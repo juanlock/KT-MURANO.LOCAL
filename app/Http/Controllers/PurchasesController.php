@@ -272,7 +272,8 @@ class PurchasesController extends BaseController
             'warehouse_id' => 'required',
         ]);
 
-        \DB::transaction(function () use ($request) {
+        $newId = null;
+        \DB::transaction(function () use ($request, &$newId) {
             $order = new Purchase;
 
             $order->date = $request->date;
@@ -300,6 +301,7 @@ class PurchasesController extends BaseController
             $order->exchange_rate = $docCurrency['exchange_rate'];
 
             $order->save();
+            $newId = $order->id;
 
             $data = $request['details'];
             foreach ($data as $key => $value) {
@@ -381,7 +383,15 @@ class PurchasesController extends BaseController
             }
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Purchase Created !!']);
+        // Created from a supplier's email in Email Office (?email=): link that
+        // email to the new purchase (and to its supplier).
+        if ($newId && $request->filled('office_email_id') && \Illuminate\Support\Facades\Schema::hasTable('office_emails')) {
+            \App\Models\OfficeEmail::whereKey((int) $request->input('office_email_id'))
+                ->where('company_id', (int) $this->resolveActingCompanyId($request))
+                ->update(['linked_type' => 'purchase', 'linked_id' => $newId, 'party_type' => 'provider', 'party_id' => (int) $request->supplier_id]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Purchase Created !!', 'id' => $newId]);
     }
 
     /**
@@ -1636,16 +1646,18 @@ class PurchasesController extends BaseController
 
         $this->authorizeForUser($request->user('api'), 'create', Purchase::class);
 
-        // get warehouses assigned to user
+        // get warehouses assigned to user -- only the acting company's (company boundary)
+        $cid = (int) $this->resolveActingCompanyId($request);
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)->where('company_id', $cid)->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
+            $warehouses = Warehouse::where('deleted_at', '=', null)->where('company_id', $cid)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $suppliers = Provider::where('deleted_at', '=', null)->where('company_id', $this->resolveActingCompanyId($request))->get(['id', 'name']);
+        // email: lets a purchase created from a supplier's email (Email Office) find its supplier.
+        $suppliers = Provider::where('deleted_at', '=', null)->where('company_id', $cid)->get(['id', 'name', 'email']);
 
         return response()->json([
             'warehouses' => $warehouses,
