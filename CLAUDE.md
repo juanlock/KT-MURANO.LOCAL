@@ -200,9 +200,12 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   ported from billing, this one is Murano's own: dumps `dbmurano` via
   `mysqldump` (`database/scripts/protocol_copia_bd.php`) into
   `KT-TOOLS/database/dbmurano_<date>_<host>_<time>.zip` (e.g.
-  `dbmurano_2026-09-29_KT-THUNDERA_11-23-38-AM.zip` — **zipped since
-  2026-10-05 (user's rule)**: the plain `.sql` outgrew GitHub's 100 MB limit,
-  so the script zips it and deletes the `.sql`; unzip to restore — host from
+  `dbmurano_2026-09-29_KT-THUNDERA_11-23-38-AM.zip` — **split in two and
+  zipped since 2026-10-05 (user's rule)**: the main zip has every table except
+  the Email Office ones, `..._office_emails.zip` has only those
+  (`office_emails`, `email_office_settings` -- ~130 MB of imported mail that
+  pushed the single `.sql` past GitHub's 100 MB limit); restore = unzip both,
+  import the main one, then the office_emails one — host from
   `gethostname()`, time human-readable 12-hour with AM/PM via `now()`, not a
   bare digit run) — a phpMyAdmin-independent backup after a local phpMyAdmin
   export bug corrupted a manual backup attempt. Every dump is phpMyAdmin-ready
@@ -215,7 +218,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   Murano's own end-of-session close-out (A Dormir was merged into it and
   then deleted, user's request 2026-10-01): checks `npm run build`, runs
   Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
-  then Copia BD (+ copy to `KT-TOOLS/SQL/backup db.zip`), then commits everything with a summary subject and a
+  then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails.zip`), then commits everything with a summary subject and a
   detailed description of the changes (one bullet per `kt_logs` request,
   migrations, setup steps for other machines, backup file) and pushes to
   GitHub (never force-push; without CLI credentials the user pushes from
