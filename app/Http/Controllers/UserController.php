@@ -157,6 +157,8 @@ class UserController extends BaseController
             'kt_log_version' => \App\Models\KtLog::orderByDesc('id')->value('version'),
             'app_name' => $settings->app_name ?? config('app.name'),
             'page_title_suffix' => $settings->page_title_suffix ?? '',
+            // Appearance -> Show breadcrumbs (every page header).
+            'show_breadcrumbs' => (bool) ($settings->show_breadcrumbs ?? true),
             'customize_button_visible' => (bool) ($settings->customize_button_visible ?? true),
             // System Settings -> Appearance -> Primary Color: the admin app's
             // (colorPrimary) brand color. Null = no company override, the
@@ -224,6 +226,8 @@ class UserController extends BaseController
             'idle_logout_minutes' => $settings->idle_logout_minutes ? (int) $settings->idle_logout_minutes : null,
             'start_page_mode' => $settings->start_page_mode ?: 'dashboard',
             'dashboard_hidden_sections' => json_decode((string) ($settings->dashboard_hidden_sections ?? '[]'), true) ?: [],
+            // System Settings -> Dashboard: the blocks top to bottom (block ids).
+            'dashboard_section_order' => json_decode((string) ($settings->dashboard_section_order ?? '[]'), true) ?: [],
             // Admin-picked shortcut buttons (8 slots, null = the user's most used form).
             'start_page_shortcuts' => array_pad(array_slice(json_decode((string) ($settings->start_page_shortcuts ?? '[]'), true) ?: [], 0, 8), 8, null),
             // This user's own start page ({mode: recent|form, form, recent}).
@@ -297,6 +301,16 @@ class UserController extends BaseController
         $type = $request->input('type', 'admin');
         if (! in_array($type, ['SuperAdmin', 'admin', 'employee', 'customer', 'sales_agent', 'supplier'], true)) {
             $type = 'admin';
+        }
+        // Users -> Add creates Admin / SuperAdmin logins only (user's rule,
+        // 2026-10-06): an employee, customer, supplier or sales agent gets its
+        // login automatically when created in its own module.
+        $homes = ['employee' => 'HRM -> Employees', 'customer' => 'People -> Customers', 'supplier' => 'People -> Suppliers', 'sales_agent' => 'Commissions -> Sales Agents'];
+        if (isset($homes[$type])) {
+            return response()->json([
+                'message' => "Create it in {$homes[$type]}: its login is created automatically there. Users -> Add is for Admin / SuperAdmin logins.",
+                'errors' => ['type' => ["Create it in {$homes[$type]}."]],
+            ], 422);
         }
         if ($type === 'SuperAdmin' && optional($request->user('api'))->type !== 'SuperAdmin') {
             abort(403, 'Only a SuperAdmin can create a SuperAdmin user.');
@@ -660,7 +674,10 @@ class UserController extends BaseController
                 'password' => $pass,
                 'record_view' => $record_view,
                 'avatar' => $filename,
-                'statut' => $request['statut'],
+                // Active / disabled (can sign in): kept when not sent; nobody disables themselves.
+                'statut' => $request->has('statut') && (int) $id !== (int) optional($request->user('api'))->id
+                    ? (filter_var($request['statut'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0)
+                    : User::whereKey($id)->value('statut'),
                 'is_all_warehouses' => $is_all_warehouses,
                 'role_id' => $request['role'],
 

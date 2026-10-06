@@ -746,6 +746,14 @@ if (linkedQuery.client_id) {
   if (linkedQuery.statut) filters.value.statut = String(linkedQuery.statut);
   dueOnly.value = linkedQuery.due_only === '1';
   crud.reload();
+} else if (linkedQuery.payment_statut) {
+  // Dashboard "Unpaid invoices" card: ?payment_statut=unpaid&date_from=&date_to=
+  // (the dashboard's dates; none = All), so the list matches the card.
+  filters.value.date_from = String(linkedQuery.date_from || '');
+  filters.value.date_to = String(linkedQuery.date_to || '');
+  datePreset.value = presetOf(filters.value.date_from, filters.value.date_to);
+  filters.value.payment_statut = String(linkedQuery.payment_statut);
+  crud.reload();
 } else {
   // Default (user's default date, else Today), applied before the first fetch.
   applyPreset(datePreset.value);

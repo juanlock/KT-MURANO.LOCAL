@@ -20,6 +20,9 @@ class EmployeeAccountController extends Controller
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', Employee::class);
+        // Company / own-record boundary + the Bank accounts tab's Edit permission.
+        \App\Support\EmployeeTabs::employee($request, $request['employee_id']);
+        \App\Support\EmployeeTabs::abortUnless($request->user('api'), 'accounts', 'edit');
 
         $this->validate($request, [
             'bank_name' => 'required|string|max:255',
@@ -27,7 +30,7 @@ class EmployeeAccountController extends Controller
             'account_no' => 'required|string|max:255',
         ]);
 
-        EmployeeAccount::create($request->all());
+        EmployeeAccount::create($request->only(['employee_id', 'bank_name', 'bank_branch', 'account_no', 'note']));
 
         return response()->json(['success' => true]);
     }
@@ -45,6 +48,10 @@ class EmployeeAccountController extends Controller
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Employee::class);
+        // The account's own employee (never moved to another one): boundary + tab Edit.
+        $row = EmployeeAccount::whereNull('deleted_at')->findOrFail($id);
+        \App\Support\EmployeeTabs::employee($request, $row->employee_id);
+        \App\Support\EmployeeTabs::abortUnless($request->user('api'), 'accounts', 'edit');
 
         $this->validate($request, [
             'bank_name' => 'required|string|max:255',
@@ -52,7 +59,7 @@ class EmployeeAccountController extends Controller
             'account_no' => 'required|string|max:255',
         ]);
 
-        EmployeeAccount::whereId($id)->update($request->all());
+        EmployeeAccount::whereId($id)->update($request->only(['bank_name', 'bank_branch', 'account_no', 'note']));
 
         return response()->json(['success' => true]);
     }
@@ -62,6 +69,9 @@ class EmployeeAccountController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Employee::class);
+        $row = EmployeeAccount::whereNull('deleted_at')->findOrFail($id);
+        \App\Support\EmployeeTabs::employee($request, $row->employee_id);
+        \App\Support\EmployeeTabs::abortUnless($request->user('api'), 'accounts', 'edit');
 
         EmployeeAccount::whereId($id)->update([
             'deleted_at' => Carbon::now(),

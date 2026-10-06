@@ -30,6 +30,32 @@ class Employee extends Model
         'total_leave' => 'integer',
     ];
 
+    /**
+     * Every employee has a login (users row, type employee) -- user's rule,
+     * 2026-10-06: an employee created any way (form, import, script, Users)
+     * without one gets it here, so "No user is linked to this employee" can't
+     * happen. The login is active only when the company has a default
+     * employee password (System Settings -> Defaults -> Users), else disabled
+     * until System access sets one -- same as the employee form.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (Employee $employee) {
+            if ($employee->user_id || ! $employee->company_id) {
+                return;
+            }
+            $userId = \App\Services\LinkedUserService::provision(
+                (int) $employee->company_id, 'employee', 'Employee',
+                trim($employee->firstname.' '.$employee->lastname) ?: (string) $employee->username,
+                $employee->email ?: null, $employee->phone ?: null
+            );
+            $hasDefault = (bool) Setting::defaultPasswordHash((int) $employee->company_id, 'employee');
+            User::whereKey($userId)->update(['statut' => $hasDefault ? 1 : 0]);
+            $employee->user_id = $userId;
+            $employee->saveQuietly();
+        });
+    }
+
     public function company()
     {
         return $this->hasOne('App\Models\Company', 'id', 'company_id');

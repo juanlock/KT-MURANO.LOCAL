@@ -274,13 +274,32 @@
           <a-card v-if="serviceJobAvailable" size="small" :title="isRecurring ? $t('Contract_Service_Jobs') : $t('Service_Jobs')" style="margin-bottom: 16px">
             <!-- Edit: the jobs already made with this sale. -->
             <div v-if="saleServiceJobs.length" class="sale-jobs">
-              <div v-for="j in saleServiceJobs" :key="j.id" class="sale-jobs__row">
-                <router-link :to="`/service/jobs/details/${j.id}`">{{ j.ref }}</router-link>
-                <span>{{ j.title }}</span>
-                <span class="muted">{{ j.scheduled_date || '' }}{{ j.technician ? ` · ${j.technician}` : '' }}</span>
-                <a-tag style="margin: 0">{{ j.status }}</a-tag>
+              <div v-for="j in saleServiceJobs" :key="j.id" class="sale-jobs__item">
+                <div class="sale-jobs__row">
+                  <router-link :to="`/service/jobs/details/${j.id}`">{{ j.ref }}</router-link>
+                  <span>{{ j.title }}</span>
+                  <span class="muted">{{ j.scheduled_date || '' }}{{ j.technician ? ` · ${j.technician}` : '' }}</span>
+                  <!-- Pending -> In progress -> Completed, saved with the sale. -->
+                  <a-select
+                    v-if="jobEdits[j.id] && JOB_EDITABLE.includes(j.status)"
+                    v-model:value="jobEdits[j.id].status" size="small" style="width: 140px" :options="JOB_STATUS_OPTIONS"
+                  />
+                  <a-tag v-else style="margin: 0">{{ j.status }}</a-tag>
+                </div>
+                <template v-if="jobEdits[j.id]">
+                  <div v-if="j.notes" class="sale-jobs__notes muted">{{ j.notes }}</div>
+                  <a-input v-model:value="jobEdits[j.id].note" size="small" allow-clear placeholder="Add a note to this job (saved with the sale)" />
+                </template>
               </div>
             </div>
+            <!-- The customer's existing jobs this invoice bills (service_job_sales). -->
+            <a-form-item v-if="!isRecurring && sale.client_id" label="Link existing service jobs" style="margin-bottom: 8px">
+              <a-select
+                v-model:value="linkedJobIds" mode="multiple" allow-clear show-search option-filter-prop="label"
+                :options="linkJobOptions" :loading="clientJobsLoading"
+                :placeholder="linkJobOptions.length ? 'Choose this customer\'s jobs' : 'This customer has no service jobs'"
+              />
+            </a-form-item>
             <a-form-item style="margin-bottom: 8px">
               <a-switch v-model:checked="serviceJob.enabled" />
               <span style="margin-left: 8px">{{ isRecurring ? 'Create a service job for each visit' : (saleServiceJobs.length ? 'Add another service job' : 'Create a service job for this sale') }}</span>
@@ -817,19 +836,60 @@ const technicianOptions = computed(() => sortByLabel(serviceTechnicians.value.ma
 const saleServiceJobs = ref([]);
 // Editing a draft (Save as draft / a recurring invoice to review).
 const isDraft = ref(false);
+// The customer's existing jobs linked to this invoice (service_job_ids ->
+// service_job_sales); the list follows the chosen customer.
+const linkedJobIds = ref([]);
+const clientJobs = ref([]);
+const clientJobsLoading = ref(false);
+const linkJobOptions = computed(() => {
+  const opts = clientJobs.value.map(j => ({ value: j.id, label: j.label }));
+  // Linked jobs no longer in the list (e.g. cancelled) stay selectable.
+  saleServiceJobs.value.forEach(j => { if (!opts.some(o => o.value === j.id)) opts.push({ value: j.id, label: `${j.ref} · ${j.title || ''} · ${j.status}` }); });
+  return opts;
+});
+async function loadClientJobs() {
+  clientJobs.value = [];
+  if (!serviceJobAvailable.value || !sale.value.client_id) return;
+  clientJobsLoading.value = true;
+  try {
+    clientJobs.value = (await http.get(`sales_client_service_jobs/${sale.value.client_id}`)).jobs || [];
+  } catch (e) { clientJobs.value = []; }
+  clientJobsLoading.value = false;
+}
+// Edit Sale: status + a note per linked job (service_job_updates on PUT).
+// Delivered / cancelled / declined are handled on the job page (stock, payments).
+const JOB_EDITABLE = ['pending', 'intake', 'approved', 'in_progress', 'completed'];
+const JOB_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'completed', label: 'Completed' },
+];
+const jobEdits = ref({});
+function serviceJobUpdatesPayload() {
+  const updates = saleServiceJobs.value
+    .filter(j => jobEdits.value[j.id])
+    .map(j => ({ id: j.id, status: jobEdits.value[j.id].status, note: (jobEdits.value[j.id].note || '').trim() }))
+    .filter(u => u.note || u.status !== saleServiceJobs.value.find(j => j.id === u.id).status);
+  return updates.length ? { service_job_updates: updates } : {};
+}
 function loadServiceJobOptions(data) {
   serviceJobAvailable.value = data?.service_job_enabled === true;
   serviceTechnicians.value = data?.service_technicians || [];
   saleServiceJobs.value = data?.sale_service_jobs || [];
+  jobEdits.value = Object.fromEntries(saleServiceJobs.value.map(j => [j.id, { status: j.status, note: '' }]));
+  linkedJobIds.value = saleServiceJobs.value.map(j => j.id);
+  loadClientJobs();
 }
-/** The one-off service job for the sales POST / PUT (null when switched off). */
+/** The one-off service job + the linked jobs for the sales POST / PUT. */
 function serviceJobPayload() {
   const sj = serviceJob.value;
-  if (!serviceJobAvailable.value || !sj.enabled || isRecurring.value) return {};
+  const links = serviceJobAvailable.value && !isRecurring.value ? { service_job_ids: linkedJobIds.value } : {};
+  if (!serviceJobAvailable.value || !sj.enabled || isRecurring.value) return links;
   const w = serviceJobWhen.value;
   // No date picked: the sale's date.
   const when = whenToSchedule(w.mode !== 'dates' && !w.date ? { ...w, date: sale.value.date } : w);
   return {
+    ...links,
     service_job: {
       enabled: 1,
       title: (sj.title || '').trim() || serviceJobTitleDefault.value,
@@ -1871,9 +1931,10 @@ async function submit(asDraft = false) {
 
   try {
     if (isEdit.value) {
-      const res = await http.put(`sales/${id.value}`, { ...base, ...serviceJobPayload() });
+      const res = await http.put(`sales/${id.value}`, { ...base, ...serviceJobPayload(), ...serviceJobUpdatesPayload() });
       message.success(draft ? 'Draft saved' : t('Successfully_Updated'));
       serviceJobMessage(res);
+      if (res?.service_job_updates) message.info(`${res.service_job_updates} service job(s) updated.`, 5);
     } else {
       const effective = sale.value.statut === 'completed' ? payment.value.status : 'pending';
       // Legacy sends the summed payment lines as the sale's amount, not the
@@ -1929,6 +1990,12 @@ async function loadPosSettings() {
     posSettings.value = data?.pos_settings || {};
   } catch (e) { /* strict stock checks stay on */ }
 }
+
+// Another customer: their service jobs to link, none linked yet.
+watch(() => sale.value.client_id, (now, before) => {
+  if (before !== undefined && now !== before) linkedJobIds.value = [];
+  loadClientJobs();
+});
 
 onMounted(async () => {
   loadPosSettings();
@@ -2211,17 +2278,25 @@ onMounted(async () => {
   border-radius: 8px;
   margin-bottom: 10px;
 }
+.sale-jobs__item {
+  padding: 6px 10px 8px;
+  border-top: 1px solid rgba(128, 128, 128, 0.12);
+}
+.sale-jobs__item:first-child {
+  border-top: 0;
+}
 .sale-jobs__row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  padding: 6px 10px;
+  padding: 0 0 6px;
   font-size: 13px;
-  border-top: 1px solid rgba(128, 128, 128, 0.12);
 }
-.sale-jobs__row:first-child {
-  border-top: 0;
+.sale-jobs__notes {
+  white-space: pre-line;
+  font-size: 12px;
+  margin-bottom: 6px;
 }
 
 /* Recurring: notes on each invoice */

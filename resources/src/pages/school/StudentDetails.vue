@@ -6,7 +6,7 @@
       :breadcrumb="['School', 'Students', student ? student.admission_number : '']"
     >
       <template #actions>
-        <a-button @click="$router.push('/school/students')">
+        <a-button @click="$goBack('/school/students')">
           <template #icon><ArrowLeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>

@@ -448,6 +448,41 @@ class DashboardController extends Controller
         $data['today_sales'] = $today_sales_total;
         $data['sales_due'] = $today_sales_due_amount;
 
+        // Invoices without any payment (card "Unpaid invoices"): sales of the
+        // range with nothing paid yet (drafts left out) -- how many + owed.
+        // payment_statut 'unpaid' = what the Sales list's "Unpaid" filter shows (the card links there).
+        $unpaid = (clone $salesBase)->where('payment_statut', 'unpaid')->where('GrandTotal', '>', 0)
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('sales', 'is_draft'), fn ($q) => $q->where(fn ($w) => $w->whereNull('is_draft')->orWhere('is_draft', 0)))
+            ->selectRaw('COUNT(*) AS n, COALESCE(SUM(GrandTotal),0) AS amount')->first();
+        $data['unpaid_invoices'] = (int) ($unpaid->n ?? 0);
+        $data['unpaid_invoices_amount'] = (float) ($unpaid->amount ?? 0);
+
+        // Unpaid invoices by age (days since the invoice date, to today) --
+        // every open one, whatever the dashboard dates: 0-30, 31-60, 61-90, 90+.
+        $today = Carbon::today();
+        $aging = Sale::whereNull('deleted_at')->where('payment_statut', 'unpaid')->where('GrandTotal', '>', 0)
+            ->where('date', '<=', $today->toDateString())
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('sales', 'is_draft'), fn ($q) => $q->where(fn ($w) => $w->whereNull('is_draft')->orWhere('is_draft', 0)))
+            ->where(function ($query) use ($view_records) {
+                if (! $view_records) {
+                    return $query->where('user_id', '=', Auth::user()->id);
+                }
+            })
+            ->where(function ($query) use ($warehouse_id, $array_warehouses_id) {
+                if ($warehouse_id !== 0) {
+                    return $query->where('warehouse_id', $warehouse_id);
+                }
+
+                return $query->whereIn('warehouse_id', $array_warehouses_id);
+            })
+            ->selectRaw('DATEDIFF(?, `date`) AS age, GrandTotal', [$today->toDateString()])
+            ->get();
+        foreach (['0_30' => [0, 30], '31_60' => [31, 60], '61_90' => [61, 90], '90_plus' => [91, null]] as $key => [$min, $max]) {
+            $rows = $aging->filter(fn ($r) => $r->age >= $min && ($max === null || $r->age <= $max));
+            $data["unpaid_age_{$key}"] = $rows->count();
+            $data["unpaid_age_{$key}_amount"] = round((float) $rows->sum('GrandTotal'), 3);
+        }
+
         // --------------- return_sales
 
         $return_sales_total = SaleReturn::where('deleted_at', '=', null)

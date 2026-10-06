@@ -6,7 +6,7 @@
       :breadcrumb="['Shopify', 'Stores', store.shop_domain || '']"
     >
       <template #actions>
-        <a-button @click="$router.push('/shopify/stores')">
+        <a-button @click="$goBack('/shopify/stores')">
           <template #icon><ArrowLeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>

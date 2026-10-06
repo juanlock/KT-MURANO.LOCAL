@@ -130,6 +130,22 @@
               <a-col v-if="!isEdit && isAutoProvisionType" :span="24">
                 <a-alert type="info" show-icon :message="autoProvisionHint" style="margin-bottom: 16px" />
               </a-col>
+              <a-col v-if="!isEdit" :span="24">
+                <a-alert
+                  type="info" show-icon style="margin-bottom: 16px"
+                  message="Here you add Admin / SuperAdmin logins. An employee's login is created automatically in HRM → Employees (customers, suppliers and sales agents likewise in their own module); edit or disable any login here."
+                />
+              </a-col>
+              <!-- Active = can sign in; off disables the login (nothing is deleted). Not for your own account. -->
+              <a-col v-if="isEdit" :xs="24" :md="12">
+                <a-form-item label="Login">
+                  <div class="switch-row">
+                    <a-switch v-model:checked="form.active" :disabled="isSelf" />
+                    <span class="switch-label">{{ form.active ? 'Active — can sign in' : 'Disabled — cannot sign in' }}</span>
+                  </div>
+                  <a-typography-text v-if="isSelf" type="secondary" style="display: block; font-size: 12px">You can't disable your own login.</a-typography-text>
+                </a-form-item>
+              </a-col>
             </a-row>
 
             <a-divider style="margin: 4px 0 16px" />
@@ -221,8 +237,9 @@ const warehouses = ref([]);
 const form = ref({
   firstname: '', lastname: '', username: '', email: '', phone: '',
   password: '', role_id: undefined, type: 'admin', is_all_warehouses: false,
-  record_view: false, assigned_to: [], pin: '',
+  record_view: false, assigned_to: [], pin: '', active: true,
 });
+const isSelf = computed(() => isEdit.value && Number(id.value) === Number(authStore.user?.id));
 
 const roleOptions = computed(() => sortByLabel(roles.value.map(r => ({ value: r.id, label: r.name }))));
 const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id, label: w.name })));
@@ -230,13 +247,12 @@ const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id
 // SuperAdmin is only offered to an acting SuperAdmin -- the backend rejects
 // anyone else who tries to force it anyway, this just keeps the option out
 // of sight for everyone who could never actually use it.
+// Users -> Add creates Admin / SuperAdmin logins only (user's rule, 2026-10-06):
+// employees, customers, suppliers and sales agents get their login when they
+// are created in their own module (the server refuses them here too).
 const typeOptions = computed(() => {
   const base = [
     { value: 'admin', label: t('Admin') },
-    { value: 'employee', label: t('Employee') },
-    { value: 'customer', label: t('Customer') },
-    { value: 'sales_agent', label: t('Sales_Agent') },
-    { value: 'supplier', label: t('Supplier') },
   ];
   if (authStore.user?.type === 'SuperAdmin') {
     base.unshift({ value: 'SuperAdmin', label: t('SuperAdmin') });
@@ -339,7 +355,8 @@ async function submit() {
   try {
     const fd = buildFormData();
     if (isEdit.value) {
-      fd.append('statut', 1);
+      // Active / disabled login (the server ignores it for your own account).
+      fd.append('statut', form.value.active ? 1 : 0);
       fd.append('_method', 'put');
       await http.postForm(`users/${id.value}`, fd);
       message.success(t('Successfully_Updated'));
@@ -378,6 +395,7 @@ async function bootstrap() {
         record_view: !!Number(u.record_view),
         assigned_to: data.assigned_warehouses || [],
         pin: data.pin || '',
+        active: Number(u.statut) === 1,
       };
       // Show the current avatar in the profile panel (placeholder file aside);
       // picking a new file replaces this preview with a local object URL.

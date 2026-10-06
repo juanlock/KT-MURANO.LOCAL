@@ -958,7 +958,24 @@ export const PERMISSION_GROUPS = [
                 "v": "employee_view_all",
                 "l": "Employee_View_All",
                 "f": "View all employees"
-            }
+            },
+            // Employee details: View / Edit per tab (App\Support\EmployeeTabs).
+            { "v": "employee_tab_basic_view", "l": "Employee_Tab_Basic_View", "f": "Tab Basic information: see" },
+            { "v": "employee_tab_basic_edit", "l": "Employee_Tab_Basic_Edit", "f": "Tab Basic information: edit (incl. photo)" },
+            { "v": "employee_tab_company_view", "l": "Employee_Tab_Company_View", "f": "Tab Company: see" },
+            { "v": "employee_tab_company_edit", "l": "Employee_Tab_Company_Edit", "f": "Tab Company: edit" },
+            { "v": "employee_tab_social_view", "l": "Employee_Tab_Social_View", "f": "Tab Social media: see" },
+            { "v": "employee_tab_social_edit", "l": "Employee_Tab_Social_Edit", "f": "Tab Social media: edit" },
+            { "v": "employee_tab_experiences_view", "l": "Employee_Tab_Experiences_View", "f": "Tab Experiences: see" },
+            { "v": "employee_tab_experiences_edit", "l": "Employee_Tab_Experiences_Edit", "f": "Tab Experiences: add / edit / delete" },
+            { "v": "employee_tab_accounts_view", "l": "Employee_Tab_Accounts_View", "f": "Tab Bank accounts: see" },
+            { "v": "employee_tab_accounts_edit", "l": "Employee_Tab_Accounts_Edit", "f": "Tab Bank accounts: add / edit / delete" },
+            { "v": "employee_tab_user_view", "l": "Employee_Tab_User_View", "f": "Tab User: see" },
+            { "v": "employee_tab_user_edit", "l": "Employee_Tab_User_Edit", "f": "Tab User: change picture" },
+            { "v": "employee_tab_production_view", "l": "Employee_Tab_Production_View", "f": "Tab Production: see" },
+            { "v": "employee_tab_production_edit", "l": "Employee_Tab_Production_Edit", "f": "Tab Production: edit (reserved)" },
+            { "v": "employee_tab_payments_view", "l": "Employee_Tab_Payments_View", "f": "Tab Payments: see" },
+            { "v": "employee_tab_payments_edit", "l": "Employee_Tab_Payments_Edit", "f": "Tab Payments: edit (reserved)" }
         ]
     },
     {

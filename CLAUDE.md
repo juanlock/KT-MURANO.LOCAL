@@ -157,6 +157,42 @@ the start of each session).
 - Company folders are git-tracked like the rest of `public/files` (they travel
   between machines with Pa Llevar) -- keep big imports in mind.
 
+### People, logins and permissions (user's rules, 2026-10-05 / 2026-10-06)
+
+- **Every employee has a login.** An employee always has its `users` row
+  (type `employee`, `employees.user_id`), created automatically -- never "No
+  user is linked to this employee". The `Employee` model's `created` hook
+  provisions it through `App\Services\LinkedUserService::provision()` for any
+  path (form, import, script); the login is active only when the company has a
+  default employee password (Defaults -> Users), else disabled until System
+  access sets one. Never insert employees with `DB::table('employees')->insert()`
+  (it skips the hook) -- use the model, or provision the login yourself.
+  Customers, suppliers and sales agents likewise get their login from their own
+  module (`LinkedUserService`).
+- **A customer is identified by email + company** (user's rule, 2026-10-01).
+  Automatic matching (online booking, imports, linked users) = same email in
+  the same company only, otherwise a new customer; never match by phone, never
+  across companies, never attach to the Walk-in customer; ask before merging.
+  Only exception (2026-10-05): Zelle deposit emails carry just the payer's name,
+  so there the same exact name in the same company = same customer.
+- **Users -> Add creates Admin / SuperAdmin logins only** (SuperAdmin only by a
+  SuperAdmin). Employee / customer / supplier / sales-agent logins are created
+  in HRM -> Employees, People -> Customers / Suppliers, Commissions -> Sales
+  Agents (the server refuses them in Users -> Add). Users is where any login is
+  **edited** (role, locations, password, PIN) and **disabled** (Active /
+  Disabled switch -- never your own account).
+- **The role is mandatory.** A user can do only what their role allows
+  (`role_user` -> permissions); no permission is granted by user type
+  (SuperAdmin aside). Example: Email Office follows the role's
+  `email_office_view` / `email_office_manage` checkboxes, Admins included.
+  New features add their own permission checkbox (`resources/src/config/permissions.js`
+  + a `permissions` row) instead of a type check.
+- **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
+  Roles -> HRM -> Employees; edit needs view), enforced server-side by
+  `App\Support\EmployeeTabs` (also the company + own-record boundary for the
+  endpoints behind the tabs). A new tab on that page gets its own pair of
+  permissions.
+
 ## Frontend Conventions
 
 (Reloaded by Preparate step 1, like the Development Standards.)

@@ -3,7 +3,7 @@
     <PageHeader :title="$t('TransferDetail')" :breadcrumb="[$t('ListTransfers'), $t('TransferDetail')]">
       <template #actions>
         <a-space wrap>
-          <a-button @click="$router.push('/transfers')">
+          <a-button @click="$goBack('/transfers')">
             <template #icon><ArrowLeftOutlined /></template>
             {{ $t('Back') }}
           </a-button>

@@ -6,7 +6,7 @@
       :breadcrumb="['Fleet Management', 'Vehicles', vehicle ? vehicle.plate_number : '']"
     >
       <template #actions>
-        <a-button @click="$router.push('/fleet/vehicles')">
+        <a-button @click="$goBack('/fleet/vehicles')">
           <template #icon><ArrowLeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>

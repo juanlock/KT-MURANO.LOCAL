@@ -2159,7 +2159,8 @@ class PosController extends BaseController
             ->whereHas('product', fn ($q) => $q->where('company_id', $posCompanyId))
             ->where(function ($query) use ($request, $allow_overselling) {
                 return $query->whereHas('product', function ($q) {
-                    $q->where('not_selling', '=', 0);
+                    // Same as the other forms' search: active, not deleted products only.
+                    $q->where('not_selling', '=', 0)->where('is_active', 1)->whereNull('deleted_at');
                 })
                     ->where(function ($query) use ($request) {
                         return $query->whereHas('product', function ($q) use ($request) {

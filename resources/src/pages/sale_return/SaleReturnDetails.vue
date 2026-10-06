@@ -11,7 +11,7 @@
             :title="$t('Currency')"
             style="min-width: 92px"
           />
-          <a-button @click="$router.push('/sale-returns')">
+          <a-button @click="$goBack('/sale-returns')">
             <template #icon><ArrowLeftOutlined /></template>
             {{ $t('Back') }}
           </a-button>

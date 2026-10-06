@@ -1,11 +1,12 @@
 <template>
   <div class="page-header">
     <div>
-      <!-- Hide single-item breadcrumbs: a lone crumb just repeats the title. -->
-      <a-breadcrumb v-if="breadcrumb.length > 1">
+      <!-- Hide single-item breadcrumbs: a lone crumb just repeats the title.
+           Appearance -> "Show breadcrumbs" off hides them on every page. -->
+      <a-breadcrumb v-if="showCrumbs">
         <a-breadcrumb-item v-for="(crumb, i) in breadcrumb" :key="i">{{ crumb }}</a-breadcrumb-item>
       </a-breadcrumb>
-      <a-typography-title :level="3" style="margin: 8px 0 0">{{ title }}</a-typography-title>
+      <a-typography-title :level="3" :style="{ margin: showCrumbs ? '8px 0 0' : '0' }">{{ title }}</a-typography-title>
       <a-typography-text v-if="subtitle" type="secondary">{{ subtitle }}</a-typography-text>
     </div>
     <a-space wrap>
@@ -25,9 +26,15 @@
  * content passed to an undeclared slot, which quietly hid the Add button on
  * ~50 pages). Use either — they render side by side in the same row.
  */
-defineProps({
+import { computed } from 'vue';
+import { useAuthStore } from '../stores/auth';
+
+const props = defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
   breadcrumb: { type: Array, default: () => [] },
 });
+const auth = useAuthStore();
+// Company setting (Appearance -> Show breadcrumbs, default on).
+const showCrumbs = computed(() => props.breadcrumb.length > 1 && auth.user?.show_breadcrumbs !== false);
 </script>

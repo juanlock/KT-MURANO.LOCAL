@@ -164,6 +164,53 @@
                   </a-form-item>
                 </a-col>
               </a-row>
+
+              <!-- Products / services for this job: type to search the catalog, or
+                   add what you typed as a free line (same lines as Parts & Labor). -->
+              <a-divider orientation="left">Products &amp; services</a-divider>
+              <a-row :gutter="16">
+                <a-col :xs="24" :md="16">
+                  <a-form-item extra="Type a product or service name. Not in the catalog? Pick “Add … as a line”.">
+                    <a-select
+                      :value="null" show-search :filter-option="false" :default-active-first-option="false"
+                      placeholder="Type to search products / services…" :options="quickProductOptions"
+                      :not-found-content="selectedWarehouseId ? 'Nothing found' : 'Choose a location in Parts & Labor'"
+                      @search="v => (quickSearch = v)" @select="onQuickPick" @blur="quickSearch = ''"
+                    />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :md="8">
+                  <a-form-item>
+                    <a-select
+                      v-model:value="selectedWarehouseId" :placeholder="$t('Choose_Warehouse')"
+                      :options="warehouses.map(w => ({ label: w.name, value: w.id }))"
+                      show-search option-filter-prop="label" @change="onWarehouseChange"
+                    />
+                  </a-form-item>
+                </a-col>
+              </a-row>
+              <div v-if="form.items.length" class="quick-lines">
+                <div v-for="(it, i) in form.items" :key="i" class="quick-lines__row">
+                  <a-tag :color="it.type === 'part' ? 'cyan' : it.type === 'labor' ? 'blue' : undefined" style="margin: 0">{{ it.type }}</a-tag>
+                  <a-input v-model:value="it.description" size="small" />
+                  <a-input-number v-model:value="it.quantity" :min="0" :step="1" size="small" style="width: 80px" @change="recomputeRow(it)" />
+                  <a-input-number v-model:value="it.unit_price" :min="0" :step="0.01" size="small" style="width: 110px" :prefix="currencySymbol" @change="recomputeRow(it)" />
+                  <strong class="quick-lines__total">{{ currencySymbol }}{{ formatNumber(it.total) }}</strong>
+                  <a-button size="small" danger type="text" @click="removeItem(i)"><template #icon><DeleteOutlined /></template></a-button>
+                </div>
+                <div class="quick-lines__sum">{{ $t('Items_Subtotal') }}: <strong>{{ currencySymbol }}{{ formatNumber(itemsSubtotal) }}</strong></div>
+              </div>
+
+              <!-- Invoices that bill this job (Defaults -> Sales -> "Service jobs on sales"). -->
+              <template v-if="invoiceLinksEnabled && form.client_id">
+                <a-divider orientation="left">{{ $t('Invoices') }}</a-divider>
+                <a-form-item extra="This customer's invoices that bill this job.">
+                  <a-select
+                    v-model:value="form.sale_ids" mode="multiple" allow-clear show-search option-filter-prop="label"
+                    :options="invoiceOptions" :placeholder="invoiceOptions.length ? 'Choose invoices' : 'This customer has no invoices'"
+                  />
+                </a-form-item>
+              </template>
             </a-tab-pane>
 
             <!-- ============== TAB 2: Diagnostic ============== -->
@@ -618,6 +665,31 @@ const form = ref({
   warranty_days: 30,
   parent_job_id: null,
   items: [],
+  sale_ids: [],
+});
+
+// Invoices linked to the job (service_job_sales) -- the customer's own; only
+// when the customer's company has "Service jobs on sales" on.
+const invoiceLinksEnabled = ref(false);
+const clientInvoices = ref([]);
+const linkedInvoices = ref([]);
+const invoiceOptions = computed(() => {
+  const opts = clientInvoices.value.map(s => ({ value: s.id, label: s.label }));
+  linkedInvoices.value.forEach(s => { if (!opts.some(o => o.value === s.id)) opts.push({ value: s.id, label: `${s.Ref} · ${s.date}` }); });
+  return opts;
+});
+async function loadClientInvoices() {
+  clientInvoices.value = [];
+  if (!form.value.client_id) return;
+  try {
+    const data = await http.get(`service_jobs/client_invoices/${form.value.client_id}`);
+    invoiceLinksEnabled.value = data.enabled === true;
+    clientInvoices.value = data.invoices || [];
+  } catch (e) { invoiceLinksEnabled.value = false; }
+}
+watch(() => form.value.client_id, (now, before) => {
+  if (before && now !== before) form.value.sale_ids = [];
+  loadClientInvoices();
 });
 const jobMeta = ref(null);
 const totals = ref({ total_amount: 0, paid_amount: 0, balance_due: 0 });
@@ -780,6 +852,11 @@ async function bootstrap() {
     checklistCategories.value = catData.categories || [];
     await loadChecklist();
     await loadJobIfNeeded();
+    // New job: the first location, so products can be typed in right away.
+    if (!selectedWarehouseId.value && warehouses.value.length) {
+      selectedWarehouseId.value = warehouses.value[0].id;
+      await loadWarehouseProducts();
+    }
     if (!isEdit.value && route.query.email) await prefillFromEmail(route.query.email);
   } catch (e) {
     message.error(t('InvalidData'));
@@ -884,6 +961,9 @@ async function loadJobIfNeeded() {
     await loadWarehouseProducts();
   }
 
+  linkedInvoices.value = data.invoices || [];
+  form.value.sale_ids = linkedInvoices.value.map(s => s.id);
+
   payments.value = data.payments || [];
   photos.value = data.photos || [];
 
@@ -938,6 +1018,34 @@ function onPickProduct(value) {
   };
   recomputeRow(row);
   form.value.items.push(row);
+}
+// Intake -> "Products & services": search as you type; what you typed can be
+// added as a free line when it isn't in the catalog.
+const quickSearch = ref('');
+const quickProductOptions = computed(() => {
+  const q = quickSearch.value.trim().toLowerCase();
+  const hits = warehouseProducts.value
+    .filter(p => !q || `${p.name} ${p.code}`.toLowerCase().includes(q))
+    .slice(0, 50)
+    .map(p => ({
+      label: `${p.name} (${p.code}) · ${currencySymbol.value}${formatNumber(p.price)}`,
+      value: p.product_variant_id ? `${p.id}:${p.product_variant_id}` : String(p.id),
+    }));
+  if (q) hits.push({ label: `+ Add “${quickSearch.value.trim()}” as a line`, value: '__typed__' });
+  return hits;
+});
+function onQuickPick(value) {
+  if (value === '__typed__') {
+    const row = {
+      type: 'other', product_id: null, product_variant_id: null, warehouse_id: null,
+      description: quickSearch.value.trim().slice(0, 191), quantity: 1, unit_price: 0, discount: 0,
+      discount_method: '1', tax_rate: 0, tax_method: '1', total: 0, notes: '',
+    };
+    form.value.items.push(row);
+  } else {
+    onPickProduct(value);
+  }
+  quickSearch.value = '';
 }
 function addLaborLine() {
   form.value.items.push({
@@ -1215,6 +1323,11 @@ onMounted(bootstrap);
   border: 1px solid rgba(5, 5, 5, 0.06);
   border-radius: 8px;
 }
+.quick-lines { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.quick-lines__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.quick-lines__row > .ant-input { flex: 1 1 200px; min-width: 0; }
+.quick-lines__total { min-width: 80px; text-align: right; }
+.quick-lines__sum { text-align: right; }
 .items-totals {
   display: flex;
   flex-direction: column;

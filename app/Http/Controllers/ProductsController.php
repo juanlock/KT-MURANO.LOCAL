@@ -2160,8 +2160,9 @@ class ProductsController extends BaseController
                     ->where('deleted_at', '=', null)
                     ->where(function ($query) use ($request) {
                         return $query->whereHas('product', function ($q) use ($request) {
-                            // Only allow active products in all flows (sales, purchases, etc.)
-                            $q->where('is_active', 1);
+                            // Only allow active, not deleted products in all flows (sales, purchases, etc.)
+                            // (Product has no SoftDeletes trait, so deleted_at must be checked here.)
+                            $q->where('is_active', 1)->whereNull('deleted_at');
                             if ($request->is_sale == '1') {
                                 $q->where('not_selling', '=', 0);
                             }

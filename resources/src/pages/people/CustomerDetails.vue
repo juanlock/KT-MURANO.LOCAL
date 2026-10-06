@@ -2,7 +2,7 @@
   <div class="page">
     <PageHeader :title="$t('Customer_details')" :breadcrumb="[$t('Customers'), $t('Customer_details')]">
       <template #actions>
-        <a-button @click="$router.push('/customers')">
+        <a-button @click="$goBack('/customers')">
           <template #icon><LeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>

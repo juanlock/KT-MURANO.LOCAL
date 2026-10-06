@@ -2,7 +2,7 @@
   <div class="page">
     <PageHeader :title="$t('Serial_Number')" :breadcrumb="[$t('Serial_Numbers'), serial.serial_number || '']">
       <template #actions>
-        <a-button @click="$router.push('/serial-numbers')">
+        <a-button @click="$goBack('/serial-numbers')">
           <template #icon><ArrowLeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>

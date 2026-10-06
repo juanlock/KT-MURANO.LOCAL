@@ -205,6 +205,33 @@ class ServiceJobController extends BaseController
         ]);
     }
 
+    // ------ A customer's invoices, to link to a job (Defaults -> Sales -> "Service jobs on sales") ------\\
+    public function clientInvoices(Request $request, $clientId)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', ServiceJob::class);
+
+        $client = $this->rc(Client::query(), 'clients.company_id')->whereNull('deleted_at')->findOrFail($clientId);
+        $cid = (int) $client->company_id;
+        $enabled = \App\Support\ServiceJobLinks::enabled($cid);
+
+        return response()->json([
+            'enabled' => $enabled,
+            'invoices' => $enabled ? \App\Support\ServiceJobLinks::clientInvoices($cid, (int) $client->id) : [],
+        ]);
+    }
+
+    /** Links the job to the invoices sent in sale_ids (only when the company has it on). */
+    protected function syncInvoiceLinks(Request $request, ServiceJob $job): void
+    {
+        if (! $request->has('sale_ids')) {
+            return;
+        }
+        $cid = \App\Support\ServiceJobLinks::jobCompany((int) $job->id);
+        if (\App\Support\ServiceJobLinks::enabled($cid)) {
+            \App\Support\ServiceJobLinks::syncForJob((int) $job->id, (array) $request->input('sale_ids', []));
+        }
+    }
+
     // -------------- Store New Service Job ---------------\\
     public function store(Request $request)
     {
@@ -234,6 +261,8 @@ class ServiceJobController extends BaseController
 
             return $job;
         });
+
+        $this->syncInvoiceLinks($request, $job);
 
         // A customer's request / work order from Email Office (?email=): link that email to the job.
         if ($request->filled('office_email_id')) {
@@ -392,6 +421,8 @@ class ServiceJobController extends BaseController
             'items' => $items,
             'payments' => $payments,
             'photos' => $photos,
+            // Invoices that bill this job (service_job_sales).
+            'invoices' => \App\Support\ServiceJobLinks::invoicesOfJob((int) $job->id),
         ]);
     }
 
@@ -436,6 +467,8 @@ class ServiceJobController extends BaseController
 
             return $warnings;
         });
+
+        $this->syncInvoiceLinks($request, $job);
 
         return response()->json([
             'success' => true,

@@ -934,6 +934,7 @@ class SalesController extends BaseController
             'is_draft' => $asDraft,
             'quickbooks_invoice_id' => $sale->quickbooks_invoice_id,
             'qbo_sync' => $qboSync,
+            'service_job_links' => $this->syncSaleServiceJobLinks($sale, $request),
             'service_job' => $this->createSaleServiceJob($sale, $request),
         ]);
     }
@@ -952,8 +953,8 @@ class SalesController extends BaseController
             return null;
         }
         $companyId = (int) $sale->company_id;
-        if (! \App\Support\ModuleFlags::enabled($companyId, 'service')) {
-            return ['warning' => 'Service job not created: the Service module is off for this company.'];
+        if (! \App\Support\ServiceJobLinks::enabled($companyId)) {
+            return ['warning' => 'Service job not created: service jobs on sales are off for this company (Settings -> Defaults -> Sales).'];
         }
         $technicianId = ! empty($in['technician_id']) && \App\Models\ServiceTechnician::whereKey($in['technician_id'])
             ->where('company_id', $companyId)->whereNull('deleted_at')->exists() ? (int) $in['technician_id'] : null;
@@ -998,6 +999,7 @@ class SalesController extends BaseController
                     'status' => 'pending',
                     'notes' => 'Created with sale '.$sale->Ref.($count > 1 ? ' - visit '.($i + 1).' of '.$count : ''),
                 ] + $when);
+                \App\Support\ServiceJobLinks::link((int) $job->id, (int) $sale->id);
                 $made[] = $job->Ref;
             }
         } catch (\Throwable $e) {
@@ -1007,6 +1009,87 @@ class SalesController extends BaseController
         }
 
         return ['id' => $job->id, 'ref' => implode(', ', $made), 'count' => count($made)];
+    }
+
+    /**
+     * Create / Edit Sale -> "Link existing service jobs" (service_job_ids):
+     * the invoice's linked jobs become exactly these -- the customer's own,
+     * same company only. Not sent = links untouched.
+     */
+    private function syncSaleServiceJobLinks(Sale $sale, Request $request): void
+    {
+        if (! $request->has('service_job_ids') || ! \App\Support\ServiceJobLinks::enabled((int) $sale->company_id)) {
+            return;
+        }
+        \App\Support\ServiceJobLinks::syncForSale((int) $sale->id, (array) $request->input('service_job_ids', []));
+    }
+
+    /**
+     * Edit Sale -> linked service jobs: status (Pending / In progress /
+     * Completed) and a note per job (service_job_updates[{id, status, note}]).
+     * Only jobs linked to this sale; the note is appended to the job's notes
+     * with date + user. Delivered / cancelled stay on the job page (stock,
+     * payments). Returns the number of jobs changed.
+     */
+    private function applySaleServiceJobUpdates(Sale $sale, Request $request): ?int
+    {
+        $updates = (array) $request->input('service_job_updates', []);
+        if (! $updates || ! \App\Support\ServiceJobLinks::enabled((int) $sale->company_id)) {
+            return null;
+        }
+        $user = $request->user('api');
+        if ($user->type !== 'SuperAdmin' && ! (bool) $user->roles()->first()?->permissions->contains('name', 'service_jobs')) {
+            return null;
+        }
+        $linked = array_merge(\App\Support\ServiceJobLinks::jobsOfSale((int) $sale->id),
+            \App\Models\ServiceJob::where('sale_id', $sale->id)->pluck('id')->map(fn ($v) => (int) $v)->all());
+        $allowed = ['pending', 'in_progress', 'completed'];
+        $changed = 0;
+        foreach ($updates as $u) {
+            $job = in_array((int) ($u['id'] ?? 0), $linked, true) ? \App\Models\ServiceJob::whereNull('deleted_at')->find((int) $u['id']) : null;
+            if (! $job) {
+                continue;
+            }
+            $attrs = [];
+            $status = (string) ($u['status'] ?? '');
+            if (in_array($status, $allowed, true) && $status !== $job->status && in_array($job->status, ['pending', 'intake', 'approved', 'in_progress', 'completed'], true)) {
+                $attrs['status'] = $status;
+                if ($status === 'completed') {
+                    $attrs['completed_at'] = $job->completed_at ?: now();
+                } elseif ($job->status === 'completed') {
+                    $attrs['completed_at'] = null;
+                }
+                if ($status === 'in_progress' && ! $job->started_at) {
+                    $attrs['started_at'] = now();
+                }
+            }
+            $note = trim((string) ($u['note'] ?? ''));
+            if ($note !== '') {
+                $line = '['.now()->format('Y-m-d H:i').' '.($user->username ?? $user->firstname ?? 'user').'] '.mb_substr($note, 0, 2000);
+                $attrs['notes'] = trim(($job->notes ? $job->notes."\n" : '').$line);
+            }
+            if ($attrs) {
+                $job->update($attrs);
+                $changed++;
+            }
+        }
+
+        return $changed;
+    }
+
+    // ------ Create / Edit Sale: the customer's service jobs to link ------\\
+    public function clientServiceJobs(Request $request, $clientId)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', \App\Models\Sale::class);
+
+        $client = Client::whereNull('deleted_at')->findOrFail($clientId);
+        $cid = (int) $client->company_id;
+        // Admin: own company's customers only; SuperAdmin: any.
+        $user = $request->user('api');
+        abort_if($user->type !== 'SuperAdmin' && (int) $user->company_id !== $cid, 404);
+        $enabled = \App\Support\ServiceJobLinks::enabled($cid);
+
+        return response()->json(['enabled' => $enabled, 'jobs' => $enabled ? \App\Support\ServiceJobLinks::clientJobs($cid, (int) $client->id) : []]);
     }
 
     /**
@@ -1526,7 +1609,9 @@ class SalesController extends BaseController
             'sale_id' => $sale->id,
             'is_draft' => $asDraft,
             'qbo_sync' => $qboSync,
-            // Edit Sale -> "Add a service job" (same as on create).
+            // Edit Sale -> linked service jobs + "Add a service job" (same as on create).
+            'service_job_links' => $this->syncSaleServiceJobLinks($sale, $request),
+            'service_job_updates' => $this->applySaleServiceJobUpdates($sale, $request),
             'service_job' => $this->createSaleServiceJob($sale, $request),
         ]);
     }
@@ -2425,10 +2510,11 @@ class SalesController extends BaseController
         $invoice = \App\Models\SalesContractInvoice::where('sale_id', $sale->id)->first();
         $contract = $invoice ? \App\Models\SalesContract::find($invoice->sales_contract_id) : null;
         $q = \App\Models\ServiceJob::whereNull('deleted_at')->with('technician:id,name');
-        $ownJobs = \App\Models\ServiceJob::whereNull('deleted_at')->where('sale_id', $sale->id)->exists();
+        $linked = \App\Support\ServiceJobLinks::jobsOfSale((int) $sale->id) ?: [0];
+        $ownJobs = \App\Models\ServiceJob::whereNull('deleted_at')->where(fn ($w) => $w->where('sale_id', $sale->id)->orWhereIn('id', $linked))->exists();
         if ($ownJobs) {
-            // Jobs created with this sale (Create Sale -> Service job).
-            $q->where('sale_id', $sale->id)->orderBy('scheduled_date');
+            // Jobs created with this sale (Create Sale -> Service job) or linked to it.
+            $q->where(fn ($w) => $w->where('sale_id', $sale->id)->orWhereIn('id', $linked))->orderBy('scheduled_date');
             $context = 'sale';
         } elseif ($contract && $invoice->period_start) {
             $q->where('sales_contract_id', $contract->id)
@@ -3899,8 +3985,9 @@ class SalesController extends BaseController
             'sale_shipping_enabled' => (bool) (Setting::forCompany($companyId)->sale_shipping_enabled ?? true),
             'sale_sales_agent_enabled' => (bool) (Setting::forCompany($companyId)->sale_sales_agent_enabled ?? true),
             // Create Sale -> "Service job" (one-off, or visits when Recurring):
-            // only with the company's Service module; its technicians.
-            'service_job_enabled' => \App\Support\ModuleFlags::enabled((int) $companyId, 'service'),
+            // only with the company's Service module AND Defaults -> Sales ->
+            // "Service jobs on sales" (off by default; Ruba on); its technicians.
+            'service_job_enabled' => \App\Support\ServiceJobLinks::enabled((int) $companyId),
             'service_technicians' => \App\Models\ServiceTechnician::whereNull('deleted_at')->where('company_id', $companyId)
                 ->where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
@@ -4203,12 +4290,14 @@ class SalesController extends BaseController
                 'sale_sales_agent_enabled' => (bool) (Setting::forCompany($companyId)->sale_sales_agent_enabled ?? true),
                 // Edit Sale -> "Service job": the jobs made with this sale, and
                 // adding one (same as Create Sale; Service module only).
-                'service_job_enabled' => \App\Support\ModuleFlags::enabled((int) $companyId, 'service'),
+                'service_job_enabled' => \App\Support\ServiceJobLinks::enabled((int) $companyId),
                 'service_technicians' => \App\Models\ServiceTechnician::whereNull('deleted_at')->where('company_id', $companyId)
                     ->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-                'sale_service_jobs' => \App\Models\ServiceJob::whereNull('deleted_at')->where('sale_id', $Sale_data->id)
+                // Jobs linked to this invoice (created with it, or linked later).
+                'sale_service_jobs' => \App\Models\ServiceJob::whereNull('deleted_at')
+                    ->where(fn ($q) => $q->where('sale_id', $Sale_data->id)->orWhereIn('id', \App\Support\ServiceJobLinks::jobsOfSale((int) $Sale_data->id) ?: [0]))
                     ->with('technician:id,name')->orderBy('scheduled_date')->get()
-                    ->map(fn ($j) => ['id' => $j->id, 'ref' => $j->Ref, 'title' => $j->service_item, 'status' => $j->status,
+                    ->map(fn ($j) => ['id' => $j->id, 'ref' => $j->Ref, 'title' => $j->service_item, 'status' => $j->status, 'notes' => $j->notes,
                         'scheduled_date' => $j->scheduled_date ? \Carbon\Carbon::parse($j->scheduled_date)->format('Y-m-d H:i') : null,
                         'technician' => $j->technician->name ?? null]),
             ]);

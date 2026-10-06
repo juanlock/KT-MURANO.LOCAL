@@ -481,6 +481,13 @@
               </div>
               <div class="setting-row">
                 <div>
+                  <div class="setting-label">Service jobs on sales</div>
+                  <div class="setting-help">On a sale: create a service job or link the customer's existing ones; on a service job: link the customer's invoices. Needs the Service module. Off for companies that don't work with service jobs.</div>
+                </div>
+                <a-switch :checked="asBool(setting.sale_service_jobs_enabled)" @change="v => (setting.sale_service_jobs_enabled = v ? 1 : 0)" />
+              </div>
+              <div class="setting-row">
+                <div>
                   <div class="setting-label">SMS notifications</div>
                   <div class="setting-help">Show the SMS row-action icon on the Sales list and allow sending sale SMS notifications. Off hides the icon and blocks the send.</div>
                 </div>
@@ -633,22 +640,12 @@
                   />
                 </div>
               </div>
-              <div class="setting-row" style="align-items: flex-start">
+              <div class="setting-row">
                 <div>
-                  <div class="setting-label">Dashboard sections</div>
-                  <div class="setting-help">Cards, charts and tables shown on this company's dashboard.</div>
-                  <a-space style="margin-top: 6px">
-                    <a-button size="small" @click="dashboardHidden = []">Show all</a-button>
-                    <a-button size="small" @click="dashboardHidden = DASHBOARD_SECTIONS.map(s => s.id)">Hide all</a-button>
-                  </a-space>
+                  <div class="setting-label">Dashboard sections and order</div>
+                  <div class="setting-help">What the dashboard shows and in which order is set in one place: the Dashboard tab.</div>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 6px 16px">
-                  <a-checkbox
-                    v-for="sec in DASHBOARD_SECTIONS" :key="sec.id"
-                    :checked="!dashboardHidden.includes(sec.id)"
-                    @change="e => toggleDashboardSection(sec.id, e.target.checked)"
-                  >{{ sec.label }}</a-checkbox>
-                </div>
+                <a-button size="small" @click="onMenuClick({ key: 'dashboard' })">Open Dashboard settings</a-button>
               </div>
             </a-card>
             <a-card size="small" title="Password by Default" style="margin-bottom: 16px">
@@ -894,56 +891,38 @@
 
           <!-- ============================== Dashboard ============================== -->
           <template v-else-if="activeTab === 'dashboard'">
-            <a-form layout="vertical" style="max-width: 680px">
-              <a-row :gutter="16">
-                <a-col :xs="24" :md="8">
-                  <a-form-item :label="$t('Default_Dashboard_Date_Range')">
-                    <a-select
-                      v-model:value="setting.default_dashboard_date_range"
-                      :options="[
-                        { label: 'Today', value: 'today' },
-                        { label: 'This Week', value: 'week' },
-                        { label: 'This Month', value: 'month' },
-                      ]"
-                    />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item :label="$t('Dashboard_Font_Size')">
-                    <a-select
-                      v-model:value="setting.dashboard_font_size"
-                      :options="[
-                        { label: 'Default', value: '' },
-                        { label: '12px (Small)', value: '12' },
-                        { label: '14px (Medium)', value: '14' },
-                        { label: '16px (Large)', value: '16' },
-                        { label: '18px (Extra large)', value: '18' },
-                      ]"
-                    />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item :label="$t('Dashboard_Font_Family')">
-                    <a-select v-model:value="setting.dashboard_font_family" :options="fontFamilyOptions" />
-                  </a-form-item>
-                </a-col>
-              </a-row>
-
-              <a-form-item :label="$t('Default_Dashboard_Widget_Order')">
-                <a-list size="small" bordered :data-source="sectionOrderList" style="max-width: 520px">
-                  <template #renderItem="{ item, index }">
-                    <a-list-item>
-                      <span>{{ index + 1 }}. {{ $t(item.labelKey) }}</span>
-                      <a-space>
-                        <a-button size="small" :disabled="index === 0" @click="moveSection(index, -1)"><UpOutlined /></a-button>
-                        <a-button size="small" :disabled="index === sectionOrderList.length - 1" @click="moveSection(index, 1)"><DownOutlined /></a-button>
-                      </a-space>
-                    </a-list-item>
-                  </template>
-                </a-list>
-                <a-button size="small" style="margin-top: 8px" @click="resetSectionOrder">{{ $t('Reset_to_Default') }}</a-button>
-              </a-form-item>
-            </a-form>
+            <!-- The whole dashboard in one place: the blocks top to bottom (move them)
+                 and, in each block, what it shows (tick / untick). Save to apply. -->
+            <div class="setting-help" style="margin-bottom: 12px; max-width: 760px">
+              The company's dashboard, top to bottom. Move a block with the arrows; tick what each block shows
+              (a block with nothing ticked disappears). Applies to every user of this company after <b>Save</b>.
+            </div>
+            <a-space style="margin-bottom: 12px">
+              <a-button size="small" @click="dashboardHidden = []">Show everything</a-button>
+              <a-button size="small" @click="dashboardHidden = DASHBOARD_SECTIONS.map(s => s.id)">Hide everything</a-button>
+              <a-button size="small" @click="resetSectionOrder">{{ $t('Reset_to_Default') }} order</a-button>
+            </a-space>
+            <div class="dash-blocks-cfg">
+              <a-card
+                v-for="(block, index) in sectionOrderList" :key="block.id" size="small"
+                :class="{ 'dash-block--off': block.sections.every(id => dashboardHidden.includes(id)) }"
+              >
+                <template #title>{{ index + 1 }}. {{ block.label }}</template>
+                <template #extra>
+                  <a-space>
+                    <a-button size="small" :disabled="index === 0" @click="moveSection(index, -1)"><UpOutlined /></a-button>
+                    <a-button size="small" :disabled="index === sectionOrderList.length - 1" @click="moveSection(index, 1)"><DownOutlined /></a-button>
+                  </a-space>
+                </template>
+                <div class="dash-block-items">
+                  <a-checkbox
+                    v-for="sid in block.sections" :key="sid"
+                    :checked="!dashboardHidden.includes(sid)"
+                    @change="e => toggleDashboardSection(sid, e.target.checked)"
+                  >{{ sectionLabel(sid) }}</a-checkbox>
+                </div>
+              </a-card>
+            </div>
           </template>
 
           <!-- ============================== DataTable ============================== -->
@@ -1428,7 +1407,7 @@ import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
 import { sortByLabel } from '../../lib/filterOptions';
 import { EMAIL_OFFICE_CARDS, EMAIL_FOLDERS, loadEmailFolders } from '../../lib/emailCategories';
-import { DASHBOARD_SECTIONS } from '../../config/dashboardSections';
+import { DASHBOARD_SECTIONS, DASHBOARD_BLOCKS, blockOrder } from '../../config/dashboardSections';
 import { allPages, pageFullLabel } from '../../lib/startPage';
 
 const { t, locale } = useI18n();
@@ -1650,37 +1629,15 @@ const prefixFields = [
   { field: 'purchase_return_prefix', label: 'PurchasesReturn', example: 'RP' },
 ];
 
-/* ----------------------------------------------------- dashboard sections */
-const DEFAULT_SECTIONS = [
-  { id: 'header', labelKey: 'Dashboard_Header' },
-  { id: 'stat_cards_1', labelKey: 'Dashboard_Stat_Cards_1' },
-  { id: 'stat_cards_2', labelKey: 'Dashboard_Stat_Cards_2' },
-  { id: 'chart_sales_purchases', labelKey: 'Dashboard_Chart_Sales_Purchases' },
-  { id: 'chart_top_selling', labelKey: 'Dashboard_Chart_Top_Selling' },
-  { id: 'sales_by_payment_stock_value', labelKey: 'Dashboard_Sales_By_Payment_Stock' },
-  { id: 'chart_payment_sent_received', labelKey: 'Dashboard_Chart_Payment_Sent_Received' },
-  { id: 'chart_top_customers', labelKey: 'Dashboard_Chart_Top_Customers' },
-  { id: 'table_stock_alert', labelKey: 'StockAlert' },
-  { id: 'table_top_selling_products', labelKey: 'Top_Selling_Products' },
-  { id: 'table_recent_sales', labelKey: 'Recent_Sales' },
-];
+/* ----------------------------------------------------- dashboard blocks */
+// System Settings -> Dashboard: the blocks top to bottom (dashboard_section_order,
+// block ids) + what each shows (dashboardHidden) -- config/dashboardSections.js,
+// the same definition Dashboard.vue renders from.
 const sectionOrderList = ref([]);
+const sectionLabel = id => DASHBOARD_SECTIONS.find(s => s.id === id)?.label || id;
 
 function syncSectionOrder() {
-  let order = [];
-  try {
-    const raw = setting.value.dashboard_section_order;
-    if (raw && typeof raw === 'string') order = JSON.parse(raw);
-    else if (Array.isArray(raw)) order = raw;
-  } catch (e) { /* fall back to defaults */ }
-  const byId = {};
-  DEFAULT_SECTIONS.forEach(s => { byId[s.id] = s; });
-  const ordered = [];
-  order.forEach(id => {
-    if (byId[id]) { ordered.push(byId[id]); delete byId[id]; }
-  });
-  DEFAULT_SECTIONS.forEach(s => { if (byId[s.id]) ordered.push(s); });
-  sectionOrderList.value = ordered;
+  sectionOrderList.value = blockOrder(setting.value.dashboard_section_order).map(id => DASHBOARD_BLOCKS.find(b => b.id === id));
 }
 function commitSectionOrder() {
   setting.value.dashboard_section_order = JSON.stringify(sectionOrderList.value.map(x => x.id));
@@ -1693,7 +1650,7 @@ function moveSection(index, dir) {
   commitSectionOrder();
 }
 function resetSectionOrder() {
-  sectionOrderList.value = [...DEFAULT_SECTIONS];
+  sectionOrderList.value = [...DASHBOARD_BLOCKS];
   commitSectionOrder();
 }
 
@@ -1815,6 +1772,7 @@ async function save() {
   fd.append('sale_loyalty_points_enabled', asBool(s.sale_loyalty_points_enabled) ? 1 : 0);
   fd.append('sale_shipping_enabled', asBool(s.sale_shipping_enabled) ? 1 : 0);
   fd.append('sale_sales_agent_enabled', asBool(s.sale_sales_agent_enabled ?? true) ? 1 : 0);
+  fd.append('sale_service_jobs_enabled', asBool(s.sale_service_jobs_enabled) ? 1 : 0);
   fd.append('sale_sms_enabled', asBool(s.sale_sms_enabled ?? true) ? 1 : 0);
   fd.append('sale_whatsapp_enabled', asBool(s.sale_whatsapp_enabled ?? true) ? 1 : 0);
   for (const f of BOOKING_FIELD_TOGGLES) fd.append(f.key, asBool(s[f.key] ?? true) ? 1 : 0);
@@ -2090,6 +2048,21 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* System Settings -> Dashboard: the blocks top to bottom, each with its items. */
+.dash-blocks-cfg {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 760px;
+}
+.dash-block-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px 16px;
+}
+.dash-block--off {
+  opacity: 0.55;
+}
 .section-head {
   margin-bottom: 16px;
 }

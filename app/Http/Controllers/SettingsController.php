@@ -339,6 +339,11 @@ class SettingsController extends Controller
             'sale_sales_agent_enabled' => $request->has('sale_sales_agent_enabled')
                 ? (($request['sale_sales_agent_enabled'] == '1' || $request['sale_sales_agent_enabled'] == 'true' || $request['sale_sales_agent_enabled'] === 1 || $request['sale_sales_agent_enabled'] === true) ? 1 : 0)
                 : (int) ($setting->sale_sales_agent_enabled ?? 1),
+            // Default -- Sales: service jobs on sales (create / link jobs on the
+            // sale, link invoices on a job). Default off; kept when not sent.
+            'sale_service_jobs_enabled' => $request->has('sale_service_jobs_enabled')
+                ? (filter_var($request['sale_service_jobs_enabled'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0)
+                : (int) ($setting->sale_service_jobs_enabled ?? 0),
             // Default -- Sales: show/hide the SMS and WhatsApp row-action
             // icons on the Sales list (default on).
             'sale_sms_enabled' => $this->settingFlag($request, $setting, 'sale_sms_enabled'),
@@ -1290,6 +1295,10 @@ class SettingsController extends Controller
             $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
             $item['sale_sales_agent_enabled'] = (bool) ($settings->sale_sales_agent_enabled ?? true);
+            $item['sale_service_jobs_enabled'] = (bool) ($settings->sale_service_jobs_enabled ?? false);
+            // Saved by the Defaults -> Sales switches; without them here the page showed them on again.
+            $item['sale_sms_enabled'] = (bool) ($settings->sale_sms_enabled ?? true);
+            $item['sale_whatsapp_enabled'] = (bool) ($settings->sale_whatsapp_enabled ?? true);
             foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled', 'booking_decimals_enabled'] as $flag) {
                 $item[$flag] = (bool) ($settings->{$flag} ?? true);
             }
@@ -2120,6 +2129,10 @@ class SettingsController extends Controller
             $item['product_code_next'] = \App\Support\ProductCode::next((int) $companyId);
             $item['sale_shipping_enabled'] = (bool) ($settings->sale_shipping_enabled ?? true);
             $item['sale_sales_agent_enabled'] = (bool) ($settings->sale_sales_agent_enabled ?? true);
+            $item['sale_service_jobs_enabled'] = (bool) ($settings->sale_service_jobs_enabled ?? false);
+            // Saved by the Defaults -> Sales switches; without them here the page showed them on again.
+            $item['sale_sms_enabled'] = (bool) ($settings->sale_sms_enabled ?? true);
+            $item['sale_whatsapp_enabled'] = (bool) ($settings->sale_whatsapp_enabled ?? true);
             foreach (['booking_delivery_date_enabled', 'booking_delivery_time_enabled', 'booking_status_enabled', 'booking_delivery_address_enabled', 'booking_decimals_enabled'] as $flag) {
                 $item[$flag] = (bool) ($settings->{$flag} ?? true);
             }
@@ -2420,6 +2433,7 @@ class SettingsController extends Controller
             $item['favicon'] = $settings->favicon;
             $item['app_name'] = $settings->app_name;
             $item['page_title_suffix'] = $settings->page_title_suffix;
+            $item['show_breadcrumbs'] = (bool) ($settings->show_breadcrumbs ?? true);
             $item['customize_button_visible'] = (bool) $settings->customize_button_visible;
             $item['hide_site_name'] = (bool) ($settings->hide_site_name ?? false);
             $item['logo'] = $settings->logo;
@@ -2510,6 +2524,8 @@ class SettingsController extends Controller
             'developed_by' => $request->input('developed_by'),
             'app_name' => $request->input('app_name'),
             'page_title_suffix' => $request->input('page_title_suffix'),
+            // Not sent by an older page = keep the current value.
+            'show_breadcrumbs' => $request->has('show_breadcrumbs') ? filter_var($request->input('show_breadcrumbs'), FILTER_VALIDATE_BOOLEAN) : ($setting->show_breadcrumbs ?? true),
             'customize_button_visible' => filter_var($request->input('customize_button_visible'), FILTER_VALIDATE_BOOLEAN),
             'hide_site_name' => filter_var($request->input('hide_site_name'), FILTER_VALIDATE_BOOLEAN),
             'logo' => $logoFilename,

@@ -230,13 +230,15 @@ class EmployeesController extends Controller
         \DB::transaction(function () use ($data, $request) {
             $employee = Employee::create($data);
 
-            // Every employee gets a matching users row (type=employee) --
-            // employees.user_id already existed as a nullable/unique FK for
-            // this, nothing ever populated it.
-            $employee->user_id = \App\Services\LinkedUserService::provision(
-                (int) $data['company_id'], 'employee', 'Employee', trim($data['firstname'].' '.$data['lastname']), $data['email'], $data['phone']
-            );
-            $employee->save();
+            // Every employee gets a matching users row (type=employee): the
+            // Employee model's `created` hook provisions it (any path that
+            // creates an employee), this only covers a record without one.
+            if (! $employee->user_id) {
+                $employee->user_id = \App\Services\LinkedUserService::provision(
+                    (int) $data['company_id'], 'employee', 'Employee', trim($data['firstname'].' '.$data['lastname']), $data['email'], $data['phone']
+                );
+                $employee->save();
+            }
             $this->syncPositions($employee->fresh(), $request);
             // System access card: can sign in? role, login email, password, PIN.
             // Without it, the login is enabled only when the company has a
@@ -274,6 +276,8 @@ class EmployeesController extends Controller
         }
         $cid = (int) $employee->company_id;
         $forUser = $request->input('for') === 'user';
+        // Employee photo = Basic information tab; user picture = User tab.
+        \App\Support\EmployeeTabs::abortUnless($actingUser, $forUser ? 'user' : 'basic', 'edit');
         if ($forUser) {
             abort_unless($employee->user_id, 422, 'No user is linked to this employee.');
             $user = \App\Models\User::findOrFail($employee->user_id);
@@ -336,6 +340,10 @@ class EmployeesController extends Controller
             abort_unless((int) $employee->company_id === (int) $actingUser->company_id, 403);
         }
         $cid = (int) $employee->company_id;
+        // Production tab = services, Payments tab = payments: each with its own View permission.
+        $seeServices = \App\Support\EmployeeTabs::can($actingUser, 'production', 'view');
+        $seePayments = \App\Support\EmployeeTabs::can($actingUser, 'payments', 'view');
+        abort_unless($seeServices || $seePayments, 403, 'You do not have permission to see this employee\'s production or payments.');
         $from = $request->filled('from') ? Carbon::parse($request->from)->toDateString() : null;
         $to = $request->filled('to') ? Carbon::parse($request->to)->toDateString() : null;
         $range = fn ($q, $col) => $q->when($from, fn ($q) => $q->where($col, '>=', $from))->when($to, fn ($q) => $q->where($col, '<=', $to));
@@ -390,8 +398,8 @@ class EmployeesController extends Controller
             }
         }
 
-        $services = $services->sortByDesc(fn ($r) => $r['date'].' '.$r['time'])->values();
-        $payments = $payments->sortByDesc('date')->values();
+        $services = $seeServices ? $services->sortByDesc(fn ($r) => $r['date'].' '.$r['time'])->values() : collect();
+        $payments = $seePayments ? $payments->sortByDesc('date')->values() : collect();
         $produced = round($services->sum('amount'), 2);
         $paid = round($payments->sum('amount'), 2);
 
@@ -435,7 +443,10 @@ class EmployeesController extends Controller
             'office_shifts' => $office_shifts,
             'departments' => $departments,
             'designations' => $designations,
-            'user' => $this->linkedUser($employee),
+            // User tab: only with its View permission.
+            'user' => \App\Support\EmployeeTabs::can($actingUser, 'user', 'view') ? $this->linkedUser($employee) : null,
+            // Which tabs this user may see / edit (Users -> Roles).
+            'tabs' => \App\Support\EmployeeTabs::forUser($actingUser),
         ]);
 
     }
@@ -569,6 +580,24 @@ class EmployeesController extends Controller
         }
         if (array_key_exists('leaving_date', $data) && ! $data['leaving_date']) {
             $data['leaving_date'] = null;
+        }
+        // Tab permissions: a field that CHANGES needs its tab's Edit permission
+        // (Basic information / Company); unchanged fields sent along are fine.
+        $same = function ($a, $b) {
+            if (is_numeric($a) && is_numeric($b)) {
+                return (float) $a == (float) $b;
+            }
+
+            return trim((string) $a) === trim((string) $b) || (substr((string) $a, 0, 10) === (string) $b && strlen((string) $b) === 10);
+        };
+        foreach (['basic' => \App\Support\EmployeeTabs::BASIC_FIELDS, 'company' => \App\Support\EmployeeTabs::COMPANY_FIELDS] as $tab => $tabFields) {
+            foreach ($tabFields as $f) {
+                $sent = $f === 'total_leave' ? $request->input('total_leave') : ($data[$f] ?? null);
+                if (($f === 'total_leave' ? $request->filled('total_leave') : array_key_exists($f, $data)) && ! $same($employee->{$f}, $sent)) {
+                    \App\Support\EmployeeTabs::abortUnless($request->user('api'), $tab, 'edit');
+                    break;
+                }
+            }
         }
         $data['username'] = trim(($data['firstname'] ?? $employee->firstname).' '.($data['lastname'] ?? $employee->lastname));
 
@@ -1036,6 +1065,9 @@ class EmployeesController extends Controller
     public function update_social_profile(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Employee::class);
+        // Company / own-record boundary + the Social media tab's Edit permission.
+        \App\Support\EmployeeTabs::employee($request, $id);
+        \App\Support\EmployeeTabs::abortUnless($request->user('api'), 'social', 'edit');
 
         $data = [];
         $data['skype'] = $request['skype'];
@@ -1055,6 +1087,8 @@ class EmployeesController extends Controller
     {
 
         $this->authorizeForUser($request->user('api'), 'view', Employee::class);
+        \App\Support\EmployeeTabs::employee($request, $request->id);
+        \App\Support\EmployeeTabs::abortUnless($request->user('api'), 'experiences', 'view');
         // How many items do you want to display.
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -1087,6 +1121,8 @@ class EmployeesController extends Controller
     {
 
         $this->authorizeForUser($request->user('api'), 'view', Employee::class);
+        \App\Support\EmployeeTabs::employee($request, $request->id);
+        \App\Support\EmployeeTabs::abortUnless($request->user('api'), 'accounts', 'view');
         // How many items do you want to display.
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);

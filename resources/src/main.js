@@ -9,6 +9,7 @@ import './assets/theme.css';
 
 import App from './App.vue';
 import router from './router';
+import { goBack } from './lib/goBack';
 import { i18n, loadLocale, storedLocale } from './i18n';
 // Arms the beforeinstallprompt listener before the topbar exists (see file).
 import './lib/pwaInstall';
@@ -67,6 +68,8 @@ app.config.errorHandler = (err, instance, info) => {
 app.use(createPinia());
 app.use(i18n);
 app.use(router);
+// Details pages' Back: to the page the user came from (lib/goBack.js).
+app.config.globalProperties.$goBack = fallback => goBack(router, fallback);
 app.use(Antd);
 // Same global <apexchart> tag the plugin would register, but async: apexcharts
 // (~550 kB min) stays out of the entry and loads as its own cached chunk only

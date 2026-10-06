@@ -93,10 +93,12 @@
       <a-spin size="large" />
     </div>
 
-    <template v-else>
+    <!-- The blocks top to bottom in the company's order (System Settings -> Dashboard). -->
+    <div v-else class="dash-blocks">
       <!-- ================= Stat cards (legacy's two rows of four) ========= -->
-      <a-row v-if="statCards.length" :gutter="[16, 16]">
-        <a-col v-for="card in statCards" :key="card.label" :xs="12" :sm="12" :md="8" :lg="6">
+      <!-- Cards share the row: as many as there are, max 6 per row (then wrap). -->
+      <div v-if="statCards.length" class="card-grid" :style="{ order: blockPos.cards, '--cols': Math.min(statCards.length, 6) }">
+        <div v-for="card in statCards" :key="card.label">
           <a-card :hoverable="true" class="stat-card" @click="card.link && $router.push(card.link)">
             <div class="stat-inner">
               <span class="stat-icon" :style="{ background: card.tint }">
@@ -108,11 +110,31 @@
               </div>
             </div>
           </a-card>
-        </a-col>
-      </a-row>
+        </div>
+      </div>
+
+      <!-- ================= Unpaid invoices by age (every open one, to today) ================= -->
+      <div v-if="agingCards.length" :style="{ order: blockPos.aging }">
+        <div class="aging-title">Unpaid invoices by age <span>(all dates, days since the invoice)</span></div>
+        <div class="card-grid" :style="{ '--cols': Math.min(agingCards.length, 6) }">
+          <div v-for="card in agingCards" :key="card.id">
+            <a-card :hoverable="true" class="stat-card" @click="$router.push(card.link)">
+              <div class="stat-inner">
+                <span class="stat-icon" :style="{ background: card.tint, color: card.color }">
+                  <ClockCircleOutlined />
+                </span>
+                <div>
+                  <div class="stat-label">{{ card.label }} ({{ card.count }})</div>
+                  <div class="stat-value">{{ money(card.value) }}</div>
+                </div>
+              </div>
+            </a-card>
+          </div>
+        </div>
+      </div>
 
       <!-- ================= Sales/Purchases + Top selling ================= -->
-      <a-row v-if="show('chart_sales_purchases') || show('chart_top_selling')" :gutter="[16, 16]" style="margin-top: 16px">
+      <a-row v-if="show('chart_sales_purchases') || show('chart_top_selling')" :gutter="[16, 16]" :style="{ order: blockPos.sales_charts }">
         <a-col v-if="show('chart_sales_purchases')" :xs="24" :xl="show('chart_top_selling') ? 16 : 24">
           <a-card class="chart-card" :title="$t('Sales_And_Purchases')">
             <apexchart v-if="salesChart.series.length" :key="'bar-' + loadCount" type="bar" height="320" :options="salesChart.options" :series="salesChart.series" />
@@ -128,7 +150,7 @@
       </a-row>
 
       <!-- ================= Payment area + Top customers ================= -->
-      <a-row v-if="show('chart_payment_sent_received') || show('chart_top_customers')" :gutter="[16, 16]" style="margin-top: 16px">
+      <a-row v-if="show('chart_payment_sent_received') || show('chart_top_customers')" :gutter="[16, 16]" :style="{ order: blockPos.payment_charts }">
         <a-col v-if="show('chart_payment_sent_received')" :xs="24" :xl="show('chart_top_customers') ? 12 : 24">
           <a-card class="chart-card" :title="$t('Payment_Sent_Received')">
             <apexchart v-if="paymentChart.series.length" :key="'area-' + loadCount" type="area" height="300" :options="paymentChart.options" :series="paymentChart.series" />
@@ -146,7 +168,7 @@
       <!-- ================= Sales by payment + Stock value ================= -->
       <!-- align=stretch so the right column matches the taller left card; the
            Quick actions card then grows to fill any leftover height. -->
-      <a-row v-if="show('sales_by_payment') || show('stock_value') || (show('quick_actions') && quickActions.length)" :gutter="[16, 16]" align="stretch" style="margin-top: 16px">
+      <a-row v-if="show('sales_by_payment') || show('stock_value') || (show('quick_actions') && quickActions.length)" :gutter="[16, 16]" align="stretch" :style="{ order: blockPos.payments_stock }">
         <a-col v-if="show('sales_by_payment')" :xs="24" :lg="12">
           <a-card class="fill-card" :title="$t('Sales_by_Payment')">
             <div class="paylist">
@@ -213,7 +235,7 @@
       </a-row>
 
       <!-- ================= Stock alert + Top selling ================= -->
-      <a-row v-if="show('table_stock_alert') || show('table_top_selling_products')" :gutter="[16, 16]" style="margin-top: 16px">
+      <a-row v-if="show('table_stock_alert') || show('table_top_selling_products')" :gutter="[16, 16]" :style="{ order: blockPos.tables }">
         <a-col v-if="show('table_stock_alert')" :xs="24" :xl="show('table_top_selling_products') ? 12 : 24">
           <a-card :title="$t('StockAlert')">
             <template #extra>
@@ -263,7 +285,7 @@
       </a-row>
 
       <!-- ================= Recent sales ================= -->
-      <a-card v-if="show('table_recent_sales')" style="margin-top: 16px" :title="$t('Recent_Sales')">
+      <a-card v-if="show('table_recent_sales')" :style="{ order: blockPos.recent_sales }" :title="$t('Recent_Sales')">
         <template #extra>
           <a-button type="link" @click="$router.push('/sales')">{{ $t('View_all') }}</a-button>
         </template>
@@ -288,7 +310,7 @@
           </template>
         </a-table>
       </a-card>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -301,12 +323,14 @@ import {
   UndoOutlined, DollarOutlined, WalletOutlined, FileTextOutlined, RiseOutlined,
   TagOutlined, AppstoreOutlined, InfoCircleOutlined,
   CreditCardOutlined, BankOutlined, WarningOutlined, ShopOutlined,
-  CalculatorOutlined, TeamOutlined,
+  CalculatorOutlined, TeamOutlined, ExclamationCircleOutlined, ClockCircleOutlined,
 } from '@ant-design/icons-vue';
+import dayjs from 'dayjs';
 import { useI18n } from 'vue-i18n';
 import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
+import { blockOrder } from '../config/dashboardSections';
 import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
@@ -323,6 +347,8 @@ const auth = useAuthStore();
 /* ------------------------------------------- sections / start page (Defaults -> Users) */
 // Dashboard cards / charts / tables the company switched off.
 const hiddenSections = computed(() => new Set(auth.user?.dashboard_hidden_sections || []));
+// Block id -> its position top to bottom (System Settings -> Dashboard).
+const blockPos = computed(() => Object.fromEntries(blockOrder(auth.user?.dashboard_section_order).map((id, i) => [id, i])));
 // (The old single 'stat_cards' switch, if saved, still hides every card.)
 const show = id => !hiddenSections.value.has(id) && !(id.startsWith('card_') && hiddenSections.value.has('stat_cards'));
 
@@ -446,8 +472,34 @@ const statCards = computed(() => {
     { id: 'card_sales_due', label: t('Sales_Due'), value: n('sales_due'), money: true, icon: DollarOutlined, tint: 'rgba(250,140,22,0.12)', link: '/sales' },
     { id: 'card_purchase_due', label: t('Purchase_Due'), value: n('purchase_due'), money: true, icon: WalletOutlined, tint: 'rgba(22,119,255,0.12)', link: '/purchases' },
     { id: 'card_invoices', label: t('Invoices'), value: n('today_invoices'), money: false, icon: FileTextOutlined, tint: 'rgba(140,140,140,0.14)', link: '/sales' },
+    // Invoices with no payment at all: amount owed, how many in the label; opens them in Sales.
+    {
+      id: 'card_unpaid_invoices', label: `${t('Unpaid_Invoices') === 'Unpaid_Invoices' ? 'Unpaid invoices' : t('Unpaid_Invoices')} (${n('unpaid_invoices')})`,
+      value: n('unpaid_invoices_amount'), money: true, icon: ExclamationCircleOutlined, tint: 'rgba(245,34,45,0.12)',
+      link: `/sales?payment_statut=unpaid${activeRange.value.from ? `&date_from=${activeRange.value.from}&date_to=${activeRange.value.to}` : ''}`,
+    },
     { id: 'card_profit', label: t('Profit'), value: n('today_profit'), money: true, icon: RiseOutlined, tint: 'rgba(82,196,26,0.14)', link: '/reports/profit-and-loss' },
   ].filter(c => show(c.id));
+});
+
+/* Unpaid invoices by age: each card = how many + amount owed; click = those
+   invoices in Sales (Unpaid + the invoice dates of that age band). */
+const agingCards = computed(() => {
+  const r = report.value;
+  const day = n => dayjs().subtract(n, 'day').format('YYYY-MM-DD');
+  const link = (from, to) => `/sales?payment_statut=unpaid&date_from=${from}&date_to=${to}`;
+  return [
+    { id: 'card_unpaid_0_30', key: '0_30', label: '0-30 days', from: day(30), to: day(0), tint: 'rgba(250,173,20,0.14)', color: '#d48806' },
+    { id: 'card_unpaid_31_60', key: '31_60', label: '31-60 days', from: day(60), to: day(31), tint: 'rgba(250,140,22,0.14)', color: '#d46b08' },
+    { id: 'card_unpaid_61_90', key: '61_90', label: '61-90 days', from: day(90), to: day(61), tint: 'rgba(245,34,45,0.12)', color: '#cf1322' },
+    // Over 90 days: from the first day there is (2000) to 91 days ago.
+    { id: 'card_unpaid_90_plus', key: '90_plus', label: 'Over 90 days', from: '2000-01-01', to: day(91), tint: 'rgba(168,7,26,0.16)', color: '#a8071a' },
+  ].filter(c => show(c.id)).map(c => ({
+    ...c,
+    count: Number(r[`unpaid_age_${c.key}`]) || 0,
+    value: Number(r[`unpaid_age_${c.key}_amount`]) || 0,
+    link: link(c.from, c.to),
+  }));
 });
 
 const stockItems = computed(() => {
@@ -690,6 +742,12 @@ async function load() {
       purchase_due: Number(r.purchase_due) || 0,
       today_invoices: Number(r.today_invoices) || 0,
       today_profit: Number(r.today_profit) || 0,
+      unpaid_invoices: Number(r.unpaid_invoices) || 0,
+      unpaid_invoices_amount: Number(r.unpaid_invoices_amount) || 0,
+      ...Object.fromEntries(['0_30', '31_60', '61_90', '90_plus'].flatMap(k => [
+        [`unpaid_age_${k}`, Number(r[`unpaid_age_${k}`]) || 0],
+        [`unpaid_age_${k}_amount`, Number(r[`unpaid_age_${k}_amount`]) || 0],
+      ])),
     };
     warehouses.value = data.warehouses || [];
     // A default Location the user can no longer see: back to all of them.
@@ -734,6 +792,40 @@ onMounted(load);
 </script>
 
 <style scoped>
+/* The blocks in the company's order (CSS order), 16px apart. */
+.dash-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dash-blocks > * {
+  margin-top: 0 !important;
+}
+/* Stat cards: as many per row as there are, max 6 (--cols), then wrap;
+   3 per row on tablets, 2 on phones. */
+.card-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+}
+@media (max-width: 1199px) {
+  .card-grid { grid-template-columns: repeat(min(var(--cols, 4), 3), minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .card-grid { grid-template-columns: repeat(min(var(--cols, 4), 2), minmax(0, 1fr)); }
+}
+.card-grid .stat-card {
+  height: 100%;
+}
+.aging-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.aging-title span {
+  font-weight: 400;
+  opacity: 0.6;
+  font-size: 12px;
+}
 /* "Last used" shortcuts: square buttons, up to 6 in a row. */
 .lu-grid {
   display: grid;

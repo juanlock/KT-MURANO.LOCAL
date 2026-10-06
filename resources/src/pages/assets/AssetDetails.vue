@@ -6,7 +6,7 @@
       :breadcrumb="['Asset Management', 'Assets', asset.tag || '']"
     >
       <template #actions>
-        <a-button @click="$router.push('/assets')">
+        <a-button @click="$goBack('/assets')">
           <template #icon><ArrowLeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>

@@ -6,7 +6,7 @@
       :breadcrumb="['Hospital', 'Patients', patient ? patient.mrn : '']"
     >
       <template #actions>
-        <a-button @click="$router.push('/hospital/patients')">
+        <a-button @click="$goBack('/hospital/patients')">
           <template #icon><ArrowLeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>

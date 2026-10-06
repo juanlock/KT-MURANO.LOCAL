@@ -1,11 +1,11 @@
 <template>
   <div class="page">
     <PageHeader
-      :title="$route.name === 'employee-edit' ? $t('Edit') + ' ' + $t('Employee') : $t('Employee_Details')"
+      :title="($route.name === 'employee-edit' ? $t('Edit') + ' ' + $t('Employee') : $t('Employee_Details')) + (savedName ? ' — ' + savedName : '')"
       :breadcrumb="[$t('Employee'), $route.name === 'employee-edit' ? $t('Edit') : $t('Employee_Details')]"
     >
       <template #actions>
-        <a-button @click="$router.push('/hrm/employees')">
+        <a-button @click="$goBack('/hrm/employees')">
           <template #icon><LeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>
@@ -16,15 +16,17 @@
       <a-spin size="large" />
     </div>
 
+    <a-empty v-else-if="!TAB_ORDER.some(canView)" description="Your role can't see any tab of the employee details. Ask an admin (Users → Roles → HRM → Employees)." />
     <a-tabs v-else v-model:activeKey="tab">
       <!-- ============ Basic information ============ -->
-      <a-tab-pane key="basic" :tab="$t('Basic_Information')">
+      <!-- Each tab: shown with its View permission, editable with its Edit one (Users -> Roles). -->
+      <a-tab-pane v-if="canView('basic')" key="basic" :tab="$t('Basic_Information')">
         <a-card size="small">
           <!-- Employee photo (also used on the booking calendar when the user has none). -->
           <div class="ph">
             <a-image v-if="photoUrl(employee.avatar)" :src="photoUrl(employee.avatar)" :width="96" :height="96" class="ph-img" />
             <a-avatar v-else :size="96" class="ph-empty">{{ initials(employee.firstname, employee.lastname) }}</a-avatar>
-            <div class="ph-actions">
+            <div v-if="canEdit('basic')" class="ph-actions">
               <a-space>
                 <a-upload :show-upload-list="false" accept="image/*" :before-upload="f => uploadPhoto('employee', f)">
                   <a-button size="small" :loading="photoBusy === 'employee'"><template #icon><UploadOutlined /></template> {{ photoUrl(employee.avatar) ? 'Change photo' : 'Upload photo' }}</a-button>
@@ -36,7 +38,7 @@
               <div class="prod-muted">JPG, PNG or WebP, up to 5 MB — cropped square. Click the photo to view it.</div>
             </div>
           </div>
-          <a-form ref="basicRef" :model="employee" :rules="basicRules" layout="vertical">
+          <a-form ref="basicRef" :model="employee" :rules="basicRules" layout="vertical" :disabled="!canEdit('basic')">
             <a-row :gutter="16">
               <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('FirstName') + ' *'" name="firstname">
@@ -110,15 +112,15 @@
               </a-col>
             </a-row>
 
-            <a-button type="primary" :loading="savingBasic" @click="saveBasic">{{ $t('submit') }}</a-button>
+            <a-button v-if="canEdit('basic')" type="primary" :loading="savingBasic" @click="saveBasic">{{ $t('submit') }}</a-button>
           </a-form>
         </a-card>
       </a-tab-pane>
 
       <!-- ============ Company: where and how they work ============ -->
-      <a-tab-pane key="company" :tab="$t('Company')" force-render>
+      <a-tab-pane v-if="canView('company')" key="company" :tab="$t('Company')" force-render>
         <a-card size="small">
-          <a-form ref="companyRef" :model="employee" :rules="basicRules" layout="vertical">
+          <a-form ref="companyRef" :model="employee" :rules="basicRules" layout="vertical" :disabled="!canEdit('company')">
             <a-row :gutter="16">
               <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('Employment_type')">
@@ -196,15 +198,15 @@
               </a-col>
             </a-row>
 
-            <a-button type="primary" :loading="savingBasic" @click="saveBasic">{{ $t('submit') }}</a-button>
+            <a-button v-if="canEdit('company')" type="primary" :loading="savingBasic" @click="saveBasic">{{ $t('submit') }}</a-button>
           </a-form>
         </a-card>
       </a-tab-pane>
 
       <!-- ============ Social ============ -->
-      <a-tab-pane key="social" :tab="$t('Social_Media')">
+      <a-tab-pane v-if="canView('social')" key="social" :tab="$t('Social_Media')">
         <a-card size="small">
-          <a-form layout="vertical">
+          <a-form layout="vertical" :disabled="!canEdit('social')">
             <a-row :gutter="16">
               <a-col v-for="s in SOCIAL" :key="s.key" :xs="24" :md="8">
                 <a-form-item :label="$t(s.label)">
@@ -212,20 +214,20 @@
                 </a-form-item>
               </a-col>
             </a-row>
-            <a-button type="primary" :loading="savingSocial" @click="saveSocial">{{ $t('submit') }}</a-button>
+            <a-button v-if="canEdit('social')" type="primary" :loading="savingSocial" @click="saveSocial">{{ $t('submit') }}</a-button>
           </a-form>
         </a-card>
       </a-tab-pane>
 
       <!-- ============ Experiences ============ -->
-      <a-tab-pane key="experiences" :tab="$t('Experiences')">
+      <a-tab-pane v-if="canView('experiences')" key="experiences" :tab="$t('Experiences')">
         <a-card size="small">
-          <a-button type="primary" style="margin-bottom: 12px" @click="openExperience()">
+          <a-button v-if="canEdit('experiences')" type="primary" style="margin-bottom: 12px" @click="openExperience()">
             <template #icon><PlusOutlined /></template>
             {{ $t('Add') }}
           </a-button>
           <a-table
-            :columns="experienceColumns" :data-source="experiences.rows" :loading="experiences.loading"
+            :columns="experienceColumns.filter(c => c.key !== 'actions' || canEdit('experiences'))" :data-source="experiences.rows" :loading="experiences.loading"
             :pagination="{ current: experiences.page, pageSize: experiences.limit, total: experiences.total, showSizeChanger: false }"
             size="small" :row-key="r => r.id"
             @change="p => { experiences.page = p.current; fetchExperiences(); }"
@@ -249,14 +251,14 @@
       </a-tab-pane>
 
       <!-- ============ Bank accounts ============ -->
-      <a-tab-pane key="accounts" :tab="$t('bank_account')">
+      <a-tab-pane v-if="canView('accounts')" key="accounts" :tab="$t('bank_account')">
         <a-card size="small">
-          <a-button type="primary" style="margin-bottom: 12px" @click="openAccount()">
+          <a-button v-if="canEdit('accounts')" type="primary" style="margin-bottom: 12px" @click="openAccount()">
             <template #icon><PlusOutlined /></template>
             {{ $t('Add') }}
           </a-button>
           <a-table
-            :columns="accountColumns" :data-source="accounts.rows" :loading="accounts.loading"
+            :columns="accountColumns.filter(c => c.key !== 'actions' || canEdit('accounts'))" :data-source="accounts.rows" :loading="accounts.loading"
             :pagination="{ current: accounts.page, pageSize: accounts.limit, total: accounts.total, showSizeChanger: false }"
             size="small" :row-key="r => r.id"
             @change="p => { accounts.page = p.current; fetchAccounts(); }"
@@ -280,7 +282,7 @@
       </a-tab-pane>
 
       <!-- ============ User: the login account linked to this employee ============ -->
-      <a-tab-pane key="user" :tab="$t('User')">
+      <a-tab-pane v-if="canView('user')" key="user" :tab="$t('User')">
         <a-card size="small">
           <a-empty v-if="!linkedUser" description="No user is linked to this employee. Link one in Users (Add / Edit user → employee) so they can sign in, be booked as staff and appear in Production." />
           <template v-else>
@@ -288,7 +290,7 @@
             <div class="ph">
               <a-image v-if="photoUrl(linkedUser.avatar)" :src="photoUrl(linkedUser.avatar)" :width="96" :height="96" class="ph-img" />
               <a-avatar v-else :size="96" class="ph-empty">{{ initials(linkedUser.firstname, linkedUser.lastname) }}</a-avatar>
-              <div class="ph-actions">
+              <div v-if="canEdit('user')" class="ph-actions">
                 <a-space>
                   <a-upload :show-upload-list="false" accept="image/*" :before-upload="f => uploadPhoto('user', f)">
                     <a-button size="small" :loading="photoBusy === 'user'"><template #icon><UploadOutlined /></template> {{ photoUrl(linkedUser.avatar) ? 'Change picture' : 'Upload picture' }}</a-button>
@@ -330,7 +332,7 @@
       </a-tab-pane>
 
       <!-- ============ Production: services done and payments received ============ -->
-      <a-tab-pane key="production" tab="Production">
+      <a-tab-pane v-if="canView('production')" key="production" tab="Production">
         <a-card size="small">
           <div class="prod-filter">
             <span class="prod-muted">Dates</span>
@@ -381,7 +383,7 @@
       </a-tab-pane>
 
       <!-- ============ Payments: everything paid to this employee ============ -->
-      <a-tab-pane key="payments" :tab="$t('Payments')">
+      <a-tab-pane v-if="canView('payments')" key="payments" :tab="$t('Payments')">
         <a-card size="small">
           <div class="prod-filter">
             <span class="prod-muted">Dates</span>
@@ -545,6 +547,13 @@ const loading = ref(true);
 const tab = ref(['basic', 'company', 'social', 'experiences', 'accounts', 'user', 'production', 'payments'].includes(route.query.tab) ? route.query.tab : 'basic');
 const employee = ref({});
 const linkedUser = ref(null);
+// The employee's name in the page header (as saved -- it follows the form only after Submit).
+const savedName = ref('');
+// View / Edit per tab from the role (server: App\Support\EmployeeTabs -- it enforces them too).
+const tabPerms = ref({});
+const canView = key => !!tabPerms.value[key]?.view;
+const canEdit = key => !!tabPerms.value[key]?.edit;
+const TAB_ORDER = ['basic', 'company', 'social', 'experiences', 'accounts', 'user', 'production', 'payments'];
 const companies = ref([]);
 const departments = ref([]);
 const designations = ref([]);
@@ -929,6 +938,8 @@ async function loadEmployee() {
   const data = await http.get(`employees/${id}`);
   employee.value = data?.employee || {};
   linkedUser.value = data?.user || null;
+  tabPerms.value = data?.tabs || {};
+  savedName.value = [employee.value.firstname, employee.value.lastname].map(s => String(s || '').trim()).filter(Boolean).join(' ');
   companies.value = data?.companies || [];
   departments.value = data?.departments || [];
   designations.value = data?.designations || [];
@@ -943,9 +954,11 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-  fetchExperiences();
-  fetchAccounts();
-  fetchProduction();
+  // The asked tab (?tab=) only if this role may see it, else the first one it may.
+  if (!canView(tab.value)) tab.value = TAB_ORDER.find(canView) || 'basic';
+  if (canView('experiences')) fetchExperiences();
+  if (canView('accounts')) fetchAccounts();
+  if (canView('production') || canView('payments')) fetchProduction();
 });
 </script>
 

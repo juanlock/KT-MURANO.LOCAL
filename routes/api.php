@@ -606,6 +606,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
 
     // ------------------------------- Service & Maintenance ------------------------\\
     // Purely additive module: manages service jobs and dynamic checklists
+    Route::get('service_jobs/client_invoices/{client}', 'ServiceJobController@clientInvoices');
     Route::resource('service_jobs', 'ServiceJobController');
     Route::resource('service_technicians', 'ServiceTechnicianController')->only(['index', 'store', 'update', 'destroy']);
 
@@ -1431,6 +1432,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // -------------------------------  Sales --------------------------\\
     // ------------------------------------------------------------------\\
 
+    Route::get('sales_client_service_jobs/{client}', 'SalesController@clientServiceJobs');
     Route::resource('sales', 'SalesController');
     Route::get('get_import_sales', 'SalesController@get_import_sales');
     Route::post('store_import_sales', 'SalesController@store_import_sales');

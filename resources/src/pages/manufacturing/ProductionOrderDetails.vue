@@ -6,7 +6,7 @@
       :breadcrumb="['Manufacturing', 'Production Orders', order.reference || '']"
     >
       <template #actions>
-        <a-button @click="$router.push('/mrp/production-orders')">
+        <a-button @click="$goBack('/mrp/production-orders')">
           <template #icon><ArrowLeftOutlined /></template>
           {{ $t('Back') }}
         </a-button>

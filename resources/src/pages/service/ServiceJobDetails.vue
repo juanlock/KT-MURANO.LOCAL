@@ -6,7 +6,7 @@
     >
       <template #extra>
         <a-space>
-          <a-button @click="$router.push('/service/jobs')">
+          <a-button @click="$goBack('/service/jobs')">
             <template #icon><ArrowLeftOutlined /></template>
             {{ $t('Back_to_Service_Jobs') }}
           </a-button>
@@ -275,6 +275,16 @@
           </template>
         </a-table>
       </a-card>
+
+      <!-- Invoices that bill this job (service_job_sales). -->
+      <a-card v-if="invoices.length" size="small" :title="`${$t('Invoices')} (${invoices.length})`" style="margin-bottom: 16px">
+        <div v-for="s in invoices" :key="s.id" class="job-invoice">
+          <router-link :to="`/sales/${s.id}`">{{ s.Ref }}</router-link>
+          <span>{{ s.date }}</span>
+          <span>{{ currencySymbol }}{{ formatNumber(s.GrandTotal) }}</span>
+          <a-tag :color="s.payment_statut === 'paid' ? 'success' : s.payment_statut === 'partial' ? 'warning' : 'error'" style="margin: 0">{{ s.payment_statut }}</a-tag>
+        </div>
+      </a-card>
     </template>
 
     <a-result v-else status="404" :title="$t('Job_not_found')">
@@ -313,6 +323,7 @@ const job = ref(null);
 const checklist = ref([]);
 const items = ref([]);
 const payments = ref([]);
+const invoices = ref([]);
 const photos = ref([]);
 const previewPhoto = ref(null);
 const currencySymbol = computed(() => auth.currency);
@@ -503,6 +514,7 @@ onMounted(async () => {
     items.value = data.items || [];
     payments.value = data.payments || [];
     photos.value = data.photos || [];
+    invoices.value = data.invoices || [];
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {
@@ -512,6 +524,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.job-invoice { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 0; }
 .job-head {
   display: flex;
   align-items: center;

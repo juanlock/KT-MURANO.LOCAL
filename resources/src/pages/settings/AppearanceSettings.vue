@@ -54,6 +54,8 @@
               <a-space direction="vertical" size="small">
                 <a-checkbox v-model:checked="setting.customize_button_visible">Show customize button</a-checkbox>
                 <a-checkbox v-model:checked="setting.hide_site_name">Hide site name</a-checkbox>
+                <!-- The small "Employee / Employee Details" trail above every page title. -->
+                <a-checkbox v-model:checked="setting.show_breadcrumbs">Show breadcrumbs above page titles (e.g. Employee / Employee Details)</a-checkbox>
               </a-space>
             </a-form-item>
           </a-col>
@@ -124,6 +126,7 @@ async function save() {
   fd.append('footer', s.footer || '');
   fd.append('customize_button_visible', s.customize_button_visible ? '1' : '0');
   fd.append('hide_site_name', s.hide_site_name ? '1' : '0');
+  fd.append('show_breadcrumbs', s.show_breadcrumbs ? '1' : '0');
   fd.append('primary_color', s.primary_color || '');
   fd.append('_method', 'put');
   try {
@@ -149,6 +152,7 @@ onMounted(async () => {
       ...s,
       customize_button_visible: !!Number(s.customize_button_visible),
       hide_site_name: !!Number(s.hide_site_name),
+      show_breadcrumbs: s.show_breadcrumbs !== false && s.show_breadcrumbs !== 0,
     };
   } catch (e) {
     message.error(t('InvalidData'));
