@@ -1,5 +1,5 @@
 ---
-description: "Protocol Copia BD -- dumps dbmurano via mysqldump into KT-TOOLS/database/ as two timestamped zips (each holding a .sql): one with every table except the Email Office ones, one with only the Email Office tables. Also triggers on \"Claude/Jarvis, run protocolo copia bd\" / \"protocolo copia bd\"."
+description: "Protocol Copia BD -- dumps dbmurano via mysqldump into KT-TOOLS/database/ as four timestamped zips (each holding a .sql): one with every table except the Email Office ones, and the Email Office tables in three files (_office_emails_1/_2/_3, office_emails split in three parts of about the same size). Also triggers on \"Claude/Jarvis, run protocolo copia bd\" / \"protocolo copia bd\"."
 ---
 
 Run Protocol Copia BD:
@@ -16,9 +16,12 @@ Run Protocol Copia BD:
    Verified 2026-10-01 by importing a dump into a scratch local DB with the `mysql` client: 327 tables, 66,165 rows, zero count mismatches, trigger present.
 4b. **Two files, both zipped (user's rule, 2026-10-05):** the Email Office tables outgrew everything else (`office_emails` alone is ~130 MB of imported mailboxes, which pushed the single `.sql` past GitHub's 100 MB file limit). So every run writes:
    - **`dbmurano_<date>_<host>_<time>.zip`** -- every table **except** the Email Office ones (`--ignore-table`), plus routines and triggers. Small (~4 MB zip / ~19 MB `.sql` on 2026-10-05).
-   - **`dbmurano_<date>_<host>_<time>_office_emails.zip`** -- **only** the Email Office tables (`office_emails`, `email_office_settings`, `email_office_rules`, `email_office_folders`, `email_office_payees`: structure + data). ~12 MB zip / ~104 MB `.sql`.
+   - **The Email Office tables in three files (user's rule, 2026-10-06)** -- `office_emails`, `email_office_settings`, `email_office_rules`, `email_office_folders`, `email_office_payees` (~12 MB zip / ~104 MB `.sql` in total on 2026-10-05). `office_emails` is cut into three id ranges of about the same **size** (body / html / attachments / snippet bytes, not row count -- e.g. 2026-10-06: 6,078 emails, ~101 MB, cut at ids 1729 / 3740), so the three files come out alike:
+     - **`..._office_emails_1.zip`** -- structure (`CREATE TABLE`) of every Email Office table + the small tables' data + `office_emails` up to the first cut;
+     - **`..._office_emails_2.zip`** -- `office_emails` between the two cuts (data only);
+     - **`..._office_emails_3.zip`** -- `office_emails` after the second cut (data only, open-ended so rows added while the backup runs land here) + the triggers (always last).
    The list of tables is `$emailTables` at the top of the script -- add any new Email Office table there. Each zip holds the `.sql` of the same name (PHP `ZipArchive`); the plain `.sql` is deleted once its zip is written (if zipping fails the `.sql` is kept with a warning). If mysqldump fails, no partial backup is left (the files already written in that run are removed too).
-   **To restore:** unzip both, import the main `.sql` first, then the `_office_emails` one into the same database (no foreign keys link them to the other tables, so the order is only a convention). phpMyAdmin also accepts a `.zip` directly when its upload limit allows the size. Verified 2026-10-05 by importing both into a scratch DB: 333 tables, 95,539 rows, zero mismatches, trigger present. `*.zip` is stored with Git LFS (`.gitattributes`).
+   **To restore:** unzip them all, import the main `.sql` first, then `_office_emails_1`, `_2`, `_3` **in that order** into the same database (`_1` creates the tables `_2` / `_3` fill; no foreign keys link them to the other tables). phpMyAdmin also accepts a `.zip` directly when its upload limit allows the size. Verified 2026-10-05 by importing both into a scratch DB: 333 tables, 95,539 rows, zero mismatches, trigger present. `*.zip` is stored with Git LFS (`.gitattributes`).
 5. **Other folder:** to write the dump somewhere else under `KT-TOOLS/` (e.g. an export for an external backup program -> `KT-TOOLS/SQL/`), set `$outSubdir` before the require: `php artisan tinker --execute="$outSubdir = 'SQL'; require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"`. Same format and file naming; default is `database`.
 6. Report the output path and file size back to the user.
 

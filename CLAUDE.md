@@ -224,10 +224,13 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   `KT-TOOLS/database/dbmurano_<date>_<host>_<time>.zip` (e.g.
   `dbmurano_2026-09-29_KT-THUNDERA_11-23-38-AM.zip` — **split in two and
   zipped since 2026-10-05 (user's rule)**: the main zip has every table except
-  the Email Office ones, `..._office_emails.zip` has only those
-  (`office_emails`, `email_office_settings` -- ~130 MB of imported mail that
-  pushed the single `.sql` past GitHub's 100 MB limit); restore = unzip both,
-  import the main one, then the office_emails one — host from
+  the Email Office ones, and the Email Office tables (`office_emails`,
+  `email_office_settings`, rules / folders / payees -- ~130 MB of imported
+  mail that pushed the single `.sql` past GitHub's 100 MB limit) go in
+  **three files since 2026-10-06 (user's rule)**: `..._office_emails_1/_2/_3.zip`,
+  `office_emails` cut in three parts of about the same size (file 1 also has
+  the tables' structure, file 3 the triggers); restore = unzip all, import the
+  main one, then office_emails 1, 2, 3 in order — host from
   `gethostname()`, time human-readable 12-hour with AM/PM via `now()`, not a
   bare digit run) — a phpMyAdmin-independent backup after a local phpMyAdmin
   export bug corrupted a manual backup attempt. Every dump is phpMyAdmin-ready
@@ -240,7 +243,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   Murano's own end-of-session close-out (A Dormir was merged into it and
   then deleted, user's request 2026-10-01): checks `npm run build`, runs
   Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
-  then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails.zip`), then commits everything with a summary subject and a
+  then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails 1/2/3.zip`), then commits everything with a summary subject and a
   detailed description of the changes (one bullet per `kt_logs` request,
   migrations, setup steps for other machines, backup file) and pushes to
   GitHub (never force-push; without CLI credentials the user pushes from

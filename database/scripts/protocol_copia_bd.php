@@ -1,10 +1,11 @@
 <?php
 
 // Protocol Copia BD -- dumps the dbmurano MySQL database via mysqldump and
-// saves it to KT-TOOLS/database/ as two timestamped zips (each holding a .sql):
+// saves it to KT-TOOLS/database/ as four timestamped zips (each holding a .sql):
 // dbmurano_<date>_<host>_<time>.zip (all tables except the Email Office ones)
-// and ..._office_emails.zip (only those), so a snapshot travels with the repo
-// across every machine this checkout is on.
+// and ..._office_emails_1 / _2 / _3.zip (the Email Office tables, office_emails
+// split in three parts of about the same size), so a snapshot travels with the
+// repo across every machine this checkout is on.
 // Run via: php artisan tinker --execute="require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"
 //
 // Reads connection details from Laravel's own config (never hardcoded), so
@@ -121,6 +122,38 @@ $base = [
 ];
 $db = (string) $conn['database'];
 $ignore = array_map(fn ($t) => "--ignore-table={$db}.{$t}", $emailTables);
+
+// The Email Office backup in three files (user's rule, 2026-10-06): office_emails
+// is split into three id ranges of about the same SIZE (body / html /
+// attachments / snippet bytes), not the same number of rows, so the three zips
+// come out alike. File 1 also carries every Email Office table's structure and
+// the small tables' data; file 3 the triggers (always last). Restore = main
+// file, then _office_emails_1, _2, _3, in that order.
+$small = array_values(array_diff($emailTables, ['office_emails']));
+$cuts = [0, 0];
+try {
+    $rows = \Illuminate\Support\Facades\DB::table('office_emails')->orderBy('id')
+        ->selectRaw('id, COALESCE(LENGTH(body_html),0) + COALESCE(LENGTH(body_text),0) + COALESCE(LENGTH(attachments),0) + COALESCE(LENGTH(snippet),0) + 500 AS sz')
+        ->get();
+    $total = (int) $rows->sum('sz');
+    $run = 0;
+    $cuts = [(int) ($rows->last()->id ?? 0), (int) ($rows->last()->id ?? 0)];
+    $found = [false, false];
+    foreach ($rows as $r) {
+        $run += (int) $r->sz;
+        foreach ([0, 1] as $k) {
+            if (! $found[$k] && $run >= $total * ($k + 1) / 3) {
+                $cuts[$k] = (int) $r->id;
+                $found[$k] = true;
+            }
+        }
+    }
+} catch (\Throwable $e) {
+    // No office_emails table: the three files only hold what exists.
+}
+[$cutA, $cutB] = $cuts;
+$emailsOnly = fn (string $where) => array_merge($base, ['--no-create-info', '--skip-triggers', "--where={$where}", $db, 'office_emails']);
+
 $parts = [
     // Main backup: every table except the Email Office ones (+ routines).
     "{$stem}.sql" => [
@@ -131,13 +164,30 @@ $parts = [
             '3. TRIGGERS' => array_merge($base, ['--no-create-info', '--no-data', '--triggers'], $ignore, [$db]),
         ],
     ],
-    // Email Office backup: only those tables (structure + data).
-    "{$stem}_office_emails.sql" => [
-        'title' => 'only the Email Office tables ('.implode(', ', $emailTables).') -- import after the main file',
-        'passes' => [
+    // Email Office backup, file 1 of 3: structure of every Email Office table,
+    // the small ones' data, and the first third of office_emails.
+    "{$stem}_office_emails_1.sql" => [
+        'title' => 'Email Office 1 of 3: structure of '.implode(', ', $emailTables).', data of '.implode(', ', $small)." and office_emails id <= {$cutA} -- import after the main file, before _2 and _3",
+        'passes' => array_filter([
             '1. TABLES (structure only)' => array_merge($base, ['--no-data', '--skip-triggers', $db], $emailTables),
-            '2. DATA' => array_merge($base, ['--no-create-info', '--skip-triggers', $db], $emailTables),
-            '3. TRIGGERS' => array_merge($base, ['--no-create-info', '--no-data', '--triggers', $db], $emailTables),
+            '2. DATA (small tables)' => $small ? array_merge($base, ['--no-create-info', '--skip-triggers', $db], $small) : null,
+            "3. DATA office_emails (id <= {$cutA})" => $emailsOnly("id <= {$cutA}"),
+        ]),
+    ],
+    // File 2 of 3: the second third of office_emails (data only).
+    "{$stem}_office_emails_2.sql" => [
+        'title' => "Email Office 2 of 3: office_emails id {$cutA} < id <= {$cutB} (data only) -- import after _1",
+        'passes' => [
+            "DATA office_emails ({$cutA} < id <= {$cutB})" => $emailsOnly("id > {$cutA} AND id <= {$cutB}"),
+        ],
+    ],
+    // File 3 of 3: the rest of office_emails (open-ended: rows added while the
+    // backup runs land here) + the Email Office triggers.
+    "{$stem}_office_emails_3.sql" => [
+        'title' => "Email Office 3 of 3: office_emails id > {$cutB} (data only) + triggers -- import last",
+        'passes' => [
+            "1. DATA office_emails (id > {$cutB})" => $emailsOnly("id > {$cutB}"),
+            '2. TRIGGERS' => array_merge($base, ['--no-create-info', '--no-data', '--triggers', $db], $emailTables),
         ],
     ],
 ];
