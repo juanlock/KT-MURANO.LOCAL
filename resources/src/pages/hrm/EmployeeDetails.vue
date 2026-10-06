@@ -186,12 +186,32 @@
                 </a-form-item>
               </a-col>
 
-              <a-col :xs="24" :md="12">
-                <a-form-item :label="$t('Hourly_rate')">
-                  <a-input-number v-model:value="employee.hourly_rate" :min="0" style="width: 100%" />
+              <!-- Payroll: weekly run pays hourly staff for the hours on the service
+                   jobs they complete, commission staff a % of their sales. -->
+              <a-col :xs="24" :md="6">
+                <a-form-item label="Paid by" extra="Empty = not on the weekly payroll.">
+                  <a-select
+                    v-model:value="employee.pay_type" allow-clear placeholder="Not on payroll"
+                    :options="[{ value: 'commission', label: 'Commission (% of sales)' }, { value: 'hourly', label: 'Hours (on service jobs)' }]"
+                  />
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="12">
+              <a-col v-if="employee.pay_type !== 'commission'" :xs="24" :md="6">
+                <a-form-item :label="$t('Hourly_rate')">
+                  <a-input-number v-model:value="employee.hourly_rate" :min="0" :step="0.5" prefix="$" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col v-else :xs="24" :md="6">
+                <a-form-item label="Commission %">
+                  <a-input-number v-model:value="employee.commission_rate" :min="0" :max="100" addon-after="%" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="6">
+                <a-form-item label="Pay from" extra="Payroll counts from this date.">
+                  <a-date-picker v-model:value="employee.pay_effective_from" value-format="YYYY-MM-DD" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="6">
                 <a-form-item :label="$t('Basic_salary')">
                   <a-input-number v-model:value="employee.basic_salary" :min="0" style="width: 100%" />
                 </a-form-item>
@@ -627,7 +647,7 @@ const BASIC_KEYS = [
   'firstname', 'lastname', 'country', 'email', 'gender', 'phone', 'birth_date',
   'company_id', 'department_id', 'designation_id', 'office_shift_id', 'joining_date',
   'leaving_date', 'marital_status', 'employment_type', 'city', 'province', 'address',
-  'zipcode', 'hourly_rate', 'basic_salary', 'total_leave',
+  'zipcode', 'hourly_rate', 'basic_salary', 'total_leave', 'pay_type', 'commission_rate', 'pay_effective_from',
   // Sent so the server's remaining-leave arithmetic has a base to work from.
   'remaining_leave',
 ];

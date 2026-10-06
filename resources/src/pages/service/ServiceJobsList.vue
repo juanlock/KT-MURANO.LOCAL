@@ -2,31 +2,43 @@
   <div class="page">
     <PageHeader :title="pageTitle" :breadcrumb="[$t('Service_Maintenance'), pageTitle]">
       <template #extra>
-        <a-button type="primary" @click="$router.push({ path: '/service/jobs/create', query: filters.kind ? { kind: filters.kind } : {} })">
-          <template #icon><PlusOutlined /></template>
-          {{ $t('Add') }}
-        </a-button>
+        <a-space wrap>
+          <!-- All jobs matching the filters (not just this page). -->
+          <a-button :loading="exporting === 'pdf'" @click="exportList('pdf')">
+            <template #icon><FilePdfOutlined /></template>
+            PDF
+          </a-button>
+          <a-button :loading="exporting === 'xlsx'" @click="exportList('xlsx')">
+            <template #icon><FileExcelOutlined /></template>
+            EXCEL
+          </a-button>
+          <a-button type="primary" @click="$router.push({ path: '/service/jobs/create', query: filters.kind ? { kind: filters.kind } : {} })">
+            <template #icon><PlusOutlined /></template>
+            {{ $t('Add') }}
+          </a-button>
+        </a-space>
       </template>
     </PageHeader>
 
     <a-card size="small" style="margin-bottom: 16px">
-      <a-row :gutter="[12, 12]" align="bottom">
+      <!-- All filters + Reset on one row (wraps on small screens). -->
+      <div class="sj-filters">
         <!-- Service jobs (work at the customer) vs device / product repairs. -->
-        <a-col :xs="24" :md="5">
+        <div class="sj-filter" style="width: 150px">
           <div class="filter-label">Kind</div>
           <a-select v-model:value="filters.kind" :options="kindOptions" style="width: 100%" @change="applyFilters" />
-        </a-col>
-        <a-col :xs="24" :md="4">
+        </div>
+        <div class="sj-filter" style="width: 140px">
           <div class="filter-label">{{ $t('Status') }}</div>
           <a-select v-model:value="filters.status" :options="statusFilterOptions" style="width: 100%" @change="applyFilters" />
-        </a-col>
-        <a-col :xs="24" :md="4">
+        </div>
+        <div class="sj-filter" style="width: 110px">
           <div class="filter-label">{{ $t('Payment') }}</div>
           <a-select v-model:value="filters.payment_status" :options="paymentFilterOptions" style="width: 100%" @change="applyFilters" />
-        </a-col>
+        </div>
         <!-- Day view: that day's jobs -- all-day tasks first, then by time,
              including multi-day jobs that cover it. -->
-        <a-col :xs="24" :md="7">
+        <div class="sj-filter" style="width: 290px">
           <div class="filter-label">Day</div>
           <a-space-compact style="width: 100%">
             <a-button @click="shiftDay(-1)">‹</a-button>
@@ -34,18 +46,18 @@
             <a-button @click="shiftDay(1)">›</a-button>
             <a-button :type="filters.day === todayStr ? 'primary' : 'default'" @click="setDay(todayStr)">Today</a-button>
           </a-space-compact>
-        </a-col>
-        <!-- Date range (presets + editable Start date / to), when no single
-             day is picked. v-show, not v-if: remounting would re-apply the
-             user's default preset over the range. -->
-        <a-col v-show="!filters.day" :span="24">
+        </div>
+        <!-- Date range (presets dropdown + editable Start date / to), when no
+             single day is picked. v-show, not v-if: remounting would re-apply
+             the user's default preset over the range. -->
+        <div v-show="!filters.day" class="sj-filter sj-filter--grow">
           <div class="filter-label">{{ $t('date') }}</div>
-          <PresetRangeFilter v-model:value="range" @change="applyFilters" />
-        </a-col>
-        <a-col flex="none">
+          <PresetRangeFilter v-model:value="range" compact @change="applyFilters" />
+        </div>
+        <div class="sj-filter">
           <ResetFiltersButton :dirty="hasActiveFilters" @reset="clearFilters" />
-        </a-col>
-      </a-row>
+        </div>
+      </div>
     </a-card>
 
     <DataTable :crud="crud" :columns="columns">
@@ -64,17 +76,33 @@
           </template>
           <span v-else style="color: #999">—</span>
         </template>
+        <!-- Assign to: pick / change / clear the operator right here (saved at once). -->
+        <template v-else-if="column.key === 'technician_name'">
+          <a-select
+            :value="record.assign_all ? 'all' : (record.technician_id || undefined)" size="small" allow-clear show-search option-filter-prop="label"
+            placeholder="Not assigned" :options="operatorOptions" :loading="assigning === record.id"
+            style="width: 100%; min-width: 150px" @click.stop @change="v => assignTo(record, v)"
+          />
+        </template>
         <template v-else-if="column.key === 'status'">
           <a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
         </template>
+        <!-- Billed on an invoice: the invoice carries the money (its number and
+             status); the job's own total / payment only for independent jobs. -->
         <template v-else-if="column.key === 'payment_status'">
-          <a-tag :color="paymentColor(record.payment_status)">{{ $t(record.payment_status || 'unpaid') }}</a-tag>
+          <template v-if="record.invoices?.length">
+            <PermLink permission="Sales_view" v-for="s in record.invoices" :key="s.id" :to="`/sales/${s.id}`" style="margin-right: 4px" @click.stop>{{ s.Ref }}</PermLink>
+            <a-tag :color="paymentColor(invoiceStatus(record))" style="margin: 0">{{ $t(invoiceStatus(record)) }}</a-tag>
+          </template>
+          <a-tag v-else :color="paymentColor(record.payment_status)">{{ $t(record.payment_status || 'unpaid') }}</a-tag>
         </template>
         <template v-else-if="column.key === 'total_amount'">
-          {{ formatNumber(record.total_amount) }}
+          <span v-if="record.invoices?.length" class="muted" title="Total of the linked invoice(s)">{{ formatNumber(record.invoices.reduce((s, i) => s + i.GrandTotal, 0)) }}</span>
+          <span v-else>{{ formatNumber(record.total_amount) }}</span>
         </template>
         <template v-else-if="column.key === 'balance_due'">
-          <span :style="{ color: record.balance_due > 0 ? '#cf1322' : '#3f8600' }">
+          <span v-if="record.invoices?.length" class="muted">On invoice</span>
+          <span v-else :style="{ color: record.balance_due > 0 ? '#cf1322' : '#3f8600' }">
             {{ formatNumber(record.balance_due) }}
           </span>
         </template>
@@ -113,8 +141,12 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
-  PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined,
+  PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, FilePdfOutlined, FileExcelOutlined,
 } from '@ant-design/icons-vue';
+import { message } from 'ant-design-vue';
+import http from '../../lib/http';
+import { exportExcel, exportPdf } from '../../lib/exporters';
+import { sortByLabel } from '../../lib/filterOptions';
 import PageHeader from '../../components/PageHeader.vue';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 import { rangeModel } from '../../lib/datePresets';
@@ -214,7 +246,7 @@ const columns = computed(() => [
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name', sorter: true },
   { title: t('Device'), key: 'device' },
-  { title: t('Technician'), dataIndex: 'technician_name', key: 'technician_name', sorter: true },
+  { title: 'Assign to', dataIndex: 'technician_name', key: 'technician_name', sorter: true, width: 190 },
   { title: t('Scheduled_Date'), dataIndex: 'scheduled_date', key: 'scheduled_date', sorter: true },
   { title: t('Status'), key: 'status' },
   { title: t('Payment'), key: 'payment_status' },
@@ -255,12 +287,90 @@ function paymentColor(s) {
   if (s === 'partial') return 'warning';
   return 'error';
 }
+/** A job billed on invoice(s): paid when all are paid, partial when some money came in. */
+function invoiceStatus(r) {
+  const st = (r.invoices || []).map(i => i.payment_statut);
+  if (st.length && st.every(s => s === 'paid')) return 'paid';
+  return st.some(s => s === 'paid' || s === 'partial') ? 'partial' : 'unpaid';
+}
 function formatNumber(n) {
   return (Number(n) || 0).toFixed(2);
 }
 
 function applyFilters() {
   crud.reload();
+}
+
+// "Assign to": the company's active operators (service_jobs/create meta), saved per row.
+const operators = ref([]);
+// "All operators" first (crew job: every operator sees it in Daily Tasks), then each operator A-Z.
+const operatorOptions = computed(() => [{ value: 'all', label: 'All operators' }, ...sortByLabel(operators.value.map(o => ({ value: o.id, label: o.name })))]);
+const assigning = ref(null);
+async function loadOperators() {
+  try {
+    operators.value = (await http.get('service_jobs/create')).technicians || [];
+  } catch (e) { operators.value = []; }
+}
+async function assignTo(record, technicianId) {
+  assigning.value = record.id;
+  try {
+    const res = await http.post(`service_jobs/${record.id}/assign`, { technician_id: technicianId || null });
+    record.assign_all = technicianId === 'all';
+    record.technician_id = technicianId && technicianId !== 'all' ? technicianId : null;
+    record.technician_name = res.technician_name || null;
+    message.success(technicianId ? `${record.Ref} assigned to ${res.technician_name}.` : `${record.Ref} unassigned.`);
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+  } finally {
+    assigning.value = null;
+  }
+}
+
+// PDF / Excel: every job matching the filters, as plain text columns
+// (status, schedule and work in words, like on screen).
+const exporting = ref(null);
+const exportColumns = computed(() => [
+  { title: t('Reference'), dataIndex: 'Ref' },
+  { title: t('Customer'), dataIndex: 'client_name' },
+  { title: 'Work / device', dataIndex: 'x_work' },
+  { title: t('Technician'), dataIndex: 'technician_name' },
+  { title: t('Scheduled_Date'), dataIndex: 'x_when' },
+  { title: t('Status'), dataIndex: 'x_status' },
+  { title: t('Payment'), dataIndex: 'x_payment' },
+  { title: t('Total'), dataIndex: 'x_total' },
+  { title: t('Balance_Due'), dataIndex: 'x_balance' },
+]);
+async function exportList(kind) {
+  exporting.value = kind;
+  try {
+    const data = await http.get('service_jobs', {
+      page: 1, limit: -1,
+      SortField: crud.sortField.value, SortType: crud.sortType.value, search: crud.search.value,
+      ...(filters.value.kind ? { kind: filters.value.kind } : {}),
+      ...(filters.value.status ? { status: filters.value.status } : {}),
+      ...(filters.value.payment_status ? { payment_status: filters.value.payment_status } : {}),
+      ...(filters.value.day ? { day: filters.value.day } : { from: filters.value.from || undefined, to: filters.value.to || undefined }),
+    });
+    const rows = (data.jobs || []).map(r => {
+      const s = scheduleText(r);
+      return {
+        ...r,
+        x_work: r.device_brand || r.device_model ? `${r.device_brand || ''} ${r.device_model || ''}`.trim() : (r.service_item || ''),
+        x_when: r.scheduled_date ? `${s.day}${s.time ? ` ${s.time}` : ''}` : '',
+        x_status: statusLabel(r.status),
+        // Billed on an invoice: the invoice's number / status / total.
+        x_payment: r.invoices?.length ? `${r.invoices.map(i => i.Ref).join(', ')} (${invoiceStatus(r)})` : (r.payment_status || 'unpaid'),
+        x_total: formatNumber(r.invoices?.length ? r.invoices.reduce((s, i) => s + i.GrandTotal, 0) : r.total_amount),
+        x_balance: r.invoices?.length ? 'On invoice' : formatNumber(r.balance_due),
+      };
+    });
+    if (kind === 'xlsx') await exportExcel('service_jobs', exportColumns.value, rows);
+    else await exportPdf(pageTitle.value, exportColumns.value, rows);
+  } catch (e) {
+    message.error(t('InvalidData'));
+  } finally {
+    exporting.value = null;
+  }
 }
 function applyQueryFilters() {
   const q = route.query || {};
@@ -287,10 +397,17 @@ watch(() => route.query, () => {
   if (route.path === '/service/jobs') applyQueryFilters();
 });
 
-onMounted(applyQueryFilters);
+onMounted(() => {
+  applyQueryFilters();
+  loadOperators();
+});
 </script>
 
 <style scoped>
+.sj-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.sj-filter { flex: 0 0 auto; max-width: 100%; }
+.sj-filter--grow { flex: 1 1 320px; min-width: 0; }
+@media (max-width: 600px) { .sj-filter { width: 100% !important; } }
 .filter-label {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.55);

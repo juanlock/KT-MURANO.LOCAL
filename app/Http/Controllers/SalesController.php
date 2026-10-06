@@ -935,6 +935,8 @@ class SalesController extends BaseController
             'quickbooks_invoice_id' => $sale->quickbooks_invoice_id,
             'qbo_sync' => $qboSync,
             'service_job_links' => $this->syncSaleServiceJobLinks($sale, $request),
+            // Linked jobs' status / note (after linking, so new links count).
+            'service_job_updates' => $this->applySaleServiceJobUpdates($sale, $request),
             'service_job' => $this->createSaleServiceJob($sale, $request),
         ]);
     }
@@ -1089,7 +1091,10 @@ class SalesController extends BaseController
         abort_if($user->type !== 'SuperAdmin' && (int) $user->company_id !== $cid, 404);
         $enabled = \App\Support\ServiceJobLinks::enabled($cid);
 
-        return response()->json(['enabled' => $enabled, 'jobs' => $enabled ? \App\Support\ServiceJobLinks::clientJobs($cid, (int) $client->id) : []]);
+        // ?sale_id = the sale being edited: its own link isn't "another invoice".
+        $exceptSale = $request->filled('sale_id') ? (int) $request->input('sale_id') : null;
+
+        return response()->json(['enabled' => $enabled, 'jobs' => $enabled ? \App\Support\ServiceJobLinks::clientJobs($cid, (int) $client->id, $exceptSale) : []]);
     }
 
     /**
@@ -4293,6 +4298,13 @@ class SalesController extends BaseController
                 'service_job_enabled' => \App\Support\ServiceJobLinks::enabled((int) $companyId),
                 'service_technicians' => \App\Models\ServiceTechnician::whereNull('deleted_at')->where('company_id', $companyId)
                     ->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+                // Edit Sale -> "Edit Contract Sale": the Sales Contract this invoice was billed by.
+                'sales_contract' => (function () use ($Sale_data) {
+                    $inv = \App\Models\SalesContractInvoice::where('sale_id', $Sale_data->id)->first();
+                    $c = $inv ? \App\Models\SalesContract::whereNull('deleted_at')->find($inv->sales_contract_id) : null;
+
+                    return $c ? ['id' => $c->id, 'number' => $c->contract_number, 'subject' => $c->subject] : null;
+                })(),
                 // Jobs linked to this invoice (created with it, or linked later).
                 'sale_service_jobs' => \App\Models\ServiceJob::whereNull('deleted_at')
                     ->where(fn ($q) => $q->where('sale_id', $Sale_data->id)->orWhereIn('id', \App\Support\ServiceJobLinks::jobsOfSale((int) $Sale_data->id) ?: [0]))

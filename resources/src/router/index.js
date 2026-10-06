@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { moduleKeyForPath } from '../config/modules';
 import { start as progressStart, done as progressDone } from '../lib/progress';
-import { autoOpenPath, recordVisit, startPageOpened, markStartPageOpened } from '../lib/startPage';
+import { autoOpenPath, recordVisit, startPageOpened, markStartPageOpened, pageOptions } from '../lib/startPage';
 import { setPageTitle } from '../lib/docTitle';
 // The shell is needed on every page, so it stays in the entry bundle.
 import AdminLayout from '../layouts/AdminLayout.vue';
@@ -425,7 +425,7 @@ const routes = [
             { path: '', redirect: '/dashboard' },
             { path: 'dashboard', name: 'dashboard', component: Dashboard, meta: { title: 'Dashboard', permission: 'dashboard' } },
             // Each user's own home shortcut buttons + what opens after sign-in (no permission: own account).
-            { path: 'home-buttons', name: 'home-buttons', component: HomeButtons, meta: { title: 'Home Buttons' } },
+            { path: 'home-buttons', name: 'home-buttons', component: HomeButtons, meta: { title: 'Home Buttons', permission: 'dashboard' } },
             { path: 'brands', name: 'brands', component: Brands, meta: { title: 'Brands', permission: 'brand' } },
             { path: 'categories', name: 'categories', component: Categories, meta: { title: 'Categories', permission: 'category' } },
             { path: 'subcategories', name: 'subcategories', component: SubCategories, meta: { title: 'SubCategories', permission: 'subcategory' } },
@@ -570,10 +570,11 @@ const routes = [
             { path: 'subscriptions/:id(\\d+)', name: 'subscription-details', component: SubscriptionDetails, meta: { title: 'Subscription Details', permission: 'subscription_product' } },
             { path: 'bookings/calendar', name: 'booking-calendar', component: BookingCalendar, meta: { title: 'Booking Calendar', permission: 'bookings' } },
             { path: 'service/jobs', name: 'service-jobs', component: ServiceJobsList, meta: { title: 'Service Jobs', permission: 'service_jobs' } },
+            { path: 'service/daily', name: 'daily-tasks', component: () => import('../pages/service/DailyTasks.vue'), meta: { title: 'Tasks', permission: 'daily_tasks' } },
             { path: 'service/jobs/create', name: 'service-job-create', component: ServiceJobForm, meta: { title: 'Create Service Job', permission: 'service_jobs' } },
             { path: 'service/jobs/edit/:id(\\d+)', name: 'service-job-edit', component: ServiceJobForm, meta: { title: 'Edit Service Job', permission: 'service_jobs' } },
             { path: 'service/jobs/details/:id(\\d+)', name: 'service-job-details', component: ServiceJobDetails, meta: { title: 'Service Job Details', permission: 'service_jobs' } },
-            { path: 'service/technicians', name: 'service-technicians', component: ServiceTechnicians, meta: { title: 'Service Technicians', permission: 'service_jobs' } },
+            { path: 'service/technicians', name: 'service-technicians', component: ServiceTechnicians, meta: { title: 'Operators', permission: 'service_jobs' } },
             { path: 'service/checklist-categories', name: 'service-checklist-categories', component: ServiceChecklistCategories, meta: { title: 'Checklist Categories', permission: 'service_jobs' } },
             { path: 'service/checklists', name: 'service-checklists', component: ServiceChecklists, meta: { title: 'Checklist Items', permission: 'service_jobs' } },
             { path: 'service/history', name: 'service-history', component: CustomerMaintenanceHistory, meta: { title: 'Maintenance History', permission: 'service_jobs' } },
@@ -913,6 +914,18 @@ router.beforeEach(async to => {
 
     const auth = useAuthStore();
     await auth.load();
+    // Home / the dashboard (also right after login): the role's home page
+    // (Roles -> "Home page", e.g. Daily Tasks for field staff); without one and
+    // without the dashboard permission, the first page the role may open --
+    // never "Page not available". Checked before the permission gate below.
+    if (to.name === 'dashboard') {
+        const roleHome = auth.user?.role_home;
+        if (roleHome && roleHome !== '/dashboard') return roleHome;
+        if (!auth.can('dashboard')) {
+            const first = pageOptions(auth)[0];
+            if (first) return first.path;
+        }
+    }
     // `permission` may be a single key or a list of acceptable ones — some
     // pages are reachable under either of two permissions (e.g. batches under
     // view_batches OR batch_view), matching the sidebar gate and the backend.

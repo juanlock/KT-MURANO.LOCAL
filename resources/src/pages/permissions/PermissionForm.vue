@@ -34,6 +34,12 @@
                 <a-input v-model:value="role.description" :placeholder="$t('Enter_Role_Description')" />
               </a-form-item>
             </a-col>
+            <!-- Where Home / the dashboard takes this role's users (empty = normal start page). -->
+            <a-col :xs="24" :md="12">
+              <a-form-item label="Home page" extra="Where Home takes the users of this role. Empty = the company's normal start page." style="margin: 12px 0 0">
+                <a-select v-model:value="role.home_path" allow-clear show-search option-filter-prop="label" placeholder="Company start page (dashboard)" :options="homeOptions" />
+              </a-form-item>
+            </a-col>
           </a-row>
           <!-- SuperAdmin editing another company's role: say whose it is. -->
           <a-alert
@@ -194,6 +200,8 @@ import { useMenuStore } from '../../stores/menu';
 import { useCompanyStore } from '../../stores/company';
 import { t as tf } from '../../i18n';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
+import { allPages, pageFullLabel } from '../../lib/startPage';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -210,7 +218,9 @@ const isLoading = ref(isEdit || !!copyFrom);
 const submitting = ref(false);
 const formRef = ref();
 const search = ref('');
-const role = ref({ name: '', description: '' });
+const role = ref({ name: '', description: '', home_path: null });
+// Role home page choices: any menu page (Daily Tasks for field staff, etc.).
+const homeOptions = computed(() => sortByLabel(allPages().map(p => ({ value: p.path, label: pageFullLabel(p) }))));
 const permissions = ref([]);
 
 const rules = computed(() => ({
@@ -440,7 +450,7 @@ async function submit() {
     return;
   }
   submitting.value = true;
-  const payload = { role: { name: role.value.name, description: role.value.description }, permissions: permissions.value };
+  const payload = { role: { name: role.value.name, description: role.value.description, home_path: role.value.home_path || null }, permissions: permissions.value };
   try {
     if (isEdit) {
       await http.put(`roles/${id}`, payload);
@@ -471,7 +481,7 @@ onMounted(async () => {
     try {
       const [data] = await Promise.all([http.get(`roles/${copyFrom}/edit`), menuReady]);
       const src = data.role || {};
-      role.value = { name: `${src.name || ''} (copy)`.trim(), description: src.description || '' };
+      role.value = { name: `${src.name || ''} (copy)`.trim(), description: src.description || '', home_path: src.home_path || null };
       permissions.value = Array.isArray(data.permissions) ? [...data.permissions] : [];
       message.info('Copy of the role loaded -- rename it and adjust permissions, then Submit to create it.', 6);
     } catch (e) {
@@ -487,7 +497,7 @@ onMounted(async () => {
   }
   try {
     const [data] = await Promise.all([http.get(`roles/${id}/edit`), menuReady]);
-    role.value = data.role || { name: '', description: '' };
+    role.value = { home_path: null, ...(data.role || { name: '', description: '' }) };
     permissions.value = Array.isArray(data.permissions) ? data.permissions : [];
   } catch (e) {
     message.error(t('InvalidData'));

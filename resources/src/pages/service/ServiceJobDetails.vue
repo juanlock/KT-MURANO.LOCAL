@@ -64,20 +64,36 @@
         />
       </a-card>
 
-      <!-- Finance stats -->
-      <a-row :gutter="[16, 16]" style="margin-bottom: 16px">
-        <a-col :xs="24" :md="6">
+      <!-- Finance stats. Billed on an invoice: the invoice carries the money
+           (the job's own total / payments aren't used) -> Cost, Invoice, Margin.
+           Independent job (own payments): Total, Paid, Balance, Cost, Margin. -->
+      <div class="fin-cards">
+        <template v-if="billedOnInvoice">
+          <a-card size="small">
+            <a-statistic title="Cost" :value="formatNumber(costTotal)" :prefix="currencySymbol" :value-style="{ color: '#cf1322' }" />
+            <div class="muted fin-sub">Labor {{ currencySymbol }}{{ formatNumber(costing?.labor_cost) }} · Equipment {{ currencySymbol }}{{ formatNumber(costing?.asset_cost) }}</div>
+          </a-card>
+          <a-card size="small">
+            <a-statistic :title="invoices.length > 1 ? `Invoices (${invoices.length})` : 'Invoice'" :value="formatNumber(invoiceTotal)" :prefix="currencySymbol" />
+            <div class="fin-sub">
+              <PermLink permission="Sales_view" v-for="s in invoices" :key="s.id" :to="`/sales/${s.id}`" style="margin-right: 6px">{{ s.Ref }}</PermLink>
+              <a-tag :color="paymentColor(invoicePayStatus)" style="margin: 0">{{ $t(invoicePayStatus) }}</a-tag>
+            </div>
+          </a-card>
+          <a-card size="small">
+            <a-statistic title="Margin" :value="formatNumber(invoiceTotal - costTotal)" :prefix="currencySymbol"
+              :value-style="{ color: invoiceTotal - costTotal >= 0 ? '#3f8600' : '#cf1322' }" />
+            <div class="muted fin-sub">Invoice total − job cost</div>
+          </a-card>
+        </template>
+        <template v-else>
           <a-card size="small">
             <a-statistic :title="$t('Total')" :value="formatNumber(job.total_amount)" :prefix="currencySymbol" />
           </a-card>
-        </a-col>
-        <a-col :xs="24" :md="6">
           <a-card size="small">
             <a-statistic :title="$t('Paid')" :value="formatNumber(job.paid_amount)" :prefix="currencySymbol" :value-style="{ color: '#3f8600' }" />
             <a-progress :percent="paidPercent" size="small" />
           </a-card>
-        </a-col>
-        <a-col :xs="24" :md="6">
           <a-card size="small">
             <a-statistic
               :title="$t('Balance_Due')" :value="formatNumber(job.balance_due)" :prefix="currencySymbol"
@@ -85,8 +101,12 @@
             />
             <a-tag :color="paymentColor(job.payment_status)" style="margin-top: 6px">{{ $t(job.payment_status || 'unpaid') }}</a-tag>
           </a-card>
-        </a-col>
-        <a-col :xs="24" :md="6">
+          <a-card size="small">
+            <a-statistic title="Cost" :value="formatNumber(costTotal)" :prefix="currencySymbol" :value-style="{ color: '#cf1322' }" />
+            <div class="muted fin-sub">Margin
+              <strong :style="{ color: job.total_amount - costTotal >= 0 ? '#3f8600' : '#cf1322' }">{{ currencySymbol }}{{ formatNumber(job.total_amount - costTotal) }}</strong></div>
+          </a-card>
+        </template>
           <a-card size="small">
             <template v-if="job.warranty_expires_at">
               <a-statistic :title="$t('Warranty')" :value="formatDate(job.warranty_expires_at)" :value-style="{ fontSize: '16px' }" />
@@ -101,8 +121,7 @@
               <a-statistic :title="$t('Job_Type')" :value="job.job_type || '-'" :value-style="{ fontSize: '16px' }" />
             </template>
           </a-card>
-        </a-col>
-      </a-row>
+      </div>
 
       <!-- Job info -->
       <a-card size="small" :title="$t('Service_Job_Details')" style="margin-bottom: 16px">
@@ -276,10 +295,27 @@
         </a-table>
       </a-card>
 
+      <!-- Job cost: labor (hours x operator rate) + equipment used. -->
+      <a-card v-if="costing && (costing.work_hours || costing.assets.length)" size="small" title="Job cost" style="margin-bottom: 16px">
+        <div class="job-invoice">
+          <span>Labor: {{ costing.work_hours || 0 }} h × {{ currencySymbol }}{{ formatNumber(costing.operator_rate) }}</span>
+          <strong>{{ currencySymbol }}{{ formatNumber(costing.labor_cost) }}</strong>
+        </div>
+        <div v-for="a in costing.assets" :key="a.asset_id" class="job-invoice">
+          <span>{{ a.name }}: {{ Number(a.hours) }} h × {{ currencySymbol }}{{ formatNumber(a.hourly_cost) }}</span>
+          <strong>{{ currencySymbol }}{{ formatNumber(a.cost) }}</strong>
+        </div>
+        <div class="job-invoice" style="border-top: 1px solid rgba(128,128,128,0.2); margin-top: 4px; padding-top: 6px">
+          <span>Total cost</span><strong>{{ currencySymbol }}{{ formatNumber(costing.total_cost) }}</strong>
+          <span v-if="job && Number(job.total_amount) > 0" class="muted">· Price {{ currencySymbol }}{{ formatNumber(job.total_amount) }} · Margin
+            <strong :style="{ color: job.total_amount - costing.total_cost >= 0 ? '#3f8600' : '#cf1322' }">{{ currencySymbol }}{{ formatNumber(job.total_amount - costing.total_cost) }}</strong></span>
+        </div>
+      </a-card>
+
       <!-- Invoices that bill this job (service_job_sales). -->
       <a-card v-if="invoices.length" size="small" :title="`${$t('Invoices')} (${invoices.length})`" style="margin-bottom: 16px">
         <div v-for="s in invoices" :key="s.id" class="job-invoice">
-          <router-link :to="`/sales/${s.id}`">{{ s.Ref }}</router-link>
+          <PermLink permission="Sales_view" :to="`/sales/${s.id}`">{{ s.Ref }}</PermLink>
           <span>{{ s.date }}</span>
           <span>{{ currencySymbol }}{{ formatNumber(s.GrandTotal) }}</span>
           <a-tag :color="s.payment_statut === 'paid' ? 'success' : s.payment_statut === 'partial' ? 'warning' : 'error'" style="margin: 0">{{ s.payment_statut }}</a-tag>
@@ -324,6 +360,16 @@ const checklist = ref([]);
 const items = ref([]);
 const payments = ref([]);
 const invoices = ref([]);
+const costing = ref(null);
+// Billed on an invoice (created with a sale or linked to one): the invoice carries the money.
+const billedOnInvoice = computed(() => invoices.value.length > 0);
+const invoiceTotal = computed(() => invoices.value.reduce((s, i) => s + (Number(i.GrandTotal) || 0), 0));
+const invoicePayStatus = computed(() => {
+  const st = invoices.value.map(i => i.payment_statut);
+  if (st.length && st.every(s => s === 'paid')) return 'paid';
+  return st.some(s => s === 'paid' || s === 'partial') ? 'partial' : 'unpaid';
+});
+const costTotal = computed(() => Number(costing.value?.total_cost) || 0);
 const photos = ref([]);
 const previewPhoto = ref(null);
 const currencySymbol = computed(() => auth.currency);
@@ -468,7 +514,7 @@ function printJob() {
             <h3 style="color:#1a56db;margin:0 0 10px 0;font-size:14px;">JOB INFORMATION</h3>
             <p style="margin:5px 0;"><strong>Service Item:</strong> ${esc(j.service_item || '-')}</p>
             ${j.job_type ? `<p style="margin:5px 0;"><strong>Job Type:</strong> ${esc(j.job_type)}</p>` : ''}
-            <p style="margin:5px 0;"><strong>Technician:</strong> ${esc(j.technician_name || '-')}</p>
+            <p style="margin:5px 0;"><strong>Operator:</strong> ${esc(j.technician_name || '-')}</p>
             ${j.scheduled_date ? `<p style="margin:5px 0;"><strong>Scheduled Date:</strong> ${esc(scheduleLabel(j))}</p>` : ''}
             <p style="margin:5px 0;"><strong>Status:</strong> ${esc(statusLabel(j.status))}</p>
           </td>
@@ -515,6 +561,7 @@ onMounted(async () => {
     payments.value = data.payments || [];
     photos.value = data.photos || [];
     invoices.value = data.invoices || [];
+    costing.value = data.costing ? { ...data.costing, assets: data.costing.assets || [] } : null;
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {
@@ -525,6 +572,8 @@ onMounted(async () => {
 
 <style scoped>
 .job-invoice { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 0; }
+.fin-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.fin-sub { margin-top: 6px; font-size: 12px; }
 .job-head {
   display: flex;
   align-items: center;

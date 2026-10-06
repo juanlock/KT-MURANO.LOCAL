@@ -14,6 +14,8 @@ class Payroll extends Model
     protected $fillable = [
         'user_id', 'date', 'employee_id', 'account_id', 'amount', 'payment_method_id', 'payment_status', 'Ref',
         'created_at', 'updated_at', 'deleted_at',
+        // Weekly payroll run: period + how the amount was worked out.
+        'company_id', 'period_start', 'period_end', 'pay_type', 'hours', 'rate', 'commission_base', 'commission_rate', 'notes',
     ];
 
     protected $casts = [

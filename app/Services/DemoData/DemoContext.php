@@ -25,6 +25,9 @@ class DemoContext
     /** What the company does (App\Support\BusinessTypes) -- accounting / expenses demo rows follow it. */
     public string $businessType = \App\Support\BusinessTypes::DEFAULT;
 
+    /** How demo staff are paid (Demo Data -> "hours or commission"): hourly | commission. */
+    public string $payType = 'hourly';
+
     private static array $columnCache = [];
 
     public function __construct(

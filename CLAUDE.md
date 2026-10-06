@@ -187,6 +187,25 @@ the start of each session).
   `email_office_view` / `email_office_manage` checkboxes, Admins included.
   New features add their own permission checkbox (`resources/src/config/permissions.js`
   + a `permissions` row) instead of a type check.
+- **Role home page** (2026-10-06): `roles.home_path` (Roles -> "Home page")
+  sends that role's users to a page instead of the dashboard (Home and the
+  dashboard redirect there). Field roles use **Daily Tasks** (`/service/daily`,
+  `DailyTasksController`): `daily_tasks` = own jobs (the service technician
+  linked to my employee), start / complete with a note; `daily_tasks_all` =
+  everyone's; `daily_tasks_assign` = assign the technician. Ruba: SupervisorRG
+  (manager) and OperatorRG (field employees).
+- **Payroll is weekly, by hours or commission** (2026-10-06): employees.pay_type
+  (`hourly` = hours on the service jobs they COMPLETE that week (`work_hours`,
+  asked on Complete in Daily Tasks / the job's Task tab) x `hourly_rate`;
+  `commission` = their sales that week (stylist on the sale's booking, else the
+  sale's sales agent linked to their user) x `commission_rate` %), from
+  `pay_effective_from`. HRM -> Payroll -> "Generate weekly payroll"
+  (`App\Services\PayrollRun`); paid payrolls post to accounting via
+  `PayrollExpenseSync` (Salaries and wages 7010 / Commissions 7040). Owners'
+  own employee records (admin login) stay off payroll. Job cost = labor (hours
+  x operator rate) + equipment used (`service_job_assets`, asset `hourly_cost`)
+  -- `App\Support\ServiceJobCost`. Rates: Ruba manager $25 / operators $20,
+  KcolTech $35, New Era 40% commission.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
@@ -206,6 +225,11 @@ the start of each session).
   Exceptions need a deliberate reason (e.g. a "Manage Menu" admin-defined
   order, or a list where recency/relevance genuinely matters more than
   alphabetical) -- default to alphabetical unless there's a reason not to.
+- **Links to another module's page respect the role** (2026-10-06): use
+  `<PermLink :to="..." permission="Sales_view">` (global component,
+  `components/PermLink.vue`) instead of a bare `<router-link>` -- a user whose
+  role can't open the target sees plain text, never a link to "no access".
+  Use the target route's `meta.permission`.
 - **Date range filters: our own filter is the standard (user's rule,
   2026-10-05).** Every list / report / dashboard that filters by a date range
   uses Murano's date filter -- the shared preset buttons (All, Today, This

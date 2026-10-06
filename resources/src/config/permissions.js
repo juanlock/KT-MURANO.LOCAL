@@ -333,6 +333,18 @@ export const PERMISSION_GROUPS = [
             {
                 "v": "service_jobs",
                 "l": "Service_Maintenance"
+            },
+            {
+                "v": "daily_tasks",
+                "l": "Daily_Tasks"
+            },
+            {
+                "v": "daily_tasks_all",
+                "l": "Daily_Tasks_All"
+            },
+            {
+                "v": "daily_tasks_assign",
+                "l": "Daily_Tasks_Assign"
             }
         ]
     },
@@ -362,6 +374,10 @@ export const PERMISSION_GROUPS = [
             {
                 "v": "Pos_view",
                 "l": "pointofsales"
+            },
+            {
+                "v": "register_open_close",
+                "l": "Register_Open_Close"
             },
             {
                 "v": "promotion",
@@ -1000,6 +1016,10 @@ export const PERMISSION_GROUPS = [
             {
                 "v": "attendance",
                 "l": "Attendance"
+            },
+            {
+                "v": "attendance_self",
+                "l": "Attendance_Self"
             },
             {
                 "v": "leave",

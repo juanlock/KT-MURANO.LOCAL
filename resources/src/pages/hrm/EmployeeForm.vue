@@ -269,7 +269,7 @@ const SALES_MODULES = computed(() => [
   { key: 'sales_staff', label: 'Sales Staff', help: 'Can be picked as the Seller / Salesperson on sales and in the POS.' },
   { key: 'sales_agent', label: 'Sales Agent', help: 'Commissions sales agent, selectable as Sales Agent on sales. Remove = deactivate (history stays).' },
   // Service module only: a technician for Service Jobs (no login needed).
-  ...(auth.moduleEnabled('service') ? [{ key: 'service_technician', label: 'Service Technician', help: 'Can be assigned to Service Jobs and contract visits (technician / crew lead). Remove = deactivate (their jobs stay).' }] : []),
+  ...(auth.moduleEnabled('service') ? [{ key: 'service_technician', label: 'Operator', help: 'Can be assigned to Service Jobs and contract visits (operator / crew lead) and sees them in Daily Tasks. Remove = deactivate (their jobs stay).' }] : []),
 ]);
 const salesRoles = ref({ sales_staff: false, sales_agent: false, service_technician: false });
 

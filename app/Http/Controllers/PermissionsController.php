@@ -108,6 +108,7 @@ class PermissionsController extends BaseController
                 $Role->label = $request['role']['name'];
                 $Role->status = 0;
                 $Role->description = $request['role']['description'];
+                $Role->home_path = self::homePath($request['role']['home_path'] ?? null);
                 $Role->save();
 
                 $role = Role::findOrFail($Role->id);
@@ -136,6 +137,14 @@ class PermissionsController extends BaseController
 
     }
 
+    /** Role home page: an in-app path ("/service/daily"), else null (= normal start page). */
+    private static function homePath($value): ?string
+    {
+        $v = trim((string) $value);
+
+        return preg_match('#^/[A-Za-z0-9/_\-]{0,190}$#', $v) && $v !== '/' ? $v : null;
+    }
+
     // ------------ function show -----------\\
 
     public function show($id)
@@ -161,10 +170,11 @@ class PermissionsController extends BaseController
 
             \DB::transaction(function () use ($request, $id) {
 
-                // Only name / description (never company_id or anything else in the payload).
+                // Only name / description / home page (never company_id or anything else in the payload).
                 Role::whereId($id)->update([
                     'name' => $request['role']['name'],
                     'description' => $request['role']['description'] ?? null,
+                    'home_path' => self::homePath($request['role']['home_path'] ?? null),
                 ]);
 
                 $role = Role::findOrFail($id);
@@ -258,6 +268,7 @@ class PermissionsController extends BaseController
 
         $item['name'] = $Role->name;
         $item['description'] = $Role->description;
+        $item['home_path'] = $Role->home_path;
         $item['company_id'] = $Role->company_id;
         $item['company_name'] = optional(\App\Models\Company::find($Role->company_id))->name;
         $data = [];

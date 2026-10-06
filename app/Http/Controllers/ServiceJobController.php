@@ -142,7 +142,8 @@ class ServiceJobController extends BaseController
             $item['client_id'] = $job->client_id;
             $item['client_name'] = $job->client_name ?? null;
             $item['technician_id'] = $job->technician_id;
-            $item['technician_name'] = $job->technician_name ?? null;
+            $item['assign_all'] = (bool) ($job->assign_all ?? false);
+            $item['technician_name'] = ! empty($job->assign_all) ? 'All operators' : ($job->technician_name ?? null);
             $item['service_item'] = $job->service_item;
             $item['device_brand'] = $job->device_brand;
             $item['device_model'] = $job->device_model;
@@ -161,6 +162,20 @@ class ServiceJobController extends BaseController
             $item['delivered_at'] = $job->delivered_at;
             $item['warranty_expires_at'] = $job->warranty_expires_at;
             $data[] = $item;
+        }
+
+        // Jobs billed on an invoice (service_job_sales): the invoice carries the
+        // money, so the list shows it instead of the job's own total / payment.
+        $ids = array_column($data, 'id');
+        if ($ids && \Illuminate\Support\Facades\Schema::hasTable('service_job_sales')) {
+            $inv = DB::table('service_job_sales as l')->join('sales as s', 's.id', '=', 'l.sale_id')->whereNull('s.deleted_at')
+                ->whereIn('l.service_job_id', $ids)->get(['l.service_job_id', 's.id', 's.Ref', 's.GrandTotal', 's.paid_amount', 's.payment_statut'])
+                ->groupBy('service_job_id');
+            foreach ($data as &$row) {
+                $list = $inv->get($row['id']);
+                $row['invoices'] = $list ? $list->map(fn ($s) => ['id' => $s->id, 'Ref' => $s->Ref, 'GrandTotal' => (float) $s->GrandTotal, 'paid_amount' => (float) $s->paid_amount, 'payment_statut' => $s->payment_statut])->values()->all() : [];
+            }
+            unset($row);
         }
 
         return response()->json([
@@ -192,9 +207,24 @@ class ServiceJobController extends BaseController
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)
             ->get(['id', 'name']);
 
+        // Equipment that can be used on a job: the company's assets (their locations), with hourly cost.
+        $assets = \Illuminate\Support\Facades\Schema::hasColumn('assets', 'hourly_cost')
+            ? DB::table('assets')->whereNull('deleted_at')->whereIn('warehouse_id', $warehouses->pluck('id'))
+                ->whereNotIn('status', ['disposed', 'lost'])->orderBy('name')->get(['id', 'name', 'tag', 'hourly_cost'])
+            : [];
+        // Technician -> operator rate (hourly employees), to show labor cost live.
+        $rates = [];
+        foreach ($technicians as $tech) {
+            $rates[$tech->id] = \App\Support\ServiceJobCost::operatorRate((int) $tech->id);
+        }
+        // "All operators" (crew job): the crew's summed rate.
+        $rates['all'] = \App\Support\ServiceJobCost::crewRate($this->serviceCompanyId());
+
         return response()->json([
             'clients' => $clients,
             'technicians' => $technicians,
+            'technician_rates' => $rates,
+            'assets' => $assets,
             'warehouses' => $warehouses,
             'payment_methods' => $payment_methods,
             'statuses' => [
@@ -203,6 +233,26 @@ class ServiceJobController extends BaseController
             ],
             'payment_statuses' => ['unpaid', 'partial', 'paid'],
         ]);
+    }
+
+    // ------ Service Jobs list -> "Assign to": set / change / clear the operator ------\\
+    public function assign(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', ServiceJob::class);
+        $job = $this->scopedJobs()->whereNull('service_jobs.deleted_at')->findOrFail($id);
+        // 'all' = "All operators": a crew job any operator can take.
+        $all = $request->input('technician_id') === 'all';
+        $techId = ! $all && $request->input('technician_id') ? (int) $request->input('technician_id') : null;
+        if ($techId) {
+            // Only an active operator of the job's company.
+            $companyId = \App\Support\ServiceJobLinks::jobCompany((int) $job->id);
+            abort_unless(ServiceTechnician::whereKey($techId)->where('company_id', $companyId)->whereNull('deleted_at')->where('is_active', true)->exists(), 422, 'Operator not found in this company.');
+        }
+        DB::table('service_jobs')->where('id', $job->id)->update(['technician_id' => $techId, 'assign_all' => $all, 'updated_at' => now()]);
+        // The labor cost follows the operator's (or the crew's) rate.
+        \App\Support\ServiceJobCost::recalc((int) $job->id);
+
+        return response()->json(['success' => true, 'assign_all' => $all, 'technician_name' => $all ? 'All operators' : ($techId ? ServiceTechnician::whereKey($techId)->value('name') : null)]);
     }
 
     // ------ A customer's invoices, to link to a job (Defaults -> Sales -> "Service jobs on sales") ------\\
@@ -218,6 +268,30 @@ class ServiceJobController extends BaseController
             'enabled' => $enabled,
             'invoices' => $enabled ? \App\Support\ServiceJobLinks::clientInvoices($cid, (int) $client->id) : [],
         ]);
+    }
+
+    /**
+     * Job costing (Task tab): work_hours, equipment used (job_assets
+     * [{asset_id, hours}]) -> labor_cost / asset_cost. Only what was sent.
+     */
+    protected function syncCosting(Request $request, ServiceJob $job): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('service_jobs', 'work_hours')) {
+            return;
+        }
+        // Task tab -> "All operators" (crew job): no single operator.
+        if ($request->has('assign_all') && \Illuminate\Support\Facades\Schema::hasColumn('service_jobs', 'assign_all')) {
+            $all = filter_var($request->input('assign_all'), FILTER_VALIDATE_BOOLEAN);
+            DB::table('service_jobs')->where('id', $job->id)->update($all ? ['assign_all' => true, 'technician_id' => null] : ['assign_all' => false]);
+        }
+        if ($request->has('work_hours')) {
+            $h = $request->input('work_hours');
+            DB::table('service_jobs')->where('id', $job->id)->update(['work_hours' => $h === null || $h === '' ? null : max(0, round((float) $h, 2))]);
+        }
+        if ($request->has('job_assets')) {
+            \App\Support\ServiceJobCost::syncAssets((int) $job->id, (array) $request->input('job_assets', []), \App\Support\ServiceJobLinks::jobCompany((int) $job->id));
+        }
+        \App\Support\ServiceJobCost::recalc((int) $job->id);
     }
 
     /** Links the job to the invoices sent in sale_ids (only when the company has it on). */
@@ -263,6 +337,7 @@ class ServiceJobController extends BaseController
         });
 
         $this->syncInvoiceLinks($request, $job);
+        $this->syncCosting($request, $job);
 
         // A customer's request / work order from Email Office (?email=): link that email to the job.
         if ($request->filled('office_email_id')) {
@@ -372,7 +447,8 @@ class ServiceJobController extends BaseController
                 'client_id' => $job->client_id,
                 'client_name' => $job->client ? $job->client->name : null,
                 'technician_id' => $job->technician_id,
-                'technician_name' => $job->technician ? $job->technician->name : null,
+                'assign_all' => (bool) ($job->assign_all ?? false),
+                'technician_name' => ! empty($job->assign_all) ? 'All operators' : ($job->technician ? $job->technician->name : null),
                 'warehouse_id' => $job->warehouse_id,
                 'service_item' => $job->service_item,
                 'job_type' => $job->job_type,
@@ -423,6 +499,16 @@ class ServiceJobController extends BaseController
             'photos' => $photos,
             // Invoices that bill this job (service_job_sales).
             'invoices' => \App\Support\ServiceJobLinks::invoicesOfJob((int) $job->id),
+            // Job costing: hours worked, operator rate, equipment used, costs.
+            'costing' => [
+                'work_hours' => $job->work_hours !== null ? (float) $job->work_hours : null,
+                'operator_rate' => \App\Support\ServiceJobCost::jobRate((int) $job->id),
+                'assign_all' => (bool) ($job->assign_all ?? false),
+                'labor_cost' => (float) ($job->labor_cost ?? 0),
+                'asset_cost' => (float) ($job->asset_cost ?? 0),
+                'total_cost' => round((float) ($job->labor_cost ?? 0) + (float) ($job->asset_cost ?? 0), 2),
+                'assets' => \App\Support\ServiceJobCost::assetsOf((int) $job->id),
+            ],
         ]);
     }
 
@@ -469,6 +555,7 @@ class ServiceJobController extends BaseController
         });
 
         $this->syncInvoiceLinks($request, $job);
+        $this->syncCosting($request, $job);
 
         return response()->json([
             'success' => true,

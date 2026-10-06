@@ -27,12 +27,31 @@
           <div>
             <div class="ddg-type__title">What kind of business is {{ companyName || 'this company' }}?</div>
             <div class="ddg-muted">
-              Accounting and Regular expenses examples use it: a landscaper gets fuel, mulch and subcontractor bills;
-              a salon, hair color and laundry; a restaurant, food orders. Its own expense categories and accounts are
-              added too (they stay after removing demo data).
+              Accounting, Regular expenses and Assets examples use it: a landscaper gets fuel, mulch and subcontractor
+              bills and mowers, trucks and trailers as assets; a salon, hair color, laundry and styling chairs; an IT
+              consultant, laptops, servers and network gear; an office, copiers and furniture; a restaurant, food orders
+              and kitchen equipment. Its own expense categories and accounts are added too (they stay after removing demo data).
             </div>
           </div>
           <a-select v-model:value="businessType" :options="businessTypeOptions" style="width: 320px" placeholder="Choose the type of business" />
+        </div>
+      </a-card>
+
+      <!-- HRM / Payroll history: how the staff are paid. -->
+      <a-card v-if="needsPay" size="small" style="margin-bottom: 16px">
+        <div class="ddg-type">
+          <div>
+            <div class="ddg-type__title">How are the staff paid?</div>
+            <div class="ddg-muted">
+              Hours: weekly payroll = hours worked (on the service jobs they complete) × hourly rate.
+              Commission: weekly payroll = a % of their sales. Demo employees and their weekly payrolls follow it;
+              Payroll history uses each real employee's own setup (Employee → Company → Paid by).
+            </div>
+          </div>
+          <a-radio-group v-model:value="payType" button-style="solid">
+            <a-radio-button value="hourly">Hours</a-radio-button>
+            <a-radio-button value="commission">Commission</a-radio-button>
+          </a-radio-group>
         </div>
       </a-card>
 
@@ -114,7 +133,7 @@
  * POST   demo_data/generate  { modules: [key] } → { results: {key: {status, created|reason}} }
  * DELETE demo_data[?module=] → removes only this company's tagged demo rows
  */
-import { ref, computed, onMounted, createVNode } from 'vue';
+import { ref, computed, watch, onMounted, createVNode } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { ThunderboltOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import http from '../../lib/http';
@@ -142,8 +161,12 @@ const availableKeys = computed(() => modules.value.filter(m => m.available).map(
 const businessType = ref(undefined);
 const businessTypes = ref([]);
 const businessTypeOptions = computed(() => sortByLabel(businessTypes.value));
-const TYPE_MODULES = ['accounting', 'regular_expenses'];
+const TYPE_MODULES = ['accounting', 'regular_expenses', 'assets'];
 const needsType = computed(() => selected.value.some(k => TYPE_MODULES.includes(k)));
+// Hours or commission (HRM demo staff / payroll history); default from the business type.
+const needsPay = computed(() => selected.value.some(k => ['hrm', 'payroll_history'].includes(k)));
+const payType = ref(null);
+watch(businessType, bt => { if (!payType.value) payType.value = ['salon', 'barber'].includes(bt) ? 'commission' : 'hourly'; }, { immediate: true });
 
 function selectAvailable() {
   selected.value = [...availableKeys.value];
@@ -174,12 +197,15 @@ async function loadStatus() {
 
 async function generate() {
   if (needsType.value && !businessType.value) {
-    message.warning('Choose what kind of business this is first — Accounting and Regular expenses examples follow it.');
+    message.warning('Choose what kind of business this is first — Accounting, Regular expenses and Assets examples follow it.');
     return;
   }
   generating.value = true;
   try {
-    const data = await http.post('demo_data/generate', { modules: selected.value, business_type: businessType.value || null });
+    const data = await http.post('demo_data/generate', {
+      modules: selected.value, business_type: businessType.value || null,
+      ...(needsPay.value ? { pay_type: payType.value || 'hourly' } : {}),
+    });
     const byKey = Object.fromEntries(modules.value.map(m => [m.key, m.label]));
     lastResults.value = sortByLabel(Object.entries(data.results || {}).map(([key, r]) => ({ key, label: byKey[key] || key, ...r })));
     const ok = lastResults.value.filter(r => r.status === 'created').length;

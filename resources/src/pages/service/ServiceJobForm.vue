@@ -67,15 +67,6 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="8">
-                  <a-form-item :label="$t('Technician')">
-                    <a-select
-                      v-model:value="form.technician_id" :placeholder="$t('Choose_Technician')"
-                      :options="technicians.map(x => ({ label: x.full_name, value: x.id }))"
-                      show-search option-filter-prop="label" allow-clear
-                    />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
                   <a-form-item :label="$t('Service_Item') + ' *'" name="service_item">
                     <a-input v-model:value="form.service_item" :placeholder="$t('Service_Item')" />
                   </a-form-item>
@@ -83,11 +74,6 @@
                 <a-col :xs="24" :md="8">
                   <a-form-item :label="$t('Job_Type')">
                     <a-input v-model:value="form.job_type" :placeholder="$t('Job_Type')" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item :label="$t('Status')">
-                    <a-select v-model:value="form.status" :options="statusOptions" />
                   </a-form-item>
                 </a-col>
                 <!-- What the job is: a service (on-site work, labor -- no device)
@@ -101,10 +87,6 @@
                   </a-form-item>
                 </a-col>
               </a-row>
-
-              <!-- When: one day or several days, at a time or all day. -->
-              <a-divider orientation="left">{{ $t('Scheduled_Date') }}</a-divider>
-              <ServiceJobWhen :value="when" />
 
               <template v-if="jobKind === 'device'">
               <a-divider orientation="left">{{ $t('Device_Information') }}</a-divider>
@@ -147,20 +129,10 @@
               </a-row>
               </template>
 
-              <a-row :gutter="16">
-                <a-col v-if="jobKind === 'device'" :xs="24" :md="12">
+              <a-row v-if="jobKind === 'device'" :gutter="16">
+                <a-col :xs="24" :md="12">
                   <a-form-item :label="$t('Condition_On_Arrival')">
                     <a-textarea v-model:value="form.condition_on_arrival" :rows="3" :placeholder="$t('Pre_existing_damage_scratches_etc')" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="12">
-                  <a-form-item :label="jobKind === 'device' ? $t('Reported_Issue') : 'Work requested'">
-                    <a-textarea v-model:value="form.reported_issue" :rows="3" :placeholder="$t('What_the_customer_said')" />
-                  </a-form-item>
-                </a-col>
-                <a-col :span="24">
-                  <a-form-item :label="$t('Notes')">
-                    <a-textarea v-model:value="form.notes" :rows="2" />
                   </a-form-item>
                 </a-col>
               </a-row>
@@ -211,6 +183,89 @@
                   />
                 </a-form-item>
               </template>
+            </a-tab-pane>
+
+            <!-- ============== TAB: Task -- who, when, status, the work and its notes
+                 (what Daily Tasks shows to the technician). ============== -->
+            <a-tab-pane key="task" tab="Task">
+              <a-row :gutter="16">
+                <a-col :xs="24" :md="8">
+                  <a-form-item label="Assigned to (operator)">
+                    <a-select
+                      v-model:value="assignValue" :placeholder="$t('Choose_Technician')"
+                      :options="assignOptions"
+                      show-search option-filter-prop="label" allow-clear
+                    />
+                    <div v-if="assignAll" class="muted" style="font-size: 12px; margin-top: 4px">Crew job: every operator sees it in Daily Tasks and any of them can complete it.</div>
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :md="8">
+                  <a-form-item :label="$t('Status')">
+                    <a-select v-model:value="form.status" :options="statusOptions" />
+                  </a-form-item>
+                </a-col>
+                <!-- Quick progress (saved with Save, like the status field). -->
+                <a-col :xs="24" :md="8">
+                  <a-form-item label="Progress">
+                    <a-space wrap>
+                      <a-button :type="form.status === 'in_progress' ? 'primary' : 'default'" @click="form.status = 'in_progress'">Start</a-button>
+                      <a-button :type="form.status === 'completed' ? 'primary' : 'default'" @click="form.status = 'completed'">
+                        <template #icon><CheckOutlined /></template> Complete
+                      </a-button>
+                    </a-space>
+                  </a-form-item>
+                </a-col>
+              </a-row>
+
+              <!-- When: one day or several days, at a time or all day. -->
+              <a-divider orientation="left">{{ $t('Scheduled_Date') }}</a-divider>
+              <ServiceJobWhen :value="when" />
+
+              <a-divider orientation="left">Work</a-divider>
+              <a-form-item :label="jobKind === 'device' ? $t('Reported_Issue') : 'Work requested'">
+                <a-textarea v-model:value="form.reported_issue" :rows="3" :placeholder="$t('What_the_customer_said')" />
+              </a-form-item>
+              <!-- Notes: the history (also written from Daily Tasks / Edit Sale, one
+                   "[date user] text" line each) + a new note added on Save. -->
+              <a-form-item :label="$t('Notes')">
+                <a-textarea v-model:value="form.notes" :rows="4" />
+              </a-form-item>
+              <a-form-item label="Add a note" extra="Added to the notes with the date and your user when you save.">
+                <a-input v-model:value="taskNote" allow-clear placeholder="e.g. Customer asked to come back next week" />
+              </a-form-item>
+
+              <!-- Job costing: labor (hours x the operator's rate) + equipment used. -->
+              <a-divider orientation="left">Job cost</a-divider>
+              <a-row :gutter="16">
+                <a-col :xs="24" :md="6">
+                  <a-form-item label="Hours worked" extra="Also counts for the operator's weekly payroll.">
+                    <a-input-number v-model:value="workHours" :min="0" :max="336" :step="0.25" style="width: 100%" placeholder="e.g. 3.5" />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :md="18">
+                  <a-form-item label="Equipment used">
+                    <div v-for="(row, i) in jobAssets" :key="i" class="cost-line">
+                      <a-select v-model:value="row.asset_id" show-search option-filter-prop="label" placeholder="Choose equipment"
+                        :options="assetOptions" style="flex: 1 1 220px; min-width: 0" />
+                      <a-input-number v-model:value="row.hours" :min="0" :step="0.25" addon-after="h" style="width: 120px" />
+                      <span class="cost-line__amt">{{ currencySymbol }}{{ formatNumber(assetLineCost(row)) }}</span>
+                      <a-button type="text" danger size="small" @click="jobAssets.splice(i, 1)"><template #icon><DeleteOutlined /></template></a-button>
+                    </div>
+                    <a-button size="small" @click="jobAssets.push({ asset_id: undefined, hours: workHours || 1 })">
+                      <template #icon><PlusOutlined /></template> Add equipment
+                    </a-button>
+                    <span v-if="!assetOptions.length" class="muted" style="margin-left: 8px">No assets in this company yet (Asset Management).</span>
+                  </a-form-item>
+                </a-col>
+              </a-row>
+              <div class="cost-summary">
+                <div><span>Labor</span><span>{{ workHours || 0 }} h × {{ currencySymbol }}{{ formatNumber(operatorRate) }}</span><strong>{{ currencySymbol }}{{ formatNumber(laborCost) }}</strong></div>
+                <div><span>Equipment</span><span>{{ jobAssets.filter(r => r.asset_id).length }} item(s)</span><strong>{{ currencySymbol }}{{ formatNumber(equipmentCost) }}</strong></div>
+                <div class="cost-summary__total"><span>Total cost</span><span /><strong>{{ currencySymbol }}{{ formatNumber(laborCost + equipmentCost) }}</strong></div>
+                <div v-if="grandTotal > 0"><span>Price / margin</span><span>{{ currencySymbol }}{{ formatNumber(grandTotal) }}</span>
+                  <strong :style="{ color: grandTotal - laborCost - equipmentCost >= 0 ? '#3f8600' : '#cf1322' }">{{ currencySymbol }}{{ formatNumber(grandTotal - laborCost - equipmentCost) }}</strong></div>
+                <div v-if="form.technician_id && !operatorRate" class="muted">The operator isn't paid by the hour (or has no rate): labor cost 0.</div>
+              </div>
             </a-tab-pane>
 
             <!-- ============== TAB 2: Diagnostic ============== -->
@@ -624,6 +679,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import FromEmailCard from '../../components/FromEmailCard.vue';
 import ServiceJobWhen, { emptyWhen, whenFromJob, whenToSchedule } from '../../components/ServiceJobWhen.vue';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 import { uploadForm } from '../../lib/upload';
 import { useAuthStore } from '../../stores/auth';
 
@@ -692,6 +748,36 @@ watch(() => form.value.client_id, (now, before) => {
   loadClientInvoices();
 });
 const jobMeta = ref(null);
+// Task tab -> "Add a note" (appended to the notes on Save).
+const taskNote = ref('');
+// Job costing: hours, equipment used, operator rates and the company's assets (from service_jobs/create).
+const workHours = ref(null);
+const jobAssets = ref([]);
+const companyAssets = ref([]);
+const technicianRates = ref({});
+const assetOptions = computed(() => sortByLabel(companyAssets.value.map(a => ({ value: a.id, label: `${a.name}${a.tag ? ` (${a.tag})` : ''} · ${Number(a.hourly_cost || 0).toFixed(2)}/h` }))));
+const assetLineCost = row => {
+  const a = companyAssets.value.find(x => x.id === row.asset_id);
+  return a ? (Number(row.hours) || 0) * (Number(a.hourly_cost) || 0) : 0;
+};
+// "Assigned to": one operator, or "All operators" (crew job -> assign_all, no single operator).
+const assignAll = ref(false);
+const assignOptions = computed(() => [{ value: 'all', label: 'All operators' }, ...sortByLabel(technicians.value.map(x => ({ label: x.full_name, value: x.id })))]);
+const assignValue = computed({
+  get: () => (assignAll.value ? 'all' : (form.value.technician_id || undefined)),
+  set: v => {
+    assignAll.value = v === 'all';
+    form.value.technician_id = v && v !== 'all' ? v : null;
+  },
+});
+const operatorRate = computed(() => Number(technicianRates.value[assignAll.value ? 'all' : form.value.technician_id] || 0));
+const laborCost = computed(() => (Number(workHours.value) || 0) * operatorRate.value);
+const equipmentCost = computed(() => jobAssets.value.reduce((s, r) => s + assetLineCost(r), 0));
+const localStamp = () => {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
 const totals = ref({ total_amount: 0, paid_amount: 0, balance_due: 0 });
 
 // When the job happens (components/ServiceJobWhen.vue): one day or a range,
@@ -883,6 +969,8 @@ async function loadMeta() {
   clients.value = (data.clients || []).map(c => ({ id: c.id, name: c.name }));
   technicians.value = (data.technicians || []).map(x => ({ id: x.id, full_name: x.name || `#${x.id}` }));
   warehouses.value = data.warehouses || [];
+  companyAssets.value = data.assets || [];
+  technicianRates.value = data.technician_rates || {};
   paymentMethods.value = data.payment_methods || [];
 }
 async function loadChecklist() {
@@ -905,6 +993,7 @@ async function loadJobIfNeeded() {
 
   form.value.client_id = job.client_id || null;
   form.value.technician_id = job.technician_id || null;
+  assignAll.value = !!job.assign_all;
   form.value.service_item = job.service_item || '';
   form.value.job_type = job.job_type || '';
   form.value.status = job.status || 'pending';
@@ -962,6 +1051,9 @@ async function loadJobIfNeeded() {
   }
 
   linkedInvoices.value = data.invoices || [];
+  const costing = data.costing || {};
+  workHours.value = costing.work_hours ?? null;
+  jobAssets.value = (costing.assets || []).map(a => ({ asset_id: a.asset_id, hours: Number(a.hours) || 0 }));
   form.value.sale_ids = linkedInvoices.value.map(s => s.id);
 
   payments.value = data.payments || [];
@@ -1096,13 +1188,24 @@ async function submit() {
     return;
   }
   SubmitProcessing.value = true;
+  // Task -> "Add a note": appended as "[date user] text", like Daily Tasks.
+  const extraNote = taskNote.value.trim();
+  const notes = extraNote
+    ? [form.value.notes, `[${localStamp()} ${auth.user?.username || 'user'}] ${extraNote}`].filter(Boolean).join('\n')
+    : form.value.notes;
   const payload = {
     ...form.value,
+    notes,
     // Service: no device details (cleared if the job was switched from a repair).
     ...(jobKind.value === 'service' ? { ...Object.fromEntries(DEVICE_FIELDS.map(k => [k, ''])), accessories: [] } : {}),
     ...whenToSchedule(when.value),
     job_kind: jobKind.value,
     checklist: buildChecklistPayload(),
+    // "All operators" (crew job).
+    assign_all: assignAll.value,
+    // Job costing (Task tab).
+    work_hours: workHours.value === null || workHours.value === undefined || workHours.value === '' ? null : workHours.value,
+    job_assets: jobAssets.value.filter(r => r.asset_id).map(r => ({ asset_id: r.asset_id, hours: Number(r.hours) || 0 })),
     warehouse_id: selectedWarehouseId.value || null,
     items: form.value.items.map(it => ({
       // Sending the id lets the server update lines in place. Without it, lines that
@@ -1127,6 +1230,7 @@ async function submit() {
       const data = await http.put(`service_jobs/${jobId.value}`, payload);
       message.success(t('Successfully_Updated'));
       showStockWarnings(data);
+      taskNote.value = '';
       await loadJobIfNeeded();
     } else {
       const data = await http.post('service_jobs', fromEmail.value ? { ...payload, office_email_id: fromEmail.value.id } : payload);
@@ -1328,6 +1432,11 @@ onMounted(bootstrap);
 .quick-lines__row > .ant-input { flex: 1 1 200px; min-width: 0; }
 .quick-lines__total { min-width: 80px; text-align: right; }
 .quick-lines__sum { text-align: right; }
+.cost-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.cost-line__amt { min-width: 80px; text-align: right; }
+.cost-summary { max-width: 520px; margin-left: auto; border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; padding: 8px 12px; }
+.cost-summary > div { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; padding: 3px 0; }
+.cost-summary__total { border-top: 1px solid rgba(128, 128, 128, 0.25); font-weight: 600; }
 .items-totals {
   display: flex;
   flex-direction: column;

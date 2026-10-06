@@ -65,7 +65,7 @@
 
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'Ref'">
-              <router-link :to="`/sales/${record.sale_id}`">{{ record.Ref }}</router-link>
+              <PermLink permission="Sales_view" :to="`/sales/${record.sale_id}`">{{ record.Ref }}</PermLink>
             </template>
             <template v-else-if="column.key === 'total'">{{ money(record.total) }}</template>
           </template>

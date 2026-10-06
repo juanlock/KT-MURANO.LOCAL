@@ -219,7 +219,7 @@
           <a-table :data-source="serviceJobs.jobs" :columns="jobColumns" :pagination="{ pageSize: 10, hideOnSinglePage: true }" size="small" row-key="id">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'ref'">
-                <router-link :to="`/service/jobs/details/${record.id}`">{{ record.ref }}</router-link>
+                <PermLink permission="service_jobs" :to="`/service/jobs/details/${record.id}`">{{ record.ref }}</PermLink>
               </template>
               <template v-else-if="column.key === 'scheduled_date'">
                 {{ record.scheduled_date ? `${date(record.scheduled_date)} ${String(record.scheduled_date).slice(11, 16)}` : '—' }}

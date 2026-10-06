@@ -76,9 +76,12 @@ class DemoRunner
      *
      * @return array<string,array> key => {status, created|reason}
      */
-    public static function run(int $companyId, int $userId, ?array $keys = null): array
+    public static function run(int $companyId, int $userId, ?array $keys = null, ?string $payType = null): array
     {
         $ctx = self::context($companyId, $userId, true);
+        // Demo staff pay (hours / commission): asked on Demo Data; default by business type.
+        $ctx->payType = in_array($payType, ['hourly', 'commission'], true) ? $payType
+            : (in_array($ctx->businessType, ['salon', 'barber'], true) ? 'commission' : 'hourly');
         $flags = self::moduleFlags($companyId);
 
         $results = [];

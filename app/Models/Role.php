@@ -8,7 +8,7 @@ class Role extends Model
 {
     protected $guarded = ['id'];
 
-    protected $fillable = ['company_id', 'name', 'status', 'label', 'description'];
+    protected $fillable = ['company_id', 'name', 'status', 'label', 'description', 'home_path'];
 
     public function permissions()
     {

@@ -99,6 +99,10 @@ class HrmModule extends DemoModule
                 'remaining_leave' => 15,
                 'hourly_rate' => round($salary / 160, 2),
                 'basic_salary' => $salary,
+                // Demo Data -> "Hours or commission": how these demo staff are paid.
+                'pay_type' => $ctx->payType,
+                'commission_rate' => $ctx->payType === 'commission' ? 40 : null,
+                'pay_effective_from' => Carbon::now()->startOfYear()->toDateString(),
                 'employment_type' => $i === 4 ? 'part_time' : 'full_time',
                 'marital_status' => $ctx->pick(['single', 'married']),
             ]);
@@ -106,16 +110,16 @@ class HrmModule extends DemoModule
         }
         $counts['Employees'] = count($employees);
 
-        // Holidays.
-        $year = (int) date('Y');
-        foreach ([
-            ['New Year\'s Day', "$year-01-01", "$year-01-01"],
-            ['Independence Day', "$year-07-04", "$year-07-04"],
-            ['Christmas Break', "$year-12-24", "$year-12-26"],
-        ] as [$title, $start, $end]) {
-            $ctx->insert('holidays', ['title' => $title, 'start_date' => $start, 'end_date' => $end, 'description' => 'Company holiday']);
+        // Holidays: this year's US federal holidays (the full list, both years,
+        // is the Holidays demo module); dates the company already has are skipped.
+        $holidays = 0;
+        foreach (HolidaysModule::forYear((int) date('Y')) as [$title, $start, $end, $desc]) {
+            if (! DB::table('holidays')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->where('start_date', '<=', $start)->where('end_date', '>=', $start)->exists()) {
+                $ctx->insert('holidays', ['title' => $title, 'start_date' => $start, 'end_date' => $end, 'description' => $desc]);
+                $holidays++;
+            }
         }
-        $counts['Holidays'] = 3;
+        $counts['Holidays'] = $holidays;
 
         // Leave types are install-wide (no company_id): reuse existing ones,
         // create the basics only when the table is empty.
@@ -187,25 +191,29 @@ class HrmModule extends DemoModule
         }
         $counts['Attendance records'] = $att;
 
-        // Payroll: last month's salary per employee. Ref continues the
-        // app's "PS_<n>" sequence (PayrollController::getNumberOrder).
-        $last = DB::table('payrolls')->latest('id')->value('Ref');
-        $seq = ($last && str_contains($last, '_')) ? (int) explode('_', $last)[1] : 0;
-        $methodId = DB::table('payment_methods')->whereNull('deleted_at')->orderBy('id')->value('id');
-        $payDate = Carbon::now()->subMonthNoOverflow()->endOfMonth()->toDateString();
+        // Payroll: the last 4 weeks, paid weekly by the chosen pay type (hours:
+        // 40 h x rate; commission: 40% of an example weekly sales total), posted
+        // to accounting. Demo employees have no sales of their own, hence the example base.
+        $payrolls = 0;
         foreach ($employees as $empId => [$deptId, $salary]) {
-            $ctx->insert('payrolls', [
-                'user_id' => $ctx->userId,
-                'Ref' => 'PS_'.(++$seq),
-                'date' => $payDate,
-                'employee_id' => $empId,
-                'account_id' => null,
-                'amount' => $salary,
-                'payment_method_id' => $methodId,
-                'payment_status' => 'paid',
-            ]);
+            $rate = round($salary / 160, 2);
+            for ($k = 4; $k >= 1; $k--) {
+                $w = Carbon::now()->subWeeks($k)->startOfWeek(Carbon::MONDAY);
+                [$from, $to] = [$w->toDateString(), $w->copy()->endOfWeek(Carbon::SUNDAY)->toDateString()];
+                if ($ctx->payType === 'commission') {
+                    $base = (float) random_int(1200, 3800);
+                    PayrollHistoryModule::insertPaid($ctx, $empId, $from, $to, round($base * 0.4, 2), [
+                        'pay_type' => 'commission', 'commission_base' => $base, 'commission_rate' => 40, 'notes' => "40% of {$base} (demo)",
+                    ]);
+                } else {
+                    PayrollHistoryModule::insertPaid($ctx, $empId, $from, $to, round(40 * $rate, 2), [
+                        'pay_type' => 'hourly', 'hours' => 40, 'rate' => $rate, 'notes' => "40 h x {$rate} (demo)",
+                    ]);
+                }
+                $payrolls++;
+            }
         }
-        $counts['Payrolls'] = count($employees);
+        $counts['Payrolls (weekly)'] = $payrolls;
 
         return $counts;
     }

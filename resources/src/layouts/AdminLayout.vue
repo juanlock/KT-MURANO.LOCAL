@@ -439,11 +439,14 @@ async function logout() {
   height: 100vh;
   height: 100dvh;
   transform: translateX(-100%);
-  transition: transform 0.25s ease;
-  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  /* No shadow while closed: off-screen, it still cast a gray strip down the
+     left edge of every page on phones (looked like the page had no left margin). */
+  box-shadow: none !important;
 }
 .sider--mobile-open {
   transform: translateX(0);
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.25) !important;
 }
 
 @media (max-width: 767px) {

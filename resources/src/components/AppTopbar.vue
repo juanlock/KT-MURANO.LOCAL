@@ -45,7 +45,7 @@
 
       <!-- Today's summary -->
       <a-tooltip title="Como Vamos!">
-        <a-button type="text" class="icon-btn" @click="summaryOpen = true">
+        <a-button type="text" class="icon-btn summary-btn" @click="summaryOpen = true">
           <template #icon><PieChartOutlined /></template>
         </a-button>
       </a-tooltip>
@@ -62,7 +62,7 @@
 
       <!-- Language -->
       <a-dropdown v-if="auth.showLanguage" placement="bottomRight">
-        <a-button type="text" class="icon-btn"><template #icon><GlobalOutlined /></template></a-button>
+        <a-button type="text" class="icon-btn lang-btn"><template #icon><GlobalOutlined /></template></a-button>
         <template #overlay>
           <a-menu :selected-keys="[ui.locale]" class="lang-menu" @click="({ key }) => ui.setLocale(key, auth.user?.id)">
             <a-menu-item v-for="l in languages" :key="l.value">
@@ -81,7 +81,7 @@
         <!-- Badge wraps the icon as button CONTENT, not via the #icon slot:
              Ant sizes that slot for a bare icon and clips the count bubble.
              count 0 renders nothing, matching legacy's v-if on the badge. -->
-        <a-button type="text" class="icon-btn">
+        <a-button type="text" class="icon-btn notif-btn">
           <a-badge :count="pending.total" size="small" :offset="[4, -2]">
             <BellOutlined class="bell" />
           </a-badge>
@@ -118,6 +118,21 @@
           </div>
         </template>
       </a-dropdown>
+
+      <!-- Clock in / Clock out: own attendance for today (attendance_self). -->
+      <a-tooltip v-if="canClock" :title="clock.in ? `Clocked in since ${clock.since} — click to clock out` : 'Clock in'">
+        <a-button type="text" class="icon-btn clock-btn" :class="{ 'clock-btn--in': clock.in }" :loading="clock.busy" @click="toggleClock">
+          <template #icon><FieldTimeOutlined /></template>
+          <span v-if="clock.in" class="clock-since hide-sm">{{ clock.since }}</span>
+        </a-button>
+      </a-tooltip>
+
+      <!-- Log out in one click (same as the user menu's: POS close-out check included). -->
+      <a-tooltip :title="$t('logout')">
+        <a-button type="text" class="icon-btn logout-btn" :aria-label="$t('logout')" @click="signOut">
+          <template #icon><LogoutOutlined /></template>
+        </a-button>
+      </a-tooltip>
 
       <!-- User -->
       <span class="topbar-divider" aria-hidden="true"></span>
@@ -231,7 +246,7 @@ import {
   MenuFoldOutlined, MenuUnfoldOutlined, CalculatorOutlined,
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, UserOutlined, SettingOutlined,
-  DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined,
+  DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
   DownloadOutlined,
 } from '@ant-design/icons-vue';
 import TodaySummary from './TodaySummary.vue';
@@ -242,14 +257,42 @@ import { useUiStore } from '../stores/ui';
 import { useCompanyStore } from '../stores/company';
 import { SUPPORTED_LOCALES } from '../i18n';
 import http from '../lib/http';
+import { message } from 'ant-design-vue';
 
 defineProps({
   collapsed: { type: Boolean, default: false },
 });
 const emit = defineEmits(['toggle-sidebar', 'logout']);
 
+// ---------------- Clock in / Clock out (own attendance) ----------------
+const canClock = computed(() => auth.user?.type !== 'SuperAdmin' && auth.can('attendance_self'));
+const clock = ref({ in: false, since: null, busy: false });
+async function loadClock() {
+  if (!canClock.value) return;
+  try {
+    const d = await http.get('attendance_self');
+    clock.value.in = !!d.clocked_in;
+    clock.value.since = d.since || null;
+  } catch (e) { /* not linked to an employee: button stays as "Clock in" */ }
+}
+async function toggleClock() {
+  clock.value.busy = true;
+  try {
+    const d = await http.post('attendance_self/clock', {});
+    clock.value.in = !!d.clocked_in;
+    clock.value.since = d.clocked_in ? d.time : null;
+    message.success(d.clocked_in ? `Clocked in at ${d.time}.` : `Clocked out at ${d.time} — ${d.total_work} worked today.`);
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not record the attendance.');
+  } finally {
+    clock.value.busy = false;
+  }
+}
+
 const auth = useAuthStore();
 const ui = useUiStore();
+// Clock in / out: today's state once the user (and their permissions) are known.
+watch(canClock, v => { if (v) loadClock(); }, { immediate: true });
 const pending = usePendingWorkStore();
 const company = useCompanyStore();
 const router = useRouter();
@@ -401,6 +444,26 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   transform: scale(0.92);
 }
 
+/* Each header button its own color on a soft tint (hover: a bit stronger),
+   so they're told apart at a glance -- Log out in red. */
+.customize-btn { color: #1677ff; background: rgba(22, 119, 255, 0.09); }
+.summary-btn { color: #7c3aed; background: rgba(124, 58, 237, 0.09); }
+.fullscreen-btn { color: #0d9488; background: rgba(13, 148, 136, 0.09); }
+.lang-btn { color: #16a34a; background: rgba(22, 163, 74, 0.09); }
+.notif-btn { color: #ea580c; background: rgba(234, 88, 12, 0.09); }
+/* The badge wrapper resets the color: the bell takes the button's. */
+.notif-btn :deep(.ant-badge), .notif-btn .bell { color: inherit; }
+.logout-btn { color: #dc2626; background: rgba(220, 38, 38, 0.09); }
+/* Clock: grey when out, green (with the clock-in time) while clocked in. */
+.clock-btn { color: #64748b; background: rgba(100, 116, 139, 0.10); }
+.clock-btn--in { color: #16a34a; background: rgba(22, 163, 74, 0.14); width: auto !important; padding: 0 10px !important; gap: 6px; }
+.clock-since { font-size: 12px; font-weight: 600; }
+.customize-btn:hover { color: #1677ff !important; background: rgba(22, 119, 255, 0.18) !important; }
+.summary-btn:hover { color: #7c3aed !important; background: rgba(124, 58, 237, 0.18) !important; }
+.fullscreen-btn:hover { color: #0d9488 !important; background: rgba(13, 148, 136, 0.18) !important; }
+.lang-btn:hover { color: #16a34a !important; background: rgba(22, 163, 74, 0.18) !important; }
+.notif-btn:hover { color: #ea580c !important; background: rgba(234, 88, 12, 0.18) !important; }
+.logout-btn:hover { color: #fff !important; background: #dc2626 !important; }
 /* Install offer keeps a resting primary tint so it reads as an invitation,
    not just another toggle. It disappears once the app is installed. */
 .install-btn {
@@ -608,6 +671,14 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   background: rgba(255, 255, 255, 0.12) !important;
   color: #fff !important;
 }
+/* Dark header: the same colors, lighter. */
+:global(.topbar--dark .customize-btn) { color: #69b1ff; background: rgba(105, 177, 255, 0.14); }
+:global(.topbar--dark .summary-btn) { color: #c4b5fd; background: rgba(196, 181, 253, 0.14); }
+:global(.topbar--dark .fullscreen-btn) { color: #5eead4; background: rgba(94, 234, 212, 0.14); }
+:global(.topbar--dark .lang-btn) { color: #86efac; background: rgba(134, 239, 172, 0.14); }
+:global(.topbar--dark .notif-btn) { color: #fdba74; background: rgba(253, 186, 116, 0.14); }
+:global(.topbar--dark .logout-btn) { color: #fca5a5; background: rgba(252, 165, 165, 0.14); }
+:global(.topbar--dark .logout-btn:hover) { color: #fff !important; background: #dc2626 !important; }
 :global(.topbar--dark .topbar-divider) {
   background: rgba(255, 255, 255, 0.16);
 }
@@ -820,8 +891,11 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   .hide-sm {
     display: none;
   }
-  /* Trim the toolbar so it never overflows a phone width. */
-  .fullscreen-btn {
+  /* Trim the toolbar so it never overflows a phone width (theme settings and
+     today's summary stay on tablets / computers). */
+  .fullscreen-btn,
+  .customize-btn,
+  .summary-btn {
     display: none;
   }
   .icon-btn {

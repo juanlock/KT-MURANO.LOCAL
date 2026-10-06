@@ -15,6 +15,33 @@ use Illuminate\Support\Facades\Auth;
 
 class AttendancesController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ScopesToCompany;
+
+    /** Multicompany: an Admin's own company; a SuperAdmin's switcher pick (null = all companies). */
+    private function attendanceCompany(Request $request): ?int
+    {
+        $isSA = optional($request->user('api'))->type === 'SuperAdmin';
+        $cid = $this->resolveActingCompanyId($request);
+
+        return $isSA && ($cid === 999 || ! $request->filled('company_id')) ? null : $cid;
+    }
+
+    /** The employee (and company) of a new / edited attendance must be the acting company's. */
+    private function checkEmployeeCompany(Request $request): void
+    {
+        $cid = $this->attendanceCompany($request);
+        $empCompany = Employee::whereKey($request->employee_id)->whereNull('deleted_at')->value('company_id');
+        abort_unless($empCompany && (! $cid || (int) $empCompany === $cid) && (int) $request->company_id === (int) $empCompany, 422, 'Employee not found in this company.');
+    }
+
+    /** An attendance row of the acting company, or 404. */
+    private function scopedAttendance(Request $request, $id): Attendance
+    {
+        $cid = $this->attendanceCompany($request);
+
+        return Attendance::whereNull('deleted_at')->when($cid, fn ($q) => $q->where('company_id', $cid))->findOrFail($id);
+    }
+
     // ----------- GET ALL  Attendance --------------\\
 
     public function index(Request $request)
@@ -32,8 +59,11 @@ class AttendancesController extends Controller
         $order = $request->SortField;
         $dir = $request->SortType;
         $data = [];
+        // Multicompany: the acting company's attendance only (a SuperAdmin on "all": every company).
+        $companyId = $this->attendanceCompany($request);
         $attendances = Attendance::with('employee', 'company')
             ->where('deleted_at', '=', null)
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -89,7 +119,10 @@ class AttendancesController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Attendance::class);
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        // Only the acting company (a SuperAdmin on "all": every company).
+        $companyId = $this->attendanceCompany($request);
+        $companies = Company::where('deleted_at', '=', null)->where('id', '!=', 999)
+            ->when($companyId, fn ($q) => $q->where('id', $companyId))->get(['id', 'name']);
 
         return response()->json([
             'companies' => $companies,
@@ -113,6 +146,7 @@ class AttendancesController extends Controller
 
         $user_auth = auth()->user();
         $data['user_id'] = $user_auth->id;
+        $this->checkEmployeeCompany($request);
 
         $employee_id = $request->employee_id;
         $date = $request->date;
@@ -227,6 +261,8 @@ class AttendancesController extends Controller
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Attendance::class);
+        $this->scopedAttendance($request, $id);
+        $this->checkEmployeeCompany($request);
 
         $this->validate($request, [
             'company_id' => 'required',
@@ -326,6 +362,7 @@ class AttendancesController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Attendance::class);
+        $this->scopedAttendance($request, $id);
 
         Attendance::whereId($id)->update([
             'deleted_at' => Carbon::now(),
@@ -342,8 +379,10 @@ class AttendancesController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', Attendance::class);
 
         $selectedIds = $request->selectedIds;
+        $companyId = $this->attendanceCompany($request);
         foreach ($selectedIds as $attendance_id) {
-            Attendance::whereId($attendance_id)->update([
+            // Only the acting company's rows.
+            Attendance::whereId($attendance_id)->when($companyId, fn ($q) => $q->where('company_id', $companyId))->update([
                 'deleted_at' => Carbon::now(),
             ]);
         }

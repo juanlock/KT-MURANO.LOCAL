@@ -232,6 +232,9 @@ class UserController extends BaseController
             'start_page_shortcuts' => array_pad(array_slice(json_decode((string) ($settings->start_page_shortcuts ?? '[]'), true) ?: [], 0, 8), 8, null),
             // This user's own start page ({mode: recent|form, form, recent}).
             'start_preferences' => self::startPrefsOf($user),
+            // Roles -> "Home page": where Home / the dashboard takes this role's
+            // users (e.g. Daily Tasks for field staff); null = the normal start page.
+            'role_home' => $user->type === 'SuperAdmin' ? null : ($user->roles()->first()?->home_path ?: null),
         ];
 
         // Exactly the role's permissions (the role is mandatory, Admins included).

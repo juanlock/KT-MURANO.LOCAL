@@ -557,6 +557,10 @@ class EmployeesController extends Controller
             'office_shift_id' => 'required',
             'basic_salary' => 'nullable|numeric',
             'hourly_rate' => 'nullable|numeric',
+            // Payroll: hourly (hours on completed jobs x rate) or commission (% of their sales).
+            'pay_type' => 'nullable|in:hourly,commission',
+            'commission_rate' => 'nullable|numeric|min:0|max:100',
+            'pay_effective_from' => 'nullable|date',
         ]);
 
         $employee = Employee::findOrFail($id);
@@ -571,7 +575,7 @@ class EmployeesController extends Controller
         }
         $fields = ['firstname', 'lastname', 'country', 'email', 'gender', 'phone', 'birth_date', 'company_id', 'department_id',
             'designation_id', 'office_shift_id', 'joining_date', 'role_users_id', 'leaving_date', 'marital_status', 'employment_type',
-            'city', 'province', 'zipcode', 'address', 'basic_salary', 'hourly_rate'];
+            'city', 'province', 'zipcode', 'address', 'basic_salary', 'hourly_rate', 'pay_type', 'commission_rate', 'pay_effective_from'];
         $data = [];
         foreach ($fields as $f) {
             if ($request->exists($f)) {

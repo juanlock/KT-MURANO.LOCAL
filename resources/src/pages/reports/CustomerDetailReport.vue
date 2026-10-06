@@ -24,7 +24,7 @@
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'Ref'">
-              <router-link :to="`/sales/${record.id}`">{{ record.Ref }}</router-link>
+              <PermLink permission="Sales_view" :to="`/sales/${record.id}`">{{ record.Ref }}</PermLink>
             </template>
             <template v-else-if="MONEY_KEYS.includes(column.key)">{{ money(record[column.key]) }}</template>
             <template v-else-if="TAG_KEYS.includes(column.key)">
@@ -64,7 +64,7 @@
             </template>
             <template v-else-if="column.key === 'sale_ref'">
               <!-- Legacy left this blank when the return has no parent sale. -->
-              <router-link v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.sale_ref }}</router-link>
+              <PermLink permission="Sales_view" v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.sale_ref }}</PermLink>
             </template>
             <template v-else-if="MONEY_KEYS.includes(column.key)">{{ money(record[column.key]) }}</template>
             <template v-else-if="TAG_KEYS.includes(column.key)">

@@ -257,7 +257,7 @@ class AssetWorkspaceController extends BaseController
 
         return response()->json([
             'warehouses' => $warehouses,
-            'categories' => AssetCategory::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
+            'categories' => AssetCategory::forCompany()->whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
             'assets' => $this->inAssetScope(Asset::query(), 'assets.id')->whereNull('deleted_at')->whereNull('disposal_date')
                 ->orderBy('name')->get(['id', 'name', 'tag', 'warehouse_id', 'assigned_to_id'])
                 ->map(fn ($a) => [

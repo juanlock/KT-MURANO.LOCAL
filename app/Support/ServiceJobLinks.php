@@ -43,20 +43,48 @@ class ServiceJobLinks
         return $cid ? (int) $cid : ($job->client_id ? self::clientCompany((int) $job->client_id) : null);
     }
 
-    /** The customer's service jobs (not cancelled), for the sale form picker. */
-    public static function clientJobs(int $companyId, int $clientId): array
+    /**
+     * The customer's service jobs (not cancelled), for the sale form picker:
+     * status, notes and the OTHER invoices each job is already on (to warn
+     * before billing it twice). $exceptSaleId = the sale being edited.
+     */
+    public static function clientJobs(int $companyId, int $clientId, ?int $exceptSaleId = null): array
     {
         if (self::clientCompany($clientId) !== $companyId) {
             return [];
         }
 
         // A customer belongs to one company, so their jobs are that company's.
-        return DB::table('service_jobs as j')
+        $jobs = DB::table('service_jobs as j')
             ->where('j.client_id', $clientId)->whereNull('j.deleted_at')
             ->where('j.status', '!=', 'cancelled')->orderByDesc('j.id')->limit(200)
-            ->get(['j.id', 'j.Ref', 'j.service_item', 'j.status', 'j.scheduled_date'])
-            ->map(fn ($j) => ['id' => (int) $j->id, 'label' => trim($j->Ref.' · '.($j->service_item ?: 'Job').' · '.$j->status.($j->scheduled_date ? ' · '.substr($j->scheduled_date, 0, 10) : ''))])
-            ->all();
+            ->get(['j.id', 'j.Ref', 'j.service_item', 'j.status', 'j.scheduled_date', 'j.notes', 'j.sale_id']);
+        $ids = $jobs->pluck('id')->all();
+        // Invoices per job: the pivot plus the legacy service_jobs.sale_id.
+        $pairs = DB::table('service_job_sales')->whereIn('service_job_id', $ids ?: [0])->get(['service_job_id', 'sale_id'])
+            ->map(fn ($r) => [(int) $r->service_job_id, (int) $r->sale_id])->all();
+        foreach ($jobs as $j) {
+            if ($j->sale_id) {
+                $pairs[] = [(int) $j->id, (int) $j->sale_id];
+            }
+        }
+        $refs = DB::table('sales')->whereIn('id', array_unique(array_column($pairs, 1)) ?: [0])->whereNull('deleted_at')->pluck('Ref', 'id');
+        $onSales = [];
+        foreach ($pairs as [$jid, $sid]) {
+            if ($sid !== $exceptSaleId && isset($refs[$sid])) {
+                $onSales[$jid][$sid] = $refs[$sid];
+            }
+        }
+
+        return $jobs->map(fn ($j) => [
+            'id' => (int) $j->id,
+            'ref' => $j->Ref,
+            'title' => $j->service_item,
+            'status' => $j->status,
+            'notes' => $j->notes,
+            'label' => trim($j->Ref.' · '.($j->service_item ?: 'Job').' · '.$j->status.($j->scheduled_date ? ' · '.substr($j->scheduled_date, 0, 10) : '')),
+            'other_invoices' => array_values($onSales[(int) $j->id] ?? []),
+        ])->all();
     }
 
     /** The customer's invoices, for the service job form picker. */

@@ -15,7 +15,7 @@ class Employee extends Model
         'id', 'firstname', 'lastname', 'username', 'email', 'gender', 'phone', 'remaining_leave', 'total_leave',
         'birth_date', 'department_id', 'designation_id', 'office_shift_id', 'joining_date',
         'leaving_date', 'marital_status', 'employment_type', 'city', 'province', 'zipcode', 'address', 'resume', 'avatar', 'document',
-        'country', 'company_id', 'facebook', 'skype', 'whatsapp', 'twitter', 'linkedin', 'hourly_rate', 'basic_salary',
+        'country', 'company_id', 'facebook', 'skype', 'whatsapp', 'twitter', 'linkedin', 'hourly_rate', 'basic_salary', 'pay_type', 'commission_rate', 'pay_effective_from',
     ];
 
     protected $casts = [

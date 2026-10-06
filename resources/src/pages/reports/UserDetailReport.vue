@@ -15,7 +15,7 @@
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'Ref'">
-              <router-link :to="`/sales/${record.sale_id}`">{{ record.Ref }}</router-link>
+              <PermLink permission="Sales_view" :to="`/sales/${record.sale_id}`">{{ record.Ref }}</PermLink>
             </template>
             <template v-else-if="MONEY_KEYS.includes(column.key)">{{ money(record[column.key]) }}</template>
             <template v-else-if="TAG_KEYS.includes(column.key)">

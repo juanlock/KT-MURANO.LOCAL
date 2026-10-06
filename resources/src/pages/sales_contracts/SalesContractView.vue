@@ -59,7 +59,7 @@
             <a-table :data-source="c.invoices" :columns="invoiceColumns" :pagination="{ pageSize: 10 }" size="small" row-key="id">
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'ref'">
-                  <router-link v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.ref }}</router-link>
+                  <PermLink permission="Sales_view" v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.ref }}</PermLink>
                 </template>
                 <template v-else-if="column.key === 'date'">{{ record.date ? date(record.date) : '—' }}</template>
                 <template v-else-if="column.key === 'period'">{{ record.period_start ? `${date(record.period_start)} – ${date(record.period_end)}` : 'One-off' }}</template>
@@ -77,7 +77,7 @@
             <a-table :data-source="c.service_jobs || []" :columns="jobColumns" :pagination="{ pageSize: 10 }" size="small" row-key="id">
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'ref'">
-                  <router-link :to="`/service/jobs/details/${record.id}`">{{ record.ref }}</router-link>
+                  <PermLink permission="service_jobs" :to="`/service/jobs/details/${record.id}`">{{ record.ref }}</PermLink>
                 </template>
                 <template v-else-if="column.key === 'date'">{{ record.date ? `${date(record.date)} ${String(record.date).slice(11, 16)}` : '—' }}</template>
                 <template v-else-if="column.key === 'status'"><a-tag>{{ record.status }}</a-tag></template>
@@ -112,7 +112,7 @@
             <a-descriptions :column="1" size="small" style="margin-top: 8px">
               <a-descriptions-item label="Next visit">{{ c.next_job_date ? date(c.next_job_date) : '—' }}</a-descriptions-item>
               <a-descriptions-item label="Visits created">{{ c.jobs_created || 0 }}{{ c.jobs_count ? ` of ${c.jobs_count}` : '' }}</a-descriptions-item>
-              <a-descriptions-item label="Technician">{{ c.jobs_technician || 'Not assigned' }}</a-descriptions-item>
+              <a-descriptions-item label="Operator">{{ c.jobs_technician || 'Not assigned' }}</a-descriptions-item>
               <a-descriptions-item v-if="c.jobs_service_item" label="Visit title">{{ c.jobs_service_item }}</a-descriptions-item>
               <a-descriptions-item label="Created ahead">{{ c.jobs_lead_days }} day(s) before each visit</a-descriptions-item>
             </a-descriptions>
@@ -172,7 +172,7 @@ const jobColumns = [
   { title: '#', dataIndex: 'number', key: 'number', width: 60 },
   { title: 'Visit', key: 'date' },
   { title: 'Title', dataIndex: 'title', key: 'title', ellipsis: true },
-  { title: 'Technician', dataIndex: 'technician', key: 'technician' },
+  { title: 'Operator', dataIndex: 'technician', key: 'technician' },
   { title: 'Status', key: 'status' },
 ];
 

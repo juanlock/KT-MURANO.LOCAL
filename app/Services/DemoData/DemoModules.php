@@ -13,6 +13,10 @@ class DemoModules
         Modules\CoreModule::class,
         // People & organisation
         Modules\HrmModule::class,
+        // US federal holidays of this year and next (HRM -> Holidays).
+        Modules\HolidaysModule::class,
+        // Weekly payrolls since each employee's pay start (hours / commission), posted to accounting.
+        Modules\PayrollHistoryModule::class,
         Modules\RecruitModule::class,
         Modules\MeetingModule::class,
         Modules\ProjectsModule::class,

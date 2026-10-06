@@ -167,6 +167,7 @@ export const MIGRATED_ROUTES = {
     '/app/subscription_product/list': '/subscriptions',
     '/app/bookings/calendar': '/bookings/calendar',
     '/app/service/jobs': '/service/jobs',
+    '/app/service/daily': '/service/daily',
     '/app/service/jobs?status=quoted': '/service/jobs?status=quoted',
     '/app/service/jobs?status=ready': '/service/jobs?status=ready',
     '/app/service/jobs?payment_status=unpaid': '/service/jobs?payment_status=unpaid',
@@ -363,17 +364,20 @@ export const MENU = [
         icon: 'bar-chart',
         label: 'dashboard',
         to: '/app/dashboard',
-        permissions: [],
+        // Roles without the dashboard (e.g. field roles whose home is Daily
+        // Tasks) don't see it -- Home takes them to their role's home page.
+        permissions: ['dashboard'],
     },
     // Every user's own shortcut buttons + what opens after sign-in
     // (pages/HomeButtons.vue; company defaults in Defaults -> Users).
+    // They live on the dashboard, so same permission.
     {
         key: 'home_buttons',
         icon: 'layout-grid',
         label: 'Home Buttons',
         raw: true,
         to: '/app/home_buttons',
-        permissions: [],
+        permissions: ['dashboard'],
     },
     {
         key: 'intranet',
@@ -533,6 +537,24 @@ export const MENU = [
             { label: 'Vehicle Fitment', to: '/app/products/vehicle_fitment', permissions: ['vehicle_fitment'] },
             { label: 'Batches', to: '/app/products/Batches', permissions: ['view_batches', 'batch_view'] },
             { label: 'Serial_Numbers', to: '/app/serial_numbers/list', permissions: ['serial_numbers'] },
+        ],
+    },
+    {
+        key: 'assets',
+        icon: 'settings',
+        label: 'Asset Management',
+        permissions: ['assets', 'asset_assignments', 'asset_maintenance', 'asset_transfers', 'asset_reports'],
+        children: [
+            { label: 'Dashboard', to: '/app/assets/dashboard', permissions: ['assets'] },
+            { label: 'Add_Asset', to: '/app/assets/store', permissions: ['assets'] },
+            { label: 'Assets_List', to: '/app/assets/list', permissions: ['assets'] },
+            { label: 'Assignments', to: '/app/assets/assignments', permissions: ['asset_assignments'] },
+            { label: 'Maintenance', to: '/app/assets/maintenance', permissions: ['asset_maintenance'] },
+            { label: 'Transfers', to: '/app/assets/transfers', permissions: ['asset_transfers'] },
+            { label: 'Depreciation', to: '/app/assets/depreciation', permissions: ['asset_reports'] },
+            { label: 'Due_Assets', to: '/app/assets/due', permissions: ['assets'] },
+            { label: 'Asset_Category', to: '/app/assets/category', permissions: ['assets'] },
+            { label: 'Asset Reports', to: '/app/assets/reports', permissions: ['asset_reports'] },
         ],
     },
     {
@@ -828,24 +850,6 @@ export const MENU = [
         ],
     },
     {
-        key: 'assets',
-        icon: 'settings',
-        label: 'Asset Management',
-        permissions: ['assets', 'asset_assignments', 'asset_maintenance', 'asset_transfers', 'asset_reports'],
-        children: [
-            { label: 'Dashboard', to: '/app/assets/dashboard', permissions: ['assets'] },
-            { label: 'Add_Asset', to: '/app/assets/store', permissions: ['assets'] },
-            { label: 'Assets_List', to: '/app/assets/list', permissions: ['assets'] },
-            { label: 'Assignments', to: '/app/assets/assignments', permissions: ['asset_assignments'] },
-            { label: 'Maintenance', to: '/app/assets/maintenance', permissions: ['asset_maintenance'] },
-            { label: 'Transfers', to: '/app/assets/transfers', permissions: ['asset_transfers'] },
-            { label: 'Depreciation', to: '/app/assets/depreciation', permissions: ['asset_reports'] },
-            { label: 'Due_Assets', to: '/app/assets/due', permissions: ['assets'] },
-            { label: 'Asset_Category', to: '/app/assets/category', permissions: ['assets'] },
-            { label: 'Asset Reports', to: '/app/assets/reports', permissions: ['asset_reports'] },
-        ],
-    },
-    {
         key: 'projects',
         icon: 'archive',
         label: 'Projects Management',
@@ -876,11 +880,13 @@ export const MENU = [
         key: 'service',
         icon: 'wrench',
         label: 'Service_Maintenance',
-        permissions: ['service_jobs'],
+        permissions: ['service_jobs', 'daily_tasks'],
         // Two kinds of jobs (service_jobs.job_kind): Service Jobs -- work at the
         // customer (landscaping, IT visits) -- and Device Repairs (brand,
         // model, IMEI, quotes, pickup). Today's Jobs = the day view.
+        // Daily Tasks = the field view (own jobs; supervisors: all + assign).
         children: [
+            { label: 'Daily_Tasks', to: '/app/service/daily', permissions: ['daily_tasks'] },
             { label: 'Todays_Jobs', to: '/app/service/jobs?day=today', permissions: ['service_jobs'] },
             {
                 label: 'Service_Jobs_Group',

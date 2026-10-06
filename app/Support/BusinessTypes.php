@@ -29,7 +29,7 @@ class BusinessTypes
         'barber' => 'Barber shop',
         'retail' => 'Retail store',
         'restaurant' => 'Restaurant / food',
-        'professional' => 'Professional services (consulting, legal, accounting)',
+        'professional' => 'Office / professional services (consulting, legal, accounting)',
     ];
 
     /** Accounts: [code, parent header, English, Spanish]. */

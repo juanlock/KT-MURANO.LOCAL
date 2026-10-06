@@ -20,9 +20,23 @@ class CashRegisterController extends BaseController
     // Multicompany: company-aware warehouse scope -- see the trait.
     use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
 
+    /**
+     * Opening / closing the register (and cash in / out) needs the role's
+     * "Open / close register" permission -- e.g. a salon where stylists sell
+     * on the manager's open register with their PIN, and only the manager
+     * opens / closes it. SuperAdmin always may.
+     */
+    private function abortUnlessCanOpenClose(Request $request): void
+    {
+        $user = $request->user('api');
+        $ok = $user && ($user->type === 'SuperAdmin' || (bool) $user->roles()->first()?->permissions->contains('name', 'register_open_close'));
+        abort_unless($ok, 403, 'Only a manager can open or close the register. Sell with your PIN on the open register.');
+    }
+
     public function openRegister(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
+        $this->abortUnlessCanOpenClose($request);
 
         $data = $request->validate([
             'warehouse_id' => 'required|integer|exists:warehouses,id',
@@ -86,6 +100,7 @@ class CashRegisterController extends BaseController
     public function cashInOut(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
+        $this->abortUnlessCanOpenClose($request);
 
         $data = $request->validate([
             'register_id' => 'required|integer|exists:cash_registers,id',
@@ -115,6 +130,7 @@ class CashRegisterController extends BaseController
     public function closeRegister(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'Sales_pos', Sale::class);
+        $this->abortUnlessCanOpenClose($request);
 
         $data = $request->validate([
             'register_id' => 'required|integer|exists:cash_registers,id',

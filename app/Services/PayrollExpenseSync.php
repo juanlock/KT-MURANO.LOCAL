@@ -48,7 +48,10 @@ class PayrollExpenseSync
     private function syncPayroll(Payroll $payroll): ?Expense
     {
         $companyId = (int) (DB::table('employees')->where('id', $payroll->employee_id)->value('company_id') ?: 0);
-        $categoryId = $companyId ? $this->salaryCategory($companyId) : null;
+        // Commission payrolls -> Commissions (7040); hourly / others -> Salaries and wages (7010).
+        $categoryId = $companyId
+            ? (($payroll->pay_type ?? null) === 'commission' ? $this->commissionCategory($companyId) : $this->salaryCategory($companyId))
+            : null;
         $warehouseId = $companyId ? $this->warehouse($companyId) : null;
         if (! $categoryId || ! $warehouseId) {
             return null; // company without categories/locations: nothing to link
@@ -110,6 +113,29 @@ class PayrollExpenseSync
         }
 
         return $id ? (int) $id : null;
+    }
+
+    /** The company's "Commissions" category (account 7040), created when missing. */
+    private function commissionCategory(int $companyId): ?int
+    {
+        $id = DB::table('expense_categories')->where('company_id', $companyId)->whereNull('deleted_at')
+            ->where(fn ($q) => $q->where('coa_code', '7040')->orWhere('name', 'Commissions'))
+            ->orderByRaw("name = 'Commissions' desc")->orderBy('id')->value('id');
+        if ($id) {
+            return (int) $id;
+        }
+        $this->salaryCategory($companyId); // seeds the company's default chart / categories when missing
+        $userId = DB::table('users')->where('company_id', $companyId)->whereNull('deleted_at')->orderByRaw("type = 'admin' desc")->orderBy('id')->value('id');
+        \App\Support\TranslationKeys::ensure('Commissions', ['es' => 'Comisiones']);
+
+        return (int) DB::table('expense_categories')->insertGetId([
+            'company_id' => $companyId, 'user_id' => $userId, 'name' => 'Commissions',
+            'reference' => 'Commissions paid to staff on their sales (payroll by commission).',
+            'account_type' => 'operating_expense', 'expense_group' => 'Payroll and Employee Expenses',
+            'typical_account' => 'Commissions', 'period' => 'Weekly or biweekly', 'is_common' => 0, 'coa_code' => '7040',
+            'sort_order' => (int) DB::table('expense_categories')->where('company_id', $companyId)->max('sort_order') + 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
     }
 
     /** The company's default location (Settings), else its first one. */

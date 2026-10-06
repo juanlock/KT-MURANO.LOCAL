@@ -70,6 +70,11 @@
                 <!-- A product/service that doesn't exist yet: create it here
                      (same Quick Add as the sale form) and bill it on a new line. -->
                 <a-button size="small" @click="quickProductOpen = true"><template #icon><PlusOutlined /></template>New product / service</a-button>
+                <!-- Recurring visits (service jobs) open in a modal; "Edit" once switched on. -->
+                <a-button v-if="serviceEnabled" size="small" @click="jobsModalOpen = true">
+                  <template #icon><component :is="form.jobs_enabled ? EditOutlined : PlusOutlined" /></template>
+                  {{ form.jobs_enabled ? 'Edit Service Job' : 'Add Service Job' }}
+                </a-button>
                 <a-button size="small" @click="addLine()"><template #icon><PlusOutlined /></template>Add line</a-button>
               </a-space>
             </template>
@@ -168,7 +173,11 @@
           <!-- Recurring service jobs (visits): e.g. weekly mowing billed monthly.
                Own schedule; each visit becomes a Service Job (no price -- the
                invoices above bill the work). Needs the Service module. -->
-          <a-card v-if="serviceEnabled" size="small" :title="$t('Contract_Service_Jobs')" style="margin-bottom: 16px">
+          <a-modal v-if="serviceEnabled" v-model:open="jobsModalOpen" width="720px" :title="$t('Contract_Service_Jobs')">
+            <template #footer>
+              <span style="opacity: 0.6; margin-right: 12px">Saved together with the contract.</span>
+              <a-button type="primary" @click="jobsModalOpen = false">Done</a-button>
+            </template>
             <a-form-item style="margin-bottom: 8px">
               <a-switch v-model:checked="form.jobs_enabled" /> <span style="margin-left: 8px">{{ $t('Contract_Jobs_Switch') }}</span>
             </a-form-item>
@@ -183,7 +192,7 @@
               </a-form-item>
               <a-row :gutter="8">
                 <a-col :span="12">
-                  <a-form-item label="Technician / crew lead">
+                  <a-form-item label="Operator / crew lead">
                     <a-select v-model:value="form.jobs_technician_id" allow-clear :options="technicianOptions" placeholder="Assign later" />
                   </a-form-item>
                 </a-col>
@@ -220,7 +229,7 @@
             <div v-else style="opacity: 0.6; font-size: 13px">
               Off: no service jobs are created from this contract.
             </div>
-          </a-card>
+          </a-modal>
 
           <a-space>
             <a-button type="primary" :loading="saving" @click="submit">{{ $t('submit') }}</a-button>
@@ -243,7 +252,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import RichTextEditor from '../../components/RichTextEditor.vue';
 import QuickAddProduct from '../../components/QuickAddProduct.vue';
@@ -292,6 +301,8 @@ const jobSchedule = ref({
   billing_day_mode: 'same', billing_day: null, next_invoice_date: null,
 });
 const serviceEnabled = ref(false);
+// "Add / Edit Service Job" button next to "New product / service" opens the visits modal.
+const jobsModalOpen = ref(false);
 const technicianOptions = computed(() => sortByLabel((lists.value.technicians || []).map(t2 => ({ value: t2.id, label: t2.name }))));
 
 // Recurring settings + invoice preview: components/RecurringSchedule.vue
@@ -427,6 +438,20 @@ onMounted(async () => {
       // Opened from a customer's details (Contracts tab -> New contract).
       const qc = Number(route.query.client_id);
       if (qc && lists.value.clients.some(c => Number(c.id) === qc)) form.value.client_id = qc;
+      // Opened from Edit Sale -> "Add Contract Sale": that sale's customer, location and lines.
+      if (route.query.from_sale) {
+        let p = null;
+        try { p = JSON.parse(sessionStorage.getItem('contract_prefill') || 'null'); sessionStorage.removeItem('contract_prefill'); } catch (e) { p = null; }
+        if (p && String(p.from_sale) === String(route.query.from_sale)) {
+          if (lists.value.clients.some(c => Number(c.id) === Number(p.client_id))) form.value.client_id = p.client_id;
+          if (p.warehouse_id) form.value.warehouse_id = p.warehouse_id;
+          if (p.order_tax_rate) form.value.order_tax_rate = p.order_tax_rate;
+          if ((p.items || []).length) form.value.items = p.items.map(i => newLine({ ...i, note: i.note || '' }));
+          const cl = lists.value.clients.find(c => Number(c.id) === Number(p.client_id));
+          form.value.subject = form.value.subject || (cl ? `Recurring invoice - ${cl.name}` : '');
+          form.value.billing_enabled = true;
+        }
+      }
     }
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData'));

@@ -607,6 +607,11 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     // ------------------------------- Service & Maintenance ------------------------\\
     // Purely additive module: manages service jobs and dynamic checklists
     Route::get('service_jobs/client_invoices/{client}', 'ServiceJobController@clientInvoices');
+    Route::post('service_jobs/{id}/assign', 'ServiceJobController@assign');
+    // Daily Tasks (service jobs of the day): daily_tasks / _all / _assign permissions.
+    Route::get('daily_tasks', 'DailyTasksController@index');
+    Route::post('daily_tasks/{id}/status', 'DailyTasksController@status');
+    Route::post('daily_tasks/{id}/assign', 'DailyTasksController@assign');
     Route::resource('service_jobs', 'ServiceJobController');
     Route::resource('service_technicians', 'ServiceTechnicianController')->only(['index', 'store', 'update', 'destroy']);
 
@@ -740,6 +745,9 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
 
     // ------------------------------- Attendances ------------------------\\
     // --------------------------------------------------------------------\\
+    // Header -> Clock in / Clock out: own attendance (permission attendance_self).
+    Route::get('attendance_self', 'hrm\AttendanceSelfController@status');
+    Route::post('attendance_self/clock', 'hrm\AttendanceSelfController@clock');
     Route::resource('attendances', 'hrm\AttendancesController');
     Route::get('daily_attendance', "hrm\AttendancesController@daily_attendance")->name('daily_attendance');
     Route::post('attendances/delete/by_selection', "hrm\AttendancesController@delete_by_selection");
@@ -761,6 +769,9 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     // ------------------------------- payroll ----------------------\\
     // ----------------------------------------------------------------\\
 
+    // Weekly payroll run (hours on completed service jobs x rate / commission on sales).
+    Route::get('payroll_weekly/preview', 'hrm\PayrollController@weeklyPreview');
+    Route::post('payroll_weekly/create', 'hrm\PayrollController@weeklyCreate');
     Route::resource('payroll', 'hrm\PayrollController');
 
     // ------------------------------- core --------------------------\\

@@ -155,7 +155,8 @@ class AssetController extends BaseController
         request()->validate([
             'tag' => 'required|unique:assets,tag',
             'name' => 'required',
-            'asset_category_id' => 'nullable|exists:asset_categories,id',
+            // Only a category of the asset's company (or an old shared one).
+            'asset_category_id' => ['nullable', \Illuminate\Validation\Rule::exists('asset_categories', 'id')->where(fn ($q) => AssetCategory::constrain($q))],
             'warehouse_id' => 'nullable|exists:warehouses,id',
             'depreciation_method' => 'nullable|in:none,straight_line,declining_balance',
             'useful_life_months' => 'nullable|integer|min:1|max:1200',
@@ -195,7 +196,8 @@ class AssetController extends BaseController
         request()->validate([
             'tag' => 'required|unique:assets,tag,'.$id,
             'name' => 'required',
-            'asset_category_id' => 'nullable|exists:asset_categories,id',
+            // Only a category of the asset's company (or an old shared one).
+            'asset_category_id' => ['nullable', \Illuminate\Validation\Rule::exists('asset_categories', 'id')->where(fn ($q) => AssetCategory::constrain($q))],
             'warehouse_id' => 'nullable|exists:warehouses,id',
             'depreciation_method' => 'nullable|in:none,straight_line,declining_balance',
             'useful_life_months' => 'nullable|integer|min:1|max:1200',
@@ -268,7 +270,7 @@ class AssetController extends BaseController
                 ->get(['id', 'name']);
         }
 
-        $asset_categories = AssetCategory::whereNull('deleted_at')
+        $asset_categories = AssetCategory::forCompany()->whereNull('deleted_at')
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -299,7 +301,7 @@ class AssetController extends BaseController
                 ->get(['id', 'name']);
         }
 
-        $asset_categories = AssetCategory::whereNull('deleted_at')
+        $asset_categories = AssetCategory::forCompany()->whereNull('deleted_at')
             ->orderBy('name')
             ->get(['id', 'name']);
 

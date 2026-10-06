@@ -32,6 +32,10 @@ class ServiceJob extends Model
 
     protected $fillable = [
         'Ref',
+        // Job costing: hours worked, labor (hours x operator rate), equipment used.
+        'work_hours',
+        'labor_cost',
+        'asset_cost',
         // Visit created by a Sales Contract (App\Services\SalesContractJobs).
         'sales_contract_id',
         'contract_occurrence',

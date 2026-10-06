@@ -13,7 +13,7 @@ class CategoryAssetController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'view', Asset::class);
 
-        $query = AssetCategory::query()->whereNull('deleted_at');
+        $query = AssetCategory::query()->forCompany()->whereNull('deleted_at');
 
         if ($search = $request->get('search')) {
             $query->where('name', 'like', "%{$search}%");
@@ -42,8 +42,12 @@ class CategoryAssetController extends BaseController
             'name' => 'required|string|max:191',
             'description' => 'nullable|string',
         ]);
+        // The acting company's category (a SuperAdmin on "all companies": the user's own).
+        $companyId = AssetCategory::actingCompanyId() ?: (int) $request->user('api')->company_id;
+        abort_if(AssetCategory::where('company_id', $companyId)->where('name', $validated['name'])->whereNull('deleted_at')->exists(), 422, 'This category already exists.');
 
         $category = AssetCategory::create([
+            'company_id' => $companyId,
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
         ]);
@@ -54,7 +58,7 @@ class CategoryAssetController extends BaseController
     public function update(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Asset::class);
-        $category = AssetCategory::findOrFail($id);
+        $category = AssetCategory::forCompany()->findOrFail($id);
 
         $validated = $request->validate([
             'name' => 'required|string|max:191',
@@ -69,7 +73,7 @@ class CategoryAssetController extends BaseController
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Asset::class);
-        $category = AssetCategory::findOrFail($id);
+        $category = AssetCategory::forCompany()->findOrFail($id);
         $category->update(['deleted_at' => now()]);
 
         return response()->json(['success' => true]);

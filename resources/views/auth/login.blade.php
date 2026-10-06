@@ -234,18 +234,38 @@
         gap: 0.5rem;
       }
       .auth-lang-switch a {
-        font-size: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.8rem;
         font-weight: 600;
-        letter-spacing: 0.03em;
         color: var(--text-muted, #6b7280);
         text-decoration: none;
-        padding: 0.2rem 0.45rem;
-        border-radius: 6px;
+        padding: 0.3rem 0.6rem;
+        border-radius: 8px;
+        border: 1px solid transparent;
+      }
+      .auth-lang-switch a img {
+        width: 22px;
+        height: 16px;
+        border-radius: 3px;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+        object-fit: cover;
       }
       .auth-lang-switch a:hover { background: rgba(0, 0, 0, 0.05); }
       .auth-lang-switch a.active {
         color: var(--brand, #4f46e5);
         background: rgba(79, 70, 229, 0.1);
+        border-color: rgba(79, 70, 229, 0.25);
+      }
+      /* Phones: the switcher sits above the card (it used to overlap the card's top). */
+      @media (max-width: 720px) {
+        .auth-panel { flex-direction: column; justify-content: flex-start; }
+        .auth-lang-switch {
+          position: static;
+          align-self: flex-end;
+          margin-bottom: 0.75rem;
+        }
       }
 
       .auth-card {
@@ -713,13 +733,15 @@
 
       <!-- FORM -->
       <section class="auth-panel">
+        {{-- Sign-in languages: English and Spanish only, with flags (the app may support more). --}}
         <div class="auth-lang-switch">
-          @foreach (\App\Http\Middleware\SetLocale::SUPPORTED as $code => $label)
+          @foreach (['en' => ['us.svg', 'EN', 'English'], 'es' => ['es.svg', 'ES', 'Español']] as $code => [$flag, $short, $label])
+            @continue(! array_key_exists($code, \App\Http\Middleware\SetLocale::SUPPORTED))
             <a
               href="{{ route('locale.guest', ['locale' => $code, 'redirect' => url()->full()]) }}"
               class="{{ app()->getLocale() === $code ? 'active' : '' }}"
-              title="{{ $label }}"
-            >{{ strtoupper($code) }}</a>
+              title="{{ $label }}" lang="{{ $code }}"
+            ><img src="{{ asset('images/vendor/flag-icon-css/flags/4x3/'.$flag) }}" alt="">{{ $short }}</a>
           @endforeach
         </div>
         <div class="auth-card">

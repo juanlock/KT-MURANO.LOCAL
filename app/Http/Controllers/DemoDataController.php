@@ -56,6 +56,8 @@ class DemoDataController extends Controller
             'modules' => ['required', 'array', 'min:1'],
             'modules.*' => ['string', 'max:40'],
             'business_type' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Support\BusinessTypes::LABELS))],
+            // HRM / Payroll history: are the staff paid by hours or commission?
+            'pay_type' => ['nullable', 'in:hourly,commission'],
         ]);
         $companyId = (int) $this->resolveActingCompanyId($request);
         // Saved on the company: the next run (and other features) know it.
@@ -63,7 +65,7 @@ class DemoDataController extends Controller
             \App\Support\BusinessTypes::set($companyId, $data['business_type']);
         }
 
-        $results = DemoRunner::run($companyId, (int) $request->user('api')->id, $data['modules']);
+        $results = DemoRunner::run($companyId, (int) $request->user('api')->id, $data['modules'], $data['pay_type'] ?? null);
 
         return response()->json(['success' => true, 'results' => $results]);
     }

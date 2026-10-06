@@ -52,6 +52,18 @@
                   <template #icon><PlusOutlined /></template>
                   {{ $t('Add_Product') }}
                 </a-button>
+                <!-- Service jobs open in a modal (saves space); "Edit" once the sale has / will have one. -->
+                <a-button v-if="serviceJobAvailable" @click="serviceJobModalOpen = true">
+                  <template #icon><component :is="hasServiceJob ? EditOutlined : PlusOutlined" /></template>
+                  {{ hasServiceJob ? 'Edit Service Job' : 'Add Service Job' }}{{ serviceJobCount ? ` (${serviceJobCount})` : '' }}
+                </a-button>
+                <!-- Contract sale (recurring invoices). New sale: turns Recurring on and
+                     opens its settings; Edit Sale: opens the sale's contract, or a new
+                     contract prefilled with this sale. -->
+                <a-button v-if="contractButton" @click="onContractButton">
+                  <template #icon><component :is="contractButton.edit ? EditOutlined : SyncOutlined" /></template>
+                  {{ contractButton.label }}
+                </a-button>
               </div>
             </a-form-item>
           </a-col>
@@ -69,14 +81,6 @@
           <!-- One invoice (a normal sale) or Recurring: the same lines billed
                on a schedule -- saved as an active Sales Contract that creates
                each invoice (SalesContractBilling). -->
-          <a-col v-if="canRecurring" :xs="24" :md="8">
-            <a-form-item label="Invoice">
-              <a-radio-group v-model:value="invoiceMode" button-style="solid">
-                <a-radio-button value="single">Only 1 invoice</a-radio-button>
-                <a-radio-button value="recurring"><SyncOutlined /> Recurring</a-radio-button>
-              </a-radio-group>
-            </a-form-item>
-          </a-col>
         </a-row>
       </a-card>
 
@@ -202,7 +206,12 @@
       <a-row :gutter="16">
         <a-col :xs="24" :lg="14">
           <!-- Recurring: the schedule (same settings + preview as Sales Contracts). -->
-          <a-card v-if="isRecurring" size="small" title="Recurring invoices" style="margin-bottom: 16px">
+          <a-modal v-if="canRecurring" v-model:open="contractModalOpen" width="760px" title="Contract sale -- recurring invoices">
+            <template #footer>
+              <a-button danger style="float: left" @click="invoiceMode = 'single'; contractModalOpen = false">Remove contract (only 1 invoice)</a-button>
+              <span class="muted" style="margin-right: 12px">Created when you save the sale.</span>
+              <a-button type="primary" @click="contractModalOpen = false">Done</a-button>
+            </template>
             <a-row :gutter="12">
               <a-col :xs="24" :md="16">
                 <a-form-item label="Subject" required extra="Name of the recurring billing (Sales Contract).">
@@ -267,16 +276,23 @@
                 />
               </template>
             </RecurringSchedule>
-          </a-card>
+          </a-modal>
 
           <!-- Service job: one job with this sale (One invoice), or recurring
                visits on their own schedule (Recurring). Service module only. -->
-          <a-card v-if="serviceJobAvailable" size="small" :title="isRecurring ? $t('Contract_Service_Jobs') : $t('Service_Jobs')" style="margin-bottom: 16px">
+          <a-modal
+            v-if="serviceJobAvailable" v-model:open="serviceJobModalOpen" width="760px"
+            :title="isRecurring ? $t('Contract_Service_Jobs') : $t('Service_Jobs')"
+          >
+            <template #footer>
+              <span class="muted" style="margin-right: 12px">Saved together with the sale.</span>
+              <a-button type="primary" @click="serviceJobModalOpen = false">Done</a-button>
+            </template>
             <!-- Edit: the jobs already made with this sale. -->
             <div v-if="saleServiceJobs.length" class="sale-jobs">
               <div v-for="j in saleServiceJobs" :key="j.id" class="sale-jobs__item">
                 <div class="sale-jobs__row">
-                  <router-link :to="`/service/jobs/details/${j.id}`">{{ j.ref }}</router-link>
+                  <PermLink permission="service_jobs" :to="`/service/jobs/details/${j.id}`">{{ j.ref }}</PermLink>
                   <span>{{ j.title }}</span>
                   <span class="muted">{{ j.scheduled_date || '' }}{{ j.technician ? ` · ${j.technician}` : '' }}</span>
                   <!-- Pending -> In progress -> Completed, saved with the sale. -->
@@ -298,8 +314,30 @@
                 v-model:value="linkedJobIds" mode="multiple" allow-clear show-search option-filter-prop="label"
                 :options="linkJobOptions" :loading="clientJobsLoading"
                 :placeholder="linkJobOptions.length ? 'Choose this customer\'s jobs' : 'This customer has no service jobs'"
+                @select="onLinkJobSelect"
               />
             </a-form-item>
+            <!-- Jobs just chosen (not yet on this sale): warning when already billed
+                 on another invoice + status / note, saved with the sale. -->
+            <div v-if="newlyLinkedJobs.length" class="sale-jobs">
+              <div v-for="j in newlyLinkedJobs" :key="j.id" class="sale-jobs__item">
+                <div class="sale-jobs__row">
+                  <strong>{{ j.ref }}</strong>
+                  <span>{{ j.title }}</span>
+                  <a-select
+                    v-if="jobEdits[j.id] && JOB_EDITABLE.includes(j.status)"
+                    v-model:value="jobEdits[j.id].status" size="small" style="width: 140px" :options="JOB_STATUS_OPTIONS"
+                  />
+                  <a-tag v-else style="margin: 0">{{ j.status }}</a-tag>
+                </div>
+                <a-alert
+                  v-if="j.other_invoices.length" type="warning" show-icon banner style="margin-bottom: 6px"
+                  :message="`Already on invoice ${j.other_invoices.join(', ')} -- linking it here too can bill the same work twice.`"
+                />
+                <div v-if="j.notes" class="sale-jobs__notes muted">{{ j.notes }}</div>
+                <a-input v-if="jobEdits[j.id]" v-model:value="jobEdits[j.id].note" size="small" allow-clear placeholder="Add a note to this job (saved with the sale)" />
+              </div>
+            </div>
             <a-form-item style="margin-bottom: 8px">
               <a-switch v-model:checked="serviceJob.enabled" />
               <span style="margin-left: 8px">{{ isRecurring ? 'Create a service job for each visit' : (saleServiceJobs.length ? 'Add another service job' : 'Create a service job for this sale') }}</span>
@@ -320,7 +358,7 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="isRecurring ? 12 : 12">
-                  <a-form-item label="Technician / crew lead">
+                  <a-form-item label="Operator / crew lead">
                     <a-select v-model:value="serviceJob.technician_id" allow-clear :options="technicianOptions" placeholder="Assign later" />
                   </a-form-item>
                 </a-col>
@@ -361,7 +399,7 @@
               </RecurringSchedule>
               <a-alert v-else type="info" show-icon message="The job is created for this customer and location when the sale is saved (status Pending, no price: the sale bills the work), and shows on the sale under Service Jobs." />
             </template>
-          </a-card>
+          </a-modal>
 
           <a-card size="small" style="margin-bottom: 16px">
             <a-row :gutter="12">
@@ -806,6 +844,33 @@ const recurring = ref({
   billing_count: null, next_invoice_date: null,
 });
 const scheduleRef = ref(null);
+// "Add / Edit Contract Sale" button next to Add Product.
+const contractModalOpen = ref(false);
+// Edit Sale: the Sales Contract this invoice came from ({id, number, subject}).
+const saleContract = ref(null);
+const contractButton = computed(() => {
+  const isSA = auth.user?.type === 'SuperAdmin';
+  if (!isEdit.value) return canRecurring.value ? { label: isRecurring.value ? 'Edit Contract Sale' : 'Add Contract Sale', edit: isRecurring.value } : null;
+  if (saleContract.value) return isSA || auth.can('sales_contracts_edit') ? { label: `Edit Contract Sale (${saleContract.value.number || '#' + saleContract.value.id})`, edit: true } : null;
+  return isSA || auth.can('sales_contracts_add') ? { label: 'Add Contract Sale', edit: false } : null;
+});
+function onContractButton() {
+  if (!isEdit.value) {
+    invoiceMode.value = 'recurring';
+    contractModalOpen.value = true;
+  } else if (saleContract.value) {
+    router.push(`/sales-contracts/${saleContract.value.id}/edit`);
+  } else {
+    // A new contract with this sale's customer, location and lines (read once by SalesContractForm).
+    try {
+      sessionStorage.setItem('contract_prefill', JSON.stringify({
+        from_sale: id.value, client_id: sale.value.client_id, warehouse_id: sale.value.warehouse_id,
+        order_tax_rate: Number(sale.value.tax_rate) || 0, items: contractItemsFromLines(),
+      }));
+    } catch (e) { /* storage blocked: the contract form opens empty */ }
+    router.push(`/sales-contracts/create?from_sale=${id.value}`);
+  }
+}
 // Switching to Recurring: the order discount / shipping fields are hidden
 // (generated invoices don't repeat them), so clear what was typed there.
 watch(isRecurring, on => {
@@ -842,7 +907,7 @@ const linkedJobIds = ref([]);
 const clientJobs = ref([]);
 const clientJobsLoading = ref(false);
 const linkJobOptions = computed(() => {
-  const opts = clientJobs.value.map(j => ({ value: j.id, label: j.label }));
+  const opts = clientJobs.value.map(j => ({ value: j.id, label: j.other_invoices?.length ? `${j.label} · ⚠ on ${j.other_invoices.join(', ')}` : j.label }));
   // Linked jobs no longer in the list (e.g. cancelled) stay selectable.
   saleServiceJobs.value.forEach(j => { if (!opts.some(o => o.value === j.id)) opts.push({ value: j.id, label: `${j.ref} · ${j.title || ''} · ${j.status}` }); });
   return opts;
@@ -852,7 +917,7 @@ async function loadClientJobs() {
   if (!serviceJobAvailable.value || !sale.value.client_id) return;
   clientJobsLoading.value = true;
   try {
-    clientJobs.value = (await http.get(`sales_client_service_jobs/${sale.value.client_id}`)).jobs || [];
+    clientJobs.value = (await http.get(`sales_client_service_jobs/${sale.value.client_id}`, isEdit.value ? { sale_id: id.value } : {})).jobs || [];
   } catch (e) { clientJobs.value = []; }
   clientJobsLoading.value = false;
 }
@@ -865,17 +930,38 @@ const JOB_STATUS_OPTIONS = [
   { value: 'completed', label: 'Completed' },
 ];
 const jobEdits = ref({});
+// Jobs chosen in "Link existing service jobs" that aren't on this sale yet.
+const newlyLinkedJobs = computed(() => linkedJobIds.value
+  .filter(jid => !saleServiceJobs.value.some(j => j.id === jid))
+  .map(jid => clientJobs.value.find(j => j.id === jid))
+  .filter(Boolean)
+  .map(j => ({ ...j, other_invoices: j.other_invoices || [] })));
+function onLinkJobSelect(jid) {
+  const j = clientJobs.value.find(x => x.id === jid);
+  if (!j) return;
+  if (!jobEdits.value[jid]) jobEdits.value[jid] = { status: j.status, note: '' };
+  if (j.other_invoices?.length) message.warning(`${j.ref} is already on invoice ${j.other_invoices.join(', ')}.`, 6);
+}
 function serviceJobUpdatesPayload() {
-  const updates = saleServiceJobs.value
-    .filter(j => jobEdits.value[j.id])
-    .map(j => ({ id: j.id, status: jobEdits.value[j.id].status, note: (jobEdits.value[j.id].note || '').trim() }))
-    .filter(u => u.note || u.status !== saleServiceJobs.value.find(j => j.id === u.id).status);
+  // Linked jobs (already on the sale or chosen now) whose status changed or got a note.
+  const jobs = [...saleServiceJobs.value, ...newlyLinkedJobs.value];
+  const updates = jobs
+    .filter(j => jobEdits.value[j.id] && (saleServiceJobs.value.some(s => s.id === j.id) || linkedJobIds.value.includes(j.id)))
+    .map(j => ({ id: j.id, status: jobEdits.value[j.id].status, note: (jobEdits.value[j.id].note || '').trim(), was: j.status }))
+    .filter(u => u.note || u.status !== u.was)
+    .map(({ was, ...u }) => u);
   return updates.length ? { service_job_updates: updates } : {};
 }
+// The "Add / Edit Service Job" button next to Add Product opens the jobs modal.
+const serviceJobModalOpen = ref(false);
+// Jobs on this sale: already linked/created, chosen to link, or one to create on save.
+const serviceJobCount = computed(() => new Set([...saleServiceJobs.value.map(j => j.id), ...linkedJobIds.value]).size);
+const hasServiceJob = computed(() => serviceJobCount.value > 0 || serviceJob.value.enabled);
 function loadServiceJobOptions(data) {
   serviceJobAvailable.value = data?.service_job_enabled === true;
   serviceTechnicians.value = data?.service_technicians || [];
   saleServiceJobs.value = data?.sale_service_jobs || [];
+  saleContract.value = data?.sales_contract || null;
   jobEdits.value = Object.fromEntries(saleServiceJobs.value.map(j => [j.id, { status: j.status, note: '' }]));
   linkedJobIds.value = saleServiceJobs.value.map(j => j.id);
   loadClientJobs();
@@ -1793,6 +1879,24 @@ const recurringSubjectDefault = computed(() => {
  * invoice note template. Order-level tax/discount/shipping, payments, serials,
  * batches and variants can't repeat on generated invoices, so they're refused.
  */
+/** The sale's lines as Sales Contract lines (same totals). */
+function contractItemsFromLines() {
+  return lines.value.map(l => {
+    const inclusive = String(l.tax_method || '1') === '2';
+    const unit = (Number(l.Net_price) || 0) + (inclusive ? (Number(l.taxe) || 0) : 0);
+    return {
+      product_id: l.product_id,
+      name: l.name || 'Item',
+      note: (l.note || '').trim() || null,
+      quantity: Number(l.quantity) || 1,
+      price: Math.round(unit * 10000) / 10000,
+      // The line's own tax only; the order tax goes on the contract.
+      tax_percent: Number(l.tax_percent) || 0,
+      tax_method: inclusive ? '2' : '1',
+    };
+  });
+}
+
 async function submitRecurring() {
   if (!sale.value.client_id) { message.warning(`${t('Customer')}: ${t('Field_is_required')}`); return; }
   if (!sale.value.warehouse_id) { message.warning(`${t('warehouse')}: ${t('Field_is_required')}`); return; }
@@ -1817,20 +1921,7 @@ async function submitRecurring() {
     return;
   }
 
-  const items = lines.value.map(l => {
-    const inclusive = String(l.tax_method || '1') === '2';
-    const unit = (Number(l.Net_price) || 0) + (inclusive ? (Number(l.taxe) || 0) : 0);
-    return {
-      product_id: l.product_id,
-      name: l.name || 'Item',
-      note: (l.note || '').trim() || null,
-      quantity: Number(l.quantity) || 1,
-      price: Math.round(unit * 10000) / 10000,
-      // The line's own tax only; the order tax goes on the contract.
-      tax_percent: Number(l.tax_percent) || 0,
-      tax_method: inclusive ? '2' : '1',
-    };
-  });
+  const items = contractItemsFromLines();
   const r = recurring.value;
   const payload = {
     subject: (r.subject || '').trim() || recurringSubjectDefault.value,
@@ -1952,6 +2043,8 @@ async function submit(asDraft = false) {
       const res = await http.post('sales', {
         // One service job with this sale, when switched on.
         ...serviceJobPayload(),
+        // Linked jobs' status / note.
+        ...serviceJobUpdatesPayload(),
         ...base,
         // Conversion: link the new sale back to its source quotation.
         ...(isConvert.value ? { quotation_id: id.value } : {}),
@@ -1971,6 +2064,7 @@ async function submit(asDraft = false) {
       });
       message.success(draft ? 'Saved as draft (Pending): finalize it when ready.' : t('Successfully_Created'));
       serviceJobMessage(res);
+      if (res?.service_job_updates) message.info(`${res.service_job_updates} service job(s) updated.`, 5);
     }
     router.push('/sales');
   } catch (e) {

@@ -113,7 +113,7 @@
           <a-tag v-else :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
         </template>
         <template v-else-if="column.key === 'sale'">
-          <router-link v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.sale_ref }}</router-link>
+          <PermLink permission="Sales_view" v-if="record.sale_id" :to="`/sales/${record.sale_id}`">{{ record.sale_ref }}</PermLink>
           <span v-else style="opacity: 0.45">—</span>
         </template>
         <template v-else-if="column.key === 'customer_name'">

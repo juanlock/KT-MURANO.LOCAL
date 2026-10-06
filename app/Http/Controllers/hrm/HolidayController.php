@@ -10,11 +10,49 @@ use Illuminate\Http\Request;
 
 class HolidayController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ScopesToCompany;
+
+    /**
+     * Multicompany: an Admin works on their own company only; a SuperAdmin on
+     * the switcher's company (null = all companies).
+     */
+    private function holidayCompany(Request $request): ?int
+    {
+        $isSA = optional($request->user('api'))->type === 'SuperAdmin';
+        $cid = $this->resolveActingCompanyId($request);
+
+        return $isSA && ($cid === 999 || ! $request->filled('company_id')) ? null : $cid;
+    }
+
+    /** The companies the form may offer: the acting one (a SuperAdmin on all: every company). */
+    private function companyChoices(Request $request)
+    {
+        $cid = $this->holidayCompany($request);
+
+        return Company::where('deleted_at', '=', null)->where('id', '!=', 999)
+            ->when($cid, fn ($q) => $q->where('id', $cid))->orderBy('name')->get(['id', 'name']);
+    }
+
+    /** A company id sent by the form must be one of those choices. */
+    private function checkCompany(Request $request): void
+    {
+        abort_unless($this->companyChoices($request)->pluck('id')->contains((int) $request['company_id']), 422, 'Choose your own company.');
+    }
+
+    /** The holiday must belong to the acting company (404 otherwise). */
+    private function scopedHoliday(Request $request, $id): Holiday
+    {
+        $cid = $this->holidayCompany($request);
+
+        return Holiday::whereNull('deleted_at')->when($cid, fn ($q) => $q->where('company_id', $cid))->findOrFail($id);
+    }
+
     // ----------- GET ALL Holidays --------------\\
 
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Holiday::class);
+        $companyId = $this->holidayCompany($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -25,6 +63,7 @@ class HolidayController extends Controller
         $dir = $request->SortType;
 
         $holidays = Holiday::with('company')->where('deleted_at', '=', null)
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
@@ -41,12 +80,13 @@ class HolidayController extends Controller
             ->orderBy($order, $dir)
             ->get();
 
+        $data = [];
         foreach ($holidays as $holiday) {
 
             $item['id'] = $holiday->id;
             $item['title'] = $holiday->title;
-            $item['company_id'] = $holiday['company']->id;
-            $item['company_name'] = $holiday['company']->name;
+            $item['company_id'] = $holiday->company_id;
+            $item['company_name'] = optional($holiday['company'])->name;
             $item['start_date'] = $holiday->start_date;
             $item['end_date'] = $holiday->end_date;
             $item['description'] = $holiday->description;
@@ -64,10 +104,8 @@ class HolidayController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Holiday::class);
 
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
-
         return response()->json([
-            'companies' => $companies,
+            'companies' => $this->companyChoices($request),
         ]);
     }
 
@@ -83,6 +121,7 @@ class HolidayController extends Controller
             'end_date' => 'required',
             'company_id' => 'required',
         ]);
+        $this->checkCompany($request);
 
         Holiday::create([
             'company_id' => $request['company_id'],
@@ -106,11 +145,10 @@ class HolidayController extends Controller
     public function edit(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'update', Holiday::class);
-
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $this->scopedHoliday($request, $id);
 
         return response()->json([
-            'companies' => $companies,
+            'companies' => $this->companyChoices($request),
         ]);
 
     }
@@ -127,6 +165,8 @@ class HolidayController extends Controller
             'end_date' => 'required',
             'company_id' => 'required',
         ]);
+        $this->scopedHoliday($request, $id);
+        $this->checkCompany($request);
 
         Holiday::whereId($id)->update([
             'company_id' => $request['company_id'],
@@ -144,6 +184,7 @@ class HolidayController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Holiday::class);
+        $this->scopedHoliday($request, $id);
 
         Holiday::whereId($id)->update([
             'deleted_at' => Carbon::now(),
@@ -160,8 +201,10 @@ class HolidayController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', Holiday::class);
 
         $selectedIds = $request->selectedIds;
+        $companyId = $this->holidayCompany($request);
         foreach ($selectedIds as $holiday_id) {
-            Holiday::whereId($holiday_id)->update([
+            // Only the acting company's holidays.
+            Holiday::whereId($holiday_id)->when($companyId, fn ($q) => $q->where('company_id', $companyId))->update([
                 'deleted_at' => Carbon::now(),
             ]);
         }
