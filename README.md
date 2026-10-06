@@ -69,8 +69,8 @@ php artisan migrate
 app/
   Http/Controllers/      API controllers (company-scoped via Concerns/ScopesToCompany)
   Models/                Eloquent models
-  Services/              Domain services (EmailOffice, LinkedUserService, ...)
-  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ModuleFlags...
+  Services/              Domain services (EmailOffice, LinkedUserService, PayrollRun, ...)
+  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ServiceJobCost, ModuleFlags...
 database/
   migrations/            Schema + data migrations (run on every machine)
   scripts/               Protocol scripts (backups, reports)
@@ -108,9 +108,62 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
   - A customer is identified by **email + company**.
 - **Files** go to `public/files/company_{id}/{module}/`, through
   `App\Support\CompanyFiles`.
+- **Roles.**
+  - A user's role is stored in two places, `role_user` and `users.role_id`.
+    Always set both.
+  - A role can have a home page (`roles.home_path`). After login, the user
+    lands there, or on the first page they are allowed to open.
+- **Payroll** is weekly and is not filled from Attendance.
+  - Hourly pay = completed service job hours × rate.
+  - Commission = the employee's sales × %.
+  - Payroll is posted to accounting: hourly to 7010, commission to 7040.
 - **UI conventions.**
   - Dropdowns are sorted alphabetically with `sortByLabel()`.
   - Date range filters use `PresetRangeFilter`.
+  - A link to another module's page uses `<PermLink>`. It is only clickable
+    when the user's role can open that page.
+
+---
+
+## Latest changes
+
+The last 5 sessions. The full history is in `kt_logs` and in the daily reports
+in `KT-TOOLS/Report/`.
+
+### 2026-10-06 (Thundera)
+
+- **Service jobs and sales.**
+  - Service jobs are linked to customers and invoices.
+  - The sale form has **Add / Edit Service Job** and **Add / Edit Contract
+    Sale** buttons, which open modals.
+  - You are warned when a job is already on another invoice.
+  - Each linked job's status can be changed, with a note.
+- **Service job pages.**
+  - The job form has a **Task** tab.
+  - The jobs list has an **Assign to** column with an "All operators" (crew)
+    option, and PDF / Excel export.
+  - "Service Technicians" are now called **Operators**.
+- **Tasks page** (Week view by default, plus Day and Month).
+  - Ruba roles SupervisorRG and OperatorRG, with role home pages.
+  - Users without the dashboard no longer see "Page not available".
+- **Weekly payroll** (by hours or by commission), posted to accounting.
+  - Job costing: labor + equipment, with a Cost / Invoice / Margin view.
+  - Demo payroll history and demo holidays for every company.
+  - Ruba's shift is Monday–Friday, 7 AM – 5 PM.
+- **Assets** are on for every company, with demo sets per business type
+  (landscaping, salon, IT, office, …).
+- **New Era roles** AdminNE, ManagerNE and StaffNE.
+  - Only managers open / close the register; staff sell with their PIN.
+  - A **Clock in / out** button in the header.
+  - Attendance is company-scoped.
+- **Interface.**
+  - Back navigation returns to the previous list.
+  - Header has a Log out button and colored buttons.
+  - The login page offers only English / Spanish, with flags.
+  - The mobile left-margin gap is fixed.
+  - Ruba's duplicate landscape product groups were merged.
+
+Setup: `php artisan migrate`, `npm run build`, `php artisan optimize:clear`.
 
 ---
 
@@ -123,7 +176,7 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | **Preparate** | Start of session. Syncs the PC (pull, migrate, build) and reloads the rules. It also reads the request history (`kt_logs`) and writes status reports to `KT-TOOLS/Report/`. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 | **Copia BD** | Backs up `dbmurano` with mysqldump into `KT-TOOLS/database/`. It writes a main zip plus 3 Email Office zips, all importable in phpMyAdmin. |
-| **Pa Llevar** | End of session. Builds, logs, writes the daily report, backs up the database, then commits and pushes to GitHub. |
+| **Pa Llevar** | End of session. Builds, logs, writes the daily report, backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
 
 Pushing uses GitHub Desktop when the terminal has no GitHub credentials. Never
 force-push, and never commit `.env`.

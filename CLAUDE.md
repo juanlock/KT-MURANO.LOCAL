@@ -303,7 +303,9 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   Murano's own end-of-session close-out (A Dormir was merged into it and
   then deleted, user's request 2026-10-01): checks `npm run build`, runs
   Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
-  then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails 1/2/3.zip`), then commits everything with a summary subject and a
+  then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails 1/2/3.zip`), then updates
+  `README.md` (a "Latest changes" block for the session -- last 5 kept -- and any section that changed; user's rule
+  2026-10-06), then commits everything with a summary subject and a
   detailed description of the changes (one bullet per `kt_logs` request,
   migrations, setup steps for other machines, backup file) and pushes to
   GitHub (never force-push; without CLI credentials the user pushes from

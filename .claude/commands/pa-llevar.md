@@ -1,5 +1,5 @@
 ---
-description: "Protocol Pa Llevar (formerly A Dormir) -- end-of-session close-out: check the build (npm run build), run Kelsy (log the session to kt_logs), write the day's report, back up dbmurano into KT-TOOLS/database (Copia BD) and refresh KT-TOOLS/SQL/backup db.zip + backup db office emails 1/2/3.zip, then commit everything with a summary + detailed description and push to GitHub. Triggers on \"Claude/Jarvis, run protocol pa llevar\" / \"protocolo pa llevar\"."
+description: "Protocol Pa Llevar (formerly A Dormir) -- end-of-session close-out: check the build (npm run build), run Kelsy (log the session to kt_logs), write the day's report, back up dbmurano into KT-TOOLS/database (Copia BD) and refresh KT-TOOLS/SQL/backup db.zip + backup db office emails 1/2/3.zip, update README.md (Latest changes + anything it describes that changed), then commit everything with a summary + detailed description and push to GitHub. Triggers on \"Claude/Jarvis, run protocol pa llevar\" / \"protocolo pa llevar\"."
 ---
 
 Run Protocol Pa Llevar ("to go") -- the end-of-session close-out (it absorbed the old A Dormir protocol, which no longer exists). In this order. Stop and report if a step fails; never skip ahead silently.
@@ -16,6 +16,12 @@ Run Protocol Pa Llevar ("to go") -- the end-of-session close-out (it absorbed th
    - main zip -> **`KT-TOOLS/SQL/backup db.zip`**
    - `_office_emails_1` / `_2` / `_3` zips -> **`KT-TOOLS/SQL/backup db office emails 1.zip`** / **`2.zip`** / **`3.zip`**
    Same content as the Copia BD files, so the `.sql` inside each is phpMyAdmin-ready too (restore order: main, then 1, 2, 3). PowerShell: `Copy-Item -LiteralPath 'KT-TOOLS\database\<new dump>.zip' -Destination 'KT-TOOLS\SQL\backup db.zip' -Force; 1..3 | ForEach-Object { Copy-Item -LiteralPath "KT-TOOLS\database\<new dump>_office_emails_$_.zip" -Destination "KT-TOOLS\SQL\backup db office emails $_.zip" -Force }`. The old `backup db office emails.zip` (one file) and unzipped `backup db.sql` are no longer refreshed. Commit the zips in step 3 (git-tracked, via LFS).
+
+2c. **README** (user's rule, 2026-10-06) -- bring `README.md` (the page GitHub shows) up to date with this session's work, from the `kt_logs` rows being committed:
+   - **"Latest changes"** section: add a `### <YYYY-MM-DD> (<location>)` block at the top of it -- 4-10 short bullets of what changed for the user (new modules / pages, roles, rules, important fixes), the user's language, no file names; then `Setup: php artisan migrate ...` when the session added migrations. Keep the **last 5 sessions** there; older blocks are dropped (the full history is `kt_logs` and the daily reports).
+   - The rest of the README only when something it describes changed: a new module or page (Modules), a new rule or convention (Key rules -- mirror CLAUDE.md, briefly), a new helper or folder (Project layout), a protocol change (Session protocols), new setup steps (Getting started).
+   - Never put secrets, passwords, emails of real people or customer data in it -- it is shown on GitHub.
+   It is committed in step 3 with everything else (nothing to do when the session only answered questions).
 
 3. **Commit** -- with git (on PATH, or GitHub Desktop's bundled git, e.g. `C:\Users\<user>\AppData\Local\GitHubDesktop\app-<version>\resources\app\git\cmd\git.exe`):
    - `git status` and review what changed. Stage the work (`git add -A`), but never stage secrets or machine-local files: `.env`, credentials/keys, `storage/` runtime files, `vendor/`, `node_modules/` (those are gitignored -- if something like that shows up as untracked, leave it out and mention it). Leave out stray files this session didn't create (mention them). Warn before staging any single file over 50 MB (GitHub rejects files over 100 MB).
