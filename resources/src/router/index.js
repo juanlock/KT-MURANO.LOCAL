@@ -396,6 +396,7 @@ const SchoolReports = lazy('SchoolReports', () => import('../pages/school/School
 const Employees = lazy('Employees', () => import('../pages/hrm/Employees.vue'));
 const EmployeeForm = lazy('EmployeeForm', () => import('../pages/hrm/EmployeeForm.vue'));
 const PortfolioAdmin = lazy('PortfolioAdmin', () => import('../pages/portfolio/PortfolioAdmin.vue'));
+const PortfolioSettings = lazy('PortfolioSettings', () => import('../pages/portfolio/PortfolioSettings.vue'));
 const EmployeeDetails = lazy('EmployeeDetails', () => import('../pages/hrm/EmployeeDetails.vue'));
 const Attendance = lazy('Attendance', () => import('../pages/hrm/Attendance.vue'));
 const Leaves = lazy('Leaves', () => import('../pages/hrm/Leaves.vue'));
@@ -622,7 +623,9 @@ const routes = [
             { path: 'portfolio/sections', name: 'portfolio-sections', component: PortfolioAdmin, meta: { title: 'Portfolio · Home sections', permission: 'portfolio_manage', tab: 'sections' } },
             { path: 'portfolio/works', name: 'portfolio-works', component: PortfolioAdmin, meta: { title: 'Portfolio · Works', permission: 'portfolio_manage', tab: 'projects' } },
             { path: 'portfolio/categories', name: 'portfolio-categories', component: PortfolioAdmin, meta: { title: 'Portfolio · Categories', permission: 'portfolio_manage', tab: 'categories' } },
-            { path: 'portfolio/website', name: 'portfolio-website', component: PortfolioAdmin, meta: { title: 'Portfolio · Website', permission: 'portfolio_manage', tab: 'site' } },
+            // Website moved into Portfolio -> Settings (theme, logo, menu, pages...).
+            { path: 'portfolio/website', redirect: '/portfolio/settings' },
+            { path: 'portfolio/settings', name: 'portfolio-settings', component: PortfolioSettings, meta: { title: 'Portfolio · Settings', permission: 'portfolio_manage' } },
             { path: 'portfolio/messages', name: 'portfolio-messages', component: PortfolioAdmin, meta: { title: 'Portfolio · Messages', permission: 'portfolio_manage', tab: 'messages' } },
             { path: 'email-office/settings', name: 'email-office-settings', component: EmailOfficeSettings, meta: { title: 'Email Office settings', permission: 'email_office_manage' } },
             { path: 'email-office/received', name: 'email-office-received', component: EmailOfficeList, props: { direction: 'in' }, meta: { title: 'Email received', permission: 'email_office_view' } },

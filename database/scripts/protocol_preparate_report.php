@@ -30,13 +30,16 @@ use App\Models\KtLog;
 
 $reportDate = isset($reportDate) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $reportDate) ? (string) $reportDate : null;
 $reportLimit = isset($reportLimit) ? max(1, min(50, (int) $reportLimit)) : 2;
+// Newest first (user's rule, 2026-10-05): by the date/time each request was
+// logged (created_at), then id -- in the index, the module sections and the
+// cards inside each section.
 if ($reportDate) {
-    $rows = KtLog::whereDate('log_date', $reportDate)->orderBy('id')->get();
+    $rows = KtLog::whereDate('log_date', $reportDate)->orderByDesc('created_at')->orderByDesc('id')->get();
     $reportTitle = "Daily report -- {$reportDate}";
     $reportScope = "{$rows->count()} request(s) logged on {$reportDate}";
     $reportFile = "kt_murano_daily_{$reportDate}.html";
 } else {
-    $rows = KtLog::orderByDesc('id')->take($reportLimit)->get()->sortBy('id')->values();
+    $rows = KtLog::orderByDesc('created_at')->orderByDesc('id')->take($reportLimit)->get();
     $reportTitle = $reportLimit === 2 ? 'Protocol Preparate' : "Last {$reportLimit} requests";
     $reportScope = "last {$rows->count()} request(s)";
     $reportFile = ($reportLimit === 2 ? 'kt_murano_preparate_' : "kt_murano_last{$reportLimit}_").now()->format('Y-m-d').'.html';
@@ -215,7 +218,8 @@ $items = $rows->map(function ($row) use ($classify) {
 
     return ['row' => $row, 'module' => $module, 'files' => $files];
 });
-$groups = $items->groupBy('module')->sortBy(fn ($g, $name) => $g->min(fn ($i) => $i['row']->id));
+// Sections in the order of their newest request (rows are already newest first).
+$groups = $items->groupBy('module');
 $statusCounts = $rows->groupBy(fn ($r) => $r->status ?: '—')->map->count();
 
 $generatedAt = now()->format('D, M j, Y g:i A');

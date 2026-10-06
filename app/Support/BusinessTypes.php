@@ -26,6 +26,7 @@ class BusinessTypes
         'it_services' => 'IT / technology services',
         'landscaping' => 'Landscaping / lawn care',
         'salon' => 'Hair salon / beauty',
+        'barber' => 'Barber shop',
         'retail' => 'Retail store',
         'restaurant' => 'Restaurant / food',
         'professional' => 'Professional services (consulting, legal, accounting)',
@@ -138,6 +139,14 @@ class BusinessTypes
         'professional' => ['Consulting engagement invoice (on credit)', 'Printer paper and toner', null],
     ];
 
+    /** Types that share another type's accounts / categories / bills / journal wording. */
+    private const SAME_AS = ['barber' => 'salon'];
+
+    private static function base(string $type): string
+    {
+        return self::SAME_AS[$type] ?? $type;
+    }
+
     public static function valid(?string $type): string
     {
         return isset(self::LABELS[$type ?? '']) ? $type : self::DEFAULT;
@@ -162,13 +171,13 @@ class BusinessTypes
 
     public static function bills(string $type): array
     {
-        return self::BILLS[$type] ?? self::BILLS[self::DEFAULT];
+        return self::BILLS[self::base($type)] ?? self::BILLS[self::DEFAULT];
     }
 
     /** @return array{0: string, 1: string, 2: ?string} */
     public static function journal(string $type): array
     {
-        return self::JOURNAL[$type] ?? self::JOURNAL[self::DEFAULT];
+        return self::JOURNAL[self::base($type)] ?? self::JOURNAL[self::DEFAULT];
     }
 
     /**
@@ -183,6 +192,7 @@ class BusinessTypes
         if (! $companyId || ! Schema::hasColumn('acc_chart_of_accounts', 'company_id')) {
             return $created;
         }
+        $type = self::base($type);
         $now = now();
         $ids = DB::table('acc_chart_of_accounts')->where('company_id', $companyId)->pluck('id', 'code')->all();
         foreach (self::ACCOUNTS[$type] ?? [] as [$code, $parent, $name, $nameEs]) {

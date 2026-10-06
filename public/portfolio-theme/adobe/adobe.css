@@ -1,0 +1,135 @@
+/* Portfolio themes 2 (t-grid) and 3 (t-showcase) -- the Adobe Portfolio
+   photography look (portfolio.adobe.com/examples/photography: "Thomas" and
+   "Marta"). Also styles the shared page classes of theme 1 (section-title,
+   about-me, contact, single-project, pf-sec ...) so every page works. */
+
+:root { --ap-bg: #fff; --ap-text: #111; --ap-muted: #aaa; --ap-soft: #333; --ap-line: #e8e8e8; --ap-field: #f4f4f4; --ap-gap: 8px; }
+.look-dark { --ap-bg: #111; --ap-text: #f2f2f2; --ap-muted: #777; --ap-soft: #bbb; --ap-line: #2a2a2a; --ap-field: #1e1e1e; }
+
+body.ap { background: var(--ap-bg); color: var(--ap-text); margin: 0; -webkit-font-smoothing: antialiased; }
+.t-grid { font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif; }
+.t-showcase { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+.ap a { color: var(--ap-text); }
+.ap a:hover { text-decoration: none; opacity: .75; }
+.ap h1, .ap h2, .ap h3, .ap h4, .ap p { color: var(--ap-text); }
+.ap p { color: var(--ap-soft); line-height: 1.7; }
+
+/* ---------- header ---------- */
+.ap-header { display: flex; align-items: center; gap: 28px; padding: 0 26px; background: var(--ap-bg); position: relative; z-index: 20; }
+.ap-brand { color: var(--ap-text) !important; text-decoration: none !important; white-space: nowrap; }
+.ap-brand img { max-height: 54px; max-width: 220px; display: block; }
+.ap-nav { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.ap-link { background: none; border: 0; padding: 0; cursor: pointer; color: var(--ap-muted) !important; text-decoration: none !important; font: inherit; white-space: nowrap; }
+.ap-link:focus { outline: none; }
+.ap-link:focus-visible { outline: 1px dotted var(--ap-muted); outline-offset: 3px; }
+.ap-link.active, .ap-link:hover { color: var(--ap-text) !important; opacity: 1 !important; }
+.ap-social { display: flex; gap: 18px; font-size: 17px; }
+.ap-social a { color: var(--ap-muted); }
+.ap-social a:hover { color: var(--ap-text); opacity: 1; }
+.ap-toggle { display: none; background: none; border: 0; padding: 6px; margin-left: auto; cursor: pointer; }
+.ap-toggle span { display: block; width: 22px; height: 2px; margin: 5px 0; background: var(--ap-text); }
+
+/* groups (dropdowns) */
+.ap-group { position: relative; }
+.ap-group .fa-angle-down { font-size: 11px; margin-left: 3px; }
+.ap-sub { display: none; position: absolute; top: 100%; left: -16px; min-width: 200px; padding: 10px 0; background: var(--ap-bg); border: 1px solid var(--ap-line); box-shadow: 0 8px 24px rgba(0, 0, 0, .08); z-index: 30; }
+.ap-group:hover .ap-sub, .ap-group.open .ap-sub { display: block; }
+.ap-sub a { display: block; padding: 7px 16px; color: var(--ap-soft) !important; text-transform: none; font-weight: 400; letter-spacing: 0; white-space: nowrap; }
+.ap-sub a:hover { color: var(--ap-text) !important; background: var(--ap-field); opacity: 1; }
+
+/* Theme 2 -- "Thomas": thin uppercase name left, bold uppercase links right. */
+.t-grid .ap-header { height: 96px; }
+.t-grid .ap-brand { font-size: 22px; font-weight: 200; text-transform: uppercase; letter-spacing: .02em; }
+.t-grid .ap-nav { margin-left: auto; }
+.t-grid .ap-link { font-size: 14px; font-weight: 600; text-transform: uppercase; }
+.t-grid .ap-social { font-size: 16px; }
+
+/* Theme 3 -- "Marta": lowercase menu left, name centered, social icons right; header stays on top. */
+/* 3 columns: menu | name (always centered) | social icons. */
+.t-showcase .ap-header { height: 70px; position: sticky; top: 0; padding: 0 43px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.t-showcase .ap-nav { grid-column: 1; grid-row: 1; flex-wrap: nowrap; gap: 22px; }
+.t-showcase .ap-brand { grid-column: 2; grid-row: 1; font-size: 27px; font-weight: 400; text-align: center; }
+.t-showcase .ap-brand img { max-height: 46px; margin: 0 auto; }
+.t-showcase .ap-social { grid-column: 3; grid-row: 1; justify-content: flex-end; }
+.t-showcase .ap-link { font-size: 18px; font-weight: 400; color: var(--ap-text) !important; }
+@media (max-width: 1199px) { .t-showcase .ap-link { font-size: 16px; } .t-showcase .ap-nav { gap: 16px; } }
+.t-showcase .ap-link:hover, .t-showcase .ap-link.active { opacity: .6 !important; }
+
+/* ---------- gallery ---------- */
+.ap-gallery { padding: 0 4px; }
+.ap-filters { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 26px; padding: 4px 20px 22px; }
+.ap-filters .control { background: none; border: 0; padding: 0; cursor: pointer; color: var(--ap-muted); font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+.t-showcase .ap-filters .control { font-size: 17px; font-weight: 400; letter-spacing: 0; }
+.ap-filters .control:hover, .ap-filters .control.mixitup-control-active { color: var(--ap-text); }
+.ap-covers { display: grid; gap: var(--ap-gap); }
+.t-grid .ap-covers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.t-showcase .ap-covers { grid-template-columns: 1fr; gap: 22px; }
+.t-showcase .ap-gallery { padding: 0; }
+.ap-cover { position: relative; display: block; overflow: hidden; background: var(--ap-field); }
+.t-grid .ap-cover { aspect-ratio: 4 / 3; }
+.t-showcase .ap-cover { aspect-ratio: 16 / 9; max-height: 92vh; }
+.ap-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s ease; }
+.ap-cover__veil { position: absolute; inset: 0; background: rgba(0, 0, 0, .38); opacity: 0; transition: opacity .3s ease; }
+.ap-cover__title { position: absolute; top: 28px; left: 57px; right: 40px; color: #fff; font-size: 30px; font-weight: 400; line-height: 1.25; }
+.t-showcase .ap-cover__title { top: auto; bottom: 40px; left: 43px; font-size: 34px; }
+.ap-cover:hover { opacity: 1 !important; }
+.ap-cover:hover .ap-cover__veil { opacity: 1; }
+.ap-cover:hover img { transform: scale(1.02); }
+.pf-empty { text-align: center; padding: 80px 20px; color: var(--ap-muted); }
+
+/* ---------- footer ---------- */
+.ap-footer { text-align: center; padding: 60px 20px 50px; }
+.ap-top { display: inline-block; color: var(--ap-muted) !important; font-size: 18px; margin-bottom: 40px; }
+.ap-top span { margin-right: 4px; }
+.ap-footer p { font-size: 13px; color: var(--ap-soft); margin: 0; }
+
+/* ---------- shared pages ---------- */
+.ap-main { min-height: 50vh; }
+.ap .section-title { text-align: center; padding: 50px 0 34px; }
+.ap .section-title h2 { font-size: 34px; font-weight: 300; margin: 0 0 6px; }
+.ap .section-title p { margin: 0; }
+.ap .img-center { display: block; margin: 0 auto 34px; }
+.ap .my-name h2 { text-align: center; font-size: 26px; font-weight: 400; margin: 10px 0 26px; }
+.ap .progress-bars { margin: 30px 0 10px; }
+.ap .p-bar { display: flex; justify-content: space-between; border-bottom: 2px solid var(--ap-text); margin-bottom: 22px; }
+.ap .p-bar p { margin: 0 0 4px; color: var(--ap-text); }
+.ap .contact .form-control { background: var(--ap-field); border: 1px solid var(--ap-field); border-radius: 0; color: var(--ap-text); padding: 12px 14px; height: auto; }
+.ap .contact .form-control:focus { border-color: var(--ap-text); box-shadow: none; }
+.ap .btn-primary, .ap .btn-invert { background: var(--ap-text); border: 1px solid var(--ap-text); color: var(--ap-bg) !important; border-radius: 0; padding: 10px 28px; font-size: 14px; font-weight: 600; letter-spacing: .04em; }
+.ap .btn-primary:hover, .ap .btn-invert:hover { background: transparent; color: var(--ap-text) !important; opacity: 1; }
+.ap .mgR-20px { margin-right: 20px; }
+.ap .contact-info { margin: 40px 0 10px; }
+.ap .contact-info .card { background: var(--ap-field); border: 0; border-radius: 0; padding: 26px; text-align: center; height: 100%; }
+.ap .contact-info .card i { font-size: 22px; margin-bottom: 12px; color: var(--ap-text); }
+.ap .contact-info .card a { display: block; color: var(--ap-soft); }
+.ap .single-project { padding: 10px 0 20px; }
+.ap .project-holder img { width: 100%; display: block; }
+.ap .project-holder .project-video { width: 100%; aspect-ratio: 16 / 9; height: auto; border: 0; }
+.ap .project-details { padding: 40px 0 10px; }
+.ap .details-left h2 { font-size: 28px; font-weight: 400; margin-bottom: 16px; }
+.ap .details-right ul { display: flex; list-style: none; padding: 0; margin: 0 0 10px; color: var(--ap-soft); }
+.ap .details-right ul li:first-child { width: 90px; color: var(--ap-text); font-weight: 600; }
+.ap .details-right .devider { width: 18px; }
+.ap .project-btns { margin-top: 24px; }
+.ap .swiper-button-next, .ap .swiper-button-prev { background: none; color: #fff; font-size: 26px; }
+.ap .pf-sec { padding: 60px 0; }
+.ap .pf-sec h2 { font-weight: 300; }
+.ap .pf-sec .pf-sub { color: var(--ap-muted); }
+
+.pf-preview { position: fixed; bottom: 0; left: 0; right: 0; z-index: 99; background: #faad14; color: #000; text-align: center; font: 600 13px/28px sans-serif; }
+
+/* ---------- phones ---------- */
+@media (max-width: 767px) {
+  .ap-header, .t-showcase .ap-header { display: flex; height: 64px; padding: 0 16px; gap: 12px; flex-wrap: wrap; }
+  .t-grid .ap-brand { font-size: 18px; }
+  .t-showcase .ap-brand { text-align: left; font-size: 21px; }
+  .ap-open .ap-nav { flex-wrap: wrap; }
+  .ap-toggle { display: block; }
+  .ap-nav, .ap-social { display: none; }
+  .ap-open .ap-nav { display: flex; order: 5; flex-basis: 100%; flex-direction: column; align-items: flex-start; gap: 14px; padding: 6px 0 18px; background: var(--ap-bg); }
+  .ap-open .ap-header { height: auto; padding-top: 16px; }
+  .ap-sub { position: static; border: 0; box-shadow: none; padding: 6px 0 0 12px; }
+  .t-grid .ap-covers { grid-template-columns: 1fr; }
+  .ap-cover__title, .t-showcase .ap-cover__title { left: 22px; top: auto; bottom: 18px; font-size: 22px; }
+  .ap-cover__veil { opacity: 1; background: linear-gradient(transparent 55%, rgba(0, 0, 0, .5)); }
+}

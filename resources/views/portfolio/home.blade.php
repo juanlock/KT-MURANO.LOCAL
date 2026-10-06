@@ -1,5 +1,5 @@
 {{-- Portfolio module: Home -- the company's sections, top to bottom (Portfolio -> Home sections). --}}
-@extends('portfolio.layout')
+@extends($site->layout_view)
 
 @section('title', 'Home')
 
@@ -34,7 +34,7 @@
         @if ($sec->title)
           <div class="section-title" style="padding-top: 30px"><h2>{{ $sec->title }}</h2>@if ($sec->subtitle)<p>{{ $sec->subtitle }}</p>@endif</div>
         @endif
-        @include('portfolio.partials.gallery', ['uid' => 'home-'.$sec->id, 'projects' => $sec->projects, 'categories' => $sec->categories, 'showAll' => $sec->settings['show_all']])
+        @include($site->gallery_view, ['uid' => 'home-'.$sec->id, 'projects' => $sec->projects, 'categories' => $sec->categories, 'showAll' => $sec->settings['show_all']])
       </div>
 
     @elseif ($sec->type === 'text')

@@ -28,6 +28,7 @@ class DemoModules
         Modules\StoreModule::class,
         Modules\BookingsModule::class,
         Modules\ServiceModule::class,
+        Modules\PortfolioModule::class,
         // Operations & verticals
         Modules\ManufacturingModule::class,
         Modules\AssetsModule::class,

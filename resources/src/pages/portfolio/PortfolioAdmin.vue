@@ -136,128 +136,6 @@
           </a-card>
         </a-tab-pane>
 
-        <!-- ============ Website (texts, logo, about, contact, look) ============ -->
-        <a-tab-pane v-if="site" key="site" tab="Website">
-          <a-form layout="vertical" style="max-width: 980px">
-            <a-card size="small" title="Website" style="margin-bottom: 12px">
-              <a-row :gutter="16">
-                <a-col :xs="24" :md="12">
-                  <a-form-item label="Name" required><a-input v-model:value="siteForm.name" :maxlength="150" /></a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="12">
-                  <a-form-item label="Web address" :extra="`${origin}/portfolio/${siteForm.slug || '…'}`" required>
-                    <a-input v-model:value="siteForm.slug" addon-before="/portfolio/" :maxlength="80" @change="siteForm.slug = slugify(siteForm.slug, true)" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="12">
-                  <a-form-item label="Tagline (search engines / browser)"><a-input v-model:value="siteForm.tagline" :maxlength="255" /></a-form-item>
-                </a-col>
-                <a-col :xs="12" :md="6">
-                  <a-form-item label="Look">
-                    <a-radio-group v-model:value="siteForm.theme" button-style="solid">
-                      <a-radio-button value="dark">Dark</a-radio-button>
-                      <a-radio-button value="light">Light</a-radio-button>
-                    </a-radio-group>
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="12" :md="6">
-                  <a-form-item label="Published" extra="Off: only your team can preview it.">
-                    <a-switch v-model:checked="siteForm.published" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="12">
-                  <a-form-item label="Logo (top of every page)">
-                    <ImageSlot :url="site.logo_url" :busy="imgBusy === 'logo'" @upload="f => uploadSiteImage('logo', f)" @remove="removeSiteImage('logo')" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="12">
-                  <a-form-item label="Footer text"><a-input v-model:value="siteForm.footer_text" :maxlength="255" placeholder="© Copyrights 2026. All Rights Reserved." /></a-form-item>
-                </a-col>
-              </a-row>
-            </a-card>
-
-            <a-card size="small" title="Background and pages" style="margin-bottom: 12px">
-              <a-row :gutter="16">
-                <a-col :xs="24" :md="8">
-                  <a-form-item label="Background color" extra="Empty = the Look's own (dark / light).">
-                    <div class="pa-color">
-                      <input v-model="siteForm.bg_color" type="color" />
-                      <span>{{ siteForm.bg_color || 'default' }}</span>
-                      <a v-if="siteForm.bg_color" @click="siteForm.bg_color = null">reset</a>
-                    </div>
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item label="Background picture" extra="Covers the whole page, behind everything.">
-                    <ImageSlot :url="site.bg_image_url" :busy="imgBusy === 'background'" @upload="f => uploadSiteImage('background', f)" @remove="removeSiteImage('background')" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item label="Pages in the menu">
-                    <div><a-switch v-model:checked="siteForm.pages.about" size="small" /> About</div>
-                    <div style="margin-top: 6px"><a-switch v-model:checked="siteForm.pages.contact" size="small" /> Contact</div>
-                    <div class="pa-muted" style="margin-top: 6px">Home and Portfolio are always there.</div>
-                  </a-form-item>
-                </a-col>
-              </a-row>
-            </a-card>
-
-            <a-card size="small" title="About page" style="margin-bottom: 12px">
-              <a-row :gutter="16">
-                <a-col :xs="24" :md="8"><a-form-item label="Title"><a-input v-model:value="siteForm.about_title" :maxlength="150" placeholder="About us" /></a-form-item></a-col>
-                <a-col :xs="24" :md="8"><a-form-item label="Subtitle"><a-input v-model:value="siteForm.about_subtitle" :maxlength="255" placeholder="Our story" /></a-form-item></a-col>
-                <a-col :xs="24" :md="8"><a-form-item label="Heading"><a-input v-model:value="siteForm.about_name" :maxlength="150" placeholder="e.g. We are New Era" /></a-form-item></a-col>
-                <a-col :xs="24" :md="16">
-                  <a-form-item label="Text" extra="Leave an empty line between paragraphs.">
-                    <a-textarea v-model:value="siteForm.about_text" :rows="7" :maxlength="10000" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8">
-                  <a-form-item label="Picture">
-                    <ImageSlot :url="site.about_image_url" :busy="imgBusy === 'about'" @upload="f => uploadSiteImage('about', f)" @remove="removeSiteImage('about')" />
-                  </a-form-item>
-                </a-col>
-                <a-col :span="24">
-                  <a-form-item label="Skills bars (optional)">
-                    <div v-for="(s, i) in siteForm.skills" :key="i" class="pa-cat">
-                      <a-input v-model:value="s.label" size="small" placeholder="e.g. Hair coloring" style="flex: 1" :maxlength="60" />
-                      <a-input-number v-model:value="s.pct" size="small" :min="0" :max="100" addon-after="%" style="width: 120px" />
-                      <a-button size="small" danger @click="siteForm.skills.splice(i, 1)"><template #icon><DeleteOutlined /></template></a-button>
-                    </div>
-                    <a-button size="small" :disabled="siteForm.skills.length >= 12" @click="siteForm.skills.push({ label: '', pct: 90 })"><template #icon><PlusOutlined /></template> Add skill</a-button>
-                  </a-form-item>
-                </a-col>
-              </a-row>
-            </a-card>
-
-            <a-card size="small" title="Contact page" style="margin-bottom: 12px">
-              <a-row :gutter="16">
-                <a-col :xs="24" :md="12"><a-form-item label="Subtitle"><a-input v-model:value="siteForm.contact_subtitle" :maxlength="255" placeholder="Get in touch with us" /></a-form-item></a-col>
-                <a-col :xs="24" :md="12">
-                  <a-form-item label="Google Maps embed link" extra="Google Maps → Share → Embed a map → copy the https://www.google.com/maps/embed?… address.">
-                    <a-input v-model:value="siteForm.map_url" :maxlength="2000" />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :md="8"><a-form-item label="Address"><a-textarea v-model:value="siteForm.contact_address" :rows="3" :maxlength="500" /></a-form-item></a-col>
-                <a-col :xs="24" :md="8"><a-form-item label="Phones (one per line)"><a-textarea v-model:value="siteForm.contact_phones" :rows="3" :maxlength="500" /></a-form-item></a-col>
-                <a-col :xs="24" :md="8"><a-form-item label="Emails (one per line)"><a-textarea v-model:value="siteForm.contact_emails" :rows="3" :maxlength="500" /></a-form-item></a-col>
-              </a-row>
-            </a-card>
-
-            <a-card size="small" title="Social links (footer)" style="margin-bottom: 12px">
-              <a-row :gutter="16">
-                <a-col v-for="s in SOCIAL" :key="s" :xs="24" :md="8">
-                  <a-form-item :label="s[0].toUpperCase() + s.slice(1)">
-                    <a-input v-model:value="siteForm.social[s]" :maxlength="255" :placeholder="s === 'whatsapp' ? 'e.g. +1 973 555 0100' : 'https://…'" />
-                  </a-form-item>
-                </a-col>
-              </a-row>
-            </a-card>
-
-            <a-button type="primary" :loading="savingSite" @click="saveSite">Save website</a-button>
-          </a-form>
-        </a-tab-pane>
-
         <!-- ============ Messages (Contact form) ============ -->
         <a-tab-pane key="messages">
           <template #tab>Messages <a-badge v-if="unread" :count="unread" :offset="[6, -2]" /></template>
@@ -351,7 +229,7 @@
  * social links, dark / light) and the Contact form messages.
  * API: /api/portfolio/* (PortfolioController). Permission portfolio_manage.
  */
-import { ref, reactive, computed, onMounted, h, defineComponent } from 'vue';
+import { ref, computed, onMounted, h, defineComponent } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import {
@@ -363,12 +241,15 @@ import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 
 // A picture with Upload / Change and Remove buttons.
+// a-image merges `style` into the <img> with Object.assign, so it must be an
+// object: a string crashed the whole Website tab (blank page) once a logo existed.
+const SLOT_IMG_STYLE = { objectFit: 'contain', borderRadius: '6px', background: '#111' };
 const ImageSlot = defineComponent({
   props: { url: String, busy: Boolean, removable: { type: Boolean, default: true } },
   emits: ['upload', 'remove'],
   setup(props, { emit }) {
     return () => h('div', { class: 'pa-slot' }, [
-      props.url ? h(AImage, { src: props.url, width: 120, height: 90, style: 'object-fit: contain; border-radius: 6px; background: #111' }) : h('div', { class: 'pa-slot__empty' }, 'No picture'),
+      props.url ? h(AImage, { src: props.url, width: 120, height: 90, style: SLOT_IMG_STYLE }) : h('div', { class: 'pa-slot__empty' }, 'No picture'),
       h(ASpace, { direction: 'vertical', size: 4 }, () => [
         h(AUpload, { showUploadList: false, accept: 'image/*', beforeUpload: f => { emit('upload', f); return false; } },
           () => h(AButton, { size: 'small', loading: props.busy }, () => [h(UploadOutlined), props.url ? ' Change' : ' Upload'])),
@@ -382,11 +263,8 @@ const TYPE_LABEL = { image: 'Image', slider: 'Slider', video: 'Video' };
 const TYPE_OPTIONS = [
   { value: 'image', label: 'One image' }, { value: 'slider', label: 'Slider (several photos)' }, { value: 'video', label: 'Video' },
 ];
-const SOCIAL = ['instagram', 'facebook', 'tiktok', 'youtube', 'twitter', 'whatsapp', 'website'];
-const origin = window.location.origin;
-
-// One menu entry per tab (Portfolio -> Home sections / Works / Categories / Website / Messages).
-const TAB_PATHS = { sections: '/portfolio/sections', projects: '/portfolio/works', categories: '/portfolio/categories', site: '/portfolio/website', messages: '/portfolio/messages' };
+// One menu entry per tab (Portfolio -> Home sections / Works / Categories / Messages; Settings is its own page).
+const TAB_PATHS = { sections: '/portfolio/sections', projects: '/portfolio/works', categories: '/portfolio/categories', messages: '/portfolio/messages' };
 const route = useRoute();
 const router = useRouter();
 const tab = computed(() => route.meta.tab || 'sections');
@@ -410,7 +288,6 @@ async function load() {
     projects.value = r.projects || [];
     sections.value = r.sections || [];
     unread.value = r.unread || 0;
-    fillSiteForm();
   } catch (e) {
     message.error(e?.data?.message || 'Could not load the portfolio.');
   } finally {
@@ -615,56 +492,6 @@ async function removeCategory(c) {
     projects.value.forEach(p => { p.categories = p.categories.filter(id => id !== c.id); });
     if (catFilter.value === c.id) catFilter.value = 'all';
   } catch (e) { message.error('Could not delete it.'); }
-}
-
-/* -------- website */
-const siteForm = reactive({ social: {}, skills: [], pages: { about: true, contact: true }, bg_color: null });
-const savingSite = ref(false);
-function fillSiteForm() {
-  const s = site.value || {};
-  Object.assign(siteForm, {
-    name: s.name, slug: s.slug, tagline: s.tagline, theme: s.theme || 'dark', published: !!s.published, footer_text: s.footer_text,
-    about_title: s.about_title, about_subtitle: s.about_subtitle, about_name: s.about_name, about_text: s.about_text,
-    skills: (s.skills || []).map(x => ({ ...x })), contact_subtitle: s.contact_subtitle, contact_address: s.contact_address,
-    contact_phones: s.contact_phones, contact_emails: s.contact_emails, map_url: s.map_url,
-    social: Object.fromEntries(SOCIAL.map(k => [k, (s.social || {})[k] || ''])),
-    bg_color: s.bg_color || null, pages: { about: s.pages?.about !== false, contact: s.pages?.contact !== false },
-  });
-}
-function slugify(v, keepDash = false) {
-  const s = String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-');
-  return keepDash ? s.replace(/^-+/, '') : s.replace(/^-+|-+$/g, '');
-}
-async function saveSite() {
-  savingSite.value = true;
-  try {
-    const body = { ...siteForm, slug: slugify(siteForm.slug), skills: siteForm.skills.filter(s => String(s.label || '').trim()) };
-    const r = await http.put('portfolio/site', body);
-    site.value = r.site;
-    fillSiteForm();
-    message.success('Website saved.');
-  } catch (e) {
-    message.error(firstError(e) || 'Could not save the website.');
-  } finally {
-    savingSite.value = false;
-  }
-}
-const imgBusy = ref(null);
-const IMAGE_FIELD = { logo: 'logo_url', about: 'about_image_url', background: 'bg_image_url' };
-async function uploadSiteImage(kind, file) {
-  const fd = new FormData();
-  fd.append('image', file);
-  imgBusy.value = kind;
-  try {
-    const r = await http.postForm(`portfolio/site/image?kind=${kind}`, fd);
-    site.value = { ...site.value, [IMAGE_FIELD[kind]]: r.url };
-  } catch (e) { message.error(firstError(e) || 'Could not upload it.'); } finally { imgBusy.value = null; }
-}
-async function removeSiteImage(kind) {
-  try {
-    await http.delete('portfolio/site/image', { kind });
-    site.value = { ...site.value, [IMAGE_FIELD[kind]]: null };
-  } catch (e) { message.error('Could not remove it.'); }
 }
 
 /* -------- messages */

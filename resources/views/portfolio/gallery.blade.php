@@ -1,10 +1,10 @@
 {{-- Portfolio module: the Portfolio page -- every published work, "All" + filters. --}}
-@extends('portfolio.layout')
+@extends($site->layout_view)
 
 @section('title', 'Portfolio')
 
 @section('content')
-  @include('portfolio.partials.gallery', ['uid' => 'work', 'showAll' => true])
+  @include($site->gallery_view, ['uid' => 'work', 'showAll' => true])
 @endsection
 
 @push('scripts')

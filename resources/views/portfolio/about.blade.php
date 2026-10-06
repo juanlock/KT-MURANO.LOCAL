@@ -1,5 +1,5 @@
 {{-- Portfolio module: About page. --}}
-@extends('portfolio.layout')
+@extends($site->layout_view)
 
 @section('title', $site->about_title ?: 'About')
 

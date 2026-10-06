@@ -1,0 +1,646 @@
+{
+    "barber/barber-haircut.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Brian Silva",
+        "title": "Close-up of a barber cutting hair with scissors and comb, showcasing precision and skill.",
+        "page": "https://www.pexels.com/photo/barber-performing-haircut-with-scissors-and-comb-39559306/",
+        "work": "Classic barber cut"
+    },
+    "barber/barbershop.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Max Chen",
+        "title": "A vintage barbershop interior with classic barber chairs and mirrors in black and white.",
+        "page": "https://www.pexels.com/photo/chairs-at-barbers-18090355/",
+        "work": "Classic barber cut"
+    },
+    "barber/beard.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Antoni Shkraba",
+        "title": "A stylish bearded man having a haircut in a modern barber shop.",
+        "page": "https://www.pexels.com/photo/man-at-barber-shop-4625624/",
+        "work": "Beard sculpting"
+    },
+    "barber/hair-design.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Brian Silva",
+        "title": "A barber uses clippers to perfect a professional fade haircut in a modern salon.",
+        "page": "https://www.pexels.com/photo/barber-perfecting-a-fade-haircut-close-up-39559270/",
+        "work": "Hair design & line up"
+    },
+    "barber/haircut-beard.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Лена Gromakova",
+        "title": "Barber expertly trims a man's beard using a razor in a close-up indoor setting.",
+        "page": "https://www.pexels.com/photo/a-man-getting-a-moustache-grooming-9153970/",
+        "work": "Beard sculpting"
+    },
+    "barber/head-shave.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "izzet çakallı",
+        "title": "Detailed close-up of a barber using a sharp blade to shave a client's head in a salon.",
+        "page": "https://www.pexels.com/photo/close-up-shot-of-a-person-having-a-haircut-12464842/",
+        "work": "Head shave"
+    },
+    "barber/hot-towel-shave.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "alexandre saraiva carniato",
+        "title": "An adult man receiving a precise beard trim in a barbershop with a warm towel treatment.",
+        "page": "https://www.pexels.com/photo/a-person-shaving-a-man-s-beard-6007400/",
+        "work": "Hot towel shave"
+    },
+    "barber/kids-cut.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "RDNE Stock project",
+        "title": "A young boy happily getting a haircut inside a modern barbershop, observed by an adult.",
+        "page": "https://www.pexels.com/photo/boy-inside-the-barbershop-7697363/",
+        "work": "First haircut"
+    },
+    "barber/line-up.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Kerim Isazade",
+        "title": "Detailed view of a haircut in progress with electric clippers and stylist's hand.",
+        "page": "https://www.pexels.com/photo/close-up-of-haircut-with-electric-clippers-33448216/",
+        "work": "Hair design & line up"
+    },
+    "barber/razor-shave.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Gustavo Fring",
+        "title": "Barber skillfully using a razor to shave a client's beard with precision and care.",
+        "page": "https://www.pexels.com/photo/close-up-of-shaving-beard-7447140/",
+        "work": "Hot towel shave"
+    },
+    "barber/senior-cut.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Julius M",
+        "title": "A senior man enjoys a haircut in a classic barbershop setting with a skilled barber.",
+        "page": "https://www.pexels.com/photo/senior-man-receiving-a-haircut-in-classic-barber-shop-36109044/",
+        "work": "Senior gentleman's cut"
+    },
+    "it/code-laptop.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Negative Space",
+        "title": "Code Coding",
+        "page": "https://stocksnap.io/photo/code-coding-FSPLFPQBCZ",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/FSPLFPQBCZ.jpg",
+        "work": "Business website relaunch"
+    },
+    "it/coding.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Marc Chouinard",
+        "title": "Coding Business",
+        "page": "https://stocksnap.io/photo/coding-business-DZ1EFM9PIK",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/DZ1EFM9PIK.jpg",
+        "work": "Custom web application"
+    },
+    "it/hard-drive.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "The Platters",
+        "page": "https://www.rawpixel.com/image/5975792/the-platters",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZmwxMTg2MDM2NzQxMy1pbWFnZS1rd3l0OG50Yy5qcGc.jpg",
+        "work": "Hard drive data recovery"
+    },
+    "it/meeting.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Startup Stock Photos",
+        "title": "Team Meeting",
+        "page": "https://stocksnap.io/photo/team-meeting-VQXYE2ZEHC",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/VQXYE2ZEHC.jpg",
+        "work": "IT strategy consulting"
+    },
+    "it/motherboard-repair.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": null,
+        "page": "https://www.rawpixel.com/image/5947362/free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHg2NzgzNDYtaW1hZ2Uta3d5b3Z2ZzIuanBn.jpg",
+        "work": "Laptop & desktop repair"
+    },
+    "it/network-cables.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free networking cables image",
+        "page": "https://www.rawpixel.com/image/5927875/photo-image-background-public-domain-technology",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvYnMyNjU4LWltYWdlLWt3dnlrODJ4LmpwZw.jpg",
+        "work": "Office network cabling (48 ports)"
+    },
+    "it/network-switch.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Network Switch",
+        "page": "https://www.rawpixel.com/image/5969845/network-switch",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvaXMxNjI2OC1pbWFnZS1rd3lzZGpqbi5qcGc.jpg",
+        "work": "Managed switch upgrade"
+    },
+    "it/patch-cables.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free networking cables image",
+        "page": "https://www.rawpixel.com/image/5919227/image-background-public-domain-technology",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvYnMyNjY4LWltYWdlLWt3dng0NWRxLmpwZw.jpg",
+        "work": "Office network cabling (48 ports)"
+    },
+    "it/pc-repair.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": null,
+        "page": "https://www.rawpixel.com/image/6045410/free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZnJ3b3Jrc2hvcF9yZXBhaXJfY29tcHV0ZXJzX2NvbXB1dGVyLWltYWdlLWt5Y2Vxb3F5LmpwZw.jpg",
+        "work": "Laptop & desktop repair"
+    },
+    "it/planning.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Helloquence",
+        "title": "Writing Papers",
+        "page": "https://stocksnap.io/photo/writing-papers-Y01VDYAX63",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/Y01VDYAX63.jpg",
+        "work": "IT strategy consulting"
+    },
+    "it/programming.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Negative Space",
+        "title": "Coding Programming",
+        "page": "https://stocksnap.io/photo/coding-programming-F164KBFZ95",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/F164KBFZ95.jpg",
+        "work": "Custom web application"
+    },
+    "it/rack-cables.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free networking cables image",
+        "page": "https://www.rawpixel.com/image/5918994/image-background-public-domain-technology",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvYnMyNjcxLWltYWdlLWt3dngza2dhLmpwZw.jpg",
+        "work": "Office network cabling (48 ports)"
+    },
+    "it/remote-work.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Bench Accounting",
+        "title": "Working Typing",
+        "page": "https://stocksnap.io/photo/working-typing-0E0M5W9O3V",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/0E0M5W9O3V.jpg",
+        "work": "IT strategy consulting"
+    },
+    "it/security.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free cyber security concept background",
+        "page": "https://www.rawpixel.com/image/5910046/photo-image-background-public-domain-technology",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHgxNTk1MjY4LWltYWdlLWt3dnZyMG5vLmpwZw.jpg",
+        "work": "Cyber-security audit"
+    },
+    "it/server-aisle.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free computer server room image",
+        "page": "https://www.rawpixel.com/image/5906639/photo-image-light-desktop-wallpapers-public-domain",
+        "url": "https://images.rawpixel.com/editor_1024/cHJpdmF0ZS9zdGF0aWMvaW1hZ2Uvd2Vic2l0ZS8yMDIyLTA0L2xyL3B4NzE4NTktaW1hZ2Uta3d2djc0czIuanBn.jpg",
+        "work": "Server room build-out"
+    },
+    "it/server-room.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free computer server room image",
+        "page": "https://www.rawpixel.com/image/5912401/image-public-domain-black-technology",
+        "url": "https://images.rawpixel.com/editor_1024/cHJpdmF0ZS9zdGF0aWMvaW1hZ2Uvd2Vic2l0ZS8yMDIyLTA0L2xyL3B4MTI0MTMyNS1pbWFnZS1rd3Z3NGFoMC5qcGc.jpg",
+        "work": "Server room build-out"
+    },
+    "it/server-team.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Christina Morillo",
+        "title": "Servers Woman",
+        "page": "https://stocksnap.io/photo/servers-woman-ZYGIOUX4QU",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/ZYGIOUX4QU.jpg",
+        "work": "Server room build-out"
+    },
+    "it/switch-ports.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": null,
+        "page": "https://www.rawpixel.com/image/6048740/free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZnJzd2l0Y2hfbmV0d29ya19pdF9kaXN0cmlidXRvcl8wLWltYWdlLWt5Y2Y4d215LmpwZw.jpg",
+        "work": "Managed switch upgrade"
+    },
+    "it/switch-row.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Row orange switches yellow ports",
+        "page": "https://www.rawpixel.com/image/5975120/row-orange-switches-yellow-ports",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvYnMyNjU0LWltYWdlLWt3eXQ2YXJ5LmpwZw.jpg",
+        "work": "Managed switch upgrade"
+    },
+    "it/vpn.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "VPN",
+        "page": "https://www.rawpixel.com/image/8811983/vpn",
+        "url": "https://images.rawpixel.com/editor_1024/cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIzLTAzL3NrNTk0Mi1pbWFnZS5qcGc.jpg",
+        "work": "Cyber-security audit"
+    },
+    "it/web-code.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Marc Chouinard",
+        "title": "Coding Macbook",
+        "page": "https://stocksnap.io/photo/coding-macbook-LV2IUQNTZ5",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/LV2IUQNTZ5.jpg",
+        "work": "Business website relaunch"
+    },
+    "it/wiring-repair.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": null,
+        "page": "https://www.rawpixel.com/image/5944410/free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHg4MTc1NzUtaW1hZ2Uta3d5b2d0dnUuanBn.jpg",
+        "work": "Laptop & desktop repair"
+    },
+    "landscaping/flower-garden.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Skitter Photo",
+        "title": "Flowers Garden",
+        "page": "https://stocksnap.io/photo/flowers-garden-661C08B2B3",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/661C08B2B3.jpg",
+        "work": "Cottage flower garden"
+    },
+    "landscaping/garden-beds.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": null,
+        "page": "https://www.rawpixel.com/image/5940974/free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHg5Mzk1OTUtaW1hZ2Uta3d5bnlvOTguanBn.jpg",
+        "work": "Cottage flower garden"
+    },
+    "landscaping/garden-path.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Picturesque Small Garden Backstreet Netherlands",
+        "page": "https://www.rawpixel.com/image/5966008/photo-image-flowers-public-domain-plant",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHUyMzI4MjcxLWltYWdlLWt3eXJzZmJ2LmpwZw.jpg",
+        "work": "Backyard patio garden"
+    },
+    "landscaping/garden-tools.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free garden tools wood",
+        "page": "https://www.rawpixel.com/image/5915645/image-public-domain-wood-free",
+        "url": "https://images.rawpixel.com/editor_1024/cHJpdmF0ZS9zdGF0aWMvaW1hZ2Uvd2Vic2l0ZS8yMDIyLTA0L2xyL3B1MjMzMjgyMC1pbWFnZS1rd3Z3bGlodC5qcGc.jpg",
+        "work": "Seasonal clean-up"
+    },
+    "landscaping/hedge-garden.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": null,
+        "page": "https://www.rawpixel.com/image/6060468/free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZnJncmVlbl9oZWRnZV90b3BpYXJ5X2dhcmRlbi1pbWFnZS1reWNndDljdC5qcGc.jpg",
+        "work": "Formal hedge sculpting"
+    },
+    "landscaping/hedges.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": null,
+        "page": "https://www.rawpixel.com/image/6071422/free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZnJhcmNod2F5X2hlZGdlc19ncmVlbl9sZWF2ZXMtaW1hZ2Uta3ljaWEwMWIuanBn.jpg",
+        "work": "Formal hedge sculpting"
+    },
+    "landscaping/lawn-mower.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Lawn mower",
+        "page": "https://www.rawpixel.com/image/6035725/lawn-mower-free-public-domain-cc0-image",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZnJsYXduX21vd2VyX2dhcmRlbmluZ19tb3dfMy1pbWFnZS1reWJkY3I5ai5qcGc.jpg",
+        "work": "Weekly lawn maintenance"
+    },
+    "landscaping/lawn-mowing.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free man lawn mower image",
+        "page": "https://www.rawpixel.com/image/5927704/photo-image-public-domain-people-free",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZnJlZXJhbmdlcGV4ZWxzMDE1NTQtaW1hZ2Uta3d2eWpoaHcuanBn.jpg",
+        "work": "Weekly lawn maintenance"
+    },
+    "landscaping/maze.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free maze hut image",
+        "page": "https://www.rawpixel.com/image/5924723/photo-image-public-domain-plant-green",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHgxMzMwODc4LWltYWdlLWt3dnkyd2ZxLmpwZw.jpg",
+        "work": "Formal hedge sculpting"
+    },
+    "landscaping/mower-lawn.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Lawn mower",
+        "page": "https://www.rawpixel.com/image/6035731/lawn-mower-free-public-domain-cc0-image",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZnJsYXduX21vd2VyX2dhcmRlbmluZ19tb3dfMS1pbWFnZS1reWJkY3BoYi5qcGc.jpg",
+        "work": "Watering plan & irrigation check"
+    },
+    "landscaping/park-lawn.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Green grass park",
+        "page": "https://www.rawpixel.com/image/6024381/green-grass-park-free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/cHJpdmF0ZS9zdGF0aWMvaW1hZ2Uvd2Vic2l0ZS8yMDIyLTA0L2xyL2ZyZ2FyZGVuX2hlZGdlX2dyZWVuXzE0MzU1MTgtaW1hZ2Uta3liYmpucDQuanBn.jpg",
+        "work": "Striped lawn renovation"
+    },
+    "landscaping/patio-garden.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Free chairs table patio image",
+        "page": "https://www.rawpixel.com/image/5920752/photo-image-public-domain-house-table",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHg4NzQwMTUtaW1hZ2Uta3d2eGNxczYuanBn.jpg",
+        "work": "Backyard patio garden"
+    },
+    "landscaping/patio.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Matt Bango",
+        "title": "Patio Furniture",
+        "page": "https://stocksnap.io/photo/patio-furniture-ZIU3AC46X4",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/ZIU3AC46X4.jpg",
+        "work": "Retaining wall & patio"
+    },
+    "landscaping/pavers.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": null,
+        "page": "https://www.rawpixel.com/image/5962717/free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHgxMDkxNTM1LWltYWdlLWt3eXJjMm9sLmpwZw.jpg",
+        "work": "Natural stone garden path"
+    },
+    "landscaping/pergola-patio.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Marianne",
+        "title": "Chair Sofa",
+        "page": "https://stocksnap.io/photo/chair-sofa-MKS04VX682",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/MKS04VX682.jpg",
+        "work": "Retaining wall & patio"
+    },
+    "landscaping/secret-garden.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "The Secret Garden",
+        "page": "https://www.rawpixel.com/image/5975616/the-secret-garden",
+        "url": "https://images.rawpixel.com/editor_1024/cHJpdmF0ZS9zdGF0aWMvaW1hZ2Uvd2Vic2l0ZS8yMDIyLTA0L2xyL2ZsNzc3NDc3OTAzNi1pbWFnZS1rd3l0OHlnNi5qcGc.jpg",
+        "work": "Backyard patio garden"
+    },
+    "landscaping/stepping-stones.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Stone trail Diamond Hill Letterfrack",
+        "page": "https://www.rawpixel.com/image/3338164/free-photo-image-flower-field-landscape-beautiful-flowers",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvd2s4MTExMDczMC1pbWFnZS1rcDZidG1waC5qcGc.jpg",
+        "work": "Natural stone garden path"
+    },
+    "landscaping/stone-path.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": "Carol M Highsmith",
+        "title": "Scene Lady Bird Johnson Wildflower",
+        "page": "https://www.rawpixel.com/image/582558/carol-highsmiths-texas-photograph",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvdHgwXzMwOTAuanBn.jpg",
+        "work": "Natural stone garden path"
+    },
+    "landscaping/stone-wall.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": null,
+        "page": "https://www.rawpixel.com/image/5960742/free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHgxMTg3MTQ4LWltYWdlLWt3eXF6dGR0LmpwZw.jpg",
+        "work": "Retaining wall & patio"
+    },
+    "landscaping/striped-lawn.jpg": {
+        "source": "Openverse / rawpixel",
+        "license": "CC0",
+        "creator": null,
+        "title": "Lawn house",
+        "page": "https://www.rawpixel.com/image/6023660/lawn-behind-house-free-public-domain-cc0-photo",
+        "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvZnJncmFzc19sYXduX2dyZWVuX21vd24taW1hZ2Uta3liYmVia3guanBn.jpg",
+        "work": "Striped lawn renovation"
+    },
+    "landscaping/topiary.jpg": {
+        "source": "Openverse / wordpress",
+        "license": "CC0",
+        "creator": "jreyes18",
+        "title": "Sculpted green bushes with colorful buildings in the background.",
+        "page": "https://wordpress.org/photos/photo/7846a652b8/",
+        "url": "https://pd.w.org/2026/07/7846a652b8ad0e0c0.75104042-2048x1537.jpg",
+        "work": "Formal hedge sculpting"
+    },
+    "landscaping/watering.jpg": {
+        "source": "Openverse / stocksnap",
+        "license": "CC0",
+        "creator": "Ryan McGuire",
+        "title": "Gardenhose Gardener",
+        "page": "https://stocksnap.io/photo/gardenhose-gardener-369D8C305A",
+        "url": "https://cdn.stocksnap.io/img-thumbs/960w/369D8C305A.jpg",
+        "work": "Watering plan & irrigation check"
+    },
+    "salon/acrylic-nails.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Gabriel Puyén",
+        "title": "Detailed view of acrylic nail application in a beauty salon, showcasing professional manicure techniques.",
+        "page": "https://www.pexels.com/photo/woman-getting-acrylic-nails-6135680/",
+        "work": "Acrylic full set"
+    },
+    "salon/balayage.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Arina Krasnikova",
+        "title": "A side view portrait of a woman with light pink balayage hair on a minimalistic background.",
+        "page": "https://www.pexels.com/photo/a-beautiful-woman-with-dyed-hair-7752412/",
+        "work": "Balayage & toner"
+    },
+    "salon/blowout.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Deni Priyo",
+        "title": "Close-up of hair stylist using a hairdryer and brush to style long hair.",
+        "page": "https://www.pexels.com/photo/close-up-of-women-hairdressing-10028673/",
+        "work": "Women's cut & blowout"
+    },
+    "salon/box-braids.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Praygod Aristarick",
+        "title": "Portrait of a fashionable African woman with braids and sunglasses, exuding style.",
+        "page": "https://www.pexels.com/photo/a-woman-in-white-long-sleeve-shirt-wearing-brown-sunglasses-4708719/",
+        "work": "Curly cut & silk press"
+    },
+    "salon/bridal-makeup.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Manish Dhruw",
+        "title": "Close-up view of an Indian woman adorned with traditional bridal makeup and gold jewelry accentuating her features.",
+        "page": "https://www.pexels.com/photo/close-up-photography-of-woman-wearing-eye-makeup-and-jewelries-2498430/",
+        "work": "Bridal updo"
+    },
+    "salon/brows.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Gabriel Puyén",
+        "title": "A hand expertly plucking eyebrows during a spa treatment. Relaxing and detailed.",
+        "page": "https://www.pexels.com/photo/photo-of-a-person-s-hand-plucking-the-eyebrows-of-a-woman-6135623/",
+        "work": "Lashes & brows"
+    },
+    "salon/curly-cut.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "RDNE Stock project",
+        "title": "Close-up of a woman receiving hairstyling treatment in a contemporary salon.",
+        "page": "https://www.pexels.com/photo/a-woman-in-white-long-sleeve-shirt-holding-a-comb-7755513/",
+        "work": "Curly cut & silk press"
+    },
+    "salon/express-facial.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Denys Mikhalevych",
+        "title": "Woman receiving a facial treatment at spa, with beautician applying mask in a relaxing setting.",
+        "page": "https://www.pexels.com/photo/unrecognizable-beautician-removing-clay-mask-from-woman-face-12115040/",
+        "work": "Deep cleansing facial"
+    },
+    "salon/facial.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Fernando Serrano",
+        "title": "Woman's face being cleaned with an electric cleansing brush and foam.",
+        "page": "https://www.pexels.com/photo/cleaning-face-at-beautician-17935140/",
+        "work": "Deep cleansing facial"
+    },
+    "salon/highlights.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Doğan Alpaslan  Demir",
+        "title": "A detailed shot of hair coloring process using foils at a salon in İzmir, Türkiye.",
+        "page": "https://www.pexels.com/photo/professional-hair-coloring-session-in-salon-29555682/",
+        "work": "Highlights refresh"
+    },
+    "salon/lashes.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Екатерина Мясоед",
+        "title": "Detailed view of a beautician applying eyelash extensions to a woman's eyes.",
+        "page": "https://www.pexels.com/photo/close-up-of-woman-at-beautician-8554941/",
+        "work": "Lashes & brows"
+    },
+    "salon/long-haircut.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "by Natallia",
+        "title": "Close-up of a stylist cutting hair with scissors and comb during a salon haircut.",
+        "page": "https://www.pexels.com/photo/person-having-a-haircut-13714797/",
+        "work": "Women's cut & blowout"
+    },
+    "salon/makeup.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "BR1 FDS",
+        "title": "A young woman applies makeup to another in a cozy indoor setting, creating a serene atmosphere.",
+        "page": "https://www.pexels.com/photo/woman-applying-makeup-to-another-woman-indoors-28588870/",
+        "work": "Lashes & brows"
+    },
+    "salon/manicure.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Gustavo Fring",
+        "title": "Close-up of a professional manicure session with tools and black gloves in a modern salon.",
+        "page": "https://www.pexels.com/photo/a-manicurist-cleaning-a-woman-s-fingernails-7446914/",
+        "work": "Acrylic full set"
+    },
+    "salon/ombre.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Maria Geller",
+        "title": "Hair coloring process in a salon, showcasing stylist applying color to client's hair.",
+        "page": "https://www.pexels.com/photo/person-holding-black-brush-2799605/",
+        "work": "Balayage & toner"
+    },
+    "salon/pedicure.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Marcus Aurelius",
+        "title": "A woman applies nail polish to her toenails while sitting on a bed indoors.",
+        "page": "https://www.pexels.com/photo/woman-applying-nail-polish-on-nails-9789201/",
+        "work": "Gel pedicure"
+    },
+    "salon/silk-press.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Jermaine Ulinwa",
+        "title": "Confident African American female in stylish wear resting on chair while leaning on hand and looking at camera",
+        "page": "https://www.pexels.com/photo/alluring-black-woman-with-long-hair-in-studio-3732703/",
+        "work": "Curly cut & silk press"
+    },
+    "salon/special-occasion.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Alina Skazka",
+        "title": "A professional hairstylist creates a blonde bridal updo for a wedding.",
+        "page": "https://www.pexels.com/photo/close-up-shot-of-woman-s-hair-15507425/",
+        "work": "Bridal updo"
+    },
+    "salon/updo.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Engin Akyurt",
+        "title": "Photograph of a hairstylist arranging an elegant updo embellished with delicate decorative pins in a professional studio.",
+        "page": "https://www.pexels.com/photo/photo-of-person-s-hairstyle-3065096/",
+        "work": "Bridal updo"
+    },
+    "salon/womens-haircut.jpg": {
+        "source": "Pexels",
+        "license": "Pexels license",
+        "creator": "Kampus Production",
+        "title": "A hairdresser styles a senior woman's hair in an indoor salon setting.",
+        "page": "https://www.pexels.com/photo/an-elderly-having-a-haircut-8834098/",
+        "work": "Women's cut & blowout"
+    }
+}

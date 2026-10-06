@@ -1,5 +1,5 @@
 {{-- Portfolio module: one work -- a single image, a slider (Swiper) or a video, then its details. --}}
-@extends('portfolio.layout')
+@extends($site->layout_view)
 
 @section('title', $project->title)
 

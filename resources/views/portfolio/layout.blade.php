@@ -19,13 +19,20 @@
       <link rel="stylesheet" href="{{ asset('portfolio-theme/css/dark-theme.css') }}">
     @endif
     <style>
-      #hero-text img { max-height: 160px; max-width: 80%; }
+      /* Only what the example doesn't cover -- its own look comes from style.css / dark-theme.css. */
+      #hero-text img { max-width: 100%; }
       #hero-text h1.pf-name { font-family: 'Playfair Display', serif; margin: 0; }
-      .pf-nav { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 28px; list-style: none; padding: 0; margin: 18px 0 0; }
-      .pf-nav a { font-family: 'Raleway', sans-serif; letter-spacing: 2px; font-size: 13px; text-transform: uppercase; opacity: .7; text-decoration: none; }
-      .pf-nav a:hover, .pf-nav a.active { opacity: 1; }
-      .pf-preview { position: fixed; top: 0; left: 0; right: 0; z-index: 99; background: #faad14; color: #000; text-align: center; font: 600 13px/28px sans-serif; }
+      /* Bottom, so the header looks exactly like the published site. */
+      .pf-preview { position: fixed; bottom: 0; left: 0; right: 0; z-index: 99; background: #faad14; color: #000; text-align: center; font: 600 13px/28px sans-serif; }
       .item-img img { width: 100%; height: 100%; object-fit: cover; }
+      /* Menu groups (dropdowns) -- the example has no style for them. */
+      .pf-dropdown { border-radius: 0; border: 1px solid rgba(0, 0, 0, .1); padding: 6px 0; }
+      .pf-dropdown .dropdown-item { font-family: 'Playfair Display', serif; font-weight: 700; padding: 8px 20px; }
+      @if ($site->theme === 'dark')
+        .pf-dropdown { background: #0D0D0D; border-color: #262626; }
+        .pf-dropdown .dropdown-item { color: #fff; opacity: .75; }
+        .pf-dropdown .dropdown-item:hover { background: #1b1b1b; color: #fff; opacity: 1; }
+      @endif
       .pf-empty { text-align: center; padding: 60px 20px; opacity: .7; }
       @if ($site->bg_color || $site->bg_image)
         {{-- The company's background (Portfolio -> Website -> Look). --}}
@@ -41,30 +48,58 @@
       <div class="pf-preview">Preview — this website is not published yet (only your team can see it).</div>
     @endif
 
+    {{-- Header exactly like the example (KT-TOOLS/apps/Porfolio): Home, Portfolio and a
+         work page show only the centered logo (#hero-text); About and Contact show
+         the top navbar (name left, menu right, hamburger on phones) with the
+         company's menu (Settings -> Menu). "Menu on every page" adds the navbar
+         above the logo on the other pages too. --}}
+    @php $withNav = in_array($page, ['about', 'contact'], true) || $site->menu_on_home; @endphp
     <header class="container-fluid">
-      <div id="hero-text">
-        <div class="container">
-          <div class="text-center">
-            <a href="{{ route('portfolio.home', $site->slug) }}">
-              @if ($site->logo)
-                <img src="{{ asset($site->logo) }}" class="rounded" alt="{{ $site->name }}">
-              @else
-                <h1 class="pf-name">{{ $site->name }}</h1>
-              @endif
-            </a>
-            <ul class="pf-nav">
-              <li><a href="{{ route('portfolio.home', $site->slug) }}" class="{{ $page === 'home' ? 'active' : '' }}">Home</a></li>
-              @if ($site->pages['about'] ?? true)
-                <li><a href="{{ route('portfolio.about', $site->slug) }}" class="{{ $page === 'about' ? 'active' : '' }}">About</a></li>
-              @endif
-              <li><a href="{{ route('portfolio.work', $site->slug) }}" class="{{ $page === 'work' ? 'active' : '' }}">Portfolio</a></li>
-              @if ($site->pages['contact'] ?? true)
-                <li><a href="{{ route('portfolio.contact', $site->slug) }}" class="{{ $page === 'contact' ? 'active' : '' }}">Contact</a></li>
-              @endif
+      @if ($withNav)
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+          <a class="navbar-brand" href="{{ route('portfolio.home', $site->slug) }}">{{ $site->name }}</a>
+          <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarDefault" aria-controls="navbarDefault" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="icon-bar i1"></span>
+            <span class="icon-bar i2"></span>
+            <span class="icon-bar i3"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarDefault">
+            <ul class="navbar-nav ml-auto">
+              @foreach ($site->menu_items as $mi)
+                @if ($mi['children'])
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">{{ mb_strtoupper($mi['label']) }}</a>
+                    <div class="dropdown-menu dropdown-menu-right pf-dropdown">
+                      @foreach ($mi['children'] as $ch)
+                        <a class="dropdown-item" href="{{ $ch['href'] }}" @if ($ch['new_tab']) target="_blank" rel="noopener" @endif>{{ $ch['label'] }}</a>
+                      @endforeach
+                    </div>
+                  </li>
+                @else
+                  <li class="nav-item {{ $mi['page'] === $page ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ $mi['href'] }}" @if ($mi['new_tab']) target="_blank" rel="noopener" @endif>{{ mb_strtoupper($mi['label']) }}</a>
+                  </li>
+                @endif
+              @endforeach
             </ul>
           </div>
+        </nav>
+      @endif
+      @if (! in_array($page, ['about', 'contact'], true))
+        <div id="hero-text">
+          <div class="container">
+            <div class="text-center">
+              <a href="{{ route('portfolio.home', $site->slug) }}">
+                @if ($site->logo)
+                  <img src="{{ asset($site->logo) }}" class="rounded" alt="{{ $site->name }}">
+                @else
+                  <h1 class="pf-name">{{ $site->name }}</h1>
+                @endif
+              </a>
+            </div>
+          </div>
         </div>
-      </div>
+      @endif
     </header>
 
     <!-- Corner Borders -->
@@ -99,7 +134,9 @@
     </footer>
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js" integrity="sha384-cs/chFZiN24E4KMATLdqdvsezGxaGsi4hLGOzlXwp5UZB1LY//20VyM2taTB4QvJ" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script>
+    <script src="{{ asset('portfolio-theme/js/custom.js') }}"></script>
     @stack('scripts')
   </body>
 </html>

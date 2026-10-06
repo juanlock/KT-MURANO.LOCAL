@@ -11,7 +11,9 @@
 
 use App\Models\KtLog;
 
-$rows = KtLog::orderBy('id')->get();
+// Newest first (user's rule, 2026-10-05): by the date/time each request was
+// logged (created_at), then id.
+$rows = KtLog::orderByDesc('created_at')->orderByDesc('id')->get();
 
 function esc($v) {
     return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
@@ -19,7 +21,7 @@ function esc($v) {
 
 $tableRows = '';
 foreach ($rows as $r) {
-    $dateTime = esc($r->log_date?->format('Y-m-d')).' '.esc($r->created_at?->format('H:i'));
+    $dateTime = esc($r->created_at?->format('Y-m-d H:i'));
     $tableRows .= '<tr>'
         .'<td>'.esc($r->claude_user).'</td>'
         .'<td>'.esc($r->location).'</td>'

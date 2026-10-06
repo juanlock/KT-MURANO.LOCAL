@@ -159,6 +159,8 @@ the start of each session).
 
 ## Frontend Conventions
 
+(Reloaded by Preparate step 1, like the Development Standards.)
+
 - **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
   sorted alphabetically by its displayed label, using the shared
@@ -168,6 +170,26 @@ the start of each session).
   Exceptions need a deliberate reason (e.g. a "Manage Menu" admin-defined
   order, or a list where recency/relevance genuinely matters more than
   alphabetical) -- default to alphabetical unless there's a reason not to.
+- **Date range filters: our own filter is the standard (user's rule,
+  2026-10-05).** Every list / report / dashboard that filters by a date range
+  uses Murano's date filter -- the shared preset buttons (All, Today, This
+  Week ... Last Year, `lib/datePresets.js`; double-click = the user's default
+  ★, `lib/datePresetDefault.js`; dropdown on phones) plus the editable
+  **Start date ... to ... End date** fields -- never a bare `<a-range-picker>`
+  or two separate From / To `<a-date-picker>`s, and never a new ad-hoc
+  filter. Use, in this order:
+  - **`PresetRangeFilter`** (`resources/src/components/PresetRangeFilter.vue`)
+    -- drop-in for `<a-range-picker v-model:value="range"
+    value-format="YYYY-MM-DD" @change="reload">` (`allow-all`, `compact`,
+    `apply-default` props). The default for any new page.
+  - **`DateRangePicker`** -- reports that keep dayjs values or need
+    `show-time` (it renders PresetRangeFilter, plain picker only with time).
+  - **`DatePresetButtons` + `DateRangeFields`** -- only for pages that keep
+    their own preset key / `applyPreset()` (Sales, Purchases, Customers, POS
+    Sales, Bookings, Payments report, Dashboard).
+  Applies when creating a NEW page/filter and when touching an old one (swap
+  it). Date *fields* where data is typed in (a contract's start/end, a leave,
+  a holiday) are not filters and keep `<a-date-picker>`.
 
 ## Session Protocols (ported from KT-BILLING.LOCAL)
 

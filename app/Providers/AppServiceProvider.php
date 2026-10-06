@@ -92,6 +92,10 @@ class AppServiceProvider extends ServiceProvider
                 'update',
                 'password',
                 'support', // helpdesk public pages (standalone layout)
+                // Portfolio public sites: their views use their own $categories
+                // (portfolio filter buttons) -- this one overrode them with every
+                // company's product categories.
+                'portfolio',
             ];
 
             if (! in_array($firstSegment, $categoriesExcluded) && ! is_store_request(request())) {

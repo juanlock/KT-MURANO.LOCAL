@@ -206,7 +206,7 @@ export const MIGRATED_ROUTES = {
     '/app/portfolio/sections': '/portfolio/sections',
     '/app/portfolio/works': '/portfolio/works',
     '/app/portfolio/categories': '/portfolio/categories',
-    '/app/portfolio/website': '/portfolio/website',
+    '/app/portfolio/settings': '/portfolio/settings',
     '/app/portfolio/messages': '/portfolio/messages',
     '/app/email-office/settings': '/email-office/settings',
     '/app/email-office/received': '/email-office/received',
@@ -469,8 +469,9 @@ export const MENU = [
             { label: 'Home sections', raw: true, to: '/app/portfolio/sections', permissions: ['portfolio_manage'] },
             { label: 'Works', raw: true, to: '/app/portfolio/works', permissions: ['portfolio_manage'] },
             { label: 'Categories', raw: true, to: '/app/portfolio/categories', permissions: ['portfolio_manage'] },
-            { label: 'Website', raw: true, to: '/app/portfolio/website', permissions: ['portfolio_manage'] },
             { label: 'Messages', raw: true, to: '/app/portfolio/messages', permissions: ['portfolio_manage'] },
+            // Theme, logo, menu, pages, social links (the old "Website" tab lives here now).
+            { label: 'Settings', raw: true, to: '/app/portfolio/settings', permissions: ['portfolio_manage'] },
         ],
     },
     {

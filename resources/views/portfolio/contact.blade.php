@@ -1,5 +1,5 @@
 {{-- Portfolio module: Contact page (form -> portfolio_messages, read in Portfolio -> Messages). --}}
-@extends('portfolio.layout')
+@extends($site->layout_view)
 
 @section('title', 'Contact')
 

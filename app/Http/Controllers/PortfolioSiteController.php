@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\ModuleFlags;
+use App\Support\PortfolioThemes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -34,8 +35,59 @@ class PortfolioSiteController extends Controller
         $site->skills = json_decode((string) $site->skills, true) ?: [];
         $site->social = json_decode((string) $site->social, true) ?: [];
         $site->pages = array_merge(['about' => true, 'contact' => true], json_decode((string) ($site->pages ?? ''), true) ?: []);
+        // Theme (Portfolio -> Settings): its layout and gallery views.
+        $theme = PortfolioThemes::get($site->template ?? null);
+        $site->template = PortfolioThemes::key($site->template ?? null);
+        $site->layout_view = $theme['layout'];
+        $site->gallery_view = $theme['gallery'];
+        $site->menu_on_home = (bool) ($site->menu_on_home ?? false);
+        $site->menu_items = $this->menuItems($site);
 
         return $site;
+    }
+
+    /**
+     * The menu ready to print: [{label, href, new_tab, page, children}] -- hidden
+     * items, switched-off pages and links to works / categories that no longer
+     * exist are left out; a group without children is dropped.
+     */
+    private function menuItems(object $site): array
+    {
+        $menu = json_decode((string) ($site->menu ?? ''), true);
+        $menu = is_array($menu) ? $menu : PortfolioThemes::defaultMenu($site->pages, $site->about_title);
+        $projects = DB::table('portfolio_projects')->where('company_id', $site->company_id)->where('published', true)->pluck('slug')->all();
+        $categories = DB::table('portfolio_categories')->where('company_id', $site->company_id)->pluck('slug')->all();
+        $href = function (array $i) use ($site, $projects, $categories): ?string {
+            if ($i['type'] === 'link') {
+                return $i['url'] ?: null;
+            }
+            $p = (string) ($i['page'] ?? '');
+
+            return match (true) {
+                $p === 'home' => route('portfolio.home', $site->slug),
+                $p === 'work' => route('portfolio.work', $site->slug),
+                $p === 'about' => $site->pages['about'] ? route('portfolio.about', $site->slug) : null,
+                $p === 'contact' => $site->pages['contact'] ? route('portfolio.contact', $site->slug) : null,
+                str_starts_with($p, 'project:') && in_array(substr($p, 8), $projects, true) => route('portfolio.project', [$site->slug, substr($p, 8)]),
+                str_starts_with($p, 'category:') && in_array(substr($p, 9), $categories, true) => route('portfolio.work', $site->slug).'?filter='.substr($p, 9),
+                default => null,
+            };
+        };
+        $build = function (array $i) use (&$build, $href): ?array {
+            if (! ($i['visible'] ?? true)) {
+                return null;
+            }
+            if (($i['type'] ?? '') === 'group') {
+                $children = array_values(array_filter(array_map($build, (array) ($i['children'] ?? []))));
+
+                return $children ? ['label' => $i['label'], 'href' => null, 'new_tab' => false, 'page' => null, 'children' => $children] : null;
+            }
+            $h = $href($i);
+
+            return $h ? ['label' => $i['label'], 'href' => $h, 'new_tab' => (bool) ($i['new_tab'] ?? false), 'page' => $i['type'] === 'page' ? $i['page'] : null, 'children' => []] : null;
+        };
+
+        return array_values(array_filter(array_map($build, $menu)));
     }
 
     private function categories(object $site)

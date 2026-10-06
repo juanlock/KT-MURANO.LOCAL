@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Helpdesk\HelpdeskAccess;
 use App\Support\CompanyFiles;
 use App\Support\ModuleFlags;
+use App\Support\PortfolioThemes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -87,6 +88,13 @@ class PortfolioController extends Controller
         $a['about_image_url'] = $this->url($s->about_image);
         $a['bg_image_url'] = $this->url($s->bg_image ?? null);
         $a['public_url'] = url('/portfolio/'.$s->slug);
+        // Settings -> Theme / Menu (the default menu until the company edits it).
+        $a['template'] = PortfolioThemes::key($s->template ?? null);
+        $a['menu_on_home'] = (bool) ($s->menu_on_home ?? false);
+        $menu = json_decode((string) ($s->menu ?? ''), true);
+        $a['menu_custom'] = is_array($menu);
+        $a['default_menu'] = PortfolioThemes::defaultMenu($a['pages'], $s->about_title);
+        $a['menu'] = is_array($menu) ? $menu : $a['default_menu'];
 
         return $a;
     }
@@ -115,6 +123,7 @@ class PortfolioController extends Controller
 
         return response()->json([
             'site' => $this->siteOut($site),
+            'themes' => PortfolioThemes::options(),
             'categories' => DB::table('portfolio_categories')->where('company_id', $cid)->orderBy('sort_order')->orderBy('id')->get(['id', 'name', 'slug', 'sort_order']),
             'projects' => $this->projectsOut($cid),
             'sections' => $this->sectionsOut($cid),
@@ -144,6 +153,10 @@ class PortfolioController extends Controller
             'footer_text' => 'nullable|string|max:255',
             'bg_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'pages' => 'nullable|array', 'pages.about' => 'boolean', 'pages.contact' => 'boolean',
+            'template' => 'nullable|in:'.implode(',', array_keys(PortfolioThemes::ALL)),
+            'menu_on_home' => 'boolean',
+            // null = back to the default menu; items are cleaned by PortfolioThemes::cleanMenu().
+            'menu' => 'nullable|array|max:12',
         ], ['map_url.regex' => 'Paste the Google Maps "Embed a map" link (https://www.google.com/maps/embed?...).', 'slug.regex' => 'Web address: lowercase letters, numbers and dashes only.']);
         abort_if(in_array($v['slug'], ['admin', 'api', 'assets'], true), 422, 'That web address is reserved.');
         abort_if(DB::table('portfolio_sites')->where('slug', $v['slug'])->where('company_id', '!=', $cid)->exists(), 422, 'That web address is already used by another company.');
@@ -161,6 +174,9 @@ class PortfolioController extends Controller
             'map_url' => $v['map_url'] ?? null, 'social' => json_encode($social), 'footer_text' => $v['footer_text'] ?? null,
             'bg_color' => $v['bg_color'] ?? null,
             'pages' => json_encode(['about' => (bool) ($v['pages']['about'] ?? true), 'contact' => (bool) ($v['pages']['contact'] ?? true)]),
+            'template' => PortfolioThemes::key($v['template'] ?? ($site->template ?? null)),
+            'menu_on_home' => (bool) ($v['menu_on_home'] ?? false),
+            'menu' => $request->has('menu') && is_array($v['menu'] ?? null) ? json_encode(PortfolioThemes::cleanMenu($v['menu'])) : null,
             'updated_at' => now(),
         ]);
 
