@@ -72,7 +72,9 @@ class EnforceModuleFlags
         'wallet' => 'EWallet', 'wallets' => 'EWallet', 'wallet-withdrawals' => 'EWallet', 'gift-cards' => 'EWallet',
         'questions' => null, // product Q&A on Products -> Details
         // Website Management (its own module since 2026-10-06; the API kept its store/ paths).
-        'pages' => 'website', 'gallery' => 'website', 'portfolio' => 'website',
+        'pages' => 'website', 'portfolio' => 'website',
+        'gallery' => 'gallery', // Gallery: its own module since 2026-10-06
+
     ];
 
     public function handle(Request $request, Closure $next)

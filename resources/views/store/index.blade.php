@@ -12,6 +12,14 @@
 
   $auto = $auto ?? [];
   $autoPrinted = false;
+  // Website Management front page (our website theme): website buttons and sections, no shop parts.
+  $isWebsite = !empty($website);
+  $companyQ = $isWebsite && request()->query('company') ? '?company='.(int) request()->query('company') : '';
+  // Banners are the shop's promotions (Online Store -> Banners): not on the website.
+  if ($isWebsite) { $byPos = collect(); }
+  $sitePages = $sitePages ?? collect();
+  $heroPage = $sitePages->first(fn ($p) => str_starts_with($p->slug, 'services')) ?? $sitePages->first();
+  $contactPage = $sitePages->first(fn ($p) => str_starts_with($p->slug, 'contact') || str_starts_with($p->slug, 'free-estimate'));
   $renderBanners = function($list, $wrapClass = 'block rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow') {
       foreach ($list ?? collect() as $b) {
           $src  = $b->image_url ?? ($b->image ? asset($b->image) : asset('images/brands/no-image.png'));
@@ -64,6 +72,17 @@
                 {{ $block['subtitle'] ?? $s->localizedText('hero_subtitle') }}
               </p>
               <div class="flex flex-wrap items-center gap-3">
+                @if($isWebsite)
+                  @if($heroPage)
+                    <a href="{{ \App\Support\WebsitePaths::url('pages/'.$heroPage->slug, $siteCompany->id ?? null) }}" class="btn btn-primary btn-lg">
+                      {{ $heroPage->title }}
+                      <x-store.icon name="arrow-right" class="w-5 h-5" />
+                    </a>
+                  @endif
+                  <a href="{{ \App\Support\WebsitePaths::url($contactPage ? 'pages/'.$contactPage->slug : 'contact', $siteCompany->id ?? null) }}" class="btn btn-secondary btn-lg">
+                    {{ $contactPage->title ?? __('messages.ContactUs') }}
+                  </a>
+                @else
                 <a href="{{ route('store.shop') }}" class="btn btn-primary btn-lg">
                   {{ __('messages.ShopNow') }}
                   <x-store.icon name="arrow-right" class="w-5 h-5" />
@@ -71,8 +90,9 @@
                 <a href="{{ route('store.shop', ['deals' => 1]) }}" class="btn btn-secondary btn-lg">
                   {{ __('messages.Deals') }}
                 </a>
+                @endif
               </div>
-              @if(!empty($auto['stats']['products']))
+              @if(!$isWebsite && !empty($auto['stats']['products']))
                 <div class="df-hero-stats">
                   <div class="df-hero-stat"><b>{{ number_format($auto['stats']['products']) }}+</b><span>{{ __('messages.Products') }}</span></div>
                   @if(!empty($auto['stats']['reviews']))
@@ -86,6 +106,7 @@
               <div class="hero-media">
                 <img class="w-full h-auto object-cover max-h-[440px]" src="{{ $heroUrl }}" alt="Hero">
               </div>
+              @unless($isWebsite)
               <div class="hero-float -bottom-4 -start-3 lg:-start-6">
                 <span class="trust-icon !w-9 !h-9 !rounded-lg" style="background: rgb(var(--color-success) / .14); border-color: rgb(var(--color-success) / .3); color: rgb(var(--color-success));">
                   <x-store.icon name="truck" class="w-4 h-4" />
@@ -98,13 +119,14 @@
                 </span>
                 <span class="text-sm font-semibold text-fg-primary">{{ __('messages.SecurePayment') }}</span>
               </div>
+              @endunless
             </div>
           </div>
         </div>
       </section>
 
       {{-- ===== Categories (photo tiles) + trust strip ===== --}}
-      @php $tiles = $auto['tiles'] ?? collect(); @endphp
+      @php $tiles = $isWebsite ? collect() : ($auto['tiles'] ?? collect()); @endphp
       @if($tiles->count())
         <section class="df-section" style="padding-bottom:0">
           <div class="container">
@@ -129,7 +151,7 @@
           </div>
         </section>
       @endif
-      @if(!empty($auto['trust']))
+      @if(!$isWebsite && !empty($auto['trust']))
         <section class="df-section" style="padding-bottom:0">
           <div class="container">
             <div class="df-trust">
@@ -261,7 +283,7 @@
 
     @case('newsletter')
       @if(!$autoPrinted)
-        @include('store.partials.home-auto-sections', ['auto' => $auto, 'currency' => $currency])
+        @include($isWebsite ? 'store.partials.website-sections' : 'store.partials.home-auto-sections', ['auto' => $auto, 'currency' => $currency])
         @php $autoPrinted = true; @endphp
       @endif
       @php
@@ -308,7 +330,7 @@
 @endforelse
 
 @if(!$autoPrinted)
-  @include('store.partials.home-auto-sections', ['auto' => $auto, 'currency' => $currency])
+  @include($isWebsite ? 'store.partials.website-sections' : 'store.partials.home-auto-sections', ['auto' => $auto, 'currency' => $currency])
   @php $autoPrinted = true; @endphp
 @endif
 

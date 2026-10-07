@@ -205,7 +205,8 @@ export const MIGRATED_ROUTES = {
     '/app/Store/ShippingZones': '/store/shipping-zones',
     '/app/Store/Banners': '/store/banners',
     '/app/portfolio/sections': '/portfolio/sections',
-    '/app/portfolio/works': '/portfolio/works',
+    '/app/portfolio/photos': '/portfolio/photos',
+    '/app/portfolio/works': '/portfolio/photos',
     '/app/portfolio/categories': '/portfolio/categories',
     '/app/portfolio/settings': '/portfolio/settings',
     '/app/portfolio/messages': '/portfolio/messages',
@@ -217,12 +218,7 @@ export const MIGRATED_ROUTES = {
     '/app/helpdesk/my': '/helpdesk/my',
     '/app/helpdesk/settings': '/helpdesk/settings',
     // Website Management.
-    '/app/website/front-page': '/website/front-page',
-    '/app/website/homepage': '/website/homepage',
-    '/app/website/pages': '/website/pages',
-    '/app/website/menus': '/website/menus',
-    '/app/website/hero': '/website/hero',
-    '/app/website/gallery': '/website/gallery',
+    '/app/gallery': '/gallery',
     '/app/website/portfolio': '/website/portfolio',
     '/app/website/settings': '/website/settings',
     '/app/intranet/home': '/intranet',
@@ -461,16 +457,21 @@ export const MENU = [
         icon: 'globe',
         label: 'Website_Management',
         permissions: ['Store_settings_view'],
+        // Front page, Homepage blocks, Pages, Menus, Hero, Branding, SEO... are TABS of
+        // Website settings (no separate menu entries -- user's request, 2026-10-06).
+        // Gallery and Portfolio are their own menus (Gallery below, Portfolio = the Portfolio module).
         children: [
-            { label: 'Front_Page', to: '/app/website/front-page', permissions: ['Store_settings_view'] },
-            { label: 'Homepage_Blocks', to: '/app/website/homepage', permissions: ['Store_settings_view'] },
-            { label: 'Pages', to: '/app/website/pages', permissions: ['Store_settings_view'] },
-            { label: 'Menus', to: '/app/website/menus', permissions: ['Store_settings_view'] },
-            { label: 'Hero_Header', to: '/app/website/hero', permissions: ['Store_settings_view'] },
-            { label: 'Gallery', to: '/app/website/gallery', permissions: ['Store_settings_view'] },
-            { label: 'Portfolio', to: '/app/website/portfolio', permissions: ['Store_settings_view'] },
             { label: 'Website_Settings', to: '/app/website/settings', permissions: ['Store_settings_view'] },
         ],
+    },
+    {
+        // Gallery (its own module since 2026-10-06): the company's pictures, shown on the
+        // website's /gallery page and its Gallery block. Files: files/company_{id}/gallery/.
+        key: 'gallery',
+        icon: 'camera',
+        label: 'Gallery',
+        to: '/app/gallery',
+        permissions: ['Store_settings_view'],
     },
     {
         // Helpdesk: agents work tickets; every staff user can open their own ("My tickets").
@@ -493,7 +494,7 @@ export const MENU = [
         permissions: ['portfolio_manage'],
         children: [
             { label: 'Home sections', raw: true, to: '/app/portfolio/sections', permissions: ['portfolio_manage'] },
-            { label: 'Works', raw: true, to: '/app/portfolio/works', permissions: ['portfolio_manage'] },
+            { label: 'Photos', raw: true, to: '/app/portfolio/photos', permissions: ['portfolio_manage'] },
             { label: 'Categories', raw: true, to: '/app/portfolio/categories', permissions: ['portfolio_manage'] },
             { label: 'Messages', raw: true, to: '/app/portfolio/messages', permissions: ['portfolio_manage'] },
             // Theme, logo, menu, pages, social links (the old "Website" tab lives here now).

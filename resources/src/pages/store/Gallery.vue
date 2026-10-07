@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <PageHeader :title="$t('Gallery')" :breadcrumb="[$t('Store'), $t('Gallery')]">
+    <PageHeader :title="$t('Gallery')" :breadcrumb="[$t('Gallery')]">
       <template #extra>
         <a-space wrap>
           <a-button v-if="publicUrl" :href="publicUrl" target="_blank">

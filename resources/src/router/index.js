@@ -189,7 +189,6 @@ const HelpdeskTicket = lazy('HelpdeskTicket', () => import('../pages/helpdesk/He
 const HelpdeskSettings = lazy('HelpdeskSettings', () => import('../pages/helpdesk/HelpdeskSettings.vue'));
 const HelpdeskMyTickets = lazy('HelpdeskMyTickets', () => import('../pages/helpdesk/MyTickets.vue'));
 const StoreGallery = lazy('StoreGallery', () => import('../pages/store/Gallery.vue'));
-const StorePortfolio = lazy('StorePortfolio', () => import('../pages/store/Portfolio.vue'));
 const IntranetHome = lazy('IntranetHome', () => import('../pages/intranet/Home.vue'));
 const IntranetNewsList = lazy('IntranetNewsList', () => import('../pages/intranet/NewsList.vue'));
 const IntranetNewsShow = lazy('IntranetNewsShow', () => import('../pages/intranet/NewsShow.vue'));
@@ -625,15 +624,20 @@ const routes = [
             { path: 'website/pages', name: 'website-pages', component: StoreSettings, meta: { title: 'Website · Pages', permission: 'Store_settings_view', scope: 'website', tab: 'homepage', sub: 'pages' } },
             { path: 'website/menus', name: 'website-menus', component: StoreSettings, meta: { title: 'Website · Menus', permission: 'Store_settings_view', scope: 'website', tab: 'homepage', sub: 'menu' } },
             { path: 'website/hero', name: 'website-hero', component: StoreSettings, meta: { title: 'Website · Hero', permission: 'Store_settings_view', scope: 'website', tab: 'hero' } },
-            { path: 'website/settings', name: 'website-settings', component: StoreSettings, meta: { title: 'Website · Settings', permission: 'Store_settings_view', scope: 'website', tab: 'branding' } },
-            { path: 'website/gallery', name: 'website-gallery', component: StoreGallery, meta: { title: 'Gallery', permission: 'Store_settings_view' } },
-            { path: 'website/portfolio', name: 'website-portfolio', component: StorePortfolio, meta: { title: 'Portfolio', permission: 'Store_settings_view' } },
-            { path: 'store/portfolio', redirect: '/website/portfolio' },
-            { path: 'store/gallery', redirect: '/website/gallery' },
+            // The one menu entry: opens on the Front page tab (the other routes above stay as deep links).
+            { path: 'website/settings', name: 'website-settings', component: StoreSettings, meta: { title: 'Website · Settings', permission: 'Store_settings_view', scope: 'website', tab: 'front_page' } },
+            // Gallery: its own module since 2026-10-06.
+            { path: 'gallery', name: 'gallery', component: StoreGallery, meta: { title: 'Gallery', permission: 'Store_settings_view' } },
+            { path: 'website/gallery', redirect: '/gallery' },
+            // One Portfolio (the module) since 2026-10-06: the old store screen redirects there.
+            { path: 'website/portfolio', redirect: '/portfolio/photos' },
+            { path: 'store/portfolio', redirect: '/portfolio/photos' },
+            { path: 'portfolio/works', redirect: '/portfolio/photos' },
+            { path: 'store/gallery', redirect: '/gallery' },
             // Portfolio module: one page, one route per tab (= one menu entry each).
             { path: 'portfolio', redirect: '/portfolio/sections' },
             { path: 'portfolio/sections', name: 'portfolio-sections', component: PortfolioAdmin, meta: { title: 'Portfolio · Home sections', permission: 'portfolio_manage', tab: 'sections' } },
-            { path: 'portfolio/works', name: 'portfolio-works', component: PortfolioAdmin, meta: { title: 'Portfolio · Works', permission: 'portfolio_manage', tab: 'projects' } },
+            { path: 'portfolio/photos', name: 'portfolio-works', component: PortfolioAdmin, meta: { title: 'Portfolio · Photos', permission: 'portfolio_manage', tab: 'projects' } },
             { path: 'portfolio/categories', name: 'portfolio-categories', component: PortfolioAdmin, meta: { title: 'Portfolio · Categories', permission: 'portfolio_manage', tab: 'categories' } },
             // Website moved into Portfolio -> Settings (theme, logo, menu, pages...).
             { path: 'portfolio/website', redirect: '/portfolio/settings' },

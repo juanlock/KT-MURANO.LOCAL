@@ -161,15 +161,20 @@ import http from '../../lib/http';
 const props = defineProps({
   embedded: { type: Boolean, default: false },
   mode: { type: String, default: 'all' }, // all | store | site
+  // Whose menus: the Online Store's (store_settings) or Website Management's own (website_settings).
+  owner: { type: String, default: 'store' }, // store | website
 });
+const menusUrl = computed(() => (props.owner === 'website' ? 'admin/website/menus' : 'admin/store/menus'));
 
 const { t } = useI18n();
 
-const LOCATIONS = [
+const ALL_LOCATIONS = [
   { key: 'header', label: 'Main_Navigation' },
   { key: 'footer_shop', label: 'Footer_Shop' },
   { key: 'footer_support', label: 'Footer_Support' },
 ];
+// The website has no shop footer column (hidden on website pages).
+const LOCATIONS = computed(() => ALL_LOCATIONS.filter(l => props.owner !== 'website' || l.key !== 'footer_shop'));
 
 const isLoading = ref(true);
 const saving = ref(false);
@@ -264,7 +269,7 @@ function move(key, idx, dir) {
 
 async function fetch() {
   try {
-    const r = await http.get('admin/store/menus');
+    const r = await http.get(menusUrl.value);
     const m = (r && r.menus) || {};
     menus.value = {
       header: normalizeLoc(m.header),
@@ -290,7 +295,7 @@ async function save() {
         // _i18nOpen is editor-only UI state and must not be persisted.
         .map(({ _i18nOpen, ...it }) => it);
     });
-    await http.post('admin/store/menus', { menus: JSON.stringify(clean) });
+    await http.post(menusUrl.value, { menus: JSON.stringify(clean) });
     message.success(t('Successfully_Updated'));
     fetch();
   } catch (e) {

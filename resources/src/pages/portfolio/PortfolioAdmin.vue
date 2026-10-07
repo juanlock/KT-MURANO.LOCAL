@@ -26,7 +26,7 @@
               </template>
             </a-dropdown>
           </div>
-          <a-empty v-if="!sections.length" description="No sections — the Home page is empty. Add one (e.g. Works gallery)." />
+          <a-empty v-if="!sections.length" description="No sections — the Home page is empty. Add one (e.g. Photos gallery)." />
           <div v-for="(s, i) in sections" :key="s.id" class="pa-sec" :class="{ off: !s.visible }">
             <div class="pa-sec__head">
               <a-tag color="purple">{{ sectionLabel(s.type) }}</a-tag>
@@ -53,7 +53,7 @@
                   <a-form-item label="Video link (YouTube / Vimeo)"><a-input v-model:value="editingSection.video_url" :maxlength="255" /></a-form-item>
                 </a-col>
                 <template v-if="s.type === 'gallery'">
-                  <a-col :xs="12" :md="8"><a-form-item label="Only works marked 'On the Home page'"><a-switch v-model:checked="editingSection.settings.featured_only" /></a-form-item></a-col>
+                  <a-col :xs="12" :md="8"><a-form-item label="Only photos marked 'On the Home page'"><a-switch v-model:checked="editingSection.settings.featured_only" /></a-form-item></a-col>
                   <a-col :xs="12" :md="8"><a-form-item label="'All' filter button"><a-switch v-model:checked="editingSection.settings.show_all" /></a-form-item></a-col>
                 </template>
                 <template v-if="['text', 'image', 'image_text', 'contact'].includes(s.type)">
@@ -84,13 +84,13 @@
           </div>
         </a-tab-pane>
 
-        <!-- ============ Works ============ -->
-        <a-tab-pane key="projects" :tab="`Works (${projects.length})`">
+        <!-- ============ Photos ============ -->
+        <a-tab-pane key="projects" :tab="`Photos (${projects.length})`">
           <div class="pa-bar">
             <a-segmented v-model:value="catFilter" :options="catFilterOptions" />
-            <a-button type="primary" @click="openProject(null)"><template #icon><PlusOutlined /></template> New work</a-button>
+            <a-button type="primary" @click="openProject(null)"><template #icon><PlusOutlined /></template> New photo</a-button>
           </div>
-          <a-empty v-if="!shownProjects.length" description="No works yet — press New work, then add its photos." />
+          <a-empty v-if="!shownProjects.length" description="No photos yet — press New photo, then add its pictures." />
           <div v-else class="pa-grid">
             <div v-for="p in shownProjects" :key="p.id" class="pa-card" :class="{ off: !p.published }">
               <div class="pa-thumb" @click="openProject(p)">
@@ -107,7 +107,7 @@
                   <a-button size="small" :disabled="indexOf(p) === 0" @click="moveProject(p, -1)"><template #icon><ArrowLeftOutlined /></template></a-button>
                   <a-button size="small" :disabled="indexOf(p) === projects.length - 1" @click="moveProject(p, 1)"><template #icon><ArrowRightOutlined /></template></a-button>
                   <a-button size="small" @click="openProject(p)"><template #icon><EditOutlined /></template></a-button>
-                  <a-popconfirm title="Delete this work and its photos?" @confirm="removeProject(p)">
+                  <a-popconfirm title="Delete this photo and its pictures?" @confirm="removeProject(p)">
                     <a-button size="small" danger><template #icon><DeleteOutlined /></template></a-button>
                   </a-popconfirm>
                 </a-space>
@@ -122,10 +122,10 @@
             <div class="pa-muted" style="margin-bottom: 10px">The filter buttons above the gallery (e.g. Hair Style, Nails, Barber, Skin Care), in this order.</div>
             <div v-for="(c, i) in categories" :key="c.id" class="pa-cat">
               <a-input v-model:value="c.name" size="small" style="flex: 1" @blur="renameCategory(c)" @press-enter="$event.target.blur()" />
-              <a-tag>{{ projects.filter(p => p.categories.includes(c.id)).length }} works</a-tag>
+              <a-tag>{{ projects.filter(p => p.categories.includes(c.id)).length }} photos</a-tag>
               <a-button size="small" :disabled="i === 0" @click="moveCategory(i, -1)">↑</a-button>
               <a-button size="small" :disabled="i === categories.length - 1" @click="moveCategory(i, 1)">↓</a-button>
-              <a-popconfirm title="Delete this category? The works stay." @confirm="removeCategory(c)">
+              <a-popconfirm title="Delete this category? The photos stay." @confirm="removeCategory(c)">
                 <a-button size="small" danger><template #icon><DeleteOutlined /></template></a-button>
               </a-popconfirm>
             </div>
@@ -162,8 +162,8 @@
       </a-tabs>
     </a-spin>
 
-    <!-- Work editor -->
-    <a-drawer v-model:open="editorOpen" :title="editing && editing.id ? 'Edit work' : 'New work'" :width="720" destroy-on-close>
+    <!-- Photo editor -->
+    <a-drawer v-model:open="editorOpen" :title="editing && editing.id ? 'Edit photo' : 'New photo'" :width="720" destroy-on-close>
       <a-form v-if="editing" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="16"><a-form-item label="Title" required><a-input v-model:value="editing.title" :maxlength="150" /></a-form-item></a-col>
@@ -263,8 +263,8 @@ const TYPE_LABEL = { image: 'Image', slider: 'Slider', video: 'Video' };
 const TYPE_OPTIONS = [
   { value: 'image', label: 'One image' }, { value: 'slider', label: 'Slider (several photos)' }, { value: 'video', label: 'Video' },
 ];
-// One menu entry per tab (Portfolio -> Home sections / Works / Categories / Messages; Settings is its own page).
-const TAB_PATHS = { sections: '/portfolio/sections', projects: '/portfolio/works', categories: '/portfolio/categories', messages: '/portfolio/messages' };
+// One menu entry per tab (Portfolio -> Home sections / Photos / Categories / Messages; Settings is its own page).
+const TAB_PATHS = { sections: '/portfolio/sections', projects: '/portfolio/photos', categories: '/portfolio/categories', messages: '/portfolio/messages' };
 const route = useRoute();
 const router = useRouter();
 const tab = computed(() => route.meta.tab || 'sections');
@@ -297,7 +297,7 @@ async function load() {
 
 /* -------- Home sections */
 const SECTION_TYPES = [
-  { value: 'gallery', label: 'Works gallery', help: 'your works with the filter buttons' },
+  { value: 'gallery', label: 'Photos gallery', help: 'your photos with the filter buttons' },
   { value: 'text', label: 'Text', help: 'a title and paragraphs' },
   { value: 'image', label: 'Image', help: 'a wide picture with a caption' },
   { value: 'image_text', label: 'Image + text', help: 'picture on the left, text on the right' },
@@ -380,7 +380,7 @@ const projectBody = p => ({
 });
 async function saveProject() {
   const p = editing.value;
-  if (!String(p.title || '').trim()) { message.error('Give the work a title.'); return; }
+  if (!String(p.title || '').trim()) { message.error('Give the photo a title.'); return; }
   savingProject.value = true;
   try {
     const r = p.id ? await http.put(`portfolio/projects/${p.id}`, projectBody(p)) : await http.post('portfolio/projects', projectBody(p));
@@ -390,7 +390,7 @@ async function saveProject() {
     editing.value = { ...saved, categories: [...saved.categories], media: [...saved.media] };
     message.success(p.id ? 'Saved.' : 'Created — now add its cover / photos.');
   } catch (e) {
-    message.error(firstError(e) || 'Could not save the work.');
+    message.error(firstError(e) || 'Could not save the photo.');
   } finally {
     savingProject.value = false;
   }

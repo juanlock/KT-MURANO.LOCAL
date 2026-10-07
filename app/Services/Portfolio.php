@@ -2,15 +2,15 @@
 
 namespace App\Services;
 
-use App\Models\StorePortfolioGroup;
-use App\Models\StorePortfolioItem;
 use App\Models\StoreSetting;
 use App\Support\CompanyFiles;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Store -> Portfolio (per company): grouped pictures shown as a front-page
- * section --
+ * The company Portfolio shown as a front-page section (since 2026-10-06 the
+ * data is the Portfolio MODULE's: categories + published works -- the old
+ * store_portfolio_* tables were merged into it) --
  *  - our store front page: the "portfolio" Homepage Block (store/index);
  *  - an imported website: inserted into its front page at serve time
  *    (FrontPage::importedResponse), replacing the site's own portfolio
@@ -57,13 +57,22 @@ class Portfolio
         return self::sectionSettings($companyId);
     }
 
-    /** Groups (with at least one visible picture) + visible pictures. */
+    /**
+     * Groups (with at least one visible picture) + visible pictures -- from the
+     * Portfolio MODULE since 2026-10-06 (one Portfolio for the company): its
+     * categories and its published works with a cover. Same shape as before
+     * (item: image, title, subtitle, link, group_id; group: id, name).
+     */
     public static function data(int $companyId, int $limit = 60): array
     {
-        $items = StorePortfolioItem::where('company_id', $companyId)->where('active', true)
-            ->orderBy('sort_order')->orderBy('id')->limit($limit)->get();
+        $items = DB::table('portfolio_projects')->where('company_id', $companyId)->where('published', true)
+            ->whereNotNull('cover')->orderBy('sort_order')->orderBy('id')->limit($limit)->get()
+            ->map(fn ($p) => (object) [
+                'image' => $p->cover, 'title' => $p->title, 'subtitle' => $p->client ?: $p->location, 'link' => null,
+                'group_id' => (json_decode((string) $p->categories, true) ?: [])[0] ?? null,
+            ]);
         $used = $items->pluck('group_id')->filter()->unique()->flip();
-        $groups = StorePortfolioGroup::where('company_id', $companyId)->orderBy('sort_order')->orderBy('id')->get()
+        $groups = DB::table('portfolio_categories')->where('company_id', $companyId)->orderBy('sort_order')->orderBy('id')->get()
             ->filter(fn ($g) => isset($used[$g->id]))->values();
 
         return ['groups' => $groups, 'items' => $items];
@@ -190,49 +199,65 @@ class Portfolio
         return ['groups' => $groups, 'items' => $items];
     }
 
-    /** Copies the website's portfolio in. ['added', 'groups', 'skipped', 'found'] */
+    /**
+     * Copies the imported website's portfolio into the Portfolio MODULE
+     * (categories + published works with their photo), skipping pictures
+     * already brought in (same file name). ['added', 'groups', 'skipped', 'found']
+     */
     public static function import(int $companyId): array
     {
         $c = self::candidates($companyId);
-        $relDir = CompanyFiles::dir($companyId, 'portfolio');
+        $relDir = CompanyFiles::dir($companyId, 'portfolio').'/imported';
+        if (! is_dir(public_path($relDir))) {
+            mkdir(public_path($relDir), 0755, true);
+        }
 
         $groupIds = [];
         $newGroups = 0;
-        $order = (int) StorePortfolioGroup::where('company_id', $companyId)->max('sort_order');
+        $order = (int) DB::table('portfolio_categories')->where('company_id', $companyId)->max('sort_order');
         foreach ($c['groups'] as $key => $label) {
             $slug = Str::slug($label) ?: Str::slug($key) ?: 'group';
-            $g = StorePortfolioGroup::where('company_id', $companyId)->where('slug', $slug)->first();
-            if (! $g) {
-                $g = StorePortfolioGroup::create(['company_id' => $companyId, 'name' => $label, 'slug' => $slug, 'sort_order' => ++$order]);
+            $id = DB::table('portfolio_categories')->where('company_id', $companyId)
+                ->where(fn ($q) => $q->where('slug', $slug)->orWhereRaw('LOWER(name) = ?', [mb_strtolower($label)]))->value('id');
+            if (! $id) {
+                $id = DB::table('portfolio_categories')->insertGetId(['company_id' => $companyId, 'name' => $label, 'slug' => $slug,
+                    'sort_order' => ++$order, 'created_at' => now(), 'updated_at' => now()]);
                 $newGroups++;
             }
-            $groupIds[$key] = $g->id;
+            $groupIds[$key] = $id;
         }
 
-        $known = StorePortfolioItem::where('company_id', $companyId)->whereNotNull('source_path')->pluck('source_path')->flip();
-        $sort = (int) StorePortfolioItem::where('company_id', $companyId)->max('sort_order');
+        // Already imported: a work whose cover came from the same site file (kept in the file name).
+        $known = DB::table('portfolio_projects')->where('company_id', $companyId)->where('cover', 'like', $relDir.'/%')
+            ->pluck('cover')->map(fn ($p) => preg_replace('/-[a-z0-9]{6}(\.\w+)$/', '$1', basename($p)))->flip();
+        $sort = (int) DB::table('portfolio_projects')->where('company_id', $companyId)->max('sort_order');
         $added = $skipped = 0;
         foreach ($c['items'] as $i) {
-            if (isset($known[$i['rel']])) {
+            $ext = strtolower(pathinfo($i['abs'], PATHINFO_EXTENSION));
+            $base = Str::limit(Str::slug(pathinfo($i['abs'], PATHINFO_FILENAME)) ?: 'photo', 60, '');
+            if (isset($known[$base.'.'.$ext])) {
                 $skipped++;
 
                 continue;
             }
-            $ext = strtolower(pathinfo($i['abs'], PATHINFO_EXTENSION));
-            $name = Str::limit(Str::slug(pathinfo($i['abs'], PATHINFO_FILENAME)) ?: 'photo', 60, '').'-'.Str::lower(Str::random(6)).'.'.$ext;
+            $name = $base.'-'.Str::lower(Str::random(6)).'.'.$ext;
             if (! @copy($i['abs'], public_path($relDir.'/'.$name))) {
                 $skipped++;
 
                 continue;
             }
-            $size = @getimagesize(public_path($relDir.'/'.$name)) ?: [null, null];
-            StorePortfolioItem::create([
-                'company_id' => $companyId,
-                'group_id' => $i['group'] !== null ? ($groupIds[$i['group']] ?? null) : null,
-                'title' => $i['title'], 'subtitle' => $i['subtitle'],
-                'image' => $relDir.'/'.$name, 'width' => $size[0], 'height' => $size[1],
-                'sort_order' => ++$sort, 'active' => true, 'source' => 'imported', 'source_path' => $i['rel'],
+            $slug = Str::slug($i['title']) ?: 'work';
+            for ($n = 2; DB::table('portfolio_projects')->where('company_id', $companyId)->where('slug', $slug)->exists(); $n++) {
+                $slug = (Str::slug($i['title']) ?: 'work').'-'.$n;
+            }
+            $projectId = DB::table('portfolio_projects')->insertGetId([
+                'company_id' => $companyId, 'title' => Str::limit($i['title'], 150, ''), 'slug' => $slug, 'type' => 'image',
+                'cover' => $relDir.'/'.$name, 'description' => $i['subtitle'],
+                'categories' => json_encode($i['group'] !== null && isset($groupIds[$i['group']]) ? [$groupIds[$i['group']]] : []),
+                'featured' => true, 'published' => true, 'sort_order' => ++$sort, 'created_at' => now(), 'updated_at' => now(),
             ]);
+            DB::table('portfolio_media')->insert(['company_id' => $companyId, 'project_id' => $projectId, 'path' => $relDir.'/'.$name,
+                'sort_order' => 1, 'created_at' => now(), 'updated_at' => now()]);
             $added++;
         }
 

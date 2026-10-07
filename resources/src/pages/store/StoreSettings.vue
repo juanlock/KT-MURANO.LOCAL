@@ -5,7 +5,16 @@
       :breadcrumb="scope === 'website' ? [$t('Website_Management')] : [$t('Store'), $t('Settings')]"
     >
       <template #extra>
-        <a-button v-if="!isLoading && !ownSaveTab" type="primary" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
+        <a-space>
+          <!-- Opens this company's website / store in a new tab (the saved version). -->
+          <a-tooltip title="Opens the saved version in a new tab — save first to see your latest changes.">
+            <a-button v-if="!isLoading" :href="storeHomeUrl" target="_blank" rel="noopener">
+              <template #icon><EyeOutlined /></template>
+              {{ scope === 'website' ? 'Preview website' : 'Preview store' }}
+            </a-button>
+          </a-tooltip>
+          <a-button v-if="!isLoading && !ownSaveTab" type="primary" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
+        </a-space>
       </template>
     </PageHeader>
 
@@ -252,29 +261,30 @@
           <a-card size="small" :bordered="false">
             <a-radio-group v-model:value="front.mode" style="width: 100%">
               <a-radio value="sections" class="fp-option">
-                <strong>Our store front page (sections)</strong>
+                <strong>Our website theme (sections)</strong>
                 <div class="fp-help">
-                  Build the front page from sections you create and edit — Hero, collections, banners, flash sale and more —
-                  in the <em>Hero</em> and <em>{{ $t('Homepage_Blocks') }}</em> tabs.
+                  The website's front page is built with our theme, from sections you create and edit — hero, gallery,
+                  portfolio, collections, banners and more — in the <em>Hero</em> and <em>{{ $t('Homepage_Blocks') }}</em> tabs,
+                  plus your own pages and menus.
                 </div>
               </a-radio>
               <a-radio value="imported" class="fp-option">
-                <strong>Import the current front page from a URL</strong>
+                <strong>Import your existing website from a URL</strong>
                 <div class="fp-help">
-                  Copies the page (and the pages it links to) keeping its original format, and inserts the store bar —
-                  <em>Shop</em>, <em>Cart</em> (with item count) and <em>My Account</em> — linking to this online store.
+                  Copies your current website (the front page and the pages it links to) keeping its original design.
+                  If you also sell online, a small bar with <em>Shop</em>, <em>Cart</em> and <em>My Account</em> links to your online store.
                 </div>
               </a-radio>
             </a-radio-group>
 
             <template v-if="front.mode === 'imported'">
-              <a-form-item label="Front page URL" style="margin-top: 12px; max-width: 560px">
+              <a-form-item label="Your website address" style="margin-top: 12px; max-width: 560px">
                 <a-input v-model:value="front.url" placeholder="https://www.example.com" />
               </a-form-item>
               <div v-if="front.imported_at" class="fp-status">
                 Imported {{ (front.imported_at || '').substring(0, 16).replace('T', ' ') }}
                 <template v-if="front.saved_url"> from <a :href="front.saved_url" target="_blank" rel="noopener">{{ front.saved_url }}</a></template>
-                — <a :href="storeHomeUrl" target="_blank" rel="noopener">view the front page</a>
+                — <a :href="storeHomeUrl" target="_blank" rel="noopener">view the website</a>
               </div>
             </template>
 
@@ -284,7 +294,7 @@
                 :disabled="front.mode === 'imported' ? !front.url : front.saved_mode === 'sections'"
                 @click="applyFrontPage"
               >
-                {{ front.mode === 'imported' ? (front.imported_at ? 'Re-import now' : 'Import now') : 'Use sections front page' }}
+                {{ front.mode === 'imported' ? (front.imported_at ? 'Re-import now' : 'Import now') : 'Use our website theme' }}
               </a-button>
               <span v-if="front.mode !== front.saved_mode" class="fp-help">Not applied yet.</span>
             </a-space>
@@ -295,16 +305,16 @@
         <a-tab-pane v-if="inScope('homepage')" key="homepage">
           <template #tab><span class="stab"><AppstoreOutlined /> {{ $t('Homepage_Blocks') }}</span></template>
           <!-- What's here follows the APPLIED front page (Front page tab):
-               our store front page -> blocks + store pages + store menus;
+               our website theme -> blocks + pages + menus;
                an imported website -> its own pages + its own menu. -->
           <a-alert
             v-if="front.saved_mode === 'imported'" type="info" show-icon style="margin-bottom: 8px"
-            message="The front page is the imported website."
+            message="Your website is the imported one."
           >
             <template #description>
               Edit its pages (texts, pictures, links) and its navigation menu here.
-              <a :href="storeHomeUrl" target="_blank" rel="noopener">View the front page</a>.
-              To use the store's own sections instead, change it in the Front page tab.
+              <a :href="storeHomeUrl" target="_blank" rel="noopener">View the website</a>.
+              To build it with our website theme instead, change it in the Front page tab.
             </template>
           </a-alert>
           <a-tabs v-model:activeKey="homeSub" size="small" class="home-sub">
@@ -356,7 +366,7 @@
               </a-col>
             </a-row>
             <div style="font-size: 12px; color: #999">
-              Pictures and groups are managed in <a @click="$router.push('/website/portfolio')">Website Management → Portfolio</a>.
+              The pictures are your Portfolio's published works — manage them in <a @click="$router.push('/portfolio/photos')">Portfolio → Photos</a>.
             </div>
           </div>
           <div v-if="row.active && (row.kind === 'best_sellers' || row.kind === 'you_may_like')" class="block-config">
@@ -389,7 +399,7 @@
             </a-tab-pane>
             <a-tab-pane v-if="front.saved_mode === 'imported'" key="sections" tab="Sections">
               <div style="margin-bottom: 8px; font-size: 13px; opacity: .75">
-                Sections from Store Management shown on the imported front page, live — they stay after re-importing the website.
+                Sections from Website Management shown on the imported website, live — they stay after re-importing it.
               </div>
               <PortfolioSectionCard in-settings :key="'pf-' + settings.company_id" />
             </a-tab-pane>
@@ -398,16 +408,51 @@
               <StorePagesPanel v-else embedded :key="'p-' + settings.company_id" />
             </a-tab-pane>
             <a-tab-pane key="menu" :tab="front.saved_mode === 'imported' ? 'Website menu' : $t('Menus')">
-              <StoreMenusPanel embedded :mode="front.saved_mode === 'imported' ? 'site' : 'store'" :key="'m-' + front.saved_mode + settings.company_id" />
+              <!-- Our website theme: the WEBSITE's own menus (not the store's). -->
+              <StoreMenusPanel embedded owner="website" :mode="front.saved_mode === 'imported' ? 'site' : 'store'" :key="'m-' + front.saved_mode + settings.company_id" />
             </a-tab-pane>
           </a-tabs>
+        </a-tab-pane>
+
+        <!-- ===== Store menus (Online Store only; the website has its own in Homepage blocks -> Menus) ===== -->
+        <a-tab-pane v-if="inScope('store_menus')" key="store_menus">
+          <template #tab><span class="stab"><MenuOutlined /> {{ $t('Menus') }}</span></template>
+          <StoreMenusPanel embedded owner="store" mode="store" :key="'sm-' + settings.company_id" />
         </a-tab-pane>
 
         <!-- ===== Branding ===== -->
         <a-tab-pane v-if="inScope('branding')" key="branding">
           <template #tab><span class="stab"><BgColorsOutlined /> {{ $t('Branding') }}</span></template>
           <a-card size="small" :bordered="false">
+            <StoreOnlyNote v-if="scope === 'website' && front.saved_mode === 'imported'" />
+            <a-alert
+              type="info" show-icon style="margin-bottom: 12px"
+              :message="scope === 'website'
+                ? 'The website\'s own name and logo — the online store keeps its own (Online Store → Settings → Branding).'
+                : 'The online store\'s own name and logo — the website has its own (Website Management → Website settings → Branding).'"
+            />
+        <template v-if="scope === 'website'">
+          <a-divider orientation="left" style="margin-top: 0">Website URL</a-divider>
+          <a-row :gutter="[16, 8]">
+            <a-col :xs="24" :md="12">
+              <a-form-item label="Website address" :extra="'Lowercase letters, numbers and dashes. Leave empty to use one from the company name. The online store keeps its own address (Online Store → Settings → Store URL).'">
+                <a-input v-model:value="site.url_path" :maxlength="60" placeholder="my-company" :addon-before="site.url_origin" />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :md="12">
+              <a-form-item label="Current website URL" extra="Old /online_store?company= links to the website are redirected here.">
+                <a :href="site.public_url" target="_blank" rel="noopener" style="word-break: break-all">{{ site.public_url }}</a>
+              </a-form-item>
+            </a-col>
+          </a-row>
+          <a-divider orientation="left">{{ $t('Branding') }}</a-divider>
+        </template>
         <a-row :gutter="16">
+          <a-col v-if="scope === 'website'" :xs="24" :md="8">
+            <a-form-item label="Website name" extra="Shown in the header (when there is no logo), the browser tab and search results.">
+              <a-input v-model:value="form.site_name" :maxlength="190" />
+            </a-form-item>
+          </a-col>
           <a-col :xs="24" :md="8">
             <a-form-item :label="$t('Logo')">
               <a-upload :file-list="[]" :before-upload="() => false" :max-count="1" accept="image/*" @change="e => pick('logo', e)">
@@ -810,6 +855,7 @@
         <a-tab-pane v-if="inScope('seo')" key="seo">
           <template #tab><span class="stab"><SearchOutlined /> SEO</span></template>
           <a-card size="small" :bordered="false">
+            <StoreOnlyNote v-if="scope === 'website' && front.saved_mode === 'imported'" />
         <TranslatableInput
           v-model="form.seo_meta_title"
           v-model:translations="form.text_translations.seo_meta_title"
@@ -826,7 +872,7 @@
               <a-input v-model:value="form.seo_title_template" placeholder="{page} — {store}" />
             </a-form-item>
           </a-col>
-          <a-col :xs="24" :md="12">
+          <a-col v-if="scope !== 'website'" :xs="24" :md="12">
             <a-form-item :label="$t('Store_Domain')" :extra="$t('Store_Domain_Help')" style="margin-bottom: 0">
               <a-input v-model:value="form.store_domain" placeholder="https://shop.example.com" />
             </a-form-item>
@@ -839,6 +885,7 @@
         <a-tab-pane v-if="inScope('topbar')" key="topbar">
           <template #tab><span class="stab"><LayoutOutlined /> {{ $t('Topbar_and_Footer') }}</span></template>
           <a-card size="small" :bordered="false">
+            <StoreOnlyNote v-if="scope === 'website' && front.saved_mode === 'imported'" />
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
         <TranslatableInput
@@ -867,6 +914,7 @@
         <a-tab-pane v-if="inScope('social')" key="social">
           <template #tab><span class="stab"><ShareAltOutlined /> {{ $t('Social_Links') }}</span></template>
           <a-card size="small" :bordered="false">
+            <StoreOnlyNote v-if="scope === 'website' && front.saved_mode === 'imported'" />
         <template #extra>
           <a-button size="small" @click="form.social_links.push({ platform: '', url: '' })">
             <template #icon><PlusOutlined /></template>
@@ -914,7 +962,7 @@ import { useI18n } from 'vue-i18n';
 import {
   PlusOutlined, DeleteOutlined, UploadOutlined, ShopOutlined, PhoneOutlined,
   BgColorsOutlined, PictureOutlined, SearchOutlined, LayoutOutlined,
-  ShareAltOutlined, AppstoreOutlined, LaptopOutlined, SmileOutlined, ShoppingCartOutlined, HomeOutlined,
+  ShareAltOutlined, AppstoreOutlined, LaptopOutlined, SmileOutlined, ShoppingCartOutlined, HomeOutlined, EyeOutlined, MenuOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import TranslatableInput from '../../components/TranslatableInput.vue';
@@ -923,6 +971,17 @@ import StoreMenusPanel from './Menus.vue';
 import SitePagesEditor from './SitePagesEditor.vue';
 import PortfolioSectionCard from './PortfolioSectionCard.vue';
 import http from '../../lib/http';
+import { h } from 'vue';
+import { Alert as AAlert } from 'ant-design-vue';
+
+// Branding / SEO / Topbar & footer / Social links with an imported website: they
+// don't change the imported pages (those keep their own design and tags), only
+// the online store's own pages (shop, product, cart, account, store pages).
+const StoreOnlyNote = () => h(AAlert, {
+  type: 'info', showIcon: true, style: 'margin-bottom: 12px',
+  message: 'Your website is imported — this does not change it.',
+  description: 'The imported pages keep their own design, logo and SEO tags. These settings are used by the website pages made here: Pages, Gallery and Contact.',
+});
 import { uploadForm } from '../../lib/upload';
 
 const { t } = useI18n();
@@ -934,7 +993,24 @@ const route = useRoute();
 // tabs that build the website. Same settings row, same Save.
 const WEBSITE_TABS = ['front_page', 'homepage', 'hero', 'branding', 'topbar', 'seo', 'social'];
 const scope = computed(() => (route.meta.scope === 'website' ? 'website' : 'store'));
-const inScope = key => (scope.value === 'website') === WEBSITE_TABS.includes(key);
+// The Hero header only exists on OUR front page (sections): with an imported
+// website (Front page tab) it is never shown, so its tab is hidden.
+const SECTIONS_ONLY_TABS = ['hero'];
+// Front page: our sections or an imported website (saved_mode = the applied one).
+const front = ref({ mode: 'sections', saved_mode: 'sections', url: '', saved_url: '', imported_at: null, busy: false });
+// Branding / Top bar / SEO / Social are in BOTH scopes, each with its own data
+// (2026-10-06): the store's (store_settings) or the website's (website_settings).
+const SHARED_TABS = ['branding', 'topbar', 'seo', 'social'];
+const STORE_ONLY_TABS = ['store_menus'];
+const inScope = key => (SHARED_TABS.includes(key) || ((scope.value === 'website') === WEBSITE_TABS.includes(key)))
+  && !(scope.value === 'website' && STORE_ONLY_TABS.includes(key))
+  && !(SECTIONS_ONLY_TABS.includes(key) && front.value.saved_mode === 'imported');
+// Website scope: the fields Website Management owns (saved to admin/website/settings).
+const WEBSITE_OWNED = ['site_name', 'seo_meta_title', 'seo_meta_description', 'seo_title_template', 'topbar_text_left', 'topbar_text_right', 'footer_text', 'social_links'];
+const WEBSITE_TR = ['topbar_text_left', 'topbar_text_right', 'footer_text', 'seo_meta_title', 'seo_meta_description'];
+const storeOwn = ref({}); // the store's own values of those fields, kept untouched by a website save
+// Website URL (2026-10-06): the website's own address, /{url_path} -- not the store's.
+const site = ref({ url_path: '', public_url: '', url_origin: '/' });
 const firstTab = () => String(route.meta.tab || route.query.tab || (scope.value === 'website' ? 'front_page' : 'basics'));
 // Old ?tab= links to a tab of the other scope fall back to the scope's first tab.
 const validTab = k => (inScope(k) ? k : (scope.value === 'website' ? 'front_page' : 'basics'));
@@ -954,7 +1030,7 @@ const homeSub = computed({
   set: v => { homeSubPick.value = v; },
 });
 // Pages / Menu sub-tabs save on their own -- hide the settings Save there.
-const ownSaveTab = computed(() => mainTab.value === 'homepage' && homeSub.value !== 'blocks');
+const ownSaveTab = computed(() => (mainTab.value === 'homepage' && homeSub.value !== 'blocks') || mainTab.value === 'store_menus');
 
 const QUICK_LINKS = [
   { to: '/store/shipping-methods', label: 'Shipping_Methods' },
@@ -1176,10 +1252,10 @@ const TRANSLATABLE_TEXT = [
 ];
 
 /* ---------------- Front page (sections builder vs imported page) ---------------- */
-const front = ref({ mode: 'sections', saved_mode: 'sections', url: '', saved_url: '', imported_at: null, busy: false });
+// (front -- the applied front page mode -- is declared at the top: the tab scope reads it.)
 // The store's own front page URL (same rule as storeUrlPreview below), for
 // THIS company (?company=) -- the shared store URL otherwise can't tell whose.
-const storeHomeUrl = computed(() => (form.value.store_use_root_domain
+const storeHomeUrl = computed(() => (scope.value === 'website' && site.value.public_url) ? site.value.public_url : (form.value.store_use_root_domain
   ? '/'
   : '/' + (String(form.value.store_url_path || '').trim().replace(/^\/+|\/+$/g, '') || 'online_store'))
   + (settings.value?.company_id ? `?company=${settings.value.company_id}` : ''));
@@ -1192,9 +1268,9 @@ async function applyFrontPage() {
     if (f.mode === 'imported') {
       f.imported_at = res?.settings?.front_page_imported_at || new Date().toISOString();
       f.saved_url = f.url;
-      message.success(`Front page imported: ${res.pages} page(s), ${res.assets} file(s), store bar inserted.`, 6);
+      message.success(`Website imported: ${res.pages} page(s), ${res.assets} file(s).`, 6);
     } else {
-      message.success('The front page now uses the store sections.');
+      message.success('The website now uses our website theme.');
     }
     f.saved_mode = f.mode;
   } catch (e) {
@@ -1271,7 +1347,7 @@ function openStoreUrl() {
 
 function asset(p) {
   if (!p) return '';
-  if (p.startsWith('images/')) return `/${p}`;
+  if (p.startsWith('images/') || p.startsWith('files/')) return `/${p}`;
   if (p.startsWith('/')) return p;
   return `/storage/${p}`;
 }
@@ -1467,6 +1543,11 @@ async function fetch() {
       imported_at: (s && s.front_page_imported_at) || null,
       busy: false,
     };
+    // Opened on a tab that doesn't apply (Hero with an imported website): go to the Front page.
+    if (!inScope(mainTab.value)) {
+      if (mainTab.value === 'hero') message.info('The Hero header is only used by our website theme. Your website is imported.');
+      mainTab.value = validTab(mainTab.value);
+    }
 
     const lineupRaw = s && s.homepage_lineup;
     merged.homepage_lineup = Array.isArray(lineupRaw) ? lineupRaw : (tryParseJson(lineupRaw) || []);
@@ -1504,6 +1585,22 @@ async function fetch() {
     });
 
     form.value = merged;
+
+    // Website Management: its own name / logo / SEO / top bar / footer / social links.
+    if (scope.value === 'website') {
+      storeOwn.value = {
+        ...Object.fromEntries(WEBSITE_OWNED.map(k => [k, merged[k]])),
+        text_translations: Object.fromEntries(WEBSITE_TR.map(k => [k, { ...(merged.text_translations[k] || {}) }])),
+      };
+      const wres = (await http.get('admin/website/settings')) || {};
+      const w = wres.settings || {};
+      site.value = { url_path: w.url_path || '', public_url: wres.public_url || '', url_origin: wres.url_origin || '/' };
+      WEBSITE_OWNED.forEach(k => { if (k !== 'social_links') form.value[k] = w[k] ?? ''; });
+      form.value.social_links = normalizeSocialLinks(w.social_links);
+      WEBSITE_TR.forEach(k => { form.value.text_translations[k] = { ...((w.text_translations || {})[k] || {}) }; });
+      // Logo / favicon previews show the website's files.
+      settings.value = { ...settings.value, logo_path: w.logo_path || null, favicon_path: w.favicon_path || null };
+    }
 
     let cols = [];
     const dataCollections = s && s.collections;
@@ -1592,10 +1689,24 @@ async function save() {
     form.value.theme_options = { electronics: el.value, toys: ty.value, grocery: gr.value };
 
     // 3) FormData: booleans 1/0, JSON fields stringified, null → ''
+    // Website scope: the store keeps ITS values of the fields the website owns
+    // (they go to admin/website/settings below), and site_name isn't a store field.
+    const isSite = scope.value === 'website';
+    const payload = { ...form.value };
+    // Server-managed values are never posted back (the imported menu holds the
+    // site's own HTML, which the request-safety filter rightly rejects).
+    ['imported_menu', 'portfolio_section', 'front_page_mode', 'front_page_url', 'front_page_path', 'front_page_imported_at',
+      'collections', 'id', 'company_id', 'created_at', 'updated_at', 'store_locales', 'translatable_text_fields',
+      'logo_path', 'favicon_path', 'hero_image_path', 'gcash_qr_path'].forEach(k => { delete payload[k]; });
+    if (isSite) {
+      WEBSITE_OWNED.forEach(k => { payload[k] = storeOwn.value[k]; });
+      payload.text_translations = { ...form.value.text_translations, ...storeOwn.value.text_translations };
+      delete payload.site_name;
+    }
     const fd = new FormData();
     const jsonFields = ['menus', 'social_links', 'homepage_lineup', 'warehouse_ids', 'text_translations', 'theme_options'];
-    Object.keys(form.value).forEach(k => {
-      const v = form.value[k];
+    Object.keys(payload).forEach(k => {
+      const v = payload[k];
       if (typeof v === 'boolean') {
         fd.append(k, v ? 1 : 0);
       } else if (jsonFields.includes(k)) {
@@ -1607,13 +1718,30 @@ async function save() {
       }
     });
 
-    // 4) Files
+    // 4) Files (the website's own logo / favicon go with the website settings)
     Object.keys(files.value).forEach(fk => {
-      if (files.value[fk]) fd.append(fk, files.value[fk]);
+      if (files.value[fk] && !(isSite && ['logo', 'favicon'].includes(fk))) fd.append(fk, files.value[fk]);
     });
 
     // 5) POST multipart
-    const { status } = await uploadForm('admin/store/settings', fd);
+    let { status } = await uploadForm('admin/store/settings', fd);
+    if (isSite && status >= 200 && status < 300) {
+      const wfd = new FormData();
+      WEBSITE_OWNED.forEach(k => {
+        const v = form.value[k];
+        wfd.append(k, k === 'social_links' ? JSON.stringify(v || []) : (v ?? ''));
+      });
+      wfd.append('text_translations', JSON.stringify(Object.fromEntries(WEBSITE_TR.map(k => [k, form.value.text_translations[k] || {}]))));
+      wfd.append('url_path', site.value.url_path || '');
+      ['logo', 'favicon'].forEach(fk => { if (files.value[fk]) wfd.append(fk, files.value[fk]); });
+      const wr = await uploadForm('admin/website/settings', wfd);
+      status = wr.status;
+      const urlErr = wr.data && wr.data.errors && wr.data.errors.url_path;
+      if (urlErr) {
+        message.error('Website URL: ' + (Array.isArray(urlErr) ? urlErr[0] : urlErr));
+        return;
+      }
+    }
     if (status >= 200 && status < 300) {
       message.success(t('Successfully_Updated'));
       await fetch();

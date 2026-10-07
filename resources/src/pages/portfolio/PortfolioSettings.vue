@@ -329,7 +329,7 @@ const pageOptions = computed(() => [
     { value: 'work', label: 'Portfolio' }, { value: 'contact', label: 'Contact' },
   ] },
   ...(categories.value.length ? [{ label: 'Categories (gallery filtered)', options: sortByLabel(categories.value.map(c => ({ value: `category:${c.slug}`, label: c.name }))) }] : []),
-  ...(projects.value.length ? [{ label: 'Works', options: sortByLabel(projects.value.filter(p => p.slug).map(p => ({ value: `project:${p.slug}`, label: p.title }))) }] : []),
+  ...(projects.value.length ? [{ label: 'Photos', options: sortByLabel(projects.value.filter(p => p.slug).map(p => ({ value: `project:${p.slug}`, label: p.title }))) }] : []),
 ]);
 
 function pickTheme(t) {

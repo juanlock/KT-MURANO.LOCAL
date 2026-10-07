@@ -51,6 +51,18 @@ class AppServiceProvider extends ServiceProvider
             KeysCommand::class,
         ]);
 
+        // SuperAdmin = the owner: every module by default. After each migrate,
+        // permissions added by new modules are given to the SuperAdmin roles.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Database\Events\MigrationsEnded::class, function ($e) {
+            if (($e->method ?? 'up') === 'up') {
+                try {
+                    \App\Support\SuperAdminAccess::sync();
+                } catch (\Throwable $ex) {
+                    // never break a migrate run
+                }
+            }
+        });
+
         View::composer('*', function ($view) {
             $firstSegment = Request::segment(1); // Get the first segment of the URL
 
@@ -98,7 +110,8 @@ class AppServiceProvider extends ServiceProvider
                 'portfolio',
             ];
 
-            if (! in_array($firstSegment, $categoriesExcluded) && ! is_store_request(request())) {
+            // (and a company website at its own address -- WebsiteCompany middleware)
+            if (! in_array($firstSegment, $categoriesExcluded) && ! is_store_request(request()) && ! request()->attributes->get('website_company')) {
                 $categories = Schema::hasTable('subcategories')
                     ? \App\Models\Category::with('subcategories')->orderBy('name')->get()
                     : \App\Models\Category::orderBy('name')->get();

@@ -33,6 +33,10 @@ class FrontPage
     /** Domain company, or a valid ?company=ID; null when neither applies. */
     public static function explicitCompanyId(Request $request): ?int
     {
+        // On a company website's own address (/{url_path}/...): that company.
+        if ($id = (int) $request->attributes->get('website_company')) {
+            return $id;
+        }
         if ($id = CompanyDomain::companyIdForHost($request->getHost())) {
             return $id;
         }

@@ -19,6 +19,7 @@ Run Protocol Preparate:
 
 1. **Reload the standing context.** Re-read `CLAUDE.md` in the repo root (sections: Protocol "preparate", Roles & Multicompany Model, Systems, Migration Approach, Session Protocols, Hard Rules). This file is git-tracked, so it's identical on every machine this checkout runs on -- that's what makes this protocol portable across computers. Confirm out loud, briefly, that these rules are active for the rest of the session:
    - SuperAdmin = unrestricted, sees a company dropdown on scoped forms. AdminKT/AdminRG (Admin type) = locked to their own `company_id`, no selector.
+   - **SuperAdmin = the system's owner: access to every module by default** (user's rule, 2026-10-06). Its role always holds every permission (`menu_hide:*` aside): `App\Support\SuperAdminAccess::sync()` runs after every `php artisan migrate`; a new module's permission never needs its own SuperAdmin grant, and a SuperAdmin never sees a menu disappear for lack of one.
    - Billing (`KT-BILLING.LOCAL`, `dbbilling`) is production and **read-only** -- never modify it.
    - Murano (`KT-MURANO.LOCAL`, `dbmurano`, this repo) is the target -- new code stays the base, billing's tables/code get adapted into it.
    - Migration scope: sales, company, menu (make it dynamic like billing), employees, products, translations, kt_log -- nothing outside that list.

@@ -27,10 +27,11 @@
           <div>
             <div class="ddg-type__title">What kind of business is {{ companyName || 'this company' }}?</div>
             <div class="ddg-muted">
-              Accounting, Regular expenses and Assets examples use it: a landscaper gets fuel, mulch and subcontractor
-              bills and mowers, trucks and trailers as assets; a salon, hair color, laundry and styling chairs; an IT
-              consultant, laptops, servers and network gear; an office, copiers and furniture; a restaurant, food orders
-              and kitchen equipment. Its own expense categories and accounts are added too (they stay after removing demo data).
+              Accounting, Regular expenses, Assets, Portfolio and Website examples use it: a landscaper gets fuel, mulch and
+              subcontractor bills, mowers and trucks as assets, lawn and garden photos and pages; a salon, hair color, laundry,
+              styling chairs and salon photos and pages; an IT consultant, laptops, servers, network gear and IT pages; a
+              restaurant, food orders and kitchen equipment. Its own expense categories and accounts are added too (they stay
+              after removing demo data). <b>Choosing another type replaces those examples</b> — the old ones are removed first.
             </div>
           </div>
           <a-select v-model:value="businessType" :options="businessTypeOptions" style="width: 320px" placeholder="Choose the type of business" />
@@ -76,12 +77,15 @@
           :row-selection="{
             selectedRowKeys: selected,
             onChange: keys => (selected = keys),
-            getCheckboxProps: r => ({ disabled: !r.available }),
+            getCheckboxProps: r => ({ disabled: !r.available && !willReplace(r) }),
           }"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'status'">
-              <a-tag v-if="record.available" color="green">Ready</a-tag>
+              <a-tooltip v-if="willReplace(record)" :title="`Its examples follow the business type: they are removed and created again for ${typeLabel(businessType)}.`">
+                <a-tag color="orange">Will be replaced</a-tag>
+              </a-tooltip>
+              <a-tag v-else-if="record.available" color="green">Ready</a-tag>
               <a-tag v-else-if="record.demo_count" color="purple">Examples generated</a-tag>
               <a-tag v-else-if="!record.enabled" color="default">Module off</a-tag>
               <a-tag v-else-if="record.has_real_data" color="blue">Has real data — skipped</a-tag>
@@ -161,8 +165,21 @@ const availableKeys = computed(() => modules.value.filter(m => m.available).map(
 const businessType = ref(undefined);
 const businessTypes = ref([]);
 const businessTypeOptions = computed(() => sortByLabel(businessTypes.value));
-const TYPE_MODULES = ['accounting', 'regular_expenses', 'assets'];
-const needsType = computed(() => selected.value.some(k => TYPE_MODULES.includes(k)));
+// Modules whose examples follow the business type (from the server: type_modules).
+const TYPE_MODULES = ref(['accounting', 'regular_expenses', 'assets', 'portfolio', 'website']);
+const needsType = computed(() => selected.value.some(k => TYPE_MODULES.value.includes(k)));
+// The type saved on the company (what the existing examples were made for).
+const savedType = ref(undefined);
+const typeChanged = computed(() => !!businessType.value && !!savedType.value && businessType.value !== savedType.value);
+// Another type chosen: the examples made for the old one are removed and generated again.
+const willReplace = r => typeChanged.value && TYPE_MODULES.value.includes(r.key) && Number(r.demo_count) > 0;
+const typeLabel = v => (businessTypes.value.find(t => t.value === v) || {}).label || v;
+watch(typeChanged, changed => {
+  const keys = modules.value.filter(willReplace).map(m => m.key);
+  selected.value = changed
+    ? [...new Set([...selected.value, ...keys])]
+    : selected.value.filter(k => availableKeys.value.includes(k));
+});
 // Hours or commission (HRM demo staff / payroll history); default from the business type.
 const needsPay = computed(() => selected.value.some(k => ['hrm', 'payroll_history'].includes(k)));
 const payType = ref(null);
@@ -189,6 +206,8 @@ async function loadStatus() {
     demoTotal.value = Number(data.demo_total) || 0;
     businessTypes.value = data.business_types || [];
     businessType.value = data.business_type || undefined;
+    savedType.value = data.business_type || undefined;
+    if (Array.isArray(data.type_modules)) TYPE_MODULES.value = data.type_modules;
     selected.value = selected.value.filter(k => availableKeys.value.includes(k));
   } catch (e) {
     message.error(e?.data?.message || e?.message || 'Could not load demo data status');
@@ -197,8 +216,20 @@ async function loadStatus() {
 
 async function generate() {
   if (needsType.value && !businessType.value) {
-    message.warning('Choose what kind of business this is first — Accounting, Regular expenses and Assets examples follow it.');
+    message.warning('Choose what kind of business this is first — Accounting, Regular expenses, Assets, Portfolio and Website examples follow it.');
     return;
+  }
+  const replacing = modules.value.filter(willReplace);
+  if (replacing.length) {
+    const ok = await new Promise(resolve => Modal.confirm({
+      title: `Change the examples to ${typeLabel(businessType.value)}?`,
+      icon: createVNode(ExclamationCircleOutlined),
+      content: `These demo examples were made for ${typeLabel(savedType.value)}: ${replacing.map(m => m.label).join(', ')}. `
+        + 'They will be removed and created again for the new business type. Real data is never touched.',
+      okText: 'Replace and generate', cancelText: 'Cancel',
+      onOk: () => resolve(true), onCancel: () => resolve(false),
+    }));
+    if (!ok) return;
   }
   generating.value = true;
   try {
@@ -210,8 +241,9 @@ async function generate() {
     lastResults.value = sortByLabel(Object.entries(data.results || {}).map(([key, r]) => ({ key, label: byKey[key] || key, ...r })));
     const ok = lastResults.value.filter(r => r.status === 'created').length;
     const failed = lastResults.value.filter(r => r.status === 'error').length;
+    const replaced = (data.replaced || []).length;
     if (failed) message.warning(`${ok} module(s) generated, ${failed} failed — see "Last run".`, 6);
-    else message.success(`${ok} module(s) generated.`, 5);
+    else message.success(`${ok} module(s) generated${replaced ? ` (${replaced} replaced for the new business type)` : ''}.`, 5);
     selected.value = [];
     await loadStatus();
   } catch (e) {

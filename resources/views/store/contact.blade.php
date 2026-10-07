@@ -21,7 +21,7 @@
       </div>
       <nav aria-label="breadcrumb">
         <ol class="flex items-center gap-2 text-sm text-fg-muted m-0 p-0 list-none">
-          <li><a class="hover:text-accent-500" href="{{ route('store.index') }}">{{ __('messages.Home') }}</a></li>
+          <li><a class="hover:text-accent-500" href="{{ !empty($website) ? \App\Support\WebsitePaths::url() : route('store.index') }}">{{ __('messages.Home') }}</a></li>
           <li aria-hidden="true">/</li>
           <li class="text-fg-primary" aria-current="page">{{ $title }}</li>
         </ol>

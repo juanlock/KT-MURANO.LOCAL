@@ -769,7 +769,7 @@ class SettingsApiController extends Controller
      * Normalize storefront menus to { header, footer_shop, footer_support } of
      * [{label, type, value}] items.
      */
-    private function normalizeMenus($val): array
+    public static function normalizeMenus($val): array // also used for the website's menus (WebsiteSettingsController)
     {
         if (is_string($val)) {
             $val = json_decode($val, true) ?: [];

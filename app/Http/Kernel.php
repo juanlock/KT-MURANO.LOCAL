@@ -98,6 +98,8 @@ class Kernel extends HttpKernel
         'XSS' => \App\Http\Middleware\XSS::class,
         'request.safety' => \App\Http\Middleware\RequestSafety::class,
         'store.enabled' => \App\Http\Middleware\EnsureStoreEnabled::class,
+        // A company website's own address (/{url_path}/...): whose website it is.
+        'website.company' => \App\Http\Middleware\WebsiteCompany::class,
         // Security: inactivity auto-logout + token activity tracking (Passport)
         'token.timeout' => \App\Http\Middleware\EnforceApiTokenTimeout::class,
         'pdf.locale' => \App\Http\Middleware\SetPdfLocale::class,

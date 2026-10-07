@@ -60,6 +60,13 @@ that selector -- only a SuperAdmin can change the acting company.
   delete any form in the system. On forms that are company-scoped, a SuperAdmin
   sees a company dropdown/selector and the form's data/behavior follows the
   selected company.
+  **The SuperAdmin is the system's owner: access to every module by default
+  (user's rule, 2026-10-06).** Its role (`role_user` -> e.g. "Owner") always
+  holds every permission except the `menu_hide:*` ones:
+  `App\Support\SuperAdminAccess::sync()` runs after every `php artisan migrate`
+  (AppServiceProvider, `MigrationsEnded`), so a new module's permission reaches
+  it automatically. (Before this, the Owner role was missing
+  `portfolio_manage` and the Portfolio menu was invisible to the SuperAdmin.)
 - **AdminRG** — a user type `Admin`, restricted/limited according to their
   member role, tied to a specific company (e.g. member of company 2). Example
   pairing: `AdminKT` ↔ company 1, `AdminRG` ↔ company 2.
@@ -211,6 +218,30 @@ the start of each session).
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
   endpoints behind the tabs). A new tab on that page gets its own pair of
   permissions.
+
+### Online Store vs Website Management (user's rule, 2026-10-06)
+
+- Two separate modules, each with its own menus, options and files:
+  **Online Store** (the shop: store_settings, files/company_{id}/store/) and
+  **Website Management** (the company website: `App\Models\WebsiteSetting`,
+  files/company_{id}/website/ -- own name, logo, favicon, SEO, top bar/footer,
+  social links, menus). Same settings page (`StoreSettings.vue`), scope from
+  route meta (`/store/settings` vs `/website/settings`).
+- Website pages (front page with our website theme, CMS pages, gallery,
+  contact) render with `WebsiteSetting::applyTo()` and `$website = true` (no
+  cart / search / shop category bar / shop sign-in); shop pages keep the
+  store's settings. `StoreFrontController::website()`.
+- **Each website has its own address**, never `/online_store?company=ID`:
+  `website_settings.url_path` (Website settings -> Branding -> Website URL,
+  e.g. `/kcoltech`, `/kcoltech/pages/{slug}`, `/gallery`, `/contact`; route
+  groups per path in `routes/web.php`, `WebsiteCompany` middleware). Build
+  website links with `App\Support\WebsitePaths::url($rel, $companyId)`; old
+  `?company=` links 301 to the website address. New companies get a path from
+  their name (`WebsitePaths::suggest`), system first segments are refused.
+- **Gallery** and **Portfolio** are their own modules: Gallery (`/gallery`,
+  files/company_{id}/gallery/) and ONE Portfolio (the Portfolio module -- the
+  old store_portfolio_* tables were merged into it; the website's Portfolio
+  section reads `portfolio_projects`).
 
 ## Frontend Conventions
 

@@ -6,6 +6,10 @@
   // Defensive default: SEO helpers call methods on $s (fatal on null), so never
   // let a view that forgot to pass settings take the whole page down.
   $s = $s ?? (\App\Models\StoreSetting::first() ?: new \App\Models\StoreSetting);
+  // Website Management pages (front page with our theme, pages, gallery, contact): no shop chrome,
+  // and every link keeps ?company= (the shared store URL can't tell whose website it is).
+  $isWebsite = !empty($website);
+  $companyQ = $isWebsite && request()->query('company') ? '?company='.(int) request()->query('company') : '';
 
   $categories = $categories ?? collect();
   // Storefront theme: 'electronics' swaps the header/footer/skin partials in
@@ -296,15 +300,18 @@
   @if($isElectronics)
     @include('store.'.$skinTheme.'.partials.header')
   @else
-  {{-- Announcement bar --}}
+  {{-- Announcement bar (website: only its own texts -- none = no bar) --}}
+  @php $topLeft = $s->localizedText('topbar_text_left'); $topRight = $s->localizedText('topbar_text_right'); @endphp
+  @if(! $isWebsite || $topLeft || $topRight)
   <div class="announce-bar text-xs">
     <div class="container flex items-center justify-center gap-2.5 h-9">
       <span class="font-semibold text-fg-primary truncate">{{ $s->localizedText('topbar_text_left') ?? __('messages.TopbarLeft') }}</span>
       <span class="hidden md:inline-block w-1 h-1 rounded-full bg-line-strong shrink-0"></span>
       <span class="hidden md:inline text-fg-secondary truncate">{{ $s->localizedText('topbar_text_right') ?? __('messages.TopbarRight') }}</span>
-      <a href="{{ route('store.shop') }}" class="hidden sm:inline font-semibold text-accent-500 hover:text-accent-400 shrink-0">{{ __('messages.ShopNow') }}</a>
+      @unless($isWebsite)<a href="{{ route('store.shop') }}" class="hidden sm:inline font-semibold text-accent-500 hover:text-accent-400 shrink-0">{{ __('messages.ShopNow') }}</a>@endunless
     </div>
   </div>
+  @endif
 
   {{-- Header --}}
   <header class="sticky top-0 z-40 bg-bg-base/85 backdrop-blur-md border-b border-line-subtle">
@@ -320,7 +327,7 @@
         </button>
 
         {{-- Logo --}}
-        <a href="{{ route('store.index') }}" class="flex items-center gap-2.5 shrink-0">
+        <a href="{{ $isWebsite ? \App\Support\WebsitePaths::url() : route('store.index') }}" class="flex items-center gap-2.5 shrink-0">
           @if(!empty($s->logo_path))
             <img src="{{ $assetPath($s->logo_path) }}" alt="{{ $s->store_name ?? 'Store' }}"
                  class="h-9 max-w-[160px] object-contain">
@@ -365,6 +372,7 @@
         </nav>
 
         {{-- Search (desktop) --}}
+        @if($isWebsite)<div class="flex-1"></div>@else
         <div class="hidden md:flex flex-1 max-w-xl mx-4 relative"
              x-data="searchBox('{{ route('store.search.suggestions') }}')"
              @click.outside="results = []">
@@ -395,17 +403,20 @@
             </div>
           </form>
         </div>
+        @endif
 
         {{-- Actions cluster --}}
         <div class="ms-auto flex items-center gap-2">
 
           {{-- Mobile search --}}
+          @unless($isWebsite)
           <button type="button"
                   class="md:hidden btn btn-ghost btn-icon"
                   @click="window.StoreUI.open('mobileSearchOverlay')"
                   aria-label="{{ __('messages.Search') }}">
             <x-store.icon name="search" class="w-5 h-5" />
           </button>
+          @endunless
 
           {{-- Theme toggle --}}
           <button type="button"
@@ -497,13 +508,14 @@
                 </form>
               </div>
             </div>
-          @else
+          @elseif(! $isWebsite)
             <a href="{{ $loginUrl }}" class="hidden md:inline-flex btn btn-secondary btn-sm">
               <x-store.icon name="user" class="w-4 h-4" />{{ __('messages.SignIn') }}
             </a>
           @endif
 
           {{-- Cart --}}
+          @unless($isWebsite)
           <button type="button"
                   class="btn btn-primary h-10 px-4 relative"
                   @click="window.StoreUI.open('miniCart')"
@@ -512,6 +524,7 @@
             <span class="hidden sm:inline ms-1">{{ __('messages.Cart') }}</span>
             <span class="cart-count inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-white text-accent-500 text-[11px] font-bold ms-1">0</span>
           </button>
+          @endunless
         </div>
       </div>
     </div>
@@ -582,12 +595,22 @@
                x-transition:leave-end="-translate-x-full rtl:translate-x-full"
                class="drawer-panel drawer-start">
           <div class="drawer-header">
-            <h5 class="font-semibold">{{ __('messages.Categories') }}</h5>
+            <h5 class="font-semibold">{{ $isWebsite ? ($s->store_name ?? '') : __('messages.Categories') }}</h5>
             <button type="button" class="btn btn-ghost btn-icon" @click="close" aria-label="{{ __('messages.Close') }}">
               <x-store.icon name="x" class="w-5 h-5" />
             </button>
           </div>
 
+          @if($isWebsite)
+          {{-- Website: its own menu, no product search / shop categories --}}
+          <div class="drawer-body p-0">
+            <ul class="divide-y divide-line-subtle">
+              @foreach(($headerMenu ?? []) as $mi)
+                <li><a href="{{ $mi['url'] }}" class="block px-4 py-3 text-sm font-medium text-fg-primary hover:bg-bg-muted">{{ $mi['label'] }}</a></li>
+              @endforeach
+            </ul>
+          </div>
+          @else
           <div class="p-4 border-b border-line-subtle">
             <div class="relative" x-data="searchBox('{{ route('store.search.suggestions') }}')"
                  @click.outside="results = []">
@@ -648,6 +671,7 @@
               @endforeach
             </ul>
           </div>
+          @endif
 
           {{-- Language / currency: the header dropdowns are desktop-only, so
                without these a phone visitor cannot switch either. --}}
@@ -727,17 +751,18 @@
 
   {{-- Mobile bottom tab bar --}}
   <nav class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-bg-base/95 backdrop-blur-md border-t border-line-subtle pb-[env(safe-area-inset-bottom)]">
-    <div class="grid grid-cols-5 h-16">
+    <div class="grid {{ $isWebsite ? 'grid-cols-2' : 'grid-cols-5' }} h-16">
       @php
         $isHome = request()->routeIs('store.index');
         $isShop = request()->routeIs('store.shop');
         $isAcct = request()->routeIs('account*') || request()->routeIs('store.wishlist') || request()->routeIs('my_*');
       @endphp
-      <a href="{{ route('store.index') }}"
+      <a href="{{ $isWebsite ? \App\Support\WebsitePaths::url() : route('store.index') }}"
          class="flex flex-col items-center justify-center gap-0.5 {{ $isHome ? 'text-accent-500' : 'text-fg-secondary' }}">
         <x-store.icon name="home" class="w-5 h-5" />
         <span class="text-[10px] font-medium">{{ __('messages.Home') }}</span>
       </a>
+      @unless($isWebsite)
       <a href="{{ route('store.shop') }}"
          class="flex flex-col items-center justify-center gap-0.5 {{ $isShop ? 'text-accent-500' : 'text-fg-secondary' }}">
         <x-store.icon name="grid" class="w-5 h-5" />
@@ -756,7 +781,15 @@
         <span class="cart-count absolute top-1 end-4 min-w-4 h-4 px-1 rounded-full bg-danger text-white text-[10px] font-bold inline-flex items-center justify-center">0</span>
         <span class="text-[10px] font-medium">{{ __('messages.Cart') }}</span>
       </button>
-      @if($client)
+      @endunless
+      @if($isWebsite)
+        {{-- Website: no shop account -- the website's own menu (the mobile drawer) --}}
+        <button type="button" class="flex flex-col items-center justify-center gap-0.5 text-fg-secondary"
+                @click="window.StoreUI.open('mobileCategorySidebar')">
+          <x-store.icon name="menu" class="w-5 h-5" />
+          <span class="text-[10px] font-medium">{{ __('messages.Menu') !== 'messages.Menu' ? __('messages.Menu') : 'Menu' }}</span>
+        </button>
+      @elseif($client)
         <a href="{{ $accountUrl }}"
            class="flex flex-col items-center justify-center gap-0.5 {{ $isAcct ? 'text-accent-500' : 'text-fg-secondary' }}">
           <x-store.icon name="user" class="w-5 h-5" />
@@ -812,6 +845,7 @@
           @endif
         </div>
 
+        @unless($isWebsite)
         <div>
           <h6 class="text-xs font-semibold uppercase tracking-widest text-fg-muted mb-3">{{ __('messages.Shop') }}</h6>
           <ul class="space-y-2 text-sm">
@@ -825,6 +859,7 @@
             @endif
           </ul>
         </div>
+        @endunless
 
         <div>
           <h6 class="text-xs font-semibold uppercase tracking-widest text-fg-muted mb-3">{{ __('messages.Support') }}</h6>
@@ -833,6 +868,8 @@
               @foreach($footerSupportMenu as $mi)
                 <li><a href="{{ $mi['url'] }}" class="text-fg-secondary hover:text-accent-500">{{ $mi['label'] }}</a></li>
               @endforeach
+            @elseif($isWebsite)
+              <li><a href="{{ \App\Support\WebsitePaths::url('contact') }}" class="text-fg-secondary hover:text-accent-500">{{ __('messages.ContactUs') }}</a></li>
             @else
               <li><a href="{{ route('store.contact') }}" class="text-fg-secondary hover:text-accent-500">{{ __('messages.ContactUs') }}</a></li>
               @if($client)

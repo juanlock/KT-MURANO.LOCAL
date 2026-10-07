@@ -70,7 +70,7 @@ app/
   Http/Controllers/      API controllers (company-scoped via Concerns/ScopesToCompany)
   Models/                Eloquent models
   Services/              Domain services (EmailOffice, LinkedUserService, PayrollRun, ...)
-  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ServiceJobCost, ModuleFlags...
+  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ServiceJobCost, ModuleFlags, WebsitePaths, SuperAdminAccess...
 database/
   migrations/            Schema + data migrations (run on every machine)
   scripts/               Protocol scripts (backups, reports)
@@ -102,6 +102,13 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 - **Roles decide everything.** A user can do only what their role's permissions
   allow; the user type grants nothing, except SuperAdmin. A new feature adds
   its own permission checkbox.
+- **SuperAdmin = the owner.**
+  - The SuperAdmin role has every module by default.
+  - `App\Support\SuperAdminAccess::sync()` runs after every `migrate`.
+- **Online Store ≠ Website.**
+  - The store and the company website have separate settings, menus and files.
+  - Each website has its own address (`website_settings.url_path`).
+  - Build website links with `App\Support\WebsitePaths::url()`.
 - **Logins.**
   - Every employee gets a login automatically.
   - Users → Add creates only Admin / SuperAdmin logins.
@@ -129,6 +136,33 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
+
+### 2026-10-06 (Optimum)
+
+- **Online Store and Website Management are two separate modules.**
+  - Each has its own settings, menus and files.
+  - The website has its own name, logo, favicon, SEO, top bar, footer and
+    social links.
+  - Website pages look like a website, with no cart, product search or shop
+    sign-in.
+  - Demo Data has website pages for IT (KcolTech), landscaping and salons.
+    They are replaced when the business type changes.
+- **Every company website has its own address**, for example `/kcoltech`.
+  - Set it in Website settings → Branding → Website URL.
+  - Old `/online_store?company=` links redirect to it.
+  - The **Preview website** button opens it.
+- **Gallery** has its own menu.
+- **One Portfolio.** The old website portfolio pictures were merged into the
+  Portfolio module.
+  - "Works" is now called **Photos**.
+- **The SuperAdmin is the owner and has every module by default.** Permissions
+  added by new modules are granted to the SuperAdmin automatically after
+  `migrate`. (Before this, the Portfolio menu was hidden for the SuperAdmin.)
+- **Backups.** The Email Office tables now go in three zip files.
+- **Protocol reports** list the newest requests first.
+- **Our own date range filter** is now part of the Preparate rules.
+
+Setup: `php artisan migrate`, `npm run build`.
 
 ### 2026-10-06 (Thundera)
 

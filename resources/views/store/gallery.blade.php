@@ -3,7 +3,7 @@
 @section('content')
 <div class="container py-8 lg:py-12">
   <nav class="text-sm text-fg-muted mb-4 flex items-center gap-1 flex-wrap">
-    <a href="{{ route('store.index') }}" class="hover:text-accent-500">{{ __('messages.Home') }}</a>
+    <a href="{{ !empty($website) ? \App\Support\WebsitePaths::url() : route('store.index') }}" class="hover:text-accent-500">{{ __('messages.Home') }}</a>
     <x-store.icon name="chevron-right" class="w-4 h-4" />
     <span class="text-fg-secondary">{{ __('messages.Gallery') }}</span>
   </nav>

@@ -23,8 +23,82 @@ class StoreFrontController extends Controller
     /**
      * Homepage — blocks driven by StoreSetting->homepage_lineup.
      */
+    /**
+     * Website Management (2026-10-06): the website pages -- front page with our
+     * theme, pages, gallery, contact -- use the WEBSITE's own settings (name,
+     * logo, SEO, top bar / footer, social links, menus) instead of the store's.
+     * Returns null when the company has Website Management switched off (the
+     * page then stays a store page, as before). With no website menu yet, the
+     * header lists Home + the company's published pages + Gallery + Contact,
+     * keeping ?company= on the shared store URL.
+     */
+    private function website(StoreSetting $s, int $companyId): ?StoreSetting
+    {
+        if (! $companyId || ! \App\Support\ModuleFlags::enabled($companyId, 'website')) {
+            return null;
+        }
+        $w = \App\Models\WebsiteSetting::forCompany($companyId)->applyTo($s);
+        // Contact details: the company's own when the store has none.
+        $company = \App\Models\Company::find($companyId);
+        $w->contact_email = $w->contact_email ?: ($company->email ?? null);
+        $w->contact_phone = $w->contact_phone ?: ($company->phone ?? null);
+        $menus = is_array($w->menus) ? $w->menus : [];
+        $site = fn ($rel) => \App\Support\WebsitePaths::url($rel, $companyId);
+        if (empty($menus['header'])) {
+            $items = [['label' => __('messages.Home'), 'type' => 'url', 'value' => $site('')]];
+            foreach (StorePage::where('company_id', $companyId)->where('published', true)->where('slug', '!=', 'home')
+                ->orderBy('id')->limit(6)->get(['title', 'slug']) as $p) {
+                $items[] = ['label' => $p->title, 'type' => 'url', 'value' => $site('pages/'.$p->slug)];
+            }
+            if (\App\Models\StoreGalleryImage::where('company_id', $companyId)->where('active', true)->exists()) {
+                $items[] = ['label' => __('messages.Gallery'), 'type' => 'url', 'value' => $site('gallery')];
+            }
+            if (! StorePage::where('company_id', $companyId)->where('published', true)->where('slug', 'like', 'contact%')->exists()) {
+                $items[] = ['label' => __('messages.ContactUs'), 'type' => 'url', 'value' => $site('contact')];
+            }
+            $menus['header'] = $items;
+        }
+        // Menu items chosen in the editor ("page", "home", "contact"…) point at the website, not the store.
+        foreach ($menus as $loc => $list) {
+            $menus[$loc] = array_map(function ($it) use ($site) {
+                $type = $it['type'] ?? 'url';
+                $map = ['home' => '', 'contact' => 'contact'];
+                if ($type === 'page' && ! empty($it['value'])) {
+                    return ['type' => 'url', 'value' => $site('pages/'.$it['value'])] + $it;
+                }
+                if (isset($map[$type])) {
+                    return ['type' => 'url', 'value' => $site($map[$type])] + $it;
+                }
+
+                return $it;
+            }, (array) $list);
+        }
+        $w->menus = $menus;
+
+        return $w;
+    }
+
+    /**
+     * An old /online_store?company=ID link to a website page: send it to the
+     * company website's own address (301), when it has one (Website URL).
+     */
+    private function websiteRedirect(Request $request, string $rel)
+    {
+        $cid = (int) $request->query('company', 0);
+        if ($request->attributes->get('website_company') || ! $cid
+            || ! \App\Support\ModuleFlags::enabled($cid, 'website') || ! \App\Support\WebsitePaths::pathOf($cid)) {
+            return null;
+        }
+        $rest = collect($request->query())->except('company')->all();
+
+        return redirect()->to(\App\Support\WebsitePaths::url($rel, $cid).($rest ? '?'.http_build_query($rest) : ''), 301);
+    }
+
     public function index(Request $request)
     {
+        if ($r = $this->websiteRedirect($request, '')) {
+            return $r;
+        }
         // Front page per company (Store Settings -> Front page): an imported
         // page in its original format, or the section-built page below.
         $frontCompany = \App\Services\FrontPage::companyIdForRequest($request);
@@ -342,6 +416,25 @@ class StoreFrontController extends Controller
             'showCategoryBar' => true,
         ];
 
+        // The front page with our website theme is the WEBSITE's home (Website
+        // Management): its own settings, no shop chrome, website sections
+        // (pages, portfolio, gallery, contact) instead of the shop's auto sections.
+        $siteCompany = (int) ($frontCompany ?: $s->company_id);
+        if ($w = $this->website($s, $siteCompany)) {
+            $viewData = array_merge($viewData, [
+                's' => $w,
+                'website' => true,
+                'showCategoryBar' => false,
+                'sitePages' => StorePage::where('company_id', $siteCompany)->where('published', true)->where('slug', '!=', 'home')
+                    ->orderBy('id')->limit(9)->get(['title', 'slug', 'content', 'seo_description']),
+                'siteGallery' => \App\Models\StoreGalleryImage::where('company_id', $siteCompany)->where('active', true)
+                    ->orderBy('sort_order')->orderBy('id')->limit(8)->get(['title', 'image']),
+                'sitePortfolio' => collect($blocks)->contains(fn ($b) => ($b['type'] ?? '') === 'portfolio')
+                    ? '' : \App\Services\Portfolio::render($siteCompany, __('messages.Portfolio') !== 'messages.Portfolio' ? __('messages.Portfolio') : 'Portfolio', '', 12, 'mu-portfolio', true),
+                'siteCompany' => \App\Models\Company::find($siteCompany),
+            ]);
+        }
+
         return view('store.index', $viewData);
     }
 
@@ -644,11 +737,17 @@ class StoreFrontController extends Controller
     }
  
 
-    public function contact()
+    public function contact(Request $request)
     {
+        if ($r = $this->websiteRedirect($request, 'contact')) {
+            return $r;
+        }
         $s = StoreSetting::first();
+        // Contact is a website page (the company's own contact details / settings).
+        $companyId = \App\Services\FrontPage::explicitCompanyId($request) ?? (int) ($s->company_id ?? 0);
+        $w = $s ? $this->website($s, $companyId) : null;
 
-        return view('store.contact', compact('s'));
+        return view('store.contact', ['s' => $w ?: $s, 'website' => (bool) $w]);
     }
 
     /**
@@ -657,18 +756,24 @@ class StoreFrontController extends Controller
      */
     public function gallery(Request $request)
     {
+        if ($r = $this->websiteRedirect($request, 'gallery')) {
+            return $r;
+        }
         $s = StoreSetting::firstOrFail();
         $companyId = \App\Services\FrontPage::explicitCompanyId($request) ?? (int) $s->company_id;
         $images = \App\Models\StoreGalleryImage::where('company_id', $companyId)->where('active', true)
             ->orderBy('sort_order')->orderBy('id')->get();
         $company = \App\Models\Company::find($companyId);
+        // The Gallery is a website page: the website's settings, no shop chrome.
+        $w = $this->website($s, $companyId);
 
         return view('store.gallery', [
-            's' => $s,
+            's' => $w ?: $s,
+            'website' => (bool) $w,
             'images' => $images,
             'company' => $company,
             'categories' => Category::with('subcategories')->orderBy('name')->get(),
-            'showCategoryBar' => true,
+            'showCategoryBar' => ! $w,
             'seo' => [
                 'title' => __('messages.Gallery').($company ? ' · '.$company->name : ''),
                 'description' => __('messages.Gallery'),
@@ -691,6 +796,9 @@ class StoreFrontController extends Controller
      */
     public function page(Request $request, $slug)
     {
+        if ($r = $this->websiteRedirect($request, 'pages/'.$slug)) {
+            return $r;
+        }
         $s = StoreSetting::firstOrFail();
 
         // Pages are per company. On a company's own domain, only that
@@ -727,12 +835,18 @@ class StoreFrontController extends Controller
         ];
 
         $categories = Category::with('subcategories')->orderBy('name')->get();
+        // A page of the company WEBSITE: the website's settings, no shop chrome.
+        $w = $this->website($s, $pageCompany);
+        if ($w) {
+            $seo['canonical'] = $w->canonicalForAppUrl(route('store.page', $page->slug));
+        }
 
         return view('store.page', [
-            's' => $s,
+            's' => $w ?: $s,
             'page' => $page,
             'categories' => $categories,
-            'showCategoryBar' => true,
+            'showCategoryBar' => ! $w,
+            'website' => (bool) $w,
             'seo' => $seo,
         ]);
     }

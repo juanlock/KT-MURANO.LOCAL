@@ -4,11 +4,16 @@
     <template #title>Portfolio on the front page</template>
 
     <template v-if="info">
-      <!-- our store front page: it's a Homepage Block -->
+      <div class="pf-help pf-muted">
+        The pictures are your <b>Portfolio</b>: the published works with a cover
+        ({{ info.items_count }} now) — add or change them in
+        <a @click="$router.push('/portfolio/photos')">Portfolio → Photos</a>.
+      </div>
+      <!-- our website theme: it's a Homepage Block -->
       <template v-if="info.front_mode !== 'imported'">
         <div class="pf-help">
-          The front page uses the store's sections. Turn on the <b>Portfolio</b> block in
-          <b>Store Settings → Homepage Blocks</b> and move it where you want it.
+          The website uses our website theme. Turn on the <b>Portfolio</b> block in
+          <b>Website settings → Homepage blocks</b> and move it where you want it.
         </div>
         <a-button v-if="!inSettings" type="primary" @click="$router.push('/website/homepage')">
           Open Homepage Blocks
@@ -36,9 +41,16 @@
             <a-col :xs="24" :md="4"><a-form-item label="Pictures" style="margin-bottom: 8px"><a-input-number v-model:value="form.limit" :min="1" :max="60" style="width: 100%" /></a-form-item></a-col>
           </a-row>
         </template>
-        <a-space>
+        <a-space wrap>
           <a-button type="primary" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
-          <a-button :href="info.front_url" target="_blank" rel="noopener">View the front page</a-button>
+          <a-button :href="info.front_url" target="_blank" rel="noopener">View the website</a-button>
+          <a-popconfirm
+            v-if="info.site_candidates"
+            :title="`Copy the ${info.site_candidates} picture(s) of the imported website's own portfolio into Portfolio → Works?`"
+            @confirm="importSite"
+          >
+            <a-button :loading="importing">Import the website's portfolio ({{ info.site_candidates }})</a-button>
+          </a-popconfirm>
         </a-space>
       </template>
     </template>
@@ -47,9 +59,9 @@
 
 <script setup>
 /**
- * GET store/portfolio (front_mode, section, site_has_section, front_url);
- * PUT store/portfolio/section. Used on Store -> Portfolio and in Store
- * Settings -> Homepage Blocks (imported website).
+ * GET store/portfolio (front_mode, section, items_count, site_candidates, site_has_section, front_url);
+ * PUT store/portfolio/section; POST store/portfolio/import-site (into Portfolio -> Works).
+ * Used in Website settings -> Homepage blocks -> Sections (imported website).
  */
 import { ref, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
@@ -83,6 +95,19 @@ async function save() {
     message.error(e?.data?.message || 'Could not save.');
   } finally {
     saving.value = false;
+  }
+}
+const importing = ref(false);
+async function importSite() {
+  importing.value = true;
+  try {
+    const r = await http.post('store/portfolio/import-site');
+    message.success(`${r.added} picture(s) added to Portfolio → Works${r.skipped ? ` (${r.skipped} already there)` : ''}.`);
+    await load();
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not import it.');
+  } finally {
+    importing.value = false;
   }
 }
 defineExpose({ load });

@@ -142,6 +142,11 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('/admin/store/settings', [SettingsApiController::class, 'show']);
     Route::post('/admin/store/settings', [SettingsApiController::class, 'update']);
     Route::post('/admin/store/front-page', [SettingsApiController::class, 'frontPage']);
+    // Website Management's own settings + menus (separate from the store's, 2026-10-06).
+    Route::get('/admin/website/settings', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'show']);
+    Route::post('/admin/website/settings', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'update']);
+    Route::get('/admin/website/menus', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'menus']);
+    Route::post('/admin/website/menus', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'updateMenus']);
     Route::get('/admin/store/site-menu', [SettingsApiController::class, 'siteMenu']);
     Route::put('/admin/store/site-menu', [SettingsApiController::class, 'updateSiteMenu']);
     Route::post('/admin/store/site-menu/detect', [SettingsApiController::class, 'detectSiteMenu']);
@@ -295,15 +300,9 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::put('/intranet-admin/pages/{id}', [IntranetPagesApiController::class, 'update'])->whereNumber('id');
     Route::delete('/intranet-admin/pages/{id}', [IntranetPagesApiController::class, 'destroy'])->whereNumber('id');
 
+    // Front-page Portfolio section (its pictures = the Portfolio module's works since 2026-10-06;
+    // the old store groups / items endpoints are gone -- manage them in Portfolio -> Works / Categories).
     Route::get('/store/portfolio', [PortfolioApiController::class, 'index']);
-    Route::post('/store/portfolio/groups', [PortfolioApiController::class, 'storeGroup']);
-    Route::post('/store/portfolio/groups/reorder', [PortfolioApiController::class, 'reorderGroups']);
-    Route::put('/store/portfolio/groups/{id}', [PortfolioApiController::class, 'updateGroup'])->whereNumber('id');
-    Route::delete('/store/portfolio/groups/{id}', [PortfolioApiController::class, 'destroyGroup'])->whereNumber('id');
-    Route::post('/store/portfolio/items', [PortfolioApiController::class, 'storeItems']);
-    Route::post('/store/portfolio/items/reorder', [PortfolioApiController::class, 'reorderItems']);
-    Route::put('/store/portfolio/items/{id}', [PortfolioApiController::class, 'updateItem'])->whereNumber('id');
-    Route::delete('/store/portfolio/items/{id}', [PortfolioApiController::class, 'destroyItem'])->whereNumber('id');
     Route::post('/store/portfolio/import-site', [PortfolioApiController::class, 'importSite']);
     Route::put('/store/portfolio/section', [PortfolioApiController::class, 'updateSection']);
 

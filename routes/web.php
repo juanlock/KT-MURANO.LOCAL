@@ -77,6 +77,19 @@ $storeAuthPrefix = $storePath === '' ? 'customer' : '';
 
 if ($installed === true) {
 
+    // Company websites (Website Management -> Website URL, 2026-10-06): each at its
+    // own address /{url_path} (e.g. /kcoltech), not /online_store?company=ID.
+    // Registered before the store so they also win when the store uses the root domain.
+    foreach (\App\Support\WebsitePaths::all() as $sitePath => $siteCompany) {
+        Route::middleware(['web', 'request.safety', 'store.locale', 'website.company:'.$siteCompany.','.$sitePath])
+            ->prefix($sitePath)->group(function () {
+                Route::get('/', [StoreFrontController::class, 'index']);
+                Route::get('/pages/{slug}', [StoreFrontController::class, 'page']);
+                Route::get('/gallery', [StoreFrontController::class, 'gallery']);
+                Route::get('/contact', [StoreFrontController::class, 'contact']);
+            });
+    }
+
     Route::middleware(['web', 'request.safety', 'store.enabled', 'store.locale'])->group(function () use ($storePath, $storeAuthPrefix) {
 
         Route::prefix($storePath)->group(function () use ($storeAuthPrefix) {

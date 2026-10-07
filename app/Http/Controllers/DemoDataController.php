@@ -26,6 +26,9 @@ class DemoDataController extends Controller
 {
     use ScopesToCompany;
 
+    /** Demo modules whose examples depend on the business type (App\Support\BusinessTypes). */
+    public const TYPE_MODULES = ['accounting', 'regular_expenses', 'assets', 'portfolio', 'website'];
+
     public function status(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'update', Setting::class);
@@ -46,6 +49,7 @@ class DemoDataController extends Controller
             // What the company does -- accounting / expenses examples follow it.
             'business_type' => \App\Support\BusinessTypes::of($companyId),
             'business_types' => collect(\App\Support\BusinessTypes::LABELS)->map(fn ($label, $value) => compact('value', 'label'))->values(),
+            'type_modules' => self::TYPE_MODULES,
         ]);
     }
 
@@ -60,14 +64,35 @@ class DemoDataController extends Controller
             'pay_type' => ['nullable', 'in:hourly,commission'],
         ]);
         $companyId = (int) $this->resolveActingCompanyId($request);
-        // Saved on the company: the next run (and other features) know it.
+        $userId = (int) $request->user('api')->id;
+        $modules = $data['modules'];
+        $replaced = [];
+        // Another business type (user's rule, 2026-10-06): the examples that follow
+        // it are removed first and generated again for the new type -- never two
+        // sets side by side (e.g. landscaping photos next to salon ones).
         if (! empty($data['business_type'])) {
+            $old = \App\Support\BusinessTypes::of($companyId);
+            if ($data['business_type'] !== $old) {
+                foreach (self::TYPE_MODULES as $key) {
+                    if (! DB::table('demo_records')->where('company_id', $companyId)->where('module', $key)->exists()) {
+                        continue;
+                    }
+                    try {
+                        DemoRunner::reset($companyId, $userId, $key);
+                        $replaced[] = $key;
+                    } catch (\Illuminate\Database\QueryException $e) {
+                        report($e); // referenced by real data: left as it is, reported below as skipped
+                    }
+                }
+                $modules = array_values(array_unique(array_merge($modules, $replaced)));
+            }
+            // Saved on the company: the next run (and other features) know it.
             \App\Support\BusinessTypes::set($companyId, $data['business_type']);
         }
 
-        $results = DemoRunner::run($companyId, (int) $request->user('api')->id, $data['modules'], $data['pay_type'] ?? null);
+        $results = DemoRunner::run($companyId, $userId, $modules, $data['pay_type'] ?? null);
 
-        return response()->json(['success' => true, 'results' => $results]);
+        return response()->json(['success' => true, 'results' => $results, 'replaced' => $replaced]);
     }
 
     public function reset(Request $request)
