@@ -163,6 +163,8 @@ class PublicBookingController extends Controller
             'old' => $errors ? $request->except(['_ts', 'website']) : [],
             'formErrors' => $errors,
             'done' => $done,
+            // "Exit" on the full page: the company's website (Website settings -> Website URL).
+            'exitUrl' => \App\Support\WebsitePaths::pathOf($cid) ? \App\Support\WebsitePaths::url('', $cid) : null,
         ], $errors ? 422 : 200)->header('X-Robots-Tag', 'noindex')
             // Explicitly embeddable from any site.
             ->header('Content-Security-Policy', 'frame-ancestors *');
@@ -212,7 +214,8 @@ class PublicBookingController extends Controller
         };
         $v = Validator::make($request->all(), [
             'name' => 'required|string|max:120',
-            'email' => ['required', 'max:190', 'email:rfc,filter', 'regex:/\.[A-Za-z]{2,}$/'],
+            // Optional (2026-10-07): only the name is required; an email given must be valid.
+            'email' => ['nullable', 'max:190', 'email:rfc,filter', 'regex:/\.[A-Za-z]{2,}$/'],
             'phone' => ['nullable', 'string', 'max:25', $phoneRule],
             'service_id' => ['required', 'integer', fn ($a, $v, $fail) => $services->firstWhere('id', (int) $v) ? null : $fail(__('The selected service is invalid.'))],
             'staff_id' => ['nullable', 'integer', fn ($a, $v, $fail) => $staff->firstWhere('id', (int) $v) ? null : $fail(__('The selected staff is invalid.'))],
@@ -259,7 +262,7 @@ class PublicBookingController extends Controller
 
         $person = ! empty($d['staff_id']) ? $staff->firstWhere('id', (int) $d['staff_id']) : null;
         $end = (clone $start)->addMinutes($duration);
-        $email = strtolower(trim($d['email']));
+        $email = strtolower(trim((string) ($d['email'] ?? ''))) ?: null;
         $name = trim($d['name']);
 
         $taken = false;
@@ -281,9 +284,10 @@ class PublicBookingController extends Controller
             // other people in other companies -- the phone never identifies
             // anyone). Never the company's default / Walk-in customer, which
             // often carries the business's own email and would swallow visitors.
+            // No email given = a new customer (never matched by name or phone).
             $defaults = DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->first(['client_id', 'booking_default_client_id']);
             $exclude = array_values(array_filter([(int) ($defaults->client_id ?? 0), (int) ($defaults->booking_default_client_id ?? 0)]));
-            $clientId = DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')
+            $clientId = $email === null ? null : DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')
                 ->when($exclude, fn ($q) => $q->whereNotIn('id', $exclude))
                 ->where('name', 'not like', 'Walk-in%')
                 ->whereRaw('LOWER(email) = ?', [$email])->value('id');
@@ -303,7 +307,7 @@ class PublicBookingController extends Controller
             $ref = $last ? 'BK_'.((int) (explode('_', $last)[1] ?? 1111) + 1) : 'BK_1111';
 
             $notes = array_filter([
-                'Online booking — '.$name.' · '.$email.(! empty($d['phone']) ? ' · '.$d['phone'] : ''),
+                'Online booking — '.implode(' · ', array_filter([$name, $email, $d['phone'] ?? null])),
                 $person ? 'Preferred staff: '.$person->name : null,
                 ! empty($d['special_requests']) ? 'Request: '.trim($d['special_requests']) : null,
             ]);
@@ -333,7 +337,8 @@ class PublicBookingController extends Controller
             return $this->page($request, $cid, [__('Sorry, that time was just booked. Please choose another time.')]);
         }
 
-        // Emails (customer + every admin of the company) after the response is sent,
+        // Email to every admin of the company (not the customer: they get theirs when
+        // the booking is confirmed -- BookingNotifier) after the response is sent,
         // so the visitor never waits on SMTP; a mail failure never affects the booking.
         $mail = [
             'booking_id' => $booking->id, 'ref' => $booking->Ref, 'service' => $svc->name, 'price' => $svc->price,

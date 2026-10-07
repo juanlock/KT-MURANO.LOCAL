@@ -182,6 +182,11 @@ the start of each session).
   across companies, never attach to the Walk-in customer; ask before merging.
   Only exception (2026-10-05): Zelle deposit emails carry just the payer's name,
   so there the same exact name in the same company = same customer.
+- **Online booking (/book, 2026-10-07):** only the name is required (email and
+  phone optional; an email given must be valid). No email to the customer when
+  they book -- only the company's admins get "new online booking"; the customer
+  gets "your appointment is confirmed" when staff confirm it (if they gave an
+  email; never the Walk-in / default customer). No email = a new customer.
 - **Users -> Add creates Admin / SuperAdmin logins only** (SuperAdmin only by a
   SuperAdmin). Employee / customer / supplier / sales-agent logins are created
   in HRM -> Employees, People -> Customers / Suppliers, Commissions -> Sales

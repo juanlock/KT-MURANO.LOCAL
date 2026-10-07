@@ -122,6 +122,13 @@
     .actions { display:flex; justify-content:space-between; gap:10px; margin-top:6px; }
     .btn.ghost { background:none; color:var(--fg); border:1px solid var(--line); }
     .picked { margin:0; min-height:0; }
+    .head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    .head h1 { margin:0; }
+    .head-actions { display:flex; gap:6px; }
+    .tool { padding:5px 10px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:12.5px; font-weight:600; text-decoration:none; white-space:nowrap; background:var(--card); }
+    .tool:hover { color:var(--fg); border-color:var(--accent); }
+    .tool[hidden] { display:none; }
+    .opt { color:var(--muted); font-weight:400; font-size:12.5px; }
   </style>
   @if(!empty($brand['bg']))
     {{-- Online Booking -> Look -> Background color (validated #rrggbb), also in the embed and dark mode. --}}
@@ -154,19 +161,30 @@
       @if($done)
         <div class="done" role="status">
           <h1>{{ __('Thank you, :name!', ['name' => $done['name']]) }}</h1>
-          <p class="sub">{{ __('Your appointment request was received. We sent the details to your email and will contact you to confirm it.') }}</p>
+          <p class="sub">{{ __('Your appointment request was received. We will contact you to confirm it.') }}</p>
           <dl>
             <dt>{{ __('Reference') }}</dt><dd>{{ $done['ref'] }}</dd>
             <dt>{{ __('Service') }}</dt><dd>{{ $done['service'] }}</dd>
             <dt>{{ __('Date') }}</dt><dd>{{ $done['when'] }}</dd>
           </dl>
-          <a class="btn" href="{{ route('booking.public', $formQuery) }}">{{ __('Book another appointment') }}</a>
+          <div class="actions">
+            <a class="btn ghost" id="exitBtn" href="{{ $exitUrl ?? '#' }}" target="_top" @if(empty($exitUrl)) hidden @endif>&#10005; {{ __('Exit') }}</a>
+            <a class="btn" href="{{ route('booking.public', $formQuery) }}">{{ __('Book another appointment') }}</a>
+          </div>
         </div>
       @elseif($services->isEmpty())
         <h1>{{ __('Book an appointment') }}</h1>
         <p class="sub">{{ __('Online booking is not available right now. Please contact us directly.') }}</p>
       @else
-        <h1>{{ __('Make an appointment') }}</h1>
+        <div class="head">
+          <h1>{{ __('Make an appointment') }}</h1>
+          {{-- Start over = the empty form again; Exit = back to the website (the page
+               around the frame when embedded, else the company website). --}}
+          <div class="head-actions">
+            <a class="tool" id="resetBtn" href="{{ route('booking.public', $formQuery) }}">&#8635; {{ __('Start over') }}</a>
+            <a class="tool" id="exitBtn" href="{{ $exitUrl ?? '#' }}" target="_top" @if(empty($exitUrl)) hidden @endif>&#10005; {{ __('Exit') }}</a>
+          </div>
+        </div>
 
         {{-- 3 steps (2026-10-07): 1 Service -> 2 Date & time -> 3 Your details.
              One <form>; the steps only show / hide its parts, and every field
@@ -249,8 +267,8 @@
             </div>
             <div class="row">
               <div class="field">
-                <label for="email">{{ __('Email') }} <span class="req">*</span></label>
-                <input type="email" id="email" name="email" maxlength="190" required autocomplete="email"
+                <label for="email">{{ __('Email') }} <span class="opt">({{ __('optional') }})</span></label>
+                <input type="email" id="email" name="email" maxlength="190" autocomplete="email"
                        placeholder="name@example.com" value="{{ $val('email') }}">
                 <div class="field-err" id="emailErr"></div>
               </div>
@@ -279,6 +297,9 @@
 
   <script>
     (function () {
+      // Exit: inside a website's frame = back to that page (top window); else the company website.
+      var exitBtn = document.getElementById('exitBtn');
+      if (exitBtn && window.parent !== window && document.referrer) { exitBtn.href = document.referrer; exitBtn.hidden = false; }
       var sel = document.getElementById('service_id'), info = document.getElementById('svcInfo'), sumSvc = document.getElementById('sumSvc');
       function durLabel(m) {
         m = +m || 0; var h = Math.floor(m / 60), r = m % 60;
@@ -471,7 +492,7 @@
       }
       var checks = {
         name: function (v) { return v.trim() ? '' : MSG.name; },
-        email: function (v) { return EMAIL_RE.test(v.trim()) ? '' : MSG.email; },
+        email: function (v) { return !v.trim() || EMAIL_RE.test(v.trim()) ? '' : MSG.email; }, // optional, valid if given
         phone: function (v) { return phoneOk(v) ? '' : MSG.phone; },
       };
       function check(id) {
