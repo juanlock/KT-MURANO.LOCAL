@@ -102,8 +102,23 @@ class SitePageEditor
             'sections' => array_values(array_map(fn ($s) => array_diff_key($s, ['start' => 0, 'len' => 0]), self::sections($html))),
             // Murano's own "Book an appointment" page, compact layout for an iframe
             // (relative: the website is served by this same app, on any of its addresses).
-            'booking_url' => '/book?company='.$companyId.'&embed=1',
+            'booking_url' => self::bookingUrl($companyId),
         ] + ($withEditHtml ? ['edit_html' => self::editHtml($html, $seg, $base)] : []);
+    }
+
+    /**
+     * The booking frame's address for this website (relative: served by this
+     * app on any of its addresses). Exit / Close go back to the company's first
+     * website of Online Booking -> Websites & codes, else this website's own path.
+     */
+    public static function bookingUrl(int $companyId): string
+    {
+        $return = \App\Http\Controllers\PublicBookingController::websites($companyId)[0] ?? null;
+        if (! $return && ($p = \App\Support\WebsitePaths::pathOf($companyId))) {
+            $return = '/'.$p;
+        }
+
+        return '/book?'.http_build_query(['company' => $companyId, 'embed' => 1] + ($return ? ['return' => $return] : []));
     }
 
     /* ------------------------------------------------------- sections */

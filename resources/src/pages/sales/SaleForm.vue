@@ -12,12 +12,13 @@
     <a-form v-else layout="vertical">
       <a-card size="small" style="margin-bottom: 16px">
         <a-row :gutter="16">
-          <a-col :xs="24" :md="8">
+          <!-- Date as narrow as it can be; Location gets the room for its buttons. -->
+          <a-col :xs="24" :sm="8" :md="5" :xl="4">
             <a-form-item :label="$t('date')" required>
-              <a-date-picker v-model:value="sale.date" value-format="YYYY-MM-DD" style="width: 100%" />
+              <a-date-picker v-model:value="sale.date" value-format="YYYY-MM-DD" style="width: 100%; min-width: 130px" />
             </a-form-item>
           </a-col>
-          <a-col :xs="24" :md="8">
+          <a-col :xs="24" :sm="16" :md="8" :xl="7">
             <a-form-item :label="$t('Customer')" required>
               <div style="display: flex; gap: 8px">
                 <a-select
@@ -36,16 +37,17 @@
               </div>
             </a-form-item>
           </a-col>
-          <a-col :xs="24" :md="8">
+          <a-col :xs="24" :md="11" :xl="13">
             <a-form-item :label="$t('warehouse')" required>
-              <div style="display: flex; gap: 8px">
+              <!-- The buttons wrap under the select when there's no room (never overlap). -->
+              <div style="display: flex; gap: 8px; flex-wrap: wrap">
                 <a-select
                   v-model:value="sale.warehouse_id"
                   show-search option-filter-prop="label"
                   :placeholder="$t('Choose_Warehouse')"
                   :options="warehouseOptions"
                   :disabled="isEdit"
-                  style="flex: 1"
+                  style="flex: 1 1 170px; min-width: 0"
                   @change="onWarehouseChange"
                 />
                 <a-button type="primary" :disabled="!sale.warehouse_id" @click="quickAddProductOpen = true">
@@ -300,7 +302,7 @@
                     v-if="jobEdits[j.id] && JOB_EDITABLE.includes(j.status)"
                     v-model:value="jobEdits[j.id].status" size="small" style="width: 140px" :options="JOB_STATUS_OPTIONS"
                   />
-                  <a-tag v-else style="margin: 0">{{ j.status }}</a-tag>
+                  <a-tag v-else :color="jobStatusMeta(j.status).tag" style="margin: 0"><component :is="jobStatusMeta(j.status).icon" /> {{ jobStatusMeta(j.status).label }}</a-tag>
                 </div>
                 <template v-if="jobEdits[j.id]">
                   <div v-if="j.notes" class="sale-jobs__notes muted">{{ j.notes }}</div>
@@ -328,7 +330,7 @@
                     v-if="jobEdits[j.id] && JOB_EDITABLE.includes(j.status)"
                     v-model:value="jobEdits[j.id].status" size="small" style="width: 140px" :options="JOB_STATUS_OPTIONS"
                   />
-                  <a-tag v-else style="margin: 0">{{ j.status }}</a-tag>
+                  <a-tag v-else :color="jobStatusMeta(j.status).tag" style="margin: 0"><component :is="jobStatusMeta(j.status).icon" /> {{ jobStatusMeta(j.status).label }}</a-tag>
                 </div>
                 <a-alert
                   v-if="j.other_invoices.length" type="warning" show-icon banner style="margin-bottom: 6px"
@@ -761,11 +763,14 @@
  *   summed from the lines and the surplus reported as change
  * - Quick Add Customer without leaving the page (QuickAddParty)
  */
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, h } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { EditOutlined, DeleteOutlined, PlusOutlined, SyncOutlined, QuestionCircleOutlined, FileTextOutlined } from '@ant-design/icons-vue';
+import {
+  EditOutlined, DeleteOutlined, PlusOutlined, SyncOutlined, QuestionCircleOutlined, FileTextOutlined,
+  ClockCircleOutlined, CheckCircleOutlined, InboxOutlined, LikeOutlined, CarOutlined, StopOutlined, CloseCircleOutlined,
+} from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import QuickAddParty from '../../components/QuickAddParty.vue';
@@ -887,8 +892,17 @@ watch(isRecurring, on => {
 // service_job, linked by sale_id). Recurring: visits on their own schedule,
 // created by the Sales Contract (jobs_* fields, see SalesContractJobs).
 // Only for new sales of a company with the Service module.
-const serviceJobAvailable = ref(false);
-const serviceTechnicians = ref([]);
+const serviceJobBase = ref(false);
+const serviceJobCompanies = ref(null); // null = use serviceJobBase (Edit Sale)
+const allTechnicians = ref([]);
+// The selected Location's company (Create Sale), else the server's answer.
+const locationCompanyId = computed(() => Number(warehouses.value.find(w => w.id === sale.value.warehouse_id)?.company_id) || null);
+const serviceJobAvailable = computed(() => (serviceJobCompanies.value && locationCompanyId.value
+  ? serviceJobCompanies.value.includes(locationCompanyId.value)
+  : serviceJobBase.value));
+const serviceTechnicians = computed(() => (locationCompanyId.value
+  ? allTechnicians.value.filter(t => !t.company_id || Number(t.company_id) === locationCompanyId.value)
+  : allTechnicians.value));
 const serviceJob = ref({ enabled: false, title: '', technician_id: undefined, job_type: '', time: null, lead_days: 7 });
 // One invoice: when the job(s) happen (components/ServiceJobWhen.vue); empty date = the sale date.
 const serviceJobWhen = ref(emptyWhen());
@@ -924,11 +938,23 @@ async function loadClientJobs() {
 // Edit Sale: status + a note per linked job (service_job_updates on PUT).
 // Delivered / cancelled / declined are handled on the job page (stock, payments).
 const JOB_EDITABLE = ['pending', 'intake', 'approved', 'in_progress', 'completed'];
-const JOB_STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'completed', label: 'Completed' },
-];
+// Each status its own icon + color (picker, its options and the tags).
+const JOB_STATUS_META = {
+  pending: { label: 'Pending', icon: ClockCircleOutlined, color: '#fa8c16', tag: 'orange' },
+  intake: { label: 'Intake', icon: InboxOutlined, color: '#8c8c8c', tag: 'default' },
+  approved: { label: 'Approved', icon: LikeOutlined, color: '#13c2c2', tag: 'cyan' },
+  in_progress: { label: 'In progress', icon: SyncOutlined, color: '#1677ff', tag: 'blue' },
+  completed: { label: 'Completed', icon: CheckCircleOutlined, color: '#52c41a', tag: 'green' },
+  delivered: { label: 'Delivered', icon: CarOutlined, color: '#389e0d', tag: 'green' },
+  cancelled: { label: 'Cancelled', icon: StopOutlined, color: '#f5222d', tag: 'red' },
+  declined: { label: 'Declined', icon: CloseCircleOutlined, color: '#f5222d', tag: 'red' },
+};
+const jobStatusMeta = s => JOB_STATUS_META[s] || { label: s, icon: QuestionCircleOutlined, color: '#8c8c8c', tag: 'default' };
+const jobStatusLabel = s => {
+  const m = jobStatusMeta(s);
+  return h('span', { style: 'display:inline-flex;align-items:center;gap:6px' }, [h(m.icon, { style: { color: m.color } }), m.label]);
+};
+const JOB_STATUS_OPTIONS = ['pending', 'in_progress', 'completed'].map(v => ({ value: v, label: jobStatusLabel(v), title: jobStatusMeta(v).label }));
 const jobEdits = ref({});
 // Jobs chosen in "Link existing service jobs" that aren't on this sale yet.
 const newlyLinkedJobs = computed(() => linkedJobIds.value
@@ -958,8 +984,11 @@ const serviceJobModalOpen = ref(false);
 const serviceJobCount = computed(() => new Set([...saleServiceJobs.value.map(j => j.id), ...linkedJobIds.value]).size);
 const hasServiceJob = computed(() => serviceJobCount.value > 0 || serviceJob.value.enabled);
 function loadServiceJobOptions(data) {
-  serviceJobAvailable.value = data?.service_job_enabled === true;
-  serviceTechnicians.value = data?.service_technicians || [];
+  serviceJobBase.value = data?.service_job_enabled === true;
+  // Create Sale: the companies with service jobs on sales -- the button follows the
+  // picked Location's company (a SuperAdmin on "All companies" acts as company 999).
+  serviceJobCompanies.value = Array.isArray(data?.service_job_companies) ? data.service_job_companies.map(Number) : null;
+  allTechnicians.value = data?.service_technicians || [];
   saleServiceJobs.value = data?.sale_service_jobs || [];
   saleContract.value = data?.sales_contract || null;
   jobEdits.value = Object.fromEntries(saleServiceJobs.value.map(j => [j.id, { status: j.status, note: '' }]));

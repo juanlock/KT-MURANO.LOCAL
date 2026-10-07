@@ -5,6 +5,11 @@
       :breadcrumb="[$t('Employee'), $route.name === 'employee-edit' ? $t('Edit') : $t('Employee_Details')]"
     >
       <template #actions>
+        <!-- The whole profile on paper / PDF: every tab this role may see, with the photo. -->
+        <a-button v-if="!loading && TAB_ORDER.some(canView)" :loading="printing" @click="printProfile">
+          <template #icon><PrinterOutlined /></template>
+          Print profile
+        </a-button>
         <a-button @click="$goBack('/hrm/employees')">
           <template #icon><LeftOutlined /></template>
           {{ $t('Back') }}
@@ -351,6 +356,44 @@
         </a-card>
       </a-tab-pane>
 
+      <!-- ============ Assets assigned (Assets -> Assignments, to the employee's login) ============ -->
+      <a-tab-pane v-if="canView('assets')" key="assets" :tab="`Assets assigned${assetsOpen ? ` (${assetsOpen})` : ''}`">
+        <a-card size="small">
+          <div class="prod-filter">
+            <span class="prod-muted">Equipment and tools in this employee's care (open assignments first).</span>
+            <PermLink to="/assets/assignments" permission="asset_assignments" style="margin-left: auto">Assets → Assignments</PermLink>
+          </div>
+          <a-table
+            :data-source="assets.rows" :loading="assets.loading" row-key="id" size="small" :pagination="false"
+            :scroll="{ x: 760 }" :locale="{ emptyText: 'No assets assigned to this employee.' }"
+          >
+            <a-table-column title="Asset" key="asset">
+              <template #default="{ record }">
+                <b>{{ record.name }}</b>
+                <div class="prod-muted">{{ [record.tag, record.category, record.serial_number ? `S/N ${record.serial_number}` : ''].filter(Boolean).join(' · ') }}</div>
+              </template>
+            </a-table-column>
+            <a-table-column title="Assigned" data-index="assigned_on" key="assigned_on" />
+            <a-table-column title="Due back" key="due">
+              <template #default="{ record }">
+                <span :style="record.overdue ? 'color:#cf1322;font-weight:600' : ''">{{ record.due_back_on || '—' }}</span>
+              </template>
+            </a-table-column>
+            <a-table-column title="Returned" key="returned">
+              <template #default="{ record }">{{ record.returned_on || '—' }}</template>
+            </a-table-column>
+            <a-table-column title="Condition" key="cond">
+              <template #default="{ record }">{{ [record.condition_out, record.condition_in].filter(Boolean).join(' → ') || '—' }}</template>
+            </a-table-column>
+            <a-table-column title="Status" key="status">
+              <template #default="{ record }">
+                <a-tag :color="record.overdue ? 'red' : record.status === 'assigned' ? 'blue' : 'default'">{{ record.overdue ? 'Overdue' : record.status }}</a-tag>
+              </template>
+            </a-table-column>
+          </a-table>
+        </a-card>
+      </a-tab-pane>
+
       <!-- ============ Production: services done and payments received ============ -->
       <a-tab-pane v-if="canView('production')" key="production" tab="Production">
         <a-card size="small">
@@ -548,7 +591,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { LeftOutlined, PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons-vue';
+import { LeftOutlined, PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, PrinterOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 import http from '../../lib/http';
@@ -564,7 +607,7 @@ const { money, dateTime: fmtDateTime } = useFormat();
 
 const loading = ref(true);
 // ?tab=production etc. opens that tab.
-const tab = ref(['basic', 'company', 'social', 'experiences', 'accounts', 'user', 'production', 'payments'].includes(route.query.tab) ? route.query.tab : 'basic');
+const tab = ref(['basic', 'company', 'social', 'experiences', 'accounts', 'user', 'assets', 'production', 'payments'].includes(route.query.tab) ? route.query.tab : 'basic');
 const employee = ref({});
 const linkedUser = ref(null);
 // The employee's name in the page header (as saved -- it follows the form only after Submit).
@@ -573,7 +616,7 @@ const savedName = ref('');
 const tabPerms = ref({});
 const canView = key => !!tabPerms.value[key]?.view;
 const canEdit = key => !!tabPerms.value[key]?.edit;
-const TAB_ORDER = ['basic', 'company', 'social', 'experiences', 'accounts', 'user', 'production', 'payments'];
+const TAB_ORDER = ['basic', 'company', 'social', 'experiences', 'accounts', 'user', 'assets', 'production', 'payments'];
 const companies = ref([]);
 const departments = ref([]);
 const designations = ref([]);
@@ -952,6 +995,86 @@ async function fetchProduction() {
   }
 }
 
+// ---------------- Assets assigned ----------------
+const assets = reactive({ rows: [], loading: false });
+const assetsOpen = computed(() => assets.rows.filter(r => r.status === 'assigned').length);
+async function fetchAssets() {
+  assets.loading = true;
+  try {
+    assets.rows = (await http.get(`employees/${id}/assets`))?.assets || [];
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not load the assets.');
+  } finally {
+    assets.loading = false;
+  }
+}
+
+// ---------------- Print profile ----------------
+// GET employees/{id}/print: every section this role may see (server-checked),
+// laid out on one printable page with the photo; the browser's print dialog
+// also saves it as PDF.
+const printing = ref(false);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+function kvTable(obj) {
+  const rows = Object.entries(obj || {}).filter(([, v]) => v !== null && v !== '' && v !== undefined);
+  return rows.length ? `<table class="kv">${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>` : '<p class="muted">—</p>';
+}
+function listTable(cols, rows) {
+  if (!rows?.length) return '<p class="muted">None.</p>';
+  return `<table class="list"><thead><tr>${cols.map(c => `<th>${esc(c[0])}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(r => `<tr>${cols.map(c => `<td>${esc(typeof c[1] === 'function' ? c[1](r) : r[c[1]])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+async function printProfile() {
+  printing.value = true;
+  const w = window.open('', '_blank'); // opened on the click, so pop-up blockers allow it
+  try {
+    const d = await http.get(`employees/${id}/print`);
+    const sec = (title, html) => (html === null ? '' : `<section><h2>${esc(title)}</h2>${html}</section>`);
+    const body = [
+      d.basic ? sec('Basic information', kvTable(d.basic)) : '',
+      d.company_info ? sec('Company', kvTable(d.company_info)) : '',
+      d.social ? sec('Social media', kvTable(d.social)) : '',
+      d.experiences ? sec('Experiences', listTable([['Title', 'title'], ['Company', 'company_name'], ['Location', 'location'], ['Type', 'employment_type'], ['From', 'start_date'], ['To', 'end_date']], d.experiences)) : '',
+      d.accounts ? sec('Bank accounts', listTable([['Bank', 'bank_name'], ['Branch', 'bank_branch'], ['Account', 'account_no']], d.accounts)) : '',
+      d.user ? sec('User (login)', kvTable(d.user)) : '',
+      d.assets ? sec('Assets assigned', listTable([['Asset', r => [r.name, r.tag].filter(Boolean).join(' · ')], ['Category', 'category'], ['Serial', 'serial_number'],
+        ['Assigned', 'assigned_on'], ['Due back', 'due_back_on'], ['Returned', 'returned_on'], ['Status', r => (r.overdue ? 'Overdue' : r.status)]], d.assets)) : '',
+    ].join('');
+    const initials = (d.name || '?').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(d.name)} — Employee profile</title><style>
+      body{font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1f2937;margin:28px}
+      header{display:flex;gap:20px;align-items:center;border-bottom:2px solid #1f2937;padding-bottom:14px;margin-bottom:6px}
+      .photo{width:110px;height:110px;border-radius:12px;object-fit:cover;border:1px solid #ddd}
+      .noph{width:110px;height:110px;border-radius:12px;background:#e5e7eb;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;color:#6b7280}
+      h1{margin:0 0 4px;font-size:24px} .sub{color:#6b7280} .co{margin-left:auto;text-align:right} .co img{max-height:48px;max-width:160px}
+      h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;margin:18px 0 6px;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:4px}
+      table{border-collapse:collapse;width:100%} .kv th{text-align:left;width:190px;color:#6b7280;font-weight:500;padding:3px 8px 3px 0;vertical-align:top} .kv td{padding:3px 0}
+      .list th,.list td{border:1px solid #e5e7eb;padding:4px 6px;text-align:left} .list th{background:#f9fafb}
+      section{break-inside:avoid} .muted{color:#9ca3af;margin:0} footer{margin-top:22px;color:#9ca3af;font-size:11px}
+      @media print{body{margin:12mm}}
+    </style></head><body>
+      <header>
+        ${d.photo ? `<img class="photo" src="${esc(d.photo)}" alt="">` : `<div class="noph">${esc(initials)}</div>`}
+        <div><h1>${esc(d.name)}</h1><div class="sub">${esc([d.company_info?.Designation, d.company_info?.Department].filter(Boolean).join(' · '))}</div></div>
+        <div class="co">${d.company.logo ? `<img src="${esc(d.company.logo)}" alt=""><br>` : ''}<b>${esc(d.company.name || '')}</b></div>
+      </header>
+      ${body}
+      <footer>Printed ${esc(d.printed_at)} by ${esc(d.printed_by)} · Confidential employee information</footer>
+    </body></html>`);
+    w.document.close();
+    // Print once the photo / logo have loaded.
+    const imgs = Array.from(w.document.images);
+    await Promise.all(imgs.map(i => (i.complete ? null : new Promise(res => { i.onload = i.onerror = res; }))));
+    w.focus();
+    w.print();
+  } catch (e) {
+    w?.close();
+    message.error(e?.data?.message || 'Could not prepare the profile.');
+  } finally {
+    printing.value = false;
+  }
+}
+
 // ---------------- load ----------------
 
 async function loadEmployee() {
@@ -978,6 +1101,7 @@ onMounted(async () => {
   if (!canView(tab.value)) tab.value = TAB_ORDER.find(canView) || 'basic';
   if (canView('experiences')) fetchExperiences();
   if (canView('accounts')) fetchAccounts();
+  if (canView('assets')) fetchAssets();
   if (canView('production') || canView('payments')) fetchProduction();
 });
 </script>

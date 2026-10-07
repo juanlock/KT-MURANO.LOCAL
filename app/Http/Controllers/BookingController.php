@@ -323,14 +323,19 @@ class BookingController extends BaseController
         return [
             'company_id' => $cid,
             'company_name' => \DB::table('companies')->where('id', $cid)->value('name'),
-            'url' => route('booking.public', ['company' => $cid]),
-            'embed_url' => route('booking.public', ['company' => $cid, 'embed' => 1]),
+            // Public address (company's own, else the server's APP_URL) -- never the
+            // address the admin is using, so codes keep working after a move.
+            'url' => \App\Support\PublicUrl::to($cid, '/book', ['company' => $cid]),
+            'embed_url' => \App\Support\PublicUrl::to($cid, '/book', ['company' => $cid, 'embed' => 1]),
+            'base_url' => \App\Support\PublicUrl::base($cid),
+            'base_is_company' => \App\Support\PublicUrl::base($cid) !== \App\Support\PublicUrl::server(),
             'enabled' => \App\Support\ModuleFlags::enabled($cid, 'bookings'),
             'look' => (function () use ($cid) {
                 $s = \DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->first(['booking_hide_logo', 'booking_bg_color']);
 
                 return ['hide_logo' => (bool) ($s->booking_hide_logo ?? false), 'bg_color' => $s->booking_bg_color ?? null];
             })(),
+            'websites' => \App\Http\Controllers\PublicBookingController::websites($cid),
         ];
     }
 
@@ -417,6 +422,27 @@ class BookingController extends BaseController
     public function publicLink(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Booking::class);
+
+        return response()->json(['public_booking' => $this->publicBookingInfo()]);
+    }
+
+    /**
+     * PUT bookings_public_websites {websites: [url]} -- Online Booking -> Websites
+     * & codes: where the form is used ("Exit" / "Close" go back there).
+     */
+    public function publicWebsites(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Booking::class);
+        $cid = $this->reportCompanyId();
+        abort_unless($cid, 422, 'Select a company first.');
+        $v = $request->validate([
+            'websites' => 'present|array|max:20',
+            'websites.*' => ['required', 'string', 'max:255', 'url', 'regex:~^https?://~i'],
+        ], ['websites.*.url' => 'Each website must be a full address, e.g. https://www.mysalon.com', 'websites.*.regex' => 'Each website must start with https:// or http://']);
+        $list = array_values(array_unique(array_map(fn ($u) => rtrim(trim($u), ' '), $v['websites'])));
+        $updated = \DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')
+            ->update(['booking_websites' => $list ? implode("\n", $list) : null, 'updated_at' => now()]);
+        abort_unless($updated, 422, 'This company has no settings yet (System Settings).');
 
         return response()->json(['public_booking' => $this->publicBookingInfo()]);
     }

@@ -84,6 +84,14 @@ export const useAuthStore = defineStore('auth', {
         customerOpeningBalanceEnabled: s => !s.user || s.user.customer_opening_balance_enabled !== false,
         // POS Settings -> "Show POS button in header" (missing = on).
         posButtonEnabled: s => !s.user || s.user.show_pos_button !== false,
+        // Header icons on / off (lib/headerIcons.js): the user's own choice
+        // (Profile), else the company's (Defaults -> Users). Missing = shown.
+        headerIcon: s => key => {
+            if (!s.user) return true;
+            const mine = (s.user.header_icons_user || {})[key];
+            if (typeof mine === 'boolean') return mine;
+            return !(s.user.header_icons_hidden || []).includes(key);
+        },
         // DataTable "Customize Columns": per-table admin column setup for this
         // company ({tableKey: [{key, title, width, hidden}]}), and who may edit it.
         datatableColumns: s => (s.user && s.user.datatable_columns) || {},

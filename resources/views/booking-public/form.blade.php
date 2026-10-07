@@ -129,6 +129,12 @@
     .tool:hover { color:var(--fg); border-color:var(--accent); }
     .tool[hidden] { display:none; }
     .opt { color:var(--muted); font-weight:400; font-size:12.5px; }
+    .done.center .actions { justify-content:center; }
+    .done-icon { width:52px; height:52px; margin:4px auto 10px; border-radius:50%; background:var(--accent); color:var(--accent-fg); display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; }
+    .code-box { display:inline-block; margin:4px auto 12px; padding:10px 22px; border:2px dashed var(--accent); border-radius:12px; background:var(--pick); }
+    .code-label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+    .code { font-size:24px; font-weight:800; letter-spacing:.04em; }
+    .done-when { color:var(--muted); font-size:14px; margin:0 0 16px; }
   </style>
   @if(!empty($brand['bg']))
     {{-- Online Booking -> Look -> Background color (validated #rrggbb), also in the embed and dark mode. --}}
@@ -159,18 +165,42 @@
         </div>
       @endif
       @if($done)
-        <div class="done" role="status">
-          <h1>{{ __('Thank you, :name!', ['name' => $done['name']]) }}</h1>
-          <p class="sub">{{ __('Your appointment request was received. We will contact you to confirm it.') }}</p>
-          <dl>
-            <dt>{{ __('Reference') }}</dt><dd>{{ $done['ref'] }}</dd>
-            <dt>{{ __('Service') }}</dt><dd>{{ $done['service'] }}</dd>
-            <dt>{{ __('Date') }}</dt><dd>{{ $done['when'] }}</dd>
-          </dl>
-          <div class="actions">
-            <a class="btn ghost" id="exitBtn" href="{{ $exitUrl ?? '#' }}" target="_top" @if(empty($exitUrl)) hidden @endif>&#10005; {{ __('Exit') }}</a>
-            <a class="btn" href="{{ route('booking.public', $formQuery) }}">{{ __('Book another appointment') }}</a>
+        <div class="done center" role="status">
+          <div class="done-icon" aria-hidden="true">&#10003;</div>
+          <h1>{{ __('Thank you for your registration, :name!', ['name' => $done['name']]) }}</h1>
+          <p class="sub">{{ __('We will contact you soon by phone or email to confirm your appointment.') }}</p>
+          <div class="code-box">
+            <div class="code-label">{{ __('Your registration code') }}</div>
+            <div class="code">{{ $done['ref'] }}</div>
           </div>
+          <p class="done-when">{{ $done['service'] }}<br>{{ $done['when'] }}</p>
+          <div class="actions">
+            <a class="btn ghost" href="{{ $exitUrl ?? '#' }}" target="_top" @if(empty($exitUrl)) hidden @endif>&#10005; {{ __('Close') }}</a>
+            <a class="btn" href="{{ route('booking.public', $formQuery) }}">{{ __('New appointment') }}</a>
+          </div>
+        </div>
+      @elseif(!empty($verify) && $verify['state'] === 'sent')
+        {{-- Limits per IP: from the 4th booking in 24 h, confirm by email first. --}}
+        <div class="done center" role="status">
+          <div class="done-icon" aria-hidden="true">&#9993;</div>
+          <h1>{{ __('Check your email') }}</h1>
+          <p class="sub">{{ __('We sent a link to :email. Open it and press "I agree" to book your appointment. Then you can keep using this form.', ['email' => $verify['email']]) }}</p>
+          <div class="actions">
+            <a class="btn ghost" href="{{ $exitUrl ?? '#' }}" target="_top" @if(empty($exitUrl)) hidden @endif>&#10005; {{ __('Close') }}</a>
+            <a class="btn" href="{{ route('booking.public', $formQuery) }}">{{ __('New appointment') }}</a>
+          </div>
+        </div>
+      @elseif(!empty($verify) && $verify['state'] === 'agree')
+        <div class="done center">
+          <h1>{{ __('Confirm your appointment') }}</h1>
+          <p class="sub">{{ __('Please confirm that you, :name (:email), made this appointment request.', ['name' => $verify['name'], 'email' => $verify['email']]) }}</p>
+          <p class="done-when">{{ $verify['service'] }}<br>{{ $verify['when'] }}</p>
+          <form method="POST" action="{{ route('booking.public.agree', ['token' => $verify['token']] + $formQuery) }}">
+            @csrf
+            <div class="actions" style="justify-content:center">
+              <button type="submit" class="btn">{{ __('I agree — book my appointment') }}</button>
+            </div>
+          </form>
         </div>
       @elseif($services->isEmpty())
         <h1>{{ __('Book an appointment') }}</h1>
@@ -267,9 +297,10 @@
             </div>
             <div class="row">
               <div class="field">
-                <label for="email">{{ __('Email') }} <span class="opt">({{ __('optional') }})</span></label>
+                <label for="email">{{ __('Email') }} @if($needEmail ?? false)<span class="req">*</span>@else<span class="opt">({{ __('optional') }})</span>@endif</label>
                 <input type="email" id="email" name="email" maxlength="190" autocomplete="email"
                        placeholder="name@example.com" value="{{ $val('email') }}">
+                @if($needEmail ?? false)<div class="field-help">{{ __('We will email you a link to confirm this appointment.') }}</div>@endif
                 <div class="field-err" id="emailErr"></div>
               </div>
               <div class="field">
@@ -297,9 +328,6 @@
 
   <script>
     (function () {
-      // Exit: inside a website's frame = back to that page (top window); else the company website.
-      var exitBtn = document.getElementById('exitBtn');
-      if (exitBtn && window.parent !== window && document.referrer) { exitBtn.href = document.referrer; exitBtn.hidden = false; }
       var sel = document.getElementById('service_id'), info = document.getElementById('svcInfo'), sumSvc = document.getElementById('sumSvc');
       function durLabel(m) {
         m = +m || 0; var h = Math.floor(m / 60), r = m % 60;
@@ -492,7 +520,8 @@
       }
       var checks = {
         name: function (v) { return v.trim() ? '' : MSG.name; },
-        email: function (v) { return !v.trim() || EMAIL_RE.test(v.trim()) ? '' : MSG.email; }, // optional, valid if given
+        // Optional, valid if given -- required when this connection must confirm by email.
+        email: function (v) { return (!v.trim() && !{{ ($needEmail ?? false) ? 'true' : 'false' }}) || EMAIL_RE.test(v.trim()) ? '' : MSG.email; },
         phone: function (v) { return phoneOk(v) ? '' : MSG.phone; },
       };
       function check(id) {

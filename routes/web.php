@@ -504,6 +504,11 @@ Route::middleware(['web', 'request.safety'])->prefix('book')->group(function () 
         ->middleware('throttle:60,1,book-form')->name('booking.public');
     Route::post('/', [\App\Http\Controllers\PublicBookingController::class, 'store'])
         ->middleware('throttle:5,1,book-create')->name('booking.public.store');
+    // Email check of the IP limits: "I agree" page (GET) and the booking (POST).
+    Route::get('/verify/{token}', [\App\Http\Controllers\PublicBookingController::class, 'verify'])
+        ->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:30,1,book-verify')->name('booking.public.verify');
+    Route::post('/verify/{token}', [\App\Http\Controllers\PublicBookingController::class, 'agree'])
+        ->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:10,1,book-agree')->name('booking.public.agree');
     // "Confirm appointment" button in the admins' email (signed link, no login).
     Route::get('/confirm/{booking}', [\App\Http\Controllers\BookingEmailConfirmController::class, 'show'])
         ->middleware(['signed', 'throttle:30,1'])->whereNumber('booking')->name('booking.email.confirm');

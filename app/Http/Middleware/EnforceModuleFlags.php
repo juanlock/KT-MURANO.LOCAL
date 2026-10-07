@@ -53,7 +53,7 @@ class EnforceModuleFlags
         'project_issues' => 'projects', 'project_milestones' => 'projects', 'project_time_logs' => 'projects',
         'tasks' => 'projects', 'task_discussions' => 'projects', 'task_documents' => 'projects',
         'tasks_kanban' => 'projects', 'task_change_status' => 'projects', 'update_task_status' => 'projects',
-        'bookings' => 'bookings', 'bookings_availability' => 'bookings', 'bookings_public_link' => 'bookings', 'bookings_public_look' => 'bookings',
+        'bookings' => 'bookings', 'bookings_availability' => 'bookings', 'bookings_public_link' => 'bookings', 'bookings_public_look' => 'bookings', 'bookings_public_websites' => 'bookings',
         'bookings_send_email' => 'bookings', 'booking_pdf' => 'bookings', 'trays' => 'bookings',
         'service_jobs' => 'service', 'service_checklist' => 'service', 'service_technicians' => 'service',
         'service_job_pdf' => 'service', 'service_quote_pdf' => 'service', 'service_jobs_client' => 'service',

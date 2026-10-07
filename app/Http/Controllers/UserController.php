@@ -182,6 +182,9 @@ class UserController extends BaseController
             'customer_opening_balance_enabled' => (bool) ($settings->customer_opening_balance_enabled ?? true),
             // POS Settings -> "Show POS button in header" (the topbar's blue POS button)
             'show_pos_button' => (bool) (\App\Models\PosSetting::where('company_id', $this->resolveActingCompanyId($request))->value('show_pos_button') ?? true),
+            // Header icons on / off: the company's hidden list + this user's own choices (App\Support\HeaderIcons).
+            'header_icons_hidden' => \App\Support\HeaderIcons::companyHidden((int) $this->resolveActingCompanyId($request)),
+            'header_icons_user' => (object) \App\Support\HeaderIcons::userChoices($user->header_icons ?? null),
             'timezone' => $this->getEnvValue('APP_TIMEZONE', 'UTC'),
             // Admin-defined sidebar arrangement (null = default menu.js order) â€”
             // applied by the SPA for every user at boot.
@@ -691,6 +694,11 @@ class UserController extends BaseController
             // (create it if a user somehow has none).
             role_user::updateOrCreate(['user_id' => $id], ['role_id' => $request['role']]);
 
+            // Disabled: signed out of every device now, not when their token expires.
+            if (! (int) User::whereKey($id)->value('statut')) {
+                \App\Support\UserAccess::signOutEverywhere((int) $id);
+            }
+
             // Cashier PIN: the form always sends it (shown to the admin);
             // blank = no PIN. Only touched when the field is part of the request.
             if ($request->has('pin')) {
@@ -864,7 +872,11 @@ class UserController extends BaseController
         $userToDelete->statut = 0;
         // Free the cashier PIN (unique per company) for other users.
         $userToDelete->pin = null;
-        $userToDelete->save();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($userToDelete) {
+            $userToDelete->save();
+            // ...and signed out of every device (tokens + login sessions).
+            \App\Support\UserAccess::disable((int) $userToDelete->id);
+        });
 
         return response()->json(['success' => true]);
     }
@@ -903,6 +915,24 @@ class UserController extends BaseController
     }
 
     // ------------- GET USER Auth ---------\\
+
+    /**
+     * PUT my_header_icons {icons: {key: true|false|null}} -- Profile -> Header icons:
+     * the signed-in user's own choices (null = follow the company).
+     */
+    public function updateMyHeaderIcons(Request $request)
+    {
+        $icons = $request->validate(['icons' => 'present|array'])['icons'];
+        $choices = [];
+        foreach (\App\Support\HeaderIcons::KEYS as $k) {
+            if (array_key_exists($k, $icons) && $icons[$k] !== null) {
+                $choices[$k] = filter_var($icons[$k], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+        User::whereKey(Auth::id())->update(['header_icons' => $choices ? json_encode($choices) : null]);
+
+        return response()->json(['success' => true, 'header_icons_user' => (object) $choices]);
+    }
 
     public function GetInfoProfile(Request $request)
     {

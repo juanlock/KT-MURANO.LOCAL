@@ -64,8 +64,28 @@ class FrontPage
         $html = self::rebaseRelative($html, '/'.dirname($s->front_page_path).'/');
         // Store -> Portfolio section, live (after rebasing: its URLs are absolute).
         $html = Portfolio::injectInto($html, $companyId);
+        $html = self::withBookingResize($html);
 
         return response($html, 200)->header('Content-Type', 'text/html; charset=UTF-8');
+    }
+
+    /**
+     * Our booking frame (/book?...embed=1, Website pages -> "Use our booking
+     * calendar") grows with the form: the form posts its height and this
+     * listener -- ours, added here because company admins can't add scripts to
+     * the page -- resizes the frame that sent it. Only when the page has one.
+     */
+    public static function withBookingResize(string $html): string
+    {
+        if (! preg_match('~<iframe\b[^>]*\ssrc=["\'][^"\']*/book\?~i', $html) || str_contains($html, 'murano-booking-resize')) {
+            return $html;
+        }
+        $js = '<script id="murano-booking-resize">window.addEventListener("message",function(e){'
+            .'if(!e.data||e.data.type!=="murano-booking-height")return;'
+            .'document.querySelectorAll("iframe[src*=\'/book?\']").forEach(function(f){'
+            .'if(f.contentWindow===e.source){f.style.height=(e.data.height+20)+"px";}});});</script>';
+
+        return stripos($html, '</body>') !== false ? preg_replace('~</body>~i', $js.'</body>', $html, 1) : $html.$js;
     }
 
     /** Prefix relative href/src/srcset/url() references with $prefix. */

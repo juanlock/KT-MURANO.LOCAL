@@ -269,12 +269,14 @@ class SalesController extends BaseController
             ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
                 return $query->where('company_id', $companyId);
             })
-            ->get(['id', 'client_id', 'Ref', 'date', 'GrandTotal', 'paid_amount'])
+            ->get(['id', 'client_id', 'Ref', 'date', 'GrandTotal', 'paid_amount', 'statut'])
             ->filter(fn ($s) => round((float) $s->GrandTotal - (float) $s->paid_amount, 2) > 0)
             ->groupBy('client_id');
 
         // "Emailed" column: invoice sent / reminders per sale (one grouped query).
         $emailSummary = \App\Services\SaleEmailLog::summary($Sales->pluck('id')->all());
+        // "Other Due" window: each owing invoice's emails with dates (one query).
+        $otherDueEmails = \App\Services\SaleEmailLog::history($dueSalesByClient->flatten(1)->pluck('id')->all());
 
         foreach ($Sales as $Sale) {
 
@@ -343,11 +345,19 @@ class SalesController extends BaseController
             // reset to [] at the top of this loop).
             $otherDue = ($dueSalesByClient->get($Sale['client_id']) ?? collect())
                 ->reject(fn ($s) => (int) $s->id === (int) $Sale['id'])
+                ->sortBy('date')
                 ->map(fn ($s) => [
                     'id' => $s->id,
                     'Ref' => $s->Ref,
                     'date' => $s->date,
+                    // Days since the invoice date (how long it has been owing).
+                    'days' => $s->date ? (int) \Carbon\Carbon::parse($s->date)->startOfDay()->diffInDays(now()->startOfDay()) : null,
+                    'total' => number_format((float) $s->GrandTotal, helpers::price_decimals(), '.', ''),
+                    'paid' => number_format((float) $s->paid_amount, helpers::price_decimals(), '.', ''),
                     'due' => number_format((float) $s->GrandTotal - (float) $s->paid_amount, helpers::price_decimals(), '.', ''),
+                    'statut' => $s->statut,
+                    // Invoice / reminder emails sent, oldest first.
+                    'emails' => $otherDueEmails[(int) $s->id] ?? [],
                 ])
                 ->values();
             $item['other_due_sales'] = $otherDue->all();
@@ -593,7 +603,7 @@ class SalesController extends BaseController
             $order->is_pos = 0;
             $order->date = $request->date;
             $order->time = now()->toTimeString();
-            $order->Ref = $this->getNumberOrder();
+            $order->Ref = $this->getNumberOrder((int) $request->warehouse_id, (int) $companyId);
             $order->client_id = $request->client_id;
             $order->GrandTotal = $request->GrandTotal;
             $order->warehouse_id = $request->warehouse_id;
@@ -2935,49 +2945,32 @@ class SalesController extends BaseController
 
     // ------------- Reference Number Order SALE -----------\\
 
-    public function getNumberOrder()
+    /**
+     * Next sale number, PER COMPANY (2026-10-07): the company's own prefix
+     * (System Settings -> Prefixes -> Sale, settings.sale_prefix; "SL" when
+     * empty) + the company's highest number with that prefix + 1, e.g. Ruba
+     * INV_3603 -> INV_3604. It used to read the FIRST settings row (the
+     * System's "SL") and the last reference of ANY company, so Ruba got SL_0019.
+     * Company = the location's (warehouse) company, else $companyId, else the
+     * acting one. Deleted sales count too, so a number is never given twice.
+     */
+    public function getNumberOrder(?int $warehouseId = null, ?int $companyId = null)
     {
-        // Get prefix from settings, fallback to 'SL' if not set
-        $setting = \App\Models\Setting::where('deleted_at', '=', null)->first();
-        $prefix = !empty($setting->sale_prefix) ? $setting->sale_prefix : 'SL';
-        
-        // Get the last sale with a reference that starts with the prefix
-        // Support both formats: WO_12 and WO-12
-        $last = DB::table('sales')
-            ->where(function ($q) use ($prefix) {
-                $q->where('Ref', 'like', $prefix.'_%')
-                    ->orWhere('Ref', 'like', $prefix.'-%');
-            })
-            ->latest('id')
-            ->first();
+        $cid = $warehouseId ? (int) Warehouse::whereKey($warehouseId)->value('company_id') : 0;
+        $cid = $cid ?: (int) ($companyId ?: $this->resolveActingCompanyId(request()));
+        $setting = \App\Models\Setting::forCompany($cid) ?? \App\Models\Setting::whereNull('deleted_at')->first();
+        $prefix = trim((string) ($setting->sale_prefix ?? '')) ?: 'SL';
 
-        if ($last) {
-            $item = (string) $last->Ref;
+        // Highest number after "PREFIX_" or "PREFIX-" in this company; the next one
+        // keeps the separator that company uses (INV_3604, PP-0385).
+        $len = mb_strlen($prefix) + 2;
+        $top = DB::table('sales')->where('company_id', $cid)
+            ->where(fn ($q) => $q->where('Ref', 'like', str_replace('_', '\_', $prefix).'\_%')->orWhere('Ref', 'like', $prefix.'-%'))
+            ->selectRaw('Ref, CAST(SUBSTRING(Ref, ?) AS UNSIGNED) as n', [$len])
+            ->orderByDesc('n')->first();
+        $sep = $top ? mb_substr((string) $top->Ref, $len - 2, 1) : '_';
 
-            // Accept either '_' or '-' as separator
-            if (strpos($item, '_') !== false) {
-                $nwMsg = explode('_', $item);
-                $sep = '_';
-            } elseif (strpos($item, '-') !== false) {
-                $nwMsg = explode('-', $item);
-                $sep = '-';
-            } else {
-                $nwMsg = [$prefix];
-                $sep = '_';
-            }
-
-            // Ensure valid structure before processing
-            if (isset($nwMsg[1]) && is_numeric($nwMsg[1])) {
-                $inMsg = $nwMsg[1] + 1;
-                $code = $nwMsg[0].$sep.str_pad($inMsg, 4, '0', STR_PAD_LEFT);
-            } else {
-                $code = $prefix.'_0001'; // Fallback if reference is corrupted
-            }
-        } else {
-            $code = $prefix.'_0001';
-        }
-
-        return $code;
+        return $prefix.($sep === '-' ? '-' : '_').str_pad((string) ((int) ($top->n ?? 0) + 1), 4, '0', STR_PAD_LEFT);
     }
 
     // ---------------- get_import_sales ---------------\\
@@ -3067,7 +3060,7 @@ class SalesController extends BaseController
             $order->is_pos = 0;
             $order->date = $request->date;
             $order->time = now()->toTimeString();
-            $order->Ref = $this->getNumberOrder();
+            $order->Ref = $this->getNumberOrder((int) $request->warehouse_id, (int) $companyId);
             $order->client_id = $request->client_id;
             $order->GrandTotal = 0;
             $order->warehouse_id = $request->warehouse_id;
@@ -3957,11 +3950,15 @@ class SalesController extends BaseController
 
         // get warehouses assigned to user
         if ($user_auth->is_all_warehouses) {
-            $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null))->get(['id', 'name']);
+            $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null))->get(['id', 'name', 'company_id']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id))->get(['id', 'name']);
+            $warehouses = $scopeCompany(Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id))->get(['id', 'name', 'company_id']);
         }
+        // "Add Service Job" follows the company of the Location picked (a SuperAdmin on
+        // "All companies" sees every company's locations; the acting company was 999).
+        $jobCompanies = $warehouses->pluck('company_id')->push($companyId)->unique()
+            ->filter(fn ($c) => \App\Support\ServiceJobLinks::enabled((int) $c))->map(fn ($c) => (int) $c)->values();
 
         $clients = $scopeCompany(Client::where('deleted_at', '=', null))->get(['id', 'name']);
         $accounts = Account::where('deleted_at', '=', null)->get(['id', 'account_name']);
@@ -3993,8 +3990,9 @@ class SalesController extends BaseController
             // only with the company's Service module AND Defaults -> Sales ->
             // "Service jobs on sales" (off by default; Ruba on); its technicians.
             'service_job_enabled' => \App\Support\ServiceJobLinks::enabled((int) $companyId),
-            'service_technicians' => \App\Models\ServiceTechnician::whereNull('deleted_at')->where('company_id', $companyId)
-                ->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'service_job_companies' => $jobCompanies,
+            'service_technicians' => \App\Models\ServiceTechnician::whereNull('deleted_at')->whereIn('company_id', $jobCompanies->all() ?: [$companyId])
+                ->where('is_active', true)->orderBy('name')->get(['id', 'name', 'company_id']),
         ]);
 
     }

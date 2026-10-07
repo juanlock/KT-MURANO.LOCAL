@@ -65,7 +65,7 @@
 
         <!-- Fit to width: no horizontal scroll bar -- the columns share the
              screen and long text wraps. Remembered per table, per user. -->
-        <a-tooltip :title="fitWidth ? 'Fit to width: on (click for full-width columns)' : 'Fit to width (no horizontal scroll bar)'">
+        <a-tooltip v-if="!isPhone" :title="fitWidth ? 'Fit to width: on (click for full-width columns)' : 'Fit to width (no horizontal scroll bar)'">
           <a-button :type="fitWidth ? 'primary' : 'default'" @click="toggleFitWidth">
             <template #icon><ShrinkOutlined /></template>
           </a-button>
@@ -83,7 +83,7 @@
     <a-table
       class="dt-managed"
       :class="{ 'dt-fit': fitWidth }"
-      :columns="fitWidth ? fitColumns : visibleColumns"
+      :columns="fitWidth ? fitColumns : (isPhone ? unpinnedColumns : visibleColumns)"
       :data-source="crud.rows.value"
       :loading="crud.loading.value"
       :pagination="crud.pagination.value"
@@ -288,7 +288,20 @@ const hiddenKeys = ref(readStoredHiddenKeys());
 // button turns it off for that table (full-width columns + scroll bar);
 // only the "off" choice is saved, on the user's account per table.
 const fitStorageKey = hiddenColsStorageKey.replace('dt_hidden_columns_', 'dt_fit_width_');
-const fitWidth = ref(getUserPref(fitStorageKey) !== false);
+const fitPref = ref(getUserPref(fitStorageKey) !== false);
+// Phones (2026-10-07): never fit -- squeezing every column into 390 px made the
+// rows unreadable and left no horizontal scroll. There the table always scrolls
+// sideways (swipe), and the Fit button is hidden.
+const phoneMq = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(max-width: 767px)') : null;
+const isPhone = ref(!!phoneMq?.matches);
+phoneMq?.addEventListener?.('change', e => { isPhone.value = e.matches; });
+const fitWidth = computed({
+  get: () => fitPref.value && !isPhone.value,
+  set: v => { fitPref.value = v; },
+});
+// Phones: no pinned (fixed) columns -- a pinned Action column covered the
+// others while swiping; the whole row scrolls together instead.
+const unpinnedColumns = computed(() => visibleColumns.value.map(c => (c.fixed ? { ...c, fixed: undefined } : c)));
 function toggleFitWidth() {
   fitWidth.value = !fitWidth.value;
   setUserPref(fitStorageKey, fitWidth.value ? null : false);

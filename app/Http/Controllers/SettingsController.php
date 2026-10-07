@@ -602,11 +602,35 @@ class SettingsController extends Controller
         if ($setting->isDirty(['idle_logout_minutes', 'start_page_mode', 'dashboard_hidden_sections', 'start_page_shortcuts', 'expense_default_payment_method_id', 'expense_default_account_id', 'email_office_hidden_cards', 'product_group_label', 'product_name_label'])) {
             $setting->save();
         }
+        // Defaults -> Users -> Header icons (whole company; language = show_language above).
+        if ($request->has('header_icons_hidden') && \Illuminate\Support\Facades\Schema::hasColumn('settings', 'header_icons')) {
+            $hiddenIcons = json_decode((string) $request['header_icons_hidden'], true);
+            \App\Support\HeaderIcons::saveCompanyHidden((int) $setting->company_id, is_array($hiddenIcons) ? array_filter($hiddenIcons, 'is_string') : []);
+        }
+
+        // Defaults -> General -> Public address: this company's own address for links
+        // given to customers (booking codes). Empty / invalid = the server address.
+        if ($request->has('public_base_url') && \Illuminate\Support\Facades\Schema::hasColumn('settings', 'public_base_url')) {
+            $pub = rtrim(trim((string) $request['public_base_url']), '/');
+            \Illuminate\Support\Facades\DB::table('settings')->where('id', $setting->id)
+                ->update(['public_base_url' => \App\Support\PublicUrl::valid($pub) ? $pub : null]);
+        }
 
         // Prepare environment values
         $envValues = [
             'APP_TIMEZONE' => $request['timezone'] !== null ? '"'.$request['timezone'].'"' : '"UTC"',
         ];
+        // General -> Server address (APP_URL): the whole install, so SuperAdmin only.
+        $appUrl = rtrim(trim((string) $request['app_url']), '/');
+        if ($appUrl !== '' && optional($request->user('api'))->type === 'SuperAdmin' && \App\Support\PublicUrl::valid($appUrl)
+            && $appUrl !== rtrim((string) $this->getEnvValue('APP_URL', ''), '/')) {
+            // Its own whole-line replace (setEnvironmentValue matches "APP_URL=" anywhere,
+            // e.g. inside VITE_APP_URL=).
+            $envFile = app()->environmentFilePath();
+            $env = (string) file_get_contents($envFile);
+            $env = preg_match('/^APP_URL=.*$/m', $env) ? preg_replace('/^APP_URL=.*$/m', 'APP_URL='.$appUrl, $env, 1) : rtrim($env)."\nAPP_URL=".$appUrl."\n";
+            file_put_contents($envFile, $env);
+        }
 
         // Handle Debug Mode
         if ($request->has('debug_mode')) {
@@ -1331,6 +1355,7 @@ class SettingsController extends Controller
             $item['product_group_label'] = $settings->product_group_label ?? null;
             $item['product_name_label'] = $settings->product_name_label ?? null;
             $item['start_page_mode'] = $settings->start_page_mode ?: 'dashboard';
+            $item['header_icons_hidden'] = \App\Support\HeaderIcons::companyHidden((int) $settings->company_id);
             $item['dashboard_hidden_sections'] = json_decode((string) ($settings->dashboard_hidden_sections ?? '[]'), true) ?: [];
             $item['start_page_shortcuts'] = array_pad(array_slice(json_decode((string) ($settings->start_page_shortcuts ?? '[]'), true) ?: [], 0, 8), 8, null);
             $item['booking_form_logo_url'] = ($settings->booking_form_logo && file_exists(public_path($settings->booking_form_logo))) ? asset($settings->booking_form_logo).'?v='.filemtime(public_path($settings->booking_form_logo)) : null;
@@ -1366,6 +1391,8 @@ class SettingsController extends Controller
             $item['zatca_enabled'] = (bool) $settings->zatca_enabled;
             // Timezone from .env file - read directly from file to avoid cache issues
             $item['timezone'] = $this->getEnvValue('APP_TIMEZONE', 'UTC');
+            $item['app_url'] = rtrim((string) $this->getEnvValue('APP_URL', config('app.url')), '/');
+            $item['public_base_url'] = $settings->public_base_url ?? null;
             // Debug Mode from .env file - read directly from file to avoid cache issues
             $item['debug_mode'] = $this->getEnvValue('APP_DEBUG', 'false') === 'true';
             // POS offline sync toggle (default true)
@@ -2165,6 +2192,7 @@ class SettingsController extends Controller
             $item['product_group_label'] = $settings->product_group_label ?? null;
             $item['product_name_label'] = $settings->product_name_label ?? null;
             $item['start_page_mode'] = $settings->start_page_mode ?: 'dashboard';
+            $item['header_icons_hidden'] = \App\Support\HeaderIcons::companyHidden((int) $settings->company_id);
             $item['dashboard_hidden_sections'] = json_decode((string) ($settings->dashboard_hidden_sections ?? '[]'), true) ?: [];
             $item['start_page_shortcuts'] = array_pad(array_slice(json_decode((string) ($settings->start_page_shortcuts ?? '[]'), true) ?: [], 0, 8), 8, null);
             $item['booking_form_logo_url'] = ($settings->booking_form_logo && file_exists(public_path($settings->booking_form_logo))) ? asset($settings->booking_form_logo).'?v='.filemtime(public_path($settings->booking_form_logo)) : null;
@@ -2200,6 +2228,8 @@ class SettingsController extends Controller
             $item['zatca_enabled'] = (bool) $settings->zatca_enabled;
             // Timezone from .env file - read directly from file to avoid cache issues
             $item['timezone'] = $this->getEnvValue('APP_TIMEZONE', 'UTC');
+            $item['app_url'] = rtrim((string) $this->getEnvValue('APP_URL', config('app.url')), '/');
+            $item['public_base_url'] = $settings->public_base_url ?? null;
             // Debug Mode from .env file - read directly from file to avoid cache issues
             $item['debug_mode'] = $this->getEnvValue('APP_DEBUG', 'false') === 'true';
             // POS offline sync toggle (default true)

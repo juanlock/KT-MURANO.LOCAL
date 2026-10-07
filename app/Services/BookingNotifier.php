@@ -63,6 +63,22 @@ class BookingNotifier
     }
 
     /**
+     * Email check of the public form's limits per IP (2026-10-07): from the 4th
+     * booking in 24 h from one connection, the booking waits until the visitor
+     * opens this link and presses "I agree" (PublicBookingController::verify / agree).
+     */
+    public static function publicBookingVerify(int $companyId, string $email, string $name, string $link, array $rows, ?Mailer $mailer = null): bool
+    {
+        $company = trim((string) DB::table('companies')->where('id', $companyId)->value('name')) ?: 'Bookings';
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
+
+        return self::deliver($mailer, $from, $company, $email, $name,
+            "Please confirm your appointment request - {$company}",
+            "Hello {$name},\n\nWe received an appointment request with this email. To book it, open the link below and press \"I agree\". If you didn't make this request, just ignore this email.",
+            $rows, "Confirm my appointment: {$link}", null, $link);
+    }
+
+    /**
      * A booking was registered by staff (Create Booking / calendar) or
      * confirmed: every active admin of the company gets the booking details
      * and a link to it. ($event: 'created' | 'confirmed'.) Online-form

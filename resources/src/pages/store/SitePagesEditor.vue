@@ -515,7 +515,8 @@ function sectionText(s) {
 // Our booking page in place of the block's first embed (frame / inline script); other embeds go.
 function withBooking(html) {
   const url = current.value.booking_url.replace(/&/g, '&amp;');
-  const frame = `<iframe src="${url}" title="Book an appointment" loading="lazy" style="width:100%;height:700px;border:0;display:block"></iframe>`;
+  // data-murano-booking: the website page grows the frame with the form (FrontPage adds that script).
+  const frame = `<iframe src="${url}" data-murano-booking title="Book an appointment" loading="lazy" style="width:100%;height:720px;border:0;display:block"></iframe>`;
   let done = false;
   return html.replace(/<script\b(?![^>]*\ssrc\s*=)[^>]*>[\s\S]*?<\/script\s*>|<iframe\b[\s\S]*?<\/iframe\s*>/gi, () => {
     if (done) return '';
