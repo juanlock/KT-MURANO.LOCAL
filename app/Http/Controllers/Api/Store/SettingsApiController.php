@@ -223,6 +223,15 @@ class SettingsApiController extends Controller
 
         @set_time_limit(600);
         try {
+            // The import replaces the imported website: keep a copy of it first
+            // (Website settings -> Front page -> Saved websites).
+            \App\Services\WebsiteSnapshots::take($companyId);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => 'A copy of the current website could not be saved, so nothing was imported: '.$e->getMessage()], 422);
+        }
+        try {
             $slug = \Illuminate\Support\Str::slug(\App\Models\Company::whereKey($companyId)->value('name') ?: 'site') ?: 'site';
             $r = \App\Services\SiteImporter::fromUrl($companyId, $data['url'], $slug);
         } catch (\Throwable $e) {

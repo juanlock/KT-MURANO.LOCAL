@@ -145,6 +145,9 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     // Website Management's own settings + menus (separate from the store's, 2026-10-06).
     Route::get('/admin/website/settings', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'show']);
     Route::post('/admin/website/settings', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'update']);
+    Route::get('/admin/website/snapshots', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'snapshots']);
+    Route::post('/admin/website/snapshots/{id}/use', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'useSnapshot'])->whereNumber('id');
+    Route::delete('/admin/website/snapshots/{id}', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'deleteSnapshot'])->whereNumber('id');
     Route::get('/admin/website/menus', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'menus']);
     Route::post('/admin/website/menus', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'updateMenus']);
     Route::get('/admin/store/site-menu', [SettingsApiController::class, 'siteMenu']);

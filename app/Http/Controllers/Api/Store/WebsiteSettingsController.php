@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\StorePage;
 use App\Models\StoreSetting;
 use App\Models\WebsiteSetting;
+use App\Services\WebsiteSnapshots;
 use App\Support\CompanyFiles;
 use App\Support\WebsitePaths;
 use Illuminate\Http\Request;
@@ -133,6 +134,29 @@ class WebsiteSettingsController extends Controller
         WebsitePaths::forget();
 
         return response()->json(['success' => true, 'settings' => $w->fresh()] + $this->urlInfo($cid));
+    }
+
+    /** Saved websites: copies of the imported website kept before each import. */
+    public function snapshots(Request $request)
+    {
+        return response()->json(['snapshots' => WebsiteSnapshots::list($this->companyId($request))]);
+    }
+
+    public function useSnapshot(Request $request, int $id)
+    {
+        $cid = $this->companyId($request);
+        WebsiteSnapshots::use($cid, $id);
+
+        return response()->json(['snapshots' => WebsiteSnapshots::list($cid),
+            'settings' => StoreSetting::forCompany($cid)->only(['front_page_mode', 'front_page_url', 'front_page_path', 'front_page_imported_at'])]);
+    }
+
+    public function deleteSnapshot(Request $request, int $id)
+    {
+        $cid = $this->companyId($request);
+        WebsiteSnapshots::delete($cid, $id);
+
+        return response()->json(['snapshots' => WebsiteSnapshots::list($cid)]);
     }
 
     public function menus(Request $request)

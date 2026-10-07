@@ -277,10 +277,22 @@
               </a-radio>
             </a-radio-group>
 
+            <div v-if="site.public_url" class="fp-help" style="margin-top: 10px">
+              Your website is at <a :href="site.public_url" target="_blank" rel="noopener">{{ site.public_url }}</a>
+              — change that address in <a @click="mainTab = 'branding'">Branding → Website URL</a>.
+            </div>
+
             <template v-if="front.mode === 'imported'">
-              <a-form-item label="Your website address" style="margin-top: 12px; max-width: 560px">
+              <a-form-item label="Import from (the address of your existing website)" style="margin-top: 12px; max-width: 560px">
                 <a-input v-model:value="front.url" placeholder="https://www.example.com" />
               </a-form-item>
+              <a-alert
+                v-if="front.imported_at" type="warning" show-icon style="margin-bottom: 12px; max-width: 760px"
+                :message="front.url && front.url !== front.saved_url
+                  ? 'Importing from a different address replaces the website imported now.'
+                  : 'Re-importing replaces the website imported now with a fresh copy.'"
+                description="A copy of the current website is saved first, under Saved websites below — you can switch back to it any time."
+              />
               <div v-if="front.imported_at" class="fp-status">
                 Imported {{ (front.imported_at || '').substring(0, 16).replace('T', ' ') }}
                 <template v-if="front.saved_url"> from <a :href="front.saved_url" target="_blank" rel="noopener">{{ front.saved_url }}</a></template>
@@ -289,15 +301,57 @@
             </template>
 
             <a-space style="margin-top: 16px">
-              <a-button
-                type="primary" :loading="front.busy"
-                :disabled="front.mode === 'imported' ? !front.url : front.saved_mode === 'sections'"
-                @click="applyFrontPage"
+              <a-popconfirm
+                :disabled="!(front.mode === 'imported' && front.imported_at)"
+                title="Replace the imported website? A copy of the current one is saved first (Saved websites)."
+                ok-text="Import" @confirm="applyFrontPage"
               >
-                {{ front.mode === 'imported' ? (front.imported_at ? 'Re-import now' : 'Import now') : 'Use our website theme' }}
-              </a-button>
+                <a-button
+                  type="primary" :loading="front.busy"
+                  :disabled="front.mode === 'imported' ? !front.url : front.saved_mode === 'sections'"
+                  @click="() => { if (!(front.mode === 'imported' && front.imported_at)) applyFrontPage(); }"
+                >
+                  {{ front.mode === 'imported' ? 'Import now' : 'Use our website theme' }}
+                </a-button>
+              </a-popconfirm>
               <span v-if="front.mode !== front.saved_mode" class="fp-help">Not applied yet.</span>
             </a-space>
+
+            <!-- Saved websites: copies kept before each import, usable as themes -->
+            <template v-if="snapshots.length">
+              <a-divider orientation="left">Saved websites</a-divider>
+              <div class="fp-help" style="margin-bottom: 8px">
+                Copies of your imported website, saved before each import. Use one to make it your front page again.
+              </div>
+              <a-list size="small" bordered :data-source="snapshots" style="max-width: 760px">
+                <template #renderItem="{ item }">
+                  <a-list-item>
+                    <a-list-item-meta>
+                      <template #title>
+                        {{ item.name }}
+                        <a-tag v-if="item.in_use && front.saved_mode === 'imported'" color="green" style="margin-left: 6px">In use</a-tag>
+                        <a-tag v-if="!item.available" color="red" style="margin-left: 6px">Files missing</a-tag>
+                      </template>
+                      <template #description>
+                        <span v-if="item.source_url">From {{ item.source_url }} · </span>saved {{ String(item.saved_at || '').substring(0, 16).replace('T', ' ') }}
+                      </template>
+                    </a-list-item-meta>
+                    <template #actions>
+                      <a v-if="item.available" :href="item.preview" target="_blank" rel="noopener">Preview</a>
+                      <a-popconfirm
+                        v-if="item.available && !(item.in_use && front.saved_mode === 'imported')"
+                        title="Use this saved website as your front page? The current one is saved first."
+                        ok-text="Use it" @confirm="useSnapshot(item)"
+                      ><a>Use this</a></a-popconfirm>
+                      <a-popconfirm
+                        v-if="!(item.in_use && front.saved_mode === 'imported')"
+                        title="Delete this saved website?" ok-text="Delete" @confirm="deleteSnapshot(item)"
+                      ><a style="color: #cf1322">Delete</a></a-popconfirm>
+                    </template>
+                  </a-list-item>
+                </template>
+              </a-list>
+            </template>
           </a-card>
         </a-tab-pane>
 
@@ -994,8 +1048,9 @@ const route = useRoute();
 const WEBSITE_TABS = ['front_page', 'homepage', 'hero', 'branding', 'topbar', 'seo', 'social'];
 const scope = computed(() => (route.meta.scope === 'website' ? 'website' : 'store'));
 // The Hero header only exists on OUR front page (sections): with an imported
-// website (Front page tab) it is never shown, so its tab is hidden.
-const SECTIONS_ONLY_TABS = ['hero'];
+// website (Front page tab) it is never shown, so its tab is hidden. Same for SEO:
+// the imported pages keep their own title / description tags.
+const SECTIONS_ONLY_TABS = ['hero', 'seo'];
 // Front page: our sections or an imported website (saved_mode = the applied one).
 const front = ref({ mode: 'sections', saved_mode: 'sections', url: '', saved_url: '', imported_at: null, busy: false });
 // Branding / Top bar / SEO / Social are in BOTH scopes, each with its own data
@@ -1277,6 +1332,36 @@ async function applyFrontPage() {
     message.error(e?.data?.message || 'Could not apply the front page.', 8);
   } finally {
     f.busy = false;
+    loadSnapshots();
+  }
+}
+
+/* Saved websites (copies kept before each import) */
+const snapshots = ref([]);
+async function loadSnapshots() {
+  if (scope.value !== 'website') return;
+  try { snapshots.value = ((await http.get('admin/website/snapshots')) || {}).snapshots || []; } catch (e) { snapshots.value = []; }
+}
+async function useSnapshot(item) {
+  try {
+    const res = await http.post(`admin/website/snapshots/${item.id}/use`, {});
+    snapshots.value = res.snapshots || [];
+    const st = res.settings || {};
+    Object.assign(front.value, {
+      mode: 'imported', saved_mode: 'imported', url: st.front_page_url || '', saved_url: st.front_page_url || '',
+      imported_at: st.front_page_imported_at || front.value.imported_at,
+    });
+    message.success('Your front page is now this saved website.');
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not use this saved website.');
+  }
+}
+async function deleteSnapshot(item) {
+  try {
+    snapshots.value = ((await http.delete(`admin/website/snapshots/${item.id}`)) || {}).snapshots || [];
+    message.success('Saved website deleted.');
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not delete it.');
   }
 }
 
@@ -1595,6 +1680,7 @@ async function fetch() {
       const wres = (await http.get('admin/website/settings')) || {};
       const w = wres.settings || {};
       site.value = { url_path: w.url_path || '', public_url: wres.public_url || '', url_origin: wres.url_origin || '/' };
+      loadSnapshots();
       WEBSITE_OWNED.forEach(k => { if (k !== 'social_links') form.value[k] = w[k] ?? ''; });
       form.value.social_links = normalizeSocialLinks(w.social_links);
       WEBSITE_TR.forEach(k => { form.value.text_translations[k] = { ...((w.text_translations || {})[k] || {}) }; });
