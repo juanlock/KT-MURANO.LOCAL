@@ -1,8 +1,14 @@
 ---
-description: "Protocol Pa Llevar (formerly A Dormir) -- end-of-session close-out: check the build (npm run build), run Kelsy (log the session to kt_logs), write the day's report, back up dbmurano into KT-TOOLS/database (Copia BD) and refresh KT-TOOLS/SQL/backup db.zip + backup db office emails 1/2/3.zip, update README.md (Latest changes + anything it describes that changed), then commit everything with a summary + detailed description and push to GitHub. Triggers on \"Claude/Jarvis, run protocol pa llevar\" / \"protocolo pa llevar\"."
+description: "Protocol Pa Llevar (formerly A Dormir) -- end-of-session close-out: update the user manual (in-app EN + ES, overview HTML + PDF) with the session's module / form changes, check the build (npm run build), run Kelsy (log the session to kt_logs), write the day's report, back up dbmurano into KT-TOOLS/database (Copia BD) and refresh KT-TOOLS/SQL/backup db.zip + backup db office emails 1/2/3.zip, update README.md (Latest changes + anything it describes that changed), then commit everything with a summary + detailed description and push to GitHub. Triggers on \"Claude/Jarvis, run protocol pa llevar\" / \"protocolo pa llevar\"."
 ---
 
 Run Protocol Pa Llevar ("to go") -- the end-of-session close-out (it absorbed the old A Dormir protocol, which no longer exists). In this order. Stop and report if a step fails; never skip ahead silently.
+
+00. **User manual** (user's rule, 2026-10-07) -- before the build, bring the manual up to date with this session's changes. For every `kt_logs` request of the session (and any not yet logged) that created or changed a **module, form, screen, button, role, permission or company module switch**:
+   - **In-app manual** -- `resources/src/manual/manual.js` (header book icon -> `ManualDrawer.vue`): update that module's entry, **English AND Spanish** (`{ en, es }` side by side -- never one language only). A new module = a new entry with its `module` switch key (`config/modules.js`), the `perms` that show it and the screen `paths`; a new form / button / step = a new or changed section (its own `perms` / `module` / `paths` when only some roles or companies have it). Bump `MANUAL_UPDATED` to today.
+   - **Overview manual** -- `KT-TOOLS/Manual/murano_user_manual.html` (by company and role) when a role, a role's home page / permissions, a company's modules or a guide's steps changed; then re-make the PDF: `node KT-TOOLS/Manual/export_pdf.cjs` (-> `murano_user_manual.pdf`). Update its "Updated" date.
+   - Nothing to do when the session only answered questions or changed data. Note in the report / commit body which manual entries changed.
+   The build in step 0 then proves the manual still compiles.
 
 0. **Build check** -- `npm run build` (all bundles: admin, customer display, portal, storefront). It must finish without errors: a broken build is never committed/pushed. If it fails, stop and report the error. (`public/js` itself is not in git -- this step only proves the code that is about to be pushed builds; every machine still builds after pulling, see Preparate.)
 

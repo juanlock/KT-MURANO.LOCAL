@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  */
 class HeaderIcons
 {
-    public const KEYS = ['pos', 'customize', 'install', 'summary', 'fullscreen', 'language', 'notifications', 'clock', 'logout'];
+    public const KEYS = ['pos', 'customize', 'install', 'summary', 'fullscreen', 'manual', 'language', 'notifications', 'clock', 'logout'];
 
     /** Keys whose company switch lives in an older column (not in settings.header_icons). */
     private const LEGACY = ['pos', 'customize', 'language'];

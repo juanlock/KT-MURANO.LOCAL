@@ -78,9 +78,10 @@ resources/src/           Vue 3 SPA
   pages/                 One folder per module
   components/  lib/      Shared UI and helpers (PresetRangeFilter, sortByLabel, goBack...)
   config/                Menu, permissions, dashboard sections
+  manual/manual.js       In-app user manual (EN + ES), by module
 public/files/company_{id}/{module}/   Uploaded / generated files, per company
 public/documentation/    Stocky's user guide + REST API reference (OpenAPI)
-KT-TOOLS/                Backups (database/, SQL/), reports (Report/), tools
+KT-TOOLS/                Backups (database/, SQL/), reports (Report/), user manual (Manual/), tools
 .claude/commands/        Session protocols (see below)
 CLAUDE.md                Project rules and conventions (read this first)
 ```
@@ -142,6 +143,10 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 - **Online booking**: only the name is required; customers get an email only
   when the booking is confirmed; limits per connection (5 per 10 minutes, an
   email check from the 4th in a day).
+- **User manual.** Every change to a module, form, role or permission updates
+  its entry in `resources/src/manual/manual.js`, in English **and** Spanish
+  (header book icon). Role or company-module changes also refresh
+  `KT-TOOLS/Manual/` (HTML + PDF).
 
 ---
 
@@ -149,6 +154,25 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
+
+### 2026-10-07 evening (Thundera)
+
+- **User manual inside Murano.**
+  - A new **book** icon in the header opens it: **This page** (help for the
+    screen you are on) or **Whole manual** (with search).
+  - English and Spanish (follows the app language, with an EN / ES switch).
+  - Shows only the modules the company has turned on and what the user's role
+    allows.
+  - The icon can be hidden for the company (Defaults → Users) or by each user
+    (Profile).
+- **Manual by company and role** (overview for staff), with a PDF version with
+  links, in `KT-TOOLS/Manual/`.
+- **Rule:** every change to a module, form or role updates the manual in
+  English and Spanish; Pa Llevar checks it first.
+- **KcolTech website** (kept outside this repo) rebuilt: new layout and logos,
+  slider, Murano page, contact form, English and Spanish.
+
+Setup: `npm run build`.
 
 ### 2026-10-07 (Thundera)
 
@@ -261,7 +285,7 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | **Preparate** | Start of session. Syncs the PC (pull, migrate, build) and reloads the rules. It also reads the request history (`kt_logs`) and writes status reports to `KT-TOOLS/Report/`. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 | **Copia BD** | Backs up `dbmurano` with mysqldump into `KT-TOOLS/database/`. It writes a main zip plus 3 Email Office zips, all importable in phpMyAdmin. |
-| **Pa Llevar** | End of session. Builds, logs, writes the daily report, backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
+| **Pa Llevar** | End of session. Updates the user manual with the session's changes, builds, logs, writes the daily report, backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
 
 Pushing uses GitHub Desktop when the terminal has no GitHub credentials. Never
 force-push, and never commit `.env`.
@@ -270,6 +294,9 @@ force-push, and never commit `.env`.
 
 ## Documentation
 
+- In the app: the header **book** icon (Murano's own manual, by module, EN / ES).
+- `KT-TOOLS/Manual/murano_user_manual.html` / `.pdf`: Murano manual by company
+  and role (PDF: `node KT-TOOLS/Manual/export_pdf.cjs`).
 - `public/documentation/index.html`: the full user guide for the base product.
 - `public/documentation/api/index.html` and `openapi.json`: the REST API
   reference, with about 1,200 endpoints.

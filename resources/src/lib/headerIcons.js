@@ -9,6 +9,7 @@ export const HEADER_ICONS = [
   { key: 'install', label: 'Install app', help: 'Only shows while the browser offers to install it.' },
   { key: 'summary', label: 'Como Vamos! (today\'s summary)' },
   { key: 'fullscreen', label: 'Full screen' },
+  { key: 'manual', label: 'User manual', help: 'This page or the whole manual, only the modules and parts the user\'s role allows.' },
   { key: 'language', label: 'Language (translate)' },
   { key: 'notifications', label: 'Notifications' },
   { key: 'clock', label: 'Clock in / out', help: 'Also needs the role\'s Clock in / out permission.' },

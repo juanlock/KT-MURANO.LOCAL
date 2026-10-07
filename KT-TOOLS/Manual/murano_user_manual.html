@@ -1,0 +1,755 @@
+<title>Murano User Manual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a sticky contents rail on the left (desktop), one reading column on the right; role cards in a 2-up grid, guides as numbered steps. */
+:root {
+  --bg: #f6f6fb;
+  --paper: #ffffff;
+  --ink: #1d1b33;
+  --muted: #5d5a78;
+  --line: #e3e2ef;
+  --accent: #5b4fe0;          /* Murano indigo */
+  --accent-2: #8a5cf6;        /* Murano violet */
+  --accent-soft: #eeecfd;
+  --ok: #157a4b; --ok-bg: #e3f5ec;
+  --part: #8a5a00; --part-bg: #fbf0d9;
+  --own: #1f5fa8; --own-bg: #e2eefb;
+  --none: #9a98ae;
+  --code-bg: #f0eff8;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #13121f; --paper: #1c1b2c; --ink: #ecebf7; --muted: #a9a7c4; --line: #2f2d45;
+  --accent: #9d93ff; --accent-2: #b794ff; --accent-soft: #29264a;
+  --ok: #6fd6a3; --ok-bg: #173628; --part: #f2c56b; --part-bg: #3a2e14; --own: #8cc0ff; --own-bg: #18304d;
+  --none: #6f6d88; --code-bg: #252439; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #13121f; --paper: #1c1b2c; --ink: #ecebf7; --muted: #a9a7c4; --line: #2f2d45;
+  --accent: #9d93ff; --accent-2: #b794ff; --accent-soft: #29264a;
+  --ok: #6fd6a3; --ok-bg: #173628; --part: #f2c56b; --part-bg: #3a2e14; --own: #8cc0ff; --own-bg: #18304d;
+  --none: #6f6d88; --code-bg: #252439; color-scheme: dark }
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--body); padding-inline: 16px; padding-block: 0 64px; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -0.02em; }
+h2 { font-size: 1.75rem; letter-spacing: -0.01em; }
+h3 { font-size: 1.2rem; }
+p { margin: 0; }
+code, .path { font-family: var(--mono); font-size: 0.82em; background: var(--code-bg); padding: 1px 6px; border-radius: 5px; white-space: nowrap; }
+.menu { font-weight: 600; white-space: nowrap; }
+.eyebrow { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 0; } .rail { display: none; } }
+
+/* contents rail */
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; padding-top: 40px; max-height: 100vh; overflow-y: auto; font-size: 0.9rem; }
+.rail nav { display: grid; gap: 2px; }
+.rail .group { margin-top: 16px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.rail a { color: var(--ink); text-decoration: none; padding: 3px 8px; border-radius: 6px; }
+.rail a:hover { background: var(--accent-soft); color: var(--accent); }
+
+main { min-width: 0; display: grid; gap: 64px; padding-top: 40px; }
+section { display: grid; gap: 20px; scroll-margin-top: 16px; }
+.lead { font-size: 1.12rem; color: var(--muted); max-width: 65ch; }
+.prose { display: grid; gap: 12px; max-width: 72ch; }
+
+/* hero */
+.hero { display: grid; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--line); padding-block: 0 32px; }
+.hero h1 span { background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.9rem; color: var(--muted); }
+
+/* role finder */
+.finder { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 14px; }
+.finder-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.finder label { display: grid; gap: 4px; font-size: 0.85rem; font-weight: 600; color: var(--muted); flex: 1 1 200px; min-width: 0; }
+.finder select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%; }
+.finder .go { font: inherit; font-weight: 600; background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer; }
+.finder .go:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* everyone basics */
+.basics { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.basic { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.basic h3 { font-size: 1.05rem; }
+.basic p, .basic li { font-size: 0.95rem; color: var(--muted); }
+.basic ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+
+/* company */
+.company-head { display: grid; gap: 8px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fact { font-size: 0.82rem; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 3px 12px; color: var(--muted); }
+.fact b { color: var(--ink); font-weight: 600; }
+
+.roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+@media (max-width: 420px) { .roles { grid-template-columns: minmax(0, 1fr); } }
+.role { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 12px; align-content: start; min-width: 0; scroll-margin-top: 16px; }
+.role:target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.role-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.who { font-size: 0.85rem; color: var(--muted); }
+.home { font-size: 0.85rem; }
+.home b { font-weight: 600; }
+.role ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.95rem; }
+.role .cant { font-size: 0.88rem; color: var(--muted); }
+.guides-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.guides-links a { font-size: 0.82rem; font-weight: 600; text-decoration: none; background: var(--accent-soft); color: var(--accent); padding: 3px 10px; border-radius: 999px; }
+.guides-links a:hover { text-decoration: underline; }
+
+/* access matrix */
+.matrix-wrap { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; min-width: 560px; }
+th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+thead th { font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody th { font-weight: 600; white-space: nowrap; }
+.lv { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 1px 9px; border-radius: 999px; white-space: nowrap; }
+.lv-full { color: var(--ok); background: var(--ok-bg); }
+.lv-part { color: var(--part); background: var(--part-bg); }
+.lv-own { color: var(--own); background: var(--own-bg); }
+.lv-none { color: var(--none); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.85rem; color: var(--muted); align-items: center; }
+
+/* guides */
+.guides { display: grid; gap: 18px; }
+.guide { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: grid; gap: 12px; scroll-margin-top: 16px; min-width: 0; }
+.guide:target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.guide .for { font-size: 0.85rem; color: var(--muted); }
+.guide ol { margin: 0; padding-left: 22px; display: grid; gap: 7px; }
+.guide ol li::marker { font-family: var(--display); font-weight: 700; color: var(--accent); }
+.note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 0.92rem; }
+.top-link { font-size: 0.85rem; justify-self: start; }
+
+footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 1px solid var(--line); font-size: 0.85rem; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <aside class="rail" aria-label="Contents">
+    <nav>
+      <a href="#top">Start here</a>
+      <a href="#everyone">For everyone</a>
+      <div class="group">Companies</div>
+      <a href="#system">System (SuperAdmin)</a>
+      <a href="#kcoltech">KcolTech</a>
+      <a href="#ruba">Ruba Garden Landscape</a>
+      <a href="#newera">New Era Unisex Salon</a>
+      <a href="#portals">Customers &amp; suppliers</a>
+      <div class="group">Guides</div>
+      <a href="#g-signin">Sign in &amp; home page</a>
+      <a href="#g-profile">Profile, password &amp; PIN</a>
+      <a href="#g-clock">Clock in / out</a>
+      <a href="#g-daily">Daily Tasks</a>
+      <a href="#g-jobs">Service jobs</a>
+      <a href="#g-sales">Sales &amp; invoices</a>
+      <a href="#g-contracts">Sales contracts</a>
+      <a href="#g-pos">POS &amp; cash register</a>
+      <a href="#g-bookings">Bookings calendar</a>
+      <a href="#g-online">Online booking</a>
+      <a href="#g-customers">Customers</a>
+      <a href="#g-employees">Employees</a>
+      <a href="#g-payroll">Weekly payroll</a>
+      <a href="#g-email">Email Office</a>
+      <a href="#g-website">Website</a>
+      <a href="#g-users">Users &amp; roles</a>
+      <a href="#g-filters">Date filters &amp; reports</a>
+      <a href="#g-helpdesk">Help desk tickets</a>
+      <a href="#g-portal">Customer &amp; supplier portal</a>
+    </nav>
+  </aside>
+
+  <main>
+    <!-- ============================== HERO ============================== -->
+    <section class="hero" id="top">
+      <span class="eyebrow">Murano Business Suite · User manual</span>
+      <h1>Murano, <span>by company and role</span></h1>
+      <p class="lead">What you see in Murano depends on two things: the company you belong to and the role your administrator gave you. Find your role below, read what it can do, then follow the guides linked from it.</p>
+      <div class="meta">
+        <span>Address: <code>https://murano.kcoltech.com</code></span>
+        <span>Languages: English · Spanish</span>
+        <span>Updated: October 7, 2026</span>
+      </div>
+      <form class="finder" id="finder" aria-label="Find your role">
+        <div class="finder-row">
+          <label for="f-company">My company
+            <select id="f-company">
+              <option value="kcoltech">KcolTech</option>
+              <option value="ruba">Ruba Garden Landscape</option>
+              <option value="newera">New Era Unisex Salon</option>
+              <option value="system">System owner (SuperAdmin)</option>
+            </select>
+          </label>
+          <label for="f-role">My role
+            <select id="f-role"></select>
+          </label>
+          <button class="go" type="submit">Show my role</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============================== EVERYONE ============================== -->
+    <section id="everyone">
+      <span class="eyebrow">For everyone</span>
+      <h2>How Murano works for every user</h2>
+      <div class="basics">
+        <div class="basic">
+          <h3>One login, one company</h3>
+          <p>Your login belongs to one company. You only ever see that company's customers, sales, employees and files. Only the system owner (SuperAdmin) can switch between companies.</p>
+        </div>
+        <div class="basic">
+          <h3>Your role decides the menu</h3>
+          <p>Menus, buttons and even single tabs appear only if your role allows them. If you need something you can't see, ask your company administrator to add it to your role. Nothing is given by job title alone.</p>
+        </div>
+        <div class="basic">
+          <h3>Your home page</h3>
+          <p>Some roles open straight on their work screen instead of the dashboard: field crews on <span class="menu">Daily Tasks</span>, salon staff on the <span class="menu">Bookings calendar</span>.</p>
+        </div>
+        <div class="basic">
+          <h3>The top bar</h3>
+          <ul>
+            <li><b>Book</b>: the manual inside Murano, for the screen you are on or the whole manual, in English or Spanish.</li>
+            <li><b>Clock</b>: clock in and out (if your role has it).</li>
+            <li><b>Language</b>: English or Spanish.</li>
+            <li><b>Your name</b>: Profile, password, sign out.</li>
+          </ul>
+          <p>Your company can hide icons; you can also show or hide them in your Profile.</p>
+        </div>
+        <div class="basic">
+          <h3>Phones and tablets</h3>
+          <p>Murano runs in the browser. The menu folds into the ☰ button, lists show the important columns first, and date filters turn into a dropdown.</p>
+        </div>
+        <div class="basic">
+          <h3>When someone leaves</h3>
+          <p>When an employee is removed, their login is disabled and they are signed out on every device at once. Their history (sales, jobs, attendance) is kept.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== SYSTEM ============================== -->
+    <section id="system">
+      <span class="eyebrow">System owner</span>
+      <div class="company-head">
+        <h2>SuperAdmin</h2>
+        <p class="lead">The owner of the whole installation. Not tied to one company: works on any of them through the company selector.</p>
+      </div>
+      <div class="roles">
+        <article class="role" id="role-system-owner">
+          <div class="role-top"><h3>Owner (SuperAdmin)</h3><span class="who">1 user</span></div>
+          <p class="home">Home page: <b>Dashboard</b></p>
+          <ul>
+            <li>Every module and every permission, including the ones added later (new modules reach this role automatically).</li>
+            <li>A <b>company selector</b> on company forms and lists: choose the company first, then view or edit its records.</li>
+            <li>Only role that can create another SuperAdmin, change install-wide settings (server address, modules, backups, login devices) and add scripts to website pages.</li>
+            <li>Does not clock in and is not on payroll.</li>
+          </ul>
+          <div class="guides-links"><a href="#g-users">Users &amp; roles</a><a href="#g-payroll">Weekly payroll</a><a href="#g-website">Website</a></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============================== KCOLTECH ============================== -->
+    <section id="kcoltech">
+      <span class="eyebrow">Company 1</span>
+      <div class="company-head">
+        <h2>KcolTech</h2>
+        <p class="lead">IT services company. Every Murano module is turned on here.</p>
+        <div class="facts">
+          <span class="fact">Invoice numbers <b>INV…</b></span>
+          <span class="fact">Payroll <b>hourly, $35/h</b></span>
+          <span class="fact">Help desk <b>on</b></span>
+          <span class="fact">Email Office <b>on</b></span>
+        </div>
+      </div>
+      <div class="roles">
+        <article class="role" id="role-kcoltech-admin">
+          <div class="role-top"><h3>Admin-ALL</h3><span class="who">Company administrator</span></div>
+          <p class="home">Home page: <b>Dashboard</b></p>
+          <ul>
+            <li>Everything in KcolTech: sales, invoices, contracts, customers, products, purchases, service jobs, help desk, HR and payroll, accounting, Email Office, website and store.</li>
+            <li>Creates admin logins, edits any user's role, password and PIN, and builds roles.</li>
+            <li>Locked to KcolTech: never sees the company selector.</li>
+          </ul>
+          <div class="guides-links"><a href="#g-sales">Sales</a><a href="#g-contracts">Contracts</a><a href="#g-jobs">Service jobs</a><a href="#g-employees">Employees</a><a href="#g-payroll">Payroll</a><a href="#g-email">Email Office</a><a href="#g-website">Website</a><a href="#g-users">Users &amp; roles</a><a href="#g-helpdesk">Help desk</a></div>
+        </article>
+        <article class="role" id="role-kcoltech-employee">
+          <div class="role-top"><h3>Employee</h3><span class="who">Staff</span></div>
+          <p class="home">Home page: <b>Dashboard</b> (shows only what the role allows)</p>
+          <ul>
+            <li>Their own employee record: every tab in read-only mode, including assets assigned to them.</li>
+            <li>Attendance and the company Intranet (news, calendar, files).</li>
+            <li>Their own help desk tickets (<span class="menu">Help desk › My tickets</span>).</li>
+          </ul>
+          <p class="cant">Can't see sales, customers or other employees.</p>
+          <div class="guides-links"><a href="#g-profile">Profile</a><a href="#g-clock">Clock in</a><a href="#g-helpdesk">My tickets</a></div>
+        </article>
+        <article class="role" id="role-kcoltech-agent">
+          <div class="role-top"><h3>Sales Agent</h3><span class="who">Available, no users yet</span></div>
+          <p class="home">Home page: <b>Dashboard</b></p>
+          <ul>
+            <li>Creates, edits and imports sales.</li>
+            <li>Sees their commissions (programs, rules, receipts, report).</li>
+            <li>The login is created from <span class="menu">Commissions › Sales Agents</span>, not from Users.</li>
+          </ul>
+          <div class="guides-links"><a href="#g-sales">Sales</a></div>
+        </article>
+        <article class="role" id="role-kcoltech-helpdesk">
+          <div class="role-top"><h3>Helpdesk</h3><span class="who">Available, no users yet</span></div>
+          <p class="home">Home page: <b>Dashboard</b> (then <span class="menu">Help desk</span> in the menu)</p>
+          <ul>
+            <li>Reads and answers the help desk tickets and uses the Intranet.</li>
+          </ul>
+          <div class="guides-links"><a href="#g-helpdesk">Help desk</a></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============================== RUBA ============================== -->
+    <section id="ruba">
+      <span class="eyebrow">Company 2</span>
+      <div class="company-head">
+        <h2>Ruba Garden Landscape</h2>
+        <p class="lead">Landscaping and field services: crews, recurring contracts and service jobs that become invoices.</p>
+        <div class="facts">
+          <span class="fact">Invoice numbers <b>INV_…</b></span>
+          <span class="fact">Payroll <b>hourly: manager $25, operators $20</b></span>
+          <span class="fact">Bookings <b>off</b></span>
+          <span class="fact">Service jobs <b>on</b></span>
+        </div>
+      </div>
+      <div class="roles">
+        <article class="role" id="role-ruba-manager">
+          <div class="role-top"><h3>Manager RG</h3><span class="who">Company administrator</span></div>
+          <p class="home">Home page: <b>Dashboard</b></p>
+          <ul>
+            <li>Sales, quotations, payments and <b>sales contracts</b> (weekly / monthly billing and scheduled visits).</li>
+            <li>Customers, products, stock, purchases and suppliers.</li>
+            <li>Service jobs: create, assign crews, see everyone's Daily Tasks, job reports.</li>
+            <li>Employees: add, edit, remove, every tab. Assets and equipment.</li>
+            <li>Accounting, expenses, deposits, money transfers and the financial reports.</li>
+            <li>Website (Portfolio, settings), store, marketing campaigns, projects.</li>
+            <li>Email Office: reads the mailbox.</li>
+            <li>Edits users and roles.</li>
+          </ul>
+          <p class="cant">Not in this role today: running <b>Payroll</b>, changing Email Office settings, System Settings and Modules. Ask the system owner when needed.</p>
+          <div class="guides-links"><a href="#g-sales">Sales</a><a href="#g-contracts">Contracts</a><a href="#g-jobs">Service jobs</a><a href="#g-daily">Daily Tasks</a><a href="#g-employees">Employees</a><a href="#g-website">Website</a><a href="#g-users">Users &amp; roles</a></div>
+        </article>
+        <article class="role" id="role-ruba-supervisor">
+          <div class="role-top"><h3>SupervisorRG</h3><span class="who">Field manager</span></div>
+          <p class="home">Home page: <b>Daily Tasks</b></p>
+          <ul>
+            <li>Sees <b>every crew's</b> jobs for the day and the week.</li>
+            <li>Assigns each job to a technician.</li>
+            <li>Starts and completes their own jobs, with a note and the hours worked.</li>
+            <li>Opens service jobs and their own employee record (read-only).</li>
+          </ul>
+          <div class="guides-links"><a href="#g-daily">Daily Tasks</a><a href="#g-jobs">Service jobs</a><a href="#g-profile">Profile</a></div>
+        </article>
+        <article class="role" id="role-ruba-operator">
+          <div class="role-top"><h3>OperatorRG</h3><span class="who">Field crew</span></div>
+          <p class="home">Home page: <b>Daily Tasks</b></p>
+          <ul>
+            <li>Sees only <b>their own</b> jobs.</li>
+            <li>Taps <b>Start</b> on arrival and <b>Complete</b> when done, with a note and the hours worked. Those hours are what weekly payroll pays.</li>
+          </ul>
+          <p class="cant">Daily Tasks is the only screen of this role.</p>
+          <div class="guides-links"><a href="#g-daily">Daily Tasks</a></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============================== NEW ERA ============================== -->
+    <section id="newera">
+      <span class="eyebrow">Company 3</span>
+      <div class="company-head">
+        <h2>New Era Unisex Salon</h2>
+        <p class="lead">Hair and beauty salon: online bookings from the salon's website, a shared register where each stylist sells with a PIN, and commission payroll.</p>
+        <div class="facts">
+          <span class="fact">Sale numbers <b>SL…</b></span>
+          <span class="fact">Payroll <b>40% commission</b></span>
+          <span class="fact">Bookings <b>on</b></span>
+          <span class="fact">Service jobs <b>off</b></span>
+        </div>
+      </div>
+      <div class="roles">
+        <article class="role" id="role-newera-admin">
+          <div class="role-top"><h3>AdminNE</h3><span class="who">Company administrator</span></div>
+          <p class="home">Home page: <b>Dashboard</b></p>
+          <ul>
+            <li>Everything in New Era: bookings and online booking setup, POS, sales, customers, products, HR and commission payroll, accounting, Email Office, website and store.</li>
+            <li>Receives the "new online booking" emails.</li>
+            <li>Creates admin logins, sets each stylist's PIN, builds roles.</li>
+          </ul>
+          <div class="guides-links"><a href="#g-bookings">Bookings</a><a href="#g-online">Online booking</a><a href="#g-pos">POS</a><a href="#g-payroll">Payroll</a><a href="#g-employees">Employees</a><a href="#g-website">Website</a><a href="#g-users">Users &amp; roles</a></div>
+        </article>
+        <article class="role" id="role-newera-manager">
+          <div class="role-top"><h3>ManagerNE</h3><span class="who">Front desk / salon manager</span></div>
+          <p class="home">Home page: <b>Bookings calendar</b></p>
+          <ul>
+            <li>Bookings for <b>every stylist</b>, and trays.</li>
+            <li>POS: sells, takes payments, <b>opens and closes the cash register</b>, sees the register report.</li>
+            <li>Sales list and new sales; customers (add, edit); products, categories, brands, barcodes.</li>
+            <li>Email Office, including its settings.</li>
+            <li>Attendance, attendance summary, leave requests; sees every employee's record.</li>
+            <li>Clocks in and out.</li>
+          </ul>
+          <p class="cant">Doesn't see commission programs, agents or rules, accounting or payroll.</p>
+          <div class="guides-links"><a href="#g-bookings">Bookings</a><a href="#g-pos">POS</a><a href="#g-customers">Customers</a><a href="#g-email">Email Office</a><a href="#g-clock">Clock in</a></div>
+        </article>
+        <article class="role" id="role-newera-staff">
+          <div class="role-top"><h3>StaffNE</h3><span class="who">Stylists</span></div>
+          <p class="home">Home page: <b>Bookings calendar</b></p>
+          <ul>
+            <li>Their <b>own</b> bookings on the calendar.</li>
+            <li>POS: sells with their PIN and takes the payment.</li>
+            <li>Their own employee record: basic data, production, payments and assets.</li>
+            <li>Clocks in and out.</li>
+          </ul>
+          <p class="cant">Doesn't see other stylists' bookings, the sales list or customers' details.</p>
+          <div class="guides-links"><a href="#g-bookings">Bookings</a><a href="#g-pos">POS</a><a href="#g-clock">Clock in</a><a href="#g-profile">Profile &amp; PIN</a></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============================== PORTALS ============================== -->
+    <section id="portals">
+      <span class="eyebrow">All companies</span>
+      <div class="company-head">
+        <h2>Customers and suppliers</h2>
+        <p class="lead">Customers and suppliers get their own login from their record (People › Customers / Suppliers). They don't use the admin screens; they use the portal.</p>
+      </div>
+      <div class="roles">
+        <article class="role" id="role-customer">
+          <div class="role-top"><h3>Customer</h3><span class="who">KcolTech, Ruba, New Era</span></div>
+          <p class="home">Home page: <b>Customer portal</b> <code>/portal</code></p>
+          <ul>
+            <li>Their own invoices, payments, balance and bookings. Nothing of other customers.</li>
+            <li>A customer is the same person only with the same email in the same company.</li>
+          </ul>
+          <div class="guides-links"><a href="#g-portal">Portal</a></div>
+        </article>
+        <article class="role" id="role-supplier">
+          <div class="role-top"><h3>Supplier</h3><span class="who">KcolTech, Ruba</span></div>
+          <p class="home">Home page: <b>Supplier portal</b></p>
+          <ul>
+            <li>Their own purchase orders and the payments made to them.</li>
+          </ul>
+          <div class="guides-links"><a href="#g-portal">Portal</a></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============================== MATRIX ============================== -->
+    <section id="matrix">
+      <span class="eyebrow">At a glance</span>
+      <h2>Who can do what</h2>
+      <div class="legend">
+        <span class="lv lv-full">Full</span> add, edit, delete
+        <span class="lv lv-part">Part</span> some actions
+        <span class="lv lv-own">Own</span> only their own records
+        <span class="lv lv-none">—</span> not available
+      </div>
+      <div class="matrix-wrap" tabindex="0" aria-label="Access by role, scrolls sideways on small screens">
+        <table>
+          <thead>
+            <tr><th scope="col">Area</th><th scope="col">KT Admin-ALL</th><th scope="col">KT Employee</th><th scope="col">Manager RG</th><th scope="col">SupervisorRG</th><th scope="col">OperatorRG</th><th scope="col">AdminNE</th><th scope="col">ManagerNE</th><th scope="col">StaffNE</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Dashboard</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Sales &amp; invoices</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-part">View, add</span></td><td><span class="lv lv-part">Add</span></td></tr>
+            <tr><th scope="row">POS</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-full">Sell, register</span></td><td><span class="lv lv-part">Sell</span></td></tr>
+            <tr><th scope="row">Sales contracts</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Customers</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-part">View, add, edit</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Products &amp; stock</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-part">View, add, edit</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Bookings</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">Module off</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-full">All stylists</span></td><td><span class="lv lv-own">Own</span></td></tr>
+            <tr><th scope="row">Service jobs</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-part">Jobs, assign</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">Module off</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Daily Tasks</th><td><span class="lv lv-full">All, assign</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">All, assign</span></td><td><span class="lv lv-full">All, assign</span></td><td><span class="lv lv-own">Own</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Employees</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-own">Own, view</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-own">Own, view</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-part">View all</span></td><td><span class="lv lv-own">Own, view</span></td></tr>
+            <tr><th scope="row">Clock in / out</th><td><span class="lv lv-full">Yes</span></td><td><span class="lv lv-part">Attendance</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Yes</span></td><td><span class="lv lv-full">Yes</span></td><td><span class="lv lv-full">Yes</span></td></tr>
+            <tr><th scope="row">Payroll</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Accounting &amp; expenses</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Email Office</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-part">Read</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Website &amp; store</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Users &amp; roles</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-part">View, edit</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:.9rem;color:var(--muted);max-width:72ch">Taken from each role's permissions on October 7, 2026. An administrator can change a role at any time in <span class="menu">User Management › Roles</span>; the menu follows the role.</p>
+    </section>
+
+    <!-- ============================== GUIDES ============================== -->
+    <section id="guides">
+      <span class="eyebrow">Step by step</span>
+      <h2>Guides</h2>
+      <p class="lead">Each guide says which roles use it. If a menu item in a guide is missing for you, your role doesn't include it.</p>
+
+      <div class="guides">
+        <article class="guide" id="g-signin">
+          <h3>Sign in and your home page</h3>
+          <p class="for">For: everyone</p>
+          <ol>
+            <li>Open <code>https://murano.kcoltech.com</code> and sign in with your email and password.</li>
+            <li>Murano opens your role's home page: the Dashboard, Daily Tasks (Ruba crews) or the Bookings calendar (New Era).</li>
+            <li>Use the left menu (☰ on a phone) to move around. The logo takes you back to your home page.</li>
+            <li>Sign out from your name in the top bar. On a shared computer, always sign out.</li>
+          </ol>
+          <div class="note">Forgot your password, or your login says it is disabled? Ask your company administrator. Employee logins are active only after the company sets a password for them.</div>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-profile">
+          <h3>Profile, password, language and PIN</h3>
+          <p class="for">For: everyone</p>
+          <ol>
+            <li>Click your name in the top bar › <span class="menu">Profile</span>.</li>
+            <li>Change your password, photo and contact details, then <b>Save</b>.</li>
+            <li>Under <span class="menu">Header icons</span>, choose for each icon: Company default, Show or Hide.</li>
+            <li>Switch the language (English / Spanish) with the language icon in the top bar.</li>
+          </ol>
+          <div class="note">Your <b>PIN</b> (4 to 8 digits, unique in your company) is set by your administrator in <span class="menu">Users</span>. It identifies you at the shared register. Never share it.</div>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-clock">
+          <h3>Clock in and clock out</h3>
+          <p class="for">For: ManagerNE, StaffNE, and any role with "clock in"</p>
+          <ol>
+            <li>When your shift starts, click the <b>clock</b> icon in the top bar. It turns green and shows the time you clocked in.</li>
+            <li>When you leave, click it again. Murano shows the time and the hours worked today.</li>
+            <li>Forgot to clock? Tell your manager; they can correct it in <span class="menu">HRM › Attendance</span>.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-daily">
+          <h3>Daily Tasks (field crews)</h3>
+          <p class="for">For: OperatorRG, SupervisorRG, Manager RG</p>
+          <ol>
+            <li>After sign-in, Daily Tasks opens by itself. It lists the jobs for today; switch to the week to plan ahead.</li>
+            <li>When you arrive at the customer, tap <b>Start</b> on that job.</li>
+            <li>When you finish, tap <b>Complete</b>, write a short note of what was done and enter the <b>hours worked</b>.</li>
+            <li>Supervisors see every crew's jobs and can <b>assign</b> a job to a technician from the same screen.</li>
+          </ol>
+          <div class="note">Your weekly pay is calculated from the hours you enter on <b>completed</b> jobs, so complete every job the same day.</div>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-jobs">
+          <h3>Service jobs</h3>
+          <p class="for">For: Manager RG, SupervisorRG, KcolTech Admin-ALL</p>
+          <ol>
+            <li>Go to <span class="menu">Service &amp; Maintenance › All Jobs</span> (or <span class="menu">Today's Jobs</span>).</li>
+            <li>Create a job: customer, date, the work to do, and the technician or crew.</li>
+            <li>From a sale: in <span class="menu">Sales › Add Sale</span>, press <b>Add Service Job</b> to create the job linked to that invoice. Pending and completed jobs show different icons.</li>
+            <li>Record the equipment used on the job; the job cost adds labor hours and equipment.</li>
+            <li>Follow up unpaid work in <span class="menu">Awaiting Payment</span>.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-sales">
+          <h3>Sales and invoices</h3>
+          <p class="for">For: administrators, Manager RG, ManagerNE (view, add), Sales Agents</p>
+          <ol>
+            <li><span class="menu">Sales › Add Sale</span>: choose date, customer and location, add products or services, then save. The number comes automatically from your company's series (KcolTech and Ruba <code>INV_…</code>, New Era <code>SL…</code>).</li>
+            <li><span class="menu">Sales › List</span>: filter by date, customer or status. On a phone the list shows the sale information first.</li>
+            <li>Open a sale to add a payment, print it or email it to the customer.</li>
+            <li>The <b>Other due</b> column shows the customer's other unpaid invoices. Open it to see each invoice's date and how many reminder emails were sent and when.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-contracts">
+          <h3>Sales contracts (recurring billing)</h3>
+          <p class="for">For: KcolTech and Ruba administrators, Manager RG</p>
+          <ol>
+            <li><span class="menu">Sales › Sales Contracts</span> › Add.</li>
+            <li>Pick the customer, the services, the frequency (weekly or monthly) and the start date.</li>
+            <li>Send the contract for signature.</li>
+            <li>Murano creates the invoices and the scheduled service visits on each date; check them in the Sales list and in Daily Tasks.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-pos">
+          <h3>POS and the cash register</h3>
+          <p class="for">For: StaffNE, ManagerNE, administrators</p>
+          <ol>
+            <li>At the start of the day the manager opens the register (<span class="menu">POS</span> › open register) with their PIN and the opening cash.</li>
+            <li>To sell: open <span class="menu">POS</span>, enter your <b>PIN</b> so the sale is recorded for you, add the services and products, and choose the customer (or Walk-in).</li>
+            <li>Take the payment. A sale can be split between cash and card.</li>
+            <li>Print or email the receipt.</li>
+            <li>At closing the manager closes the register with their PIN and checks the count against the <span class="menu">Cash Register Report</span>.</li>
+          </ol>
+          <div class="note">Commission payroll counts the sales recorded under your PIN, or the bookings where you are the stylist.</div>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-bookings">
+          <h3>Bookings calendar</h3>
+          <p class="for">For: StaffNE (own), ManagerNE and AdminNE (everyone)</p>
+          <ol>
+            <li>The calendar opens after sign-in. Switch between day, week and month.</li>
+            <li>Click an empty slot to add a booking: customer, service, stylist and time.</li>
+            <li>Online bookings arrive as <b>Pending</b>. Open one and <b>Confirm</b> it; the customer receives the confirmation email (if they gave an email).</li>
+            <li>When the customer is served, charge the booking at the POS.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-online">
+          <h3>Online booking on your website</h3>
+          <p class="for">For: AdminNE, administrators</p>
+          <ol>
+            <li><span class="menu">Booking Management › Online Booking</span>.</li>
+            <li>Adjust the look: show or hide the logo, background color.</li>
+            <li>Under <b>Websites &amp; codes</b>, add each website that shows the form. Murano gives you the code to paste: an embedded form, a link or a button.</li>
+            <li>Customers book in 3 steps; only the name is required. Admins receive the "new online booking" email; the customer is emailed only when you confirm.</li>
+            <li>"Exit" and "Close" take the customer back to the website the code belongs to.</li>
+          </ol>
+          <div class="note">Spam protection: at most 5 bookings every 10 minutes from the same connection. From the 4th booking in 24 hours the customer must give an email and click the "I agree" link we send.</div>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-customers">
+          <h3>Customers</h3>
+          <p class="for">For: administrators, Manager RG, ManagerNE</p>
+          <ol>
+            <li><span class="menu">People › Customers</span> › Add. Enter name, email and phone.</li>
+            <li>One email = one customer in your company. Before adding, search by email to avoid duplicates.</li>
+            <li>A customer with an email gets a login to the customer portal.</li>
+            <li>Open a customer to see their sales, payments, bookings and balance.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-employees">
+          <h3>Employees</h3>
+          <p class="for">For: administrators, Manager RG (others see their own record)</p>
+          <ol>
+            <li><span class="menu">HRM › Employees</span> › Add. Every employee gets a login automatically; it is active when the company has a default employee password (System Settings › Defaults › Users).</li>
+            <li>On the employee page, use the tabs: basic data, company, accounts, user, production, payments and <b>Assets assigned</b>.</li>
+            <li>Set the pay type: hourly (with the rate) or commission (with the %), and the date it starts.</li>
+            <li><b>Print profile</b> prints the whole record with the photo.</li>
+            <li><b>Remove</b> an employee: Murano disables the login, signs them out everywhere, unassigns their open jobs, upcoming bookings and tickets, and lists the assets to collect. Their history stays.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-payroll">
+          <h3>Weekly payroll</h3>
+          <p class="for">For: administrators with the Payroll permission</p>
+          <ol>
+            <li><span class="menu">HRM › Payroll</span> › <b>Generate weekly payroll</b>, and choose the week.</li>
+            <li>Hourly employees: hours on the jobs they completed that week × their rate. Commission employees: their sales that week × their %.</li>
+            <li>Review each line, then mark it paid. Paid payrolls go to accounting automatically (salaries, or commissions).</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-email">
+          <h3>Email Office</h3>
+          <p class="for">For: roles with Email Office (Manager RG reads; ManagerNE and administrators also manage it)</p>
+          <ol>
+            <li><span class="menu">Email Office › Received</span> or <span class="menu">Sent</span>.</li>
+            <li>Open a message to read it and see its attachments; a message is linked to its customer or supplier when the address matches.</li>
+            <li>Payment emails (for example Zelle) are detected and can be matched to a customer.</li>
+            <li>Managers set the mailbox, folders and rules in <span class="menu">Email Office › Settings</span>.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-website">
+          <h3>Website</h3>
+          <p class="for">For: administrators, Manager RG</p>
+          <ol>
+            <li><span class="menu">Website Management › Website Settings</span>: website address, name, logo, front page and menus.</li>
+            <li>An imported website is edited in <span class="menu">Website › Pages</span>: texts, pictures, links and <b>Sections</b>.</li>
+            <li>In a section, <b>Use our booking calendar</b> puts Murano's booking form in place of an old one.</li>
+            <li>Before an import replaces your site, Murano keeps a copy in <b>Saved websites</b> (Preview, Use this, Delete).</li>
+            <li>Gallery and Portfolio have their own menus for photos and projects.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-users">
+          <h3>Users and roles</h3>
+          <p class="for">For: administrators (Manager RG can edit, not add)</p>
+          <ol>
+            <li><span class="menu">User Management › Users</span> › Add creates <b>admin</b> logins only. Employees, customers, suppliers and sales agents get their login from their own module.</li>
+            <li>Edit any login here: role, locations, password, PIN, and the <b>Active / Disabled</b> switch. Disabling signs the person out everywhere. You can't disable yourself.</li>
+            <li><span class="menu">Roles</span>: tick what the role can do, module by module and tab by tab, and choose its <b>Home page</b>.</li>
+            <li>Header icons for the whole company: <span class="menu">System Settings › Defaults › Users</span>.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-filters">
+          <h3>Date filters and reports</h3>
+          <p class="for">For: everyone who sees lists or reports</p>
+          <ol>
+            <li>Every list and report has the same date filter: All, Today, This Week … Last Year, plus Start date and End date you can type in.</li>
+            <li><b>Double-click</b> a preset to make it your default (★); the page opens with it next time.</li>
+            <li>Reports export to PDF or Excel from the buttons above the table.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-helpdesk">
+          <h3>Help desk tickets</h3>
+          <p class="for">For: everyone (My tickets); Helpdesk role and administrators (all tickets)</p>
+          <ol>
+            <li><span class="menu">Help desk › My tickets</span> › New: describe the problem and attach a screenshot.</li>
+            <li>Follow the answers in the same ticket.</li>
+            <li>Help desk staff work from <span class="menu">Help desk › Tickets</span> and the dashboard.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-portal">
+          <h3>Customer and supplier portal</h3>
+          <p class="for">For: customers and suppliers</p>
+          <ol>
+            <li>Sign in at <code>https://murano.kcoltech.com</code> with the email the company has on file.</li>
+            <li>Customers see their invoices, payments, balance and bookings. Suppliers see their purchase orders and payments.</li>
+            <li>Need a change to your details? Contact the company directly.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>Murano Business Suite by KcolTech · User manual · Roles and permissions as configured on October 7, 2026.</footer>
+
+<script>
+(function () {
+  var roles = {
+    kcoltech: [['role-kcoltech-admin', 'Admin-ALL'], ['role-kcoltech-employee', 'Employee'], ['role-kcoltech-agent', 'Sales Agent'], ['role-kcoltech-helpdesk', 'Helpdesk'], ['role-customer', 'Customer'], ['role-supplier', 'Supplier']],
+    ruba: [['role-ruba-manager', 'Manager RG'], ['role-ruba-supervisor', 'SupervisorRG'], ['role-ruba-operator', 'OperatorRG'], ['role-customer', 'Customer'], ['role-supplier', 'Supplier']],
+    newera: [['role-newera-admin', 'AdminNE'], ['role-newera-manager', 'ManagerNE'], ['role-newera-staff', 'StaffNE'], ['role-customer', 'Customer']],
+    system: [['role-system-owner', 'Owner (SuperAdmin)']]
+  };
+  var company = document.getElementById('f-company');
+  var role = document.getElementById('f-role');
+  function fill() {
+    role.innerHTML = '';
+    roles[company.value].forEach(function (r) {
+      var o = document.createElement('option'); o.value = r[0]; o.textContent = r[1]; role.appendChild(o);
+    });
+  }
+  company.addEventListener('change', fill);
+  fill();
+  document.getElementById('finder').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var el = document.getElementById(role.value);
+    if (el) { location.hash = role.value; el.scrollIntoView({ block: 'start' }); }
+  });
+})();
+</script>

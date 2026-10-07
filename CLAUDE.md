@@ -252,6 +252,23 @@ the start of each session).
   endpoints behind the tabs). A new tab on that page gets its own pair of
   permissions.
 
+### User manual (user's rule, 2026-10-07)
+
+- **In-app manual**: the header **book** icon (`manual` header-icon key)
+  opens `components/ManualDrawer.vue` -- **This page** (the entry / sections
+  for the screen in use) or **Whole manual** (with search), in English or
+  Spanish (follows the app language, switchable in the drawer). Content:
+  `resources/src/manual/manual.js`, one entry per module with `module`
+  (company switch, `config/modules.js`), `perms` (any) and screen `paths`;
+  sections can narrow those again. A user only sees what their company has
+  turned on and their role allows.
+- **Every change to a module, form, screen, button, role or permission
+  updates its manual entry in English AND Spanish** in the same session
+  (Pa Llevar step 00 checks it). A new module gets a new entry.
+- The overview by company and role (`KT-TOOLS/Manual/murano_user_manual.html`
+  + `.pdf`, `node KT-TOOLS/Manual/export_pdf.cjs`) is refreshed when roles,
+  home pages, company modules or guide steps change.
+
 ### Online Store vs Website Management (user's rule, 2026-10-06)
 
 - Two separate modules, each with its own menus, options and files:
@@ -382,7 +399,9 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   the other protocols.
 - **Pa Llevar** (`/pa-llevar`, or "Jarvis, run protocolo pa llevar") —
   Murano's own end-of-session close-out (A Dormir was merged into it and
-  then deleted, user's request 2026-10-01): checks `npm run build`, runs
+  then deleted, user's request 2026-10-01): updates the user manual with the
+  session's module / form changes (in-app EN + ES, overview HTML + PDF;
+  2026-10-07), checks `npm run build`, runs
   Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
   then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails 1/2/3.zip`), then updates
   `README.md` (a "Latest changes" block for the session -- last 5 kept -- and any section that changed; user's rule

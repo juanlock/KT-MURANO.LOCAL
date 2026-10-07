@@ -60,6 +60,13 @@
         </a-button>
       </a-tooltip>
 
+      <!-- User manual: this page or the whole manual (company modules + role). -->
+      <a-tooltip v-if="auth.headerIcon('manual')" :title="ui.locale === 'es' ? 'Manual de usuario' : 'User manual'">
+        <a-button type="text" class="icon-btn manual-btn" aria-label="User manual" @click="manualOpen = true">
+          <template #icon><BookOutlined /></template>
+        </a-button>
+      </a-tooltip>
+
       <!-- Language -->
       <a-dropdown v-if="auth.headerIcon('language')" placement="bottomRight">
         <a-button type="text" class="icon-btn lang-btn"><template #icon><GlobalOutlined /></template></a-button>
@@ -220,6 +227,7 @@
 
     <!-- Today's summary drawer -->
     <TodaySummary :open="summaryOpen" @close="summaryOpen = false" />
+    <ManualDrawer :open="manualOpen" @close="manualOpen = false" />
   </div>
 </template>
 
@@ -247,9 +255,10 @@ import {
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, UserOutlined, SettingOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
-  DownloadOutlined,
+  DownloadOutlined, BookOutlined,
 } from '@ant-design/icons-vue';
 import TodaySummary from './TodaySummary.vue';
+import ManualDrawer from './ManualDrawer.vue';
 import { canInstall as pwaCanInstall, promptInstall } from '../lib/pwaInstall';
 import { useAuthStore } from '../stores/auth';
 import { usePendingWorkStore } from '../stores/pendingWork';
@@ -312,6 +321,7 @@ function onCompanyChange(id) {
 onMounted(() => company.load());
 
 const summaryOpen = ref(false);
+const manualOpen = ref(false);
 
 // ---------------- notifications ----------------
 
@@ -450,6 +460,9 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
 .summary-btn { color: #7c3aed; background: rgba(124, 58, 237, 0.09); }
 .fullscreen-btn { color: #0d9488; background: rgba(13, 148, 136, 0.09); }
 .lang-btn { color: #16a34a; background: rgba(22, 163, 74, 0.09); }
+.manual-btn { color: #4f46e5; background: rgba(79, 70, 229, 0.09); }
+.manual-btn:hover { color: #4f46e5 !important; background: rgba(79, 70, 229, 0.18) !important; }
+:global(.topbar--dark .manual-btn) { color: #a5b4fc; background: rgba(165, 180, 252, 0.14); }
 .notif-btn { color: #ea580c; background: rgba(234, 88, 12, 0.09); }
 /* The badge wrapper resets the color: the bell takes the button's. */
 .notif-btn :deep(.ant-badge), .notif-btn .bell { color: inherit; }
