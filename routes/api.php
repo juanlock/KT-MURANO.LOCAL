@@ -157,6 +157,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::post('/admin/store/site-pages/upload', [SitePagesApiController::class, 'upload']);
     Route::get('/admin/store/site-pages/{file}', [SitePagesApiController::class, 'show'])->where('file', '[A-Za-z0-9._-]+');
     Route::put('/admin/store/site-pages/{file}', [SitePagesApiController::class, 'update'])->where('file', '[A-Za-z0-9._-]+');
+    Route::put('/admin/store/site-pages/{file}/sections/{id}', [SitePagesApiController::class, 'updateSection'])->where('file', '[A-Za-z0-9._-]+')->whereNumber('id');
     Route::post('/admin/store/site-pages/{file}/restore', [SitePagesApiController::class, 'restore'])->where('file', '[A-Za-z0-9._-]+');
 
     // ---- Email Office (email_office_view / email_office_manage; per company) ----
@@ -1248,6 +1249,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::delete('bookings/{id}', 'BookingController@destroy');
     Route::put('bookings/{id}/status', 'BookingController@changeStatus');    Route::post('bookings_send_email', 'BookingController@Send_Email');
     Route::get('bookings_public_link', 'BookingController@publicLink');
+    Route::put('bookings_public_look', 'BookingController@publicLook');
     Route::get('bookings_availability', 'BookingController@availability');
 
     // ------------------------------- Trays --------------------------\\

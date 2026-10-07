@@ -59,7 +59,7 @@ class PublicBookingController extends Controller
         // Defaults -> Booking -> "Logo on the booking form": its own image, else
         // the company logo above; null = switched off (or nothing to show).
         $s = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')
-            ->first(['booking_form_logo_enabled', 'booking_form_logo', 'booking_form_logo_width']);
+            ->first(['booking_form_logo_enabled', 'booking_form_logo', 'booking_form_logo_width', 'booking_hide_logo', 'booking_bg_color']);
         $formLogo = null;
         if ($s && $s->booking_form_logo_enabled) {
             $own = $s->booking_form_logo && file_exists(public_path($s->booking_form_logo))
@@ -67,7 +67,12 @@ class PublicBookingController extends Controller
             $formLogo = ($own || $url) ? ['url' => $own ?: $url, 'width' => (int) ($s->booking_form_logo_width ?: 160)] : null;
         }
 
-        return ['name' => $co->name ?? 'Bookings', 'logo' => $url, 'form_logo' => $formLogo];
+        // Online Booking -> Look: no logo at all / own background color.
+        $hideLogo = (bool) ($s->booking_hide_logo ?? false);
+        $bg = preg_match('/^#[0-9a-fA-F]{6}$/', (string) ($s->booking_bg_color ?? '')) ? $s->booking_bg_color : null;
+
+        return ['name' => $co->name ?? 'Bookings', 'logo' => $url, 'form_logo' => $hideLogo ? null : $formLogo,
+            'hide_logo' => $hideLogo, 'bg' => $bg];
     }
 
     /**

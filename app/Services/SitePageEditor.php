@@ -99,7 +99,236 @@ class SitePageEditor
                 'preview' => self::previewUrl($s['src'], $base),
             ], $seg['images'])),
             'links' => array_values(array_map(fn ($s) => ['id' => $s['id'], 'href' => $s['href'], 'label' => $s['label']], $seg['links'])),
+            'sections' => array_values(array_map(fn ($s) => array_diff_key($s, ['start' => 0, 'len' => 0]), self::sections($html))),
+            // Murano's own "Book an appointment" page, compact layout for an iframe
+            // (relative: the website is served by this same app, on any of its addresses).
+            'booking_url' => '/book?company='.$companyId.'&embed=1',
         ] + ($withEditHtml ? ['edit_html' => self::editHtml($html, $seg, $base)] : []);
+    }
+
+    /* ------------------------------------------------------- sections */
+
+    private const VOID = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
+    private const BLOCKS = ['section', 'article', 'div', 'aside', 'main', 'header', 'footer', 'li', 'td', 'figure', 'form', 'p'];
+
+    /**
+     * The page's sections (2026-10-07), so a one-page site can be changed
+     * block by block -- e.g. an old booking calendar embed replaced by ours:
+     *  - every block the page's own menu jumps to: href="#x" -> the element
+     *    with id="x", or the outermost elements with class "x" (one-page
+     *    filter grids such as Isotope);
+     *  - every block holding an embed (an <iframe> or an inline <script>).
+     * [['id' (token index), 'key', 'label', 'element', 'html', 'embeds' => [['kind', 'src']], 'start', 'len']]
+     */
+    public static function sections(string $html): array
+    {
+        $re = '~<!--.*?-->|<(script|style|noscript|textarea|template)\b(?:"[^"]*"|\'[^\']*\'|[^\'">])*>.*?</\1\s*>|<[!/?a-zA-Z](?:"[^"]*"|\'[^\']*\'|[^\'">])*>|[^<]+|<~si';
+        preg_match_all($re, $html, $m, PREG_OFFSET_CAPTURE);
+        $tokens = $m[0];
+
+        // Menu anchors: #x -> label (the site's menu names first, then any other link).
+        $keys = [];
+        $menu = preg_match('~<!--\s*murano-menu\s*-->(.*?)<!--\s*/murano-menu\s*-->~s', $html, $mm) ? $mm[1] : '';
+        foreach ([$menu, $html] as $part) {
+            if (preg_match_all('~<a\b[^>]*?\shref\s*=\s*["\']#([A-Za-z][\w-]*)["\'][^>]*>(.*?)</a\s*>~is', $part, $am, PREG_SET_ORDER)) {
+                foreach ($am as $a) {
+                    $keys[$a[1]] ??= Str::limit(trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($a[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8'))), 40) ?: $a[1];
+                }
+            }
+        }
+
+        // One pass with an element stack: each element's end and parent.
+        $el = [];      // token index => [name, start, end, parent, raw]
+        $stack = [];
+        $embeds = [];  // [token index of the embed, enclosing element, kind, src]
+        $inBody = false;
+        $skip = 0;
+        foreach ($tokens as $i => [$raw, $start]) {
+            if (str_starts_with($raw, '<!--')) {
+                if (preg_match('~^<!--\s*(murano-menu|murano:store-bar)\s*-->$~', $raw)) {
+                    $skip++;
+                } elseif (preg_match('~^<!--\s*(/murano-menu|/murano:store-bar)\s*-->$~', $raw)) {
+                    $skip = max(0, $skip - 1);
+                }
+
+                continue;
+            }
+            if ($raw === '' || $raw[0] !== '<' || strlen($raw) < 2 || ! preg_match('~^<\s*(/?)\s*([a-zA-Z][a-zA-Z0-9-]*)~', $raw, $t)) {
+                continue;
+            }
+            $name = strtolower($t[2]);
+            $parent = $stack ? end($stack) : null;
+            if ($name === 'body' && $t[1] === '') {
+                $inBody = true;
+            }
+            if ($name === 'script') {
+                if ($inBody && ! $skip && self::attr(substr($raw, 0, strpos($raw, '>') + 1), 'src') === null) {
+                    $src = preg_match('~https?://[^\s"\'<>)]+~i', $raw, $u) ? $u[0] : '';
+                    $embeds[] = [$i, $parent, 'script', $src];
+                }
+
+                continue;
+            }
+            if (in_array($name, ['style', 'noscript', 'textarea', 'template'], true) && $t[1] === '') {
+                continue;
+            }
+            if ($t[1] === '/') {
+                $pos = null;
+                for ($k = count($stack) - 1; $k >= 0; $k--) {
+                    if ($el[$stack[$k]][0] === $name) {
+                        $pos = $k;
+                        break;
+                    }
+                }
+                if ($pos !== null) {
+                    // Elements left open inside (an unclosed <p>/<li>) end here too.
+                    for ($k = count($stack) - 1; $k >= $pos; $k--) {
+                        $el[$stack[$k]][2] = $k === $pos ? $start + strlen($raw) : $start;
+                    }
+                    $stack = array_slice($stack, 0, $pos);
+                }
+
+                continue;
+            }
+            $el[$i] = [$name, $start, null, $parent, $raw, $inBody && ! $skip];
+            if ($name === 'iframe' && $inBody && ! $skip) {
+                $embeds[] = [$i, $parent, 'iframe', (string) self::attr($raw, 'src')];
+            }
+            if (! in_array($name, self::VOID, true) && ! str_ends_with(rtrim($raw, '> '), '/')) {
+                $stack[] = $i;
+            }
+        }
+
+        $out = [];
+        $add = function (int $i, string $key, string $label) use (&$out, $el, $html) {
+            [$name, $start, $end, , $raw] = $el[$i];
+            if ($end === null || isset($out[$i])) {
+                return;
+            }
+            $id = self::attr($raw, 'id');
+            $class = trim((string) self::attr($raw, 'class'));
+            $out[$i] = ['id' => $i, 'key' => $key, 'label' => $label,
+                'element' => '<'.$name.($id ? ' id="'.$id.'"' : '').($class !== '' ? ' class="'.Str::limit($class, 60).'"' : '').'>',
+                'start' => $start, 'len' => $end - $start, 'html' => substr($html, $start, $end - $start), 'embeds' => []];
+        };
+        $inside = function (int $i, int $j) use ($el) { // is element i inside element j?
+            for ($p = $el[$i][3]; $p !== null; $p = $el[$p][3]) {
+                if ($p === $j) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        foreach ($keys as $key => $label) {
+            $found = [];
+            foreach ($el as $i => $e) {
+                if (! $e[5] || in_array($e[0], ['a', 'span', 'img', 'html', 'body'], true)) {
+                    continue;
+                }
+                $classes = preg_split('/\s+/', trim((string) self::attr($e[4], 'class')));
+                if (self::attr($e[4], 'id') === $key || in_array($key, $classes, true)) {
+                    foreach ($found as $j) {
+                        if ($inside($i, $j)) {
+                            continue 2;
+                        }
+                    }
+                    $found[] = $i;
+                    $add($i, $key, $label);
+                }
+            }
+        }
+
+        // Embeds: attach to the listed section holding them, else list their block.
+        foreach ($embeds as [$ti, $parent, $kind, $src]) {
+            $owner = null;
+            foreach ($out as $j => $s) {
+                if ($tokens[$ti][1] >= $s['start'] && $tokens[$ti][1] < $s['start'] + $s['len']) {
+                    $owner = $j;
+                }
+            }
+            if ($owner === null) {
+                $b = $parent;
+                while ($b !== null && ! in_array($el[$b][0], self::BLOCKS, true)) {
+                    $b = $el[$b][3];
+                }
+                if ($b === null || ! $el[$b][5]) {
+                    continue;
+                }
+                $add($b, '', $kind === 'iframe' ? 'Embedded frame' : 'Embedded script');
+                $owner = $b;
+            }
+            if (isset($out[$owner])) {
+                $out[$owner]['embeds'][] = ['kind' => $kind, 'src' => Str::limit($src, 200, '')];
+            }
+        }
+
+        usort($out, fn ($a, $b) => $a['start'] <=> $b['start']);
+
+        return $out;
+    }
+
+    /**
+     * Replaces one section's HTML (see sections()). A company admin can't add
+     * scripts or event handlers that weren't there already (the website runs
+     * on the same address as the admin app); a SuperAdmin can.
+     */
+    public static function saveSection(int $companyId, string $file, string $version, int $id, string $new, bool $superAdmin): array
+    {
+        $abs = self::path($companyId, $file);
+        $html = (string) file_get_contents($abs);
+        if (md5($html) !== $version) {
+            throw ValidationException::withMessages(['version' => 'This page changed since you opened it (re-import, menu save or another admin). Reload it and edit again.']);
+        }
+        $s = collect(self::sections($html))->firstWhere('id', $id);
+        abort_unless($s, 404, 'That section is no longer on the page. Reload it.');
+        $new = trim(str_replace("\r\n", "\n", $new));
+        if ($new === trim($s['html'])) {
+            return self::load($companyId, $file) + ['changed' => 0];
+        }
+        self::guardSection($s['html'], $new, $superAdmin);
+
+        self::keepOriginal($abs, self::originalPath($companyId, $file));
+        file_put_contents($abs, substr_replace($html, $new, $s['start'], $s['len']));
+
+        return self::load($companyId, $file) + ['changed' => 1];
+    }
+
+    private static function guardSection(string $old, string $new, bool $superAdmin): void
+    {
+        $fail = fn (string $msg) => throw ValidationException::withMessages(['html' => $msg]);
+
+        // The block must stay one closed block, so the rest of the page keeps its layout.
+        foreach (['div', 'section', 'article', 'ul', 'ol', 'li', 'figure', 'form', 'table', 'span', 'a', 'iframe'] as $tag) {
+            $bal = fn ($h) => preg_match_all('~<'.$tag.'\b~i', $h) - preg_match_all('~</'.$tag.'\s*>~i', $h);
+            if ($bal($new) !== $bal($old)) {
+                $fail("Every <{$tag}> you open must be closed (and none closed that wasn't opened in this section).");
+            }
+        }
+        if ($superAdmin) {
+            return;
+        }
+        $set = fn ($re, $h) => preg_match_all($re, $h, $mm) ? $mm[0] : [];
+        $scripts = '~<script\b.*?</script\s*>~is';
+        $handlers = '~\son[a-z]+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)~i';
+        if (array_diff($set($scripts, $new), $set($scripts, $old)) || preg_match_all('~<script\b~i', $new) > preg_match_all('~<script\b~i', $old)) {
+            $fail('New or changed scripts can only be added by a SuperAdmin. You can remove a script, or add an <iframe> (e.g. our booking calendar).');
+        }
+        if (array_diff($set($handlers, $new), $set($handlers, $old))) {
+            $fail('Event handlers (onclick=, onload= ...) can only be added by a SuperAdmin.');
+        }
+        foreach (['~(?:javascript|vbscript)\s*:~i' => 'javascript: links', '~<(?:object|embed|base|meta|link)\b~i' => '<object>, <embed>, <base>, <meta> or <link> tags', '~\ssrcdoc\s*=~i' => 'srcdoc frames'] as $re => $what) {
+            if (preg_match_all($re, $new) > preg_match_all($re, $old)) {
+                $fail("{$what} can only be added by a SuperAdmin.");
+            }
+        }
+        foreach ($set('~<iframe\b[^>]*>~i', $new) as $tag) {
+            $src = trim((string) self::attr($tag, 'src'));
+            if ($src !== '' && ! preg_match('~^(https://|//|/(?!/)|[A-Za-z0-9._-]+\.html?\b)~i', $src)) {
+                $fail('A frame must load an https:// address or a page of this website.');
+            }
+        }
     }
 
     /**

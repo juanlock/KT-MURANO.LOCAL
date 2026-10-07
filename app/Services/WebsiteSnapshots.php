@@ -22,7 +22,7 @@ class WebsiteSnapshots
         if ($entry === '' || ! str_starts_with($entry, 'files/company_'.$companyId.'/') || str_contains($entry, '..') || ! is_file(public_path($entry))) {
             return null;
         }
-        if (preg_match('#^(files/company_'.$companyId.'/(?:store/sites|website/snapshots)/[^/]+)/#', $entry, $m)) {
+        if (preg_match('#^(files/company_'.$companyId.'/(?:website/sites|website/snapshots|store/sites)/[^/]+)/#', $entry, $m)) {
             return $m[1];
         }
 

@@ -225,7 +225,14 @@ the start of each session).
   **Online Store** (the shop: store_settings, files/company_{id}/store/) and
   **Website Management** (the company website: `App\Models\WebsiteSetting`,
   files/company_{id}/website/ -- own name, logo, favicon, SEO, top bar/footer,
-  social links, menus). Same settings page (`StoreSettings.vue`), scope from
+  social links, menus). **Imported websites live in
+  `files/company_{id}/website/sites/{name}/`** (`SiteImporter`; moved out of
+  `store/sites/` on 2026-10-07 -- nothing of the website goes in `store/`).
+  Their pages are edited in Website -> Pages (`SitePageEditor`): texts,
+  pictures, links and, since 2026-10-07, **Sections** -- the blocks the menu
+  jumps to (`#x` -> `id="x"` or class `x`) and blocks with an embed, edited as
+  HTML (+ "Use our booking calendar" = `/book?company={id}&embed=1`). Company
+  admins can't add scripts / event handlers there; only a SuperAdmin can. Same settings page (`StoreSettings.vue`), scope from
   route meta (`/store/settings` vs `/website/settings`).
 - Website pages (front page with our website theme, CMS pages, gallery,
   contact) render with `WebsiteSetting::applyTo()` and `$website = true` (no

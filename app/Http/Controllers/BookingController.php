@@ -326,6 +326,11 @@ class BookingController extends BaseController
             'url' => route('booking.public', ['company' => $cid]),
             'embed_url' => route('booking.public', ['company' => $cid, 'embed' => 1]),
             'enabled' => \App\Support\ModuleFlags::enabled($cid, 'bookings'),
+            'look' => (function () use ($cid) {
+                $s = \DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->first(['booking_hide_logo', 'booking_bg_color']);
+
+                return ['hide_logo' => (bool) ($s->booking_hide_logo ?? false), 'bg_color' => $s->booking_bg_color ?? null];
+            })(),
         ];
     }
 
@@ -412,6 +417,27 @@ class BookingController extends BaseController
     public function publicLink(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Booking::class);
+
+        return response()->json(['public_booking' => $this->publicBookingInfo()]);
+    }
+
+    /**
+     * PUT bookings_public_look {hide_logo, bg_color} -- Online Booking -> Look
+     * of the acting company's public booking page (settings row of that company).
+     */
+    public function publicLook(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Booking::class);
+        $cid = $this->reportCompanyId();
+        abort_unless($cid, 422, 'Select a company first.');
+        $v = $request->validate([
+            'hide_logo' => 'required|boolean',
+            'bg_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+        ]);
+        $updated = \DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->update([
+            'booking_hide_logo' => $v['hide_logo'], 'booking_bg_color' => $v['bg_color'] ?: null, 'updated_at' => now(),
+        ]);
+        abort_unless($updated, 422, 'This company has no settings yet (System Settings).');
 
         return response()->json(['public_booking' => $this->publicBookingInfo()]);
     }

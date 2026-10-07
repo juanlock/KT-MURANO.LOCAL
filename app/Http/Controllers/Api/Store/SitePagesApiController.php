@@ -65,6 +65,20 @@ class SitePagesApiController extends Controller
         ));
     }
 
+    /** PUT .../{file}/sections/{id} {version, html}: replace one section's HTML (SitePageEditor::sections). */
+    public function updateSection(Request $request, string $file, int $id)
+    {
+        $companyId = $this->companyId($request);
+        $data = $request->validate([
+            'version' => 'required|string|size:32',
+            'html' => 'required|string|max:200000',
+        ]);
+
+        return response()->json(SitePageEditor::saveSection(
+            $companyId, $file, $data['version'], $id, $data['html'], optional($request->user('api'))->type === 'SuperAdmin'
+        ));
+    }
+
     public function restore(Request $request, string $file)
     {
         return response()->json(SitePageEditor::restore($this->companyId($request), $file));
