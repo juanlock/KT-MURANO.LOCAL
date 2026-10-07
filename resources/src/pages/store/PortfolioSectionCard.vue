@@ -10,7 +10,7 @@
           The front page uses the store's sections. Turn on the <b>Portfolio</b> block in
           <b>Store Settings → Homepage Blocks</b> and move it where you want it.
         </div>
-        <a-button v-if="!inSettings" type="primary" @click="$router.push({ path: '/store/settings', query: { tab: 'homepage', sub: 'blocks' } })">
+        <a-button v-if="!inSettings" type="primary" @click="$router.push('/website/homepage')">
           Open Homepage Blocks
         </a-button>
       </template>

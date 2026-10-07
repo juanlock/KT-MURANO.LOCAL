@@ -216,8 +216,15 @@ export const MIGRATED_ROUTES = {
     '/app/helpdesk/tickets': '/helpdesk/tickets',
     '/app/helpdesk/my': '/helpdesk/my',
     '/app/helpdesk/settings': '/helpdesk/settings',
-    '/app/Store/Gallery': '/store/gallery',
-    '/app/Store/Portfolio': '/store/portfolio',
+    // Website Management.
+    '/app/website/front-page': '/website/front-page',
+    '/app/website/homepage': '/website/homepage',
+    '/app/website/pages': '/website/pages',
+    '/app/website/menus': '/website/menus',
+    '/app/website/hero': '/website/hero',
+    '/app/website/gallery': '/website/gallery',
+    '/app/website/portfolio': '/website/portfolio',
+    '/app/website/settings': '/website/settings',
     '/app/intranet/home': '/intranet',
     '/app/intranet/calendar': '/intranet/calendar',
     '/app/intranet/files': '/intranet/files',
@@ -420,8 +427,7 @@ export const MENU = [
             { label: 'Online_Orders', to: '/app/Store/Orders', permissions: ['Orders_view'], badge: 'new_orders' },
             { label: 'Collections', to: '/app/Store/Collections', permissions: ['Collections_view'] },
             { label: 'Banners', to: '/app/Store/Banners', permissions: ['Banners_view'] },
-            { label: 'Gallery', to: '/app/Store/Gallery', permissions: ['Store_settings_view'] },
-            { label: 'Portfolio', to: '/app/Store/Portfolio', permissions: ['Store_settings_view'] },
+            // Gallery / Portfolio / front page, pages, menus: Website Management (below).
             { label: 'Subscribers', to: '/app/Store/Subscribers', permissions: ['Subscribers_view'] },
             { label: 'Messages', to: '/app/Store/Messages', permissions: ['Messages_view'], badge: 'messages' },
             { label: 'Invite_Codes', to: '/app/Store/InviteCodes', permissions: ['Store_settings_view'] },
@@ -437,8 +443,6 @@ export const MENU = [
             { label: 'Popup_Messages', to: '/app/Store/Popups', permissions: ['Store_settings_view'] },
             { label: 'Quote_Requests', to: '/app/Store/QuoteRequests', permissions: ['Orders_view'], badge: 'quote_requests' },
             { label: 'Returns_Requests', to: '/app/Store/Returns', permissions: ['Orders_view'] },
-            // Pages and Menus live in Store -> Settings -> Homepage Blocks now
-            // (they follow the front page: store sections vs imported website).
             {
                 label: 'Real_Estate',
                 permissions: ['realestate_properties', 'realestate_categories', 'realestate_inquiries'],
@@ -448,6 +452,24 @@ export const MENU = [
                     { label: 'Property_Inquiries', to: '/app/realestate/inquiries', permissions: ['realestate_inquiries'] },
                 ],
             },
+        ],
+    },
+    {
+        // Website Management (split from the Store, 2026-10-06): everything that builds the
+        // company website / front page. One page (StoreSettings, scope "website"), one entry per tab.
+        key: 'website',
+        icon: 'globe',
+        label: 'Website_Management',
+        permissions: ['Store_settings_view'],
+        children: [
+            { label: 'Front_Page', to: '/app/website/front-page', permissions: ['Store_settings_view'] },
+            { label: 'Homepage_Blocks', to: '/app/website/homepage', permissions: ['Store_settings_view'] },
+            { label: 'Pages', to: '/app/website/pages', permissions: ['Store_settings_view'] },
+            { label: 'Menus', to: '/app/website/menus', permissions: ['Store_settings_view'] },
+            { label: 'Hero_Header', to: '/app/website/hero', permissions: ['Store_settings_view'] },
+            { label: 'Gallery', to: '/app/website/gallery', permissions: ['Store_settings_view'] },
+            { label: 'Portfolio', to: '/app/website/portfolio', permissions: ['Store_settings_view'] },
+            { label: 'Website_Settings', to: '/app/website/settings', permissions: ['Store_settings_view'] },
         ],
     },
     {

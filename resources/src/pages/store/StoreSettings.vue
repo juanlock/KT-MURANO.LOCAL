@@ -1,6 +1,9 @@
 <template>
   <div class="page">
-    <PageHeader :title="$t('Settings')" :breadcrumb="[$t('Store'), $t('Settings')]">
+    <PageHeader
+      :title="scope === 'website' ? $t('Website_Management') : $t('Settings')"
+      :breadcrumb="scope === 'website' ? [$t('Website_Management')] : [$t('Store'), $t('Settings')]"
+    >
       <template #extra>
         <a-button v-if="!isLoading && !ownSaveTab" type="primary" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
       </template>
@@ -13,7 +16,7 @@
     <template v-else>
       <a-tabs v-model:activeKey="mainTab" tab-position="left" class="settings-tabs">
         <!-- ===== Store Basics ===== -->
-        <a-tab-pane key="basics">
+        <a-tab-pane v-if="inScope('basics')" key="basics">
           <template #tab><span class="stab"><ShopOutlined /> {{ $t('Store_Basics') }}</span></template>
           <a-card size="small" :bordered="false">
         <a-row :gutter="[16, 8]">
@@ -220,7 +223,7 @@
         </a-tab-pane>
 
         <!-- ===== Contact ===== -->
-        <a-tab-pane key="contact">
+        <a-tab-pane v-if="inScope('contact')" key="contact">
           <template #tab><span class="stab"><PhoneOutlined /> {{ $t('Contact') }}</span></template>
           <a-card size="small" :bordered="false">
         <a-row :gutter="16">
@@ -243,8 +246,165 @@
           </a-card>
         </a-tab-pane>
 
+        <!-- ===== Front page: section builder or imported page ===== -->
+        <a-tab-pane v-if="inScope('front_page')" key="front_page">
+          <template #tab><span class="stab"><HomeOutlined /> Front page</span></template>
+          <a-card size="small" :bordered="false">
+            <a-radio-group v-model:value="front.mode" style="width: 100%">
+              <a-radio value="sections" class="fp-option">
+                <strong>Our store front page (sections)</strong>
+                <div class="fp-help">
+                  Build the front page from sections you create and edit — Hero, collections, banners, flash sale and more —
+                  in the <em>Hero</em> and <em>{{ $t('Homepage_Blocks') }}</em> tabs.
+                </div>
+              </a-radio>
+              <a-radio value="imported" class="fp-option">
+                <strong>Import the current front page from a URL</strong>
+                <div class="fp-help">
+                  Copies the page (and the pages it links to) keeping its original format, and inserts the store bar —
+                  <em>Shop</em>, <em>Cart</em> (with item count) and <em>My Account</em> — linking to this online store.
+                </div>
+              </a-radio>
+            </a-radio-group>
+
+            <template v-if="front.mode === 'imported'">
+              <a-form-item label="Front page URL" style="margin-top: 12px; max-width: 560px">
+                <a-input v-model:value="front.url" placeholder="https://www.example.com" />
+              </a-form-item>
+              <div v-if="front.imported_at" class="fp-status">
+                Imported {{ (front.imported_at || '').substring(0, 16).replace('T', ' ') }}
+                <template v-if="front.saved_url"> from <a :href="front.saved_url" target="_blank" rel="noopener">{{ front.saved_url }}</a></template>
+                — <a :href="storeHomeUrl" target="_blank" rel="noopener">view the front page</a>
+              </div>
+            </template>
+
+            <a-space style="margin-top: 16px">
+              <a-button
+                type="primary" :loading="front.busy"
+                :disabled="front.mode === 'imported' ? !front.url : front.saved_mode === 'sections'"
+                @click="applyFrontPage"
+              >
+                {{ front.mode === 'imported' ? (front.imported_at ? 'Re-import now' : 'Import now') : 'Use sections front page' }}
+              </a-button>
+              <span v-if="front.mode !== front.saved_mode" class="fp-help">Not applied yet.</span>
+            </a-space>
+          </a-card>
+        </a-tab-pane>
+
+        <!-- ===== Homepage blocks ===== -->
+        <a-tab-pane v-if="inScope('homepage')" key="homepage">
+          <template #tab><span class="stab"><AppstoreOutlined /> {{ $t('Homepage_Blocks') }}</span></template>
+          <!-- What's here follows the APPLIED front page (Front page tab):
+               our store front page -> blocks + store pages + store menus;
+               an imported website -> its own pages + its own menu. -->
+          <a-alert
+            v-if="front.saved_mode === 'imported'" type="info" show-icon style="margin-bottom: 8px"
+            message="The front page is the imported website."
+          >
+            <template #description>
+              Edit its pages (texts, pictures, links) and its navigation menu here.
+              <a :href="storeHomeUrl" target="_blank" rel="noopener">View the front page</a>.
+              To use the store's own sections instead, change it in the Front page tab.
+            </template>
+          </a-alert>
+          <a-tabs v-model:activeKey="homeSub" size="small" class="home-sub">
+            <a-tab-pane v-if="front.saved_mode !== 'imported'" key="blocks" :tab="$t('Homepage_Blocks')">
+          <a-card size="small" :bordered="false">
+            <template #title>
+          {{ $t('Homepage_Blocks') }}
+          <span style="font-size: 12px; color: #999; font-weight: normal; margin-left: 8px">
+            {{ $t('Toggle_to_show_on_home_and_use_arrows_to_reorder') }}
+          </span>
+        </template>
+        <a-empty v-if="!homeRows.length" :description="$t('No_items')" />
+        <div v-for="(row, idx) in homeRows" :key="row.key" class="home-block">
+          <div class="block-head">
+            <a-space wrap size="small">
+              <strong>{{ row.title }}</strong>
+              <a-tag :color="kindColor(row.kind)">{{ labelFor(row.kind) }}</a-tag>
+              <a-tag v-if="row.kind === 'collection' && row.products_count != null">
+                {{ $t('Products') }}: {{ row.products_count }}
+              </a-tag>
+              <a-tag v-if="row.kind === 'you_may_like' && row.product_ids">
+                {{ $t('Products') }}: {{ row.product_ids.length }}
+              </a-tag>
+              <a-tag
+                v-if="row.kind !== 'collection' && row.kind !== 'best_sellers' && row.kind !== 'you_may_like' && row.warning"
+                color="warning"
+              >
+                ⚠︎ {{ $t('Incomplete') }}
+              </a-tag>
+            </a-space>
+            <a-space>
+              <a-switch v-model:checked="row.active" />
+              <span :style="{ color: row.active ? undefined : '#999' }">{{ row.active ? $t('Active') : $t('Inactive') }}</span>
+              <a-button size="small" :disabled="idx === 0" @click="move(idx, -1)">↑</a-button>
+              <a-button size="small" :disabled="idx === homeRows.length - 1" @click="move(idx, 1)">↓</a-button>
+            </a-space>
+          </div>
+
+          <div v-if="row.active && row.kind === 'portfolio'" class="block-config">
+            <a-row :gutter="16">
+              <a-col :xs="24" :md="9">
+                <a-form-item :label="$t('Section_Heading')"><a-input v-model:value="row.heading" :placeholder="$t('Portfolio')" /></a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="10">
+                <a-form-item :label="$t('Subtitle')"><a-input v-model:value="row.subtitle" /></a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="5">
+                <a-form-item :label="$t('Items_to_show')"><a-input-number v-model:value="row.limit" :min="1" :max="60" style="width: 100%" /></a-form-item>
+              </a-col>
+            </a-row>
+            <div style="font-size: 12px; color: #999">
+              Pictures and groups are managed in <a @click="$router.push('/website/portfolio')">Website Management → Portfolio</a>.
+            </div>
+          </div>
+          <div v-if="row.active && (row.kind === 'best_sellers' || row.kind === 'you_may_like')" class="block-config">
+            <a-row :gutter="16">
+              <a-col :xs="24" :md="12">
+                <a-form-item :label="$t('Section_Heading')">
+                  <a-input v-model:value="row.heading" :placeholder="labelFor(row.kind)" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="12">
+                <a-form-item :label="$t('Items_to_show')">
+                  <a-input-number v-model:value="row.limit" :min="1" :max="24" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+            </a-row>
+            <a-form-item
+              v-if="row.kind === 'you_may_like'"
+              :label="$t('Pick_Products')" :extra="$t('You_May_Also_Like_Help')" style="margin-bottom: 0"
+            >
+              <a-select
+                v-model:value="row.product_ids" mode="multiple" :placeholder="$t('Search_products')"
+                :options="productOptions.map(p => ({ label: p.name, value: p.id }))"
+                :filter-option="false" @search="onProductSearch"
+              />
+            </a-form-item>
+            <div v-else style="font-size: 12px; color: #999">{{ $t('Best_Sellers_Help') }}</div>
+          </div>
+            </div>
+          </a-card>
+            </a-tab-pane>
+            <a-tab-pane v-if="front.saved_mode === 'imported'" key="sections" tab="Sections">
+              <div style="margin-bottom: 8px; font-size: 13px; opacity: .75">
+                Sections from Store Management shown on the imported front page, live — they stay after re-importing the website.
+              </div>
+              <PortfolioSectionCard in-settings :key="'pf-' + settings.company_id" />
+            </a-tab-pane>
+            <a-tab-pane key="pages" :tab="front.saved_mode === 'imported' ? 'Website pages' : $t('Pages')">
+              <SitePagesEditor v-if="front.saved_mode === 'imported'" :key="'sp-' + settings.company_id" />
+              <StorePagesPanel v-else embedded :key="'p-' + settings.company_id" />
+            </a-tab-pane>
+            <a-tab-pane key="menu" :tab="front.saved_mode === 'imported' ? 'Website menu' : $t('Menus')">
+              <StoreMenusPanel embedded :mode="front.saved_mode === 'imported' ? 'site' : 'store'" :key="'m-' + front.saved_mode + settings.company_id" />
+            </a-tab-pane>
+          </a-tabs>
+        </a-tab-pane>
+
         <!-- ===== Branding ===== -->
-        <a-tab-pane key="branding">
+        <a-tab-pane v-if="inScope('branding')" key="branding">
           <template #tab><span class="stab"><BgColorsOutlined /> {{ $t('Branding') }}</span></template>
           <a-card size="small" :bordered="false">
         <a-row :gutter="16">
@@ -275,7 +435,7 @@
         </a-tab-pane>
 
         <!-- ===== Hero ===== -->
-        <a-tab-pane key="hero">
+        <a-tab-pane v-if="inScope('hero')" key="hero">
           <template #tab><span class="stab"><PictureOutlined /> {{ $t('Hero_Header') }}</span></template>
           <a-card size="small" :bordered="false">
         <TranslatableInput
@@ -301,7 +461,7 @@
         </a-tab-pane>
 
         <!-- ===== Electronics theme ===== -->
-        <a-tab-pane key="electronics" v-if="form.theme === 'electronics'">
+        <a-tab-pane key="electronics" v-if="inScope('electronics') && form.theme === 'electronics'">
           <template #tab><span class="stab"><LaptopOutlined /> {{ $t('Electronics_Theme') }}</span></template>
           <a-card size="small" :bordered="false">
             <a-alert type="info" show-icon style="margin-bottom: 16px" :message="$t('Electronics_Theme_Hint')" />
@@ -425,7 +585,7 @@
         </a-tab-pane>
 
         <!-- ===== Toys & Baby theme ===== -->
-        <a-tab-pane key="toys" v-if="form.theme === 'toys'">
+        <a-tab-pane key="toys" v-if="inScope('toys') && form.theme === 'toys'">
           <template #tab><span class="stab"><SmileOutlined /> {{ $t('Toys_Theme') }}</span></template>
           <a-card size="small" :bordered="false">
             <a-alert type="info" show-icon style="margin-bottom: 16px" :message="$t('Toys_Theme_Hint')" />
@@ -538,7 +698,7 @@
         </a-tab-pane>
 
         <!-- ===== Grocery & Supermarket theme ===== -->
-        <a-tab-pane key="grocery" v-if="form.theme === 'grocery'">
+        <a-tab-pane key="grocery" v-if="inScope('grocery') && form.theme === 'grocery'">
           <template #tab><span class="stab"><ShoppingCartOutlined /> {{ $t('Grocery_Theme') }}</span></template>
           <a-card size="small" :bordered="false">
             <a-alert type="info" show-icon style="margin-bottom: 16px" :message="$t('Grocery_Theme_Hint')" />
@@ -647,7 +807,7 @@
         </a-tab-pane>
 
         <!-- ===== SEO ===== -->
-        <a-tab-pane key="seo">
+        <a-tab-pane v-if="inScope('seo')" key="seo">
           <template #tab><span class="stab"><SearchOutlined /> SEO</span></template>
           <a-card size="small" :bordered="false">
         <TranslatableInput
@@ -676,7 +836,7 @@
         </a-tab-pane>
 
         <!-- ===== Topbar & Footer ===== -->
-        <a-tab-pane key="topbar">
+        <a-tab-pane v-if="inScope('topbar')" key="topbar">
           <template #tab><span class="stab"><LayoutOutlined /> {{ $t('Topbar_and_Footer') }}</span></template>
           <a-card size="small" :bordered="false">
         <a-row :gutter="16">
@@ -704,7 +864,7 @@
         </a-tab-pane>
 
         <!-- ===== Social links ===== -->
-        <a-tab-pane key="social">
+        <a-tab-pane v-if="inScope('social')" key="social">
           <template #tab><span class="stab"><ShareAltOutlined /> {{ $t('Social_Links') }}</span></template>
           <a-card size="small" :bordered="false">
         <template #extra>
@@ -722,163 +882,6 @@
           </a-button>
         </div>
           </a-card>
-        </a-tab-pane>
-
-        <!-- ===== Front page: section builder or imported page ===== -->
-        <a-tab-pane key="front_page">
-          <template #tab><span class="stab"><HomeOutlined /> Front page</span></template>
-          <a-card size="small" :bordered="false">
-            <a-radio-group v-model:value="front.mode" style="width: 100%">
-              <a-radio value="sections" class="fp-option">
-                <strong>Our store front page (sections)</strong>
-                <div class="fp-help">
-                  Build the front page from sections you create and edit — Hero, collections, banners, flash sale and more —
-                  in the <em>Hero</em> and <em>{{ $t('Homepage_Blocks') }}</em> tabs.
-                </div>
-              </a-radio>
-              <a-radio value="imported" class="fp-option">
-                <strong>Import the current front page from a URL</strong>
-                <div class="fp-help">
-                  Copies the page (and the pages it links to) keeping its original format, and inserts the store bar —
-                  <em>Shop</em>, <em>Cart</em> (with item count) and <em>My Account</em> — linking to this online store.
-                </div>
-              </a-radio>
-            </a-radio-group>
-
-            <template v-if="front.mode === 'imported'">
-              <a-form-item label="Front page URL" style="margin-top: 12px; max-width: 560px">
-                <a-input v-model:value="front.url" placeholder="https://www.example.com" />
-              </a-form-item>
-              <div v-if="front.imported_at" class="fp-status">
-                Imported {{ (front.imported_at || '').substring(0, 16).replace('T', ' ') }}
-                <template v-if="front.saved_url"> from <a :href="front.saved_url" target="_blank" rel="noopener">{{ front.saved_url }}</a></template>
-                — <a :href="storeHomeUrl" target="_blank" rel="noopener">view the front page</a>
-              </div>
-            </template>
-
-            <a-space style="margin-top: 16px">
-              <a-button
-                type="primary" :loading="front.busy"
-                :disabled="front.mode === 'imported' ? !front.url : front.saved_mode === 'sections'"
-                @click="applyFrontPage"
-              >
-                {{ front.mode === 'imported' ? (front.imported_at ? 'Re-import now' : 'Import now') : 'Use sections front page' }}
-              </a-button>
-              <span v-if="front.mode !== front.saved_mode" class="fp-help">Not applied yet.</span>
-            </a-space>
-          </a-card>
-        </a-tab-pane>
-
-        <!-- ===== Homepage blocks ===== -->
-        <a-tab-pane key="homepage">
-          <template #tab><span class="stab"><AppstoreOutlined /> {{ $t('Homepage_Blocks') }}</span></template>
-          <!-- What's here follows the APPLIED front page (Front page tab):
-               our store front page -> blocks + store pages + store menus;
-               an imported website -> its own pages + its own menu. -->
-          <a-alert
-            v-if="front.saved_mode === 'imported'" type="info" show-icon style="margin-bottom: 8px"
-            message="The front page is the imported website."
-          >
-            <template #description>
-              Edit its pages (texts, pictures, links) and its navigation menu here.
-              <a :href="storeHomeUrl" target="_blank" rel="noopener">View the front page</a>.
-              To use the store's own sections instead, change it in the Front page tab.
-            </template>
-          </a-alert>
-          <a-tabs v-model:activeKey="homeSub" size="small" class="home-sub">
-            <a-tab-pane v-if="front.saved_mode !== 'imported'" key="blocks" :tab="$t('Homepage_Blocks')">
-          <a-card size="small" :bordered="false">
-            <template #title>
-          {{ $t('Homepage_Blocks') }}
-          <span style="font-size: 12px; color: #999; font-weight: normal; margin-left: 8px">
-            {{ $t('Toggle_to_show_on_home_and_use_arrows_to_reorder') }}
-          </span>
-        </template>
-        <a-empty v-if="!homeRows.length" :description="$t('No_items')" />
-        <div v-for="(row, idx) in homeRows" :key="row.key" class="home-block">
-          <div class="block-head">
-            <a-space wrap size="small">
-              <strong>{{ row.title }}</strong>
-              <a-tag :color="kindColor(row.kind)">{{ labelFor(row.kind) }}</a-tag>
-              <a-tag v-if="row.kind === 'collection' && row.products_count != null">
-                {{ $t('Products') }}: {{ row.products_count }}
-              </a-tag>
-              <a-tag v-if="row.kind === 'you_may_like' && row.product_ids">
-                {{ $t('Products') }}: {{ row.product_ids.length }}
-              </a-tag>
-              <a-tag
-                v-if="row.kind !== 'collection' && row.kind !== 'best_sellers' && row.kind !== 'you_may_like' && row.warning"
-                color="warning"
-              >
-                ⚠︎ {{ $t('Incomplete') }}
-              </a-tag>
-            </a-space>
-            <a-space>
-              <a-switch v-model:checked="row.active" />
-              <span :style="{ color: row.active ? undefined : '#999' }">{{ row.active ? $t('Active') : $t('Inactive') }}</span>
-              <a-button size="small" :disabled="idx === 0" @click="move(idx, -1)">↑</a-button>
-              <a-button size="small" :disabled="idx === homeRows.length - 1" @click="move(idx, 1)">↓</a-button>
-            </a-space>
-          </div>
-
-          <div v-if="row.active && row.kind === 'portfolio'" class="block-config">
-            <a-row :gutter="16">
-              <a-col :xs="24" :md="9">
-                <a-form-item :label="$t('Section_Heading')"><a-input v-model:value="row.heading" :placeholder="$t('Portfolio')" /></a-form-item>
-              </a-col>
-              <a-col :xs="24" :md="10">
-                <a-form-item :label="$t('Subtitle')"><a-input v-model:value="row.subtitle" /></a-form-item>
-              </a-col>
-              <a-col :xs="24" :md="5">
-                <a-form-item :label="$t('Items_to_show')"><a-input-number v-model:value="row.limit" :min="1" :max="60" style="width: 100%" /></a-form-item>
-              </a-col>
-            </a-row>
-            <div style="font-size: 12px; color: #999">
-              Pictures and groups are managed in <a @click="$router.push('/store/portfolio')">Store → Portfolio</a>.
-            </div>
-          </div>
-          <div v-if="row.active && (row.kind === 'best_sellers' || row.kind === 'you_may_like')" class="block-config">
-            <a-row :gutter="16">
-              <a-col :xs="24" :md="12">
-                <a-form-item :label="$t('Section_Heading')">
-                  <a-input v-model:value="row.heading" :placeholder="labelFor(row.kind)" />
-                </a-form-item>
-              </a-col>
-              <a-col :xs="24" :md="12">
-                <a-form-item :label="$t('Items_to_show')">
-                  <a-input-number v-model:value="row.limit" :min="1" :max="24" style="width: 100%" />
-                </a-form-item>
-              </a-col>
-            </a-row>
-            <a-form-item
-              v-if="row.kind === 'you_may_like'"
-              :label="$t('Pick_Products')" :extra="$t('You_May_Also_Like_Help')" style="margin-bottom: 0"
-            >
-              <a-select
-                v-model:value="row.product_ids" mode="multiple" :placeholder="$t('Search_products')"
-                :options="productOptions.map(p => ({ label: p.name, value: p.id }))"
-                :filter-option="false" @search="onProductSearch"
-              />
-            </a-form-item>
-            <div v-else style="font-size: 12px; color: #999">{{ $t('Best_Sellers_Help') }}</div>
-          </div>
-            </div>
-          </a-card>
-            </a-tab-pane>
-            <a-tab-pane v-if="front.saved_mode === 'imported'" key="sections" tab="Sections">
-              <div style="margin-bottom: 8px; font-size: 13px; opacity: .75">
-                Sections from Store Management shown on the imported front page, live — they stay after re-importing the website.
-              </div>
-              <PortfolioSectionCard in-settings :key="'pf-' + settings.company_id" />
-            </a-tab-pane>
-            <a-tab-pane key="pages" :tab="front.saved_mode === 'imported' ? 'Website pages' : $t('Pages')">
-              <SitePagesEditor v-if="front.saved_mode === 'imported'" :key="'sp-' + settings.company_id" />
-              <StorePagesPanel v-else embedded :key="'p-' + settings.company_id" />
-            </a-tab-pane>
-            <a-tab-pane key="menu" :tab="front.saved_mode === 'imported' ? 'Website menu' : $t('Menus')">
-              <StoreMenusPanel embedded :mode="front.saved_mode === 'imported' ? 'site' : 'store'" :key="'m-' + front.saved_mode + settings.company_id" />
-            </a-tab-pane>
-          </a-tabs>
         </a-tab-pane>
       </a-tabs>
 
@@ -904,7 +907,7 @@
  * Collections come from settings.collections or the
  * admin/store/collections?include_counts=1 fallback.
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
@@ -925,10 +928,23 @@ import { uploadForm } from '../../lib/upload';
 const { t } = useI18n();
 const route = useRoute();
 
-// ?tab=homepage&sub=pages|menu|blocks -- the old Store -> Pages / Menus
-// links land here (Pages and Menus now live under Homepage Blocks).
-const mainTab = ref(String(route.query.tab || 'basics'));
-const homeSubPick = ref(String(route.query.sub || ''));
+// Two modules, one page (2026-10-06): Online Store -> Settings shows the shop
+// tabs; Website Management (route meta.scope = 'website', one route per tab:
+// /website/front-page, /homepage, /pages, /menus, /hero, /settings) shows the
+// tabs that build the website. Same settings row, same Save.
+const WEBSITE_TABS = ['front_page', 'homepage', 'hero', 'branding', 'topbar', 'seo', 'social'];
+const scope = computed(() => (route.meta.scope === 'website' ? 'website' : 'store'));
+const inScope = key => (scope.value === 'website') === WEBSITE_TABS.includes(key);
+const firstTab = () => String(route.meta.tab || route.query.tab || (scope.value === 'website' ? 'front_page' : 'basics'));
+// Old ?tab= links to a tab of the other scope fall back to the scope's first tab.
+const validTab = k => (inScope(k) ? k : (scope.value === 'website' ? 'front_page' : 'basics'));
+const mainTab = ref(validTab(firstTab()));
+const homeSubPick = ref(String(route.meta.sub || route.query.sub || ''));
+// The same component stays mounted between Website menu entries: follow the route.
+watch(() => route.fullPath, () => {
+  mainTab.value = validTab(firstTab());
+  homeSubPick.value = String(route.meta.sub || route.query.sub || '');
+});
 const homeSub = computed({
   get: () => {
     const imported = front.value.saved_mode === 'imported';

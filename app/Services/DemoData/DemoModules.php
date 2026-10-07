@@ -30,6 +30,7 @@ class DemoModules
         Modules\PromotionsModule::class,
         Modules\SubscriptionModule::class,
         Modules\StoreModule::class,
+        Modules\WebsiteModule::class,
         Modules\BookingsModule::class,
         Modules\ServiceModule::class,
         Modules\PortfolioModule::class,
