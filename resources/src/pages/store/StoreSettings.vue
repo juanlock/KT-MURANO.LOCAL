@@ -1048,9 +1048,10 @@ const route = useRoute();
 const WEBSITE_TABS = ['front_page', 'homepage', 'hero', 'branding', 'topbar', 'seo', 'social'];
 const scope = computed(() => (route.meta.scope === 'website' ? 'website' : 'store'));
 // The Hero header only exists on OUR front page (sections): with an imported
-// website (Front page tab) it is never shown, so its tab is hidden. Same for SEO:
-// the imported pages keep their own title / description tags.
-const SECTIONS_ONLY_TABS = ['hero', 'seo'];
+// website (Front page tab) it is never shown, so its tab is hidden. Same for SEO,
+// Top bar & footer and Social links: the imported site brings its own tags,
+// header, footer and social icons (user's rule, 2026-10-06).
+const SECTIONS_ONLY_TABS = ['hero', 'seo', 'topbar', 'social'];
 // Front page: our sections or an imported website (saved_mode = the applied one).
 const front = ref({ mode: 'sections', saved_mode: 'sections', url: '', saved_url: '', imported_at: null, busy: false });
 // Branding / Top bar / SEO / Social are in BOTH scopes, each with its own data

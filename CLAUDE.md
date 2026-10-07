@@ -242,8 +242,12 @@ the start of each session).
   Front page -> Import replaces the imported site, `App\Services\WebsiteSnapshots::take()`
   copies it to `files/company_{id}/website/snapshots/{stamp}/` (table
   `website_snapshots`); Front page -> "Saved websites" lists them (Preview /
-  Use this / Delete). With an imported front page the Hero and SEO tabs are
-  hidden (the imported pages keep their own tags).
+  Use this / Delete).
+- **Theme-only tabs** (user's rule, 2026-10-06): Hero, SEO, Top bar & footer
+  and Social links show only when the front page uses our website theme; with
+  an imported website they are hidden (it brings its own tags, header, footer
+  and social icons). Website settings then shows Front page, Homepage blocks
+  and Branding (Website URL, name, logo).
 - **Gallery** and **Portfolio** are their own modules: Gallery (`/gallery`,
   files/company_{id}/gallery/) and ONE Portfolio (the Portfolio module -- the
   old store_portfolio_* tables were merged into it; the website's Portfolio
