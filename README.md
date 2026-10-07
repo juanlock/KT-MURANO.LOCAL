@@ -109,6 +109,8 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
   - The store and the company website have separate settings, menus and files.
   - Each website has its own address (`website_settings.url_path`).
   - Build website links with `App\Support\WebsitePaths::url()`.
+  - An import first saves the current site
+    (`App\Services\WebsiteSnapshots`, `files/company_{id}/website/snapshots/`).
 - **Logins.**
   - Every employee gets a login automatically.
   - Users → Add creates only Admin / SuperAdmin logins.
@@ -151,6 +153,14 @@ in `KT-TOOLS/Report/`.
   - Set it in Website settings → Branding → Website URL.
   - Old `/online_store?company=` links redirect to it.
   - The **Preview website** button opens it.
+- **Importing a website never loses the current one.**
+  - Before an import replaces the current site, a copy of it is saved.
+  - You get a warning and must confirm.
+  - Front page → **Saved websites** lets you preview, use again (like a theme)
+    or delete each saved copy.
+- **Theme-only settings.** With an imported website, the Hero, SEO, Top bar &
+  footer and Social links tabs are hidden, because the imported site brings
+  its own.
 - **Gallery** has its own menu.
 - **One Portfolio.** The old website portfolio pictures were merged into the
   Portfolio module.
