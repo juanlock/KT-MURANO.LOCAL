@@ -188,6 +188,15 @@
                     />
                   </a-form-item>
                 </a-col>
+                <!-- Server address (APP_URL): every link and code given to customers starts with it. -->
+                <a-col v-if="isSuperAdmin" :xs="24" :md="12">
+                  <a-form-item
+                    label="Server address"
+                    help="The address of this server, e.g. https://murano.kcoltech.com. Booking codes and public links use it (a company can set its own in Defaults -> General). Whole install."
+                  >
+                    <a-input v-model:value="setting.app_url" placeholder="https://murano.kcoltech.com" />
+                  </a-form-item>
+                </a-col>
                 <a-col :xs="24" :md="12">
                   <a-form-item :label="$t('Date_Format')">
                     <a-select
@@ -377,6 +386,17 @@
                   <a-radio-button :value="2">2</a-radio-button>
                   <a-radio-button :value="3">3</a-radio-button>
                 </a-radio-group>
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Public address</div>
+                  <div class="setting-help">
+                    This company's own address for links given to customers (online booking codes), e.g.
+                    https://book.mysalon.com -- the domain must point to this server. Empty = the server address
+                    ({{ setting.app_url || 'APP_URL' }}).
+                  </div>
+                </div>
+                <a-input v-model:value="setting.public_base_url" allow-clear :placeholder="setting.app_url || 'https://…'" style="width: 280px" />
               </div>
             </a-card>
             </a-tab-pane>
@@ -646,6 +666,24 @@
                   <div class="setting-help">What the dashboard shows and in which order is set in one place: the Dashboard tab.</div>
                 </div>
                 <a-button size="small" @click="onMenuClick({ key: 'dashboard' })">Open Dashboard settings</a-button>
+              </div>
+            </a-card>
+            <!-- Header icons for every user of the company (each user can change theirs in Profile). -->
+            <a-card size="small" title="Header icons" style="margin-bottom: 16px">
+              <div class="setting-help" style="margin-bottom: 8px">
+                The icons in the top bar, for every user of this company. Each user can still show or hide them
+                for themselves in their Profile. The user menu (name and photo) always stays.
+              </div>
+              <div v-for="ic in HEADER_ICONS" :key="ic.key" class="setting-row">
+                <div>
+                  <div class="setting-label">{{ ic.label }}</div>
+                  <div v-if="ic.help" class="setting-help">{{ ic.help }}</div>
+                </div>
+                <a-switch
+                  :checked="ic.key === 'language' ? asBool(setting.show_language) : !headerHidden.includes(ic.key)"
+                  checked-children="Show" un-checked-children="Hide"
+                  @change="v => toggleHeaderIcon(ic.key, v)"
+                />
               </div>
             </a-card>
             <a-card size="small" title="Password by Default" style="margin-bottom: 16px">
@@ -1402,6 +1440,7 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import { useUiStore } from '../../stores/ui';
 import { useAuthStore } from '../../stores/auth';
+import { HEADER_ICONS } from '../../lib/headerIcons';
 import { useDatatableStore, headerBgCss } from '../../stores/datatable';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
@@ -1567,6 +1606,13 @@ const dashboardHidden = ref([]);
 // Defaults -> Users: the 8 shortcut buttons (form path, or empty = user's most used).
 const shortcutSlots = ref(Array(8).fill(undefined));
 const shortcutOptions = computed(() => sortByLabel(allPages().map(p => ({ value: p.path, label: pageFullLabel(p) }))));
+// Defaults -> Users: header icons hidden for the company (lib/headerIcons.js).
+// "language" is the same switch as General -> Show language (setting.show_language).
+const headerHidden = ref([]);
+function toggleHeaderIcon(key, on) {
+  if (key === 'language') { setting.value.show_language = on ? 1 : 0; return; }
+  headerHidden.value = on ? headerHidden.value.filter(k => k !== key) : [...new Set([...headerHidden.value, key])];
+}
 function toggleDashboardSection(id, on) {
   dashboardHidden.value = on ? dashboardHidden.value.filter(x => x !== id) : [...new Set([...dashboardHidden.value, id])];
 }
@@ -1805,6 +1851,7 @@ async function save() {
   fd.append('email_office_hidden_cards', JSON.stringify(eoHidden.value));
   fd.append('start_page_mode', s.start_page_mode === 'custom' ? 'custom' : 'dashboard');
   fd.append('dashboard_hidden_sections', JSON.stringify(dashboardHidden.value));
+  fd.append('header_icons_hidden', JSON.stringify(headerHidden.value));
   fd.append('start_page_shortcuts', JSON.stringify(shortcutSlots.value.map(p => p || null)));
   fd.append('booking_form_logo_width', Number(s.booking_form_logo_width) || 160);
   if (bookingLogoFile.value) fd.append('booking_form_logo', bookingLogoFile.value);
@@ -1819,6 +1866,8 @@ async function save() {
   fd.append('product_code_digits', Math.max(1, Number(s.product_code_digits) || 4));
   fd.append('show_language', s.show_language);
   fd.append('timezone', s.timezone);
+  fd.append('public_base_url', (s.public_base_url || '').trim());
+  if (isSuperAdmin.value && s.app_url) fd.append('app_url', s.app_url.trim());
   fd.append('date_format', s.date_format || 'YYYY-MM-DD');
   fd.append('price_format', s.price_format || '');
   fd.append('point_to_amount_rate', s.point_to_amount_rate);
@@ -2034,6 +2083,7 @@ onMounted(() => {
       if (!Number.isNaN(stm) && stm > 0 && !SESSION_TIMEOUT_PRESETS.includes(stm)) sessionTimeoutCustom.value = stm;
       if (!setting.value.start_page_mode) setting.value.start_page_mode = 'dashboard';
       dashboardHidden.value = Array.isArray(setting.value.dashboard_hidden_sections) ? [...setting.value.dashboard_hidden_sections] : [];
+      headerHidden.value = (setting.value.header_icons_hidden || []).filter(k => k !== 'language');
       shortcutSlots.value = Array.from({ length: 8 }, (_, i) => (setting.value.start_page_shortcuts || [])[i] || undefined);
       // The old single "Summary cards" switch is now one switch per card.
       if (dashboardHidden.value.includes('stat_cards')) {

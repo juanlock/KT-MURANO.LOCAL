@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
  */
 class EmployeeTabs
 {
-    public const TABS = ['basic', 'company', 'social', 'experiences', 'accounts', 'user', 'production', 'payments'];
+    public const TABS = ['basic', 'company', 'social', 'experiences', 'accounts', 'user', 'assets', 'production', 'payments'];
 
     /** Basic information tab fields (employees table). */
     public const BASIC_FIELDS = ['firstname', 'lastname', 'gender', 'marital_status', 'birth_date', 'email', 'phone', 'country', 'city', 'province', 'zipcode', 'address'];

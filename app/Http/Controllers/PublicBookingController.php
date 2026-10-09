@@ -59,7 +59,7 @@ class PublicBookingController extends Controller
         // Defaults -> Booking -> "Logo on the booking form": its own image, else
         // the company logo above; null = switched off (or nothing to show).
         $s = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')
-            ->first(['booking_form_logo_enabled', 'booking_form_logo', 'booking_form_logo_width']);
+            ->first(['booking_form_logo_enabled', 'booking_form_logo', 'booking_form_logo_width', 'booking_hide_logo', 'booking_bg_color']);
         $formLogo = null;
         if ($s && $s->booking_form_logo_enabled) {
             $own = $s->booking_form_logo && file_exists(public_path($s->booking_form_logo))
@@ -67,7 +67,12 @@ class PublicBookingController extends Controller
             $formLogo = ($own || $url) ? ['url' => $own ?: $url, 'width' => (int) ($s->booking_form_logo_width ?: 160)] : null;
         }
 
-        return ['name' => $co->name ?? 'Bookings', 'logo' => $url, 'form_logo' => $formLogo];
+        // Online Booking -> Look: no logo at all / own background color.
+        $hideLogo = (bool) ($s->booking_hide_logo ?? false);
+        $bg = preg_match('/^#[0-9a-fA-F]{6}$/', (string) ($s->booking_bg_color ?? '')) ? $s->booking_bg_color : null;
+
+        return ['name' => $co->name ?? 'Bookings', 'logo' => $url, 'form_logo' => $hideLogo ? null : $formLogo,
+            'hide_logo' => $hideLogo, 'bg' => $bg];
     }
 
     /**
@@ -141,26 +146,83 @@ class PublicBookingController extends Controller
      * flashed data): in a cross-site iframe there is no session cookie, so flashed
      * errors / confirmations would be lost.
      */
-    private function page(Request $request, int $cid, array $errors = [], ?array $done = null)
+    private function page(Request $request, int $cid, array $errors = [], ?array $done = null, ?array $verify = null)
     {
         $embed = $request->boolean('embed');
         $query = CompanyDomain::companyIdForHost($request->getHost()) ? [] : ['company' => $cid];
+        $exit = $this->exitUrl($request, $cid);
+        // The website the code was put on travels with the form (Start over, submit).
+        $return = $exit && $request->filled('return') && $exit === $request->query('return') ? ['return' => $exit] : [];
 
         return response()->view('booking-public.form', [
+            'verify' => $verify,
             'brand' => $this->brand($cid),
             'services' => $this->services($cid),
             'staff' => $this->staff($cid),
             'hours' => $this->hours($cid),
             'busy' => $this->busy($cid),
             'embed' => $embed,
-            'formQuery' => $query + ($embed ? ['embed' => 1] : []),
+            'formQuery' => $query + ($embed ? ['embed' => 1] : []) + $return,
             'formTs' => encrypt(now()->timestamp),
             'old' => $errors ? $request->except(['_ts', 'website']) : [],
             'formErrors' => $errors,
             'done' => $done,
+            'exitUrl' => $exit,
+            // This connection already made 3 bookings today: the email is needed (check by email).
+            'needEmail' => $this->ipCheck((string) $request->ip()) === 'verify',
         ], $errors ? 422 : 200)->header('X-Robots-Tag', 'noindex')
             // Explicitly embeddable from any site.
             ->header('Content-Security-Policy', 'frame-ancestors *');
+    }
+
+    /** Online Booking -> Websites & codes: the company's websites (valid http(s) URLs). */
+    public static function websites(int $cid): array
+    {
+        $raw = (string) DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->value('booking_websites');
+
+        return array_values(array_unique(array_filter(array_map('trim', preg_split('/\R/', $raw)),
+            fn ($u) => (bool) preg_match('~^https?://[^\s/]+~i', $u) && filter_var($u, FILTER_VALIDATE_URL))));
+    }
+
+    /**
+     * Where "Exit" / "Close" go: the ?return= website of the code (only one of the
+     * company's websites -- never any address, so the page can't be used to
+     * redirect people elsewhere), else the first website, else the company's
+     * own website (Website settings -> Website URL).
+     */
+    private function exitUrl(Request $request, int $cid): ?string
+    {
+        $sites = self::websites($cid);
+        $ret = trim((string) $request->query('return'));
+        // Also the company's own website here (/{website path}, relative: the
+        // imported website's booking frame -- Website pages -> "Use our booking calendar").
+        $own = \App\Support\WebsitePaths::pathOf($cid);
+        if ($ret !== '' && (in_array($ret, $sites, true) || ($own && $ret === '/'.$own))) {
+            return $ret;
+        }
+        if ($sites) {
+            return $sites[0];
+        }
+
+        return \App\Support\WebsitePaths::pathOf($cid) ? \App\Support\WebsitePaths::url('', $cid) : null;
+    }
+
+    /* ---------- limits per IP (user's rule, 2026-10-07) ---------- */
+    private const MAX_PER_10_MIN = 5;   // bookings from one IP in 10 minutes
+    private const FREE_PER_DAY = 3;     // after these (24 h), an email check is needed
+    private const VERIFIED_FOR_HOURS = 24;
+
+    /** null = OK; 'limit' = too many; 'verify' = needs the email check first. */
+    private function ipCheck(string $ip): ?string
+    {
+        $q = fn () => DB::table('booking_public_requests')->where('ip', $ip);
+        if ($q()->where('created_at', '>=', now()->subMinutes(10))->count() >= self::MAX_PER_10_MIN) {
+            return 'limit';
+        }
+        $made = $q()->whereNotNull('booking_id')->where('created_at', '>=', now()->subDay())->count();
+        $verified = $q()->where('verified_at', '>=', now()->subHours(self::VERIFIED_FOR_HOURS))->exists();
+
+        return $made >= self::FREE_PER_DAY && ! $verified ? 'verify' : null;
     }
 
     /** US numbers stored as (555) 123-4567; "+..." international kept as typed. */
@@ -207,7 +269,8 @@ class PublicBookingController extends Controller
         };
         $v = Validator::make($request->all(), [
             'name' => 'required|string|max:120',
-            'email' => ['required', 'max:190', 'email:rfc,filter', 'regex:/\.[A-Za-z]{2,}$/'],
+            // Optional (2026-10-07): only the name is required; an email given must be valid.
+            'email' => ['nullable', 'max:190', 'email:rfc,filter', 'regex:/\.[A-Za-z]{2,}$/'],
             'phone' => ['nullable', 'string', 'max:25', $phoneRule],
             'service_id' => ['required', 'integer', fn ($a, $v, $fail) => $services->firstWhere('id', (int) $v) ? null : $fail(__('The selected service is invalid.'))],
             'staff_id' => ['nullable', 'integer', fn ($a, $v, $fail) => $staff->firstWhere('id', (int) $v) ? null : $fail(__('The selected staff is invalid.'))],
@@ -252,9 +315,54 @@ class PublicBookingController extends Controller
             return $this->page($request, $cid, [__('Please choose one of the available times.')]);
         }
 
-        $person = ! empty($d['staff_id']) ? $staff->firstWhere('id', (int) $d['staff_id']) : null;
+
+        // Limits per connection (IP): 5 bookings every 10 minutes; from the 4th
+        // in 24 hours the visitor confirms by email ("I agree") before it is booked.
+        $ip = (string) $request->ip();
+        $gate = $this->ipCheck($ip);
+        if ($gate === 'limit') {
+            return $this->page($request, $cid, [__('Too many appointments from this connection. Please try again in a few minutes.')]);
+        }
+        $d = array_diff_key($d, ['_ts' => 1]);
+        if ($gate === 'verify') {
+            if (empty($d['email'])) {
+                return $this->page($request, $cid, [__('Please enter your email: we will send you a link to confirm this appointment.')]);
+            }
+            $token = Str::random(48);
+            DB::table('booking_public_requests')->insert([
+                'company_id' => $cid, 'ip' => $ip, 'email' => strtolower(trim($d['email'])), 'token' => $token,
+                'payload' => json_encode($d + ['_query' => $request->query()]), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            $link = route('booking.public.verify', ['token' => $token]);
+            $summary = [
+                'Service' => $svc->name, 'Date' => $start->translatedFormat('l, F j, Y').' · '.$start->format('g:i A'),
+            ];
+            dispatch(fn () => \App\Services\BookingNotifier::publicBookingVerify($cid, $d['email'], trim($d['name']), $link, $summary))->afterResponse();
+
+            return $this->page($request, $cid, [], null, ['state' => 'sent', 'email' => $d['email']]);
+        }
+
+        return $this->finish($request, $cid, $d, $ip);
+    }
+
+    /**
+     * Creates the booking from the checked form values (store(), or the "I agree"
+     * link of the email check), logs it for the IP limits, emails the admins and
+     * shows the thank-you screen.
+     */
+    private function finish(Request $request, int $cid, array $d, string $ip, ?int $requestId = null)
+    {
+        $svc = $this->services($cid)->firstWhere('id', (int) $d['service_id']);
+        $person = ! empty($d['staff_id']) ? $this->staff($cid)->firstWhere('id', (int) $d['staff_id']) : null;
+        $start = Carbon::parse($d['appointment_date'].' '.$d['appointment_time']);
+        if (! $svc || $start->isPast()) {
+            return $this->page($request, $cid, [__('Please choose one of the available times.')]);
+        }
+        $duration = $this->durationOf($svc);
+        $h = $this->hours($cid);
+        $t = ((int) $start->format('H')) * 60 + (int) $start->format('i');
         $end = (clone $start)->addMinutes($duration);
-        $email = strtolower(trim($d['email']));
+        $email = strtolower(trim((string) ($d['email'] ?? ''))) ?: null;
         $name = trim($d['name']);
 
         $taken = false;
@@ -276,9 +384,10 @@ class PublicBookingController extends Controller
             // other people in other companies -- the phone never identifies
             // anyone). Never the company's default / Walk-in customer, which
             // often carries the business's own email and would swallow visitors.
+            // No email given = a new customer (never matched by name or phone).
             $defaults = DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->first(['client_id', 'booking_default_client_id']);
             $exclude = array_values(array_filter([(int) ($defaults->client_id ?? 0), (int) ($defaults->booking_default_client_id ?? 0)]));
-            $clientId = DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')
+            $clientId = $email === null ? null : DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')
                 ->when($exclude, fn ($q) => $q->whereNotIn('id', $exclude))
                 ->where('name', 'not like', 'Walk-in%')
                 ->whereRaw('LOWER(email) = ?', [$email])->value('id');
@@ -298,7 +407,7 @@ class PublicBookingController extends Controller
             $ref = $last ? 'BK_'.((int) (explode('_', $last)[1] ?? 1111) + 1) : 'BK_1111';
 
             $notes = array_filter([
-                'Online booking — '.$name.' · '.$email.(! empty($d['phone']) ? ' · '.$d['phone'] : ''),
+                'Online booking — '.implode(' · ', array_filter([$name, $email, $d['phone'] ?? null])),
                 $person ? 'Preferred staff: '.$person->name : null,
                 ! empty($d['special_requests']) ? 'Request: '.trim($d['special_requests']) : null,
             ]);
@@ -328,7 +437,15 @@ class PublicBookingController extends Controller
             return $this->page($request, $cid, [__('Sorry, that time was just booked. Please choose another time.')]);
         }
 
-        // Emails (customer + every admin of the company) after the response is sent,
+        // For the limits per IP.
+        if ($requestId) {
+            DB::table('booking_public_requests')->where('id', $requestId)->update(['booking_id' => $booking->id, 'updated_at' => now()]);
+        } else {
+            DB::table('booking_public_requests')->insert(['company_id' => $cid, 'ip' => $ip, 'email' => $email, 'booking_id' => $booking->id, 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        // Email to every admin of the company (not the customer: they get theirs when
+        // the booking is confirmed -- BookingNotifier) after the response is sent,
         // so the visitor never waits on SMTP; a mail failure never affects the booking.
         $mail = [
             'booking_id' => $booking->id, 'ref' => $booking->Ref, 'service' => $svc->name, 'price' => $svc->price,
@@ -341,7 +458,54 @@ class PublicBookingController extends Controller
 
         return $this->page($request, $cid, [], [
             'ref' => $booking->Ref, 'service' => $svc->name, 'name' => $name,
-            'when' => $start->translatedFormat('l, F j, Y').' · '.$start->format('H:i'),
+            'when' => $start->translatedFormat('l, F j, Y').' · '.$start->format('g:i A'),
         ]);
+    }
+
+    /* ---------- email check: "I agree" (GET shows it, POST books) ---------- */
+
+    private function pendingRequest(string $token): ?object
+    {
+        return DB::table('booking_public_requests')->where('token', $token)->whereNull('booking_id')
+            ->where('created_at', '>=', now()->subDay())->first();
+    }
+
+    /** The request's company and website (?return=); the email link opens as a full page, never embedded. */
+    private function asRequest(Request $request, object $r): Request
+    {
+        $q = (array) (json_decode((string) $r->payload, true)['_query'] ?? []);
+        $request->query->replace(array_intersect_key($q, array_flip(['company', 'return'])) + ['company' => $r->company_id]);
+
+        return $request;
+    }
+
+    public function verify(Request $request, string $token)
+    {
+        $r = $this->pendingRequest($token);
+        if (! $r) {
+            return response('<!doctype html><meta name="viewport" content="width=device-width"><p style="font:16px system-ui;padding:24px">'.e(__('This link is no longer valid. Please make your appointment again.')).'</p>', 404);
+        }
+        $request = $this->asRequest($request, $r);
+        $d = json_decode((string) $r->payload, true);
+        $svc = $this->services($r->company_id)->firstWhere('id', (int) ($d['service_id'] ?? 0));
+        $when = Carbon::parse($d['appointment_date'].' '.$d['appointment_time']);
+
+        return $this->page($request, (int) $r->company_id, [], null, [
+            'state' => 'agree', 'token' => $token, 'name' => $d['name'] ?? '', 'email' => $r->email,
+            'service' => $svc->name ?? '-', 'when' => $when->translatedFormat('l, F j, Y').' · '.$when->format('g:i A'),
+        ]);
+    }
+
+    public function agree(Request $request, string $token)
+    {
+        $r = $this->pendingRequest($token);
+        if (! $r) {
+            return response('<!doctype html><meta name="viewport" content="width=device-width"><p style="font:16px system-ui;padding:24px">'.e(__('This link is no longer valid. Please make your appointment again.')).'</p>', 404);
+        }
+        $request = $this->asRequest($request, $r);
+        // The connection that made the request may book again (24 h).
+        DB::table('booking_public_requests')->where('id', $r->id)->update(['verified_at' => now(), 'token' => null, 'updated_at' => now()]);
+
+        return $this->finish($request, (int) $r->company_id, json_decode((string) $r->payload, true), (string) $r->ip, (int) $r->id);
     }
 }

@@ -25,8 +25,9 @@
       </template>
     </PageHeader>
 
-    <!-- Summary cards — global sums over the whole filtered set (all pages). -->
-    <a-row :gutter="[16, 16]" style="margin-bottom: 16px">
+    <!-- Summary cards — global sums over the whole filtered set (all pages).
+         Hidden on phones: there the screen is for the sales themselves. -->
+    <a-row :gutter="[16, 16]" class="stat-row" style="margin-bottom: 16px">
       <a-col v-for="tile in statTiles" :key="tile.label" :xs="12" :sm="12" :md="6">
         <a-card size="small" class="stat-card">
           <div class="stat-inner">
@@ -45,7 +46,12 @@
       </a-col>
     </a-row>
 
-    <a-card size="small" style="margin-bottom: 16px">
+    <!-- Phones: the filters fold behind one button so the sales come first. -->
+    <a-button v-if="isPhone" block style="margin-bottom: 12px" @click="filtersOpen = !filtersOpen">
+      <template #icon><FilterOutlined /></template>
+      {{ filtersOpen ? 'Hide filters' : 'Filters' }}{{ activeFilterCount ? ` (${activeFilterCount})` : '' }}
+    </a-button>
+    <a-card v-show="!isPhone || filtersOpen" size="small" style="margin-bottom: 16px">
       <!-- Filters + the Customize Filters button share one row (flex: the
            filters split the width, the button sits at the end; wraps only
            on narrow screens). -->
@@ -198,16 +204,38 @@
                deliberately no dash/zero, per the design ask. -->
           <a-popover v-if="record.other_due_count > 0" trigger="click" placement="left">
             <template #content>
-              <div style="max-width: 260px">
-                <div style="font-weight: 500; margin-bottom: 6px">{{ record.client_name }} — other due invoices</div>
-                <a-list size="small" :data-source="record.other_due_sales">
-                  <template #renderItem="{ item }">
-                    <a-list-item style="padding: 4px 0">
-                      <a @click="$router.push(`/sales/${item.id}`)">{{ item.Ref }}</a>
-                      <span style="margin-left: auto; color: #ff4d4f">{{ money(item.due) }}</span>
-                    </a-list-item>
-                  </template>
-                </a-list>
+              <!-- Each owing invoice: date, days owing, total / due, and the emails
+                   sent (invoice + reminders) with their dates. -->
+              <div class="od-box">
+                <div style="font-weight: 500; margin-bottom: 6px">
+                  {{ record.client_name }} — other due invoices
+                  <span class="od-sum">{{ record.other_due_count }} · {{ money(record.other_due_sales.reduce((s, i) => s + Number(i.due || 0), 0)) }}</span>
+                </div>
+                <table class="od-table">
+                  <thead>
+                    <tr><th>Invoice</th><th>Date</th><th>Days</th><th class="r">Total</th><th class="r">Due</th><th>Emails sent</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in record.other_due_sales" :key="item.id">
+                      <td><a @click="$router.push(`/sales/${item.id}`)">{{ item.Ref }}</a></td>
+                      <td class="nw">{{ odDate(item.date) }}</td>
+                      <td :class="['nw', { 'od-late': item.days > 30 }]">{{ item.days ?? '—' }}</td>
+                      <td class="r nw">{{ money(item.total) }}</td>
+                      <td class="r nw" style="color: #ff4d4f">{{ money(item.due) }}</td>
+                      <td>
+                        <template v-if="item.emails?.length">
+                          <b>{{ item.emails.length }}</b>
+                          <span class="od-mails">
+                            <span v-for="(m, i) in item.emails" :key="i" :class="['od-mail', m.kind === 'reminder' ? 'od-mail--rem' : '']" :title="m.kind === 'reminder' ? 'Payment reminder' : 'Invoice email'">
+                              <BellOutlined v-if="m.kind === 'reminder'" /><MailOutlined v-else /> {{ odDate(m.at) }}
+                            </span>
+                          </span>
+                        </template>
+                        <span v-else class="od-none">None</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </template>
             <a-tag color="warning" style="cursor: pointer">{{ record.other_due_count }}</a-tag>
@@ -609,6 +637,14 @@ const EMAILED_OPTIONS = sortByLabel([
 // Reset: every filter back to its default, date range back to the user's
 // default date (else Today), the Customers-list "Due only" link dropped.
 // Snapshot taken here, before the deep link below writes into `filters`.
+// Phones: filters folded behind a "Filters (n)" button.
+const phoneMq = window.matchMedia ? window.matchMedia('(max-width: 767px)') : null;
+const isPhone = ref(!!phoneMq?.matches);
+phoneMq?.addEventListener?.('change', e => { isPhone.value = e.matches; });
+const filtersOpen = ref(false);
+// Only the filters in that panel (the date range above has its own buttons).
+const activeFilterCount = computed(() => visibleFilterKeys.value.map(k => filters.value[k])
+  .filter(v => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)).length);
 const { isDirty: filtersDirty, resetFilters } = useFilterReset(filters, () => {
   dueOnly.value = false;
   datePreset.value = startPreset('today');
@@ -1075,6 +1111,8 @@ async function sendEmailModal(emails, hasNew) {
 
 // Emailed column: "Invoice emailed Oct 1 · 2 reminders, last Oct 20".
 const shortDate = d => (d ? dayjs(d).format('MMM D') : '');
+// "Other Due" window: with the year (old unpaid invoices).
+const odDate = d => (d ? dayjs(d).format('MMM D, YYYY') : '');
 function emailedText(r) {
   const l = r.email_log;
   if (!l) return 'Never emailed';
@@ -1449,6 +1487,22 @@ function removeDocument(doc) {
 </script>
 
 <style scoped>
+@media (max-width: 767px) {
+  .stat-row { display: none; }
+}
+/* "Other Due" window */
+.od-box { max-width: min(620px, 92vw); overflow-x: auto; }
+.od-sum { margin-left: 8px; color: #ff4d4f; font-weight: 600; }
+.od-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.od-table th { text-align: left; font-weight: 600; opacity: 0.65; padding: 4px 8px 4px 0; border-bottom: 1px solid rgba(5, 5, 5, 0.08); white-space: nowrap; }
+.od-table td { padding: 5px 8px 5px 0; border-bottom: 1px solid rgba(5, 5, 5, 0.05); vertical-align: top; }
+.od-table .r { text-align: right; }
+.od-table .nw { white-space: nowrap; }
+.od-late { color: #cf1322; font-weight: 600; }
+.od-mails { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; }
+.od-mail { padding: 0 6px; border-radius: 4px; background: rgba(22, 119, 255, 0.08); white-space: nowrap; }
+.od-mail--rem { background: rgba(250, 140, 22, 0.12); }
+.od-none { opacity: 0.45; }
 .range-card {
   border-radius: 10px;
 }

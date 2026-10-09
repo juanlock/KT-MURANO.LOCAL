@@ -21,6 +21,7 @@
 /KT-TOOLS/apps
 /KT-TOOLS/documentation
 /KT-TOOLS/VERSION
+/KT-TOOLS/database/Older
 /KT-TOOLS/sources
 /KT-TOOLS/ZIP
 storage/logs/laravel.log

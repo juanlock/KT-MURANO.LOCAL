@@ -118,6 +118,8 @@ const filterCompany = ref(undefined);
 
 const crud = useCrudTable('employees', {
   rowsKey: 'employees',
+  // Server: App\Services\EmployeeRemoval (one transaction).
+  deleteWarning: 'Their login is disabled and signed out of every device; open service jobs, upcoming bookings and helpdesk tickets lose their assignee so you can reassign them. History (attendance, payroll, sales) is kept.',
   params: () => ({
     username: filterUsername.value || '',
     employment_type: filterEmploymentType.value || '',

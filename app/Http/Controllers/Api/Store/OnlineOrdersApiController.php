@@ -428,7 +428,8 @@ class OnlineOrdersApiController extends Controller
                 $sale = Sale::create([
                     'date' => $order->date ?: now()->toDateString(),
                     'time' => $order->time ?: now()->format('H:i:s'),
-                    'Ref' => $this->getNumberOrder(),
+                    // Same per-company numbering as every sale (SalesController::getNumberOrder).
+                    'Ref' => app(\App\Http\Controllers\SalesController::class)->getNumberOrder((int) $warehouseId),
                     'is_pos' => 0,
                     'client_id' => $order->client_id,
                     'warehouse_id' => $warehouseId,

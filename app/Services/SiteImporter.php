@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\Http;
  *    assets it uses (CSS url() included) and rewrites same-site links so the
  *    copy works on its own.
  *
- * Both publish into public/files/company_{id}/store/sites/{name}/ and
+ * Both publish into public/files/company_{id}/website/sites/{name}/ (the
+ * Website module's folder; store/sites/ before 2026-10-07) and
  * upsert the company's `home` page pointing at the copy.
  */
 class SiteImporter
@@ -30,7 +31,7 @@ class SiteImporter
     public static function fromDirectory(int $companyId, string $dir, string $name, string $entry = 'index.html'): array
     {
         $dir = rtrim($dir, '\\/');
-        $rel = CompanyFiles::dir($companyId, 'store/sites/'.$name);
+        $rel = CompanyFiles::dir($companyId, 'website/sites/'.$name);
         $abs = public_path($rel);
         $copied = [];
 
@@ -75,7 +76,7 @@ class SiteImporter
         $prefix = parse_url($root, PHP_URL_PATH) ?: '/';
         $host = strtolower(parse_url($root, PHP_URL_HOST));
         $bareHost = preg_replace('/^www\./', '', $host);
-        $rel = CompanyFiles::dir($companyId, 'store/sites/'.$name);
+        $rel = CompanyFiles::dir($companyId, 'website/sites/'.$name);
         $abs = public_path($rel);
 
         $isSameSite = fn (string $u) => ($h = parse_url($u, PHP_URL_HOST)) === null

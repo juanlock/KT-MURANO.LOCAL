@@ -182,6 +182,21 @@ the start of each session).
   across companies, never attach to the Walk-in customer; ask before merging.
   Only exception (2026-10-05): Zelle deposit emails carry just the payer's name,
   so there the same exact name in the same company = same customer.
+- **Online booking (/book, 2026-10-07):** only the name is required (email and
+  phone optional; an email given must be valid). No email to the customer when
+  they book -- only the company's admins get "new online booking"; the customer
+  gets "your appointment is confirmed" when staff confirm it (if they gave an
+  email; never the Walk-in / default customer). No email = a new customer.
+  Limits per IP (`booking_public_requests`): 5 bookings / 10 min; from the 4th
+  in 24 h the email is required and the booking waits for the "I agree" link we
+  email (then that IP is free for 24 h). "Exit" / "Close" go to the code's
+  `?return=` website, only if it's in Online Booking -> Websites & codes
+  (`settings.booking_websites`), else the first one, else the company website.
+- **Public links use `App\Support\PublicUrl`** (2026-10-07), never the request's
+  host / `route()`: the company's Public address (Defaults -> General,
+  `settings.public_base_url`) else the server address `APP_URL` (System Settings
+  -> General -> Server address, SuperAdmin; production = https://murano.kcoltech.com).
+  Booking codes, and anything else pasted outside the app, are built with it.
 - **Users -> Add creates Admin / SuperAdmin logins only** (SuperAdmin only by a
   SuperAdmin). Employee / customer / supplier / sales-agent logins are created
   in HRM -> Employees, People -> Customers / Suppliers, Commissions -> Sales
@@ -213,6 +228,24 @@ the start of each session).
   x operator rate) + equipment used (`service_job_assets`, asset `hourly_cost`)
   -- `App\Support\ServiceJobCost`. Rates: Ruba manager $25 / operators $20,
   KcolTech $35, New Era 40% commission.
+- **Global processes are transactional** (user's rule, 2026-10-07): an action
+  that changes several things does all of it in one DB transaction or none.
+  **Removing an employee** = `App\Services\EmployeeRemoval` (employee out with
+  leaving date, login disabled + signed out everywhere, technician / sales agent
+  inactive, open service jobs / upcoming bookings / open tickets unassigned with a
+  note, history kept, assets to collect reported). **Disabling a login** =
+  `App\Support\UserAccess::disable()` (statut 0 + every token / session revoked);
+  `Is_Active` refuses a disabled login before the request runs.
+- **Sale numbers are per company** (2026-10-07): `SalesController::getNumberOrder($warehouseId, $companyId)`
+  = the company's own `settings.sale_prefix` + that company's highest number + 1,
+  keeping its separator (Ruba INV_3604, KcolTech PP-…). Every place that creates a
+  sale passes the location / company (sales, POS, bookings, contracts, online store).
+- **Header icons** (2026-10-07): System Settings -> Defaults -> Users -> Header
+  icons (whole company) and Profile -> Header icons (each user: Company default /
+  Show / Hide), `App\Support\HeaderIcons` + `lib/headerIcons.js`, the topbar uses
+  `auth.headerIcon(key)`. POS / Settings / Language keep their older switches
+  (pos_settings.show_pos_button, customize_button_visible, show_language) as the
+  company value. A new header icon gets a key in both lists.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
@@ -225,7 +258,14 @@ the start of each session).
   **Online Store** (the shop: store_settings, files/company_{id}/store/) and
   **Website Management** (the company website: `App\Models\WebsiteSetting`,
   files/company_{id}/website/ -- own name, logo, favicon, SEO, top bar/footer,
-  social links, menus). Same settings page (`StoreSettings.vue`), scope from
+  social links, menus). **Imported websites live in
+  `files/company_{id}/website/sites/{name}/`** (`SiteImporter`; moved out of
+  `store/sites/` on 2026-10-07 -- nothing of the website goes in `store/`).
+  Their pages are edited in Website -> Pages (`SitePageEditor`): texts,
+  pictures, links and, since 2026-10-07, **Sections** -- the blocks the menu
+  jumps to (`#x` -> `id="x"` or class `x`) and blocks with an embed, edited as
+  HTML (+ "Use our booking calendar" = `/book?company={id}&embed=1`). Company
+  admins can't add scripts / event handlers there; only a SuperAdmin can. Same settings page (`StoreSettings.vue`), scope from
   route meta (`/store/settings` vs `/website/settings`).
 - Website pages (front page with our website theme, CMS pages, gallery,
   contact) render with `WebsiteSetting::applyTo()` and `$website = true` (no

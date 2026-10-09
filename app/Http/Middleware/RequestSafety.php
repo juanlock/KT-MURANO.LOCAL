@@ -64,6 +64,18 @@ class RequestSafety
         'api/sales_contracts/*' => ['$.items.*.note', '$.notes.*', '$.invoice_note', '$.jobs_service_item'],
     ];
 
+    /**
+     * Fields that ARE HTML, per URI: not scanned here because their endpoint
+     * checks the HTML itself. Website -> Pages -> Page sections: a section's
+     * code (frames, the site's own scripts) -- SitePageEditor::guardSection()
+     * refuses new scripts / event handlers / javascript: from a company admin.
+     *
+     * @var array<string, array<int, string>>
+     */
+    protected array $htmlFields = [
+        'api/admin/store/site-pages/*/sections/*' => ['$.html'],
+    ];
+
     /** Regexes of the template-field paths that apply to this request. */
     private array $templatePathRegexes = [];
 
@@ -99,6 +111,13 @@ class RequestSafety
         $payload = $request->all();
         foreach ($this->excludePaths as $prefix) {
             $this->stripExcludedPrefix($payload, $prefix);
+        }
+        foreach ($this->htmlFields as $uri => $paths) {
+            if ($request->is($uri)) {
+                foreach ($paths as $prefix) {
+                    $this->stripExcludedPrefix($payload, $prefix);
+                }
+            }
         }
 
         // Walk & check

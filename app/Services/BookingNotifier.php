@@ -9,9 +9,10 @@ use Illuminate\Support\Facades\Mail;
 
 /**
  * Emails for a booking made on the public "Book an appointment" page (/book):
- *  - the customer: "we received your request" (it is Pending until the salon confirms);
  *  - every active admin of that company (users.type = admin): "new online booking",
  *    with the customer's contact details and a link to the booking. Reply-To = customer.
+ *  - NOT the customer (user's rule, 2026-10-07): the email is optional on the form and
+ *    the customer hears from us when the booking is CONFIRMED (bookingEvent 'confirmed').
  *
  * Sent through the booking company's own mail server (App\Support\CompanyMail), with
  * the booking's COMPANY as sender name. Never sends to reserved test domains (.test/.example/.invalid/.localhost,
@@ -29,7 +30,6 @@ class BookingNotifier
         $settings = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['CompanyName', 'email', 'CompanyPhone']);
         // companies.name first: a settings row cloned from the template can still say "Stocky".
         $company = trim((string) ($co->name ?? '')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Bookings');
-        $companyEmail = filter_var($settings->email ?? '', FILTER_VALIDATE_EMAIL) && ! self::reserved($settings->email) ? $settings->email : null;
         [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
 
         $when = $b['date'].', '.$b['time'].($b['end_time'] ? ' - '.$b['end_time'] : '');
@@ -39,21 +39,12 @@ class BookingNotifier
         ];
         $sent = ['customer' => false, 'admins' => []];
 
-        // ---- customer
-        $intro = "Hello {$b['name']},\n\nThank you for booking with {$company}. We received your appointment request "
-            ."and will contact you to confirm it.";
-        $sent['customer'] = self::deliver($mailer, $from, $company, $b['email'], $b['name'],
-            "Appointment request received - {$b['ref']} - {$company}",
-            $intro, $rows + ($b['requests'] ? ['Your request' => $b['requests']] : []),
-            'If you need to change or cancel it, simply reply to this email.'.(! empty($settings->CompanyPhone) ? " You can also call us at {$settings->CompanyPhone}." : ''),
-            $companyEmail);
-
         // ---- company admins
         // Every admin of the company (+ SuperAdmin copy when enabled) -- CompanyMail::recipients.
         $admins = collect(\App\Support\CompanyMail::recipients($companyId))
             ->map(fn ($r) => (object) ['email' => $r['email'], 'firstname' => $r['name'], 'lastname' => '', 'username' => $r['name']]);
         $adminRows = $rows + [
-            'Customer' => $b['name'], 'Email' => $b['email'], 'Phone' => $b['phone'] ?: '-',
+            'Customer' => $b['name'], 'Email' => $b['email'] ?: '-', 'Phone' => $b['phone'] ?: '-',
         ] + ($b['requests'] ? ['Special requests' => $b['requests']] : []);
         $link = url('/next/bookings/'.$b['booking_id'].'/edit');
         foreach ($admins as $a) {
@@ -61,7 +52,7 @@ class BookingNotifier
             $ok = self::deliver($mailer, $from, $company, $a->email, $adminName,
                 "New online booking - {$b['ref']} - {$b['service']} - {$when}",
                 "A new appointment was booked on the online booking page. It is Pending until you confirm it.",
-                $adminRows, "Open the booking: {$link}", $b['email'], $link,
+                $adminRows, "Open the booking: {$link}", $b['email'] ?: null, $link,
                 \App\Http\Controllers\BookingEmailConfirmController::link((int) $b['booking_id'], (string) $adminName));
             if ($ok) {
                 $sent['admins'][] = $a->email;
@@ -69,6 +60,22 @@ class BookingNotifier
         }
 
         return $sent;
+    }
+
+    /**
+     * Email check of the public form's limits per IP (2026-10-07): from the 4th
+     * booking in 24 h from one connection, the booking waits until the visitor
+     * opens this link and presses "I agree" (PublicBookingController::verify / agree).
+     */
+    public static function publicBookingVerify(int $companyId, string $email, string $name, string $link, array $rows, ?Mailer $mailer = null): bool
+    {
+        $company = trim((string) DB::table('companies')->where('id', $companyId)->value('name')) ?: 'Bookings';
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
+
+        return self::deliver($mailer, $from, $company, $email, $name,
+            "Please confirm your appointment request - {$company}",
+            "Hello {$name},\n\nWe received an appointment request with this email. To book it, open the link below and press \"I agree\". If you didn't make this request, just ignore this email.",
+            $rows, "Confirm my appointment: {$link}", null, $link);
     }
 
     /**
@@ -130,6 +137,28 @@ class BookingNotifier
                 $b->status === 'pending' ? \App\Http\Controllers\BookingEmailConfirmController::link((int) $b->id, (string) $adminName) : null);
             if ($ok) {
                 $sent[] = $a->email;
+            }
+        }
+
+        // ---- customer (2026-10-07): the booking is confirmed -> "your appointment is
+        // confirmed", when they gave an email. Online bookings get no email before this.
+        // Never the company's default / Walk-in customer (it often has the business's email).
+        if ($event === 'confirmed' && $customer && $customer->email) {
+            $s = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['email', 'CompanyPhone', 'client_id', 'booking_default_client_id']);
+            $isDefault = in_array((int) $customer->id, [(int) ($s->client_id ?? 0), (int) ($s->booking_default_client_id ?? 0)], true)
+                || stripos((string) $customer->name, 'Walk-in') === 0;
+            if (! $isDefault) {
+                $companyEmail = filter_var($s->email ?? '', FILTER_VALIDATE_EMAIL) && ! self::reserved($s->email) ? $s->email : null;
+                $ok = self::deliver($mailer, $from, $company, $customer->email, $customer->name,
+                    "Your appointment is confirmed - {$b->Ref} - {$company}",
+                    "Hello {$customer->name},\n\nYour appointment with {$company} is confirmed. See you soon!",
+                    ['Booking' => $b->Ref, 'Service' => $service, 'Date' => trim($date.', '.$time, ', '),
+                        'Price' => $rows['Price'], 'Staff' => $staff] + self::modeRows($b),
+                    'If you need to change or cancel it, simply reply to this email.'.(! empty($s->CompanyPhone) ? " You can also call us at {$s->CompanyPhone}." : ''),
+                    $companyEmail);
+                if ($ok) {
+                    $sent[] = $customer->email;
+                }
             }
         }
 

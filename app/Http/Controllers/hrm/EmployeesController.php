@@ -452,6 +452,89 @@ class EmployeesController extends Controller
     }
 
     /**
+     * GET employees/{id}/assets -- Assets tab: what is (and was) assigned to the
+     * employee's login (asset_assignments.user_id = employees.user_id), open first.
+     */
+    public function assets(Request $request, $id)
+    {
+        $employee = \App\Support\EmployeeTabs::employee($request, $id);
+        \App\Support\EmployeeTabs::abortUnless($request->user('api'), 'assets', 'view');
+
+        return response()->json(['assets' => $this->assetRows($employee)]);
+    }
+
+    private function assetRows($employee): array
+    {
+        if (! $employee->user_id) {
+            return [];
+        }
+
+        return \Illuminate\Support\Facades\DB::table('asset_assignments as aa')
+            ->join('assets as a', 'a.id', '=', 'aa.asset_id')
+            ->leftJoin('asset_categories as c', 'c.id', '=', 'a.asset_category_id')
+            ->where('aa.user_id', $employee->user_id)->whereNull('aa.deleted_at')->whereNull('a.deleted_at')
+            ->orderByRaw("aa.status = 'assigned' DESC")->orderByDesc('aa.assigned_on')
+            ->get(['aa.id', 'a.id as asset_id', 'a.tag', 'a.name', 'a.serial_number', 'c.name as category',
+                'aa.assigned_on', 'aa.due_back_on', 'aa.returned_on', 'aa.condition_out', 'aa.condition_in', 'aa.status', 'aa.notes'])
+            ->map(fn ($r) => (array) $r + ['overdue' => $r->status === 'assigned' && $r->due_back_on && $r->due_back_on < now()->toDateString()])
+            ->all();
+    }
+
+    /**
+     * GET employees/{id}/print -- everything for "Print profile": each section
+     * only with its tab's View permission (EmployeeTabs); bank account numbers
+     * masked; never passwords / PINs.
+     */
+    public function printProfile(Request $request, $id)
+    {
+        $employee = \App\Support\EmployeeTabs::employee($request, $id);
+        $user = $request->user('api');
+        $can = fn ($tab) => \App\Support\EmployeeTabs::can($user, $tab, 'view');
+        $db = \Illuminate\Support\Facades\DB::class;
+        $e = $employee;
+        $photo = $e->avatar && ! str_contains((string) $e->avatar, 'no_avatar') ? asset(ltrim($e->avatar, '/')) : null;
+
+        return response()->json([
+            'company' => [
+                'name' => $db::table('companies')->where('id', $e->company_id)->value('name'),
+                'logo' => ($l = \App\Models\Setting::forCompany((int) $e->company_id)->logo ?? null) ? asset(str_contains($l, '/') ? ltrim($l, '/') : 'images/'.$l) : null,
+            ],
+            'name' => trim($e->firstname.' '.$e->lastname),
+            'photo' => $can('basic') ? $photo : null,
+            'basic' => $can('basic') ? [
+                'First name' => $e->firstname, 'Last name' => $e->lastname, 'Gender' => $e->gender, 'Marital status' => $e->marital_status,
+                'Birth date' => $e->birth_date, 'Email' => $e->email, 'Phone' => $e->phone,
+                'Address' => trim(implode(', ', array_filter([$e->address, $e->city, $e->province, $e->zipcode, $e->country])), ', '),
+            ] : null,
+            'company_info' => $can('company') ? [
+                'Company' => $db::table('companies')->where('id', $e->company_id)->value('name'),
+                'Department' => $db::table('departments')->where('id', $e->department_id)->value('department'),
+                'Designation' => $db::table('designations')->where('id', $e->designation_id)->value('designation'),
+                'Office shift' => $db::table('office_shifts')->where('id', $e->office_shift_id)->value('name'),
+                'Employment type' => $e->employment_type, 'Joining date' => $e->joining_date, 'Leaving date' => $e->leaving_date,
+                'Pay' => $e->pay_type === 'commission' ? ((float) $e->commission_rate).'% commission'
+                    : ($e->hourly_rate ? '$'.number_format((float) $e->hourly_rate, 2).' / hour' : ($e->basic_salary ? '$'.number_format((float) $e->basic_salary, 2).' salary' : null)),
+                'Leave (total / remaining)' => $e->total_leave !== null ? $e->total_leave.' / '.$e->remaining_leave : null,
+            ] : null,
+            'social' => $can('social') ? array_filter([
+                'Facebook' => $e->facebook, 'WhatsApp' => $e->whatsapp, 'LinkedIn' => $e->linkedin, 'Twitter' => $e->twitter, 'Skype' => $e->skype,
+            ]) : null,
+            'experiences' => $can('experiences') ? $db::table('employee_experiences')->where('employee_id', $e->id)->whereNull('deleted_at')
+                ->orderByDesc('start_date')->get(['title', 'company_name', 'location', 'employment_type', 'start_date', 'end_date']) : null,
+            'accounts' => $can('accounts') ? $db::table('employee_accounts')->where('employee_id', $e->id)->whereNull('deleted_at')->get(['bank_name', 'bank_branch', 'account_no'])
+                ->map(fn ($a) => ['bank_name' => $a->bank_name, 'bank_branch' => $a->bank_branch,
+                    'account_no' => strlen((string) $a->account_no) > 4 ? str_repeat('•', 4).substr((string) $a->account_no, -4) : $a->account_no]) : null,
+            'user' => $can('user') && ($u = $this->linkedUser($employee)) ? [
+                'Username' => $u['username'] ?? null, 'Login email' => $u['email'] ?? null,
+                'Role' => $u['role'] ?? null, 'Status' => isset($u['statut']) ? ($u['statut'] ? 'Active' : 'Disabled') : null,
+            ] : null,
+            'assets' => $can('assets') ? $this->assetRows($employee) : null,
+            'printed_at' => now()->format('M j, Y g:i A'),
+            'printed_by' => trim(($user->firstname ?? '').' '.($user->lastname ?? '')) ?: $user->username,
+        ]);
+    }
+
+    /**
      * The user account linked to an employee (employees.user_id), for the
      * employee's User tab -- safe fields only (never password / PIN / tokens).
      */
@@ -999,12 +1082,17 @@ class EmployeesController extends Controller
             abort_unless((int) $targetCompanyId === (int) $actingUser->company_id, 403);
         }
         $this->abortUnlessOwnOrAll($request, Employee::findOrFail($id));
+        abort_if((int) Employee::whereKey($id)->value('user_id') === (int) $actingUser->id, 422, 'You can\'t remove your own employee record.');
 
-        Employee::whereId($id)->update([
-            'deleted_at' => Carbon::now(),
-        ]);
+        // One transaction: employee out, login disabled + signed out, open work released.
+        $done = \App\Services\EmployeeRemoval::remove((int) $id, $this->actorName($actingUser));
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'removed' => $done, 'message' => $done ? \App\Services\EmployeeRemoval::summary($done) : '']);
+    }
+
+    private function actorName($u): string
+    {
+        return trim(($u->firstname ?? '').' '.($u->lastname ?? '')) ?: (string) ($u->username ?? '');
     }
 
     // -------------- Delete by selection  ---------------\\
@@ -1027,13 +1115,13 @@ class EmployeesController extends Controller
             $selectedIds = Employee::whereIn('id', $selectedIds)->where('user_id', $actingUser->id)->pluck('id')->all();
         }
 
-        foreach ($selectedIds as $employee_id) {
-            Employee::whereId($employee_id)->update([
-                'deleted_at' => Carbon::now(),
-            ]);
-        }
+        // Never your own record; all of the selection or none of it (one transaction).
+        $selectedIds = Employee::whereIn('id', (array) $selectedIds)->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', '!=', $actingUser->id))->pluck('id')->all();
+        $removed = \Illuminate\Support\Facades\DB::transaction(fn () => array_values(array_filter(array_map(
+            fn ($eid) => \App\Services\EmployeeRemoval::remove((int) $eid, $this->actorName($actingUser)), $selectedIds))));
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'removed' => $removed,
+            'message' => implode("\n", array_map(fn ($d) => $d['employee'].': '.\App\Services\EmployeeRemoval::summary($d), $removed))]);
 
     }
 

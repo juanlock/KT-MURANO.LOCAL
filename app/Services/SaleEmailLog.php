@@ -105,4 +105,24 @@ class SaleEmailLog
 
         return $out;
     }
+
+    /**
+     * Per sale: every email sent (ok), oldest first -- [['kind', 'at']] -- for
+     * the Sales list's "Other Due" window (invoice + each reminder, with dates).
+     *
+     * @return array<int, array<int, array{kind: string, at: string}>>
+     */
+    public static function history(array $saleIds): array
+    {
+        if (! $saleIds || ! Schema::hasTable('sale_email_logs')) {
+            return [];
+        }
+        $out = [];
+        foreach (DB::table('sale_email_logs')->whereIn('sale_id', $saleIds)->where('status', 'ok')
+            ->orderBy('sent_at')->get(['sale_id', 'kind', 'sent_at']) as $r) {
+            $out[(int) $r->sale_id][] = ['kind' => $r->kind, 'at' => $r->sent_at];
+        }
+
+        return $out;
+    }
 }

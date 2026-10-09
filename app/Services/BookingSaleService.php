@@ -103,7 +103,7 @@ class BookingSaleService
             $sale->is_pos = 0;
             $sale->date = $date;
             $sale->time = $locked->booking_time ?: now()->toTimeString();
-            $sale->Ref = app(SalesController::class)->getNumberOrder();
+            $sale->Ref = app(SalesController::class)->getNumberOrder(null, (int) $client->company_id);
             $sale->client_id = $client->id;
             $sale->warehouse_id = $warehouseId;
             $sale->company_id = $companyId;

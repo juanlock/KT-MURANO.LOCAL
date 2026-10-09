@@ -1,5 +1,5 @@
 import { ref, computed, createVNode } from 'vue';
-import { message, Modal } from 'ant-design-vue';
+import { message, Modal, notification } from 'ant-design-vue';
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { t } from '../i18n';
@@ -59,6 +59,10 @@ export function useCrudTable(endpoint, options = {}) {
         // The documents use flat routes (e.g. sales_delete_by_selection)
         // instead of the usual `${endpoint}/delete/by_selection`.
         bulkDeleteEndpoint = null,
+        // Extra line in the delete confirmation (what else deleting does, e.g.
+        // an employee's login is disabled). The server's `message` after a
+        // delete, when it sends one, is shown to the user too.
+        deleteWarning = '',
         // Adds Ant's "Go to page" input to the pagination bar -- a quick way
         // to jump straight to the first or last page on tables with many
         // pages. Opt-in per page (default off) so existing tables keep their
@@ -167,16 +171,18 @@ export function useCrudTable(endpoint, options = {}) {
         Modal.confirm({
             title: t('Delete_Title', 'Are you sure?'),
             icon: createVNode(ExclamationCircleOutlined),
-            content: name
+            style: deleteWarning ? { whiteSpace: 'pre-line' } : undefined,
+            content: (name
                 ? `${t('Delete_Text', "You won't be able to revert this!")} — ${name}`
-                : t('Delete_Text', "You won't be able to revert this!"),
+                : t('Delete_Text', "You won't be able to revert this!")) + (deleteWarning ? `\n\n${deleteWarning}` : ''),
             okText: t('Delete_confirmButtonText', 'Yes, delete it!'),
             okType: 'danger',
             cancelText: t('Delete_cancelButtonText', 'Cancel'),
             async onOk() {
                 try {
-                    await http.delete(deleteEndpoint || `${resolveEndpoint()}/${record.id}`);
+                    const res = await http.delete(deleteEndpoint || `${resolveEndpoint()}/${record.id}`);
                     message.success(t('Deleted_in_successfully', 'Deleted successfully'));
+                    if (deleteWarning && res?.message) notification.info({ message: name || t('Deleted_in_successfully', 'Deleted successfully'), description: res.message, duration: 12 });
                     // Step back a page when the last row of the page is removed.
                     if (rows.value.length === 1 && page.value > 1) page.value--;
                     await fetchRows();
@@ -202,14 +208,16 @@ export function useCrudTable(endpoint, options = {}) {
         Modal.confirm({
             title: t('Delete_Title', 'Are you sure?'),
             icon: createVNode(ExclamationCircleOutlined),
-            content: `${t('Delete_Text', "You won't be able to revert this!")} (${selectedIds.value.length})`,
+            style: deleteWarning ? { whiteSpace: 'pre-line' } : undefined,
+            content: `${t('Delete_Text', "You won't be able to revert this!")} (${selectedIds.value.length})` + (deleteWarning ? `\n\n${deleteWarning}` : ''),
             okText: t('Delete_confirmButtonText', 'Yes, delete it!'),
             okType: 'danger',
             cancelText: t('Delete_cancelButtonText', 'Cancel'),
             async onOk() {
                 try {
-                    await http.post(bulkDeleteEndpoint || `${resolveEndpoint()}/delete/by_selection`, { selectedIds: selectedIds.value });
+                    const res = await http.post(bulkDeleteEndpoint || `${resolveEndpoint()}/delete/by_selection`, { selectedIds: selectedIds.value });
                     message.success(t('Deleted_in_successfully', 'Deleted successfully'));
+                    if (deleteWarning && res?.message) notification.info({ message: t('Deleted_in_successfully', 'Deleted successfully'), description: res.message, duration: 12, style: { whiteSpace: 'pre-line' } });
                     selectedIds.value = [];
                     await fetchRows();
                 } catch (e) {

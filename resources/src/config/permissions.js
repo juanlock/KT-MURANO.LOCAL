@@ -988,6 +988,8 @@ export const PERMISSION_GROUPS = [
             { "v": "employee_tab_accounts_edit", "l": "Employee_Tab_Accounts_Edit", "f": "Tab Bank accounts: add / edit / delete" },
             { "v": "employee_tab_user_view", "l": "Employee_Tab_User_View", "f": "Tab User: see" },
             { "v": "employee_tab_user_edit", "l": "Employee_Tab_User_Edit", "f": "Tab User: change picture" },
+            { "v": "employee_tab_assets_view", "l": "Employee_Tab_Assets_View", "f": "Tab Assets assigned: see" },
+            { "v": "employee_tab_assets_edit", "l": "Employee_Tab_Assets_Edit", "f": "Tab Assets assigned: edit (reserved)" },
             { "v": "employee_tab_production_view", "l": "Employee_Tab_Production_View", "f": "Tab Production: see" },
             { "v": "employee_tab_production_edit", "l": "Employee_Tab_Production_Edit", "f": "Tab Production: edit (reserved)" },
             { "v": "employee_tab_payments_view", "l": "Employee_Tab_Payments_View", "f": "Tab Payments: see" },

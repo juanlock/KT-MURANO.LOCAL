@@ -8,21 +8,28 @@ use Illuminate\Support\Facades\Auth;
 class Is_Active
 {
     /**
-     * Handle an incoming request.
+     * A disabled login (users.statut = 0 -- Users -> Disabled, a removed
+     * employee) is refused BEFORE the request runs (2026-10-07; it used to be
+     * checked after, so the request still went through), on the route's own
+     * guard (api or web).
      *
      * @param  \Illuminate\Http\Request  $request
      * @return mixed
      */
     public function handle($request, Closure $next)
     {
-        $response = $next($request);
-        // If the status is not approved redirect to login
-        if (Auth::check() && ! Auth::user()->statut) {
-            Auth::logout();
+        $user = $request->user();
+        if ($user && ! $user->statut) {
+            if (Auth::guard('web')->check()) {
+                Auth::guard('web')->logout();
+            }
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => 'Your account is disabled. Ask an administrator.'], 401);
+            }
 
-            return redirect('/login')->with('erro_login', 'Your error text');
+            return redirect('/login')->with('erro_login', 'Your account is disabled.');
         }
 
-        return $response;
+        return $next($request);
     }
 }

@@ -23,35 +23,35 @@
 
       <!-- POS -->
       <!-- POS Settings -> "Show POS button in header"; the account menu keeps its POS entry. -->
-      <a-button v-if="auth.can('Pos_view') && auth.posButtonEnabled" type="primary" class="pos-btn" @click="$router.push('/pos')">
+      <a-button v-if="auth.can('Pos_view') && auth.headerIcon('pos')" type="primary" class="pos-btn" @click="$router.push('/pos')">
         <template #icon><CalculatorOutlined /></template>
         <span class="hide-sm">POS</span>
       </a-button>
 
       <!-- Customize — theme/layout/language drawer (moved here from the old
            floating bottom-right handle), matching legacy's setting to hide it. -->
-      <a-tooltip v-if="auth.customizeButtonVisible" :title="$t('Settings')">
+      <a-tooltip v-if="auth.headerIcon('customize')" :title="$t('Settings')">
         <a-button type="text" class="icon-btn customize-btn" @click="ui.toggleCustomizer()">
           <template #icon><SettingOutlined /></template>
         </a-button>
       </a-tooltip>
 
       <!-- Install PWA — only while the browser is offering installation -->
-      <a-tooltip v-if="pwaCanInstall" :title="$t('Install_App')">
+      <a-tooltip v-if="pwaCanInstall && auth.headerIcon('install')" :title="$t('Install_App')">
         <a-button type="text" class="icon-btn install-btn" @click="promptInstall">
           <template #icon><DownloadOutlined /></template>
         </a-button>
       </a-tooltip>
 
       <!-- Today's summary -->
-      <a-tooltip title="Como Vamos!">
+      <a-tooltip v-if="auth.headerIcon('summary')" title="Como Vamos!">
         <a-button type="text" class="icon-btn summary-btn" @click="summaryOpen = true">
           <template #icon><PieChartOutlined /></template>
         </a-button>
       </a-tooltip>
 
       <!-- Fullscreen (hidden on phones — not meaningful there) -->
-      <a-tooltip title="Fullscreen">
+      <a-tooltip v-if="auth.headerIcon('fullscreen')" title="Fullscreen">
         <a-button type="text" class="icon-btn fullscreen-btn" @click="toggleFullScreen">
           <template #icon>
             <FullscreenExitOutlined v-if="isFullscreen" />
@@ -61,7 +61,7 @@
       </a-tooltip>
 
       <!-- Language -->
-      <a-dropdown v-if="auth.showLanguage" placement="bottomRight">
+      <a-dropdown v-if="auth.headerIcon('language')" placement="bottomRight">
         <a-button type="text" class="icon-btn lang-btn"><template #icon><GlobalOutlined /></template></a-button>
         <template #overlay>
           <a-menu :selected-keys="[ui.locale]" class="lang-menu" @click="({ key }) => ui.setLocale(key, auth.user?.id)">
@@ -77,7 +77,7 @@
       </a-dropdown>
 
       <!-- Notifications -->
-      <a-dropdown v-model:open="notifOpen" placement="bottomRight" :trigger="['click']">
+      <a-dropdown v-if="auth.headerIcon('notifications')" v-model:open="notifOpen" placement="bottomRight" :trigger="['click']">
         <!-- Badge wraps the icon as button CONTENT, not via the #icon slot:
              Ant sizes that slot for a bare icon and clips the count bubble.
              count 0 renders nothing, matching legacy's v-if on the badge. -->
@@ -120,7 +120,7 @@
       </a-dropdown>
 
       <!-- Clock in / Clock out: own attendance for today (attendance_self). -->
-      <a-tooltip v-if="canClock" :title="clock.in ? `Clocked in since ${clock.since} — click to clock out` : 'Clock in'">
+      <a-tooltip v-if="canClock && auth.headerIcon('clock')" :title="clock.in ? `Clocked in since ${clock.since} — click to clock out` : 'Clock in'">
         <a-button type="text" class="icon-btn clock-btn" :class="{ 'clock-btn--in': clock.in }" :loading="clock.busy" @click="toggleClock">
           <template #icon><FieldTimeOutlined /></template>
           <span v-if="clock.in" class="clock-since hide-sm">{{ clock.since }}</span>
@@ -128,7 +128,7 @@
       </a-tooltip>
 
       <!-- Log out in one click (same as the user menu's: POS close-out check included). -->
-      <a-tooltip :title="$t('logout')">
+      <a-tooltip v-if="auth.headerIcon('logout')" :title="$t('logout')">
         <a-button type="text" class="icon-btn logout-btn" :aria-label="$t('logout')" @click="signOut">
           <template #icon><LogoutOutlined /></template>
         </a-button>

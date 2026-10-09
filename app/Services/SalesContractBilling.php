@@ -272,7 +272,7 @@ class SalesContractBilling
             $sale->is_pos = 0;
             $sale->date = $date;
             $sale->time = now()->toTimeString();
-            $sale->Ref = app(SalesController::class)->getNumberOrder();
+            $sale->Ref = app(SalesController::class)->getNumberOrder((int) $contract->warehouse_id, (int) $contract->company_id);
             $sale->client_id = $client->id;
             $sale->warehouse_id = $warehouseId;
             $sale->company_id = (int) $contract->company_id;

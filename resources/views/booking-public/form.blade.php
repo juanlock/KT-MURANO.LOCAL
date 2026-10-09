@@ -85,13 +85,68 @@
     .done dt { color:var(--muted); } .done dd { margin:0; font-weight:600; }
     .hp { position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden; }
     footer { color:var(--muted); font-size:12.5px; text-align:center; margin-top:18px; }
+    /* ---- 3-step layout (compact, for websites that embed it) ---- */
+    .card { padding:18px; }
+    html.embed .card { padding:14px; }
+    h1 { font-size:20px; margin:0 0 12px; }
+    .vh { position:absolute !important; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; padding:0; margin:-1px; }
+    .steps { list-style:none; display:flex; gap:6px; padding:0; margin:0 0 14px; counter-reset:none; }
+    .steps li { flex:1; min-width:0; }
+    .steps button { width:100%; display:flex; align-items:center; gap:6px; padding:6px 8px; border:0; border-bottom:3px solid var(--line); background:none; color:var(--muted); font:600 13px/1.2 inherit; font-family:inherit; cursor:pointer; text-align:start; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .steps button span { flex:none; width:22px; height:22px; border-radius:50%; border:1px solid var(--line); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+    .steps button:disabled { cursor:default; opacity:.55; }
+    .steps button.done { color:var(--fg); border-bottom-color:var(--accent); }
+    .steps button.done span { background:var(--accent); border-color:var(--accent); color:var(--accent-fg); }
+    .steps button.on { color:var(--fg); border-bottom-color:var(--accent); }
+    .steps button.on span { border-color:var(--accent); color:var(--accent); }
+    @media (max-width:420px) { .steps button { font-size:12px; gap:4px; padding:6px 2px; } }
+    .step { display:none; }
+    .step.on { display:block; animation:stepIn .18s ease-out; }
+    @keyframes stepIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+    .svc-search { margin-bottom:10px; }
+    .chips { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:8px; scrollbar-width:thin; }
+    .chip { flex:none; padding:6px 12px; border:1px solid var(--line); border-radius:999px; background:var(--card); color:var(--fg); font:500 13px/1.2 inherit; font-family:inherit; cursor:pointer; white-space:nowrap; }
+    .chip[aria-selected="true"] { background:var(--accent); border-color:var(--accent); color:var(--accent-fg); }
+    .svc-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; max-height:360px; overflow-y:auto; padding:2px; }
+    .svc { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--fg); font:inherit; text-align:start; cursor:pointer; }
+    .svc:hover { border-color:var(--accent); }
+    .svc[aria-selected="true"] { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; background:var(--pick); }
+    .svc .nm { font-weight:600; font-size:14px; line-height:1.3; }
+    .svc .meta { flex:none; font-size:12.5px; color:var(--muted); text-align:end; white-space:nowrap; }
+    .svc .meta b { display:block; color:var(--fg); font-size:13.5px; }
+    .svc-empty { color:var(--muted); font-size:14px; padding:8px 2px; }
+    .summary { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:10px 12px; border-radius:10px; background:var(--pick); margin-bottom:12px; font-size:14px; }
+    .summary #picked { font-size:13.5px; font-weight:500; }
+    .link { flex:none; border:0; background:none; color:var(--accent); font:600 13.5px/1.4 inherit; font-family:inherit; cursor:pointer; padding:0; text-decoration:underline; }
+    .field.compact { max-width:320px; }
+    .actions { display:flex; justify-content:space-between; gap:10px; margin-top:6px; }
+    .btn.ghost { background:none; color:var(--fg); border:1px solid var(--line); }
+    .picked { margin:0; min-height:0; }
+    .head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    .head h1 { margin:0; }
+    .head-actions { display:flex; gap:6px; }
+    .tool { padding:5px 10px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:12.5px; font-weight:600; text-decoration:none; white-space:nowrap; background:var(--card); }
+    .tool:hover { color:var(--fg); border-color:var(--accent); }
+    .tool[hidden] { display:none; }
+    .opt { color:var(--muted); font-weight:400; font-size:12.5px; }
+    .done.center .actions { justify-content:center; }
+    .done-icon { width:52px; height:52px; margin:4px auto 10px; border-radius:50%; background:var(--accent); color:var(--accent-fg); display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; }
+    .code-box { display:inline-block; margin:4px auto 12px; padding:10px 22px; border:2px dashed var(--accent); border-radius:12px; background:var(--pick); }
+    .code-label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+    .code { font-size:24px; font-weight:800; letter-spacing:.04em; }
+    .done-when { color:var(--muted); font-size:14px; margin:0 0 16px; }
   </style>
+  @if(!empty($brand['bg']))
+    {{-- Online Booking -> Look -> Background color (validated #rrggbb), also in the embed and dark mode. --}}
+    <style>:root { --bg: {{ $brand['bg'] }} !important; } html.embed body { background: var(--bg); }</style>
+  @endif
   @if($embed)<script>document.documentElement.classList.add('embed');</script>@endif
 </head>
 <body>
   <div class="wrap">
     {{-- Header brand only when the form shows no logo of its own (no double logo). --}}
-    @if(!$embed && empty($brand['form_logo']))
+    {{-- Online Booking -> Look -> "Show logo" off: no header either. --}}
+    @if(!$embed && empty($brand['form_logo']) && empty($brand['hide_logo']))
       <div class="brand">
         @if(!empty($brand['logo']))
           <img src="{{ $brand['logo'] }}" alt="{{ $brand['name'] }}">
@@ -110,22 +165,65 @@
         </div>
       @endif
       @if($done)
-        <div class="done" role="status">
-          <h1>{{ __('Thank you, :name!', ['name' => $done['name']]) }}</h1>
-          <p class="sub">{{ __('Your appointment request was received. We sent the details to your email and will contact you to confirm it.') }}</p>
-          <dl>
-            <dt>{{ __('Reference') }}</dt><dd>{{ $done['ref'] }}</dd>
-            <dt>{{ __('Service') }}</dt><dd>{{ $done['service'] }}</dd>
-            <dt>{{ __('Date') }}</dt><dd>{{ $done['when'] }}</dd>
-          </dl>
-          <a class="btn" href="{{ route('booking.public', $formQuery) }}">{{ __('Book another appointment') }}</a>
+        <div class="done center" role="status">
+          <div class="done-icon" aria-hidden="true">&#10003;</div>
+          <h1>{{ __('Thank you for your registration, :name!', ['name' => $done['name']]) }}</h1>
+          <p class="sub">{{ __('We will contact you soon by phone or email to confirm your appointment.') }}</p>
+          <div class="code-box">
+            <div class="code-label">{{ __('Your registration code') }}</div>
+            <div class="code">{{ $done['ref'] }}</div>
+          </div>
+          <p class="done-when">{{ $done['service'] }}<br>{{ $done['when'] }}</p>
+          <div class="actions">
+            <a class="btn ghost" href="{{ $exitUrl ?? '#' }}" target="_top" @if(empty($exitUrl)) hidden @endif>&#10005; {{ __('Close') }}</a>
+            <a class="btn" href="{{ route('booking.public', $formQuery) }}">{{ __('New appointment') }}</a>
+          </div>
+        </div>
+      @elseif(!empty($verify) && $verify['state'] === 'sent')
+        {{-- Limits per IP: from the 4th booking in 24 h, confirm by email first. --}}
+        <div class="done center" role="status">
+          <div class="done-icon" aria-hidden="true">&#9993;</div>
+          <h1>{{ __('Check your email') }}</h1>
+          <p class="sub">{{ __('We sent a link to :email. Open it and press "I agree" to book your appointment. Then you can keep using this form.', ['email' => $verify['email']]) }}</p>
+          <div class="actions">
+            <a class="btn ghost" href="{{ $exitUrl ?? '#' }}" target="_top" @if(empty($exitUrl)) hidden @endif>&#10005; {{ __('Close') }}</a>
+            <a class="btn" href="{{ route('booking.public', $formQuery) }}">{{ __('New appointment') }}</a>
+          </div>
+        </div>
+      @elseif(!empty($verify) && $verify['state'] === 'agree')
+        <div class="done center">
+          <h1>{{ __('Confirm your appointment') }}</h1>
+          <p class="sub">{{ __('Please confirm that you, :name (:email), made this appointment request.', ['name' => $verify['name'], 'email' => $verify['email']]) }}</p>
+          <p class="done-when">{{ $verify['service'] }}<br>{{ $verify['when'] }}</p>
+          <form method="POST" action="{{ route('booking.public.agree', ['token' => $verify['token']] + $formQuery) }}">
+            @csrf
+            <div class="actions" style="justify-content:center">
+              <button type="submit" class="btn">{{ __('I agree — book my appointment') }}</button>
+            </div>
+          </form>
         </div>
       @elseif($services->isEmpty())
         <h1>{{ __('Book an appointment') }}</h1>
         <p class="sub">{{ __('Online booking is not available right now. Please contact us directly.') }}</p>
       @else
-        <h1>{{ __('Make an appointment') }}</h1>
-        <p class="sub">{{ __('Choose a service, a date and a time — we will confirm your booking.') }}</p>
+        <div class="head">
+          <h1>{{ __('Make an appointment') }}</h1>
+          {{-- Start over = the empty form again; Exit = back to the website (the page
+               around the frame when embedded, else the company website). --}}
+          <div class="head-actions">
+            <a class="tool" id="resetBtn" href="{{ route('booking.public', $formQuery) }}">&#8635; {{ __('Start over') }}</a>
+            <a class="tool" id="exitBtn" href="{{ $exitUrl ?? '#' }}" target="_top" @if(empty($exitUrl)) hidden @endif>&#10005; {{ __('Exit') }}</a>
+          </div>
+        </div>
+
+        {{-- 3 steps (2026-10-07): 1 Service -> 2 Date & time -> 3 Your details.
+             One <form>; the steps only show / hide its parts, and every field
+             keeps its name, so PublicBookingController::store is unchanged. --}}
+        <ol class="steps" id="steps">
+          <li><button type="button" data-go="1"><span>1</span>{{ __('Service') }}</button></li>
+          <li><button type="button" data-go="2"><span>2</span>{{ __('Date & time') }}</button></li>
+          <li><button type="button" data-go="3"><span>3</span>{{ __('Your details') }}</button></li>
+        </ol>
 
         @if(!empty($formErrors))
           <div class="alert alert-err" role="alert"><ul>@foreach($formErrors as $e)<li>{{ $e }}</li>@endforeach</ul></div>
@@ -135,46 +233,32 @@
           <input type="hidden" name="_ts" value="{{ $formTs }}">
           <div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 
-          {{-- Row 1: name. Row 2: email + phone. Row 3: service + staff. Row 4: date + time. --}}
-          <div class="field">
-            <label for="name">{{ __('Name') }} <span class="req">*</span></label>
-            <input type="text" id="name" name="name" maxlength="120" required autocomplete="name" value="{{ $val('name') }}">
-            <div class="field-err" id="nameErr"></div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label for="email">{{ __('Email') }} <span class="req">*</span></label>
-              <input type="email" id="email" name="email" maxlength="190" required autocomplete="email"
-                     placeholder="name@example.com" value="{{ $val('email') }}">
-              <div class="field-err" id="emailErr"></div>
-            </div>
-            <div class="field">
-              <label for="phone">{{ __('Phone') }}</label>
-              <input type="tel" id="phone" name="phone" maxlength="25" autocomplete="tel" inputmode="tel"
-                     placeholder="(555) 123-4567" value="{{ $val('phone') }}">
-              <div class="field-help" id="phoneHelp">{{ __('10-digit number, e.g. (555) 123-4567 — or +country code for international.') }}</div>
-              <div class="field-err" id="phoneErr"></div>
-            </div>
-          </div>
-          <div class="row{{ $staff->isEmpty() ? ' row-1' : '' }}">
-            <div class="field">
-              <label for="service_id">{{ __('Service') }} <span class="req">*</span></label>
-              <select id="service_id" name="service_id" required>
-                <option value="">{{ __('Select a service') }}</option>
-                {{-- One <optgroup> per Group Name (ungrouped services last, without a heading). --}}
-                @foreach($services->groupBy(fn ($s) => $s->group ?? '') as $group => $items)
-                  @if($group !== '')<optgroup label="{{ $group }}">@endif
-                  @foreach($items as $s)
-                    <option value="{{ $s->id }}" data-price="{{ number_format($s->price, 2) }}" data-duration="{{ $s->duration }}"
-                      @selected((string) ($old['service_id'] ?? request('service')) === (string) $s->id)>{{ $s->name }}</option>
-                  @endforeach
-                  @if($group !== '')</optgroup>@endif
+          {{-- ---------- Step 1: service ---------- --}}
+          <section class="step" data-step="1">
+            {{-- The real field; the visitor picks from the list below it. --}}
+            <select id="service_id" name="service_id" class="vh" tabindex="-1" aria-hidden="true">
+              <option value="">{{ __('Select a service') }}</option>
+              {{-- One <optgroup> per Group Name (ungrouped services last, without a heading). --}}
+              @foreach($services->groupBy(fn ($s) => $s->group ?? '') as $group => $items)
+                @if($group !== '')<optgroup label="{{ $group }}">@endif
+                @foreach($items as $s)
+                  <option value="{{ $s->id }}" data-price="{{ number_format($s->price, 2) }}" data-duration="{{ $s->duration }}"
+                    @selected((string) ($old['service_id'] ?? request('service')) === (string) $s->id)>{{ $s->name }}</option>
                 @endforeach
-              </select>
-              <div class="svc-info" id="svcInfo"></div>
-            </div>
+                @if($group !== '')</optgroup>@endif
+              @endforeach
+            </select>
+            <input type="search" id="svcSearch" class="svc-search" placeholder="{{ __('Search a service…') }}" autocomplete="off" aria-label="{{ __('Search a service') }}">
+            <div class="chips" id="svcGroups" role="tablist"></div>
+            <div class="svc-list" id="svcList" role="listbox" aria-label="{{ __('Services') }}"></div>
+            <div class="field-err" id="svcErr"></div>
+          </section>
+
+          {{-- ---------- Step 2: date & time ---------- --}}
+          <section class="step" data-step="2">
+            <div class="summary"><span id="svcInfo"></span> <button type="button" class="link" data-go="1">{{ __('Change') }}</button></div>
             @if($staff->isNotEmpty())
-              <div class="field">
+              <div class="field compact">
                 <label for="staff_id">{{ __('Staff') }}</label>
                 <select id="staff_id" name="staff_id">
                   <option value="">{{ __('Any staff') }}</option>
@@ -184,27 +268,57 @@
                 </select>
               </div>
             @endif
-          </div>
-          {{-- Date & time: tap a day, then a time slot (Settings -> Defaults -> Booking ->
-               Online booking hours). Fills the two hidden fields the server reads. --}}
-          <div class="field" id="dtField">
-            <label id="dtLabel">{{ __('Date & time') }} <span class="req">*</span></label>
-            <div class="daybar" role="group" aria-labelledby="dtLabel">
-              <button type="button" class="nav" id="dayPrev" aria-label="{{ __('Previous days') }}">&#8249;</button>
-              <div class="days" id="days"></div>
-              <button type="button" class="nav" id="dayNext" aria-label="{{ __('Next days') }}">&#8250;</button>
+            {{-- Tap a day, then a time slot (Settings -> Defaults -> Booking ->
+                 Online booking hours). Fills the two hidden fields the server reads. --}}
+            <div class="field" id="dtField">
+              <div class="daybar" role="group" aria-label="{{ __('Date & time') }}">
+                <button type="button" class="nav" id="dayPrev" aria-label="{{ __('Previous days') }}">&#8249;</button>
+                <div class="days" id="days"></div>
+                <button type="button" class="nav" id="dayNext" aria-label="{{ __('Next days') }}">&#8250;</button>
+              </div>
+              <div id="slots" class="slots" aria-live="polite"></div>
+              <div class="field-err" id="dtErr"></div>
+              <input type="hidden" id="appointment_date" name="appointment_date" value="{{ $val('appointment_date') }}">
+              <input type="hidden" id="appointment_time" name="appointment_time" value="{{ $val('appointment_time') }}">
             </div>
-            <div id="slots" class="slots" aria-live="polite"></div>
-            <div class="picked" id="picked"></div>
-            <div class="field-err" id="dtErr"></div>
-            <input type="hidden" id="appointment_date" name="appointment_date" value="{{ $val('appointment_date') }}">
-            <input type="hidden" id="appointment_time" name="appointment_time" value="{{ $val('appointment_time') }}">
-          </div>
-          <div class="field">
-            <label for="special_requests">{{ __('Special requests') }}</label>
-            <textarea id="special_requests" name="special_requests" maxlength="2000" placeholder="{{ __('Anything we should know before your visit…') }}">{{ $val('special_requests') }}</textarea>
-          </div>
-          <div class="center"><button type="submit" class="btn" id="bookBtn">{{ __('Submit appointment') }}</button></div>
+            <div class="actions"><button type="button" class="btn ghost" data-go="1">&#8249; {{ __('Back') }}</button></div>
+          </section>
+
+          {{-- ---------- Step 3: your details ---------- --}}
+          <section class="step" data-step="3">
+            <div class="summary">
+              <span><b id="sumSvc"></b><br><span id="picked"></span></span>
+              <button type="button" class="link" data-go="2">{{ __('Change') }}</button>
+            </div>
+            <div class="field">
+              <label for="name">{{ __('Name') }} <span class="req">*</span></label>
+              <input type="text" id="name" name="name" maxlength="120" required autocomplete="name" value="{{ $val('name') }}">
+              <div class="field-err" id="nameErr"></div>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="email">{{ __('Email') }} @if($needEmail ?? false)<span class="req">*</span>@else<span class="opt">({{ __('optional') }})</span>@endif</label>
+                <input type="email" id="email" name="email" maxlength="190" autocomplete="email"
+                       placeholder="name@example.com" value="{{ $val('email') }}">
+                @if($needEmail ?? false)<div class="field-help">{{ __('We will email you a link to confirm this appointment.') }}</div>@endif
+                <div class="field-err" id="emailErr"></div>
+              </div>
+              <div class="field">
+                <label for="phone">{{ __('Phone') }}</label>
+                <input type="tel" id="phone" name="phone" maxlength="25" autocomplete="tel" inputmode="tel"
+                       placeholder="(555) 123-4567" value="{{ $val('phone') }}">
+                <div class="field-err" id="phoneErr"></div>
+              </div>
+            </div>
+            <div class="field">
+              <label for="special_requests">{{ __('Special requests') }}</label>
+              <textarea id="special_requests" name="special_requests" maxlength="2000" rows="2" placeholder="{{ __('Anything we should know before your visit…') }}">{{ $val('special_requests') }}</textarea>
+            </div>
+            <div class="actions">
+              <button type="button" class="btn ghost" data-go="2">&#8249; {{ __('Back') }}</button>
+              <button type="submit" class="btn" id="bookBtn">{{ __('Book appointment') }}</button>
+            </div>
+          </section>
         </form>
       @endif
     </div>
@@ -214,18 +328,19 @@
 
   <script>
     (function () {
-      var sel = document.getElementById('service_id'), info = document.getElementById('svcInfo');
+      var sel = document.getElementById('service_id'), info = document.getElementById('svcInfo'), sumSvc = document.getElementById('sumSvc');
+      function durLabel(m) {
+        m = +m || 0; var h = Math.floor(m / 60), r = m % 60;
+        return [h ? h + ' h' : '', r ? r + ' min' : ''].filter(Boolean).join(' ');
+      }
+      function priceLabel(p) { return p && +p.replace(/,/g, '') > 0 ? '$' + p : ''; }
+      // The chosen service, shown on steps 2 and 3: "Haircut · $25.00 · 30 min".
       function showSvc() {
-        if (!sel || !info) return;
+        if (!sel) return;
         var o = sel.options[sel.selectedIndex];
-        if (!o || !o.value) { info.textContent = ''; return; }
-        var parts = [];
-        if (o.dataset.price) parts.push({!! json_encode(__('Price')) !!} + ': $' + o.dataset.price);
-        if (o.dataset.duration) {
-          var m = +o.dataset.duration, h = Math.floor(m / 60), r = m % 60;
-          parts.push([h ? h + ' h' : '', r ? r + ' min' : ''].filter(Boolean).join(' '));
-        }
-        info.textContent = parts.join(' · ');
+        var text = o && o.value ? [o.textContent.trim(), priceLabel(o.dataset.price), durLabel(o.dataset.duration)].filter(Boolean).join(' · ') : '';
+        if (info) info.textContent = text;
+        if (sumSvc) sumSvc.textContent = text;
       }
       if (sel) { sel.addEventListener('change', showSvc); showSvc(); }
       // ---- date & time picker: day strip + slot grid ----
@@ -341,7 +456,10 @@
         dateIn.value = isoDay;
         renderDays(); renderSlots(); renderPicked(); clearDtErr();
       }
-      function pickTime(t) { timeIn.value = t; renderSlots(); renderPicked(); clearDtErr(); }
+      function pickTime(t) {
+        timeIn.value = t; renderSlots(); renderPicked(); clearDtErr();
+        setTimeout(function () { goStep(3); }, 180); // a beat to see the pick, then the details
+      }
       function clearDtErr() { if (dateIn.value && timeIn.value) setDtErr(''); }
       function setDtErr(msg) {
         document.getElementById('dtErr').textContent = msg;
@@ -402,7 +520,8 @@
       }
       var checks = {
         name: function (v) { return v.trim() ? '' : MSG.name; },
-        email: function (v) { return EMAIL_RE.test(v.trim()) ? '' : MSG.email; },
+        // Optional, valid if given -- required when this connection must confirm by email.
+        email: function (v) { return (!v.trim() && !{{ ($needEmail ?? false) ? 'true' : 'false' }}) || EMAIL_RE.test(v.trim()) ? '' : MSG.email; },
         phone: function (v) { return phoneOk(v) ? '' : MSG.phone; },
       };
       function check(id) {
@@ -430,18 +549,100 @@
       var phoneEl = document.getElementById('phone');
       if (phoneEl && phoneEl.value) phoneEl.value = formatPhone(phoneEl.value);
 
+      // ---- steps: 1 service -> 2 date & time -> 3 your details ----
+      var stepNow = 1, stepsEl = document.getElementById('steps');
+      var ST = {!! json_encode(['all' => __('All'), 'none' => __('No service matches your search.'), 'other' => __('Other'), 'pickSvc' => __('Please choose a service.')]) !!};
+      function canGo(n) {
+        if (n >= 2 && !(sel && sel.value)) return false;
+        if (n >= 3 && !(dateIn && dateIn.value && timeIn.value)) return false;
+        return true;
+      }
+      function goStep(n, quiet) {
+        if (!stepsEl) return;
+        while (n > 1 && !canGo(n)) n--;
+        stepNow = n;
+        document.querySelectorAll('.step').forEach(function (s) { s.classList.toggle('on', +s.dataset.step === n); });
+        stepsEl.querySelectorAll('button').forEach(function (b) {
+          var k = +b.dataset.go;
+          b.classList.toggle('on', k === n);
+          b.classList.toggle('done', k < n);
+          b.disabled = k !== n && !canGo(k);
+          if (k === n) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+        });
+        if (n === 2) { renderDays(); renderSlots(); }
+        // Keep the top of the form in sight (also scrolls the website around the frame).
+        if (!quiet) { try { stepsEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { /* old browsers */ } }
+      }
+      document.querySelectorAll('[data-go]').forEach(function (b) {
+        b.addEventListener('click', function () { goStep(+this.dataset.go); });
+      });
+
+      // Service picker: group chips + search + list, built from the <select>'s options.
+      var groupsEl = document.getElementById('svcGroups'), listEl = document.getElementById('svcList'), searchEl = document.getElementById('svcSearch');
+      var SVCS = [], GROUPS = [], group = null;
+      if (sel) {
+        Array.prototype.forEach.call(sel.options, function (o) {
+          if (!o.value) return;
+          var g = o.parentNode.tagName === 'OPTGROUP' ? o.parentNode.label : ST.other;
+          if (GROUPS.indexOf(g) === -1) GROUPS.push(g);
+          SVCS.push({ id: o.value, name: o.textContent.trim(), group: g, price: priceLabel(o.dataset.price), dur: durLabel(o.dataset.duration) });
+        });
+      }
+      function renderGroups() {
+        if (!groupsEl) return;
+        groupsEl.innerHTML = '';
+        groupsEl.style.display = GROUPS.length > 1 ? '' : 'none';
+        [null].concat(GROUPS).forEach(function (g) {
+          var b = document.createElement('button');
+          b.type = 'button'; b.className = 'chip'; b.setAttribute('role', 'tab');
+          b.textContent = g === null ? ST.all : g;
+          b.setAttribute('aria-selected', g === group ? 'true' : 'false');
+          b.addEventListener('click', function () { group = g; renderGroups(); renderServices(); });
+          groupsEl.appendChild(b);
+        });
+      }
+      function renderServices() {
+        if (!listEl) return;
+        var q = (searchEl && searchEl.value || '').trim().toLowerCase();
+        var items = SVCS.filter(function (s) {
+          return q ? (s.name + ' ' + s.group).toLowerCase().indexOf(q) !== -1 : (group === null || s.group === group);
+        });
+        listEl.innerHTML = '';
+        if (!items.length) { listEl.innerHTML = '<div class="svc-empty"></div>'; listEl.firstChild.textContent = ST.none; return; }
+        items.forEach(function (s) {
+          var b = document.createElement('button');
+          b.type = 'button'; b.className = 'svc'; b.setAttribute('role', 'option');
+          b.setAttribute('aria-selected', sel.value === s.id ? 'true' : 'false');
+          b.innerHTML = '<span class="nm"></span><span class="meta"><b></b><span></span></span>';
+          b.querySelector('.nm').textContent = s.name;
+          b.querySelector('.meta b').textContent = s.price;
+          b.querySelector('.meta span').textContent = s.dur;
+          b.addEventListener('click', function () {
+            sel.value = s.id;
+            sel.dispatchEvent(new Event('change')); // re-checks free times for its duration
+            document.getElementById('svcErr').textContent = '';
+            renderServices();
+            goStep(2);
+          });
+          listEl.appendChild(b);
+        });
+      }
+      if (searchEl) searchEl.addEventListener('input', function () { group = null; renderGroups(); renderServices(); });
+      // Open on the chosen service's group (a link with ?service=, or the form shown again).
+      if (sel && sel.value) { var cur = SVCS.filter(function (s) { return s.id === sel.value; })[0]; if (cur && GROUPS.length > 1) group = cur.group; }
+      renderGroups(); renderServices(); showSvc();
+      // Where to start: the first step still missing something (all done = details).
+      goStep(sel && sel.value ? (dateIn && dateIn.value && timeIn.value && {{ !empty($formErrors) ? 'true' : 'false' }} ? 3 : 2) : 1, true);
+
       var form = document.getElementById('bookForm'), btn = document.getElementById('bookBtn');
       if (form) form.addEventListener('submit', function (e) {
+        if (!sel.value) { e.preventDefault(); goStep(1); document.getElementById('svcErr').textContent = ST.pickSvc; return; }
+        if (dateIn && (!dateIn.value || !timeIn.value)) { e.preventDefault(); goStep(2); setDtErr(DT.t.pick); return; }
         var ok = true, first = null;
         Object.keys(checks).forEach(function (id) {
           if (!check(id)) { ok = false; first = first || document.getElementById(id); }
         });
-        if (dateIn && (!dateIn.value || !timeIn.value)) {
-          setDtErr(DT.t.pick);
-          if (ok) { ok = false; first = slotsEl.querySelector('.slot:not(:disabled)') || daysEl.querySelector('.day:not(:disabled)'); }
-        }
-        if (!ok) { e.preventDefault(); if (first) first.focus(); return; }
-        if (!form.checkValidity()) { e.preventDefault(); form.reportValidity(); return; }
+        if (!ok) { e.preventDefault(); goStep(3); if (first) first.focus(); return; }
         btn.disabled = true; btn.textContent = {!! json_encode(__('Sending…')) !!};
       });
       // Embedded: tell the parent page our height so the iframe can grow with the content.

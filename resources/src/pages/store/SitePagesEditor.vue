@@ -102,6 +102,10 @@
               <div class="sp-side-hint" style="margin-top: 16px">
                 The menu at the top is edited in the <b>Website menu</b> tab.
               </div>
+              <a-button v-if="current?.sections?.length" block style="margin-top: 14px" @click="view = 'list'; tab = 'sections'">
+                Page sections &amp; embeds ({{ current.sections.length }})
+              </a-button>
+              <div v-if="current?.sections?.length" class="sp-side-hint">Change a whole block of the page, e.g. replace a booking calendar.</div>
             </template>
             <a-button v-if="sel" type="link" size="small" style="padding: 0; margin-top: 16px" @click="select(null)">← Back to help</a-button>
           </div>
@@ -139,10 +143,56 @@
                 <a-input v-model:value="edits.links[l.id]" size="small" :class="{ changed: edits.links[l.id] !== l.href }" />
               </div>
             </a-tab-pane>
+            <a-tab-pane key="sections" :tab="`Page sections (${(current.sections || []).length})`">
+              <div class="sp-side-hint" style="margin-bottom: 10px">
+                The blocks the page's menu jumps to (e.g. <b>#booking</b>) and every block with an embedded frame or script.
+                Edit a block's HTML, or swap an old booking calendar for ours.
+              </div>
+              <a-select
+                v-if="sectionKeys.length > 1" v-model:value="sectionKey" allow-clear placeholder="All sections"
+                :options="sectionKeys" style="min-width: 220px; margin-bottom: 10px" size="small"
+              />
+              <div v-for="s in filteredSections" :key="s.id" class="sp-sec">
+                <div class="sp-sec-head">
+                  <a-tag color="blue">{{ s.key ? `#${s.key}` : 'embed' }}</a-tag>
+                  <b>{{ s.label }}</b>
+                  <code class="sp-sec-el">{{ s.element }}</code>
+                </div>
+                <div v-if="s.embeds.length" class="sp-sec-embeds">
+                  <a-tag v-for="(e, n) in s.embeds" :key="n" :color="e.kind === 'iframe' ? 'purple' : 'orange'">
+                    {{ e.kind === 'iframe' ? 'Frame' : 'Script' }}{{ e.src ? `: ${e.src}` : '' }}
+                  </a-tag>
+                </div>
+                <div class="sp-sec-text">{{ sectionText(s) }}</div>
+                <a-space wrap :size="6">
+                  <a-button size="small" @click="editSection(s)">Edit HTML</a-button>
+                  <a-button v-if="s.embeds.length" size="small" type="primary" ghost @click="editSection(s, true)">Use our booking calendar</a-button>
+                </a-space>
+              </div>
+              <a-empty v-if="!filteredSections.length" description="No sections found on this page." />
+            </a-tab-pane>
           </a-tabs>
         </div>
       </a-spin>
     </a-card>
+
+    <!-- one section's HTML -->
+    <a-modal
+      v-model:open="secOpen" :title="secEdit ? `Section: ${secEdit.label}${secEdit.key ? ` (#${secEdit.key})` : ''}` : ''"
+      width="900px" ok-text="Save section" :confirm-loading="secSaving" :ok-button-props="{ disabled: !secChanged }" @ok="saveSection"
+    >
+      <template v-if="secEdit">
+        <a-space wrap style="margin-bottom: 8px">
+          <a-button v-if="secEdit.embeds.length" size="small" @click="secHtml = withBooking(secHtml)">Replace the embed with our booking calendar</a-button>
+          <a-button v-if="secChanged" size="small" @click="secHtml = secEdit.html">Undo changes</a-button>
+        </a-space>
+        <a-textarea v-model:value="secHtml" :auto-size="{ minRows: 12, maxRows: 26 }" class="sp-code" spellcheck="false" />
+        <div class="sp-side-hint">
+          Keep the outer tag and close every tag you open. Saved at once — "Restore original" undoes it.
+          Only a SuperAdmin can add scripts; anyone can remove one or add a frame (https:// or a page of this site).
+        </div>
+      </template>
+    </a-modal>
 
     <!-- pick a picture from Store -> Gallery -->
     <a-modal v-model:open="galleryOpen" title="Choose a picture from the Gallery" :footer="null" width="760px">
@@ -176,6 +226,7 @@ import {
 } from '@ant-design/icons-vue';
 import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const loadingList = ref(true);
 const loadingPage = ref(false);
@@ -443,6 +494,62 @@ async function restore() {
   }
 }
 
+/* ---------------- sections (whole blocks of HTML) ---------------- */
+const sectionKey = ref(null);
+const secOpen = ref(false);
+const secEdit = ref(null);
+const secHtml = ref('');
+const secSaving = ref(false);
+const secChanged = computed(() => !!secEdit.value && secHtml.value.trim() !== secEdit.value.html.trim());
+const sectionKeys = computed(() => {
+  const seen = new Map();
+  (current.value?.sections || []).forEach(s => { if (!seen.has(s.key)) seen.set(s.key, s.key ? `#${s.key} — ${s.label}` : 'Embeds'); });
+  return sortByLabel([...seen].map(([value, label]) => ({ value, label })));
+});
+const filteredSections = computed(() => (current.value?.sections || []).filter(s => sectionKey.value == null || s.key === sectionKey.value));
+function sectionText(s) {
+  const t = s.html.replace(/<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>|<!--[\s\S]*?-->/gi, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  return t.length > 160 ? `${t.slice(0, 160)}…` : t || '(no text — an embed or pictures)';
+}
+// Our booking page in place of the block's first embed (frame / inline script); other embeds go.
+function withBooking(html) {
+  const url = current.value.booking_url.replace(/&/g, '&amp;');
+  // data-murano-booking: the website page grows the frame with the form (FrontPage adds that script).
+  const frame = `<iframe src="${url}" data-murano-booking title="Book an appointment" loading="lazy" style="width:100%;height:720px;border:0;display:block"></iframe>`;
+  let done = false;
+  return html.replace(/<script\b(?![^>]*\ssrc\s*=)[^>]*>[\s\S]*?<\/script\s*>|<iframe\b[\s\S]*?<\/iframe\s*>/gi, () => {
+    if (done) return '';
+    done = true;
+    return frame;
+  });
+}
+async function editSection(s, booking = false) {
+  if (dirtyCount.value) {
+    message.warning('Save or discard the other changes of this page first.');
+    return;
+  }
+  secEdit.value = s;
+  secHtml.value = booking ? withBooking(s.html) : s.html;
+  secOpen.value = true;
+}
+async function saveSection() {
+  secSaving.value = true;
+  try {
+    await http.put(`admin/store/site-pages/${encodeURIComponent(current.value.file)}/sections/${secEdit.value.id}`, { version: current.value.version, html: secHtml.value });
+    secOpen.value = false;
+    await reloadCurrent();
+    view.value = 'list';
+    tab.value = 'sections';
+    message.success(`Saved — the section is live on ${current.value.file}.`);
+  } catch (e) {
+    const errs = e?.data?.errors ? Object.values(e.data.errors).flat().join(' ') : '';
+    message.error(errs || e?.data?.message || 'Could not save the section.', 8);
+  } finally {
+    secSaving.value = false;
+  }
+}
+
 /* ---------------- pictures ---------------- */
 async function upload(img, file) {
   uploadingId.value = img.id;
@@ -513,6 +620,13 @@ onMounted(loadList);
 .sp-thumb img { width: 100%; height: 100%; object-fit: contain; }
 .sp-link { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
 .sp-link-label { flex: 0 0 36%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
+.sp-sec { border: 1px solid rgba(5, 5, 5, 0.08); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+.sp-sec-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+.sp-sec-el { font-size: 11px; opacity: 0.6; overflow-wrap: anywhere; }
+.sp-sec-embeds { margin-bottom: 4px; }
+.sp-sec-embeds :deep(.ant-tag) { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-sec-text { font-size: 12px; opacity: 0.75; margin-bottom: 8px; overflow-wrap: anywhere; }
+.sp-code :deep(textarea), .sp-code { font-family: Consolas, Menlo, monospace; font-size: 12px; }
 .sp-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
 .sp-gallery img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid transparent; }
 .sp-gallery img:hover { border-color: #1677ff; }

@@ -131,6 +131,17 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
   - Date range filters use `PresetRangeFilter`.
   - A link to another module's page uses `<PermLink>`. It is only clickable
     when the user's role can open that page.
+- **Global processes are transactional.** An action that changes several
+  things does all of it or none (e.g. removing an employee:
+  `App\Services\EmployeeRemoval`; disabling a login: `App\Support\UserAccess`).
+- **Public links** (booking codes, anything pasted outside the app) use
+  `App\Support\PublicUrl`: the company's Public address, else the server
+  address (`APP_URL`; production `https://murano.kcoltech.com`).
+- **Sale numbers are per company**: the company's own prefix and its own
+  highest number (Ruba `INV_3604` …).
+- **Online booking**: only the name is required; customers get an email only
+  when the booking is confirmed; limits per connection (5 per 10 minutes, an
+  email check from the 4th in a day).
 
 ---
 
@@ -138,6 +149,36 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
+
+### 2026-10-07 (Thundera)
+
+- **Online booking.**
+  - 3-step form (Service → Date & time → Your details); only the name is
+    required.
+  - Start over / Exit / Close buttons, and a thank-you screen with the
+    registration code.
+  - Online Booking page: "Websites & codes" (iframe, link and button codes per
+    website), hide logo, background color.
+  - Limits per connection, with an "I agree" email check.
+  - The customer is emailed when the booking is confirmed.
+- **Imported websites** live in the Website module's folder. Website pages has
+  a "Page sections" editor (edit a block, "Use our booking calendar").
+- **Settings.**
+  - Header icons on / off for the company (Defaults → Users) and per user
+    (Profile).
+  - Server address (`APP_URL`) and a per-company Public address.
+- **Employees.**
+  - Assets assigned tab and Print profile.
+  - Removing an employee is one transaction: login disabled and signed out
+    everywhere, open work released for reassignment.
+- **Sales.**
+  - Invoice numbers per company (Ruba continues INV_3604, KcolTech INV_).
+  - "Add Service Job" follows the selected location.
+  - Other Due window with dates, days owing and emails sent.
+  - Mobile: lists scroll sideways, Sales filters fold away.
+- Test sales SL_0019 / SL_0184 (Ruba) and everything linked were removed.
+
+Setup: `php artisan migrate`, `npm run build`, `php artisan optimize:clear`.
 
 ### 2026-10-06 (Optimum)
 

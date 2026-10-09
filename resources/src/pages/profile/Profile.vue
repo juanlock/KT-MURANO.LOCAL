@@ -121,6 +121,23 @@
             </a-button>
           </a-form>
         </a-card>
+
+        <!-- My header icons: show / hide each one for me ("Company default" = what the admin chose). -->
+        <a-card style="margin-top: 16px">
+          <div class="section-title">Header icons</div>
+          <p class="hi-help">Choose which icons you see in the top bar. "Company default" follows your company's setting.</p>
+          <div v-for="ic in HEADER_ICONS" :key="ic.key" class="hi-row">
+            <div>
+              <div class="hi-label">{{ ic.label }}</div>
+              <div class="hi-sub">Company: {{ companyShows(ic.key) ? 'shown' : 'hidden' }}</div>
+            </div>
+            <a-segmented
+              v-model:value="iconChoice[ic.key]" size="small"
+              :options="[{ label: 'Company default', value: 'default' }, { label: 'Show', value: 'show' }, { label: 'Hide', value: 'hide' }]"
+            />
+          </div>
+          <a-button type="primary" :loading="savingIcons" :disabled="!iconsChanged" style="margin-top: 10px" @click="saveIcons">{{ $t('Save') }}</a-button>
+        </a-card>
       </a-col>
     </a-row>
   </div>
@@ -153,6 +170,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import { useAuthStore } from '../../stores/auth';
 import { uploadForm } from '../../lib/upload';
 import http from '../../lib/http';
+import { HEADER_ICONS } from '../../lib/headerIcons';
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -297,7 +315,34 @@ async function savePassword() {
   }
 }
 
-onMounted(loadProfile);
+// ---- My header icons (users.header_icons; missing = company default) ----
+const iconChoice = ref({});
+const savingIcons = ref(false);
+const companyShows = key => !(auth.user?.header_icons_hidden || []).includes(key);
+const savedChoice = key => {
+  const v = (auth.user?.header_icons_user || {})[key];
+  return v === true ? 'show' : v === false ? 'hide' : 'default';
+};
+function loadIcons() {
+  iconChoice.value = Object.fromEntries(HEADER_ICONS.map(ic => [ic.key, savedChoice(ic.key)]));
+}
+const iconsChanged = computed(() => HEADER_ICONS.some(ic => iconChoice.value[ic.key] !== savedChoice(ic.key)));
+async function saveIcons() {
+  savingIcons.value = true;
+  try {
+    const icons = Object.fromEntries(HEADER_ICONS.map(ic => [ic.key, { show: true, hide: false }[iconChoice.value[ic.key]] ?? null]));
+    const r = await http.put('my_header_icons', { icons });
+    if (auth.user) auth.user.header_icons_user = r.header_icons_user || {}; // the header follows at once
+    loadIcons();
+    message.success(t('Saved'));
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not save.');
+  } finally {
+    savingIcons.value = false;
+  }
+}
+
+onMounted(() => { loadProfile(); loadIcons(); });
 </script>
 
 <style scoped>
@@ -364,4 +409,8 @@ onMounted(loadProfile);
 .field-prefix {
   opacity: 0.4;
 }
+.hi-help { margin: -8px 0 10px; font-size: 13px; opacity: 0.7; }
+.hi-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid rgba(5, 5, 5, 0.06); }
+.hi-label { font-weight: 500; }
+.hi-sub { font-size: 12px; opacity: 0.6; }
 </style>

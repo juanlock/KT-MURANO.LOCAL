@@ -157,6 +157,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::post('/admin/store/site-pages/upload', [SitePagesApiController::class, 'upload']);
     Route::get('/admin/store/site-pages/{file}', [SitePagesApiController::class, 'show'])->where('file', '[A-Za-z0-9._-]+');
     Route::put('/admin/store/site-pages/{file}', [SitePagesApiController::class, 'update'])->where('file', '[A-Za-z0-9._-]+');
+    Route::put('/admin/store/site-pages/{file}/sections/{id}', [SitePagesApiController::class, 'updateSection'])->where('file', '[A-Za-z0-9._-]+')->whereNumber('id');
     Route::post('/admin/store/site-pages/{file}/restore', [SitePagesApiController::class, 'restore'])->where('file', '[A-Za-z0-9._-]+');
 
     // ---- Email Office (email_office_view / email_office_manage; per company) ----
@@ -698,6 +699,8 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
         Route::delete('/messages/{id}', 'destroyMessage')->whereNumber('id');
     });
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
+    Route::get('employees/{id}/assets', 'hrm\EmployeesController@assets')->whereNumber('id');
+    Route::get('employees/{id}/print', 'hrm\EmployeesController@printProfile')->whereNumber('id');
     Route::match(['post', 'delete'], 'employees/{id}/photo', 'hrm\EmployeesController@photo')->whereNumber('id');
     Route::resource('employees', 'hrm\EmployeesController');
     Route::post('employees/import/csv', 'hrm\EmployeesController@import_employees');
@@ -1248,6 +1251,8 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::delete('bookings/{id}', 'BookingController@destroy');
     Route::put('bookings/{id}/status', 'BookingController@changeStatus');    Route::post('bookings_send_email', 'BookingController@Send_Email');
     Route::get('bookings_public_link', 'BookingController@publicLink');
+    Route::put('bookings_public_look', 'BookingController@publicLook');
+    Route::put('bookings_public_websites', 'BookingController@publicWebsites');
     Route::get('bookings_availability', 'BookingController@availability');
 
     // ------------------------------- Trays --------------------------\\
@@ -1638,6 +1643,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::put('users_switch_activated/{id}', 'UserController@IsActivated');
     Route::get('Get_user_profile', 'UserController@GetInfoProfile');
     Route::put('update_user_profile/{id}', 'UserController@updateProfile');
+    Route::put('my_header_icons', 'UserController@updateMyHeaderIcons');
 
     // ------------------------------- Permission Groups user -----------\\
     // ------------------------------------------------------------------\\

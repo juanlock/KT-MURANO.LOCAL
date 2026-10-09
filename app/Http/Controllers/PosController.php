@@ -466,7 +466,7 @@ class PosController extends BaseController
                 $order->is_pos = 1;
                 $order->date = $saleAt->copy();
                 $order->time = $saleAt->toTimeString();
-                $order->Ref = app('App\Http\Controllers\SalesController')->getNumberOrder();
+                $order->Ref = app('App\Http\Controllers\SalesController')->getNumberOrder((int) $request->warehouse_id);
                 $order->client_id = $request->client_id;
                 $order->warehouse_id = $request->warehouse_id;
                 // Company = the warehouse's company (already checked against
@@ -1520,7 +1520,7 @@ class PosController extends BaseController
                 $order->is_pos = 1;
                 $order->date = Carbon::now();
                 $order->time = now()->toTimeString();
-                $order->Ref = app('App\Http\Controllers\SalesController')->getNumberOrder();
+                $order->Ref = app('App\Http\Controllers\SalesController')->getNumberOrder((int) $request->warehouse_id);
                 $order->client_id = $request->client_id;
                 $order->warehouse_id = $request->warehouse_id;
                 // Same as CreatePOS: the sale belongs to the warehouse's company.

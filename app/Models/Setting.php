@@ -83,6 +83,7 @@ class Setting extends Model
         'booking_status_enabled', 'booking_delivery_address_enabled',
         'booking_decimals_enabled',
         'booking_form_logo_enabled', 'booking_form_logo', 'booking_form_logo_width',
+        'booking_hide_logo', 'booking_bg_color',
         'booking_open_time', 'booking_close_time', 'booking_slot_minutes', 'booking_closed_days',
         'booking_capacity',
         // Defaults -> Booking: what a new booking starts with
@@ -180,6 +181,7 @@ class Setting extends Model
         'booking_decimals_enabled' => 'boolean',
         'booking_form_logo_enabled' => 'boolean',
         'booking_form_logo_width' => 'integer',
+        'booking_hide_logo' => 'boolean',
         'sale_pdf_show_disc_column' => 'boolean',
         'sale_pdf_show_tax_column' => 'boolean',
         'sale_pdf_show_shipping_row' => 'boolean',
