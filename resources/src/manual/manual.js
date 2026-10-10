@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-10-07';
+export const MANUAL_UPDATED = '2026-10-10';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start

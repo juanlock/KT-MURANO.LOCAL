@@ -155,6 +155,17 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
 
+### 2026-10-09 (Optimum)
+
+- **Profile → Header icons.**
+  - Show is green and Hide is red.
+  - The company's setting under each icon is shown in green or red.
+  - Each user can change the order of the icons in the top bar with ‹ ›
+    arrows, or put the standard order back with **Reset order**.
+- The user manual (English and Spanish) explains both.
+
+Setup: `npm run build`.
+
 ### 2026-10-07 evening (Thundera)
 
 - **User manual inside Murano.**
