@@ -92,6 +92,13 @@ export const useAuthStore = defineStore('auth', {
             if (typeof mine === 'boolean') return mine;
             return !(s.user.header_icons_hidden || []).includes(key);
         },
+        // Header icons' left-to-right place (Profile -> Header icons order):
+        // 1-based position in the user's order, used as the CSS flex order.
+        headerOrder: s => key => {
+            const order = (s.user && s.user.header_icons_order) || [];
+            const i = order.indexOf(key);
+            return i < 0 ? 50 : i + 1;
+        },
         // DataTable "Customize Columns": per-table admin column setup for this
         // company ({tableKey: [{key, title, width, hidden}]}), and who may edit it.
         datatableColumns: s => (s.user && s.user.datatable_columns) || {},

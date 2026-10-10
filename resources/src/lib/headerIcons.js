@@ -1,7 +1,9 @@
 /**
  * The header's icons that can be switched off (App\Support\HeaderIcons on the
  * server): for the whole company (System Settings -> Defaults -> Users) and by
- * each user (Profile). Order = their order in the header.
+ * each user (Profile). Order = the standard left-to-right order in the header;
+ * each user can change it in Profile (users.header_icons "_order",
+ * auth.headerOrder). A new icon gets a key here AND in HeaderIcons::KEYS.
  */
 export const HEADER_ICONS = [
   { key: 'pos', label: 'POS button', help: 'Also needs the role\'s POS permission.' },

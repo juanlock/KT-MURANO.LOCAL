@@ -125,14 +125,27 @@
         <!-- My header icons: show / hide each one for me ("Company default" = what the admin chose). -->
         <a-card style="margin-top: 16px">
           <div class="section-title">Header icons</div>
-          <p class="hi-help">Choose which icons you see in the top bar. "Company default" follows your company's setting.</p>
-          <div v-for="ic in HEADER_ICONS" :key="ic.key" class="hi-row">
-            <div>
-              <div class="hi-label">{{ ic.label }}</div>
-              <div class="hi-sub">Company: {{ companyShows(ic.key) ? 'shown' : 'hidden' }}</div>
+          <p class="hi-help">
+            Choose which icons you see in the top bar and their order: the list goes from left to right — use
+            <LeftOutlined /> / <RightOutlined /> to move an icon. "Company default" follows your company's setting.
+            <a v-if="!orderIsStandard" style="margin-left: 6px" @click="resetOrder">Reset order</a>
+          </p>
+          <div v-for="(ic, idx) in orderedIcons" :key="ic.key" class="hi-row">
+            <div class="hi-move">
+              <a-tooltip title="Move left">
+                <a-button size="small" type="text" :disabled="idx === 0" aria-label="Move left" @click="moveIcon(idx, -1)"><template #icon><LeftOutlined /></template></a-button>
+              </a-tooltip>
+              <a-tooltip title="Move right">
+                <a-button size="small" type="text" :disabled="idx === orderedIcons.length - 1" aria-label="Move right" @click="moveIcon(idx, 1)"><template #icon><RightOutlined /></template></a-button>
+              </a-tooltip>
             </div>
+            <div class="hi-name">
+              <div class="hi-label">{{ ic.label }}</div>
+              <div class="hi-sub">Company: <span :class="companyShows(ic.key) ? 'hi-on' : 'hi-off'">{{ companyShows(ic.key) ? 'shown' : 'hidden' }}</span></div>
+            </div>
+            <!-- Colored by choice: Show = green, Hide = red, Company default = neutral. -->
             <a-segmented
-              v-model:value="iconChoice[ic.key]" size="small"
+              v-model:value="iconChoice[ic.key]" size="small" :class="['hi-seg', 'hi-seg--' + iconChoice[ic.key]]"
               :options="[{ label: 'Company default', value: 'default' }, { label: 'Show', value: 'show' }, { label: 'Hide', value: 'hide' }]"
             />
           </div>
@@ -164,7 +177,7 @@ import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   UploadOutlined, UserOutlined, IdcardOutlined, MailOutlined,
-  PhoneOutlined, LockOutlined,
+  PhoneOutlined, LockOutlined, LeftOutlined, RightOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { useAuthStore } from '../../stores/auth';
@@ -323,16 +336,39 @@ const savedChoice = key => {
   const v = (auth.user?.header_icons_user || {})[key];
   return v === true ? 'show' : v === false ? 'hide' : 'default';
 };
+// Left-to-right order (users.header_icons "_order"; keys missing = standard place).
+const STANDARD_ORDER = HEADER_ICONS.map(ic => ic.key);
+const savedOrder = () => {
+  const o = (auth.user?.header_icons_order || []).filter(k => STANDARD_ORDER.includes(k));
+  return [...o, ...STANDARD_ORDER.filter(k => !o.includes(k))];
+};
+const iconOrder = ref([...STANDARD_ORDER]);
+const orderedIcons = computed(() => iconOrder.value.map(k => HEADER_ICONS.find(ic => ic.key === k)).filter(Boolean));
+const orderIsStandard = computed(() => iconOrder.value.join() === STANDARD_ORDER.join());
+function moveIcon(idx, dir) {
+  const o = [...iconOrder.value];
+  const j = idx + dir;
+  if (j < 0 || j >= o.length) return;
+  [o[idx], o[j]] = [o[j], o[idx]];
+  iconOrder.value = o;
+}
+function resetOrder() { iconOrder.value = [...STANDARD_ORDER]; }
 function loadIcons() {
   iconChoice.value = Object.fromEntries(HEADER_ICONS.map(ic => [ic.key, savedChoice(ic.key)]));
+  iconOrder.value = savedOrder();
 }
-const iconsChanged = computed(() => HEADER_ICONS.some(ic => iconChoice.value[ic.key] !== savedChoice(ic.key)));
+const iconsChanged = computed(() => HEADER_ICONS.some(ic => iconChoice.value[ic.key] !== savedChoice(ic.key))
+  || iconOrder.value.join() !== savedOrder().join());
 async function saveIcons() {
   savingIcons.value = true;
   try {
     const icons = Object.fromEntries(HEADER_ICONS.map(ic => [ic.key, { show: true, hide: false }[iconChoice.value[ic.key]] ?? null]));
-    const r = await http.put('my_header_icons', { icons });
-    if (auth.user) auth.user.header_icons_user = r.header_icons_user || {}; // the header follows at once
+    const r = await http.put('my_header_icons', { icons, order: iconOrder.value });
+    if (auth.user) {
+      // the header follows at once
+      auth.user.header_icons_user = r.header_icons_user || {};
+      auth.user.header_icons_order = r.header_icons_order || [...iconOrder.value];
+    }
     loadIcons();
     message.success(t('Saved'));
   } catch (e) {
@@ -412,5 +448,16 @@ onMounted(() => { loadProfile(); loadIcons(); });
 .hi-help { margin: -8px 0 10px; font-size: 13px; opacity: 0.7; }
 .hi-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid rgba(5, 5, 5, 0.06); }
 .hi-label { font-weight: 500; }
-.hi-sub { font-size: 12px; opacity: 0.6; }
+.hi-move { display: flex; gap: 2px; flex: 0 0 auto; }
+.hi-name { flex: 1 1 200px; min-width: 0; }
+.hi-sub { font-size: 12px; opacity: 0.75; }
+.hi-on { color: #389e0d; font-weight: 600; }
+.hi-off { color: #cf1322; font-weight: 600; }
+/* Selected choice: Show = green, Hide = red; unselected Show / Hide keep a hint of their color. */
+.hi-seg :deep(.ant-segmented-item:nth-child(2):not(.ant-segmented-item-selected)) { color: #389e0d; }
+.hi-seg :deep(.ant-segmented-item:nth-child(3):not(.ant-segmented-item-selected)) { color: #cf1322; }
+.hi-seg--show :deep(.ant-segmented-item-selected),
+.hi-seg--show :deep(.ant-segmented-thumb) { background: #52c41a; color: #fff; }
+.hi-seg--hide :deep(.ant-segmented-item-selected),
+.hi-seg--hide :deep(.ant-segmented-thumb) { background: #ff4d4f; color: #fff; }
 </style>

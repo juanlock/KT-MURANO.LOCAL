@@ -59,6 +59,33 @@ class HeaderIcons
         DB::table('pos_settings')->where('company_id', $companyId)->update(['show_pos_button' => in_array('pos', $hidden, true) ? 0 : 1]);
     }
 
+    /**
+     * The user's own order, left to right (Profile -> Header icons, saved as
+     * "_order" in users.header_icons): every key once; keys missing from the
+     * saved list (new icons) go where they are in KEYS.
+     */
+    public static function userOrder(?string $json): array
+    {
+        $raw = json_decode((string) $json, true);
+
+        return self::cleanOrder(is_array($raw) && is_array($raw['_order'] ?? null) ? $raw['_order'] : []);
+    }
+
+    /** A full, valid order from any list of keys (unknown dropped, missing appended in KEYS order). */
+    public static function cleanOrder(array $keys): array
+    {
+        $order = array_values(array_unique(array_intersect(array_filter($keys, 'is_string'), self::KEYS)));
+        foreach (self::KEYS as $k) {
+            if (! in_array($k, $order, true)) {
+                $pos = array_search($k, self::KEYS, true);
+                // keep a new icon next to where it is by default
+                array_splice($order, min($pos, count($order)), 0, [$k]);
+            }
+        }
+
+        return $order;
+    }
+
     /** The user's own choices {key: bool} (only valid keys). */
     public static function userChoices(?string $json): array
     {

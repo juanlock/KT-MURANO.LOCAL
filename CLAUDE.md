@@ -245,7 +245,11 @@ the start of each session).
   Show / Hide), `App\Support\HeaderIcons` + `lib/headerIcons.js`, the topbar uses
   `auth.headerIcon(key)`. POS / Settings / Language keep their older switches
   (pos_settings.show_pos_button, customize_button_visible, show_language) as the
-  company value. A new header icon gets a key in both lists.
+  company value. A new header icon gets a key in both lists. Each user can
+  also change the icons' left-to-right order in Profile (2026-10-09; stored
+  as `_order` in `users.header_icons`, `HeaderIcons::userOrder()`, topbar
+  slots use `auth.headerOrder(key)` as the flex order -- a new icon goes in a
+  `tb-slot` too).
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the

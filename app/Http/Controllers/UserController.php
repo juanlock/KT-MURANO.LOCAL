@@ -185,6 +185,7 @@ class UserController extends BaseController
             // Header icons on / off: the company's hidden list + this user's own choices (App\Support\HeaderIcons).
             'header_icons_hidden' => \App\Support\HeaderIcons::companyHidden((int) $this->resolveActingCompanyId($request)),
             'header_icons_user' => (object) \App\Support\HeaderIcons::userChoices($user->header_icons ?? null),
+            'header_icons_order' => \App\Support\HeaderIcons::userOrder($user->header_icons ?? null),
             'timezone' => $this->getEnvValue('APP_TIMEZONE', 'UTC'),
             // Admin-defined sidebar arrangement (null = default menu.js order) â€”
             // applied by the SPA for every user at boot.
@@ -917,21 +918,28 @@ class UserController extends BaseController
     // ------------- GET USER Auth ---------\\
 
     /**
-     * PUT my_header_icons {icons: {key: true|false|null}} -- Profile -> Header icons:
-     * the signed-in user's own choices (null = follow the company).
+     * PUT my_header_icons {icons: {key: true|false|null}, order?: [keys]} -- Profile
+     * -> Header icons: the signed-in user's own choices (null = follow the
+     * company) and their left-to-right order (stored as "_order").
      */
     public function updateMyHeaderIcons(Request $request)
     {
-        $icons = $request->validate(['icons' => 'present|array'])['icons'];
+        $data = $request->validate(['icons' => 'present|array', 'order' => 'nullable|array', 'order.*' => 'string']);
+        $icons = $data['icons'];
         $choices = [];
         foreach (\App\Support\HeaderIcons::KEYS as $k) {
             if (array_key_exists($k, $icons) && $icons[$k] !== null) {
                 $choices[$k] = filter_var($icons[$k], FILTER_VALIDATE_BOOLEAN);
             }
         }
-        User::whereKey(Auth::id())->update(['header_icons' => $choices ? json_encode($choices) : null]);
+        $stored = $choices;
+        $order = \App\Support\HeaderIcons::cleanOrder($data['order'] ?? []);
+        if ($order !== \App\Support\HeaderIcons::KEYS) {
+            $stored['_order'] = $order; // only kept when it differs from the standard order
+        }
+        User::whereKey(Auth::id())->update(['header_icons' => $stored ? json_encode($stored) : null]);
 
-        return response()->json(['success' => true, 'header_icons_user' => (object) $choices]);
+        return response()->json(['success' => true, 'header_icons_user' => (object) $choices, 'header_icons_order' => $order]);
     }
 
     public function GetInfoProfile(Request $request)

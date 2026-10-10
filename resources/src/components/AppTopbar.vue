@@ -8,8 +8,8 @@
       </template>
     </a-button>
 
-    <!-- Right: actions -->
-    <a-space :size="4">
+    <!-- Right: actions (icons placed by the user's order, Profile -> Header icons) -->
+    <div class="tb-actions">
       <!-- Company switcher (SuperAdmin only) -- every page/form acts on
            whichever company is selected here until changed again. -->
       <a-select
@@ -23,126 +23,146 @@
 
       <!-- POS -->
       <!-- POS Settings -> "Show POS button in header"; the account menu keeps its POS entry. -->
-      <a-button v-if="auth.can('Pos_view') && auth.headerIcon('pos')" type="primary" class="pos-btn" @click="$router.push('/pos')">
-        <template #icon><CalculatorOutlined /></template>
-        <span class="hide-sm">POS</span>
-      </a-button>
+      <span v-if="auth.can('Pos_view') && auth.headerIcon('pos')" class="tb-slot" :style="{ order: auth.headerOrder('pos') }">
+        <a-button type="primary" class="pos-btn" @click="$router.push('/pos')">
+          <template #icon><CalculatorOutlined /></template>
+          <span class="hide-sm">POS</span>
+        </a-button>
+      </span>
 
       <!-- Customize — theme/layout/language drawer (moved here from the old
            floating bottom-right handle), matching legacy's setting to hide it. -->
-      <a-tooltip v-if="auth.headerIcon('customize')" :title="$t('Settings')">
-        <a-button type="text" class="icon-btn customize-btn" @click="ui.toggleCustomizer()">
-          <template #icon><SettingOutlined /></template>
-        </a-button>
-      </a-tooltip>
+      <span v-if="auth.headerIcon('customize')" class="tb-slot" :style="{ order: auth.headerOrder('customize') }">
+        <a-tooltip :title="$t('Settings')">
+          <a-button type="text" class="icon-btn customize-btn" @click="ui.toggleCustomizer()">
+            <template #icon><SettingOutlined /></template>
+          </a-button>
+        </a-tooltip>
+      </span>
 
       <!-- Install PWA — only while the browser is offering installation -->
-      <a-tooltip v-if="pwaCanInstall && auth.headerIcon('install')" :title="$t('Install_App')">
-        <a-button type="text" class="icon-btn install-btn" @click="promptInstall">
-          <template #icon><DownloadOutlined /></template>
-        </a-button>
-      </a-tooltip>
+      <span v-if="pwaCanInstall && auth.headerIcon('install')" class="tb-slot" :style="{ order: auth.headerOrder('install') }">
+        <a-tooltip :title="$t('Install_App')">
+          <a-button type="text" class="icon-btn install-btn" @click="promptInstall">
+            <template #icon><DownloadOutlined /></template>
+          </a-button>
+        </a-tooltip>
+      </span>
 
       <!-- Today's summary -->
-      <a-tooltip v-if="auth.headerIcon('summary')" title="Como Vamos!">
-        <a-button type="text" class="icon-btn summary-btn" @click="summaryOpen = true">
-          <template #icon><PieChartOutlined /></template>
-        </a-button>
-      </a-tooltip>
+      <span v-if="auth.headerIcon('summary')" class="tb-slot" :style="{ order: auth.headerOrder('summary') }">
+        <a-tooltip title="Como Vamos!">
+          <a-button type="text" class="icon-btn summary-btn" @click="summaryOpen = true">
+            <template #icon><PieChartOutlined /></template>
+          </a-button>
+        </a-tooltip>
+      </span>
 
       <!-- Fullscreen (hidden on phones — not meaningful there) -->
-      <a-tooltip v-if="auth.headerIcon('fullscreen')" title="Fullscreen">
-        <a-button type="text" class="icon-btn fullscreen-btn" @click="toggleFullScreen">
-          <template #icon>
-            <FullscreenExitOutlined v-if="isFullscreen" />
-            <FullscreenOutlined v-else />
-          </template>
-        </a-button>
-      </a-tooltip>
+      <span v-if="auth.headerIcon('fullscreen')" class="tb-slot" :style="{ order: auth.headerOrder('fullscreen') }">
+        <a-tooltip title="Fullscreen">
+          <a-button type="text" class="icon-btn fullscreen-btn" @click="toggleFullScreen">
+            <template #icon>
+              <FullscreenExitOutlined v-if="isFullscreen" />
+              <FullscreenOutlined v-else />
+            </template>
+          </a-button>
+        </a-tooltip>
+      </span>
 
       <!-- User manual: this page or the whole manual (company modules + role). -->
-      <a-tooltip v-if="auth.headerIcon('manual')" :title="ui.locale === 'es' ? 'Manual de usuario' : 'User manual'">
-        <a-button type="text" class="icon-btn manual-btn" aria-label="User manual" @click="manualOpen = true">
-          <template #icon><BookOutlined /></template>
-        </a-button>
-      </a-tooltip>
+      <span v-if="auth.headerIcon('manual')" class="tb-slot" :style="{ order: auth.headerOrder('manual') }">
+        <a-tooltip :title="ui.locale === 'es' ? 'Manual de usuario' : 'User manual'">
+          <a-button type="text" class="icon-btn manual-btn" aria-label="User manual" @click="manualOpen = true">
+            <template #icon><BookOutlined /></template>
+          </a-button>
+        </a-tooltip>
+      </span>
 
       <!-- Language -->
-      <a-dropdown v-if="auth.headerIcon('language')" placement="bottomRight">
-        <a-button type="text" class="icon-btn lang-btn"><template #icon><GlobalOutlined /></template></a-button>
-        <template #overlay>
-          <a-menu :selected-keys="[ui.locale]" class="lang-menu" @click="({ key }) => ui.setLocale(key, auth.user?.id)">
-            <a-menu-item v-for="l in languages" :key="l.value">
-              <span class="lang-row">
-                <img v-if="l.image" :src="l.image" :alt="l.label" class="flag" />
-                <span v-else>{{ l.flag }}</span>
-                <span>{{ l.label }}</span>
-              </span>
-            </a-menu-item>
-          </a-menu>
-        </template>
-      </a-dropdown>
+      <span v-if="auth.headerIcon('language')" class="tb-slot" :style="{ order: auth.headerOrder('language') }">
+        <a-dropdown placement="bottomRight">
+          <a-button type="text" class="icon-btn lang-btn"><template #icon><GlobalOutlined /></template></a-button>
+          <template #overlay>
+            <a-menu :selected-keys="[ui.locale]" class="lang-menu" @click="({ key }) => ui.setLocale(key, auth.user?.id)">
+              <a-menu-item v-for="l in languages" :key="l.value">
+                <span class="lang-row">
+                  <img v-if="l.image" :src="l.image" :alt="l.label" class="flag" />
+                  <span v-else>{{ l.flag }}</span>
+                  <span>{{ l.label }}</span>
+                </span>
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+      </span>
 
       <!-- Notifications -->
-      <a-dropdown v-if="auth.headerIcon('notifications')" v-model:open="notifOpen" placement="bottomRight" :trigger="['click']">
-        <!-- Badge wraps the icon as button CONTENT, not via the #icon slot:
-             Ant sizes that slot for a bare icon and clips the count bubble.
-             count 0 renders nothing, matching legacy's v-if on the badge. -->
-        <a-button type="text" class="icon-btn notif-btn">
-          <a-badge :count="pending.total" size="small" :offset="[4, -2]">
-            <BellOutlined class="bell" />
-          </a-badge>
-        </a-button>
-        <template #overlay>
-          <div class="notif-menu" :class="{ 'notif-menu--dark': ui.dark }">
-            <div class="notif-head">
-              <span class="notif-title">{{ $t('Notifications') }}</span>
-              <span v-if="pending.total" class="notif-pill">{{ pending.total }}</span>
-            </div>
+      <span v-if="auth.headerIcon('notifications')" class="tb-slot" :style="{ order: auth.headerOrder('notifications') }">
+        <a-dropdown v-model:open="notifOpen" placement="bottomRight" :trigger="['click']">
+          <!-- Badge wraps the icon as button CONTENT, not via the #icon slot:
+               Ant sizes that slot for a bare icon and clips the count bubble.
+               count 0 renders nothing, matching legacy's v-if on the badge. -->
+          <a-button type="text" class="icon-btn notif-btn">
+            <a-badge :count="pending.total" size="small" :offset="[4, -2]">
+              <BellOutlined class="bell" />
+            </a-badge>
+          </a-button>
+          <template #overlay>
+            <div class="notif-menu" :class="{ 'notif-menu--dark': ui.dark }">
+              <div class="notif-head">
+                <span class="notif-title">{{ $t('Notifications') }}</span>
+                <span v-if="pending.total" class="notif-pill">{{ pending.total }}</span>
+              </div>
 
-            <div class="notif-list">
-              <button
-                v-for="item in pending.items" :key="item.key"
-                type="button" class="notif-item" @click="goPending(item)"
-              >
-                <span class="notif-ic" :class="{ 'notif-ic--warn': item.severity === 'warning' }">
-                  <WarningFilled v-if="item.severity === 'warning'" />
-                  <BellOutlined v-else />
-                </span>
-                <span class="notif-body">
-                  <span class="notif-item-title">{{ item.count }} {{ $t(item.label_key) }}</span>
-                  <span class="notif-item-sub">{{ $t('Waiting_for_action') }}</span>
-                </span>
-                <RightOutlined class="notif-chev" />
-              </button>
+              <div class="notif-list">
+                <button
+                  v-for="item in pending.items" :key="item.key"
+                  type="button" class="notif-item" @click="goPending(item)"
+                >
+                  <span class="notif-ic" :class="{ 'notif-ic--warn': item.severity === 'warning' }">
+                    <WarningFilled v-if="item.severity === 'warning'" />
+                    <BellOutlined v-else />
+                  </span>
+                  <span class="notif-body">
+                    <span class="notif-item-title">{{ item.count }} {{ $t(item.label_key) }}</span>
+                    <span class="notif-item-sub">{{ $t('Waiting_for_action') }}</span>
+                  </span>
+                  <RightOutlined class="notif-chev" />
+                </button>
 
-              <div v-if="!pending.items.length" class="notif-empty">
-                <span class="notif-empty-ic"><BellOutlined /></span>
-                <span class="notif-empty-title">{{ $t('No_notifications') }}</span>
-                <span class="notif-empty-sub">{{ $t('You_are_all_caught_up') }}</span>
+                <div v-if="!pending.items.length" class="notif-empty">
+                  <span class="notif-empty-ic"><BellOutlined /></span>
+                  <span class="notif-empty-title">{{ $t('No_notifications') }}</span>
+                  <span class="notif-empty-sub">{{ $t('You_are_all_caught_up') }}</span>
+                </div>
               </div>
             </div>
-          </div>
-        </template>
-      </a-dropdown>
+          </template>
+        </a-dropdown>
+      </span>
 
       <!-- Clock in / Clock out: own attendance for today (attendance_self). -->
-      <a-tooltip v-if="canClock && auth.headerIcon('clock')" :title="clock.in ? `Clocked in since ${clock.since} — click to clock out` : 'Clock in'">
-        <a-button type="text" class="icon-btn clock-btn" :class="{ 'clock-btn--in': clock.in }" :loading="clock.busy" @click="toggleClock">
-          <template #icon><FieldTimeOutlined /></template>
-          <span v-if="clock.in" class="clock-since hide-sm">{{ clock.since }}</span>
-        </a-button>
-      </a-tooltip>
+      <span v-if="canClock && auth.headerIcon('clock')" class="tb-slot" :style="{ order: auth.headerOrder('clock') }">
+        <a-tooltip :title="clock.in ? `Clocked in since ${clock.since} — click to clock out` : 'Clock in'">
+          <a-button type="text" class="icon-btn clock-btn" :class="{ 'clock-btn--in': clock.in }" :loading="clock.busy" @click="toggleClock">
+            <template #icon><FieldTimeOutlined /></template>
+            <span v-if="clock.in" class="clock-since hide-sm">{{ clock.since }}</span>
+          </a-button>
+        </a-tooltip>
+      </span>
 
       <!-- Log out in one click (same as the user menu's: POS close-out check included). -->
-      <a-tooltip v-if="auth.headerIcon('logout')" :title="$t('logout')">
-        <a-button type="text" class="icon-btn logout-btn" :aria-label="$t('logout')" @click="signOut">
-          <template #icon><LogoutOutlined /></template>
-        </a-button>
-      </a-tooltip>
+      <span v-if="auth.headerIcon('logout')" class="tb-slot" :style="{ order: auth.headerOrder('logout') }">
+        <a-tooltip :title="$t('logout')">
+          <a-button type="text" class="icon-btn logout-btn" :aria-label="$t('logout')" @click="signOut">
+            <template #icon><LogoutOutlined /></template>
+          </a-button>
+        </a-tooltip>
+      </span>
 
       <!-- User -->
-      <span class="topbar-divider" aria-hidden="true"></span>
+      <span class="topbar-divider" aria-hidden="true" style="order: 100"></span>
       <a-dropdown v-model:open="userMenuOpen" placement="bottomRight" :trigger="['click']">
         <a-button type="text" class="user-btn">
           <a-space :size="8">
@@ -223,7 +243,7 @@
           </div>
         </template>
       </a-dropdown>
-    </a-space>
+    </div>
 
     <!-- Today's summary drawer -->
     <TodaySummary :open="summaryOpen" @close="summaryOpen = false" />
@@ -514,6 +534,20 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
 }
 
 /* Thin divider separating the icon cluster from the account chip. */
+/* Right-hand actions: a flex row so each icon can take the user's order
+   (auth.headerOrder); the company switcher stays first, the user menu last. */
+.tb-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tb-slot {
+  display: inline-flex;
+  align-items: center;
+}
+.tb-actions > :last-child {
+  order: 101;
+}
 .topbar-divider {
   width: 1px;
   height: 22px;

@@ -55,8 +55,8 @@ export const MANUAL = [
         id: 'profile', paths: ['profile'],
         title: { en: 'Profile, password and header icons', es: 'Perfil, contraseña e íconos del encabezado' },
         steps: {
-          en: ['Click your name › **Profile**.', 'Change your password, photo and contact details, then **Save**.', 'Under **Header icons**, choose for each icon: Company default, Show or Hide.'],
-          es: ['Haga clic en su nombre › **Perfil**.', 'Cambie su contraseña, foto y datos de contacto, luego **Guardar**.', 'En **Íconos del encabezado**, elija para cada ícono: Predeterminado de la empresa, Mostrar u Ocultar.'],
+          en: ['Click your name › **Profile**.', 'Change your password, photo and contact details, then **Save**.', 'Under **Header icons**, choose for each icon: Company default, Show (green) or Hide (red).', 'Change their order with the **‹ ›** arrows: the list goes from left to right in the top bar (**Reset order** puts it back). Then **Save**.'],
+          es: ['Haga clic en su nombre › **Perfil**.', 'Cambie su contraseña, foto y datos de contacto, luego **Guardar**.', 'En **Íconos del encabezado**, elija para cada ícono: Predeterminado de la empresa, Mostrar (verde) u Ocultar (rojo).', 'Cambie su orden con las flechas **‹ ›**: la lista va de izquierda a derecha en la barra superior (**Restablecer orden** la devuelve). Luego **Guardar**.'],
         },
         note: {
           en: 'Your PIN (4 to 8 digits, unique in your company) is set by your administrator in Users. It identifies you at the shared register: never share it.',
