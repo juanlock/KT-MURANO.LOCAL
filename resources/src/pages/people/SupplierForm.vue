@@ -120,7 +120,7 @@
 
         <a-space style="margin-top: 8px">
           <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
-          <a-button @click="$router.push(fromEmail ? '/email-office/received' : '/suppliers')">{{ $t('Cancel') }}</a-button>
+          <a-button @click="fromEmail ? $router.push('/email-office/received') : $goBack('/suppliers')">{{ $t('Cancel') }}</a-button>
         </a-space>
       </a-form>
     </a-card>
@@ -139,6 +139,7 @@ import { MailOutlined } from '@ant-design/icons-vue';
 import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
+import { goBack } from '../../lib/goBack';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -215,7 +216,8 @@ async function submit() {
         return;
       }
     }
-    router.push('/suppliers');
+    // Back where the user came from (the filtered list, or the supplier's page).
+    goBack(router, '/suppliers');
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {

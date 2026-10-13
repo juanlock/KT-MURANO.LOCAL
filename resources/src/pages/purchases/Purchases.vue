@@ -434,6 +434,7 @@ import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
 import StatusHelpModal from '../../components/StatusHelpModal.vue';
 import EmailRecipientsModal from '../../components/EmailRecipientsModal.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useListState } from '../../composables/useListState';
 import { useCustomizableFilters } from '../../composables/useCustomizableFilters';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
@@ -533,8 +534,11 @@ function onOtherFilterChange() {
   crud.reload();
 }
 
-// Default: Today, applied before the first fetch.
-applyPreset(datePreset.value);
+// Back from a purchase / edit: the list exactly as it was left (useListState);
+// else the default (Today / the user's ★ date), applied before the first fetch.
+const listState = useListState('purchases', { filters, datePreset }, crud);
+if (listState.restored) crud.fetchRows();
+else applyPreset(datePreset.value);
 
 // Start date / to: the exact day (picker) takes priority, then the active
 // range; empty for "All".

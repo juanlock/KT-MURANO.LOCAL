@@ -600,6 +600,7 @@ import CustomizeFiltersModal from '../../components/CustomizeFiltersModal.vue';
 import StatusHelpModal from '../../components/StatusHelpModal.vue';
 import EmailRecipientsModal from '../../components/EmailRecipientsModal.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useListState } from '../../composables/useListState';
 import { useCustomizableFilters } from '../../composables/useCustomizableFilters';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
@@ -769,8 +770,13 @@ function onProductFilterChange(productId) {
 // Deep links (Customers list: Total Sales / # Sales / Due) arrive as
 // ?client_id=&statut=&due_only=1 -- show that customer's matching sales
 // across ALL dates instead of the This Month default.
+// Back from a sale / customer / edit: the list exactly as it was left
+// (filters, date range, page, search, sort) -- useListState.
+const listState = useListState('sales', { filters, datePreset, dueOnly }, crud);
 const linkedQuery = route.query;
-if (linkedQuery.client_id) {
+if (listState.restored) {
+  crud.fetchRows();
+} else if (linkedQuery.client_id) {
   // ?preset= (Customers list in a date range, e.g. This Month): the same
   // range, so the list matches the number clicked. Without it: All.
   // ?date_from=&date_to=: a custom range edited there.

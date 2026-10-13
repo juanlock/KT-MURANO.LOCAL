@@ -1,9 +1,20 @@
 <template>
   <div class="page">
+    <!-- Which invoice is open (2026-10-13): number in the title; customer, date
+         and amounts underneath; its status + a link to the invoice on the right.
+         A duplicate says which invoice it copies. -->
     <PageHeader
-      :title="isEdit ? $t('EditSale') : $t('AddSale')"
+      :title="isEdit && docInfo.ref ? `${$t('EditSale')} · ${docInfo.ref}` : (isEdit ? $t('EditSale') : $t('AddSale'))"
+      :subtitle="headerSubtitle"
       :breadcrumb="[$t('Sales'), isEdit ? $t('EditSale') : $t('AddSale')]"
-    />
+    >
+      <template v-if="isEdit && docInfo.ref" #actions>
+        <a-tag v-if="isDraft" color="purple">Draft</a-tag>
+        <a-tag v-else :color="docStatusColor(docInfo.statut)">{{ docInfo.statut }}</a-tag>
+        <a-tag :color="payStatusColor(docInfo.payment)">{{ docInfo.payment }}</a-tag>
+        <a-button v-if="auth.can('Sales_view')" size="small" @click="$router.push(`/sales/${id}`)">View invoice</a-button>
+      </template>
+    </PageHeader>
 
     <div v-if="loadingRecord" style="display: flex; justify-content: center; padding: 96px 0">
       <a-spin size="large" />
@@ -636,7 +647,7 @@
           <div v-else-if="sale.statut === 'completed' && hasBatchValidationErrors" class="form-warn">
             {{ firstBatchSelectError(lines, $t) }}
           </div>
-          <a-button block style="margin-top: 8px" @click="$router.push('/sales')">{{ $t('Cancel') }}</a-button>
+          <a-button block style="margin-top: 8px" @click="$goBack('/sales')">{{ $t('Cancel') }}</a-button>
         </a-col>
       </a-row>
     </a-form>
@@ -790,6 +801,8 @@ import { hasBatchSelectErrors, firstBatchSelectError } from '../../lib/batchVali
 import { resolveScan } from '../../lib/scanMatch';
 import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
+import { goBack } from '../../lib/goBack';
+import { docStatusColor, payStatusColor } from '../../lib/statusColors';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -814,6 +827,20 @@ const {
 } = useDocCurrency();
 
 const id = computed(() => route.params.id);
+
+// ---------------- which invoice (header) ----------------
+// Edit: the invoice as stored (number, status, payment, total, paid) -- the
+// header keeps showing it while the form is changed. Duplicate: the source.
+const docInfo = ref({ ref: '', statut: '', payment: '', total: 0, paid: 0 });
+const copyOfRef = ref('');
+const headerSubtitle = computed(() => {
+  if (copyOfRef.value && !isEdit.value) return `New invoice, copy of ${copyOfRef.value}`;
+  if (!isEdit.value || !docInfo.value.ref) return '';
+  const customer = (clients.value || []).find(c => c.id === sale.value.client_id)?.name;
+  const due = Math.max(0, (Number(docInfo.value.total) || 0) - (Number(docInfo.value.paid) || 0));
+  return [customer, sale.value.date, `Total ${docMoney(docInfo.value.total)}`, `Paid ${docMoney(docInfo.value.paid)}`, due > 0 ? `Due ${docMoney(due)}` : '']
+    .filter(Boolean).join('  ·  ');
+});
 /**
  * Three modes. `convert` turns a quotation into a NEW sale, so it carries a
  * route :id like edit does but must submit down the create path — reading the
@@ -1044,6 +1071,13 @@ const defaultQuantity = ref(1);
 // (e.g. service-only businesses that don't ship products) (both default on).
 const loyaltyPointsEnabled = ref(true);
 const shippingEnabled = ref(true);
+// Invoice PDF -> Default -> "Discount column" / "Tax column" off (2026-10-13):
+// the line Discount / Tax column is hidden here too, and shows up again by
+// itself as soon as a line has a discount / its own tax (a product with a tax
+// %, or a tax typed in the line editor) -- never hide money. Line tax itself
+// is still managed per product / per line, as always.
+const discColumnEnabled = ref(true);
+const taxColumnEnabled = ref(true);
 // Settings -> Defaults -> Default - Sales: show/hide the Sales Agent field
 // (like Shipping, default on; it also needs the Commissions module).
 const salesAgentEnabled = ref(true);
@@ -1339,8 +1373,10 @@ const lineColumns = computed(() => [
   { title: t('Net_Unit_Price'), key: 'net_price', align: 'right' },
   { title: t('Stock'), key: 'stock', align: 'right' },
   { title: t('Quantity'), key: 'quantity', align: 'center' },
-  { title: t('Discount'), key: 'discount', align: 'right' },
-  { title: t('Tax'), key: 'tax', align: 'right' },
+  // Company switches (discColumnEnabled / taxColumnEnabled): a column off is
+  // shown automatically when a line has an amount in it.
+  ...(discColumnEnabled.value || lines.value.some(l => Number(l.DiscountNet) > 0) ? [{ title: t('Discount'), key: 'discount', align: 'right' }] : []),
+  ...(taxColumnEnabled.value || lines.value.some(l => Number(l.taxe) > 0) ? [{ title: t('Tax'), key: 'tax', align: 'right' }] : []),
   { title: t('SubTotal'), key: 'subtotal', align: 'right' },
   { title: t('Action'), key: 'actions', width: 100, align: 'center' },
 ]);
@@ -2052,7 +2088,7 @@ async function submit(asDraft = false) {
   try {
     if (isEdit.value) {
       const res = await http.put(`sales/${id.value}`, { ...base, ...serviceJobPayload(), ...serviceJobUpdatesPayload() });
-      message.success(draft ? 'Draft saved' : t('Successfully_Updated'));
+      message.success(draft ? `${res?.Ref || docInfo.value.ref || ''} draft saved`.trim() : ((res?.Ref || docInfo.value.ref) ? `${res?.Ref || docInfo.value.ref} updated.` : t('Successfully_Updated')), 6);
       serviceJobMessage(res);
       if (res?.service_job_updates) message.info(`${res.service_job_updates} service job(s) updated.`, 5);
     } else {
@@ -2091,11 +2127,20 @@ async function submit(asDraft = false) {
         received_amount: amount.toFixed(2),
         change: paymentChange.value.toFixed(2),
       });
-      message.success(draft ? 'Saved as draft (Pending): finalize it when ready.' : t('Successfully_Created'));
+      // Name the new invoice (2026-10-13): "INV_3609 created". A date other than
+      // today is called out -- the Sales list shows Today by default, so an
+      // invoice dated another day isn't in it and looked "not created".
+      const newRef = res?.Ref ? `${res.Ref} ` : '';
+      message.success(draft ? `${newRef}saved as draft (Pending): finalize it when ready.` : (newRef ? `${newRef}created.` : t('Successfully_Created')), 6);
+      const newDate = String(res?.date || sale.value.date || '').slice(0, 10);
+      if (newDate && newDate !== dayjs().format('YYYY-MM-DD')) {
+        message.warning(`${res?.Ref || 'The invoice'} is dated ${newDate}, not today: in the Sales list pick a date range that includes ${newDate} to see it.`, 10);
+      }
       serviceJobMessage(res);
       if (res?.service_job_updates) message.info(`${res.service_job_updates} service job(s) updated.`, 5);
     }
-    router.push('/sales');
+    // Back where the user came from (the filtered list, or the sale's page).
+    goBack(router, '/sales');
   } catch (e) {
     const errors = e?.data?.errors;
     if (errors) Object.values(errors).flat().forEach(msg => message.error(String(msg)));
@@ -2141,6 +2186,8 @@ onMounted(async () => {
       defaultQuantity.value = Math.max(1, Number(create.sale_default_quantity) || 1);
       loyaltyPointsEnabled.value = create.sale_loyalty_points_enabled !== false;
       shippingEnabled.value = create.sale_shipping_enabled !== false;
+      taxColumnEnabled.value = create.sale_show_tax_column !== false;
+      discColumnEnabled.value = create.sale_show_disc_column !== false;
       salesAgentEnabled.value = create.sale_sales_agent_enabled !== false;
       loadServiceJobOptions(create);
       accounts.value = create.accounts || [];
@@ -2202,10 +2249,13 @@ onMounted(async () => {
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
       loyaltyPointsEnabled.value = data.sale_loyalty_points_enabled !== false;
       shippingEnabled.value = data.sale_shipping_enabled !== false;
+      taxColumnEnabled.value = data.sale_show_tax_column !== false;
+      discColumnEnabled.value = data.sale_show_disc_column !== false;
       salesAgentEnabled.value = data.sale_sales_agent_enabled !== false;
       loadServiceJobOptions(data);
       const s = data.sale || {};
       isDraft.value = !!s.is_draft;
+      docInfo.value = { ref: s.Ref || '', statut: s.statut || '', payment: s.payment_statut || '', total: s.GrandTotal, paid: s.paid_amount };
       const dm = String(s.discount_Method ?? '2').toLowerCase().trim();
       sale.value = {
         date: s.date,
@@ -2259,7 +2309,8 @@ onMounted(async () => {
       // to fresh-create defaults and every line drops its old sale_detail id
       // (and edit-only bookkeeping fields) so submit() inserts all-new rows.
       const [src, create] = await Promise.all([
-        http.get(`sales/${duplicateFromId.value}/edit`),
+        // duplicate=1: read-only for the copy (Add sale permission, no paid / return lock).
+        http.get(`sales/${duplicateFromId.value}/edit`, { duplicate: 1 }),
         http.get('sales/create'),
       ]);
       clients.value = src.clients || create.clients || [];
@@ -2271,6 +2322,8 @@ onMounted(async () => {
       defaultQuantity.value = Math.max(1, Number(create.sale_default_quantity) || 1);
       loyaltyPointsEnabled.value = create.sale_loyalty_points_enabled !== false;
       shippingEnabled.value = create.sale_shipping_enabled !== false;
+      taxColumnEnabled.value = create.sale_show_tax_column !== false;
+      discColumnEnabled.value = create.sale_show_disc_column !== false;
       salesAgentEnabled.value = create.sale_sales_agent_enabled !== false;
       loadServiceJobOptions(create);
       accounts.value = create.accounts || [];
@@ -2278,6 +2331,7 @@ onMounted(async () => {
       point_to_amount_rate.value = Number(create.point_to_amount_rate) || 0;
 
       const s = src.sale || {};
+      copyOfRef.value = s.Ref || '';
       const dm = String(s.discount_Method ?? '2').toLowerCase().trim();
       sale.value = {
         date: dayjs().format('YYYY-MM-DD'),
@@ -2331,6 +2385,8 @@ onMounted(async () => {
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
       loyaltyPointsEnabled.value = data.sale_loyalty_points_enabled !== false;
       shippingEnabled.value = data.sale_shipping_enabled !== false;
+      taxColumnEnabled.value = data.sale_show_tax_column !== false;
+      discColumnEnabled.value = data.sale_show_disc_column !== false;
       salesAgentEnabled.value = data.sale_sales_agent_enabled !== false;
       loadServiceJobOptions(data);
       defaultSellerToSelf();

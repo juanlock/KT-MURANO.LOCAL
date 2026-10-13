@@ -332,6 +332,16 @@ the start of each session).
   `components/PermLink.vue`) instead of a bare `<router-link>` -- a user whose
   role can't open the target sees plain text, never a link to "no access".
   Use the target route's `meta.permission`.
+- **Lists come back as they were left (user's rule, 2026-10-13).** A list
+  with filters registers them with `useListState(key, { filters, datePreset,
+  ... }, crud)` (`composables/useListState.js`) during setup, before its first
+  fetch: when the user returns with Back / Forward (the page's Back =
+  `$goBack`, or the browser's) the filters, dates, page, page size, search
+  and sort are restored; opening the list from the menu starts fresh. Forms
+  opened from a list return with `goBack(router, '/list')` on **Save** and
+  **Cancel** (never a bare `router.push('/list')`, which drops the filters).
+  Done for Sales, Purchases, Quotations, Customers, Suppliers -- apply it to
+  any list that gets filters.
 - **Date range filters: our own filter is the standard (user's rule,
   2026-10-05).** Every list / report / dashboard that filters by a date range
   uses Murano's date filter -- the shared preset buttons (All, Today, This

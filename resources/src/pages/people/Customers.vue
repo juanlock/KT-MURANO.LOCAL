@@ -400,6 +400,7 @@ import DateRangeFields from '../../components/DateRangeFields.vue';
 import { presetDates, presetOf } from '../../lib/datePresets';
 import { startPreset } from '../../lib/datePresetDefault';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useListState } from '../../composables/useListState';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
@@ -438,6 +439,9 @@ function onRangeEdit(range) {
 
 // Payload: { clients, totalRows, company_info, accounts, payment_methods }
 const crud = useCrudTable('clients', { rowsKey: 'clients', params: dateParams });
+// Back from a customer / their sales: the list exactly as it was left (date
+// range, page, search, sort) -- useListState; onMounted then fetches it.
+useListState('customers', { datePreset, customRange }, crud);
 
 // Accounts come from the API as { id, account_name }, payment methods as { id, name }.
 const opts = key =>

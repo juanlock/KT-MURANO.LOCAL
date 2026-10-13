@@ -161,7 +161,7 @@
 
         <a-space style="margin-top: 8px">
           <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
-          <a-button @click="$router.push('/customers')">{{ $t('Cancel') }}</a-button>
+          <a-button @click="$goBack('/customers')">{{ $t('Cancel') }}</a-button>
         </a-space>
       </a-form>
     </a-card>
@@ -184,6 +184,7 @@ import UsCityPicker from '../../components/UsCityPicker.vue';
 import { useCountries } from '../../composables/useCountries';
 import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
+import { goBack } from '../../lib/goBack';
 import { useAuthStore } from '../../stores/auth';
 
 const { t } = useI18n();
@@ -325,7 +326,8 @@ async function submit() {
       await http.post('clients', body());
       message.success(t('Successfully_Created'));
     }
-    router.push('/customers');
+    // Back where the user came from (the filtered list, or the customer's page).
+    goBack(router, '/customers');
   } catch (e) {
     // Show the backend's reason (e.g. portal email taken / password required).
     const errs = e?.data?.errors;

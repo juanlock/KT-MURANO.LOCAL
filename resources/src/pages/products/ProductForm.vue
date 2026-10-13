@@ -956,9 +956,10 @@ const product = ref({
   cost: null, price: null, wholesale_price: null, min_price: null,
   brand_id: undefined, category_id: '', sub_category_id: '',
   assigned_category_ids: [], assigned_subcategory_ids: [],
-  // System Settings -> Defaults -> Default Tax; edit mode overwrites this
-  // with the product's own stored value once fetched.
-  TaxNet: auth.user?.default_tax || 0, tax_method: '1', discount_method: '1', discount: 0,
+  // 0%, NOT the company's Default Tax (2026-10-13): Default Tax is the
+  // invoice's Order Tax, so a product carrying it too was taxed twice.
+  // Edit mode overwrites this with the product's own stored value.
+  TaxNet: 0, tax_method: '1', discount_method: '1', discount: 0,
   unit_id: undefined, unit_sale_id: undefined, unit_purchase_id: undefined,
   stock_alert: 0, weight: null, length: null, width: null, height: null,
   // carried through untouched like legacy (server sets it from the gallery's

@@ -135,6 +135,8 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
   - Date range filters use `PresetRangeFilter`.
   - A link to another module's page uses `<PermLink>`. It is only clickable
     when the user's role can open that page.
+  - A list with filters uses `useListState()` so Back restores it; forms
+    opened from a list return with `goBack()` on Save / Cancel.
 - **Global processes are transactional.** An action that changes several
   things does all of it or none (e.g. removing an employee:
   `App\Services\EmployeeRemoval`; disabling a login: `App\Support\UserAccess`).
@@ -157,6 +159,30 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
+
+### 2026-10-13 (Thundera)
+
+- **Lists come back as you left them.** Sales, Purchases, Quotations,
+  Customers and Suppliers keep their filters, dates, page and search when you
+  return with Back, the browser's back arrow, or Cancel / Save in the edit
+  form. Opening a list from the menu starts fresh.
+- **Duplicate invoice** works for paid invoices (and invoices with a return):
+  it only needs the "add sale" permission.
+- **Edit Sale shows which invoice is open**: "Edit Sale · INV_…", customer,
+  date, total, paid and due, status tags and View invoice. A duplicate says
+  which invoice it copies.
+- **Save messages name the invoice** ("INV_3609 created."), with a warning
+  when the invoice date isn't today (it won't be in the Sales list on Today).
+- **Product tax.** New products start at 0% (they used to copy the company's
+  Default Tax, which is the invoice's Order Tax, so the line was taxed
+  twice). Tax per product / service still works as before.
+- **Sale form columns** follow Invoice PDF → Default → "Discount column" /
+  "Tax column": hidden when off, shown by themselves when a line has a
+  discount or its own tax.
+- **New services get the unit "UND"** (they used to have none and showed
+  "---" in Stock); editing a service keeps its unit.
+
+Setup: `npm run build`.
 
 ### 2026-10-12 (Optimum)
 
@@ -236,41 +262,6 @@ Setup: `npm run build`.
 - Test sales SL_0019 / SL_0184 (Ruba) and everything linked were removed.
 
 Setup: `php artisan migrate`, `npm run build`, `php artisan optimize:clear`.
-
-### 2026-10-06 (Optimum)
-
-- **Online Store and Website Management are two separate modules.**
-  - Each has its own settings, menus and files.
-  - The website has its own name, logo, favicon, SEO, top bar, footer and
-    social links.
-  - Website pages look like a website, with no cart, product search or shop
-    sign-in.
-  - Demo Data has website pages for IT (KcolTech), landscaping and salons.
-    They are replaced when the business type changes.
-- **Every company website has its own address**, for example `/kcoltech`.
-  - Set it in Website settings → Branding → Website URL.
-  - Old `/online_store?company=` links redirect to it.
-  - The **Preview website** button opens it.
-- **Importing a website never loses the current one.**
-  - Before an import replaces the current site, a copy of it is saved.
-  - You get a warning and must confirm.
-  - Front page → **Saved websites** lets you preview, use again (like a theme)
-    or delete each saved copy.
-- **Theme-only settings.** With an imported website, the Hero, SEO, Top bar &
-  footer and Social links tabs are hidden, because the imported site brings
-  its own.
-- **Gallery** has its own menu.
-- **One Portfolio.** The old website portfolio pictures were merged into the
-  Portfolio module.
-  - "Works" is now called **Photos**.
-- **The SuperAdmin is the owner and has every module by default.** Permissions
-  added by new modules are granted to the SuperAdmin automatically after
-  `migrate`. (Before this, the Portfolio menu was hidden for the SuperAdmin.)
-- **Backups.** The Email Office tables now go in three zip files.
-- **Protocol reports** list the newest requests first.
-- **Our own date range filter** is now part of the Preparate rules.
-
-Setup: `php artisan migrate`, `npm run build`.
 
 ---
 

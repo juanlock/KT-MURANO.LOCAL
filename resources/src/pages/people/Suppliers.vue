@@ -187,6 +187,7 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useListState } from '../../composables/useListState';
 import DatePresetButtons from '../../components/DatePresetButtons.vue';
 import DateRangeFields from '../../components/DateRangeFields.vue';
 import { presetDates, presetOf } from '../../lib/datePresets';
@@ -229,6 +230,8 @@ function onRangeEdit(range) {
 
 // Payload: { providers, totalRows, accounts, payment_methods }
 const crud = useCrudTable('providers', { rowsKey: 'providers', params: dateParams });
+// Back from a supplier: the list exactly as it was left (useListState).
+useListState('suppliers', { datePreset, customRange }, crud);
 
 const opts = key =>
   (crud.payload.value?.[key] || []).map(x => ({ value: x.id, label: x.name }));

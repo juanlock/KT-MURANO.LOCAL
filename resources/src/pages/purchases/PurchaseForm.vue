@@ -255,7 +255,7 @@
             {{ $t('Select_Batch_Required_For') }}
             {{ lines.find(x => x.is_batch_tracked && (!(x.batches || []).length || Math.abs(batchTotalQty(x) - (Number(x.quantity) || 0)) > 0.0001))?.name }}
           </div>
-          <a-button block style="margin-top: 8px" @click="$router.push('/purchases')">{{ $t('Cancel') }}</a-button>
+          <a-button block style="margin-top: 8px" @click="$goBack('/purchases')">{{ $t('Cancel') }}</a-button>
         </a-col>
       </a-row>
     </a-form>
@@ -389,6 +389,7 @@ import { recomputeCostLine, computeSimpleTotals } from '../../lib/lineCalc';
 import { hasBatchEntryErrors, batchTotalQty } from '../../lib/batchValidation';
 import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
+import { goBack } from '../../lib/goBack';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -797,7 +798,8 @@ async function submit() {
         return;
       }
     }
-    router.push('/purchases');
+    // Back where the user came from (the filtered list, or the purchase's page).
+    goBack(router, '/purchases');
   } catch (e) {
     const errors = e?.data?.errors;
     if (errors) Object.values(errors).flat().forEach(msg => message.error(String(msg)));

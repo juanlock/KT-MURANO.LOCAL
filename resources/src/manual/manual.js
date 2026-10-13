@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-10-12';
+export const MANUAL_UPDATED = '2026-10-13';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -75,8 +75,8 @@ export const MANUAL = [
         id: 'filters',
         title: { en: 'Date filters and exports', es: 'Filtros de fecha y exportación' },
         steps: {
-          en: ['Every list and report has the same date filter: All, Today, This Week … Last Year, plus Start date and End date you can type.', '**Double-click** a preset to make it your default (★).', 'Export a list or report to PDF or Excel with the buttons above the table.'],
-          es: ['Todas las listas y reportes tienen el mismo filtro de fechas: Todo, Hoy, Esta semana … Año pasado, más Fecha inicial y Fecha final que puede escribir.', 'Haga **doble clic** en una opción para dejarla como predeterminada (★).', 'Exporte una lista o reporte a PDF o Excel con los botones sobre la tabla.'],
+          en: ['Every list and report has the same date filter: All, Today, This Week … Last Year, plus Start date and End date you can type.', '**Double-click** a preset to make it your default (★).', 'Export a list or report to PDF or Excel with the buttons above the table.', 'Open a record from a filtered list (Sales, Purchases, Quotations, Customers, Suppliers), then press **Back**, **Cancel** or **Save**: the list comes back exactly as you left it (filters, dates, page, search). Opening the list from the menu starts fresh.'],
+          es: ['Todas las listas y reportes tienen el mismo filtro de fechas: Todo, Hoy, Esta semana … Año pasado, más Fecha inicial y Fecha final que puede escribir.', 'Haga **doble clic** en una opción para dejarla como predeterminada (★).', 'Exporte una lista o reporte a PDF o Excel con los botones sobre la tabla.', 'Abra un registro desde una lista filtrada (Ventas, Compras, Cotizaciones, Clientes, Proveedores) y pulse **Volver**, **Cancelar** o **Guardar**: la lista vuelve tal como la dejó (filtros, fechas, página, búsqueda). Al abrir la lista desde el menú empieza de cero.'],
         },
       },
     ],
@@ -103,8 +103,8 @@ export const MANUAL = [
         id: 'sales-add', perms: ['Sales_add'], paths: ['sales/create', 'sales/from-quotation'],
         title: { en: 'Create a sale', es: 'Crear una venta' },
         steps: {
-          en: ['Open **Sales › Add Sale**.', 'Choose the date, the customer and the location.', 'Add products or services; adjust quantity, price, discount or tax per line if your role allows it.', 'Save. The invoice number is given automatically.'],
-          es: ['Abra **Ventas › Agregar venta**.', 'Elija la fecha, el cliente y el local.', 'Agregue productos o servicios; ajuste cantidad, precio, descuento o impuesto por línea si su rol lo permite.', 'Guarde. El número de factura se asigna solo.'],
+          en: ['Open **Sales › Add Sale**.', 'Choose the date, the customer and the location.', 'Add products or services; adjust quantity, price, discount or tax per line if your role allows it.', 'Save. The invoice number is given automatically.', 'To repeat an invoice, use **Duplicate** in its row menu in the list: a new sale opens with today\'s date and the same customer, location and lines (paid invoices too); the top says which invoice it copies. Check it and save.', 'Editing an invoice: the top of the page shows its number (**Edit Sale · INV_…**), customer, date, total, paid and due, its status and payment status, and **View invoice**.'],
+          es: ['Abra **Ventas › Agregar venta**.', 'Elija la fecha, el cliente y el local.', 'Agregue productos o servicios; ajuste cantidad, precio, descuento o impuesto por línea si su rol lo permite.', 'Guarde. El número de factura se asigna solo.', 'Para repetir una factura, use **Duplicar** en el menú de su fila en la lista: se abre una venta nueva con la fecha de hoy y el mismo cliente, local y líneas (también facturas pagadas); arriba indica qué factura copia. Revísela y guarde.', 'Al editar una factura, arriba se ve su número (**Editar venta · INV_…**), cliente, fecha, total, pagado y saldo, su estado y estado de pago, y **Ver factura**.'],
         },
       },
       {
@@ -274,8 +274,8 @@ export const MANUAL = [
         id: 'prod-add', perms: ['products_add'], paths: ['products/create', 'products'],
         title: { en: 'Add a product or service', es: 'Agregar un producto o servicio' },
         steps: {
-          en: ['**Products › Add Product**.', 'Choose the type (product with stock, or service), name, category and price.', 'For products set the cost, unit and alert quantity.', 'Save; print barcodes from **Products › Print Barcode**.'],
-          es: ['**Productos › Agregar producto**.', 'Elija el tipo (producto con inventario o servicio), nombre, categoría y precio.', 'Para productos indique costo, unidad y cantidad de alerta.', 'Guarde; imprima códigos de barras en **Productos › Imprimir código de barras**.'],
+          en: ['**Products › Add Product**.', 'Choose the type (product with stock, or service), name, category and price.', 'For products set the cost, unit and alert quantity.', 'Leave the product **Tax** at 0% when your invoices use the company\'s Order Tax (System Settings › Defaults › Default Tax): otherwise that product is taxed twice. New products start at 0%.', 'Save; print barcodes from **Products › Print Barcode**.'],
+          es: ['**Productos › Agregar producto**.', 'Elija el tipo (producto con inventario o servicio), nombre, categoría y precio.', 'Para productos indique costo, unidad y cantidad de alerta.', 'Deje el **Impuesto** del producto en 0% cuando sus facturas usan el Impuesto de la orden de la empresa (Configuración › Predeterminados › Impuesto predeterminado): si no, ese producto paga impuesto dos veces. Los productos nuevos empiezan en 0%.', 'Guarde; imprima códigos de barras en **Productos › Imprimir código de barras**.'],
         },
       },
       {
@@ -779,8 +779,8 @@ export const MANUAL = [
         id: 'set-defaults', perms: ['setting_system'], paths: ['settings/system'],
         title: { en: 'System Settings › Defaults', es: 'Configuración del sistema › Predeterminados' },
         steps: {
-          en: ['**General**: the company\'s public address used in every link sent outside (booking codes, emails).', '**Users**: the default employee password and the **Header icons** shown to everyone in the company.', '**Customers** and the other tabs: what each form shows by default.'],
-          es: ['**General**: la dirección pública de la empresa usada en cada enlace enviado afuera (códigos de reserva, correos).', '**Usuarios**: la contraseña predeterminada de empleados y los **Íconos del encabezado** para toda la empresa.', '**Clientes** y las demás pestañas: lo que cada formulario muestra por defecto.'],
+          en: ['**General**: the company\'s public address used in every link sent outside (booking codes, emails).', '**Users**: the default employee password and the **Header icons** shown to everyone in the company.', '**Invoice PDF › Default**: the **Discount column** and **Tax column** switches hide those columns on the printed invoice AND on the sale form; each shows again by itself on an invoice where a line has a discount or its own tax (a product with a tax %).', '**Customers** and the other tabs: what each form shows by default.'],
+          es: ['**General**: la dirección pública de la empresa usada en cada enlace enviado afuera (códigos de reserva, correos).', '**Usuarios**: la contraseña predeterminada de empleados y los **Íconos del encabezado** para toda la empresa.', '**PDF de factura › Predeterminado**: los interruptores **Columna de descuento** y **Columna de impuesto** ocultan esas columnas en la factura impresa Y en el formulario de venta; cada una vuelve a aparecer sola en una factura donde una línea tiene descuento o su propio impuesto (un producto con % de impuesto).', '**Clientes** y las demás pestañas: lo que cada formulario muestra por defecto.'],
         },
       },
       {

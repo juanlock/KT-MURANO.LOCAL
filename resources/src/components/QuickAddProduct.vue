@@ -239,9 +239,11 @@ async function submit() {
     Type_barcode: 'CODE128',
     tax_method: '1',
     discount_method: '1',
-    // System Settings -> Defaults -> Default Tax, so a quickly-added
-    // product isn't silently 0% until someone edits it later.
-    TaxNet: auth.user?.default_tax || 0,
+    // 0%, NOT the company's Default Tax (2026-10-13): Default Tax is the
+    // invoice's Order Tax (sales, contracts, POS), so copying it onto the
+    // product taxed the line twice (Ruba INV_3608). Product tax stays an
+    // explicit per-product choice in the full product form.
+    TaxNet: 0,
     discount: 0,
     price: form.value.price,
   };

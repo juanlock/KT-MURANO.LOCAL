@@ -4,6 +4,7 @@ import { moduleKeyForPath } from '../config/modules';
 import { start as progressStart, done as progressDone } from '../lib/progress';
 import { autoOpenPath, recordVisit, startPageOpened, markStartPageOpened, pageOptions } from '../lib/startPage';
 import { setPageTitle } from '../lib/docTitle';
+import { installNavKind } from '../composables/useListState';
 // The shell is needed on every page, so it stays in the entry bundle.
 import AdminLayout from '../layouts/AdminLayout.vue';
 
@@ -921,6 +922,9 @@ const router = createRouter({
     history: createWebHistory('/next/'),
     routes,
 });
+
+// Back / Forward detection for lists that restore their filters (useListState).
+installNavKind(router);
 
 router.beforeEach(async to => {
     progressStart();

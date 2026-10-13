@@ -941,6 +941,9 @@ class SalesController extends BaseController
         return response()->json([
             'success' => true,
             'sale_id' => $sale->id,
+            // The invoice's number and date, for the "INV_… created / updated" message.
+            'Ref' => $sale->Ref,
+            'date' => $sale->date,
             'is_draft' => $asDraft,
             'quickbooks_invoice_id' => $sale->quickbooks_invoice_id,
             'qbo_sync' => $qboSync,
@@ -1146,8 +1149,7 @@ class SalesController extends BaseController
         // no ownership check at all -- the exact gap that let a company-1
         // login open another company's sale).
         $requester = $request->user('api');
-        $companyId = $this->resolveActingCompanyId($request);
-        if ($requester->type !== 'SuperAdmin') {
+        $companyId = $this->resolveActingCompanyId($request);        if ($requester->type !== 'SuperAdmin') {
             $targetCompanyId = Sale::where('id', $id)->value('company_id');
             abort_unless((int) $targetCompanyId === $companyId, 403);
             // A changed client_id/warehouse_id must also stay inside the company.
@@ -1622,6 +1624,9 @@ class SalesController extends BaseController
         return response()->json([
             'success' => true,
             'sale_id' => $sale->id,
+            // The invoice's number and date, for the "INV_… created / updated" message.
+            'Ref' => $sale->Ref,
+            'date' => $sale->date,
             'is_draft' => $asDraft,
             'qbo_sync' => $qboSync,
             // Edit Sale -> linked service jobs + "Add a service job" (same as on create).
@@ -3985,6 +3990,11 @@ class SalesController extends BaseController
             'sale_default_quantity' => (int) (Setting::forCompany($companyId)->sale_default_quantity ?: 1),
             'sale_loyalty_points_enabled' => (bool) (Setting::forCompany($companyId)->sale_loyalty_points_enabled ?? true),
             'sale_shipping_enabled' => (bool) (Setting::forCompany($companyId)->sale_shipping_enabled ?? true),
+            // Invoice PDF -> Default -> "Discount column" / "Tax column": the
+            // Sales form hides its line Discount / Tax column too -- shown again
+            // automatically when a line has a discount / its own tax.
+            'sale_show_disc_column' => (bool) (Setting::forCompany($companyId)->sale_pdf_show_disc_column ?? true),
+            'sale_show_tax_column' => (bool) (Setting::forCompany($companyId)->sale_pdf_show_tax_column ?? true),
             'sale_sales_agent_enabled' => (bool) (Setting::forCompany($companyId)->sale_sales_agent_enabled ?? true),
             // Create Sale -> "Service job" (one-off, or visits when Recurring):
             // only with the company's Service module AND Defaults -> Sales ->
@@ -4001,10 +4011,15 @@ class SalesController extends BaseController
 
     public function edit(Request $request, $id)
     {
-        if (SaleReturn::where('sale_id', $id)->where('deleted_at', '=', null)->exists()) {
+        // ?duplicate=1 (Sales -> Duplicate, 2026-10-13): only READS the sale to
+        // prefill a NEW one -- needs the "add sale" permission instead of
+        // "edit", and the edit-only locks (a return exists, completed + paid)
+        // don't apply. Company and location boundaries below still do.
+        $duplicate = $request->boolean('duplicate');
+        if (! $duplicate && SaleReturn::where('sale_id', $id)->where('deleted_at', '=', null)->exists()) {
             return response()->json(['success' => false, 'Return exist for the Transaction' => false], 403);
         } else {
-            $this->authorizeForUser($request->user('api'), 'update', Sale::class);
+            $this->authorizeForUser($request->user('api'), $duplicate ? 'create' : 'update', Sale::class);
             $user = Auth::user();
             // New way: Check user's record_view field (user-level boolean)
             // Backward compatibility: If record_view is null, fall back to role permission check
@@ -4024,7 +4039,7 @@ class SalesController extends BaseController
             // of the general Sales_edit, not just Sales_edit alone.
             // SuperAdmin bypasses this regardless (matches the company-
             // boundary check above).
-            if ($Sale_data->statut === 'completed' && $Sale_data->payment_statut === 'paid' && $user->type !== 'SuperAdmin') {
+            if (! $duplicate && $Sale_data->statut === 'completed' && $Sale_data->payment_statut === 'paid' && $user->type !== 'SuperAdmin') {
                 abort_unless($this->userCanEditCompletedPaidSale($user), 403, 'Editing a completed, fully paid invoice requires the "Edit Completed & Paid Invoices" permission.');
             }
 
@@ -4102,6 +4117,12 @@ class SalesController extends BaseController
             // Multi-Currency snapshot (null = base currency)
             $sale['currency_id'] = $Sale_data->currency_id;
             $sale['exchange_rate'] = $Sale_data->exchange_rate;
+            // Which invoice is this (2026-10-13): shown in the Edit Sale header
+            // (and "copy of" when duplicating) -- display only, never saved.
+            $sale['Ref'] = $Sale_data->Ref;
+            $sale['payment_statut'] = $Sale_data->payment_statut;
+            $sale['GrandTotal'] = $Sale_data->GrandTotal;
+            $sale['paid_amount'] = $Sale_data->paid_amount;
 
             // Preload existing batch pivots for this sale's details so the edit UI can
             // render the same selector the create-sale page uses (optional override).
@@ -4290,6 +4311,8 @@ class SalesController extends BaseController
                 'sale_default_quantity' => (int) (Setting::forCompany($companyId)->sale_default_quantity ?: 1),
                 'sale_loyalty_points_enabled' => (bool) (Setting::forCompany($companyId)->sale_loyalty_points_enabled ?? true),
                 'sale_shipping_enabled' => (bool) (Setting::forCompany($companyId)->sale_shipping_enabled ?? true),
+                'sale_show_disc_column' => (bool) (Setting::forCompany($companyId)->sale_pdf_show_disc_column ?? true),
+                'sale_show_tax_column' => (bool) (Setting::forCompany($companyId)->sale_pdf_show_tax_column ?? true),
                 'sale_sales_agent_enabled' => (bool) (Setting::forCompany($companyId)->sale_sales_agent_enabled ?? true),
                 // Edit Sale -> "Service job": the jobs made with this sale, and
                 // adding one (same as Create Sale; Service module only).

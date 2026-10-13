@@ -200,6 +200,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import EmailRecipientsModal from '../../components/EmailRecipientsModal.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
+import { useListState } from '../../composables/useListState';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { exportExcel, exportPdf } from '../../lib/exporters';
@@ -231,6 +232,8 @@ const crud = useCrudTable('quotations', {
   bulkDeleteEndpoint: 'quotations_delete_by_selection',
   params: filterParams,
 });
+// Back from a quotation: the list exactly as it was left (useListState).
+useListState('quotations', { filters }, crud);
 crud.fetchRows();
 
 // Summary cards — `stats` ships with the list payload (sums over ALL pages of

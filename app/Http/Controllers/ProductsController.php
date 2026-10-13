@@ -470,6 +470,19 @@ class ProductsController extends BaseController
 
     // -------------- Store new  Product  ---------------\\
 
+    /**
+     * The unit a service gets (2026-10-13): the company's base "Unit" (UND),
+     * else its first base unit, else none.
+     */
+    private function serviceUnitId($companyId): ?int
+    {
+        $units = Unit::where('company_id', $companyId)->whereNull('deleted_at')->whereNull('base_unit');
+        $id = (clone $units)->where(fn ($q) => $q->where('ShortName', 'UND')->orWhere('name', 'Unit'))->orderBy('id')->value('id')
+            ?? (clone $units)->orderBy('id')->value('id');
+
+        return $id ? (int) $id : null;
+    }
+
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', Product::class);
@@ -759,9 +772,13 @@ class ProductsController extends BaseController
                     $Product->min_price = ! empty($request['min_price']) ? $request['min_price'] : 0;
                     $Product->cost = 0;
 
-                    $Product->unit_id = null;
-                    $Product->unit_sale_id = null;
-                    $Product->unit_purchase_id = null;
+                    // A service gets the company's "Unit" (UND), like the services
+                    // imported from billing, so lists read "--- UND" for every
+                    // service (2026-10-13; it used to be left empty).
+                    $serviceUnit = $this->serviceUnitId($companyId);
+                    $Product->unit_id = $serviceUnit;
+                    $Product->unit_sale_id = $serviceUnit;
+                    $Product->unit_purchase_id = $serviceUnit;
 
                     $Product->stock_alert = 0;
                     $Product->weight = null;
@@ -1389,9 +1406,12 @@ class ProductsController extends BaseController
                     $Product->wholesale_price = ! empty($request['wholesale_price']) ? $request['wholesale_price'] : 0;
                     $Product->min_price = ! empty($request['min_price']) ? $request['min_price'] : 0;
 
-                    $Product->unit_id = null;
-                    $Product->unit_sale_id = null;
-                    $Product->unit_purchase_id = null;
+                    // Keep the service's own unit; one without gets the company's
+                    // "Unit" (UND) -- never wipe it (2026-10-13).
+                    $serviceUnit = $Product->unit_sale_id ?: $this->serviceUnitId($companyId);
+                    $Product->unit_id = $Product->unit_id ?: $serviceUnit;
+                    $Product->unit_sale_id = $serviceUnit;
+                    $Product->unit_purchase_id = $Product->unit_purchase_id ?: $serviceUnit;
 
                     $Product->stock_alert = 0;
                     $Product->weight = null;
