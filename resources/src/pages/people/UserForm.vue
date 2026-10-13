@@ -186,6 +186,32 @@
               </a-col>
             </a-row>
 
+            <!-- The employee this login belongs to (read-only; edited in HRM -> Employees). -->
+            <template v-if="employee">
+              <a-divider style="margin: 4px 0 16px" />
+              <div class="section-title emp-title">
+                <span><TeamOutlined /> {{ $t('Employee') }}</span>
+                <PermLink :to="`/hrm/employees/${employee.id}/details`" permission="view_employee" class="emp-open">
+                  Open in HRM → Employees
+                </PermLink>
+              </div>
+              <a-descriptions size="small" bordered :column="{ xs: 1, sm: 2, lg: 3 }" style="margin-bottom: 16px">
+                <a-descriptions-item label="Name">{{ [employee.firstname, employee.lastname].filter(Boolean).join(' ') || '—' }}</a-descriptions-item>
+                <a-descriptions-item label="Status">
+                  <a-tag :color="employee.status === 'left' ? 'red' : 'green'">{{ employee.status === 'left' ? 'Left' : 'Active' }}</a-tag>
+                </a-descriptions-item>
+                <a-descriptions-item label="Department">{{ employee.department || '—' }}</a-descriptions-item>
+                <a-descriptions-item label="Position">{{ employee.designation || '—' }}</a-descriptions-item>
+                <a-descriptions-item label="Office shift">{{ employee.office_shift || '—' }}</a-descriptions-item>
+                <a-descriptions-item label="Employment type">{{ humanize(employee.employment_type) }}</a-descriptions-item>
+                <a-descriptions-item label="Email">{{ employee.email || '—' }}</a-descriptions-item>
+                <a-descriptions-item label="Phone">{{ employee.phone || '—' }}</a-descriptions-item>
+                <a-descriptions-item label="Joining date">{{ employee.joining_date || '—' }}</a-descriptions-item>
+                <a-descriptions-item v-if="employee.leaving_date" label="Leaving date">{{ employee.leaving_date }}</a-descriptions-item>
+                <a-descriptions-item label="Pay">{{ payText }}</a-descriptions-item>
+              </a-descriptions>
+            </template>
+
             <a-space style="margin-top: 8px">
               <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
               <a-button @click="$router.push('/users')">{{ $t('Cancel') }}</a-button>
@@ -211,7 +237,7 @@ import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   UploadOutlined, UserOutlined, IdcardOutlined, MailOutlined,
-  PhoneOutlined, LockOutlined, ShopOutlined,
+  PhoneOutlined, LockOutlined, ShopOutlined, TeamOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
@@ -233,6 +259,18 @@ const formRef = ref();
 const fileList = ref([]);
 const roles = ref([]);
 const warehouses = ref([]);
+// Linked employee (GET users/{id}/edit -> employee), null when the login has none.
+const employee = ref(null);
+// "full_time" -> "Full time"
+const humanize = v => (v ? String(v).replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()) : '—');
+const payText = computed(() => {
+  const e = employee.value;
+  if (!e) return '—';
+  if (e.pay_type === 'commission') return `Commission ${Number(e.commission_rate || 0)}%`;
+  if (e.pay_type === 'hourly') return `Hourly $${Number(e.hourly_rate || 0).toFixed(2)}`;
+  if (Number(e.basic_salary)) return `Salary $${Number(e.basic_salary).toFixed(2)}`;
+  return 'Not set';
+});
 
 const form = ref({
   firstname: '', lastname: '', username: '', email: '', phone: '',
@@ -386,6 +424,7 @@ async function bootstrap() {
       const data = await http.get(`users/${id.value}/edit`);
       roles.value = data.roles || [];
       warehouses.value = data.warehouses || [];
+      employee.value = data.employee || null;
       const u = data.user || {};
       form.value = {
         firstname: u.firstname || '', lastname: u.lastname || '',
@@ -485,6 +524,15 @@ onMounted(bootstrap);
   letter-spacing: 0.5px;
   opacity: 0.65;
   margin-bottom: 16px;
+}
+.emp-title {
+  justify-content: space-between;
+}
+.emp-open {
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
 }
 .field-prefix {
   opacity: 0.4;

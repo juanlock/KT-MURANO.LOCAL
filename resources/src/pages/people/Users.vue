@@ -9,6 +9,28 @@
       </template>
     </PageHeader>
 
+    <!-- Filters: type, role, status (search box is in the table toolbar). -->
+    <a-card size="small" style="margin-bottom: 16px">
+      <a-space wrap :size="16">
+        <span class="uf">
+          <span class="uf-label">{{ $t('type') }}</span>
+          <a-select v-model:value="typeFilter" style="width: 160px" :options="typeOptions" @change="crud.reload()" />
+        </span>
+        <span class="uf">
+          <span class="uf-label">{{ $t('RoleName') }}</span>
+          <a-select
+            v-model:value="roleFilter" style="width: 200px" :options="roleOptions"
+            show-search option-filter-prop="label" @change="crud.reload()"
+          />
+        </span>
+        <span class="uf">
+          <span class="uf-label">{{ $t('Status') }}</span>
+          <a-select v-model:value="statusFilter" style="width: 140px" :options="statusOptions" @change="crud.reload()" />
+        </span>
+        <a-button v-if="typeFilter || roleFilter || statusFilter" @click="clearFilters">Clear filters</a-button>
+      </a-space>
+    </a-card>
+
     <DataTable :crud="crud" :columns="columns">
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'avatar'">
@@ -64,18 +86,36 @@
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
+import { sortByLabel, withAllOption } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const auth = useAuthStore();
 
-const crud = useCrudTable('users', { rowsKey: 'users' });
+// Filters ('' = all), sent as filter_type / filter_role / filter_status.
+// ?role=ID&role_name=... (Group Permissions -> Users column) opens it filtered by that role.
+const route = useRoute();
+const linkedRole = route.query.role ? { value: String(route.query.role), label: String(route.query.role_name || `#${route.query.role}`) } : null;
+const typeFilter = ref('');
+const roleFilter = ref(linkedRole ? linkedRole.value : '');
+const statusFilter = ref('');
+const crud = useCrudTable('users', {
+  rowsKey: 'users',
+  params: () => ({ filter_type: typeFilter.value || '', filter_role: roleFilter.value || '', filter_status: statusFilter.value || '' }),
+});
 const switching = ref(null);
+function clearFilters() {
+  typeFilter.value = '';
+  roleFilter.value = '';
+  statusFilter.value = '';
+  crud.reload();
+}
 
 // The logged-in user may not deactivate or delete their own account (legacy parity).
 const isSelf = record => auth.user && Number(record.id) === Number(auth.user.id);
@@ -96,6 +136,22 @@ const TYPE_COLORS = { SuperAdmin: 'gold', admin: 'blue', employee: 'green', cust
 const TYPE_LABELS = { SuperAdmin: 'SuperAdmin', admin: 'Admin', employee: 'Employee', customer: 'Customer', sales_agent: 'Sales_Agent', supplier: 'Supplier', Online_store: 'Online_Store' };
 const typeColor = type => TYPE_COLORS[type] || 'default';
 const typeLabel = type => t(TYPE_LABELS[type] || type);
+
+// Filter options: alphabetical, "All" last (lib/filterOptions).
+const typeOptions = computed(() => withAllOption(sortByLabel(Object.keys(TYPE_LABELS).map(k => ({ value: k, label: typeLabel(k) })))));
+const roleOptions = computed(() => {
+  const list = (crud.payload.value?.roles || []).map(r => ({ value: String(r.id), label: r.name }));
+  // a role opened from Group Permissions that isn't in this company's list (SuperAdmin, all companies)
+  if (linkedRole && !list.some(o => o.value === linkedRole.value)) list.push(linkedRole);
+  return withAllOption([
+  ...sortByLabel(list),
+  { value: 'none', label: 'No role' },
+  ]);
+});
+const statusOptions = computed(() => withAllOption([
+  { value: '1', label: 'Active' },
+  { value: '0', label: 'Disabled' },
+]));
 
 const columns = computed(() => [
   { title: t('Image'), key: 'avatar', dataIndex: 'avatar', width: 70, align: 'center', exportValue: r => r.avatar || '' },
@@ -127,3 +183,8 @@ async function toggleStatus(record) {
 
 onMounted(crud.fetchRows);
 </script>
+
+<style scoped>
+.uf { display: inline-flex; align-items: center; gap: 8px; }
+.uf-label { font-size: 13px; opacity: 0.75; }
+</style>

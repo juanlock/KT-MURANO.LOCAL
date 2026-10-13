@@ -48,7 +48,11 @@ class PermissionsController extends BaseController
         // menu_hide:<route> rows only hide a menu item for the role -- they
         // aren't permissions, so they don't count on either side of "x / y"
         // (otherwise Owner, with everything, shows 323 / 326).
-        $roles = $roles->withCount(['permissions' => fn ($q) => $q->where('permissions.name', 'not like', 'menu\_hide:%')])
+        // users_count: the role's users (not deleted) -- the list links to Users filtered by the role.
+        $roles = $roles->withCount([
+            'permissions' => fn ($q) => $q->where('permissions.name', 'not like', 'menu\_hide:%'),
+            'users' => fn ($q) => $q->whereNull('users.deleted_at'),
+        ])
             ->offset($offSet)
             ->limit($perPage)
             ->orderBy($order, $dir)

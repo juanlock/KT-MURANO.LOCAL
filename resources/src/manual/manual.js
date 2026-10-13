@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-10-10';
+export const MANUAL_UPDATED = '2026-10-12';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -746,16 +746,16 @@ export const MANUAL = [
         id: 'users-list', perms: ['users_view'], paths: ['users'],
         title: { en: 'Users', es: 'Usuarios' },
         steps: {
-          en: ['**Users › Add** creates administrator logins only. Employees, customers, suppliers and sales agents get theirs from their own module.', 'Edit a login here: role, locations, password and PIN.', 'The **Active / Disabled** switch signs the person out everywhere. You can\'t disable yourself.'],
-          es: ['**Usuarios › Agregar** crea solo accesos de administrador. Empleados, clientes, proveedores y vendedores reciben el suyo desde su propio módulo.', 'Edite un acceso aquí: rol, locales, contraseña y PIN.', 'El interruptor **Activo / Deshabilitado** cierra la sesión de la persona en todos lados. No puede deshabilitarse a sí mismo.'],
+          en: ['**Users › Add** creates administrator logins only. Employees, customers, suppliers and sales agents get theirs from their own module.', 'Edit a login here: role, locations, password and PIN.', 'The **Active / Disabled** switch signs the person out everywhere. You can\'t disable yourself.', 'Filter the list by **Type**, **Role** (or "No role") and **Status**; **Clear filters** shows everyone again.', 'When the login belongs to an employee, **Edit** also shows that employee (department, position, shift, pay) with a link to HRM › Employees, where it is changed.'],
+          es: ['**Usuarios › Agregar** crea solo accesos de administrador. Empleados, clientes, proveedores y vendedores reciben el suyo desde su propio módulo.', 'Edite un acceso aquí: rol, locales, contraseña y PIN.', 'El interruptor **Activo / Deshabilitado** cierra la sesión de la persona en todos lados. No puede deshabilitarse a sí mismo.', 'Filtre la lista por **Tipo**, **Rol** (o "Sin rol") y **Estado**; **Clear filters** vuelve a mostrar a todos.', 'Cuando el acceso pertenece a un empleado, **Editar** también muestra ese empleado (departamento, puesto, turno, pago) con un enlace a RR. HH. › Empleados, donde se cambia.'],
         },
       },
       {
         id: 'roles', perms: ['permissions_view', 'permissions_edit'], paths: ['permissions'],
         title: { en: 'Roles', es: 'Roles' },
         steps: {
-          en: ['**User Management › Group Permissions**: create or edit a role.', 'Tick what the role can do, module by module and, for employees, tab by tab (view / edit).', 'Choose the role\'s **Home page** (for example Daily Tasks or the Bookings calendar).'],
-          es: ['**Usuarios › Permisos de grupo**: cree o edite un rol.', 'Marque lo que el rol puede hacer, módulo por módulo y, para empleados, pestaña por pestaña (ver / editar).', 'Elija la **Página de inicio** del rol (por ejemplo Tareas diarias o el Calendario de reservas).'],
+          en: ['**User Management › Group Permissions**: create or edit a role.', 'Tick what the role can do, module by module and, for employees, tab by tab (view / edit).', 'Choose the role\'s **Home page** (for example Daily Tasks or the Bookings calendar).', 'The **Users** column shows how many users have each role; click the number to open Users filtered by that role.'],
+          es: ['**Usuarios › Permisos de grupo**: cree o edite un rol.', 'Marque lo que el rol puede hacer, módulo por módulo y, para empleados, pestaña por pestaña (ver / editar).', 'Elija la **Página de inicio** del rol (por ejemplo Tareas diarias o el Calendario de reservas).', 'La columna **Usuarios** muestra cuántos usuarios tienen cada rol; haga clic en el número para abrir Usuarios filtrado por ese rol.'],
         },
       },
     ],
@@ -763,10 +763,18 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ settings
   {
-    key: 'settings', module: null, perms: ['setting_system', 'pos_settings', 'mail_settings', 'payment_methods'], paths: ['settings'],
+    key: 'settings', module: null, perms: ['setting_system', 'pos_settings', 'mail_settings', 'payment_methods', 'company'], paths: ['settings', 'hrm/companies'],
     title: { en: 'Settings', es: 'Configuración' },
     intro: { en: 'Company-wide options.', es: 'Opciones para toda la empresa.' },
     sections: [
+      {
+        id: 'set-companies', perms: ['company'], paths: ['hrm/companies'],
+        title: { en: 'Companies', es: 'Empresas' },
+        steps: {
+          en: ['**Add** (SuperAdmin) or **Edit** a company. The form goes in steps (Company, Helpdesk, Defaults, then Admin user and Website when adding); use **Next / Back** or click a step. A step marked in red has something missing.', 'Required: name, business type, owner, company email, phone, address and helpdesk email.', '**Defaults**: currency, language, sale prefix (invoice numbers), public address and the default employee / customer passwords (blank keeps the current one).', 'The **Setup** column shows "Complete" or how many required fields a company still lacks; click it to fill them in.'],
+          es: ['**Agregar** (SuperAdmin) o **Editar** una empresa. El formulario va por pasos (Empresa, Helpdesk, Predeterminados y, al agregar, Usuario administrador y Sitio web); use **Next / Back** o haga clic en un paso. Un paso marcado en rojo tiene algo pendiente.', 'Obligatorios: nombre, tipo de negocio, dueño, correo de la empresa, teléfono, dirección y correo de soporte (helpdesk).', '**Predeterminados**: moneda, idioma, prefijo de ventas (número de factura), dirección pública y las contraseñas predeterminadas de empleados / clientes (en blanco mantiene la actual).', 'La columna **Setup** muestra "Complete" o cuántos datos obligatorios le faltan a una empresa; haga clic para completarlos.'],
+        },
+      },
       {
         id: 'set-defaults', perms: ['setting_system'], paths: ['settings/system'],
         title: { en: 'System Settings › Defaults', es: 'Configuración del sistema › Predeterminados' },

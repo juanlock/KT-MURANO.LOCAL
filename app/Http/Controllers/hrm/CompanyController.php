@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Services\CompanyProvisioner;
 use App\Services\DemoData\DemoRunner;
+use App\Support\CompanyProfile;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -67,10 +68,13 @@ class CompanyController extends Controller
         $imported = \App\Models\StoreSetting::whereIn('company_id', $companies->pluck('id'))
             ->where('front_page_mode', 'imported')->pluck('company_id')->flip();
         $companies->each(fn ($c) => $c->website_mode = isset($imported[$c->id]) ? 'import' : 'default');
+        // Required information still missing (CompanyProfile::REQUIRED) -> "Setup" column.
+        $companies->each(fn ($c) => $c->profile_missing = CompanyProfile::missing((int) $c->id));
 
         return response()->json([
             'companies' => $companies,
             'totalRows' => $totalRows,
+            'options' => CompanyProfile::options(),
         ]);
     }
 
@@ -87,11 +91,8 @@ class CompanyController extends Controller
         $this->authorizeForUser($request->user('api'), 'create', Company::class);
         abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can create companies.');
 
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:190'],
-            'email' => ['nullable', 'email', 'max:190'],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'country' => ['nullable', 'string', 'max:100'],
+        // Company profile (owner, business type, address, helpdesk email, defaults) + admin / helpdesk users.
+        $data = $request->validate(CompanyProfile::rules() + [
             'admin_firstname' => ['required', 'string', 'max:100'],
             'admin_lastname' => ['nullable', 'string', 'max:100'],
             'admin_email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->whereNull('deleted_at')],
@@ -100,8 +101,10 @@ class CompanyController extends Controller
             // Optional helpdesk agent (role "Helpdesk").
             'helpdesk_firstname' => ['nullable', 'string', 'max:100'],
             'helpdesk_lastname' => ['nullable', 'string', 'max:100'],
-            'helpdesk_email' => ['nullable', 'email', 'max:190', 'different:admin_email', Rule::unique('users', 'email')->whereNull('deleted_at')],
-            'helpdesk_password' => ['nullable', 'required_with:helpdesk_email', 'string', 'min:8'],
+            // (helpdesk_email = the company's support mailbox, in the profile;
+            // helpdesk_login_email = this agent's own login)
+            'helpdesk_login_email' => ['nullable', 'email', 'max:190', 'different:admin_email', Rule::unique('users', 'email')->whereNull('deleted_at')],
+            'helpdesk_password' => ['nullable', 'required_with:helpdesk_login_email', 'string', 'min:8'],
             'demo_data' => ['nullable', 'boolean'],
             // Website: import the company's existing site (original design)
             // or use the default online store + its standard pages.
@@ -109,22 +112,23 @@ class CompanyController extends Controller
             'website_url' => ['nullable', 'required_if:website_mode,import', 'url', 'max:255'],
         ], [
             'admin_email.unique' => 'This admin email is already used by another user.',
-            'helpdesk_email.unique' => 'This helpdesk email is already used by another user.',
-            'helpdesk_email.different' => 'The helpdesk user needs its own email (not the admin one).',
-        ]);
+            'helpdesk_login_email.unique' => 'This helpdesk login email is already used by another user.',
+            'helpdesk_login_email.different' => 'The helpdesk user needs its own login email (not the admin one).',
+        ] + CompanyProfile::messages());
 
-        $result = CompanyProvisioner::create(
+        // Company + users + the rest of the profile: one transaction (all or nothing).
+        $result = DB::transaction(fn () => tap(CompanyProvisioner::create(
             ['name' => $data['name'], 'email' => $data['email'] ?? null, 'phone' => $data['phone'] ?? null, 'country' => $data['country'] ?? null],
             [
                 'firstname' => $data['admin_firstname'], 'lastname' => $data['admin_lastname'] ?? null,
                 'email' => $data['admin_email'], 'password' => $data['admin_password'],
                 'role' => $data['admin_role'] ?? 'Admin-ALL',
             ],
-            ! empty($data['helpdesk_email']) ? [
+            ! empty($data['helpdesk_login_email']) ? [
                 'firstname' => $data['helpdesk_firstname'] ?? null, 'lastname' => $data['helpdesk_lastname'] ?? null,
-                'email' => $data['helpdesk_email'], 'password' => $data['helpdesk_password'],
+                'email' => $data['helpdesk_login_email'], 'password' => $data['helpdesk_password'],
             ] : null
-        );
+        ), fn ($r) => CompanyProfile::save((int) $r['company']->id, array_intersect_key($data, CompanyProfile::rules()))));
 
         if ($request->filled('domains')) {
             $result['company']->update(['domains' => $this->validatedDomains((string) $request['domains'], (int) $result['company']->id)]);
@@ -211,10 +215,18 @@ class CompanyController extends Controller
 
     // ------------ function show -----------\\
 
-    public function show($id)
+    /** GET company/{id} -> {profile, options}: the Edit form (an Admin only for their own company). */
+    public function show(Request $request, $id)
     {
-        //
+        $this->authorizeForUser($request->user('api'), 'view', Company::class);
+        abort_unless($this->isSuperAdmin($request) || (int) $id === (int) $request->user('api')->company_id, 403);
+        abort_unless(Company::whereKey($id)->whereNull('deleted_at')->exists(), 404);
 
+        return response()->json([
+            'profile' => CompanyProfile::get((int) $id) + ['domains' => Company::whereKey($id)->value('domains')],
+            'missing' => CompanyProfile::missing((int) $id),
+            'options' => CompanyProfile::options(),
+        ]);
     }
 
     // -----------Update Company --------------\\
@@ -225,26 +237,20 @@ class CompanyController extends Controller
         // Admins may only edit their own company.
         abort_unless($this->isSuperAdmin($request) || (int) $id === (int) $request->user('api')->company_id, 403);
 
-        request()->validate([
-            'name' => 'required|string',
-        ]);
-
-        $update = [
-            'name' => $request['name'],
-            'email' => $request['email'],
-            'phone' => $request['phone'],
-            'country' => $request['country'],
-        ];
+        // The whole company profile (CompanyProfile: companies + settings + helpdesk), one transaction.
+        $data = $request->validate(CompanyProfile::rules(), CompanyProfile::messages());
         // Website domain(s): SuperAdmin only (it decides which company a
-        // public domain serves).
-        if ($this->isSuperAdmin($request) && $request->has('domains')) {
-            $update['domains'] = $this->validatedDomains((string) $request['domains'], (int) $id);
+        // public domain serves). Checked before anything is saved.
+        $domains = $this->isSuperAdmin($request) && $request->has('domains')
+            ? ['domains' => $this->validatedDomains((string) $request['domains'], (int) $id)] : null;
+
+        CompanyProfile::save((int) $id, $data);
+        if ($domains) {
+            Company::whereId($id)->update($domains);
+            \App\Support\CompanyDomain::forget();
         }
 
-        Company::whereId($id)->update($update);
-        \App\Support\CompanyDomain::forget();
-
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'missing' => CompanyProfile::missing((int) $id)]);
     }
 
     /**
@@ -314,10 +320,40 @@ class CompanyController extends Controller
         } catch (\Illuminate\Database\QueryException $e) {
             report($e);
 
-            return response()->json(['message' => 'Some demo records are referenced by real data; remove those references first.'], 409);
+            return response()->json(['message' => $this->demoBlockedMessage($e)], 409);
         }
 
         return response()->json(['success' => true, 'deleted' => $deleted]);
+    }
+
+    /**
+     * Clear demo stopped by a foreign key (nothing was deleted -- it runs in one
+     * transaction): say which demo record is still used, and by which real
+     * record(s), e.g. "Demo clients #348 (Nadia Johnson) is still used by sales
+     * SL_0007, which is not demo data."
+     */
+    private function demoBlockedMessage(\Illuminate\Database\QueryException $e): string
+    {
+        $msg = $e->getMessage();
+        $generic = 'Nothing was removed: some demo records are still used by real (non-demo) data. Remove or change those records first.';
+        if (! preg_match('/`[^`]+`\.`([^`]+)`, CONSTRAINT `[^`]+` FOREIGN KEY \(`([^`]+)`\) REFERENCES `([^`]+)`/', $msg, $fk)
+            || ! preg_match('/delete from `([^`]+)` where `id` = (\d+)/', $msg, $del)) {
+            return $generic;
+        }
+        [, $child, $column, $parent] = $fk;
+        $id = (int) $del[2];
+        try {
+            $name = \Illuminate\Support\Facades\Schema::hasColumn($parent, 'name')
+                ? \Illuminate\Support\Facades\DB::table($parent)->where('id', $id)->value('name') : null;
+            $label = \Illuminate\Support\Facades\Schema::hasColumn($child, 'Ref') ? 'Ref' : 'id';
+            $users = \Illuminate\Support\Facades\DB::table($child)->where($column, $id)->limit(5)->pluck($label)->all();
+        } catch (\Throwable $x) {
+            return $generic;
+        }
+
+        return 'Nothing was removed. Demo '.$parent.' #'.$id.($name ? ' ('.$name.')' : '')
+            .' is still used by '.$child.' '.($users ? implode(', ', $users) : '').', which is not demo data. '
+            .'Delete or change '.(count($users) > 1 ? 'them' : 'it').' first, then clear the demo again.';
     }
 
     // ----------- GET ALL  Company --------------\\

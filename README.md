@@ -70,7 +70,7 @@ app/
   Http/Controllers/      API controllers (company-scoped via Concerns/ScopesToCompany)
   Models/                Eloquent models
   Services/              Domain services (EmailOffice, LinkedUserService, PayrollRun, ...)
-  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ServiceJobCost, ModuleFlags, WebsitePaths, SuperAdminAccess...
+  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ServiceJobCost, ModuleFlags, WebsitePaths, SuperAdminAccess, CompanyProfile...
 database/
   migrations/            Schema + data migrations (run on every machine)
   scripts/               Protocol scripts (backups, reports)
@@ -103,6 +103,9 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 - **Roles decide everything.** A user can do only what their role's permissions
   allow; the user type grants nothing, except SuperAdmin. A new feature adds
   its own permission checkbox.
+- **Company profile.** A company must have its name, business type, owner,
+  email, phone, address and helpdesk email (`App\Support\CompanyProfile`,
+  Companies → Add / Edit).
 - **SuperAdmin = the owner.**
   - The SuperAdmin role has every module by default.
   - `App\Support\SuperAdminAccess::sync()` runs after every `migrate`.
@@ -155,6 +158,25 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
 
+### 2026-10-12 (Optimum)
+
+- **Users list** has filters: Type, Role (or "No role") and Status.
+- **Group Permissions** shows how many users have each role. Click the number
+  to open Users filtered by that role.
+- **Users → Edit** shows the linked employee (department, position, shift,
+  pay) with a link to HRM → Employees.
+- **Companies → Add / Edit** ask for everything the system needs, in steps
+  (Company, Helpdesk, Defaults, Admin user, Website).
+  - Required: owner name, business type, address and helpdesk email.
+  - Defaults: currency, language, sale prefix, public address and the default
+    passwords.
+  - A **Setup** column shows what each company is still missing.
+- **Clear demo** now names the record that blocks it. Company 1003's 2 test
+  sales were removed, and that company was cleared and deleted.
+- **Production update SQL files** (dev → production, tested before use) are
+  in `KT-TOOLS/SQL/`. Run part 1, then part 2.
+
+Setup: `php artisan migrate`, `npm run build`.
 ### 2026-10-09 (Optimum)
 
 - **Profile → Header icons.**
@@ -249,41 +271,6 @@ Setup: `php artisan migrate`, `npm run build`, `php artisan optimize:clear`.
 - **Our own date range filter** is now part of the Preparate rules.
 
 Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-10-06 (Thundera)
-
-- **Service jobs and sales.**
-  - Service jobs are linked to customers and invoices.
-  - The sale form has **Add / Edit Service Job** and **Add / Edit Contract
-    Sale** buttons, which open modals.
-  - You are warned when a job is already on another invoice.
-  - Each linked job's status can be changed, with a note.
-- **Service job pages.**
-  - The job form has a **Task** tab.
-  - The jobs list has an **Assign to** column with an "All operators" (crew)
-    option, and PDF / Excel export.
-  - "Service Technicians" are now called **Operators**.
-- **Tasks page** (Week view by default, plus Day and Month).
-  - Ruba roles SupervisorRG and OperatorRG, with role home pages.
-  - Users without the dashboard no longer see "Page not available".
-- **Weekly payroll** (by hours or by commission), posted to accounting.
-  - Job costing: labor + equipment, with a Cost / Invoice / Margin view.
-  - Demo payroll history and demo holidays for every company.
-  - Ruba's shift is Monday–Friday, 7 AM – 5 PM.
-- **Assets** are on for every company, with demo sets per business type
-  (landscaping, salon, IT, office, …).
-- **New Era roles** AdminNE, ManagerNE and StaffNE.
-  - Only managers open / close the register; staff sell with their PIN.
-  - A **Clock in / out** button in the header.
-  - Attendance is company-scoped.
-- **Interface.**
-  - Back navigation returns to the previous list.
-  - Header has a Log out button and colored buttons.
-  - The login page offers only English / Spanish, with flags.
-  - The mobile left-margin gap is fixed.
-  - Ruba's duplicate landscape product groups were merged.
-
-Setup: `php artisan migrate`, `npm run build`, `php artisan optimize:clear`.
 
 ---
 

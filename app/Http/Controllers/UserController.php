@@ -53,6 +53,11 @@ class UserController extends BaseController
         // else only ever sees their own company's users, regardless of
         // record_view.
         $actingCompanyId = $this->resolveActingCompanyId($request);
+        // A SuperAdmin opening Users from a role (Group Permissions -> Users
+        // column, possibly another company's role): that role's company.
+        if ($user->type === 'SuperAdmin' && ctype_digit((string) $request->filter_role)) {
+            $actingCompanyId = Role::whereKey((int) $request->filter_role)->value('company_id') ?: $actingCompanyId;
+        }
         $users = User::where('deleted_at', '=', null)
             ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($actingCompanyId) {
                 return $query->where('company_id', $actingCompanyId);
@@ -62,6 +67,16 @@ class UserController extends BaseController
                 return $query->where('id', '=', Auth::user()->id);
             }
         });
+
+        // Users list filters (2026-10-12): type, role (role_user; "none" = no
+        // role), status (1 active / 0 disabled).
+        $users->when($request->filled('filter_type'), fn ($q) => $q->where('type', $request->filter_type))
+            ->when($request->filled('filter_role'), function ($q) use ($request) {
+                return $request->filter_role === 'none'
+                    ? $q->whereDoesntHave('roles')
+                    : $q->whereHas('roles', fn ($r) => $r->where('roles.id', (int) $request->filter_role));
+            })
+            ->when($request->filled('filter_status'), fn ($q) => $q->where('statut', (int) $request->filter_status ? 1 : 0));
 
         // Multiple Filter
         $Filtred = $helpers->filter($users, $columns, $param, $request)
@@ -558,6 +573,8 @@ class UserController extends BaseController
 
         return response()->json([
             'user' => $user,
+            // The employee this login belongs to (employees.user_id), if any -- shown read-only.
+            'employee' => $this->linkedEmployee($user),
             // Cashier PIN (hidden from the user payload; only this form shows it).
             'pin' => $user->pin,
             'assigned_warehouses' => $warehouses,
@@ -565,6 +582,30 @@ class UserController extends BaseController
             'companies' => $companies,
             'warehouses' => $all_warehouses,
         ]);
+    }
+
+    /**
+     * Users -> Edit: the employee linked to this login (same company), with its
+     * department, position, shift and pay -- or null when the login has none.
+     */
+    private function linkedEmployee(User $user): ?array
+    {
+        $e = \Illuminate\Support\Facades\DB::table('employees as e')
+            ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
+            ->leftJoin('designations as g', 'g.id', '=', 'e.designation_id')
+            ->leftJoin('office_shifts as s', 's.id', '=', 'e.office_shift_id')
+            ->where('e.user_id', $user->id)->where('e.company_id', $user->company_id)->whereNull('e.deleted_at')
+            ->orderBy('e.id')
+            ->first(['e.id', 'e.firstname', 'e.lastname', 'e.email', 'e.phone', 'e.gender', 'e.birth_date', 'e.joining_date', 'e.leaving_date',
+                'e.employment_type', 'e.pay_type', 'e.hourly_rate', 'e.basic_salary', 'e.commission_rate', 'e.avatar',
+                'd.department', 'g.designation', 's.name as office_shift']);
+        if (! $e) {
+            return null;
+        }
+        $e = (array) $e;
+        $e['status'] = $e['leaving_date'] && $e['leaving_date'] <= now()->toDateString() ? 'left' : 'active';
+
+        return $e;
     }
 
     // ------------- UPDATE  USER ---------\\

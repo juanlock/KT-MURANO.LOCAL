@@ -34,6 +34,17 @@
             <span>{{ record.permissions_count || 0 }} / {{ totalPermissions }}</span>
           </div>
         </template>
+        <template v-else-if="column.key === 'users_count'">
+          <!-- How many users have this role: opens Users filtered by it. -->
+          <PermLink
+            v-if="record.users_count"
+            :to="{ path: '/users', query: { role: record.id, role_name: record.name } }"
+            permission="users_view" class="users-count"
+          >
+            <TeamOutlined /> {{ record.users_count }}
+          </PermLink>
+          <span v-else style="opacity: 0.45">0</span>
+        </template>
         <template v-else-if="column.key === 'actions'">
           <!-- Role #1 is the built-in superadmin: legacy hides its actions. -->
           <a-space v-if="record.id !== 1">
@@ -67,7 +78,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useI18n } from 'vue-i18n';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, TeamOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
@@ -94,6 +105,11 @@ const columns = computed(() => [
     width: 190, align: 'center',
     exportValue: r => `${r.permissions_count || 0} / ${totalPermissions.value}`,
   },
+  {
+    title: t('Users'), dataIndex: 'users_count', key: 'users_count', width: 100, align: 'center',
+    sorter: (a, b) => (a.users_count || 0) - (b.users_count || 0),
+    exportValue: r => r.users_count || 0,
+  },
   { title: t('Action'), key: 'actions', width: 100 },
 ]);
 
@@ -101,6 +117,12 @@ onMounted(crud.fetchRows);
 </script>
 
 <style scoped>
+.users-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
 .perm-count {
   display: inline-flex;
   align-items: center;
