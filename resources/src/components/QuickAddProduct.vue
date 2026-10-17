@@ -11,32 +11,13 @@
   >
     <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
       <a-row :gutter="16">
-        <!-- Group Name first, then Name -- same flow as the Product form: the
-             Name box suggests the names already in the chosen group. -->
-        <a-col :xs="24" :md="12">
-          <a-form-item :label="t('GroupName')" name="group_name" :help="t('GroupName_Help')">
-            <a-select
-              v-model:value="form.group_name"
-              show-search allow-clear
-              option-filter-prop="label"
-              :placeholder="t('GroupName_Placeholder')"
-              :options="groupNameOptions"
-              @search="onGroupNameSearch"
-            />
-          </a-form-item>
-        </a-col>
-        <a-col :xs="24" :md="12">
-          <a-form-item
-            :label="t('Name_product')" name="name"
-            :validate-status="nameInGroupExists ? 'warning' : ''"
-            :help="nameInGroupExists ? t('Name_Exists_In_Group') : t('Name_In_Group_Help')"
-          >
-            <a-auto-complete
-              v-model:value="form.name" :options="groupNameSuggestions"
-              :placeholder="form.group_name ? t('Name_Pick_Or_Type') : t('Name_Choose_Group_First')"
-              :filter-option="(input, opt) => String(opt.value).toLowerCase().includes(String(input).toLowerCase())"
-            />
-          </a-form-item>
+        <!-- Group ("Main service") + what is added (its main item or a new
+             sub-item) + the name that will be saved: ProductNamePicker. -->
+        <a-col :span="24">
+          <ProductNamePicker
+            v-model:group="form.group_name" v-model:name="form.name"
+            :groups="productGroups" :products="groupProducts"
+          />
         </a-col>
         <a-col :xs="24" :md="12">
           <a-form-item :label="t('Categorie')" name="category_id">
@@ -103,8 +84,8 @@ import { ref, computed, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import http from '../lib/http';
-import { sortByLabel } from '../lib/filterOptions';
 import { useAuthStore } from '../stores/auth';
+import ProductNamePicker from './ProductNamePicker.vue';
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -134,40 +115,12 @@ const blank = () => ({
   name: '',
   code: genCode(),
   category_id: undefined,
-  group_name: undefined,
+  group_name: '',
   unit_id: undefined,
   cost: null,
   price: null,
 });
 const form = ref(blank());
-
-const groupNameSearch = ref('');
-function onGroupNameSearch(val) { groupNameSearch.value = val; }
-const groupNameOptions = computed(() => {
-  const base = sortByLabel(productGroups.value.map(g => ({ value: g.name, label: g.name })));
-  const search = (groupNameSearch.value || '').trim();
-  const exists = search && base.some(o => o.value.toLowerCase() === search.toLowerCase());
-  if (search && !exists) {
-    base.push({ value: search, label: `${t('Create_new_group')}: "${search}"` });
-  }
-  return base;
-});
-
-// Name suggestions: products already in the chosen Group Name (GET
-// product-groups -> {product_groups, products}); warns on a duplicate name.
-const chosenGroupId = computed(() => {
-  const name = (form.value.group_name || '').trim().toLowerCase();
-  return productGroups.value.find(g => g.name.toLowerCase() === name)?.id || null;
-});
-const groupNameSuggestions = computed(() => {
-  if (!chosenGroupId.value) return [];
-  const names = groupProducts.value.filter(p => p.product_group_id === chosenGroupId.value).map(p => p.name);
-  return sortByLabel([...new Set(names)].map(n => ({ value: n, label: n })));
-});
-const nameInGroupExists = computed(() => {
-  const n = (form.value.name || '').trim().toLowerCase();
-  return !!n && groupNameSuggestions.value.some(o => o.value.toLowerCase() === n);
-});
 
 const categoryOptions = computed(() => categories.value.map(c => ({ value: c.id, label: c.name })));
 const unitOptions = computed(() => units.value.map(u => ({ value: u.id, label: u.ShortName || u.name })));
@@ -212,7 +165,6 @@ watch(() => props.open, async isOpen => {
   if (!isOpen) return;
   priceTouched.value = false;
   form.value = blank();
-  groupNameSearch.value = '';
   formRef.value?.clearValidate?.();
   if (!loaded.value) await loadBootstrap();
   if (!form.value.category_id && categories.value.length) form.value.category_id = categories.value[0].id;

@@ -40,33 +40,14 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col :xs="24" :md="8">
-                <a-form-item :label="$t('GroupName')" name="group_name" required :help="$t('GroupName_Help')">
-                  <a-select
-                    v-model:value="product.group_name"
-                    show-search allow-clear
-                    option-filter-prop="label"
-                    :placeholder="$t('GroupName_Placeholder')"
-                    :options="productGroupOptions"
-                    @search="onGroupNameSearch"
-                  />
-                </a-form-item>
-              </a-col>
-
-              <a-col :xs="24" :md="8">
-                <!-- Suggests the names already in the chosen group; any new name
-                     can be typed. Warns when the name is already used in that group. -->
-                <a-form-item
-                  :label="$t('Name_product')" name="name"
-                  :validate-status="nameInGroupExists ? 'warning' : ''"
-                  :help="nameInGroupExists ? $t('Name_Exists_In_Group') : $t('Name_In_Group_Help')"
-                >
-                  <a-auto-complete
-                    v-model:value="product.name" :options="groupNameSuggestions"
-                    :placeholder="product.group_name ? $t('Name_Pick_Or_Type') : $t('Name_Choose_Group_First')"
-                    :filter-option="(input, opt) => String(opt.value).toLowerCase().includes(String(input).toLowerCase())"
-                  />
-                </a-form-item>
+              <!-- Group + what is added (main item or a new sub-item) + the
+                   name that will be saved: ProductNamePicker (same as Quick Add). -->
+              <a-col :xs="24" :md="16">
+                <ProductNamePicker
+                  v-model:group="product.group_name" v-model:name="product.name"
+                  :groups="productGroups" :products="groupProducts"
+                  :exclude-id="isEdit ? Number(id) : null"
+                />
               </a-col>
 
               <!-- Row 2: Code product / Barcode symbology / Size -->
@@ -824,6 +805,7 @@ import { useI18n } from 'vue-i18n';
 import { UploadOutlined, LinkOutlined, PlusOutlined, DeleteOutlined, ShopOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import ProductScanModal from '../../components/ProductScanModal.vue';
+import ProductNamePicker from '../../components/ProductNamePicker.vue';
 import http from '../../lib/http';
 import { barcodeValueError, generateBarcodeValue } from '../../lib/barcodeSymbology';
 import { resolveImageUrl } from '../../lib/imagePath';
@@ -844,36 +826,10 @@ const formRef = ref();
 const codeExists = ref('');
 
 const categories = ref([]);
+// Groups + their products (GET product-groups: {product_groups, products}) feed
+// ProductNamePicker: group suggestions, the group's items and its naming style.
 const productGroups = ref([]);
-const groupNameSearch = ref('');
-function onGroupNameSearch(val) { groupNameSearch.value = val; }
-const productGroupOptions = computed(() => {
-  const base = sortByLabel(productGroups.value.map(g => ({ value: g.name, label: g.name })));
-  const search = (groupNameSearch.value || '').trim();
-  const exists = search && base.some(o => o.value.toLowerCase() === search.toLowerCase());
-  if (search && !exists) {
-    base.push({ value: search, label: `${t('Create_new_group')}: "${search}"` });
-  }
-  return base;
-});
-// Name suggestions: products already in the chosen Group Name (same
-// GET product-groups payload the Products list uses: {product_groups, products}).
 const groupProducts = ref([]);
-const chosenGroupId = computed(() => {
-  const name = (product.value.group_name || '').trim().toLowerCase();
-  return productGroups.value.find(g => g.name.toLowerCase() === name)?.id || null;
-});
-const groupNameSuggestions = computed(() => {
-  if (!chosenGroupId.value) return [];
-  const names = groupProducts.value
-    .filter(p => p.product_group_id === chosenGroupId.value && p.id !== Number(id.value))
-    .map(p => p.name);
-  return sortByLabel([...new Set(names)].map(n => ({ value: n, label: n })));
-});
-const nameInGroupExists = computed(() => {
-  const n = (product.value.name || '').trim().toLowerCase();
-  return !!n && groupNameSuggestions.value.some(o => o.value.toLowerCase() === n);
-});
 const subcategories = ref([]);
 const brands = ref([]);
 const sizeGuides = ref([]);

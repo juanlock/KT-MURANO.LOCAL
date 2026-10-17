@@ -165,6 +165,23 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
 
+### 2026-10-16 (Optimum)
+
+- **Adding a product or service is guided** (Quick Add on the sale form and
+  the full product form).
+  - The main service you type is kept; it used to be cleared when moving to
+    Price.
+  - Choose the main item only, or a **new sub-service under it**, also under an
+    existing main service.
+  - "Will be saved as" shows the final name, following each company's naming
+    style, and warns about duplicates.
+- **Dev database brought up to date with production:** Ruba's 14 new sales
+  (INV_3612–INV_3625), their accounting, stock, 6 emails and QuickBooks
+  audit rows.
+- **Production update SQL** for the Network security changes (phpMyAdmin-ready,
+  tested) in `KT-TOOLS/SQL/`.
+
+Setup: `npm run build`.
 ### 2026-10-16 (Thundera)
 
 - **Network security** (Settings → Network security), per company, on for
@@ -234,25 +251,6 @@ Setup: `php artisan migrate`, `npm run build`.
   - Each user can change the order of the icons in the top bar with ‹ ›
     arrows, or put the standard order back with **Reset order**.
 - The user manual (English and Spanish) explains both.
-
-Setup: `npm run build`.
-
-### 2026-10-07 evening (Thundera)
-
-- **User manual inside Murano.**
-  - A new **book** icon in the header opens it: **This page** (help for the
-    screen you are on) or **Whole manual** (with search).
-  - English and Spanish (follows the app language, with an EN / ES switch).
-  - Shows only the modules the company has turned on and what the user's role
-    allows.
-  - The icon can be hidden for the company (Defaults → Users) or by each user
-    (Profile).
-- **Manual by company and role** (overview for staff), with a PDF version with
-  links, in `KT-TOOLS/Manual/`.
-- **Rule:** every change to a module, form or role updates the manual in
-  English and Spanish; Pa Llevar checks it first.
-- **KcolTech website** (kept outside this repo) rebuilt: new layout and logos,
-  slider, Murano page, contact form, English and Spanish.
 
 Setup: `npm run build`.
 
