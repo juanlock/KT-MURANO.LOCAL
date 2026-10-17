@@ -78,6 +78,21 @@ class LoginController extends Controller
         $remember = (bool) $request->input('remember', false);
 
         if (Auth::attempt($this->credentials($request), $remember)) {
+            // Network security (2026-10-16): a restricted user outside the
+            // company's networks, on a computer not approved yet, is signed out
+            // again and this computer is sent to the admins for approval.
+            $signedIn = Auth::guard('web')->user();
+            if ($signedIn && \App\Support\NetworkAccess::check($signedIn, $request)) {
+                \App\Support\NetworkAccess::requestApproval($signedIn, $request);
+                Auth::guard('web')->logout();
+                $message = \App\Support\NetworkAccess::blockedMessage();
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json(['message' => $message, 'code' => 'network_blocked'], 403);
+                }
+
+                return back()->withErrors(['email' => $message])->withInput($request->only('email', 'remember'));
+            }
+
             // Regenerate the web session ID to prevent fixation
             $request->session()->regenerate();
 

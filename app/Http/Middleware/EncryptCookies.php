@@ -18,5 +18,9 @@ class EncryptCookies extends Middleware
         // drop it, and SetLocale would never see the language the user picked.
         // A locale code is not sensitive.
         LocaleSyncController::COOKIE_NAME,
+        // Approved-computer key (Network security): read on both 'web' and
+        // 'api' routes, so it can't be encrypted by one and read by the other.
+        // It is a random key, HttpOnly; only its hash is stored.
+        \App\Support\NetworkAccess::COOKIE,
     ];
 }

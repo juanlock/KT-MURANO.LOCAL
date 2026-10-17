@@ -41,6 +41,7 @@ export const MIGRATED_ROUTES = {
     '/app/settings/payment_gateway': '/settings/payment-gateway',
     '/app/settings/mail_settings': '/settings/mail',
     '/app/settings/login_devices': '/settings/login-devices',
+    '/app/settings/network_security': '/settings/network-security',
     '/app/settings/system_health': '/settings/system-health',
     '/app/settings/sms_templates': '/settings/sms-templates',
     '/app/settings/email_templates': '/settings/email-templates',
@@ -1012,7 +1013,7 @@ export const MENU = [
         key: 'settings',
         icon: 'database-zap',
         label: 'Settings',
-        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view'],
+        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security'],
         children: [
             { label: 'SystemSettings', to: '/app/settings/System_settings', permissions: ['setting_system'] },
             // superAdminOnly: install-level admin tooling that must never be
@@ -1042,6 +1043,8 @@ export const MENU = [
             { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true },
             { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'] },
             { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true },
+            // Company-level (not superAdminOnly): a role with network_security manages its own company.
+            { label: 'Network_Security', to: '/app/settings/network_security', permissions: ['network_security'] },
             // requiresSetting: hidden while the named auth-store flag is off
             // (System Settings → Defaults → Customers → Loyalty Eligible);
             // honored by the menu store alongside the module filter.

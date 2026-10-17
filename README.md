@@ -148,6 +148,11 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 - **Online booking**: only the name is required; customers get an email only
   when the booking is confirmed; limits per connection (5 per 10 minutes, an
   email check from the 4th in a day).
+- **Network security** (per company, Settings → Network security): staff use
+  the admin panel only from the company's networks or approved computers
+  (`App\Support\NetworkAccess`, checked at sign-in and in `Is_Active`). Never
+  the SuperAdmin, customers, suppliers, store, websites, portfolio, booking or
+  portals.
 - **User manual.** Every change to a module, form, role or permission updates
   its entry in `resources/src/manual/manual.js`, in English **and** Spanish
   (header book icon). Role or company-module changes also refresh
@@ -159,6 +164,24 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
+
+### 2026-10-16 (Thundera)
+
+- **Network security** (Settings → Network security), per company, on for
+  KcolTech: staff can use the admin panel only from the company's networks
+  or from computers an admin approved. Store, websites, portfolio, online
+  booking and the portals stay open; the SuperAdmin is never blocked.
+  - Each person follows the company setting or their own (Restricted /
+    Can sign in from anywhere).
+  - Computers waiting for approval show in the bell; approve once, remove any
+    time.
+  - Managed by roles with the new "Network security" permission.
+- **Sincroniza BD** protocol: compares production with dev (structure,
+  migrations, data), shows the differences, backs production up and applies
+  only what you approve -- or writes SQL files to import by hand.
+- The user manual (in-app and the overview / PDF) explains Network security.
+
+Setup: `php artisan migrate`, `npm run build`.
 
 ### 2026-10-13 (Thundera)
 
@@ -233,36 +256,6 @@ Setup: `npm run build`.
 
 Setup: `npm run build`.
 
-### 2026-10-07 (Thundera)
-
-- **Online booking.**
-  - 3-step form (Service → Date & time → Your details); only the name is
-    required.
-  - Start over / Exit / Close buttons, and a thank-you screen with the
-    registration code.
-  - Online Booking page: "Websites & codes" (iframe, link and button codes per
-    website), hide logo, background color.
-  - Limits per connection, with an "I agree" email check.
-  - The customer is emailed when the booking is confirmed.
-- **Imported websites** live in the Website module's folder. Website pages has
-  a "Page sections" editor (edit a block, "Use our booking calendar").
-- **Settings.**
-  - Header icons on / off for the company (Defaults → Users) and per user
-    (Profile).
-  - Server address (`APP_URL`) and a per-company Public address.
-- **Employees.**
-  - Assets assigned tab and Print profile.
-  - Removing an employee is one transaction: login disabled and signed out
-    everywhere, open work released for reassignment.
-- **Sales.**
-  - Invoice numbers per company (Ruba continues INV_3604, KcolTech INV_).
-  - "Add Service Job" follows the selected location.
-  - Other Due window with dates, days owing and emails sent.
-  - Mobile: lists scroll sideways, Sales filters fold away.
-- Test sales SL_0019 / SL_0184 (Ruba) and everything linked were removed.
-
-Setup: `php artisan migrate`, `npm run build`, `php artisan optimize:clear`.
-
 ---
 
 ## Session protocols
@@ -274,6 +267,7 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | **Preparate** | Start of session. Syncs the PC (pull, migrate, build) and reloads the rules. It also reads the request history (`kt_logs`) and writes status reports to `KT-TOOLS/Report/`. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 | **Copia BD** | Backs up `dbmurano` with mysqldump into `KT-TOOLS/database/`. It writes a main zip plus 3 Email Office zips, all importable in phpMyAdmin. |
+| **Sincroniza BD** | Compares the production database with dev (structure, migrations, data) and shows the differences. Only with your approval: backs production up, then applies the approved tables, or writes SQL files to import by hand. Production access lives only in the git-ignored `.env.production-db`. |
 | **Pa Llevar** | End of session. Updates the user manual with the session's changes, builds, logs, writes the daily report, backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
 
 Pushing uses GitHub Desktop when the terminal has no GitHub credentials. Never

@@ -150,6 +150,20 @@ class PendingWorkController extends Controller
                 'table' => 'messages',
                 'count' => fn () => Message::where('is_read', 0)->count(),
             ],
+            // Network security: computers asking to be approved (acting company).
+            'computers_to_approve' => [
+                'label' => 'Computers_To_Approve',
+                'route' => '/settings/network-security',
+                'permission' => 'network_security',
+                'table' => 'trusted_devices',
+                'severity' => 'warning',
+                'count' => function () {
+                    $u = request()->user('api');
+                    $cid = $u->type === 'SuperAdmin' ? (int) request('company_id', $u->company_id) : (int) $u->company_id;
+
+                    return \Illuminate\Support\Facades\DB::table('trusted_devices')->where('company_id', $cid)->where('status', 'pending')->count();
+                },
+            ],
             'wallet_withdrawals' => [
                 'label' => 'Pending_Withdrawals',
                 'route' => '/store/wallet',

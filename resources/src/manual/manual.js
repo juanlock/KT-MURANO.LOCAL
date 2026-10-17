@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-10-13';
+export const MANUAL_UPDATED = '2026-10-16';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -763,7 +763,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ settings
   {
-    key: 'settings', module: null, perms: ['setting_system', 'pos_settings', 'mail_settings', 'payment_methods', 'company'], paths: ['settings', 'hrm/companies'],
+    key: 'settings', module: null, perms: ['setting_system', 'pos_settings', 'mail_settings', 'payment_methods', 'company', 'network_security'], paths: ['settings', 'hrm/companies'],
     title: { en: 'Settings', es: 'Configuración' },
     intro: { en: 'Company-wide options.', es: 'Opciones para toda la empresa.' },
     sections: [
@@ -789,6 +789,18 @@ export const MANUAL = [
         steps: {
           en: ['Receipt, payment methods at the counter and whether the POS button shows in the header.'],
           es: ['Recibo, medios de pago en el mostrador y si el botón POS aparece en el encabezado.'],
+        },
+      },
+      {
+        id: 'net-sec', perms: ['network_security'], paths: ['settings/network-security'],
+        title: { en: 'Network security', es: 'Seguridad de red' },
+        steps: {
+          en: ['**Settings › Network security**: turn on **Restrict access by network** and add the office networks (its public IP, e.g. 203.0.113.10, or a range like 203.0.113.0/24). **Add it** puts your current IP in the list.', 'Choose what users follow: **Restricted** (safe default) or **Anywhere**; under **People** set someone on their own (e.g. a field worker on phone data = Can sign in from anywhere).', 'A restricted user signing in from outside sends that computer to **Computers** (and the bell): **Approve** it once and it works from anywhere; **Remove** it when a laptop is lost or someone leaves.', 'Only the admin panel is restricted: store, websites, portfolio, online booking and the portals stay open. The SuperAdmin is never blocked. If saving would block you, Murano asks first.'],
+          es: ['**Configuración › Seguridad de red**: active **Restringir el acceso por red** y agregue las redes de la oficina (su IP pública, p. ej. 203.0.113.10, o un rango como 203.0.113.0/24). **Agregarla** pone su IP actual en la lista.', 'Elija qué siguen los usuarios: **Restringido** (lo seguro) o **Desde cualquier lugar**; en **Personas** configure a alguien por separado (p. ej. un trabajador de campo con datos del celular = Desde cualquier lugar).', 'Un usuario restringido que entra desde afuera envía esa computadora a **Computadoras** (y a la campana): **Apruébela** una vez y funciona desde cualquier lugar; **Quítela** si se pierde una laptop o alguien deja la empresa.', 'Solo se restringe el panel de administración: tienda, sitios web, portafolio, reservas en línea y los portales siguen abiertos. El SuperAdmin nunca queda bloqueado. Si al guardar usted quedaría bloqueado, Murano pregunta antes.'],
+        },
+        note: {
+          en: 'Blocked users see: "You can\'t use Murano from this network…" on the sign-in page. Clearing the browser\'s data or using another browser needs a new approval.',
+          es: 'Los usuarios bloqueados ven: "You can\'t use Murano from this network…" en la página de ingreso. Borrar los datos del navegador o usar otro navegador requiere una nueva aprobación.',
         },
       },
     ],

@@ -2328,3 +2328,13 @@ Route::prefix('mobile')->group(function () {
         Route::post('device-token/test', [\App\Http\Controllers\Api\Mobile\MobileDeviceTokenController::class, 'test']);
     });
 });
+
+// Settings -> Network security (2026-10-16): allowed networks, approved computers,
+// who is restricted -- permission network_security, acting company.
+Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])->prefix('network_security')->group(function () {
+    Route::get('/', [\App\Http\Controllers\NetworkSecurityController::class, 'show']);
+    Route::put('/', [\App\Http\Controllers\NetworkSecurityController::class, 'update']);
+    Route::put('users/{id}', [\App\Http\Controllers\NetworkSecurityController::class, 'userAccess']);
+    Route::post('devices/{id}/approve', [\App\Http\Controllers\NetworkSecurityController::class, 'approve']);
+    Route::delete('devices/{id}', [\App\Http\Controllers\NetworkSecurityController::class, 'remove']);
+});

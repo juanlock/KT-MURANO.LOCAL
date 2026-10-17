@@ -30,6 +30,21 @@ class Is_Active
             return redirect('/login')->with('erro_login', 'Your account is disabled.');
         }
 
+        // Network security (2026-10-16): staff of a company that turned it on
+        // must be on one of its networks or on an approved computer -- checked
+        // on every request, so leaving the office network ends the access.
+        if ($user && \App\Support\NetworkAccess::check($user, $request)) {
+            if (Auth::guard('web')->check()) {
+                Auth::guard('web')->logout();
+            }
+            $message = \App\Support\NetworkAccess::blockedMessage(false);
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => $message, 'code' => 'network_blocked'], 401);
+            }
+
+            return redirect('/login')->with('erro_login', $message);
+        }
+
         return $next($request);
     }
 }

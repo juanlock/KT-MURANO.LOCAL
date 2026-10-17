@@ -871,6 +871,7 @@ const routes = [
             { path: 'settings/payment-gateway', name: 'payment-gateway', component: PaymentGateway, meta: { title: 'Payment Gateway', permission: 'payment_gateway' } },
             { path: 'settings/mail', name: 'mail-settings', component: MailSettings, meta: { title: 'Mail Settings', permission: 'mail_settings' } },
             { path: 'settings/login-devices', name: 'login-devices', component: LoginDevices, meta: { title: 'Login Devices', permission: 'login_device_management', superAdminOnly: true } },
+            { path: 'settings/network-security', name: 'network-security', component: () => import('../pages/settings/NetworkSecurity.vue'), meta: { title: 'Network security', permission: 'network_security' } },
             { path: 'settings/system-health', name: 'system-health', component: SystemHealth, meta: { title: 'System Health', permission: 'system_health_view' } },
             { path: 'settings/sms-templates', name: 'sms-templates', component: SmsTemplates, meta: { title: 'SMS Templates', permission: 'notification_template' } },
             { path: 'settings/email-templates', name: 'email-templates', component: EmailTemplates, meta: { title: 'Email Templates', permission: 'notification_template' } },

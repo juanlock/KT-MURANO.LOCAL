@@ -1460,6 +1460,11 @@ export const PERMISSION_GROUPS = [
                 "l": "SystemSettings"
             },
             {
+                "v": "network_security",
+                "l": "Network_Security",
+                "f": "Network security (allowed networks, approved computers)"
+            },
+            {
                 "v": "datatable_customize",
                 "l": "Customize_Columns",
                 "f": "Customize Table Columns"

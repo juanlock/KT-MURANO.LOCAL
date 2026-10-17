@@ -788,6 +788,16 @@
           </div>
           @endif
 
+          {{-- Signed out by the server: disabled login, or not on an allowed network (Network security). --}}
+          @if (session('erro_login') && ! $errors->any())
+          <div class="auth-alert error">
+            <span class="alert-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </span>
+            <div>{{ session('erro_login') }}</div>
+          </div>
+          @endif
+
           <form id="login_form" method="POST" action="{{ route('login') }}" class="auth-form">
             @csrf
 

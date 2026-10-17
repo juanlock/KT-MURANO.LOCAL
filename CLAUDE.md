@@ -250,6 +250,18 @@ the start of each session).
   as `_order` in `users.header_icons`, `HeaderIcons::userOrder()`, topbar
   slots use `auth.headerOrder(key)` as the flex order -- a new icon goes in a
   `tb-slot` too).
+- **Network security** (user's rule, 2026-10-16): per company (Settings ->
+  Network security, permission `network_security`, default off; on for
+  KcolTech). Staff (admin / employee logins) can use the **admin panel only**
+  from the company's networks (`settings.network_allowed`, IPs or CIDR ranges)
+  or from an **approved computer** (key in the HttpOnly cookie
+  `murano_device`, hash in `trusted_devices`; admins approve / remove). Checked
+  at sign-in (`LoginController`) and on every staff request (`Is_Active`) via
+  `App\Support\NetworkAccess`. Never applies to the SuperAdmin, customers,
+  suppliers, the store, websites, portfolio, online booking or the portals.
+  Users follow the company default unless `users.network_access` says
+  `restricted` / `anywhere`. Production needs the server to pass the
+  visitor's real IP (Hostinger proxy) before turning it on there.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
@@ -411,6 +423,17 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   DEFINER; portable utf8mb4_unicode_ci collations. `KT-TOOLS/` is git-tracked,
   so the snapshot travels across every machine this checkout is on, same as
   the other protocols.
+- **Sincroniza BD** (`/sincroniza-bd`, or "Jarvis, run protocolo sincroniza
+  bd") — Murano's own (user's rule, 2026-10-13): compares the **production**
+  database (Hostinger) with dev `dbmurano` -- schema, migrations and data
+  (`database/scripts/protocol_sincroniza_bd.php`, read-only, report in
+  `KT-TOOLS/Report/kt_murano_sincroniza_bd_<date>.html`) -- shows the
+  differences and asks which ones to apply to production; before any write it
+  backs production up (`KT-TOOLS/database/production/`, git-ignored), then
+  applies only what was approved, one confirmation each. Production
+  credentials live ONLY in `.env.production-db` at the repo root (per machine,
+  git-ignored) -- never in `.env` (git still tracks it), this file, README,
+  kt_logs, reports or commits.
 - **Pa Llevar** (`/pa-llevar`, or "Jarvis, run protocolo pa llevar") —
   Murano's own end-of-session close-out (A Dormir was merged into it and
   then deleted, user's request 2026-10-01): updates the user manual with the

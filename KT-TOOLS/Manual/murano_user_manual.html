@@ -160,6 +160,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
       <a href="#g-users">Users &amp; roles</a>
       <a href="#g-filters">Date filters &amp; reports</a>
       <a href="#g-helpdesk">Help desk tickets</a>
+      <a href="#g-network">Network security</a>
       <a href="#g-portal">Customer &amp; supplier portal</a>
     </nav>
   </aside>
@@ -173,7 +174,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
       <div class="meta">
         <span>Address: <code>https://murano.kcoltech.com</code></span>
         <span>Languages: English · Spanish</span>
-        <span>Updated: October 7, 2026</span>
+        <span>Updated: October 16, 2026</span>
       </div>
       <form class="finder" id="finder" aria-label="Find your role">
         <div class="finder-row">
@@ -476,10 +477,11 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
             <tr><th scope="row">Email Office</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-part">Read</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td></tr>
             <tr><th scope="row">Website &amp; store</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
             <tr><th scope="row">Users &amp; roles</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-part">View, edit</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">Network security</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
           </tbody>
         </table>
       </div>
-      <p style="font-size:.9rem;color:var(--muted);max-width:72ch">Taken from each role's permissions on October 7, 2026. An administrator can change a role at any time in <span class="menu">User Management › Roles</span>; the menu follows the role.</p>
+      <p style="font-size:.9rem;color:var(--muted);max-width:72ch">Taken from each role's permissions on October 16, 2026. An administrator can change a role at any time in <span class="menu">User Management › Roles</span>; the menu follows the role.</p>
     </section>
 
     <!-- ============================== GUIDES ============================== -->
@@ -711,6 +713,18 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
           <a class="top-link" href="#top">Back to top</a>
         </article>
 
+        <article class="guide" id="g-network">
+          <h3>Network security</h3>
+          <p class="for">For: roles with "Network security" (company admins, Manager RG). On for KcolTech.</p>
+          <ol>
+            <li><span class="menu">Settings › Network security</span>: turn on <b>Restrict access by network</b> and add the office's public IP (or a range). <b>Add it</b> puts your current IP in the list.</li>
+            <li>Choose what users follow: <b>Restricted</b> or <b>Anywhere</b>. Under <b>People</b>, set anyone on their own (a field worker on phone data: <b>Can sign in from anywhere</b>).</li>
+            <li>A restricted user who signs in from outside is stopped, and that computer shows up in <b>Computers</b> and in the bell. <b>Approve</b> it once and it works from anywhere; <b>Remove</b> it when a laptop is lost or someone leaves.</li>
+          </ol>
+          <div class="note">Only the admin panel is restricted. The store, websites, portfolio, online booking and the portals stay open, and the SuperAdmin is never blocked.</div>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
         <article class="guide" id="g-portal">
           <h3>Customer and supplier portal</h3>
           <p class="for">For: customers and suppliers</p>
@@ -726,7 +740,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
   </main>
 </div>
 
-<footer>Murano Business Suite by KcolTech · User manual · Roles and permissions as configured on October 7, 2026.</footer>
+<footer>Murano Business Suite by KcolTech · User manual · Roles and permissions as configured on October 16, 2026.</footer>
 
 <script>
 (function () {
