@@ -54,8 +54,8 @@ Route::prefix('api/portal')->middleware(['web', 'portal.locale', 'portal.auth', 
         Route::get('statement', [PortalStatementController::class, 'index']);
         Route::get('profile', [PortalProfileController::class, 'show']);
         Route::put('profile/password', [PortalProfileController::class, 'updatePassword']);
-        // Self-service account closure (deletes the portal login only).
-        Route::delete('profile', [PortalProfileController::class, 'destroyAccount']);
+        // No self-service account closure (user's rule, 2026-10-18): only the
+        // company's admin closes a customer's portal access (People -> Customers: portal access, list or edit form).
 
         // Quotations (read + request)
         Route::get('quotations', [PortalQuotationsController::class, 'index']);
