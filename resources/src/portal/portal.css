@@ -1260,8 +1260,8 @@ body.rst-app {
 
 /* Uploaded brand logo — sized to sit where the built-in SVG mark did. */
 .rst-brand-logo {
-    max-height: 2rem;
-    max-width: 9rem;
+    max-height: 2.75rem;
+    max-width: 12rem;
     object-fit: contain;
 }
 
