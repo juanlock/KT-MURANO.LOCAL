@@ -220,6 +220,31 @@ export function dataTranslation(text) {
     return typeof v === 'string' && v.trim() ? v : undefined;
 }
 
+/**
+ * A menu / UI text in the active language, looser than dataTranslation():
+ * the text as the key, then with underscores ("Service Jobs" -> Service_Jobs),
+ * then the same two ignoring upper / lower case (keys are case-sensitive and
+ * many are stored lower case: "Deposit" -> deposit, "SMS Templates" ->
+ * sms_templates). Undefined when there's no translation.
+ */
+let ciIndex = { messages: null, map: null };
+export function looseTranslation(text) {
+    const s = String(text ?? '').trim();
+    if (!s) return undefined;
+    const under = s.replace(/\s+/g, '_');
+    const direct = dataTranslation(s) ?? dataTranslation(under);
+    if (direct !== undefined) return direct;
+    const messages = i18n.global.getLocaleMessage(i18n.global.locale.value) || {};
+    if (ciIndex.messages !== messages) {
+        const map = new Map();
+        for (const [k, v] of Object.entries(messages)) {
+            if (typeof v === 'string' && v.trim() && !map.has(k.toLowerCase())) map.set(k.toLowerCase(), v);
+        }
+        ciIndex = { messages, map };
+    }
+    return ciIndex.map.get(s.toLowerCase()) ?? ciIndex.map.get(under.toLowerCase());
+}
+
 /** Translate with a human-readable fallback when a key is missing. */
 export function t(key, fallback) {
     const out = i18n.global.t(key);

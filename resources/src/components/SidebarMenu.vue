@@ -26,6 +26,7 @@
 import { computed, onMounted, ref, watch, watchEffect, h } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { looseTranslation } from '../i18n';
 import { resolveTarget } from '../config/menu';
 import { MENU_ICONS, fallbackIcon } from '../config/menuIcons';
 import { MENU_ITEM_ICONS } from '../config/menuItemIcons';
@@ -43,7 +44,7 @@ const props = defineProps({
   collapsed: { type: Boolean, default: false },
 });
 
-const { t } = useI18n();
+const { t, te, locale } = useI18n();
 const auth = useAuthStore();
 const ui = useUiStore();
 // The default MENU arranged per the admin-saved order (Settings → Sidebar Menu).
@@ -125,14 +126,27 @@ function matchesSearch(entry) {
 }
 
 /**
- * Literal labels (raw) bypass i18n — they had no key in the old sidebar.
- * Some entries compose several keys, exactly as legacy did (e.g. the People
- * "Add" links rendered {{$t('Add')}} {{$t('Customer')}} → "Add Customer").
+ * Literal labels (raw: a name typed in Manage Menu) are shown in the active
+ * language when the translations have them -- the text itself as the key
+ * ("Customers"), with underscores ("Service Jobs" -> Service_Jobs), any
+ * upper / lower case ("Deposit" -> deposit) -- else exactly as typed. Some entries compose several keys, exactly as legacy did
+ * (e.g. the People "Add" links rendered {{$t('Add')}} {{$t('Customer')}}).
  */
 function label(entry) {
-  if (entry.raw) return entry.label;
-  if (entry.labelKeys) return entry.labelKeys.map(k => t(k)).join(' ');
-  return t(entry.label);
+  if (entry.raw) {
+    const text = String(entry.label ?? '');
+    return looseTranslation(text) ?? text;
+  }
+  if (entry.labelKeys) return entry.labelKeys.map(k => tr(k)).join(' ');
+  return tr(entry.label);
+}
+
+// A static key: the active language's own entry first; when it has none (the
+// key stored with another upper / lower case: SMS_Templates -> sms_templates)
+// looseTranslation, and only then vue-i18n's English fallback / the key.
+function tr(key) {
+  if (te(key, locale.value)) return t(key);
+  return looseTranslation(key) ?? t(key);
 }
 
 function icon(name) {

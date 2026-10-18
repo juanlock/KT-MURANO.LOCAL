@@ -1,1 +1,5 @@
-*.zip filter=lfs diff=lfs merge=lfs -text
+# Git LFS only for the database backups in KT-TOOLS (big zips, never served).
+# Files the site serves (public/files/...) stay normal git blobs: Hostinger's
+# Git deploy doesn't fetch LFS objects, so an LFS file there arrived as a
+# 130-byte pointer instead of the real file (2026-10-18).
+KT-TOOLS/**/*.zip filter=lfs diff=lfs merge=lfs -text

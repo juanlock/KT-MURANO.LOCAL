@@ -812,8 +812,26 @@ export const MANUAL = [
         id: 'set-companies', perms: ['company'], paths: ['hrm/companies'],
         title: { en: 'Companies', es: 'Empresas' },
         steps: {
-          en: ['**Add** (SuperAdmin) or **Edit** a company. The form goes in steps (Company, Helpdesk, Defaults, then Admin user and Website when adding); use **Next / Back** or click a step. A step marked in red has something missing.', 'Required: name, business type, owner, company email, phone, address and helpdesk email.', '**Defaults**: currency, language, sale prefix (invoice numbers), public address and the default employee / customer passwords (blank keeps the current one).', 'The **Setup** column shows "Complete" or how many required fields a company still lacks; click it to fill them in.'],
-          es: ['**Agregar** (SuperAdmin) o **Editar** una empresa. El formulario va por pasos (Empresa, Helpdesk, Predeterminados y, al agregar, Usuario administrador y Sitio web); use **Next / Back** o haga clic en un paso. Un paso marcado en rojo tiene algo pendiente.', 'Obligatorios: nombre, tipo de negocio, dueño, correo de la empresa, teléfono, dirección y correo de soporte (helpdesk).', '**Predeterminados**: moneda, idioma, prefijo de ventas (número de factura), dirección pública y las contraseñas predeterminadas de empleados / clientes (en blanco mantiene la actual).', 'La columna **Setup** muestra "Complete" o cuántos datos obligatorios le faltan a una empresa; haga clic para completarlos.'],
+          en: ['**Add** (SuperAdmin) or **Edit** a company. The form goes in steps (Company, Helpdesk, Defaults, then Admin user and Website when adding); use **Next / Back** or click a step. A step marked in red has something missing.', 'Required: name, business type, owner, company email, phone, address and helpdesk email.', '**Defaults**: currency, language, sale prefix (invoice numbers), public address and the default employee / customer passwords (blank keeps the current one).', 'The **Setup** column shows "Complete" or how many required fields a company still lacks; click it to fill them in.', 'A new company starts with the SuperAdmin\'s current menu (the AdminSystem layout), already in order.'],
+          es: ['**Agregar** (SuperAdmin) o **Editar** una empresa. El formulario va por pasos (Empresa, Helpdesk, Predeterminados y, al agregar, Usuario administrador y Sitio web); use **Next / Back** o haga clic en un paso. Un paso marcado en rojo tiene algo pendiente.', 'Obligatorios: nombre, tipo de negocio, dueño, correo de la empresa, teléfono, dirección y correo de soporte (helpdesk).', '**Predeterminados**: moneda, idioma, prefijo de ventas (número de factura), dirección pública y las contraseñas predeterminadas de empleados / clientes (en blanco mantiene la actual).', 'La columna **Setup** muestra "Complete" o cuántos datos obligatorios le faltan a una empresa; haga clic para completarlos.', 'Una empresa nueva empieza con el menú actual del SuperAdmin (el de AdminSystem), ya ordenado.'],
+        },
+      },
+      {
+        id: 'set-menu', perms: ['setting_system'], paths: ['settings/sidebar-menu'],
+        title: { en: 'Manage Menu (order of the side menu)', es: 'Manage Menu (orden del menú lateral)' },
+        steps: {
+          en: [
+            '**Settings › Manage Menu**: drag items to reorder them or move them into another group; hide / show items, then **Submit**.',
+            '**SuperAdmin working as AdminSystem** (company switcher): Submit and Reset apply to **every company** — their own order is replaced. New companies also start with this layout.',
+            '**SuperAdmin working as one company**, or a company **Admin**: the change stays in that company only.',
+            'An Admin can reorder and hide / show; adding, removing or renaming items is for the SuperAdmin.',
+          ],
+          es: [
+            '**Configuración › Manage Menu**: arrastre las opciones para reordenarlas o moverlas a otro grupo; oculte / muestre opciones y luego **Submit**.',
+            '**SuperAdmin trabajando como AdminSystem** (selector de empresa): Submit y Reset se aplican a **todas las empresas** — se reemplaza su propio orden. Las empresas nuevas también empiezan con este menú.',
+            '**SuperAdmin trabajando como una empresa**, o el **Admin** de una empresa: el cambio queda solo en esa empresa.',
+            'Un Admin puede reordenar y ocultar / mostrar; agregar, quitar o renombrar opciones es del SuperAdmin.',
+          ],
         },
       },
       {

@@ -168,6 +168,36 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
 
+### 2026-10-18 (Optimum)
+
+- **Production ↔ dev sync.** Production owns the business data; dev's
+  database changes travel only as migrations.
+  - **Baja Prod** (new protocol, and Pa Llevar's first step every run) brings
+    production down to dev: the files created there (`public/files`, over
+    SSH) and the new / changed records. Nothing is deleted on either side.
+  - Dev → production: the migrations are listed each Pa Llevar and applied
+    right after the monthly deploy, with a production backup first.
+  - Each machine needs its own `.env.production-db` / `.env.production-ssh`
+    (not in git).
+- **Production outage fixed for good.** Hostinger was giving PHP old
+  database settings that beat the server's `.env`. Now the `.env` always
+  wins, and System Settings → Save no longer freezes the configuration in
+  a cache.
+- **Email Office assigns emails to customers by themselves**: sent ones also
+  by CC, invoices / reminders to the sale's customer, and at once when a
+  customer gets a new address. Assigning one email assigns every email with
+  that address (received and sent).
+- **New companies start with the SuperAdmin's menu order** (they used to get
+  the factory order). Reminder: a menu change made as AdminSystem applies to
+  every company.
+- **The side menu is fully in the user's language**: renamed items
+  ("Main Modules", "Access Management"…) and items whose translation key had
+  another case (Deposit, SMS Templates…) are now translated.
+- Files the site serves are no longer stored with Git LFS (the Hostinger
+  deploy doesn't fetch LFS; a sale document arrived broken).
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-10-17 (Optimum)
 
 - **Sorting lists by name works again.** Sorting Sales (any filter, e.g.
@@ -248,26 +278,6 @@ Setup: `php artisan migrate`, `npm run build`.
 
 Setup: `npm run build`.
 
-### 2026-10-12 (Optimum)
-
-- **Users list** has filters: Type, Role (or "No role") and Status.
-- **Group Permissions** shows how many users have each role. Click the number
-  to open Users filtered by that role.
-- **Users → Edit** shows the linked employee (department, position, shift,
-  pay) with a link to HRM → Employees.
-- **Companies → Add / Edit** ask for everything the system needs, in steps
-  (Company, Helpdesk, Defaults, Admin user, Website).
-  - Required: owner name, business type, address and helpdesk email.
-  - Defaults: currency, language, sale prefix, public address and the default
-    passwords.
-  - A **Setup** column shows what each company is still missing.
-- **Clear demo** now names the record that blocks it. Company 1003's 2 test
-  sales were removed, and that company was cleared and deleted.
-- **Production update SQL files** (dev → production, tested before use) are
-  in `KT-TOOLS/SQL/`. Run part 1, then part 2.
-
-Setup: `php artisan migrate`, `npm run build`.
-
 ---
 
 ## Session protocols
@@ -279,8 +289,9 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | **Preparate** | Start of session. Syncs the PC (pull, migrate, build) and reloads the rules. It also reads the request history (`kt_logs`) and writes status reports to `KT-TOOLS/Report/`. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 | **Copia BD** | Backs up `dbmurano` with mysqldump into `KT-TOOLS/database/`. It writes a main zip plus 3 Email Office zips, all importable in phpMyAdmin. |
+| **Baja Prod** | Brings production down to dev whenever you ask: the files created in production (`public/files`) and its new sales, customers, emails and other records. Shows a dry run first, then applies it in one step. |
 | **Sube Git** | Quick push. Logs any missing requests, checks the build, updates this README in detail (Latest changes and any section that changed), then commits with a detailed description and pushes to GitHub. No database backup or reports. |
-| **Pa Llevar** | End of session. Updates the user manual with the session's changes, builds, logs, writes the daily report, syncs the production database (dev's new migrations to production after a production backup and your OK; production's new sales and records into dev), backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
+| **Pa Llevar** | End of session. First brings production down to dev (the files created in production's `public/files` and its new sales and records), then updates the user manual with the session's changes, builds, logs, writes the daily report, lists the dev database changes waiting for the next monthly deploy (applied right after a deploy, with a production backup and your OK), backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
 
 Pushing uses GitHub Desktop when the terminal has no GitHub credentials. Never
 force-push, and never commit `.env`.

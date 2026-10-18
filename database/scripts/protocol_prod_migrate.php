@@ -27,7 +27,7 @@ if (! $prodEnv) return;
 
 $p = DB::connection('prod');
 $ran = $p->table('migrations')->pluck('migration')->all();
-$pending = collect(glob(database_path('migrations/*.php')))->map(fn ($f) => str_replace('.php', '', basename($f)))   // same naming as Laravel's Migrator->diff($ran)->sort()->values();
+$pending = collect(glob(database_path('migrations/*.php')))->map(fn ($f) => str_replace('.php', '', basename($f)) /* same naming as Laravel's Migrator */)->diff($ran)->sort()->values();
 echo 'production: ', $p->getDatabaseName(), ' -- pending migrations: ', $pending->count(), PHP_EOL;
 foreach ($pending as $m) echo '  ', $m, PHP_EOL;
 if ($pending->isEmpty()) return;

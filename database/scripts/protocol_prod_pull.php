@@ -17,7 +17,9 @@
  *                                         newer (or the table has no updated_at);
  *                                         when dev's is newer, dev is kept and reported
  *  - row only in dev                   -> kept, reported (may clash with production's next ids)
- *  - tables without `id`               -> reported only
+ *  - tables without `id` (pivots)      -> production rows dev lacks (whole row) added
+ *  - $naturalKeys tables (menu_positions, rebuilt with new ids) -> matched by
+ *    company_id + item_key: only items dev lacks are added (never a 2nd menu)
  * Never touched: migrations, kt_logs (dev's history), queue / cache / session tables.
  * TIMESTAMP columns are compared in UTC on both sides (session time_zone +00:00).
  * Everything is written in ONE transaction; the dev rows it replaces and the ids it
@@ -35,6 +37,9 @@ $p->statement("SET time_zone = '+00:00'");
 $d->statement("SET time_zone = '+00:00'");
 
 $skip = ['migrations', 'kt_logs', 'jobs', 'failed_jobs', 'job_batches', 'cache', 'cache_locks', 'sessions', 'password_reset_tokens'];
+// Tables whose rows are rebuilt with NEW ids (the menu is regenerated per company):
+// matched by these columns, not by id -- by id every menu would come in twice.
+$naturalKeys = ['menu_positions' => ['company_id', 'item_key']];
 $tablesOf = fn ($c) => collect($c->select("SELECT table_name t FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'"))->pluck('t')->all();
 $colsOf = fn ($c, $t) => collect($c->select('SELECT column_name c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? ORDER BY ordinal_position', [$t]))->pluck('c')->all();
 
@@ -45,12 +50,46 @@ $report = [];
 foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip) as $t) {
     $cp = $colsOf($p, $t);
     $c = array_values(array_intersect($cp, $colsOf($d, $t)));
+    $hash = 'MD5(CONCAT_WS("|", '.implode(', ', array_map(fn ($x) => "IFNULL(`$x`, '\\\\N')", $c)).'))';
+    // No id (pivot tables: user_warehouse, employee_project...): production rows
+    // dev doesn't have (whole row compared) are added; nothing removed.
     if (! in_array('id', $c)) {
-        $nP = $p->table($t)->count(); $nD = $d->table($t)->count();
-        if ($nP !== $nD) $report[] = "$t: no id column, production $nP rows / dev $nD (not copied)";
+        if ($p->table($t)->count() > 50000) { $report[] = "$t: no id column, too big to compare (not copied)"; continue; }
+        $have = collect($d->select("SELECT $hash h FROM `$t`"))->pluck('h')->countBy()->all();
+        $rows = [];
+        foreach ($p->select("SELECT $hash h, `$t`.* FROM `$t`") as $r) {
+            if (($have[$r->h] ?? 0) > 0) { $have[$r->h]--; continue; }
+            $rows[] = array_intersect_key((array) $r, array_flip($c));
+        }
+        if ($rows) { $plan[$t] = ['c' => $c, 'rows' => $rows, 'insert' => [], 'update' => []]; $report[] = "$t: no id column, new rows ".count($rows); }
         continue;
     }
-    $hash = 'MD5(CONCAT_WS("|", '.implode(', ', array_map(fn ($x) => "IFNULL(`$x`, '\\\\N')", $c)).'))';
+    // Natural key: new = a (company, item) dev doesn't have; dev's own id kept for the rest.
+    if (isset($naturalKeys[$t]) && ! array_diff($naturalKeys[$t], $c)) {
+        $k = $naturalKeys[$t];
+        $keyOf = fn ($r) => implode('|', array_map(fn ($x) => (string) $r->$x, $k));
+        $devKeys = collect($d->table($t)->get($k))->map($keyOf)->flip();
+        $devIds = $d->table($t)->pluck('id')->flip();
+        $new = collect($p->table($t)->get(array_merge(['id'], $k)))->reject(fn ($r) => isset($devKeys[$keyOf($r)]))->pluck('id')->all();
+        // Same item in both, content changed in production later (a reordered
+        // menu): production's values (all but id / created_at) win.
+        $same = array_values(array_diff($c, ['id', 'created_at']));
+        $hashN = 'MD5(CONCAT_WS("|", '.implode(', ', array_map(fn ($x) => "IFNULL(`$x`, '\\\\N')", array_diff($same, ['updated_at']))).'))';
+        $selN = 'SELECT '.implode(', ', array_map(fn ($x) => "`$x`", $k)).", $hashN h".(in_array('updated_at', $c) ? ', updated_at u' : '')." FROM `$t`";
+        $Dn = collect($d->select($selN))->keyBy($keyOf);
+        $changedKeys = [];
+        foreach ($p->select($selN) as $r) {
+            $key = $keyOf($r);
+            if (isset($Dn[$key]) && $Dn[$key]->h !== $r->h && (string) ($r->u ?? '') >= (string) ($Dn[$key]->u ?? '')) $changedKeys[] = $key;
+        }
+        if ($new || $changedKeys) {
+            $plan[$t] = ['c' => $c, 'insert' => $new, 'update' => [], 'freshId' => array_values(array_filter($new, fn ($id) => isset($devIds[$id]))),
+                'byKey' => ['cols' => $k, 'set' => $same, 'keys' => $changedKeys]];
+        }
+        $report[] = "$t: matched by ".implode(' + ', $k).' -- new '.count($new).($new ? ' ['.implode(',', array_slice($new, 0, 10)).(count($new) > 10 ? ',...' : '').']' : '')
+            .', changed in production '.count($changedKeys);
+        continue;
+    }
     $hasU = in_array('updated_at', $c);
     $sel = "SELECT id, $hash h".($hasU ? ', updated_at u' : '')." FROM `$t`";
     $P = collect($p->select($sel))->keyBy('id');
@@ -84,7 +123,12 @@ $dir = base_path('KT-TOOLS/database/production');
 if (! is_dir($dir)) mkdir($dir, 0775, true);
 $backup = [];
 foreach ($plan as $t => $x) {
-    $backup[$t] = ['inserted_ids' => $x['insert'], 'replaced_rows' => $x['update'] ? $d->table($t)->whereIn('id', $x['update'])->get($x['c']) : []];
+    $backup[$t] = isset($x['rows'])
+        ? ['inserted_rows' => $x['rows']]
+        : ['inserted_ids' => $x['insert'], 'replaced_rows' => $x['update'] ? $d->table($t)->whereIn('id', $x['update'])->get($x['c']) : []];
+    if (! empty($x['byKey']['keys'])) {
+        $backup[$t]['replaced_by_key'] = $d->table($t)->get($x['c'])->filter(fn ($r) => in_array(implode('|', array_map(fn ($col) => (string) $r->$col, $x['byKey']['cols'])), $x['byKey']['keys'], true))->values();
+    }
 }
 $file = $dir.'/dev_before_prod_pull_'.now()->format('Y-m-d_h-i-s-A').'.json';
 file_put_contents($file, json_encode($backup, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -95,12 +139,32 @@ $done = DB::transaction(function () use ($plan, $p, $d) {
     $n = [];
     foreach ($plan as $t => $x) {
         $ins = 0; $upd = 0;
+        foreach (array_chunk($x['rows'] ?? [], 200) as $chunk) {
+            $d->table($t)->insert($chunk);
+            $ins += count($chunk);
+        }
+        if (! empty($x['byKey']['keys'])) {
+            $kc = $x['byKey']['cols'];
+            $want = array_flip($x['byKey']['keys']);
+            foreach ($p->table($t)->get($x['byKey']['set']) as $r) {
+                $key = implode('|', array_map(fn ($col) => (string) $r->$col, $kc));
+                if (! isset($want[$key])) continue;
+                $q = $d->table($t);
+                foreach ($kc as $col) $q->where($col, $r->$col);
+                $q->update(array_diff_key((array) $r, array_flip($kc)));
+                $upd++;
+            }
+        }
+        $fresh = array_flip($x['freshId'] ?? []);
         foreach (array_chunk(array_merge($x['insert'], $x['update']), 100) as $ids) {
             $rows = $p->table($t)->whereIn('id', $ids)->get($x['c']);
             foreach ($rows as $row) {
                 $row = (array) $row;
                 if (in_array($row['id'], $x['update'])) { $d->table($t)->where('id', $row['id'])->update($row); $upd++; }
-                else { $d->table($t)->insert($row); $ins++; }
+                else {
+                    if (isset($fresh[$row['id']])) unset($row['id']); // that id is taken in dev: a new one
+                    $d->table($t)->insert($row); $ins++;
+                }
             }
         }
         $n[$t] = "inserted $ins, updated $upd";

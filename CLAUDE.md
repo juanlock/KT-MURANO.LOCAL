@@ -429,11 +429,19 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   session's module / form changes (in-app EN + ES, overview HTML + PDF;
   2026-10-07), checks `npm run build`, runs
   Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
-  then **syncs the production database** (user's rule, 2026-10-17): dev's
-  new migrations -> production (`database/scripts/protocol_prod_migrate.php`:
-  dry run, the user's yes, production backup to `KT-TOOLS/database/production/`,
-  then `migrate --database=prod`), and production's new / changed records ->
-  dev (`protocol_prod_pull.php`, one transaction; never `migrations` / `kt_logs`).
+  then lists dev migrations pending in production. **Production sync (user's
+  rules, 2026-10-17 / 2026-10-18):** production's code is deployed only about
+  once a month (Hostinger Git deploy = `git pull`, heavy on temp files), so
+  Pa Llevar's FIRST step, every run, is production -> dev: new / changed
+  `public/files` over SSH (`database/scripts/protocol_prod_files.php`, never
+  deletes) and new / changed records (`protocol_prod_pull.php`, one
+  transaction; never `migrations` / `kt_logs`) -- committed, so the next
+  deploy carries them back and nothing created in production lives only
+  there. Dev -> production = migrations only (`protocol_prod_migrate.php`),
+  applied right after a code deploy (dry run, the user's yes, production
+  backup to `KT-TOOLS/database/production/`, `migrate --database=prod`);
+  otherwise just listed as pending. `public/` stays out of Git LFS (the deploy
+  doesn't fetch LFS; `.gitattributes` = LFS only for KT-TOOLS zips).
   **Production owns the business data; every dev database change -- schema and
   the data a feature needs (permissions, settings, translations, menus) -- is a
   migration, safe to run twice, by name not by id; dev rows are never copied to
@@ -447,6 +455,11 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   GitHub (never force-push; without CLI credentials the user pushes from
   GitHub Desktop). It syncs the user's machines through GitHub -- it is NOT a
   production deploy.
+- **Baja Prod** (`/baja-prod`, or "Jarvis, run protocolo baja prod") --
+  Murano's own (user's request, 2026-10-18): production -> dev on demand --
+  production's new / changed `public/files` (SFTP) and records into `dbmurano`
+  (dry run, then apply in one transaction). It is Pa Llevar's step 000 alone,
+  without backup / commit.
 - **Sube Git** (`/sube-git`, or "Jarvis, run protocolo sube git") -- Murano's
   own (user's request, 2026-10-17): the quick push. Catches up `kt_logs`,
   checks `npm run build`, updates `README.md` in detail (Latest changes block
