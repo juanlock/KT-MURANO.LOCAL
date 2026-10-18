@@ -429,7 +429,17 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   session's module / form changes (in-app EN + ES, overview HTML + PDF;
   2026-10-07), checks `npm run build`, runs
   Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
-  then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails 1/2/3.zip`), then updates
+  then **syncs the production database** (user's rule, 2026-10-17): dev's
+  new migrations -> production (`database/scripts/protocol_prod_migrate.php`:
+  dry run, the user's yes, production backup to `KT-TOOLS/database/production/`,
+  then `migrate --database=prod`), and production's new / changed records ->
+  dev (`protocol_prod_pull.php`, one transaction; never `migrations` / `kt_logs`).
+  **Production owns the business data; every dev database change -- schema and
+  the data a feature needs (permissions, settings, translations, menus) -- is a
+  migration, safe to run twice, by name not by id; dev rows are never copied to
+  production.** Production DB access lives ONLY in `.env.production-db` (per
+  machine, git-ignored; SSH settings in `.env.production-ssh`) -- never in
+  `.env`, this file, README, kt_logs, reports or commits. Then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails 1/2/3.zip`), then updates
   `README.md` (a "Latest changes" block for the session -- last 5 kept -- and any section that changed; user's rule
   2026-10-06), then commits everything with a summary subject and a
   detailed description of the changes (one bullet per `kt_logs` request,

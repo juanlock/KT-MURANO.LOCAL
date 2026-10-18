@@ -280,7 +280,7 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 | **Copia BD** | Backs up `dbmurano` with mysqldump into `KT-TOOLS/database/`. It writes a main zip plus 3 Email Office zips, all importable in phpMyAdmin. |
 | **Sube Git** | Quick push. Logs any missing requests, checks the build, updates this README in detail (Latest changes and any section that changed), then commits with a detailed description and pushes to GitHub. No database backup or reports. |
-| **Pa Llevar** | End of session. Updates the user manual with the session's changes, builds, logs, writes the daily report, backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
+| **Pa Llevar** | End of session. Updates the user manual with the session's changes, builds, logs, writes the daily report, syncs the production database (dev's new migrations to production after a production backup and your OK; production's new sales and records into dev), backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
 
 Pushing uses GitHub Desktop when the terminal has no GitHub credentials. Never
 force-push, and never commit `.env`.

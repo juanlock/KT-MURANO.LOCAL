@@ -28,17 +28,7 @@
 use Illuminate\Support\Facades\DB;
 
 $apply = $apply ?? false;
-$envFile = base_path('.env.production-db');
-if (! is_file($envFile)) {
-    echo "Missing .env.production-db -- production access is set per machine.\n";
-    return;
-}
-$env = Dotenv\Dotenv::parse(file_get_contents($envFile));
-config(['database.connections.prod' => array_merge(config('database.connections.mysql'), [
-    'host' => $env['PROD_DB_HOST'], 'port' => $env['PROD_DB_PORT'] ?? 3306,
-    'database' => $env['PROD_DB_DATABASE'], 'username' => $env['PROD_DB_USERNAME'],
-    'password' => $env['PROD_DB_PASSWORD'], 'options' => [PDO::ATTR_TIMEOUT => 20],
-])]);
+if (! require __DIR__.'/protocol_prod_conn.php') return;
 $p = DB::connection('prod');
 $d = DB::connection();
 $p->statement("SET time_zone = '+00:00'");
