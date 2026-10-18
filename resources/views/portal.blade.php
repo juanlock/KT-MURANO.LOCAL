@@ -52,8 +52,16 @@
       $portalTabler = public_path('js/portal/' . (app()->getLocale() === 'ar' ? 'tabler.rtl.min.css' : 'tabler.min.css'));
       $portalJs  = public_path('js/portal/app.js');
       $portalCss = public_path('js/portal/app.css');
-      $portalSettings = $app_settings ?? null;
-      $portalLogo = $portalSettings && $portalSettings->logo ? asset('images/' . $portalSettings->logo) : null;
+      // Branding = the logged-in customer's company (multicompany); before sign-in, the general settings.
+      $portalUser = auth('portal')->user();
+      $portalCompanyId = $portalUser && $portalUser->client ? (int) $portalUser->client->company_id : null;
+      $portalSettings = ($portalCompanyId
+          ? \App\Models\Setting::where('company_id', $portalCompanyId)->whereNull('deleted_at')->first()
+          : null) ?? ($app_settings ?? null);
+      // Logos live in public/files/company_{id}/... (older ones in public/images/).
+      $portalLogoPath = $portalSettings && $portalSettings->logo ? (string) $portalSettings->logo : '';
+      $portalLogo = $portalLogoPath === '' ? null
+          : asset(implode('/', array_map('rawurlencode', explode('/', str_contains($portalLogoPath, '/') ? $portalLogoPath : 'images/' . $portalLogoPath))));
       $portalCurrency = $portalSettings && $portalSettings->currency ? $portalSettings->currency->symbol : null;
       $portalApp = [
           'name' => ($portalSettings && $portalSettings->CompanyName) ? $portalSettings->CompanyName : config('app.name'),
