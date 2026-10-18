@@ -5,8 +5,9 @@
 /.claude/report
 
 .env
-# Production database access -- per machine, never committed.
+# Production database / SSH access -- per machine, never committed.
 /.env.production-db
+/.env.production-ssh
 /node_modules
 
 # bootstrap/cache: the folder itself is kept (Laravel needs it to exist) via
