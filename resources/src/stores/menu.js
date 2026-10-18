@@ -1,5 +1,12 @@
 import { defineStore } from 'pinia';
-import { MENU } from '../config/menu';
+import { MENU, resolveTarget } from '../config/menu';
+import { isEntryEnabled } from '../config/modules';
+
+/** A menu `to` ('/app/hospital/reports') -> its SPA path ('/hospital/reports'), or null. */
+export const spaPathOf = to => {
+    const r = resolveTarget(to);
+    return r && r.type === 'next' ? r.path : null;
+};
 import { applyMenuOrder } from '../lib/menuOrder';
 import { buildTopLevelMenu, hasNestedPositions } from '../lib/menuTree';
 import { useAuthStore } from './auth';
@@ -60,8 +67,11 @@ export const useMenuStore = defineStore('menu', {
             // Entries without a key are never toggleable and always pass.
             // `requiresSetting` names an auth-store boolean getter (e.g.
             // customerLoyaltyEnabled) -- the entry is dropped while it's off.
+            // Also by the page an item opens (Hospital Reports under Reports,
+            // or an item moved into another group): isEntryEnabled.
+            const flags = auth.user && auth.user.module_flags;
             const dropDisabled = entries => entries
-                .filter(entry => auth.moduleEnabled(entry.key))
+                .filter(entry => isEntryEnabled(flags, entry, spaPathOf))
                 .filter(entry => !entry.requiresSetting || auth[entry.requiresSetting] !== false)
                 .map(entry => (entry.children
                     ? { ...entry, children: dropDisabled(entry.children) }

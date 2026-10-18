@@ -1,4 +1,10 @@
 /public/js
+# Backup-program profiles and scratch copies (production logs...) -- this PC only
+*.cp2
+/KT-TOOLS/Temp
+# Sube Prod keeps the previous build next to it on the server
+/public/js.prev
+/public/js.new
 #*/database/snapshots/
 
 /.claude/report

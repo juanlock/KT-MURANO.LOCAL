@@ -55,18 +55,26 @@ import { ref, reactive, onMounted } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { SaveOutlined, UndoOutlined, AppstoreOutlined } from '@ant-design/icons-vue';
-import { TOGGLEABLE_MODULES } from '../../config/modules';
+import { TOGGLEABLE_MODULES, isModuleEnabled } from '../../config/modules';
 import { MENU } from '../../config/menu';
 import { MENU_ICONS } from '../../config/menuIcons';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const auth = useAuthStore();
 
-// Reuse each module's sidebar icon so the list reads like the navigation.
-const iconByKey = Object.fromEntries(MENU.map(e => [e.key, MENU_ICONS[e.icon]]));
-const modules = TOGGLEABLE_MODULES.map(m => ({ ...m, iconCmp: iconByKey[m.key] }));
+// Reuse each module's sidebar icon so the list reads like the navigation
+// (also nested entries, e.g. Real Estate inside Store). Alphabetical.
+const iconByKey = {};
+(function walk(list) {
+  for (const e of list) {
+    if (e.key && e.icon && !iconByKey[e.key]) iconByKey[e.key] = MENU_ICONS[e.icon];
+    if (e.children) walk(e.children);
+  }
+})(MENU);
+const modules = sortByLabel(TOGGLEABLE_MODULES.map(m => ({ ...m, iconCmp: iconByKey[m.key] })));
 
 const loading = ref(true);
 const saving = ref(false);
@@ -75,13 +83,18 @@ const dirty = ref(false);
 const flags = reactive({});
 
 function applyFlags(map) {
+  // isModuleEnabled: a missing key = on, except modules that are off by default (ZATCA).
   for (const m of TOGGLEABLE_MODULES) {
-    flags[m.key] = !map || map[m.key] !== false;
+    flags[m.key] = isModuleEnabled(map, m.key);
   }
 }
 
 function setAll(value) {
-  for (const m of TOGGLEABLE_MODULES) flags[m.key] = value;
+  // "Enable all" never turns on a module that is off by default (ZATCA): only by hand.
+  for (const m of TOGGLEABLE_MODULES) {
+    if (value && m.defaultOff) continue;
+    flags[m.key] = value;
+  }
   dirty.value = true;
 }
 

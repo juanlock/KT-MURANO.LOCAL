@@ -455,6 +455,22 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   GitHub (never force-push; without CLI credentials the user pushes from
   GitHub Desktop). It syncs the user's machines through GitHub -- it is NOT a
   production deploy.
+- **Sube Prod** (`/sube-prod`, or "Jarvis, run protocolo sube prod") --
+  Murano's own (user's choice, 2026-10-18): the code deploy to production,
+  replacing the Hostinger Git deploy (which kept the project 4-5 times and ran
+  the account out of files). From this PC over SSH: git bundle of the new
+  commits -> `public_html` fast-forwards (the server needs no GitHub access),
+  this PC's built `public/js` swapped in, composer when needed, migrations
+  with a production backup; production's `.env` always kept; maintenance page
+  only during the change. Dry run + the user's yes first; `$rollback` undoes
+  the code. `database/scripts/protocol_prod_deploy.php`.
+  **"Actualizar / actualiza producción" = Sube Prod, and it also sends dev's
+  DATA changes (user's rule, 2026-10-18)**: what was created / changed in dev
+  since the last Baja Prod (`protocol_prod_push.php`: new rows only with an id
+  free in production, changed rows only when production didn't change them
+  too, related pivot rows, newer `public/files`); conflicts are listed, never
+  sent; production backup first, one transaction. Not migrations' tables
+  (translations, permissions, menu_positions), kt_logs, sessions, queues.
 - **Baja Prod** (`/baja-prod`, or "Jarvis, run protocolo baja prod") --
   Murano's own (user's request, 2026-10-18): production -> dev on demand --
   production's new / changed `public/files` (SFTP) and records into `dbmurano`

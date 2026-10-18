@@ -1389,7 +1389,9 @@ class SettingsController extends Controller
             // ZATCA settings
             $item['company_name_ar'] = $settings->company_name_ar;
             $item['vat_number'] = $settings->vat_number;
-            $item['zatca_enabled'] = (bool) $settings->zatca_enabled;
+            // ZATCA only when the company has the module on (Business Modules; off by default)
+            $item['zatca_module'] = \App\Support\ModuleFlags::enabled((int) $settings->company_id, 'zatca');
+            $item['zatca_enabled'] = (bool) $settings->zatca_enabled && $item['zatca_module'];
             // Timezone from .env file - read directly from file to avoid cache issues
             $item['timezone'] = $this->getEnvValue('APP_TIMEZONE', 'UTC');
             $item['app_url'] = rtrim((string) $this->getEnvValue('APP_URL', config('app.url')), '/');
@@ -2226,7 +2228,9 @@ class SettingsController extends Controller
             // ZATCA settings
             $item['company_name_ar'] = $settings->company_name_ar;
             $item['vat_number'] = $settings->vat_number;
-            $item['zatca_enabled'] = (bool) $settings->zatca_enabled;
+            // ZATCA only when the company has the module on (Business Modules; off by default)
+            $item['zatca_module'] = \App\Support\ModuleFlags::enabled((int) $settings->company_id, 'zatca');
+            $item['zatca_enabled'] = (bool) $settings->zatca_enabled && $item['zatca_module'];
             // Timezone from .env file - read directly from file to avoid cache issues
             $item['timezone'] = $this->getEnvValue('APP_TIMEZONE', 'UTC');
             $item['app_url'] = rtrim((string) $this->getEnvValue('APP_URL', config('app.url')), '/');

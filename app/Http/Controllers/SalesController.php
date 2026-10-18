@@ -2733,11 +2733,13 @@ class SalesController extends BaseController
         // Build ZATCA QR payload if enabled and VAT number is set.
         // Phase 2: prefer the cryptographically stamped QR (TLV tags 1-9)
         // stored when the invoice was reported/cleared with Fatoora.
+        // Only for a company with the ZATCA module on (Business Modules; off by default).
+        $zatcaOn = \App\Support\ModuleFlags::enabled((int) $sale->company_id, 'zatca');
         $zatcaQr = null;
-        $zatcaDocument = \App\Models\ZatcaDocument::forSource($sale);
+        $zatcaDocument = $zatcaOn ? \App\Models\ZatcaDocument::forSource($sale) : null;
         if ($zatcaDocument && ! empty($zatcaDocument->qr_code)) {
             $zatcaQr = $zatcaDocument->qr_code;
-        } elseif ($settings && (bool) $settings->zatca_enabled && ! empty($settings->vat_number)) {
+        } elseif ($zatcaOn && $settings && (bool) $settings->zatca_enabled && ! empty($settings->vat_number)) {
             $sellerName = $settings->company_name_ar ?: $settings->CompanyName;
             $timestampIso = ZatcaQr::toIso8601($item['date'], config('app.timezone'));
             // ZATCA QR amounts must stay in the BASE currency (raw stored values),

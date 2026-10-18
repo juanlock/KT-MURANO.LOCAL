@@ -175,10 +175,23 @@ in `KT-TOOLS/Report/`.
   - **Baja Prod** (new protocol, and Pa Llevar's first step every run) brings
     production down to dev: the files created there (`public/files`, over
     SSH) and the new / changed records. Nothing is deleted on either side.
-  - Dev → production: the migrations are listed each Pa Llevar and applied
-    right after the monthly deploy, with a production backup first.
+  - **Sube Prod** ("actualiza producción") replaces the Hostinger Git deploy,
+    which kept the project 4–5 times and ran the account out of files. From
+    this PC over SSH it sends the code, the assets built here and the
+    migrations (production backup first), keeps production's `.env`, and
+    shows a maintenance page only while files change. It also sends the data
+    created or changed in dev since the last Baja Prod, with conflict checks.
+  - A role edited on one side keeps that side's permissions (no duplicates,
+    nothing removed comes back).
   - Each machine needs its own `.env.production-db` / `.env.production-ssh`
     (not in git).
+- **Business Modules (per company):** alphabetical list; **Real Estate** has
+  its own switch (it followed the Store); new switches for Kitchen,
+  QuickBooks, Xero, Google Sheets, Mailchimp, Slack, Telegram and PrestaShop.
+  A module turned off also disappears from **Manage Menu**, and its items kept
+  elsewhere in the menu (e.g. Hospital Reports under Reports) are hidden too.
+- **ZATCA E-Invoicing (Saudi Arabia)** is now a module, **off by default** for
+  every company: no ZATCA settings, QR or reporting unless turned on by hand.
 - **Production outage fixed for good.** Hostinger was giving PHP old
   database settings that beat the server's `.env`. Now the `.env` always
   wins, and System Settings → Save no longer freezes the configuration in
@@ -289,6 +302,7 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | **Preparate** | Start of session. Syncs the PC (pull, migrate, build) and reloads the rules. It also reads the request history (`kt_logs`) and writes status reports to `KT-TOOLS/Report/`. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 | **Copia BD** | Backs up `dbmurano` with mysqldump into `KT-TOOLS/database/`. It writes a main zip plus 3 Email Office zips, all importable in phpMyAdmin. |
+| **Sube Prod** | Deploys the committed code to production from this PC over SSH: one copy of the site (no Hostinger build copies), the assets built here, migrations with a production backup first. Production's `.env` is never replaced. Dry run and your OK first; can be undone. |
 | **Baja Prod** | Brings production down to dev whenever you ask: the files created in production (`public/files`) and its new sales, customers, emails and other records. Shows a dry run first, then applies it in one step. |
 | **Sube Git** | Quick push. Logs any missing requests, checks the build, updates this README in detail (Latest changes and any section that changed), then commits with a detailed description and pushes to GitHub. No database backup or reports. |
 | **Pa Llevar** | End of session. First brings production down to dev (the files created in production's `public/files` and its new sales and records), then updates the user manual with the session's changes, builds, logs, writes the daily report, lists the dev database changes waiting for the next monthly deploy (applied right after a deploy, with a production backup and your OK), backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |

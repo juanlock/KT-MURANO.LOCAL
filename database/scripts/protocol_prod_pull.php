@@ -40,6 +40,11 @@ $skip = ['migrations', 'kt_logs', 'jobs', 'failed_jobs', 'job_batches', 'cache',
 // Tables whose rows are rebuilt with NEW ids (the menu is regenerated per company):
 // matched by these columns, not by id -- by id every menu would come in twice.
 $naturalKeys = ['menu_positions' => ['company_id', 'item_key']];
+// Child rows rewritten with NEW ids whenever their parent is saved (editing a
+// role replaces all its permission_role rows): they follow the side that edited
+// the parent last -- a role edited in dev keeps dev's permissions -- and an
+// existing pair is never inserted twice.
+$parentWins = ['permission_role' => ['roles', 'role_id', ['role_id', 'permission_id']]];
 $tablesOf = fn ($c) => collect($c->select("SELECT table_name t FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'"))->pluck('t')->all();
 $colsOf = fn ($c, $t) => collect($c->select('SELECT column_name c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? ORDER BY ordinal_position', [$t]))->pluck('c')->all();
 
@@ -96,6 +101,22 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip) as $t)
     $D = collect($d->select($sel))->keyBy('id');
 
     $insert = $P->keys()->diff($D->keys())->values()->all();
+    $skippedByParent = 0;
+    if (isset($parentWins[$t]) && $insert) {
+        [$pt, $fk, $pair] = $parentWins[$t];
+        $pu = collect($p->table($pt)->get(['id', 'updated_at']))->pluck('updated_at', 'id');
+        $du = collect($d->table($pt)->get(['id', 'updated_at']))->pluck('updated_at', 'id');
+        $devPairs = collect($d->table($t)->get($pair))->map(fn ($r) => implode('-', array_map(fn ($c) => $r->$c, $pair)))->flip();
+        $rows = $p->table($t)->whereIn('id', $insert)->get(array_merge(['id'], $pair))->keyBy('id');
+        $insert = array_values(array_filter($insert, function ($id) use ($rows, $fk, $pair, $pu, $du, $devPairs) {
+            $r = $rows[$id] ?? null;
+            if (! $r) return false;
+            $parent = $r->$fk;
+            if (isset($du[$parent]) && (string) $du[$parent] > (string) ($pu[$parent] ?? '')) return false; // parent edited in dev last
+            return ! isset($devPairs[implode('-', array_map(fn ($c) => $r->$c, $pair))]);              // pair already in dev
+        }));
+        $skippedByParent = $rows->count() - count($insert);
+    }
     $update = []; $keptDev = [];
     foreach ($P as $id => $r) {
         if (! isset($D[$id]) || $D[$id]->h === $r->h) continue;
@@ -103,6 +124,7 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip) as $t)
     }
     $onlyDev = $D->keys()->diff($P->keys())->values()->all();
     if ($insert || $update) $plan[$t] = compact('c', 'insert', 'update');
+    if ($skippedByParent) $report[] = "$t: $skippedByParent production rows skipped (their parent was edited in dev later, or the pair is already in dev)";
     if ($insert || $update || $keptDev || $onlyDev) {
         $report[] = sprintf('%s: new %d%s, updated %d%s%s%s', $t,
             count($insert), $insert ? ' ['.implode(',', array_slice($insert, 0, 10)).(count($insert) > 10 ? ',...' : '').']' : '',
@@ -173,4 +195,6 @@ $done = DB::transaction(function () use ($plan, $p, $d) {
     return $n;
 });
 foreach ($done as $t => $s) echo "  $t: $s", PHP_EOL;
+// the reference point for Sube Prod's data step: dev changes after this go up
+file_put_contents(base_path('KT-TOOLS/database/production/last_sync.json'), json_encode(['pulled_at' => now()->format('Y-m-d H:i:s')]));
 echo 'Done.', PHP_EOL;

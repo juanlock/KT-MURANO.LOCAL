@@ -2668,7 +2668,7 @@ class PosController extends BaseController
                 'CompanyPhone' => $settings ? $settings->CompanyPhone : null,
                 'vat_number' => $settings ? ($settings->vat_number ?? null) : null,
                 'company_name_ar' => $settings ? ($settings->company_name_ar ?? null) : null,
-                'zatca_enabled' => $settings ? (bool) ($settings->zatca_enabled ?? false) : false,
+                'zatca_enabled' => $settings ? ((bool) ($settings->zatca_enabled ?? false) && \App\Support\ModuleFlags::enabled((int) $settings->company_id, 'zatca')) : false,
                 // Preferred invoice format for POS printing
                 'invoice_format' => $settings && in_array($settings->invoice_format, ['thermal', 'a4'], true)
                     ? $settings->invoice_format

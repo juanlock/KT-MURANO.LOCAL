@@ -37,7 +37,8 @@ class SubmitDocumentToZatca implements ShouldQueue
             ->where('deleted_at', '=', null)
             ->find($this->sourceId);
 
-        if ($source) {
+        // Business Modules: nothing is sent unless the company has ZATCA turned on.
+        if ($source && \App\Support\ModuleFlags::enabled((int) ($source->company_id ?? 0) ?: null, 'zatca')) {
             $service->processQuietly($source);
         }
     }

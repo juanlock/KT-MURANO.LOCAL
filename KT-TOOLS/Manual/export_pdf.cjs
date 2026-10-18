@@ -29,7 +29,13 @@ const out = path.join(__dirname, 'murano_user_manual.pdf');
     #guides { break-before: page; } main { grid-template-columns: minmax(0,1fr) !important; } .basics { grid-template-columns: repeat(3, minmax(0,1fr)) !important; } .lv, tbody th, thead th { white-space: normal !important; } thead th { font-size: 9px !important; letter-spacing: 0 !important; } .rail .group { break-after: avoid; } code, .path { white-space: normal !important; }
   </style>`;
   const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' + printCss.replace('<style>', '<style>') + '</head><body>' + body.replace('</style>', '</style>' + printCss) + '</body></html>';
-  const b = await chromium.launch();
+  // The machine's own Chrome when Playwright's browser isn't downloaded (npx playwright install).
+  const chrome = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'].find(p => fs.existsSync(p));
+  let b;
+  try { b = await chromium.launch(); } catch (e) {
+    if (!chrome) throw e;
+    b = await chromium.launch({ executablePath: chrome });
+  }
   const pg = await b.newPage({ colorScheme: 'light' });
   await pg.setContent(html, { waitUntil: 'networkidle' });
   await pg.emulateMedia({ media: 'print', colorScheme: 'light' });

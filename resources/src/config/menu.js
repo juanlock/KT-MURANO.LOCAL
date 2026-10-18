@@ -441,6 +441,9 @@ export const MENU = [
             { label: 'Quote_Requests', to: '/app/Store/QuoteRequests', permissions: ['Orders_view'], badge: 'quote_requests' },
             { label: 'Returns_Requests', to: '/app/Store/Returns', permissions: ['Orders_view'] },
             {
+                // key = its Business Modules switch (config/modules.js); the menu
+                // order still identifies this group as group:Real_Estate.
+                key: 'realestate',
                 label: 'Real_Estate',
                 permissions: ['realestate_properties', 'realestate_categories', 'realestate_inquiries'],
                 children: [
@@ -1023,7 +1026,7 @@ export const MENU = [
             { label: 'update_settings', to: '/app/settings/update_settings', permissions: ['update_settings'], superAdminOnly: true },
             { label: 'Warehouses', to: '/app/settings/Warehouses', permissions: ['warehouse'] },
             { label: 'Modules', to: '/app/settings/business_modules', permissions: ['business_modules', 'setting_system'], superAdminOnly: true },
-            { label: 'Zatca_E_Invoicing', to: '/app/settings/zatca_settings', permissions: ['zatca_settings'], superAdminOnly: true },
+            { key: 'zatca', label: 'Zatca_E_Invoicing', to: '/app/settings/zatca_settings', permissions: ['zatca_settings'], superAdminOnly: true },
             // systemOnly: only shows while "AdminSystem" (company_id=999) is
             // the acting company in the topbar switcher -- this is install-wide
             // state, not anything scoped to whichever real company happens to
