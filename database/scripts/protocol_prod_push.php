@@ -49,6 +49,10 @@ $skip = ['migrations', 'kt_logs', 'translations', 'permissions', 'menu_positions
 $tablesOf = fn ($c) => collect($c->select("SELECT table_name t FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'"))->pluck('t')->all();
 $colsOf = fn ($c, $t) => collect($c->select('SELECT column_name c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? ORDER BY ordinal_position', [$t]))->pluck('c')->all();
 
+// Never overwritten on rows production already has: what each person sets in
+// production (password, sign-in token, portal language, start page) -- dev only
+// has test values there. New rows still go up whole.
+$noUpdateCols = ['users' => ['password', 'remember_token', 'preferred_locale', 'start_preferences', 'last_login_at', 'header_icons']];
 $plan = []; $conflicts = []; $sentIds = [];
 $pivots = [];
 // Child rows rewritten with new ids when their parent is saved (a role's
@@ -104,8 +108,10 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip, array_
         }
         $pr = (array) $pr;
         if ($isNew && ($pr['created_at'] ?? null) != $row['created_at']) { $conflicts[] = "$t #{$row['id']}: id already used in production by another row"; continue; }
-        $diff = array_keys(array_filter($c, fn ($col) => ! in_array($col, ['id'], true) && (string) ($row[$col] ?? '') !== (string) ($pr[$col] ?? '')));
+        $skipCols = array_merge(['id', 'updated_at'], $noUpdateCols[$t] ?? []);
+        $diff = array_keys(array_filter($c, fn ($col) => ! in_array($col, $skipCols, true) && (string) ($row[$col] ?? '') !== (string) ($pr[$col] ?? '')));
         if (! $diff) continue;
+        if (in_array('updated_at', $c, true)) $diff[] = array_search('updated_at', $c, true);
         if ($hasU && (string) ($pr['updated_at'] ?? '') > $since) { $conflicts[] = "$t #{$row['id']}: changed in BOTH dev and production (".implode(', ', array_slice(array_map(fn ($i) => $c[$i], $diff), 0, 4)).')'; continue; }
         $upd[] = ['row' => $row, 'cols' => array_map(fn ($i) => $c[$i], $diff)];
     }
