@@ -649,8 +649,9 @@ class SettingsController extends Controller
             Artisan::call('view:clear');
         }
         
-        // Re-cache config with new values
-        Artisan::call('config:cache');
+        // No config:cache here: caching from a web request froze whatever .env
+        // held at that moment (production lost its DB password that way, 2026-10-17)
+        // and later .env fixes were ignored until the cache file was deleted.
 
         return response()->json(['success' => true]);
     }

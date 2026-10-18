@@ -276,9 +276,9 @@ class QuickBooksController extends Controller
             'QUICKBOOKS_INCOME_ACCOUNT_NAME' => $data['income_account_name'] ?? '',
         ]);
 
-        // refresh config cache
+        // drop the config cache so the new .env values are read (never re-cache
+        // from a web request -- see SettingsController::update)
         Artisan::call('config:clear');
-        Artisan::call('config:cache');
 
         $this->audit('settings.save', 'info', [
             'message' => 'Settings saved to .env',

@@ -11,6 +11,12 @@
 |
 */
 
+// Keep .env values out of the process environment (putenv). On LiteSpeed
+// (Hostinger) a PHP worker serves many requests: values put there by one
+// request stayed in memory and beat the .env on later ones (production kept
+// an old DB user after .env was fixed, 2026-10-17).
+Illuminate\Support\Env::disablePutenv();
+
 $app = new Illuminate\Foundation\Application(
     $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
 );

@@ -19,9 +19,12 @@ use Illuminate\Support\Str;
  *  - claim: complaints, refunds, "not working", support tickets ([HD-...]);
  *  - general: everything else.
  *
- * Matching (party): received -> the sender; sent -> the first recipient that
- * is a customer (clients.email / additional_emails), else a supplier
- * (providers.email), else an employee -- of the same company.
+ * Matching (party): received -> the sender; sent -> the first recipient (To,
+ * then CC) that is a customer (clients.email / additional_emails, or a
+ * contact_email only one customer has), else a supplier (providers.email),
+ * else an employee -- of the same company. Sent for a sale = that sale's
+ * customer. A customer saved with a new address picks up its unassigned
+ * emails at once (assignToClient, Client model hook).
  */
 class EmailOffice
 {
@@ -63,6 +66,9 @@ class EmailOffice
         $from = strtolower(trim((string) ($m['from_email'] ?? '')));
         $direction = $m['direction'] === 'out' ? 'out' : 'in';
         [$partyType, $partyId] = self::matchParty($companyId, $direction === 'in' ? [$from] : $to);
+        if (! $partyType && $direction === 'out' && $cc) {
+            [$partyType, $partyId] = self::matchParty($companyId, $cc);
+        }
         if (! $partyType && $direction === 'in' && ($sid = self::supplierByName($companyId, self::decodeHeader($m['from_name'] ?? null)))) {
             [$partyType, $partyId] = ['provider', $sid];
         }
@@ -196,6 +202,15 @@ class EmailOffice
                 ->value('id');
             if ($id) {
                 return ['client', (int) $id];
+            }
+        }
+        // A customer's contact person (property manager...): only when exactly
+        // one customer of the company has that contact email.
+        foreach ($emails as $e) {
+            $ids = DB::table('clients')->where('company_id', $companyId)->whereNull('deleted_at')
+                ->whereRaw('LOWER(contact_email) = ?', [$e])->limit(2)->pluck('id');
+            if ($ids->count() === 1) {
+                return ['client', (int) $ids->first()];
             }
         }
         foreach ($emails as $e) {
@@ -393,6 +408,14 @@ class EmailOffice
             foreach ($rows as $r) {
                 $emails = $r->direction === 'in' ? [$r->from_email] : explode(',', (string) $r->to_emails);
                 [$t, $id] = self::matchParty($companyId, $emails);
+                if (! $t && $r->direction === 'out' && $r->cc_emails) {
+                    [$t, $id] = self::matchParty($companyId, explode(',', (string) $r->cc_emails));
+                }
+                // Sent for a sale (invoice / reminder): that sale's customer.
+                if (! $t && $r->direction === 'out' && $r->linked_type === 'sale' && $r->linked_id
+                    && ($cl = DB::table('sales')->where('id', $r->linked_id)->where('company_id', $companyId)->value('client_id'))) {
+                    [$t, $id] = ['client', (int) $cl];
+                }
                 if (! $t && $r->direction === 'in' && ($sid = self::supplierByName($companyId, $r->from_name))) {
                     [$t, $id] = ['provider', $sid];
                 }
@@ -404,6 +427,64 @@ class EmailOffice
         });
 
         return $n;
+    }
+
+    /**
+     * A customer got (or changed) an email address: the company's emails not
+     * assigned yet that came from it / were sent to it (To or CC) are assigned
+     * to that customer right away (otherwise only at the next mailbox check).
+     * Same company only, never the company's own mailbox addresses.
+     */
+    public static function assignToClient(int $clientId): int
+    {
+        $c = DB::table('clients')->where('id', $clientId)->whereNull('deleted_at')
+            ->first(['id', 'company_id', 'email', 'additional_emails', 'contact_email']);
+        if (! $c || ! $c->company_id || ! \Illuminate\Support\Facades\Schema::hasTable('office_emails')) {
+            return 0;
+        }
+        $addrs = array_merge([$c->email], json_decode((string) ($c->additional_emails ?? '[]'), true) ?: []);
+        // a contact email counts only when no other customer of the company has it
+        if ($c->contact_email && DB::table('clients')->where('company_id', $c->company_id)->whereNull('deleted_at')
+            ->whereRaw('LOWER(contact_email) = ?', [strtolower(trim($c->contact_email))])->count() === 1) {
+            $addrs[] = $c->contact_email;
+        }
+        $addrs = array_values(array_diff(array_unique(array_filter(array_map(fn ($e) => strtolower(trim((string) $e)), $addrs),
+            fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL))), self::ownAddresses((int) $c->company_id)));
+        $ids = self::idsWithAddresses((int) $c->company_id, $addrs, true);
+
+        return $ids ? OfficeEmail::whereIn('id', $ids)->update(['party_type' => 'client', 'party_id' => $c->id]) : 0;
+    }
+
+    /**
+     * Ids of the company's emails with any of these addresses on the other side:
+     * received FROM it, or sent TO it (To or CC) -- the exact address, not a
+     * longer one containing it (bob@x.com is not jimbob@x.com). The company's
+     * own mailbox addresses are ignored. $onlyUnassigned = no customer /
+     * supplier / employee yet.
+     */
+    public static function idsWithAddresses(int $companyId, array $addrs, bool $onlyUnassigned = false): array
+    {
+        $addrs = array_values(array_diff(array_unique(array_filter(array_map(fn ($e) => strtolower(trim((string) $e)), $addrs))), self::ownAddresses($companyId)));
+        if (! $addrs) {
+            return [];
+        }
+        $rows = OfficeEmail::where('company_id', $companyId)
+            ->when($onlyUnassigned, fn ($q) => $q->whereNull('party_type'))
+            ->where(function ($q) use ($addrs) {
+                $q->where(fn ($x) => $x->where('direction', 'in')->whereIn('from_email', $addrs));
+                foreach ($addrs as $a) {
+                    $q->orWhere(fn ($x) => $x->where('direction', 'out')->where(fn ($y) => $y->where('to_emails', 'like', '%'.$a.'%')->orWhere('cc_emails', 'like', '%'.$a.'%')));
+                }
+            })->get(['id', 'direction', 'from_email', 'to_emails', 'cc_emails']);
+        $ids = [];
+        foreach ($rows as $r) {
+            $list = $r->direction === 'in' ? [$r->from_email] : array_merge(explode(',', (string) $r->to_emails), explode(',', (string) $r->cc_emails));
+            if (array_intersect(array_map(fn ($e) => strtolower(trim((string) $e)), $list), $addrs)) {
+                $ids[] = $r->id;
+            }
+        }
+
+        return $ids;
     }
 
     /** Attachments: public/files/company_{id}/email-office/{Y}/{m}/ (project standard), private. */

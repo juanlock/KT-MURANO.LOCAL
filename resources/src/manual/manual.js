@@ -482,6 +482,28 @@ export const MANUAL = [
         },
       },
       {
+        id: 'mail-assign', perms: ['email_office_view'], paths: ['email-office/received', 'email-office/sent'],
+        title: { en: 'Emails assigned to customers by themselves', es: 'Correos asignados solos a los clientes' },
+        steps: {
+          en: [
+            '**Received**: assigned to the customer whose email (or additional email) is the sender.',
+            '**Sent**: assigned to the first recipient that is a customer — the To addresses, then CC. Invoices and reminders sent from a sale go to that sale\'s customer even when sent to another address.',
+            'When you add or change a customer\'s email (People › Customers), their emails not assigned yet are assigned at once.',
+            'Assigning one email assigns **every email with the same address** — received from it and sent to it (To or CC) — to that customer. With "Save this address on the customer" ticked (the default) the address is also saved on the customer, so future emails go to them by themselves.',
+          ],
+          es: [
+            '**Recibidos**: se asignan al cliente cuyo email (o email adicional) es el remitente.',
+            '**Enviados**: se asignan al primer destinatario que sea cliente — las direcciones de Para y luego las de CC. Las facturas y recordatorios enviados desde una venta van al cliente de esa venta aunque se envíen a otra dirección.',
+            'Al agregar o cambiar el email de un cliente (Personas › Clientes), sus correos sin asignar se le asignan al momento.',
+            'Al asignar un correo se asignan **todos los correos con la misma dirección** — recibidos de ella y enviados a ella (Para o CC) — a ese cliente. Con "Save this address on the customer" marcado (viene así) la dirección también se guarda en el cliente, y los correos futuros le llegan solos.',
+          ],
+        },
+        note: {
+          en: 'Matching is by email only and within your company; a contact email counts only when a single customer has it.',
+          es: 'La asignación es solo por email y dentro de su empresa; un email de contacto cuenta solo si lo tiene un único cliente.',
+        },
+      },
+      {
         id: 'mail-settings', perms: ['email_office_manage'], paths: ['email-office/settings'],
         title: { en: 'Mailbox settings and rules', es: 'Configuración y reglas del correo' },
         steps: {
