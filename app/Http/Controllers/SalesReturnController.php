@@ -133,10 +133,10 @@ class SalesReturnController extends BaseController
         if ($perPage == '-1') {
             $perPage = $totalRows;
         }
-        $SaleReturn = $Filtred->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        $SaleReturn = \App\Support\ListSort::apply($Filtred->offset($offSet)->limit($perPage), 'sale_returns', $order, $dir, [
+            'client_name' => ['clients', 'client_id'],
+            'warehouse_name' => ['warehouses', 'warehouse_id'],
+        ], 'id')->get();
 
         foreach ($SaleReturn as $Sale_Return) {
 

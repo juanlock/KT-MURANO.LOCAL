@@ -44,10 +44,11 @@ class SubscriptionController extends BaseController
         if ($perPage == '-1') {
             $perPage = $totalRows;
         }
-        $subscriptions = $subscription_data->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        $subscriptions = \App\Support\ListSort::apply($subscription_data->offset($offSet)->limit($perPage), 'subscriptions', $order, $dir, [
+            'client_name' => ['clients', 'client_id'],
+            'product_name' => ['products', 'product_id'],
+            'warehouse_name' => ['warehouses', 'warehouse_id'],
+        ], 'id')->get();
 
         $data = [];
         foreach ($subscriptions as $subscription) {

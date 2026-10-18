@@ -136,10 +136,9 @@ class ClientsEcommerceController extends BaseController
             $perPage = $totalRows;
         }
 
-        $accounts = $query->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        $accounts = \App\Support\ListSort::apply($query->offset($offSet)->limit($perPage), 'ecommerce_clients', $order, $dir, [
+            'client_name' => ['clients', 'client_id'],
+        ], 'id')->get();
 
         $data = [];
         foreach ($accounts as $acc) {

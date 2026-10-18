@@ -28,8 +28,15 @@ class SaleEmailLog
         if ($logId) {
             $email['headers'] = ($email['headers'] ?? []) + ['X-Sale-Email-Log' => (string) $logId];
         }
+        // Mail Settings -> "Send a copy to other emails" (hidden copy): reminders
+        // for a reminder, sales for an invoice / receipt.
+        $copies = \App\Support\CompanyMail::copyEmails((int) ($sale->company_id ?? 0), $kind === 'reminder' ? 'reminders' : 'sales', $recipients);
         try {
-            Mail::to($recipients)->send(new CustomEmail($email));
+            $pending = Mail::to($recipients);
+            if ($copies) {
+                $pending->bcc($copies);
+            }
+            $pending->send(new CustomEmail($email));
             self::finish($logId, 'ok');
         } catch (\Throwable $e) {
             self::finish($logId, 'failed', $e->getMessage());

@@ -423,17 +423,6 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   DEFINER; portable utf8mb4_unicode_ci collations. `KT-TOOLS/` is git-tracked,
   so the snapshot travels across every machine this checkout is on, same as
   the other protocols.
-- **Sincroniza BD** (`/sincroniza-bd`, or "Jarvis, run protocolo sincroniza
-  bd") — Murano's own (user's rule, 2026-10-13): compares the **production**
-  database (Hostinger) with dev `dbmurano` -- schema, migrations and data
-  (`database/scripts/protocol_sincroniza_bd.php`, read-only, report in
-  `KT-TOOLS/Report/kt_murano_sincroniza_bd_<date>.html`) -- shows the
-  differences and asks which ones to apply to production; before any write it
-  backs production up (`KT-TOOLS/database/production/`, git-ignored), then
-  applies only what was approved, one confirmation each. Production
-  credentials live ONLY in `.env.production-db` at the repo root (per machine,
-  git-ignored) -- never in `.env` (git still tracks it), this file, README,
-  kt_logs, reports or commits.
 - **Pa Llevar** (`/pa-llevar`, or "Jarvis, run protocolo pa llevar") —
   Murano's own end-of-session close-out (A Dormir was merged into it and
   then deleted, user's request 2026-10-01): updates the user manual with the
@@ -448,6 +437,15 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   GitHub (never force-push; without CLI credentials the user pushes from
   GitHub Desktop). It syncs the user's machines through GitHub -- it is NOT a
   production deploy.
+- **Sube Git** (`/sube-git`, or "Jarvis, run protocolo sube git") -- Murano's
+  own (user's request, 2026-10-17): the quick push. Catches up `kt_logs`,
+  checks `npm run build`, updates `README.md` in detail (Latest changes block
+  with one bullet + detail line per change, plus every section the work
+  changed), commits with a summary subject (`sube git <date>: ...`) and a
+  detailed description (one bullet per `kt_logs` request, migrations, setup
+  steps) and pushes (never force-push; GitHub Desktop when there are no
+  credentials). No manual update, daily report or database backup -- that is
+  Pa Llevar.
 Billing's originals stay untouched (billing is read-only, per the Hard Rules
 below) — these are Murano's own copies, kept in sync manually if the protocol
 logic evolves.

@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-10-16';
+export const MANUAL_UPDATED = '2026-10-17';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -44,11 +44,30 @@ export const MANUAL = [
         },
       },
       {
-        id: 'topbar',
-        title: { en: 'The top bar', es: 'La barra superior' },
-        steps: {
-          en: ['**Book**: this manual.', '**Clock**: clock in and out (if your role has it).', '**Globe**: language, English or Spanish.', '**Bell**: work waiting for you.', '**Your name**: Profile, appearance (light / dark) and sign out.'],
-          es: ['**Libro**: este manual.', '**Reloj**: marcar entrada y salida (si su rol lo tiene).', '**Globo**: idioma, inglés o español.', '**Campana**: trabajo pendiente.', '**Su nombre**: Perfil, apariencia (claro / oscuro) y cerrar sesión.'],
+        id: 'topbar', paths: ['dashboard', 'profile'],
+        title: { en: 'Top bar icons', es: 'Íconos de la barra superior' },
+        intro: {
+          en: 'The buttons at the top right of every page. You only see the ones your company and your role allow; you can hide or reorder yours in **Profile › Header icons**.',
+          es: 'Los botones arriba a la derecha de cada página. Solo ve los que su empresa y su rol permiten; puede ocultar o reordenar los suyos en **Perfil › Íconos del encabezado**.',
+        },
+        // Each key is drawn with its real icon and color (ManualDrawer ICON_LOOK).
+        icons: [
+          { key: 'company', title: { en: 'Company selector (SuperAdmin only)', es: 'Selector de empresa (solo SuperAdmin)' }, text: { en: 'Which company you are working on. Every page and form follows the company chosen here.', es: 'En qué empresa está trabajando. Todas las páginas y formularios siguen la empresa elegida aquí.' } },
+          { key: 'pos', title: { en: 'POS', es: 'POS' }, text: { en: 'Opens the point of sale (if your role can sell at the register).', es: 'Abre el punto de venta (si su rol puede vender en caja).' } },
+          { key: 'customize', title: { en: 'Settings (gear)', es: 'Configuración (engranaje)' }, text: { en: 'Appearance of the app: theme, colors, menu layout.', es: 'Apariencia de la aplicación: tema, colores, distribución del menú.' } },
+          { key: 'install', title: { en: 'Install app', es: 'Instalar app' }, text: { en: 'Installs Murano like an app on this computer or phone. Shown only while the browser offers it.', es: 'Instala Murano como una aplicación en esta computadora o celular. Aparece solo mientras el navegador lo ofrece.' } },
+          { key: 'summary', title: { en: 'Como Vamos! (today\'s summary)', es: '¡Cómo Vamos! (resumen de hoy)' }, text: { en: 'Today at a glance: sales, payments, bookings and what is pending.', es: 'El día de un vistazo: ventas, pagos, reservas y lo pendiente.' } },
+          { key: 'fullscreen', title: { en: 'Full screen', es: 'Pantalla completa' }, text: { en: 'Uses the whole screen; click again (or Esc) to go back. Not on phones.', es: 'Usa toda la pantalla; haga clic otra vez (o Esc) para volver. No en celulares.' } },
+          { key: 'manual', title: { en: 'User manual (open book)', es: 'Manual de usuario (libro abierto)' }, text: { en: 'This manual: **This page** shows help for the screen you are on, **Whole manual** has everything with a search. English or Spanish.', es: 'Este manual: **Esta página** muestra la ayuda de la pantalla en la que está, **Todo el manual** tiene todo con búsqueda. Inglés o español.' } },
+          { key: 'language', title: { en: 'Language (globe)', es: 'Idioma (globo)' }, text: { en: 'Changes the language of the app for you.', es: 'Cambia el idioma de la aplicación para usted.' } },
+          { key: 'notifications', title: { en: 'Notifications (bell)', es: 'Notificaciones (campana)' }, text: { en: 'Work waiting for you (e.g. bookings to confirm, computers to approve). The number is how many; click an item to go there.', es: 'Trabajo pendiente (p. ej. reservas por confirmar, computadoras por aprobar). El número indica cuántos; haga clic en uno para ir.' } },
+          { key: 'clock', title: { en: 'Clock in / out', es: 'Marcar entrada / salida' }, text: { en: 'Clocks you in or out for today (if your role has it). Turns green with the time while you are clocked in.', es: 'Marca su entrada o salida de hoy (si su rol lo tiene). Se pone verde con la hora mientras está marcado.' } },
+          { key: 'logout', title: { en: 'Log out', es: 'Cerrar sesión' }, text: { en: 'Signs you out in one click. Always do it on a shared computer.', es: 'Cierra su sesión con un clic. Hágalo siempre en una computadora compartida.' } },
+          { key: 'user', title: { en: 'Your name', es: 'Su nombre' }, text: { en: '**Profile**, Settings, **Appearance** (light / dark / auto) and sign out.', es: '**Perfil**, Configuración, **Apariencia** (claro / oscuro / automático) y cerrar sesión.' } },
+        ],
+        note: {
+          en: 'Company administrators choose which icons the whole company sees in **System Settings › Defaults › Users › Header icons**; each person can still show / hide and reorder their own in **Profile**.',
+          es: 'Los administradores eligen qué íconos ve toda la empresa en **Configuración del sistema › Predeterminados › Usuarios › Íconos del encabezado**; cada persona puede mostrar / ocultar y reordenar los suyos en **Perfil**.',
         },
       },
       {
@@ -801,6 +820,14 @@ export const MANUAL = [
         note: {
           en: 'Blocked users see: "You can\'t use Murano from this network…" on the sign-in page. Clearing the browser\'s data or using another browser needs a new approval.',
           es: 'Los usuarios bloqueados ven: "You can\'t use Murano from this network…" en la página de ingreso. Borrar los datos del navegador o usar otro navegador requiere una nueva aprobación.',
+        },
+      },
+      {
+        id: 'set-mail', perms: ['mail_settings'], paths: ['settings/mail'],
+        title: { en: 'Mail settings', es: 'Configuración de correo' },
+        steps: {
+          en: ['**Settings › Mail Settings**: the mail server the company sends from; **Test** sends a test email.', '**Admin notices** lists who gets the automatic notices (bookings, POS register); the SuperAdmin can also get a copy.', '**Send a copy to other emails**: type the addresses (Enter after each) and tick which emails they copy — **Sales** (invoices and payment receipts), **Payment reminders**, **Purchases** (orders and payments). They get a hidden copy; customers and suppliers never see them. Press **Submit** to save.'],
+          es: ['**Configuración › Mail Settings**: el servidor de correo desde el que envía la empresa; **Test** envía un correo de prueba.', '**Admin notices** muestra quién recibe los avisos automáticos (reservas, caja del POS); el SuperAdmin también puede recibir copia.', '**Send a copy to other emails**: escriba las direcciones (Enter después de cada una) y marque qué correos copian — **Ventas** (facturas y recibos de pago), **Recordatorios de pago**, **Compras** (órdenes y pagos). Reciben una copia oculta; clientes y proveedores nunca la ven. Presione **Submit** para guardar.'],
         },
       },
     ],

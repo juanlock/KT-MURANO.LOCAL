@@ -131,10 +131,10 @@ class PurchasesReturnController extends BaseController
         if ($perPage == '-1') {
             $perPage = $totalRows;
         }
-        $PurchaseReturn = $Filtred->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        $PurchaseReturn = \App\Support\ListSort::apply($Filtred->offset($offSet)->limit($perPage), 'purchase_returns', $order, $dir, [
+            'provider_name' => ['providers', 'provider_id'],
+            'warehouse_name' => ['warehouses', 'warehouse_id'],
+        ], 'id')->get();
 
         foreach ($PurchaseReturn as $Purchase_Return) {
 

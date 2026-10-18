@@ -70,7 +70,7 @@ app/
   Http/Controllers/      API controllers (company-scoped via Concerns/ScopesToCompany)
   Models/                Eloquent models
   Services/              Domain services (EmailOffice, LinkedUserService, PayrollRun, ...)
-  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ServiceJobCost, ModuleFlags, WebsitePaths, SuperAdminAccess, CompanyProfile...
+  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ServiceJobCost, ModuleFlags, WebsitePaths, SuperAdminAccess, CompanyProfile, ListSort, CompanyMail...
 database/
   migrations/            Schema + data migrations (run on every machine)
   scripts/               Protocol scripts (backups, reports)
@@ -137,6 +137,9 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
     when the user's role can open that page.
   - A list with filters uses `useListState()` so Back restores it; forms
     opened from a list return with `goBack()` on Save / Cancel.
+  - Sorting a list by a name column (Customer, Supplier, Warehouse...) goes
+    through `App\Support\ListSort` on the server, never a raw `orderBy` on
+    the column name the table sends.
 - **Global processes are transactional.** An action that changes several
   things does all of it or none (e.g. removing an employee:
   `App\Services\EmployeeRemoval`; disabling a login: `App\Support\UserAccess`).
@@ -165,6 +168,29 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
 
+### 2026-10-17 (Optimum)
+
+- **Sorting lists by name works again.** Sorting Sales (any filter, e.g.
+  Unpaid, or All) by Customer or Warehouse showed an error. Fixed there and in
+  Purchases, Quotations, Expenses, Damages, Adjustments, Sale / Purchase
+  returns, Subscriptions, Shipments and online-store customer accounts.
+- **Mail Settings → "Send a copy to other emails".** Each company can add
+  extra addresses that get a hidden copy (BCC) of the emails it sends, and
+  choose for which: **Sales** (invoices, payment receipts), **Payment
+  reminders** and **Purchases** (orders, payments). Wrong addresses are
+  refused when saving.
+- **User manual → "Top bar icons".** Every top bar icon is shown with its own
+  look and color, its name and what it does (company selector, POS, Settings,
+  Install app, Como Vamos!, Full screen, manual, language, notifications,
+  clock in / out, log out, your name), in English and Spanish. It opens under
+  *This page* on the Dashboard and Profile, and is searchable.
+- **New manual icon:** a colored open book, in the top bar and in the manual.
+- **Protocols:** Sincroniza BD was removed; the new **Sube Git** is a quick
+  push (logs, build, detailed README, commit, push) without the database
+  backup of Pa Llevar.
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-10-16 (Optimum)
 
 - **Adding a product or service is guided** (Quick Add on the sale form and
@@ -182,6 +208,7 @@ in `KT-TOOLS/Report/`.
   tested) in `KT-TOOLS/SQL/`.
 
 Setup: `npm run build`.
+
 ### 2026-10-16 (Thundera)
 
 - **Network security** (Settings → Network security), per company, on for
@@ -193,9 +220,6 @@ Setup: `npm run build`.
   - Computers waiting for approval show in the bell; approve once, remove any
     time.
   - Managed by roles with the new "Network security" permission.
-- **Sincroniza BD** protocol: compares production with dev (structure,
-  migrations, data), shows the differences, backs production up and applies
-  only what you approve -- or writes SQL files to import by hand.
 - The user manual (in-app and the overview / PDF) explains Network security.
 
 Setup: `php artisan migrate`, `npm run build`.
@@ -243,16 +267,6 @@ Setup: `npm run build`.
   in `KT-TOOLS/SQL/`. Run part 1, then part 2.
 
 Setup: `php artisan migrate`, `npm run build`.
-### 2026-10-09 (Optimum)
-
-- **Profile → Header icons.**
-  - Show is green and Hide is red.
-  - The company's setting under each icon is shown in green or red.
-  - Each user can change the order of the icons in the top bar with ‹ ›
-    arrows, or put the standard order back with **Reset order**.
-- The user manual (English and Spanish) explains both.
-
-Setup: `npm run build`.
 
 ---
 
@@ -265,7 +279,7 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | **Preparate** | Start of session. Syncs the PC (pull, migrate, build) and reloads the rules. It also reads the request history (`kt_logs`) and writes status reports to `KT-TOOLS/Report/`. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 | **Copia BD** | Backs up `dbmurano` with mysqldump into `KT-TOOLS/database/`. It writes a main zip plus 3 Email Office zips, all importable in phpMyAdmin. |
-| **Sincroniza BD** | Compares the production database with dev (structure, migrations, data) and shows the differences. Only with your approval: backs production up, then applies the approved tables, or writes SQL files to import by hand. Production access lives only in the git-ignored `.env.production-db`. |
+| **Sube Git** | Quick push. Logs any missing requests, checks the build, updates this README in detail (Latest changes and any section that changed), then commits with a detailed description and pushes to GitHub. No database backup or reports. |
 | **Pa Llevar** | End of session. Updates the user manual with the session's changes, builds, logs, writes the daily report, backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
 
 Pushing uses GitHub Desktop when the terminal has no GitHub credentials. Never

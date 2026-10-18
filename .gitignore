@@ -5,7 +5,7 @@
 /.claude/report
 
 .env
-# Production database access for Protocol Sincroniza BD -- per machine, never committed.
+# Production database access -- per machine, never committed.
 /.env.production-db
 /node_modules
 
@@ -24,7 +24,7 @@
 /KT-TOOLS/documentation
 /KT-TOOLS/VERSION
 /KT-TOOLS/database/Older
-# Production backups made by Protocol Sincroniza BD stay on the machine that made them.
+# Production database backups stay on the machine that made them.
 /KT-TOOLS/database/production
 /KT-TOOLS/sources
 /KT-TOOLS/ZIP

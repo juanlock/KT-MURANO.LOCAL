@@ -92,6 +92,42 @@ class CompanyMail
         return array_values($out);
     }
 
+    /** The kinds of email "Send a copy to other emails" can cover. */
+    public const COPY_KINDS = ['sales', 'reminders', 'purchases'];
+
+    /** The company's copy settings: ['emails' => [...], 'on' => [...]] (Mail Settings). */
+    public static function copySettings(int $companyId): array
+    {
+        $s = \Illuminate\Support\Facades\Schema::hasColumn('settings', 'mail_copy_emails')
+            ? DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['mail_copy_emails', 'mail_copy_on'])
+            : null;
+        $emails = array_values(array_filter(array_map('trim', preg_split('/[\s,;]+/', (string) ($s->mail_copy_emails ?? ''))),
+            fn ($e) => $e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL) && ! self::reserved($e)));
+        $on = json_decode((string) ($s->mail_copy_on ?? ''), true);
+
+        return ['emails' => array_values(array_unique($emails)), 'on' => is_array($on) ? array_values(array_intersect($on, self::COPY_KINDS)) : self::COPY_KINDS];
+    }
+
+    /**
+     * Mail Settings -> "Send a copy to other emails": the addresses that get a
+     * hidden copy (BCC) of this kind of email (sales = invoices and payment
+     * receipts, reminders, purchases = purchase and payment emails), minus
+     * anyone already receiving it. Empty when the kind isn't ticked.
+     *
+     * @param  array<string>|string  $alreadyTo
+     * @return array<string>
+     */
+    public static function copyEmails(int $companyId, string $kind, $alreadyTo = []): array
+    {
+        $c = self::copySettings($companyId);
+        if (! in_array($kind, $c['on'], true)) {
+            return [];
+        }
+        $to = array_map(fn ($e) => strtolower(is_array($e) ? ($e['email'] ?? '') : (string) $e), (array) $alreadyTo);
+
+        return array_values(array_filter($c['emails'], fn ($e) => ! in_array(strtolower($e), $to, true)));
+    }
+
     /** Just the addresses of recipients(). @return array<string> */
     public static function adminEmails(int $companyId): array
     {

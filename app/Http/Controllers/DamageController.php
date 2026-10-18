@@ -84,10 +84,9 @@ class DamageController extends BaseController
         if ($perPage == '-1') {
             $perPage = $totalRows;
         }
-        $Damages = $Filtred->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        $Damages = \App\Support\ListSort::apply($Filtred->offset($offSet)->limit($perPage), 'damages', $order, $dir, [
+            'warehouse_name' => ['warehouses', 'warehouse_id'],
+        ], 'id')->get();
 
         foreach ($Damages as $DamageRow) {
             $item['id'] = $DamageRow->id;

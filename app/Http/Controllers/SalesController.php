@@ -252,11 +252,24 @@ class SalesController extends BaseController
                 ->values();
         }
 
+        // Sort: the list's Customer / Warehouse columns are names from other
+        // tables (sorting by them used to fail with "Unknown column
+        // client_name"); anything else must be a real sales column.
+        $dir = strtolower((string) $dir) === 'asc' ? 'asc' : 'desc';
+        $sortBy = match ($order) {
+            'client_name' => DB::table('clients')->select('name')->whereColumn('clients.id', 'sales.client_id')->limit(1),
+            'warehouse_name' => DB::table('warehouses')->select('name')->whereColumn('warehouses.id', 'sales.warehouse_id')->limit(1),
+            'date', 'Ref', 'statut', 'GrandTotal', 'paid_amount', 'payment_statut', 'id', 'created_at' => 'sales.'.$order,
+            default => 'sales.date',
+        };
+
         $Sales = $Filtred->offset($offSet)
             ->limit($perPage)
-            ->orderBy($order, $dir)
+            ->orderBy($sortBy, $dir)
             // Same-day sales: latest time first, then latest created.
-            ->when($order === 'date', fn ($q) => $q->orderBy('time', $dir)->orderBy('id', $dir))
+            ->when($sortBy === 'sales.date', fn ($q) => $q->orderBy('sales.time', $dir)->orderBy('sales.id', $dir))
+            // Same customer / warehouse: newest sale first.
+            ->when(! is_string($sortBy), fn ($q) => $q->orderBy('sales.date', 'desc')->orderBy('sales.id', 'desc'))
             ->get();
 
         // "Other due invoices" per customer -- one grouped query for the

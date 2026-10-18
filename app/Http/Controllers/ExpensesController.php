@@ -114,10 +114,11 @@ class ExpensesController extends BaseController
         if ($perPage == '-1') {
             $perPage = $totalRows;
         }
-        $Expenses = $Filtred->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        $Expenses = \App\Support\ListSort::apply($Filtred->offset($offSet)->limit($perPage), 'expenses', $order, $dir, [
+            'category_name' => ['expense_categories', 'expense_category_id'],
+            'warehouse_name' => ['warehouses', 'warehouse_id'],
+            'account_name' => ['accounts', 'account_id', 'account_name'],
+        ], 'id')->get();
 
         foreach ($Expenses as $Expense) {
 

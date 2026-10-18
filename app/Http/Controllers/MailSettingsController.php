@@ -35,6 +35,8 @@ class MailSettingsController extends BaseController
             // SuperAdmin-copy switch (only a SuperAdmin may see / change it).
             'notice_recipients' => array_values(array_filter(\App\Support\CompanyMail::recipients($companyId), fn ($r) => ! $r['copy'])),
             'notify_superadmin_copy' => (bool) ($settings->notify_superadmin_copy ?? false),
+            // "Send a copy to other emails": addresses + which emails (sales / reminders / purchases).
+            'mail_copy' => \App\Support\CompanyMail::copySettings((int) $companyId),
         ], 200);
     }
 
@@ -69,6 +71,21 @@ class MailSettingsController extends BaseController
             $settings = Setting::forCompany($companyId);
             $settings->notify_superadmin_copy = $request->boolean('notify_superadmin_copy');
             $settings->save();
+        }
+
+        // "Send a copy to other emails" -- the company's own setting (mail_settings permission).
+        if ($request->has('mail_copy_emails') && \Illuminate\Support\Facades\Schema::hasColumn('settings', 'mail_copy_emails')) {
+            $emails = collect(is_array($request['mail_copy_emails']) ? $request['mail_copy_emails'] : preg_split('/[\s,;]+/', (string) $request['mail_copy_emails']))
+                ->map(fn ($e) => trim((string) $e))->filter()->unique()->values();
+            $bad = $emails->reject(fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL))->values();
+            if ($bad->isNotEmpty()) {
+                return response()->json(['message' => 'Not a valid email: '.$bad->implode(', '), 'errors' => ['mail_copy_emails' => ['Not a valid email: '.$bad->implode(', ')]]], 422);
+            }
+            $on = array_values(array_intersect((array) $request->input('mail_copy_on', []), \App\Support\CompanyMail::COPY_KINDS));
+            \Illuminate\Support\Facades\DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->update([
+                'mail_copy_emails' => $emails->isEmpty() ? null : $emails->implode(', '),
+                'mail_copy_on' => json_encode($on),
+            ]);
         }
 
         return response()->json(['success' => true]);
