@@ -74,6 +74,10 @@ class LogSentEmail
                     'linked_type' => 'sale', 'linked_id' => (int) $saleLog->sale_id,
                     'category' => $saleLog->kind === 'reminder' ? 'reminder' : 'general', 'category_manual' => true,
                 ]);
+                // Sent to an address the customer doesn't have saved: still that sale's customer.
+                if (! $row->party_type && ($clientId = DB::table('sales')->where('id', $saleLog->sale_id)->value('client_id'))) {
+                    $row->update(['party_type' => 'client', 'party_id' => (int) $clientId]);
+                }
                 DB::table('sale_email_logs')->where('id', $saleLog->id)->update(['office_email_id' => $row->id]);
             }
         } catch (\Throwable $e) {

@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\Hash;
  *    roles are per company (2026_09_23_110000_add_company_id_to_roles_table)
  *  - its Setting / PosSetting / StoreSetting rows (cloned from the template)
  *    named after the company
+ *  - its menu: a copy of the template company's layout (the SuperAdmin's
+ *    current platform order), not the factory order
  *  - a main warehouse (set as the Default Warehouse)
  *  - a Walk-in Customer (set as the Default Customer)
  *  - the default chart of accounts and expense categories
@@ -97,6 +99,10 @@ class CompanyProvisioner
             ]);
             PosSetting::forCompany($cid);
             StoreSetting::forCompany($cid);
+
+            // Menu: the SuperAdmin's current platform layout (the template
+            // company's rows), not the factory order of config/menu.js.
+            self::copyTemplateMenu($cid);
 
             // HR basics every employee needs.
             $shiftId = DB::table('office_shifts')->insertGetId([
@@ -202,5 +208,26 @@ class CompanyProvisioner
 
             return ['company' => $co, 'user' => $user, 'employee_id' => $employeeId, 'helpdesk_user' => $helpdeskUser];
         });
+    }
+
+    /**
+     * The company's menu = a copy of the template company's (AdminSystem, 999):
+     * the order / grouping / hidden items the SuperAdmin set for the platform.
+     * Nothing when the company already has a layout or the template has none.
+     */
+    public static function copyTemplateMenu(int $companyId): int
+    {
+        if (DB::table('menu_positions')->where('company_id', $companyId)->exists()) {
+            return 0;
+        }
+        $now = now();
+        $rows = DB::table('menu_positions')->where('company_id', Setting::TEMPLATE_COMPANY_ID)->get()
+            ->map(fn ($r) => array_merge((array) $r, ['id' => null, 'company_id' => $companyId, 'created_at' => $now, 'updated_at' => $now]))
+            ->map(fn ($r) => array_diff_key($r, ['id' => true]))->all();
+        foreach (array_chunk($rows, 500) as $chunk) {
+            DB::table('menu_positions')->insert($chunk);
+        }
+
+        return count($rows);
     }
 }

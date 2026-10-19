@@ -1002,10 +1002,11 @@ class EmailOfficeController extends Controller
             'remember' => 'boolean',
         ]);
         abort_unless($this->ownsParty($cid, $v['party_type'], (int) $v['party_id']), 422, 'That contact is not in this company.');
-        $addr = strtolower($v['address']);
-        $n = OfficeEmail::where('company_id', $cid)->where(fn ($w) => $w->where(fn ($x) => $x->where('direction', 'in')->where('from_email', $addr))
-            ->orWhere(fn ($x) => $x->where('direction', 'out')->where('to_emails', 'like', '%'.$addr.'%')))
-            ->update(['party_type' => $v['party_type'], 'party_id' => (int) $v['party_id']]);
+        $addr = strtolower(trim($v['address']));
+        abort_if(in_array($addr, EmailOffice::ownAddresses($cid), true), 422, 'That is your own mailbox address -- assign this email only.');
+        // Every email with that address, both ways: received from it and sent to it (To / CC).
+        $ids = EmailOffice::idsWithAddresses($cid, [$addr]);
+        $n = $ids ? OfficeEmail::whereIn('id', $ids)->update(['party_type' => $v['party_type'], 'party_id' => (int) $v['party_id']]) : 0;
 
         $remembered = false;
         if ($request->boolean('remember')) {

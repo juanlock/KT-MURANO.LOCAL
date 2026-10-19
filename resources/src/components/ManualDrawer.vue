@@ -8,7 +8,7 @@
     @close="$emit('close')"
   >
     <template #title>
-      <span class="md-title"><BookOutlined /> {{ L('Manual', 'Manual') }}</span>
+      <span class="md-title"><OpenBookIcon style="font-size: 20px" /> {{ L('Manual', 'Manual') }}</span>
     </template>
     <template #extra>
       <a-segmented v-model:value="lang" size="small" :options="[{ value: 'en', label: 'EN' }, { value: 'es', label: 'ES' }]" />
@@ -91,7 +91,11 @@
  */
 import { ref, computed, watch, defineComponent, h } from 'vue';
 import { useRoute } from 'vue-router';
-import { BookOutlined } from '@ant-design/icons-vue';
+import {
+  CalculatorOutlined, SettingOutlined, DownloadOutlined, PieChartOutlined, FullscreenOutlined,
+  GlobalOutlined, BellOutlined, FieldTimeOutlined, LogoutOutlined, UserOutlined, BankOutlined,
+} from '@ant-design/icons-vue';
+import OpenBookIcon from './icons/OpenBookIcon.vue';
 import { MANUAL, MANUAL_UPDATED } from '../manual/manual';
 import { useAuthStore } from '../stores/auth';
 import { useUiStore } from '../stores/ui';
@@ -151,7 +155,8 @@ const pageSections = computed(() => {
 });
 
 // ---------------- whole manual + search ----------------
-const textOf = (o, l) => [o.title?.[l], o.intro?.[l], o.note?.[l], ...(o.steps?.[l] || [])].join(' ').toLowerCase();
+const textOf = (o, l) => [o.title?.[l], o.intro?.[l], o.note?.[l], ...(o.steps?.[l] || []),
+  ...(o.icons || []).flatMap(i => [i.title?.[l], i.text?.[l]])].join(' ').toLowerCase();
 const allEntries = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (!q) return visible.value;
@@ -175,6 +180,30 @@ watch(() => props.open, isOpen => {
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
+// A section's `icons` list (e.g. the top bar): each key drawn with the same
+// icon and colors as in AppTopbar, next to its name and what it does.
+const ICON_LOOK = {
+  company: { comp: BankOutlined, color: '#475569', bg: 'rgba(71, 85, 105, 0.10)' },
+  pos: { comp: CalculatorOutlined, color: '#fff', bg: '#1677ff', label: 'POS' },
+  customize: { comp: SettingOutlined, color: '#1677ff', bg: 'rgba(22, 119, 255, 0.09)' },
+  install: { comp: DownloadOutlined, color: '#6d28d9', bg: 'rgba(109, 40, 217, 0.08)' },
+  summary: { comp: PieChartOutlined, color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.09)' },
+  fullscreen: { comp: FullscreenOutlined, color: '#0d9488', bg: 'rgba(13, 148, 136, 0.09)' },
+  manual: { comp: OpenBookIcon, color: '#4f46e5', bg: 'rgba(79, 70, 229, 0.09)' },
+  language: { comp: GlobalOutlined, color: '#16a34a', bg: 'rgba(22, 163, 74, 0.09)' },
+  notifications: { comp: BellOutlined, color: '#ea580c', bg: 'rgba(234, 88, 12, 0.09)' },
+  clock: { comp: FieldTimeOutlined, color: '#64748b', bg: 'rgba(100, 116, 139, 0.10)' },
+  logout: { comp: LogoutOutlined, color: '#dc2626', bg: 'rgba(220, 38, 38, 0.09)' },
+  user: { comp: UserOutlined, color: '#64748b', bg: 'rgba(100, 116, 139, 0.10)', round: true },
+};
+const iconBadge = key => {
+  const look = ICON_LOOK[key] || { comp: SettingOutlined, color: '#64748b', bg: 'rgba(100,116,139,.1)' };
+  return h('span', {
+    class: ['md-ic', { 'md-ic--round': look.round, 'md-ic--pill': look.label }],
+    style: { color: look.color, background: look.bg },
+  }, [h(look.comp), look.label ? h('span', { class: 'md-ic-label' }, look.label) : null]);
+};
+
 const ManualSection = defineComponent({
   props: { section: { type: Object, required: true }, lang: { type: String, required: true }, bare: Boolean },
   setup(p) {
@@ -182,7 +211,17 @@ const ManualSection = defineComponent({
       const s = p.section; const l = p.lang;
       return h('div', { class: ['md-section', { 'md-section--bare': p.bare }] }, [
         p.bare ? null : h('h3', { class: 'md-h3' }, s.title[l]),
-        h('ol', { class: 'md-steps' }, (s.steps?.[l] || []).map(t => h('li', { innerHTML: fmt(t) }))),
+        s.intro ? h('p', { class: 'md-intro', innerHTML: fmt(s.intro[l]) }) : null,
+        s.icons?.length
+          ? h('div', { class: 'md-icons' }, s.icons.map(ic => h('div', { class: 'md-icon-row' }, [
+            iconBadge(ic.key),
+            h('div', { class: 'md-icon-text' }, [
+              h('strong', null, ic.title[l]),
+              h('span', { innerHTML: fmt(ic.text[l]) }),
+            ]),
+          ])))
+          : null,
+        s.steps?.[l]?.length ? h('ol', { class: 'md-steps' }, s.steps[l].map(t => h('li', { innerHTML: fmt(t) }))) : null,
         s.note ? h('div', { class: 'md-note', innerHTML: fmt(s.note[l]) }) : null,
       ]);
     };
@@ -203,6 +242,15 @@ const ManualSection = defineComponent({
 :deep(.md-section) { margin-bottom: 16px; }
 :deep(.md-section--bare) { margin-bottom: 0; }
 :deep(.md-h3) { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+/* `icons` list: badge (same look as the top bar) + name + what it does */
+:deep(.md-intro) { margin: 0 0 8px; line-height: 1.55; }
+:deep(.md-icons) { display: grid; gap: 10px; margin-bottom: 10px; }
+:deep(.md-icon-row) { display: flex; align-items: flex-start; gap: 12px; }
+:deep(.md-ic) { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 17px; }
+:deep(.md-ic--round) { border-radius: 50%; }
+:deep(.md-ic--pill) { width: auto; padding: 0 12px; border-radius: 999px; gap: 6px; font-size: 14px; font-weight: 600; }
+:deep(.md-icon-text) { display: flex; flex-direction: column; line-height: 1.5; }
+:deep(.md-icon-text strong) { font-weight: 600; }
 :deep(.md-steps) { margin: 0; padding-left: 20px; display: grid; gap: 5px; line-height: 1.55; }
 :deep(.md-steps li::marker) { color: #6d28d9; font-weight: 600; }
 :deep(.md-note) { margin-top: 8px; padding: 8px 12px; border-left: 3px solid #6d28d9; background: rgba(109, 40, 217, 0.07); border-radius: 0 8px 8px 0; font-size: 13px; }

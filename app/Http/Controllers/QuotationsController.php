@@ -143,10 +143,10 @@ class QuotationsController extends BaseController
             'pending' => (int) ($sums->pending ?? 0),
         ];
 
-        $Quotations = $Filtred->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        $Quotations = \App\Support\ListSort::apply($Filtred->offset($offSet)->limit($perPage), 'quotations', $order, $dir, [
+            'client_name' => ['clients', 'client_id'],
+            'warehouse_name' => ['warehouses', 'warehouse_id'],
+        ], 'id')->get();
 
         // Converted-quotation flags: resolve the linked sales' refs in one query;
         // a link whose sale was deleted counts as not converted (re-convertible).

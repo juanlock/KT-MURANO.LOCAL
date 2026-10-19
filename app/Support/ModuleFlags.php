@@ -11,17 +11,24 @@ use App\Models\Setting;
  */
 class ModuleFlags
 {
+    /** OFF until turned on for a company (Saudi e-invoicing). Same list as config/modules.js defaultOff. */
+    public const DEFAULT_OFF = ['zatca'];
+
     private static array $memo = [];
 
     public static function enabled(?int $companyId, string $key): bool
     {
         if (! $companyId) {
-            return true;
+            return ! in_array($key, self::DEFAULT_OFF, true);
         }
         if (! array_key_exists($companyId, self::$memo)) {
             $raw = Setting::where('company_id', $companyId)->whereNull('deleted_at')->value('module_flags');
             $flags = is_string($raw) ? json_decode($raw, true) : $raw;
             self::$memo[$companyId] = is_array($flags) ? $flags : [];
+        }
+
+        if (in_array($key, self::DEFAULT_OFF, true)) {
+            return (self::$memo[$companyId][$key] ?? false) === true;
         }
 
         return (self::$memo[$companyId][$key] ?? true) !== false;

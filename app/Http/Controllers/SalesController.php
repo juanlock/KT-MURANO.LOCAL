@@ -252,11 +252,24 @@ class SalesController extends BaseController
                 ->values();
         }
 
+        // Sort: the list's Customer / Warehouse columns are names from other
+        // tables (sorting by them used to fail with "Unknown column
+        // client_name"); anything else must be a real sales column.
+        $dir = strtolower((string) $dir) === 'asc' ? 'asc' : 'desc';
+        $sortBy = match ($order) {
+            'client_name' => DB::table('clients')->select('name')->whereColumn('clients.id', 'sales.client_id')->limit(1),
+            'warehouse_name' => DB::table('warehouses')->select('name')->whereColumn('warehouses.id', 'sales.warehouse_id')->limit(1),
+            'date', 'Ref', 'statut', 'GrandTotal', 'paid_amount', 'payment_statut', 'id', 'created_at' => 'sales.'.$order,
+            default => 'sales.date',
+        };
+
         $Sales = $Filtred->offset($offSet)
             ->limit($perPage)
-            ->orderBy($order, $dir)
+            ->orderBy($sortBy, $dir)
             // Same-day sales: latest time first, then latest created.
-            ->when($order === 'date', fn ($q) => $q->orderBy('time', $dir)->orderBy('id', $dir))
+            ->when($sortBy === 'sales.date', fn ($q) => $q->orderBy('sales.time', $dir)->orderBy('sales.id', $dir))
+            // Same customer / warehouse: newest sale first.
+            ->when(! is_string($sortBy), fn ($q) => $q->orderBy('sales.date', 'desc')->orderBy('sales.id', 'desc'))
             ->get();
 
         // "Other due invoices" per customer -- one grouped query for the
@@ -2720,11 +2733,13 @@ class SalesController extends BaseController
         // Build ZATCA QR payload if enabled and VAT number is set.
         // Phase 2: prefer the cryptographically stamped QR (TLV tags 1-9)
         // stored when the invoice was reported/cleared with Fatoora.
+        // Only for a company with the ZATCA module on (Business Modules; off by default).
+        $zatcaOn = \App\Support\ModuleFlags::enabled((int) $sale->company_id, 'zatca');
         $zatcaQr = null;
-        $zatcaDocument = \App\Models\ZatcaDocument::forSource($sale);
+        $zatcaDocument = $zatcaOn ? \App\Models\ZatcaDocument::forSource($sale) : null;
         if ($zatcaDocument && ! empty($zatcaDocument->qr_code)) {
             $zatcaQr = $zatcaDocument->qr_code;
-        } elseif ($settings && (bool) $settings->zatca_enabled && ! empty($settings->vat_number)) {
+        } elseif ($zatcaOn && $settings && (bool) $settings->zatca_enabled && ! empty($settings->vat_number)) {
             $sellerName = $settings->company_name_ar ?: $settings->CompanyName;
             $timestampIso = ZatcaQr::toIso8601($item['date'], config('app.timezone'));
             // ZATCA QR amounts must stay in the BASE currency (raw stored values),

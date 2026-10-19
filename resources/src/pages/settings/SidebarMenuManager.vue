@@ -21,8 +21,8 @@
         show-icon
         message="Drag and drop to rearrange the menu"
         :description="isSuperAdmin
-          ? 'Reorder modules, reorder items inside a module, or drag an item into a different module. Modules always stay at the top level and items cannot become modules. Use the pencil to rename a module, group or item, the + to add a submenu item inside a module or group, the eye icon to hide one, or the trash icon to remove a custom item.'
-          : 'You can reorder items and drag them between modules, and hide/show them with the eye icon. Only a SuperAdmin can add, remove or rename menu items.'"
+          ? 'Reorder modules, reorder items inside a module, or drag an item into a different module. Modules always stay at the top level and items cannot become modules. Use the pencil to rename a module, group or item, the + to add a submenu item inside a module or group, the eye icon to hide one, or the trash icon to remove a custom item. Modules turned off for this company (Settings › Modules) are not listed; they keep their place for when they are turned back on.'
+          : 'You can reorder items and drag them between modules, and hide/show them with the eye icon. Only a SuperAdmin can add, remove or rename menu items. Modules turned off for your company are not listed.'"
         style="margin-bottom: 12px"
       />
       <!-- Where a Save / Reset lands: AdminSystem = every company; any
@@ -246,6 +246,8 @@ import { MENU_ITEM_ICONS } from '../../config/menuItemIcons';
 import { nodeId, applyMenuOrder } from '../../lib/menuOrder';
 import { buildTopLevelMenuForEditor, hasNestedPositions } from '../../lib/menuTree';
 import { MENU } from '../../config/menu';
+import { isEntryEnabled } from '../../config/modules';
+import { spaPathOf } from '../../stores/menu';
 import { useAuthStore } from '../../stores/auth';
 import { useMenuStore } from '../../stores/menu';
 import { useCompanyStore } from '../../stores/company';
@@ -278,6 +280,8 @@ const dragging = ref(null);
 // Raw rows from GET /api/menu-positions -- hide/custom-item/rename state at
 // every level once this screen has done a full-tree save; see menuTree.js.
 const menuPositions = ref(null);
+// Module switches of the acting company (null = everything on).
+const moduleFlags = ref(auth.user?.module_flags || null);
 
 const addModalVisible = ref(false);
 const addTarget = ref(null); // tree node to add a submenu item under, or null for top-level
@@ -318,10 +322,16 @@ function toNode(entry, depth) {
   const iconCmp = isContainer
     ? (MENU_ICONS[entry.icon] || fallbackIcon(key))
     : MENU_ITEM_ICONS[entry.to];
+  // A module switched off for this company (Settings -> Modules) is HIDDEN here
+  // but kept in the tree, so a save keeps its place for when it's turned back on.
+  const off = !isEntryEnabled(moduleFlags.value, entry, spaPathOf);
   const node = {
     key,
     type,
     entry,
+    moduleOff: off,
+    class: off ? 'smm-module-off' : undefined,
+    style: off ? { display: 'none' } : undefined,
     // Only containers (had children in the default MENU, or gained a
     // submenu item via this editor) may receive drops.
     isContainer,
@@ -357,6 +367,15 @@ async function loadPositions() {
     menuPositions.value = await http.get('menu-positions');
   } catch (e) {
     menuPositions.value = null;
+  }
+  // The acting company's module switches: a SuperAdmin reads the company picked
+  // in the switcher (same endpoint as Settings -> Modules); an Admin has their own.
+  if (isSuperAdmin.value) {
+    try {
+      moduleFlags.value = (await http.get('module_flags'))?.module_flags || null;
+    } catch (e) {
+      moduleFlags.value = auth.user?.module_flags || null;
+    }
   }
   treeData.value = buildTree(auth.user && auth.user.sidebar_menu_order, menuPositions.value);
 }

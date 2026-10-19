@@ -64,7 +64,13 @@ class EnforceModuleFlags
         // feed other screens and stay open).
         'attendances' => 'hrm', 'daily_attendance' => 'hrm', 'holiday' => 'hrm', 'leave' => 'hrm',
         'leave_type' => 'hrm', 'payroll' => 'hrm', 'contracts' => 'hrm', 'contracts-templates' => 'hrm',
-        'store' => 'Store', 'realestate' => 'Store',
+        'store' => 'Store',
+        'realestate' => 'realestate', // its own switch since 2026-10-18 (was the Store's)
+        // Switches added 2026-10-18 (integrations + kitchen)
+        'prestashop' => 'prestashop', 'quickbooks' => 'quickbooks', 'xero' => 'xero',
+        'google-sheets' => 'google_sheets', 'mailchimp' => 'mailchimp', 'slack' => 'slack',
+        'telegram' => 'telegram', 'kitchen' => 'kitchen',
+        'zatca' => 'zatca', // Saudi e-invoicing, off by default (ModuleFlags::DEFAULT_OFF)
     ];
 
     /** store/<second segment> that belongs elsewhere: E-Wallet, or never blocked (null). */

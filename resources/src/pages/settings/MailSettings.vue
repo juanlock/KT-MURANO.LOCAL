@@ -88,6 +88,22 @@
       </div>
     </a-card>
 
+    <!-- Hidden copy (BCC) of the emails sent to customers / suppliers (saved with Submit above). -->
+    <a-card v-if="!loading" size="small" title="Send a copy to other emails" style="margin-top: 16px">
+      <div class="notice-help">
+        These addresses get a hidden copy of the emails this company sends to customers and suppliers —
+        the customer never sees them. Type an email and press Enter to add it.
+      </div>
+      <a-select
+        v-model:value="copyEmails" mode="tags" style="width: 100%; margin: 8px 0"
+        :token-separators="[',', ';', ' ']" :open="false"
+        placeholder="e.g. accounting@company.com, owner@company.com"
+      />
+      <div v-if="badCopyEmails.length" style="color: #cf1322; margin-bottom: 6px">Not a valid email: {{ badCopyEmails.join(', ') }}</div>
+      <div style="font-weight: 600; margin-bottom: 4px">Copy these emails</div>
+      <a-checkbox-group v-model:value="copyOn" :options="copyKindOptions" />
+    </a-card>
+
     <a-modal
       v-model:open="testModalVisible"
       title="Send test email"
@@ -131,6 +147,15 @@ const auth = useAuthStore();
 const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
 const recipients = ref([]);
 const superadminCopy = ref(false);
+// "Send a copy to other emails": addresses + which emails (CompanyMail::COPY_KINDS).
+const copyEmails = ref([]);
+const copyOn = ref(['sales', 'reminders', 'purchases']);
+const copyKindOptions = [
+  { value: 'sales', label: 'Sales (invoices and payment receipts)' },
+  { value: 'reminders', label: 'Payment reminders' },
+  { value: 'purchases', label: 'Purchases (orders and payments)' },
+];
+const badCopyEmails = computed(() => copyEmails.value.filter(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).trim())));
 
 async function save() {
   saving.value = true;
@@ -145,6 +170,8 @@ async function save() {
       password: server.value.password,
       encryption: server.value.encryption,
       ...(isSuperAdmin.value ? { notify_superadmin_copy: superadminCopy.value ? 1 : 0 } : {}),
+      mail_copy_emails: copyEmails.value,
+      mail_copy_on: copyOn.value,
     });
     message.success(t('Successfully_Updated'));
   } catch (e) {
@@ -189,6 +216,8 @@ onMounted(async () => {
     defaultTestEmail.value = data.default_test_email || '';
     recipients.value = data.notice_recipients || [];
     superadminCopy.value = data.notify_superadmin_copy === true;
+    copyEmails.value = data.mail_copy?.emails || [];
+    copyOn.value = data.mail_copy?.on || ['sales', 'reminders', 'purchases'];
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {

@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-10-16';
+export const MANUAL_UPDATED = '2026-10-18';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -44,11 +44,30 @@ export const MANUAL = [
         },
       },
       {
-        id: 'topbar',
-        title: { en: 'The top bar', es: 'La barra superior' },
-        steps: {
-          en: ['**Book**: this manual.', '**Clock**: clock in and out (if your role has it).', '**Globe**: language, English or Spanish.', '**Bell**: work waiting for you.', '**Your name**: Profile, appearance (light / dark) and sign out.'],
-          es: ['**Libro**: este manual.', '**Reloj**: marcar entrada y salida (si su rol lo tiene).', '**Globo**: idioma, inglés o español.', '**Campana**: trabajo pendiente.', '**Su nombre**: Perfil, apariencia (claro / oscuro) y cerrar sesión.'],
+        id: 'topbar', paths: ['dashboard', 'profile'],
+        title: { en: 'Top bar icons', es: 'Íconos de la barra superior' },
+        intro: {
+          en: 'The buttons at the top right of every page. You only see the ones your company and your role allow; you can hide or reorder yours in **Profile › Header icons**.',
+          es: 'Los botones arriba a la derecha de cada página. Solo ve los que su empresa y su rol permiten; puede ocultar o reordenar los suyos en **Perfil › Íconos del encabezado**.',
+        },
+        // Each key is drawn with its real icon and color (ManualDrawer ICON_LOOK).
+        icons: [
+          { key: 'company', title: { en: 'Company selector (SuperAdmin only)', es: 'Selector de empresa (solo SuperAdmin)' }, text: { en: 'Which company you are working on. Every page and form follows the company chosen here.', es: 'En qué empresa está trabajando. Todas las páginas y formularios siguen la empresa elegida aquí.' } },
+          { key: 'pos', title: { en: 'POS', es: 'POS' }, text: { en: 'Opens the point of sale (if your role can sell at the register).', es: 'Abre el punto de venta (si su rol puede vender en caja).' } },
+          { key: 'customize', title: { en: 'Settings (gear)', es: 'Configuración (engranaje)' }, text: { en: 'Appearance of the app: theme, colors, menu layout.', es: 'Apariencia de la aplicación: tema, colores, distribución del menú.' } },
+          { key: 'install', title: { en: 'Install app', es: 'Instalar app' }, text: { en: 'Installs Murano like an app on this computer or phone. Shown only while the browser offers it.', es: 'Instala Murano como una aplicación en esta computadora o celular. Aparece solo mientras el navegador lo ofrece.' } },
+          { key: 'summary', title: { en: 'Como Vamos! (today\'s summary)', es: '¡Cómo Vamos! (resumen de hoy)' }, text: { en: 'Today at a glance: sales, payments, bookings and what is pending.', es: 'El día de un vistazo: ventas, pagos, reservas y lo pendiente.' } },
+          { key: 'fullscreen', title: { en: 'Full screen', es: 'Pantalla completa' }, text: { en: 'Uses the whole screen; click again (or Esc) to go back. Not on phones.', es: 'Usa toda la pantalla; haga clic otra vez (o Esc) para volver. No en celulares.' } },
+          { key: 'manual', title: { en: 'User manual (open book)', es: 'Manual de usuario (libro abierto)' }, text: { en: 'This manual: **This page** shows help for the screen you are on, **Whole manual** has everything with a search. English or Spanish.', es: 'Este manual: **Esta página** muestra la ayuda de la pantalla en la que está, **Todo el manual** tiene todo con búsqueda. Inglés o español.' } },
+          { key: 'language', title: { en: 'Language (globe)', es: 'Idioma (globo)' }, text: { en: 'Changes the language of the app for you.', es: 'Cambia el idioma de la aplicación para usted.' } },
+          { key: 'notifications', title: { en: 'Notifications (bell)', es: 'Notificaciones (campana)' }, text: { en: 'Work waiting for you (e.g. bookings to confirm, computers to approve). The number is how many; click an item to go there.', es: 'Trabajo pendiente (p. ej. reservas por confirmar, computadoras por aprobar). El número indica cuántos; haga clic en uno para ir.' } },
+          { key: 'clock', title: { en: 'Clock in / out', es: 'Marcar entrada / salida' }, text: { en: 'Clocks you in or out for today (if your role has it). Turns green with the time while you are clocked in.', es: 'Marca su entrada o salida de hoy (si su rol lo tiene). Se pone verde con la hora mientras está marcado.' } },
+          { key: 'logout', title: { en: 'Log out', es: 'Cerrar sesión' }, text: { en: 'Signs you out in one click. Always do it on a shared computer.', es: 'Cierra su sesión con un clic. Hágalo siempre en una computadora compartida.' } },
+          { key: 'user', title: { en: 'Your name', es: 'Su nombre' }, text: { en: '**Profile**, Settings, **Appearance** (light / dark / auto) and sign out.', es: '**Perfil**, Configuración, **Apariencia** (claro / oscuro / automático) y cerrar sesión.' } },
+        ],
+        note: {
+          en: 'Company administrators choose which icons the whole company sees in **System Settings › Defaults › Users › Header icons**; each person can still show / hide and reorder their own in **Profile**.',
+          es: 'Los administradores eligen qué íconos ve toda la empresa en **Configuración del sistema › Predeterminados › Usuarios › Íconos del encabezado**; cada persona puede mostrar / ocultar y reordenar los suyos en **Perfil**.',
         },
       },
       {
@@ -216,8 +235,8 @@ export const MANUAL = [
         id: 'cust-add', perms: ['Customers_add'], paths: ['customers/create', 'customers'],
         title: { en: 'Add a customer', es: 'Agregar un cliente' },
         steps: {
-          en: ['Search by email first to avoid duplicates.', '**People › Customers › Add**: name, email, phone, address.', 'With an email the customer gets a login to the customer portal (invoices, payments, bookings).'],
-          es: ['Busque primero por correo para no duplicar.', '**Personas › Clientes › Agregar**: nombre, correo, teléfono, dirección.', 'Con correo, el cliente recibe acceso al portal de clientes (facturas, pagos, reservas).'],
+          en: ['Search by email first to avoid duplicates.', '**People › Customers › Add**: name, email, phone, address.', 'With an email the customer gets a login to the customer portal (invoices, payments, bookings).', 'Customers can\'t delete their portal account themselves: the company admin turns portal access off from **People › Customers** (portal option in the list or in the customer\'s form).'],
+          es: ['Busque primero por correo para no duplicar.', '**Personas › Clientes › Agregar**: nombre, correo, teléfono, dirección.', 'Con correo, el cliente recibe acceso al portal de clientes (facturas, pagos, reservas).', 'El cliente no puede eliminar su cuenta del portal: el administrador de la empresa desactiva el acceso desde **Personas › Clientes** (opción de portal en la lista o en el formulario del cliente).'],
         },
       },
       {
@@ -274,8 +293,8 @@ export const MANUAL = [
         id: 'prod-add', perms: ['products_add'], paths: ['products/create', 'products'],
         title: { en: 'Add a product or service', es: 'Agregar un producto o servicio' },
         steps: {
-          en: ['**Products › Add Product**.', 'Choose the type (product with stock, or service), name, category and price.', 'For products set the cost, unit and alert quantity.', 'Leave the product **Tax** at 0% when your invoices use the company\'s Order Tax (System Settings › Defaults › Default Tax): otherwise that product is taxed twice. New products start at 0%.', 'Save; print barcodes from **Products › Print Barcode**.'],
-          es: ['**Productos › Agregar producto**.', 'Elija el tipo (producto con inventario o servicio), nombre, categoría y precio.', 'Para productos indique costo, unidad y cantidad de alerta.', 'Deje el **Impuesto** del producto en 0% cuando sus facturas usan el Impuesto de la orden de la empresa (Configuración › Predeterminados › Impuesto predeterminado): si no, ese producto paga impuesto dos veces. Los productos nuevos empiezan en 0%.', 'Guarde; imprima códigos de barras en **Productos › Imprimir código de barras**.'],
+          en: ['**Products › Add Product** (or **+** next to the product search in a sale, to add it right there).', 'Type or pick the **main service / group** — a new one is kept as you type. Then choose **what you are adding**: the main item only, or a **new sub-item under it** (also under an existing one). **"Will be saved as"** shows the final name and the items already in that group; a duplicate is warned.', 'Choose the type (product with stock, or service), category and price.', 'For products set the cost, unit and alert quantity.', 'Leave the product **Tax** at 0% when your invoices use the company\'s Order Tax (System Settings › Defaults › Default Tax): otherwise that product is taxed twice. New products start at 0%.', 'Save; print barcodes from **Products › Print Barcode**.'],
+          es: ['**Productos › Agregar producto** (o **+** junto a la búsqueda de productos en una venta, para agregarlo ahí mismo).', 'Escriba o elija el **servicio principal / grupo** — uno nuevo se conserva mientras escribe. Luego elija **qué está agregando**: solo el principal, o un **nuevo sub-servicio debajo** (también bajo uno existente). **"Will be saved as"** muestra el nombre final y lo que ya hay en ese grupo; avisa si se repite.', 'Elija el tipo (producto con inventario o servicio), categoría y precio.', 'Para productos indique costo, unidad y cantidad de alerta.', 'Deje el **Impuesto** del producto en 0% cuando sus facturas usan el Impuesto de la orden de la empresa (Configuración › Predeterminados › Impuesto predeterminado): si no, ese producto paga impuesto dos veces. Los productos nuevos empiezan en 0%.', 'Guarde; imprima códigos de barras en **Productos › Imprimir código de barras**.'],
         },
       },
       {
@@ -460,6 +479,28 @@ export const MANUAL = [
         steps: {
           en: ['**Email Office › Received** or **Sent**.', 'Open a message to read it and its attachments; it is linked to the customer or supplier with that address.', 'Payment emails (for example Zelle) are detected and can be matched to the customer.'],
           es: ['**Email Office › Recibidos** o **Enviados**.', 'Abra un mensaje para leerlo con sus adjuntos; queda vinculado al cliente o proveedor con esa dirección.', 'Los correos de pago (por ejemplo Zelle) se detectan y se pueden asociar al cliente.'],
+        },
+      },
+      {
+        id: 'mail-assign', perms: ['email_office_view'], paths: ['email-office/received', 'email-office/sent'],
+        title: { en: 'Emails assigned to customers by themselves', es: 'Correos asignados solos a los clientes' },
+        steps: {
+          en: [
+            '**Received**: assigned to the customer whose email (or additional email) is the sender.',
+            '**Sent**: assigned to the first recipient that is a customer — the To addresses, then CC. Invoices and reminders sent from a sale go to that sale\'s customer even when sent to another address.',
+            'When you add or change a customer\'s email (People › Customers), their emails not assigned yet are assigned at once.',
+            'Assigning one email assigns **every email with the same address** — received from it and sent to it (To or CC) — to that customer. With "Save this address on the customer" ticked (the default) the address is also saved on the customer, so future emails go to them by themselves.',
+          ],
+          es: [
+            '**Recibidos**: se asignan al cliente cuyo email (o email adicional) es el remitente.',
+            '**Enviados**: se asignan al primer destinatario que sea cliente — las direcciones de Para y luego las de CC. Las facturas y recordatorios enviados desde una venta van al cliente de esa venta aunque se envíen a otra dirección.',
+            'Al agregar o cambiar el email de un cliente (Personas › Clientes), sus correos sin asignar se le asignan al momento.',
+            'Al asignar un correo se asignan **todos los correos con la misma dirección** — recibidos de ella y enviados a ella (Para o CC) — a ese cliente. Con "Save this address on the customer" marcado (viene así) la dirección también se guarda en el cliente, y los correos futuros le llegan solos.',
+          ],
+        },
+        note: {
+          en: 'Matching is by email only and within your company; a contact email counts only when a single customer has it.',
+          es: 'La asignación es solo por email y dentro de su empresa; un email de contacto cuenta solo si lo tiene un único cliente.',
         },
       },
       {
@@ -771,8 +812,48 @@ export const MANUAL = [
         id: 'set-companies', perms: ['company'], paths: ['hrm/companies'],
         title: { en: 'Companies', es: 'Empresas' },
         steps: {
-          en: ['**Add** (SuperAdmin) or **Edit** a company. The form goes in steps (Company, Helpdesk, Defaults, then Admin user and Website when adding); use **Next / Back** or click a step. A step marked in red has something missing.', 'Required: name, business type, owner, company email, phone, address and helpdesk email.', '**Defaults**: currency, language, sale prefix (invoice numbers), public address and the default employee / customer passwords (blank keeps the current one).', 'The **Setup** column shows "Complete" or how many required fields a company still lacks; click it to fill them in.'],
-          es: ['**Agregar** (SuperAdmin) o **Editar** una empresa. El formulario va por pasos (Empresa, Helpdesk, Predeterminados y, al agregar, Usuario administrador y Sitio web); use **Next / Back** o haga clic en un paso. Un paso marcado en rojo tiene algo pendiente.', 'Obligatorios: nombre, tipo de negocio, dueño, correo de la empresa, teléfono, dirección y correo de soporte (helpdesk).', '**Predeterminados**: moneda, idioma, prefijo de ventas (número de factura), dirección pública y las contraseñas predeterminadas de empleados / clientes (en blanco mantiene la actual).', 'La columna **Setup** muestra "Complete" o cuántos datos obligatorios le faltan a una empresa; haga clic para completarlos.'],
+          en: ['**Add** (SuperAdmin) or **Edit** a company. The form goes in steps (Company, Helpdesk, Defaults, then Admin user and Website when adding); use **Next / Back** or click a step. A step marked in red has something missing.', 'Required: name, business type, owner, company email, phone, address and helpdesk email.', '**Defaults**: currency, language, sale prefix (invoice numbers), public address and the default employee / customer passwords (blank keeps the current one).', 'The **Setup** column shows "Complete" or how many required fields a company still lacks; click it to fill them in.', 'A new company starts with the SuperAdmin\'s current menu (the AdminSystem layout), already in order.'],
+          es: ['**Agregar** (SuperAdmin) o **Editar** una empresa. El formulario va por pasos (Empresa, Helpdesk, Predeterminados y, al agregar, Usuario administrador y Sitio web); use **Next / Back** o haga clic en un paso. Un paso marcado en rojo tiene algo pendiente.', 'Obligatorios: nombre, tipo de negocio, dueño, correo de la empresa, teléfono, dirección y correo de soporte (helpdesk).', '**Predeterminados**: moneda, idioma, prefijo de ventas (número de factura), dirección pública y las contraseñas predeterminadas de empleados / clientes (en blanco mantiene la actual).', 'La columna **Setup** muestra "Complete" o cuántos datos obligatorios le faltan a una empresa; haga clic para completarlos.', 'Una empresa nueva empieza con el menú actual del SuperAdmin (el de AdminSystem), ya ordenado.'],
+        },
+      },
+      {
+        id: 'set-modules', perms: ['business_modules', 'setting_system'], paths: ['settings/business-modules'],
+        title: { en: 'Business modules (turn modules on / off per company)', es: 'Módulos (activar / desactivar módulos por empresa)' },
+        steps: {
+          en: [
+            '**SuperAdmin** only: **Settings › Modules** (Business Modules), with the company chosen in the company switcher.',
+            'The list is alphabetical: Accounting, Real Estate, Recruits & Jobs, Meetings, Fleet, Projects, Kitchen, each integration (QuickBooks, Xero, Google Sheets, Mailchimp, Slack, Telegram, PrestaShop, Salla, Jumia…) and more. Turn the switch on / off and **Submit**.',
+            'A module turned off disappears from that company\'s menu, its pages can\'t be opened and the server refuses its requests — for every user and role. Nothing is deleted: turning it back on restores everything as it was.',
+            'Sales, products, purchases, people, reports and settings are the core of the system and always stay on.',
+            '**ZATCA E-Invoicing (Saudi Arabia)** is OFF by default: turn it on only for a company in Saudi Arabia. While it is off there is no ZATCA settings page, no ZATCA QR on invoices / receipts and nothing is sent to ZATCA when a sale or return is saved.',
+          ],
+          es: [
+            'Solo el **SuperAdmin**: **Configuración › Módulos** (Business Modules), con la empresa elegida en el selector de empresa.',
+            'La lista va en orden alfabético: Contabilidad, Bienes raíces (Real Estate), Reclutamiento, Reuniones, Flota, Proyectos, Cocina, cada integración (QuickBooks, Xero, Google Sheets, Mailchimp, Slack, Telegram, PrestaShop, Salla, Jumia…) y más. Active / desactive el interruptor y **Submit**.',
+            'Un módulo desactivado desaparece del menú de esa empresa, sus páginas no se pueden abrir y el servidor rechaza sus pedidos — para todos los usuarios y roles. No se borra nada: al activarlo de nuevo vuelve todo como estaba.',
+            'Ventas, productos, compras, personas, reportes y configuración son la base del sistema y siempre quedan activos.',
+            '**ZATCA E-Invoicing (Arabia Saudita)** viene DESACTIVADO: actívelo solo para una empresa en Arabia Saudita. Mientras esté desactivado no hay página de configuración de ZATCA, ni código QR de ZATCA en facturas / recibos, y no se envía nada a ZATCA al guardar una venta o devolución.',
+          ],
+        },
+      },
+      {
+        id: 'set-menu', perms: ['setting_system'], paths: ['settings/sidebar-menu'],
+        title: { en: 'Manage Menu (order of the side menu)', es: 'Manage Menu (orden del menú lateral)' },
+        steps: {
+          en: [
+            '**Settings › Manage Menu**: drag items to reorder them or move them into another group; hide / show items, then **Submit**.',
+            '**SuperAdmin working as AdminSystem** (company switcher): Submit and Reset apply to **every company** — their own order is replaced. New companies also start with this layout.',
+            '**SuperAdmin working as one company**, or a company **Admin**: the change stays in that company only.',
+            'An Admin can reorder and hide / show; adding, removing or renaming items is for the SuperAdmin.',
+            'Modules turned off for the company (Settings › Modules) are not listed here nor in the side menu — also their items kept elsewhere (e.g. Hospital Reports under Reports). They keep their place and come back when the module is turned on.',
+          ],
+          es: [
+            '**Configuración › Manage Menu**: arrastre las opciones para reordenarlas o moverlas a otro grupo; oculte / muestre opciones y luego **Submit**.',
+            '**SuperAdmin trabajando como AdminSystem** (selector de empresa): Submit y Reset se aplican a **todas las empresas** — se reemplaza su propio orden. Las empresas nuevas también empiezan con este menú.',
+            '**SuperAdmin trabajando como una empresa**, o el **Admin** de una empresa: el cambio queda solo en esa empresa.',
+            'Un Admin puede reordenar y ocultar / mostrar; agregar, quitar o renombrar opciones es del SuperAdmin.',
+            'Los módulos desactivados para la empresa (Configuración › Módulos) no aparecen aquí ni en el menú lateral — tampoco sus opciones puestas en otro lugar (p. ej. Hospital Reports dentro de Reportes). Conservan su lugar y vuelven al activar el módulo.',
+          ],
         },
       },
       {
@@ -801,6 +882,14 @@ export const MANUAL = [
         note: {
           en: 'Blocked users see: "You can\'t use Murano from this network…" on the sign-in page. Clearing the browser\'s data or using another browser needs a new approval.',
           es: 'Los usuarios bloqueados ven: "You can\'t use Murano from this network…" en la página de ingreso. Borrar los datos del navegador o usar otro navegador requiere una nueva aprobación.',
+        },
+      },
+      {
+        id: 'set-mail', perms: ['mail_settings'], paths: ['settings/mail'],
+        title: { en: 'Mail settings', es: 'Configuración de correo' },
+        steps: {
+          en: ['**Settings › Mail Settings**: the mail server the company sends from; **Test** sends a test email.', '**Admin notices** lists who gets the automatic notices (bookings, POS register); the SuperAdmin can also get a copy.', '**Send a copy to other emails**: type the addresses (Enter after each) and tick which emails they copy — **Sales** (invoices and payment receipts), **Payment reminders**, **Purchases** (orders and payments). They get a hidden copy; customers and suppliers never see them. Press **Submit** to save.'],
+          es: ['**Configuración › Mail Settings**: el servidor de correo desde el que envía la empresa; **Test** envía un correo de prueba.', '**Admin notices** muestra quién recibe los avisos automáticos (reservas, caja del POS); el SuperAdmin también puede recibir copia.', '**Send a copy to other emails**: escriba las direcciones (Enter después de cada una) y marque qué correos copian — **Ventas** (facturas y recibos de pago), **Recordatorios de pago**, **Compras** (órdenes y pagos). Reciben una copia oculta; clientes y proveedores nunca la ven. Presione **Submit** para guardar.'],
         },
       },
     ],

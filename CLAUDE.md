@@ -423,24 +423,31 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   DEFINER; portable utf8mb4_unicode_ci collations. `KT-TOOLS/` is git-tracked,
   so the snapshot travels across every machine this checkout is on, same as
   the other protocols.
-- **Sincroniza BD** (`/sincroniza-bd`, or "Jarvis, run protocolo sincroniza
-  bd") — Murano's own (user's rule, 2026-10-13): compares the **production**
-  database (Hostinger) with dev `dbmurano` -- schema, migrations and data
-  (`database/scripts/protocol_sincroniza_bd.php`, read-only, report in
-  `KT-TOOLS/Report/kt_murano_sincroniza_bd_<date>.html`) -- shows the
-  differences and asks which ones to apply to production; before any write it
-  backs production up (`KT-TOOLS/database/production/`, git-ignored), then
-  applies only what was approved, one confirmation each. Production
-  credentials live ONLY in `.env.production-db` at the repo root (per machine,
-  git-ignored) -- never in `.env` (git still tracks it), this file, README,
-  kt_logs, reports or commits.
 - **Pa Llevar** (`/pa-llevar`, or "Jarvis, run protocolo pa llevar") —
   Murano's own end-of-session close-out (A Dormir was merged into it and
   then deleted, user's request 2026-10-01): updates the user manual with the
   session's module / form changes (in-app EN + ES, overview HTML + PDF;
   2026-10-07), checks `npm run build`, runs
   Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
-  then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails 1/2/3.zip`), then updates
+  then lists dev migrations pending in production. **Production sync (user's
+  rules, 2026-10-17 / 2026-10-18):** production's code is deployed only about
+  once a month (Hostinger Git deploy = `git pull`, heavy on temp files), so
+  Pa Llevar's FIRST step, every run, is production -> dev: new / changed
+  `public/files` over SSH (`database/scripts/protocol_prod_files.php`, never
+  deletes) and new / changed records (`protocol_prod_pull.php`, one
+  transaction; never `migrations` / `kt_logs`) -- committed, so the next
+  deploy carries them back and nothing created in production lives only
+  there. Dev -> production = migrations only (`protocol_prod_migrate.php`),
+  applied right after a code deploy (dry run, the user's yes, production
+  backup to `KT-TOOLS/database/production/`, `migrate --database=prod`);
+  otherwise just listed as pending. `public/` stays out of Git LFS (the deploy
+  doesn't fetch LFS; `.gitattributes` = LFS only for KT-TOOLS zips).
+  **Production owns the business data; every dev database change -- schema and
+  the data a feature needs (permissions, settings, translations, menus) -- is a
+  migration, safe to run twice, by name not by id; dev rows are never copied to
+  production.** Production DB access lives ONLY in `.env.production-db` (per
+  machine, git-ignored; SSH settings in `.env.production-ssh`) -- never in
+  `.env`, this file, README, kt_logs, reports or commits. Then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails 1/2/3.zip`), then updates
   `README.md` (a "Latest changes" block for the session -- last 5 kept -- and any section that changed; user's rule
   2026-10-06), then commits everything with a summary subject and a
   detailed description of the changes (one bullet per `kt_logs` request,
@@ -448,6 +455,36 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   GitHub (never force-push; without CLI credentials the user pushes from
   GitHub Desktop). It syncs the user's machines through GitHub -- it is NOT a
   production deploy.
+- **Sube Prod** (`/sube-prod`, or "Jarvis, run protocolo sube prod") --
+  Murano's own (user's choice, 2026-10-18): the code deploy to production,
+  replacing the Hostinger Git deploy (which kept the project 4-5 times and ran
+  the account out of files). From this PC over SSH: git bundle of the new
+  commits -> `public_html` fast-forwards (the server needs no GitHub access),
+  this PC's built `public/js` swapped in, composer when needed, migrations
+  with a production backup; production's `.env` always kept; maintenance page
+  only during the change. Dry run + the user's yes first; `$rollback` undoes
+  the code. `database/scripts/protocol_prod_deploy.php`.
+  **"Actualizar / actualiza producción" = Sube Prod, and it also sends dev's
+  DATA changes (user's rule, 2026-10-18)**: what was created / changed in dev
+  since the last Baja Prod (`protocol_prod_push.php`: new rows only with an id
+  free in production, changed rows only when production didn't change them
+  too, related pivot rows, newer `public/files`); conflicts are listed, never
+  sent; production backup first, one transaction. Not migrations' tables
+  (translations, permissions, menu_positions), kt_logs, sessions, queues.
+- **Baja Prod** (`/baja-prod`, or "Jarvis, run protocolo baja prod") --
+  Murano's own (user's request, 2026-10-18): production -> dev on demand --
+  production's new / changed `public/files` (SFTP) and records into `dbmurano`
+  (dry run, then apply in one transaction). It is Pa Llevar's step 000 alone,
+  without backup / commit.
+- **Sube Git** (`/sube-git`, or "Jarvis, run protocolo sube git") -- Murano's
+  own (user's request, 2026-10-17): the quick push. Catches up `kt_logs`,
+  checks `npm run build`, updates `README.md` in detail (Latest changes block
+  with one bullet + detail line per change, plus every section the work
+  changed), commits with a summary subject (`sube git <date>: ...`) and a
+  detailed description (one bullet per `kt_logs` request, migrations, setup
+  steps) and pushes (never force-push; GitHub Desktop when there are no
+  credentials). No manual update, daily report or database backup -- that is
+  Pa Llevar.
 Billing's originals stay untouched (billing is read-only, per the Hard Rules
 below) — these are Murano's own copies, kept in sync manually if the protocol
 logic evolves.

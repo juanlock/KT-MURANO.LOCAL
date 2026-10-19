@@ -170,10 +170,10 @@ class PurchasesController extends BaseController
             'due' => (float) (($sums->grand ?? 0) - ($sums->paid ?? 0)),
         ];
 
-        $Purchases = $Filtred->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        $Purchases = \App\Support\ListSort::apply($Filtred->offset($offSet)->limit($perPage), 'purchases', $order, $dir, [
+            'provider_name' => ['providers', 'provider_id'],
+            'warehouse_name' => ['warehouses', 'warehouse_id'],
+        ], 'id')->get();
 
         foreach ($Purchases as $Purchase) {
 
@@ -2201,7 +2201,9 @@ class PurchasesController extends BaseController
         $this->Set_config_mail($purchase->company_id);
 
         try {
-            Mail::to($recipients)->send(new CustomEmail($email));
+            // + Mail Settings -> "Send a copy to other emails" (purchases), hidden copy.
+        $copies = \App\Support\CompanyMail::copyEmails((int) $purchase->company_id, 'purchases', $recipients);
+        $copies ? Mail::to($recipients)->bcc($copies)->send(new CustomEmail($email)) : Mail::to($recipients)->send(new CustomEmail($email));
         } catch (\Exception $e) {
             return $this->sendError('Failed to send email.', $e->getMessage());
         }

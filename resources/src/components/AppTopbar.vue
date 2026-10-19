@@ -74,7 +74,7 @@
       <span v-if="auth.headerIcon('manual')" class="tb-slot" :style="{ order: auth.headerOrder('manual') }">
         <a-tooltip :title="ui.locale === 'es' ? 'Manual de usuario' : 'User manual'">
           <a-button type="text" class="icon-btn manual-btn" aria-label="User manual" @click="manualOpen = true">
-            <template #icon><BookOutlined /></template>
+            <template #icon><OpenBookIcon style="font-size: 19px" /></template>
           </a-button>
         </a-tooltip>
       </span>
@@ -275,10 +275,11 @@ import {
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, UserOutlined, SettingOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
-  DownloadOutlined, BookOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons-vue';
 import TodaySummary from './TodaySummary.vue';
 import ManualDrawer from './ManualDrawer.vue';
+import OpenBookIcon from './icons/OpenBookIcon.vue';
 import { canInstall as pwaCanInstall, promptInstall } from '../lib/pwaInstall';
 import { useAuthStore } from '../stores/auth';
 import { usePendingWorkStore } from '../stores/pendingWork';

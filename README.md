@@ -70,7 +70,7 @@ app/
   Http/Controllers/      API controllers (company-scoped via Concerns/ScopesToCompany)
   Models/                Eloquent models
   Services/              Domain services (EmailOffice, LinkedUserService, PayrollRun, ...)
-  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ServiceJobCost, ModuleFlags, WebsitePaths, SuperAdminAccess, CompanyProfile...
+  Support/               Helpers: CompanyFiles, EmployeeTabs, ServiceJobLinks, ServiceJobCost, ModuleFlags, WebsitePaths, SuperAdminAccess, CompanyProfile, ListSort, CompanyMail...
 database/
   migrations/            Schema + data migrations (run on every machine)
   scripts/               Protocol scripts (backups, reports)
@@ -137,6 +137,9 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
     when the user's role can open that page.
   - A list with filters uses `useListState()` so Back restores it; forms
     opened from a list return with `goBack()` on Save / Cancel.
+  - Sorting a list by a name column (Customer, Supplier, Warehouse...) goes
+    through `App\Support\ListSort` on the server, never a raw `orderBy` on
+    the column name the table sends.
 - **Global processes are transactional.** An action that changes several
   things does all of it or none (e.g. removing an employee:
   `App\Services\EmployeeRemoval`; disabling a login: `App\Support\UserAccess`).
@@ -165,6 +168,90 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
 
+### 2026-10-18 (Optimum)
+
+- **Production ↔ dev sync.** Production owns the business data; dev's
+  database changes travel only as migrations.
+  - **Baja Prod** (new protocol, and Pa Llevar's first step every run) brings
+    production down to dev: the files created there (`public/files`, over
+    SSH) and the new / changed records. Nothing is deleted on either side.
+  - **Sube Prod** ("actualiza producción") replaces the Hostinger Git deploy,
+    which kept the project 4–5 times and ran the account out of files. From
+    this PC over SSH it sends the code, the assets built here and the
+    migrations (production backup first), keeps production's `.env`, and
+    shows a maintenance page only while files change. It also sends the data
+    created or changed in dev since the last Baja Prod, with conflict checks.
+  - A role edited on one side keeps that side's permissions (no duplicates,
+    nothing removed comes back).
+  - Each machine needs its own `.env.production-db` / `.env.production-ssh`
+    (not in git).
+- **Business Modules (per company):** alphabetical list; **Real Estate** has
+  its own switch (it followed the Store); new switches for Kitchen,
+  QuickBooks, Xero, Google Sheets, Mailchimp, Slack, Telegram and PrestaShop.
+  A module turned off also disappears from **Manage Menu**, and its items kept
+  elsewhere in the menu (e.g. Hospital Reports under Reports) are hidden too.
+- **ZATCA E-Invoicing (Saudi Arabia)** is now a module, **off by default** for
+  every company: no ZATCA settings, QR or reporting unless turned on by hand.
+- **Production outage fixed for good.** Hostinger was giving PHP old
+  database settings that beat the server's `.env`. Now the `.env` always
+  wins, and System Settings → Save no longer freezes the configuration in
+  a cache.
+- **Email Office assigns emails to customers by themselves**: sent ones also
+  by CC, invoices / reminders to the sale's customer, and at once when a
+  customer gets a new address. Assigning one email assigns every email with
+  that address (received and sent).
+- **New companies start with the SuperAdmin's menu order** (they used to get
+  the factory order). Reminder: a menu change made as AdminSystem applies to
+  every company.
+- **The side menu is fully in the user's language**: renamed items
+  ("Main Modules", "Access Management"…) and items whose translation key had
+  another case (Deposit, SMS Templates…) are now translated.
+- Files the site serves are no longer stored with Git LFS (the Hostinger
+  deploy doesn't fetch LFS; a sale document arrived broken).
+
+Setup: `php artisan migrate`, `npm run build`.
+
+### 2026-10-17 (Optimum)
+
+- **Sorting lists by name works again.** Sorting Sales (any filter, e.g.
+  Unpaid, or All) by Customer or Warehouse showed an error. Fixed there and in
+  Purchases, Quotations, Expenses, Damages, Adjustments, Sale / Purchase
+  returns, Subscriptions, Shipments and online-store customer accounts.
+- **Mail Settings → "Send a copy to other emails".** Each company can add
+  extra addresses that get a hidden copy (BCC) of the emails it sends, and
+  choose for which: **Sales** (invoices, payment receipts), **Payment
+  reminders** and **Purchases** (orders, payments). Wrong addresses are
+  refused when saving.
+- **User manual → "Top bar icons".** Every top bar icon is shown with its own
+  look and color, its name and what it does (company selector, POS, Settings,
+  Install app, Como Vamos!, Full screen, manual, language, notifications,
+  clock in / out, log out, your name), in English and Spanish. It opens under
+  *This page* on the Dashboard and Profile, and is searchable.
+- **New manual icon:** a colored open book, in the top bar and in the manual.
+- **Protocols:** Sincroniza BD was removed; the new **Sube Git** is a quick
+  push (logs, build, detailed README, commit, push) without the database
+  backup of Pa Llevar.
+
+Setup: `php artisan migrate`, `npm run build`.
+
+### 2026-10-16 (Optimum)
+
+- **Adding a product or service is guided** (Quick Add on the sale form and
+  the full product form).
+  - The main service you type is kept; it used to be cleared when moving to
+    Price.
+  - Choose the main item only, or a **new sub-service under it**, also under an
+    existing main service.
+  - "Will be saved as" shows the final name, following each company's naming
+    style, and warns about duplicates.
+- **Dev database brought up to date with production:** Ruba's 14 new sales
+  (INV_3612–INV_3625), their accounting, stock, 6 emails and QuickBooks
+  audit rows.
+- **Production update SQL** for the Network security changes (phpMyAdmin-ready,
+  tested) in `KT-TOOLS/SQL/`.
+
+Setup: `npm run build`.
+
 ### 2026-10-16 (Thundera)
 
 - **Network security** (Settings → Network security), per company, on for
@@ -176,9 +263,6 @@ in `KT-TOOLS/Report/`.
   - Computers waiting for approval show in the bell; approve once, remove any
     time.
   - Managed by roles with the new "Network security" permission.
-- **Sincroniza BD** protocol: compares production with dev (structure,
-  migrations, data), shows the differences, backs production up and applies
-  only what you approve -- or writes SQL files to import by hand.
 - The user manual (in-app and the overview / PDF) explains Network security.
 
 Setup: `php artisan migrate`, `npm run build`.
@@ -207,55 +291,6 @@ Setup: `php artisan migrate`, `npm run build`.
 
 Setup: `npm run build`.
 
-### 2026-10-12 (Optimum)
-
-- **Users list** has filters: Type, Role (or "No role") and Status.
-- **Group Permissions** shows how many users have each role. Click the number
-  to open Users filtered by that role.
-- **Users → Edit** shows the linked employee (department, position, shift,
-  pay) with a link to HRM → Employees.
-- **Companies → Add / Edit** ask for everything the system needs, in steps
-  (Company, Helpdesk, Defaults, Admin user, Website).
-  - Required: owner name, business type, address and helpdesk email.
-  - Defaults: currency, language, sale prefix, public address and the default
-    passwords.
-  - A **Setup** column shows what each company is still missing.
-- **Clear demo** now names the record that blocks it. Company 1003's 2 test
-  sales were removed, and that company was cleared and deleted.
-- **Production update SQL files** (dev → production, tested before use) are
-  in `KT-TOOLS/SQL/`. Run part 1, then part 2.
-
-Setup: `php artisan migrate`, `npm run build`.
-### 2026-10-09 (Optimum)
-
-- **Profile → Header icons.**
-  - Show is green and Hide is red.
-  - The company's setting under each icon is shown in green or red.
-  - Each user can change the order of the icons in the top bar with ‹ ›
-    arrows, or put the standard order back with **Reset order**.
-- The user manual (English and Spanish) explains both.
-
-Setup: `npm run build`.
-
-### 2026-10-07 evening (Thundera)
-
-- **User manual inside Murano.**
-  - A new **book** icon in the header opens it: **This page** (help for the
-    screen you are on) or **Whole manual** (with search).
-  - English and Spanish (follows the app language, with an EN / ES switch).
-  - Shows only the modules the company has turned on and what the user's role
-    allows.
-  - The icon can be hidden for the company (Defaults → Users) or by each user
-    (Profile).
-- **Manual by company and role** (overview for staff), with a PDF version with
-  links, in `KT-TOOLS/Manual/`.
-- **Rule:** every change to a module, form or role updates the manual in
-  English and Spanish; Pa Llevar checks it first.
-- **KcolTech website** (kept outside this repo) rebuilt: new layout and logos,
-  slider, Murano page, contact form, English and Spanish.
-
-Setup: `npm run build`.
-
 ---
 
 ## Session protocols
@@ -267,8 +302,10 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | **Preparate** | Start of session. Syncs the PC (pull, migrate, build) and reloads the rules. It also reads the request history (`kt_logs`) and writes status reports to `KT-TOOLS/Report/`. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 | **Copia BD** | Backs up `dbmurano` with mysqldump into `KT-TOOLS/database/`. It writes a main zip plus 3 Email Office zips, all importable in phpMyAdmin. |
-| **Sincroniza BD** | Compares the production database with dev (structure, migrations, data) and shows the differences. Only with your approval: backs production up, then applies the approved tables, or writes SQL files to import by hand. Production access lives only in the git-ignored `.env.production-db`. |
-| **Pa Llevar** | End of session. Updates the user manual with the session's changes, builds, logs, writes the daily report, backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
+| **Sube Prod** | Deploys the committed code to production from this PC over SSH: one copy of the site (no Hostinger build copies), the assets built here, migrations with a production backup first. Production's `.env` is never replaced. Dry run and your OK first; can be undone. |
+| **Baja Prod** | Brings production down to dev whenever you ask: the files created in production (`public/files`) and its new sales, customers, emails and other records. Shows a dry run first, then applies it in one step. |
+| **Sube Git** | Quick push. Logs any missing requests, checks the build, updates this README in detail (Latest changes and any section that changed), then commits with a detailed description and pushes to GitHub. No database backup or reports. |
+| **Pa Llevar** | End of session. First brings production down to dev (the files created in production's `public/files` and its new sales and records), then updates the user manual with the session's changes, builds, logs, writes the daily report, lists the dev database changes waiting for the next monthly deploy (applied right after a deploy, with a production backup and your OK), backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
 
 Pushing uses GitHub Desktop when the terminal has no GitHub credentials. Never
 force-push, and never commit `.env`.

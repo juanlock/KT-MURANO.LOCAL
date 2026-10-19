@@ -5,7 +5,7 @@
     <aside class="navbar navbar-vertical navbar-expand-lg rst-sidenav">
       <div class="container-fluid">
         <div class="navbar-brand navbar-brand-autodark py-3 d-flex align-items-center justify-content-between">
-          <router-link to="/dashboard" class="text-decoration-none d-flex align-items-center gap-2" @click="closeDrawer">
+          <router-link to="/dashboard" class="text-decoration-none d-flex align-items-center justify-content-center gap-2 flex-grow-1 rst-sidenav-brand" @click="closeDrawer">
             <BrandMark />
           </router-link>
           <button type="button" class="btn btn-icon rst-tool d-lg-none" :aria-label="tr('close_menu', 'Close menu')" :title="tr('close_menu', 'Close menu')" @click="closeDrawer">

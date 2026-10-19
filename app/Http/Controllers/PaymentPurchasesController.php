@@ -571,7 +571,9 @@ class PaymentPurchasesController extends BaseController
 
         $this->Set_config_mail($companyId);
 
-        Mail::to($receiver_email)->send(new CustomEmail($email));
+        // + Mail Settings -> "Send a copy to other emails" (purchases), hidden copy.
+        $copies = \App\Support\CompanyMail::copyEmails((int) $companyId, 'purchases', [$receiver_email]);
+        $copies ? Mail::to($receiver_email)->bcc($copies)->send(new CustomEmail($email)) : Mail::to($receiver_email)->send(new CustomEmail($email));
 
         return response()->json(['message' => 'Email sent successfully'], 200);
         // return $mail;

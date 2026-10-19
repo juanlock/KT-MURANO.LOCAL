@@ -91,10 +91,9 @@ class AdjustmentController extends BaseController
         if ($perPage == '-1') {
             $perPage = $totalRows;
         }
-        $Adjustments = $Filtred->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        $Adjustments = \App\Support\ListSort::apply($Filtred->offset($offSet)->limit($perPage), 'adjustments', $order, $dir, [
+            'warehouse_name' => ['warehouses', 'warehouse_id'],
+        ], 'id')->get();
 
         foreach ($Adjustments as $Adjustment) {
             $item['id'] = $Adjustment->id;

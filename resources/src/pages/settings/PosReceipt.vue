@@ -118,7 +118,7 @@
                           <p class="mt-2 mb-0 text-center" v-show="pos_settings.show_note" style="white-space:pre-line;">
                             <small><strong>{{ pos_settings.note_customer || 'Thank you for your purchase!' }}</strong></small>
                           </p>
-                          <div class="mt-2 text-center" v-show="pos_settings.show_zatca_qr !== 0">
+                          <div class="mt-2 text-center" v-show="zatcaOn && pos_settings.show_zatca_qr !== 0">
                             <div class="zatca-qr">
                               <div class="zatca-qr-title">ZATCA</div>
                               <div class="demo-qr-box"></div>
@@ -241,7 +241,7 @@
                           <p class="mt-2 mb-0 text-center" v-show="pos_settings.show_note" style="white-space:pre-line;">
                             <small><strong>{{ pos_settings.note_customer || 'Thank you for your purchase!' }}</strong></small>
                           </p>
-                          <div class="mt-2 text-center" v-show="pos_settings.show_zatca_qr !== 0">
+                          <div class="mt-2 text-center" v-show="zatcaOn && pos_settings.show_zatca_qr !== 0">
                             <div class="zatca-qr">
                               <div class="zatca-qr-title">ZATCA</div>
                               <div class="demo-qr-box"></div>
@@ -358,7 +358,7 @@
                           <p class="mt-2 mb-0 text-center" v-show="pos_settings.show_note" style="white-space:pre-line;">
                             <small><strong>{{ pos_settings.note_customer || 'Thank you for your purchase!' }}</strong></small>
                           </p>
-                          <div class="mt-2 text-center" v-show="pos_settings.show_zatca_qr !== 0">
+                          <div class="mt-2 text-center" v-show="zatcaOn && pos_settings.show_zatca_qr !== 0">
                             <div class="zatca-qr">
                               <div class="zatca-qr-title">ZATCA</div>
                               <div class="demo-qr-box"></div>
@@ -535,7 +535,7 @@
                             <div v-show="pos_settings.show_note" class="bl4-policy">{{ pos_settings.note_customer || 'Thank you for your purchase!' }}</div>
                             <div class="bl4-footer-contact">+123 456 789 &middot; demo@example.com</div>
                           </div>
-                          <div class="mt-2 text-center" v-show="pos_settings.show_zatca_qr !== 0">
+                          <div class="mt-2 text-center" v-show="zatcaOn && pos_settings.show_zatca_qr !== 0">
                             <div class="zatca-qr">
                               <div class="zatca-qr-title">ZATCA</div>
                               <div class="demo-qr-box"></div>
@@ -670,7 +670,7 @@
                             {{ pos_settings.note_customer || 'Thank you for your purchase!' }}
                           </p>
 
-                          <div class="mt-2 text-center" v-show="pos_settings.show_zatca_qr !== 0">
+                          <div class="mt-2 text-center" v-show="zatcaOn && pos_settings.show_zatca_qr !== 0">
                             <div class="zatca-qr">
                               <div class="zatca-qr-title">ZATCA</div>
                               <div class="demo-qr-box"></div>
@@ -807,7 +807,8 @@ import PageHeader from '../../components/PageHeader.vue';
 import BarcodeSvg from '../../components/BarcodeSvg.vue';
 import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
-import { receiptFontHeadTags, whenPrintFontsReady } from '../../lib/receiptFont';
+import { isModuleEnabled } from '../../config/modules';
+import { receiptFontHeadTags, whenPrintFontsReady } from '../../lib/receiptFont';
 
 // Shown as a tab inside Settings -> POS Settings: no page header of its own there.
 defineProps({ embedded: { type: Boolean, default: false } });
@@ -880,12 +881,19 @@ const allToggles = [
   { field: 'show_previous_dues', label: 'Show_Previous_Dues_Line', desc: 'Show_Previous_Dues_Line_Desc' },
   { field: 'show_net_balance', label: 'Show_Net_Balance_Line', desc: 'Show_Net_Balance_Line_Desc' },
   { field: 'show_payments', label: 'Show_Payments_Table' },
-  { field: 'show_zatca_qr', label: 'Show_ZATCA_QR', superAdminOnly: true },
+  { field: 'show_zatca_qr', label: 'Show_ZATCA_QR', superAdminOnly: true, module: 'zatca' },
 ];
 // ZATCA is SuperAdmin-only (settings, submissions and this receipt option);
-// company Admins don't see it. The saved value is left as it is.
+// company Admins don't see it. The saved value is left as it is. It also needs
+// the ZATCA module on for the company (Business Modules; off by default).
 const auth = useAuthStore();
-const toggles = computed(() => allToggles.filter(tg => !tg.superAdminOnly || auth.user?.type === 'SuperAdmin'));
+const zatcaOn = ref(false);
+if (auth.user?.type === 'SuperAdmin') {
+  http.get('module_flags')
+    .then(r => { zatcaOn.value = isModuleEnabled(r?.module_flags || null, 'zatca'); })
+    .catch(() => { zatcaOn.value = false; });
+}
+const toggles = computed(() => allToggles.filter(tg => (!tg.superAdminOnly || auth.user?.type === 'SuperAdmin') && (!tg.module || zatcaOn.value)));
 
 const currentReceiptLayout = computed(() => {
   const n = Number(pos_settings.value.receipt_layout) || 1;

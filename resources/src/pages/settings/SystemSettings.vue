@@ -58,7 +58,7 @@
               <a-menu-item key="mail"><MailOutlined /> Mail</a-menu-item>
               <a-menu-item key="sms"><MessageOutlined /> SMS</a-menu-item>
               <a-menu-item key="payment"><CreditCardOutlined /> {{ $t('Payment_Gateway') }}</a-menu-item>
-              <a-menu-item v-if="isSuperAdmin" key="zatca"><AuditOutlined /> {{ $t('Zatca_E_Invoicing') }}</a-menu-item>
+              <a-menu-item v-if="isSuperAdmin && setting.zatca_module" key="zatca"><AuditOutlined /> {{ $t('Zatca_E_Invoicing') }}</a-menu-item>
               <a-menu-item key="custom_fields"><FormOutlined /> Custom Fields</a-menu-item>
               <a-menu-item v-if="isSuperAdmin" key="backups"><DatabaseOutlined /> Backup archives</a-menu-item>
               <a-menu-item v-if="isSuperAdmin" key="devices"><LaptopOutlined /> Login Devices</a-menu-item>

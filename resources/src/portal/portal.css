@@ -1260,10 +1260,16 @@ body.rst-app {
 
 /* Uploaded brand logo — sized to sit where the built-in SVG mark did. */
 .rst-brand-logo {
-    max-height: 2rem;
-    max-width: 9rem;
+    max-height: 2.75rem;
+    max-width: 12rem;
     object-fit: contain;
 }
+/* Sidebar: the company logo centered and larger (top bar on phones keeps the size above). */
+.rst-sidenav-brand .rst-brand-logo {
+    max-height: 4.5rem;
+    max-width: 100%;
+}
+.rst-sidenav .navbar-brand .rst-sidenav-brand { min-width: 0; }
 
 /* Numbered walkthrough — the release-update checklist in General Settings. */
 .rst-steps {

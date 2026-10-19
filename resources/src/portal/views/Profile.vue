@@ -60,22 +60,8 @@
         </form>
       </div>
 
-      <!-- Danger zone -->
-      <div class="col-12">
-        <div class="card border-danger">
-          <div class="card-header">
-            <div>
-              <h3 class="card-title mb-0 text-danger">{{ $t('delete_account') }}</h3>
-              <div class="text-secondary">{{ $t('delete_account_subtitle') }}</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <p class="text-secondary">{{ $t('delete_copy_1') }}</p>
-            <p class="text-secondary">{{ $t('delete_copy_2') }}</p>
-            <button type="button" class="btn btn-danger" @click="openDelete"><i class="ti ti-user-off me-1"></i>{{ $t('delete_account') }}</button>
-          </div>
-        </div>
-      </div>
+      <!-- No "delete account" here (user's rule, 2026-10-18): only the company's
+           admin closes a customer's portal access (People -> Customers: portal access, list or edit form). -->
     </div>
 
     <div v-else class="text-center py-6">
@@ -83,43 +69,6 @@
       <div class="text-secondary mt-2">{{ $t('loading_profile') }}</div>
     </div>
 
-    <!-- Confirmation dialog (Bootstrap markup, Vue-driven) -->
-    <template v-if="delOpen">
-      <div class="modal modal-blur fade show d-block" tabindex="-1" role="dialog" aria-modal="true" @click.self="closeDelete">
-        <div class="modal-dialog modal-dialog-centered" role="document">
-          <form class="modal-content" @submit.prevent="confirmDelete">
-            <div class="modal-header">
-              <h5 class="modal-title text-danger">{{ $t('delete_account_q') }}</h5>
-              <button type="button" class="btn-close" :aria-label="$t('cancel')" @click="closeDelete"></button>
-            </div>
-            <div class="modal-body">
-              <p class="text-secondary">{{ $t('delete_warning') }}</p>
-              <div class="mb-3">
-                <label class="form-label">{{ $t('type_email_confirm') }}</label>
-                <input v-model="delEmail" type="text" class="form-control" autocomplete="off" :placeholder="profile && profile.portal_email" />
-              </div>
-              <div class="mb-3">
-                <label class="form-label">{{ $t('password') }}</label>
-                <input v-model="delPassword" type="password" class="form-control" autocomplete="current-password" placeholder="••••••••" />
-              </div>
-              <div class="mb-2">
-                <label class="form-label">{{ $t('reason') }} <span class="form-label-description">{{ $t('optional') }}</span></label>
-                <textarea v-model="delReason" class="form-control" rows="2" maxlength="500" :placeholder="$t('reason_placeholder')"></textarea>
-              </div>
-              <div v-if="delError" class="alert alert-danger mb-0">{{ delError }}</div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-ghost-secondary" @click="closeDelete">{{ $t('cancel') }}</button>
-              <button type="submit" class="btn btn-danger" :disabled="delLoading || !canDelete">
-                <span v-if="delLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
-                {{ delLoading ? $t('deleting') : $t('delete_my_account') }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-      <div class="modal-backdrop fade show"></div>
-    </template>
   </div>
 </template>
 
@@ -133,18 +82,12 @@ export default {
       profile: null,
       currentPassword: '', newPassword: '', confirmPassword: '',
       pwError: '', pwSuccess: false, pwLoading: false,
-      delOpen: false, delEmail: '', delPassword: '', delReason: '', delError: '', delLoading: false,
     };
   },
   computed: {
-    canDelete() { return !!this.delEmail.trim() && !!this.delPassword; },
     initials() { return initials(this.profile && this.profile.client && this.profile.client.name); },
   },
-  watch: {
-    delOpen(v) { document.body.classList.toggle('pc-modal-open', v); },
-  },
   mounted() { this.fetch(); },
-  beforeUnmount() { document.body.classList.remove('pc-modal-open'); },
   methods: {
     pageMeta() { return { title: this.$t('profile'), pretitle: this.$t('account'), crumbs: [] }; },
     async fetch() {
@@ -152,20 +95,6 @@ export default {
         const { data } = await http.get('/portal/profile');
         this.profile = data;
       } catch (_) {}
-    },
-    openDelete() { this.delOpen = true; this.delError = ''; this.delEmail = ''; this.delPassword = ''; this.delReason = ''; },
-    closeDelete() { if (!this.delLoading) this.delOpen = false; },
-    async confirmDelete() {
-      if (!this.canDelete) return;
-      this.delError = '';
-      this.delLoading = true;
-      try {
-        await http.delete('/portal/profile', { data: { current_password: this.delPassword, confirm_email: this.delEmail.trim(), reason: this.delReason || null } });
-        window.location.href = '/portal/login';
-      } catch (e) {
-        this.delError = apiError(e, this.$t('delete_failed'));
-        this.delLoading = false;
-      }
     },
     async changePassword() {
       if (this.newPassword !== this.confirmPassword) { this.pwError = this.$t('passwords_no_match'); return; }

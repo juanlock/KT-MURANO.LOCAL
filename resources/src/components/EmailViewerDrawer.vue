@@ -46,7 +46,7 @@
               New customer / supplier
             </a-button>
             <div v-if="contactAddress" class="ev-sub">
-              <a-checkbox v-model:checked="allFromAddress">Every email {{ email.direction === 'in' ? 'from' : 'to' }} {{ contactAddress }}</a-checkbox>
+              <div class="ev-muted">Every email with {{ contactAddress }} — received from it and sent to it — goes to the same {{ partyType === 'client' ? 'customer' : 'supplier' }}.</div>
               <a-checkbox v-model:checked="rememberAddress">Save this address on the {{ partyType === 'client' ? 'customer' : 'supplier' }} (future emails match by themselves)</a-checkbox>
             </div>
           </div>
@@ -309,7 +309,6 @@ const partyId = ref(undefined);
 const partyOptions = ref([]);
 const partyLoading = ref(false);
 const partyEditing = ref(false);
-const allFromAddress = ref(true);
 const rememberAddress = ref(true);
 const assigning = ref(false);
 
@@ -455,13 +454,14 @@ function searchParties(q) {
   }, 250);
 }
 
-// This email -- or every email of the address -- belongs to the picked customer / supplier.
+// Every email with the address (received from it, sent to it) belongs to the
+// picked customer / supplier; an email without an address: this one only.
 async function assignParty() {
   assigning.value = true;
   try {
-    if (allFromAddress.value && contactAddress.value) {
+    if (contactAddress.value) {
       const r = await http.post('email-office/assign-address', { address: contactAddress.value, party_type: partyType.value, party_id: partyId.value, remember: rememberAddress.value });
-      message.success(`Assigned ${r.updated} email(s)${r.remembered ? ' — address saved on the contact' : ''}.`);
+      message.success(`Assigned ${r.updated} email(s) with ${contactAddress.value}${r.remembered ? ' — address saved on the contact' : ''}.`);
     } else {
       await http.put(`email-office/emails/${email.value.id}`, { party_type: partyType.value, party_id: partyId.value });
       message.success('Assigned.');

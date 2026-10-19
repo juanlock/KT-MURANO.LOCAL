@@ -57,10 +57,13 @@ class ShipmentController extends BaseController
         if ($perPage == '-1') {
             $perPage = $totalRows;
         }
-        $shipments_data = $shipments->offset($offSet)
-            ->limit($perPage)
-            ->orderBy($order, $dir)
-            ->get();
+        // Customer / warehouse come from the shipment's sale.
+        $viaSale = fn (string $table, string $fk) => fn () => \Illuminate\Support\Facades\DB::table($table)->select("$table.name")
+            ->join('sales', "sales.$fk", '=', "$table.id")->whereColumn('sales.id', 'shipments.sale_id')->limit(1);
+        $shipments_data = \App\Support\ListSort::apply($shipments->offset($offSet)->limit($perPage), 'shipments', $order, $dir, [
+            'customer_name' => $viaSale('clients', 'client_id'),
+            'warehouse_name' => $viaSale('warehouses', 'warehouse_id'),
+        ], 'id')->get();
 
         foreach ($shipments_data as $shipment) {
 

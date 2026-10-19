@@ -27,6 +27,21 @@ class Client extends Model
         'additional_emails' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        // Email Office: a new / changed address picks up that customer's
+        // unassigned emails right away. Never blocks saving the customer.
+        static::saved(function (Client $c) {
+            if ($c->wasRecentlyCreated || $c->wasChanged(['email', 'additional_emails', 'contact_email'])) {
+                try {
+                    \App\Services\EmailOffice\EmailOffice::assignToClient((int) $c->id);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        });
+    }
+
     /**
      * Get custom field values for this client
      */
