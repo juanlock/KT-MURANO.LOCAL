@@ -24,7 +24,7 @@ class WebsitePaths
         $storeFirst = explode('/', store_path())[0] ?? '';
 
         return array_values(array_filter(array_unique(array_merge(store_reserved_paths(), [
-            'online_store', $storeFirst, 'site', 'lang', 'set-locale', 'pos', 'book', 'support', 'portfolio', 'portfolio-theme',
+            'online_store', $storeFirst, 'site', 'lang', 'set-locale', 'pos', 'book', 'pay', 'support', 'portfolio', 'portfolio-theme',
             'files', 'public', 'admin', 'app', 'home', 'shop', 'cart', 'checkout', 'account', 'currency', 'gallery', 'contact',
             'pages', 'order-ready', 'salla', 'xero', 'google-sheets', 'storage', 'favicon.ico',
         ]))));

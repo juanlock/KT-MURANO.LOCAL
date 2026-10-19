@@ -1,12 +1,14 @@
 <?php
 
-// Protocol Copia BD -- dumps the dbmurano MySQL database via mysqldump and
-// saves it to KT-TOOLS/database/ as four timestamped zips (each holding a .sql):
-// dbmurano_<date>_<host>_<time>.zip (all tables except the Email Office ones)
-// and ..._office_emails_1 / _2 / _3.zip (the Email Office tables, office_emails
-// split in three parts of about the same size), so a snapshot travels with the
-// repo across every machine this checkout is on.
-// Run via: php artisan tinker --execute="require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"
+// The dbmurano backup (Copia BD; also run by Wake-up and Pa Llevar) -- dumps the
+// dbmurano MySQL database via mysqldump and saves it to
+// KT-TOOLS/database/<PC name>/ as four timestamped zips (each holding a .sql):
+// dbmurano_<date>_<time>_<tag>.zip (all tables except the Email Office ones)
+// and ..._<tag>_office_emails_1 / _2 / _3.zip (the Email Office tables,
+// office_emails split in three parts of about the same size), so a snapshot
+// travels with the repo across every machine this checkout is on.
+// <tag> = $backupTag: wakeup | pallevar | copiabd (default).
+// Run via: php artisan tinker --execute="$backupTag = 'copiabd'; require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"
 //
 // Reads connection details from Laravel's own config (never hardcoded), so
 // this runs unchanged on any machine's .env. mysqldump's location varies per
@@ -70,10 +72,16 @@ if (! $mysqldump) {
     return;
 }
 
-// Target folder under KT-TOOLS: "database" (default, the protocol's backup
-// history) or another one set before the require, e.g. $outSubdir = 'SQL'
-// for an export handed to an external backup program.
-$outSubdir = isset($outSubdir) && preg_match('/^[A-Za-z0-9_-]+$/', (string) $outSubdir) ? $outSubdir : 'database';
+// Target folder (user's rule, 2026-10-19): one folder per PC,
+// KT-TOOLS/database/<PC name>/ (e.g. KT-TOOLS/database/KT-THUNDERA/), so each
+// machine's backups stay apart. Another folder under KT-TOOLS can still be set
+// before the require, e.g. $outSubdir = 'SQL'.
+// Which protocol made it goes in the name ($backupTag, set before the require):
+// 'wakeup' (start of the day), 'pallevar' (end of the day), 'copiabd' (a
+// database copy on demand -- the default).
+$host = gethostname() ?: 'unknown-host';
+$backupTag = isset($backupTag) && preg_match('/^[a-z0-9]+$/', (string) $backupTag) ? $backupTag : 'copiabd';
+$outSubdir = isset($outSubdir) && preg_match('/^[A-Za-z0-9_-]+$/', (string) $outSubdir) ? $outSubdir : 'database'.DIRECTORY_SEPARATOR.preg_replace('/[^A-Za-z0-9_-]/', '-', $host);
 $outDir = base_path('KT-TOOLS'.DIRECTORY_SEPARATOR.$outSubdir);
 if (! is_dir($outDir)) {
     mkdir($outDir, 0777, true);
@@ -86,10 +94,10 @@ if (! is_dir($outDir)) {
 // Colons aren't valid in Windows filenames, so the time uses hyphens:
 // "11-23-06-AM", not "11:23:06 AM". now() correctly reflects the real local
 // clock since APP_TIMEZONE is set to America/New_York app-wide.
-$host = gethostname() ?: 'unknown-host';
 $date = now()->format('Y-m-d');
 $time = now()->format('h-i-s-A');
-$stem = $outDir.DIRECTORY_SEPARATOR."dbmurano_{$date}_{$host}_{$time}";
+// e.g. KT-TOOLS/database/KT-THUNDERA/dbmurano_2026-10-19_08-15-02-AM_wakeup.zip
+$stem = $outDir.DIRECTORY_SEPARATOR."dbmurano_{$date}_{$time}_{$backupTag}";
 
 // Two backups (user's rule, 2026-10-05): the Email Office tables alone are
 // >130 MB (imported mailboxes), so they go to their own file and the main
@@ -201,24 +209,14 @@ $parts = [
 //    ("Unknown collation" otherwise);
 //  - DEFINER=`user`@`host` removed from triggers / routines / views (needs
 //    SUPER on shared hosting; without it they run as the importing user).
-$clean = function (string $line): ?string {
-    if (str_starts_with($line, '/*M!999999\\- enable the sandbox mode')) {
-        return null;
-    }
-    if (str_starts_with($line, 'INSERT INTO')) {
-        return $line;
-    }
-    $line = preg_replace('/\b(utf8mb[34])_(?:uca1400|0900)_[a-z_]+\b/', '$1_unicode_ci', $line);
-    $line = preg_replace('#/\*!50017 DEFINER=`[^`]*`@`[^`]*`\s*\*/\s*#', '', $line);
-    $line = preg_replace('/\s*DEFINER\s*=\s*`[^`]*`@`[^`]*`/', '', $line);
-
-    return $line;
-};
+// Same cleaner for every backup (dev and production): protocol_sql_clean.php.
+$clean = (require __DIR__.'/protocol_sql_clean.php')['line'];
 
 $written = [];
 foreach ($parts as $outFile => $part) {
     $fh = fopen($outFile, 'w');
-    fwrite($fh, "-- Murano database export (Protocol Copia BD), phpMyAdmin-ready:\n"
+    $tagLabel = ['wakeup' => 'Wake-up, start of the day', 'pallevar' => 'Pa Llevar, end of the day', 'copiabd' => 'Copia BD, on demand'][$backupTag] ?? $backupTag;
+    fwrite($fh, "-- Murano database copy ({$backupTag}: {$tagLabel}) -- PC {$host}, {$date} {$time}, phpMyAdmin-ready:\n"
         ."-- Contains: {$part['title']}.\n"
         ."-- phpMyAdmin -> select the target database -> Import -> this file.\n"
         ."-- Order: 1) all CREATE TABLE  2) all data (INSERT)  3) triggers.\n"

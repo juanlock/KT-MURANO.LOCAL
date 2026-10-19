@@ -113,16 +113,30 @@ class MenuPositionController extends Controller
                 ->get(['item_key', 'label', 'icon', 'route', 'external', 'is_custom'])
                 ->keyBy('item_key');
 
-            $currentKeys = $current->keys()->all();
-            sort($currentKeys);
-            $incomingKeys = $keys;
-            sort($incomingKeys);
-            if ($currentKeys !== $incomingKeys) {
+            // Only CUSTOM items count as added / removed: built-in items come
+            // from the code's menu (config/menu.js), so a module added after
+            // this company's layout was saved (e.g. Settings -> PayPal,
+            // 2026-10-19) arrives as a new key, and one removed from the code
+            // disappears -- neither is the Admin adding or removing anything.
+            $currentCustom = $current->filter(fn ($r) => (bool) $r->is_custom)->keys()->all();
+            $incomingCustom = array_column(array_filter($positions, fn ($r) => ! empty($r['is_custom'])), 'key');
+            sort($currentCustom);
+            sort($incomingCustom);
+            if ($currentCustom !== $incomingCustom) {
                 abort(403, 'Only a SuperAdmin can add or remove menu items -- you can reorder or hide/show existing ones.');
             }
 
             foreach ($positions as $row) {
-                $existing = $current[$row['key']];
+                $existing = $current[$row['key']] ?? null;
+                if (! $existing) {
+                    // New built-in item: position / visibility only (a "raw" item
+                    // sends the code's own label; keys the code doesn't know are
+                    // ignored by the sidebar, menuTree.js).
+                    if (! empty($row['icon']) || ! empty($row['route']) || ! empty($row['external'])) {
+                        abort(403, "Only a SuperAdmin can rename or edit menu items -- '{$row['key']}' was changed beyond its position/visibility.");
+                    }
+                    continue;
+                }
                 $changed = (string) ($row['label'] ?? '') !== (string) ($existing->label ?? '')
                     || (string) ($row['icon'] ?? '') !== (string) ($existing->icon ?? '')
                     || (string) ($row['route'] ?? '') !== (string) ($existing->route ?? '')

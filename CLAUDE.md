@@ -5,42 +5,36 @@ repo, and it's tracked in git so it stays in sync across all machines used to
 work on this project. Treat everything below as standing context — no need to
 re-explain it in future sessions.
 
-## Protocol: "preparate"
+## Protocols: Wake-up, Pa Llevar, Copia BD, Kelsy (user's rule, 2026-10-19)
 
-Trigger phrases: **"jarvis run protocolo preparate"** / **"protocolo preparate"**.
-When the user says this, it refers to the rules and definitions documented in
-this file (this section and the ones below). Re-read this file to refresh
-context when invoked.
-
-Also available as a slash command (`.claude/commands/preparate.md`), so it's
-usable the same way on every machine this repo is checked out on: it first
-syncs the current PC to the latest pushed version (git pull -- falling back
-to what GitHub Desktop last fetched when the session has no GitHub
-credentials -- then `composer install` / `npm ci` / `php artisan migrate`
-only when the incoming changes need them, `php artisan optimize:clear`, and
-always `npm run build`, since `public/js` isn't in git), then reloads
-this file's rules, reads the `kt_logs` table (the history of every
-request/order made to modify this project) so prior work and decisions are
-known before anything is changed, digests that history into a memory file and
-surfaces the most recurrent changes (the former Mañanitas), then closes out by generating and opening a small HTML
-status report (`database/scripts/protocol_preparate_report.php`, written to
-`KT-TOOLS/Report/kt_murano_preparate_<date>.html`) showing the **last 2** `kt_logs`
-requests -- index table, then grouped by module (from the files each touched),
-each with date requested, the verbatim request, the solution (closing message),
-what changed and the files affected -- and each one's **status**
-(Completed / In Progress / Blocked -- see the `status` column note in
-`.claude/commands/kelsy.md`), plus the full-history activity report
-(`database/scripts/protocol_memorex_report.php` ->
-`KT-TOOLS/Report/kt_murano_memorex_<date>.html`, the former Memorex).
-**Mañanitas and Memorex were merged into Preparate and their command files
-deleted (user's request, 2026-10-04)** -- "protocol Mañanitas" / "protocol
-Memorex" now mean the matching steps of Preparate.
-
+Only four protocols (`.claude/commands/`), no repeated orders between them:
+- **Wake-up** (`/wake-up`, "Jarvis, wake up" / "protocolo wake-up") -- the
+  start of the day on any PC: git pull (+ composer / npm ci / migrate only when
+  needed, `optimize:clear`, `npm run build`), a local backup tagged `wakeup`,
+  production compared with this PC (code, migrations, files, records) and
+  reported, production's new files and records brought down to dev, an offer
+  to update production when this PC's code / data are newer (production
+  backup + the user's yes), this file and the `kt_logs` history reloaded
+  (memory digest), and a report (`database/scripts/protocol_wakeup_report.php`
+  -> `KT-TOOLS/Report/kt_murano_wakeup_<date>.html`) with the **current
+  conventions** (read live from this file) and the **last 5 changes** with
+  date and origin. Replaced Preparate (and the old Mañanitas / Memorex), Baja
+  Prod and Sube Prod. "Preparate" / "buenos días, prepárate" now mean Wake-up.
+- **Pa Llevar** -- the end of the day: Wake-up's production sync, then manual,
+  build, Kelsy, daily report, a local backup tagged `pallevar`, README, commit,
+  push (replaced Sube Git).
+- **Copia BD** -- a database copy on demand, tagged `copiabd`.
+- **Kelsy** -- the `kt_logs` logging rules (unchanged).
+Every database backup is compressed and phpMyAdmin-ready
+(`database/scripts/protocol_sql_clean.php`): local ones in
+**`KT-TOOLS/database/<PC name>/dbmurano_<date>_<time>_<wakeup|pallevar|copiabd>.zip`**
+(+ `_office_emails_1/_2/_3`), production ones in `KT-TOOLS/database/production/`
+(git-ignored), made before anything is written to production.
 **Protocol reports are kept and shared (user's rule, 2026-09-30):** every
 HTML report a protocol (or an ad-hoc "report for the last N requests")
 generates goes to **`KT-TOOLS/Report/`** -- git-tracked, committed by Pa
 Llevar, so every programmer gets them. One file per day per report
-(`kt_murano_preparate_<date>`, `kt_murano_memorex_<date>`,
+(`kt_murano_wakeup_<date>`,
 `kt_murano_last<N>_<date>`, and Pa Llevar's `kt_murano_daily_<date>` with all
 of that day's requests); a re-run the same day overwrites that day's file,
 older days are never deleted. Not `.claude/report/` or a temp dir.
@@ -140,7 +134,7 @@ rather than being a built-in concept.
 
 ## Development Standards
 
-Applies every time a module is **created or modified** (Preparate reloads it at
+Applies every time a module is **created or modified** (Wake-up reloads it at
 the start of each session).
 
 ### File uploads (user's rule, 2026-10-04)
@@ -197,6 +191,16 @@ the start of each session).
   `settings.public_base_url`) else the server address `APP_URL` (System Settings
   -> General -> Server address, SuperAdmin; production = https://murano.kcoltech.com).
   Booking codes, and anything else pasted outside the app, are built with it.
+- **Language follows the computer** (user's rule, 2026-10-19): a device with
+  no language chosen opens Murano -- login page, app, customer portal, PayPal
+  pay page -- in the browser's language when it's an active one (English /
+  Spanish; `SetLocale::browserLocale()`, `i18n browserLocale()`), else the
+  company's `default_language`. A pick always wins: the user's own in the app
+  (`language_explicit`), then this device's from the login page EN / ES switch
+  (`/set-locale` -> cookie `app_locale`, also read by the SPA after sign-in).
+  The standard login page texts have Spanish (migration
+  2026_10_19_130000); a company's own texts need their own Spanish in
+  Settings -> Login Page.
 - **Users -> Add creates Admin / SuperAdmin logins only** (SuperAdmin only by a
   SuperAdmin). Employee / customer / supplier / sales-agent logins are created
   in HRM -> Employees, People -> Customers / Suppliers, Commissions -> Sales
@@ -262,6 +266,19 @@ the start of each session).
   Users follow the company default unless `users.network_access` says
   `restricted` / `anywhere`. Production needs the server to pass the
   visitor's real IP (Hostinger proxy) before turning it on there.
+- **PayPal module** (user's rule, 2026-10-19): customers pay invoices into
+  the company's OWN PayPal account. Business Module `paypal`, **off by
+  default** (`ModuleFlags::DEFAULT_OFF` / modules.js `defaultOff`), on only
+  for KcolTech; Ruba, New Era and Vanclem stay off until asked. Settings ->
+  PayPal (`paypal_manage`, `paypal_settings`: Client ID / encrypted Secret,
+  sandbox / live, webhook id, deposit account). The "Pay now" page is
+  `/pay/{sale}` (relative signed link on `PublicUrl`,
+  `PayPalInvoicePayment::payLink`; `{pay_link}` tag in invoice email / SMS /
+  WhatsApp, "PayPal pay link" in the Sales row menu); a capture is recorded by
+  `PayPalInvoicePayment::record()` (one transaction, once per capture: payment
+  method PayPal, account balance, sale paid / status, `paypal_payments`).
+  `PayPalService::forCompany($id)` = that company's keys; the online store's
+  checkout still uses `store_settings` (not multicompany yet).
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
@@ -328,7 +345,7 @@ the start of each session).
 
 ## Frontend Conventions
 
-(Reloaded by Preparate step 1, like the Development Standards.)
+(Reloaded by Wake-up, and shown in its report, like the Development Standards.)
 
 - **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
@@ -393,99 +410,55 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   from the machine (`KT-THUNDERA` -> Thundera, `KTOPTIMUM_NB` -> Optimum,
   Home PC -> Home); ask only if
   it's genuinely unclear.
-- **Preparate** (`/preparate`, or "Jarvis, run protocolo preparate") — not
-  ported from billing, this one is Murano's own: syncs this PC to the latest
-  version (pull + only-if-needed install/migrate + `npm run build`), reloads
-  this file's rules, reads `kt_logs`, digests it into a memory file and
-  surfaces recurring change patterns, then closes out with an HTML status
-  card for the last 2 requests plus the full-history activity report (see
-  above). The start-of-session counterpart of Pa Llevar. **Mañanitas and
-  Memorex (both ported from billing) were merged into it and their
-  `/mananitas` / `/memorex` commands deleted (user's request, 2026-10-04).**
-- **Copia BD** (`/copia-bd`, or "Jarvis, run protocolo copia bd") — not
-  ported from billing, this one is Murano's own: dumps `dbmurano` via
-  `mysqldump` (`database/scripts/protocol_copia_bd.php`) into
-  `KT-TOOLS/database/dbmurano_<date>_<host>_<time>.zip` (e.g.
-  `dbmurano_2026-09-29_KT-THUNDERA_11-23-38-AM.zip` — **split in two and
-  zipped since 2026-10-05 (user's rule)**: the main zip has every table except
-  the Email Office ones, and the Email Office tables (`office_emails`,
-  `email_office_settings`, rules / folders / payees -- ~130 MB of imported
-  mail that pushed the single `.sql` past GitHub's 100 MB limit) go in
-  **three files since 2026-10-06 (user's rule)**: `..._office_emails_1/_2/_3.zip`,
-  `office_emails` cut in three parts of about the same size (file 1 also has
-  the tables' structure, file 3 the triggers); restore = unzip all, import the
-  main one, then office_emails 1, 2, 3 in order — host from
-  `gethostname()`, time human-readable 12-hour with AM/PM via `now()`, not a
-  bare digit run) — a phpMyAdmin-independent backup after a local phpMyAdmin
-  export bug corrupted a manual backup attempt. Every dump is phpMyAdmin-ready
-  (imports as-is into any selected database, e.g. Hostinger): all CREATE TABLE
-  first, then data, then triggers; no CREATE DATABASE / USE / LOCK TABLES /
-  DEFINER; portable utf8mb4_unicode_ci collations. `KT-TOOLS/` is git-tracked,
-  so the snapshot travels across every machine this checkout is on, same as
-  the other protocols.
-- **Pa Llevar** (`/pa-llevar`, or "Jarvis, run protocolo pa llevar") —
-  Murano's own end-of-session close-out (A Dormir was merged into it and
-  then deleted, user's request 2026-10-01): updates the user manual with the
-  session's module / form changes (in-app EN + ES, overview HTML + PDF;
-  2026-10-07), checks `npm run build`, runs
-  Kelsy, writes the day's report (`KT-TOOLS/Report/kt_murano_daily_<date>.html`),
-  then lists dev migrations pending in production. **Production sync (user's
-  rules, 2026-10-17 / 2026-10-18):** production's code is deployed only about
-  once a month (Hostinger Git deploy = `git pull`, heavy on temp files), so
-  Pa Llevar's FIRST step, every run, is production -> dev: new / changed
-  `public/files` over SSH (`database/scripts/protocol_prod_files.php`, never
-  deletes) and new / changed records (`protocol_prod_pull.php`, one
-  transaction; never `migrations` / `kt_logs`) -- committed, so the next
-  deploy carries them back and nothing created in production lives only
-  there. Dev -> production = migrations only (`protocol_prod_migrate.php`),
-  applied right after a code deploy (dry run, the user's yes, production
-  backup to `KT-TOOLS/database/production/`, `migrate --database=prod`);
-  otherwise just listed as pending. `public/` stays out of Git LFS (the deploy
-  doesn't fetch LFS; `.gitattributes` = LFS only for KT-TOOLS zips).
+- **Wake-up** (`/wake-up`, "Jarvis, wake up" / "protocolo wake-up"; also what
+  "preparate" means now) — the start of the day on any PC (user's rule,
+  2026-10-19; replaced Preparate, Baja Prod and Sube Prod). Steps: git pull
+  (GitHub Desktop's last fetch without credentials) -> local backup tagged
+  `wakeup` -> composer / npm ci / migrate only when needed, `optimize:clear`,
+  `npm run build` -> production compared with this PC, dry runs only
+  (`protocol_prod_deploy.php` code + migrations, `protocol_prod_files.php`,
+  `protocol_prod_pull.php`, `protocol_prod_push.php`) -> production's new files
+  and records brought down to dev (one transaction, never `migrations` /
+  `kt_logs`) -> **update production only when this PC is newer and only with
+  the user's yes** (code: git bundle -> fast-forward in `public_html`, this PC's
+  `public/js`, composer when needed, migrations, production `.env` kept,
+  maintenance page only during the change, `$rollback` undoes the code; data:
+  dev's new / changed rows without conflicts) -> CLAUDE.md + `kt_logs` history
+  reloaded (memory digest), Kelsy catch-up -> report
+  `KT-TOOLS/Report/kt_murano_wakeup_<date>.html` (summary, current conventions
+  from this file, last 5 changes with date + origin).
   **Production owns the business data; every dev database change -- schema and
   the data a feature needs (permissions, settings, translations, menus) -- is a
-  migration, safe to run twice, by name not by id; dev rows are never copied to
-  production.** Production DB access lives ONLY in `.env.production-db` (per
-  machine, git-ignored; SSH settings in `.env.production-ssh`) -- never in
-  `.env`, this file, README, kt_logs, reports or commits. Then Copia BD (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office emails 1/2/3.zip`), then updates
-  `README.md` (a "Latest changes" block for the session -- last 5 kept -- and any section that changed; user's rule
-  2026-10-06), then commits everything with a summary subject and a
-  detailed description of the changes (one bullet per `kt_logs` request,
-  migrations, setup steps for other machines, backup file) and pushes to
-  GitHub (never force-push; without CLI credentials the user pushes from
-  GitHub Desktop). It syncs the user's machines through GitHub -- it is NOT a
-  production deploy.
-- **Sube Prod** (`/sube-prod`, or "Jarvis, run protocolo sube prod") --
-  Murano's own (user's choice, 2026-10-18): the code deploy to production,
-  replacing the Hostinger Git deploy (which kept the project 4-5 times and ran
-  the account out of files). From this PC over SSH: git bundle of the new
-  commits -> `public_html` fast-forwards (the server needs no GitHub access),
-  this PC's built `public/js` swapped in, composer when needed, migrations
-  with a production backup; production's `.env` always kept; maintenance page
-  only during the change. Dry run + the user's yes first; `$rollback` undoes
-  the code. `database/scripts/protocol_prod_deploy.php`.
-  **"Actualizar / actualiza producción" = Sube Prod, and it also sends dev's
-  DATA changes (user's rule, 2026-10-18)**: what was created / changed in dev
-  since the last Baja Prod (`protocol_prod_push.php`: new rows only with an id
-  free in production, changed rows only when production didn't change them
-  too, related pivot rows, newer `public/files`); conflicts are listed, never
-  sent; production backup first, one transaction. Not migrations' tables
-  (translations, permissions, menu_positions), kt_logs, sessions, queues.
-- **Baja Prod** (`/baja-prod`, or "Jarvis, run protocolo baja prod") --
-  Murano's own (user's request, 2026-10-18): production -> dev on demand --
-  production's new / changed `public/files` (SFTP) and records into `dbmurano`
-  (dry run, then apply in one transaction). It is Pa Llevar's step 000 alone,
-  without backup / commit.
-- **Sube Git** (`/sube-git`, or "Jarvis, run protocolo sube git") -- Murano's
-  own (user's request, 2026-10-17): the quick push. Catches up `kt_logs`,
-  checks `npm run build`, updates `README.md` in detail (Latest changes block
-  with one bullet + detail line per change, plus every section the work
-  changed), commits with a summary subject (`sube git <date>: ...`) and a
-  detailed description (one bullet per `kt_logs` request, migrations, setup
-  steps) and pushes (never force-push; GitHub Desktop when there are no
-  credentials). No manual update, daily report or database backup -- that is
-  Pa Llevar.
-Billing's originals stay untouched (billing is read-only, per the Hard Rules
+  migration, safe to run twice, by name not by id.** Production is backed up
+  before every write (`KT-TOOLS/database/production/`, git-ignored, compressed,
+  phpMyAdmin-ready); if the backup fails nothing is written. `public/` stays out
+  of Git LFS (`.gitattributes` = LFS only for KT-TOOLS zips). Production access
+  lives ONLY in `.env.production-db` / `.env.production-ssh` (per machine,
+  git-ignored) -- never in `.env`, this file, README, kt_logs, reports or
+  commits.
+- **Pa Llevar** (`/pa-llevar`, "Jarvis, run protocolo pa llevar") — the end of
+  the day (A Dormir and Sube Git were merged into it): Wake-up's production
+  sync (steps 3-5), the user manual (in-app EN + ES, overview HTML + PDF),
+  `npm run build`, Kelsy, the daily report
+  (`KT-TOOLS/Report/kt_murano_daily_<date>.html`), a local backup tagged
+  `pallevar` (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office
+  emails 1/2/3.zip` for the external backup program), `README.md` (Latest
+  changes, last 5 kept, plus every section the work changed), commit with a
+  summary subject and a detailed description, push (never force-push; without
+  CLI credentials the user pushes from GitHub Desktop).
+- **Copia BD** (`/copia-bd`, "Jarvis, run protocolo copia bd") — a database
+  copy on demand, tagged `copiabd`. Same script as Wake-up's / Pa Llevar's
+  backups (`database/scripts/protocol_copia_bd.php`, `$backupTag`):
+  `KT-TOOLS/database/<PC name>/dbmurano_<date>_<time>_<tag>.zip` (every table
+  except the Email Office ones) + `..._<tag>_office_emails_1/_2/_3.zip`
+  (`office_emails` in three parts of about the same size; file 1 has the
+  tables' structure, file 3 the triggers). Restore = unzip all, import the main
+  one, then office_emails 1, 2, 3 in order. Every backup is phpMyAdmin-ready
+  (imports as-is into any selected database, e.g. Hostinger): all CREATE TABLE
+  first, then data, then triggers; no CREATE DATABASE / USE / LOCK TABLES /
+  DEFINER / MariaDB sandbox line; portable utf8mb4_unicode_ci collations
+  (`protocol_sql_clean.php`). Git-tracked (LFS), so the copies travel to every
+  PC.Billing's originals stay untouched (billing is read-only, per the Hard Rules
 below) — these are Murano's own copies, kept in sync manually if the protocol
 logic evolves.
 

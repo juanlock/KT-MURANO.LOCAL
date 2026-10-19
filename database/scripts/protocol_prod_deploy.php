@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Protocol Sube Prod -- deploys THIS PC's committed code to production over
+ * Wake-up / Pa Llevar, "update production" -- deploys THIS PC's committed code to production over
  * SSH, in place: ONE copy of the site (public_html), no node_modules, no
  * Hostinger "hbuilds" copies (the Hostinger Git deploy kept the project 4-5
  * times and ran the account out of files, 2026-10-18).

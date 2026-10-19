@@ -1,13 +1,13 @@
 <?php
 
 /*
- * Protocol Sube Prod -- data step (user's rule, 2026-10-18): what was CREATED or
- * CHANGED in dev since the last Baja Prod goes up to production (a user, a
+ * Wake-up / Pa Llevar, "update production" -- data step (user's rule, 2026-10-18): what was CREATED or
+ * CHANGED in dev since the last production pull (Wake-up / Pa Llevar) goes up to production (a user, a
  * company's logo setting...). Production stays the owner of everything else.
  *
  *   php artisan tinker --execute="$apply = false; require '<repo>/database/scripts/protocol_prod_push.php';"   (dry run)
  *   php artisan tinker --execute="$apply = true;  require '<repo>/database/scripts/protocol_prod_push.php';"
- *   optional: $since = 'YYYY-MM-DD HH:MM:SS' (dev's clock) instead of the last Baja Prod time
+ *   optional: $since = 'YYYY-MM-DD HH:MM:SS' (dev's clock) instead of the last production pull time
  *
  * Rules, per table (common columns only):
  *  - a dev row created after $since that production doesn't have -> inserted
@@ -21,7 +21,7 @@
  *  - never: migrations, kt_logs, translations / permissions / menu_positions
  *    (they come with migrations), sessions, queues, caches, login history
  * Production is backed up first (mysqldump, KT-TOOLS/database/production/),
- * then everything is written in ONE transaction. $since = the last Baja Prod
+ * then everything is written in ONE transaction. $since = the last production pull
  * (KT-TOOLS/database/production/last_sync.json, written by protocol_prod_pull).
  */
 
@@ -35,7 +35,7 @@ $d = DB::connection();
 
 $syncFile = base_path('KT-TOOLS/database/production/last_sync.json');
 $since = $since ?? (json_decode((string) @file_get_contents($syncFile), true)['pulled_at'] ?? null);
-if (! $since) { echo "No last Baja Prod recorded on this PC -- run Baja Prod first, or pass \$since.\n"; return; }
+if (! $since) { echo "No production pull recorded on this PC -- run Wake-up (it brings production down first), or pass \$since.\n"; return; }
 echo 'dev changes since ', $since, " (dev's clock) -> production ", $p->getDatabaseName(), ($apply ? '  (APPLY)' : '  (dry run)'), PHP_EOL;
 // Both sides read TIMESTAMP columns in UTC (else the same row looks different);
 // $since was written on dev's clock (app timezone) -> UTC too.
@@ -176,18 +176,9 @@ foreach ($filesToSend as $rel) {
 }
 if (! $plan && ! $replaceSets) { echo "Sent.\n"; return; }
 
-// production backup first
-$dir = base_path('KT-TOOLS/database/production');
-if (! is_dir($dir)) mkdir($dir, 0775, true);
-$sql = "$dir/{$prodEnv['PROD_DB_DATABASE']}_before_push_".now()->format('Y-m-d_h-i-s-A').'.sql';
-$dump = is_file('C:/Program Files/MariaDB 11.8/bin/mysqldump.exe') ? 'C:/Program Files/MariaDB 11.8/bin/mysqldump.exe' : 'mysqldump';
-putenv('MYSQL_PWD='.$prodEnv['PROD_DB_PASSWORD']);
-exec(sprintf('"%s" --host=%s --port=%s --user=%s --single-transaction --skip-lock-tables --no-tablespaces --default-character-set=utf8mb4 %s --result-file="%s" 2>&1',
-    $dump, $prodEnv['PROD_DB_HOST'], $prodEnv['PROD_DB_PORT'] ?? 3306, $prodEnv['PROD_DB_USERNAME'], $prodEnv['PROD_DB_DATABASE'], $sql), $out, $code);
-putenv('MYSQL_PWD');
-if ($code !== 0 || ! is_file($sql) || filesize($sql) < 1000) { echo "Production backup FAILED -- nothing sent.\n", implode("\n", $out), PHP_EOL; return; }
-$zip = new ZipArchive; $zip->open("$sql.zip", ZipArchive::CREATE | ZipArchive::OVERWRITE); $zip->addFile($sql, basename($sql)); $zip->close(); unlink($sql);
-echo 'production backup: ', "$sql.zip", PHP_EOL;
+// production backup first (compressed, phpMyAdmin-ready; shared helper)
+$backupLabel = 'before_push';
+if (! (require __DIR__.'/protocol_prod_backup.php')) { echo "Nothing sent to the production database.\n"; return; }
 
 $p->transaction(function () use ($plan, $p, $replaceSets, $parentSets) {
     $p->statement('SET FOREIGN_KEY_CHECKS = 0');

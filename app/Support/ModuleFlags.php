@@ -11,8 +11,8 @@ use App\Models\Setting;
  */
 class ModuleFlags
 {
-    /** OFF until turned on for a company (Saudi e-invoicing). Same list as config/modules.js defaultOff. */
-    public const DEFAULT_OFF = ['zatca'];
+    /** OFF until turned on for a company (Saudi e-invoicing; PayPal invoice payments). Same list as config/modules.js defaultOff. */
+    public const DEFAULT_OFF = ['zatca', 'paypal'];
 
     private static array $memo = [];
 

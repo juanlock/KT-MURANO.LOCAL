@@ -340,6 +340,10 @@
                   <a-menu-item key="invoice-pos">
                     <FileTextOutlined /> {{ $t('Invoice_POS') }}
                   </a-menu-item>
+                  <!-- PayPal module: copy the invoice's public "Pay now" link. -->
+                  <a-menu-item v-if="auth.moduleEnabled('paypal') && record.statut !== 'cancelled' && record.payment_statut !== 'paid'" key="paypal-link">
+                    <LinkOutlined /> PayPal pay link
+                  </a-menu-item>
                   <a-menu-item v-if="whatsappEnabled" key="whatsapp">
                     <WhatsAppOutlined /> WhatsApp Notification
                   </a-menu-item>
@@ -590,7 +594,7 @@ import {
   MessageOutlined, CarOutlined, RollbackOutlined,
   PaperClipOutlined, UploadOutlined, DownloadOutlined, WhatsAppOutlined,
   ExclamationCircleOutlined, ShoppingCartOutlined, DollarOutlined, CheckCircleOutlined,
-  StopOutlined, CopyOutlined, FilterOutlined, BellOutlined, DownOutlined, LockOutlined,
+  StopOutlined, CopyOutlined, FilterOutlined, BellOutlined, DownOutlined, LockOutlined, LinkOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import { presetOf, presetRange } from '../../lib/datePresets';
@@ -960,6 +964,7 @@ function onAction(key, record) {
     'return-edit': () => router.push(`/sale-returns/${record.salereturn_id}/edit/${record.id}`),
     shipment: () => openShipment(record),
     'invoice-pos': () => invoicePos(record),
+    'paypal-link': () => copyPayPalLink(record),
     whatsapp: () => sendWhatsApp(record),
     sms: () => notify('sales_send_sms', record.id, 'sms_send_successfully', 'sms_config_invalid'),
     delete: () => crud.remove(record, { label: record.Ref }),
@@ -967,6 +972,21 @@ function onAction(key, record) {
     restore: () => restoreSale(record),
   };
   go[key]?.();
+}
+
+// PayPal module: the invoice's public "Pay now" link (paypal/sales/{id}/link), copied to the clipboard.
+async function copyPayPalLink(record) {
+  try {
+    const res = await http.get(`paypal/sales/${record.id}/link`);
+    try {
+      await navigator.clipboard.writeText(res.url);
+      message.success(`${res.Ref}: PayPal pay link copied.`);
+    } catch {
+      Modal.info({ title: `${res.Ref}: PayPal pay link`, content: res.url, width: 560 });
+    }
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not get the PayPal link.');
+  }
 }
 
 // ---------------- status tag quick actions (pending -> ordered/completed/cancelled) ----------------

@@ -29,12 +29,17 @@ class SetLocale
         //    is still there on the logged-out /login page. This used to read a
         //    cookie named 'locale', which nothing writes, so the choice never
         //    reached the server.
-        // 3. Settings -> default_language — the company default, for a device
-        //    that has made no choice of its own.
-        // 4. config('app.locale')
+        // 3. the browser's language (user's rule, 2026-10-19): a device that
+        //    has made no choice of its own opens Murano -- from the login page
+        //    on -- in its computer's language (a PC in Peru set to Spanish ->
+        //    Spanish), when it's one of the active languages.
+        // 4. Settings -> default_language — the company default, when the
+        //    browser's language is not one we have.
+        // 5. config('app.locale')
         $locale = Session::get('locale')
             ?: $request->cookie(LocaleSyncController::COOKIE_NAME)
             ?: $request->cookie('locale')
+            ?: self::browserLocale($request)
             ?: self::settingsLocale()
             ?: config('app.locale');
 
@@ -45,6 +50,41 @@ class SetLocale
         App::setLocale($locale);
 
         return $next($request);
+    }
+
+    /**
+     * The browser's preferred language (Accept-Language), only when it is one
+     * of the ACTIVE languages (Settings -> Languages, `languages.is_active`)
+     * the app ships -- today English and Spanish. Null otherwise.
+     */
+    public static function browserLocale($request): ?string
+    {
+        if (! $request->headers->has('Accept-Language')) {
+            return null;
+        }
+        $active = Cache::remember('languages.active_supported', 600, function () {
+            try {
+                $codes = Schema::hasTable('languages')
+                    ? \Illuminate\Support\Facades\DB::table('languages')->where('is_active', 1)->pluck('locale')->all()
+                    : ['en'];
+            } catch (\Throwable $e) {
+                $codes = ['en'];
+            }
+
+            return array_values(array_intersect(array_keys(self::SUPPORTED), $codes));
+        });
+        if (! $active) {
+            return null;
+        }
+        // Accept-Language order, by the 2-letter language (es-PE -> es).
+        foreach ($request->getLanguages() as $lang) {
+            $code = strtolower(substr($lang, 0, 2));
+            if (in_array($code, $active, true)) {
+                return $code;
+            }
+        }
+
+        return null;
     }
 
     /**

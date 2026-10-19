@@ -131,7 +131,7 @@ const { t } = useI18n();
 // literal "Subscription Reminder" with no key. `vars` mirror the legacy page's
 // per-template placeholder lists.
 const TEMPLATE_TYPES = [
-  { type: 'sale', titleKey: 'Sale', color: '#1677ff', icon: ShoppingOutlined, vars: ['contact_name', 'business_name', 'invoice_number', 'invoice_url', 'total_amount', 'paid_amount', 'due_amount'] },
+  { type: 'sale', titleKey: 'Sale', color: '#1677ff', icon: ShoppingOutlined, vars: ['contact_name', 'business_name', 'invoice_number', 'invoice_url', 'total_amount', 'paid_amount', 'due_amount', 'pay_link'] },
   { type: 'quotation', titleKey: 'Quote', color: '#13c2c2', icon: FileTextOutlined, vars: ['contact_name', 'business_name', 'quotation_number', 'quotation_url', 'total_amount'] },
   { type: 'payment_received', titleKey: 'PaiementsReceived', color: '#52c41a', icon: DollarOutlined, vars: ['contact_name', 'business_name', 'payment_number', 'paid_amount'] },
   { type: 'purchase', titleKey: 'Purchase', color: '#722ed1', icon: ShoppingCartOutlined, vars: ['contact_name', 'business_name', 'invoice_number', 'invoice_url', 'total_amount', 'paid_amount', 'due_amount'] },

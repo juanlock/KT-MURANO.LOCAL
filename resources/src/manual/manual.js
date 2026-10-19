@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-10-18';
+export const MANUAL_UPDATED = '2026-10-19';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -59,7 +59,7 @@ export const MANUAL = [
           { key: 'summary', title: { en: 'Como Vamos! (today\'s summary)', es: '¡Cómo Vamos! (resumen de hoy)' }, text: { en: 'Today at a glance: sales, payments, bookings and what is pending.', es: 'El día de un vistazo: ventas, pagos, reservas y lo pendiente.' } },
           { key: 'fullscreen', title: { en: 'Full screen', es: 'Pantalla completa' }, text: { en: 'Uses the whole screen; click again (or Esc) to go back. Not on phones.', es: 'Usa toda la pantalla; haga clic otra vez (o Esc) para volver. No en celulares.' } },
           { key: 'manual', title: { en: 'User manual (open book)', es: 'Manual de usuario (libro abierto)' }, text: { en: 'This manual: **This page** shows help for the screen you are on, **Whole manual** has everything with a search. English or Spanish.', es: 'Este manual: **Esta página** muestra la ayuda de la pantalla en la que está, **Todo el manual** tiene todo con búsqueda. Inglés o español.' } },
-          { key: 'language', title: { en: 'Language (globe)', es: 'Idioma (globo)' }, text: { en: 'Changes the language of the app for you.', es: 'Cambia el idioma de la aplicación para usted.' } },
+          { key: 'language', title: { en: 'Language (globe)', es: 'Idioma (globo)' }, text: { en: 'Changes the language of the app for you. Until you pick one, Murano (sign-in page included) follows your computer\'s language when it is English or Spanish, otherwise the company\'s default language.', es: 'Cambia el idioma de la aplicación para usted. Mientras no elija uno, Murano (incluida la página de ingreso) usa el idioma de su computadora si es español o inglés; si no, el idioma predeterminado de la empresa.' } },
           { key: 'notifications', title: { en: 'Notifications (bell)', es: 'Notificaciones (campana)' }, text: { en: 'Work waiting for you (e.g. bookings to confirm, computers to approve). The number is how many; click an item to go there.', es: 'Trabajo pendiente (p. ej. reservas por confirmar, computadoras por aprobar). El número indica cuántos; haga clic en uno para ir.' } },
           { key: 'clock', title: { en: 'Clock in / out', es: 'Marcar entrada / salida' }, text: { en: 'Clocks you in or out for today (if your role has it). Turns green with the time while you are clocked in.', es: 'Marca su entrada o salida de hoy (si su rol lo tiene). Se pone verde con la hora mientras está marcado.' } },
           { key: 'logout', title: { en: 'Log out', es: 'Cerrar sesión' }, text: { en: 'Signs you out in one click. Always do it on a shared computer.', es: 'Cierra su sesión con un clic. Hágalo siempre en una computadora compartida.' } },
@@ -804,7 +804,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ settings
   {
-    key: 'settings', module: null, perms: ['setting_system', 'pos_settings', 'mail_settings', 'payment_methods', 'company', 'network_security'], paths: ['settings', 'hrm/companies'],
+    key: 'settings', module: null, perms: ['setting_system', 'pos_settings', 'mail_settings', 'payment_methods', 'company', 'network_security', 'paypal_manage'], paths: ['settings', 'hrm/companies'],
     title: { en: 'Settings', es: 'Configuración' },
     intro: { en: 'Company-wide options.', es: 'Opciones para toda la empresa.' },
     sections: [
@@ -882,6 +882,18 @@ export const MANUAL = [
         note: {
           en: 'Blocked users see: "You can\'t use Murano from this network…" on the sign-in page. Clearing the browser\'s data or using another browser needs a new approval.',
           es: 'Los usuarios bloqueados ven: "You can\'t use Murano from this network…" en la página de ingreso. Borrar los datos del navegador o usar otro navegador requiere una nueva aprobación.',
+        },
+      },
+      {
+        id: 'paypal', module: 'paypal', perms: ['paypal_manage', 'Sales_view'], paths: ['settings/paypal', 'sales'],
+        title: { en: 'PayPal (customers pay invoices online)', es: 'PayPal (los clientes pagan facturas en línea)' },
+        steps: {
+          en: ['**Settings › PayPal**: paste the **Client ID** and **Secret** of the company\'s PayPal app (developer.paypal.com › Apps & Credentials), pick **Sandbox** to test first or **Live** for real money, choose the **Deposit account** and press **Submit**. **Test connection** checks the keys with PayPal.', 'Turn on **Accept PayPal payments**. Invoices with a balance now have a "Pay now" link: put **{pay_link}** in the invoice email / SMS templates (Settings › Email templates), or in **Sales** open the invoice\'s **⋮** menu › **PayPal pay link** to copy it and send it yourself.', 'The customer opens the link (in their language: Spanish or English, from their browser, with an EN / ES switch), sees the invoice and the amount due and pays with PayPal or a card. The payment is recorded on the invoice by itself (method PayPal, into the deposit account) and the invoice becomes Paid.', 'Every attempt is listed under **PayPal payments** (Started / Paid / Cancelled / Failed / Refunded). Optional: add the **webhook** shown on the page in your PayPal app so the payment is recorded even if the customer closes the page before coming back.'],
+          es: ['**Configuración › PayPal**: pegue el **Client ID** y el **Secret** de la app de PayPal de la empresa (developer.paypal.com › Apps & Credentials), elija **Sandbox** para probar primero o **Live** para dinero real, escoja la **cuenta de depósito** y presione **Enviar**. **Test connection** comprueba las claves con PayPal.', 'Active **Accept PayPal payments**. Las facturas con saldo tienen ahora un enlace "Pagar ahora": ponga **{pay_link}** en las plantillas de correo / SMS de la factura (Configuración › Plantillas de correo), o en **Ventas** abra el menú **⋮** de la factura › **PayPal pay link** para copiarlo y enviarlo usted.', 'El cliente abre el enlace (en su idioma: español o inglés, según su navegador, con un selector EN / ES), ve la factura y el saldo y paga con PayPal o con tarjeta. El pago se registra solo en la factura (método PayPal, en la cuenta de depósito) y la factura queda Pagada.', 'Cada intento aparece en **PayPal payments** (Iniciado / Pagado / Cancelado / Fallido / Reembolsado). Opcional: agregue en su app de PayPal el **webhook** que muestra la página, para que el pago se registre aunque el cliente cierre la página antes de volver.'],
+        },
+        note: {
+          en: 'A module per company (System Settings › Business Modules › PayPal), off by default; each company is paid into its own PayPal account. Refunds are made in PayPal and then recorded in Murano by hand (sale return).',
+          es: 'Es un módulo por empresa (Configuración del sistema › Módulos › PayPal), apagado por defecto; cada empresa cobra en su propia cuenta de PayPal. Los reembolsos se hacen en PayPal y luego se registran a mano en Murano (devolución de venta).',
         },
       },
       {

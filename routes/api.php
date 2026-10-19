@@ -2338,3 +2338,14 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::post('devices/{id}/approve', [\App\Http\Controllers\NetworkSecurityController::class, 'approve']);
     Route::delete('devices/{id}', [\App\Http\Controllers\NetworkSecurityController::class, 'remove']);
 });
+
+// PayPal module (2026-10-19): the company's PayPal account (Settings -> PayPal,
+// permission paypal_manage) and an invoice's "Pay now" link (Sales_view). The
+// paypal/ prefix is switched off with the module (EnforceModuleFlags).
+Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])->prefix('paypal')->group(function () {
+    Route::get('settings', [\App\Http\Controllers\PayPalSettingsController::class, 'show']);
+    Route::put('settings', [\App\Http\Controllers\PayPalSettingsController::class, 'update']);
+    Route::post('settings/test', [\App\Http\Controllers\PayPalSettingsController::class, 'test']);
+    Route::get('payments', [\App\Http\Controllers\PayPalSettingsController::class, 'payments']);
+    Route::get('sales/{id}/link', [\App\Http\Controllers\PayPalSettingsController::class, 'saleLink'])->whereNumber('id');
+});

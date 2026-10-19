@@ -1465,6 +1465,11 @@ export const PERMISSION_GROUPS = [
                 "f": "Network security (allowed networks, approved computers)"
             },
             {
+                "v": "paypal_manage",
+                "l": "PayPal_Settings",
+                "f": "PayPal: account settings and PayPal payments (PayPal module)"
+            },
+            {
                 "v": "datatable_customize",
                 "l": "Customize_Columns",
                 "f": "Customize Table Columns"

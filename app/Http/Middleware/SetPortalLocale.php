@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\Session;
  *   1. session(SESSION_KEY)   — the header switcher, an explicit choice this session
  *   2. the signed-in portal client's saved preference (follows them across devices)
  *   3. cookie(COOKIE_NAME)    — a choice made on this device before signing in
- *   4. config('app.locale')
+ *   4. the browser's language, when it's an active one (SetLocale::browserLocale)
+ *   5. config('app.locale')
  *
  * The supported set is SetLocale::SUPPORTED — one resources/lang/<locale>/portal.php each.
  */
@@ -35,6 +36,8 @@ class SetPortalLocale
             Session::get(self::SESSION_KEY),
             $this->savedPreference(),
             $request->cookie(self::COOKIE_NAME),
+            // The computer's language when nothing was chosen (2026-10-19).
+            SetLocale::browserLocale($request),
             config('app.locale'),
         ];
 

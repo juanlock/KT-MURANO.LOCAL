@@ -22,5 +22,8 @@ class EncryptCookies extends Middleware
         // 'api' routes, so it can't be encrypted by one and read by the other.
         // It is a random key, HttpOnly; only its hash is stored.
         \App\Support\NetworkAccess::COOKIE,
+        // Language the customer picked on the PayPal "Pay now" page (en / es),
+        // set by the page's own EN / ES switch in the browser.
+        'pay_lang',
     ];
 }

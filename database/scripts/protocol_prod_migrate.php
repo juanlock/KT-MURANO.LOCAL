@@ -38,28 +38,13 @@ if (! $apply) {
     return;
 }
 
-// 1) backup production
-$dir = base_path('KT-TOOLS/database/production');
-if (! is_dir($dir)) mkdir($dir, 0775, true);
-$stamp = now()->format('Y-m-d_h-i-s-A');
-$sql = "$dir/{$prodEnv['PROD_DB_DATABASE']}_$stamp.sql";
-$dump = env('DUMP_PATH', 'mysqldump');
-if ($dump === 'mysqldump' && is_file('C:/Program Files/MariaDB 11.8/bin/mysqldump.exe')) $dump = 'C:/Program Files/MariaDB 11.8/bin/mysqldump.exe';
-$cmd = sprintf('"%s" --host=%s --port=%s --user=%s --single-transaction --skip-lock-tables --no-tablespaces --routines --triggers --default-character-set=utf8mb4 %s --result-file="%s"',
-    $dump, $prodEnv['PROD_DB_HOST'], $prodEnv['PROD_DB_PORT'] ?? 3306, $prodEnv['PROD_DB_USERNAME'], $prodEnv['PROD_DB_DATABASE'], $sql);
-putenv('MYSQL_PWD='.$prodEnv['PROD_DB_PASSWORD']);   // password never on the command line
-exec($cmd.' 2>&1', $out, $code);
-putenv('MYSQL_PWD');
-if ($code !== 0 || ! is_file($sql) || filesize($sql) < 1000) {
-    echo 'Production backup FAILED -- nothing applied.', PHP_EOL, implode(PHP_EOL, $out), PHP_EOL;
+// 1) backup production (compressed, phpMyAdmin-ready; shared helper -- if it
+//    fails, nothing is applied)
+$backupLabel = 'before_migrate';
+if (! (require __DIR__.'/protocol_prod_backup.php')) {
+    echo 'Nothing applied.', PHP_EOL;
     return;
 }
-$zip = new ZipArchive;
-$zip->open("$sql.zip", ZipArchive::CREATE | ZipArchive::OVERWRITE);
-$zip->addFile($sql, basename($sql));
-$zip->close();
-unlink($sql);
-echo 'production backup: ', "$sql.zip", ' (', round(filesize("$sql.zip") / 1048576, 1), ' MB)', PHP_EOL;
 
 // 2) migrate production
 $code = Artisan::call('migrate', ['--database' => 'prod', '--force' => true]);

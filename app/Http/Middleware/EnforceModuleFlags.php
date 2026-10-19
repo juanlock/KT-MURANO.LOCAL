@@ -71,6 +71,7 @@ class EnforceModuleFlags
         'google-sheets' => 'google_sheets', 'mailchimp' => 'mailchimp', 'slack' => 'slack',
         'telegram' => 'telegram', 'kitchen' => 'kitchen',
         'zatca' => 'zatca', // Saudi e-invoicing, off by default (ModuleFlags::DEFAULT_OFF)
+        'paypal' => 'paypal', // PayPal invoice payments, off by default (on for KcolTech)
     ];
 
     /** store/<second segment> that belongs elsewhere: E-Wallet, or never blocked (null). */

@@ -195,6 +195,6 @@ $done = DB::transaction(function () use ($plan, $p, $d) {
     return $n;
 });
 foreach ($done as $t => $s) echo "  $t: $s", PHP_EOL;
-// the reference point for Sube Prod's data step: dev changes after this go up
+// the reference point for the data step of "update production" (Wake-up / Pa Llevar): dev changes after this go up
 file_put_contents(base_path('KT-TOOLS/database/production/last_sync.json'), json_encode(['pulled_at' => now()->format('Y-m-d H:i:s')]));
 echo 'Done.', PHP_EOL;

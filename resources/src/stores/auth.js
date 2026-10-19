@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import http from '../lib/http';
 import { isModuleEnabled } from '../config/modules';
-import { loadLocale, setProductLabels } from '../i18n';
+import { loadLocale, setProductLabels, browserLocale } from '../i18n';
 import { useUiStore } from './ui';
 import { resolveImageUrl } from '../lib/imagePath';
 import { useDatatableStore } from './datatable';
@@ -157,7 +157,13 @@ export const useAuthStore = defineStore('auth', {
                 try {
                     const explicit = window.localStorage.getItem('language_explicit') === '1'
                         && window.localStorage.getItem('language_explicit_user_id') === String(this.user && this.user.id);
-                    const serverLocale = this.user && this.user.default_language;
+                    // No choice of their own: the computer's language first
+                    // (Spanish PC -> Spanish, 2026-10-19), the company default
+                    // only when the browser's language isn't one we have.
+                    // A language picked on the sign-in page (EN / ES switch ->
+                    // cookie app_locale, this device's choice) comes before both.
+                    const devicePick = (document.cookie.match(/(?:^|;\s*)app_locale=([a-z]{2})/) || [])[1];
+                    const serverLocale = devicePick || browserLocale() || (this.user && this.user.default_language);
                     if (!explicit && serverLocale) {
                         const ui = useUiStore();
                         if (ui.locale !== serverLocale) {

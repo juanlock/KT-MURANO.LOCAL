@@ -156,6 +156,15 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
   (`App\Support\NetworkAccess`, checked at sign-in and in `Is_Active`). Never
   the SuperAdmin, customers, suppliers, store, websites, portfolio, booking or
   portals.
+- **PayPal** (Business Module, off by default; on for KcolTech): each company
+  is paid into its own PayPal account (`PayPalService::forCompany()`); the
+  "Pay now" page is a signed link built on the company's public address, and
+  a payment is recorded once, in one transaction
+  (`App\Services\PayPalInvoicePayment`).
+- **Language follows the computer**: with no language picked, the login page,
+  app, portal and PayPal page use the browser's language when it is English or
+  Spanish, else the company's default. A pick (login EN / ES, the globe)
+  always wins.
 - **User manual.** Every change to a module, form, role or permission updates
   its entry in `resources/src/manual/manual.js`, in English **and** Spanish
   (header book icon). Role or company-module changes also refresh
@@ -167,6 +176,43 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` and in the daily reports
 in `KT-TOOLS/Report/`.
+
+### 2026-10-19 (Thundera)
+
+- **Only four protocols now: Wake-up, Pa Llevar, Copia BD and Kelsy.**
+  - **Wake-up** (start of the day on any PC) replaces Preparate, Baja Prod and
+    Sube Prod: update from GitHub, local backup, compare with production,
+    bring production's new files and records down, offer to update production
+    (backup + your OK), and a report with the current rules and the last 5
+    changes.
+  - **Pa Llevar** (end of the day) does the same production sync, then the
+    manual, logs, backup, this README, commit and push (Sube Git is gone).
+  - Backups are compressed, import as-is in phpMyAdmin, and go to
+    `KT-TOOLS/database/<PC>/`, tagged wakeup / pallevar / copiabd.
+- **PayPal module (per company; on for KcolTech only).**
+  - Customers pay invoices into the company's own PayPal account with a "Pay
+    now" link. Copy it from Sales › ⋮ › PayPal pay link, or put `{pay_link}`
+    in the invoice email / SMS template.
+  - The payment is recorded on the invoice by itself (method PayPal, into the
+    chosen deposit account), never twice.
+  - Settings › PayPal: Client ID / Secret (stored encrypted), Sandbox or
+    Live, deposit account, optional webhook, and the list of PayPal payments.
+    New permission "PayPal".
+  - Ruba, New Era and Vanclem have it off.
+- **Murano opens in the computer's language.** A computer set to Spanish
+  (e.g. in Peru) sees the login page and the whole system in Spanish; any
+  other computer sees English, or the company's language when the computer's
+  isn't English or Spanish. The EN / ES switch on the login page (now
+  working) and the globe in the app always win. The PayPal pay page and the
+  customer portal follow the same rule.
+- **Login page in Spanish.** The standard login texts now have Spanish
+  ("Bienvenido de nuevo", "Ingresar"…). A company with its own login texts
+  adds their Spanish in Settings › Login Page.
+- **Manage Menu fix.** An Admin's reorder was refused ("Only a SuperAdmin can
+  add or remove menu items") when Murano had a new built-in menu item; now
+  only custom items count as added or removed.
+
+Setup: `php artisan migrate`, `npm run build`.
 
 ### 2026-10-18 (Optimum)
 
@@ -267,30 +313,6 @@ Setup: `npm run build`.
 
 Setup: `php artisan migrate`, `npm run build`.
 
-### 2026-10-13 (Thundera)
-
-- **Lists come back as you left them.** Sales, Purchases, Quotations,
-  Customers and Suppliers keep their filters, dates, page and search when you
-  return with Back, the browser's back arrow, or Cancel / Save in the edit
-  form. Opening a list from the menu starts fresh.
-- **Duplicate invoice** works for paid invoices (and invoices with a return):
-  it only needs the "add sale" permission.
-- **Edit Sale shows which invoice is open**: "Edit Sale · INV_…", customer,
-  date, total, paid and due, status tags and View invoice. A duplicate says
-  which invoice it copies.
-- **Save messages name the invoice** ("INV_3609 created."), with a warning
-  when the invoice date isn't today (it won't be in the Sales list on Today).
-- **Product tax.** New products start at 0% (they used to copy the company's
-  Default Tax, which is the invoice's Order Tax, so the line was taxed
-  twice). Tax per product / service still works as before.
-- **Sale form columns** follow Invoice PDF → Default → "Discount column" /
-  "Tax column": hidden when off, shown by themselves when a line has a
-  discount or its own tax.
-- **New services get the unit "UND"** (they used to have none and showed
-  "---" in Stock); editing a service keeps its unit.
-
-Setup: `npm run build`.
-
 ---
 
 ## Session protocols
@@ -299,13 +321,10 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 
 | Protocol | What it does |
 |----------|--------------|
-| **Preparate** | Start of session. Syncs the PC (pull, migrate, build) and reloads the rules. It also reads the request history (`kt_logs`) and writes status reports to `KT-TOOLS/Report/`. |
+| **Wake-up** | Start of the day on any PC. Updates the PC from GitHub (pull, installs and migrations only when needed, build), backs up the local database (`KT-TOOLS/database/<PC>/…_wakeup.zip`), compares production with this PC (code, migrations, files, records), brings production's new files and records down, offers to update production when this PC is newer (production backup + your OK), reloads the rules and the history, and opens a report with the current conventions and the last 5 changes (date + origin). |
+| **Pa Llevar** | End of the day. The same production sync as Wake-up, then the user manual, build, logs, daily report, a local backup (`…_pallevar.zip`, also copied to `KT-TOOLS/SQL/` for the external backup program), this README, commit and push to GitHub. |
+| **Copia BD** | A copy of the local database on demand (`KT-TOOLS/database/<PC>/…_copiabd.zip`): a main zip plus 3 Email Office zips. Every backup (dev and production) is compressed and imports as-is in phpMyAdmin. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
-| **Copia BD** | Backs up `dbmurano` with mysqldump into `KT-TOOLS/database/`. It writes a main zip plus 3 Email Office zips, all importable in phpMyAdmin. |
-| **Sube Prod** | Deploys the committed code to production from this PC over SSH: one copy of the site (no Hostinger build copies), the assets built here, migrations with a production backup first. Production's `.env` is never replaced. Dry run and your OK first; can be undone. |
-| **Baja Prod** | Brings production down to dev whenever you ask: the files created in production (`public/files`) and its new sales, customers, emails and other records. Shows a dry run first, then applies it in one step. |
-| **Sube Git** | Quick push. Logs any missing requests, checks the build, updates this README in detail (Latest changes and any section that changed), then commits with a detailed description and pushes to GitHub. No database backup or reports. |
-| **Pa Llevar** | End of session. First brings production down to dev (the files created in production's `public/files` and its new sales and records), then updates the user manual with the session's changes, builds, logs, writes the daily report, lists the dev database changes waiting for the next monthly deploy (applied right after a deploy, with a production backup and your OK), backs up the database, updates this README (Latest changes), then commits and pushes to GitHub. |
 
 Pushing uses GitHub Desktop when the terminal has no GitHub credentials. Never
 force-push, and never commit `.env`.

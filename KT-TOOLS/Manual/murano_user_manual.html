@@ -161,6 +161,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
       <a href="#g-filters">Date filters &amp; reports</a>
       <a href="#g-helpdesk">Help desk tickets</a>
       <a href="#g-network">Network security</a>
+      <a href="#g-paypal">PayPal payments</a>
       <a href="#g-portal">Customer &amp; supplier portal</a>
     </nav>
   </aside>
@@ -173,8 +174,8 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
       <p class="lead">What you see in Murano depends on two things: the company you belong to and the role your administrator gave you. Find your role below, read what it can do, then follow the guides linked from it.</p>
       <div class="meta">
         <span>Address: <code>https://murano.kcoltech.com</code></span>
-        <span>Languages: English · Spanish</span>
-        <span>Updated: October 18, 2026</span>
+        <span>Languages: English · Spanish (follows your computer; switch with EN / ES or the globe)</span>
+        <span>Updated: October 19, 2026</span>
       </div>
       <form class="finder" id="finder" aria-label="Find your role">
         <div class="finder-row">
@@ -265,6 +266,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
           <span class="fact">Payroll <b>hourly, $35/h</b></span>
           <span class="fact">Help desk <b>on</b></span>
           <span class="fact">Email Office <b>on</b></span>
+          <span class="fact">PayPal <b>on</b></span>
         </div>
       </div>
       <div class="roles">
@@ -480,10 +482,11 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
             <tr><th scope="row">Website &amp; store</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-part">Website only (store off)</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
             <tr><th scope="row">Users &amp; roles</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-part">View, edit</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
             <tr><th scope="row">Network security</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
+            <tr><th scope="row">PayPal payments</th><td><span class="lv lv-full">Full</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">Module off</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">Module off</span></td><td><span class="lv lv-none">—</span></td><td><span class="lv lv-none">—</span></td></tr>
           </tbody>
         </table>
       </div>
-      <p style="font-size:.9rem;color:var(--muted);max-width:72ch">Taken from each role's permissions and each company's modules on October 18, 2026. An administrator can change a role at any time in <span class="menu">User Management › Roles</span>; the menu follows the role.</p>
+      <p style="font-size:.9rem;color:var(--muted);max-width:72ch">Taken from each role's permissions and each company's modules on October 19, 2026. An administrator can change a role at any time in <span class="menu">User Management › Roles</span>; the menu follows the role.</p>
     </section>
 
     <!-- ============================== GUIDES ============================== -->
@@ -724,6 +727,18 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
             <li>A restricted user who signs in from outside is stopped, and that computer shows up in <b>Computers</b> and in the bell. <b>Approve</b> it once and it works from anywhere; <b>Remove</b> it when a laptop is lost or someone leaves.</li>
           </ol>
           <div class="note">Only the admin panel is restricted. The store, websites, portfolio, online booking and the portals stay open, and the SuperAdmin is never blocked.</div>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-paypal">
+          <h3>PayPal payments</h3>
+          <p class="for">For: company admins (Settings › PayPal) and anyone who sends invoices. On for KcolTech only.</p>
+          <ol>
+            <li><span class="menu">Settings › PayPal</span>: paste the Client ID and Secret of the company's PayPal app (developer.paypal.com › Apps &amp; Credentials), choose <b>Sandbox</b> to test or <b>Live</b>, pick the <b>Deposit account</b>, press <b>Submit</b> and <b>Test connection</b>, then turn on <b>Accept PayPal payments</b>.</li>
+            <li>Send the "Pay now" link: <span class="menu">Sales › ⋮ › PayPal pay link</span> copies it, or put <b>{pay_link}</b> in the invoice email / SMS template.</li>
+            <li>The customer sees the invoice in their own language (Spanish or English) and pays with PayPal or a card. The payment is recorded on the invoice by itself and the invoice becomes Paid; every attempt is listed under <b>PayPal payments</b>.</li>
+          </ol>
+          <div class="note">Each company is paid into its own PayPal account. Only payments made through the link appear in Murano; refunds are made in PayPal and recorded by hand.</div>
           <a class="top-link" href="#top">Back to top</a>
         </article>
 

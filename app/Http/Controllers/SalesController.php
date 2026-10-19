@@ -4788,6 +4788,8 @@ class SalesController extends BaseController
         $message_body = str_replace('{contact_name}', $contact_name, $message_body);
         $message_body = str_replace('{business_name}', $business_name, $message_body);
         $message_body = str_replace('{invoice_url}', $invoice_url, $message_body);
+        // PayPal module: "Pay now" link of the invoice (empty when PayPal is off / not set up or nothing is due).
+        $message_body = str_replace('{pay_link}', ($sale->GrandTotal - $sale->paid_amount) > 0 ? (string) \App\Services\PayPalInvoicePayment::payLink((int) $sale->id) : '', $message_body);
         $message_body = str_replace('{invoice_number}', $invoice_number, $message_body);
 
         $message_body = str_replace('{total_amount}', $total_amount, $message_body);
@@ -4888,6 +4890,8 @@ class SalesController extends BaseController
         $message_body = str_replace('{contact_name}', $contact_name, $message_body);
         $message_body = str_replace('{business_name}', $business_name, $message_body);
         $message_body = str_replace('{invoice_url}', $invoice_url, $message_body);
+        // PayPal module: "Pay now" link of the invoice (empty when PayPal is off / not set up or nothing is due).
+        $message_body = str_replace('{pay_link}', ($sale->GrandTotal - $sale->paid_amount) > 0 ? (string) \App\Services\PayPalInvoicePayment::payLink((int) $sale->id) : '', $message_body);
         $message_body = str_replace('{invoice_number}', $invoice_number, $message_body);
 
         $message_body = str_replace('{total_amount}', $total_amount, $message_body);
@@ -4977,6 +4981,8 @@ class SalesController extends BaseController
         $message_text = str_replace('{contact_name}', $contact_name, $message_text);
         $message_text = str_replace('{business_name}', $business_name, $message_text);
         $message_text = str_replace('{invoice_url}', $invoice_url, $message_text);
+        // PayPal module: "Pay now" link of the invoice (empty when PayPal is off / not set up or nothing is due).
+        $message_text = str_replace('{pay_link}', ($sale->GrandTotal - $sale->paid_amount) > 0 ? (string) \App\Services\PayPalInvoicePayment::payLink((int) $sale->id) : '', $message_text);
         $message_text = str_replace('{invoice_number}', $invoice_number, $message_text);
 
         $message_text = str_replace('{total_amount}', $total_amount, $message_text);
@@ -5135,6 +5141,8 @@ class SalesController extends BaseController
         $message_text = str_replace('{contact_name}', $contact_name, $message_text);
         $message_text = str_replace('{business_name}', $business_name, $message_text);
         $message_text = str_replace('{invoice_url}', $invoice_url, $message_text);
+        // PayPal module: "Pay now" link of the invoice (empty when PayPal is off / not set up or nothing is due).
+        $message_text = str_replace('{pay_link}', ($sale->GrandTotal - $sale->paid_amount) > 0 ? (string) \App\Services\PayPalInvoicePayment::payLink((int) $sale->id) : '', $message_text);
         $message_text = str_replace('{invoice_number}', $invoice_number, $message_text);
 
         $message_text = str_replace('{total_amount}', $total_amount, $message_text);

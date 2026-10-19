@@ -34,6 +34,10 @@ class VerifyCsrfToken extends Middleware
         // handled in PublicBookingController (throttle, honeypot, time-to-submit).
         'book',
 
+        // PayPal module webhook: posted by PayPal's servers, checked with
+        // PayPal's verify-webhook-signature API (PayPalInvoiceController).
+        'pay/paypal/webhook/*',
+
         'login',
         '*/login',
         'logout',

@@ -18,11 +18,57 @@ use Illuminate\Support\Facades\Log;
  */
 class PayPalService
 {
-    private ?StoreSetting $settings = null;
+    /**
+     * The credentials in use: the online-store row (store checkout, unchanged)
+     * or -- through forCompany() -- one company's PayPal module settings, so
+     * each company is paid into ITS OWN PayPal account (2026-10-19).
+     */
+    private ?object $settings = null;
 
-    private function settings(): ?StoreSetting
+    private function settings(): ?object
     {
         return $this->settings ??= StoreSetting::query()->first();
+    }
+
+    /**
+     * PayPal module (invoice "Pay now"): this company's own account
+     * (paypal_settings). Not configured unless the company's PayPal Business
+     * Module is on AND its switch + both credentials are set.
+     */
+    public static function forCompany(int $companyId): static
+    {
+        $s = new static;
+        $row = \Illuminate\Support\Facades\DB::table('paypal_settings')->where('company_id', $companyId)->first();
+        $secret = '';
+        if ($row && $row->client_secret) {
+            try {
+                $secret = \Illuminate\Support\Facades\Crypt::decryptString($row->client_secret);
+            } catch (\Throwable $e) {
+                Log::error('PayPal secret of company '.$companyId.' could not be decrypted (APP_KEY changed?).');
+            }
+        }
+        $s->settings = (object) [
+            'paypal_enabled' => $row && $row->enabled && \App\Support\ModuleFlags::enabled($companyId, 'paypal'),
+            'paypal_client_id' => (string) ($row->client_id ?? ''),
+            'paypal_client_secret' => $secret,
+            'paypal_test_mode' => (bool) ($row->sandbox ?? true),
+            'paypal_webhook_id' => (string) ($row->webhook_id ?? ''),
+            'store_name' => (string) (\Illuminate\Support\Facades\DB::table('companies')->where('id', $companyId)->value('name') ?: config('app.name')),
+        ];
+
+        return $s;
+    }
+
+    /** Check the credentials with PayPal (gets an access token). */
+    public function testConnection(): array
+    {
+        try {
+            $this->getAccessToken();
+
+            return ['ok' => true, 'mode' => $this->settings()->paypal_test_mode ? 'sandbox' : 'live'];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'message' => $e->getMessage()];
+        }
     }
 
     /** Enabled by the admin AND both credentials present. */
@@ -48,8 +94,20 @@ class PayPalService
         string $description,
         array $metadata,
         string $returnUrl,
-        string $cancelUrl
+        string $cancelUrl,
+        ?string $locale = null
     ): array {
+        $context = [
+            'brand_name' => (string) ($this->settings()->store_name ?? config('app.name')),
+            'return_url' => $returnUrl,
+            'cancel_url' => $cancelUrl,
+            'user_action' => 'PAY_NOW',
+            'shipping_preference' => 'NO_SHIPPING',
+        ];
+        if ($locale) {
+            $context['locale'] = $locale; // PayPal's checkout page language, e.g. es-US
+        }
+
         $response = Http::withToken($this->getAccessToken())
             ->withOptions(['verify' => $this->shouldVerifySsl()])
             ->post($this->getBaseUrl().'/v2/checkout/orders', [
@@ -62,13 +120,7 @@ class PayPalService
                     'description' => $description,
                     'custom_id' => json_encode($metadata),
                 ]],
-                'application_context' => [
-                    'brand_name' => (string) ($this->settings()->store_name ?? config('app.name')),
-                    'return_url' => $returnUrl,
-                    'cancel_url' => $cancelUrl,
-                    'user_action' => 'PAY_NOW',
-                    'shipping_preference' => 'NO_SHIPPING',
-                ],
+                'application_context' => $context,
             ]);
 
         if (! $response->successful()) {
@@ -122,6 +174,8 @@ class PayPalService
             'order_id' => $data['id'] ?? $orderId,
             'capture_id' => $capture['id'] ?? null,
             'status' => $capture['status'] ?? null,
+            'payer_email' => $data['payer']['email_address'] ?? null,
+            'payer_name' => trim(($data['payer']['name']['given_name'] ?? '').' '.($data['payer']['name']['surname'] ?? '')) ?: null,
         ];
     }
 
@@ -148,6 +202,8 @@ class PayPalService
             'order_id' => $data['id'] ?? $orderId,
             'capture_id' => $capture['id'] ?? null,
             'status' => $capture['status'] ?? null,
+            'payer_email' => $data['payer']['email_address'] ?? null,
+            'payer_name' => trim(($data['payer']['name']['given_name'] ?? '').' '.($data['payer']['name']['surname'] ?? '')) ?: null,
         ];
     }
 

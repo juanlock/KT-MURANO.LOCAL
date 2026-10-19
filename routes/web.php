@@ -516,6 +516,18 @@ Route::middleware(['web', 'request.safety'])->prefix('book')->group(function () 
         ->middleware(['signed', 'throttle:10,1'])->whereNumber('booking')->name('booking.email.confirm.post');
 });
 
+// PayPal module (2026-10-19): the customer's "Pay now" page of an invoice. The
+// page link is signed relative (built on the company's public address, see
+// PayPalInvoicePayment::payLink); PayPal comes back with ?token={order id}.
+Route::middleware(['web', 'request.safety'])->prefix('pay')->group(function () {
+    $c = \App\Http\Controllers\PayPalInvoiceController::class;
+    Route::get('/paypal/return', [$c, 'return'])->middleware('throttle:30,1')->name('invoice.pay.return');
+    Route::get('/paypal/cancel', [$c, 'cancel'])->middleware('throttle:30,1')->name('invoice.pay.cancel');
+    Route::post('/paypal/webhook/{company}', [$c, 'webhook'])->whereNumber('company')->middleware('throttle:120,1')->name('invoice.pay.webhook');
+    Route::get('/{sale}', [$c, 'show'])->whereNumber('sale')->middleware(['signed:relative', 'throttle:60,1'])->name('invoice.pay');
+    Route::post('/{sale}', [$c, 'start'])->whereNumber('sale')->middleware(['signed:relative', 'throttle:10,1'])->name('invoice.pay.start');
+});
+
 // Portfolio module: each company's public portfolio website (PortfolioSiteController).
 Route::middleware(['web', 'request.safety'])->prefix('portfolio/{site}')->where(['site' => '[a-z0-9]+(?:-[a-z0-9]+)*'])->group(function () {
     $c = \App\Http\Controllers\PortfolioSiteController::class;
@@ -556,7 +568,7 @@ Route::group(['middleware' => ['web', 'auth:web', 'Is_Active', 'request.safety']
             }
 
             return redirect('/next');
-        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|support|book(?:/|$)).*$');
+        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|set-locale|support|book(?:/|$)).*$');
 
 });
 

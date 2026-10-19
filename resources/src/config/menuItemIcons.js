@@ -225,6 +225,7 @@ export const MENU_ITEM_ICONS = {
     "/app/settings/webhooks": Cloud,
     "/app/settings/login_devices": Lock,
     "/app/settings/network_security": Lock,
+    "/app/settings/paypal": CreditCard,
     "/app/reports/sales-3d-dashboard": Atom,
     "/app/reports/payments_purchase": IdCard,
     "/app/reports/payments_sale": IdCard,

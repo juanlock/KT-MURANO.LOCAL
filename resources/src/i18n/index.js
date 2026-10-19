@@ -22,11 +22,30 @@ export function isRtlLocale(locale) {
     return RTL_LOCALES.includes(locale);
 }
 
+/**
+ * The computer's language (user's rule, 2026-10-19): a device with no choice
+ * of its own opens Murano in the browser's language when it's one Murano is
+ * translated into (the active languages: English, Spanish) -- same rule as
+ * SetLocale::browserLocale() on the server. Null otherwise.
+ */
+export const BROWSER_LOCALES = ['en', 'es'];
+export function browserLocale() {
+    try {
+        const langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+        for (const l of langs) {
+            const code = String(l || '').slice(0, 2).toLowerCase();
+            if (BROWSER_LOCALES.includes(code)) return code;
+        }
+    } catch (e) { /* no navigator */ }
+    return null;
+}
+
 export function storedLocale() {
     try {
-        return window.localStorage.getItem('language') || 'en';
+        const devicePick = (document.cookie.match(/(?:^|;\s*)app_locale=([a-z]{2})/) || [])[1];
+        return window.localStorage.getItem('language') || devicePick || browserLocale() || 'en';
     } catch (e) {
-        return 'en';
+        return browserLocale() || 'en';
     }
 }
 

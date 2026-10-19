@@ -43,6 +43,8 @@ export const TOGGLEABLE_MODULES = [
     { key: 'telegram', label: 'Telegram', description: 'Notifications to a Telegram chat (new sales, low stock…).', pathPrefixes: ['integrations/telegram'] },
     { key: 'kitchen', label: 'Kitchen', description: 'Kitchen display for restaurant orders and the kitchen report.', pathPrefixes: ['kitchen-display', 'kitchen'] },
     // Saudi Arabia only (2026-10-18): OFF unless a SuperAdmin turns it on for a company.
+    // PayPal (2026-10-19): customers pay the company's invoices with ITS OWN PayPal account ("Pay now"). Off by default.
+    { key: 'paypal', label: 'PayPal', description: 'Customers pay their invoices with PayPal ("Pay now" link on the invoice): the payment is recorded on the sale by itself, in the company\'s own PayPal account. Off by default.', pathPrefixes: ['settings/paypal'], defaultOff: true },
     { key: 'zatca', label: 'ZATCA E-Invoicing (Saudi Arabia)', description: 'KSA e-invoicing: phase 1 QR code on invoices / receipts and phase 2 Fatoora reporting of sales and returns. Off by default -- only for companies in Saudi Arabia.', pathPrefixes: ['settings/zatca'], defaultOff: true },
     { key: 'documents', label: 'Document Archive', description: 'Central document storage and archiving.', pathPrefixes: ['documents'] },
     { key: 'subscription_product', label: 'Subscription Products', description: 'Recurring product subscriptions.', pathPrefixes: ['subscriptions'] },
