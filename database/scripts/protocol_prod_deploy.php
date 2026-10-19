@@ -126,6 +126,41 @@ try {
         $bundle = storage_path('app/murano_deploy.bundle');
         $out = $lg('bundle create '.escapeshellarg($bundle).' '.$serverHead.'..HEAD');
         if (! is_file($bundle)) { echo "git bundle failed: $out\n"; return; }
+        // Production's checkout is SHALLOW (only its recent commits). A merge
+        // of an older branch makes the bundle require a base commit the server
+        // never received ("Repository lacks these prerequisite commits",
+        // 2026-10-19). Send just those base commits' missing objects as a
+        // pack and mark them shallow -- never the whole history (1+ GB).
+        $prereqs = [];
+        $fh = fopen($bundle, 'rb');
+        while (($line = fgets($fh)) !== false && trim($line) !== '') {
+            if (preg_match('/^-([0-9a-f]{40})/', $line, $m)) $prereqs[] = $m[1];
+        }
+        fclose($fh);
+        $missing = array_values(array_filter($prereqs, fn ($c) => $sh('git cat-file -t '.$c) !== 'commit'));
+        if ($missing && $sh('git rev-parse --is-shallow-repository') === 'true') {
+            echo 'server is shallow and lacks base commit(s) ', implode(', ', array_map(fn ($c) => substr($c, 0, 9), $missing)), " -- sending only their missing objects\n";
+            $objs = [];
+            foreach ($missing as $c) {
+                foreach (explode("\n", $lg('rev-list --objects --no-walk '.$c)) as $l) {
+                    if (preg_match('/^[0-9a-f]{40}/', $l, $m)) $objs[$m[0]] = true;
+                }
+            }
+            $listFile = storage_path('app/murano_deploy_objs.txt');
+            file_put_contents($listFile, implode("\n", array_keys($objs))."\n");
+            $sftp->put($work.'/objs.txt', $listFile, SFTP::SOURCE_LOCAL_FILE);
+            $need = array_filter(explode("\n", $sh('git cat-file --batch-check < '.$q($work.'/objs.txt').' | grep " missing$" | cut -d" " -f1')));
+            file_put_contents($listFile, implode("\n", $need)."\n");
+            $packFile = storage_path('app/murano_deploy_base.pack');
+            shell_exec('"'.$git.'" -C '.escapeshellarg(base_path()).' pack-objects --stdout < '.escapeshellarg($listFile).' > '.escapeshellarg($packFile));
+            unlink($listFile);
+            echo '  objects: ', count($objs), ' in those commits, ', count($need), ' missing on the server, pack ', round(filesize($packFile) / 1048576, 2), " MB\n";
+            $sftp->put($work.'/base.pack', $packFile, SFTP::SOURCE_LOCAL_FILE);
+            unlink($packFile);
+            echo '  ', $sh('git index-pack --stdin < '.$q($work.'/base.pack').' >/dev/null && echo "pack stored"'), PHP_EOL;
+            foreach ($missing as $c) $sh('grep -qx '.$c.' .git/shallow || echo '.$c.' >> .git/shallow');
+            $sftp->exec('rm -f '.$q($work.'/base.pack').' '.$q($work.'/objs.txt'));
+        }
         $sftp->put($work.'/deploy.bundle', $bundle, SFTP::SOURCE_LOCAL_FILE);
         unlink($bundle);
         echo $sh('git bundle verify '.$q($work.'/deploy.bundle').' | tail -1'), PHP_EOL;
