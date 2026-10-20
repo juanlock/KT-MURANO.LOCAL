@@ -15,6 +15,7 @@ Run Protocol Copia BD (a database copy on demand; Wake-up and Pa Llevar make the
    - no `CREATE DATABASE` / `USE`, no `LOCK TABLES`, no `DEFINER`, no MariaDB 11 sandbox line; MariaDB 11 / MySQL 8 collations rewritten to `utf8mb4_unicode_ci` (structure lines only, data never altered).
    **Restore:** unzip all, import the main `.sql`, then `_office_emails_1`, `_2`, `_3` in that order (phpMyAdmin also takes the `.zip` directly when its upload limit allows).
 4. `mysqldump` is found automatically (`MYSQLDUMP_PATH` in `.env` -> PATH -> next to the running MySQL / MariaDB service -> common XAMPP paths); if not, the script says what to add to `.env` and stops without leaving a partial file. Another folder under `KT-TOOLS/` can be forced with `$outSubdir = '...'` before the require.
-5. Report the paths and sizes to the user.
+5. **Tidy + latest copy** (user's rule, 2026-10-19; automatic at the end of every run, `database/scripts/protocol_backup_tidy.php`): any backup zip found loose in `KT-TOOLS/database/`, or in another PC's folder, is moved to its PC's folder (the PC comes from the file name; an old root copy whose original is already in place is just removed), and a **copy of the backup just made is left in the root of `KT-TOOLS/database/`**, named with the PC: `dbmurano_<date>_<PC>_<time>_<tag>[_office_emails_N].zip` -- only the latest one stays there.
+6. Report the paths and sizes to the user.
 
 `KT-TOOLS/database/` is git-tracked (zips via Git LFS), so the copies travel to every PC with Pa Llevar -- each run adds ~16 MB, mind the repo size. Production backups are separate: `KT-TOOLS/database/production/` (git-ignored, same format), made automatically before anything is written to production.

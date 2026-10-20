@@ -1,5 +1,5 @@
 ---
-description: "Protocol Pa Llevar -- the end of the day on any PC: the same production sync as Wake-up (compare, bring production's new files and records down, offer to update production with the user's yes), then the close-out: user manual (EN + ES, overview + PDF), build, Kelsy, daily report, local backup KT-TOOLS/database/<PC>/..._pallevar.zip (+ KT-TOOLS/SQL copies), README, commit and push. Replaces Sube Git. Triggers on \"Claude/Jarvis, run protocol pa llevar\" / \"protocolo pa llevar\"."
+description: "Protocol Pa Llevar -- the end of the day on any PC: the same production sync as Wake-up (compare, bring production's new files and records down, offer to update production with the user's yes), then the close-out: user manual (EN + ES, overview + PDF), build, Kelsy, local backup KT-TOOLS/database/<PC>/..._pallevar.zip (+ KT-TOOLS/SQL copies), README, commit and push. Replaces Sube Git. Triggers on \"Claude/Jarvis, run protocol pa llevar\" / \"protocolo pa llevar\"."
 ---
 
 Run Protocol Pa Llevar ("to go") -- the end-of-day counterpart of Wake-up (`.claude/commands/wake-up.md`; user's rule, 2026-10-19). In this order. Stop and report if a step fails; never skip ahead silently.
@@ -13,7 +13,7 @@ Run Protocol Pa Llevar ("to go") -- the end-of-day counterpart of Wake-up (`.cla
 
 3. **Build check** -- `npm run build`. A broken build is never committed: stop and report.
 
-4. **Kelsy** -- every request of this conversation not yet in `kt_logs` (`.claude/commands/kelsy.md`: verbatim request, verbatim closing message in `done`). Then the **daily report**: `php artisan tinker --execute="$reportDate = '<YYYY-MM-DD>'; require '<repo>\database\scripts\protocol_preparate_report.php';"` -> `KT-TOOLS/Report/kt_murano_daily_<date>.html` (kept for every programmer; a re-run the same day overwrites it).
+4. **Kelsy** -- every request of this conversation not yet in `kt_logs` (`.claude/commands/kelsy.md`: verbatim request, verbatim closing message in `done`). No HTML daily report any more (user's rule, 2026-10-19, to save resources): the day's requests go in the commit body and the chat summary.
 
 5. **Back up the local database -- after steps 1 and 4**, so it holds production's latest records and today's log: `php artisan tinker --execute="$backupTag = 'pallevar'; require '<repo>\database\scripts\protocol_copia_bd.php';"` -> `KT-TOOLS/database/<PC name>/dbmurano_<date>_<time>_pallevar.zip` + `..._pallevar_office_emails_1/_2/_3.zip` (compressed, phpMyAdmin-ready). Then copy the four zips over the fixed-name files the external backup program picks up: main -> `KT-TOOLS/SQL/backup db.zip`, `_office_emails_N` -> `KT-TOOLS/SQL/backup db office emails N.zip` (N = 1..3).
 
@@ -24,7 +24,7 @@ Run Protocol Pa Llevar ("to go") -- the end-of-day counterpart of Wake-up (`.cla
 
 7. **Commit** -- git on PATH or GitHub Desktop's bundled git. `git status`; stage the work (`git add -A`) but never `.env`, `.env.production-db`, `.env.production-ssh`, credentials / keys, `storage/` runtime files, `vendor/`, `node_modules/` (leave out and mention). Leave out stray files this session didn't create (mention them); files the app generated in `public/files/company_*` travel with the commit. Warn before staging any file over 50 MB.
    - **Subject** (<= 72 chars): `pa llevar <YYYY-MM-DD>: <the 2-4 main changes>`.
-   - **Body**: an overview paragraph; one bullet per `kt_logs` row since the last commit (`created_at` later than `git log -1 --format=%cI`) -- `#<id> <category>: <summary>` with indented lines from its `changes_detail`; "Migrations"; "Setup on other machines"; the production sync (came down / went up / pending); `Backup: KT-TOOLS/database/<PC>/<file>.zip (<size>) + office_emails 1/2/3 (<sizes>), copied to KT-TOOLS/SQL`; `Reports: ...`; what was left out.
+   - **Body**: an overview paragraph; one bullet per `kt_logs` row since the last commit (`created_at` later than `git log -1 --format=%cI`) -- `#<id> <category>: <summary>` with indented lines from its `changes_detail`; "Migrations"; "Setup on other machines"; the production sync (came down / went up / pending); `Backup: KT-TOOLS/database/<PC>/<file>.zip (<size>) + office_emails 1/2/3 (<sizes>), copied to KT-TOOLS/SQL`; what was left out.
    - Write it to a temp file, `git commit -F <file>`. Never `--no-verify`, never amend.
 
 8. **Push** -- `git push` to `origin`. Rejected because the remote is ahead: `git pull --no-rebase`, resolve only trivial conflicts (ask for anything real), push again. **Never force-push.** No GitHub credentials ("could not read Username"): never ask for a password -- tell the user to press **Push origin** in GitHub Desktop.

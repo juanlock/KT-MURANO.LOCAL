@@ -174,8 +174,8 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 ## Latest changes
 
-The last 5 sessions. The full history is in `kt_logs` and in the daily reports
-in `KT-TOOLS/Report/`.
+The last 5 sessions. The full history is in `kt_logs` (older daily reports in
+`KT-TOOLS/Report/`).
 
 ### 2026-10-19 (Thundera)
 
@@ -322,7 +322,7 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | Protocol | What it does |
 |----------|--------------|
 | **Wake-up** | Start of the day on any PC. Updates the PC from GitHub (pull, installs and migrations only when needed, build), backs up the local database (`KT-TOOLS/database/<PC>/…_wakeup.zip`), compares production with this PC (code, migrations, files, records), brings production's new files and records down, offers to update production when this PC is newer (production backup + your OK), reloads the rules and the history, and opens a report with the current conventions and the last 5 changes (date + origin). |
-| **Pa Llevar** | End of the day. The same production sync as Wake-up, then the user manual, build, logs, daily report, a local backup (`…_pallevar.zip`, also copied to `KT-TOOLS/SQL/` for the external backup program), this README, commit and push to GitHub. |
+| **Pa Llevar** | End of the day. The same production sync as Wake-up, then the user manual, build, logs, a local backup (`…_pallevar.zip`, the latest also copied to the root of `KT-TOOLS/database/` and to `KT-TOOLS/SQL/` for the external backup program), this README, commit and push to GitHub. |
 | **Copia BD** | A copy of the local database on demand (`KT-TOOLS/database/<PC>/…_copiabd.zip`): a main zip plus 3 Email Office zips. Every backup (dev and production) is compressed and imports as-is in phpMyAdmin. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 

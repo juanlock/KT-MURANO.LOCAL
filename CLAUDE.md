@@ -15,29 +15,27 @@ Only four protocols (`.claude/commands/`), no repeated orders between them:
   reported, production's new files and records brought down to dev, an offer
   to update production when this PC's code / data are newer (production
   backup + the user's yes), this file and the `kt_logs` history reloaded
-  (memory digest), and a report (`database/scripts/protocol_wakeup_report.php`
-  -> `KT-TOOLS/Report/kt_murano_wakeup_<date>.html`) with the **current
-  conventions** (read live from this file) and the **last 5 changes** with
-  date and origin. Replaced Preparate (and the old Mañanitas / Memorex), Baja
+  (memory digest), and a summary **in the chat** with the **last 5 changes**
+  (date and origin). Replaced Preparate (and the old Mañanitas / Memorex), Baja
   Prod and Sube Prod. "Preparate" / "buenos días, prepárate" now mean Wake-up.
 - **Pa Llevar** -- the end of the day: Wake-up's production sync, then manual,
-  build, Kelsy, daily report, a local backup tagged `pallevar`, README, commit,
-  push (replaced Sube Git).
+  build, Kelsy, a local backup tagged `pallevar`, README, commit, push
+  (replaced Sube Git).
 - **Copia BD** -- a database copy on demand, tagged `copiabd`.
 - **Kelsy** -- the `kt_logs` logging rules (unchanged).
 Every database backup is compressed and phpMyAdmin-ready
 (`database/scripts/protocol_sql_clean.php`): local ones in
 **`KT-TOOLS/database/<PC name>/dbmurano_<date>_<time>_<wakeup|pallevar|copiabd>.zip`**
 (+ `_office_emails_1/_2/_3`), production ones in `KT-TOOLS/database/production/`
-(git-ignored), made before anything is written to production.
-**Protocol reports are kept and shared (user's rule, 2026-09-30):** every
-HTML report a protocol (or an ad-hoc "report for the last N requests")
-generates goes to **`KT-TOOLS/Report/`** -- git-tracked, committed by Pa
-Llevar, so every programmer gets them. One file per day per report
-(`kt_murano_wakeup_<date>`,
-`kt_murano_last<N>_<date>`, and Pa Llevar's `kt_murano_daily_<date>` with all
-of that day's requests); a re-run the same day overwrites that day's file,
-older days are never deleted. Not `.claude/report/` or a temp dir.
+(git-ignored), made before anything is written to production. Every local
+backup also tidies `KT-TOOLS/database/` (a stray backup goes to its PC's folder)
+and leaves a **copy of the latest backup in its root**
+(`dbmurano_<date>_<PC>_<time>_<tag>...zip`, only the latest one;
+`protocol_backup_tidy.php`; user's rule, 2026-10-19).
+**No HTML reports from the protocols (user's rule, 2026-10-19, to save
+resources):** Wake-up and Pa Llevar report in the chat only. `KT-TOOLS/Report/`
+keeps the reports already made (never deleted); a report file is written only
+when the user asks for one ("report for the last N requests").
 
 **Glossary — "multicompany"**: when the user uses this word, it refers to the
 rule spelled out below in "Roles & Multicompany Model" -- the system is
@@ -345,7 +343,7 @@ the start of each session).
 
 ## Frontend Conventions
 
-(Reloaded by Wake-up, and shown in its report, like the Development Standards.)
+(Reloaded by Wake-up, like the Development Standards.)
 
 - **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
@@ -424,9 +422,8 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   `public/js`, composer when needed, migrations, production `.env` kept,
   maintenance page only during the change, `$rollback` undoes the code; data:
   dev's new / changed rows without conflicts) -> CLAUDE.md + `kt_logs` history
-  reloaded (memory digest), Kelsy catch-up -> report
-  `KT-TOOLS/Report/kt_murano_wakeup_<date>.html` (summary, current conventions
-  from this file, last 5 changes with date + origin).
+  reloaded (memory digest), Kelsy catch-up -> summary in the chat (no HTML
+  report), with the last 5 changes (date + origin).
   **Production owns the business data; every dev database change -- schema and
   the data a feature needs (permissions, settings, translations, menus) -- is a
   migration, safe to run twice, by name not by id.** Production is backed up
@@ -439,8 +436,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
 - **Pa Llevar** (`/pa-llevar`, "Jarvis, run protocolo pa llevar") — the end of
   the day (A Dormir and Sube Git were merged into it): Wake-up's production
   sync (steps 3-5), the user manual (in-app EN + ES, overview HTML + PDF),
-  `npm run build`, Kelsy, the daily report
-  (`KT-TOOLS/Report/kt_murano_daily_<date>.html`), a local backup tagged
+  `npm run build`, Kelsy (no HTML daily report), a local backup tagged
   `pallevar` (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office
   emails 1/2/3.zip` for the external backup program), `README.md` (Latest
   changes, last 5 kept, plus every section the work changed), commit with a

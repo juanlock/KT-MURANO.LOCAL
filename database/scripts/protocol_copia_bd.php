@@ -278,3 +278,10 @@ foreach ($parts as $outFile => $part) {
     $zipMb = round(filesize($zipFile) / 1024 / 1024, 2);
     echo "Backup written to: {$zipFile} ({$zipMb} MB zip of a {$sizeMb} MB .sql)\n";
 }
+
+// KT-TOOLS/database/ kept tidy (stray backups to their PC folder) and the latest
+// backup copied to its root (user's rule, 2026-10-19). Only for the normal PC
+// folder, not when $outSubdir sends the backup elsewhere.
+if ($written && str_starts_with($outSubdir, 'database'.DIRECTORY_SEPARATOR)) {
+    require __DIR__.'/protocol_backup_tidy.php';
+}
