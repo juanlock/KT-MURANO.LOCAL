@@ -437,7 +437,11 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   report), with the last 5 changes (date + origin).
   **Production owns the business data; every dev database change -- schema and
   the data a feature needs (permissions, settings, translations, menus) -- is a
-  migration, safe to run twice, by name not by id.** Production is backed up
+  migration, safe to run twice, by name not by id.** The data step sends
+  what dev created after the last pull: `created_at` after it, or an id above
+  that table's highest dev id at the pull (`last_sync.json` `dev_max_ids`,
+  2026-10-20 -- back-dated demo rows and a new role's `permission_role` used
+  to stay behind). Production is backed up
   before every write (`KT-TOOLS/database/production/`, git-ignored, compressed,
   phpMyAdmin-ready); if the backup fails nothing is written. `public/` stays out
   of Git LFS (`.gitattributes` = LFS only for KT-TOOLS zips). Production access

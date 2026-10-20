@@ -10,6 +10,9 @@
  *   optional: $since = 'YYYY-MM-DD HH:MM:SS' (dev's clock) instead of the last production pull time
  *
  * Rules, per table (common columns only):
+ *  - "created in dev" = created_at after $since, OR an id above that table's highest dev id at the
+ *    last pull (last_sync.json dev_max_ids, 2026-10-20: back-dated demo rows, tables without
+ *    timestamps); a new role takes its whole permission_role set with it
  *  - a dev row created after $since that production doesn't have -> inserted
  *    with the SAME id when that id is free in production; taken by another
  *    row = CONFLICT (reported, not sent)
@@ -34,7 +37,13 @@ $p = DB::connection('prod');
 $d = DB::connection();
 
 $syncFile = base_path('KT-TOOLS/database/production/last_sync.json');
-$since = $since ?? (json_decode((string) @file_get_contents($syncFile), true)['pulled_at'] ?? null);
+$syncInfo = json_decode((string) @file_get_contents($syncFile), true) ?: [];
+$since = $since ?? ($syncInfo['pulled_at'] ?? null);
+// Each table's highest dev id at the last pull (2026-10-20): a higher id = created in dev after it, even
+// with an older created_at (back-dated demo data) or no timestamps at all (permission_role). Missing for a
+// table (older sync file) = only the created_at / updated_at rules.
+$devMaxAtPull = $syncInfo['dev_max_ids'] ?? [];
+$isNewInDev = fn (string $t, $row) => isset($devMaxAtPull[$t]) && (int) ($row['id'] ?? 0) > $devMaxAtPull[$t];
 if (! $since) { echo "No production pull recorded on this PC -- run Wake-up (it brings production down first), or pass \$since.\n"; return; }
 echo 'dev changes since ', $since, " (dev's clock) -> production ", $p->getDatabaseName(), ($apply ? '  (APPLY)' : '  (dry run)'), PHP_EOL;
 // Both sides read TIMESTAMP columns in UTC (else the same row looks different);
@@ -74,10 +83,22 @@ if ($newPerms) {
     echo '  permissions: new ', count($newPerms), ' [', implode(', ', array_column($newPerms, 'name')), "]\n";
 }
 foreach ($parentSets as $t => [$pt, $fk, $pair]) {
-    $parents = $d->table($pt)->where('updated_at', '>', $since)->pluck('updated_at', 'id');
+    $parents = $d->table($pt)->where(function ($q) use ($since, $devMaxAtPull, $pt) {
+        $q->where('updated_at', '>', $since);
+        if (isset($devMaxAtPull[$pt])) $q->orWhere('id', '>', $devMaxAtPull[$pt]);
+    })->pluck('updated_at', 'id');
     foreach ($parents as $pid => $devU) {
         $prodU = $p->table($pt)->where('id', $pid)->value('updated_at');
-        if ($prodU === null) continue;   // a new parent: its rows go with the normal rules
+        if (! $p->table($pt)->where('id', $pid)->exists()) {
+            // A new parent (a role created in dev): it goes up with the normal rules, and its whole
+            // set with it (permission_role has no timestamps, the generic rules never see it).
+            $devSet = $d->table($t)->where($fk, $pid)->get($pair)->map(fn ($r) => (array) $r)->all();
+            if ($devSet) {
+                $replaceSets[$t][$pid] = $devSet;
+                echo "  $t: new $pt #$pid -> ".count($devSet)." rows\n";
+            }
+            continue;
+        }
         if ((string) $prodU > $since) { $conflicts[] = "$pt #$pid: changed in BOTH dev and production -- its $t not sent"; continue; }
         $devSet = $d->table($t)->where($fk, $pid)->get($pair)->map(fn ($r) => (array) $r)->all();
         $prodN = $p->table($t)->where($fk, $pid)->count();
@@ -89,10 +110,12 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip, array_
     $c = array_values(array_intersect($colsOf($p, $t), $colsOf($d, $t)));
     if (! in_array('id', $c)) { $pivots[$t] = $c; continue; }
     $hasC = in_array('created_at', $c); $hasU = in_array('updated_at', $c);
-    if (! $hasC && ! $hasU) continue;   // no way to tell what changed in dev
-    $changed = $d->table($t)->where(function ($q) use ($hasC, $hasU, $since) {
+    $byId = isset($devMaxAtPull[$t]);
+    if (! $hasC && ! $hasU && ! $byId) continue;   // no way to tell what changed in dev
+    $changed = $d->table($t)->where(function ($q) use ($hasC, $hasU, $since, $byId, $devMaxAtPull, $t) {
         if ($hasC) $q->orWhere('created_at', '>', $since);
         if ($hasU) $q->orWhere('updated_at', '>', $since);
+        if ($byId) $q->orWhere('id', '>', $devMaxAtPull[$t]);
     })->get($c);
     if ($changed->isEmpty()) continue;
     $prodRows = $p->table($t)->whereIn('id', $changed->pluck('id'))->get($c)->keyBy('id');
@@ -100,7 +123,7 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip, array_
     foreach ($changed as $row) {
         $row = (array) $row;
         $pr = $prodRows[$row['id']] ?? null;
-        $isNew = $hasC && (string) $row['created_at'] > $since;
+        $isNew = ($hasC && (string) $row['created_at'] > $since) || $isNewInDev($t, $row);
         if (! $pr) {
             if ($isNew) { $ins[] = $row; continue; }
             $conflicts[] = "$t #{$row['id']}: changed in dev but missing in production";

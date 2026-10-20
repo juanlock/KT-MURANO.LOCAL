@@ -380,6 +380,19 @@ class BusinessTypes
         }
     }
 
+    /** Every type's expense category: English name => Spanish (translations migration). */
+    public static function categoryTranslations(): array
+    {
+        $out = [];
+        foreach (self::CATEGORIES as $cats) {
+            foreach ($cats as [$name, $nameEs]) {
+                $out[$name] = $nameEs;
+            }
+        }
+
+        return $out;
+    }
+
     public static function bills(string $type): array
     {
         return self::BILLS[self::base($type)] ?? self::BILLS[self::DEFAULT];

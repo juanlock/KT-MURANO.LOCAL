@@ -195,6 +195,12 @@ $done = DB::transaction(function () use ($plan, $p, $d) {
     return $n;
 });
 foreach ($done as $t => $s) echo "  $t: $s", PHP_EOL;
-// the reference point for the data step of "update production" (Wake-up / Pa Llevar): dev changes after this go up
-file_put_contents(base_path('KT-TOOLS/database/production/last_sync.json'), json_encode(['pulled_at' => now()->format('Y-m-d H:i:s')]));
+// the reference point for the data step of "update production" (Wake-up / Pa Llevar): dev changes after this go up.
+// dev_max_ids = each table's highest dev id right now: a dev row with a higher id was created in dev AFTER this
+// pull, whatever its created_at says (demo data is back-dated; permission_role has no timestamps) -- 2026-10-20.
+$devMax = [];
+foreach (collect($d->select("SELECT table_name t FROM information_schema.columns WHERE table_schema = DATABASE() AND column_name = 'id'"))->pluck('t') as $t) {
+    $devMax[$t] = (int) $d->table($t)->max('id');
+}
+file_put_contents(base_path('KT-TOOLS/database/production/last_sync.json'), json_encode(['pulled_at' => now()->format('Y-m-d H:i:s'), 'dev_max_ids' => $devMax]));
 echo 'Done.', PHP_EOL;
