@@ -59,6 +59,14 @@ that selector -- only a SuperAdmin can change the acting company.
   (AppServiceProvider, `MigrationsEnded`), so a new module's permission reaches
   it automatically. (Before this, the Owner role was missing
   `portfolio_manage` and the Portfolio menu was invisible to the SuperAdmin.)
+  **Business Modules switches never apply to the SuperAdmin (user's rule,
+  2026-10-19):** with any company chosen, the SuperAdmin sees and opens every
+  module (menu `ALL_MODULES_ON`, `auth.moduleEnabled`, `EnforceModuleFlags`
+  and `ModuleFlags::abortUnlessEnabled` skip it); the company's switches apply
+  to that company's users. Business logic tied to a switch (ZATCA reporting,
+  PayPal) still follows `ModuleFlags::enabled()`. A new company's modules come
+  from its business type (`BusinessTypes::modules()`, Companies -> Add ->
+  Modules step).
 - **AdminRG** — a user type `Admin`, restricted/limited according to their
   member role, tied to a specific company (e.g. member of company 2). Example
   pairing: `AdminKT` ↔ company 1, `AdminRG` ↔ company 2.
@@ -190,12 +198,15 @@ the start of each session).
   -> General -> Server address, SuperAdmin; production = https://murano.kcoltech.com).
   Booking codes, and anything else pasted outside the app, are built with it.
 - **Language follows the computer** (user's rule, 2026-10-19): a device with
-  no language chosen opens Murano -- login page, app, customer portal, PayPal
+  no language chosen opens Murano -- login page, customer portal, PayPal
   pay page -- in the browser's language when it's an active one (English /
   Spanish; `SetLocale::browserLocale()`, `i18n browserLocale()`), else the
-  company's `default_language`. A pick always wins: the user's own in the app
-  (`language_explicit`), then this device's from the login page EN / ES switch
-  (`/set-locale` -> cookie `app_locale`, also read by the SPA after sign-in).
+  company's `default_language`; the login page EN / ES switch (`/set-locale`
+  -> cookie `app_locale`) wins over the browser there.
+  **Inside the app, after sign-in, the company's language wins** (user's rule,
+  2026-10-19, AquaExpress = Spanish showed English): the user's own pick in the
+  app (`language_explicit`) first, then the company's `default_language`, then
+  the device pick / browser (`stores/auth.js`).
   The standard login page texts have Spanish (migration
   2026_10_19_130000); a company's own texts need their own Spanish in
   Settings -> Login Page.

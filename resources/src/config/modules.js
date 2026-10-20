@@ -77,6 +77,11 @@ for (const m of TOGGLEABLE_MODULES) {
 // App\Support\ModuleFlags::DEFAULT_OFF.
 const DEFAULT_OFF = new Set(TOGGLEABLE_MODULES.filter(m => m.defaultOff).map(m => m.key));
 
+// Every module on: what the SuperAdmin's menu / router use (user's rule,
+// 2026-10-19: the SuperAdmin sees and opens every module of every company;
+// the company's own switches still apply to its users).
+export const ALL_MODULES_ON = Object.fromEntries(TOGGLEABLE_MODULES.map(m => [m.key, true]));
+
 /** True when `key` is enabled under the given flags map (null map / missing key = on, except DEFAULT_OFF modules). */
 export function isModuleEnabled(flags, key) {
     key = MENU_KEY_TO_MODULE[key] || key;

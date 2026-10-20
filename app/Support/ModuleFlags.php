@@ -34,9 +34,17 @@ class ModuleFlags
         return (self::$memo[$companyId][$key] ?? true) !== false;
     }
 
-    /** 403 (staff API) when the module is switched off for the company. */
+    /**
+     * 403 (staff API) when the module is switched off for the company.
+     * Never for the SuperAdmin (user's rule, 2026-10-19): the system's owner
+     * sees and opens every module of every company. (Business logic that
+     * follows a switch -- e.g. ZATCA reporting a sale -- uses enabled().)
+     */
     public static function abortUnlessEnabled(?int $companyId, string $key, int $status = 403): void
     {
+        if (optional(auth('api')->user() ?? auth()->user())->type === 'SuperAdmin') {
+            return;
+        }
         abort_unless(self::enabled($companyId, $key), $status, "The {$key} module is turned off for this company.");
     }
 }

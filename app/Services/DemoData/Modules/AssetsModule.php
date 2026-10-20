@@ -195,7 +195,7 @@ class AssetsModule extends DemoModule
     ];
 
     /** Types sharing another type's set. */
-    private const SAME_AS = ['barber' => 'salon'];
+    private const SAME_AS = ['barber' => 'salon', 'catering' => 'restaurant'];
 
     public function key(): string
     {

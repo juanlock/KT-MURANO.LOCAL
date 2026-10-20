@@ -11,7 +11,12 @@
 
     <DataTable :crud="crud" :columns="columns" selectable>
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'setup'">
+        <template v-if="column.key === 'logo'">
+          <!-- The company's logo (Settings -> logo). -->
+          <img v-if="record.logo_url" :src="record.logo_url" :alt="record.name" class="co-logo" loading="lazy" />
+          <span v-else class="muted">—</span>
+        </template>
+        <template v-else-if="column.key === 'setup'">
           <!-- Required company information still missing (CompanyProfile::REQUIRED). -->
           <a-tooltip v-if="(record.profile_missing || []).length" :title="'Missing: ' + record.profile_missing.join(', ')">
             <a-tag color="orange" style="cursor: pointer" @click="openEdit(record)">{{ record.profile_missing.length }} missing</a-tag>
@@ -71,7 +76,10 @@
             </template>
             <div class="step-legend">{{ st.legend }}</div>
             <CompanyProfileFields v-if="st.profile" :form="form" :options="options" :section="st.key" />
-            <template v-else-if="st.key === 'website'">
+            <a-form-item v-if="st.key === 'company'" label="Logo" name="logo_data" extra="Optional — choose a new image to replace the logo (crop / resize before saving).">
+              <LogoCropper v-model="form.logo_data" :current="form.logo_url" />
+            </a-form-item>
+            <template v-if="st.key === 'website'">
               <a-form-item
                 label="Website domain(s)"
                 extra="The company's own website address, e.g. kcoltech.com (www. optional; separate several with commas)."
@@ -111,6 +119,9 @@
             <div class="step-legend">{{ st.legend }}</div>
 
             <CompanyProfileFields v-if="st.profile" :form="cform" :options="options" :section="st.key" />
+            <a-form-item v-if="st.key === 'company'" label="Logo" name="logo_data" extra="Required — on invoices, the menu, the customer portal and the website. Crop / resize it after choosing.">
+              <LogoCropper v-model="cform.logo_data" />
+            </a-form-item>
 
             <!-- Helpdesk step: + the optional helpdesk agent login -->
             <template v-if="st.key === 'helpdesk'">
@@ -136,6 +147,28 @@
                   </a-form-item>
                 </a-col>
               </a-row>
+            </template>
+
+            <!-- Modules step: pre-ticked from the business type (BusinessTypes::modules), the rest by hand. -->
+            <template v-else-if="st.key === 'modules'">
+              <a-alert
+                type="info" show-icon style="margin-bottom: 12px"
+                :message="cform.business_type ? `Ticked: what a ${typeLabel(cform.business_type)} company uses. Add or remove any module.` : 'Choose the business type (step Company) to tick its modules.'"
+                description="Always on (not switchable): sales, POS, purchases, products, customers, suppliers, reports and settings. Unticked modules stay hidden for this company until turned on in System Settings → Business Modules."
+              />
+              <div class="mod-tools">
+                <a-space>
+                  <a-button size="small" :disabled="!cform.business_type" @click="tickTypeModules">Modules of the business type</a-button>
+                  <a-button size="small" @click="cform.modules = []">Clear</a-button>
+                </a-space>
+                <span class="muted">{{ cform.modules.length }} of {{ moduleChoices.length }} selected</span>
+              </div>
+              <a-checkbox-group v-model:value="cform.modules" class="mod-grid">
+                <a-checkbox v-for="m in moduleChoices" :key="m.key" :value="m.key">
+                  <a-tooltip :title="m.description"><span>{{ m.label }}</span></a-tooltip>
+                  <a-tag v-if="typeModuleSet.has(m.key)" color="purple" class="mod-tag">type</a-tag>
+                </a-checkbox>
+              </a-checkbox-group>
             </template>
 
             <template v-else-if="st.key === 'admin'">
@@ -223,7 +256,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, createVNode } from 'vue';
+import { ref, computed, watch, onMounted, createVNode } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
@@ -232,9 +265,11 @@ import DataTable from '../../components/DataTable.vue';
 import WebsiteChoice from '../../components/WebsiteChoice.vue';
 import CompanyProfileFields, { emptyProfile, profileRules, profilePayload, PROFILE_SECTIONS } from '../../components/CompanyProfileFields.vue';
 import StepFooter from '../../components/StepFooter.vue';
+import LogoCropper from '../../components/LogoCropper.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import { sortByLabel } from '../../lib/filterOptions';
+import { TOGGLEABLE_MODULES } from '../../config/modules';
 import http from '../../lib/http';
 
 const { t } = useI18n();
@@ -246,6 +281,7 @@ const crud = useCrudTable('company', { rowsKey: 'companies' });
 const options = computed(() => crud.payload.value?.options || {});
 
 const columns = computed(() => [
+  { title: 'Logo', key: 'logo', width: 90, align: 'center', exportValue: r => r.logo_url || '' },
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
   { title: 'Setup', key: 'setup', width: 120, exportValue: r => ((r.profile_missing || []).length ? 'Missing: ' + r.profile_missing.join(', ') : 'Complete') },
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
@@ -265,6 +301,7 @@ const clearing = ref(null);
 const STEP = {
   company: { key: 'company', title: 'Company', profile: true, legend: 'Who the company is: name, business type, owner and how to reach it. Printed on invoices and quotes.' },
   helpdesk: { key: 'helpdesk', title: 'Helpdesk', profile: true, legend: 'Customer support: the mailbox tickets are answered from' },
+  modules: { key: 'modules', title: 'Modules', legend: 'What the company uses: its business type ticks the usual modules; tick any other it needs. Can be changed later in System Settings → Business Modules.' },
   defaults: { key: 'defaults', title: 'Defaults', profile: true, legend: 'How the company works by default: currency, language, invoice numbers and the starting passwords for new logins.' },
   admin: { key: 'admin', title: 'Admin user', legend: 'The company\'s first login: it manages everything else (also created as an employee).' },
   website: { key: 'website', title: 'Website', legend: 'The company\'s own domain and website: import the existing site or use the default online store.' },
@@ -272,6 +309,7 @@ const STEP = {
 const editSteps = computed(() => [STEP.company, { ...STEP.helpdesk, legend: STEP.helpdesk.legend + '.' }, STEP.defaults, ...(isSuperAdmin.value ? [STEP.website] : [])]);
 const createSteps = computed(() => [
   STEP.company,
+  STEP.modules,
   { ...STEP.helpdesk, legend: STEP.helpdesk.legend + ', and optionally a helpdesk agent login.' },
   STEP.defaults,
   STEP.admin,
@@ -282,7 +320,7 @@ const FIELD_STEP = {
   ...Object.fromEntries(Object.entries(PROFILE_SECTIONS).flatMap(([k, fields]) => fields.map(f => [f, k]))),
   admin_firstname: 'admin', admin_lastname: 'admin', admin_email: 'admin', admin_password: 'admin', admin_role: 'admin',
   helpdesk_firstname: 'helpdesk', helpdesk_lastname: 'helpdesk', helpdesk_login_email: 'helpdesk', helpdesk_password: 'helpdesk',
-  domains: 'website', website_url: 'website',
+  domains: 'website', website_url: 'website', module_flags: 'modules', logo_data: 'company',
 };
 const editTab = ref('company');
 const createTab = ref('company');
@@ -315,7 +353,7 @@ function serverErrTabs(e, steps, errTabs, activeTab) {
 const editOpen = ref(false);
 const editFormRef = ref();
 const emptyForm = () => ({
-  id: null, ...emptyProfile(), domains: '',
+  id: null, ...emptyProfile(), domains: '', logo_data: '', logo_url: '',
   website_mode: 'default', website_url: '', current_website_mode: 'default',
 });
 const form = ref(emptyForm());
@@ -340,6 +378,7 @@ async function openEdit(record) {
       currency_id: p.currency_id || options.value.currencies?.[0]?.id,
       default_language: p.default_language || 'en',
       domains: p.domains || '',
+      logo_url: p.logo_url || '', logo_data: '',
       default_password_employee_new: '', default_password_customer_new: '',
     };
     editMissing.value = res.missing || [];
@@ -360,8 +399,8 @@ async function submitEdit() {
   if (!(await validateSteps(editFormRef, editSteps.value, editErrTabs, editTab))) return;
   submitting.value = true;
   try {
-    const { id, website_mode, website_url, current_website_mode, domains, ...profile } = form.value;
-    await http.put(`company/${id}`, { ...profilePayload(profile), ...(isSuperAdmin.value ? { domains } : {}) });
+    const { id, website_mode, website_url, current_website_mode, domains, logo_data, logo_url, ...profile } = form.value;
+    await http.put(`company/${id}`, { ...profilePayload(profile), ...(isSuperAdmin.value ? { domains } : {}), ...(logo_data ? { logo_data } : {}) });
     // Website: re-import when a URL is given, or switch mode when changed.
     if (isSuperAdmin.value && ((website_mode === 'import' && website_url) || website_mode !== current_website_mode)) {
       if (website_mode === 'import' && !website_url) {
@@ -388,12 +427,25 @@ const createOpen = ref(false);
 const createFormRef = ref();
 const emptyCreate = () => ({
   ...emptyProfile(),
-  currency_id: options.value.currencies?.[0]?.id,
+  // Language and currency start as the AdminSystem company's (template 999).
+  default_language: options.value.template_defaults?.default_language || 'en',
+  currency_id: options.value.template_defaults?.currency_id || options.value.currencies?.[0]?.id,
   admin_firstname: '', admin_lastname: '', admin_email: '', admin_password: '', admin_role: 'Admin-ALL',
   with_helpdesk: true, helpdesk_firstname: 'Helpdesk', helpdesk_lastname: '', helpdesk_login_email: '', helpdesk_password: '',
   domains: '', website_mode: 'default', website_url: '',
   demo_data: false,
+  modules: [],
+  logo_data: '',
 });
+
+// Modules step: every switchable module (alphabetical), pre-ticked from the business type.
+const moduleChoices = sortByLabel(TOGGLEABLE_MODULES.map(m => ({ ...m })));
+const typeLabel = v => ((options.value.business_types || []).find(t => t.value === v) || {}).label || v;
+const typeModules = v => ((options.value.business_types || []).find(t => t.value === v) || {}).modules || [];
+const typeModuleSet = computed(() => new Set(typeModules(cform.value.business_type)));
+function tickTypeModules() {
+  cform.value.modules = [...typeModules(cform.value.business_type)];
+}
 
 function websiteText(w) {
   if (!w) return '';
@@ -402,6 +454,10 @@ function websiteText(w) {
   return `Default online store${w.pages_created ? ` — ${w.pages_created} standard pages created (About Us, Contact Us, Shipping & Returns, Privacy Policy, FAQ)` : ''}.`;
 }
 const cform = ref(emptyCreate());
+// Choosing (or changing) the business type ticks its modules again. (After
+// cform exists: declared earlier, its getter failed and it never fired --
+// AquaExpress was created with every module off, 2026-10-19.)
+watch(() => cform.value.business_type, v => { if (v) tickTypeModules(); });
 const roleOptions = sortByLabel([
   { value: 'Admin-ALL', label: 'Admin-ALL (full access)' },
   { value: 'Admin', label: 'Admin (standard)' },
@@ -409,6 +465,7 @@ const roleOptions = sortByLabel([
 ]);
 const createRules = computed(() => ({
   ...profileRules(),
+  logo_data: [{ required: true, message: 'Upload the company logo' }],
   admin_firstname: [{ required: true, message: t('Field_is_required') }],
   admin_email: [{ required: true, message: t('Field_is_required') }, { type: 'email', message: t('InvalidData') }],
   admin_password: [{ required: true, min: 8, message: 'Min. 8 characters' }],
@@ -434,10 +491,18 @@ function summarize(created) {
 
 async function submitCreate() {
   if (!(await validateSteps(createFormRef, createSteps.value, createErrTabs, createTab))) return;
+  if (!cform.value.modules.length) {
+    createErrTabs.value = ['modules'];
+    createTab.value = 'modules';
+    message.warning('Tick the modules this company uses (or "Modules of the business type").');
+    return;
+  }
   submitting.value = true;
   try {
-    const { with_helpdesk: withHd, ...rest } = cform.value;
+    const { with_helpdesk: withHd, modules, ...rest } = cform.value;
     const payload = profilePayload(rest);
+    // Every switchable module, on or off (ticked = on).
+    payload.module_flags = Object.fromEntries(TOGGLEABLE_MODULES.map(m => [m.key, modules.includes(m.key)]));
     if (!withHd) ['helpdesk_firstname', 'helpdesk_lastname', 'helpdesk_login_email', 'helpdesk_password'].forEach(k => delete payload[k]);
     const res = await http.post('company', payload);
     result.value = {
@@ -496,6 +561,14 @@ onMounted(crud.fetchRows);
 
 <style scoped>
 .section-title { font-weight: 600; margin: 4px 0 10px; }
+/* Logo column: fits the row, keeps the logo's proportions. */
+.co-logo { max-width: 72px; max-height: 32px; object-fit: contain; display: block; margin: 0 auto; }
+/* Modules step: two columns of checkboxes (one on phones). */
+.mod-tools { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.mod-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; width: 100%; }
+.mod-grid :deep(.ant-checkbox-wrapper) { margin-inline-start: 0; }
+.mod-tag { margin-inline-start: 6px; font-size: 11px; line-height: 16px; padding: 0 4px; }
+@media (max-width: 576px) { .mod-grid { grid-template-columns: 1fr; } }
 /* Steps (tabs) of the Add / Edit company forms: "Step N" over the step name + a legend. */
 .step-tab { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
 .step-n { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.6; }

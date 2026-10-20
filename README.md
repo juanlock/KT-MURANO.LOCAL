@@ -109,6 +109,11 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 - **SuperAdmin = the owner.**
   - The SuperAdmin role has every module by default.
   - `App\Support\SuperAdminAccess::sync()` runs after every `migrate`.
+  - Business Modules switches never hide anything from the SuperAdmin; they
+    apply to the company's own users.
+- **Business types** (`App\Support\BusinessTypes`): a new company's modules,
+  accounts, expense categories and demo data follow its type; it starts from
+  the AdminSystem company (999: menu, settings, roles, language, currency).
 - **Online Store ≠ Website.**
   - The store and the company website have separate settings, menus and files.
   - Each website has its own address (`website_settings.url_path`).
@@ -161,10 +166,10 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
   "Pay now" page is a signed link built on the company's public address, and
   a payment is recorded once, in one transaction
   (`App\Services\PayPalInvoicePayment`).
-- **Language follows the computer**: with no language picked, the login page,
-  app, portal and PayPal page use the browser's language when it is English or
-  Spanish, else the company's default. A pick (login EN / ES, the globe)
-  always wins.
+- **Language**: inside the app, the user's own pick, then the company's
+  language. Before sign-in (login page, portal, PayPal page) the browser's
+  language when it is English or Spanish, else the company's; the login EN / ES
+  switch wins there.
 - **User manual.** Every change to a module, form, role or permission updates
   its entry in `resources/src/manual/manual.js`, in English **and** Spanish
   (header book icon). Role or company-module changes also refresh
@@ -176,6 +181,36 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
+
+### 2026-10-20 (Optimum)
+
+- **Business types decide a new company's modules.**
+  - New types: Laundry, Delivery, Catering / buffet, Call center, Real estate
+    (selling houses), Law services, Hospital / clinic, Factory / manufacturing
+    and School / academy (17 in all). Each has its own accounts, expense
+    categories and demo data.
+  - Every company starts with Accounting, Assets, Email Office, Gallery,
+    Helpdesk, HRM and Website, plus its type's own (Kitchen for a restaurant,
+    Bookings for a salon, Hospital Management for a clinic, MRP for a factory,
+    School Management for a school…). The rest start off.
+  - Companies › Add has a new **Modules** step: the type's modules come ticked
+    and you add or remove any. Business Modules has "Modules of <type>" for an
+    existing company.
+- **Company logo with crop / resize.** Companies › Add asks for the logo; cut
+  it (free, square or wide) and choose its size before saving. Edit can replace
+  it. The Companies list has a **Logo** column.
+- **The SuperAdmin sees every module of every company.** Business Modules
+  switches apply only to the company's own users.
+- **A company's language wins after sign-in.** A company set to Spanish opens
+  in Spanish for its users, whatever the computer's language (a user's own
+  pick still wins). The login page still follows the computer.
+- **New companies start from the AdminSystem company** (System (SuperAdmin)):
+  its menu, settings, roles, and now its language and currency in the Add form.
+- **Backups tidy themselves.** Stray backup files go to their PC's folder and
+  the latest backup is also copied to `KT-TOOLS/database/`. The protocols no
+  longer write HTML reports (the summary is in the chat).
+
+Setup: `npm run build`.
 
 ### 2026-10-19 (Thundera)
 
@@ -297,21 +332,6 @@ Setup: `php artisan migrate`, `npm run build`.
   tested) in `KT-TOOLS/SQL/`.
 
 Setup: `npm run build`.
-
-### 2026-10-16 (Thundera)
-
-- **Network security** (Settings → Network security), per company, on for
-  KcolTech: staff can use the admin panel only from the company's networks
-  or from computers an admin approved. Store, websites, portfolio, online
-  booking and the portals stay open; the SuperAdmin is never blocked.
-  - Each person follows the company setting or their own (Restricted /
-    Can sign in from anywhere).
-  - Computers waiting for approval show in the bell; approve once, remove any
-    time.
-  - Managed by roles with the new "Network security" permission.
-- The user manual (in-app and the overview / PDF) explains Network security.
-
-Setup: `php artisan migrate`, `npm run build`.
 
 ---
 

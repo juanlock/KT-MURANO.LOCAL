@@ -99,9 +99,11 @@ class EnforceModuleFlags
         if (! $user) {
             return $next($request);
         }
-        $companyId = $user->type === 'SuperAdmin'
-            ? (int) $request->input('company_id', 0)
-            : (int) $user->company_id;
+        // The SuperAdmin opens every module of every company (user's rule, 2026-10-19).
+        if ($user->type === 'SuperAdmin') {
+            return $next($request);
+        }
+        $companyId = (int) $user->company_id;
         if (! $companyId || $companyId === 999) {
             return $next($request);
         }

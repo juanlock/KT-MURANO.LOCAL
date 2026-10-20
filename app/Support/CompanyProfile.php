@@ -148,13 +148,20 @@ class CompanyProfile
         CompanyDomain::forget();
     }
 
-    /** Dropdown data for the form (business types, currencies, active languages). */
+    /** Dropdown data for the form (business types + the modules each starts with, currencies, active languages). */
     public static function options(): array
     {
         return [
-            'business_types' => collect(BusinessTypes::LABELS)->map(fn ($label, $value) => compact('value', 'label'))->values(),
+            'business_types' => collect(BusinessTypes::LABELS)
+                ->map(fn ($label, $value) => ['value' => $value, 'label' => $label, 'modules' => BusinessTypes::modules($value)])->values(),
             'currencies' => DB::table('currencies')->whereNull('deleted_at')->orderBy('name')->get(['id', 'code', 'name', 'symbol']),
             'languages' => DB::table('languages')->where('is_active', 1)->orderBy('name')->get(['locale', 'name']),
+            // Companies -> Add starts with the AdminSystem (template company 999) language / currency.
+            'template_defaults' => (function () {
+                $t = DB::table('settings')->where('company_id', Setting::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')->first(['default_language', 'currency_id']);
+
+                return ['default_language' => $t->default_language ?? 'en', 'currency_id' => isset($t->currency_id) ? (int) $t->currency_id : null];
+            })(),
         ];
     }
 }

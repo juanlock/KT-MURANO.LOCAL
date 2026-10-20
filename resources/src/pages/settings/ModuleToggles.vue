@@ -4,7 +4,7 @@
       type="info"
       show-icon
       message="Turn business modules on or off"
-      description="For the selected company: a disabled module disappears from the sidebar, its pages become unreachable and the server refuses its requests, for every user and role. Roles keep their permissions and no data is deleted — switching a module back on restores it exactly as it was."
+      description="For the selected company: a disabled module disappears from the sidebar, its pages become unreachable and the server refuses its requests, for every user and role of that company (the SuperAdmin always sees every module). Roles keep their permissions and no data is deleted — switching a module back on restores it exactly as it was."
       style="margin-bottom: 16px"
     />
 
@@ -12,6 +12,9 @@
       <a-space>
         <a-button size="small" @click="setAll(true)">Enable all</a-button>
         <a-button size="small" @click="setAll(false)">Disable all</a-button>
+        <a-tooltip v-if="typeModules.length" :title="`Turns on the modules a ${typeLabel} company starts with and turns the others off (saved with Submit).`">
+          <a-button size="small" @click="applyType">Modules of {{ typeLabel }}</a-button>
+        </a-tooltip>
       </a-space>
       <a-space>
         <a-button danger :loading="resetting" @click="confirmReset">
@@ -98,6 +101,14 @@ function setAll(value) {
   dirty.value = true;
 }
 
+// The company's business type and the modules it starts with (BusinessTypes::modules).
+const typeModules = ref([]);
+const typeLabel = ref('');
+function applyType() {
+  for (const m of TOGGLEABLE_MODULES) flags[m.key] = typeModules.value.includes(m.key);
+  dirty.value = true;
+}
+
 async function save() {
   saving.value = true;
   try {
@@ -144,6 +155,8 @@ onMounted(async () => {
   try {
     const data = await http.get('module_flags');
     applyFlags(data?.module_flags || null);
+    typeModules.value = data?.type_modules || [];
+    typeLabel.value = data?.business_type_label || '';
   } catch (e) {
     applyFlags(null);
   } finally {

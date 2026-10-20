@@ -76,7 +76,8 @@ export const useAuthStore = defineStore('auth', {
         ktLogVersion: s => (s.user && s.user.kt_log_version) || '',
         // Admin module toggles (System Settings → Modules). Null map or a
         // missing key = module enabled, so fresh installs show everything.
-        moduleEnabled: s => key => isModuleEnabled(s.user && s.user.module_flags, key),
+        // The SuperAdmin: every module, whatever the company's switches (2026-10-19).
+        moduleEnabled: s => key => (s.user && s.user.type === 'SuperAdmin') || isModuleEnabled(s.user && s.user.module_flags, key),
         // System Settings → Defaults → Customers. Missing flag = on, so older
         // cached payloads keep showing everything.
         customerLoyaltyEnabled: s => !s.user || s.user.customer_loyalty_enabled !== false,
@@ -157,13 +158,14 @@ export const useAuthStore = defineStore('auth', {
                 try {
                     const explicit = window.localStorage.getItem('language_explicit') === '1'
                         && window.localStorage.getItem('language_explicit_user_id') === String(this.user && this.user.id);
-                    // No choice of their own: the computer's language first
-                    // (Spanish PC -> Spanish, 2026-10-19), the company default
-                    // only when the browser's language isn't one we have.
-                    // A language picked on the sign-in page (EN / ES switch ->
-                    // cookie app_locale, this device's choice) comes before both.
+                    // No choice of their own: the COMPANY's language (Settings ->
+                    // default_language, user's rule 2026-10-19 "Spanish company ->
+                    // its admin sees Spanish"); this device's sign-in pick (EN / ES
+                    // switch -> cookie app_locale) or the computer's language only
+                    // when the company has none. Before sign-in (login page) the
+                    // device pick / browser language still decide (SetLocale.php).
                     const devicePick = (document.cookie.match(/(?:^|;\s*)app_locale=([a-z]{2})/) || [])[1];
-                    const serverLocale = devicePick || browserLocale() || (this.user && this.user.default_language);
+                    const serverLocale = (this.user && this.user.default_language) || devicePick || browserLocale();
                     if (!explicit && serverLocale) {
                         const ui = useUiStore();
                         if (ui.locale !== serverLocale) {

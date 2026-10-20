@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { MENU, resolveTarget } from '../config/menu';
-import { isEntryEnabled } from '../config/modules';
+import { isEntryEnabled, ALL_MODULES_ON } from '../config/modules';
 
 /** A menu `to` ('/app/hospital/reports') -> its SPA path ('/hospital/reports'), or null. */
 export const spaPathOf = to => {
@@ -69,7 +69,8 @@ export const useMenuStore = defineStore('menu', {
             // customerLoyaltyEnabled) -- the entry is dropped while it's off.
             // Also by the page an item opens (Hospital Reports under Reports,
             // or an item moved into another group): isEntryEnabled.
-            const flags = auth.user && auth.user.module_flags;
+            // The SuperAdmin sees every module of every company (2026-10-19).
+            const flags = auth.user && (auth.user.type === 'SuperAdmin' ? ALL_MODULES_ON : auth.user.module_flags);
             const dropDisabled = entries => entries
                 .filter(entry => isEntryEnabled(flags, entry, spaPathOf))
                 .filter(entry => !entry.requiresSetting || auth[entry.requiresSetting] !== false)

@@ -68,6 +68,9 @@ class CompanyController extends Controller
         $imported = \App\Models\StoreSetting::whereIn('company_id', $companies->pluck('id'))
             ->where('front_page_mode', 'imported')->pluck('company_id')->flip();
         $companies->each(fn ($c) => $c->website_mode = isset($imported[$c->id]) ? 'import' : 'default');
+        // Logo column: the company's logo from its Settings (files/company_{id}/... ; older ones in images/).
+        $logos = DB::table('settings')->whereIn('company_id', $companies->pluck('id'))->whereNull('deleted_at')->pluck('logo', 'company_id');
+        $companies->each(fn ($c) => $c->logo_url = $this->logoUrl($logos[$c->id] ?? null));
         // Required information still missing (CompanyProfile::REQUIRED) -> "Setup" column.
         $companies->each(fn ($c) => $c->profile_missing = CompanyProfile::missing((int) $c->id));
 
@@ -110,11 +113,20 @@ class CompanyController extends Controller
             // or use the default online store + its standard pages.
             'website_mode' => ['nullable', Rule::in(['import', 'default'])],
             'website_url' => ['nullable', 'required_if:website_mode,import', 'url', 'max:255'],
+            // Business Modules the company starts with ({key: bool}, every switchable
+            // module; pre-ticked from the business type, BusinessTypes::modules()).
+            'module_flags' => ['required', 'array'],
+            'module_flags.*' => ['boolean'],
+            // The company logo, cropped / resized in the browser (data URL).
+            'logo_data' => ['required', 'string'],
         ], [
+            'logo_data.required' => 'Upload the company logo (step Company).',
+            'module_flags.required' => 'Choose the company\'s modules (step Modules).',
             'admin_email.unique' => 'This admin email is already used by another user.',
             'helpdesk_login_email.unique' => 'This helpdesk login email is already used by another user.',
             'helpdesk_login_email.different' => 'The helpdesk user needs its own login email (not the admin one).',
         ] + CompanyProfile::messages());
+        $logoBytes = $this->decodeLogo($data['logo_data']); // 422 before anything is created
 
         // Company + users + the rest of the profile: one transaction (all or nothing).
         $result = DB::transaction(fn () => tap(CompanyProvisioner::create(
@@ -128,7 +140,20 @@ class CompanyController extends Controller
                 'firstname' => $data['helpdesk_firstname'] ?? null, 'lastname' => $data['helpdesk_lastname'] ?? null,
                 'email' => $data['helpdesk_login_email'], 'password' => $data['helpdesk_password'],
             ] : null
-        ), fn ($r) => CompanyProfile::save((int) $r['company']->id, array_intersect_key($data, CompanyProfile::rules()))));
+        ), function ($r) use ($data) {
+            $cid = (int) $r['company']->id;
+            CompanyProfile::save($cid, array_intersect_key($data, CompanyProfile::rules()));
+            // Its modules (replaces the template's flags cloned with the settings row).
+            $flags = [];
+            foreach ($data['module_flags'] as $key => $on) {
+                if (is_string($key) && preg_match('/^[A-Za-z_]{1,60}$/', $key)) {
+                    $flags[$key] = (bool) $on;
+                }
+            }
+            DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')
+                ->update(['module_flags' => json_encode($flags), 'updated_at' => now()]);
+        }));
+        $this->storeLogo((int) $result['company']->id, $logoBytes);
 
         if ($request->filled('domains')) {
             $result['company']->update(['domains' => $this->validatedDomains((string) $request['domains'], (int) $result['company']->id)]);
@@ -223,7 +248,10 @@ class CompanyController extends Controller
         abort_unless(Company::whereKey($id)->whereNull('deleted_at')->exists(), 404);
 
         return response()->json([
-            'profile' => CompanyProfile::get((int) $id) + ['domains' => Company::whereKey($id)->value('domains')],
+            'profile' => CompanyProfile::get((int) $id) + [
+                'domains' => Company::whereKey($id)->value('domains'),
+                'logo_url' => $this->logoUrl(DB::table('settings')->where('company_id', $id)->whereNull('deleted_at')->value('logo')),
+            ],
             'missing' => CompanyProfile::missing((int) $id),
             'options' => CompanyProfile::options(),
         ]);
@@ -243,14 +271,68 @@ class CompanyController extends Controller
         // public domain serves). Checked before anything is saved.
         $domains = $this->isSuperAdmin($request) && $request->has('domains')
             ? ['domains' => $this->validatedDomains((string) $request['domains'], (int) $id)] : null;
+        // A new logo (optional on Edit), checked before anything is saved.
+        $logoBytes = $this->decodeLogo($request->input('logo_data'));
 
         CompanyProfile::save((int) $id, $data);
+        if ($logoBytes !== null) {
+            $this->storeLogo((int) $id, $logoBytes);
+        }
         if ($domains) {
             Company::whereId($id)->update($domains);
             \App\Support\CompanyDomain::forget();
         }
 
         return response()->json(['success' => true, 'missing' => CompanyProfile::missing((int) $id)]);
+    }
+
+    /**
+     * The logo cropped / resized in the browser (LogoCropper.vue) arrives as a
+     * data URL: decoded and checked BEFORE anything is saved (422 if it is not
+     * a PNG / JPEG / WebP image of at most 4 MB).
+     */
+    private function decodeLogo(?string $dataUrl): ?string
+    {
+        if ($dataUrl === null || $dataUrl === '') {
+            return null;
+        }
+        $fail = fn () => throw \Illuminate\Validation\ValidationException::withMessages(['logo_data' => 'The logo must be a PNG, JPG or WebP image of at most 4 MB.']);
+        if (! preg_match('#^data:image/(png|jpeg|webp);base64,#', $dataUrl)) {
+            $fail();
+        }
+        $bytes = base64_decode(substr($dataUrl, strpos($dataUrl, ',') + 1), true);
+        if ($bytes === false || strlen($bytes) > 4 * 1024 * 1024 || ! @getimagesizefromstring($bytes)) {
+            $fail();
+        }
+
+        return $bytes;
+    }
+
+    /**
+     * Saves the logo as the company's (settings.logo) in files/company_{id}/logos/.
+     * The previous one is deleted only when it is this company's own file
+     * (a new company's settings start with the template company's logo path).
+     */
+    private function storeLogo(int $companyId, string $bytes): string
+    {
+        $ext = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'][getimagesizefromstring($bytes)['mime'] ?? ''] ?? 'png';
+        $path = \App\Support\CompanyFiles::putBytes($companyId, 'logos', 'logo.'.$ext, $bytes);
+        $old = (string) DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->value('logo');
+        DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->update(['logo' => $path, 'updated_at' => now()]);
+        if ($old !== '' && $old !== $path && str_starts_with($old, "files/company_{$companyId}/") && is_file(public_path($old))) {
+            @unlink(public_path($old));
+        }
+
+        return $path;
+    }
+
+    /** "/files/company_2/logos/x.png" for the browser (older bare names live in images/). */
+    private function logoUrl(?string $p): ?string
+    {
+        $p = trim((string) $p);
+
+        return $p === '' ? null
+            : '/'.implode('/', array_map('rawurlencode', explode('/', str_contains($p, '/') ? ltrim($p, '/') : 'images/'.$p)));
     }
 
     /**

@@ -1607,10 +1607,19 @@ class SettingsController extends Controller
     public function getModuleFlags(Request $request)
     {
         abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can view module settings.');
-        $setting = Setting::forCompany($this->resolveActingCompanyId($request));
+        $companyId = $this->resolveActingCompanyId($request);
+        $setting = Setting::forCompany($companyId);
         $flags = $setting?->module_flags ? json_decode($setting->module_flags, true) : null;
+        // The company's business type and the modules that type starts with
+        // (Business Modules -> "Modules of <type>").
+        $type = \App\Support\BusinessTypes::of((int) $companyId);
 
-        return response()->json(['module_flags' => is_array($flags) ? $flags : null], 200);
+        return response()->json([
+            'module_flags' => is_array($flags) ? $flags : null,
+            'business_type' => $type,
+            'business_type_label' => \App\Support\BusinessTypes::LABELS[$type] ?? $type,
+            'type_modules' => \App\Support\BusinessTypes::modules($type),
+        ], 200);
     }
 
     public function updateModuleFlags(Request $request)
