@@ -124,6 +124,42 @@ class DemoRunner
                 ->when($only, fn ($q) => $q->where('module', $only))
                 ->orderByDesc('id')->get(['id', 'record_type', 'record_id']);
 
+            return self::deleteRows($rows);
+        });
+    }
+
+    /**
+     * Remove only some kinds of a company's demo rows (2026-10-20: a company
+     * whose Sales / Purchases / Suppliers are off drops their demo documents),
+     * with the demo logins of the customers / suppliers removed and the journal
+     * entries of the documents removed. Real rows are never touched: only ids
+     * listed in demo_records. Returns rows deleted.
+     */
+    public static function purgeTypes(int $companyId, array $types): int
+    {
+        return DB::transaction(function () use ($companyId, $types) {
+            $rows = DB::table('demo_records')->where('company_id', $companyId)->whereIn('record_type', $types)
+                ->orderByDesc('id')->get(['id', 'record_type', 'record_id']);
+            // The demo logins of the demo customers / suppliers being removed.
+            $userIds = [];
+            foreach (['clients', 'providers'] as $t) {
+                $ids = $rows->where('record_type', $t)->pluck('record_id')->all();
+                if ($ids && Schema::hasColumn($t, 'user_id')) {
+                    $userIds = array_merge($userIds, DB::table($t)->whereIn('id', $ids)->whereNotNull('user_id')->pluck('user_id')->all());
+                }
+            }
+            if ($userIds) {
+                $rows = $rows->merge(DB::table('demo_records')->where('company_id', $companyId)->where('record_type', 'users')
+                    ->whereIn('record_id', $userIds)->get(['id', 'record_type', 'record_id']));
+            }
+
+            return self::deleteRows($rows);
+        });
+    }
+
+    /** Delete these demo_records rows' records (+ links, journal) and the demo_records rows. */
+    private static function deleteRows($rows): int
+    {
             // Demo users (linked to demo customers / suppliers / employees):
             // detach them and drop their role rows first -- clients/employees
             // .user_id and role_user reference users.
@@ -159,7 +195,6 @@ class DemoRunner
             }
 
             return $count;
-        });
     }
 
     /** Document table => acc_journal_entries.reference_type. */

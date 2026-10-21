@@ -105,6 +105,10 @@ class StoreFrontController extends Controller
         if ($imported = \App\Services\FrontPage::importedResponse($frontCompany)) {
             return $imported;
         }
+        // One-page template (Website settings -> Front page, 2026-10-20).
+        if ($onePage = \App\Services\OnePage::response($frontCompany, $request)) {
+            return $onePage;
+        }
         // Sections come from that company's own store settings when the
         // request is on its domain (the shared store keeps the first row).
         $s = \App\Services\FrontPage::explicitCompanyId($request)

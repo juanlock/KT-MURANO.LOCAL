@@ -9,14 +9,10 @@
         type="info"
         show-icon
         style="margin-bottom: 16px"
-        :message="`Example data for ${companyName || 'this company'}`"
+        :message="tx('Example data for {name}', { name: companyName || tx('this company') })"
       >
         <template #description>
-          One set of realistic examples per module — core (products, customers, suppliers, sales,
-          purchases, quotations, expenses) plus every business module switched on under Modules.
-          A module is <strong>skipped</strong> when this company already has real data in it, or when its
-          examples were already generated. Everything generated is tagged per company and can be removed
-          in one click; real data is never touched.
+          {{ tx(INTRO_1) }} <strong>{{ tx('skipped') }}</strong> {{ tx(INTRO_2) }}
         </template>
       </a-alert>
 
@@ -25,16 +21,12 @@
       <a-card size="small" style="margin-bottom: 16px" :class="{ 'ddg-type--need': needsType }">
         <div class="ddg-type">
           <div>
-            <div class="ddg-type__title">What kind of business is {{ companyName || 'this company' }}?</div>
+            <div class="ddg-type__title">{{ tx('What kind of business is {name}?', { name: companyName || tx('this company') }) }}</div>
             <div class="ddg-muted">
-              Accounting, Regular expenses, Assets, Portfolio and Website examples use it: a landscaper gets fuel, mulch and
-              subcontractor bills, mowers and trucks as assets, lawn and garden photos and pages; a salon, hair color, laundry,
-              styling chairs and salon photos and pages; an IT consultant, laptops, servers, network gear and IT pages; a
-              restaurant, food orders and kitchen equipment. Its own expense categories and accounts are added too (they stay
-              after removing demo data). <b>Choosing another type replaces those examples</b> — the old ones are removed first.
+              {{ tx(TYPE_HELP) }} <b>{{ tx('Choosing another type replaces those examples') }}</b> {{ tx('— the old ones are removed first.') }}
             </div>
           </div>
-          <a-select v-model:value="businessType" :options="businessTypeOptions" style="width: 320px" placeholder="Choose the type of business" />
+          <a-select v-model:value="businessType" :options="businessTypeOptions" style="width: 320px" :placeholder="tx('Choose the type of business')" />
         </div>
       </a-card>
 
@@ -42,29 +34,27 @@
       <a-card v-if="needsPay" size="small" style="margin-bottom: 16px">
         <div class="ddg-type">
           <div>
-            <div class="ddg-type__title">How are the staff paid?</div>
+            <div class="ddg-type__title">{{ tx('How are the staff paid?') }}</div>
             <div class="ddg-muted">
-              Hours: weekly payroll = hours worked (on the service jobs they complete) × hourly rate.
-              Commission: weekly payroll = a % of their sales. Demo employees and their weekly payrolls follow it;
-              Payroll history uses each real employee's own setup (Employee → Company → Paid by).
+              {{ tx(PAY_HELP) }}
             </div>
           </div>
           <a-radio-group v-model:value="payType" button-style="solid">
-            <a-radio-button value="hourly">Hours</a-radio-button>
-            <a-radio-button value="commission">Commission</a-radio-button>
+            <a-radio-button value="hourly">{{ tx('Hours') }}</a-radio-button>
+            <a-radio-button value="commission">{{ tx('Commission') }}</a-radio-button>
           </a-radio-group>
         </div>
       </a-card>
 
       <a-card size="small">
         <template #title>
-          Modules
-          <a-tag v-if="demoTotal" color="purple" style="margin-inline-start: 8px">{{ demoTotal }} demo records</a-tag>
+          {{ tx('Modules') }}
+          <a-tag v-if="demoTotal" color="purple" style="margin-inline-start: 8px">{{ tx('{n} demo records', { n: demoTotal }) }}</a-tag>
         </template>
         <template #extra>
           <a-space>
-            <a-button :disabled="!availableKeys.length" size="small" @click="selectAvailable">Select available</a-button>
-            <a-button size="small" @click="selected = []">Clear</a-button>
+            <a-button :disabled="!availableKeys.length" size="small" @click="selectAvailable">{{ tx('Select available') }}</a-button>
+            <a-button size="small" @click="selected = []">{{ tx('Clear') }}</a-button>
           </a-space>
         </template>
 
@@ -82,13 +72,13 @@
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'status'">
-              <a-tooltip v-if="willReplace(record)" :title="`Its examples follow the business type: they are removed and created again for ${typeLabel(businessType)}.`">
-                <a-tag color="orange">Will be replaced</a-tag>
+              <a-tooltip v-if="willReplace(record)" :title="tx('Its examples follow the business type: they are removed and created again for {type}.', { type: typeLabel(businessType) })">
+                <a-tag color="orange">{{ tx('Will be replaced') }}</a-tag>
               </a-tooltip>
-              <a-tag v-else-if="record.available" color="green">Ready</a-tag>
-              <a-tag v-else-if="record.demo_count" color="purple">Examples generated</a-tag>
-              <a-tag v-else-if="!record.enabled" color="default">Module off</a-tag>
-              <a-tag v-else-if="record.has_real_data" color="blue">Has real data — skipped</a-tag>
+              <a-tag v-else-if="record.available" color="green">{{ tx('Ready') }}</a-tag>
+              <a-tag v-else-if="record.demo_count" color="purple">{{ tx('Examples generated') }}</a-tag>
+              <a-tag v-else-if="!record.enabled" color="default">{{ tx('Module off') }}</a-tag>
+              <a-tag v-else-if="record.has_real_data" color="blue">{{ tx('Has real data — skipped') }}</a-tag>
               <a-tag v-else color="orange">{{ record.reason }}</a-tag>
             </template>
             <template v-else-if="column.key === 'demo_count'">
@@ -98,7 +88,7 @@
               <a-button
                 v-if="record.demo_count" size="small" danger type="link"
                 :loading="resetting === record.key" @click="onReset(record)"
-              >Remove</a-button>
+              >{{ tx('Remove') }}</a-button>
             </template>
           </template>
         </a-table>
@@ -106,21 +96,21 @@
         <a-space style="margin-top: 16px">
           <a-button type="primary" :loading="generating" :disabled="!selected.length" @click="generate">
             <template #icon><ThunderboltOutlined /></template>
-            Generate examples ({{ selected.length }})
+            {{ tx('Generate examples ({n})', { n: selected.length }) }}
           </a-button>
           <a-button danger :disabled="!demoTotal" :loading="resetting === 'all'" @click="onReset(null)">
             <template #icon><DeleteOutlined /></template>
-            Remove all demo data
+            {{ tx('Remove all demo data') }}
           </a-button>
         </a-space>
       </a-card>
 
-      <a-card v-if="lastResults.length" size="small" title="Last run" style="margin-top: 16px">
+      <a-card v-if="lastResults.length" size="small" :title="tx('Last run')" style="margin-top: 16px">
         <div v-for="r in lastResults" :key="r.key" class="ddg-result">
           <strong>{{ r.label }}:</strong>
-          <span v-if="r.status === 'created'"> {{ summary(r.created) || 'nothing created' }}</span>
-          <span v-else-if="r.status === 'skipped'" class="ddg-muted"> skipped — {{ r.reason }}</span>
-          <span v-else class="ddg-error"> failed — {{ r.reason }}</span>
+          <span v-if="r.status === 'created'"> {{ summary(r.created) || tx('nothing created') }}</span>
+          <span v-else-if="r.status === 'skipped'" class="ddg-muted"> {{ tx('skipped — {reason}', { reason: r.reason }) }}</span>
+          <span v-else class="ddg-error"> {{ tx('failed — {reason}', { reason: r.reason }) }}</span>
         </div>
       </a-card>
     </template>
@@ -142,6 +132,16 @@ import { message, Modal } from 'ant-design-vue';
 import { ThunderboltOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
+import { useLocalText } from '../../lib/useLocalText';
+import ES from './lang/DemoDataGenerator.es.js';
+
+const { s: tx } = useLocalText(ES);
+
+// Long help texts (English = key of the Spanish map).
+const INTRO_1 = 'One set of realistic examples per module — core (products, customers, suppliers, sales, purchases, quotations, expenses) plus every business module switched on under Modules. A module is';
+const INTRO_2 = 'when this company already has real data in it, or when its examples were already generated. Everything generated is tagged per company and can be removed in one click; real data is never touched.';
+const TYPE_HELP = 'Accounting, Regular expenses, Assets, Portfolio and Website examples use it: a landscaper gets fuel, mulch and subcontractor bills, mowers and trucks as assets, lawn and garden photos and pages; a salon, hair color, laundry, styling chairs and salon photos and pages; an IT consultant, laptops, servers, network gear and IT pages; a restaurant, food orders and kitchen equipment. Its own expense categories and accounts are added too (they stay after removing demo data).';
+const PAY_HELP = "Hours: weekly payroll = hours worked (on the service jobs they complete) × hourly rate. Commission: weekly payroll = a % of their sales. Demo employees and their weekly payrolls follow it; Payroll history uses each real employee's own setup (Employee → Company → Paid by).";
 
 const loading = ref(true);
 const generating = ref(false);
@@ -152,12 +152,12 @@ const demoTotal = ref(0);
 const selected = ref([]);
 const lastResults = ref([]);
 
-const columns = [
-  { title: 'Module', dataIndex: 'label', key: 'label' },
-  { title: 'Status', key: 'status', width: 220 },
-  { title: 'Demo rows', key: 'demo_count', width: 110, align: 'right' },
+const columns = computed(() => [
+  { title: tx('Module'), dataIndex: 'label', key: 'label' },
+  { title: tx('Status'), key: 'status', width: 220 },
+  { title: tx('Demo rows'), key: 'demo_count', width: 110, align: 'right' },
   { title: '', key: 'actions', width: 90, align: 'right' },
-];
+]);
 
 const availableKeys = computed(() => modules.value.filter(m => m.available).map(m => m.key));
 
@@ -210,23 +210,25 @@ async function loadStatus() {
     if (Array.isArray(data.type_modules)) TYPE_MODULES.value = data.type_modules;
     selected.value = selected.value.filter(k => availableKeys.value.includes(k));
   } catch (e) {
-    message.error(e?.data?.message || e?.message || 'Could not load demo data status');
+    message.error(e?.data?.message || e?.message || tx('Could not load demo data status'));
   }
 }
 
 async function generate() {
   if (needsType.value && !businessType.value) {
-    message.warning('Choose what kind of business this is first — Accounting, Regular expenses, Assets, Portfolio and Website examples follow it.');
+    message.warning(tx('Choose what kind of business this is first — Accounting, Regular expenses, Assets, Portfolio and Website examples follow it.'));
     return;
   }
   const replacing = modules.value.filter(willReplace);
   if (replacing.length) {
     const ok = await new Promise(resolve => Modal.confirm({
-      title: `Change the examples to ${typeLabel(businessType.value)}?`,
+      title: tx('Change the examples to {type}?', { type: typeLabel(businessType.value) }),
       icon: createVNode(ExclamationCircleOutlined),
-      content: `These demo examples were made for ${typeLabel(savedType.value)}: ${replacing.map(m => m.label).join(', ')}. `
-        + 'They will be removed and created again for the new business type. Real data is never touched.',
-      okText: 'Replace and generate', cancelText: 'Cancel',
+      content: tx(
+        'These demo examples were made for {type}: {modules}. They will be removed and created again for the new business type. Real data is never touched.',
+        { type: typeLabel(savedType.value), modules: replacing.map(m => m.label).join(', ') },
+      ),
+      okText: tx('Replace and generate'), cancelText: tx('Cancel'),
       onOk: () => resolve(true), onCancel: () => resolve(false),
     }));
     if (!ok) return;
@@ -242,12 +244,13 @@ async function generate() {
     const ok = lastResults.value.filter(r => r.status === 'created').length;
     const failed = lastResults.value.filter(r => r.status === 'error').length;
     const replaced = (data.replaced || []).length;
-    if (failed) message.warning(`${ok} module(s) generated, ${failed} failed — see "Last run".`, 6);
-    else message.success(`${ok} module(s) generated${replaced ? ` (${replaced} replaced for the new business type)` : ''}.`, 5);
+    if (failed) message.warning(tx('{ok} module(s) generated, {failed} failed — see "Last run".', { ok, failed }), 6);
+    else if (replaced) message.success(tx('{ok} module(s) generated ({n} replaced for the new business type).', { ok, n: replaced }), 5);
+    else message.success(tx('{ok} module(s) generated.', { ok }), 5);
     selected.value = [];
     await loadStatus();
   } catch (e) {
-    message.error(e?.data?.message || e?.message || 'Generation failed');
+    message.error(e?.data?.message || e?.message || tx('Generation failed'));
   } finally {
     generating.value = false;
   }
@@ -255,21 +258,22 @@ async function generate() {
 
 function onReset(record) {
   Modal.confirm({
-    title: record ? `Remove ${record.label} demo data?` : 'Remove all demo data?',
+    title: record ? tx('Remove {label} demo data?', { label: record.label }) : tx('Remove all demo data?'),
     icon: createVNode(ExclamationCircleOutlined),
     content: record
-      ? `Deletes the ${record.demo_count} demo rows generated for this module (this company only). Real data is not affected.`
-      : `Deletes all ${demoTotal.value} demo rows of ${companyName.value || 'this company'} (line items, payments and stock included). Real data is not affected.`,
-    okText: 'Remove',
+      ? tx('Deletes the {n} demo rows generated for this module (this company only). Real data is not affected.', { n: record.demo_count })
+      : tx('Deletes all {n} demo rows of {name} (line items, payments and stock included). Real data is not affected.', { n: demoTotal.value, name: companyName.value || tx('this company') }),
+    okText: tx('Remove'),
+    cancelText: tx('Cancel'),
     okType: 'danger',
     async onOk() {
       resetting.value = record ? record.key : 'all';
       try {
         const data = await http.delete('demo_data', record ? { module: record.key } : undefined);
-        message.success(`Removed ${data.deleted ?? 0} demo rows.`, 5);
+        message.success(tx('Removed {n} demo rows.', { n: data.deleted ?? 0 }), 5);
         await loadStatus();
       } catch (e) {
-        message.error(e?.data?.message || e?.message || 'Reset failed');
+        message.error(e?.data?.message || e?.message || tx('Reset failed'));
       } finally {
         resetting.value = null;
       }

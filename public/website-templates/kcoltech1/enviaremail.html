@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>A clean, minimal and functional contact form</title>
+
+    <link href="http://fonts.googleapis.com/css?family=Lato:300" rel="stylesheet" type="text/css">
+    <style>
+        body {
+            font-family: Lato, sans-serif;
+        }
+        h1 {
+            font-family: Lato, sans-serif;
+            font-weight: 300;
+            text-align: center;
+        }
+    </style>
+
+
+    <!-- Vanilla's resources start here -->
+    <link rel="stylesheet" href="css/vanilla-form.css">
+    <script src="js/vanilla-form.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var myForm;
+            myForm = new VanillaForm(document.querySelector("form.vanilla-form"));
+        });
+    </script>
+    <!-- Vanilla's resources end here -->
+
+</head>
+<body>
+<div class="content">
+    <h1>Contact us</h1>
+    <div class="form-container">
+        <!--- Code Snippet - standard-form-markup --->
+        <!-- Vanilla Form markup starts here -->
+        <form action="standard-contact-form.php" method="post" class="vanilla-form" novalidate>
+            <!-- Left column -->
+            <div class="column-50">
+                <input type="text" name="name" placeholder="Your name" required>
+                <input type="email" name="email" placeholder="Your e-mail" required>
+            </div><!--
+                Right column
+            --><div class="column-50">
+            <input type="tel" name="tel" placeholder="Phone">
+            <label class="custom-select">
+                <select name="department">
+                    <option disabled selected>Select department</option>
+                    <option>Sales</option>
+                    <option>Marketing</option>
+                    <option>Customer Support</option>
+                    <option>Other</option>
+                </select><span><!-- fake select handler --></span>
+            </label>
+            </div>
+            <div class="column-100">
+                <textarea name="message" placeholder="Type your message here..."></textarea>
+                <label>
+                    <input type="checkbox" name="terms" value="true" required><span><!-- fake checkbox --></span>
+                    <span class="wrapped-label">I agree to the <a href="#">Terms & Conditions</a>.</span>
+                </label>
+            </div>
+            <div class="column-100 center">
+                <input type="submit" value="Send" data-error="Fix errors" data-processing="Sending..." data-success="Thank you!">
+            </div>
+            <footer class="notification-box"></footer>
+        </form>
+        <!-- Vanilla Form markup ends here -->
+        <!--- /Code Snippet - standard-form-markup --->
+    </div>
+</div>
+</body>
+</html>

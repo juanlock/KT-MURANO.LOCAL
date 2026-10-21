@@ -5,24 +5,43 @@ repo, and it's tracked in git so it stays in sync across all machines used to
 work on this project. Treat everything below as standing context — no need to
 re-explain it in future sessions.
 
-## Protocols: Wake-up, Pa Llevar, Copia BD, Kelsy (user's rule, 2026-10-19)
+## Protocols: Wake-up, Pa Llevar, A Dormir, Copia BD, Kelsy (user's rules, 2026-10-19 / 2026-10-20)
 
 Only four protocols (`.claude/commands/`), no repeated orders between them:
+**Production is the only real database (user's rule, 2026-10-20).** A
+developer PC's `dbmurano` is a disposable copy of production, replaced every
+morning by `php artisan murano:from-prod` (~1 min: `mysqldump | gzip` on the
+server over SSH, import, production's new files, local migrations). Code goes
+up (git -> `protocol_prod_deploy.php`, with the user's yes); schema and the
+data a feature needs go as migrations; **dev data never goes up** (test data
+is gone the next morning). `kt_logs` lives in production
+(`database/scripts/protocol_kt_log.php`). The row-by-row
+`protocol_prod_pull.php` / `protocol_prod_push.php` are only for an
+exceptional case.
+
 - **Wake-up** (`/wake-up`, "Jarvis, wake up" / "protocolo wake-up") -- the
-  start of the day on any PC: git pull (+ composer / npm ci / migrate only when
-  needed, `optimize:clear`, `npm run build`), a local backup tagged `wakeup`,
-  production compared with this PC (code, migrations, files, records) and
-  reported, production's new files and records brought down to dev, an offer
-  to update production when this PC's code / data are newer (production
-  backup + the user's yes), this file and the `kt_logs` history reloaded
-  (memory digest), and a summary **in the chat** with the **last 5 changes**
-  (date and origin). Replaced Preparate (and the old Mañanitas / Memorex), Baja
-  Prod and Sube Prod. "Preparate" / "buenos días, prepárate" now mean Wake-up.
-- **Pa Llevar** -- the end of the day: Wake-up's production sync, then manual,
-  build, Kelsy, a local backup tagged `pallevar`, README, commit, push
-  (replaced Sube Git).
+  start of the day on any PC: git pull (+ composer / npm ci only when
+  needed), `php artisan murano:from-prod`, `npm run build`, an offer to deploy
+  this PC's newer code (the user's yes), this file and the `kt_logs` history
+  reloaded (memory digest), and a summary **in the chat** with the **last 5
+  changes** (date and origin). "Preparate" / "buenos días, prepárate" mean
+  Wake-up.
+- **Pa Llevar** -- the end of the day: an offer to deploy the code (no data
+  goes up), manual, build, Kelsy, a local backup tagged `pallevar`, README,
+  commit, push.
+- **A Dormir** (`/a-dormir`, "Jarvis, a dormir", 2026-10-20) -- the end of the
+  day WITHOUT touching production, for work not ready / not tested yet: local
+  dev backup tagged `adormir` (PC folder + a copy in the root of
+  `KT-TOOLS/database/`, the root's older copy moved to its PC folder), a
+  production backup (`php artisan murano:prod-backup` ->
+  `KT-TOOLS/database/HOSTINGER/hostinger-<date>_<time>-<PC>-a-dormir.zip`,
+  git-ignored: customer data), Kelsy, README (block marked "not in production
+  yet"), commit, push. No deploy, no migrations or data to production.
 - **Copia BD** -- a database copy on demand, tagged `copiabd`.
-- **Kelsy** -- the `kt_logs` logging rules (unchanged).
+- **Kelsy** -- the `kt_logs` logging rules; rows are written to production.
+Every protocol starts by running `hostname` (never asks the user): the PC name
+for file names and the Kelsy location (`KT-THUNDERA` -> Thundera,
+`KTOPTIMUM_NB` -> Optimum, any other -> Home).
 Every database backup is compressed and phpMyAdmin-ready
 (`database/scripts/protocol_sql_clean.php`): local ones in
 **`KT-TOOLS/database/<PC name>/dbmurano_<date>_<time>_<wakeup|pallevar|copiabd>.zip`**
@@ -418,30 +437,27 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   then only have to catch up anything that slipped through. Location comes
   from the machine (`KT-THUNDERA` -> Thundera, `KTOPTIMUM_NB` -> Optimum,
   Home PC -> Home); ask only if
-  it's genuinely unclear.
+  it's genuinely unclear. **Rows go to production** (2026-10-20):
+  `$ktLog = [...]; require 'database/scripts/protocol_kt_log.php'` (local
+  only when production is unreachable; `murano:from-prod` sends those up).
 - **Wake-up** (`/wake-up`, "Jarvis, wake up" / "protocolo wake-up"; also what
-  "preparate" means now) — the start of the day on any PC (user's rule,
-  2026-10-19; replaced Preparate, Baja Prod and Sube Prod). Steps: git pull
-  (GitHub Desktop's last fetch without credentials) -> local backup tagged
-  `wakeup` -> composer / npm ci / migrate only when needed, `optimize:clear`,
-  `npm run build` -> production compared with this PC, dry runs only
-  (`protocol_prod_deploy.php` code + migrations, `protocol_prod_files.php`,
-  `protocol_prod_pull.php`, `protocol_prod_push.php`) -> production's new files
-  and records brought down to dev (one transaction, never `migrations` /
-  `kt_logs`) -> **update production only when this PC is newer and only with
-  the user's yes** (code: git bundle -> fast-forward in `public_html`, this PC's
-  `public/js`, composer when needed, migrations, production `.env` kept,
-  maintenance page only during the change, `$rollback` undoes the code; data:
-  dev's new / changed rows without conflicts) -> CLAUDE.md + `kt_logs` history
+  "preparate" means now) — the start of the day on any PC (user's rules,
+  2026-10-19 / 2026-10-20). Steps: git pull (GitHub Desktop's last fetch
+  without credentials; composer / npm ci only when needed) ->
+  `php artisan murano:from-prod` (this PC's missing `kt_logs` up, production
+  dumped on the server + gzip, downloaded, local tables dropped and the dump
+  imported, production's new files, local `migrate`, `optimize:clear`; if the
+  dump fails dev is untouched; `--backup` = local backup first, only when
+  asked) -> `npm run build` -> production code: dry run of
+  `protocol_prod_deploy.php`, deploy **only with the user's yes** (git bundle
+  -> fast-forward in `public_html`, this PC's `public/js`, composer when
+  needed, migrations, production `.env` kept, maintenance page only during the
+  change, `$rollback` undoes the code) -> CLAUDE.md + `kt_logs` history
   reloaded (memory digest), Kelsy catch-up -> summary in the chat (no HTML
   report), with the last 5 changes (date + origin).
   **Production owns the business data; every dev database change -- schema and
   the data a feature needs (permissions, settings, translations, menus) -- is a
-  migration, safe to run twice, by name not by id.** The data step sends
-  what dev created after the last pull: `created_at` after it, or an id above
-  that table's highest dev id at the pull (`last_sync.json` `dev_max_ids`,
-  2026-10-20 -- back-dated demo rows and a new role's `permission_role` used
-  to stay behind). Production is backed up
+  migration, safe to run twice, by name not by id.** Production is backed up
   before every write (`KT-TOOLS/database/production/`, git-ignored, compressed,
   phpMyAdmin-ready); if the backup fails nothing is written. `public/` stays out
   of Git LFS (`.gitattributes` = LFS only for KT-TOOLS zips). Production access
@@ -450,7 +466,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   commits.
 - **Pa Llevar** (`/pa-llevar`, "Jarvis, run protocolo pa llevar") — the end of
   the day (A Dormir and Sube Git were merged into it): Wake-up's production
-  sync (steps 3-5), the user manual (in-app EN + ES, overview HTML + PDF),
+  code step (deploy with the user's yes; no data goes up), the user manual (in-app EN + ES, overview HTML + PDF),
   `npm run build`, Kelsy (no HTML daily report), a local backup tagged
   `pallevar` (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office
   emails 1/2/3.zip` for the external backup program), `README.md` (Latest

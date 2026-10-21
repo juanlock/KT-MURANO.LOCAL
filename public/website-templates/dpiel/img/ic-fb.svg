@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="48px" height="48px" viewBox="0 0 48 48" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 43.2 (39069) - http://www.bohemiancoding.com/sketch -->
+    <title>facebook-logo-in-circular-button-outlined-social-symbol</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="dpiel-onepage" transform="translate(-579.000000, -3281.000000)" fill-rule="nonzero" fill="#000000">
+            <g id="footer" transform="translate(0.000000, 3191.000000)">
+                <g id="facebook-logo-in-circular-button-outlined-social-symbol" transform="translate(579.000000, 90.000000)">
+                    <path d="M48,24 C48,10.7454118 37.2545098,0 24,0 C10.7454118,0 0,10.7454118 0,24 C0,37.2545098 10.7454118,48 24,48 C37.2545098,48 48,37.2545098 48,24 Z M2.18180392,24 C2.18180392,11.9498039 11.9498039,2.18180392 24,2.18180392 C36.0501961,2.18180392 45.8181961,11.9498039 45.8181961,24 C45.8181961,36.0501961 36.0501961,45.8181961 24,45.8181961 C11.9498039,45.8181961 2.18180392,36.0501961 2.18180392,24 Z" id="Shape"></path>
+                    <path d="M24.9207059,37.8523137 L24.9207059,24 L29.4916078,24 L30.2138039,19.4094902 L24.9207059,19.4094902 L24.9207059,17.1076863 C24.9207059,15.9098824 25.3134118,14.7665882 27.0327059,14.7665882 L30.4690196,14.7665882 L30.4690196,10.1847843 L25.5905098,10.1847843 C21.4887059,10.1847843 20.3694118,12.8858039 20.3694118,16.6298824 L20.3694118,19.4073725 L17.554902,19.4073725 L17.554902,24 L20.3694118,24 L20.3694118,37.8523137 L24.9207059,37.8523137 L24.9207059,37.8523137 Z" id="Shape"></path>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

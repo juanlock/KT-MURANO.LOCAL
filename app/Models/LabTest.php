@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LabTest extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, \App\Models\Concerns\BelongsToActingCompany;
 
     protected $table = 'lab_tests';
 

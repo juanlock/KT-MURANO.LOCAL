@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Student extends Model
 {
+    // Multicompany (2026-10-20): only the acting company's rows.
+    use \App\Models\Concerns\BelongsToActingCompany;
+
     use SoftDeletes;
 
     protected $table = 'students';
@@ -75,7 +78,8 @@ class Student extends Model
      */
     public static function generateAdmissionNumber()
     {
-        $last = static::withTrashed()->where('admission_number', 'like', 'ADM-%')
+        // Unique across the install (unique index): every company's numbers count.
+        $last = static::withTrashed()->withoutGlobalScope('company')->where('admission_number', 'like', 'ADM-%')
             ->orderBy('id', 'desc')->first();
         $seq = $last ? ((int) substr($last->admission_number, 4)) + 1 : 1;
 

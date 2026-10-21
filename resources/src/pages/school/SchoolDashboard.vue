@@ -1,29 +1,29 @@
 <template>
   <div class="page">
     <PageHeader
-      title="School Dashboard"
-      :subtitle="data.academic_year ? `Academic year ${data.academic_year.name}` : 'No academic year set yet'"
-      :breadcrumb="['School', 'Dashboard']"
+      :title="s('School Dashboard')"
+      :subtitle="data.academic_year ? s('Academic year {name}', { name: data.academic_year.name }) : s('No academic year set yet')"
+      :breadcrumb="[s('School'), s('Dashboard')]"
     >
       <template #actions>
         <a-button @click="$router.push('/school/attendance')">
           <template #icon><CheckSquareOutlined /></template>
-          Take register
+          {{ s('Take register') }}
         </a-button>
         <a-button type="primary" @click="$router.push('/school/students/create')">
           <template #icon><UserAddOutlined /></template>
-          Admit student
+          {{ s('Admit student') }}
         </a-button>
       </template>
     </PageHeader>
 
     <a-alert
       v-if="!loading && !data.academic_year" type="warning" show-icon class="setup"
-      message="No academic year is marked current."
-      description="Attendance, enrolment, exams and fees all hang off the academic year. Create one before anything else."
+      :message="s('No academic year is marked current.')"
+      :description="s('Attendance, enrolment, exams and fees all hang off the academic year. Create one before anything else.')"
     >
       <template #action>
-        <a-button size="small" @click="$router.push('/school/academics')">Set one up</a-button>
+        <a-button size="small" @click="$router.push('/school/academics')">{{ s('Set one up') }}</a-button>
       </template>
     </a-alert>
 
@@ -33,16 +33,16 @@
           <span class="kpi-ic kpi-ic--brand"><TeamOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.students_enrolled) }}</span>
-            <span class="kpi-label">Students enrolled</span>
+            <span class="kpi-label">{{ s('Students enrolled') }}</span>
           </span>
-          <span class="kpi-note">{{ n(data.students_male) }}M / {{ n(data.students_female) }}F</span>
+          <span class="kpi-note">{{ s('{m}M / {f}F', { m: n(data.students_male), f: n(data.students_female) }) }}</span>
         </button>
 
         <button type="button" class="kpi" @click="$router.push('/school/teachers')">
           <span class="kpi-ic kpi-ic--info"><SolutionOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.teachers_total) }}</span>
-            <span class="kpi-label">Teachers</span>
+            <span class="kpi-label">{{ s('Teachers') }}</span>
           </span>
         </button>
 
@@ -50,9 +50,9 @@
           <span class="kpi-ic kpi-ic--class"><ApartmentOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.classes_total) }}</span>
-            <span class="kpi-label">Classes</span>
+            <span class="kpi-label">{{ s('Classes') }}</span>
           </span>
-          <span class="kpi-note">{{ n(data.sections_total) }} sections</span>
+          <span class="kpi-note">{{ s('{n} sections', { n: n(data.sections_total) }) }}</span>
         </button>
 
         <button type="button" class="kpi" @click="$router.push('/school/attendance')">
@@ -62,16 +62,16 @@
               {{ data.attendance_rate_today !== null && data.attendance_rate_today !== undefined
                 ? data.attendance_rate_today + '%' : '—' }}
             </span>
-            <span class="kpi-label">Attendance today</span>
+            <span class="kpi-label">{{ s('Attendance today') }}</span>
           </span>
-          <span v-if="data.absent_today" class="kpi-note kpi-note--danger">{{ data.absent_today }} absent</span>
+          <span v-if="data.absent_today" class="kpi-note kpi-note--danger">{{ s('{n} absent', { n: data.absent_today }) }}</span>
         </button>
 
         <button type="button" class="kpi" @click="$router.push('/school/fees?outstanding=1')">
           <span class="kpi-ic kpi-ic--money"><DollarOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ money(data.fees_collected || 0) }}</span>
-            <span class="kpi-label">Fees collected</span>
+            <span class="kpi-label">{{ s('Fees collected') }}</span>
           </span>
         </button>
 
@@ -79,10 +79,10 @@
           <span class="kpi-ic kpi-ic--warn"><ExclamationCircleOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ money(data.fees_outstanding || 0) }}</span>
-            <span class="kpi-label">Fees outstanding</span>
+            <span class="kpi-label">{{ s('Fees outstanding') }}</span>
           </span>
           <span v-if="data.fees_overdue_count" class="kpi-note kpi-note--danger">
-            {{ data.fees_overdue_count }} overdue
+            {{ s('{n} overdue', { n: data.fees_overdue_count }) }}
           </span>
         </button>
       </div>
@@ -90,10 +90,10 @@
       <a-alert
         v-if="!loading && data.academic_year && !data.attendance_marked_today"
         type="info" show-icon class="setup"
-        message="Today's register has not been taken yet."
+        :message="s('Today\'s register has not been taken yet.')"
       >
         <template #action>
-          <a-button size="small" @click="$router.push('/school/attendance')">Take it now</a-button>
+          <a-button size="small" @click="$router.push('/school/attendance')">{{ s('Take it now') }}</a-button>
         </template>
       </a-alert>
 
@@ -101,13 +101,13 @@
         <a-col :xs="24" :xl="16">
           <ReportChart
             :data="data.attendance_trend || []"
-            :fields="[{ key: 'rate', label: 'Attendance %' }]"
-            title="Attendance — last 14 days"
+            :fields="[{ key: 'rate', label: s('Attendance %') }]"
+            :title="s('Attendance — last 14 days')"
             type="area"
             :height="270"
           />
 
-          <a-card size="small" title="Students by class" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Students by class')" style="margin-bottom: 16px">
             <div v-if="(data.by_class || []).length" class="bars">
               <div v-for="c in data.by_class" :key="c.id" class="bar-row">
                 <span class="bar-label">{{ c.name }}</span>
@@ -118,14 +118,14 @@
                 <span class="bar-count">{{ c.students }}</span>
               </div>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="No students enrolled yet" />
+            <a-empty v-else :image="simpleEmptyImage" :description="s('No students enrolled yet')" />
           </a-card>
         </a-col>
 
         <a-col :xs="24" :xl="8">
-          <a-card size="small" title="Today's periods" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Today\'s periods')" style="margin-bottom: 16px">
             <template #extra>
-              <a-button type="link" size="small" @click="$router.push('/school/timetable')">Timetable</a-button>
+              <a-button type="link" size="small" @click="$router.push('/school/timetable')">{{ s('Timetable') }}</a-button>
             </template>
             <div v-if="(data.today_periods || []).length" class="periods">
               <div v-for="p in data.today_periods" :key="p.id" class="period">
@@ -139,12 +139,12 @@
                 </span>
               </div>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="Nothing scheduled today" style="padding: 16px 0" />
+            <a-empty v-else :image="simpleEmptyImage" :description="s('Nothing scheduled today')" style="padding: 16px 0" />
           </a-card>
 
-          <a-card size="small" title="Upcoming exams" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Upcoming exams')" style="margin-bottom: 16px">
             <template #extra>
-              <a-button type="link" size="small" @click="$router.push('/school/exams')">All</a-button>
+              <a-button type="link" size="small" @click="$router.push('/school/exams')">{{ s('All') }}</a-button>
             </template>
             <div v-if="(data.upcoming_exams || []).length" class="exams">
               <button
@@ -153,24 +153,24 @@
               >
                 <span class="exam-body">
                   <span class="exam-name">{{ e.name }}</span>
-                  <span class="exam-meta">{{ labelOf(EXAM_TERMS, e.term) }} · {{ date(e.start_date) }}</span>
+                  <span class="exam-meta">{{ s(labelOf(EXAM_TERMS, e.term)) }} · {{ date(e.start_date) }}</span>
                 </span>
                 <a-tag :color="e.days_away < 0 ? 'warning' : 'processing'">
-                  {{ e.days_away < 0 ? 'Under way' : e.days_away === 0 ? 'Today' : `in ${e.days_away}d` }}
+                  {{ e.days_away < 0 ? s('Under way') : e.days_away === 0 ? s('Today') : s('in {n}d', { n: e.days_away }) }}
                 </a-tag>
               </button>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="Nothing scheduled" style="padding: 16px 0" />
+            <a-empty v-else :image="simpleEmptyImage" :description="s('Nothing scheduled')" style="padding: 16px 0" />
           </a-card>
 
-          <a-card size="small" title="Fees this year">
+          <a-card size="small" :title="s('Fees this year')">
             <a-descriptions :column="1" size="small">
-              <a-descriptions-item label="Billed">{{ money(data.fees_billed || 0) }}</a-descriptions-item>
-              <a-descriptions-item label="Collected">{{ money(data.fees_collected || 0) }}</a-descriptions-item>
-              <a-descriptions-item label="Outstanding">
+              <a-descriptions-item :label="s('Billed')">{{ money(data.fees_billed || 0) }}</a-descriptions-item>
+              <a-descriptions-item :label="s('Collected')">{{ money(data.fees_collected || 0) }}</a-descriptions-item>
+              <a-descriptions-item :label="s('Outstanding')">
                 <span :class="{ danger: data.fees_outstanding > 0 }">{{ money(data.fees_outstanding || 0) }}</span>
               </a-descriptions-item>
-              <a-descriptions-item label="Collected this month">{{ money(data.collected_month || 0) }}</a-descriptions-item>
+              <a-descriptions-item :label="s('Collected this month')">{{ money(data.collected_month || 0) }}</a-descriptions-item>
             </a-descriptions>
             <a-progress
               v-if="data.fees_billed"
@@ -205,6 +205,10 @@ import { useFormat } from '../../composables/useFormat';
 import { EXAM_TERMS, labelOf } from './schoolOptions';
 import http from '../../lib/http';
 import { t } from '../../i18n';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/SchoolDashboard.es.js';
+
+const { s } = useSchoolText(ES);
 
 const { money, number, date } = useFormat();
 

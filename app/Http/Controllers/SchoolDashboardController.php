@@ -81,9 +81,11 @@ class SchoolDashboardController extends Controller
             'fees_outstanding' => round((float) SchoolInvoice::whereNull('deleted_at')
                 ->whereIn('status', ['unpaid', 'partial'])
                 ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
-                ->selectRaw('COALESCE(SUM(total - paid),0) as due')->value('due'), 2),
+                // toBase(): the model's own `due` attribute hid the SUM (the panel always said 0).
+                ->toBase()->selectRaw('COALESCE(SUM(total - paid),0) as due')->value('due'), 2),
             'fees_overdue_count' => SchoolInvoice::whereNull('deleted_at')
                 ->whereIn('status', ['unpaid', 'partial'])
+                ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
                 ->whereNotNull('due_date')->whereDate('due_date', '<', $today->toDateString())->count(),
             'collected_month' => round((float) SchoolPayment::whereNull('deleted_at')
                 ->whereDate('paid_on', '>=', $monthStart->toDateString())->sum('amount'), 2),

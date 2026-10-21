@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SchoolInvoice extends Model
 {
+    // Multicompany (2026-10-20): only the acting company's rows.
+    use \App\Models\Concerns\BelongsToActingCompany;
+
     // The reference generator is module-agnostic despite its name; it was
     // written for the hospital module and produces PREFIX-YYYYMMDD-NNNN.
     use SoftDeletes, GeneratesHospitalReference;

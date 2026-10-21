@@ -1,14 +1,14 @@
 <template>
   <div class="page">
-    <PageHeader title="Students" :breadcrumb="['School', 'Students']">
+    <PageHeader :title="s('Students')" :breadcrumb="[s('School'), s('Students')]">
       <template #actions>
         <a-button @click="$router.push('/school/enrollments')">
           <template #icon><SwapOutlined /></template>
-          Enrolment
+          {{ s('Enrolment') }}
         </a-button>
         <a-button v-if="canAdd" type="primary" @click="$router.push('/school/students/create')">
           <template #icon><UserAddOutlined /></template>
-          Admit student
+          {{ s('Admit student') }}
         </a-button>
       </template>
     </PageHeader>
@@ -17,30 +17,30 @@
       <div class="toolbar">
         <a-input-search
           v-model:value="crud.search.value"
-          placeholder="Search name, admission no., guardian…"
+          :placeholder="s('Search name, admission no., guardian…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.class_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All classes"
+          option-filter-prop="label" :placeholder="s('All classes')"
           :options="classOptions" @change="onClassChange"
         />
         <a-select
           v-model:value="filters.section_id" class="tb-item-sm" allow-clear show-search
-          option-filter-prop="label" placeholder="Section"
+          option-filter-prop="label" :placeholder="s('Section')"
           :options="sectionOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.status" class="tb-item-sm" allow-clear
-          placeholder="Status" :options="STUDENT_STATUSES" @change="crud.reload"
+          :placeholder="s('Status')" :options="statusOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.gender" class="tb-item-sm" allow-clear
-          placeholder="Gender" :options="GENDERS" @change="crud.reload"
+          :placeholder="s('Gender')" :options="genderOptions" @change="crud.reload"
         />
-        <a-tooltip title="Students with no class for the current year">
+        <a-tooltip :title="s('Students with no class for the current year')">
           <a-checkbox v-model:checked="filters.unassigned" class="tb-check" @change="crud.reload">
-            Not placed
+            {{ s('Not placed') }}
           </a-checkbox>
         </a-tooltip>
       </div>
@@ -65,7 +65,7 @@
             <a-tag color="purple">{{ record.class_name }}</a-tag>
             <a-tag v-if="record.section_name">{{ record.section_name }}</a-tag>
           </template>
-          <a-tag v-else color="warning">Not placed</a-tag>
+          <a-tag v-else color="warning">{{ s('Not placed') }}</a-tag>
         </template>
 
         <template v-else-if="column.key === 'age'">
@@ -73,7 +73,7 @@
           <span v-else class="muted">—</span>
         </template>
 
-        <template v-else-if="column.key === 'gender'">{{ labelOf(GENDERS, record.gender) }}</template>
+        <template v-else-if="column.key === 'gender'">{{ s(labelOf(GENDERS, record.gender)) }}</template>
 
         <template v-else-if="column.key === 'guardian'">
           <div v-if="record.guardian_name">{{ record.guardian_name }}</div>
@@ -83,13 +83,13 @@
 
         <template v-else-if="column.key === 'status'">
           <a-tag :color="optionOf(STUDENT_STATUSES, record.status).color">
-            {{ labelOf(STUDENT_STATUSES, record.status) }}
+            {{ s(labelOf(STUDENT_STATUSES, record.status)) }}
           </a-tag>
         </template>
 
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
-            <a-tooltip title="Open record">
+            <a-tooltip :title="s('Open record')">
               <a-button type="text" size="small" @click="open(record)">
                 <template #icon><EyeOutlined /></template>
               </a-button>
@@ -128,6 +128,10 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import { GENDERS, STUDENT_STATUSES, labelOf, optionOf } from './schoolOptions';
 import http from '../../lib/http';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/Students.es.js';
+
+const { s } = useSchoolText(ES);
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -158,8 +162,10 @@ const crud = useCrudTable('school/students', {
 const meta = ref({});
 const classOptions = computed(() => (meta.value.classes || []).map(c => ({ value: c.id, label: c.name })));
 const sectionOptions = computed(() => (meta.value.sections || [])
-  .filter(s => !filters.class_id || s.class_id === filters.class_id)
-  .map(s => ({ value: s.id, label: s.name })));
+  .filter(sec => !filters.class_id || sec.class_id === filters.class_id)
+  .map(sec => ({ value: sec.id, label: sec.name })));
+const statusOptions = computed(() => STUDENT_STATUSES.map(o => ({ ...o, label: s(o.label) })));
+const genderOptions = computed(() => GENDERS.map(o => ({ ...o, label: s(o.label) })));
 
 function onClassChange() {
   // A section from the previous class would filter everything away.
@@ -168,13 +174,13 @@ function onClassChange() {
 }
 
 const columns = computed(() => [
-  { title: 'Student', key: 'name', dataIndex: 'name', sorter: true },
-  { title: 'Class', key: 'class', width: 170 },
-  { title: 'Roll', dataIndex: 'roll_number', key: 'roll_number', width: 90 },
-  { title: 'Age', key: 'age', dataIndex: 'age', width: 80 },
-  { title: 'Gender', key: 'gender', dataIndex: 'gender', sorter: true, width: 110 },
-  { title: 'Guardian', key: 'guardian', width: 180 },
-  { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 130 },
+  { title: s('Student'), key: 'name', dataIndex: 'name', sorter: true },
+  { title: s('Class'), key: 'class', width: 170 },
+  { title: s('Roll'), dataIndex: 'roll_number', key: 'roll_number', width: 90 },
+  { title: s('Age'), key: 'age', dataIndex: 'age', width: 80 },
+  { title: s('Gender'), key: 'gender', dataIndex: 'gender', sorter: true, width: 110 },
+  { title: s('Guardian'), key: 'guardian', width: 180 },
+  { title: s('Status'), key: 'status', dataIndex: 'status', sorter: true, width: 130 },
   { title: '', key: 'actions', width: 120 },
 ]);
 

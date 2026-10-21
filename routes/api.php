@@ -150,6 +150,12 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::delete('/admin/website/snapshots/{id}', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'deleteSnapshot'])->whereNumber('id');
     Route::get('/admin/website/menus', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'menus']);
     Route::post('/admin/website/menus', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'updateMenus']);
+    Route::get('/admin/website/onepage', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'onePage']);
+    Route::post('/admin/website/onepage', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'updateOnePage']);
+    Route::post('/admin/website/onepage/template', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'onePageTemplate']);
+    Route::post('/admin/website/onepage/image', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'onePageImage']);
+    Route::get('/admin/website/templates', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'templates']);
+    Route::post('/admin/website/templates/{key}/use', [\App\Http\Controllers\Api\Store\WebsiteSettingsController::class, 'useTemplate'])->where('key', '[a-z0-9-]+');
     Route::get('/admin/store/site-menu', [SettingsApiController::class, 'siteMenu']);
     Route::put('/admin/store/site-menu', [SettingsApiController::class, 'updateSiteMenu']);
     Route::post('/admin/store/site-menu/detect', [SettingsApiController::class, 'detectSiteMenu']);
@@ -1657,6 +1663,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('menu-positions', 'MenuPositionController@index');
     Route::post('menu-positions', 'MenuPositionController@store');
     Route::post('menu-positions/visibility', 'MenuPositionController@visibility');
+    Route::post('menu-positions/default', 'MenuPositionController@copyDefault');
     Route::delete('menu-positions', 'MenuPositionController@reset');
 
     // ------------------------------- Settings ------------------------\\
@@ -1742,6 +1749,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::put('update_config_mail/{id}', 'MailSettingsController@update_config_mail');
     Route::get('get_config_mail', 'MailSettingsController@get_config_mail');
     Route::post('test_config_mail', 'MailSettingsController@test_config_mail');
+    Route::post('deploy_config_mail', 'MailSettingsController@deploy_config_mail');
 
     // ------------------------------- SMS Settings ------------------------\\
 

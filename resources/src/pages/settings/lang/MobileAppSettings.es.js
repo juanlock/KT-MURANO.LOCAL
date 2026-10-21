@@ -1,0 +1,28 @@
+// Spanish texts of MobileAppSettings.vue (English text = key), used through useLocalText().
+export default {
+  'Follow the device': 'Según el dispositivo',
+  'Light': 'Claro',
+  'Dark': 'Oscuro',
+  'Choose file': 'Elegir archivo',
+  'Select all': 'Seleccionar todo',
+  'Deselect all': 'Quitar selección',
+  "TODAY'S SALES": 'VENTAS DE HOY',
+  // Module switches
+  'Dashboard': 'Panel',
+  'POS': 'POS',
+  'Products': 'Productos',
+  'Sales': 'Ventas',
+  'Purchases': 'Compras',
+  'Quotations': 'Cotizaciones',
+  'Returns': 'Devoluciones',
+  'Customers': 'Clientes',
+  'Suppliers': 'Proveedores',
+  'Expenses': 'Gastos',
+  'Adjustments': 'Ajustes de inventario',
+  'Transfers': 'Transferencias',
+  'Reports': 'Reportes',
+  'Accounting': 'Contabilidad',
+  'Online orders': 'Pedidos en línea',
+  'People': 'Personal',
+  'Users': 'Usuarios',
+};

@@ -183,6 +183,126 @@ class WebsiteSettingsController extends Controller
         return response()->json(['menus' => $menus]);
     }
 
+    /*
+     * One-page template (2026-10-20) -- App\Support\OnePageTemplates.
+     *  GET  admin/website/onepage           -> {onepage, templates, recommended, applied, preview_url, public_url, modules}
+     *  POST admin/website/onepage           {onepage}  (sanitized: plain text, safe links, own images)
+     *  POST admin/website/onepage/template  {template, reset?}  new design (texts kept unless reset)
+     *  POST admin/website/onepage/image     (multipart) image -> {path}
+     */
+    public function onePage(Request $request)
+    {
+        $cid = $this->companyId($request);
+        $w = WebsiteSetting::forCompany($cid);
+        $page = is_array($w->onepage) && ! empty($w->onepage['sections']) ? $w->onepage : \App\Support\OnePageTemplates::build($cid);
+
+        return response()->json($this->onePagePayload($cid, $page));
+    }
+
+    public function updateOnePage(Request $request)
+    {
+        $cid = $this->companyId($request);
+        $in = $request->validate(['onepage' => 'required|array'])['onepage'];
+        $w = WebsiteSetting::forCompany($cid);
+        $w->onepage = \App\Support\OnePageTemplates::sanitize($in, $cid);
+        $w->save();
+
+        return response()->json($this->onePagePayload($cid, $w->onepage));
+    }
+
+    public function onePageTemplate(Request $request)
+    {
+        $cid = $this->companyId($request);
+        $data = $request->validate([
+            'template' => 'required|in:'.implode(',', array_keys(\App\Support\OnePageTemplates::TEMPLATES)),
+            'reset' => 'nullable|boolean',
+        ]);
+        $w = WebsiteSetting::forCompany($cid);
+        $current = is_array($w->onepage) ? $w->onepage : [];
+        $w->onepage = ! empty($data['reset']) || empty($current['sections'])
+            ? \App\Support\OnePageTemplates::build($cid, $data['template'])
+            : \App\Support\OnePageTemplates::switchTo($current, $data['template'], $cid);
+        $w->save();
+
+        return response()->json($this->onePagePayload($cid, $w->onepage));
+    }
+
+    public function onePageImage(Request $request)
+    {
+        $cid = $this->companyId($request);
+        $request->validate(['image' => 'required|file|mimes:jpg,jpeg,png,webp|max:8192']);
+        $file = $request->file('image');
+        $dir = CompanyFiles::dir($cid, 'website').'/onepage';
+        if (! is_dir(public_path($dir))) {
+            mkdir(public_path($dir), 0775, true);
+        }
+        $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $ext = in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true) ? $ext : 'jpg';
+        $path = $dir.'/'.Str::lower(Str::random(10)).'.'.$ext;
+        Image::make($file->getRealPath())->orientate()->resize(1920, 1920, function ($c) {
+            $c->aspectRatio();
+            $c->upsize();
+        })->encode($ext, 82)->save(public_path($path));
+
+        return response()->json(['path' => $path, 'url' => asset($path)]);
+    }
+
+    private function onePagePayload(int $cid, array $page): array
+    {
+        $type = \App\Support\BusinessTypes::of($cid);
+
+        return [
+            'onepage' => $page,
+            'templates' => \App\Support\OnePageTemplates::list(),
+            'recommended' => \App\Support\OnePageTemplates::forType($type),
+            'business_type' => \App\Support\BusinessTypes::LABELS[$type] ?? $type,
+            'applied' => StoreSetting::where('company_id', $cid)->value('front_page_mode') === 'onepage',
+            'preview_url' => \Illuminate\Support\Facades\URL::temporarySignedRoute('website.onepage.preview', now()->addHours(2), ['company' => $cid], false),
+            'public_url' => WebsitePaths::url('', $cid),
+            'modules' => [
+                'bookings' => \App\Support\ModuleFlags::enabled($cid, 'bookings'),
+                'portfolio' => \App\Support\ModuleFlags::enabled($cid, 'portfolio'),
+                'gallery' => \App\Support\ModuleFlags::enabled($cid, 'gallery'),
+            ],
+            'images_base' => rtrim(url('/'), '/').'/',
+        ];
+    }
+
+    /*
+     * Ready-made websites (2026-10-20, App\Support\WebsiteTemplates): Front page ->
+     * Import -> "Start from a ready-made website".
+     *  GET  admin/website/templates            -> {templates: [{key, name, title, pages, mb, thumb, preview}]}
+     *  POST admin/website/templates/{key}/use  -> the current website saved (Saved websites), the template
+     *                                             copied into a new folder sites/{key}[-n], front page = it
+     */
+    public function templates(Request $request)
+    {
+        $this->companyId($request);
+
+        return response()->json(['templates' => \App\Support\WebsiteTemplates::forList()]);
+    }
+
+    public function useTemplate(Request $request, string $key)
+    {
+        $cid = $this->companyId($request);
+        $tpl = \App\Support\WebsiteTemplates::get($key);
+        abort_unless($tpl, 404);
+        @set_time_limit(300);
+        try {
+            WebsiteSnapshots::take($cid);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => 'A copy of the current website could not be saved, so nothing was changed: '.$e->getMessage()], 422);
+        }
+        $r = \App\Services\SiteImporter::fromTemplate($cid, $key);
+        \App\Services\FrontPage::setImported($cid, null, $r['entry']);
+
+        return response()->json(['ok' => true, 'mode' => 'imported', 'pages' => $r['pages'], 'assets' => $r['assets'], 'template' => $tpl['name'],
+            'snapshots' => WebsiteSnapshots::list($cid),
+            'settings' => StoreSetting::forCompany($cid)->only(['front_page_mode', 'front_page_url', 'front_page_path', 'front_page_imported_at'])]);
+    }
+
     /** Delete a file only when it is this company's own website file. */
     private function dropFile(?string $path, int $cid): void
     {

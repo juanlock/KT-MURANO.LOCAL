@@ -108,6 +108,8 @@ class NetworkAccess
     public static function check(object $user, Request $request): ?string
     {
         if (! self::restricts($user)) return null;
+        // A SuperAdmin working as this admin (login chooser): the SuperAdmin is exempt.
+        if (SuperAdminSwitch::superAdminFor($user, $request)) return null;
         if (self::ipAllowed((int) $user->company_id, (string) $request->ip())) return null;
         $device = self::approvedDevice($user, $request);
         if ($device) {

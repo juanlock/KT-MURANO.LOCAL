@@ -137,6 +137,17 @@ class FrontPage
         }
     }
 
+    /** One-page template (2026-10-20): website_settings.onepage, built from the business type the first time. */
+    public static function setOnePage(int $companyId): void
+    {
+        $w = \App\Models\WebsiteSetting::forCompany($companyId);
+        if (! is_array($w->onepage) || empty($w->onepage['sections'])) {
+            $w->onepage = \App\Support\OnePageTemplates::build($companyId);
+            $w->save();
+        }
+        StoreSetting::forCompany($companyId)->forceFill(['front_page_mode' => 'onepage'])->save();
+    }
+
     public static function setSections(int $companyId): void
     {
         StoreSetting::forCompany($companyId)->forceFill(['front_page_mode' => 'sections'])->save();

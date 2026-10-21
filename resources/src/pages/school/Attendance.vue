@@ -1,16 +1,16 @@
 <template>
   <div class="page">
-    <PageHeader title="Attendance" subtitle="Take the register, or review a month." :breadcrumb="['School', 'Attendance']" />
+    <PageHeader :title="s('Attendance')" :subtitle="s('Take the register, or review a month.')" :breadcrumb="[s('School'), s('Attendance')]" />
 
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-select
           v-model:value="picker.class_id" class="tb-item" show-search option-filter-prop="label"
-          placeholder="Class" :options="classOptions" @change="onClassChange"
+          :placeholder="s('Class')" :options="classOptions" @change="onClassChange"
         />
         <a-select
           v-model:value="picker.section_id" class="tb-item-sm" allow-clear show-search
-          option-filter-prop="label" placeholder="All sections"
+          option-filter-prop="label" :placeholder="s('All sections')"
           :options="sectionOptions" @change="loadRegister"
         />
         <a-date-picker
@@ -19,47 +19,47 @@
         />
         <a-select
           v-model:value="picker.subject_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="Whole day" :options="subjectOptions"
+          option-filter-prop="label" :placeholder="s('Whole day')" :options="subjectOptions"
           @change="loadRegister"
         />
         <a-button :disabled="!picker.class_id" :loading="loading" @click="loadRegister">
           <template #icon><ReloadOutlined /></template>
-          Load
+          {{ s('Load') }}
         </a-button>
       </div>
     </a-card>
 
     <a-card v-if="!picker.class_id">
-      <a-empty description="Pick a class to take its register" />
+      <a-empty :description="s('Pick a class to take its register')" />
     </a-card>
 
     <template v-else>
       <a-spin :spinning="loading">
         <div class="summary">
           <div class="sum">
-            <span class="sum-label">On roll</span>
+            <span class="sum-label">{{ s('On roll') }}</span>
             <span class="sum-value">{{ students.length }}</span>
           </div>
-          <div v-for="s in ATTENDANCE_STATUSES" :key="s.value" class="sum">
-            <span class="sum-label">{{ s.label }}</span>
-            <span class="sum-value" :class="`tone-${s.value}`">{{ counts[s.value] || 0 }}</span>
+          <div v-for="st in attendanceStatuses" :key="st.value" class="sum">
+            <span class="sum-label">{{ st.label }}</span>
+            <span class="sum-value" :class="`tone-${st.value}`">{{ counts[st.value] || 0 }}</span>
           </div>
           <div class="sum">
-            <span class="sum-label">Rate</span>
+            <span class="sum-label">{{ s('Rate') }}</span>
             <span class="sum-value">{{ rate }}%</span>
           </div>
         </div>
 
         <a-card size="small">
           <template #title>
-            <span>Register — {{ date(picker.date) }}</span>
-            <a-tag v-if="alreadyMarked" color="processing" class="tag-tight">Already taken</a-tag>
-            <a-tag v-else color="warning" class="tag-tight">Not taken yet</a-tag>
+            <span>{{ s('Register — {date}', { date: date(picker.date) }) }}</span>
+            <a-tag v-if="alreadyMarked" color="processing" class="tag-tight">{{ s('Already taken') }}</a-tag>
+            <a-tag v-else color="warning" class="tag-tight">{{ s('Not taken yet') }}</a-tag>
           </template>
           <template #extra>
             <a-space wrap>
-              <a-button size="small" @click="markAll('present')">All present</a-button>
-              <a-button size="small" @click="markAll('absent')">All absent</a-button>
+              <a-button size="small" @click="markAll('present')">{{ s('All present') }}</a-button>
+              <a-button size="small" @click="markAll('absent')">{{ s('All absent') }}</a-button>
               <a-button type="primary" :loading="saving" :disabled="!students.length" @click="save">
                 {{ $t('submit') }}
               </a-button>
@@ -74,33 +74,33 @@
               <div class="row-id">
                 <div class="row-name">{{ student.name }}</div>
                 <div class="row-sub">
-                  {{ student.roll_number ? `Roll ${student.roll_number} · ` : '' }}{{ student.admission_number }}
+                  {{ student.roll_number ? s('Roll {n} · ', { n: student.roll_number }) : '' }}{{ student.admission_number }}
                 </div>
               </div>
               <a-radio-group
                 v-model:value="student.status" size="small" button-style="solid" class="row-status"
               >
                 <a-radio-button
-                  v-for="s in ATTENDANCE_STATUSES" :key="s.value" :value="s.value"
-                  :class="`opt-${s.value}`"
+                  v-for="st in attendanceStatuses" :key="st.value" :value="st.value"
+                  :class="`opt-${st.value}`" :title="st.label"
                 >
-                  {{ s.short }}
+                  {{ st.short }}
                 </a-radio-button>
               </a-radio-group>
               <a-input
-                v-model:value="student.remarks" size="small" placeholder="Remarks"
+                v-model:value="student.remarks" size="small" :placeholder="s('Remarks')"
                 class="row-remarks" allow-clear
               />
             </div>
           </div>
-          <a-empty v-else description="No students enrolled in that class for the current year" />
+          <a-empty v-else :description="s('No students enrolled in that class for the current year')" />
         </a-card>
       </a-spin>
 
-      <a-card size="small" title="This month" style="margin-top: 16px">
+      <a-card size="small" :title="s('This month')" style="margin-top: 16px">
         <ReportChart
           :data="summaryDays"
-          :fields="[{ key: 'rate', label: 'Attendance %' }]"
+          :fields="[{ key: 'rate', label: s('Attendance %') }]"
           type="area"
           :height="220"
         />
@@ -129,8 +129,16 @@ import { useFormat } from '../../composables/useFormat';
 import { ATTENDANCE_STATUSES } from './schoolOptions';
 import http from '../../lib/http';
 import { t } from '../../i18n';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/Attendance.es.js';
 
+const { s } = useSchoolText(ES);
 const { date } = useFormat();
+
+// Statuses with label and one-letter button in the active language (values unchanged).
+const attendanceStatuses = computed(() => ATTENDANCE_STATUSES.map(o => ({
+  ...o, label: s(o.label), short: s(o.short),
+})));
 
 const picker = reactive({
   class_id: undefined,
@@ -221,7 +229,7 @@ async function save() {
         remarks: s.remarks || null,
       })),
     });
-    message.success(`Register saved — ${data.saved} student(s).`);
+    message.success(s('Register saved — {n} student(s).', { n: data.saved }));
     alreadyMarked.value = true;
     loadSummary();
   } catch (e) {

@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Teacher extends Model
 {
+    // Multicompany (2026-10-20): only the acting company's rows.
+    use \App\Models\Concerns\BelongsToActingCompany;
+
     use SoftDeletes;
 
     protected $table = 'teachers';

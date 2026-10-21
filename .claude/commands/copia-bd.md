@@ -2,8 +2,9 @@
 description: "Protocol Copia BD -- a copy of the local dbmurano on demand: KT-TOOLS/database/<PC name>/dbmurano_<date>_<time>_copiabd.zip (every table except the Email Office ones) + ..._copiabd_office_emails_1/_2/_3.zip, compressed and phpMyAdmin-ready. The same script makes Wake-up's (_wakeup) and Pa Llevar's (_pallevar) backups. Triggers on \"Claude/Jarvis, run protocolo copia bd\" / \"protocolo copia bd\"."
 ---
 
-Run Protocol Copia BD (a database copy on demand; Wake-up and Pa Llevar make theirs with the same script):
+Run Protocol Copia BD (a database copy on demand; Wake-up, Pa Llevar and A Dormir make theirs with the same script):
 
+0. **Which PC** -- run `hostname` (don't ask the user): the PC name for the folder / file names, and the Kelsy location (`KT-THUNDERA` -> Thundera, `KTOPTIMUM_NB` -> Optimum, any other -> Home).
 1. `php artisan tinker --execute="$backupTag = 'copiabd'; require '<absolute-path-to-repo>\database\scripts\protocol_copia_bd.php';"` -- the **absolute path** (a relative `require` inside tinker fails with "Failed opening required").
 2. **Where and what** (user's rules, 2026-10-05 / 2026-10-06 / 2026-10-19): one folder per PC, **`KT-TOOLS/database/<PC name>/`** (`gethostname()`, e.g. `KT-THUNDERA`), four zips per run, never overwritten:
    - **`dbmurano_<date>_<time>_<tag>.zip`** -- every table except the Email Office ones, plus routines and triggers (~4 MB zip);

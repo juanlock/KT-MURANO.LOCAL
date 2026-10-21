@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Patient extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, \App\Models\Concerns\BelongsToActingCompany;
 
     protected $table = 'patients';
 

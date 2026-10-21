@@ -8,10 +8,8 @@ use App\Models\Message;
 use App\Models\OnlineOrder;
 use App\Models\OnlineOrderReturn;
 use App\Models\Product;
-use App\Models\ProductQuestion;
 use App\Models\ProductReview;
 use App\Models\StoreQuoteRequest;
-use App\Models\StoreSetting;
 use App\Models\WalletWithdrawal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -28,6 +26,7 @@ use Illuminate\Support\Facades\Schema;
 class PendingWorkController extends Controller
 {
     use \App\Traits\ScopesWarehouseAccess;
+    use \App\Http\Controllers\Concerns\ScopesToCompany;
 
     public function index(Request $request)
     {
@@ -35,6 +34,7 @@ class PendingWorkController extends Controller
         abort_unless($user, 401);
 
         $items = [];
+        $companyId = $this->resolveActingCompanyId($request);
 
         foreach ($this->sources() as $key => $source) {
             // Skip anything this user may not see, and anything whose table is
@@ -43,6 +43,12 @@ class PendingWorkController extends Controller
                 continue;
             }
             if (! $this->allows($user, $source)) {
+                continue;
+            }
+            // A module the company has switched off: no alert -- its page can't be
+            // opened (user's rule, 2026-10-20). The SuperAdmin sees every module.
+            if (! empty($source['module']) && $user->type !== 'SuperAdmin'
+                && ! \App\Support\ModuleFlags::enabled($companyId, $source['module'])) {
                 continue;
             }
 
@@ -74,8 +80,11 @@ class PendingWorkController extends Controller
     }
 
     /**
-     * key => [count closure, label key, SPA route, permission/policy, table].
+     * key => [count closure, label key, SPA route, permission/policy, table, module].
      * `permission` is a plain permission name; `policy` is [ability, class].
+     * The permission must be the one the route's page asks for (router meta.permission),
+     * and `module` the Business Module the page belongs to (config/modules.js key):
+     * an alert is only shown when its page can actually be opened.
      */
     private function sources(): array
     {
@@ -98,6 +107,7 @@ class PendingWorkController extends Controller
                 'label' => 'Pending_Online_Orders',
                 'route' => '/store/orders',
                 'permission' => 'Orders_view',
+                'module' => 'Store',
                 'table' => 'online_orders',
                 'count' => fn () => OnlineOrder::where('status', 'pending')->count(),
             ],
@@ -105,13 +115,15 @@ class PendingWorkController extends Controller
                 'label' => 'Payment_Proofs_To_Verify',
                 'route' => '/store/orders?proof=pending',
                 'permission' => 'Orders_view',
+                'module' => 'Store',
                 'table' => 'online_order_payment_proofs',
                 'count' => fn () => \App\Models\OnlineOrderPaymentProof::where('status', 'pending')->count(),
             ],
             'pending_customers' => [
                 'label' => 'Pending_Customers',
                 'route' => '/store/pending-customers',
-                'policy' => ['view', StoreSetting::class],
+                'permission' => 'Store_settings_view',
+                'module' => 'Store',
                 'table' => 'ecommerce_clients',
                 'count' => fn () => EcommerceClient::whereNull('deleted_at')->where('status', 0)->count(),
             ],
@@ -119,6 +131,7 @@ class PendingWorkController extends Controller
                 'label' => 'Return_Requests',
                 'route' => '/store/returns',
                 'permission' => 'Orders_view',
+                'module' => 'Store',
                 'table' => 'online_order_returns',
                 'count' => fn () => OnlineOrderReturn::where('status', 'requested')->count(),
             ],
@@ -126,27 +139,26 @@ class PendingWorkController extends Controller
                 'label' => 'Quote_Requests',
                 'route' => '/store/quote-requests',
                 'permission' => 'Orders_view',
+                'module' => 'Store',
                 'table' => 'store_quote_requests',
                 'count' => fn () => StoreQuoteRequest::where('status', 'new')->count(),
             ],
             'product_reviews' => [
                 'label' => 'Product_Reviews',
                 'route' => '/store/reviews',
-                'policy' => ['view', StoreSetting::class],
+                'permission' => 'Store_settings_view',
+                'module' => 'Store',
                 'table' => 'product_reviews',
                 'count' => fn () => ProductReview::where('status', 'pending')->count(),
             ],
-            'product_questions' => [
-                'label' => 'Customer_Questions',
-                'route' => '/store/questions',
-                'policy' => ['view', StoreSetting::class],
-                'table' => 'product_questions',
-                'count' => fn () => ProductQuestion::whereNull('answered_at')->count(),
-            ],
+            // Customer questions (product_questions): no admin page answers them
+            // yet (there is no /store/questions), so no alert -- it could never be
+            // opened. Add it back with the route once that page exists.
             'messages' => [
                 'label' => 'Messages',
                 'route' => '/store/messages',
                 'permission' => 'Messages_view',
+                'module' => 'Store',
                 'table' => 'messages',
                 'count' => fn () => Message::where('is_read', 0)->count(),
             ],
@@ -164,10 +176,12 @@ class PendingWorkController extends Controller
                     return \Illuminate\Support\Facades\DB::table('trusted_devices')->where('company_id', $cid)->where('status', 'pending')->count();
                 },
             ],
+            // Withdrawals are approved on E-Wallet -> Dashboard (there was no /store/wallet page).
             'wallet_withdrawals' => [
                 'label' => 'Pending_Withdrawals',
-                'route' => '/store/wallet',
-                'policy' => ['view', StoreSetting::class],
+                'route' => '/ewallet/dashboard',
+                'permission' => 'ewallet',
+                'module' => 'EWallet',
                 'table' => 'wallet_withdrawals',
                 'count' => fn () => WalletWithdrawal::where('status', 'pending')->count(),
             ],

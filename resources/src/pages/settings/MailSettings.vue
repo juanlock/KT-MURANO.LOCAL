@@ -62,7 +62,19 @@
             <template #icon><SendOutlined /></template>
             Test
           </a-button>
+          <a-popconfirm
+            v-if="isTemplate"
+            :title="t('mail_deploy_confirm')"
+            :ok-text="t('Yes')" :cancel-text="t('No')"
+            @confirm="deployAll"
+          >
+            <a-button :loading="deploying">
+              <template #icon><CloudUploadOutlined /></template>
+              {{ t('mail_deploy_all') }}
+            </a-button>
+          </a-popconfirm>
         </a-space>
+        <div v-if="isTemplate" class="notice-help" style="margin-top: 8px">{{ t('mail_deploy_help') }}</div>
       </a-form>
     </a-card>
 
@@ -128,7 +140,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { SendOutlined } from '@ant-design/icons-vue';
+import { SendOutlined, CloudUploadOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
@@ -157,6 +169,24 @@ const copyKindOptions = [
 ];
 const badCopyEmails = computed(() => copyEmails.value.filter(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).trim())));
 
+// AdminSystem (SuperAdmin): its mail server is the template for every company.
+const isTemplate = ref(false);
+const deploying = ref(false);
+
+// Saves AdminSystem's form first, then copies it to every company (sender "Admin {company}").
+async function deployAll() {
+  deploying.value = true;
+  try {
+    if (!(await save())) return;
+    const data = await http.post('deploy_config_mail');
+    message.success(data?.message || t('Successfully_Updated'));
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+  } finally {
+    deploying.value = false;
+  }
+}
+
 async function save() {
   saving.value = true;
   try {
@@ -174,8 +204,10 @@ async function save() {
       mail_copy_on: copyOn.value,
     });
     message.success(t('Successfully_Updated'));
+    return true;
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData'));
+    return false;
   } finally {
     saving.value = false;
   }
@@ -218,6 +250,7 @@ onMounted(async () => {
     superadminCopy.value = data.notify_superadmin_copy === true;
     copyEmails.value = data.mail_copy?.emails || [];
     copyOn.value = data.mail_copy?.on || ['sales', 'reminders', 'purchases'];
+    isTemplate.value = data.is_template === true;
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {

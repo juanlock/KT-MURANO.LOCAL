@@ -232,6 +232,7 @@ export const MIGRATED_ROUTES = {
     '/app/intranet-admin/gallery': '/intranet-admin/gallery',
     '/app/intranet-admin/events': '/intranet-admin/events',
     '/app/intranet-admin/pages': '/intranet-admin/pages',
+    '/app/realestate/dashboard': '/realestate/dashboard',
     '/app/realestate/properties': '/realestate/properties',
     '/app/realestate/categories': '/realestate/categories',
     '/app/realestate/inquiries': '/realestate/inquiries',
@@ -448,6 +449,7 @@ export const MENU = [
                 label: 'Real_Estate',
                 permissions: ['realestate_properties', 'realestate_categories', 'realestate_inquiries'],
                 children: [
+                    { label: 'Dashboard', to: '/app/realestate/dashboard', permissions: ['realestate_properties'] },
                     { label: 'Properties', to: '/app/realestate/properties', permissions: ['realestate_properties'] },
                     { label: 'Property_Categories', to: '/app/realestate/categories', permissions: ['realestate_categories'] },
                     { label: 'Property_Inquiries', to: '/app/realestate/inquiries', permissions: ['realestate_inquiries'] },
@@ -1017,7 +1019,7 @@ export const MENU = [
         key: 'settings',
         icon: 'database-zap',
         label: 'Settings',
-        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'paypal_manage'],
+        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'sms_templates', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'paypal_manage'],
         children: [
             { label: 'SystemSettings', to: '/app/settings/System_settings', permissions: ['setting_system'] },
             // superAdminOnly: install-level admin tooling that must never be
@@ -1038,7 +1040,7 @@ export const MENU = [
             { label: 'Languages', to: '/app/settings/translations_settings', permissions: ['translations_settings'] },
             { label: 'Payment_Methods', to: '/app/settings/payment_methods', permissions: ['payment_methods'] },
             { label: 'sms_settings', to: '/app/settings/sms_settings', permissions: ['sms_settings'] },
-            { label: 'sms_templates', to: '/app/settings/sms_templates', permissions: ['notification_template'] },
+            { label: 'sms_templates', to: '/app/settings/sms_templates', permissions: ['sms_templates'] },
             { label: 'mail_settings', to: '/app/settings/mail_settings', permissions: ['mail_settings'] },
             { label: 'email_templates', to: '/app/settings/email_templates', permissions: ['notification_template'] },
             { label: 'Pos_Settings', to: '/app/settings/pos_settings', permissions: ['pos_settings'] },

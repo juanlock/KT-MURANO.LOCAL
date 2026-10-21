@@ -23,7 +23,7 @@
 
       <!-- POS -->
       <!-- POS Settings -> "Show POS button in header"; the account menu keeps its POS entry. -->
-      <span v-if="auth.can('Pos_view') && auth.headerIcon('pos')" class="tb-slot" :style="{ order: auth.headerOrder('pos') }">
+      <span v-if="auth.can('Pos_view') && auth.headerIcon('pos') && auth.moduleEnabled('pos')" class="tb-slot" :style="{ order: auth.headerOrder('pos') }">
         <a-button type="primary" class="pos-btn" @click="$router.push('/pos')">
           <template #icon><CalculatorOutlined /></template>
           <span class="hide-sm">POS</span>
@@ -50,7 +50,7 @@
       </span>
 
       <!-- Today's summary -->
-      <span v-if="auth.headerIcon('summary')" class="tb-slot" :style="{ order: auth.headerOrder('summary') }">
+      <span v-if="auth.headerIcon('summary') && auth.moduleEnabled('sales')" class="tb-slot" :style="{ order: auth.headerOrder('summary') }">
         <a-tooltip title="Como Vamos!">
           <a-button type="text" class="icon-btn summary-btn" @click="summaryOpen = true">
             <template #icon><PieChartOutlined /></template>
@@ -104,7 +104,7 @@
                Ant sizes that slot for a bare icon and clips the count bubble.
                count 0 renders nothing, matching legacy's v-if on the badge. -->
           <a-button type="text" class="icon-btn notif-btn">
-            <a-badge :count="pending.total" size="small" :offset="[4, -2]">
+            <a-badge :count="notifTotal" size="small" :offset="[4, -2]">
               <BellOutlined class="bell" />
             </a-badge>
           </a-button>
@@ -112,12 +112,12 @@
             <div class="notif-menu" :class="{ 'notif-menu--dark': ui.dark }">
               <div class="notif-head">
                 <span class="notif-title">{{ $t('Notifications') }}</span>
-                <span v-if="pending.total" class="notif-pill">{{ pending.total }}</span>
+                <span v-if="notifTotal" class="notif-pill">{{ notifTotal }}</span>
               </div>
 
               <div class="notif-list">
                 <button
-                  v-for="item in pending.items" :key="item.key"
+                  v-for="item in notifItems" :key="item.key"
                   type="button" class="notif-item" @click="goPending(item)"
                 >
                   <span class="notif-ic" :class="{ 'notif-ic--warn': item.severity === 'warning' }">
@@ -131,7 +131,7 @@
                   <RightOutlined class="notif-chev" />
                 </button>
 
-                <div v-if="!pending.items.length" class="notif-empty">
+                <div v-if="!notifItems.length" class="notif-empty">
                   <span class="notif-empty-ic"><BellOutlined /></span>
                   <span class="notif-empty-title">{{ $t('No_notifications') }}</span>
                   <span class="notif-empty-sub">{{ $t('You_are_all_caught_up') }}</span>
@@ -160,6 +160,13 @@
           </a-button>
         </a-tooltip>
       </span>
+
+      <!-- A SuperAdmin working as this company's admin (login chooser): back to SuperAdmin. -->
+      <a-tooltip v-if="auth.user?.superadmin_switch" :title="`${$t('Back_to_SuperAdmin') !== 'Back_to_SuperAdmin' ? $t('Back_to_SuperAdmin') : (isEs ? 'Volver a SuperAdmin' : 'Back to SuperAdmin')} (${auth.user.superadmin_switch.name})`">
+        <a-button size="small" class="sa-back" style="order: 99" :loading="saBackBusy" @click="backToSuperAdmin">
+          <RollbackOutlined /> <span class="hide-sm">SuperAdmin</span>
+        </a-button>
+      </a-tooltip>
 
       <!-- User -->
       <span class="topbar-divider" aria-hidden="true" style="order: 100"></span>
@@ -275,7 +282,7 @@ import {
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, UserOutlined, SettingOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
-  DownloadOutlined,
+  DownloadOutlined, RollbackOutlined,
 } from '@ant-design/icons-vue';
 import TodaySummary from './TodaySummary.vue';
 import ManualDrawer from './ManualDrawer.vue';
@@ -283,6 +290,7 @@ import OpenBookIcon from './icons/OpenBookIcon.vue';
 import { canInstall as pwaCanInstall, promptInstall } from '../lib/pwaInstall';
 import { useAuthStore } from '../stores/auth';
 import { usePendingWorkStore } from '../stores/pendingWork';
+import { moduleKeyForPath } from '../config/modules';
 import { useUiStore } from '../stores/ui';
 import { useCompanyStore } from '../stores/company';
 import { SUPPORTED_LOCALES } from '../i18n';
@@ -349,8 +357,22 @@ const manualOpen = ref(false);
 const notifOpen = ref(false);
 
 // The bell now lists every pending process, not just stock alerts. The
-// server already filters each entry by the viewer's permission, so there is
-// no second guard here.
+// server filters each entry by permission and company module; this is the
+// second guard (user's rule, 2026-10-20): an alert is shown only when the
+// page it opens exists and the user's role / company may open it -- never a
+// link to "no permission".
+const notifItems = computed(() => pending.items.filter(item => {
+  if (!item?.route) return false;
+  const r = router.resolve(item.route);
+  if (!r.matched.length || r.name === 'not-found') return false;
+  if (auth.user?.type === 'SuperAdmin') return true;
+  const perm = r.meta?.permission;
+  const perms = Array.isArray(perm) ? perm : (perm ? [perm] : []);
+  if (perms.length && !perms.some(p => auth.can(p))) return false;
+  const mod = moduleKeyForPath(r.path);
+  return !mod || auth.moduleEnabled(mod);
+}));
+const notifTotal = computed(() => notifItems.value.reduce((n, i) => n + (Number(i.count) || 0), 0));
 // A custom panel (not a-menu) doesn't auto-close on click, so close it here.
 function goPending(item) {
   notifOpen.value = false;
@@ -360,6 +382,30 @@ function goPending(item) {
 // Refresh when the panel is opened, so counts are current the moment they
 // are looked at rather than whenever the last poll happened.
 watch(notifOpen, open => { if (open) pending.fetch(true); });
+
+// ---------------- SuperAdmin working as this admin ----------------
+// Set by the login chooser (LoginChooseController); POST /login/back switches
+// this browser back to the SuperAdmin and opens the chooser again.
+
+const saBackBusy = ref(false);
+const isEs = computed(() => String(ui.locale || '').startsWith('es'));
+async function backToSuperAdmin() {
+  saBackBusy.value = true;
+  try {
+    const xsrf = decodeURIComponent((document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/) || [])[1] || '');
+    const res = await fetch('/login/back', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-XSRF-TOKEN': xsrf },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || res.statusText);
+    try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
+    window.location.replace(data.redirect || '/login/choose');
+  } catch (e) {
+    message.error(e.message || 'Could not go back to SuperAdmin.');
+    saBackBusy.value = false;
+  }
+}
 
 // ---------------- account menu ----------------
 
@@ -549,6 +595,16 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
 .tb-actions > :last-child {
   order: 101;
 }
+/* SuperAdmin working as this admin: amber, so it's never mistaken for a normal login. */
+.sa-back {
+  margin-inline-end: 6px;
+  border-color: #f59e0b;
+  color: #b45309;
+  background: #fffbeb;
+  font-weight: 600;
+}
+.sa-back:hover { border-color: #d97706 !important; color: #92400e !important; }
+
 .topbar-divider {
   width: 1px;
   height: 22px;

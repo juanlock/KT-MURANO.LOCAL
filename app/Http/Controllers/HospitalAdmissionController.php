@@ -180,7 +180,7 @@ class HospitalAdmissionController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Admission::class);
 
         $request->validate([
-            'bed_id' => 'required|exists:hospital_beds,id',
+            'bed_id' => ['required', \App\Support\CompanyExists::rule('hospital_beds')],
             'daily_rate' => 'nullable|numeric|min:0',
         ]);
 
@@ -297,10 +297,11 @@ class HospitalAdmissionController extends Controller
     private function rules($isUpdate = false)
     {
         return [
-            'patient_id' => 'required|exists:patients,id',
-            'doctor_id' => 'nullable|exists:doctors,id',
-            'bed_id' => ($isUpdate ? 'nullable' : 'required') . '|exists:hospital_beds,id',
-            'department_id' => 'nullable|exists:hospital_departments,id',
+            // Only the acting company's rows (CompanyExists, 2026-10-20).
+            'patient_id' => ['required', \App\Support\CompanyExists::rule('patients')],
+            'doctor_id' => ['nullable', \App\Support\CompanyExists::rule('doctors')],
+            'bed_id' => [$isUpdate ? 'nullable' : 'required', \App\Support\CompanyExists::rule('hospital_beds')],
+            'department_id' => ['nullable', \App\Support\CompanyExists::rule('hospital_departments')],
             'admitted_at' => 'required|date',
             'daily_rate' => 'nullable|numeric|min:0',
         ];

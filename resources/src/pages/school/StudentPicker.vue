@@ -4,7 +4,7 @@
     show-search
     :filter-option="false"
     :options="options"
-    :placeholder="placeholder"
+    :placeholder="placeholder || s('Search student by name or admission number')"
     :loading="loading"
     :allow-clear="allowClear"
     :disabled="disabled"
@@ -16,7 +16,7 @@
     <template #notFoundContent>
       <div class="sp-empty">
         <a-spin v-if="loading" size="small" />
-        <span v-else>{{ term ? 'No student matches that.' : 'Type a name, admission number or guardian phone.' }}</span>
+        <span v-else>{{ term ? s('No student matches that.') : s('Type a name, admission number or guardian phone.') }}</span>
       </div>
     </template>
   </a-select>
@@ -36,15 +36,19 @@
  */
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import http from '../../lib/http';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/StudentPicker.es.js';
 
 const props = defineProps({
   modelValue: { type: [Number, String], default: undefined },
   initialOption: { type: Object, default: null },
-  placeholder: { type: String, default: 'Search student by name or admission number' },
+  // Empty = the default text in the active language.
+  placeholder: { type: String, default: '' },
   allowClear: { type: Boolean, default: true },
   disabled: { type: Boolean, default: false },
 });
 const emit = defineEmits(['update:modelValue', 'select']);
+const { s } = useSchoolText(ES);
 
 const results = ref([]);
 const loading = ref(false);
@@ -53,10 +57,10 @@ const loadedOnce = ref(false);
 let timer = null;
 
 const options = computed(() => {
-  const list = results.value.map(s => ({
-    value: s.id,
-    label: s.label || `${s.name} · ${s.admission_number}`,
-    student: s,
+  const list = results.value.map(st => ({
+    value: st.id,
+    label: st.label || `${st.name} · ${st.admission_number}`,
+    student: st,
   }));
 
   const selected = props.initialOption;

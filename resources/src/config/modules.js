@@ -1,14 +1,33 @@
 // Optional business modules the admin can switch on/off in System Settings →
 // Modules. `key` MUST match the top-level entry key in config/menu.js — the
-// sidebar filter and the router guard both key on it. Core commerce (products,
-// sales, purchases, people, settings, reports…) is intentionally not listed:
-// it can never be turned off.
+// sidebar filter and the router guard both key on it. Settings and reports are
+// intentionally not listed: they can never be turned off (Sales, POS,
+// Purchases, Suppliers, Products and Customers can, since 2026-10-20).
 //
 // Flags live in settings.module_flags ({key: bool}) and reach the SPA on the
 // get_user_auth payload (auth.user.module_flags). A null map or a missing key
 // means the module is ENABLED — so existing installs see no change.
 
 export const TOGGLEABLE_MODULES = [
+    // Commerce areas a company may not use (user's rule, 2026-10-20: a hospital
+    // bills through Hospital Management, not Sales / POS / Purchases). On for
+    // every business type except Hospital / clinic (App\Support\BusinessTypes).
+    // Their reports (Reports › …) follow them too: two-segment prefixes 'reports/x'.
+    { key: 'sales', label: 'Sales', description: 'Sales, sales returns, quotations, sales contracts, shipments, the real-time sales counter and the sales reports.', pathPrefixes: ['sales', 'sale-returns', 'quotations', 'sales-contracts', 'shipments', 'real-time-sales-counter',
+        'reports/sales', 'reports/product-sales', 'reports/products-sold-summary', 'reports/sales-by-category', 'reports/sales-by-brand', 'reports/top-selling-products',
+        'reports/top-customers', 'reports/seller', 'reports/draft-invoices', 'reports/return-ratio', 'reports/zero-sales', 'reports/payments-sale', 'reports/payments-sales-returns',
+        'reports/sales-3d-dashboard', 'reports/inactive-customers', 'reports/loyalty-points', 'reports/profit'], menuKeys: ['sales', 'sale_return', 'quotations'] },
+    { key: 'pos', label: 'POS', description: 'Point of sale: the POS screen, POS sales, the customer display, POS settings and the cash registers report.', pathPrefixes: ['pos', 'pos-sales', 'customer-display', 'settings/pos', 'reports/cash-registers'] },
+    { key: 'purchases', label: 'Purchases', description: 'Purchases, purchase returns and the purchase reports.', pathPrefixes: ['purchases', 'purchase-returns',
+        'reports/purchases', 'reports/product-purchases', 'reports/payments-purchase', 'reports/payments-purchases-returns'], menuKeys: ['purchases', 'purchase_return'] },
+    { key: 'suppliers', label: 'Suppliers', description: 'The suppliers list (People › Suppliers), their imports and the supplier reports.', pathPrefixes: ['suppliers', 'reports/suppliers', 'reports/top-suppliers'] },
+    // Products & stock, and Customers (switchable since 2026-10-20: a school uses
+    // neither -- students, not customers; fees, not products).
+    { key: 'products', label: 'Products & Stock', description: 'Products and services, categories, brands, units, stock adjustments, transfers, damages, serial numbers and the stock reports.', pathPrefixes: ['products', 'brands', 'categories', 'subcategories', 'units', 'size-guides', 'adjustments', 'transfers', 'damages', 'serial-numbers',
+        'reports/dead-stock', 'reports/negative-stock', 'reports/expiry', 'reports/warranty', 'reports/stock-adjustment', 'reports/serial-sold', 'reports/serial-available', 'reports/serial-movement', 'reports/serial-inventory',
+        'reports/batch-register', 'reports/quantity-alerts', 'reports/stock', 'reports/product', 'reports/transactions', 'reports/internal-location', 'reports/stock-transfer', 'reports/stock-aging',
+        'reports/inventory-valuation-summary', 'reports/stock-inventory-valuation', 'reports/analytics'], menuKeys: ['products', 'adjustments', 'transfers', 'damages'] },
+    { key: 'customers', label: 'Customers', description: 'The customers list (People › Customers), the customer portal and the customer reports.', pathPrefixes: ['customers', 'customers-with-login', 'customers-without-login', 'reports/customers', 'portal'] },
     { key: 'Store', label: 'Store / E-commerce', description: 'Online storefront: orders, collections, banners, coupons, shipping, reviews and customers.', pathPrefixes: ['store'] },
     // Real Estate: its own switch since 2026-10-18 (it used to follow the Store switch and couldn't be turned off alone).
     { key: 'realestate', label: 'Real Estate', description: 'Property listings with photos, categories and the inquiries customers send about them.', pathPrefixes: ['realestate'] },
@@ -29,18 +48,22 @@ export const TOGGLEABLE_MODULES = [
     { key: 'EWallet', label: 'E-Wallet', description: 'Customer wallet balances and wallet items.', pathPrefixes: ['ewallet'] },
     { key: 'commissions', label: 'Commissions', description: 'Agent commission programs, rules and receipts.', pathPrefixes: ['commissions'] },
     { key: 'promotions', label: 'Promotions', description: 'Discount promotions applied at the POS checkout.', pathPrefixes: ['promotions'] },
-    { key: 'woocommerce_settings', label: 'WooCommerce', description: 'WooCommerce store synchronization.', pathPrefixes: ['woocommerce'] },
-    { key: 'shopify', label: 'Shopify', description: 'Shopify store synchronization and logs.', pathPrefixes: ['shopify'] },
-    { key: 'salla', label: 'Salla', description: 'Salla store synchronization: products, stock and orders.', pathPrefixes: ['integrations/salla'] },
-    { key: 'jumia', label: 'Jumia', description: 'Jumia marketplace: price & stock push, order import.', pathPrefixes: ['integrations/jumia'] },
+    // Integrations (user's rule, 2026-10-20): OFF by default for every company --
+    // their settings are install-wide (one row for the whole system), so only a
+    // SuperAdmin turns one on for a company that really uses it.
+    { key: 'integrations', label: 'Integrations hub & Webhooks', description: 'The Integrations page (connect other systems) and Webhooks (send Murano events -- new sale, payment... -- to another system\'s address). Off by default.', pathPrefixes: ['integrations', 'settings/webhooks'], menuKeys: ['integrations', 'ecommerce_platforms'], defaultOff: true },
+    { key: 'woocommerce_settings', label: 'WooCommerce', description: 'WooCommerce store synchronization. Off by default.', pathPrefixes: ['woocommerce'], defaultOff: true },
+    { key: 'shopify', label: 'Shopify', description: 'Shopify store synchronization and logs. Off by default.', pathPrefixes: ['shopify'], defaultOff: true },
+    { key: 'salla', label: 'Salla', description: 'Salla store synchronization: products, stock and orders. Off by default.', pathPrefixes: ['integrations/salla'], defaultOff: true },
+    { key: 'jumia', label: 'Jumia', description: 'Jumia marketplace: price & stock push, order import. Off by default.', pathPrefixes: ['integrations/jumia'], defaultOff: true },
     // Switches added 2026-10-18 (the menu already had their keys; there was no switch).
-    { key: 'prestashop', label: 'PrestaShop', description: 'PrestaShop store synchronization: products, stock and orders.', pathPrefixes: ['integrations/prestashop'] },
-    { key: 'quickbooks', label: 'QuickBooks', description: 'QuickBooks Online connection: customers, products, invoices and payments synchronization.', pathPrefixes: ['settings/quickbooks'] },
-    { key: 'xero', label: 'Xero', description: 'Xero accounting connection: contacts, invoices and payments synchronization.', pathPrefixes: ['integrations/xero'] },
-    { key: 'google_sheets', label: 'Google Sheets', description: 'Export / sync sales, products and customers to Google Sheets.', pathPrefixes: ['integrations/google-sheets'] },
-    { key: 'mailchimp', label: 'Mailchimp', description: 'Send customers to Mailchimp audiences for email campaigns.', pathPrefixes: ['integrations/mailchimp'] },
-    { key: 'slack', label: 'Slack', description: 'Notifications to a Slack channel (new sales, low stock…).', pathPrefixes: ['integrations/slack'] },
-    { key: 'telegram', label: 'Telegram', description: 'Notifications to a Telegram chat (new sales, low stock…).', pathPrefixes: ['integrations/telegram'] },
+    { key: 'prestashop', label: 'PrestaShop', description: 'PrestaShop store synchronization: products, stock and orders. Off by default.', pathPrefixes: ['integrations/prestashop'], defaultOff: true },
+    { key: 'quickbooks', label: 'QuickBooks', description: 'QuickBooks Online connection: customers, products, invoices and payments synchronization. Off by default.', pathPrefixes: ['settings/quickbooks'], defaultOff: true },
+    { key: 'xero', label: 'Xero', description: 'Xero accounting connection: contacts, invoices and payments synchronization. Off by default.', pathPrefixes: ['integrations/xero'], defaultOff: true },
+    { key: 'google_sheets', label: 'Google Sheets', description: 'Export / sync sales, products and customers to Google Sheets. Off by default.', pathPrefixes: ['integrations/google-sheets'], defaultOff: true },
+    { key: 'mailchimp', label: 'Mailchimp', description: 'Send customers to Mailchimp audiences for email campaigns. Off by default.', pathPrefixes: ['integrations/mailchimp'], defaultOff: true },
+    { key: 'slack', label: 'Slack', description: 'Notifications to a Slack channel (new sales, low stock…). Off by default.', pathPrefixes: ['integrations/slack'], defaultOff: true },
+    { key: 'telegram', label: 'Telegram', description: 'Notifications to a Telegram chat (new sales, low stock…). Off by default.', pathPrefixes: ['integrations/telegram'], defaultOff: true },
     { key: 'kitchen', label: 'Kitchen', description: 'Kitchen display for restaurant orders and the kitchen report.', pathPrefixes: ['kitchen-display', 'kitchen'] },
     // Saudi Arabia only (2026-10-18): OFF unless a SuperAdmin turns it on for a company.
     // PayPal (2026-10-19): customers pay the company's invoices with ITS OWN PayPal account ("Pay now"). Off by default.
@@ -99,7 +122,8 @@ export function isModuleEnabled(flags, key) {
  */
 export function isEntryEnabled(flags, entry, pathOf) {
     if (!isModuleEnabled(flags, entry.key)) return false;
-    const path = entry.to && pathOf ? pathOf(entry.to) : null;
+    // Links outside the SPA (href: '/portal') follow their module too.
+    const path = entry.to && pathOf ? pathOf(entry.to) : (typeof entry.href === 'string' && entry.href.startsWith('/') ? entry.href : null);
     const mod = path ? moduleKeyForPath(path) : null;
     return !mod || isModuleEnabled(flags, mod);
 }

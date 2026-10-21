@@ -28,40 +28,44 @@
             style="border-inline-end: none"
             @click="onMenuClick"
           >
-            <a-menu-item-group :title="$t('CompanyName')">
-              <a-menu-item key="general"><ShopOutlined /> {{ $t('General') }}</a-menu-item>
-              <a-menu-item key="localization"><GlobalOutlined /> Localization</a-menu-item>
+            <!-- Names in the active language (lang/SystemSettings.es.js, 2026-10-20). -->
+            <a-menu-item-group :title="ls('Company')">
+              <a-menu-item key="general"><ShopOutlined /> {{ ls('General') }}</a-menu-item>
+              <a-menu-item key="localization"><GlobalOutlined /> {{ ls('Localization') }}</a-menu-item>
             </a-menu-item-group>
-            <a-menu-item-group :title="$t('Sales')">
-              <a-menu-item key="defaults"><ControlOutlined /> Defaults</a-menu-item>
-              <a-menu-item key="features"><ThunderboltOutlined /> {{ $t('Features') }}</a-menu-item>
-              <a-menu-item key="prefixes"><NumberOutlined /> Prefixes</a-menu-item>
-              <a-menu-item key="invoice_pdf"><FilePdfOutlined /> Invoice PDF</a-menu-item>
-              <a-menu-item key="pharmacy"><MedicineBoxOutlined /> Pharmacy</a-menu-item>
+            <!-- Prefixes / Invoice PDF only with sales, purchases or POS; Pharmacy with
+                 products or Hospital (2026-10-20: a school has none of them). -->
+            <a-menu-item-group :title="ls('Business')">
+              <a-menu-item key="defaults"><ControlOutlined /> {{ ls('Defaults') }}</a-menu-item>
+              <a-menu-item key="features"><ThunderboltOutlined /> {{ ls('Features') }}</a-menu-item>
+              <a-menu-item v-if="hasCommerce" key="prefixes"><NumberOutlined /> {{ ls('Prefixes') }}</a-menu-item>
+              <a-menu-item v-if="hasCommerce" key="invoice_pdf"><FilePdfOutlined /> {{ ls('Invoice PDF') }}</a-menu-item>
+              <a-menu-item v-if="hasPharmacy" key="pharmacy"><MedicineBoxOutlined /> {{ ls('Pharmacy') }}</a-menu-item>
             </a-menu-item-group>
-            <a-menu-item-group :title="$t('System') || 'Workspace'">
-              <a-menu-item key="dashboard"><AppstoreOutlined /> {{ $t('Dashboard') }}</a-menu-item>
-              <a-menu-item key="datatable"><TableOutlined /> DataTable</a-menu-item>
-              <a-menu-item key="export"><ExportOutlined /> {{ $t('Export') }}</a-menu-item>
-              <a-menu-item key="security"><SafetyOutlined /> {{ $t('Security') }}</a-menu-item>
-              <a-menu-item key="backup"><CloudUploadOutlined /> {{ $t('Backup') }}</a-menu-item>
-              <a-menu-item key="system"><ToolOutlined /> Maintenance</a-menu-item>
-              <a-menu-item key="demo"><ExperimentOutlined /> Demo Data</a-menu-item>
-              <a-menu-item key="calendar"><CalendarOutlined /> {{ $t('Calendar') }}</a-menu-item>
+            <a-menu-item-group :title="ls('System')">
+              <a-menu-item key="dashboard"><AppstoreOutlined /> {{ ls('Dashboard') }}</a-menu-item>
+              <a-menu-item key="datatable"><TableOutlined /> {{ ls('DataTable') }}</a-menu-item>
+              <a-menu-item key="export"><ExportOutlined /> {{ ls('Export') }}</a-menu-item>
+              <a-menu-item key="security"><SafetyOutlined /> {{ ls('Security') }}</a-menu-item>
+              <a-menu-item key="backup"><CloudUploadOutlined /> {{ ls('Backup') }}</a-menu-item>
+              <a-menu-item key="system"><ToolOutlined /> {{ ls('Maintenance') }}</a-menu-item>
+              <a-menu-item key="demo"><ExperimentOutlined /> {{ ls('Demo Data') }}</a-menu-item>
+              <a-menu-item key="calendar"><CalendarOutlined /> {{ ls('Calendar') }}</a-menu-item>
             </a-menu-item-group>
             <!-- No POS group here: all POS settings (general, company rules,
                  receipt, network printing) live on Settings -> POS Settings. -->
-            <a-menu-item-group :title="'Integrations'">
-              <a-menu-item key="appearance"><SkinOutlined /> Appearance</a-menu-item>
-              <a-menu-item key="pwa"><MobileOutlined /> PWA</a-menu-item>
-              <a-menu-item key="mobile_app"><TabletOutlined /> Mobile App</a-menu-item>
-              <a-menu-item key="mail"><MailOutlined /> Mail</a-menu-item>
-              <a-menu-item key="sms"><MessageOutlined /> SMS</a-menu-item>
-              <a-menu-item key="payment"><CreditCardOutlined /> {{ $t('Payment_Gateway') }}</a-menu-item>
-              <a-menu-item v-if="isSuperAdmin && setting.zatca_module" key="zatca"><AuditOutlined /> {{ $t('Zatca_E_Invoicing') }}</a-menu-item>
-              <a-menu-item key="custom_fields"><FormOutlined /> Custom Fields</a-menu-item>
-              <a-menu-item v-if="isSuperAdmin" key="backups"><DatabaseOutlined /> Backup archives</a-menu-item>
-              <a-menu-item v-if="isSuperAdmin" key="devices"><LaptopOutlined /> Login Devices</a-menu-item>
+            <a-menu-item-group :title="ls('Integrations')">
+              <a-menu-item key="appearance"><SkinOutlined /> {{ ls('Appearance') }}</a-menu-item>
+              <a-menu-item key="pwa"><MobileOutlined /> {{ ls('PWA') }}</a-menu-item>
+              <a-menu-item key="mobile_app"><TabletOutlined /> {{ ls('Mobile App') }}</a-menu-item>
+              <!-- Mail / SMS / payment gateway: SuperAdmin only (2026-10-20). -->
+              <a-menu-item v-if="isSuperAdmin" key="mail"><MailOutlined /> {{ ls('Mail') }}</a-menu-item>
+              <a-menu-item v-if="isSuperAdmin" key="sms"><MessageOutlined /> {{ ls('SMS') }}</a-menu-item>
+              <a-menu-item v-if="isSuperAdmin" key="payment"><CreditCardOutlined /> {{ ls('Payment gateway') }}</a-menu-item>
+              <a-menu-item v-if="isSuperAdmin && setting.zatca_module" key="zatca"><AuditOutlined /> {{ ls('ZATCA e-invoicing') }}</a-menu-item>
+              <a-menu-item key="custom_fields"><FormOutlined /> {{ ls('Custom Fields') }}</a-menu-item>
+              <a-menu-item v-if="isSuperAdmin" key="backups"><DatabaseOutlined /> {{ ls('Backup archives') }}</a-menu-item>
+              <a-menu-item v-if="isSuperAdmin" key="devices"><LaptopOutlined /> {{ ls('Login Devices') }}</a-menu-item>
             </a-menu-item-group>
           </a-menu>
         </a-card>
@@ -108,7 +112,7 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('footer')" :help="'Shown in the app footer bar. Leave empty for the default copyright line.'">
+                  <a-form-item :label="$t('footer')" :help="ls('Shown in the app footer bar. Leave empty for the default copyright line.')">
                     <a-input v-model:value="setting.footer" :placeholder="`© ${new Date().getFullYear()} KcolTech - Murano. All rights reserved.`" />
                   </a-form-item>
                 </a-col>
@@ -132,12 +136,12 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item label="Sidebar logo width (px)">
+                  <a-form-item :label="ls('Sidebar logo width (px)')">
                     <a-slider v-model:value="setting.sidebar_logo_width" :min="16" :max="200" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item label="Sidebar logo height (px)">
+                  <a-form-item :label="ls('Sidebar logo height (px)')">
                     <a-slider v-model:value="setting.sidebar_logo_height" :min="16" :max="120" />
                   </a-form-item>
                 </a-col>
@@ -146,15 +150,15 @@
             <a-divider style="margin: 8px 0 0" />
             <div class="setting-row">
               <div>
-                <div class="setting-label">Show logo in sidebar</div>
-                <div class="setting-help">Display the company logo in the sidebar header.</div>
+                <div class="setting-label">{{ ls('Show logo in sidebar') }}</div>
+                <div class="setting-help">{{ ls('Display the company logo in the sidebar header.') }}</div>
               </div>
               <a-switch :checked="asBool(setting.sidebar_show_logo)" @change="v => (setting.sidebar_show_logo = !!v)" />
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-label">Show company name in sidebar</div>
-                <div class="setting-help">Display the company name in the sidebar header next to the logo.</div>
+                <div class="setting-label">{{ ls('Show company name in sidebar') }}</div>
+                <div class="setting-help">{{ ls('Display the company name in the sidebar header next to the logo.') }}</div>
               </div>
               <a-switch :checked="!asBool(setting.hide_site_name)" @change="v => (setting.hide_site_name = !v)" />
             </div>
@@ -191,8 +195,8 @@
                 <!-- Server address (APP_URL): every link and code given to customers starts with it. -->
                 <a-col v-if="isSuperAdmin" :xs="24" :md="12">
                   <a-form-item
-                    label="Server address"
-                    help="The address of this server, e.g. https://murano.kcoltech.com. Booking codes and public links use it (a company can set its own in Defaults -> General). Whole install."
+                    :label="ls('Server address')"
+                    :help="ls('The address of this server, e.g. https://murano.kcoltech.com. Booking codes and public links use it (a company can set its own in Defaults -> General). Whole install.')"
                   >
                     <a-input v-model:value="setting.app_url" placeholder="https://murano.kcoltech.com" />
                   </a-form-item>
@@ -214,9 +218,9 @@
                     <a-select
                       v-model:value="setting.price_format" allow-clear
                       :options="[
-                        { label: '1,234.56 (thousand , decimal .)', value: 'comma_dot' },
-                        { label: '1.234,56 (thousand . decimal ,)', value: 'dot_comma' },
-                        { label: '1 234,56 (thousand space, decimal ,)', value: 'space_comma' },
+                        { label: ls('1,234.56 (thousand , decimal .)'), value: 'comma_dot' },
+                        { label: ls('1.234,56 (thousand . decimal ,)'), value: 'dot_comma' },
+                        { label: ls('1 234,56 (thousand space, decimal ,)'), value: 'space_comma' },
                       ]"
                     />
                   </a-form-item>
@@ -227,21 +231,21 @@
             <div class="setting-row">
               <div>
                 <div class="setting-label">{{ $t('Show_Languages') }}</div>
-                <div class="setting-help">Show the language switcher in the top bar.</div>
+                <div class="setting-help">{{ ls('Show the language switcher in the top bar.') }}</div>
               </div>
               <a-switch :checked="asBool(setting.show_language)" @change="v => (setting.show_language = v ? 1 : 0)" />
             </div>
             <div class="setting-row">
               <div>
                 <div class="setting-label">{{ $t('DarkMode') }}</div>
-                <div class="setting-help">Default theme for all users.</div>
+                <div class="setting-help">{{ ls('Default theme for all users.') }}</div>
               </div>
               <a-switch v-model:checked="setting.dark_mode" />
             </div>
             <div class="setting-row">
               <div>
                 <div class="setting-label">RTL</div>
-                <div class="setting-help">Right-to-left layout for Arabic and similar languages.</div>
+                <div class="setting-help">{{ ls('Right-to-left layout for Arabic and similar languages.') }}</div>
               </div>
               <a-switch v-model:checked="setting.rtl" />
             </div>
@@ -335,12 +339,9 @@
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-label">Vehicle Fitment &amp; My Garage</div>
+                <div class="setting-label">{{ ls('Vehicle Fitment & My Garage') }}</div>
                 <div class="setting-help">
-                  Vehicle selector (Make / Model / Year) with a customer "My Garage" on the
-                  online store and POS: listings are filtered to compatible parts and
-                  incompatible parts cannot be purchased. Manage the catalog under
-                  Products &rarr; Vehicle Fitment.
+                  {{ ls('Vehicle selector (Make / Model / Year) with a customer "My Garage" on the online store and POS: listings are filtered to compatible parts and incompatible parts cannot be purchased. Manage the catalog under Products → Vehicle Fitment.') }}
                 </div>
               </div>
               <a-switch v-model:checked="setting.vehicle_fitment_enabled" />
@@ -354,11 +355,9 @@
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-label">Allow overselling</div>
+                <div class="setting-label">{{ ls('Allow overselling') }}</div>
                 <div class="setting-help">
-                  Skip stock checks on all transactions — POS, sales, quotations, transfers,
-                  adjustments, damages and sales imports — letting quantities exceed the
-                  available stock (stock can go negative).
+                  {{ ls('Skip stock checks on all transactions — POS, sales, quotations, transfers, adjustments, damages and sales imports — letting quantities exceed the available stock (stock can go negative).') }}
                 </div>
               </div>
               <a-switch v-model:checked="setting.allow_overselling" />
@@ -372,12 +371,12 @@
                  the same `setting` object, so the page's Save covers every tab. -->
             <a-tabs v-model:activeKey="defaultsTab">
             <!-- General: company-wide rules that aren't tied to one module. -->
-            <a-tab-pane key="general" tab="General">
+            <a-tab-pane key="general" :tab="ls('General')">
             <a-card size="small" style="margin-bottom: 16px">
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">Price decimals</div>
-                  <div class="setting-help">How many decimals prices, totals and amounts use everywhere -- forms, lists, POS, sales and invoices: 2 (12.50) or 3 (12.500). Applies to the whole company.</div>
+                  <div class="setting-label">{{ ls('Price decimals') }}</div>
+                  <div class="setting-help">{{ ls('How many decimals prices, totals and amounts use everywhere -- forms, lists, POS, sales and invoices: 2 (12.50) or 3 (12.500). Applies to the whole company.') }}</div>
                 </div>
                 <a-radio-group
                   :value="asBool(setting.enable_3_decimal_pricing) ? 3 : 2" button-style="solid"
@@ -389,18 +388,17 @@
               </div>
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">Public address</div>
+                  <div class="setting-label">{{ ls('Public address') }}</div>
                   <div class="setting-help">
-                    This company's own address for links given to customers (online booking codes), e.g.
-                    https://book.mysalon.com -- the domain must point to this server. Empty = the server address
-                    ({{ setting.app_url || 'APP_URL' }}).
+                    {{ ls('This company\'s own address for links given to customers (online booking codes), e.g. https://book.mysalon.com -- the domain must point to this server. Empty = the server address ({url}).', { url: setting.app_url || 'APP_URL' }) }}
                   </div>
                 </div>
                 <a-input v-model:value="setting.public_base_url" allow-clear :placeholder="setting.app_url || 'https://…'" style="width: 280px" />
               </div>
             </a-card>
             </a-tab-pane>
-            <a-tab-pane key="sales" :tab="$t('Sales')">
+            <!-- Module tabs only when the company has the module (2026-10-20). -->
+            <a-tab-pane v-if="hasCommerce" key="sales" :tab="$t('Sales')">
             <a-card size="small" style="margin-bottom: 16px">
               <a-form layout="vertical" style="max-width: 680px">
                 <a-row :gutter="16">
@@ -442,12 +440,12 @@
                     </a-form-item>
                   </a-col>
                   <a-col v-if="asBool(setting.customer_loyalty_enabled ?? true)" :xs="24" :md="8">
-                    <a-form-item :label="'Point to amount rate'">
+                    <a-form-item :label="ls('Point to amount rate')">
                       <a-input-number v-model:value="setting.point_to_amount_rate" :min="0" :step="0.01" style="width: 100%" />
                     </a-form-item>
                   </a-col>
                   <a-col :xs="24" :md="8">
-                    <a-form-item label="Default Quantity" help="Quantity a line starts at when a product is added to a sale.">
+                    <a-form-item :label="ls('Default Quantity')" :help="ls('Quantity a line starts at when a product is added to a sale.')">
                       <a-input-number v-model:value="setting.sale_default_quantity" :min="1" :precision="0" style="width: 100%" />
                     </a-form-item>
                   </a-col>
@@ -466,57 +464,57 @@
               <div class="setting-row">
                 <div>
                   <div class="setting-label">{{ $t('Create_Quotation_with_Stock') }}</div>
-                  <div class="setting-help">Quotations check available stock when created.</div>
+                  <div class="setting-help">{{ ls('Quotations check available stock when created.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.quotation_with_stock)" @change="v => (setting.quotation_with_stock = v ? 1 : 0)" />
               </div>
               <!-- Show Items Tax (POS receipt) lives in Settings -> POS Settings -> Receipt. -->
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">Show price type dropdown</div>
-                  <div class="setting-help">Let the user pick Retail/Wholesale price when adding a product to a sale. Turn off to always use the retail price.</div>
+                  <div class="setting-label">{{ ls('Show price type dropdown') }}</div>
+                  <div class="setting-help">{{ ls('Let the user pick Retail/Wholesale price when adding a product to a sale. Turn off to always use the retail price.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_show_price_type_dropdown)" @change="v => (setting.sale_show_price_type_dropdown = v ? 1 : 0)" />
               </div>
               <div v-if="asBool(setting.customer_loyalty_enabled ?? true)" class="setting-row">
                 <div>
-                  <div class="setting-label">Loyalty Points</div>
-                  <div class="setting-help">Show the Loyalty Points widget and its dropdowns/options on the Sales Create/Edit form.</div>
+                  <div class="setting-label">{{ ls('Loyalty Points') }}</div>
+                  <div class="setting-help">{{ ls('Show the Loyalty Points widget and its dropdowns/options on the Sales Create/Edit form.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_loyalty_points_enabled)" @change="v => (setting.sale_loyalty_points_enabled = v ? 1 : 0)" />
               </div>
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">Shipping</div>
-                  <div class="setting-help">Show the Shipping field and its dropdowns/options on the Sales Create/Edit form. Turn off for service-only companies that don't ship products.</div>
+                  <div class="setting-label">{{ ls('Shipping') }}</div>
+                  <div class="setting-help">{{ ls('Show the Shipping field and its dropdowns/options on the Sales Create/Edit form. Turn off for service-only companies that don\'t ship products.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_shipping_enabled)" @change="v => (setting.sale_shipping_enabled = v ? 1 : 0)" />
               </div>
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">Sales Agent</div>
-                  <div class="setting-help">Show the Sales Agent field on the Sales Create/Edit form (needs the Commissions module). Turn off for companies that don't work with sales agents.</div>
+                  <div class="setting-label">{{ ls('Sales Agent') }}</div>
+                  <div class="setting-help">{{ ls('Show the Sales Agent field on the Sales Create/Edit form (needs the Commissions module). Turn off for companies that don\'t work with sales agents.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_sales_agent_enabled ?? true)" @change="v => (setting.sale_sales_agent_enabled = v ? 1 : 0)" />
               </div>
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">Service jobs on sales</div>
-                  <div class="setting-help">On a sale: create a service job or link the customer's existing ones; on a service job: link the customer's invoices. Needs the Service module. Off for companies that don't work with service jobs.</div>
+                  <div class="setting-label">{{ ls('Service jobs on sales') }}</div>
+                  <div class="setting-help">{{ ls('On a sale: create a service job or link the customer\'s existing ones; on a service job: link the customer\'s invoices. Needs the Service module. Off for companies that don\'t work with service jobs.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_service_jobs_enabled)" @change="v => (setting.sale_service_jobs_enabled = v ? 1 : 0)" />
               </div>
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">SMS notifications</div>
-                  <div class="setting-help">Show the SMS row-action icon on the Sales list and allow sending sale SMS notifications. Off hides the icon and blocks the send.</div>
+                  <div class="setting-label">{{ ls('SMS notifications') }}</div>
+                  <div class="setting-help">{{ ls('Show the SMS row-action icon on the Sales list and allow sending sale SMS notifications. Off hides the icon and blocks the send.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_sms_enabled ?? true)" @change="v => (setting.sale_sms_enabled = v ? 1 : 0)" />
               </div>
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">WhatsApp notifications</div>
-                  <div class="setting-help">Show the WhatsApp row-action icon on the Sales list and allow sending sale WhatsApp notifications. Off hides the icon and blocks the send.</div>
+                  <div class="setting-label">{{ ls('WhatsApp notifications') }}</div>
+                  <div class="setting-help">{{ ls('Show the WhatsApp row-action icon on the Sales list and allow sending sale WhatsApp notifications. Off hides the icon and blocks the send.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.sale_whatsapp_enabled ?? true)" @change="v => (setting.sale_whatsapp_enabled = v ? 1 : 0)" />
               </div>
@@ -526,52 +524,51 @@
             <!-- Expenses / payments: what a new expense starts with (the expense
                  form, and expenses created from Email Office bills). -->
             <!-- Email Office: which summary cards Received / Sent show (per company). -->
-            <a-tab-pane v-if="auth.moduleEnabled('email_office')" key="email_office" tab="Email Office">
+            <a-tab-pane v-if="auth.moduleEnabled('email_office')" key="email_office" :tab="ls('Email Office')">
             <a-card size="small" style="margin-bottom: 16px">
               <div class="setting-help" style="margin-bottom: 12px">
-                The cards on top of Email Office (they count the emails and filter the list on click). Switch off the
-                ones this company doesn't need — the emails are not affected, only the card is hidden.
+                {{ ls('The cards on top of Email Office (they count the emails and filter the list on click). Switch off the ones this company doesn\'t need — the emails are not affected, only the card is hidden.') }}
               </div>
               <a-row :gutter="24">
                 <a-col :xs="24" :md="12">
-                  <div class="setting-label" style="margin-bottom: 8px">Received</div>
+                  <div class="setting-label" style="margin-bottom: 8px">{{ ls('Received') }}</div>
                   <div v-for="c in receivedCards" :key="c.key" style="margin-bottom: 6px">
                     <a-switch size="small" :checked="!eoHidden.includes(`in:${c.key}`)" @change="v => toggleEoCard(`in:${c.key}`, v)" />
-                    <span style="margin-left: 8px">{{ c.label }}</span>
+                    <span style="margin-left: 8px">{{ ls(c.label) }}</span>
                   </div>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <div class="setting-label" style="margin-bottom: 8px">Sent</div>
+                  <div class="setting-label" style="margin-bottom: 8px">{{ ls('Sent') }}</div>
                   <div v-for="c in EMAIL_OFFICE_CARDS.out" :key="c.key" style="margin-bottom: 6px">
                     <a-switch size="small" :checked="!eoHidden.includes(`out:${c.key}`)" @change="v => toggleEoCard(`out:${c.key}`, v)" />
-                    <span style="margin-left: 8px">{{ c.label }}</span>
+                    <span style="margin-left: 8px">{{ ls(c.label) }}</span>
                   </div>
                 </a-col>
               </a-row>
             </a-card>
             </a-tab-pane>
 
-            <a-tab-pane key="expenses" tab="Expenses / Payments">
+            <a-tab-pane v-if="auth.moduleEnabled('accounting') || hasCommerce" key="expenses" :tab="ls('Expenses / Payments')">
             <a-card size="small" style="margin-bottom: 16px">
               <div class="setting-help" style="margin-bottom: 12px">
-                A new expense starts with these — the person filling it in can still change them.
-                (Sales have their own defaults in the <b>Sales</b> tab.)
+                {{ ls('A new expense starts with these — the person filling it in can still change them.') }}
+                {{ ls('(Sales have their own defaults in the') }} <b>{{ ls('Sales') }}</b> {{ ls('tab.)') }}
               </div>
               <a-form layout="vertical" style="max-width: 680px">
                 <a-row :gutter="16">
                   <a-col :xs="24" :md="12">
-                    <a-form-item label="Default payment method for expenses" extra="How the company usually pays its bills (bank transfer, card…).">
+                    <a-form-item :label="ls('Default payment method for expenses')" :extra="ls('How the company usually pays its bills (bank transfer, card…).')">
                       <a-select
                         v-model:value="setting.expense_default_payment_method_id" allow-clear show-search option-filter-prop="label"
-                        placeholder="None" :options="sortByLabel(paymentMethods.map(p => ({ label: p.name, value: p.id })))"
+                        :placeholder="ls('None')" :options="sortByLabel(paymentMethods.map(p => ({ label: p.name, value: p.id })))"
                       />
                     </a-form-item>
                   </a-col>
                   <a-col :xs="24" :md="12">
-                    <a-form-item label="Default account for expenses" extra="The bank / cash account bills are paid from.">
+                    <a-form-item :label="ls('Default account for expenses')" :extra="ls('The bank / cash account bills are paid from.')">
                       <a-select
                         v-model:value="setting.expense_default_account_id" allow-clear show-search option-filter-prop="label"
-                        placeholder="None" :options="sortByLabel(accounts.map(a => ({ label: a.account_name, value: a.id })))"
+                        :placeholder="ls('None')" :options="sortByLabel(accounts.map(a => ({ label: a.account_name, value: a.id })))"
                       />
                     </a-form-item>
                   </a-col>
@@ -583,26 +580,26 @@
             <!-- Customers: optional customer features. Off hides every UI tied
                  to the feature, company-wide (customer form, list columns,
                  stats, POS/sale widgets). -->
-            <a-tab-pane key="customers" :tab="$t('Customers')">
+            <a-tab-pane v-if="auth.moduleEnabled('customers')" key="customers" :tab="$t('Customers')">
             <a-card size="small" style="margin-bottom: 16px">
               <div class="setting-row">
                 <div>
                   <div class="setting-label">{{ $t('Loyalty_Eligible') }}</div>
-                  <div class="setting-help">Customer loyalty points: the Loyalty Eligible switch, points balance, points adjustment, points redemption on Sales/POS, and the loyalty menus/reports. Off hides all of them.</div>
+                  <div class="setting-help">{{ ls('Customer loyalty points: the Loyalty Eligible switch, points balance, points adjustment, points redemption on Sales/POS, and the loyalty menus/reports. Off hides all of them.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.customer_loyalty_enabled)" @change="v => (setting.customer_loyalty_enabled = v ? 1 : 0)" />
               </div>
               <div class="setting-row">
                 <div>
                   <div class="setting-label">{{ $t('Credit_Limit') }}</div>
-                  <div class="setting-help">Customer credit limit: the field, list column/stat, and the credit-limit check on Sales/POS. Off hides all of them and no limit is enforced.</div>
+                  <div class="setting-help">{{ ls('Customer credit limit: the field, list column/stat, and the credit-limit check on Sales/POS. Off hides all of them and no limit is enforced.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.customer_credit_limit_enabled)" @change="v => (setting.customer_credit_limit_enabled = v ? 1 : 0)" />
               </div>
               <div class="setting-row">
                 <div>
                   <div class="setting-label">{{ $t('Opening_Balance') }}</div>
-                  <div class="setting-help">Customer opening balance: the field, list column, Adjust Opening Balance action, and its stats/tiles. Off hides all of them (balances already recorded still count in totals due).</div>
+                  <div class="setting-help">{{ ls('Customer opening balance: the field, list column, Adjust Opening Balance action, and its stats/tiles. Off hides all of them (balances already recorded still count in totals due).') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.customer_opening_balance_enabled)" @change="v => (setting.customer_opening_balance_enabled = v ? 1 : 0)" />
               </div>
@@ -612,102 +609,93 @@
             <!-- Users: default passwords of the users the system creates on its own
                  (employee, customer, web store, supplier, sales agent). Stored
                  hashed; the page only knows whether each one is set. -->
-            <a-tab-pane key="users" tab="Users">
+            <a-tab-pane key="users" :tab="ls('Users')">
             <!-- Sign-in: inactivity logout + what users see after login. -->
-            <a-card size="small" title="Sign-in and start page" style="margin-bottom: 16px">
+            <a-card size="small" :title="ls('Sign-in and start page')" style="margin-bottom: 16px">
               <div class="setting-row" style="border-top: none; padding-top: 0">
                 <div>
-                  <div class="setting-label">Sign out after inactivity</div>
+                  <div class="setting-label">{{ ls('Sign out after inactivity') }}</div>
                   <div class="setting-help">
-                    Users of this company are signed out after this many minutes without using the system
-                    (a warning shows one minute before). Not while they have a POS register open.
-                    Empty = never.
+                    {{ ls('Users of this company are signed out after this many minutes without using the system (a warning shows one minute before). Not while they have a POS register open. Empty = never.') }}
                   </div>
                 </div>
-                <a-input-number v-model:value="setting.idle_logout_minutes" :min="1" :max="1440" placeholder="Never" addon-after="min" style="width: 150px" />
+                <a-input-number v-model:value="setting.idle_logout_minutes" :min="1" :max="1440" :placeholder="ls('Never')" addon-after="min" style="width: 150px" />
               </div>
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">After sign-in show</div>
+                  <div class="setting-label">{{ ls('After sign-in show') }}</div>
                   <div class="setting-help">
-                    <b>Dashboard</b>: the dashboard with the sections chosen below.
-                    <b>Customized by each user</b>: every user gets a "Last used" row with their 6 most used forms
-                    on top of the dashboard, and can choose a form that opens right after they sign in
-                    (saved on their own user).
+                    <b>{{ ls('Dashboard') }}</b>{{ ls(': the dashboard with the sections chosen below.') }}
+                    <b>{{ ls('Customized by each user') }}</b>{{ ls(': every user gets a "Last used" row with their 6 most used forms on top of the dashboard, and can choose a form that opens right after they sign in (saved on their own user).') }}
                   </div>
                 </div>
                 <a-radio-group v-model:value="setting.start_page_mode" button-style="solid">
-                  <a-radio-button value="dashboard">Dashboard</a-radio-button>
-                  <a-radio-button value="custom">Customized by each user</a-radio-button>
+                  <a-radio-button value="dashboard">{{ ls('Dashboard') }}</a-radio-button>
+                  <a-radio-button value="custom">{{ ls('Customized by each user') }}</a-radio-button>
                 </a-radio-group>
               </div>
               <!-- The 8 square shortcut buttons on top of the dashboard. -->
               <div v-if="setting.start_page_mode === 'custom'" class="setting-row" style="align-items: flex-start">
                 <div>
-                  <div class="setting-label">Shortcut buttons</div>
+                  <div class="setting-label">{{ ls('Shortcut buttons') }}</div>
                   <div class="setting-help">
-                    The 8 square buttons on top of every user's dashboard. Pick a form for any button;
-                    a button left empty shows that user's most used form (so it fills in as they work).
-                    Users only see forms their role can open.
+                    {{ ls('The 8 square buttons on top of every user\'s dashboard. Pick a form for any button; a button left empty shows that user\'s most used form (so it fills in as they work). Users only see forms their role can open.') }}
                   </div>
-                  <a-button size="small" style="margin-top: 6px" @click="shortcutSlots = Array(8).fill(undefined)">Clear all</a-button>
+                  <a-button size="small" style="margin-top: 6px" @click="shortcutSlots = Array(8).fill(undefined)">{{ ls('Clear all') }}</a-button>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 8px 12px">
                   <a-select
                     v-for="(slot, i) in shortcutSlots" :key="i"
                     v-model:value="shortcutSlots[i]" allow-clear show-search option-filter-prop="label"
-                    :options="shortcutOptions" :placeholder="`Button ${i + 1}: most used form`"
+                    :options="shortcutOptions" :placeholder="ls('Button {n}: most used form', { n: i + 1 })"
                   />
                 </div>
               </div>
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">Dashboard sections and order</div>
-                  <div class="setting-help">What the dashboard shows and in which order is set in one place: the Dashboard tab.</div>
+                  <div class="setting-label">{{ ls('Dashboard sections and order') }}</div>
+                  <div class="setting-help">{{ ls('What the dashboard shows and in which order is set in one place: the Dashboard tab.') }}</div>
                 </div>
-                <a-button size="small" @click="onMenuClick({ key: 'dashboard' })">Open Dashboard settings</a-button>
+                <a-button size="small" @click="onMenuClick({ key: 'dashboard' })">{{ ls('Open Dashboard settings') }}</a-button>
               </div>
             </a-card>
             <!-- Header icons for every user of the company (each user can change theirs in Profile). -->
-            <a-card size="small" title="Header icons" style="margin-bottom: 16px">
+            <a-card size="small" :title="ls('Header icons')" style="margin-bottom: 16px">
               <div class="setting-help" style="margin-bottom: 8px">
-                The icons in the top bar, for every user of this company. Each user can still show or hide them
-                for themselves in their Profile. The user menu (name and photo) always stays.
+                {{ ls('The icons in the top bar, for every user of this company. Each user can still show or hide them for themselves in their Profile. The user menu (name and photo) always stays.') }}
               </div>
               <div v-for="ic in HEADER_ICONS" :key="ic.key" class="setting-row">
                 <div>
-                  <div class="setting-label">{{ ic.label }}</div>
-                  <div v-if="ic.help" class="setting-help">{{ ic.help }}</div>
+                  <div class="setting-label">{{ ls(ic.label) }}</div>
+                  <div v-if="ic.help" class="setting-help">{{ ls(ic.help) }}</div>
                 </div>
                 <a-switch
                   :checked="ic.key === 'language' ? asBool(setting.show_language) : !headerHidden.includes(ic.key)"
-                  checked-children="Show" un-checked-children="Hide"
+                  :checked-children="ls('Show')" :un-checked-children="ls('Hide')"
                   @change="v => toggleHeaderIcon(ic.key, v)"
                 />
               </div>
             </a-card>
-            <a-card size="small" title="Password by Default" style="margin-bottom: 16px">
+            <a-card size="small" :title="ls('Password by Default')" style="margin-bottom: 16px">
               <div class="setting-help" style="margin-bottom: 12px">
-                When the system creates a user by itself — a new employee, customer, web-store customer, supplier or sales agent —
-                it gets this password. Empty: a random password, so that user can't sign in until one is set
-                (employees: Edit → System access). Changing it only affects users created from now on.
+                {{ ls('When the system creates a user by itself — a new employee, customer, web-store customer, supplier or sales agent — it gets this password. Empty: a random password, so that user can\'t sign in until one is set (employees: Edit → System access). Changing it only affects users created from now on.') }}
               </div>
               <div v-for="p in DEFAULT_PASSWORD_TYPES" :key="p.key" class="setting-row">
                 <div>
-                  <div class="setting-label">{{ p.label }}</div>
+                  <div class="setting-label">{{ ls(p.label) }}</div>
                   <div class="setting-help">
-                    <a-tag v-if="setting[`default_password_${p.key}_set`] && !pwClear[p.key]" color="green">Set</a-tag>
-                    <a-tag v-else>Not set — random</a-tag>
-                    {{ p.help }}
+                    <a-tag v-if="setting[`default_password_${p.key}_set`] && !pwClear[p.key]" color="green">{{ ls('Set') }}</a-tag>
+                    <a-tag v-else>{{ ls('Not set — random') }}</a-tag>
+                    {{ ls(p.help) }}
                   </div>
                 </div>
                 <a-space>
                   <a-input-password
-                    v-model:value="pwNew[p.key]" :placeholder="setting[`default_password_${p.key}_set`] ? 'New password (keeps current if empty)' : 'At least 6 characters'"
+                    v-model:value="pwNew[p.key]" :placeholder="setting[`default_password_${p.key}_set`] ? ls('New password (keeps current if empty)') : ls('At least 6 characters')"
                     autocomplete="new-password" style="width: 260px" @change="pwClear[p.key] = false"
                   />
                   <a-button v-if="setting[`default_password_${p.key}_set`]" danger :disabled="pwClear[p.key]" @click="pwClear[p.key] = true; pwNew[p.key] = ''">
-                    {{ pwClear[p.key] ? 'Will be cleared' : 'Clear' }}
+                    {{ pwClear[p.key] ? ls('Will be cleared') : ls('Clear') }}
                   </a-button>
                 </a-space>
               </div>
@@ -715,12 +703,12 @@
             </a-tab-pane>
 
             <!-- Booking: optional fields on the Booking Create/Edit form, per company. -->
-            <a-tab-pane key="booking" tab="Booking">
+            <a-tab-pane v-if="auth.moduleEnabled('bookings')" key="booking" :tab="ls('Booking')">
             <!-- What a NEW booking starts with (Create Booking, calendar "New appointment"). -->
-            <a-card size="small" title="New booking defaults" style="margin-bottom: 16px">
+            <a-card size="small" :title="ls('New booking defaults')" style="margin-bottom: 16px">
               <a-row :gutter="16">
                 <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('warehouse')" extra="Location of new bookings (and of their invoices). Empty = the company default location." style="margin-bottom: 12px">
+                  <a-form-item :label="$t('warehouse')" :extra="ls('Location of new bookings (and of their invoices). Empty = the company default location.')" style="margin-bottom: 12px">
                     <a-select
                       v-model:value="setting.booking_default_warehouse_id" allow-clear show-search option-filter-prop="label" style="width: 100%"
                       :placeholder="$t('DefaultWarehouse')" :options="sortByLabel(warehouses.map(w => ({ label: w.name, value: w.id })))"
@@ -728,7 +716,7 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('Customer')" extra="Empty = the company default customer (e.g. Walk-in Customer)." style="margin-bottom: 12px">
+                  <a-form-item :label="$t('Customer')" :extra="ls('Empty = the company default customer (e.g. Walk-in Customer).')" style="margin-bottom: 12px">
                     <a-select
                       v-model:value="setting.booking_default_client_id" allow-clear show-search option-filter-prop="label" style="width: 100%"
                       :placeholder="$t('DefaultCustomer')" :options="sortByLabel(clients.map(c => ({ label: c.name, value: c.id })))"
@@ -746,8 +734,8 @@
                 <a-col :xs="24" :md="12">
                   <div class="setting-row" style="padding-top: 4px">
                     <div>
-                      <div class="setting-label">{{ $t('Sales_Person') }} = signed-in user</div>
-                      <div class="setting-help">New bookings start with the user who creates them as sales person.</div>
+                      <div class="setting-label">{{ $t('Sales_Person') }} {{ ls('= signed-in user') }}</div>
+                      <div class="setting-help">{{ ls('New bookings start with the user who creates them as sales person.') }}</div>
                     </div>
                     <a-switch :checked="asBool(setting.booking_default_sales_person_self ?? true)" @change="v => (setting.booking_default_sales_person_self = v ? 1 : 0)" />
                   </div>
@@ -759,7 +747,7 @@
               <div v-for="f in BOOKING_FIELD_TOGGLES" :key="f.key" class="setting-row">
                 <div>
                   <div class="setting-label">{{ $t(f.label) }}</div>
-                  <div class="setting-help">{{ f.help }}</div>
+                  <div class="setting-help">{{ ls(f.help) }}</div>
                 </div>
                 <a-switch :checked="asBool(setting[f.key] ?? true)" @change="v => (setting[f.key] = v ? 1 : 0)" />
               </div>
@@ -869,24 +857,24 @@
             </a-tab-pane>
 
             <!-- Product: auto-generated product Code, per company. -->
-            <a-tab-pane key="product" :tab="$t('Product')">
+            <a-tab-pane v-if="auth.moduleEnabled('products')" key="product" :tab="$t('Product')">
             <!-- The company's own names for the product "Group Name" / "Name"
                  fields: renamed on every form, list, filter and help text. -->
-            <a-card size="small" title="Field names" style="margin-bottom: 16px">
+            <a-card size="small" :title="ls('Field names')" style="margin-bottom: 16px">
               <div class="setting-help" style="margin-bottom: 12px">
-                What this company calls the product <b>Group Name</b> and <b>Name</b> fields, e.g. Main Service / Service,
-                or Service / Area. Every form, list, filter and help text uses these names. Leave empty for the standard ones.
+                {{ ls('What this company calls the product') }} <b>{{ ls('Group Name') }}</b> {{ ls('and') }} <b>{{ ls('Name') }}</b>
+                {{ ls('fields, e.g. Main Service / Service, or Service / Area. Every form, list, filter and help text uses these names. Leave empty for the standard ones.') }}
               </div>
               <a-form layout="vertical" style="max-width: 680px">
                 <a-row :gutter="16">
                   <a-col :xs="24" :md="12">
-                    <a-form-item label="Name for &quot;Group Name&quot;">
-                      <a-input v-model:value="setting.product_group_label" :maxlength="60" allow-clear placeholder="Group Name" />
+                    <a-form-item :label="ls('Name for &quot;Group Name&quot;')">
+                      <a-input v-model:value="setting.product_group_label" :maxlength="60" allow-clear :placeholder="ls('Group Name')" />
                     </a-form-item>
                   </a-col>
                   <a-col :xs="24" :md="12">
-                    <a-form-item label="Name for &quot;Name&quot;">
-                      <a-input v-model:value="setting.product_name_label" :maxlength="60" allow-clear placeholder="Name" />
+                    <a-form-item :label="ls('Name for &quot;Name&quot;')">
+                      <a-input v-model:value="setting.product_name_label" :maxlength="60" allow-clear :placeholder="ls('Name')" />
                     </a-form-item>
                   </a-col>
                 </a-row>
@@ -895,25 +883,25 @@
             <a-card size="small" style="margin-bottom: 16px">
               <div class="setting-row">
                 <div>
-                  <div class="setting-label">Auto-generate {{ $t('CodeProduct') }}</div>
-                  <div class="setting-help">Pre-fill a new product's Code as prefix + next number (e.g. PPI-042), and use it for the Generate link. The Code can still be edited before saving.</div>
+                  <div class="setting-label">{{ ls('Auto-generate') }} {{ $t('CodeProduct') }}</div>
+                  <div class="setting-help">{{ ls('Pre-fill a new product\'s Code as prefix + next number (e.g. PPI-042), and use it for the Generate link. The Code can still be edited before saving.') }}</div>
                 </div>
                 <a-switch :checked="asBool(setting.product_code_auto ?? true)" @change="v => (setting.product_code_auto = v ? 1 : 0)" />
               </div>
               <a-form v-if="asBool(setting.product_code_auto ?? true)" layout="vertical" style="max-width: 680px; margin-top: 8px">
                 <a-row :gutter="16">
                   <a-col :xs="24" :md="8">
-                    <a-form-item label="Prefix" help="Letters before the number, e.g. PPI-">
+                    <a-form-item :label="ls('Prefix')" :help="ls('Letters before the number, e.g. PPI-')">
                       <a-input v-model:value="setting.product_code_prefix" :maxlength="20" allow-clear />
                     </a-form-item>
                   </a-col>
                   <a-col :xs="24" :md="8">
-                    <a-form-item label="Number of digits" help="Zero-padded, e.g. 3 → 042">
+                    <a-form-item :label="ls('Number of digits')" :help="ls('Zero-padded, e.g. 3 → 042')">
                       <a-input-number v-model:value="setting.product_code_digits" :min="1" :max="12" :precision="0" style="width: 100%" />
                     </a-form-item>
                   </a-col>
                   <a-col :xs="24" :md="8">
-                    <a-form-item label="Next code" :help="productCodePreviewHelp">
+                    <a-form-item :label="ls('Next code')" :help="ls(productCodePreviewHelp)">
                       <a-input :value="productCodePreview" disabled />
                     </a-form-item>
                   </a-col>
@@ -932,20 +920,19 @@
             <!-- The whole dashboard in one place: the blocks top to bottom (move them)
                  and, in each block, what it shows (tick / untick). Save to apply. -->
             <div class="setting-help" style="margin-bottom: 12px; max-width: 760px">
-              The company's dashboard, top to bottom. Move a block with the arrows; tick what each block shows
-              (a block with nothing ticked disappears). Applies to every user of this company after <b>Save</b>.
+              {{ ls('The company\'s dashboard, top to bottom. Move a block with the arrows; tick what each block shows (a block with nothing ticked disappears). Applies to every user of this company after') }} <b>{{ ls('Save') }}</b>.
             </div>
             <a-space style="margin-bottom: 12px">
-              <a-button size="small" @click="dashboardHidden = []">Show everything</a-button>
-              <a-button size="small" @click="dashboardHidden = DASHBOARD_SECTIONS.map(s => s.id)">Hide everything</a-button>
-              <a-button size="small" @click="resetSectionOrder">{{ $t('Reset_to_Default') }} order</a-button>
+              <a-button size="small" @click="dashboardHidden = []">{{ ls('Show everything') }}</a-button>
+              <a-button size="small" @click="dashboardHidden = DASHBOARD_SECTIONS.map(s => s.id)">{{ ls('Hide everything') }}</a-button>
+              <a-button size="small" @click="resetSectionOrder">{{ ls('Reset to default order') }}</a-button>
             </a-space>
             <div class="dash-blocks-cfg">
               <a-card
                 v-for="(block, index) in sectionOrderList" :key="block.id" size="small"
                 :class="{ 'dash-block--off': block.sections.every(id => dashboardHidden.includes(id)) }"
               >
-                <template #title>{{ index + 1 }}. {{ block.label }}</template>
+                <template #title>{{ index + 1 }}. {{ ls(block.label) }}</template>
                 <template #extra>
                   <a-space>
                     <a-button size="small" :disabled="index === 0" @click="moveSection(index, -1)"><UpOutlined /></a-button>
@@ -967,30 +954,30 @@
           <template v-else-if="activeTab === 'datatable'">
             <a-alert
               type="info" show-icon style="margin-bottom: 16px; max-width: 680px"
-              message="Company-wide table format"
-              description="Applies to every table in the system for every user of this company once you Save. Changes preview immediately here. Column names, widths, visibility and order are set per table with the Customize columns button on each list (admins)."
+              :message="ls('Company-wide table format')"
+              :description="ls('Applies to every table in the system for every user of this company once you Save. Changes preview immediately here. Column names, widths, visibility and order are set per table with the Customize columns button on each list (admins).')"
             />
             <a-form layout="vertical" style="max-width: 680px">
               <!-- Sections as tabs; the live preview below stays visible for all. -->
               <a-tabs v-model:activeKey="datatableTab">
-              <a-tab-pane key="table" tab="Table">
+              <a-tab-pane key="table" :tab="ls('Table')">
               <a-row :gutter="16">
                 <a-col :xs="24" :md="12">
-                  <a-form-item label="Font family">
+                  <a-form-item :label="ls('Font family')">
                     <a-select
                       :value="dtStore.fontFamily"
                       :options="[
-                        { label: 'Default (Ant Design)', value: 'default' },
-                        { label: 'Monospace', value: 'mono' },
-                        { label: 'System UI', value: 'system' },
-                        { label: 'Serif', value: 'serif' },
+                        { label: ls('Default (Ant Design)'), value: 'default' },
+                        { label: ls('Monospace'), value: 'mono' },
+                        { label: ls('System UI'), value: 'system' },
+                        { label: ls('Serif'), value: 'serif' },
                       ]"
                       @change="v => dtStore.set({ fontFamily: v })"
                     />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="12" :md="6">
-                  <a-form-item label="Font size">
+                  <a-form-item :label="ls('Font size')">
                     <a-input-number
                       :value="dtStore.fontSize" :min="11" :max="18" style="width: 100%"
                       @change="v => dtStore.set({ fontSize: Number(v) || 13 })"
@@ -998,13 +985,13 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="12" :md="6">
-                  <a-form-item label="Row density">
+                  <a-form-item :label="ls('Row density')">
                     <a-select
                       :value="dtStore.density"
                       :options="[
-                        { label: 'Compact', value: 'small' },
-                        { label: 'Medium', value: 'middle' },
-                        { label: 'Large', value: 'large' },
+                        { label: ls('Compact'), value: 'small' },
+                        { label: ls('Medium'), value: 'middle' },
+                        { label: ls('Large'), value: 'large' },
                       ]"
                       @change="v => dtStore.set({ density: v })"
                     />
@@ -1014,41 +1001,41 @@
 
               <a-row :gutter="[16, 8]">
                 <a-col :xs="12" :md="8">
-                  <a-form-item label="Cell borders">
+                  <a-form-item :label="ls('Cell borders')">
                     <a-switch :checked="dtStore.bordered" @change="v => dtStore.set({ bordered: v })" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="12" :md="8">
-                  <a-form-item label="Striped rows">
+                  <a-form-item :label="ls('Striped rows')">
                     <a-switch :checked="dtStore.striped" @change="v => dtStore.set({ striped: v })" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="12" :md="8">
-                  <a-form-item label="Sortable columns">
+                  <a-form-item :label="ls('Sortable columns')">
                     <a-switch :checked="dtStore.autoSort" @change="v => dtStore.set({ autoSort: v })" />
                   </a-form-item>
                 </a-col>
               </a-row>
               </a-tab-pane>
 
-              <a-tab-pane key="header" tab="Header">
+              <a-tab-pane key="header" :tab="ls('Header')">
               <a-row :gutter="[16, 8]">
                 <a-col :xs="12" :md="6">
-                  <a-form-item label="Font weight">
+                  <a-form-item :label="ls('Font weight')">
                     <a-select
                       :value="dtStore.headerWeight"
                       :options="[
-                        { label: 'Normal', value: '400' },
-                        { label: 'Medium', value: '500' },
-                        { label: 'Semibold', value: '600' },
-                        { label: 'Bold', value: '700' },
+                        { label: ls('Normal'), value: '400' },
+                        { label: ls('Medium'), value: '500' },
+                        { label: ls('Semibold'), value: '600' },
+                        { label: ls('Bold'), value: '700' },
                       ]"
                       @change="v => dtStore.set({ headerWeight: v })"
                     />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="12" :md="6">
-                  <a-form-item label="Font size">
+                  <a-form-item :label="ls('Font size')">
                     <a-input-number
                       :value="dtStore.headerFontSize" :min="11" :max="18" style="width: 100%"
                       @change="v => dtStore.set({ headerFontSize: Number(v) || 14 })"
@@ -1056,7 +1043,7 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="12" :md="6">
-                  <a-form-item label="Uppercase">
+                  <a-form-item :label="ls('Uppercase')">
                     <a-switch :checked="dtStore.headerUppercase" @change="v => dtStore.set({ headerUppercase: v })" />
                   </a-form-item>
                 </a-col>
@@ -1066,19 +1053,19 @@
                      primary colour, follows it (and dark mode); Plain = Ant's
                      grey header (the old default); Custom = the colour picker. -->
                 <a-col :xs="24" :md="12">
-                  <a-form-item label="Background color">
+                  <a-form-item :label="ls('Background color')">
                     <a-space wrap>
                       <a-radio-group
                         :value="dtHeaderBgMode" button-style="solid" size="small"
                         @change="e => setDtHeaderBgMode(e.target.value)"
                       >
                         <a-radio-button value="theme">
-                          <span class="dt-swatch" :style="{ background: headerBgCss('') }" /> Theme (default)
+                          <span class="dt-swatch" :style="{ background: headerBgCss('') }" /> {{ ls('Theme (default)') }}
                         </a-radio-button>
                         <a-radio-button value="plain">
-                          <span class="dt-swatch dt-swatch--plain" /> Plain
+                          <span class="dt-swatch dt-swatch--plain" /> {{ ls('Plain') }}
                         </a-radio-button>
-                        <a-radio-button value="custom">Custom</a-radio-button>
+                        <a-radio-button value="custom">{{ ls('Custom') }}</a-radio-button>
                       </a-radio-group>
                       <input
                         v-if="dtHeaderBgMode === 'custom'"
@@ -1090,7 +1077,7 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="12" :md="6">
-                  <a-form-item label="Text color">
+                  <a-form-item :label="ls('Text color')">
                     <a-space>
                       <input
                         type="color" class="dt-color-input"
@@ -1106,7 +1093,7 @@
               </a-row>
               </a-tab-pane>
 
-              <a-tab-pane key="toolbar" tab="Toolbar">
+              <a-tab-pane key="toolbar" :tab="ls('Toolbar')">
               <a-row :gutter="[16, 8]">
                 <a-col :xs="12" :md="8">
                   <a-form-item :label="$t('Search')">
@@ -1114,7 +1101,7 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="12" :md="8">
-                  <a-form-item label="Column visibility">
+                  <a-form-item :label="ls('Column visibility')">
                     <a-switch :checked="dtStore.showColumns" @change="v => dtStore.set({ showColumns: v })" />
                   </a-form-item>
                 </a-col>
@@ -1130,7 +1117,7 @@
               <a-button size="small" @click="dtStore.reset()">{{ $t('Reset_to_Default') }}</a-button>
 
               <!-- Live preview -->
-              <a-divider orientation="left" style="margin: 20px 0 12px">Preview</a-divider>
+              <a-divider orientation="left" style="margin: 20px 0 12px">{{ ls('Preview') }}</a-divider>
               <a-table
                 :columns="dtPreviewColumns"
                 :data-source="dtPreviewRows"
@@ -1158,42 +1145,42 @@
           <template v-else-if="activeTab === 'export'">
             <div class="setting-row" style="border-top: none; padding-top: 0">
               <div>
-                <div class="setting-label">Export full data</div>
+                <div class="setting-label">{{ ls('Export full data') }}</div>
                 <div class="setting-help">
-                  On: exports and print fetch every row matching the current filters.
-                  Off: only the rows currently displayed on the page are exported.
+                  {{ ls('On: exports and print fetch every row matching the current filters.') }}
+                  {{ ls('Off: only the rows currently displayed on the page are exported.') }}
                 </div>
               </div>
               <a-switch :checked="exportForm.scope !== 'page'" @change="v => (exportForm.scope = v ? 'all' : 'page')" />
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-label">Include totals row</div>
-                <div class="setting-help">Append a bold totals row for money/number columns to PDF, Excel and print exports.</div>
+                <div class="setting-label">{{ ls('Include totals row') }}</div>
+                <div class="setting-help">{{ ls('Append a bold totals row for money/number columns to PDF, Excel and print exports.') }}</div>
               </div>
               <a-switch v-model:checked="exportForm.totals" />
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-label">PDF orientation</div>
-                <div class="setting-help">Page orientation for exported PDF files.</div>
+                <div class="setting-label">{{ ls('PDF orientation') }}</div>
+                <div class="setting-help">{{ ls('Page orientation for exported PDF files.') }}</div>
               </div>
               <a-radio-group v-model:value="exportForm.pdf_orientation" size="small">
-                <a-radio-button value="landscape">Landscape</a-radio-button>
-                <a-radio-button value="portrait">Portrait</a-radio-button>
+                <a-radio-button value="landscape">{{ ls('Landscape') }}</a-radio-button>
+                <a-radio-button value="portrait">{{ ls('Portrait') }}</a-radio-button>
               </a-radio-group>
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-label">Add date to file names</div>
-                <div class="setting-help">Append today's date to exported file names, e.g. Sales_Report_2026-08-04.pdf.</div>
+                <div class="setting-label">{{ ls('Add date to file names') }}</div>
+                <div class="setting-help">{{ ls('Append today\'s date to exported file names, e.g. Sales_Report_2026-08-04.pdf.') }}</div>
               </div>
               <a-switch v-model:checked="exportForm.filename_date" />
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-label">Company &amp; date in PDF header</div>
-                <div class="setting-help">Print the company name and generation date/time under the report title in PDF exports.</div>
+                <div class="setting-label">{{ ls('Company & date in PDF header') }}</div>
+                <div class="setting-help">{{ ls('Print the company name and generation date/time under the report title in PDF exports.') }}</div>
               </div>
               <a-switch v-model:checked="exportForm.pdf_meta" />
             </div>
@@ -1253,10 +1240,10 @@
           <template v-else-if="activeTab === 'backup'">
             <div class="setting-row" style="border-top: none; padding-top: 0">
               <div>
-                <div class="setting-label">Cloud backup destination</div>
+                <div class="setting-label">{{ ls('Cloud backup destination') }}</div>
                 <div class="setting-help">
-                  Copy generated backups to cloud storage.
-                  <router-link to="/settings/backup">Manage backup archives</router-link>
+                  {{ ls('Copy generated backups to cloud storage.') }}
+                  <router-link to="/settings/backup">{{ ls('Manage backup archives') }}</router-link>
                 </div>
               </div>
               <a-switch v-model:checked="setting.backup_cloud_enabled" />
@@ -1264,11 +1251,11 @@
             <a-form v-if="setting.backup_cloud_enabled" layout="vertical" style="max-width: 680px; margin-top: 12px">
               <a-row :gutter="16">
                 <a-col :xs="24" :md="12">
-                  <a-form-item label="Provider">
+                  <a-form-item :label="ls('Provider')">
                     <a-select
                       v-model:value="setting.backup_cloud_provider" allow-clear
                       :options="[
-                        { label: 'S3-compatible', value: 's3' },
+                        { label: ls('S3-compatible'), value: 's3' },
                         { label: 'Google Drive', value: 'gdrive' },
                         { label: 'Dropbox', value: 'dropbox' },
                       ]"
@@ -1276,29 +1263,29 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item label="Path">
+                  <a-form-item :label="ls('Path')">
                     <a-input v-model:value="setting.backup_cloud_path" />
                   </a-form-item>
                 </a-col>
               </a-row>
               <a-row :gutter="16" v-if="setting.backup_cloud_provider === 's3'">
-                <a-col :xs="24" :md="8"><a-form-item label="Bucket"><a-input v-model:value="setting.backup_s3_bucket" /></a-form-item></a-col>
-                <a-col :xs="24" :md="8"><a-form-item label="Region"><a-input v-model:value="setting.backup_s3_region" /></a-form-item></a-col>
-                <a-col :xs="24" :md="8"><a-form-item label="Endpoint"><a-input v-model:value="setting.backup_s3_endpoint" /></a-form-item></a-col>
-                <a-col :xs="24" :md="8"><a-form-item label="Access key"><a-input v-model:value="setting.backup_s3_access_key" /></a-form-item></a-col>
-                <a-col :xs="24" :md="8"><a-form-item label="Secret key"><a-input-password v-model:value="setting.backup_s3_secret_key" /></a-form-item></a-col>
-                <a-col :xs="24" :md="8"><a-form-item label=" "><span><a-switch v-model:checked="setting.backup_s3_path_style" size="small" /> Path-style URLs</span></a-form-item></a-col>
+                <a-col :xs="24" :md="8"><a-form-item :label="ls('Bucket')"><a-input v-model:value="setting.backup_s3_bucket" /></a-form-item></a-col>
+                <a-col :xs="24" :md="8"><a-form-item :label="ls('Region')"><a-input v-model:value="setting.backup_s3_region" /></a-form-item></a-col>
+                <a-col :xs="24" :md="8"><a-form-item :label="ls('Endpoint')"><a-input v-model:value="setting.backup_s3_endpoint" /></a-form-item></a-col>
+                <a-col :xs="24" :md="8"><a-form-item :label="ls('Access key')"><a-input v-model:value="setting.backup_s3_access_key" /></a-form-item></a-col>
+                <a-col :xs="24" :md="8"><a-form-item :label="ls('Secret key')"><a-input-password v-model:value="setting.backup_s3_secret_key" /></a-form-item></a-col>
+                <a-col :xs="24" :md="8"><a-form-item label=" "><span><a-switch v-model:checked="setting.backup_s3_path_style" size="small" /> {{ ls('Path-style URLs') }}</span></a-form-item></a-col>
               </a-row>
               <a-row :gutter="16" v-if="setting.backup_cloud_provider === 'gdrive'">
-                <a-col :xs="24" :md="12"><a-form-item label="Folder ID"><a-input v-model:value="setting.backup_gdrive_folder_id" /></a-form-item></a-col>
-                <a-col :xs="24" :md="12"><a-form-item label="Client ID"><a-input v-model:value="setting.backup_gdrive_client_id" /></a-form-item></a-col>
-                <a-col :xs="24" :md="12"><a-form-item label="Client secret"><a-input-password v-model:value="setting.backup_gdrive_client_secret" /></a-form-item></a-col>
-                <a-col :xs="24" :md="12"><a-form-item label="Access token"><a-input-password v-model:value="setting.backup_gdrive_access_token" /></a-form-item></a-col>
-                <a-col :xs="24" :md="12"><a-form-item label="Refresh token"><a-input-password v-model:value="setting.backup_gdrive_refresh_token" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Folder ID')"><a-input v-model:value="setting.backup_gdrive_folder_id" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Client ID')"><a-input v-model:value="setting.backup_gdrive_client_id" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Client secret')"><a-input-password v-model:value="setting.backup_gdrive_client_secret" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Access token')"><a-input-password v-model:value="setting.backup_gdrive_access_token" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Refresh token')"><a-input-password v-model:value="setting.backup_gdrive_refresh_token" /></a-form-item></a-col>
               </a-row>
               <a-row :gutter="16" v-if="setting.backup_cloud_provider === 'dropbox'">
-                <a-col :xs="24" :md="12"><a-form-item label="Path"><a-input v-model:value="setting.backup_dropbox_path" /></a-form-item></a-col>
-                <a-col :xs="24" :md="12"><a-form-item label="Access token"><a-input-password v-model:value="setting.backup_dropbox_access_token" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Path')"><a-input v-model:value="setting.backup_dropbox_path" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Access token')"><a-input-password v-model:value="setting.backup_dropbox_access_token" /></a-form-item></a-col>
               </a-row>
             </a-form>
           </template>
@@ -1307,20 +1294,18 @@
           <template v-else-if="activeTab === 'security'">
             <div class="setting-row" style="border-top: none; padding-top: 0">
               <div>
-                <div class="setting-label">Inactivity auto-logout</div>
+                <div class="setting-label">{{ ls('Inactivity auto-logout') }}</div>
                 <div class="setting-help">
-                  Sign users out after this long without activity. "Never" disables
-                  automatic logout completely; activity on any open page keeps the
-                  session alive.
+                  {{ ls('Sign users out after this long without activity. "Never" disables automatic logout completely; activity on any open page keeps the session alive.') }}
                 </div>
               </div>
               <a-space>
                 <a-radio-group v-model:value="sessionTimeoutPreset" size="small">
-                  <a-radio-button value="off">Never</a-radio-button>
+                  <a-radio-button value="off">{{ ls('Never') }}</a-radio-button>
                   <a-radio-button value="240">4h</a-radio-button>
                   <a-radio-button value="480">8h</a-radio-button>
                   <a-radio-button value="720">12h</a-radio-button>
-                  <a-radio-button value="custom">Custom</a-radio-button>
+                  <a-radio-button value="custom">{{ ls('Custom') }}</a-radio-button>
                 </a-radio-group>
                 <a-input-number
                   v-if="sessionTimeoutPreset === 'custom'"
@@ -1332,8 +1317,8 @@
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-label">Login devices</div>
-                <div class="setting-help">Review active sessions and sign out other devices.</div>
+                <div class="setting-label">{{ ls('Login devices') }}</div>
+                <div class="setting-help">{{ ls('Review active sessions and sign out other devices.') }}</div>
               </div>
               <a-button size="small" @click="onMenuClick({ key: 'devices' })">{{ $t('View') }}</a-button>
             </div>
@@ -1343,22 +1328,22 @@
           <template v-else-if="activeTab === 'system'">
             <div class="setting-row" style="border-top: none; padding-top: 0">
               <div>
-                <div class="setting-label">Debug mode</div>
-                <div class="setting-help">Verbose error output. Keep off in production.</div>
+                <div class="setting-label">{{ ls('Debug mode') }}</div>
+                <div class="setting-help">{{ ls('Verbose error output. Keep off in production.') }}</div>
               </div>
               <a-switch v-model:checked="setting.debug_mode" />
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-label">Offline sync (POS)</div>
-                <div class="setting-help">Queue POS sales while offline and sync when back online.</div>
+                <div class="setting-label">{{ ls('Offline sync (POS)') }}</div>
+                <div class="setting-help">{{ ls('Queue POS sales while offline and sync when back online.') }}</div>
               </div>
               <a-switch v-model:checked="setting.offline_sync_enabled" />
             </div>
             <div class="setting-row">
               <div>
                 <div class="setting-label">{{ $t('Clear_Cache') }}</div>
-                <div class="setting-help">Clears compiled views, config and route caches.</div>
+                <div class="setting-help">{{ ls('Clears compiled views, config and route caches.') }}</div>
               </div>
               <a-button :loading="clearingCache" @click="clearCache"><ClearOutlined /> {{ $t('Clear_Cache') }}</a-button>
             </div>
@@ -1370,20 +1355,20 @@
             <template v-else>
             <a-alert
               :type="calendarForm.google_calendar_connected ? 'success' : 'info'" show-icon
-              :message="calendarForm.google_calendar_connected ? 'Google Calendar connected' : 'Google Calendar not connected'"
+              :message="calendarForm.google_calendar_connected ? ls('Google Calendar connected') : ls('Google Calendar not connected')"
               style="margin-bottom: 16px; max-width: 680px"
             >
               <template #description>
-                <a v-if="!calendarForm.google_calendar_connected && calendarForm.google_calendar_connect_url" :href="calendarForm.google_calendar_connect_url">Connect</a>
-                <a v-else-if="calendarForm.google_calendar_connected && calendarForm.google_calendar_disconnect_url" :href="calendarForm.google_calendar_disconnect_url">Disconnect</a>
+                <a v-if="!calendarForm.google_calendar_connected && calendarForm.google_calendar_connect_url" :href="calendarForm.google_calendar_connect_url">{{ ls('Connect') }}</a>
+                <a v-else-if="calendarForm.google_calendar_connected && calendarForm.google_calendar_disconnect_url" :href="calendarForm.google_calendar_disconnect_url">{{ ls('Disconnect') }}</a>
               </template>
             </a-alert>
             <a-form layout="vertical" style="max-width: 680px">
               <a-row :gutter="16">
-                <a-col :xs="24" :md="12"><a-form-item label="Client ID"><a-input v-model:value="calendarForm.google_calendar_client_id" /></a-form-item></a-col>
-                <a-col :xs="24" :md="12"><a-form-item label="Client secret"><a-input-password v-model:value="calendarForm.google_calendar_client_secret" /></a-form-item></a-col>
-                <a-col :xs="24" :md="12"><a-form-item label="Redirect URI"><a-input v-model:value="calendarForm.google_calendar_redirect_uri" /></a-form-item></a-col>
-                <a-col :xs="24" :md="12"><a-form-item label="Calendar ID"><a-input v-model:value="calendarForm.google_calendar_calendar_id" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Client ID')"><a-input v-model:value="calendarForm.google_calendar_client_id" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Client secret')"><a-input-password v-model:value="calendarForm.google_calendar_client_secret" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Redirect URI')"><a-input v-model:value="calendarForm.google_calendar_redirect_uri" /></a-form-item></a-col>
+                <a-col :xs="24" :md="12"><a-form-item :label="ls('Calendar ID')"><a-input v-model:value="calendarForm.google_calendar_calendar_id" /></a-form-item></a-col>
               </a-row>
             </a-form>
             </template>
@@ -1440,6 +1425,10 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import { useUiStore } from '../../stores/ui';
 import { useAuthStore } from '../../stores/auth';
+import { useLocalText } from '../../lib/useLocalText';
+import SETTINGS_ES from './lang/SystemSettings.es.js';
+import SETTINGS_ES1 from './lang/SystemSettings.part1.es.js';
+import SETTINGS_ES2 from './lang/SystemSettings.part2.es.js';
 import { HEADER_ICONS } from '../../lib/headerIcons';
 import { useDatatableStore, headerBgCss } from '../../stores/datatable';
 import http from '../../lib/http';
@@ -1456,6 +1445,11 @@ const auth = useAuthStore();
 // superAdminOnly gate as their standalone routes -- see menu.js and
 // router/index.js -- since embedding them here would otherwise bypass it.
 const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
+// Menu / section names in the active language (2026-10-20).
+const { s: ls } = useLocalText({ ...SETTINGS_ES, ...SETTINGS_ES1, ...SETTINGS_ES2 });
+// Sections that only make sense with these modules (a school has none of them).
+const hasCommerce = computed(() => ['sales', 'purchases', 'pos'].some(m => auth.moduleEnabled(m)));
+const hasPharmacy = computed(() => auth.moduleEnabled('products') || auth.moduleEnabled('hospital'));
 
 /* --------------------------- DataTable preferences (device-local) */
 const dtStore = useDatatableStore();
@@ -1473,11 +1467,11 @@ function setDtHeaderBgMode(mode) {
 onBeforeUnmount(() => {
   try { dtStore.applyServer(auth.user?.datatable_settings); } catch (e) { /* best effort */ }
 });
-const dtPreviewColumns = [
-  { title: 'Reference', dataIndex: 'ref', key: 'ref' },
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Amount', dataIndex: 'amount', key: 'amount', align: 'right' },
-];
+const dtPreviewColumns = computed(() => [
+  { title: ls('Reference'), dataIndex: 'ref', key: 'ref' },
+  { title: ls('Name'), dataIndex: 'name', key: 'name' },
+  { title: ls('Amount'), dataIndex: 'amount', key: 'amount', align: 'right' },
+]);
 const dtPreviewRows = [
   { ref: 'SL-2941', name: 'Sarah Miller', amount: '1,284.00' },
   { ref: 'SL-2940', name: 'Omar Khalil', amount: '96.20' },
@@ -1541,31 +1535,31 @@ function onMenuClick({ key }) {
 }
 
 const currentSection = computed(() => ({
-  general: { title: t('General'), desc: 'Company identity shown across the app and on printed documents.' },
-  localization: { title: 'Localization', desc: 'Language, currency, time zone and number formats.' },
-  zatca: { title: t('Zatca_E_Invoicing'), desc: 'KSA e-invoicing — phase 1 (QR code on receipts) and phase 2 (Fatoora integration).' },
-  defaults: { title: 'Defaults', desc: 'Preselected values for new sales, purchases and the POS.' },
-  features: { title: t('Features'), desc: 'Turn optional capabilities on or off.' },
-  prefixes: { title: 'Prefixes', desc: 'Reference-number prefixes for each document type.' },
-  invoice_pdf: { title: 'Invoice PDF', desc: 'Customize the PDF templates — colors, fonts, layout, sections and labels — with a live preview.' },
-  pharmacy: { title: 'Pharmacy', desc: 'Batch and expiry tracking for pharmacies.' },
-  dashboard: { title: t('Dashboard'), desc: 'What the dashboard shows by default.' },
-  datatable: { title: 'DataTable', desc: 'How list tables look on this device: font, size, density and toolbar components.' },
-  export: { title: t('Export'), desc: 'Defaults for PDF, Excel and print exports on list and report pages, for all users.' },
-  demo: { title: 'Demo Data', desc: 'Generate realistic sample data for testing, and remove it safely.' },
-  security: { title: t('Security'), desc: 'Session limits and device access.' },
-  backup: { title: t('Backup'), desc: 'Where generated backups are stored.' },
-  system: { title: 'Maintenance', desc: 'Debugging and maintenance tools.' },
-  calendar: { title: t('Calendar'), desc: 'Sync bookings with Google Calendar.' },
-  appearance: { title: 'Appearance', desc: 'Branding and login page look.' },
+  general: { title: ls('General'), desc: ls('Company identity shown across the app and on printed documents.') },
+  localization: { title: ls('Localization'), desc: ls('Language, currency, time zone and number formats.') },
+  zatca: { title: ls('ZATCA e-invoicing'), desc: ls('KSA e-invoicing — phase 1 (QR code on receipts) and phase 2 (Fatoora integration).') },
+  defaults: { title: ls('Defaults'), desc: ls('Preselected values for new sales, purchases and the POS.') },
+  features: { title: ls('Features'), desc: ls('Turn optional capabilities on or off.') },
+  prefixes: { title: ls('Prefixes'), desc: ls('Reference-number prefixes for each document type.') },
+  invoice_pdf: { title: ls('Invoice PDF'), desc: ls('Customize the PDF templates — colors, fonts, layout, sections and labels — with a live preview.') },
+  pharmacy: { title: ls('Pharmacy'), desc: ls('Batch and expiry tracking for pharmacies.') },
+  dashboard: { title: ls('Dashboard'), desc: ls('What the dashboard shows by default.') },
+  datatable: { title: ls('DataTable'), desc: ls('How list tables look on this device: font, size, density and toolbar components.') },
+  export: { title: ls('Export'), desc: ls('Defaults for PDF, Excel and print exports on list and report pages, for all users.') },
+  demo: { title: ls('Demo Data'), desc: ls('Generate realistic sample data for testing, and remove it safely.') },
+  security: { title: ls('Security'), desc: ls('Session limits and device access.') },
+  backup: { title: ls('Backup'), desc: ls('Where generated backups are stored.') },
+  system: { title: ls('Maintenance'), desc: ls('Debugging and maintenance tools.') },
+  calendar: { title: ls('Calendar'), desc: ls('Sync bookings with Google Calendar.') },
+  appearance: { title: ls('Appearance'), desc: ls('Branding and login page look.') },
   pwa: { title: t('PWA_Settings'), desc: t('PWA_Settings_Help') },
   mobile_app: { title: t('Mobile_App_Settings'), desc: t('Mobile_App_Settings_Help') },
-  mail: { title: 'Mail', desc: 'Outgoing email (SMTP) configuration.' },
-  sms: { title: 'SMS', desc: 'SMS provider configuration.' },
-  payment: { title: t('Payment_Gateway'), desc: 'Online payment provider keys.' },
-  custom_fields: { title: 'Custom fields', desc: 'Extra fields on customers, suppliers and documents.' },
-  backups: { title: t('Backup'), desc: 'Generate and download database backups.' },
-  devices: { title: 'Login devices', desc: 'Active sessions across devices and browsers.' },
+  mail: { title: ls('Mail'), desc: ls('Outgoing email (SMTP) configuration.') },
+  sms: { title: ls('SMS'), desc: ls('SMS provider configuration.') },
+  payment: { title: ls('Payment gateway'), desc: ls('Online payment provider keys.') },
+  custom_fields: { title: ls('Custom fields'), desc: ls('Extra fields on customers, suppliers and documents.') },
+  backups: { title: ls('Backup archives'), desc: ls('Generate and download database backups.') },
+  devices: { title: ls('Login devices'), desc: ls('Active sessions across devices and browsers.') },
 }[activeTab.value] || { title: '', desc: '' }));
 
 const setting = ref({});
@@ -1680,7 +1674,7 @@ const prefixFields = [
 // block ids) + what each shows (dashboardHidden) -- config/dashboardSections.js,
 // the same definition Dashboard.vue renders from.
 const sectionOrderList = ref([]);
-const sectionLabel = id => DASHBOARD_SECTIONS.find(s => s.id === id)?.label || id;
+const sectionLabel = id => ls(DASHBOARD_SECTIONS.find(s => s.id === id)?.label || id);
 
 function syncSectionOrder() {
   sectionOrderList.value = blockOrder(setting.value.dashboard_section_order).map(id => DASHBOARD_BLOCKS.find(b => b.id === id));

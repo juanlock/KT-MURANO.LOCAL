@@ -32,6 +32,8 @@
 /KT-TOOLS/database/Older
 # Production database backups stay on the machine that made them.
 /KT-TOOLS/database/production
+# Protocol A Dormir's production backups (real customer data, 2026-10-20).
+/KT-TOOLS/database/HOSTINGER
 /KT-TOOLS/sources
 /KT-TOOLS/ZIP
 storage/logs/laravel.log

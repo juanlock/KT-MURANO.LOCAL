@@ -1,58 +1,58 @@
 <template>
   <div class="page">
-    <PageHeader title="Fees" subtitle="Fee structures, invoices and collections." :breadcrumb="['School', 'Fees']">
+    <PageHeader :title="s('Fees')" :subtitle="s('Fee structures, invoices and collections.')" :breadcrumb="[s('School'), s('Fees')]">
       <template #actions>
         <a-button v-if="tab === 'invoices'" @click="generateOpen = true">
           <template #icon><ThunderboltOutlined /></template>
-          Bill a class
+          {{ s('Bill a class') }}
         </a-button>
         <a-button type="primary" @click="onAdd">
           <template #icon><PlusOutlined /></template>
-          {{ tab === 'structures' ? 'New fee item' : 'New invoice' }}
+          {{ tab === 'structures' ? s('New fee item') : s('New invoice') }}
         </a-button>
       </template>
     </PageHeader>
 
     <div v-if="tab === 'invoices'" class="summary">
       <div class="sum">
-        <span class="sum-label">Billed</span>
+        <span class="sum-label">{{ s('Billed') }}</span>
         <span class="sum-value">{{ money(totals.billed || 0) }}</span>
       </div>
       <div class="sum">
-        <span class="sum-label">Collected</span>
+        <span class="sum-label">{{ s('Collected') }}</span>
         <span class="sum-value ok">{{ money(totals.paid || 0) }}</span>
       </div>
       <div class="sum" :class="{ 'sum--danger': (totals.due || 0) > 0 }">
-        <span class="sum-label">Outstanding</span>
+        <span class="sum-label">{{ s('Outstanding') }}</span>
         <span class="sum-value">{{ money(totals.due || 0) }}</span>
       </div>
     </div>
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-tabs v-model:activeKey="tab" @change="onTabChange">
-        <a-tab-pane key="invoices" tab="Invoices" />
-        <a-tab-pane key="structures" tab="Fee structures" />
-        <a-tab-pane key="payments" tab="Payments" />
+        <a-tab-pane key="invoices" :tab="s('Invoices')" />
+        <a-tab-pane key="structures" :tab="s('Fee structures')" />
+        <a-tab-pane key="payments" :tab="s('Payments')" />
       </a-tabs>
 
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search…"
+          v-model:value="crud.search.value" :placeholder="s('Search…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.academic_year_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="Year" :options="yearOptions" @change="crud.reload"
+          option-filter-prop="label" :placeholder="s('Year')" :options="yearOptions" @change="crud.reload"
         />
         <a-select
           v-if="tab !== 'payments'"
           v-model:value="filters.class_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All classes" :options="classOptions" @change="crud.reload"
+          option-filter-prop="label" :placeholder="s('All classes')" :options="classOptions" @change="crud.reload"
         />
         <a-select
           v-if="tab === 'invoices'"
           v-model:value="filters.status" class="tb-item-sm" allow-clear
-          placeholder="Status" :options="INVOICE_STATUSES" @change="crud.reload"
+          :placeholder="s('Status')" :options="invoiceStatuses" @change="crud.reload"
         />
         <PresetRangeFilter
           v-if="tab !== 'structures'"
@@ -62,7 +62,7 @@
           v-if="tab === 'invoices'" v-model:checked="filters.overdue"
           class="tb-check" @change="crud.reload"
         >
-          Overdue only
+          {{ s('Overdue only') }}
         </a-checkbox>
       </div>
     </a-card>
@@ -78,7 +78,7 @@
         <template v-else-if="column.key === 'invoice_date'">
           <div>{{ date(record.invoice_date) }}</div>
           <div v-if="record.due_date" class="cell-sub" :class="{ danger: record.is_overdue }">
-            due {{ date(record.due_date) }}
+            {{ s('due {date}', { date: date(record.due_date) }) }}
           </div>
         </template>
         <template v-else-if="column.key === 'paid_on'">{{ date(record.paid_on) }}</template>
@@ -88,25 +88,25 @@
         </template>
         <template v-else-if="column.key === 'status'">
           <a-tag :color="optionOf(INVOICE_STATUSES, record.status).color">
-            {{ labelOf(INVOICE_STATUSES, record.status) }}
+            {{ s(labelOf(INVOICE_STATUSES, record.status)) }}
           </a-tag>
         </template>
-        <template v-else-if="column.key === 'frequency'">{{ labelOf(FEE_FREQUENCIES, record.frequency) }}</template>
-        <template v-else-if="column.key === 'method'">{{ labelOf(PAYMENT_METHODS, record.method) }}</template>
+        <template v-else-if="column.key === 'frequency'">{{ s(labelOf(FEE_FREQUENCIES, record.frequency)) }}</template>
+        <template v-else-if="column.key === 'method'">{{ s(labelOf(PAYMENT_METHODS, record.method)) }}</template>
         <template v-else-if="column.key === 'is_active'">
           <a-tag :color="record.is_active ? 'success' : 'default'">
-            {{ record.is_active ? 'Active' : 'Inactive' }}
+            {{ record.is_active ? s('Active') : s('Inactive') }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
             <template v-if="tab === 'invoices'">
-              <a-tooltip title="Open">
+              <a-tooltip :title="s('Open')">
                 <a-button type="text" size="small" @click="openDetail(record)">
                   <template #icon><EyeOutlined /></template>
                 </a-button>
               </a-tooltip>
-              <a-tooltip v-if="record.due > 0 && record.status !== 'cancelled'" title="Take payment">
+              <a-tooltip v-if="record.due > 0 && record.status !== 'cancelled'" :title="s('Take payment')">
                 <a-button type="text" size="small" @click="openPayment(record)">
                   <template #icon><DollarOutlined /></template>
                 </a-button>
@@ -129,42 +129,42 @@
 
     <!-- Fee structure form -->
     <a-modal
-      :open="structureOpen" :title="editing ? 'Edit fee item' : 'New fee item'" :width="560"
+      :open="structureOpen" :title="editing ? s('Edit fee item') : s('New fee item')" :width="560"
       :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
       @ok="submitStructure" @cancel="structureOpen = false"
     >
       <a-form ref="structureRef" :model="structure" :rules="structureRules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="14">
-            <a-form-item label="Name *" name="name">
-              <a-input v-model:value="structure.name" placeholder="e.g. Tuition — Term 1" allow-clear />
+            <a-form-item :label="s('Name *')" name="name">
+              <a-input v-model:value="structure.name" :placeholder="s('e.g. Tuition — Term 1')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="10">
-            <a-form-item label="Amount *" name="amount">
+            <a-form-item :label="s('Amount *')" name="amount">
               <a-input-number v-model:value="structure.amount" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Academic year *" name="academic_year_id">
+            <a-form-item :label="s('Academic year *')" name="academic_year_id">
               <a-select v-model:value="structure.academic_year_id" :options="yearOptions" show-search option-filter-prop="label" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Class" extra="Leave empty to charge every class">
+            <a-form-item :label="s('Class')" :extra="s('Leave empty to charge every class')">
               <a-select
                 v-model:value="structure.class_id" allow-clear show-search option-filter-prop="label"
-                :options="classOptions" placeholder="All classes"
+                :options="classOptions" :placeholder="s('All classes')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="12">
-            <a-form-item label="Frequency *" name="frequency">
-              <a-select v-model:value="structure.frequency" :options="FEE_FREQUENCIES" />
+            <a-form-item :label="s('Frequency *')" name="frequency">
+              <a-select v-model:value="structure.frequency" :options="feeFrequencies" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="12">
-            <a-form-item label="Due date">
+            <a-form-item :label="s('Due date')">
               <a-date-picker v-model:value="structure.due_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
@@ -175,8 +175,8 @@
           </a-col>
           <a-col :span="24">
             <a-space>
-              <a-checkbox v-model:checked="structure.is_optional">Optional</a-checkbox>
-              <a-checkbox v-model:checked="structure.is_active">Active</a-checkbox>
+              <a-checkbox v-model:checked="structure.is_optional">{{ s('Optional') }}</a-checkbox>
+              <a-checkbox v-model:checked="structure.is_active">{{ s('Active') }}</a-checkbox>
             </a-space>
           </a-col>
         </a-row>
@@ -185,74 +185,74 @@
 
     <!-- Invoice form -->
     <a-modal
-      :open="invoiceOpen" :title="editing ? 'Edit invoice' : 'New invoice'" :width="760"
+      :open="invoiceOpen" :title="editing ? s('Edit invoice') : s('New invoice')" :width="760"
       :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
       @ok="submitInvoice" @cancel="invoiceOpen = false"
     >
       <a-form ref="invoiceRef" :model="invoice" :rules="invoiceRules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Student *" name="student_id">
+            <a-form-item :label="s('Student *')" name="student_id">
               <StudentPicker v-model="invoice.student_id" :initial-option="editingStudent" @select="onStudentSelect" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Invoice date">
+            <a-form-item :label="s('Invoice date')">
               <a-date-picker v-model:value="invoice.invoice_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Due date">
+            <a-form-item :label="s('Due date')">
               <a-date-picker v-model:value="invoice.due_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
         </a-row>
 
         <div class="lines-head">
-          <span>Lines</span>
+          <span>{{ s('Lines') }}</span>
           <a-space>
             <a-select
               v-model:value="pickFee" style="width: 220px" allow-clear show-search
-              option-filter-prop="label" placeholder="Add from fee structure"
+              option-filter-prop="label" :placeholder="s('Add from fee structure')"
               :options="feeOptions" @change="addFromStructure"
             />
             <a-button size="small" type="primary" ghost @click="addLine">
               <template #icon><PlusOutlined /></template>
-              Blank line
+              {{ s('Blank line') }}
             </a-button>
           </a-space>
         </div>
 
         <div v-if="invoice.items.length" class="lines">
           <div v-for="(line, i) in invoice.items" :key="i" class="line">
-            <a-input v-model:value="line.description" placeholder="Description" class="line-desc" />
-            <a-input-number v-model:value="line.quantity" :min="0" placeholder="Qty" class="line-qty" />
-            <a-input-number v-model:value="line.unit_price" :min="0" placeholder="Amount" class="line-price" />
+            <a-input v-model:value="line.description" :placeholder="s('Description')" class="line-desc" />
+            <a-input-number v-model:value="line.quantity" :min="0" :placeholder="s('Qty')" class="line-qty" />
+            <a-input-number v-model:value="line.unit_price" :min="0" :placeholder="s('Amount')" class="line-price" />
             <span class="line-total">{{ money(lineTotal(line)) }}</span>
             <a-button type="text" danger @click="invoice.items.splice(i, 1)">
               <template #icon><DeleteOutlined /></template>
             </a-button>
           </div>
         </div>
-        <a-empty v-else :image="simpleEmptyImage" description="No lines yet" style="padding: 12px 0" />
+        <a-empty v-else :image="simpleEmptyImage" :description="s('No lines yet')" style="padding: 12px 0" />
 
         <a-row :gutter="16" style="margin-top: 12px">
           <a-col :xs="12" :md="8">
-            <a-form-item label="Discount">
+            <a-form-item :label="s('Discount')">
               <a-input-number v-model:value="invoice.discount" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Status">
-              <a-select v-model:value="invoice.status" :options="INVOICE_STATUSES" />
+            <a-form-item :label="s('Status')">
+              <a-select v-model:value="invoice.status" :options="invoiceStatuses" />
             </a-form-item>
           </a-col>
         </a-row>
 
         <div class="totals-box">
-          <div><span>Subtotal</span><b>{{ money(subtotal) }}</b></div>
-          <div><span>Discount</span><b>-{{ money(invoice.discount || 0) }}</b></div>
-          <div class="grand"><span>Total</span><b>{{ money(grandTotal) }}</b></div>
+          <div><span>{{ s('Subtotal') }}</span><b>{{ money(subtotal) }}</b></div>
+          <div><span>{{ s('Discount') }}</span><b>-{{ money(invoice.discount || 0) }}</b></div>
+          <div class="grand"><span>{{ s('Total') }}</span><b>{{ money(grandTotal) }}</b></div>
         </div>
 
         <a-form-item :label="$t('Note')" style="margin-bottom: 0">
@@ -263,24 +263,24 @@
 
     <!-- Bill a class -->
     <a-modal
-      :open="generateOpen" title="Bill a class" :width="560"
-      :confirm-loading="generating" ok-text="Generate" :cancel-text="$t('Cancel')"
+      :open="generateOpen" :title="s('Bill a class')" :width="560"
+      :confirm-loading="generating" :ok-text="s('Generate')" :cancel-text="$t('Cancel')"
       @ok="submitGenerate" @cancel="generateOpen = false"
     >
       <a-alert
         type="info" show-icon banner
-        message="One invoice per active student in the class. Students already billed for the same fee items this year are skipped, so running it twice cannot double-bill a family."
+        :message="s('One invoice per active student in the class. Students already billed for the same fee items this year are skipped, so running it twice cannot double-bill a family.')"
         style="margin-bottom: 16px"
       />
       <a-form layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Academic year">
+            <a-form-item :label="s('Academic year')">
               <a-select v-model:value="generate.academic_year_id" :options="yearOptions" show-search option-filter-prop="label" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Class">
+            <a-form-item :label="s('Class')">
               <a-select
                 v-model:value="generate.class_id" :options="classOptions" show-search
                 option-filter-prop="label" @change="generate.section_id = undefined"
@@ -288,28 +288,28 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Section">
+            <a-form-item :label="s('Section')">
               <a-select
                 v-model:value="generate.section_id" allow-clear show-search option-filter-prop="label"
-                :options="generateSectionOptions" :disabled="!generate.class_id" placeholder="Whole class"
+                :options="generateSectionOptions" :disabled="!generate.class_id" :placeholder="s('Whole class')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Invoice date">
+            <a-form-item :label="s('Invoice date')">
               <a-date-picker v-model:value="generate.invoice_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Due date">
+            <a-form-item :label="s('Due date')">
               <a-date-picker v-model:value="generate.due_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="Fee items" style="margin-bottom: 0">
+            <a-form-item :label="s('Fee items')" style="margin-bottom: 0">
               <a-select
                 v-model:value="generate.fee_structure_ids" mode="multiple" show-search
-                option-filter-prop="label" :options="generateFeeOptions" placeholder="Pick what to charge"
+                option-filter-prop="label" :options="generateFeeOptions" :placeholder="s('Pick what to charge')"
               />
             </a-form-item>
           </a-col>
@@ -324,18 +324,18 @@
           v-if="detail && detail.due > 0 && detail.status !== 'cancelled'"
           type="primary" @click="openPayment(detail)"
         >
-          Take payment
+          {{ s('Take payment') }}
         </a-button>
       </template>
 
       <template v-if="detail">
         <a-descriptions :column="2" size="small" bordered style="margin-bottom: 16px">
-          <a-descriptions-item label="Student">{{ detail.student_name }}</a-descriptions-item>
-          <a-descriptions-item label="Adm. no.">{{ detail.admission_number }}</a-descriptions-item>
-          <a-descriptions-item label="Date">{{ date(detail.invoice_date) }}</a-descriptions-item>
-          <a-descriptions-item label="Status">
+          <a-descriptions-item :label="s('Student')">{{ detail.student_name }}</a-descriptions-item>
+          <a-descriptions-item :label="s('Adm. no.')">{{ detail.admission_number }}</a-descriptions-item>
+          <a-descriptions-item :label="s('Date')">{{ date(detail.invoice_date) }}</a-descriptions-item>
+          <a-descriptions-item :label="s('Status')">
             <a-tag :color="optionOf(INVOICE_STATUSES, detail.status).color">
-              {{ labelOf(INVOICE_STATUSES, detail.status) }}
+              {{ s(labelOf(INVOICE_STATUSES, detail.status)) }}
             </a-tag>
           </a-descriptions-item>
         </a-descriptions>
@@ -351,20 +351,20 @@
         </a-table>
 
         <div class="totals-box" style="margin-top: 16px">
-          <div><span>Subtotal</span><b>{{ money(detail.subtotal) }}</b></div>
-          <div><span>Discount</span><b>-{{ money(detail.discount) }}</b></div>
-          <div class="grand"><span>Total</span><b>{{ money(detail.total) }}</b></div>
-          <div><span>Paid</span><b>{{ money(detail.paid) }}</b></div>
-          <div class="grand" :class="{ danger: detail.due > 0 }"><span>Due</span><b>{{ money(detail.due) }}</b></div>
+          <div><span>{{ s('Subtotal') }}</span><b>{{ money(detail.subtotal) }}</b></div>
+          <div><span>{{ s('Discount') }}</span><b>-{{ money(detail.discount) }}</b></div>
+          <div class="grand"><span>{{ s('Total') }}</span><b>{{ money(detail.total) }}</b></div>
+          <div><span>{{ s('Paid') }}</span><b>{{ money(detail.paid) }}</b></div>
+          <div class="grand" :class="{ danger: detail.due > 0 }"><span>{{ s('Due') }}</span><b>{{ money(detail.due) }}</b></div>
         </div>
 
-        <a-divider orientation="left">Payments</a-divider>
+        <a-divider orientation="left">{{ s('Payments') }}</a-divider>
         <a-list :data-source="detail.payments" size="small">
           <template #renderItem="{ item }">
             <a-list-item>
               <a-list-item-meta
                 :title="money(item.amount)"
-                :description="`${date(item.paid_on)} · ${labelOf(PAYMENT_METHODS, item.method)}`"
+                :description="`${date(item.paid_on)} · ${s(labelOf(PAYMENT_METHODS, item.method))}`"
               />
               <template #actions>
                 <a-button type="text" size="small" danger @click="removePayment(item)">
@@ -373,33 +373,33 @@
               </template>
             </a-list-item>
           </template>
-          <template #empty><a-empty :image="simpleEmptyImage" description="Nothing paid yet" /></template>
+          <template #empty><a-empty :image="simpleEmptyImage" :description="s('Nothing paid yet')" /></template>
         </a-list>
       </template>
     </a-drawer>
 
     <!-- Payment -->
     <a-modal
-      :open="paymentOpen" title="Take payment" :width="440"
+      :open="paymentOpen" :title="s('Take payment')" :width="440"
       :confirm-loading="paying" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
       @ok="submitPayment" @cancel="paymentOpen = false"
     >
       <p v-if="payTarget" class="target">
-        {{ payTarget.student_name }} — outstanding <b>{{ money(payTarget.due) }}</b>
+        {{ s('{name} — outstanding', { name: payTarget.student_name }) }} <b>{{ money(payTarget.due) }}</b>
       </p>
       <a-form layout="vertical">
-        <a-form-item label="Amount">
+        <a-form-item :label="s('Amount')">
           <a-input-number v-model:value="payment.amount" :min="0.01" :max="roundMoney(payTarget?.due)" style="width: 100%" />
         </a-form-item>
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="Date">
+            <a-form-item :label="s('Date')">
               <a-date-picker v-model:value="payment.paid_on" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="Method">
-              <a-select v-model:value="payment.method" :options="PAYMENT_METHODS" />
+            <a-form-item :label="s('Method')">
+              <a-select v-model:value="payment.method" :options="paymentMethods" />
             </a-form-item>
           </a-col>
         </a-row>
@@ -442,8 +442,17 @@ import {
 } from './schoolOptions';
 import http from '../../lib/http';
 import { t } from '../../i18n';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/Fees.es.js';
 
+const { s } = useSchoolText(ES);
 const route = useRoute();
+
+// Option lists with their labels in the active language (values unchanged).
+const translated = list => list.map(o => ({ ...o, label: s(o.label) }));
+const invoiceStatuses = computed(() => translated(INVOICE_STATUSES));
+const feeFrequencies = computed(() => translated(FEE_FREQUENCIES));
+const paymentMethods = computed(() => translated(PAYMENT_METHODS));
 const { money, date, roundMoney } = useFormat();
 const simpleEmptyImage = Empty.PRESENTED_IMAGE_SIMPLE;
 
@@ -483,40 +492,40 @@ function onTabChange() {
   crud.reload();
 }
 
-const COLUMNS = {
+const COLUMNS = () => ({
   invoices: [
-    { title: 'Student', key: 'student', dataIndex: 'student_name' },
-    { title: 'Date', key: 'invoice_date', dataIndex: 'invoice_date', sorter: true, width: 150 },
-    { title: 'Total', key: 'total', dataIndex: 'total', sorter: true, money: true, width: 120 },
-    { title: 'Paid', key: 'paid', dataIndex: 'paid', sorter: true, money: true, width: 120 },
-    { title: 'Due', key: 'due', dataIndex: 'due', width: 120 },
-    { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 130 },
+    { title: s('Student'), key: 'student', dataIndex: 'student_name' },
+    { title: s('Date'), key: 'invoice_date', dataIndex: 'invoice_date', sorter: true, width: 150 },
+    { title: s('Total'), key: 'total', dataIndex: 'total', sorter: true, money: true, width: 120 },
+    { title: s('Paid'), key: 'paid', dataIndex: 'paid', sorter: true, money: true, width: 120 },
+    { title: s('Due'), key: 'due', dataIndex: 'due', width: 120 },
+    { title: s('Status'), key: 'status', dataIndex: 'status', sorter: true, width: 130 },
     { title: '', key: 'actions', width: 140 },
   ],
   structures: [
-    { title: 'Fee item', dataIndex: 'name', key: 'name' },
-    { title: 'Year', dataIndex: 'year_name', key: 'year_name', width: 140 },
-    { title: 'Class', dataIndex: 'class_name', key: 'class_name', width: 150 },
-    { title: 'Frequency', key: 'frequency', dataIndex: 'frequency', width: 130 },
-    { title: 'Amount', key: 'amount', dataIndex: 'amount', money: true, width: 130 },
-    { title: 'Status', key: 'is_active', dataIndex: 'is_active', width: 110 },
+    { title: s('Fee item'), dataIndex: 'name', key: 'name' },
+    { title: s('Year'), dataIndex: 'year_name', key: 'year_name', width: 140 },
+    { title: s('Class'), dataIndex: 'class_name', key: 'class_name', width: 150 },
+    { title: s('Frequency'), key: 'frequency', dataIndex: 'frequency', width: 130 },
+    { title: s('Amount'), key: 'amount', dataIndex: 'amount', money: true, width: 130 },
+    { title: s('Status'), key: 'is_active', dataIndex: 'is_active', width: 110 },
     { title: '', key: 'actions', width: 90 },
   ],
   payments: [
-    { title: 'Student', key: 'student', dataIndex: 'student_name' },
-    { title: 'Paid on', key: 'paid_on', dataIndex: 'paid_on', width: 140 },
-    { title: 'Amount', key: 'amount', dataIndex: 'amount', money: true, width: 140 },
-    { title: 'Method', key: 'method', dataIndex: 'method', width: 150 },
-    { title: 'Invoice', dataIndex: 'invoice_reference', key: 'invoice_reference', width: 170 },
+    { title: s('Student'), key: 'student', dataIndex: 'student_name' },
+    { title: s('Paid on'), key: 'paid_on', dataIndex: 'paid_on', width: 140 },
+    { title: s('Amount'), key: 'amount', dataIndex: 'amount', money: true, width: 140 },
+    { title: s('Method'), key: 'method', dataIndex: 'method', width: 150 },
+    { title: s('Invoice'), dataIndex: 'invoice_reference', key: 'invoice_reference', width: 170 },
     { title: '', key: 'actions', width: 70 },
   ],
-};
+});
 
-const columns = computed(() => COLUMNS[tab.value]);
+const columns = computed(() => COLUMNS()[tab.value]);
 
 const meta = ref({});
 const yearOptions = computed(() => (meta.value.academic_years || []).map(y => ({
-  value: y.id, label: y.is_current ? `${y.name} (current)` : y.name,
+  value: y.id, label: y.is_current ? s('{name} (current)', { name: y.name }) : y.name,
 })));
 const classOptions = computed(() => (meta.value.classes || []).map(c => ({ value: c.id, label: c.name })));
 const feeOptions = computed(() => (meta.value.fee_structures || []).map(f => ({
@@ -675,7 +684,7 @@ async function submitInvoice() {
     return;
   }
   if (!invoice.value.items.length) {
-    message.warning('Add at least one line.');
+    message.warning(s('Add at least one line.'));
     return;
   }
 
@@ -705,14 +714,14 @@ const generate = reactive({
 
 async function submitGenerate() {
   if (!generate.class_id || !generate.fee_structure_ids.length) {
-    message.warning('Pick a class and at least one fee item.');
+    message.warning(s('Pick a class and at least one fee item.'));
     return;
   }
 
   generating.value = true;
   try {
     const data = await http.post('school/fee-invoices/generate', { ...generate });
-    message.success(`${data.created} invoice(s) created, ${data.skipped} skipped.`);
+    message.success(s('{created} invoice(s) created, {skipped} skipped.', { created: data.created, skipped: data.skipped }));
     generateOpen.value = false;
     crud.fetchRows();
   } catch (e) {
@@ -727,12 +736,12 @@ async function submitGenerate() {
 const detailOpen = ref(false);
 const detail = ref(null);
 
-const detailColumns = [
-  { title: 'Description', dataIndex: 'description', key: 'description' },
-  { title: 'Qty', dataIndex: 'quantity', key: 'quantity', width: 70 },
-  { title: 'Amount', key: 'unit_price', dataIndex: 'unit_price', width: 120 },
-  { title: 'Total', key: 'total', dataIndex: 'total', width: 120 },
-];
+const detailColumns = computed(() => [
+  { title: s('Description'), dataIndex: 'description', key: 'description' },
+  { title: s('Qty'), dataIndex: 'quantity', key: 'quantity', width: 70 },
+  { title: s('Amount'), key: 'unit_price', dataIndex: 'unit_price', width: 120 },
+  { title: s('Total'), key: 'total', dataIndex: 'total', width: 120 },
+]);
 
 async function openDetail(record) {
   try {
@@ -764,7 +773,7 @@ async function submitPayment() {
   paying.value = true;
   try {
     await http.post(`school/fee-invoices/${payTarget.value.id}/payments`, { ...payment });
-    message.success('Payment recorded.');
+    message.success(s('Payment recorded.'));
     paymentOpen.value = false;
     crud.fetchRows();
     if (detailOpen.value) openDetail(payTarget.value);

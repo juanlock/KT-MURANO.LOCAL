@@ -324,10 +324,11 @@ class HospitalVisitController extends Controller
     private function rules()
     {
         return [
-            'patient_id' => 'required|exists:patients,id',
-            'doctor_id' => 'nullable|exists:doctors,id',
-            'department_id' => 'nullable|exists:hospital_departments,id',
-            'appointment_id' => 'nullable|exists:appointments,id',
+            // Only the acting company's rows (CompanyExists, 2026-10-20).
+            'patient_id' => ['required', \App\Support\CompanyExists::rule('patients')],
+            'doctor_id' => ['nullable', \App\Support\CompanyExists::rule('doctors')],
+            'department_id' => ['nullable', \App\Support\CompanyExists::rule('hospital_departments')],
+            'appointment_id' => ['nullable', \App\Support\CompanyExists::rule('appointments')],
             'visit_date' => 'required|date',
             'type' => 'required|in:opd,emergency,follow_up,teleconsult',
             'status' => 'required|in:open,completed',

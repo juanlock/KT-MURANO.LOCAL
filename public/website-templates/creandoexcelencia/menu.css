@@ -1,0 +1,87 @@
+/**
+ *********************************************
+ * Prototype of styles for horizontal CSS-menu
+ * @data 30.06.2009
+ *********************************************
+ * (X)HTML-scheme:
+ *  <div id="menu">
+ *      <ul class="menu">
+ *          <li><a href="#" class="parent"><span>level 1</span></a>
+ *              <ul>
+ *                  <li><a href="#" class="parent"><span>level 2</span></a>
+ *               <ul>
+ 					<li><a href="#"><span>level 3</span></a></li>
+				 </ul>
+ *                  </li>
+ *              </ul>
+ *          </li>
+ *          <li class="last"><a href="#"><span>level 1</span></a></li>
+ *      </ul>
+ *  </div>
+ *********************************************
+ */
+
+/* menu::base */
+div#menu ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    float: left;
+}
+div#menu ul.menu {
+    padding-left: 0px;
+}
+
+div#menu li {
+    position: relative;
+    z-index: 9;
+    margin: 0;
+    padding: 0 10px 0 0;
+    display: block;
+    float: left;
+}
+
+div#menu a {
+    position: relative;
+    z-index: 10;
+    height: 41px;
+    display: block;
+    float: left;
+    line-height: 0px;
+    text-decoration: none;
+    font: normal 15px News Cycle;
+}
+
+
+div#menu span {
+    display: block;
+    cursor: pointer;
+    background-repeat: no-repeat;
+   
+}
+
+
+/* menu::level1 */
+div#menu a {
+    padding: 0 25px 0 25px;
+    line-height: 25px;
+    color: #ffffff;
+}
+div#menu span {
+    margin-top: 10px;
+}/**@replace#1*/
+
+div#menu li.back {
+
+    height: 52px;
+    z-index: 8;
+    position: absolute;
+	margin-left:-10px;
+    
+}
+div#menu li.back .left {
+    background: url(images/lava.png) no-repeat top !important; 
+	width: 153px;
+    height: 52px;
+}
+

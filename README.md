@@ -97,7 +97,15 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
     company.
   - An **Admin** (AdminKT, AdminRG, AdminNE...) is locked to their own company.
     They can only see and change records whose `company_id` is their company.
-  - Every query on company data must respect this.
+  - Every query on company data must respect this. Modules that were shared
+    (Hospital, School) filter with `App\Models\Concerns\BelongsToActingCompany`.
+- **Production is the only real database.** Dev is a disposable copy
+  (`php artisan murano:from-prod`); every database change a feature needs is a
+  migration, safe to run twice, by name not by id. Dev data never goes up.
+- **Settings a company manages** are limited (`App\Support\SettingsAccess`);
+  mail, payment methods, SMS templates, PayPal, ZATCA, currencies and
+  integrations are the SuperAdmin's. Every company uses AdminSystem's mail
+  server (`Server::deployTemplate()`).
 - **Billing is read-only.** Never modify `KT-BILLING.LOCAL` or `dbbilling`. It
   is only a reference when porting logic into Murano.
 - **Roles decide everything.** A user can do only what their role's permissions
@@ -181,6 +189,50 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
+
+### 2026-10-20 (Thundera)
+
+- **Production is the only real database.** Each morning dev is replaced by a
+  copy of production in about a minute; code and migrations go up, test data
+  never does. The work log now lives in production. New protocol **A Dormir**:
+  end of the day without touching production (local + production backup,
+  README, commit, push).
+- **Schools and hospitals work as their own type.**
+  - School and hospital data are separated by company (each one sees only its
+    own students, teachers, exams, fees… or patients, doctors, beds…).
+    Hospital invoices and payments post to Accounting.
+  - A school starts with only School, Intranet, Documents, Portfolio and
+    Website; a hospital without Sales, POS, Purchases or Suppliers. School,
+    hospital and real estate open on their own dashboard, with their module
+    first in the menu, no general Dashboard and POS off.
+  - A school gets the roles **Rector, Secretaria, Profesor, Padre de familia
+    and Alumno**.
+  - The School module is fully in Spanish when the app is in Spanish, and its
+    demo data is now a complete school (48 students, timetable, daily
+    attendance, a marked exam, fees) in the company's language.
+- **Company settings are trimmed.** Company admins keep company data, logo,
+  defaults, appearance, email templates, locations and security. Mail
+  settings, payment methods, SMS templates, PayPal, ZATCA, currencies and
+  integrations are the SuperAdmin's. Integrations and webhooks are off for
+  every company.
+- **One mail server for all.** Every company sends through AdminSystem's mail
+  server with the sender "Admin {company}"; new companies get it too, and
+  AdminSystem's Mail page has **Copy to every company**.
+- **SuperAdmin login chooser**: after signing in, go to the dashboard or enter
+  as a company's admin (and come back). Only a SuperAdmin can create or touch
+  a SuperAdmin user. The login page can have its own colour for Spanish.
+- **Websites**: one-page website templates by business type, and a library of
+  ready-made websites to import (also added to KcolTech's portfolio).
+- **Manage Menu** is in Spanish, shows the same names as the side menu, hides
+  groups left empty by a switched-off module, and has ↑ / ↓ / **Move to…**
+  (also to the top level) instead of only drag and drop. **Default order**
+  copies AdminSystem's menu to a company.
+- **System Settings** fully in Spanish; sections a company doesn't use
+  (Prefixes, Invoice PDF, Pharmacy, sales defaults) are hidden. The header
+  bell no longer links to pages you can't open. School / hospital dashboard
+  "outstanding fees" was always 0 — fixed.
+
+Setup: `php artisan migrate`, `npm run build`.
 
 ### 2026-10-20 (Optimum)
 
@@ -315,24 +367,6 @@ Setup: `php artisan migrate`, `npm run build`.
 
 Setup: `php artisan migrate`, `npm run build`.
 
-### 2026-10-16 (Optimum)
-
-- **Adding a product or service is guided** (Quick Add on the sale form and
-  the full product form).
-  - The main service you type is kept; it used to be cleared when moving to
-    Price.
-  - Choose the main item only, or a **new sub-service under it**, also under an
-    existing main service.
-  - "Will be saved as" shows the final name, following each company's naming
-    style, and warns about duplicates.
-- **Dev database brought up to date with production:** Ruba's 14 new sales
-  (INV_3612–INV_3625), their accounting, stock, 6 emails and QuickBooks
-  audit rows.
-- **Production update SQL** for the Network security changes (phpMyAdmin-ready,
-  tested) in `KT-TOOLS/SQL/`.
-
-Setup: `npm run build`.
-
 ---
 
 ## Session protocols
@@ -341,8 +375,9 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 
 | Protocol | What it does |
 |----------|--------------|
-| **Wake-up** | Start of the day on any PC. Updates the PC from GitHub (pull, installs and migrations only when needed, build), backs up the local database (`KT-TOOLS/database/<PC>/…_wakeup.zip`), compares production with this PC (code, migrations, files, records), brings production's new files and records down, offers to update production when this PC is newer (production backup + your OK), reloads the rules and the history, and opens a report with the current conventions and the last 5 changes (date + origin). |
-| **Pa Llevar** | End of the day. The same production sync as Wake-up, then the user manual, build, logs, a local backup (`…_pallevar.zip`, the latest also copied to the root of `KT-TOOLS/database/` and to `KT-TOOLS/SQL/` for the external backup program), this README, commit and push to GitHub. |
+| **Wake-up** | Start of the day on any PC. Updates the PC from GitHub (installs only when needed), replaces the local database with a copy of production (`php artisan murano:from-prod`, about a minute, then the local migrations), builds, offers to deploy this PC's newer code (your OK), reloads the rules and the history, and sums up in the chat with the last 5 changes. |
+| **Pa Llevar** | End of the day. The user manual, build, logs, a local backup (`…_pallevar.zip`, also copied to `KT-TOOLS/SQL/` for the external backup program), this README, commit, push, and the code deploy to production (your OK; production is backed up first; no data goes up). |
+| **A Dormir** | End of the day without touching production (work not ready yet): local backup, a production backup into `KT-TOOLS/database/HOSTINGER/` (not in git), logs, README, commit and push. |
 | **Copia BD** | A copy of the local database on demand (`KT-TOOLS/database/<PC>/…_copiabd.zip`): a main zip plus 3 Email Office zips. Every backup (dev and production) is compressed and imports as-is in phpMyAdmin. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 

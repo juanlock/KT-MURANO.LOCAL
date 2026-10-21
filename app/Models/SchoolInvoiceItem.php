@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class SchoolInvoiceItem extends Model
 {
+    // Multicompany (2026-10-20): only the acting company's rows.
+    use \App\Models\Concerns\BelongsToActingCompany;
+
     protected $table = 'school_invoice_items';
 
     protected $fillable = ['invoice_id', 'fee_structure_id', 'description', 'quantity', 'unit_price', 'total'];

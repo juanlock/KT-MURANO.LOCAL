@@ -1,0 +1,33 @@
+// School -> Attendance (English -> Spanish). Common words live in common.es.js.
+export default {
+    'Take the register, or review a month.': 'Pase lista o revise un mes.',
+    'All sections': 'Todas las secciones',
+    'Whole day': 'Todo el día',
+    'Load': 'Cargar',
+    'Pick a class to take its register': 'Elija una clase para pasar lista',
+    'On roll': 'Matriculados',
+    'Rate': 'Porcentaje',
+    'Register — {date}': 'Lista — {date}',
+    'Already taken': 'Ya registrada',
+    'Not taken yet': 'Aún no registrada',
+    'All present': 'Todos presentes',
+    'All absent': 'Todos ausentes',
+    'Roll {n} · ': 'N.º {n} · ',
+    'Remarks': 'Observaciones',
+    'No students enrolled in that class for the current year': 'No hay estudiantes matriculados en esa clase para el año actual',
+    'This month': 'Este mes',
+    'Attendance %': 'Asistencia %',
+    'Register saved — {n} student(s).': 'Lista guardada — {n} estudiante(s).',
+    // Attendance statuses (labels only; values stay English)
+    'Present': 'Presente',
+    'Absent': 'Ausente',
+    'Late': 'Tarde',
+    'Excused': 'Justificado',
+    'Half day': 'Medio día',
+    // One-letter buttons in the register
+    'P': 'P',
+    'A': 'A',
+    'L': 'T',
+    'E': 'J',
+    'H': 'M',
+};

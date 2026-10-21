@@ -170,6 +170,11 @@ class UserController extends BaseController
             // the footer for every user (all companies + SuperAdmin), not
             // company-scoped -- kt_logs tracks the whole install, not one company.
             'kt_log_version' => \App\Models\KtLog::orderByDesc('id')->value('version'),
+            // A SuperAdmin working as this admin (login chooser, 2026-10-20): the
+            // header shows "Back to SuperAdmin" (POST /login/back).
+            'superadmin_switch' => ($sa = \App\Support\SuperAdminSwitch::superAdminFor($user, $request))
+                ? ['name' => trim(($sa->firstname ?? '').' '.($sa->lastname ?? '')) ?: $sa->username, 'email' => $sa->email]
+                : null,
             'app_name' => $settings->app_name ?? config('app.name'),
             'page_title_suffix' => $settings->page_title_suffix ?? '',
             // Appearance -> Show breadcrumbs (every page header).
@@ -253,7 +258,14 @@ class UserController extends BaseController
             'start_preferences' => self::startPrefsOf($user),
             // Roles -> "Home page": where Home / the dashboard takes this role's
             // users (e.g. Daily Tasks for field staff); null = the normal start page.
-            'role_home' => $user->type === 'SuperAdmin' ? null : ($user->roles()->first()?->home_path ?: null),
+            // The company's type has its own dashboard (hospital, school, real estate --
+            // 2026-10-20): the general Dashboard menu item is hidden (stores/menu.js).
+            // A SuperAdmin follows the company picked in the switcher (AdminSystem / none = no own dashboard).
+            'own_dashboard' => $typeHome = \App\Support\BusinessTypes::homePath(\App\Support\BusinessTypes::of(
+                $user->type === 'SuperAdmin' ? (int) $this->resolveActingCompanyId($request) : (int) $user->company_id)),
+            // Else the company's business-type start page (hospital -> Hospital dashboard, 2026-10-20).
+            'role_home' => $user->type === 'SuperAdmin' ? $typeHome
+                : ($user->roles()->first()?->home_path ?: $typeHome),
         ];
 
         // Exactly the role's permissions (the role is mandatory, Admins included).
@@ -556,6 +568,7 @@ class UserController extends BaseController
         if ($actingUser->type !== 'SuperAdmin') {
             abort_unless((int) $user->company_id === (int) $actingUser->company_id, 403);
         }
+        $this->guardSuperAdminTarget($actingUser, (int) $id);
 
         $assigned_warehouses = UserWarehouse::where('user_id', $id)->pluck('warehouse_id')->toArray();
         $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $assigned_warehouses)->pluck('id')->toArray();
@@ -630,6 +643,7 @@ class UserController extends BaseController
             abort_unless((int) $targetCompanyId === (int) $actingUser->company_id, 403);
             $targetCompanyId = $actingUser->company_id;
         }
+        $this->guardSuperAdminTarget($actingUser, (int) $id);
 
         $this->validate($request, [
             // Soft-deleted users don't hold on to their email -- otherwise a
@@ -762,6 +776,19 @@ class UserController extends BaseController
 
     }
 
+    /**
+     * Only a SuperAdmin creates, opens, edits, disables or deletes a SuperAdmin
+     * login (user's rule, 2026-10-20): an Admin can never take over one (e.g.
+     * reset its password) or turn anyone into a SuperAdmin.
+     */
+    private function guardSuperAdminTarget($actingUser, int $targetId): void
+    {
+        if (optional($actingUser)->type !== 'SuperAdmin'
+            && User::whereKey($targetId)->value('type') === 'SuperAdmin') {
+            abort(403, 'Only a SuperAdmin can change a SuperAdmin user.');
+        }
+    }
+
     // ------------- UPDATE PROFILE ---------\\
 
     public function updateProfile(Request $request, $id)
@@ -870,6 +897,7 @@ class UserController extends BaseController
                 $targetCompanyId = User::where('id', $id)->value('company_id');
                 abort_unless((int) $targetCompanyId === (int) $user->company_id, 403);
             }
+            $this->guardSuperAdminTarget($user, (int) $id);
 
             User::whereId($id)->update([
                 'statut' => $request['statut'],
@@ -906,6 +934,7 @@ class UserController extends BaseController
         if ($user->type !== 'SuperAdmin') {
             abort_unless((int) $userToDelete->company_id === (int) $user->company_id, 403);
         }
+        $this->guardSuperAdminTarget($user, (int) $id);
 
         // Soft delete the user (bypass mass-assignment on deleted_at)
         // and mark them as inactive (statut = 0) so any legacy checks

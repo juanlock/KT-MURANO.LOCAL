@@ -42,6 +42,9 @@
               @if ($project->description)
                 <p>{!! nl2br(e($project->description)) !!}</p>
               @endif
+              @if (! empty($project->website_url) && preg_match('#^(https?://|/(?!/))#i', $project->website_url))
+                <p style="margin-top: 24px"><a href="{{ $project->website_url }}" target="_blank" rel="noopener" class="btn">{{ app()->getLocale() === 'es' ? 'Visitar el sitio web' : 'Visit website' }} &rarr;</a></p>
+              @endif
             </div>
           </div>
           <div class="offset-md-1 col-md-4">

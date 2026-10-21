@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>KUNTURFLY</title>
+<meta charset="utf-8">
+    <link rel="stylesheet" href="css/style.css" type="text/css" media="screen">
+    <link rel="stylesheet" href="css/demo.css" type="text/css" media="all">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:600' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Skranji:400,700' rel='stylesheet' type='text/css'>
+<script src="js/jquery-1.7.1.min.js"></script>
+    <script src="js/script.js" type="text/javascript"></script>
+    <style type="text/css">
+<!--
+.tituop {
+	font-size: 22px;
+	font-weight: bold;
+	font-family: 'Skranji', cursive;
+	color:#0099CC
+	
+}
+-->
+    </style>
+    <style type="text/css">
+.question {
+	font-weight: bold;
+	padding:2px;
+	cursor: pointer;
+}
+
+.answer {
+
+}
+
+#wrap{
+margin:0 auto 0 auto; width:810px; background-repeat:no-repeat;
+}
+
+.oneColFixCtrHdr #container {
+	width: 800px;
+	padding: 0px 0px;
+	margin: 0 auto; /* the auto margins (in conjunction with a width) center the page */
+	text-align: left; /* this overrides the text-align: center on the body element. */
+	border:#FF0000 solid 0px;
+	
+}
+input{
+  margin: 0;
+  padding: 5px;
+  color: #666666;
+  background: #F5F5F5;
+  border: 0px solid #ccc;
+  margin: 2px 0;
+  font-size:16px
+}   
+
+input:focus{
+  border: 0px solid #FF9900;
+  background-color: #FFFFFF;
+  font-size:16px
+}
+.info, .exito, .alerta, .error {
+    font-family:Arial, Helvetica, sans-serif; 
+    font-size:13px;
+    border: 1px solid;
+    margin: 5px 0px;
+    padding:10px 5px 10px 50px;
+    background-repeat: no-repeat;
+    background-position: 10px center;
+    position:relative;
+}
+.info {
+    color: #00529B;
+    background-color: #BDE5F8;
+}
+.exito {
+    color: #ffffff;
+    background-color:#009900;
+}
+.alerta {
+    color: #9F6000;
+    background-color: #FEEFB3;
+}
+.error {
+    color: #ffffff;
+    background-color:#CC0000;
+}
+
+
+
+
+#holder {
+	width: 100%;
+}
+
+#holder > div {
+	clear: both;
+	padding: 2%;
+	margin-bottom: 20px;
+	border-bottom: 1px solid #eee;
+	float: left;
+	width: 96%;
+}
+/* RADIO */
+
+.regular-radio {
+	display: none;
+}
+
+.regular-radio + label {
+	-webkit-appearance: none;
+	background-color: #fafafa;
+	border: 1px solid #cacece;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.05), inset 0px -15px 10px -12px rgba(0,0,0,0.05);
+	padding: 9px;
+	border-radius: 50px;
+	display: inline-block;
+	position: relative;
+}
+
+.regular-radio:checked + label:after {
+	content: ' ';
+	width: 12px;
+	height: 12px;
+	border-radius: 50px;
+	position: absolute;
+	top: 3px;
+	background: #99a1a7;
+	box-shadow: inset 0px 0px 10px rgba(0,0,0,0.3);
+	text-shadow: 0px;
+	left: 3px;
+	font-size: 32px;
+}
+
+.regular-radio:checked + label {
+	background-color: #e9ecee;
+	color: #99a1a7;
+	border: 1px solid #adb8c0;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.05), inset 0px -15px 10px -12px rgba(0,0,0,0.05), inset 15px 10px -12px rgba(255,255,255,0.1), inset 0px 0px 10px rgba(0,0,0,0.1);
+}
+
+.regular-radio + label:active, .regular-radio:checked + label:active {
+	box-shadow: 0 1px 2px rgba(0,0,0,0.05), inset 0px 1px 3px rgba(0,0,0,0.1);
+}
+
+.big-radio + label {
+	padding: 16px;
+}
+
+.big-radio:checked + label:after {
+	width: 24px;
+	height: 24px;
+	left: 4px;
+	top: 4px;
+}
+    .Estilo3 {
+	color: #CC0000;
+	font-weight: bold;
+}
+    .Estilo14 {color: #CC0000}
+.Estilo17 {
+	font-size: 19px;
+	font-family: 'Skranji', cursive;
+	color: #990000;
+}
+    .Estilo18 {
+	color: #006699;
+	font-weight: bold;
+}
+    .Estilo25 {color: #000000}
+    </style>
+
+
+<!-- scroll-->
+<script type= "text/javascript">
+$(function(){
+	var div = $('div.sc_menu'),
+		ul = $('ul.sc_menu'),
+		ulPadding = 0;
+var divWidth = div.width();
+	div.css({overflow: 'hidden'});
+	var lastLi = ul.find('li:last-child');
+	div.mousemove(function(e){
+		var ulWidth = lastLi[0].offsetLeft + lastLi.outerWidth() + ulPadding;	
+		var left = (e.pageX - div.offset().left) * (ulWidth-divWidth) / divWidth;
+		div.scrollLeft(left);
+	});
+});
+</script>
+<!-- fin scrool-->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+	$('.answer').hide();
+	$('.question').live('click', function() {
+		$(this).next().slideToggle();
+	});
+});
+</script>
+</head>
+<body id="page1">
+            <header>
+           	  <div class="main">
+                	
+                    <div class="bg-1">
+                        <div class="logo-box">
+                           <a class="logo" href="index.html">KUNTURFLY</a>                        </div>
+                        <nav>
+                            <ul class="menu1">
+                                <li><span><a href="index.html">Inicio</a></span></li>
+                                <li class="active"><span><a href="precios-de-vuelo-en-parapente.html">Precios & Descuentos</a></span></li>
+                                <li><span><a href="zona-de-vuelo-en-parapente.html">Ubicacion</a></span></li>
+                                  <li><span><a href="publicidad-aerea-parapente-miraflores-lima-peru.html">Publicidad Aerea</a></span></li>
+                                <li class="last8"><span><a href="informacion-de-vuelos-en-parapente.html">Contacto</a></span></li>
+                            </ul>
+                            <div class="clear"></div>
+                        </nav>
+                      
+                    </div>
+                    
+                    <p>
+                  </p>
+                    <p>&nbsp;</p>
+                    <br>
+                    <br>
+                    <br>
+                    <br>
+                  
+                    <center> <div>
+                  <table width="800" border="1" align="center" cellpadding="10" cellspacing="10">
+  
+  <tr>
+    <td width="214"><div align="center"><img src="images/page1-img12.jpg" width="230" height="350" hspace="10" vspace="20"></div></td>
+    <td width="464" bgcolor="#FFFFFF">
+    
+    
+    
+    <div class="faq">
+    <div align="justify" style="margin:15px; background-image:url(images/ff.jpg); background-repeat:no-repeat">
+    <p class="question text_normal"><span class="tituop">PASEO EN PARAPENTE</span><br>
+      <br>
+      <br>
+      <strong><br>
+	<strong><img src="images/oferta-miraflores-21-07-2014.jpg" width="450" height="260"></strong></strong><br>
+    </p>
+   
+     <p class="answer">
+      <br>
+     <br>
+     <strong>Precio de Vuelo&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </strong>:  &nbsp;&nbsp;&nbsp;<strong class="Estilo3">S/.260 por persona </strong><span><br>
+       </span><br>
+       <br>
+       <strong>Tiempo</strong>:
+       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10 minutos (una eternidad en el cielo)
+       <br>
+       <br>
+       <br>
+       <strong>Lugar</strong>:
+       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Parque Raimondi (al costado del parque del amor)
+       <br>
+       <br>
+       <br>
+       <strong>Horario</strong>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;       10:00 am a 05:45 pm <strong> “TODO LOS DIAS DEL AÑO”</strong><br>
+       <br>
+       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+       (Siempre y cuando haya viento)<br>
+       <br>
+       <br>
+  <br>
+  <strong>¿Qué debo hacer el día que quiero volar ?</strong> <br>
+  <br>
+  <br>
+       - El día que quieras hacerlo nos llamas apartir de las 10 am para coordinar las <strong><br>
+       <br>
+       CONDICIONES DEL VIENTO </strong> ya que esto es el factor <strong>IMPORTANTE</strong> para realizar un <br>
+       <br>
+       súper vuelo. <br>
+       <br>
+      O puedes sólo <strong>PREGUNTAR POR EL INSTRUCTOR &quot;JUAN CARLOS&quot;</strong> <br>
+       <br>
+       <br>
+  <br>
+  <strong> ¿ Cuantas personas vuelan en un parapente ?</strong><br>
+  <br> 
+       - Solo vuela el pasajero con un instructor.
+       
+       <br>
+       <br>
+       <br>
+       <strong> <br>
+         ¿ Desde que edad pueden volar ?</strong><br>
+       <br> 
+       - Pueden volar desde los 5 años hasta los que puedan. No hay límite.<br>
+       <br>
+       <br>
+       <br>
+       <strong> ¿ Cuál es el peso máximo ?</strong><br>
+       <br> 
+       - El peso máximo es de 150 kilos.
+       
+       <br>
+       <br>
+       <br>
+       <br>
+       <strong> ¿ Cuándo y donde pago?</strong><br>
+       <br> 
+       - El mismo día que vuelas, en <strong>EFECTIVO</strong>, en el Parque Raymondi.<br>
+       <br>
+Realmente es el mejor regalo que puedas darte o dar, fuera de lo común, <br>
+<br> 
+encuéntranos en esta página o en Face y recibe los descuentos de<br>
+  <br> 
+       temporada.
+       
+       <br>
+       <br>
+       <span class="Estilo14"><br>
+       <span class="Estilo17">******* VIDEOS EXTREMOS *******</span></span><br>
+       <br>
+       <br>
+       Incluye el video <strong>FULL “HD”, </strong>es decir<span class="Estilo18"> filmamos todo tu 
+       vuelo 
+       desde<br>
+       <br> 
+       el despegue hasta el aterrizaje</span>, lo 
+       bueno 
+       de este video 
+       es que <br>
+       <br>
+       puedes poner  
+       pausa en la computadora e imprimir 
+       todas las 
+       fotos<br>
+       <br> 
+       que desees en alta definición, tienes un buen combo 2 en 
+       1,  
+       video 
+       + fotos.
+       
+       <br>
+       <br>
+     </p>
+    </div>
+    </div>    </td>
+    </tr>
+  <tr>
+    <td colspan="2">&nbsp;</td>
+    </tr>
+    
+ 
+</table>
+		
+			  </div>
+
+			  </center>
+
+			  </div>
+           </header>
+ <? //require('social.php');?>
+    <? require('footer.php');?>    
+    
+            
+</body>
+</html>

@@ -68,6 +68,48 @@ class SiteImporter
 
     public static function fromUrl(int $companyId, string $url, string $name, int $maxPages = 30): array
     {
+        $rel = CompanyFiles::dir($companyId, 'website/sites/'.$name);
+        $r = self::crawl($url, public_path($rel), $maxPages);
+        $page = self::upsertHome($companyId, $rel.'/'.$r['entry']);
+
+        return ['pages' => $r['pages'], 'assets' => $r['assets'], 'path' => $rel, 'page_id' => $page->id];
+    }
+
+    /* -------------------------------------------------------- template */
+
+    /**
+     * A ready-made website from the library (App\Support\WebsiteTemplates,
+     * public/website-templates/{key}/, 2026-10-20) copied into a NEW folder of
+     * the company's website (sites/{key}, else {key}-2, -3 ...: nothing the
+     * company already has is overwritten or deleted) and set as its home page.
+     */
+    public static function fromTemplate(int $companyId, string $key): array
+    {
+        $tpl = \App\Support\WebsiteTemplates::get($key);
+        if (! $tpl) {
+            throw new \RuntimeException('Unknown website template: '.$key);
+        }
+        $name = $key;
+        for ($n = 2; is_dir(public_path('files/company_'.$companyId.'/website/sites/'.$name)); $n++) {
+            $name = $key.'-'.$n;
+        }
+        $rel = CompanyFiles::dir($companyId, 'website/sites/'.$name);
+        $abs = public_path($rel);
+        \Illuminate\Support\Facades\File::copyDirectory(\App\Support\WebsiteTemplates::absPath($key), $abs);
+        @unlink($abs.'/'.\App\Support\WebsiteTemplates::THUMB);
+        $page = self::upsertHome($companyId, $rel.'/'.$tpl['entry']);
+
+        return ['pages' => (int) ($tpl['pages'] ?? 1), 'assets' => (int) ($tpl['files'] ?? 0), 'path' => $rel, 'entry' => $rel.'/'.$tpl['entry'], 'page_id' => $page->id];
+    }
+
+    /**
+     * Crawl a live site into $abs (any folder): each same-site page's rendered
+     * HTML + the assets it uses, links rewritten so the copy works on its own.
+     *
+     * @return array{pages: int, assets: int, entry: string}
+     */
+    public static function crawl(string $url, string $abs, int $maxPages = 30): array
+    {
         // Follow the start URL's redirects: the real site may live in a
         // subfolder (e.g. https://www.rubagardenlandscape.com/ -> /www/).
         $first = Http::timeout(30)->withOptions(['verify' => false])->get($url);
@@ -76,8 +118,6 @@ class SiteImporter
         $prefix = parse_url($root, PHP_URL_PATH) ?: '/';
         $host = strtolower(parse_url($root, PHP_URL_HOST));
         $bareHost = preg_replace('/^www\./', '', $host);
-        $rel = CompanyFiles::dir($companyId, 'website/sites/'.$name);
-        $abs = public_path($rel);
 
         $isSameSite = fn (string $u) => ($h = parse_url($u, PHP_URL_HOST)) === null
             || preg_replace('/^www\./', '', strtolower($h)) === $bareHost;
@@ -135,6 +175,14 @@ class SiteImporter
                     $assets[$sitePath($p)] = true;
                 }
             }
+            // Files the page's inline scripts load by name (relative to the page).
+            $pageDir = dirname($key) === '.' ? '' : dirname($key).'/';
+            foreach (self::localRefs($html, 'html') as $ref) {
+                $rp = strtolower(pathinfo($ref, PATHINFO_EXTENSION));
+                if ($rp !== '' && ! in_array($rp, ['php', 'html', 'htm', 'asp', 'aspx'], true)) {
+                    $assets[self::normalize($pageDir.$ref)] = true;
+                }
+            }
             $pages[$key] = $html;
         }
 
@@ -180,13 +228,19 @@ class SiteImporter
                     $queue[] = $base.$ref;
                 }
             }
+            // Scripts that load more files ("js/superfish.js", "css/x.css"): those
+            // paths are relative to the page (site root), not to the script.
+            if ($ext === 'js') {
+                foreach (self::localRefs($body, 'js') as $ref) {
+                    $queue[] = $ref;
+                }
+            }
             self::put($abs.'/'.$a, $body);
         }
 
         $entry = isset($pages['index.html']) ? 'index.html' : (array_key_first($pages) ?? 'index.html');
-        $page = self::upsertHome($companyId, $rel.'/'.$entry);
 
-        return ['pages' => count($pages), 'assets' => count($done), 'path' => $rel, 'page_id' => $page->id];
+        return ['pages' => count($pages), 'assets' => count($done), 'entry' => $entry];
     }
 
     /* --------------------------------------------------------- helpers */
@@ -201,8 +255,15 @@ class SiteImporter
         }
         preg_match_all('/url\(\s*["\']?([^"\')]+)["\']?\s*\)/i', $text, $m2);
         $refs = array_merge($refs, $m2[1]);
-        if ($ext === 'js') {
-            preg_match_all('/["\']((?:\.\.\/)?(?:images|img|css|js|fonts?)\/[^"\'\s]+)["\']/i', $text, $m3);
+        if ($ext === 'css') {
+            // @import "reset.css"; (without url())
+            preg_match_all('/@import\s*["\']([^"\']+)["\']/i', $text, $m4);
+            $refs = array_merge($refs, $m4[1]);
+        }
+        if (in_array($ext, ['js', 'html', 'htm'], true)) {
+            // Files loaded by scripts (also inline ones): any quoted relative path
+            // ending in an asset extension ("plugins/yoxview/yoxview.css", "scripts/museconfig.js?crc=1").
+            preg_match_all('/["\']((?:\.\.?\/)?[\w\-.\/]+\/[\w\-.]+\.(?:js|css|png|jpe?g|gif|svg|webp|woff2?|ttf|eot|otf|json|mp4|webm|mp3)(?:\?[^"\'\s]*)?)["\']/i', $text, $m3);
             $refs = array_merge($refs, $m3[1]);
         }
 
@@ -236,6 +297,10 @@ class SiteImporter
 
     private static function put(string $absFile, string $contents): void
     {
+        // A reference to a folder ("images/icons") is not a file: never write over a folder.
+        if (is_dir($absFile)) {
+            return;
+        }
         if (! is_dir(dirname($absFile))) {
             mkdir(dirname($absFile), 0755, true);
         }

@@ -1,28 +1,34 @@
 <template>
   <div class="page">
-    <PageHeader :title="tf('Manage_Menu', 'Manage Menu')" :breadcrumb="[tf('Settings', 'Settings'), tf('Manage_Menu', 'Manage Menu')]">
+    <PageHeader :title="s('Manage Menu')" :breadcrumb="[s('Settings'), s('Manage Menu')]">
       <template #actions>
         <a-space>
+          <!-- A company's menu = AdminSystem's (999) order, groups, names and hidden items. -->
+          <a-button v-if="isSuperAdmin && !appliesToAll" :loading="copyingDefault" @click="confirmDefaultOrder">
+            <template #icon><OrderedListOutlined /></template>
+            {{ s('Default order') }}
+          </a-button>
           <a-button v-if="isSuperAdmin" danger :loading="resetting" @click="confirmReset">
             <template #icon><UndoOutlined /></template>
-            {{ $t('Reset_to_Default') }}
+            {{ s('Reset to default') }}
           </a-button>
           <a-button type="primary" :disabled="!dirty" :loading="saving" @click="save">
             <template #icon><SaveOutlined /></template>
-            {{ $t('submit') }}
+            {{ s('Save') }}
           </a-button>
         </a-space>
       </template>
     </PageHeader>
 
     <a-card>
+      <!-- Texts in the active language (lang/SidebarMenuManager.es.js, 2026-10-20). -->
       <a-alert
         type="info"
         show-icon
-        message="Drag and drop to rearrange the menu"
+        :message="s('Arrange the menu')"
         :description="isSuperAdmin
-          ? 'Reorder modules, reorder items inside a module, or drag an item into a different module. Modules always stay at the top level and items cannot become modules. Use the pencil to rename a module, group or item, the + to add a submenu item inside a module or group, the eye icon to hide one, or the trash icon to remove a custom item. Modules turned off for this company (Settings › Modules) are not listed; they keep their place for when they are turned back on.'
-          : 'You can reorder items and drag them between modules, and hide/show them with the eye icon. Only a SuperAdmin can add, remove or rename menu items. Modules turned off for your company are not listed.'"
+          ? s(SUPER_HELP)
+          : s(ADMIN_HELP)"
         style="margin-bottom: 12px"
       />
       <!-- Where a Save / Reset lands: AdminSystem = every company; any
@@ -32,26 +38,27 @@
         :type="appliesToAll ? 'warning' : 'success'"
         show-icon
         :message="appliesToAll
-          ? 'Working as AdminSystem: Submit and Reset apply to EVERY company (replacing each company\'s own menu order).'
-          : `Submit and Reset apply only to ${actingCompanyName}.`"
+          ? s('Working as AdminSystem: Save and Reset apply to EVERY company (replacing each company\'s own menu order).')
+          : s('Save and Reset apply only to {name}.', { name: actingCompanyName })"
         :description="isSuperAdmin && !appliesToAll
-          ? 'To change the menu for every company, pick AdminSystem in the company switcher (top bar) first.'
+          ? s('To change the menu for every company, pick AdminSystem in the company switcher (top bar) first.')
           : undefined"
         style="margin-bottom: 16px"
       />
+      <a-alert v-if="dirty" type="warning" show-icon :message="s('You have unsaved changes -- press Save.')" style="margin-bottom: 12px" />
 
       <div class="smm-toolbar">
         <a-space>
-          <a-button size="small" @click="expandAll">Expand all</a-button>
-          <a-button size="small" @click="expandedKeys = []">Collapse all</a-button>
-          <a-button v-if="isSuperAdmin" size="small" @click="openAddModal(null)">+ Add Top-Level Item</a-button>
+          <a-button size="small" @click="expandAll">{{ s('Expand all') }}</a-button>
+          <a-button size="small" @click="expandedKeys = []">{{ s('Collapse all') }}</a-button>
+          <a-button v-if="isSuperAdmin" size="small" @click="openAddModal(null)">{{ s('+ Add top-level item') }}</a-button>
         </a-space>
       </div>
 
       <div class="smm-header-row">
       <span class="smm-col-icon"></span>
-      <span class="smm-col-label">Item</span>
-      <span class="smm-col-actions">Actions</span>
+      <span class="smm-col-label">{{ s('Item') }}</span>
+      <span class="smm-col-actions">{{ s('Actions') }}</span>
     </div>
 
     <a-tree
@@ -73,21 +80,40 @@
           </span>
           <span class="smm-col-label">
             <span class="smm-label" :class="{ 'smm-hidden-label': dataRef.hidden }">{{ labelOf(dataRef.entry) }}</span>
-            <a-tag v-if="dataRef.type === 'subgroup'" class="smm-tag" :bordered="false">group</a-tag>
-            <a-tag v-if="dataRef.isCustom" class="smm-tag" color="blue" :bordered="false">custom</a-tag>
+            <a-tag v-if="dataRef.type === 'subgroup'" class="smm-tag" :bordered="false">{{ s('group') }}</a-tag>
+            <a-tag v-if="dataRef.isCustom" class="smm-tag" color="blue" :bordered="false">{{ s('custom') }}</a-tag>
+            <a-tooltip v-if="dataRef.notMine" :title="s('Other roles of the company see it; yours has no permission for it.')">
+              <a-tag class="smm-tag" color="default" :bordered="false">{{ s('not in your menu') }}</a-tag>
+            </a-tooltip>
           </span>
           <span class="smm-col-actions" @click.stop>
-            <a-tooltip v-if="isSuperAdmin && dataRef.isContainer" title="Add submenu item">
+            <!-- Move without dragging (2026-10-20: drag and drop was hard to use). -->
+            <a-tooltip :title="s('Move up')">
+              <a-button type="text" size="small" :disabled="!canStep(dataRef, -1)" @click="step(dataRef, -1)">
+                <template #icon><ArrowUpOutlined /></template>
+              </a-button>
+            </a-tooltip>
+            <a-tooltip :title="s('Move down')">
+              <a-button type="text" size="small" :disabled="!canStep(dataRef, 1)" @click="step(dataRef, 1)">
+                <template #icon><ArrowDownOutlined /></template>
+              </a-button>
+            </a-tooltip>
+            <a-tooltip :title="s('Move to…')">
+              <a-button type="text" size="small" @click="openMoveModal(dataRef)">
+                <template #icon><DragOutlined /></template>
+              </a-button>
+            </a-tooltip>
+            <a-tooltip v-if="isSuperAdmin && dataRef.isContainer" :title="s('Add submenu item')">
               <a-button type="text" size="small" @click="openAddModal(dataRef)">
                 <template #icon><PlusOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip v-if="isSuperAdmin" title="Rename">
+            <a-tooltip v-if="isSuperAdmin" :title="s('Rename')">
               <a-button type="text" size="small" @click="openRenameModal(dataRef)">
                 <template #icon><EditOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip :title="dataRef.hidden ? 'Hidden -- click to show' : 'Click to hide'">
+            <a-tooltip :title="dataRef.hidden ? s('Hidden -- click to show') : s('Click to hide')">
               <a-button type="text" size="small" @click="toggleHidden(dataRef)">
                 <template #icon>
                   <EyeInvisibleOutlined v-if="dataRef.hidden" />
@@ -95,7 +121,7 @@
                 </template>
               </a-button>
             </a-tooltip>
-            <a-tooltip v-if="isSuperAdmin && dataRef.isCustom" title="Remove this custom item">
+            <a-tooltip v-if="isSuperAdmin && dataRef.isCustom" :title="s('Remove this custom item')">
               <a-button type="text" size="small" danger @click="removeItem(dataRef)">
                 <template #icon><DeleteOutlined /></template>
               </a-button>
@@ -106,32 +132,49 @@
     </a-tree>
     </a-card>
 
+    <!-- Move to... : the place picked from a list instead of dragging. -->
+    <a-modal
+      v-model:open="moveModalVisible"
+      :title="moveNode ? s(MOVE_TITLE, { name: labelOf(moveNode.entry) }) : ''"
+      :ok-text="s('Move')"
+      :cancel-text="s('Cancel')"
+      :ok-button-props="{ disabled: moveTarget === undefined }"
+      @ok="confirmMove"
+    >
+      <a-select
+        v-model:value="moveTarget" show-search style="width: 100%"
+        :options="moveOptions" :filter-option="(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())"
+      />
+      <div class="smm-type-hint">{{ s('It goes at the end of the chosen place; then use the arrows to put it exactly where you want.') }}</div>
+    </a-modal>
+
     <a-modal
       v-model:open="addModalVisible"
-      :title="addTarget ? `Add Submenu Item -- ${labelOf(addTarget.entry)}` : 'Add Top-Level Menu Item'"
+      :title="addTarget ? s('Add submenu item -- {name}', { name: labelOf(addTarget.entry) }) : s('Add top-level menu item')"
+      :cancel-text="s('Cancel')"
       @ok="confirmAddItem"
       @cancel="resetAddForm"
     >
       <a-form layout="vertical">
-        <a-form-item label="Type" v-if="canAddMenuHere">
+        <a-form-item :label="s('Type')" v-if="canAddMenuHere">
           <a-radio-group v-model:value="newItem.type" button-style="solid">
-            <a-radio-button value="link"><LinkOutlined /> Link</a-radio-button>
-            <a-radio-button value="menu"><FolderOutlined /> Menu</a-radio-button>
+            <a-radio-button value="link"><LinkOutlined /> {{ s('Link') }}</a-radio-button>
+            <a-radio-button value="menu"><FolderOutlined /> {{ s('Menu') }}</a-radio-button>
           </a-radio-group>
           <div class="smm-type-hint" v-if="newItem.type === 'menu'">
-            A menu is just a container -- no route of its own. Add submenu items to it after creating it.
-            <template v-if="addTarget">It becomes a group under "{{ labelOf(addTarget.entry) }}".</template>
+            {{ s('A menu is just a container -- no route of its own. Add submenu items to it after creating it.') }}
+            <template v-if="addTarget">{{ s(GROUP_UNDER, { name: labelOf(addTarget.entry) }) }}</template>
           </div>
         </a-form-item>
-        <a-form-item v-else-if="addTarget" label="Type">
+        <a-form-item v-else-if="addTarget" :label="s('Type')">
           <div class="smm-type-hint">
-            "{{ labelOf(addTarget.entry) }}" is already {{ addTargetDepth }} level(s) deep, so a new menu here would have nowhere for its own items to go -- only a link/route item is allowed.
+            {{ s(DEEP_HINT, { name: labelOf(addTarget.entry), n: addTargetDepth }) }}
           </div>
         </a-form-item>
-        <a-form-item label="Label" required>
-          <a-input v-model:value="newItem.label" placeholder="e.g. Help Center" />
+        <a-form-item :label="s('Label')" required>
+          <a-input v-model:value="newItem.label" :placeholder="s('e.g. Help Center')" />
         </a-form-item>
-        <a-form-item label="Icon" v-if="!addTarget || newItem.type === 'menu'">
+        <a-form-item :label="s('Icon')" v-if="!addTarget || newItem.type === 'menu'">
           <a-select v-model:value="newItem.icon" show-search :filter-option="filterIconOption">
             <a-select-option v-for="opt in iconOptions" :key="opt.value" :value="opt.value">
               <span class="smm-icon-option">
@@ -142,10 +185,10 @@
           </a-select>
         </a-form-item>
         <template v-if="newItem.type !== 'menu'">
-          <a-form-item label="External link">
+          <a-form-item :label="s('External link')">
             <a-switch v-model:checked="newItem.external" />
           </a-form-item>
-          <a-form-item :label="newItem.external ? 'URL' : 'Route'" required>
+          <a-form-item :label="newItem.external ? s('URL') : s('Route')" required>
             <a-input
               v-model:value="newItem.route"
               :placeholder="newItem.external ? 'https://example.com' : '/app/some/page'"
@@ -157,12 +200,13 @@
 
     <a-modal
       v-model:open="renameModalVisible"
-      title="Rename"
+      :title="s('Rename')"
+      :cancel-text="s('Cancel')"
       @ok="confirmRename"
     >
       <a-form layout="vertical">
-        <a-form-item label="Label" required>
-          <a-input v-model:value="renameValue" placeholder="Label" @keyup.enter="confirmRename" />
+        <a-form-item :label="s('Label')" required>
+          <a-input v-model:value="renameValue" :placeholder="s('Label')" @keyup.enter="confirmRename" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -237,10 +281,13 @@ import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   SaveOutlined, UndoOutlined, EyeOutlined, EyeInvisibleOutlined, DeleteOutlined,
-  PlusOutlined, EditOutlined, LinkOutlined, FolderOutlined,
+  PlusOutlined, EditOutlined, LinkOutlined, FolderOutlined, OrderedListOutlined,
+  ArrowUpOutlined, ArrowDownOutlined, DragOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
-import { t as tf } from '../../i18n';
+import { looseTranslation } from '../../i18n';
+import { useLocalText } from '../../lib/useLocalText';
+import SMM_ES from './lang/SidebarMenuManager.es.js';
 import { MENU_ICONS, fallbackIcon } from '../../config/menuIcons';
 import { MENU_ITEM_ICONS } from '../../config/menuItemIcons';
 import { nodeId, applyMenuOrder } from '../../lib/menuOrder';
@@ -253,9 +300,16 @@ import { useMenuStore } from '../../stores/menu';
 import { useCompanyStore } from '../../stores/company';
 import http from '../../lib/http';
 
-const { t } = useI18n();
+const { t, te, locale } = useI18n();
 const auth = useAuthStore();
 const menuStore = useMenuStore();
+// This page's texts in the active language (2026-10-20).
+const { s } = useLocalText(SMM_ES);
+const SUPER_HELP = 'Use the arrows to move an item up or down, "Move to…" to put it in another module, group or at the top level, or drag and drop it. The pencil renames, + adds a submenu item, the eye hides or shows, the trash removes a custom item. Modules turned off for this company are not listed; they keep their place for when they are turned back on.';
+const ADMIN_HELP = 'Use the arrows to move an item up or down, "Move to…" to put it in another module, group or at the top level, or drag and drop it. The eye hides or shows an item. Only a SuperAdmin can add, remove or rename menu items. Modules turned off for your company are not listed.';
+const MOVE_TITLE = 'Move "{name}" to';
+const GROUP_UNDER = 'It becomes a group under "{name}".';
+const DEEP_HINT = '"{name}" is already {n} level(s) deep, so a new menu here would have nowhere for its own items to go -- only a link/route item is allowed.';
 
 // Per-company menu layout: which company is acted on comes from the global
 // switcher in AppTopbar.vue (lib/actingCompany.js), attached to every
@@ -270,7 +324,7 @@ const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
 const companyStore = useCompanyStore();
 const appliesToAll = computed(() => isSuperAdmin.value && Number(companyStore.actingCompanyId) === 999);
 const actingCompanyName = computed(() =>
-  (isSuperAdmin.value ? companyStore.activeCompanyName : auth.user?.company) || 'this company');
+  (isSuperAdmin.value ? companyStore.activeCompanyName : auth.user?.company) || s('this company'));
 
 const saving = ref(false);
 const resetting = ref(false);
@@ -298,10 +352,17 @@ const renameValue = ref('');
 
 /* ------------------------------------------------------------- tree data */
 
+// Names exactly as the left menu shows them (SidebarMenu.vue label() / tr()):
+// a typed name is translated when it has a translation, keys through vue-i18n,
+// then the loose lookup (other upper / lower case, spaces <-> underscores).
+function tr(key) {
+  if (te(key, locale.value)) return t(key);
+  return looseTranslation(key) ?? t(key);
+}
 function labelOf(entry) {
-  if (entry.raw) return entry.label;
-  if (entry.labelKeys) return entry.labelKeys.map(k => t(k)).join(' ');
-  return t(entry.label);
+  if (entry.raw) return looseTranslation(entry.label) ?? entry.label;
+  if (entry.labelKeys) return entry.labelKeys.map(k => tr(k)).join(' ');
+  return tr(entry.label);
 }
 
 /**
@@ -324,7 +385,10 @@ function toNode(entry, depth) {
     : MENU_ITEM_ICONS[entry.to];
   // A module switched off for this company (Settings -> Modules) is HIDDEN here
   // but kept in the tree, so a save keeps its place for when it's turned back on.
-  const off = !isEntryEnabled(moduleFlags.value, entry, spaPathOf);
+  // A company with its own dashboard (school, hospital, real estate) has no
+  // general Dashboard in the left menu either (stores/menu.js).
+  const ownDash = !!auth.user?.own_dashboard && (entry.key === 'dashboard' || entry.to === '/app/dashboard');
+  const off = ownDash || !isEntryEnabled(moduleFlags.value, entry, spaPathOf);
   const node = {
     key,
     type,
@@ -338,8 +402,20 @@ function toNode(entry, depth) {
     iconCmp,
     hidden: !!entry.hidden,
     isCustom: !!entry.custom,
+    // In the company's menu but not in YOURS (your role lacks its permission):
+    // tagged, so the editor and your left menu don't look different for no reason.
+    notMine: !entry.custom && !!entry.permissions?.length && !isSuperAdmin.value && !entry.permissions.some(p => auth.can(p)),
   };
-  if (node.isContainer) node.children = entry.children.map(c => toNode(c, depth + 1));
+  if (node.isContainer) {
+    node.children = entry.children.map(c => toNode(c, depth + 1));
+    // A group whose items are ALL from switched-off modules is empty in the
+    // left menu too (e.g. "POS Management" with POS off) -- hide it here as well.
+    if (!off && node.children.length && node.children.every(c => c.moduleOff)) {
+      node.moduleOff = true;
+      node.class = 'smm-module-off';
+      node.style = { display: 'none' };
+    }
+  }
   return node;
 }
 
@@ -437,8 +513,9 @@ function subtreeHeight(node) {
  * group-inside-group" rule. Items always fit (their own height is 1).
  */
 function isValidParent(drag, parent) {
-  const type = drag.type;
-  if (!parent) return type === 'module' || type === 'subgroup';
+  // The top level takes anything (2026-10-20): a single page can sit in the
+  // main menu too, like Dashboard.
+  if (!parent) return true;
   if (!((parent.type === 'module' || parent.type === 'subgroup') && parent.isContainer)) return false;
   return depthOf(parent) + subtreeHeight(drag) <= MAX_MENU_DEPTH;
 }
@@ -490,11 +567,9 @@ function onDrop(info) {
       && targetParent.isContainer
       && depthOf(targetParent) + subtreeHeight(dragNode) > MAX_MENU_DEPTH;
     if (tooDeep) {
-      message.warning(`This would nest too deep -- "${labelOf(dragNode.entry)}" has its own items ${subtreeHeight(dragNode) - 1} level(s) down, and menus only support ${MAX_MENU_DEPTH} levels total.`);
-    } else if (dragNode.type === 'item') {
-      message.warning('Items must stay inside a module or group.');
+      message.warning(s(TOO_DEEP, { name: labelOf(dragNode.entry), n: subtreeHeight(dragNode) - 1, max: MAX_MENU_DEPTH }));
     } else {
-      message.warning('Modules and groups can only go to the top level or directly into a module/group.');
+      message.warning(s('Modules and groups can only go to the top level or directly into a module/group.'));
     }
     return;
   }
@@ -525,10 +600,7 @@ function onDrop(info) {
   // matches exactly what it resolves to after a save/reload round-trip
   // (menuTree.js only gives a node `.children` if it actually has any), so
   // the label doesn't flip on you the moment you save.
-  if (dragObj.type === 'module' || dragObj.type === 'subgroup') {
-    const becomesTop = !targetParent;
-    dragObj.type = becomesTop ? 'module' : (dragObj.isContainer ? 'subgroup' : 'item');
-  }
+  retype(dragObj, targetParent);
 
   if (asFirstChild) {
     walk(data, dropKey, item => {
@@ -546,6 +618,100 @@ function onDrop(info) {
 
   treeData.value = data;
   dirty.value = true;
+}
+
+const TOO_DEEP = 'This would nest too deep -- "{name}" has its own items {n} level(s) down, and menus only support {max} levels total.';
+
+/**
+ * A node's type follows where it lands: top level = module (a single page at
+ * the top level is a childless module, like Dashboard); inside = subgroup for a
+ * container, item otherwise.
+ */
+function retype(node, parent) {
+  node.type = !parent ? 'module' : (node.isContainer ? 'subgroup' : 'item');
+}
+
+/* ------------------------------------------ move without dragging (2026-10-20) */
+
+/** The sibling list holding `node` (the root list for a top-level node). */
+function siblingsOf(node) {
+  const parent = parentByKey.value.get(node.key);
+  return parent ? parent.children : treeData.value;
+}
+
+/** Visible siblings only: modules switched off are skipped by the arrows. */
+function canStep(node, dir) {
+  const list = siblingsOf(node).filter(n => !n.moduleOff);
+  const i = list.findIndex(n => n.key === node.key);
+  return i >= 0 && i + dir >= 0 && i + dir < list.length;
+}
+
+function step(node, dir) {
+  const list = siblingsOf(node);
+  const visible = list.filter(n => !n.moduleOff);
+  const vi = visible.findIndex(n => n.key === node.key);
+  const other = visible[vi + dir];
+  if (!other) return;
+  const a = list.findIndex(n => n.key === node.key);
+  const b = list.findIndex(n => n.key === other.key);
+  [list[a], list[b]] = [list[b], list[a]];
+  treeData.value = [...treeData.value];
+  dirty.value = true;
+}
+
+const moveModalVisible = ref(false);
+const moveNode = ref(null);
+const moveTarget = ref(undefined); // '__root__' or a container key
+
+/** Every place `moveNode` may go: the top level + each container that fits (not itself or inside itself). */
+const moveOptions = computed(() => {
+  const node = moveNode.value;
+  if (!node) return [];
+  const own = new Set();
+  const collect = n => { own.add(n.key); (n.children || []).forEach(collect); };
+  collect(node);
+  const opts = [{ value: '__root__', label: s('Top level (main menu)') }];
+  const walk = (list, path) => list.forEach(n => {
+    if (n.moduleOff || own.has(n.key)) return;
+    const name = path ? `${path} › ${labelOf(n.entry)}` : labelOf(n.entry);
+    if (n.isContainer && isValidParent(node, n)) opts.push({ value: n.key, label: name });
+    if (n.children) walk(n.children, name);
+  });
+  walk(treeData.value, '');
+  return opts;
+});
+
+function openMoveModal(node) {
+  moveNode.value = node;
+  moveTarget.value = undefined;
+  moveModalVisible.value = true;
+}
+
+function confirmMove() {
+  const node = moveNode.value;
+  if (!node || moveTarget.value === undefined) return;
+  const findByKey = (list, key) => {
+    for (const n of list) {
+      if (n.key === key) return n;
+      const hit = n.children && findByKey(n.children, key);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const parent = moveTarget.value === '__root__' ? null : findByKey(treeData.value, moveTarget.value);
+  const from = siblingsOf(node);
+  from.splice(from.findIndex(n => n.key === node.key), 1);
+  retype(node, parent);
+  if (parent) {
+    parent.children = parent.children || [];
+    parent.children.push(node);
+    if (!expandedKeys.value.includes(parent.key)) expandedKeys.value = [...expandedKeys.value, parent.key];
+  } else {
+    treeData.value.push(node);
+  }
+  treeData.value = [...treeData.value];
+  dirty.value = true;
+  moveModalVisible.value = false;
 }
 
 /* ---------------------------------------------- hide / rename / remove */
@@ -582,7 +748,7 @@ function openRenameModal(node) {
 function confirmRename() {
   const value = renameValue.value.trim();
   if (!value) {
-    message.warning('Label is required.');
+    message.warning(s('Label is required.'));
     return;
   }
   const node = renameTarget.value;
@@ -617,7 +783,7 @@ function confirmAddItem() {
   const isMenu = canAddMenuHere.value && newItem.value.type === 'menu';
   const route = newItem.value.route.trim();
   if (!label || (!isMenu && !route)) {
-    message.warning(isMenu ? 'Label is required.' : 'Label and route/URL are required.');
+    message.warning(isMenu ? s('Label is required.') : s('Label and route/URL are required.'));
     return;
   }
 
@@ -721,13 +887,41 @@ async function save() {
   }
 }
 
+/* "Default order" (2026-10-20): this company's menu = a copy of AdminSystem's. */
+const copyingDefault = ref(false);
+function confirmDefaultOrder() {
+  Modal.confirm({
+    title: s('Default order'),
+    content: s('Put {name}\'s menu in the same order as AdminSystem\'s (same groups, names and hidden items, at every level)? Its current order is replaced.', { name: actingCompanyName.value }),
+    okText: s('Default order'),
+    cancelText: s('Cancel'),
+    onOk: copyDefaultOrder,
+  });
+}
+async function copyDefaultOrder() {
+  copyingDefault.value = true;
+  try {
+    const res = await http.post('menu-positions/default', {});
+    if (auth.user && res?.sidebar_menu_order) auth.user.sidebar_menu_order = res.sidebar_menu_order;
+    await loadPositions();
+    menuStore.loadPositions();
+    dirty.value = false;
+    message.success(res?.message || t('Successfully_Updated'));
+  } catch (e) {
+    message.error(e?.data?.message || e?.message || t('InvalidData'));
+  } finally {
+    copyingDefault.value = false;
+  }
+}
+
 function confirmReset() {
   Modal.confirm({
-    title: t('Reset_to_Default'),
+    title: s('Reset to default'),
     content: appliesToAll.value
-      ? 'Restore the original menu structure for EVERY company? Custom items, renames and hidden items at every level are cleared, everywhere.'
-      : `Restore the original menu structure for ${actingCompanyName.value} only? Its custom items, renames and hidden items are cleared.`,
-    okText: t('Reset_to_Default'),
+      ? s('Restore the original menu structure for EVERY company? Custom items, renames and hidden items at every level are cleared, everywhere.')
+      : s('Restore the original menu structure for {name} only? Its custom items, renames and hidden items are cleared.', { name: actingCompanyName.value }),
+    okText: s('Reset to default'),
+    cancelText: s('Cancel'),
     okType: 'danger',
     onOk: reset,
   });
@@ -782,7 +976,7 @@ async function reset() {
 .smm-header-row,
 .smm-node {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 146px;
+  grid-template-columns: 22px minmax(0, 1fr) 236px;
   align-items: center;
   gap: 8px;
   width: 100%;

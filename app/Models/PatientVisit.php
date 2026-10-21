@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PatientVisit extends Model
 {
-    use SoftDeletes, GeneratesHospitalReference;
+    use SoftDeletes, GeneratesHospitalReference, \App\Models\Concerns\BelongsToActingCompany;
 
     protected $table = 'patient_visits';
 

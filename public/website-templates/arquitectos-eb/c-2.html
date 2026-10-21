@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>E&B | ARQUITECTOS</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="css/style.css" rel="stylesheet">
+    <link href="css/animacion.css" rel="stylesheet">
+    <link href="css/font.css" rel="stylesheet">
+
+    <!-- Fonts -->
+    <link href="http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+    <link href="http://fonts.googleapis.com/css?family=Josefin+Slab:100,300,400,600,700,100italic,300italic,400italic,600italic,700italic" rel="stylesheet" type="text/css">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <style>
+
+    #slides,
+    #slides2,
+    #slides3,
+    #slides4,
+    #slides5,
+    #slides6,
+    #slides7,
+    #slides8,
+    #slides9,
+    #slides10,
+    #slides11, {
+      display: none;
+      margin-bottom:50px;
+    }
+
+    .slidesjs-navigation {
+      margin-top:3px;
+    }
+
+    .slidesjs-previous {
+      margin-right: 5px;
+      float: left;
+    }
+
+    .slidesjs-next {
+      margin-right: 5px;
+      float: left;
+    }
+
+    .slidesjs-pagination {
+      margin: 6px 0 0;
+      float: right;
+      list-style: none;
+    }
+
+    .slidesjs-pagination li {
+      float: left;
+      margin: 0 4px;
+    }
+
+    .slidesjs-pagination li a {
+      display: block;
+      width: 13px;
+      height: 0;
+      padding-top: 13px;
+      background-image: url("img/pagination.png");
+      background-position: 0 0;
+      float: left;
+      overflow: hidden;
+    }
+
+    .slidesjs-pagination li a.active,
+    .slidesjs-pagination li a:hover.active {
+      background-position: 0 -14px;
+      width: 14px;
+    }
+
+    .slidesjs-pagination li a:hover {
+      background-position: 0 -14px
+    }
+
+    
+  </style>
+  <!-- End SlidesJS Optional-->
+
+  <!-- SlidesJS Required: These styles are required if you'd like a responsive slideshow -->
+  <style>
+    #slides {
+      display: none
+    }
+
+  </style>
+
+</head>
+
+<body class="eb">
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-eb" role="navigation">
+        <div class="container">
+            <!-- Brand and toggle get grouped for better mobile display -->
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+              <div class="logo-eb"><a class="" href="index.html"><img src="img/logo.jpg"></a></div>
+            </div>
+            <div class="collapse navbar-collapse navbar-ex1-collapse">
+                <ul class="nav navbar-nav navbar-right items-eb">
+                    <li class="menu-item active"><a href="home.html">HOME</a></li>
+                    <li class="dropdown">
+                        <a id="dLabel" role="button" data-toggle="dropdown" class="" data-target="#" href="page.html">
+                            NOSOTROS <span class="caret"></span>
+                        </a>
+                        <ul class="dropdown-menu multi-level" role="menu" aria-labelledby="dropdownMenu">
+                          <li class="dropdown">
+                            <a tabindex="-1" href="nosotros.html">ARQ - EB</a>
+                          </li>
+                          <li class="dropdown">
+                            <a tabindex="-1" href="calidad.html">CALIDAD</a>
+                            
+                          </li>
+                          <li class="dropdown">
+                            <a tabindex="-1" href="rse.html">RSE</a>
+                      
+                          </li>
+                        </ul>
+                    </li>
+                    <li class="menu-item "><a href="servicios.html">SERVICIOS</a></li>
+                    <li class="dropdown">
+                        <a id="dLabel" role="button" data-toggle="dropdown" class="" data-target="#" href="page.html">
+                            PROYECTOS <span class="caret"></span>
+                        </a>
+                        <ul class="dropdown-menu multi-level" role="menu" aria-labelledby="dropdownMenu">
+                          <li class="dropdown-submenu">
+                            <a tabindex="-1" href="">Construcción</a>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a href="c-1.html">Comercio-Retail</a>
+                                </li>
+                                <li><a href="c-2.html">Institucional</a></li>
+                                <li><a href="c-3.html">Residencial</a></li>
+                            </ul>
+                          </li>
+                          <li class="dropdown-submenu">
+                            <a tabindex="-1" href="">Arquitectura</a>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a href="a-1.html">Comercio-Retail</a>
+                                </li>
+                                <li><a href="a-2.html">Institucional</a></li>
+                                <li><a href="a-3.html">Residencial</a></li>
+                            </ul>
+                          </li>
+                          <li class="dropdown-submenu">
+                            <a tabindex="-1" href="">Diseño</a>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a href="d-1.html">Cuarto de Estudio</a>
+                                </li>
+                            </ul>
+                          </li>
+                        </ul>
+                    </li>
+                    <li class="menu-item"><a href="contacto.html">CONTACTO</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <section class="marquee-eb contenedor-marquee">
+        <div class="animacion-marquee"><img src="img/marquee.png"></div>
+    </section>
+
+    <section class="fnd-conte">
+        <div class="container fnd-conte-blanco">
+            <div class="col-xs-12">
+              <div class="conte-slider">
+                <h2>AMPLIACIÓN COMEDOR</h2>
+                <span>Local</span>
+                <p>Comedor Institucional</p>
+                <span>Ubicación</span>
+                <p>Iasacorp International S.A. Lurín – Lima, Perú.</p>
+                <span>Área</span>
+                <p>62.00 m2</p>
+              </div>
+                <div id="slides" class="espa-slider">
+                  <img src="img/construccion/institucional/comedor/1.jpg" alt="E&B Arquitectos">
+                  <img src="img/construccion/institucional/comedor/2.jpg" alt="E&B Arquitectos">
+                  <a href="#" class="slidesjs-previous slidesjs-navigation"><i class="icon-chevron-left"></i></a>
+                  <a href="#" class="slidesjs-next slidesjs-navigation"><i class="icon-chevron-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <!-- /.container -->
+    </section>
+
+    <section class="marquee-eb">
+    </section>
+
+    <footer class="fnd-footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12 text-center">
+                    <p>Arquitectos E&B sac I todos los derechos reservados</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- jQuery Version 1.11.0 -->
+    <script src="js/jquery-1.11.0.js"></script>
+
+    <!-- Bootstrap Core JavaScript -->
+    <script src="js/bootstrap.min.js"></script>
+
+     <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+  <!-- End SlidesJS Required -->
+
+  <!-- SlidesJS Required: Link to jquery.slides.js -->
+  <script src="js/jquery.slides.min.js"></script>
+  <!-- End SlidesJS Required -->
+
+  <!-- SlidesJS Required: Initialize SlidesJS with a jQuery doc ready -->
+  <script>
+    $(function() {
+      $('#slides').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides2').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides3').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides4').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides5').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides6').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides7').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides8').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides9').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides10').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+      $('#slides11').slidesjs({
+        width: 940,
+        height: 380,
+        navigation: false,
+        start: 1,
+      });
+    });
+  </script>
+
+</body>
+
+</html>

@@ -15,17 +15,17 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Page title suffix">
+            <a-form-item :label="tx('Page title suffix')">
               <a-input v-model:value="setting.page_title_suffix" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Developed by">
+            <a-form-item :label="tx('Developed by')">
               <a-input v-model:value="setting.developed_by" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Footer">
+            <a-form-item :label="tx('Footer')">
               <a-input v-model:value="setting.footer" />
             </a-form-item>
           </a-col>
@@ -52,17 +52,17 @@
           <a-col :xs="24" :md="12">
             <a-form-item label=" ">
               <a-space direction="vertical" size="small">
-                <a-checkbox v-model:checked="setting.customize_button_visible">Show customize button</a-checkbox>
-                <a-checkbox v-model:checked="setting.hide_site_name">Hide site name</a-checkbox>
+                <a-checkbox v-model:checked="setting.customize_button_visible">{{ tx('Show customize button') }}</a-checkbox>
+                <a-checkbox v-model:checked="setting.hide_site_name">{{ tx('Hide site name') }}</a-checkbox>
                 <!-- The small "Employee / Employee Details" trail above every page title. -->
-                <a-checkbox v-model:checked="setting.show_breadcrumbs">Show breadcrumbs above page titles (e.g. Employee / Employee Details)</a-checkbox>
+                <a-checkbox v-model:checked="setting.show_breadcrumbs">{{ tx('Show breadcrumbs above page titles (e.g. Employee / Employee Details)') }}</a-checkbox>
               </a-space>
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item
               :label="$t('Primary_Color')"
-              help="Every user's buttons/links/highlights default to this. Anyone can still personally override it from the Customizer drawer (topbar → Customize)."
+              :help="tx(PRIMARY_HELP)"
             >
               <a-space>
                 <input
@@ -104,9 +104,14 @@ import { UploadOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
+import { useLocalText } from '../../lib/useLocalText';
+import ES from './lang/AppearanceSettings.es.js';
 
 const { t } = useI18n();
+const { s: tx } = useLocalText(ES);
 const auth = useAuthStore();
+
+const PRIMARY_HELP = "Every user's buttons/links/highlights default to this. Anyone can still personally override it from the Customizer drawer (topbar → Customize).";
 
 const loading = ref(true);
 const saving = ref(false);

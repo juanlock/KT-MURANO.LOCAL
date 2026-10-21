@@ -251,9 +251,10 @@ class HospitalAppointmentController extends Controller
     private function rules()
     {
         return [
-            'patient_id' => 'required|exists:patients,id',
-            'doctor_id' => 'required|exists:doctors,id',
-            'department_id' => 'nullable|exists:hospital_departments,id',
+            // Only the acting company's rows (CompanyExists, 2026-10-20).
+            'patient_id' => ['required', \App\Support\CompanyExists::rule('patients')],
+            'doctor_id' => ['required', \App\Support\CompanyExists::rule('doctors')],
+            'department_id' => ['nullable', \App\Support\CompanyExists::rule('hospital_departments')],
             'scheduled_at' => 'required|date',
             'duration_minutes' => 'nullable|integer|min:5|max:480',
             'type' => 'required|in:consultation,follow_up,procedure,emergency,teleconsult',

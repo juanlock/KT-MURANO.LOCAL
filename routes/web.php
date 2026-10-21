@@ -90,6 +90,14 @@ if ($installed === true) {
             });
     }
 
+    // One-page template preview (Website settings -> One-page, 2026-10-20): a
+    // signed link from the editor, so it works before the template is applied.
+    Route::get('/website-preview/onepage/{company}', function (\Illuminate\Http\Request $request, int $company) {
+        abort_unless($request->hasValidSignatureWhileIgnoring(['lang'], false), 403);
+
+        return \App\Services\OnePage::response($company, $request, true) ?? abort(404);
+    })->middleware(['web', 'request.safety'])->whereNumber('company')->name('website.onepage.preview');
+
     Route::middleware(['web', 'request.safety', 'store.enabled', 'store.locale'])->group(function () use ($storePath, $storeAuthPrefix) {
 
         Route::prefix($storePath)->group(function () use ($storeAuthPrefix) {
@@ -582,6 +590,10 @@ Route::get('login', 'Auth\LoginController@showLoginForm')->name('login');
 // 5 attempts per minute per IP — blocks credential-stuffing / brute force.
 Route::post('login', 'Auth\LoginController@login')->middleware('throttle:5,1');
 Route::post('logout', 'Auth\LoginController@logout')->name('logout');
+// SuperAdmin login chooser (2026-10-20): dashboard, or enter as a company's admin; and back.
+Route::get('login/choose', 'Auth\LoginChooseController@show')->middleware('auth:web')->name('login.choose');
+Route::post('login/choose', 'Auth\LoginChooseController@enter')->middleware(['auth:web', 'throttle:20,1'])->name('login.choose.enter');
+Route::post('login/back', 'Auth\LoginChooseController@back')->middleware(['auth:web', 'throttle:20,1'])->name('login.back');
 // POS cashier PIN: switches this browser session to the PIN's user (see PosPinController).
 Route::post('pos/pin-switch', 'PosPinController@switchUser')->middleware(['auth:web', 'throttle:10,1'])->name('pos.pin_switch');
 

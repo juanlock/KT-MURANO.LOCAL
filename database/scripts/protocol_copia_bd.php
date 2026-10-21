@@ -77,8 +77,9 @@ if (! $mysqldump) {
 // machine's backups stay apart. Another folder under KT-TOOLS can still be set
 // before the require, e.g. $outSubdir = 'SQL'.
 // Which protocol made it goes in the name ($backupTag, set before the require):
-// 'wakeup' (start of the day), 'pallevar' (end of the day), 'copiabd' (a
-// database copy on demand -- the default).
+// 'wakeup' (start of the day), 'pallevar' (end of the day), 'adormir' (end of
+// the day without touching production), 'copiabd' (a database copy on demand --
+// the default).
 $host = gethostname() ?: 'unknown-host';
 $backupTag = isset($backupTag) && preg_match('/^[a-z0-9]+$/', (string) $backupTag) ? $backupTag : 'copiabd';
 $outSubdir = isset($outSubdir) && preg_match('/^[A-Za-z0-9_-]+$/', (string) $outSubdir) ? $outSubdir : 'database'.DIRECTORY_SEPARATOR.preg_replace('/[^A-Za-z0-9_-]/', '-', $host);
@@ -215,7 +216,8 @@ $clean = (require __DIR__.'/protocol_sql_clean.php')['line'];
 $written = [];
 foreach ($parts as $outFile => $part) {
     $fh = fopen($outFile, 'w');
-    $tagLabel = ['wakeup' => 'Wake-up, start of the day', 'pallevar' => 'Pa Llevar, end of the day', 'copiabd' => 'Copia BD, on demand'][$backupTag] ?? $backupTag;
+    $tagLabel = ['wakeup' => 'Wake-up, start of the day', 'pallevar' => 'Pa Llevar, end of the day', 'copiabd' => 'Copia BD, on demand',
+        'adormir' => 'A Dormir, end of the day without touching production'][$backupTag] ?? $backupTag;
     fwrite($fh, "-- Murano database copy ({$backupTag}: {$tagLabel}) -- PC {$host}, {$date} {$time}, phpMyAdmin-ready:\n"
         ."-- Contains: {$part['title']}.\n"
         ."-- phpMyAdmin -> select the target database -> Import -> this file.\n"

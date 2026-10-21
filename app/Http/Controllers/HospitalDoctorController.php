@@ -198,8 +198,9 @@ class HospitalDoctorController extends Controller
     {
         return [
             'name' => 'required|string|max:191',
-            'department_id' => 'nullable|exists:hospital_departments,id',
-            'employee_id' => 'nullable|exists:employees,id',
+            // Only the acting company's rows (CompanyExists, 2026-10-20).
+            'department_id' => ['nullable', \App\Support\CompanyExists::rule('hospital_departments')],
+            'employee_id' => ['nullable', \App\Support\CompanyExists::rule('employees')],
             'email' => 'nullable|email|max:191',
             'consultation_fee' => 'nullable|numeric|min:0',
             'image' => 'nullable|image|max:5120',

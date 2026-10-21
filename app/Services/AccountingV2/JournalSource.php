@@ -27,6 +27,9 @@ class JournalSource
         'transfer' => ['Account transfer', 'transfer_money'],
         'cash_register_open' => ['Cash register opening', 'cash_registers'],
         'mrp_production_order' => ['Production order', 'mrp_production_orders'],
+        // Hospital Management billing (2026-10-20, App\Services\HospitalAccounting).
+        'hospital_invoice' => ['Hospital invoice', 'hospital_invoices'],
+        'hospital_payment' => ['Hospital payment', 'hospital_payments'],
         'year_close' => ['Year close', null],
         'manual' => ['Manual entry', null],
     ];
@@ -54,6 +57,7 @@ class JournalSource
             'payment_purchase' => DB::table('purchases')->where('id', $row->purchase_id)->value('company_id'),
             'payment_sale_return' => DB::table('sale_returns')->where('id', $row->sale_return_id)->value('company_id'),
             'payment_purchase_return' => DB::table('purchase_returns')->where('id', $row->purchase_return_id)->value('company_id'),
+            'hospital_invoice', 'hospital_payment' => $row->company_id ?? null,
             default => null,
         };
         if (! $cid && isset($row->user_id)) {
@@ -170,6 +174,14 @@ class JournalSource
                 $link = "/mrp/production-orders/{$row->id}";
                 $fields = ['Order' => $ref, 'Location' => $warehouse($row->warehouse_id ?? null)];
                 break;
+            case 'hospital_invoice':
+            case 'hospital_payment':
+                $party = DB::table('patients')->where('id', $row->patient_id ?? 0)->value('name');
+                $link = '/hospital/invoices';
+                $fields = $type === 'hospital_invoice'
+                    ? ['Date' => $row->invoice_date, 'Patient' => $party, 'Total' => $row->total, 'Paid' => $row->paid, 'Status' => $row->status]
+                    : ['Date' => $row->paid_on, 'For' => DB::table('hospital_invoices')->where('id', $row->invoice_id)->value('reference'), 'Patient' => $party, 'Amount' => $row->amount, 'Method' => $row->method];
+                break;
         }
 
         $partyRole = match ($type) {
@@ -177,6 +189,7 @@ class JournalSource
             'purchase', 'purchase_return', 'payment_purchase', 'payment_purchase_return' => 'Supplier',
             'expense' => 'Category',
             'cash_register_open' => 'Cashier',
+            'hospital_invoice', 'hospital_payment' => 'Patient',
             default => null,
         };
 

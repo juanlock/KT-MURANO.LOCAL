@@ -51,7 +51,88 @@ class BusinessTypes
      * others before creating. Business Modules -> "Modules of <type>" applies
      * them to an existing company.
      */
-    public const BASE_MODULES = ['accounting', 'assets', 'email_office', 'gallery', 'helpdesk', 'hrm', 'website'];
+    public const BASE_MODULES = ['accounting', 'assets', 'email_office', 'gallery', 'helpdesk', 'hrm', 'website',
+        // Commerce (switchable since 2026-10-20): every type starts with them, except the ones in EXCLUDE.
+        'sales', 'pos', 'purchases', 'suppliers', 'products', 'customers'];
+
+    /**
+     * Base modules a type does NOT start with (user's rule, 2026-10-20): a
+     * hospital registers patients and bills through Hospital Management, so no
+     * Sales, POS, Purchases or Suppliers.
+     */
+    public const EXCLUDE = [
+        'hospital' => ['sales', 'pos', 'purchases', 'suppliers'],
+        // A school (user's rule, 2026-10-20): only School, Portfolio, Intranet,
+        // Documents and Website -- none of the commerce or back-office base.
+        'school' => ['sales', 'pos', 'purchases', 'suppliers', 'products', 'customers',
+            'accounting', 'assets', 'email_office', 'gallery', 'helpdesk', 'hrm'],
+        // No POS for real estate either (2026-10-20): it sells through listings and sales.
+        'real_estate' => ['pos'],
+    ];
+
+    /**
+     * The page a company of this type opens on (Home / the dashboard go there),
+     * when the user's role has no home page of its own (Roles -> Home page).
+     */
+    /**
+     * Types with their own dashboard (2026-10-20): the general Dashboard item
+     * is hidden for their users (UserController -> own_dashboard; menu store).
+     */
+    public const HOME = [
+        'hospital' => '/hospital/dashboard',
+        'school' => '/school/dashboard',
+        'real_estate' => '/realestate/dashboard',
+    ];
+
+    public static function homePath(?string $type): ?string
+    {
+        return self::HOME[self::valid($type)] ?? null;
+    }
+
+    /**
+     * The type's own module menu goes FIRST in the side menu (user's rule,
+     * 2026-10-20): Hospital Management for a hospital, School Management for a
+     * school -- out of any group, at the top level, before everything else.
+     */
+    public const MENU_FIRST = [
+        'hospital' => 'hospital',
+        'school' => 'school',
+        'real_estate' => 'group:Real_Estate',
+    ];
+
+    /**
+     * Put the company's type menu first (menu_positions + the top-level
+     * sidebar order). Run after its layout is copied: on create, on Manage
+     * Menu -> Default order, and once for existing companies (migration).
+     * Nothing for types without one, or when the layout has no such item.
+     */
+    public static function promoteMenu(int $companyId): bool
+    {
+        $key = self::MENU_FIRST[self::of($companyId)] ?? null;
+        if (! $key || ! Schema::hasTable('menu_positions')
+            || ! DB::table('menu_positions')->where('company_id', $companyId)->where('item_key', $key)->exists()) {
+            return false;
+        }
+        // sort_order is unsigned: build the order here (the type's menu, then the rest as they were).
+        $rowId = DB::table('menu_positions')->where('company_id', $companyId)->where('item_key', $key)->value('id');
+        DB::table('menu_positions')->where('id', $rowId)->update(['parent_key' => null, 'hidden' => 0, 'updated_at' => now()]);
+        $rest = DB::table('menu_positions')->where('company_id', $companyId)->whereNull('parent_key')->where('id', '!=', $rowId)
+            ->orderBy('sort_order')->orderBy('id')->pluck('id');
+        foreach ($rest->prepend($rowId)->values() as $i => $id) {
+            DB::table('menu_positions')->where('id', $id)->update(['sort_order' => $i]);
+        }
+
+        // The older top-level order (Settings -> Sidebar Menu) agrees.
+        $row = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['id', 'sidebar_menu_order']);
+        $order = $row ? json_decode((string) $row->sidebar_menu_order, true) : null;
+        if (is_array($order)) {
+            $order = array_values(array_filter($order, fn ($n) => ($n['id'] ?? null) !== $key));
+            array_unshift($order, ['id' => $key]);
+            DB::table('settings')->where('id', $row->id)->update(['sidebar_menu_order' => json_encode($order), 'updated_at' => now()]);
+        }
+
+        return true;
+    }
 
     public const MODULES = [
         'general' => [],
@@ -74,14 +155,19 @@ class BusinessTypes
         'hospital' => ['bookings', 'documents', 'hospital', 'meeting'],
         // MRP (bills of materials, production orders, work centers, quality), delivery trucks, machine maintenance, projects.
         'factory' => ['documents', 'fleet', 'manufacturing', 'projects', 'service'],
-        // School Management (students, teachers, academics, exams, timetable, fees), staff intranet, parent / staff meetings, records.
-        'school' => ['documents', 'intranet', 'meeting', 'school'],
+        // School Management (students, teachers, academics, exams, timetable, fees), staff intranet, its portfolio, records (2026-10-20: nothing else, EXCLUDE).
+        'school' => ['documents', 'intranet', 'portfolio', 'school'],
     ];
 
     /** The modules a company of $type starts with (base + the type's own). */
     public static function modules(?string $type): array
     {
-        return array_values(array_unique(array_merge(self::BASE_MODULES, self::MODULES[self::valid($type)] ?? [])));
+        $type = self::valid($type);
+
+        return array_values(array_diff(
+            array_unique(array_merge(self::BASE_MODULES, self::MODULES[$type] ?? [])),
+            self::EXCLUDE[$type] ?? []
+        ));
     }
 
     /** Accounts: [code, parent header, English, Spanish]. */

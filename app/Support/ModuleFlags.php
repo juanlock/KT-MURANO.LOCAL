@@ -12,7 +12,11 @@ use App\Models\Setting;
 class ModuleFlags
 {
     /** OFF until turned on for a company (Saudi e-invoicing; PayPal invoice payments). Same list as config/modules.js defaultOff. */
-    public const DEFAULT_OFF = ['zatca', 'paypal'];
+    public const DEFAULT_OFF = ['zatca', 'paypal',
+        // Integrations hub / webhooks and every integration (2026-10-20): their
+        // settings are install-wide, so they're off unless a SuperAdmin turns one on.
+        'integrations', 'woocommerce_settings', 'shopify', 'salla', 'jumia', 'prestashop',
+        'quickbooks', 'xero', 'google_sheets', 'mailchimp', 'slack', 'telegram'];
 
     private static array $memo = [];
 

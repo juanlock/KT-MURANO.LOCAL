@@ -416,9 +416,10 @@ class HospitalLabController extends Controller
     private function orderRules()
     {
         return [
-            'patient_id' => 'required|exists:patients,id',
-            'doctor_id' => 'nullable|exists:doctors,id',
-            'visit_id' => 'nullable|exists:patient_visits,id',
+            // Only the acting company's rows (CompanyExists, 2026-10-20).
+            'patient_id' => ['required', \App\Support\CompanyExists::rule('patients')],
+            'doctor_id' => ['nullable', \App\Support\CompanyExists::rule('doctors')],
+            'visit_id' => ['nullable', \App\Support\CompanyExists::rule('patient_visits')],
             'ordered_at' => 'nullable|date',
             'priority' => 'nullable|in:routine,urgent,stat',
             'test_ids' => 'required|array|min:1',

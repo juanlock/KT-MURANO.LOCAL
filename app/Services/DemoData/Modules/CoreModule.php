@@ -22,7 +22,14 @@ class CoreModule extends DemoModule
         'Bluetooth Speaker', 'Noise-Cancelling Headphones', 'Portable SSD 1TB', 'Smartphone Case',
         'Power Bank 20000mAh', 'LED Desk Lamp', 'Ergonomic Chair', 'Coffee Maker', 'Electric Kettle',
     ];
-    private const COMPANY_WORDS = ['Global', 'Prime', 'Atlas', 'Delta', 'Nova', 'Summit', 'Horizon', 'Union', 'Vertex', 'Coastal'];
+    /** A hospital's products are its pharmacy / supplies (prescriptions price from them). */
+    private const HOSPITAL_PRODUCT_NAMES = [
+        'Paracetamol 500 mg (box of 20)', 'Amoxicillin 500 mg (box of 21)', 'Ibuprofen 400 mg (box of 20)', 'Omeprazole 20 mg (box of 14)',
+        'Loratadine 10 mg (box of 10)', 'Metformin 850 mg (box of 30)', 'Saline solution 0.9% 1 L', 'Sterile gauze pads (pack of 50)',
+        'Nitrile gloves (box of 100)', 'Disposable syringe 5 ml (box of 100)', 'Surgical masks (box of 50)', 'Alcohol 70% 1 L',
+        'Losartan 50 mg (box of 30)', 'Salbutamol inhaler 100 mcg',
+    ];
+    private const COMPANY_WORDS =['Global', 'Prime', 'Atlas', 'Delta', 'Nova', 'Summit', 'Horizon', 'Union', 'Vertex', 'Coastal'];
     private const COMPANY_TYPES = ['Supplies', 'Trading', 'Distribution', 'Wholesale', 'Logistics', 'Industries'];
     /** Days back that sales / purchases / expenses spread over (a year, so accounting has history). */
     private const HISTORY_DAYS = 365;
@@ -53,25 +60,37 @@ class CoreModule extends DemoModule
     public function generate(DemoContext $ctx): array
     {
         $paymentMethodId = DB::table('payment_methods')->whereNull('deleted_at')->value('id');
+        // Only what the company's modules use (user's rule, 2026-10-20): no demo
+        // sales / quotations with Sales off, no purchases with Purchases off,
+        // no suppliers when neither Purchases nor Suppliers is on (a hospital).
+        // Read fresh (not ModuleFlags' per-request cache): on "create company with
+        // demo data" the flags were written moments ago in this same request.
+        $flags = \App\Services\DemoData\DemoRunner::moduleFlags($ctx->companyId);
+        $on = fn (string $k) => ($flags[$k] ?? true) !== false;
+        // No products / customers either when those modules are off (a school).
+        $products = $on('products');
+        $sales = $on('sales') && $products;
+        $purchases = $on('purchases') && $products;
+        $suppliers = $purchases || $on('suppliers');
 
-        $productIds = $this->makeProducts($ctx, 12);
-        $clientIds = $this->makeClients($ctx, 8);
-        $providerIds = $this->makeProviders($ctx, 5);
+        $productIds = $products ? $this->makeProducts($ctx, 12) : [];
+        $clientIds = $sales && $on('customers') ? $this->makeClients($ctx, 8) : [];
+        $providerIds = $suppliers ? $this->makeProviders($ctx, 5) : [];
         // One demo sales agent, credited on about half of the demo sales, so
         // the Sales Agent field / Commissions have something to show.
-        $agentId = $this->makeSalesAgent($ctx);
+        $agentId = $sales ? $this->makeSalesAgent($ctx) : null;
 
-        return [
+        return array_filter([
             'Products' => count($productIds),
             'Customers' => count($clientIds),
             'Suppliers' => count($providerIds),
             'Sales agents' => $agentId ? 1 : 0,
-            'Sales' => $this->makeSales($ctx, 48, $clientIds, $productIds, $paymentMethodId, $agentId),
-            'Purchases' => $this->makePurchases($ctx, 24, $providerIds, $productIds, $paymentMethodId),
-            'Quotations' => $this->makeQuotations($ctx, 5, $clientIds, $productIds),
+            'Sales' => $sales ? $this->makeSales($ctx, 48, $clientIds, $productIds, $paymentMethodId, $agentId) : 0,
+            'Purchases' => $purchases ? $this->makePurchases($ctx, 24, $providerIds, $productIds, $paymentMethodId) : 0,
+            'Quotations' => $sales ? $this->makeQuotations($ctx, 5, $clientIds, $productIds) : 0,
             'Expenses' => $this->makeExpenses($ctx, 24),
             'Journal entries' => $this->postJournal($ctx),
-        ];
+        ], fn ($n, $k) => $n > 0 || in_array($k, ['Products', 'Expenses', 'Journal entries'], true), ARRAY_FILTER_USE_BOTH);
     }
 
     /** Sales, purchases, their payments and expenses -> journal (tagged demo). */
@@ -104,6 +123,7 @@ class CoreModule extends DemoModule
             'name' => 'Piece', 'ShortName' => 'pc', 'base_unit' => null, 'operator' => '*', 'operator_value' => 1, 'is_active' => 1,
         ]));
 
+        $names = ($ctx->businessType ?? null) === 'hospital' ? self::HOSPITAL_PRODUCT_NAMES : self::PRODUCT_NAMES;
         $ids = [];
         for ($i = 0; $i < $count; $i++) {
             $cost = random_int(5, 400) + 0.99;
@@ -112,7 +132,7 @@ class CoreModule extends DemoModule
                 'type' => 'is_single',
                 'code' => 'DEMO'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
                 'Type_barcode' => 'CODE128',
-                'name' => self::PRODUCT_NAMES[$i % count(self::PRODUCT_NAMES)],
+                'name' => $names[$i % count($names)],
                 'cost' => $cost,
                 'price' => $price,
                 'wholesale_price' => round($price * 0.9, 2),

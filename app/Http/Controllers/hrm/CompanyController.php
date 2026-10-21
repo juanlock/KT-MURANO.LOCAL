@@ -152,6 +152,16 @@ class CompanyController extends Controller
             }
             DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')
                 ->update(['module_flags' => json_encode($flags), 'updated_at' => now()]);
+            // Its business type is saved now: a hospital / school gets its module menu first.
+            \App\Support\BusinessTypes::promoteMenu($cid);
+            // Its roles: no SuperAdmin-only settings (PayPal, ZATCA, currencies...) unless its module is on.
+            \App\Support\SettingsAccess::trimRoles($cid);
+            // A school: Rector, Secretaria, Profesor, Padre de familia, Alumno.
+            if (\App\Support\BusinessTypes::of($cid) === 'school') {
+                \App\Support\SchoolRoles::ensure($cid);
+            }
+            // Its mail server: AdminSystem's, sender "Admin {company}".
+            \App\Models\Server::forCompany($cid);
         }));
         $this->storeLogo((int) $result['company']->id, $logoBytes);
 

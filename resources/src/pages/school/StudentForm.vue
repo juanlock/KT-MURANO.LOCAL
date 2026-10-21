@@ -1,8 +1,8 @@
 <template>
   <div class="page">
     <PageHeader
-      :title="isEdit ? 'Edit student' : 'Admit student'"
-      :breadcrumb="['School', 'Students', isEdit ? $t('Edit') : $t('Add')]"
+      :title="isEdit ? s('Edit student') : s('Admit student')"
+      :breadcrumb="[s('School'), s('Students'), isEdit ? $t('Edit') : $t('Add')]"
     >
       <template #actions>
         <a-button @click="back">{{ $t('Cancel') }}</a-button>
@@ -15,126 +15,126 @@
     <a-form v-else ref="formRef" :model="form" :rules="rules" layout="vertical">
       <a-row :gutter="16">
         <a-col :xs="24" :lg="16">
-          <a-card size="small" title="Student" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Student')" style="margin-bottom: 16px">
             <a-row :gutter="16">
               <a-col :xs="24" :md="12">
-                <a-form-item label="Full name *" name="name">
+                <a-form-item :label="s('Full name *')" name="name">
                   <a-input v-model:value="form.name" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
                 <a-form-item
-                  label="Admission number"
-                  :extra="isEdit ? null : 'Leave empty and one is issued automatically'"
+                  :label="s('Admission number')"
+                  :extra="isEdit ? null : s('Leave empty and one is issued automatically')"
                 >
                   <a-input v-model:value="form.admission_number" placeholder="ADM-000001" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Gender *" name="gender">
-                  <a-select v-model:value="form.gender" :options="GENDERS" />
+                <a-form-item :label="s('Gender *')" name="gender">
+                  <a-select v-model:value="form.gender" :options="genderOptions" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Date of birth" name="date_of_birth">
+                <a-form-item :label="s('Date of birth')" name="date_of_birth">
                   <a-date-picker v-model:value="form.date_of_birth" style="width: 100%" value-format="YYYY-MM-DD" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Admitted on" name="admission_date">
+                <a-form-item :label="s('Admitted on')" name="admission_date">
                   <a-date-picker v-model:value="form.admission_date" style="width: 100%" value-format="YYYY-MM-DD" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Status *" name="status">
-                  <a-select v-model:value="form.status" :options="STUDENT_STATUSES" />
+                <a-form-item :label="s('Status *')" name="status">
+                  <a-select v-model:value="form.status" :options="statusOptions" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Blood group">
-                  <a-input v-model:value="form.blood_group" placeholder="e.g. O+" allow-clear />
+                <a-form-item :label="s('Blood group')">
+                  <a-input v-model:value="form.blood_group" :placeholder="s('e.g. O+')" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Phone">
+                <a-form-item :label="s('Phone')">
                   <a-input v-model:value="form.phone" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-form-item label="Email" name="email">
+                <a-form-item :label="s('Email')" name="email">
                   <a-input v-model:value="form.email" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="16">
-                <a-form-item label="Address">
+                <a-form-item :label="s('Address')">
                   <a-input v-model:value="form.address" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item label="City">
+                <a-form-item :label="s('City')">
                   <a-input v-model:value="form.city" allow-clear />
                 </a-form-item>
               </a-col>
             </a-row>
           </a-card>
 
-          <a-card size="small" title="Placement" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Placement')" style="margin-bottom: 16px">
             <a-alert
               type="info" show-icon banner
               :message="currentYearName
-                ? `Placing this student creates their enrolment for ${currentYearName}.`
-                : 'No academic year is marked current — set one up before placing students.'"
+                ? s('Placing this student creates their enrolment for {year}.', { year: currentYearName })
+                : s('No academic year is marked current — set one up before placing students.')"
               style="margin-bottom: 16px"
             />
             <a-row :gutter="16">
               <a-col :xs="24" :md="8">
-                <a-form-item label="Class">
+                <a-form-item :label="s('Class')">
                   <a-select
                     v-model:value="form.class_id" allow-clear show-search option-filter-prop="label"
-                    :options="classOptions" placeholder="Not placed yet" @change="onClassChange"
+                    :options="classOptions" :placeholder="s('Not placed yet')" @change="onClassChange"
                   />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="Section">
+                <a-form-item :label="s('Section')">
                   <a-select
                     v-model:value="form.section_id" allow-clear show-search option-filter-prop="label"
-                    :options="sectionOptions" :disabled="!form.class_id" placeholder="Any"
+                    :options="sectionOptions" :disabled="!form.class_id" :placeholder="s('Any')"
                   />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="Roll number">
+                <a-form-item :label="s('Roll number')">
                   <a-input v-model:value="form.roll_number" allow-clear />
                 </a-form-item>
               </a-col>
             </a-row>
           </a-card>
 
-          <a-card size="small" title="Guardian">
+          <a-card size="small" :title="s('Guardian')">
             <a-row :gutter="16">
               <a-col :xs="24" :md="8">
-                <a-form-item label="Name">
+                <a-form-item :label="s('Name')">
                   <a-input v-model:value="form.guardian_name" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="Relationship">
-                  <a-input v-model:value="form.guardian_relation" placeholder="e.g. Mother" allow-clear />
+                <a-form-item :label="s('Relationship')">
+                  <a-input v-model:value="form.guardian_relation" :placeholder="s('e.g. Mother')" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="Phone">
+                <a-form-item :label="s('Phone')">
                   <a-input v-model:value="form.guardian_phone" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-form-item label="Email" name="guardian_email">
+                <a-form-item :label="s('Email')" name="guardian_email">
                   <a-input v-model:value="form.guardian_email" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-form-item label="Occupation" style="margin-bottom: 0">
+                <a-form-item :label="s('Occupation')" style="margin-bottom: 0">
                   <a-input v-model:value="form.guardian_occupation" allow-clear />
                 </a-form-item>
               </a-col>
@@ -143,40 +143,40 @@
         </a-col>
 
         <a-col :xs="24" :lg="8">
-          <a-card size="small" title="Photo" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Photo')" style="margin-bottom: 16px">
             <div class="photo">
-              <img v-if="previewUrl" :src="previewUrl" alt="Student" />
+              <img v-if="previewUrl" :src="previewUrl" :alt="s('Student')" />
               <span v-else class="photo-empty"><UserOutlined /></span>
             </div>
             <a-space>
               <a-upload :show-upload-list="false" accept="image/*" :before-upload="pickImage">
                 <a-button>
                   <template #icon><UploadOutlined /></template>
-                  {{ previewUrl ? 'Replace' : 'Upload' }}
+                  {{ previewUrl ? s('Replace') : s('Upload') }}
                 </a-button>
               </a-upload>
               <a-button v-if="previewUrl" danger @click="clearImage">{{ $t('Delete') }}</a-button>
             </a-space>
           </a-card>
 
-          <a-card size="small" title="Medical" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Medical')" style="margin-bottom: 16px">
             <a-form-item style="margin-bottom: 0">
               <a-textarea
                 v-model:value="form.medical_notes" :rows="3"
-                placeholder="Allergies, conditions, medication…"
+                :placeholder="s('Allergies, conditions, medication…')"
               />
             </a-form-item>
           </a-card>
 
-          <a-card size="small" title="Links" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Links')" style="margin-bottom: 16px">
             <a-form-item
               :label="$t('Customer')"
-              extra="Link to the CRM customer who pays the fees"
+              :extra="s('Link to the CRM customer who pays the fees')"
               style="margin-bottom: 0"
             >
               <a-select
                 v-model:value="form.client_id" allow-clear show-search
-                option-filter-prop="label" :options="clientOptions" placeholder="Not linked"
+                option-filter-prop="label" :options="clientOptions" :placeholder="s('Not linked')"
               />
             </a-form-item>
           </a-card>
@@ -215,6 +215,10 @@ import { uploadForm } from '../../lib/upload';
 import http from '../../lib/http';
 import { GENDERS, STUDENT_STATUSES } from './schoolOptions';
 import { t } from '../../i18n';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/StudentForm.es.js';
+
+const { s } = useSchoolText(ES);
 
 const route = useRoute();
 const router = useRouter();
@@ -252,8 +256,10 @@ const meta = ref({});
 const clients = ref([]);
 const classOptions = computed(() => (meta.value.classes || []).map(c => ({ value: c.id, label: c.name })));
 const sectionOptions = computed(() => (meta.value.sections || [])
-  .filter(s => s.class_id === form.value.class_id)
-  .map(s => ({ value: s.id, label: s.name })));
+  .filter(sec => sec.class_id === form.value.class_id)
+  .map(sec => ({ value: sec.id, label: sec.name })));
+const genderOptions = computed(() => GENDERS.map(o => ({ ...o, label: s(o.label) })));
+const statusOptions = computed(() => STUDENT_STATUSES.map(o => ({ ...o, label: s(o.label) })));
 const clientOptions = computed(() => clients.value.map(c => ({ value: c.id, label: c.name })));
 const currentYearName = computed(() => {
   const years = meta.value.academic_years || [];
@@ -295,15 +301,15 @@ async function load() {
     clients.value = clientList?.clients || [];
 
     if (record?.student) {
-      const s = record.student;
+      const st = record.student;
       form.value = {
         ...form.value,
-        ...s,
-        class_id: s.class_id || undefined,
-        section_id: s.section_id || undefined,
-        client_id: s.client_id || undefined,
+        ...st,
+        class_id: st.class_id || undefined,
+        section_id: st.section_id || undefined,
+        client_id: st.client_id || undefined,
       };
-      previewUrl.value = s.image_url || '';
+      previewUrl.value = st.image_url || '';
     }
   } catch (e) {
     message.error(t('InvalidData', 'Could not load this student'));
@@ -335,7 +341,7 @@ async function submit() {
     if (res.status >= 200 && res.status < 300) {
       message.success(isEdit.value
         ? t('Updated_in_successfully', 'Updated successfully')
-        : `Student admitted — ${res.data?.admission_number || ''}`);
+        : s('Student admitted — {adm}', { adm: res.data?.admission_number || '' }));
       router.push(isEdit.value ? `/school/students/${route.params.id}` : `/school/students/${res.data.id}`);
       return;
     }

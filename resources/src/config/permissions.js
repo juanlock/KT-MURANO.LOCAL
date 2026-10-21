@@ -1560,6 +1560,10 @@ export const PERMISSION_GROUPS = [
                 "l": "notification_template"
             },
             {
+                "v": "sms_templates",
+                "l": "sms_templates"
+            },
+            {
                 "v": "pos_settings",
                 "l": "pos_settings"
             },

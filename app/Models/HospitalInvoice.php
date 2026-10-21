@@ -8,12 +8,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HospitalInvoice extends Model
 {
-    use SoftDeletes, GeneratesHospitalReference;
+    use SoftDeletes, GeneratesHospitalReference, \App\Models\Concerns\BelongsToActingCompany;
 
     protected $table = 'hospital_invoices';
 
     protected $fillable = [
-        'reference', 'patient_id', 'visit_id', 'admission_id', 'lab_order_id',
+        'company_id', 'reference', 'patient_id', 'visit_id', 'admission_id', 'lab_order_id',
         'invoice_date', 'due_date', 'subtotal', 'discount', 'tax', 'total', 'paid',
         'status', 'notes', 'created_by',
     ];

@@ -654,6 +654,7 @@ const routes = [
             { path: 'helpdesk/my', name: 'helpdesk-my', component: HelpdeskMyTickets, meta: { title: 'My tickets' } },
             { path: 'store/banners', name: 'store-banners', component: StoreBanners, meta: { title: 'Banners', permission: 'Banners_view' } },
             { path: 'store/banners/edit/:id', name: 'store-banner-edit', component: StoreBannerForm, meta: { title: 'Banner', permission: 'Banners_view' } },
+            { path: 'realestate/dashboard', name: 'realestate-dashboard', component: () => import('../pages/realestate/RealEstateDashboard.vue'), meta: { title: 'Real Estate Dashboard', permission: 'realestate_properties' } },
             { path: 'realestate/properties', name: 'realestate-properties', component: Properties, meta: { title: 'Properties', permission: 'realestate_properties' } },
             { path: 'realestate/properties/create', name: 'realestate-property-create', component: PropertyForm, meta: { title: 'Add Property', permission: 'realestate_properties' } },
             { path: 'realestate/properties/edit/:id(\\d+)', name: 'realestate-property-edit', component: PropertyForm, meta: { title: 'Edit Property', permission: 'realestate_properties' } },
@@ -874,7 +875,7 @@ const routes = [
             { path: 'settings/paypal', name: 'paypal-settings', component: () => import('../pages/settings/PayPalSettings.vue'), meta: { title: 'PayPal', permission: 'paypal_manage' } },
             { path: 'settings/network-security', name: 'network-security', component: () => import('../pages/settings/NetworkSecurity.vue'), meta: { title: 'Network security', permission: 'network_security' } },
             { path: 'settings/system-health', name: 'system-health', component: SystemHealth, meta: { title: 'System Health', permission: 'system_health_view' } },
-            { path: 'settings/sms-templates', name: 'sms-templates', component: SmsTemplates, meta: { title: 'SMS Templates', permission: 'notification_template' } },
+            { path: 'settings/sms-templates', name: 'sms-templates', component: SmsTemplates, meta: { title: 'SMS Templates', permission: 'sms_templates' } },
             { path: 'settings/email-templates', name: 'email-templates', component: EmailTemplates, meta: { title: 'Email Templates', permission: 'notification_template' } },
             // Legacy route has no permission gate — keep it open the same way.
             { path: 'settings/custom-fields', name: 'custom-fields', component: CustomFields, meta: { title: 'Custom Fields' } },

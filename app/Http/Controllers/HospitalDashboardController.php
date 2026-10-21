@@ -75,6 +75,8 @@ class HospitalDashboardController extends Controller
             'lab_critical' => DB::table('lab_order_items')
                 ->join('lab_orders', 'lab_orders.id', '=', 'lab_order_items.lab_order_id')
                 ->whereNull('lab_orders.deleted_at')
+                // Raw query: no model scope -- the acting company by hand.
+                ->when(LabOrder::actingCompanyId(), fn ($q, $cid) => $q->where('lab_orders.company_id', $cid))
                 ->where('lab_order_items.flag', 'critical')
                 ->whereDate('lab_orders.ordered_at', '>=', $today->copy()->subDays(7)->toDateString())
                 ->count(),
@@ -86,7 +88,8 @@ class HospitalDashboardController extends Controller
                 ->whereDate('paid_on', '>=', $monthStart->toDateString())->sum('amount'), 2),
             'outstanding' => round((float) HospitalInvoice::whereNull('deleted_at')
                 ->whereIn('status', ['unpaid', 'partial'])
-                ->selectRaw('COALESCE(SUM(total - paid),0) as due')->value('due'), 2),
+                // toBase(): the model's own `due` attribute hid the SUM (always 0).
+                ->toBase()->selectRaw('COALESCE(SUM(total - paid),0) as due')->value('due'), 2),
 
             'trend' => $this->trend(),
             'by_department' => $this->byDepartment(),

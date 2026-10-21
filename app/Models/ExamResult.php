@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class ExamResult extends Model
 {
+    // Multicompany (2026-10-20): only the acting company's rows.
+    use \App\Models\Concerns\BelongsToActingCompany;
+
     protected $table = 'exam_results';
 
     protected $fillable = [

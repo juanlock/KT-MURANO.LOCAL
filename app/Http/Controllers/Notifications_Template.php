@@ -19,7 +19,7 @@ class Notifications_Template extends Controller
     public function get_sms_template(Request $request)
     {
 
-        $this->authorizeForUser($request->user('api'), 'notification_template', Setting::class);
+        $this->authorizeForUser($request->user('api'), 'sms_templates', Setting::class);
 
         $locale = $request->query('locale', 'en');
 
@@ -107,7 +107,7 @@ class Notifications_Template extends Controller
     public function update_sms_body(Request $request)
     {
 
-        $this->authorizeForUser($request->user('api'), 'notification_template', Setting::class);
+        $this->authorizeForUser($request->user('api'), 'sms_templates', Setting::class);
 
         $locale = $request->input('locale', $request->json('locale', 'en'));
 

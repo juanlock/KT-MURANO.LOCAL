@@ -26,10 +26,11 @@ class WebsiteSetting extends Model
 
     protected $fillable = [
         'company_id', 'url_path', 'site_name', 'logo_path', 'favicon_path', 'seo_meta_title', 'seo_meta_description', 'seo_title_template',
-        'topbar_text_left', 'topbar_text_right', 'footer_text', 'social_links', 'menus', 'text_translations',
+        'topbar_text_left', 'topbar_text_right', 'footer_text', 'social_links', 'menus', 'text_translations', 'onepage',
     ];
 
-    protected $casts = ['social_links' => 'array', 'menus' => 'array', 'text_translations' => 'array'];
+    // onepage: the One-page template website (App\Support\OnePageTemplates), 2026-10-20.
+    protected $casts = ['social_links' => 'array', 'menus' => 'array', 'text_translations' => 'array', 'onepage' => 'array'];
 
     /** The company's row; the first time, a copy of its store settings (files copied too). */
     public static function forCompany(int $companyId): self

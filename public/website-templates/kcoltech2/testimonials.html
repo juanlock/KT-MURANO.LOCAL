@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+
+  <head>
+    <!-- Site Properties -->
+    <meta charset="utf-8">
+    <title>RigelHost - Responsive Hosting Template</title>
+
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="img/favicon/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="img/favicon/apple-touch-icon.png" />
+
+    <link rel="apple-touch-icon" sizes="57x57" href="img/favicon/apple-touch-icon-57x57.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="img/favicon/apple-touch-icon-72x72.png" />
+    <link rel="apple-touch-icon" sizes="76x76" href="img/favicon/apple-touch-icon-76x76.png" />
+    <link rel="apple-touch-icon" sizes="114x114" href="img/favicon/apple-touch-icon-114x114.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="img/favicon/apple-touch-icon-120x120.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="img/favicon/apple-touch-icon-144x144.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="img/favicon/apple-touch-icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="img/favicon/apple-touch-icon-180x180.png" />
+
+    <!-- Mobile Specific Meta -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="HandheldFriendly" content="True"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <meta name="application-name" content="Title"/>
+    <meta name="msapplication-tooltip" content="Description"/>
+
+    <meta name="msapplication-window" content="width=400;height=300"/>
+    <meta name="format-detection" content="telephone=no">
+    <meta name="format-detection" content="address=no">
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+
+    <!-- SEO Meta -->
+    <meta name="description" content="RigelHost - Responsive Hosting Template" />
+    <meta name="keywords" content="technology, hosting, web, html5, css3, jquery, js, slider" />
+    <meta name="author" content="ScanThemes" />
+    <meta name="copyright" content="(c)">
+
+    <!-- Fonts -->
+    <link href='https://fonts.googleapis.com/css?family=Roboto:400,100,100italic,300,300italic,400italic,500,500italic,700,700italic,900,900italic' rel='stylesheet' type='text/css'>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <link rel="stylesheet" href="css/linearicons-font.min.css">
+
+    <link rel="stylesheet" href="css/owl.carousel/owl.carousel.css">
+    <link rel="stylesheet" href="css/owl.carousel/owl.theme.default.css">
+
+    <link rel="stylesheet" href="css/component.css">
+    <link rel="stylesheet" href="css/style.css">
+
+    <noscript>
+      <link rel="stylesheet" href="css/styleNoJS.css">
+    </noscript>
+
+  </head>
+
+  <body>
+
+    <!-- Start Client Area Modal -->
+    <div class="md-modal md-effect-3" id="modal-3">
+        <div class="md-content">
+            <div>
+                <div class="tabs">
+                    <input id="tab-1" type="radio" name="radio-set" class="tab-selector-1" checked="checked">
+                    <label for="tab-1" class="tab-label-1">Sign in</label>
+                    <input id="tab-2" type="radio" name="radio-set" class="tab-selector-2">
+                    <label for="tab-2" class="tab-label-2">New accounts</label>
+                    <div class="clear-shadow"></div>
+
+                    <div class="content">
+                        <div class="content-1">
+                            <form>
+                                <fieldset>
+                                    <div class="clt-area-form">
+                                      <div>
+                                          <i class="fa fa-envelope"></i>
+                                          <input type="text" placeholder="Email">
+                                      </div>
+                                      <div>
+                                          <i class="fa fa-lock"></i>
+                                          <input type="text" placeholder="Password">
+                                      </div>
+                                    </div>
+                                    <div class="clt-area-form">
+                                        <label>
+                                          <input type="checkbox">Remember me
+                                        </label>
+                                    </div>
+                                    <a href="#" class="btn">Login</a>
+                                    <div class="modal-caption">
+                                      <a href="#">Forgot Password?</a>
+                                    </div>
+                                </fieldset>
+                            </form>
+                        </div>
+                        <div class="content-2">
+                            <form>
+                                <fieldset>
+                                    <div class="clt-area-form">
+                                      <div>
+                                          <i class="fa fa-user-plus"></i>
+                                          <input type="text" placeholder="Username">
+                                      </div>
+                                      <div>
+                                          <i class="fa fa-envelope"></i>
+                                          <input type="text" placeholder="Email">
+                                      </div>
+                                      <div>
+                                          <i class="fa fa-lock"></i>
+                                          <input type="text" placeholder="Password">
+                                      </div>
+                                    </div>
+                                    <div class="clt-area-form">
+                                        <label>
+                                          <input type="checkbox">I agree to the <a href="">Terms</a>
+                                        </label>
+                                    </div>
+                                    <a href="#" class="btn">Create account</a>
+                                </fieldset>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <button class="md-close btn-clr">Close me!</button>
+        </div>
+    </div>
+    <!-- End Client Area Modal -->
+
+    <!-- Start Modal Action Play -->
+    <div class="vid-play-box md-modal md-effect-1" id="modal--action-play">
+      <div class="md-content">
+        <button class="vid-close-btn md-close">×</button>
+        <div class="vid-play-ov">
+          <div id="inner-vid"></div>
+        </div>
+      </div>
+    </div>
+    <!-- End Modal Action Play -->
+
+    <header>
+
+      <!-- Start Top Header -->
+      <div class="top-header">
+          <div class="header-box">
+              <div class="header-cont">
+                  <div class="top-social-link">
+                      <ul>
+                          <li><a href=""><i class="fa fa-facebook-square" aria-hidden="true"></i></a></li>
+                          <li><a href=""><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+                          <li><a href=""><i class="fa fa-google-plus" aria-hidden="true"></i></a></li>
+                          <li><a href=""><i class="fa fa-rss" aria-hidden="true"></i></a></li>
+                      </ul>
+                  </div>
+                  <div class="top-button">
+                    <ul>
+                      <li>
+                        <button class="menu-item_btn">
+                          24/7 Support (500)-333-7636
+                        </button>
+                      </li>
+                      <li>
+                        <button class="menu-item_btn">
+                          <i class="fa fa-weixin"></i>Help
+                        </button>
+                      </li>
+                      <li>
+                        <div class="sign-in">
+                          <div>
+                            <button class="md-trigger btn-medium-round" data-modal="modal-3">
+                              <i class="fa fa-user"></i>Sign In
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+              </div>
+          </div>
+      </div>
+      <!-- End Top Header -->
+
+      <!-- Start Main Menu -->
+      <div class="nav-header-box">
+        <div class="nav-header">
+            <div class="l-controller u-width">
+                <ul>
+                  <li class="logo">
+                    <a href="#">
+                      <img src="img/logo.svg" alt="RigelHost">
+                    </a>
+                  </li>
+                </ul>
+            </div>
+            <div class="main u-width">
+                <nav id="cbp-hrmenu" class="cbp-hrmenu">
+                    <ul>
+                        <li>
+                            <a href="#">Home</a>
+                            <div class="cbp-hrsub">
+                                <div class="cbp-hrsub-inner">
+                                    <div>
+                                        <h4>Homepages</h4>
+                                        <ul>
+                                            <li><a href="index.html">Home Version 1</a></li>
+                                            <li><a href="index-layout2.html">Home Version 2</a></li>
+                                            <li><a href="index-layout3.html">Home Version 3</a></li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4>Pages</h4>
+                                        <ul>
+                                          <li><a href="hosting.html">Hosting</a></li>
+                                          <li><a href="contact.html">Contact</a></li>
+                                          <li><a href="404.html">404</a></li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4>Help</h4>
+                                        <ul>
+                                          <li><a href="elements.html">Elements</a></li>
+                                          <li><a href="help-center-general.html">Help Center General</a></li>
+                                          <li><a href="help-center-topic.html">Help Center Topic</a></li>
+                                        </ul>
+                                    </div>
+                                </div><!-- /cbp-hrsub-inner -->
+                            </div><!-- /cbp-hrsub -->
+                        </li>
+                        <li>
+                            <a href="#">Domains</a>
+                            <div class="cbp-hrsub">
+                                <div class="cbp-hrsub-inner">
+                                    <div>
+                                        <h4>Find a Domain</h4>
+                                        <ul>
+                                            <li><a href="#">Domain Name Search</a></li>
+                                            <li><a href="#">Bulk Domain Search</a></li>
+                                            <li><a href="#">New Domain Extensions</a></li>
+                                        </ul>
+                                        <h4>Domain Services</h4>
+                                        <ul>
+                                            <li><a href="#">Domain Transfer</a></li>
+                                            <li><a href="#">WHOIS</a></li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4>Auctions</h4>
+                                        <ul>
+                                            <li><a href="#">Domain Auction</a></li>
+                                            <li><a href="#">List A Domain</a></li>
+                                            <li><a href="#">Tools</a></li>
+                                            <li><a href="#">Pricing</a></li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4>Domain Investor Tools</h4>
+                                        <ul>
+                                            <li><a href="#">Discount Domain Club</a></li>
+                                            <li><a href="#">Domain Backorder</a></li>
+                                            <li><a href="#">CashParking</a></li>
+                                        </ul>
+                                    </div>
+                                </div><!-- /cbp-hrsub-inner -->
+                            </div><!-- /cbp-hrsub -->
+                        </li>
+
+                        <li>
+                            <a href="#">Hosting</a>
+                            <div class="cbp-hrsub">
+                                <div class="cbp-hrsub-inner">
+                                    <div>
+                                        <h4>Hosting</h4>
+                                        <ul>
+                                            <li><a href="#">Web Hosting</a></li>
+                                            <li><a href="#">WordPress Hosting</a></li>
+                                            <li><a href="#">Dedicated IP</a></li>
+                                            <li><a href="#">Premium DNS</a></li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4>Servers</h4>
+                                        <ul>
+                                            <li><a href="#">Virtual Private Servers</a></li>
+                                            <li><a href="#">Dedicated Servers</a></li>
+                                        </ul>
+                                    </div>
+                                </div><!-- /cbp-hrsub-inner -->
+                            </div><!-- /cbp-hrsub -->
+                        </li>
+                        <li>
+                            <a href="#">Help</a>
+                            <div class="cbp-hrsub">
+                                <div class="cbp-hrsub-inner">
+                                    <div>
+                                        <h4>Help Center</h4>
+                                        <ul>
+                                            <li><a href="elements.html">Elements</a></li>
+                                            <li><a href="help-center-general.html">Help Center General</a></li>
+                                            <li><a href="help-center-topic.html">Help Center Topic</a></li>
+                                        </ul>
+                                    </div>
+                                </div><!-- /cbp-hrsub-inner -->
+                            </div><!-- /cbp-hrsub -->
+                        </li>
+                        <li>
+                            <a href="#">About Us</a>
+                            <div class="cbp-hrsub">
+                                <div class="cbp-hrsub-inner">
+                                    <div>
+                                        <h4>Company</h4>
+                                        <ul>
+                                            <li><a href="contact.html">Contact Us</a></li>
+                                            <li><a href="#">Term of Service</a></li>
+                                            <li><a href="#">Privacy Policy</a></li>
+                                        </ul>
+                                        <h4>Testimonials</h4>
+                                        <ul>
+                                            <li><a href="testimonials.html">Customer Stories</a></li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4>Control Panel</h4>
+                                        <ul>
+                                            <li><a href="#">Developer Center</a></li>
+                                            <li><a href="#">Service Status</a></li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4>Alternate numbers</h4>
+                                        <ul>
+                                            <li><a href="#"><i class="fa fa-phone"></i> 0121 345 8280</a></li>
+                                            <li><a href="#"><i class="fa fa-phone"></i> 0121 345 8280</a></li>
+                                            <li><a href="#"><i class="fa fa-phone"></i> 0121 345 8280</a></li>
+                                        </ul>
+                                    </div>
+                                </div><!-- /cbp-hrsub-inner -->
+                            </div><!-- /cbp-hrsub -->
+                        </li>
+
+                    </ul>
+                </nav>
+            </div>
+        </div>
+      </div>
+      <!-- End Main Menu -->
+
+    </header>
+
+    <main>
+
+      <!-- Start Slideshow -->
+      <section class="rtd-banner rtd-banner--bg-3">
+        <div class="section-box">
+          <div class="home-slide area">
+            <h4>LINUX WEB HOSTING</h4>
+            <h1>FAST, SECURE, RELIABLE, HOSTING.</h1>
+            <p>Industry-leading page load times with a 99.9% uptime guarantee</p>
+            <div>
+              <a href="">Get started</a>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- End Slideshow -->
+
+      <!-- Start Testimonials Section -->
+      <div class="disclaimer-bg-1 testimonials-section">
+
+        <!-- Start Get started -->
+        <div class="main-inp-form area">
+          <div class="main-inp-form-row important_note-cont main-inp-form-row-rez">
+            <div class="note-col-md-1 u-width">
+              <img class="important_note-icon" src="img/icon/important_note.png" alt="Important Note">
+            </div>
+            <div class="note-col-md-11 u-width">
+              <span><strong>Important Note:</strong> Mauris volutpat nulla a enim efficitur elementum poritor at diam aliquam et elit elementumMauris volutpat nulla a enim efficitur elementum poritor at diam aliquam et elit elementum, nisl sed!</span>
+            </div>
+          </div>
+          <div class="corner-down"></div>
+        </div>
+        <!-- End Get started -->
+
+        <section class="testimonials testimonials-w-inp-form imaged-band imaged-disclaimer disclaimer-bg-1">
+          <div class="section-box">
+            <div class="header">
+              <div class="heading-title">
+                <div class="center">
+                  <div class="generalHeader">
+                    <h1>Testimonials</h1>
+                    <span class="generalBorder"></span>
+                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                  </div>  
+                </div>
+              </div>
+            </div>
+            <div class="box-items main inclusions">
+              <div>
+                <div class="includes-md-8">
+                  <div class="area">
+                    <img src="img/pages/testimonials/tes_01.jpg" alt="Testimonials">
+                  </div>
+                  <div class="includes-cont center">
+                    <h4>Scott Fields</h4>
+                    <a href="#"><span>Sunshinediving.uk</span></a>
+                    <span class="generalBorder"></span>
+                    <p><i class="fa fa-quote-left" aria-hidden="true"></i>Donec dui elit, ultricies quis ullamcorper ac, posuere sed nisi. Nullam iaculis ornare est in ultrices. Sed hendrerit tellus a hendrerit maximus.</p>
+                    <form action="testimonials-story.php" class="button-box">
+                      <div class="center">
+                        <button class="button button--ujarak button--border-thin button--text-thick">Read testimonial</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="includes-md-8">
+                  <div class="area">
+                    <img src="img/pages/testimonials/tes_02.jpg" alt="Testimonials">
+                  </div>
+                  <div class="includes-cont center">
+                    
+                    <h4>Sophia Dias</h4>
+                    <a href="#"><span>Journalist</span></a>
+                    <span class="generalBorder"></span>
+                    <p><i class="fa fa-quote-left" aria-hidden="true"></i> Donec dui elit, ultricies quis ullamcorper ac, posuere sed nisi. Nullam iaculis ornare est in ultrices. Sed hendrerit tellus a hendrerit maximus.</p>
+                    <form action="testimonials-story.php" class="button-box">
+                      <div class="center">
+                        <button class="button button--ujarak button--border-thin button--text-thick">Read testimonial</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="includes-md-8">
+                  <div class="area">
+                    <img src="img/pages/testimonials/tes_03.jpg" alt="Testimonials">
+                  </div>
+                  <div class="includes-cont center">
+                    
+                    <h4>Ali Schlink</h4>
+                    <a href="#"><span>giiocco.com</span></a>
+                    <span class="generalBorder"></span>
+                    <p><i class="fa fa-quote-left" aria-hidden="true"></i>Donec dui elit, ultricies quis ullamcorper ac, posuere sed nisi. Nullam iaculis ornare est in ultrices. Sed hendrerit tellus a hendrerit maximus.</p>
+                    <form action="testimonials-story.php" class="button-box">
+                      <div class="center">
+                        <button class="button button--ujarak button--border-thin button--text-thick">Read testimonial</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        
+          <div class="testimonial-owl">
+            <div class="section-box">
+              <div class="row">
+                <div class="col-md-12">
+                  <div id="testimonial-slider" class="owl-carousel">
+
+                    <div class="testimonial">
+                      <div class="testimonial-content">
+                        <div class="testimonial-icon">
+                          <i class="fa fa-quote-left"></i>
+                        </div>
+                        <p class="description">
+                            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis eleifend mauris est, eget posuere augue maximus luctus. Nam sed erat non lectus rhoncus rhoncus sed eu turpis. Sed consectetur feugiat massa, sit amet ornare ex tincidunt eget. Sed nec lectus auctor, sollicitudin libero sed, sollicitudin sapien. Etiam aliquam ornare ex at aliquam.
+                        </p>
+                      </div>
+                      <h3 class="title">Jacob Wilson</h3>
+                      <span class="post">Luppine Travel</span>
+                    </div>
+   
+                    <div class="testimonial">
+                      <div class="testimonial-content">
+                          <div class="testimonial-icon">
+                            <i class="fa fa-quote-left"></i>
+                          </div>
+                          <p class="description">
+                            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis eleifend mauris est, eget posuere augue maximus luctus. Nam sed erat non lectus rhoncus rhoncus sed eu turpis. Sed consectetur feugiat massa, sit amet ornare ex tincidunt eget. Sed nec lectus auctor, sollicitudin libero sed, sollicitudin sapien. Etiam aliquam ornare ex at aliquam.
+                          </p>
+                      </div>
+                      <h3 class="title">Kathleen Morgan</h3>
+                      <span class="post">Web Designer</span>
+                    </div>
+
+                    <div class="testimonial">
+                      <div class="testimonial-content">
+                        <div class="testimonial-icon">
+                          <i class="fa fa-quote-left"></i>
+                        </div>
+                        <p class="description">
+                          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis eleifend mauris est, eget posuere augue maximus luctus. Nam sed erat non lectus rhoncus rhoncus sed eu turpis. Sed consectetur feugiat massa, sit amet ornare ex tincidunt eget. Sed nec lectus auctor, sollicitudin libero sed, sollicitudin sapien. Etiam aliquam ornare ex at aliquam.
+                        </p>
+                      </div>
+                      <h3 class="title">Nathan </h3>
+                      <span class="post">iPingcreates.uk</span>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+      </div>
+      <!-- End Testimonials Section -->
+
+      <!-- Start Offer Section -->
+      <section class="offer--section-box">
+          <div class="offer--section">
+              <div class="offer--section-title">
+                  <h2>Get your <span>Website Online</span> Today!</h2>
+              </div>
+              <div class="offer--section-cont">
+                  <div class="offer--section-prise-box">
+                      <h3 class="offer--section-lead">Starting At Only</h3>
+                      <h2 class="offer--section-prise">$3.95<span>/mo*</span></h2>
+                  </div>
+                  <div class="offer--section-button-box">
+                      <form action="#">
+                          <button class="button--main-offer button--red button button--wayra button--border-thick button--text-upper button--size-s">Get Started Now!</button>
+                      </form>
+                  </div>
+              </div>
+          </div>
+      </section>
+      <!-- End Offer Section -->
+
+    </main>
+
+    <!-- Start Footer -->
+    <footer>
+      <div class="footer-main-box area">
+              <div class="footer-upper section-box area">
+                  <div class="footer-links area">
+
+                    <!-- Start Content Items -->
+                    <div class="col-md-25">
+                        <div>
+                            <a href="">
+                                <strong>About RigelHost</strong>
+                                <span class="footerTitle-line"></span>
+                            </a>
+                        </div>
+                        <ul>
+                            <li><a href="">About Us</a></li>
+                            <li><a href="">Contact Us</a></li>
+                            <li><a href="">Newsroom</a></li>
+                            <li><a href="">Investor Relations</a></li>
+                            <li><a href="">Store</a></li>
+                            <li><a href="">Legal</a></li>
+                            <li><a href="">Garage</a></li>
+                            <li><a href="">Blake's Blog</a></li>
+                        </ul>
+                    </div>
+                    <!-- End Content Items -->
+
+                    <!-- Start Content Items -->
+                    <div class="col-md-25">
+                        <div>
+                            <a href="">
+                                <strong>Services</strong>
+                                <span class="footerTitle-line"></span>
+                            </a>
+                        </div>
+                        <ul>
+                            <li><a href="">Web Hosting</a></li>
+                            <li><a href="">Reseller Hosting</a></li>
+                            <li><a href="">Cloud Hosting</a></li>
+                            <li><a href="">Dedicated Servers</a></li>
+                            <li><a href="">Affiliate Program</a></li>
+                        </ul>
+                    </div>
+                    <!-- End Content Items -->
+
+                    <!-- Start Content Items -->
+                    <div class="col-md-25">
+                        <div>
+                            <a href="">
+                                <strong>Company</strong>
+                                <span class="footerTitle-line"></span>
+                            </a>
+                        </div>
+                        <ul>
+                            <li><a href="">About Us</a></li>
+                            <li><a href="">Our People</a></li>
+                            <li><a href="">Events</a></li>
+                            <li><a href="">Plans and Pricing</a></li>
+                            <li><a href="">Careers</a></li>
+                        </ul>
+                    </div>
+                    <!-- End Content Items -->
+
+                    <!-- Start Contact Form -->
+                    <div class="col-md-25 cont-us--section">
+                        <div>
+                            <a href="">
+                                <strong>Contact Us</strong>
+                                <span class="footerTitle-line"></span>
+                            </a>
+                        </div>
+                        <ul class="ul-cntlist">
+                            <li>
+                                <i class="fa fa-map-marker"></i>
+                                <address>
+                                    <span>Address:</span>
+                                    Leominster
+                                    <br>
+                                    76 Summit Street,London
+                                    <br>
+                                    TN 37643 , United Kingdom
+                                </address>
+                            </li>
+                            <li>
+                              <a href="tel:+1-500-333-7636 ">
+                                <i class="fa fa-phone"></i>
+                                <address>
+                                    <span>Phone:</span>
+                                    +1-500-333-7636
+                                </address>
+                              </a>
+                            </li>
+                            <li>
+                                <a href="mailto:info@sample.com">
+                                    <i class="fa fa-envelope"></i>
+                                    <address>
+                                        <span>Email:</span>
+                                        <strong>info@sample.com</strong>
+                                    </address>
+                                </a>
+                            </li>
+                        </ul>
+
+                      <!-- Start Newsletter -->
+                      <section class="footer-apps">
+                        <h3 class="newslr-sub">Newsletter Subscribe</h3>
+                        <div>
+                            <input type="text" id="pcf_email" placeholder="Email Address" name="email">
+                            <div class="news-sub">
+                              <button type="button" onclick="">Submit</button>
+                            </div>
+                        </div>
+                      </section>
+                      <!-- End Newsletter -->
+
+                    </div>
+                    <!-- End Contact Form -->
+
+                  </div>
+
+              </div>
+
+              <!-- Start Copyright -->
+              <div class="footer-bottom-bar area">
+                  <div class="section-box area">
+                      <div class="footer-sitemap sm-4">
+                        <a href=""><span>Sitemap</span></a>
+                        <a href=""><span>Terms of Service</span></a>
+                        <a href=""><span>Privacy Policy</span></a>
+                      </div>
+                      <div class="footer--social-icons sm-8">
+                          <span>Follow Us</span>
+                          <a href="" class="facebook"><i class="fa fa-facebook"></i></a>
+                          <a href="" class="twitter"><i class="fa fa-twitter"></i></a>
+                          <a href="" class="gplus"><i class="fa fa-google-plus"></i></a>
+                      </div>
+                  </div>
+              </div>
+              <!-- End Copyright -->
+
+        </div>
+        <div class="footer-legal">
+          <div class="center">
+            <p>Use of this Site is subject to express terms of use. By using this site, you signify that you agree to be bound by these Universal Terms of Service.</p>
+            <p>Copyright ©  2017 - 2018 RigelHost. All Rights Reserved.</p>
+          </div>
+        </div>
+    </footer>
+    <!-- End Footer -->
+
+    <!-- Modal Overlay -->
+    <div class="md-overlay"></div><!-- the overlay element -->
+
+    <!-- Global JS -->
+    <script src="js/jquery.js"></script>
+    <script src="js/component.js"></script>
+
+    <!-- Owl Carousel -->
+    <script src="js/owl.carousel/owl.carousel.js"></script>
+
+    <!-- Window Effects -->
+    <script src="js/modalwindow/classie.js"></script>
+    <script src="js/modalwindow/modalEffects.js"></script>
+
+    <!-- Menu -->
+    <script src="js/cbpHorizontalMenu.min.js"></script>
+    <script>
+        $(function() {
+            cbpHorizontalMenu.init();
+        });
+    </script>
+
+    <!-- Slider -->
+    <script src="js/slider/modernizr.custom.79639.js"></script>
+    <script src="js/slider/jquery.ba-cond.min.js"></script>
+    <script src="js/slider/jquery.slitslider.js"></script>
+
+    <!-- Back To Top JS -->
+    <a href="#" id="scrollToTop"><i class="fa fa-chevron-up" aria-hidden="true"></i></a>
+    <script src="js/cd-top.js"></script> <!-- Gem jQuery -->
+  </body>
+</html>

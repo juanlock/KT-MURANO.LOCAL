@@ -1,0 +1,139 @@
+body{
+	font-family: 'Lato', sans-serif;
+}
+.sondeo-cambio{
+}
+.sondeo-cambio aside{
+	background: #f0f0f0;
+	padding: 10px;
+}
+.sondeo-cambio h3{
+	font-size: 15px;
+	font-weight: 700;
+	padding-bottom: 10px;
+}
+.sondeo-cambio aside article{
+	border-bottom: 1px dotted #bababa;
+	margin-bottom: 10px;
+	padding-bottom: 6px;
+}
+.sondeo-cambio aside article img{
+	width: 40px;
+	margin-right: 10px;
+	vertical-align: bottom;
+}
+.body-urna{
+	display: inline-block;
+	width: 210px;
+	vertical-align: bottom;
+}
+.body-urna h4{
+	font-size: 13px;
+	font-weight: 400;
+	letter-spacing: -0.3px;
+}
+.body-urna h4 span{
+	font-weight: 700;
+	font-size: 12px;
+}
+.body-urna .progress{
+	margin-bottom: 0;
+	background: white;
+  border-radius: 0;
+  box-shadow: none;
+  height: 18px;
+}
+.body-urna .progress .progress-bar{
+	line-height: 18px;
+	font-weight: 400;
+	font-size: 11px;
+}
+.cant-voto{
+	display: inline-block;
+	font-size: 11px;
+	font-weight: 400;
+	text-align: right;
+	width: 70px;
+}
+.link-sondeo{
+	display: block;
+	font-size: 12px;
+	font-weight: 700;
+	color: black;
+	text-align: center;
+	padding: 2px 0;
+	text-decoration: none;
+}
+.link-sondeo:hover{
+	display: block;
+	font-size: 12px;
+	font-weight: 700;
+	color: black;
+	text-align: center;
+	padding: 2px 0;
+	text-decoration: none;
+}
+.sondeo-cambio h5{
+	display: block;
+	font-size: 16px;
+	font-weight: 700;
+	background: #e4e4e4;
+	margin: 0;
+	padding: 10px;
+}
+.result-colegio aside{
+	margin-bottom: 30px;
+}
+
+@media(max-width:1199px) {
+	.body-urna {
+    width: 146px;
+	}
+	.body-urna h4{
+		text-overflow:ellipsis;
+	  white-space:nowrap; 
+	  overflow:hidden;
+	}
+}
+@media(max-width:991px) {
+	.body-urna {
+    width: 78%;
+	}
+	.cant-voto{
+		width: 12%;
+	}
+}
+@media(max-width:610px) {
+	.body-urna {
+    width: 70%;
+	}
+	.cant-voto{
+		width: 16%;
+	}
+}
+@media(max-width:450px) {
+	.body-urna {
+    width: 60%;
+	}
+	.cant-voto{
+		width: 70px;
+	}
+}
+@media(max-width:375px) {
+	.body-urna {
+    width: 60%;
+	}
+	.cant-voto{
+		width: 65px;
+	}
+}
+@media(max-width:350px) {
+	.body-urna {
+    width: 54%;
+	}
+}
+@media(max-width:330px) {
+	.body-urna {
+    width: 48%;
+	}
+}

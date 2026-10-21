@@ -294,7 +294,7 @@ class HospitalWardController extends Controller
         return [
             'name' => 'required|string|max:191',
             'type' => 'required|in:general,private,semi_private,icu,nicu,maternity,isolation',
-            'department_id' => 'nullable|exists:hospital_departments,id',
+            'department_id' => ['nullable', \App\Support\CompanyExists::rule('hospital_departments')],
             'daily_rate' => 'nullable|numeric|min:0',
         ];
     }
@@ -315,7 +315,7 @@ class HospitalWardController extends Controller
     private function bedRules($isUpdate = false)
     {
         return [
-            'ward_id' => ($isUpdate ? 'nullable' : 'required') . '|exists:hospital_wards,id',
+            'ward_id' => [$isUpdate ? 'nullable' : 'required', \App\Support\CompanyExists::rule('hospital_wards')],
             'bed_number' => ($isUpdate ? 'nullable' : 'required') . '|string|max:40',
             'status' => 'nullable|in:available,occupied,maintenance,reserved',
             'daily_rate' => 'nullable|numeric|min:0',

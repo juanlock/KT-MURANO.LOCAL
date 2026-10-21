@@ -1,0 +1,197 @@
+@charset "utf-8";
+/* CSS Document */
+body{	
+	margin-left: 0px;
+	margin-top: 0px;
+	margin-right: 0px;
+	margin-bottom: 0px;
+	background-color: #FFFFFF;
+}
+.tit-home-serv{
+	font-family: 'News Cycle', serif;
+	font-size: 18px;
+	color:#2186F1;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+}
+.SUBtit-home-serv{
+	font-family: 'News Cycle', serif;
+	font-size: 12px;
+	color:#444444;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+}
+.negrita{
+	font-family: 'News Cycle', serif;
+	font-size: 14px;
+	color:#444444;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+}
+
+.tit-home-serv2{
+	font-family: 'News Cycle', serif;
+	font-size: 12px;
+	color:#CCCCCC;
+	padding:0px;
+	margin:0px;
+}
+
+.text-pie{
+	font-family: 'News Cycle', serif;
+	font-size: 14px;
+	color:#CCCCCC;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+}
+.tit-generales{
+	font-family: 'News Cycle', serif;
+	font-size: 30px;
+	color:#213E99;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+	font-style:oblique;
+}
+.tit-generales2{
+	font-family: 'News Cycle', serif;
+	font-size: 30px;
+	color:#BBBBBB;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+	font-style:oblique;
+}
+.text-general{
+	font-family: 'News Cycle', serif;
+	font-size: 16px;
+	color:#525252;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+}
+.text-caracteristicas{
+	font-family: 'News Cycle', serif;
+	font-size: 16px;
+	color:#2186F1;
+	padding:0px;
+	margin:0px;
+}
+.tit-modulos{
+	font-family: 'News Cycle', serif;
+	font-size: 18px;
+	color:#203E99;
+	padding:0px;
+	margin:0px;
+}
+.text-contenido{
+	font-family: 'News Cycle', serif;
+	font-size: 14px;
+	color:#777777;
+	padding:0px;
+	margin:0px;
+}
+
+.tit-serv-qsomos1{
+	font-family: 'News Cycle', serif;
+	font-size: 20px;
+	color:#0478F2;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+	font-style:oblique;
+}
+.tit-serv-qsomos2{
+	font-family: 'News Cycle', serif;
+	font-size: 20px;
+	color:#203E99;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+	font-style:oblique;
+}
+.descripcion-servicios{
+	font-family: 'News Cycle', serif;
+	font-size: 16px;
+	color:#ffffff;
+	padding:0px;
+	margin:0px;
+	font-weight:bold;
+}
+
+
+A.clase1:visited {color:#203E99; font-style:oblique; font-size:15px;} 
+     A.clase1:active {color:#203E99; font-style:oblique;font-size:15px;} 
+     A.clase1:link {color:#203E99; font-style:oblique;font-size:15px;} 
+     A.clase1:hover {color:#027DFA; font-style:oblique;font-size:15px;} 
+	 
+	 A.clase3:visited {color:#027DFA; font-size:15px;} 
+     A.clase3:active {color:#027DFA; font-size:15px;} 
+     A.clase3:link {color:#027DFA; font-size:15px;} 
+     A.clase3:hover {color:#000000; font-size:15px;} 
+	 
+	 
+	 A.clase2:visited {color:#444444; font-size:13px;} 
+     A.clase2:active {color:#444444;font-size:13px;} 
+     A.clase2:link {color:#444444; font-size:13px;} 
+     A.clase2:hover {color:#000000;font-size:13px;} 
+	 
+	 
+	 .input {
+
+	font-family: Arial, Helvetica, sans-serif;
+
+	font-size: 16px;
+
+	color: #666666;
+
+	height: 30px;
+
+	width: 400px;
+
+	border: 1px solid #999999;
+
+}
+
+.boton {
+
+	font-family: Arial, Helvetica, sans-serif;
+
+	font-size: 14px;
+
+	color:#2186F1;
+
+	background-color: #027DFA;
+	width: 410px;
+	height:30px;
+}
+
+
+
+.input-multilinea {
+
+	font-family: Arial, Helvetica, sans-serif;
+
+	font-size: 16px;
+
+	color: #666666;
+
+	width: 400px;
+	height:120px;
+
+	border: 1px solid #999999;
+
+		padding:5px;
+
+}
+.form {
+
+	margin: 0px;
+
+	padding: 0px;
+
+}

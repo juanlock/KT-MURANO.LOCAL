@@ -1,10 +1,10 @@
 <template>
   <div class="page">
-    <PageHeader title="Exams" subtitle="Schedules, mark sheets and report cards." :breadcrumb="['School', 'Exams']">
+    <PageHeader :title="s('Exams')" :subtitle="s('Schedules, mark sheets and report cards.')" :breadcrumb="[s('School'), s('Exams')]">
       <template #actions>
         <a-button type="primary" @click="openExam(null)">
           <template #icon><PlusOutlined /></template>
-          New exam
+          {{ s('New exam') }}
         </a-button>
       </template>
     </PageHeader>
@@ -12,20 +12,20 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search exam…"
+          v-model:value="crud.search.value" :placeholder="s('Search exam…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.academic_year_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All years" :options="yearOptions" @change="crud.reload"
+          option-filter-prop="label" :placeholder="s('All years')" :options="yearOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.term" class="tb-item-sm" allow-clear
-          placeholder="Term" :options="EXAM_TERMS" @change="crud.reload"
+          :placeholder="s('Term')" :options="termOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.status" class="tb-item-sm" allow-clear
-          placeholder="Status" :options="EXAM_STATUSES" @change="crud.reload"
+          :placeholder="s('Status')" :options="statusOptions" @change="crud.reload"
         />
       </div>
     </a-card>
@@ -38,26 +38,26 @@
             <div class="cell-sub">{{ record.year_name }}</div>
           </button>
         </template>
-        <template v-else-if="column.key === 'term'">{{ labelOf(EXAM_TERMS, record.term) }}</template>
+        <template v-else-if="column.key === 'term'">{{ s(labelOf(EXAM_TERMS, record.term)) }}</template>
         <template v-else-if="column.key === 'dates'">
           <span v-if="record.start_date">
             {{ date(record.start_date) }}{{ record.end_date ? ' → ' + date(record.end_date) : '' }}
           </span>
-          <span v-else class="muted">Not scheduled</span>
+          <span v-else class="muted">{{ s('Not scheduled') }}</span>
         </template>
         <template v-else-if="column.key === 'status'">
           <a-tag :color="optionOf(EXAM_STATUSES, record.status).color">
-            {{ labelOf(EXAM_STATUSES, record.status) }}
+            {{ s(labelOf(EXAM_STATUSES, record.status)) }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
-            <a-tooltip title="Papers & marks">
+            <a-tooltip :title="s('Papers & marks')">
               <a-button type="text" size="small" @click="openPapers(record)">
                 <template #icon><FileTextOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip title="Report card">
+            <a-tooltip :title="s('Report card')">
               <a-button type="text" size="small" @click="openReportCard(record)">
                 <template #icon><TrophyOutlined /></template>
               </a-button>
@@ -79,39 +79,39 @@
 
     <!-- Exam form -->
     <a-modal
-      :open="examOpen" :title="editingExam ? 'Edit exam' : 'New exam'" :width="560"
+      :open="examOpen" :title="editingExam ? s('Edit exam') : s('New exam')" :width="560"
       :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
       @ok="submitExam" @cancel="examOpen = false"
     >
       <a-form ref="examRef" :model="examForm" :rules="examRules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="14">
-            <a-form-item label="Name *" name="name">
-              <a-input v-model:value="examForm.name" placeholder="e.g. Mid-term 2026" allow-clear />
+            <a-form-item :label="s('Name *')" name="name">
+              <a-input v-model:value="examForm.name" :placeholder="s('e.g. Mid-term 2026')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="10">
-            <a-form-item label="Term *" name="term">
-              <a-select v-model:value="examForm.term" :options="EXAM_TERMS" />
+            <a-form-item :label="s('Term *')" name="term">
+              <a-select v-model:value="examForm.term" :options="termOptions" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Academic year *" name="academic_year_id">
+            <a-form-item :label="s('Academic year *')" name="academic_year_id">
               <a-select v-model:value="examForm.academic_year_id" :options="yearOptions" show-search option-filter-prop="label" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Status *" name="status">
-              <a-select v-model:value="examForm.status" :options="EXAM_STATUSES" />
+            <a-form-item :label="s('Status *')" name="status">
+              <a-select v-model:value="examForm.status" :options="statusOptions" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="12">
-            <a-form-item label="Starts">
+            <a-form-item :label="s('Starts')">
               <a-date-picker v-model:value="examForm.start_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="12">
-            <a-form-item label="Ends">
+            <a-form-item :label="s('Ends')">
               <a-date-picker v-model:value="examForm.end_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
@@ -125,15 +125,15 @@
     </a-modal>
 
     <!-- Papers drawer -->
-    <a-drawer :open="papersOpen" :width="880" :title="`${currentExam?.name || ''} — papers`" @close="papersOpen = false">
+    <a-drawer :open="papersOpen" :width="880" :title="s('{name} — papers', { name: currentExam?.name || '' })" @close="papersOpen = false">
       <template #extra>
         <a-space>
           <a-select
             v-model:value="paperClass" style="width: 170px" allow-clear show-search
-            option-filter-prop="label" placeholder="All classes" :options="classOptions" @change="loadPapers"
+            option-filter-prop="label" :placeholder="s('All classes')" :options="classOptions" @change="loadPapers"
           />
-          <a-button :disabled="!paperClass" @click="generateOpen = true">Generate all</a-button>
-          <a-button type="primary" @click="openPaper(null)">Add paper</a-button>
+          <a-button :disabled="!paperClass" @click="generateOpen = true">{{ s('Generate all') }}</a-button>
+          <a-button type="primary" @click="openPaper(null)">{{ s('Add paper') }}</a-button>
         </a-space>
       </template>
 
@@ -146,20 +146,20 @@
             <span v-if="record.exam_date">{{ date(record.exam_date) }}{{ record.start_time ? ' ' + record.start_time : '' }}</span>
             <span v-else class="muted">—</span>
           </template>
-          <template v-else-if="column.key === 'marks'">{{ record.max_marks }} (pass {{ record.pass_marks }})</template>
+          <template v-else-if="column.key === 'marks'">{{ s('{max} (pass {pass})', { max: record.max_marks, pass: record.pass_marks }) }}</template>
           <template v-else-if="column.key === 'entered'">
             <a-tag :color="record.results_entered ? 'success' : 'default'">
-              {{ record.results_entered }} entered
+              {{ s('{n} entered', { n: record.results_entered }) }}
             </a-tag>
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space :size="0">
-              <a-tooltip title="Enter marks">
+              <a-tooltip :title="s('Enter marks')">
                 <a-button type="text" size="small" @click="openSheet(record)">
                   <template #icon><EditOutlined /></template>
                 </a-button>
               </a-tooltip>
-              <a-tooltip title="Edit paper">
+              <a-tooltip :title="s('Edit paper')">
                 <a-button type="text" size="small" @click="openPaper(record)">
                   <template #icon><SettingOutlined /></template>
                 </a-button>
@@ -173,21 +173,21 @@
           </template>
         </template>
         <template #emptyText>
-          <a-empty :image="simpleEmptyImage" description="No papers scheduled" />
+          <a-empty :image="simpleEmptyImage" :description="s('No papers scheduled')" />
         </template>
       </a-table>
     </a-drawer>
 
     <!-- Paper form -->
     <a-modal
-      :open="paperOpen" :title="editingPaper ? 'Edit paper' : 'Add paper'" :width="560"
+      :open="paperOpen" :title="editingPaper ? s('Edit paper') : s('Add paper')" :width="560"
       :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
       @ok="submitPaper" @cancel="paperOpen = false"
     >
       <a-form ref="paperRef" :model="paperForm" :rules="paperRules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Class *" name="class_id">
+            <a-form-item :label="s('Class *')" name="class_id">
               <a-select
                 v-model:value="paperForm.class_id" show-search option-filter-prop="label"
                 :options="classOptions" @change="paperForm.subject_id = undefined"
@@ -195,7 +195,7 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Subject *" name="subject_id">
+            <a-form-item :label="s('Subject *')" name="subject_id">
               <a-select
                 v-model:value="paperForm.subject_id" show-search option-filter-prop="label"
                 :options="paperSubjectOptions"
@@ -203,32 +203,32 @@
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Date">
+            <a-form-item :label="s('Date')">
               <a-date-picker v-model:value="paperForm.exam_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Starts">
+            <a-form-item :label="s('Starts')">
               <a-time-picker v-model:value="paperForm.start_time" format="HH:mm" value-format="HH:mm" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Minutes">
+            <a-form-item :label="s('Minutes')">
               <a-input-number v-model:value="paperForm.duration_minutes" :min="5" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Max marks *" name="max_marks">
+            <a-form-item :label="s('Max marks *')" name="max_marks">
               <a-input-number v-model:value="paperForm.max_marks" :min="1" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Pass marks *" name="pass_marks">
+            <a-form-item :label="s('Pass marks *')" name="pass_marks">
               <a-input-number v-model:value="paperForm.pass_marks" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Room" style="margin-bottom: 0">
+            <a-form-item :label="s('Room')" style="margin-bottom: 0">
               <a-input v-model:value="paperForm.room" allow-clear />
             </a-form-item>
           </a-col>
@@ -238,22 +238,22 @@
 
     <!-- Generate papers -->
     <a-modal
-      :open="generateOpen" title="Generate papers" :width="440"
-      :confirm-loading="saving" ok-text="Generate" :cancel-text="$t('Cancel')"
+      :open="generateOpen" :title="s('Generate papers')" :width="440"
+      :confirm-loading="saving" :ok-text="s('Generate')" :cancel-text="$t('Cancel')"
       @ok="submitGenerate" @cancel="generateOpen = false"
     >
       <p class="hint">
-        Schedules every active subject of the selected class. Subjects already scheduled are skipped.
+        {{ s('Schedules every active subject of the selected class. Subjects already scheduled are skipped.') }}
       </p>
       <a-form layout="vertical">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="Max marks">
+            <a-form-item :label="s('Max marks')">
               <a-input-number v-model:value="generateForm.max_marks" :min="1" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="Pass marks" extra="Blank = each subject's own pass %">
+            <a-form-item :label="s('Pass marks')" :extra="s('Blank = each subject\'s own pass %')">
               <a-input-number v-model:value="generateForm.pass_marks" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
@@ -269,7 +269,7 @@
 
       <a-alert
         v-if="sheet.paper" type="info" show-icon
-        :message="`Out of ${sheet.paper.max_marks}, pass mark ${sheet.paper.pass_marks}. Grades are derived on save.`"
+        :message="s('Out of {max}, pass mark {pass}. Grades are derived on save.', { max: sheet.paper.max_marks, pass: sheet.paper.pass_marks })"
         style="margin-bottom: 12px"
       />
 
@@ -277,42 +277,42 @@
         <div class="mark-id">
           <div class="mark-name">{{ row.name }}</div>
           <div class="mark-sub">
-            {{ row.roll_number ? `Roll ${row.roll_number} · ` : '' }}{{ row.admission_number }}
+            {{ row.roll_number ? s('Roll {n} · ', { n: row.roll_number }) : '' }}{{ row.admission_number }}
           </div>
         </div>
         <a-input-number
           v-model:value="row.marks" :min="0" :max="sheet.paper?.max_marks"
-          :disabled="row.is_absent" placeholder="Marks" class="mark-input"
+          :disabled="row.is_absent" :placeholder="s('Marks')" class="mark-input"
         />
-        <a-checkbox v-model:checked="row.is_absent" class="mark-abs">Absent</a-checkbox>
+        <a-checkbox v-model:checked="row.is_absent" class="mark-abs">{{ s('Absent') }}</a-checkbox>
         <a-tag v-if="row.grade" :color="gradeColor(row.grade)" class="mark-grade">{{ row.grade }}</a-tag>
-        <a-input v-model:value="row.remarks" size="small" placeholder="Remarks" class="mark-remarks" allow-clear />
+        <a-input v-model:value="row.remarks" size="small" :placeholder="s('Remarks')" class="mark-remarks" allow-clear />
       </div>
-      <a-empty v-if="!sheetRows.length" description="No students enrolled in that class" />
+      <a-empty v-if="!sheetRows.length" :description="s('No students enrolled in that class')" />
     </a-drawer>
 
     <!-- Report card -->
-    <a-drawer :open="cardOpen" :width="960" :title="`${currentExam?.name || ''} — report card`" @close="cardOpen = false">
+    <a-drawer :open="cardOpen" :width="960" :title="s('{name} — report card', { name: currentExam?.name || '' })" @close="cardOpen = false">
       <template #extra>
         <a-space>
           <a-select
             v-model:value="cardClass" style="width: 180px" show-search option-filter-prop="label"
-            placeholder="Class" :options="classOptions" @change="loadReportCard"
+            :placeholder="s('Class')" :options="classOptions" @change="loadReportCard"
           />
         </a-space>
       </template>
 
       <div v-if="card.rows" class="card-summary">
         <div class="sum">
-          <span class="sum-label">Class average</span>
+          <span class="sum-label">{{ s('Class average') }}</span>
           <span class="sum-value">{{ card.class_average !== null ? card.class_average + '%' : '—' }}</span>
         </div>
         <div class="sum">
-          <span class="sum-label">Pass rate</span>
+          <span class="sum-label">{{ s('Pass rate') }}</span>
           <span class="sum-value">{{ card.pass_rate !== null ? card.pass_rate + '%' : '—' }}</span>
         </div>
         <div class="sum">
-          <span class="sum-label">Students</span>
+          <span class="sum-label">{{ s('Students') }}</span>
           <span class="sum-value">{{ card.rows.length }}</span>
         </div>
       </div>
@@ -337,7 +337,7 @@
             <a-tag :color="gradeColor(record.grade)">{{ record.grade || '—' }}</a-tag>
           </template>
           <template v-else-if="column.key === 'result'">
-            <a-tag :color="record.result === 'Pass' ? 'success' : 'error'">{{ record.result }}</a-tag>
+            <a-tag :color="record.result === 'Pass' ? 'success' : 'error'">{{ s(record.result) }}</a-tag>
           </template>
           <template v-else-if="column.key.startsWith('subj_')">
             <span v-if="subjectMark(record, column.subjectIndex) !== null">
@@ -347,7 +347,7 @@
           </template>
         </template>
         <template #emptyText>
-          <a-empty :image="simpleEmptyImage" description="Pick a class to build its report card" />
+          <a-empty :image="simpleEmptyImage" :description="s('Pick a class to build its report card')" />
         </template>
       </a-table>
     </a-drawer>
@@ -376,9 +376,16 @@ import { useFormat } from '../../composables/useFormat';
 import { EXAM_TERMS, EXAM_STATUSES, labelOf, optionOf, gradeColor } from './schoolOptions';
 import http from '../../lib/http';
 import { t } from '../../i18n';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/Exams.es.js';
 
+const { s } = useSchoolText(ES);
 const { date } = useFormat();
 const simpleEmptyImage = Empty.PRESENTED_IMAGE_SIMPLE;
+
+// Option labels in the active language (values stay as the API expects).
+const termOptions = computed(() => EXAM_TERMS.map(o => ({ ...o, label: s(o.label) })));
+const statusOptions = computed(() => EXAM_STATUSES.map(o => ({ ...o, label: s(o.label) })));
 
 const filters = reactive({ academic_year_id: undefined, term: undefined, status: undefined });
 
@@ -394,19 +401,19 @@ const crud = useCrudTable('school/exams', {
 
 const meta = ref({});
 const yearOptions = computed(() => (meta.value.academic_years || []).map(y => ({
-  value: y.id, label: y.is_current ? `${y.name} (current)` : y.name,
+  value: y.id, label: y.is_current ? s('{name} (current)', { name: y.name }) : y.name,
 })));
 const classOptions = computed(() => (meta.value.classes || []).map(c => ({ value: c.id, label: c.name })));
 const paperSubjectOptions = computed(() => (meta.value.subjects || [])
-  .filter(s => !s.class_id || s.class_id === paperForm.value.class_id)
-  .map(s => ({ value: s.id, label: s.name })));
+  .filter(sub => !sub.class_id || sub.class_id === paperForm.value.class_id)
+  .map(sub => ({ value: sub.id, label: sub.name })));
 
 const columns = computed(() => [
-  { title: 'Exam', key: 'name', dataIndex: 'name', sorter: true },
-  { title: 'Term', key: 'term', dataIndex: 'term', sorter: true, width: 120 },
-  { title: 'Dates', key: 'dates', width: 240 },
-  { title: 'Papers', dataIndex: 'papers', key: 'papers', width: 100 },
-  { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 140 },
+  { title: s('Exam'), key: 'name', dataIndex: 'name', sorter: true },
+  { title: s('Term'), key: 'term', dataIndex: 'term', sorter: true, width: 120 },
+  { title: s('Dates'), key: 'dates', width: 240 },
+  { title: s('Papers'), dataIndex: 'papers', key: 'papers', width: 100 },
+  { title: s('Status'), key: 'status', dataIndex: 'status', sorter: true, width: 140 },
   { title: '', key: 'actions', width: 150 },
 ]);
 
@@ -426,7 +433,7 @@ function emptyExam() {
   };
 }
 
-const required = () => [{ required: true, message: t('Field_is_required', 'This field is required') }];
+const required = () => [{ required: true, message: t('Field_is_required', s('This field is required')) }];
 const examRules = computed(() => ({
   name: required(), term: required(), academic_year_id: required(), status: required(),
 }));
@@ -449,12 +456,12 @@ async function submitExam() {
   try {
     if (editingExam.value) await http.put(`school/exams/${editingExam.value.id}`, examForm.value);
     else await http.post('school/exams', examForm.value);
-    message.success(t('Created_in_successfully', 'Saved successfully'));
+    message.success(t('Created_in_successfully', s('Saved successfully')));
     examOpen.value = false;
     editingExam.value = null;
     crud.fetchRows();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not save this exam'));
+    message.error(e?.data?.message || t('InvalidData', s('Could not save this exam')));
   } finally {
     saving.value = false;
   }
@@ -468,15 +475,15 @@ const currentExam = ref(null);
 const papers = ref([]);
 const paperClass = ref(undefined);
 
-const paperColumns = [
-  { title: 'Class', dataIndex: 'class_name', key: 'class_name', width: 140 },
-  { title: 'Subject', dataIndex: 'subject_name', key: 'subject_name' },
-  { title: 'When', key: 'exam_date', dataIndex: 'exam_date', width: 170 },
-  { title: 'Marks', key: 'marks', width: 160 },
-  { title: 'Room', dataIndex: 'room', key: 'room', width: 100 },
-  { title: 'Results', key: 'entered', width: 130 },
+const paperColumns = computed(() => [
+  { title: s('Class'), dataIndex: 'class_name', key: 'class_name', width: 140 },
+  { title: s('Subject'), dataIndex: 'subject_name', key: 'subject_name' },
+  { title: s('When'), key: 'exam_date', dataIndex: 'exam_date', width: 170 },
+  { title: s('Marks'), key: 'marks', width: 160 },
+  { title: s('Room'), dataIndex: 'room', key: 'room', width: 100 },
+  { title: s('Results'), key: 'entered', width: 130 },
   { title: '', key: 'actions', width: 120 },
-];
+]);
 
 async function openPapers(exam) {
   currentExam.value = exam;
@@ -534,13 +541,13 @@ async function submitPaper() {
     const base = `school/exams/${currentExam.value.id}/papers`;
     if (editingPaper.value) await http.put(`${base}/${editingPaper.value.id}`, paperForm.value);
     else await http.post(base, paperForm.value);
-    message.success(t('Created_in_successfully', 'Saved successfully'));
+    message.success(t('Created_in_successfully', s('Saved successfully')));
     paperOpen.value = false;
     editingPaper.value = null;
     loadPapers();
     crud.fetchRows();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not save this paper'));
+    message.error(e?.data?.message || t('InvalidData', s('Could not save this paper')));
   } finally {
     saving.value = false;
   }
@@ -548,22 +555,22 @@ async function submitPaper() {
 
 function removePaper(record) {
   Modal.confirm({
-    title: `Delete ${record.subject_name}?`,
+    title: s('Delete {name}?', { name: record.subject_name }),
     icon: createVNode(ExclamationCircleOutlined),
     content: record.results_entered
-      ? `${record.results_entered} mark(s) are recorded on this paper and will be deleted with it.`
-      : 'This paper has no marks recorded.',
-    okText: t('Delete_confirmButtonText', 'Yes, delete it!'),
+      ? s('{n} mark(s) are recorded on this paper and will be deleted with it.', { n: record.results_entered })
+      : s('This paper has no marks recorded.'),
+    okText: t('Delete_confirmButtonText', s('Yes, delete it!')),
     okType: 'danger',
-    cancelText: t('Delete_cancelButtonText', 'Cancel'),
+    cancelText: t('Delete_cancelButtonText', s('Cancel')),
     async onOk() {
       try {
         await http.delete(`school/exams/${currentExam.value.id}/papers/${record.id}`);
-        message.success(t('Deleted_in_successfully', 'Deleted successfully'));
+        message.success(t('Deleted_in_successfully', s('Deleted successfully')));
         loadPapers();
         crud.fetchRows();
       } catch (e) {
-        message.error(e?.data?.message || t('InvalidData', 'Could not delete this paper'));
+        message.error(e?.data?.message || t('InvalidData', s('Could not delete this paper')));
       }
     },
   });
@@ -580,12 +587,12 @@ async function submitGenerate() {
       max_marks: generateForm.max_marks,
       pass_marks: generateForm.pass_marks,
     });
-    message.success(`${data.count} paper(s) scheduled.`);
+    message.success(s('{n} paper(s) scheduled.', { n: data.count }));
     generateOpen.value = false;
     loadPapers();
     crud.fetchRows();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not generate the papers'));
+    message.error(e?.data?.message || t('InvalidData', s('Could not generate the papers')));
   } finally {
     saving.value = false;
   }
@@ -601,7 +608,7 @@ const currentPaper = ref(null);
 
 const sheetTitle = computed(() => {
   const p = sheet.value.paper;
-  return p ? `${p.subject_name} — ${p.class_name}` : 'Mark sheet';
+  return p ? `${p.subject_name} — ${p.class_name}` : s('Mark sheet');
 });
 
 async function openSheet(paper) {
@@ -609,10 +616,10 @@ async function openSheet(paper) {
   try {
     const data = await http.get(`school/exams/${currentExam.value.id}/papers/${paper.id}/sheet`);
     sheet.value = data || {};
-    sheetRows.value = (data?.students || []).map(s => ({ ...s }));
+    sheetRows.value = (data?.students || []).map(st => ({ ...st }));
     sheetOpen.value = true;
   } catch (e) {
-    message.error(t('InvalidData', 'Could not load the mark sheet'));
+    message.error(t('InvalidData', s('Could not load the mark sheet')));
   }
 }
 
@@ -630,11 +637,11 @@ async function saveSheet() {
         })),
       }
     );
-    message.success(`${data.saved} mark(s) saved.`);
+    message.success(s('{n} mark(s) saved.', { n: data.saved }));
     sheetOpen.value = false;
     loadPapers();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not save the marks'));
+    message.error(e?.data?.message || t('InvalidData', s('Could not save the marks')));
   } finally {
     savingSheet.value = false;
   }
@@ -650,7 +657,7 @@ const card = ref({});
 const cardColumns = computed(() => {
   const base = [
     { title: '#', key: 'position', dataIndex: 'position', width: 70 },
-    { title: 'Student', key: 'student', dataIndex: 'name' },
+    { title: s('Student'), key: 'student', dataIndex: 'name' },
   ];
   const subjects = (card.value.papers || []).map((p, i) => ({
     title: p.subject_name,
@@ -661,17 +668,17 @@ const cardColumns = computed(() => {
   return [
     ...base,
     ...subjects,
-    { title: 'Total', key: 'obtained', dataIndex: 'obtained', width: 130 },
+    { title: s('Total'), key: 'obtained', dataIndex: 'obtained', width: 130 },
     { title: '%', key: 'percentage', dataIndex: 'percentage', width: 90 },
-    { title: 'Grade', key: 'grade', dataIndex: 'grade', width: 90 },
-    { title: 'Result', key: 'result', dataIndex: 'result', width: 100 },
+    { title: s('Grade'), key: 'grade', dataIndex: 'grade', width: 90 },
+    { title: s('Result'), key: 'result', dataIndex: 'result', width: 100 },
   ];
 });
 
 function subjectMark(record, index) {
   const subject = record.subjects?.[index];
   if (!subject) return null;
-  if (subject.is_absent) return 'AB';
+  if (subject.is_absent) return s('AB');
   return subject.marks;
 }
 
@@ -690,7 +697,7 @@ async function loadReportCard() {
       class_id: cardClass.value,
     });
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not build the report card'));
+    message.error(e?.data?.message || t('InvalidData', s('Could not build the report card')));
   } finally {
     cardLoading.value = false;
   }

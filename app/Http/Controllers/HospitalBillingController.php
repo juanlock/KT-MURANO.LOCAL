@@ -121,6 +121,8 @@ class HospitalBillingController extends Controller
 
         $invoice = DB::transaction(function () use ($request, $userId) {
             $invoice = HospitalInvoice::create([
+                // The patient's company (also when a SuperAdmin works on "all companies").
+                'company_id' => \App\Models\Patient::withoutGlobalScope('company')->whereKey($request->patient_id)->value('company_id'),
                 'reference' => HospitalInvoice::nextReference('INV'),
                 'patient_id' => $request->patient_id,
                 'visit_id' => $request->visit_id ?: null,
@@ -184,6 +186,7 @@ class HospitalBillingController extends Controller
         DB::transaction(function () use ($invoice) {
             HospitalInvoiceItem::where('invoice_id', $invoice->id)->delete();
             $invoice->delete();
+            \App\Services\HospitalAccounting::syncInvoice($invoice); // deleted -> its entry removed
         });
 
         return response()->json(['success' => true]);
@@ -219,7 +222,8 @@ class HospitalBillingController extends Controller
         }
 
         DB::transaction(function () use ($request, $invoice) {
-            HospitalPayment::create([
+            $payment = HospitalPayment::create([
+                'company_id' => $invoice->company_id, // the invoice's company, even for a SuperAdmin on "all"
                 'reference' => HospitalPayment::nextReference('PAY'),
                 'invoice_id' => $invoice->id,
                 'patient_id' => $invoice->patient_id,
@@ -231,6 +235,7 @@ class HospitalBillingController extends Controller
             ]);
 
             $this->recalculate($invoice);
+            \App\Services\HospitalAccounting::postPayment($payment);
         });
 
         return response()->json(['success' => true, 'due' => $invoice->fresh()->due]);
@@ -245,6 +250,7 @@ class HospitalBillingController extends Controller
 
         DB::transaction(function () use ($payment, $invoice) {
             $payment->delete();
+            \App\Services\HospitalAccounting::removePayment($payment);
             $this->recalculate($invoice);
         });
 
@@ -428,6 +434,8 @@ class HospitalBillingController extends Controller
         $invoice->total = round(max(0, $subtotal - (float) $invoice->discount + (float) $invoice->tax), 2);
         $invoice->paid = round($paid, 2);
         $invoice->syncStatus()->save();
+        // Accounting (2026-10-20): the invoice's journal entry follows its total / status.
+        \App\Services\HospitalAccounting::syncInvoice($invoice);
 
         return $invoice;
     }
@@ -459,10 +467,11 @@ class HospitalBillingController extends Controller
     private function rules()
     {
         return [
-            'patient_id' => 'required|exists:patients,id',
-            'visit_id' => 'nullable|exists:patient_visits,id',
-            'admission_id' => 'nullable|exists:admissions,id',
-            'lab_order_id' => 'nullable|exists:lab_orders,id',
+            // Only the acting company's rows (CompanyExists, 2026-10-20).
+            'patient_id' => ['required', \App\Support\CompanyExists::rule('patients')],
+            'visit_id' => ['nullable', \App\Support\CompanyExists::rule('patient_visits')],
+            'admission_id' => ['nullable', \App\Support\CompanyExists::rule('admissions')],
+            'lab_order_id' => ['nullable', \App\Support\CompanyExists::rule('lab_orders')],
             'invoice_date' => 'nullable|date',
             'due_date' => 'nullable|date',
             'discount' => 'nullable|numeric|min:0',

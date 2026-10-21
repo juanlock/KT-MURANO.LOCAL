@@ -37,7 +37,23 @@ class MailSettingsController extends BaseController
             'notify_superadmin_copy' => (bool) ($settings->notify_superadmin_copy ?? false),
             // "Send a copy to other emails": addresses + which emails (sales / reminders / purchases).
             'mail_copy' => \App\Support\CompanyMail::copySettings((int) $companyId),
+            // AdminSystem's server is the template: the SuperAdmin can deploy it to every company.
+            'is_template' => (int) $companyId === Server::TEMPLATE_COMPANY_ID && optional($user)->type === 'SuperAdmin',
         ], 200);
+    }
+
+    // -------------- Deploy AdminSystem's mail server to every company ---------------\\
+
+    public function deploy_config_mail(Request $request)
+    {
+        $user = $request->user('api');
+        abort_unless(optional($user)->type === 'SuperAdmin', 403);
+        abort_unless((int) $this->resolveActingCompanyId($request) === Server::TEMPLATE_COMPANY_ID, 422, 'Choose AdminSystem first.');
+
+        $count = Server::deployTemplate();
+        abort_if($count === 0, 422, 'AdminSystem has no mail server to copy.');
+
+        return response()->json(['success' => true, 'count' => $count, 'message' => "Mail settings copied to {$count} companies."]);
     }
 
     // -------------- Update mail settings ---------------\\

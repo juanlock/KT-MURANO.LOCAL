@@ -1,0 +1,877 @@
+<? require('adm/require/cn.php');
+$email=$_REQUEST['email'];
+function comprobar_email($email){
+    $mail_correcto = 0;
+   if ((strlen($email) >= 6) && (substr_count($email,"@") == 1) && (substr($email,0,1) != "@") && (substr($email,strlen($email)-1,1) != "@")){
+       if ((!strstr($email,"'")) && (!strstr($email,"\"")) && (!strstr($email,"\\")) && (!strstr($email,"\$")) && (!strstr($email," "))) {
+          if (substr_count($email,".")>= 1){
+             $term_dom = substr(strrchr ($email, '.'),1);
+             if (strlen($term_dom)>1 && strlen($term_dom)<5 && (!strstr($term_dom,"@")) ){
+                $antes_dom = substr($email,0,strlen($email) - strlen($term_dom) - 1);
+                $caracter_ult = substr($antes_dom,strlen($antes_dom)-1,1);
+                if ($caracter_ult != "@" && $caracter_ult != "."){
+                   $mail_correcto = 1;
+                }
+             }
+          }
+       }
+    }
+    if ($mail_correcto)
+       return 1;
+    else
+       return 0;
+}
+
+/*function ObtenerNavegador($user_agent) {  
+     $navegadores = array(  
+          'Opera' => 'Opera',  
+          'Mozilla Firefox'=> '(Firebird)|(Firefox)',  
+          'Galeon' => 'Galeon',  
+          'Chrome'=>'Gecko',  
+          'MyIE'=>'MyIE',  
+          'Lynx' => 'Lynx',  
+          'Netscape' => '(Mozilla/4\.75)|(Netscape6)|(Mozilla/4\.08)|(Mozilla/4\.5)|(Mozilla/4\.6)|(Mozilla/4\.79)',  
+          'Konqueror'=>'Konqueror',  
+		  'Internet Explorer 9' => '(MSIE 9\.[0-9]+)',
+          'Internet Explorer 8' => '(MSIE 8\.[0-9]+)',
+		  'Internet Explorer 7' => '(MSIE 7\.[0-9]+)',  
+          'Internet Explorer 6' => '(MSIE 6\.[0-9]+)',  
+          'Internet Explorer 5' => '(MSIE 5\.[0-9]+)',  
+          'Internet Explorer 4' => '(MSIE 4\.[0-9]+)',  
+);  
+foreach($navegadores as $navegador=>$pattern){  
+       if (eregi($pattern, $user_agent))  
+       return $navegador;  
+    }  
+return 'Desconocido';  
+} ^*/ 
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>KUNTURFLY</title>
+
+<meta name="Abstract" content="paseos en parapente, vuelo en parapente, tandem en miraflores, lima, volar en miraflores, paseos" />
+<meta name="keywords" content="Parapente, Parapente Miraflores, Parapente Larcomar, Parapente La Costa Verde, Parapente Pachacamac, Parapente Lima, Parapente Peru, Parapente Lima Peru, Parapente Miraflores Lima, Parapente Miraflores Peru, Parapentes, Parapentes Miraflores, Parapentes Larcomar, Parapentes La Costa Verde, Parapentes Pachacamac, Parapentes Lima, Parapentes Peru, Parapentes Lima Peru, Vuelos Biplaza Lima, Vuelos Biplaza Peru, Vuelos Biplaza Miraflores, Vuelos Biplaza Pachacamac, Paseos en Parapente Lima, Paseos en Parapente Miraflores, Paseos en Parapente Peru, Parapentismo, Parapentismo Miraflores, Parapentismo Larcomar, Parapentismo La Costa Verde, Parapentismo Pachacamac, Parapentismo Lima, Parapentismo Peru, Gliders, Gliders Miraflores, Gliders Larcomar, Gliders La Costa Verde, Gliders Pachacamac, Gliders Lima, Gliders Peru, Volar, Volar Miralfores, Volar Larcomar, Volar La Costa Verde, Volar Pachacamac, Volar Lima, Volar Peru, Escuela de Parapente, Escuela de Parapente Miraflores, Escuela de Parapente La Costa Verde, Escuela de Parapente Lima, Escuela de Parapente Peru, Escuela Vuelo Libre, Vuelo Libre, Vuelo Libre Miraflores, Vuelo Libre Larcomar, Vuelo Libre La Costa Verde, Vuelo Libre Pachacamac, Vuelo Libre Lima, Vuelo Libre Peru, Paramotor, Paramotor Miraflores, Paramotor Larcomar, Paramotor La Costa Verde, Paramotor Pachacamac, Paramotor Lima, Paramotor Peru,   kuntur, fly,  kuntur, kunturfly Miraflores,   kunturfly Larcomar,   kuntur, fly, kunturfly La Costa Verde,   kuntur, fly, kunturfly Pachacamac,   kunturfly Lima,   , kunturfly Peru,   kunturfly Parapente,   kuntur, fly, kunturfly Parapente Miraflores,   kunturfly Parapente Larcomar,   kunturfly Parapente La Costa Verde,   kuntur, fly, kunturfly Parapente Pachacamac,   kunturfly Parapente Lima,   kunturfly Parapente Peru, Gliders, Manual de Parapente, Deportes de Aventura Lima, Deportes de Aventura Peru, Deportes de Aventura Miraflores, Parapente Precios Lima, Parapente Precios Peru, Parapente Precios Miraflores, Parapente Costo Miraflores, Parapente Costo Peru, Parapente Costo Lima, Turismo de Aventura Lima, Turismo de Aventura Miraflores, Turismo de Aventura Lima,Turismo de Aventura Peru" />
+<meta name="DC.title" content="KUNTURFLY vuelos en parapente en miraflores pachacamac lima peru" />
+<meta name="Generator" content="KUNTURFLY vuelos en parapente en miraflores pachacamac lima peru" />
+<meta name="description" content="KUNTURFLY vuelos en parapente en miraflores pachacamac lima peru" />
+<meta name="GOOGLEBOT" content="INDEX, FOLLOW, ALL" />
+<meta name="ROBOTS" content="NOARCHIVE" />
+<meta name="GOOGLEBOT" content="NOARCHIVE" />
+<meta content="document" name="resource-type" />
+<meta content="Web Services" name="classification" />
+<meta content="ALL" name="robots" />
+<meta content="INDEX,FOLLOW" name="robots" />
+<meta content="Global" name="distribution" />
+<meta content="General" name="rating" />
+<meta http-equiv="reply-to" content="kututo@gmail.com" />
+<meta content="Spanish" name="language" />
+<meta name="revisit-after" content="1 days" />
+
+    
+    
+    
+    
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="css/style.css" type="text/css" media="screen">
+    <link rel="stylesheet" href="css/demo.css" type="text/css" media="all">
+     <link rel="stylesheet" href="messi.css" />
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:600' rel='stylesheet' type='text/css'>
+    <style type="text/css">
+#wrap{
+margin:0 auto 0 auto; width:800px; height:533px; background-repeat:no-repeat; color:#000000
+}
+
+.oneColFixCtrHdr #container {
+	width: 800px;
+	padding: 0px 0px;
+	margin: 0 auto; /* the auto margins (in conjunction with a width) center the page */
+	text-align: left; /* this overrides the text-align: center on the body element. */
+	border:#FF0000 solid 0px;
+	
+}
+input{
+  margin: 0;
+  padding: 5px;
+  color: #666666;
+  background: #F5F5F5;
+  border: 0px solid #ccc;
+  margin: 2px 0;
+  font-size:16px
+}   
+
+input:focus{
+  border: 0px solid #FF9900;
+  background-color: #FFFFFF;
+  font-size:16px
+}
+.info, .exito, .alerta, .error {
+    font-family:Arial, Helvetica, sans-serif; 
+    font-size:13px;
+    border: 1px solid;
+    margin: 5px 0px;
+    padding:10px 5px 10px 50px;
+    background-repeat: no-repeat;
+    background-position: 10px center;
+    position:relative;
+}
+.info {
+    color: #00529B;
+    background-color: #BDE5F8;
+}
+.exito {
+    color: #ffffff;
+    background-color:#009900;
+}
+.alerta {
+    color: #9F6000;
+    background-color: #FEEFB3;
+}
+.error {
+    color: #ffffff;
+    background-color:#CC0000;
+}
+.Estilo2 {color: #333333}
+.Estilo7 {color: #000000; font-size: 18px; font-weight: bold; }
+
+
+
+#holder {
+	width: 100%;
+}
+
+#holder > div {
+	clear: both;
+	padding: 2%;
+	margin-bottom: 20px;
+	border-bottom: 1px solid #eee;
+	float: left;
+	width: 96%;
+}
+/* RADIO */
+
+.regular-radio {
+	display: none;
+}
+
+.regular-radio + label {
+	-webkit-appearance: none;
+	background-color:#ffffff;
+	border: 1px solid #333333;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.05), inset 0px -15px 10px -12px rgba(0,0,0,0.05);
+	padding: 9px;
+	border-radius: 50px;
+	display: inline-block;
+	position: relative;
+}
+
+.regular-radio:checked + label:after {
+	content: ' ';
+	width: 12px;
+	height: 12px;
+	border-radius: 50px;
+	position: absolute;
+	top: 3px;
+	background: #CC0000;
+	box-shadow: inset 0px 0px 10px rgba(0,0,0,0.3);
+	text-shadow: 0px;
+	left: 3px;
+	font-size: 32px;
+}
+
+.regular-radio:checked + label {
+	background-color:#FF0000;
+	color:#CC0000;
+	border: 1px solid #CC0000;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.05), inset 0px -15px 10px -12px rgba(0,0,0,0.05), inset 15px 10px -12px rgba(255,255,255,0.1), inset 0px 0px 10px rgba(0,0,0,0.1);
+}
+
+.regular-radio + label:active, .regular-radio:checked + label:active {
+	box-shadow: 0 1px 2px rgba(0,0,0,0.05), inset 0px 1px 3px rgba(0,0,0,0.1);
+}
+
+.big-radio + label {
+	padding: 16px;
+}
+
+.big-radio:checked + label:after {
+	width: 24px;
+	height: 24px;
+	left: 4px;
+	top: 4px;
+}
+.Estilo13 {font-size: 16px}
+
+
+    </style>
+
+</head>
+<body id="page1">
+            <header>
+            	<div class="main">
+                	
+                    <div class="bg-1">
+                        <div class="logo-box">
+                           <a class="logo" href="index.html">KUNTURFLY</a>                        </div>
+                        <nav>
+                            <ul class="menu1">
+                                <li><span><a href="index.html">Inicio</a></span></li>
+                                <li class="active"><span><a href="precios-de-vuelo-en-parapente.html">Precios & Descuentos</a></span></li>
+                                <li><span><a href="zona-de-vuelo-en-parapente.html">Ubicacion</a></span></li>
+                                  <li><span><a href="publicidad-aerea-parapente-miraflores-lima-peru.html">Publicidad Aerea</a></span></li>
+                                <li class="last8"><span><a href="informacion-de-vuelos-en-parapente.html">Contacto</a></span></li>
+                            </ul>
+                            <div class="clear"></div>
+                        </nav>
+                      
+                    </div>
+                    
+                    <p>
+                  </p>
+                    <p>&nbsp;</p>
+                    <table width="900" border="1" align="center" cellpadding="2" cellspacing="2">
+  <tr>
+    <td width="920" height="400" colspan="3" style="background-image:url(images/back.jpg); background-repeat:no-repeat;">
+    <center><div  id="wrap" style="padding-left:120px">
+
+<?
+$name='';
+$email='';
+$cel='';
+$c1='';
+$c2='';
+$c3='';
+$c4='';
+$c5='';
+$pass='';
+$condiciones='';
+$errorx='';
+if(isset($_POST['btnAcceso'])){
+	$name=$_REQUEST['name'];
+	$email=$_REQUEST['email'];
+	$cel=$_REQUEST['cel'];
+	$pass=$_REQUEST['pass'];
+	$condiciones=$_REQUEST['condiciones'];
+	
+	$q_userx="select * from concursos where email='".$_REQUEST['email']."'";
+	$r_userx=mysql_query($q_userx,$cn);
+	$n_userx=mysql_num_rows($r_userx);
+	
+	if ($condiciones=='') {
+       $errorx = '<div class="error mensajes">Acepte Terminos y condiciones</div>';}
+	
+	if($email == '') { $errorx = '<div class="error mensajes">Ingrese Correo El&eacute;ctronico</div>';}
+	if(comprobar_email($email)==0) { $errorx = '<div class="error mensajes">Correo El&eacute;ctronico inv&aacute;lido!</div>';}
+	
+	/*else{
+		if($n_userx<=0){$errorx = '<div class="error mensajes">Correo El&eacute;ctronico no existe en nuestra BD!</div>';}
+	}*/
+	
+	//if(comprobar_email($email)==0) { $errorx = '<div class="error mensajes">Correo El&eacute;ctronico inv&aacute;lido!</div>';}
+	/*else{
+		if($n_userx > 0){$errorx = '<div class="error mensajes">Correo El&eacute;ctronico ya existe en nuestra BD!</div>';}
+	}*/
+	
+	if($name==''){$errorx = '<div class="error mensajes">Ingresar Nombres y Apellidos!</div>';}
+	
+if($errorx == ''){
+$fecreg=date('Y-m-d h:i:s A');
+$ip_user= $_SERVER['REMOTE_ADDR'];
+//$browser=ObtenerNavegador($_SERVER['HTTP_USER_AGENT']);
+
+$query = "SELECT MAX(idcon) FROM  concursos";
+$result = mysql_query($query,$cn);
+$pid = mysql_result($result,0,0);
+			
+			
+if($pid == NULL){ $pid = 1; }else{ $pid+=1; }
+$sql="insert into  concursos values ('$pid','$email','$fecreg','0','$ip_user','$browser','$name','$surname','$direccion','0','$pid')";
+$rs = mysql_query($sql)  or die('query Fail: ' . mysql_error());
+
+
+
+
+
+
+$errorx = '<div style="border:#66CC00 solid 1px; margin:5px; padding:5px; width:500px; font-family:Arial, Helvetica, sans-serif; color:#009900; background-color:#ffffff; font-size:16px; text-align:center; width:100%">&nbsp;
+  <strong><b>	ESPERA UNOS SEGUNDOS TE ESTAMOS REDIRECCIONANDO<br>
+  </strong>  
+ <img src="http://www.kunturfly.com/parapente/images/loading-kuntrufly.gif" />
+
+
+
+ <br>
+ <strong>(Revisa tu inbox o tu spam / correos no deasedos)</strong></div>';
+
+$result = "MIME-Version: 1.0\n";
+			$result .= "Content-Type: text/html; charset=iso-8859-1\n";
+			$result .="From: info@kunturfly.com\nReply-To: $email\nX-Mailer: PHP/";	
+			$concatenado=''; 
+			$concatenado .= '
+			
+			<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>VUELOS EN PARAPENTE MIRAFLOFES - PACHACAMAC - DESCUENTO EN PASEOS EN PARAPENTE - LIMA - PERU</title>
+<script language="Javascript">
+
+function imprimir() {
+if (window.print)
+window.print()
+else
+alert("Para imprimir presione Crtl+P.");
+}
+
+</script>
+<style type="text/css">
+<!--
+body{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	color: #000000; height: 100%;
+	height: 100%;
+	background-image:url(http://www.kunturfly.com/parapente/images/fondo-parapente.jpg); background-color:#000000 ;
+	margin: 0;
+	padding: 0;
+	text-align: center; 
+	background-repeat: no-repeat;
+    background-position:top center; 
+	margin-top: 0px;
+}
+
+
+
+
+
+#container { width:780px; margin:0px auto 0px;  padding:5px; font-size:12px; margin-top:50px; }
+
+.oneColFixCtrHdr #container {
+	width: 780px;
+	padding: 0px 0px;
+	margin: 0 auto; /* the auto margins (in conjunction with a width) center the page */
+	text-align: left; /* this overrides the text-align: center on the body element. */
+}
+
+
+
+.Estilo5 {
+	font-size: 18px;
+	font-weight: bold;
+}
+.Estilo3 {
+	color: #0033CC;
+	font-weight: bold;
+	font-size: 18px;
+}
+.Estilo7 {font-size: 14px}
+
+.Estilo24 {color: #CC0000;
+	font-weight: bold;
+}
+.Estilo25 {color: #000000}
+-->
+</style></head>
+
+<body class="oneColFixCtrHdr">
+
+<p></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<table width="780" border="0" align="center" cellpadding="0" cellspacing="0">
+  <tr>
+    <td width="459" height="90"><div align="right">
+    <a href="http://www.kunturfly.com" target="_blank">
+    <img src="http://3.bp.blogspot.com/-Qxb4j13ipa4/UVuujucX75I/AAAAAAAANrE/V8BWnuCOCiQ/s1600/logokunturmensaje.png" border="0" /></a>
+    
+    </div></td>
+    <td width="321"><div align="center" style="padding-right:70px"><div align="center">
+      <div align="center"></div>
+       </div>
+    </div></td>
+  </tr>
+  
+
+  
+  
+  <tr>
+    <td colspan="2">
+      <p align="center" class="Estilo5"><br />
+      </p>
+      <p align="center" class="Estilo3"></p>
+      <p align="center">&nbsp;</p>
+      <p class="Estilo5"><img src="http://www.kunturfly.com/parapente/images/t2.jpg" width="780" height="60" /></p>
+      <table width="800" border="0" align="center" cellpadding="2" cellspacing="0">
+        <tr>
+          <td colspan="3"><div align="center"><span class="Estilo7"><img src="http://www.kunturfly.com/images/oferta-miraflores-21-07-2014.jpg" alt="" width="450" /></span><br />
+                  <br />
+          </div></td>
+        </tr>
+        <tr>
+          <td width="124"><div align="left"><strong>Precio de Vuelo</strong></div></td>
+          <td width="378"><div align="left"><span class="answer"> <span class="Estilo24">S/.260 por persona</span></span></div></td>
+          <td width="168">&nbsp;</td>
+        </tr>
+        
+        <tr>
+          <td><div align="left"><strong>Tiempo:</strong></div></td>
+          <td><div align="left">10 minutos (una eternidad en el cielo)</div></td>
+          <td width="168">&nbsp;</td>
+        </tr>
+        <tr>
+          <td><div align="left"><strong>Lugar:</strong></div></td>
+          <td><div align="left">Parque Raimondi (al costado del parque del amor)</div></td>
+          <td width="168">&nbsp;</td>
+        </tr>
+        <tr>
+          <td><div align="left"><strong>Horario:</strong></div></td>
+          <td colspan="2"><div align="left"><span class="answer">10:00 am a 05:45 pm <strong> “TODO LOS DIAS DEL AÑO”</strong><br />
+            (Siempre y cuando haya viento)<br />
+          </span></div></td>
+        </tr>
+        <tr>
+          <td colspan="3" bgcolor="#FFFFFF"><p align="justify"><strong><br />
+                <span class="Estilo25">¿ Qué debo hacer el día que quiero volar ?</span></strong><span class="answer Estilo25"><br />
+              - El día que quieras hacerlo nos llamas apartir de las 10 am para coordinar las <strong>CONDICIONES DEL VIENTO,</strong> ya que esto es el factor <strong>IMPORTANTE</strong> para realizar un súper.<br />
+                O puedes sólo <strong>PREGUNTAR POR EL INSTRUCTOR &quot;JUAN CARLOS&quot;</strong></span><span class="Estilo25"><br />
+              <br />
+              <strong>¿ Cuantas personas vuelan en un parapente ?</strong><br />
+              -  Solo vuela el pasajero con un instructor. </span></p>
+            <p align="justify" class="Estilo25"><strong>¿ Qué edades pueden volar ?</strong><br />
+                  <span class="answer">- Pueden volar desde los 5 años hasta los que puedan. No hay límite.</span></p>
+            <p align="justify" class="Estilo25"><strong>¿ Cuál es el peso máximo ?</strong><br />
+                  <span class="answer"> - El peso máximo es de 150 kilos. </span></p>
+            <p align="justify" class="Estilo25"><strong>¿ Cuándo pago y donde pago?</strong><br />
+                  <span class="answer">- El mismo día que vuelas, en <strong>EFECTIVO</strong>, en el mismo Parque Raymondi. <br />
+                    Realmente es el mejor regalo que puedas darte o dar, fuera de lo común, 
+                    encuéntranos en esta página o en Face y recibe los descuentos de
+                    temporada. <br />
+              </span></p>
+            <p align="justify"><span class="answer Estilo25">Incluye el video <strong>FULL “HD”, </strong>es decir<strong> filmamos todo tu vuelo
+              desde el despegue hasta el aterrizaje</strong>, lo bueno
+              de este video es que puedes poner  
+              pausa en la computadora e imprimir todas las
+              fotos que desees en alta definición, tienes un buen combo 2 en 
+              1, <br />
+            video + fotos. </span></p>
+            <p align="center">&nbsp;</p>
+          </td>
+        </tr>
+      </table></td>
+  </tr>
+  <tr>
+    <td colspan="2"><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" bgcolor="#FFFFFF">
+      <tr>
+        <td width="30%"><div align="center"><a href="http://www.kunturfly.com" target="_blank"><img src="http://3.bp.blogspot.com/-Qxb4j13ipa4/UVuujucX75I/AAAAAAAANrE/V8BWnuCOCiQ/s1600/logokunturmensaje.png" alt="" width="200" height="35" border="0" /></a></div></td>
+        <td width="70%"><div align="left">Juan Carlos Pardo R.(www.fb.com/JCparapente)<br />
+          Gerente General<br />
+          Cel. <span>984503356</span><strong><span> (</span>WHATSAPP<span>)</span></strong><strong><span><br />
+            </span></strong><span>@. jcpardo@kunturfly.com<br />
+              Twitter. @ParapentePeru<br />
+              </span>
+          
+          <a href="http://www.fb.com/volarenmiraflores" target="_blank" style="color:#333333; text-decoration:none">www.fb.com/volarenmiraflores</a><br />
+          <a href="http://www.kunturfly.com/" target="_blank" style="color:#333333; text-decoration:none">www.kunturfly.com</a></div></td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </table></td>
+  </tr>
+  
+  <tr>
+    <td colspan="2"><div align="center"></div></td>
+  </tr>
+</table>
+<p>&nbsp;</p>
+<p><br />
+</p>
+</body>
+</html>
+'; 
+			
+$resulta = "MIME-Version: 1.0\n";
+$resulta .= "Content-Type: text/html; charset=iso-8859-1\n";
+$resulta .="From: info@kunturfly.com\nReply-To: $email\nX-Mailer: PHP/";	
+$concatenadook=''; 
+$concatenadook .= '
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta content="text/html; charset=" http-equiv="content-type">
+</head>
+<body style="FONT-SIZE: 10pt; FONT-FAMILY: Tahoma, Tahoma">
+
+<center><div style="background:#000; color:#FFF; margin:20px; padding:20px; width:400px; font-size:50px; font-weight:bold; text-align:center"> YATACO </div>
+  <br>
+WEB DESIGN - MARKETING ONLINE - PROGRAMADOR 
+</center>
+<p align=center><font 
+size=5><font ><font color=#ff0000><font size=7><strong><font color=#0000ff>KIT EMPRENDEDOR WEB<br>
+</font><font color=#ffff00></font></strong></font>  </font></font><strong><font size="4">Si tienes alg&uacute;n producto o servicio que ofrecer esta es tu oportunidad</font></strong><br>
+<font ><font color=#ff0000><font size=7><strong>TU PROPIA PAGINA WEB</strong></font></font></font><br>
+  <font size=4><strong>INCLUYE<br>
+  </strong></font><font size=3><strong>- Dominio.com por 1 a&ntilde;o<br>
+  - Hosting ilimitado (correos corporativos)<br>
+  - Posicionamiento web b&aacute;sico<br>
+  - Dise&ntilde;o P&aacute;gina principal 
+  (Logo, Banner, Datos de contacto)<br>
+  - Dise&ntilde;o de Logotipo<br>
+  -  Dise&ntilde;o de Tarjeta personal 
+  <br>
+  <br>
+</strong></font><font 
+color=#ff0000><strong><font 
+color=#0000ff>PROMOCION A SOLO S/.399</font><br>
+</strong></font></font><strong><font size=6><font size=5><font color="#FF6600">RECUERDA LAS OPORTUNIDADES TAMBIEN TIENEN FECHA DE VENCIMIENTO</font><br>
+<br>
+INFORMES&nbsp;970 138 158 (<font 
+color=#44ca47>whatsapp</font>) <br>
+ Av. Petit Thouars 5356 Of. 3002 tercer piso del C.C. Compupalace - Miraflores
+<br>
+<br></font></font></strong></p>
+<p align=center><font size=6><strong></strong></font>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+<p align=center><strong><font size=6></font></strong>&nbsp;</p>
+
+</body>
+</html>
+'; 
+
+mail($email, 'DESCUENTO EN PASEO EN PARAPENTE',$concatenado,"MIME-Version: 1.0\nContent-type: text/html; charset=UTF-8\nFrom: KUNTURFLY "); 
+//mail($email, 'TALLER DE ROBOTICA',$concatenadook,"MIME-Version: 1.0\nContent-type: text/html; charset=UTF-8\nFrom: PC MIRAFLORES"); 
+
+
+
+//if($email<>'kututo@gmail.com' || $email<>'jcpardo@kunturfly.com'){
+$res1 = "MIME-Version: 1.0\n";
+$res1 .= "Content-Type: text/html; charset=iso-8859-1\n";
+$res1 .="From: info@pcmiraflores.com\nReply-To: info@pcmiraflores.com\nX-Mailer: PHP/";
+mail($email,"Tu pagina web a solo S/.399, recuerda las oportunidades tambien tienen fecha de vencimiento",$concatenadook,"$res1");
+//}
+
+
+
+$texto = "<font face='arial'>
+		<table>
+		<tr><td><b>Nombre(s) Apellidos: </b></td><td>".$_POST['name']."</td></tr>
+		<tr><td><b>E-mail: </b></td><td>".$_POST['email']."</td></tr>	
+		</table>
+		</font>";
+
+$res = "MIME-Version: 1.0\n";
+$res .= "Content-Type: text/html; charset=iso-8859-1\n";
+$res .="From: info@kunturfly.com\nReply-To: $email\nX-Mailer: PHP/";
+mail("kunturfly@gmail.com, info@kunturfly.com, csaryt_1@hotmail.com, ceo@yataco.com.pe","KUNTUR FLY - NUEVO REGISTRO","$texto","$res");
+
+//mail("stacy.reservas@gmail.com","CONTACTO","$texto","$res");
+
+
+			
+$resulta2 = "MIME-Version: 1.0\n";
+$resulta2 .= "Content-Type: text/html; charset=iso-8859-1\n";
+$resulta2 .="From: info@kunturfly.com\nReply-To: $email\nX-Mailer: PHP/";	
+$concatenadook2=''; 
+$concatenadook2 .= '
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>ROBOTICA</title>
+
+<style type="text/css">
+<!--
+body{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	color: #000000; height: 100%;
+	height: 100%;
+	margin: 0;
+	background-color:#C00;
+	padding: 0;
+	text-align: center; 
+	background-repeat: no-repeat;
+    background-position:top center; 
+	margin-top: 0px;
+}
+
+
+
+
+
+#container { width:780px; margin:0px auto 0px;  padding:5px; font-size:12px; margin-top:50px; }
+
+.oneColFixCtrHdr #container {
+	width: 780px;
+	padding: 0px 0px;
+	margin: 0 auto; /* the auto margins (in conjunction with a width) center the page */
+	text-align: left; /* this overrides the text-align: center on the body element. */
+}
+
+
+
+.Estilo5 {
+	font-size: 18px;
+	font-weight: bold;
+}
+.Estilo3 {
+	color: #FF0000;
+	font-weight: bold;
+	font-size: 36px;
+}
+.Estilo7 {font-size: 14px}
+
+.Estilo24 {color: #CC0000;
+	font-weight: bold;
+}
+.Estilo25 {color: #000000}
+-->
+</style></head>
+
+<body class="oneColFixCtrHdr">
+
+<p></p>
+
+<table width="1000" border="0" align="center" cellpadding="0" cellspacing="0" style="background-color: #FFF; font-weight: bold;">
+  <tr>
+    <td width="780" colspan="2"><p align="center" class="Estilo3"><br />
+      TALLER DE ROBOTICA PARA NI&Ntilde;OS - VERANO 2017<br />
+      (Cupos limitados)</p>
+      <p align="center" class="Estilo7">INICIO: 03 DE ENERO</p>
+      <table width="800" border="0" align="center" cellpadding="2" cellspacing="0">
+        <tr>
+          <td colspan="2"><div align="center"><br />
+ Cel. 970 138 158 <strong><span> (</span>WHATSAPP<span>)</span></strong><br />
+          </div></td>
+        </tr>
+        <tr>
+          <td width="124"><div align="left">TARIFA NORMAL</div></td>
+          <td width="378"><div align="left">S/.600</div></td>
+        </tr>
+        <tr>
+          <td><div align="left">DESCUENTO PRONTO PAGO</div></td>
+          <td><div align="left">S/.500 <span class="Estilo24">VALIDO HASTA EL 10 DE DICIEMBRE</span></div></td>
+        </tr>
+        <tr>
+          <td><div align="left"><strong>LUGAR:</strong></div></td>
+          <td><div align="left">C.C. COMPUPALACE 1° PISO OF. 1001 - 1005 - 1043</div></td>
+        </tr>
+        <tr>
+          <td><div align="left"><strong>HORARIOS:</strong></div></td>
+          <td><div align="left">
+            <p>              9:00 - 10:30 / 10:00 - 12:00 / 12:00 - 1:30 / 2:30 A 4:00 / 4:00 - 5:30 PM <br />
+             </p>
+          </div></td>
+        </tr>
+        <tr>
+          <td>&nbsp;</td>
+          <td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td colspan="2">
+          <img src="https://scontent.fscl2-1.fna.fbcdn.net/v/t1.0-9/11225154_956273911103120_7162781183367752099_n.jpg?oh=c19ffe2dac933beff42a68419e9463bf&oe=5799F519" />
+          </td>
+        </tr>
+       
+      </table></td>
+  </tr>
+  <tr>
+    <td colspan="2"><br />
+      <table width="60%" border="0" align="center" cellpadding="0" cellspacing="0" bgcolor="#FFFFFF">
+      <tr>
+        <td width="30%"><div align="center"><a href="http://www.pcmiraflores.com" target="_blank"><img src="http://www.pcmiraflores.com/media/uploads/slider/logo_pc_miraflores.png" alt="" width="233" height="54" border="0" /></a></div></td>
+        <td width="70%"><div align="left"><br />
+          Cel. 970 138 158 <strong><span> (</span>WHATSAPP<span>)</span></strong><strong><span><br />
+            </span></strong><a href="http://www.fb.com/pcmiraflores" target="_blank" style="color:#333333; text-decoration:none">www.fb.com/PcMiraflores</a><br />
+          <a href="http://www.pcmiraflores.com/" target="_blank" style="color:#333333; text-decoration:none">www.pcmiraflores.com</a></div></td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </table></td>
+  </tr>
+  
+  <tr>
+    <td colspan="2"><div align="center"></div></td>
+  </tr>
+</table>
+
+</body>
+</html>
+'; 
+
+
+//if($email<>'kututo@gmail.com' || $email<>'jcpardo@kunturfly.com'){
+$res2 = "MIME-Version: 1.0\n";
+$res2 .= "Content-Type: text/html; charset=iso-8859-1\n";
+$res2 .="From: info@pcmiraflores.com\nReply-To: info@pcmiraflores.com\nX-Mailer: PHP/";
+mail($email,"Taller de ROBOTICA LEGO para niños",$concatenadook2,"$res2");
+//}
+
+$errorx = '
+<style type="text/css">
+    div#encima_de_todo {
+        z-index: 1000000;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+ background: url (images/fondo.jpg) scroll 0 0 transparent;
+float: left;
+clear:right;
+filter:alpha(opacity=95);
+-moz-opacity:.95;opacity:.95;
+
+    }
+</style>
+ <div id="encima_de_todo" style="border:#66CC00 solid 0px; margin:5px; padding:5px; width:500px; font-family:Arial, Helvetica, sans-serif; color:#009900; background-color:#ffffff; font-size:36px; text-align:center; width:100%">
+<img src="images/mensaje.png" width="450" height="450" />
+ </div>
+';
+$code=date('mYdhsi');
+?>
+				<script type="text/javascript"> 
+                function redireccionar(){
+                  document.location.href='confidencial.html'; 
+                }  
+                setTimeout ("redireccionar()", 2500); //tiempo expresado en milisegundos 
+                </script> 
+                
+                
+
+<?
+
+if(!$_POST['name']== '') { $name = ''; } 
+if(!$_POST['email']== '') { $email = ''; } 
+
+}	
+}//boton
+?>
+
+<table width="480" border="0" align="center" cellpadding="0" cellspacing="0">
+
+  <tr>
+    <td height="121" valign="bottom" scope="row">
+      <div align="center"><br />
+<b>Warning</b>:  Undefined variable $errorx in <b>D:\WEBSITES-LOCAL\KT-DEVELOP.LOCAL\PROJECTS_HTML\kunturfly1\precios-de-vuelo-en-parapente.php</b> on line <b>771</b><br />
+</div></td>
+  </tr>
+  <tr>
+    <td scope="row">	
+
+<form action="" method="post" enctype="multipart/form-data" name="acceso" id="acceso">
+          <table width="450" border="0" align="center" cellpadding="0" cellspacing="0">
+           
+            <tr>
+              <td height="20">&nbsp;</td>
+            </tr>
+            <tr>
+              <td width="184" height="40" class="text_normalWhiteBOLD12">
+                <div align="left" style="padding-left:30px">
+                  <input name="name" type="text" id="name" value="<br />
+<b>Warning</b>:  Undefined variable $name in <b>D:\WEBSITES-LOCAL\KT-DEVELOP.LOCAL\PROJECTS_HTML\kunturfly1\precios-de-vuelo-en-parapente.php</b> on line <b>785</b><br />
+" size="40" />
+                </div></td>
+            </tr>
+            
+            
+            <tr>
+              <td height="40" class="text_normalWhiteBOLD12"><div align="left" class="Estilo7"></div></td>
+            </tr>
+            <tr>
+              <td height="40" class="text_normalWhiteBOLD12">
+                <div align="left" style="padding-left:30px">
+                  <input name="email" type="text" id="email" value="<br />
+<b>Warning</b>:  Undefined variable $email in <b>D:\WEBSITES-LOCAL\KT-DEVELOP.LOCAL\PROJECTS_HTML\kunturfly1\precios-de-vuelo-en-parapente.php</b> on line <b>796</b><br />
+" size="40" />
+                  </div></td>
+            </tr>
+            
+            <tr>
+              <td height="50" class="text_normalWhiteBOLD12">
+                
+
+              <div  class="button-holder" align="left" style="padding-left:45px; padding-top:13px"> <br />
+                  
+                  <!--<input type="checkbox" name="condiciones" id="condiciones" />-->
+                  <input name="condiciones" id="condiciones" class="regular-radio" type="radio" value="Acepto terminos y condiciones" <br />
+<b>Warning</b>:  Undefined variable $condiciones in <b>D:\WEBSITES-LOCAL\KT-DEVELOP.LOCAL\PROJECTS_HTML\kunturfly1\precios-de-vuelo-en-parapente.php</b> on line <b>807</b><br />
+ /><label for="condiciones"></label>
+                 
+               
+		
+                   <span class="size18 Estilo13"> 
+                   
+                 
+                   
+                <a id="close-button" target="_blank" style="font-family:Arial, Helvetica, sans-serif; font-weight:bold; color:#000000; cursor:pointer">Acepto losT&Eacute;RMINOS Y CONDICIONES</a></span></div></td>
+            </tr>
+            <tr>
+              <td height="25" class="text_normalWhiteBOLD12">
+                 <div align="center" style="padding-right:50px"> <br>
+                   <input name="btnAcceso" type="submit" id="btnAcceso" value="ACEPTAR" style="background-color:#1568C8; font-family:Calibri; font-weight:bold; font-size:18px; color:#ffffff;"/>
+                
+              </div></td>
+            </tr>
+            <tr>
+              <td height="30" class="text_normalWhiteBOLD12">&nbsp;</td>
+            </tr>
+        </table>
+</form></td>
+  </tr>
+ 
+ 
+  <tr>
+    <td scope="row"><span class="Estilo2"><span class="Estilo2">
+      </span>
+      <div align="center"  class="Estilo2"></div></td>
+  </tr>
+</table>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+  <script src="messi.js"></script>
+  <script>
+    jQuery.noConflict ();
+    (function($) {
+      $(document).ready(function() {
+        
+        $('#show-hide-code').on('click', function() {
+          $('.code').toggle();
+        });
+       
+		$('#close-button').on('click', function() {
+          new Messi('<p style="color:#000000; text-align:justify">Condiciones generales de uso Del registro de los usuarios: <br><br>Esta declaración de Confidencialidad / Privacidad está sujeta a los términos y condiciones de KUNTURFLY, lo cual constituye un acuerdo legal entre el usuario y Kunturfly. <br>Kunturfly respeta tu información y se preocupa por tu seguridad, tus datos personales son almacenados y protegidos bajo estrictas medidas de seguridad. Kunturfly solicita, en su sitio web, la información de sus clientes con el fin de brindarles un espacio personalizado, conocerlos y estar atentos a sus necesidades para ofrecerles mejores beneficios. <br><br> Esta información será utilizada por Kunturfly  para contactarse por diferentes medios con sus clientes y mantenerlos enterados acerca de promociones, lanzamientos y novedades entre otras iniciativas.<br><br> El usuario se responsabiliza por la autenticidad de sus datos personales registrados. Kunturfly se reserva el derecho de eliminar comentarios, en general contenido, que transgreda los códigos básicos de ética que atente contra Kunturfly. <br><br>El usuario puede disponer la rectificación, eliminación y/o cancelación de sus datos cuando lo estime conveniente. Tal caso, deberá enviar un correo electrónico a info@Kunturfly.com</p>', {title: 'TERMINOS Y CONDICIONES', buttons: [{id: 0, label: 'CERRAR', val: 'X'}]});
+        });
+		
+      });
+    })(jQuery);
+  </script>
+  
+</p>
+</div></center>    </td>
+    </tr>
+</table>
+		
+			  </div>
+            </header>
+ <? //require('social.php');?>
+    <? require('footer.php');?>    
+    
+            
+</body>
+</html>

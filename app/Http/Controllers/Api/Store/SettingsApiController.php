@@ -210,10 +210,16 @@ class SettingsApiController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', StoreSetting::class);
         $data = $request->validate([
-            'mode' => 'required|in:sections,imported',
+            'mode' => 'required|in:sections,imported,onepage',
             'url' => 'nullable|required_if:mode,imported|url|max:255',
         ]);
         $companyId = (int) $this->resolveActingCompanyId($request);
+
+        if ($data['mode'] === 'onepage') {
+            \App\Services\FrontPage::setOnePage($companyId);
+
+            return response()->json(['ok' => true, 'mode' => 'onepage']);
+        }
 
         if ($data['mode'] === 'sections') {
             \App\Services\FrontPage::setSections($companyId);

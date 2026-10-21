@@ -27,9 +27,9 @@ use Illuminate\Support\Facades\DB;
  */
 class HospitalReportController extends Controller
 {
-    // Multicompany: hospital rows belong to a company through their PATIENT
-    // (patients.company_id); doctors through their employee. Wards, beds and
-    // departments have no company link yet (shared) -- see the report notes.
+    // Multicompany: every hospital table has its own company_id since
+    // 2026-10-20 (the models filter by the acting company); the report company
+    // filters below narrow it the same way.
     use \App\Http\Controllers\Concerns\ScopesReportsToCompany;
 
     /** Restrict a query to the report company's patients (by $column). */
@@ -47,7 +47,8 @@ class HospitalReportController extends Controller
         [$from, $to] = $this->range($request);
 
         $doctors = Doctor::with('department')->whereNull('deleted_at')
-            ->when($this->reportCompanyId(), fn ($q, $cid) => $q->whereIn('employee_id', \App\Models\Employee::where('company_id', $cid)->select('id')))
+            // Doctors have their own company since 2026-10-20 (not only through their employee).
+            ->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('doctors.company_id', $cid))
             ->when($request->filled('department_id'), fn ($q) => $q->where('department_id', $request->department_id))
             ->when($request->filled('search'), fn ($q) => $q->where('name', 'LIKE', "%{$request->search}%"))
             ->get();

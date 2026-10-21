@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HospitalWard extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, \App\Models\Concerns\BelongsToActingCompany;
 
     protected $table = 'hospital_wards';
 

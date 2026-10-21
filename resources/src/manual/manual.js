@@ -103,7 +103,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ sales
   {
-    key: 'sales', module: null, perms: ['Sales_view', 'Sales_add'], paths: ['sales', 'sale-returns', 'shipments'],
+    key: 'sales', module: 'sales', perms: ['Sales_view', 'Sales_add'], paths: ['sales', 'sale-returns', 'shipments'],
     title: { en: 'Sales and invoices', es: 'Ventas y facturas' },
     intro: {
       en: 'Invoices are numbered automatically with your company\'s own series (prefix + the company\'s next number).',
@@ -147,7 +147,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ POS
   {
-    key: 'pos', module: null, perms: ['Pos_view'], paths: ['pos', 'pos-sales'],
+    key: 'pos', module: 'pos', perms: ['Pos_view'], paths: ['pos', 'pos-sales'],
     title: { en: 'POS and cash register', es: 'Punto de venta y caja' },
     intro: {
       en: 'The point of sale for the counter. On a shared register each person sells with their own PIN.',
@@ -187,7 +187,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ quotations
   {
-    key: 'quotations', module: null, perms: ['Quotations_view', 'Quotations_add'], paths: ['quotations'],
+    key: 'quotations', module: 'sales', perms: ['Quotations_view', 'Quotations_add'], paths: ['quotations'],
     title: { en: 'Quotations', es: 'Cotizaciones' },
     intro: { en: 'Prices you offer before the sale.', es: 'Precios que ofrece antes de la venta.' },
     sections: [
@@ -204,7 +204,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ sales contracts
   {
-    key: 'contracts', module: null, perms: ['sales_contracts_view'], paths: ['sales-contracts'],
+    key: 'contracts', module: 'sales', perms: ['sales_contracts_view'], paths: ['sales-contracts'],
     title: { en: 'Sales contracts (recurring billing)', es: 'Contratos de venta (facturación recurrente)' },
     intro: {
       en: 'Weekly or monthly services that bill themselves and schedule their visits.',
@@ -224,7 +224,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ customers
   {
-    key: 'customers', module: null, perms: ['Customers_view'], paths: ['customers', 'customers-with-login', 'customers-without-login'],
+    key: 'customers', module: 'customers', perms: ['Customers_view'], paths: ['customers', 'customers-with-login', 'customers-without-login'],
     title: { en: 'Customers', es: 'Clientes' },
     intro: {
       en: 'One customer = one email in your company. Matching never uses the phone and never crosses companies.',
@@ -260,7 +260,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ purchases & suppliers
   {
-    key: 'purchases', module: null, perms: ['Purchases_view', 'Suppliers_view'], paths: ['purchases', 'purchase-returns', 'suppliers'],
+    key: 'purchases', module: 'purchases', perms: ['Purchases_view', 'Suppliers_view'], paths: ['purchases', 'purchase-returns', 'suppliers'],
     title: { en: 'Purchases and suppliers', es: 'Compras y proveedores' },
     intro: { en: 'What you buy and who you buy it from.', es: 'Lo que compra y a quién se lo compra.' },
     sections: [
@@ -285,7 +285,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ products
   {
-    key: 'products', module: null, perms: ['products_view'], paths: ['products', 'categories', 'subcategories', 'brands', 'units', 'adjustments', 'transfers', 'damages'],
+    key: 'products', module: 'products', perms: ['products_view'], paths: ['products', 'categories', 'subcategories', 'brands', 'units', 'adjustments', 'transfers', 'damages'],
     title: { en: 'Products and services', es: 'Productos y servicios' },
     intro: { en: 'What you sell, its prices and its stock in each location.', es: 'Lo que vende, sus precios y su inventario en cada local.' },
     sections: [
@@ -519,10 +519,32 @@ export const MANUAL = [
     key: 'website', module: 'website', perms: ['Store_settings_view'], paths: ['website'],
     title: { en: 'Website', es: 'Sitio web' },
     intro: {
-      en: 'The company website, with its own address. It can use our website theme or an imported website.',
-      es: 'El sitio web de la empresa, con su propia dirección. Puede usar nuestro tema o un sitio web importado.',
+      en: 'The company website, with its own address. It can use our website theme, a one-page template or an imported website.',
+      es: 'El sitio web de la empresa, con su propia dirección. Puede usar nuestro tema, una plantilla de una página o un sitio web importado.',
     },
     sections: [
+      {
+        id: 'web-onepage', paths: ['website/front-page'],
+        title: { en: 'One-page template', es: 'Plantilla de una página' },
+        steps: {
+          en: [
+            '**Website › Front page › One-page template**: a single page with sections (header, services, about, gallery, portfolio, reviews, booking, contact) and a menu that scrolls to each one.',
+            '**Design**: five designs; the one for your business type is marked *Recommended*. Switching design keeps your texts and pictures; **Start over** puts the starting texts back. Pick the **Main colour** and whether to **Show prices**.',
+            '**Sections**: turn each one on or off, change the order with the arrows, and write the menu label, title, text and button in English and Spanish (switch at the top). An empty menu label keeps the section out of the menu.',
+            'Services start from your products and services; edit, add or remove them, with a price and a picture. Gallery and Portfolio show the pictures of those modules; Contact shows the company\'s phone, email, address and a map.',
+            'Add only real reviews from real customers. **Extra menu links** add your store, a page or another site to the menu.',
+            '**Save**, then **Preview** to see it before applying. **Use the one-page template** makes it your front page; visitors switch EN / ES in the menu.',
+          ],
+          es: [
+            '**Sitio web › Portada › Plantilla de una página**: una sola página con secciones (portada, servicios, nosotros, galería, portafolio, opiniones, reservas, contacto) y un menú que se desplaza a cada una.',
+            '**Diseño**: cinco diseños; el de su tipo de negocio aparece como *Recomendada*. Al cambiar de diseño se conservan sus textos e imágenes; **Empezar de nuevo** vuelve a los textos iniciales. Elija el **Color principal** y si quiere **Mostrar precios**.',
+            '**Secciones**: active o desactive cada una, cambie el orden con las flechas y escriba la etiqueta del menú, el título, el texto y el botón en inglés y español (cambie arriba). Sin etiqueta de menú la sección no aparece en el menú.',
+            'Los servicios empiezan con sus productos y servicios; edítelos, agréguelos o quítelos, con precio e imagen. Galería y Portafolio muestran las imágenes de esos módulos; Contacto muestra el teléfono, correo, dirección y un mapa de la empresa.',
+            'Agregue solo opiniones reales de clientes reales. **Enlaces adicionales del menú** agregan su tienda, una página u otro sitio al menú.',
+            '**Guardar** y luego **Vista previa** para verla antes de aplicarla. **Usar la plantilla de una página** la convierte en su portada; los visitantes cambian EN / ES en el menú.',
+          ],
+        },
+      },
       {
         id: 'web-settings', paths: ['website/settings', 'website/front-page'],
         title: { en: 'Website settings', es: 'Configuración del sitio' },
@@ -543,8 +565,8 @@ export const MANUAL = [
         id: 'web-import', paths: ['website/front-page'],
         title: { en: 'Import a website', es: 'Importar un sitio web' },
         steps: {
-          en: ['**Front page › Import**: from the site\'s address or its files.', 'Before replacing the current site, Murano saves it in **Saved websites** (Preview, Use this, Delete).'],
-          es: ['**Portada › Importar**: desde la dirección del sitio o sus archivos.', 'Antes de reemplazar el sitio actual, Murano lo guarda en **Sitios guardados** (Ver, Usar este, Eliminar).'],
+          en: ['**Front page › Import**: from the site\'s address or its files.', 'Or **start from a ready-made website**: complete designs made by KcolTech — **Preview** one, then **Use this**; change its texts, pictures and links in **Website › Pages**.', 'Before replacing the current site, Murano saves it in **Saved websites** (Preview, Use this, Delete).'],
+          es: ['**Portada › Importar**: desde la dirección del sitio o sus archivos.', 'O **empiece con un sitio web listo**: diseños completos hechos por KcolTech — **Ver** uno y luego **Usar este**; cambie sus textos, imágenes y enlaces en **Sitio web › Páginas**.', 'Antes de reemplazar el sitio actual, Murano lo guarda en **Sitios guardados** (Ver, Usar este, Eliminar).'],
         },
       },
     ],
@@ -577,8 +599,99 @@ export const MANUAL = [
         id: 'port', paths: ['portfolio'],
         title: { en: 'Projects, photos and messages', es: 'Proyectos, fotos y mensajes' },
         steps: {
-          en: ['**Portfolio › Photos**: add works with photos, sliders or videos and a category.', '**Home sections** and **Settings**: what the portfolio page shows.', '**Messages**: what visitors send from it.'],
-          es: ['**Portafolio › Fotos**: agregue trabajos con fotos, carruseles o videos y una categoría.', '**Secciones de inicio** y **Configuración**: lo que muestra la página del portafolio.', '**Mensajes**: lo que envían los visitantes.'],
+          en: ['**Portfolio › Photos**: add works with photos, sliders or videos and a category.', 'A work can have a **Website link**: its page then shows a **Visit website** button.', '**Home sections** and **Settings**: what the portfolio page shows.', '**Messages**: what visitors send from it.'],
+          es: ['**Portafolio › Fotos**: agregue trabajos con fotos, carruseles o videos y una categoría.', 'Un trabajo puede tener un **Enlace del sitio web**: su página muestra entonces un botón **Visitar el sitio web**.', '**Secciones de inicio** y **Configuración**: lo que muestra la página del portafolio.', '**Mensajes**: lo que envían los visitantes.'],
+        },
+      },
+    ],
+  },
+
+  // ------------------------------------------------------------------ school
+  {
+    key: 'school', module: 'school',
+    perms: ['school_dashboard', 'school_students_view', 'school_teachers', 'school_academics', 'school_enrollment', 'school_attendance', 'school_exams', 'school_timetable', 'school_fees', 'school_reports'],
+    paths: ['school'],
+    title: { en: 'School Management', es: 'Gestión escolar' },
+    intro: {
+      en: 'A school\'s year: grades and sections, subjects, teachers, students and their enrolment, the timetable, the daily register, exams with marks and report cards, fees and payments — each company with its own school.',
+      es: 'El año de una escuela: grados y secciones, materias, profesores, estudiantes y su matrícula, el horario, la asistencia diaria, exámenes con notas y libretas, pensiones y cobros — cada empresa con su propia escuela.',
+    },
+    sections: [
+      {
+        id: 'school-setup', perms: ['school_academics', 'school_timetable'], paths: ['school/academics', 'school/timetable'],
+        title: { en: 'Year, classes and timetable', es: 'Año, clases y horario' },
+        steps: {
+          en: ['**Academic Setup**: create the academic year (mark it current), the classes (grades), their **sections** (classroom and homeroom teacher) and the subjects.', '**Timetable**: pick a class and section and add each period (subject, teacher, day, time, room); it refuses a section or teacher booked twice at the same time.'],
+          es: ['**Configuración académica**: cree el año académico (márquelo como actual), las clases (grados), sus **secciones** (aula y tutor) y las materias.', '**Horario**: elija una clase y sección y agregue cada hora (materia, profesor, día, hora, aula); no permite una sección o un profesor dos veces a la misma hora.'],
+        },
+      },
+      {
+        id: 'school-daily', perms: ['school_students_view', 'school_enrollment', 'school_attendance'], paths: ['school/students', 'school/enrollments', 'school/attendance'],
+        title: { en: 'Students, enrolment and attendance', es: 'Estudiantes, matrícula y asistencia' },
+        steps: {
+          en: ['**Students → Admit student** with the guardian\'s data; **Enrolment** puts each student in a class and section for the year (and promotes them at year end).', '**Attendance**: pick a class and section and **take the register** (present, absent, late, excused, half day); the dashboard shows today\'s rate and the last 14 days.'],
+          es: ['**Estudiantes → Matricular estudiante** con los datos del apoderado; **Matrícula** ubica a cada estudiante en una clase y sección del año (y lo promueve al terminar el año).', '**Asistencia**: elija una clase y sección y **pase lista** (presente, ausente, tarde, justificado, medio día); el panel muestra la asistencia de hoy y de los últimos 14 días.'],
+        },
+      },
+      {
+        id: 'school-exams-fees', perms: ['school_exams', 'school_fees', 'school_reports'], paths: ['school/exams', 'school/fees', 'school/reports'],
+        title: { en: 'Exams, fees and reports', es: 'Exámenes, pensiones y reportes' },
+        steps: {
+          en: ['**Exams**: create the exam, add its papers (subject, date, max and pass marks), enter the marks and publish; each student gets a report card.', '**Fees**: the fee structure (tuition, transport…), **Bill a class** or a single invoice, and **Take payment**; overdue invoices show on the dashboard.', '**Reports**: enrolment, attendance, low attendance, exam performance, fee collection, fee defaulters and teacher workload, with Excel / PDF export.', 'Every company has its own school: an Admin only sees their company\'s years, classes, teachers, students, exams and fees. **Demo data** (System Settings → Demo data) creates a complete school in the company\'s language: 4 grades × 2 sections, 7 subjects, 14 teachers, 48 students, timetable, daily attendance, a marked exam and fees.'],
+          es: ['**Exámenes**: cree el examen, agregue sus pruebas (materia, fecha, nota máxima y mínima), registre las notas y publíquelo; cada estudiante tiene su libreta de notas.', '**Pensiones**: la estructura (enseñanza, movilidad…), **Facturar una clase** o una factura suelta, y **Registrar pago**; las vencidas se ven en el panel.', '**Reportes**: matrícula, asistencia, baja asistencia, rendimiento en exámenes, cobro de pensiones, morosos y carga horaria de profesores, con exportación a Excel / PDF.', 'Cada empresa tiene su propia escuela: un Admin solo ve los años, clases, profesores, estudiantes, exámenes y pensiones de su empresa. **Datos de ejemplo** (Configuración del sistema → Datos de ejemplo) crea una escuela completa en el idioma de la empresa: 4 grados × 2 secciones, 7 materias, 14 profesores, 48 estudiantes, horario, asistencia diaria, un examen con notas y pensiones.'],
+        },
+      },
+    ],
+  },
+  // ------------------------------------------------------------------ hospital
+  {
+    key: 'hospital', module: 'hospital',
+    perms: ['hms_dashboard', 'hms_patients_view', 'hms_doctors', 'hms_departments', 'hms_appointments', 'hms_visits', 'hms_wards', 'hms_admissions', 'hms_lab', 'hms_billing', 'hms_reports'],
+    paths: ['hospital'],
+    title: { en: 'Hospital Management', es: 'Gestión hospitalaria' },
+    intro: {
+      en: 'A clinic\'s whole day: patients, appointments, consultations, lab, admissions, billing and payments — each company with its own doctors, beds and patients.',
+      es: 'El día completo de una clínica: pacientes, citas, consultas, laboratorio, internaciones, facturación y cobros — cada empresa con sus propios médicos, camas y pacientes.',
+    },
+    sections: [
+      {
+        id: 'hms-setup', perms: ['hms_departments', 'hms_doctors', 'hms_wards', 'hms_lab'], paths: ['hospital/departments', 'hospital/doctors', 'hospital/wards', 'hospital/lab-tests'],
+        title: { en: 'Set up the clinic', es: 'Configurar la clínica' },
+        steps: {
+          en: ['**Departments**, then **Doctors** (department, specialty, consultation fee; link the employee when they are staff).', '**Wards & Beds**: each ward with its type and daily rate, and its beds.', '**Lab › Test catalogue**: each test with its price and normal range.'],
+          es: ['**Departamentos** y luego **Médicos** (departamento, especialidad, honorario de consulta; vincule el empleado si es parte del personal).', '**Salas y camas**: cada sala con su tipo y tarifa diaria, y sus camas.', '**Laboratorio › Catálogo de pruebas**: cada prueba con su precio y rango normal.'],
+        },
+      },
+      {
+        id: 'hms-patients', perms: ['hms_patients_view', 'hms_appointments', 'hms_visits'], paths: ['hospital/patients', 'hospital/appointments', 'hospital/visits'],
+        title: { en: 'Patients, appointments and consultations', es: 'Pacientes, citas y consultas' },
+        steps: {
+          en: ['**Patients › Register**: each patient gets a record number (MRN); **Patient record** shows the whole history.', '**Appointments**: a doctor can\'t be booked twice at the same time.', '**Consultations**: open one from the appointment (or new); the consultation and its prescription are saved together, and completing it completes the appointment.'],
+          es: ['**Pacientes › Registrar**: cada paciente recibe un número de historia (MRN); **Historia del paciente** muestra todo su historial.', '**Citas**: un médico no puede tener dos citas a la misma hora.', '**Consultas**: ábrala desde la cita (o nueva); la consulta y su receta se guardan juntas, y al completarla se completa la cita.'],
+        },
+      },
+      {
+        id: 'hms-lab-adm', perms: ['hms_lab', 'hms_admissions'], paths: ['hospital/lab-orders', 'hospital/admissions'],
+        title: { en: 'Lab and admissions', es: 'Laboratorio e internaciones' },
+        steps: {
+          en: ['**Lab orders**: order tests, then enter results; price and normal range are kept as they were when ordered.', '**Admissions**: **Admit** to a free bed, **Transfer** to another bed, **Discharge** (the bed is free again).'],
+          es: ['**Pedidos de laboratorio**: pida pruebas y luego cargue los resultados; el precio y el rango normal quedan como estaban al pedirlas.', '**Internaciones**: **Internar** en una cama libre, **Trasladar** a otra cama, **Dar de alta** (la cama queda libre).'],
+        },
+      },
+      {
+        id: 'hms-billing', perms: ['hms_billing'], paths: ['hospital/invoices'],
+        title: { en: 'Billing and payments', es: 'Facturación y cobros' },
+        steps: {
+          en: ['**Billing**: build the bill from a consultation (fee + medicines), an admission (nights × daily rate) or a lab order — or type the lines.', '**Payment**: record what the patient pays; the invoice turns partial / paid by itself. A payment larger than the balance is refused.', 'With **Automatic journal entries** on, each invoice and payment goes to **Accounting** (Accounts receivable / Revenue, Cash): change or cancel the invoice and its entry follows.'],
+          es: ['**Facturación**: arme la factura desde una consulta (honorario + medicamentos), una internación (noches × tarifa diaria) o un pedido de laboratorio — o escriba las líneas.', '**Cobro**: registre lo que paga el paciente; la factura pasa sola a parcial / pagada. No se acepta un cobro mayor al saldo.', 'Con los **Asientos automáticos** activos, cada factura y cada cobro van a **Contabilidad** (Cuentas por cobrar / Ingresos, Caja): si cambia o anula la factura, su asiento la sigue.'],
+        },
+      },
+      {
+        id: 'hms-dash', perms: ['hms_dashboard', 'hms_reports'], paths: ['hospital/dashboard', 'hospital/reports'],
+        title: { en: 'Dashboard and reports', es: 'Panel e informes' },
+        steps: {
+          en: ['A hospital company opens on the **Hospital dashboard**, with Hospital Management first in the side menu: patients, today\'s appointments, bed occupancy, pending lab and revenue.', '**Reports**: doctors\' workload, revenue by department and ward occupancy.'],
+          es: ['Una empresa de tipo hospital abre en el **Panel del hospital**, con Gestión hospitalaria primero en el menú lateral: pacientes, citas de hoy, ocupación de camas, laboratorio pendiente e ingresos.', '**Informes**: carga de trabajo de los médicos, ingresos por departamento y ocupación de salas.'],
         },
       },
     ],
@@ -812,8 +925,56 @@ export const MANUAL = [
         id: 'set-companies', perms: ['company'], paths: ['hrm/companies'],
         title: { en: 'Companies', es: 'Empresas' },
         steps: {
-          en: ['**Add** (SuperAdmin) or **Edit** a company. The form goes in steps (Company, Helpdesk, Defaults; when adding: Company, Modules, Helpdesk, Defaults, Admin user, Website); use **Next / Back** or click a step. A step marked in red has something missing.', 'Required: name, business type, owner, company email, phone, address and helpdesk email.', '**Logo** (step Company; required when adding, optional on Edit): **Upload logo**, then in **Crop / resize** drag the box or its corners to cut it (shape Free, Square 1:1 or Wide 3:1, or **Whole image** for no cut) and pick the size (longest side, 200 to 1200 px); **Use this logo**. It is saved as the company\'s logo (invoices, menu, customer portal) and shown in the list\'s **Logo** column.', '**Business type** (General, IT, Landscaping, Hair salon, Barber, Retail, Restaurant, Catering / buffet, Laundry, Delivery, Call center, Real estate (selling houses), Law services, Hospital / clinic, Factory / manufacturing, School / academy, Office / professional): sets the company\'s extra accounts, expense categories and demo data, and which modules it starts with.', '**Modules** (when adding): every company gets Accounting, Assets, Email Office, Gallery, Helpdesk, HRM and Website Management, plus its type\'s own (e.g. Kitchen for a restaurant or catering, Bookings for a salon or barber, Fleet for delivery, Real Estate listings for a real estate agency, Projects and Documents for a law firm, Hospital Management for a hospital / clinic, Manufacturing (MRP) and Fleet for a factory, School Management and Intranet for a school), already ticked (tag "type"). Tick any other module it needs, or untick one; changing the business type ticks its modules again. Sales, POS, purchases, products, customers, suppliers, reports and settings are always on.', 'The company\'s **language** is what its users see after signing in (a user who picks another language in the app keeps theirs); the sign-in page follows the computer\'s language or its EN / ES switch.', '**Defaults**: currency, language, sale prefix (invoice numbers), public address and the default employee / customer passwords (blank keeps the current one).', 'The **Setup** column shows "Complete" or how many required fields a company still lacks; click it to fill them in.', 'A new company starts with the SuperAdmin\'s current menu (the AdminSystem layout), already in order.'],
-          es: ['**Agregar** (SuperAdmin) o **Editar** una empresa. El formulario va por pasos (Empresa, Helpdesk, Predeterminados; al agregar: Empresa, Módulos, Helpdesk, Predeterminados, Usuario administrador, Sitio web); use **Next / Back** o haga clic en un paso. Un paso marcado en rojo tiene algo pendiente.', 'Obligatorios: nombre, tipo de negocio, dueño, correo de la empresa, teléfono, dirección y correo de soporte (helpdesk).', '**Logo** (paso Empresa; obligatorio al agregar, opcional al editar): **Upload logo** y luego en **Crop / resize** arrastre el recuadro o sus esquinas para recortarlo (forma libre, cuadrada 1:1 o ancha 3:1, o **Whole image** para no recortar) y elija el tamaño (lado mayor, de 200 a 1200 px); **Use this logo**. Se guarda como el logo de la empresa (facturas, menú, portal del cliente) y se ve en la columna **Logo** de la lista.', '**Tipo de negocio** (General, TI, Jardinería, Salón de belleza, Barbería, Tienda, Restaurante, Catering / buffet, Lavandería, Servicio de entregas, Call center, Bienes raíces (venta de casas), Servicios legales, Hospital / clínica, Fábrica / manufactura, Escuela / academia, Oficina / servicios profesionales): define las cuentas y categorías de gastos adicionales, los datos de ejemplo y con qué módulos empieza la empresa.', '**Módulos** (al agregar): toda empresa tiene Contabilidad, Activos, Email Office, Galería, Helpdesk, RR. HH. y Administración del sitio web, más los propios de su tipo (p. ej. Cocina para restaurante o catering, Reservas para salón o barbería, Flota para entregas, Bienes raíces (propiedades) para una inmobiliaria, Proyectos y Documentos para un bufete de abogados, Gestión hospitalaria para un hospital / clínica, Manufactura (MRP) y Flota para una fábrica, Gestión escolar e Intranet para una escuela), ya marcados (etiqueta "type"). Marque cualquier otro módulo que necesite, o desmarque uno; al cambiar el tipo de negocio se vuelven a marcar sus módulos. Ventas, POS, compras, productos, clientes, proveedores, reportes y configuración siempre están activos.', 'El **idioma** de la empresa es el que ven sus usuarios al entrar (un usuario que elige otro idioma en la app conserva el suyo); la página de ingreso sigue el idioma de la computadora o su selector EN / ES.', '**Predeterminados**: moneda, idioma, prefijo de ventas (número de factura), dirección pública y las contraseñas predeterminadas de empleados / clientes (en blanco mantiene la actual).', 'La columna **Setup** muestra "Complete" o cuántos datos obligatorios le faltan a una empresa; haga clic para completarlos.', 'Una empresa nueva empieza con el menú actual del SuperAdmin (el de AdminSystem), ya ordenado.'],
+          en: ['**Add** (SuperAdmin) or **Edit** a company. The form goes in steps (Company, Helpdesk, Defaults; when adding: Company, Modules, Helpdesk, Defaults, Admin user, Website); use **Next / Back** or click a step. A step marked in red has something missing.', 'Required: name, business type, owner, company email, phone, address and helpdesk email.', '**Logo** (step Company; required when adding, optional on Edit): **Upload logo**, then in **Crop / resize** drag the box or its corners to cut it (shape Free, Square 1:1 or Wide 3:1, or **Whole image** for no cut) and pick the size (longest side, 200 to 1200 px); **Use this logo**. It is saved as the company\'s logo (invoices, menu, customer portal) and shown in the list\'s **Logo** column.', '**Business type** (General, IT, Landscaping, Hair salon, Barber, Retail, Restaurant, Catering / buffet, Laundry, Delivery, Call center, Real estate (selling houses), Law services, Hospital / clinic, Factory / manufacturing, School / academy, Office / professional): sets the company\'s extra accounts, expense categories and demo data, and which modules it starts with.', '**Modules** (when adding): every company gets Accounting, Assets, Email Office, Gallery, Helpdesk, HRM and Website Management, plus its type\'s own (e.g. Kitchen for a restaurant or catering, Bookings for a salon or barber, Fleet for delivery, Real Estate listings for a real estate agency, Projects and Documents for a law firm, Hospital Management for a hospital / clinic, Manufacturing (MRP) and Fleet for a factory, School Management and Intranet for a school), already ticked (tag "type"). Tick any other module it needs, or untick one; changing the business type ticks its modules again. **Sales**, **POS**, **Purchases** and **Suppliers** are ticked for every type except **Hospital / clinic**, which bills through Hospital Management. A **hospital** opens on the **Hospital dashboard**, a **school** on the **School dashboard** and a **real estate** company on the **Real Estate dashboard**, with that module first in the side menu. A **school** starts with only School, Portfolio, Intranet, Documents and Website (no sales, products, customers, accounting or HR). Products, customers, reports and settings are always on.', 'The company\'s **language** is what its users see after signing in (a user who picks another language in the app keeps theirs); the sign-in page follows the computer\'s language or its EN / ES switch.', '**Defaults**: currency, language (when adding, it starts in the language you are using — check it before creating), sale prefix (invoice numbers), public address and the default employee / customer passwords (blank keeps the current one).', 'The **Setup** column shows "Complete" or how many required fields a company still lacks; click it to fill them in.', 'A new company starts with the SuperAdmin\'s current menu (the AdminSystem layout), already in order.'],
+          es: ['**Agregar** (SuperAdmin) o **Editar** una empresa. El formulario va por pasos (Empresa, Helpdesk, Predeterminados; al agregar: Empresa, Módulos, Helpdesk, Predeterminados, Usuario administrador, Sitio web); use **Next / Back** o haga clic en un paso. Un paso marcado en rojo tiene algo pendiente.', 'Obligatorios: nombre, tipo de negocio, dueño, correo de la empresa, teléfono, dirección y correo de soporte (helpdesk).', '**Logo** (paso Empresa; obligatorio al agregar, opcional al editar): **Upload logo** y luego en **Crop / resize** arrastre el recuadro o sus esquinas para recortarlo (forma libre, cuadrada 1:1 o ancha 3:1, o **Whole image** para no recortar) y elija el tamaño (lado mayor, de 200 a 1200 px); **Use this logo**. Se guarda como el logo de la empresa (facturas, menú, portal del cliente) y se ve en la columna **Logo** de la lista.', '**Tipo de negocio** (General, TI, Jardinería, Salón de belleza, Barbería, Tienda, Restaurante, Catering / buffet, Lavandería, Servicio de entregas, Call center, Bienes raíces (venta de casas), Servicios legales, Hospital / clínica, Fábrica / manufactura, Escuela / academia, Oficina / servicios profesionales): define las cuentas y categorías de gastos adicionales, los datos de ejemplo y con qué módulos empieza la empresa.', '**Módulos** (al agregar): toda empresa tiene Contabilidad, Activos, Email Office, Galería, Helpdesk, RR. HH. y Administración del sitio web, más los propios de su tipo (p. ej. Cocina para restaurante o catering, Reservas para salón o barbería, Flota para entregas, Bienes raíces (propiedades) para una inmobiliaria, Proyectos y Documentos para un bufete de abogados, Gestión hospitalaria para un hospital / clínica, Manufactura (MRP) y Flota para una fábrica, Gestión escolar e Intranet para una escuela), ya marcados (etiqueta "type"). Marque cualquier otro módulo que necesite, o desmarque uno; al cambiar el tipo de negocio se vuelven a marcar sus módulos. **Ventas**, **POS**, **Compras** y **Proveedores** vienen marcados en todos los tipos excepto **Hospital / clínica**, que factura desde Gestión hospitalaria. Un **hospital** abre en el **Panel del hospital**, una **escuela** en el **Panel de la escuela** y una inmobiliaria en el **Panel de bienes raíces**, con ese módulo primero en el menú lateral. Una **escuela** empieza solo con Escuela, Portafolio, Intranet, Documentos y Sitio web (sin ventas, productos, clientes, contabilidad ni RR. HH.). Productos, clientes, reportes y configuración siempre están activos.', 'El **idioma** de la empresa es el que ven sus usuarios al entrar (un usuario que elige otro idioma en la app conserva el suyo); la página de ingreso sigue el idioma de la computadora o su selector EN / ES.', '**Predeterminados**: moneda, idioma (al agregar, viene marcado el idioma que usted está usando — revíselo antes de crear), prefijo de ventas (número de factura), dirección pública y las contraseñas predeterminadas de empleados / clientes (en blanco mantiene la actual).', 'La columna **Setup** muestra "Complete" o cuántos datos obligatorios le faltan a una empresa; haga clic para completarlos.', 'Una empresa nueva empieza con el menú actual del SuperAdmin (el de AdminSystem), ya ordenado.'],
+        },
+      },
+      {
+        id: 'set-superadmin-enter', perms: ['setting_system'], paths: ['settings', 'hrm/companies'],
+        title: { en: 'SuperAdmin: enter as a company\'s admin', es: 'SuperAdmin: entrar como admin de una compañía' },
+        steps: {
+          en: [
+            'After signing in, a **SuperAdmin** first sees **How do you want to enter?**: **Go to the dashboard** (as SuperAdmin, every company) or one card per company with its admins and **Enter**.',
+            '**Enter** opens Murano as that admin — their menu, modules, language and permissions. That company\'s Network security does not block it.',
+            'An amber **SuperAdmin** button in the header goes back to the SuperAdmin (and to this choice). Signing out ends it too.',
+          ],
+          es: [
+            'Al ingresar, un **SuperAdmin** ve primero **¿Cómo quiere entrar?**: **Ir al dashboard** (como SuperAdmin, todas las compañías) o una tarjeta por compañía con sus admins y **Entrar**.',
+            '**Entrar** abre Murano como ese admin — su menú, módulos, idioma y permisos. La seguridad de red de esa compañía no lo bloquea.',
+            'Un botón ámbar **SuperAdmin** en la cabecera vuelve al SuperAdmin (y a esta elección). Cerrar sesión también lo termina.',
+          ],
+        },
+      },
+      {
+        id: 'set-login-page', perms: ['setting_system'], paths: ['settings/login-page', 'settings'],
+        title: { en: 'Login page colours by language', es: 'Colores de la página de ingreso por idioma' },
+        steps: {
+          en: ['**Settings › Login Page › Background › Solid color**: one colour for **English** and one for **Español**. The login page uses the Spanish one when it opens in Spanish; empty = same as English. An uploaded image is used for every language.'],
+          es: ['**Configuración › Página de ingreso › Fondo › Color sólido**: un color para **English** y otro para **Español**. La página de ingreso usa el de español cuando se abre en español; vacío = el mismo que inglés. Una imagen subida se usa en todos los idiomas.'],
+        },
+      },
+      {
+        id: 'set-access', perms: ['setting_system'], paths: ['settings', 'permissions'],
+        title: { en: 'Which settings a company manages', es: 'Qué configuración maneja una empresa' },
+        steps: {
+          en: [
+            'A company\'s roles can have: **System Settings** (company info, logo, defaults), Appearance, Customize columns, Email templates, Locations, Network security and Login devices.',
+            'The rest — Mail settings (every company uses AdminSystem\'s mail server), Payment methods, SMS templates, PayPal, ZATCA, Currencies, Multi-currency, Backup, System health, Translations, Update, Payment gateway, SMS, POS settings, integrations, Loyalty — is for the **SuperAdmin**, unless that module is on for the company (e.g. PayPal, POS or an integration): then its own settings stay available.',
+            'A company Admin editing a role can\'t give those settings back; a SuperAdmin can, on purpose (Roles).',
+            'A **hospital**, **school** or **real estate** company opens on its own dashboard and its users don\'t see the general Dashboard. They start with **POS off**.',
+            'Only a **SuperAdmin** can create, edit, disable or delete a SuperAdmin user; a company Admin can never make anyone a SuperAdmin.',
+            '**Integrations** (the Integrations page, Webhooks, WooCommerce, Shopify, QuickBooks, Xero, Slack, Telegram…) are **off for every company** by default: their settings are shared by the whole system. A SuperAdmin turns one on in Business Modules for a company that really uses it (turn on "Integrations hub & Webhooks" too).',
+            'A **school** has the roles **Rector** (admin), **Secretaria**, **Profesor**, **Padre de familia** and **Alumno**; parents and students see the Intranet and Documents.',
+          ],
+          es: [
+            'Los roles de una empresa pueden tener: **Configuración del sistema** (datos de la empresa, logo, predeterminados), Apariencia, Columnas, Plantillas de correo, Ubicaciones, Seguridad de red y Dispositivos de inicio de sesión.',
+            'El resto — Configuración de correo (todas las empresas usan el servidor de correo de AdminSystem), Métodos de pago, Plantillas SMS, PayPal, ZATCA, Monedas, Multimoneda, Respaldos, Estado del sistema, Traducciones, Actualización, Pasarela de pago, SMS, Configuración del POS, integraciones, Fidelidad — es del **SuperAdmin**, salvo que ese módulo esté activo para la empresa (p. ej. PayPal, POS o una integración): entonces su configuración sigue disponible.',
+            'Un Admin de empresa que edita un rol no puede volver a dar esa configuración; un SuperAdmin sí puede, a propósito (Roles).',
+            'Una empresa de tipo **hospital**, **escuela** o **bienes raíces** abre en su propio panel y sus usuarios no ven el Panel general. Empiezan con el **POS apagado**.',
+            'Solo un **SuperAdmin** puede crear, editar, desactivar o borrar un usuario SuperAdmin; un Admin de empresa nunca puede convertir a nadie en SuperAdmin.',
+            'Las **integraciones** (página de Integraciones, Webhooks, WooCommerce, Shopify, QuickBooks, Xero, Slack, Telegram…) vienen **apagadas para todas las empresas**: su configuración es compartida por todo el sistema. Un SuperAdmin enciende una en Módulos para la empresa que de verdad la usa (encienda también "Integrations hub & Webhooks").',
+            'Una **escuela** tiene los roles **Rector** (admin), **Secretaria**, **Profesor**, **Padre de familia** y **Alumno**; padres y alumnos ven la Intranet y los Documentos.',
+          ],
         },
       },
       {
@@ -824,7 +985,7 @@ export const MANUAL = [
             '**SuperAdmin** only: **Settings › Modules** (Business Modules), with the company chosen in the company switcher.',
             'The list is alphabetical: Accounting, Real Estate, Recruits & Jobs, Meetings, Fleet, Projects, Kitchen, each integration (QuickBooks, Xero, Google Sheets, Mailchimp, Slack, Telegram, PrestaShop, Salla, Jumia…) and more. Turn the switch on / off and **Submit**.',
             'A module turned off disappears from that company\'s menu, its pages can\'t be opened and the server refuses its requests — for every user and role. Nothing is deleted: turning it back on restores everything as it was.',
-            'Sales, products, purchases, people, reports and settings are the core of the system and always stay on.',
+            '**Sales**, **POS**, **Purchases** and **Suppliers** can be switched off too (their pages, menu items and reports disappear) — a hospital, for example, bills through Hospital Management. Products, customers, reports and settings are the core of the system and always stay on.',
             'The switches never hide anything from the **SuperAdmin**: with any company chosen, the SuperAdmin sees and opens every module (to see what the company sees, sign in as one of its users).',
             '**Modules of <business type>** turns on the modules a company of that type starts with and turns the others off (the type is the one in Companies › Edit); review and **Submit**.',
             '**ZATCA E-Invoicing (Saudi Arabia)** is OFF by default: turn it on only for a company in Saudi Arabia. While it is off there is no ZATCA settings page, no ZATCA QR on invoices / receipts and nothing is sent to ZATCA when a sale or return is saved.',
@@ -833,7 +994,7 @@ export const MANUAL = [
             'Solo el **SuperAdmin**: **Configuración › Módulos** (Business Modules), con la empresa elegida en el selector de empresa.',
             'La lista va en orden alfabético: Contabilidad, Bienes raíces (Real Estate), Reclutamiento, Reuniones, Flota, Proyectos, Cocina, cada integración (QuickBooks, Xero, Google Sheets, Mailchimp, Slack, Telegram, PrestaShop, Salla, Jumia…) y más. Active / desactive el interruptor y **Submit**.',
             'Un módulo desactivado desaparece del menú de esa empresa, sus páginas no se pueden abrir y el servidor rechaza sus pedidos — para todos los usuarios y roles. No se borra nada: al activarlo de nuevo vuelve todo como estaba.',
-            'Ventas, productos, compras, personas, reportes y configuración son la base del sistema y siempre quedan activos.',
+            '**Ventas**, **POS**, **Compras** y **Proveedores** también se pueden desactivar (desaparecen sus páginas, opciones del menú y reportes) — un hospital, por ejemplo, factura desde Gestión hospitalaria. Productos, clientes, reportes y configuración son la base del sistema y siempre quedan activos.',
             'Los interruptores nunca le ocultan nada al **SuperAdmin**: con cualquier empresa elegida, el SuperAdmin ve y abre todos los módulos (para ver lo que ve la empresa, entre con uno de sus usuarios).',
             '**Modules of <tipo de negocio>** activa los módulos con los que empieza una empresa de ese tipo y desactiva los demás (el tipo es el de Empresas › Editar); revise y **Submit**.',
             '**ZATCA E-Invoicing (Arabia Saudita)** viene DESACTIVADO: actívelo solo para una empresa en Arabia Saudita. Mientras esté desactivado no hay página de configuración de ZATCA, ni código QR de ZATCA en facturas / recibos, y no se envía nada a ZATCA al guardar una venta o devolución.',
@@ -845,16 +1006,18 @@ export const MANUAL = [
         title: { en: 'Manage Menu (order of the side menu)', es: 'Manage Menu (orden del menú lateral)' },
         steps: {
           en: [
-            '**Settings › Manage Menu**: drag items to reorder them or move them into another group; hide / show items, then **Submit**.',
+            '**Settings › Manage Menu**: each row has **↑ / ↓** (move up / down) and **Move to…** (pick another module, group or the **top level** from a list — a single page can sit in the main menu too); dragging still works. Hide / show items with the eye, then **Save**. Names are the same as in your side menu; an item tagged **not in your menu** is there for other roles of the company.',
             '**SuperAdmin working as AdminSystem** (company switcher): Submit and Reset apply to **every company** — their own order is replaced. New companies also start with this layout.',
             '**SuperAdmin working as one company**, or a company **Admin**: the change stays in that company only.',
+            '**Default order** (SuperAdmin working as one company): that company\'s menu becomes a copy of AdminSystem\'s — same order, groups, names and hidden items.',
             'An Admin can reorder and hide / show; adding, removing or renaming items is for the SuperAdmin.',
             'Modules turned off for the company (Settings › Modules) are not listed here nor in the side menu — also their items kept elsewhere (e.g. Hospital Reports under Reports). They keep their place and come back when the module is turned on.',
           ],
           es: [
-            '**Configuración › Manage Menu**: arrastre las opciones para reordenarlas o moverlas a otro grupo; oculte / muestre opciones y luego **Submit**.',
+            '**Configuración › Administrar menú**: cada fila tiene **↑ / ↓** (subir / bajar) y **Mover a…** (escoja otro módulo, grupo o el **nivel principal** de una lista — una página suelta también puede ir en el menú principal); arrastrar sigue funcionando. Oculte / muestre con el ojo y luego **Guardar**. Los nombres son los mismos de su menú lateral; un elemento con la etiqueta **no está en su menú** es para otros roles de la empresa.',
             '**SuperAdmin trabajando como AdminSystem** (selector de empresa): Submit y Reset se aplican a **todas las empresas** — se reemplaza su propio orden. Las empresas nuevas también empiezan con este menú.',
             '**SuperAdmin trabajando como una empresa**, o el **Admin** de una empresa: el cambio queda solo en esa empresa.',
+            '**Orden predeterminado** (Default order; SuperAdmin trabajando como una empresa): el menú de esa empresa pasa a ser una copia del de AdminSystem — mismo orden, grupos, nombres y opciones ocultas.',
             'Un Admin puede reordenar y ocultar / mostrar; agregar, quitar o renombrar opciones es del SuperAdmin.',
             'Los módulos desactivados para la empresa (Configuración › Módulos) no aparecen aquí ni en el menú lateral — tampoco sus opciones puestas en otro lugar (p. ej. Hospital Reports dentro de Reportes). Conservan su lugar y vuelven al activar el módulo.',
           ],
@@ -904,8 +1067,8 @@ export const MANUAL = [
         id: 'set-mail', perms: ['mail_settings'], paths: ['settings/mail'],
         title: { en: 'Mail settings', es: 'Configuración de correo' },
         steps: {
-          en: ['**Settings › Mail Settings**: the mail server the company sends from; **Test** sends a test email.', '**Admin notices** lists who gets the automatic notices (bookings, POS register); the SuperAdmin can also get a copy.', '**Send a copy to other emails**: type the addresses (Enter after each) and tick which emails they copy — **Sales** (invoices and payment receipts), **Payment reminders**, **Purchases** (orders and payments). They get a hidden copy; customers and suppliers never see them. Press **Submit** to save.'],
-          es: ['**Configuración › Mail Settings**: el servidor de correo desde el que envía la empresa; **Test** envía un correo de prueba.', '**Admin notices** muestra quién recibe los avisos automáticos (reservas, caja del POS); el SuperAdmin también puede recibir copia.', '**Send a copy to other emails**: escriba las direcciones (Enter después de cada una) y marque qué correos copian — **Ventas** (facturas y recibos de pago), **Recordatorios de pago**, **Compras** (órdenes y pagos). Reciben una copia oculta; clientes y proveedores nunca la ven. Presione **Submit** para guardar.'],
+          en: ['**Settings › Mail Settings**: the mail server the company sends from; **Test** sends a test email.', '**Admin notices** lists who gets the automatic notices (bookings, POS register); the SuperAdmin can also get a copy.', '**Send a copy to other emails**: type the addresses (Enter after each) and tick which emails they copy — **Sales** (invoices and payment receipts), **Payment reminders**, **Purchases** (orders and payments). They get a hidden copy; customers and suppliers never see them. Press **Submit** to save.', 'Every company starts with **AdminSystem\'s mail server**, with the sender name **Admin {company}**. The SuperAdmin, with **AdminSystem** chosen, changes it there and presses **Copy to every company** to send the same server to all companies (each keeps "Admin {company}" as sender name).'],
+          es: ['**Configuración › Mail Settings**: el servidor de correo desde el que envía la empresa; **Test** envía un correo de prueba.', '**Admin notices** muestra quién recibe los avisos automáticos (reservas, caja del POS); el SuperAdmin también puede recibir copia.', '**Send a copy to other emails**: escriba las direcciones (Enter después de cada una) y marque qué correos copian — **Ventas** (facturas y recibos de pago), **Recordatorios de pago**, **Compras** (órdenes y pagos). Reciben una copia oculta; clientes y proveedores nunca la ven. Presione **Submit** para guardar.', 'Cada compañía empieza con el **servidor de correo de AdminSystem**, con el remitente **Admin {compañía}**. El SuperAdmin, con **AdminSystem** escogido, lo cambia allí y presiona **Copiar a todas las compañías** para enviar el mismo servidor a todas (cada una conserva "Admin {compañía}" como remitente).'],
         },
       },
     ],

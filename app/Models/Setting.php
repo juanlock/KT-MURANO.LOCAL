@@ -39,7 +39,7 @@ class Setting extends Model
         // Login page appearance
         'login_hero_title', 'login_hero_subtitle', 'login_panel_title', 'login_panel_subtitle',
         'login_hero_badge', 'login_hero_feature_1', 'login_hero_feature_2', 'login_hero_feature_3',
-        'login_btn_text', 'login_footer_text', 'login_bg_color', 'login_bg_image',
+        'login_btn_text', 'login_footer_text', 'login_bg_color', 'login_bg_color_es', 'login_bg_image',
         // Admin app (/next SPA) brand color -- drives Ant Design's colorPrimary
         // token in App.vue; a per-user Customizer pick still overrides it
         // client-side (see stores/ui.js applyServerPrimaryColor()).
@@ -114,6 +114,19 @@ class Setting extends Model
     ];
 
     /** Hashed default password for auto-created users of $type, or null. */
+    /**
+     * Login page background colour for a language (2026-10-20): Spanish has its
+     * own (login_bg_color_es), every other language -- and Spanish when it is
+     * empty -- uses login_bg_color. null = the page's built-in gradient.
+     */
+    public function loginBgColor(?string $locale = null): ?string
+    {
+        $ok = fn ($c) => is_string($c) && preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $c) ? $c : null;
+        $locale ??= app()->getLocale();
+
+        return ($locale === 'es' ? $ok($this->login_bg_color_es ?? null) : null) ?? $ok($this->login_bg_color);
+    }
+
     public static function defaultPasswordHash(int $companyId, string $type): ?string
     {
         $key = ['employee' => 'employee', 'customer' => 'customer', 'Online_store' => 'online_store', 'online_store' => 'online_store',

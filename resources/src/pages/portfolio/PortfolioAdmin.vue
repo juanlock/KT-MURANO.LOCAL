@@ -182,6 +182,11 @@
               <a-input v-model:value="editing.video_url" :maxlength="255" placeholder="https://www.youtube.com/watch?v=…" />
             </a-form-item>
           </a-col>
+          <a-col :span="24">
+            <a-form-item label="Website link" extra="Optional: shows a “Visit website” button on the project page (https://… or /path).">
+              <a-input v-model:value="editing.website_url" :maxlength="255" placeholder="https://www.example.com" />
+            </a-form-item>
+          </a-col>
           <a-col :span="24"><a-form-item label="Description"><a-textarea v-model:value="editing.description" :rows="5" :maxlength="10000" /></a-form-item></a-col>
           <a-col :xs="24" :md="8"><a-form-item label="Client"><a-input v-model:value="editing.client" :maxlength="150" /></a-form-item></a-col>
           <a-col :xs="24" :md="8"><a-form-item label="Location"><a-input v-model:value="editing.location" :maxlength="150" /></a-form-item></a-col>
@@ -371,12 +376,13 @@ const savingProject = ref(false);
 function openProject(p) {
   editing.value = p
     ? { ...p, categories: [...p.categories], media: [...p.media] }
-    : { id: null, title: '', type: 'image', categories: typeof catFilter.value === 'number' ? [catFilter.value] : [], description: '', client: '', location: '', project_date: null, video_url: '', featured: true, published: true, media: [], cover_url: null };
+    : { id: null, title: '', type: 'image', categories: typeof catFilter.value === 'number' ? [catFilter.value] : [], description: '', client: '', location: '', project_date: null, video_url: '', website_url: '', featured: true, published: true, media: [], cover_url: null };
   editorOpen.value = true;
 }
 const projectBody = p => ({
   title: p.title, type: p.type, categories: p.categories, description: p.description || null, client: p.client || null,
-  location: p.location || null, project_date: p.project_date || null, video_url: p.video_url || null, featured: !!p.featured, published: !!p.published,
+  location: p.location || null, project_date: p.project_date || null, video_url: p.video_url || null, website_url: p.website_url || null,
+  featured: !!p.featured, published: !!p.published,
 });
 async function saveProject() {
   const p = editing.value;

@@ -117,7 +117,7 @@ class PermissionsController extends BaseController
 
                 $role = Role::findOrFail($Role->id);
                 $role->permissions()->detach();
-                $permissions = $request->permissions;
+                $permissions = $this->allowedPermissions($request, (array) $request->permissions, (int) $companyId);
 
                 foreach ($permissions as $permission_slug) {
                     $perm = Permission::firstOrCreate(['name' => $permission_slug]);
@@ -139,6 +139,18 @@ class PermissionsController extends BaseController
             ], 422);
         }
 
+    }
+
+    /**
+     * A company Admin can't grant the SuperAdmin-only settings (PayPal, ZATCA,
+     * currencies, backup... -- App\Support\SettingsAccess, 2026-10-20); a
+     * SuperAdmin may, on purpose.
+     */
+    private function allowedPermissions(Request $request, array $permissions, int $companyId): array
+    {
+        return optional($request->user('api'))->type === 'SuperAdmin'
+            ? $permissions
+            : \App\Support\SettingsAccess::filter($companyId, $permissions);
     }
 
     /** Role home page: an in-app path ("/service/daily"), else null (= normal start page). */
@@ -183,7 +195,7 @@ class PermissionsController extends BaseController
 
                 $role = Role::findOrFail($id);
                 $role->permissions()->detach();
-                $permissions = $request->permissions;
+                $permissions = $this->allowedPermissions($request, (array) $request->permissions, (int) $role->company_id);
 
                 foreach ($permissions as $permission_slug) {
 

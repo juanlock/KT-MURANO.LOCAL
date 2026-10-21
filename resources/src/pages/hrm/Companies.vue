@@ -272,7 +272,7 @@ import { sortByLabel } from '../../lib/filterOptions';
 import { TOGGLEABLE_MODULES } from '../../config/modules';
 import http from '../../lib/http';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const auth = useAuthStore();
 const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
 const crud = useCrudTable('company', { rowsKey: 'companies' });
@@ -427,8 +427,12 @@ const createOpen = ref(false);
 const createFormRef = ref();
 const emptyCreate = () => ({
   ...emptyProfile(),
-  // Language and currency start as the AdminSystem company's (template 999).
-  default_language: options.value.template_defaults?.default_language || 'en',
+  // Language: the one the SuperAdmin is working in (2026-10-20: Bicentenario was
+  // created in English because it started as AdminSystem's), else AdminSystem's.
+  // Currency starts as the AdminSystem company's (template 999).
+  default_language: (options.value.languages || []).some(l => l.locale === locale.value)
+    ? locale.value
+    : (options.value.template_defaults?.default_language || 'en'),
   currency_id: options.value.template_defaults?.currency_id || options.value.currencies?.[0]?.id,
   admin_firstname: '', admin_lastname: '', admin_email: '', admin_password: '', admin_role: 'Admin-ALL',
   with_helpdesk: true, helpdesk_firstname: 'Helpdesk', helpdesk_lastname: '', helpdesk_login_email: '', helpdesk_password: '',

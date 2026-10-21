@@ -1,0 +1,311 @@
+body {
+  background: #006699;
+  font-family: 'robotoregular';
+}
+
+.slide-image {
+  width: 100%;
+}
+
+/*.carousel-holder {
+  margin-bottom: 30px;
+}*/
+
+.carousel-control,.item {
+  /*border-radius: 4px;*/
+}
+
+.caption {
+  height: 130px;
+  overflow: hidden;
+}
+
+.caption h4 {
+  white-space: nowrap;
+}
+
+.thumbnail img {
+  width: 100%;
+}
+
+.ratings {
+  color: #d17581;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.thumbnail {
+  padding: 0;
+}
+
+.thumbnail .caption-full {
+  padding: 9px;
+  color: #333;
+}
+
+footer {
+  margin: 50px 0;
+}
+
+.fnd-container{
+  background: #EAE8EA;
+  padding: 50px 0;
+}
+
+.arq .navbar{
+  margin-bottom: 0;
+  background: #005279;
+  margin-bottom: 4px;
+  border-radius: 0;
+  border: 0;
+}
+
+.conte-logo{
+  height: 100%;
+  overflow: hidden;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.arq .navbar-nav > li > a{
+  color: #fff;
+  font-family: 'robotothin';
+  padding: 20px 30px;
+  -webkit-transition: .3s;
+       -o-transition: .3s;
+          transition: .3s;
+}
+
+.arq .navbar-nav > li > a:hover{
+  background: #006699;
+  -webkit-transition: .3s;
+       -o-transition: .3s;
+          transition: .3s;
+}
+
+.arq .navbar-nav > li .active{
+  background: #006699;
+}
+
+.arq .navbar-toggle {
+  padding: 9px 10px;
+  margin-top: 8px;
+  margin-right: 15px;
+  margin-bottom: 8px;
+  background-color: #fff;
+  background-image: none;
+  border: 1px solid transparent;
+  border-radius: 0;
+}
+
+.arq .navbar-toggle .icon-bar {
+  display: block;
+  width: 22px;
+  height: 4px;
+  border-radius: 1px;
+  background: #005279;
+}
+
+.conte-footer{
+  width: 200px;
+  height: 30px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.conte-footer a{
+  margin: 0 10px;
+}
+
+.borde-conte{
+  border: 1px solid #CCCCCC;
+  padding: 24px;
+}
+
+.fnd-container-inte{
+  background: #EAE8EA;
+  padding: 10px 0;
+}
+
+.arq h1{
+  color: #005279;
+  font-family: 'robotothin';
+  font-size: 30px;
+  margin-top: 0px;
+  margin-bottom: 30px;
+}
+
+.arq h2{
+  color: #006699;
+  font-size: 16px;
+  font-family: 'robotolight';
+  margin-bottom: 20px;
+}
+
+.arq h2 span{
+  font-size: 23px;
+  font-family: 'robotothin';
+}
+
+.inte{
+    width: 240px;
+}
+
+.arq p{
+  color: #4B4B4B;
+  font-size: 14px;
+  font-family: 'robotolight';
+  margin-bottom: 0;
+}
+
+
+
+
+
+
+.campo-txt{
+  padding-top: 40px;
+  padding-left: 40px;
+}
+
+.campo-galeria{
+  margin: 40px 0;
+}
+
+.campo-galeria a{
+  text-decoration: none;
+}
+
+.espa-galeria{
+  margin-bottom: 30px;
+}
+
+.quitar-margin{
+  margin-top: 0;
+}
+
+.arq h3{
+  color: #006699;
+  font-size: 17px;
+  font-family: 'robotolight';
+  margin-bottom: 20px;
+  margin-top: 10px;
+}
+
+.combo-form label{
+  display: inline;
+  text-align: right;
+  width: 110px;
+  float: left;
+  padding-right: 10px;
+}
+
+.combo-form input, .combo-form textarea{
+  display: inline;
+  float: left;
+}
+
+.combo-form{
+  margin-bottom: 10px;
+  overflow: hidden;
+  margin-right: 100px;
+}
+
+.modal-title{
+  font-size: 20px;
+  font-family: 'robotolight';
+  color: #006699;
+}
+
+.arq .modal-header .close {
+  margin-top: 4px;
+}
+
+.bold-txt{
+  font-family: 'robotobold' !important;
+}
+
+.arq .btn-block {
+  display: block;
+  padding: 12px 0;
+  width: 112px;
+  font-size: 13px;
+  font-family: 'robotolight';
+  margin-top: 16px;
+  border-radius: 0;
+  background: #006699;
+  -webkit-transition: .3s;
+  -o-transition: .3s;
+  transition: .3s;
+}
+
+.arq .btn-block:hover {
+  background: #004669;
+  -webkit-transition: .3s;
+  -o-transition: .3s;
+  transition: .3s;
+}
+
+.form-control{
+  border-radius: 0;
+}
+
+/*.carousel-caption{
+  background-color:rgba(0,0,0,0.4);
+}*/
+
+.carousel-caption h1{
+  color: #fff;
+  background-color:rgba(0,0,0,0.6);
+  font-size: 30px;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 10px;
+}
+
+.carousel-caption p{
+  color: #fff;
+  background-color:rgba(0,0,0,0.6);
+  padding: 0 10px 10px 10px;
+  font-size: 16px;
+  font-family: 'robotolight';
+}
+
+
+
+
+@media (max-width: 1199px) {
+  .navbar-nav {
+    margin-left: 7%;
+  }
+}
+
+
+@media (max-width: 991px) {
+  .navbar-nav {
+    margin-left: 0;
+  }
+  .arq .navbar-nav > li > a{
+    padding: 20px 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .arq .navbar-nav > li > a{
+    padding: 16px 24px;
+  }
+
+  .logo-arq{
+    width: 240px;
+  }
+}
+
+
+
+.arq h4{
+  color: #006699;
+  font-size: 17px;
+  font-family: 'robotolight';
+  margin-bottom: 20px;
+}

@@ -22,104 +22,104 @@
         <a-col :xs="24" :lg="10" :xl="9">
           <a-tabs v-model:activeKey="tab" class="pdfc-tabs">
             <!-- Default: this company's invoice options (settings row). -->
-            <a-tab-pane key="default" tab="Default">
+            <a-tab-pane key="default" :tab="tx('Default')">
               <a-alert
                 v-if="docType !== 'sale'" type="info" show-icon style="margin-bottom: 12px"
-                message="These options apply to Sales invoices."
+                :message="tx('These options apply to Sales invoices.')"
               />
               <div class="pdfc-card">
                 <div v-for="f in COMPANY_FLAGS" :key="f.key" class="pdfc-row pdfc-row--top">
                   <div>
-                    <div class="pdfc-strong">{{ f.label }}</div>
-                    <div class="pdfc-help">{{ f.help }}</div>
+                    <div class="pdfc-strong">{{ tx(f.label) }}</div>
+                    <div class="pdfc-help">{{ tx(f.help) }}</div>
                   </div>
                   <a-switch v-model:checked="company[f.key]" />
                 </div>
                 <div class="pdfc-field" :class="{ 'pdfc-row--off': !company.sale_pdf_show_company_note }">
-                  <div class="pdfc-label">Company Note content</div>
-                  <a-textarea v-model:value="company.sale_pdf_company_note" :rows="3" placeholder="e.g. We accept credit card for payment with 3.5% extra fee..." />
+                  <div class="pdfc-label">{{ tx('Company Note content') }}</div>
+                  <a-textarea v-model:value="company.sale_pdf_company_note" :rows="3" :placeholder="tx(NOTE_PLACEHOLDER)" />
                 </div>
                 <div class="pdfc-field" :class="{ 'pdfc-row--off': !company.sale_pdf_show_terms_conditions }">
-                  <div class="pdfc-label">Terms &amp; Conditions content</div>
-                  <a-textarea v-model:value="company.sale_pdf_terms_conditions" :rows="3" placeholder="e.g. Make all checks payable to: {{COMPANY NAME}}..." />
-                  <div class="pdfc-help" v-text="PLACEHOLDER_HELP"></div>
+                  <div class="pdfc-label">{{ tx('Terms & Conditions content') }}</div>
+                  <a-textarea v-model:value="company.sale_pdf_terms_conditions" :rows="3" :placeholder="tx(TERMS_PLACEHOLDER)" />
+                  <div class="pdfc-help" v-text="tx(PLACEHOLDER_HELP)"></div>
                 </div>
               </div>
             </a-tab-pane>
 
             <!-- Design: colors, fonts, layout, sections, labels (all companies). -->
-            <a-tab-pane key="design" tab="Design">
+            <a-tab-pane key="design" :tab="tx('Design')">
               <a-collapse v-model:activeKey="openPanels" :bordered="false" class="pdfc-panels">
-                <a-collapse-panel key="colors" header="Colors">
+                <a-collapse-panel key="colors" :header="tx('Colors')">
                   <div v-for="c in colorFields" :key="c.key" class="pdfc-row">
-                    <span>{{ c.label }}</span>
+                    <span>{{ tx(c.label) }}</span>
                     <input type="color" class="pdfc-color" :value="form[c.key]" @input="e => (form[c.key] = e.target.value)" />
                   </div>
                 </a-collapse-panel>
 
-                <a-collapse-panel key="type" header="Typography">
+                <a-collapse-panel key="type" :header="tx('Typography')">
                   <div class="pdfc-row">
-                    <span>Font family</span>
+                    <span>{{ tx('Font family') }}</span>
                     <a-select v-model:value="form.font_family" style="width: 190px" :options="fontOptions" />
                   </div>
                   <div class="pdfc-row">
-                    <span>Font size (pt)</span>
+                    <span>{{ tx('Font size (pt)') }}</span>
                     <a-input-number v-model:value="form.font_size" :min="7" :max="14" />
                   </div>
                 </a-collapse-panel>
 
-                <a-collapse-panel key="layout" header="Layout & logo">
+                <a-collapse-panel key="layout" :header="tx('Layout & logo')">
                   <div class="pdfc-row">
-                    <span>Top/bottom margin (mm)</span>
+                    <span>{{ tx('Top/bottom margin (mm)') }}</span>
                     <a-input-number v-model:value="form.margin_v" :min="0" :max="40" />
                   </div>
                   <div class="pdfc-row">
-                    <span>Left/right margin (mm)</span>
+                    <span>{{ tx('Left/right margin (mm)') }}</span>
                     <a-input-number v-model:value="form.margin_h" :min="0" :max="40" />
                   </div>
                   <div class="pdfc-row">
-                    <span>Show logo</span>
+                    <span>{{ tx('Show logo') }}</span>
                     <a-switch v-model:checked="form.logo_show" />
                   </div>
                   <div class="pdfc-row" :class="{ 'pdfc-row--off': !form.logo_show }">
-                    <span>Logo width (px)</span>
+                    <span>{{ tx('Logo width (px)') }}</span>
                     <a-slider v-model:value="form.logo_width" :min="40" :max="400" style="width: 180px" />
                   </div>
                   <div class="pdfc-row" :class="{ 'pdfc-row--off': !form.logo_show }">
-                    <span>Logo height (px)</span>
+                    <span>{{ tx('Logo height (px)') }}</span>
                     <a-slider v-model:value="form.logo_height" :min="20" :max="300" style="width: 180px" />
                   </div>
                 </a-collapse-panel>
 
-                <a-collapse-panel key="table" header="Items table">
+                <a-collapse-panel key="table" :header="tx('Items table')">
                   <div class="pdfc-row">
-                    <span>Outer border</span>
+                    <span>{{ tx('Outer border') }}</span>
                     <a-switch v-model:checked="form.table_borders" />
                   </div>
                   <div class="pdfc-row">
-                    <span>Striped rows</span>
+                    <span>{{ tx('Striped rows') }}</span>
                     <a-switch v-model:checked="form.table_striped" />
                   </div>
                 </a-collapse-panel>
 
-                <a-collapse-panel key="sections" header="Sections">
+                <a-collapse-panel key="sections" :header="tx('Sections')">
                   <div v-for="sct in sectionFields" :key="sct.key" class="pdfc-row">
-                    <span>{{ sct.label }}</span>
+                    <span>{{ tx(sct.label) }}</span>
                     <a-switch v-model:checked="form[sct.key]" />
                   </div>
                 </a-collapse-panel>
 
-                <a-collapse-panel key="text" header="Text & labels">
+                <a-collapse-panel key="text" :header="tx('Text & labels')">
                   <div class="pdfc-field">
-                    <div class="pdfc-label">Document title (blank = default)</div>
+                    <div class="pdfc-label">{{ tx('Document title (blank = default)') }}</div>
                     <a-input v-model:value="form.labels.title" :placeholder="defaultTitle" />
                   </div>
                   <div class="pdfc-field">
-                    <div class="pdfc-label">Thank-you line (blank = default)</div>
+                    <div class="pdfc-label">{{ tx('Thank-you line (blank = default)') }}</div>
                     <a-input v-model:value="form.labels.thank_you" placeholder="Thank you for your business!" />
                   </div>
                   <div class="pdfc-field">
-                    <div class="pdfc-label">Footer text (blank = System Settings invoice footer)</div>
+                    <div class="pdfc-label">{{ tx('Footer text (blank = System Settings invoice footer)') }}</div>
                     <a-textarea v-model:value="form.footer_text" :rows="3" />
                   </div>
                 </a-collapse-panel>
@@ -135,13 +135,13 @@
         <a-col :xs="24" :lg="14" :xl="15">
           <div class="pdfc-preview-wrap">
             <div class="pdfc-preview-bar">
-              <EyeOutlined /> Live preview — the real PDF<span v-if="previewRef">&nbsp;({{ previewRef }})</span>
+              <EyeOutlined /> {{ tx('Live preview — the real PDF') }}<span v-if="previewRef">&nbsp;({{ previewRef }})</span>
               <a-spin v-if="previewLoading" size="small" style="margin-left: 8px" />
-              <a-button size="small" type="link" style="margin-left: auto" @click="refreshPreview">Refresh</a-button>
+              <a-button size="small" type="link" style="margin-left: auto" @click="refreshPreview">{{ tx('Refresh') }}</a-button>
             </div>
             <div class="pdfc-page">
-              <iframe v-if="previewUrl" :src="previewUrl + '#toolbar=0&navpanes=0&view=FitH'" class="pdfc-frame" title="Invoice preview" />
-              <a-empty v-else-if="!previewLoading" :description="previewError || 'No preview yet'" style="padding: 96px 0" />
+              <iframe v-if="previewUrl" :src="previewUrl + '#toolbar=0&navpanes=0&view=FitH'" class="pdfc-frame" :title="tx('Invoice preview')" />
+              <a-empty v-else-if="!previewLoading" :description="previewError || tx('No preview yet')" style="padding: 96px 0" />
             </div>
           </div>
         </a-col>
@@ -166,8 +166,11 @@ import { useI18n } from 'vue-i18n';
 import { SaveOutlined, EyeOutlined } from '@ant-design/icons-vue';
 import http from '../../lib/http';
 import { getActingCompanyId } from '../../lib/actingCompany';
+import { useLocalText } from '../../lib/useLocalText';
+import ES from './lang/InvoicePdfSettings.es.js';
 
 const { t } = useI18n();
+const { s: tx } = useLocalText(ES);
 
 const loading = ref(true);
 const saving = ref(false);
@@ -178,13 +181,15 @@ const defaults = ref(null);
 const form = ref(null);
 const company = ref({});
 
-const typeOptions = [
-  { value: 'sale', label: 'Sales Invoice' },
-  { value: 'quotation', label: 'Quotation' },
-  { value: 'purchase', label: 'Purchase' },
-];
+const typeOptions = computed(() => [
+  { value: 'sale', label: tx('Sales Invoice') },
+  { value: 'quotation', label: tx('Quotation') },
+  { value: 'purchase', label: tx('Purchase') },
+]);
 
 const PLACEHOLDER_HELP = '{{COMPANY NAME}} and {{ADDRESS COMPANY}} are replaced with this company\'s own name / address.';
+const NOTE_PLACEHOLDER = 'e.g. We accept credit card for payment with 3.5% extra fee...';
+const TERMS_PLACEHOLDER = 'e.g. Make all checks payable to: {{COMPANY NAME}}...';
 
 const COMPANY_FLAGS = [
   { key: 'sale_pdf_hide_time', label: 'Hide the time on the invoice date', help: 'Show only the date (2025-12-30), not the time the sale was made (16:39:00).' },
@@ -251,7 +256,7 @@ async function refreshPreview() {
     });
     if (seq !== previewSeq) return; // a newer preview is on its way
     if (!res.ok) {
-      let msg = `Preview failed (HTTP ${res.status})`;
+      let msg = tx('Preview failed (HTTP {status})', { status: res.status });
       try { msg = (await res.json()).message || msg; } catch (e) { /* not JSON */ }
       throw new Error(msg);
     }

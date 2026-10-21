@@ -1,10 +1,10 @@
 <template>
   <div class="page">
-    <PageHeader title="Timetable" :breadcrumb="['School', 'Timetable']">
+    <PageHeader :title="s('Timetable')" :breadcrumb="[s('School'), s('Timetable')]">
       <template #actions>
         <a-button type="primary" :disabled="!filters.class_id" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
-          Add period
+          {{ s('Add period') }}
         </a-button>
       </template>
     </PageHeader>
@@ -17,15 +17,15 @@
         />
         <a-select
           v-model:value="filters.class_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="Class" :options="classOptions" @change="onClassChange"
+          option-filter-prop="label" :placeholder="s('Class')" :options="classOptions" @change="onClassChange"
         />
         <a-select
           v-model:value="filters.section_id" class="tb-item-sm" allow-clear show-search
-          option-filter-prop="label" placeholder="Section" :options="sectionOptions" @change="load"
+          option-filter-prop="label" :placeholder="s('Section')" :options="sectionOptions" @change="load"
         />
         <a-select
           v-model:value="filters.teacher_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="Any teacher" :options="teacherOptions" @change="load"
+          option-filter-prop="label" :placeholder="s('Any teacher')" :options="teacherOptions" @change="load"
         />
       </div>
     </a-card>
@@ -33,7 +33,7 @@
     <a-spin :spinning="loading">
       <div class="grid">
         <div v-for="day in WEEK_DAYS" :key="day.value" class="col">
-          <div class="col-head">{{ day.short }}</div>
+          <div class="col-head">{{ s(day.short) }}</div>
           <div class="col-body">
             <button
               v-for="slot in days[day.value] || []" :key="slot.id" type="button"
@@ -42,7 +42,7 @@
               <span class="slot-time">{{ slot.start_time }}–{{ slot.end_time }}</span>
               <span class="slot-subject">{{ slot.subject_name }}</span>
               <span class="slot-meta">
-                {{ slot.teacher_name || 'No teacher' }}
+                {{ slot.teacher_name || s('No teacher') }}
                 <template v-if="!filters.class_id">
                   · {{ slot.class_name }}{{ slot.section_name ? ' ' + slot.section_name : '' }}
                 </template>
@@ -55,26 +55,26 @@
       </div>
 
       <a-card v-if="!total" style="margin-top: 16px">
-        <a-empty :description="filters.class_id ? 'No periods scheduled yet' : 'Pick a class to build its timetable'">
-          <a-button v-if="filters.class_id" type="primary" @click="openForm(null)">Add the first period</a-button>
+        <a-empty :description="filters.class_id ? s('No periods scheduled yet') : s('Pick a class to build its timetable')">
+          <a-button v-if="filters.class_id" type="primary" @click="openForm(null)">{{ s('Add the first period') }}</a-button>
         </a-empty>
       </a-card>
     </a-spin>
 
     <a-modal
-      :open="formOpen" :title="editing ? 'Edit period' : 'Add period'" :width="560"
-      :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
+      :open="formOpen" :title="editing ? s('Edit period') : s('Add period')" :width="560"
+      :confirm-loading="saving" :ok-text="s('Submit')" :cancel-text="s('Cancel')"
       @ok="submit" @cancel="formOpen = false"
     >
       <a-alert
         type="info" show-icon banner
-        message="A section cannot sit two subjects at once, and a teacher cannot be in two rooms at once — both are checked across the whole year."
+        :message="s('A section cannot sit two subjects at once, and a teacher cannot be in two rooms at once — both are checked across the whole year.')"
         style="margin-bottom: 16px"
       />
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Class *" name="class_id">
+            <a-form-item :label="s('Class *')" name="class_id">
               <a-select
                 v-model:value="form.class_id" show-search option-filter-prop="label"
                 :options="classOptions" @change="form.section_id = undefined"
@@ -82,15 +82,15 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Section">
+            <a-form-item :label="s('Section')">
               <a-select
                 v-model:value="form.section_id" allow-clear show-search option-filter-prop="label"
-                :options="formSectionOptions" :disabled="!form.class_id" placeholder="Whole class"
+                :options="formSectionOptions" :disabled="!form.class_id" :placeholder="s('Whole class')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Subject *" name="subject_id">
+            <a-form-item :label="s('Subject *')" name="subject_id">
               <a-select
                 v-model:value="form.subject_id" show-search option-filter-prop="label"
                 :options="formSubjectOptions"
@@ -98,30 +98,30 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Teacher">
+            <a-form-item :label="s('Teacher')">
               <a-select
                 v-model:value="form.teacher_id" allow-clear show-search option-filter-prop="label"
-                :options="teacherOptions" placeholder="Unassigned"
+                :options="teacherOptions" :placeholder="s('Unassigned')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Day *" name="day_of_week">
+            <a-form-item :label="s('Day *')" name="day_of_week">
               <a-select v-model:value="form.day_of_week" :options="dayOptions" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="From *" name="start_time">
+            <a-form-item :label="s('From *')" name="start_time">
               <a-time-picker v-model:value="form.start_time" format="HH:mm" value-format="HH:mm" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="To *" name="end_time">
+            <a-form-item :label="s('To *')" name="end_time">
               <a-time-picker v-model:value="form.end_time" format="HH:mm" value-format="HH:mm" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="Room" style="margin-bottom: 0">
+            <a-form-item :label="s('Room')" style="margin-bottom: 0">
               <a-input v-model:value="form.room" allow-clear />
             </a-form-item>
           </a-col>
@@ -129,9 +129,9 @@
       </a-form>
 
       <template #footer>
-        <a-button v-if="editing" danger style="float: left" @click="remove">{{ $t('Delete') }}</a-button>
-        <a-button @click="formOpen = false">{{ $t('Cancel') }}</a-button>
-        <a-button type="primary" :loading="saving" @click="submit">{{ $t('submit') }}</a-button>
+        <a-button v-if="editing" danger style="float: left" @click="remove">{{ s('Delete') }}</a-button>
+        <a-button @click="formOpen = false">{{ s('Cancel') }}</a-button>
+        <a-button type="primary" :loading="saving" @click="submit">{{ s('Submit') }}</a-button>
       </template>
     </a-modal>
   </div>
@@ -152,7 +152,10 @@ import { PlusOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { WEEK_DAYS } from './schoolOptions';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/Timetable.es.js';
+
+const { s } = useSchoolText(ES);
 
 const filters = reactive({
   academic_year_id: undefined, class_id: undefined, section_id: undefined, teacher_id: undefined,
@@ -164,20 +167,20 @@ const loading = ref(false);
 
 const meta = ref({});
 const yearOptions = computed(() => (meta.value.academic_years || []).map(y => ({
-  value: y.id, label: y.is_current ? `${y.name} (current)` : y.name,
+  value: y.id, label: y.is_current ? s('{name} (current)', { name: y.name }) : y.name,
 })));
 const classOptions = computed(() => (meta.value.classes || []).map(c => ({ value: c.id, label: c.name })));
 const teacherOptions = computed(() => (meta.value.teachers || []).map(x => ({ value: x.id, label: x.name })));
 const sectionOptions = computed(() => (meta.value.sections || [])
-  .filter(s => s.class_id === filters.class_id)
-  .map(s => ({ value: s.id, label: s.name })));
+  .filter(x => x.class_id === filters.class_id)
+  .map(x => ({ value: x.id, label: x.name })));
 const formSectionOptions = computed(() => (meta.value.sections || [])
-  .filter(s => s.class_id === form.value.class_id)
-  .map(s => ({ value: s.id, label: s.name })));
+  .filter(x => x.class_id === form.value.class_id)
+  .map(x => ({ value: x.id, label: x.name })));
 const formSubjectOptions = computed(() => (meta.value.subjects || [])
-  .filter(s => !s.class_id || s.class_id === form.value.class_id)
-  .map(s => ({ value: s.id, label: s.name })));
-const dayOptions = WEEK_DAYS.map(d => ({ value: d.value, label: d.label }));
+  .filter(x => !x.class_id || x.class_id === form.value.class_id)
+  .map(x => ({ value: x.id, label: x.name })));
+const dayOptions = computed(() => WEEK_DAYS.map(d => ({ value: d.value, label: s(d.label) })));
 
 function onClassChange() {
   filters.section_id = undefined;
@@ -196,7 +199,7 @@ async function load() {
     days.value = data?.days || {};
     total.value = data?.total || 0;
   } catch (e) {
-    message.error(t('InvalidData', 'Could not load the timetable'));
+    message.error(s('Could not load the timetable'));
   } finally {
     loading.value = false;
   }
@@ -220,7 +223,7 @@ function empty() {
   };
 }
 
-const required = () => [{ required: true, message: t('Field_is_required', 'This field is required') }];
+const required = () => [{ required: true, message: s('This field is required') }];
 const rules = computed(() => ({
   class_id: required(),
   subject_id: required(),
@@ -259,13 +262,13 @@ async function submit() {
   try {
     if (editing.value) await http.put(`school/timetable/${editing.value.id}`, form.value);
     else await http.post('school/timetable', form.value);
-    message.success(t('Created_in_successfully', 'Saved successfully'));
+    message.success(s('Saved successfully'));
     formOpen.value = false;
     editing.value = null;
     load();
   } catch (e) {
     // The clash guard answers 422 with a message naming the conflict.
-    message.error(e?.data?.message || t('InvalidData', 'Could not save this period'));
+    message.error(e?.data?.message || s('Could not save this period'));
   } finally {
     saving.value = false;
   }
@@ -274,12 +277,12 @@ async function submit() {
 async function remove() {
   try {
     await http.delete(`school/timetable/${editing.value.id}`);
-    message.success(t('Deleted_in_successfully', 'Deleted successfully'));
+    message.success(s('Deleted successfully'));
     formOpen.value = false;
     editing.value = null;
     load();
   } catch (e) {
-    message.error(t('InvalidData', 'Could not delete this period'));
+    message.error(s('Could not delete this period'));
   }
 }
 

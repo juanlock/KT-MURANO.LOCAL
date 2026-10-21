@@ -23,7 +23,7 @@
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'field_type'">
-            <a-tag>{{ record.field_type }}</a-tag>
+            <a-tag>{{ tx(record.field_type) }}</a-tag>
           </template>
           <template v-else-if="column.key === 'is_required'">
             <a-tag :color="record.is_required ? 'error' : 'default'">
@@ -67,7 +67,7 @@
             <a-form-item :label="$t('FieldType')" name="field_type">
               <a-select
                 v-model:value="form.field_type"
-                :options="['text', 'textarea', 'number', 'date', 'select', 'checkbox'].map(v => ({ value: v, label: v }))"
+                :options="['text', 'textarea', 'number', 'date', 'select', 'checkbox'].map(v => ({ value: v, label: tx(v) }))"
               />
             </a-form-item>
           </a-col>
@@ -104,8 +104,11 @@ import { useI18n } from 'vue-i18n';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
+import { useLocalText } from '../../lib/useLocalText';
+import ES from './lang/CustomFields.es.js';
 
 const { t } = useI18n();
+const { s: tx } = useLocalText(ES);
 
 const entityTab = ref('client');
 const loading = ref(true);
@@ -115,7 +118,7 @@ const columns = computed(() => [
   { title: t('FieldName'), dataIndex: 'name', key: 'name' },
   { title: t('FieldType'), dataIndex: 'field_type', key: 'field_type' },
   { title: t('Required'), dataIndex: 'is_required', key: 'is_required' },
-  { title: 'Sort', dataIndex: 'sort_order', key: 'sort_order', align: 'right' },
+  { title: tx('Sort'), dataIndex: 'sort_order', key: 'sort_order', align: 'right' },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);
 

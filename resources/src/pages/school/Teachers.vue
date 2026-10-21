@@ -1,10 +1,10 @@
 <template>
   <div class="page">
-    <PageHeader title="Teachers" :breadcrumb="['School', 'Teachers']">
+    <PageHeader :title="s('Teachers')" :breadcrumb="[s('School'), s('Teachers')]">
       <template #actions>
         <a-button type="primary" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
-          {{ $t('Add') }}
+          {{ s('Add') }}
         </a-button>
       </template>
     </PageHeader>
@@ -12,16 +12,16 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search name, code or specialism…"
+          v-model:value="crud.search.value" :placeholder="s('Search name, code or specialism…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.gender" class="tb-item-sm" allow-clear
-          placeholder="Gender" :options="GENDERS" @change="crud.reload"
+          :placeholder="s('Gender')" :options="genderOptions" @change="crud.reload"
         />
         <a-select
-          v-model:value="filters.active" class="tb-item-sm" allow-clear placeholder="All"
-          :options="[{ value: '1', label: 'Active' }, { value: '0', label: 'Inactive' }]"
+          v-model:value="filters.active" class="tb-item-sm" allow-clear :placeholder="s('All')"
+          :options="[{ value: '1', label: s('Active') }, { value: '0', label: s('Inactive') }]"
           @change="crud.reload"
         />
       </div>
@@ -42,12 +42,12 @@
         </template>
         <template v-else-if="column.key === 'workload'">
           <a-space :size="4">
-            <a-tooltip title="Periods a week">
+            <a-tooltip :title="s('Periods a week')">
               <a-tag :color="record.weekly_periods > 30 ? 'error' : record.weekly_periods > 20 ? 'warning' : 'default'">
-                {{ record.weekly_periods }} periods
+                {{ s('{n} periods', { n: record.weekly_periods }) }}
               </a-tag>
             </a-tooltip>
-            <a-tag v-if="record.form_classes">{{ record.form_classes }} form</a-tag>
+            <a-tag v-if="record.form_classes">{{ s('{n} form', { n: record.form_classes }) }}</a-tag>
           </a-space>
         </template>
         <template v-else-if="column.key === 'joining_date'">
@@ -55,22 +55,22 @@
         </template>
         <template v-else-if="column.key === 'is_active'">
           <a-tag :color="record.is_active ? 'success' : 'default'">
-            {{ record.is_active ? 'Active' : 'Inactive' }}
+            {{ record.is_active ? s('Active') : s('Inactive') }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
-            <a-tooltip title="Weekly timetable">
+            <a-tooltip :title="s('Weekly timetable')">
               <a-button type="text" size="small" @click="openTimetable(record)">
                 <template #icon><CalendarOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip :title="$t('Edit')">
+            <a-tooltip :title="s('Edit')">
               <a-button type="text" size="small" @click="openForm(record)">
                 <template #icon><EditOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip :title="$t('Delete')">
+            <a-tooltip :title="s('Delete')">
               <a-button type="text" size="small" danger @click="crud.remove(record, { label: record.name })">
                 <template #icon><DeleteOutlined /></template>
               </a-button>
@@ -81,64 +81,64 @@
     </DataTable>
 
     <a-modal
-      :open="formOpen" :title="editing ? 'Edit teacher' : 'New teacher'" :width="680"
-      :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
+      :open="formOpen" :title="editing ? s('Edit teacher') : s('New teacher')" :width="680"
+      :confirm-loading="saving" :ok-text="s('Submit')" :cancel-text="s('Cancel')"
       @ok="submit" @cancel="formOpen = false"
     >
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Name *" name="name">
+            <a-form-item :label="s('Name *')" name="name">
               <a-input v-model:value="form.name" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Staff code">
+            <a-form-item :label="s('Staff code')">
               <a-input v-model:value="form.employee_code" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Gender *" name="gender">
-              <a-select v-model:value="form.gender" :options="GENDERS" />
+            <a-form-item :label="s('Gender *')" name="gender">
+              <a-select v-model:value="form.gender" :options="genderOptions" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Specialism">
-              <a-input v-model:value="form.specialization" placeholder="e.g. Mathematics" allow-clear />
+            <a-form-item :label="s('Specialism')">
+              <a-input v-model:value="form.specialization" :placeholder="s('e.g. Mathematics')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Qualification">
-              <a-input v-model:value="form.qualification" placeholder="e.g. BSc, PGCE" allow-clear />
+            <a-form-item :label="s('Qualification')">
+              <a-input v-model:value="form.qualification" :placeholder="s('e.g. BSc, PGCE')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Phone">
+            <a-form-item :label="s('Phone')">
               <a-input v-model:value="form.phone" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="10">
-            <a-form-item label="Email" name="email">
+            <a-form-item :label="s('Email')" name="email">
               <a-input v-model:value="form.email" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Joined on">
+            <a-form-item :label="s('Joined on')">
               <a-date-picker v-model:value="form.joining_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="Address">
+            <a-form-item :label="s('Address')">
               <a-input v-model:value="form.address" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Photo">
+            <a-form-item :label="s('Photo')">
               <a-space>
                 <a-upload :show-upload-list="false" accept="image/*" :before-upload="pickImage">
                   <a-button>
                     <template #icon><UploadOutlined /></template>
-                    {{ previewUrl ? 'Replace' : 'Upload' }}
+                    {{ previewUrl ? s('Replace') : s('Upload') }}
                   </a-button>
                 </a-upload>
                 <a-avatar v-if="previewUrl" :size="40" :src="previewUrl" />
@@ -146,12 +146,12 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Status">
-              <a-checkbox v-model:checked="form.is_active">On the staff</a-checkbox>
+            <a-form-item :label="s('Status')">
+              <a-checkbox v-model:checked="form.is_active">{{ s('On the staff') }}</a-checkbox>
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item :label="$t('Note')" style="margin-bottom: 0">
+            <a-form-item :label="s('Note')" style="margin-bottom: 0">
               <a-textarea v-model:value="form.notes" :rows="2" />
             </a-form-item>
           </a-col>
@@ -159,11 +159,11 @@
       </a-form>
     </a-modal>
 
-    <a-drawer :open="ttOpen" :width="520" :title="`${timetable.teacher_name || ''} — weekly timetable`" @close="ttOpen = false">
-      <a-empty v-if="!timetable.total" description="No periods assigned" />
+    <a-drawer :open="ttOpen" :width="520" :title="s('{name} — weekly timetable', { name: timetable.teacher_name || '' })" @close="ttOpen = false">
+      <a-empty v-if="!timetable.total" :description="s('No periods assigned')" />
       <div v-else>
         <div v-for="day in WEEK_DAYS" :key="day.value" class="tt-day">
-          <div class="tt-day-name">{{ day.label }}</div>
+          <div class="tt-day-name">{{ s(day.label) }}</div>
           <div v-if="(timetable.days?.[day.value] || []).length" class="tt-slots">
             <div v-for="slot in timetable.days[day.value]" :key="slot.id" class="tt-slot">
               <span class="tt-time">{{ slot.start_time }}–{{ slot.end_time }}</span>
@@ -173,7 +173,7 @@
               </span>
             </div>
           </div>
-          <div v-else class="tt-free">Free</div>
+          <div v-else class="tt-free">{{ s('Free') }}</div>
         </div>
       </div>
     </a-drawer>
@@ -198,10 +198,13 @@ import { useFormat } from '../../composables/useFormat';
 import { uploadForm } from '../../lib/upload';
 import { GENDERS, WEEK_DAYS } from './schoolOptions';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/Teachers.es.js';
 
+const { s } = useSchoolText(ES);
 const { date } = useFormat();
 const filters = reactive({ gender: undefined, active: undefined });
+const genderOptions = computed(() => GENDERS.map(o => ({ ...o, label: s(o.label) })));
 
 const crud = useCrudTable('school/teachers', {
   rowsKey: 'teachers',
@@ -212,12 +215,12 @@ const crud = useCrudTable('school/teachers', {
 });
 
 const columns = computed(() => [
-  { title: 'Teacher', key: 'name', dataIndex: 'name', sorter: true },
-  { title: 'Phone', dataIndex: 'phone', key: 'phone', width: 140 },
-  { title: 'Email', dataIndex: 'email', key: 'email', width: 200 },
-  { title: 'Workload', key: 'workload', width: 200 },
-  { title: 'Joined', key: 'joining_date', dataIndex: 'joining_date', sorter: true, width: 130 },
-  { title: 'Status', key: 'is_active', dataIndex: 'is_active', sorter: true, width: 110 },
+  { title: s('Teacher'), key: 'name', dataIndex: 'name', sorter: true },
+  { title: s('Phone'), dataIndex: 'phone', key: 'phone', width: 140 },
+  { title: s('Email'), dataIndex: 'email', key: 'email', width: 200 },
+  { title: s('Workload'), key: 'workload', width: 200 },
+  { title: s('Joined'), key: 'joining_date', dataIndex: 'joining_date', sorter: true, width: 130 },
+  { title: s('Status'), key: 'is_active', dataIndex: 'is_active', sorter: true, width: 110 },
   { title: '', key: 'actions', width: 120 },
 ]);
 
@@ -242,11 +245,11 @@ function empty() {
   };
 }
 
-const required = () => [{ required: true, message: t('Field_is_required', 'This field is required') }];
+const required = () => [{ required: true, message: s('This field is required') }];
 const rules = computed(() => ({
   name: required(),
   gender: required(),
-  email: [{ type: 'email', message: t('InvalidData', 'Enter a valid email address') }],
+  email: [{ type: 'email', message: s('Enter a valid email address') }],
 }));
 
 function openForm(record) {
@@ -285,15 +288,15 @@ async function submit() {
     const url = editing.value ? `school/teachers/${editing.value.id}/update` : 'school/teachers';
     const res = await uploadForm(url, fd);
     if (res.status >= 200 && res.status < 300) {
-      message.success(t('Created_in_successfully', 'Saved successfully'));
+      message.success(s('Saved successfully'));
       formOpen.value = false;
       editing.value = null;
       crud.fetchRows();
       return;
     }
-    message.error(firstError(res.data) || t('InvalidData', 'Could not save this teacher'));
+    message.error(firstError(res.data) || s('Could not save this teacher'));
   } catch (e) {
-    message.error(t('InvalidData', 'Could not save this teacher'));
+    message.error(s('Could not save this teacher'));
   } finally {
     saving.value = false;
   }
@@ -316,7 +319,7 @@ async function openTimetable(teacher) {
     timetable.value = await http.get(`school/teachers/${teacher.id}/timetable`);
     ttOpen.value = true;
   } catch (e) {
-    message.error(t('InvalidData', 'Could not load the timetable'));
+    message.error(s('Could not load the timetable'));
   }
 }
 

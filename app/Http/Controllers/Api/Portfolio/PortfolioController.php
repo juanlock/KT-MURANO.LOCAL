@@ -400,6 +400,8 @@ class PortfolioController extends Controller
             'client' => 'nullable|string|max:150', 'location' => 'nullable|string|max:150',
             'project_date' => 'nullable|date',
             'video_url' => 'nullable|string|max:255',
+            // "Visit website" link (2026-10-20): a full https address or a path on this server.
+            'website_url' => ['nullable', 'string', 'max:255', 'regex:#^(https?://|/(?!/))#i'],
             'categories' => 'nullable|array', 'categories.*' => 'integer',
             'featured' => 'boolean', 'published' => 'boolean',
         ]);
@@ -408,7 +410,8 @@ class PortfolioController extends Controller
         return [
             'title' => trim($v['title']), 'type' => $v['type'], 'description' => $v['description'] ?? null,
             'client' => $v['client'] ?? null, 'location' => $v['location'] ?? null, 'project_date' => $v['project_date'] ?? null,
-            'video_url' => self::embedUrl($v['video_url'] ?? null), 'categories' => json_encode($cats),
+            'video_url' => self::embedUrl($v['video_url'] ?? null), 'website_url' => trim((string) ($v['website_url'] ?? '')) ?: null,
+            'categories' => json_encode($cats),
             'featured' => (bool) ($v['featured'] ?? true), 'published' => (bool) ($v['published'] ?? true), 'updated_at' => now(),
         ];
     }

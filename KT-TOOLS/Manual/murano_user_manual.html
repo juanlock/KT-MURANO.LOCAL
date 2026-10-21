@@ -140,6 +140,8 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
       <a href="#kcoltech">KcolTech</a>
       <a href="#ruba">Ruba Garden Landscape</a>
       <a href="#newera">New Era Unisex Salon</a>
+      <a href="#school">Colegio Bicentenario (school)</a>
+      <a href="#hospital">Vitalis (hospital)</a>
       <a href="#portals">Customers &amp; suppliers</a>
       <div class="group">Guides</div>
       <a href="#g-signin">Sign in &amp; home page</a>
@@ -163,6 +165,8 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
       <a href="#g-network">Network security</a>
       <a href="#g-paypal">PayPal payments</a>
       <a href="#g-portal">Customer &amp; supplier portal</a>
+      <a href="#g-school">School</a>
+      <a href="#g-menu">Manage the menu</a>
     </nav>
   </aside>
 
@@ -175,7 +179,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
       <div class="meta">
         <span>Address: <code>https://murano.kcoltech.com</code></span>
         <span>Languages: English · Spanish (follows your computer; switch with EN / ES or the globe)</span>
-        <span>Updated: October 19, 2026</span>
+        <span>Updated: October 20, 2026</span>
       </div>
       <form class="finder" id="finder" aria-label="Find your role">
         <div class="finder-row">
@@ -184,6 +188,8 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
               <option value="kcoltech">KcolTech</option>
               <option value="ruba">Ruba Garden Landscape</option>
               <option value="newera">New Era Unisex Salon</option>
+              <option value="school">Colegio Bicentenario (school)</option>
+              <option value="hospital">Vitalis (hospital)</option>
               <option value="system">System owner (SuperAdmin)</option>
             </select>
           </label>
@@ -210,7 +216,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
         </div>
         <div class="basic">
           <h3>Your home page</h3>
-          <p>Some roles open straight on their work screen instead of the dashboard: field crews on <span class="menu">Daily Tasks</span>, salon staff on the <span class="menu">Bookings calendar</span>.</p>
+          <p>Some roles open straight on their work screen instead of the dashboard: field crews on <span class="menu">Daily Tasks</span>, salon staff on the <span class="menu">Bookings calendar</span>. A school, hospital or real estate company opens on its own dashboard (School, Hospital or Real Estate) and has no general Dashboard.</p>
         </div>
         <div class="basic">
           <h3>The top bar</h3>
@@ -247,7 +253,9 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
           <ul>
             <li>Every module and every permission, including the ones added later (new modules reach this role automatically).</li>
             <li>A <b>company selector</b> on company forms and lists: choose the company first, then view or edit its records.</li>
-            <li>Only role that can create another SuperAdmin, change install-wide settings (server address, modules, backups, login devices) and add scripts to website pages.</li>
+            <li>Only role that can create, edit, disable or delete a SuperAdmin, change install-wide settings (server address, modules, backups, login devices) and add scripts to website pages.</li>
+            <li>After signing in, chooses <b>Go to the dashboard</b> or <b>Enter as a company admin</b> (then <b>Back to SuperAdmin</b> in the top bar).</li>
+            <li>Keeps for itself: <b>Mail settings</b> (every company sends through AdminSystem's mail server, sender "Admin {company}"; <b>Copy to every company</b> sends a change to all), <b>Payment methods</b>, <b>SMS templates</b>, PayPal, ZATCA, currencies, integrations and webhooks (off for every company until turned on).</li>
             <li>Does not clock in and is not on payroll.</li>
           </ul>
           <div class="guides-links"><a href="#g-users">Users &amp; roles</a><a href="#g-payroll">Weekly payroll</a><a href="#g-website">Website</a></div>
@@ -417,6 +425,79 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
           </ul>
           <p class="cant">Doesn't see other stylists' bookings, the sales list or customers' details.</p>
           <div class="guides-links"><a href="#g-bookings">Bookings</a><a href="#g-pos">POS</a><a href="#g-clock">Clock in</a><a href="#g-profile">Profile &amp; PIN</a></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============================== SCHOOL ============================== -->
+    <section id="school">
+      <span class="eyebrow">School · Spanish</span>
+      <div class="company-head">
+        <h2>Colegio Bicentenario</h2>
+        <p class="lead">A school: only School Management, Intranet, Documents, Portfolio and Website — no sales, POS, purchases, products or accounting. Opens on the <b>School dashboard</b>, with School Management first in the menu. Its data (years, classes, teachers, students, exams, fees) is its own.</p>
+        <div class="facts">
+          <span class="fact">Language <b>Spanish</b></span>
+          <span class="fact">Home <b>School dashboard</b></span>
+          <span class="fact">POS <b>off</b></span>
+          <span class="fact">Marks <b>out of 20 (pass 11)</b></span>
+        </div>
+      </div>
+      <div class="roles">
+        <article class="role" id="role-school-rector">
+          <div class="role-top"><h3>Rector</h3><span class="who">School administrator</span></div>
+          <p class="home">Home page: <b>School dashboard</b></p>
+          <ul>
+            <li>The whole School module: academic setup, timetable, students, enrolment, attendance, exams, fees and reports.</li>
+            <li>The company's own settings (company data, logo, users and roles), Intranet, Documents and Website.</li>
+          </ul>
+          <div class="guides-links"><a href="#g-school">School</a><a href="#g-users">Users &amp; roles</a><a href="#g-menu">Manage the menu</a></div>
+        </article>
+        <article class="role" id="role-school-secretary">
+          <div class="role-top"><h3>Secretaria</h3><span class="who">Office</span></div>
+          <p class="home">Home page: <b>School dashboard</b></p>
+          <ul>
+            <li>Students (admit and edit), enrolment, attendance, timetable, fees and payments, reports.</li>
+            <li>Documents and the Intranet.</li>
+          </ul>
+          <p class="cant">Doesn't change the academic setup, exams or settings.</p>
+          <div class="guides-links"><a href="#g-school">School</a></div>
+        </article>
+        <article class="role" id="role-school-teacher">
+          <div class="role-top"><h3>Profesor</h3><span class="who">Teachers</span></div>
+          <p class="home">Home page: <b>Attendance</b></p>
+          <ul>
+            <li>Takes the register, enters exam marks, sees the timetable and the students.</li>
+            <li>Documents (read) and the Intranet.</li>
+          </ul>
+          <p class="cant">Doesn't see fees or settings.</p>
+          <div class="guides-links"><a href="#g-school">School</a></div>
+        </article>
+        <article class="role" id="role-school-parent">
+          <div class="role-top"><h3>Padre de familia / Alumno</h3><span class="who">Parents and students</span></div>
+          <p class="home">Home page: <b>Intranet</b></p>
+          <ul>
+            <li>The school's Intranet (news, calendar, files) and Documents (read).</li>
+          </ul>
+          <p class="cant">No view yet of only their own child's (or their own) marks and attendance.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============================== HOSPITAL ============================== -->
+    <section id="hospital">
+      <span class="eyebrow">Hospital · Spanish</span>
+      <div class="company-head">
+        <h2>Vitalis</h2>
+        <p class="lead">A hospital / clinic: bills through Hospital Management (patients, doctors, appointments, consultations, lab, admissions, billing) — no Sales, POS, Purchases or Suppliers. Opens on the <b>Hospital dashboard</b>. Hospital invoices and payments post to Accounting. Its doctors, beds and patients are its own.</p>
+      </div>
+      <div class="roles">
+        <article class="role" id="role-hospital-admin">
+          <div class="role-top"><h3>Admin-ALL</h3><span class="who">Hospital administrator</span></div>
+          <p class="home">Home page: <b>Hospital dashboard</b></p>
+          <ul>
+            <li>Everything in Hospital Management, accounting, HR, documents and the company's settings.</li>
+          </ul>
+          <div class="guides-links"><a href="#g-users">Users &amp; roles</a><a href="#g-menu">Manage the menu</a></div>
         </article>
       </div>
     </section>
@@ -752,12 +833,39 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
           </ol>
           <a class="top-link" href="#top">Back to top</a>
         </article>
+
+        <article class="guide" id="g-school">
+          <h3>School</h3>
+          <p class="for">For: school roles (Rector, Secretaria, Profesor)</p>
+          <ol>
+            <li><span class="menu">School › Academic Setup</span>: the academic year (mark it current), the grades, their sections (classroom and homeroom teacher) and the subjects.</li>
+            <li><span class="menu">School › Timetable</span>: for each class and section, the periods (subject, teacher, day, time, room). It refuses a teacher or a section booked twice at the same time.</li>
+            <li><span class="menu">Students › Admit student</span> with the guardian's data, then <span class="menu">Enrolment</span> puts the student in a class and section for the year.</li>
+            <li><span class="menu">Attendance</span>: choose the class and section and take the register (present, absent, late, excused, half day).</li>
+            <li><span class="menu">Exams</span>: the exam, its papers (subject, date, max / pass marks), the marks, then publish; every student gets a report card.</li>
+            <li><span class="menu">Fees</span>: the fee structure, <b>Bill a class</b>, <b>Take payment</b>. Overdue invoices show on the dashboard. <span class="menu">Reports</span> exports to Excel / PDF.</li>
+          </ol>
+          <div class="note">There is no classrooms list yet: the classroom is typed on each section and timetable period. <b>Demo data</b> creates a complete example school in the company's language.</div>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
+        <article class="guide" id="g-menu">
+          <h3>Manage the menu</h3>
+          <p class="for">For: company admins (reorder, hide) and the SuperAdmin (also add, rename, remove)</p>
+          <ol>
+            <li><span class="menu">Settings › Manage Menu</span>: each row has <b>↑ / ↓</b> and <b>Move to…</b> (another module, group or the top level); dragging also works.</li>
+            <li>The eye hides or shows an item. Press <b>Save</b>; a warning reminds you of unsaved changes.</li>
+            <li>An item tagged <b>not in your menu</b> is for other roles of the company. Modules turned off for the company are not listed.</li>
+            <li>SuperAdmin: <b>Default order</b> copies AdminSystem's menu to the company; working as AdminSystem, Save applies to every company.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
       </div>
     </section>
   </main>
 </div>
 
-<footer>Murano Business Suite by KcolTech · User manual · Roles and permissions as configured on October 16, 2026.</footer>
+<footer>Murano Business Suite by KcolTech · User manual · Roles and permissions as configured on October 20, 2026.</footer>
 
 <script>
 (function () {
@@ -765,6 +873,8 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
     kcoltech: [['role-kcoltech-admin', 'Admin-ALL'], ['role-kcoltech-employee', 'Employee'], ['role-kcoltech-agent', 'Sales Agent'], ['role-kcoltech-helpdesk', 'Helpdesk'], ['role-customer', 'Customer'], ['role-supplier', 'Supplier']],
     ruba: [['role-ruba-manager', 'Manager RG'], ['role-ruba-supervisor', 'SupervisorRG'], ['role-ruba-operator', 'OperatorRG'], ['role-customer', 'Customer'], ['role-supplier', 'Supplier']],
     newera: [['role-newera-admin', 'AdminNE'], ['role-newera-manager', 'ManagerNE'], ['role-newera-staff', 'StaffNE'], ['role-customer', 'Customer']],
+    school: [['role-school-rector', 'Rector'], ['role-school-secretary', 'Secretaria'], ['role-school-teacher', 'Profesor'], ['role-school-parent', 'Padre de familia / Alumno']],
+    hospital: [['role-hospital-admin', 'Admin-ALL']],
     system: [['role-system-owner', 'Owner (SuperAdmin)']]
   };
   var company = document.getElementById('f-company');

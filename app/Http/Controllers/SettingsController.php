@@ -2629,6 +2629,7 @@ class SettingsController extends Controller
             'login_btn_text' => $this->decodeLoginLocaleMap($settings->login_btn_text),
             'login_footer_text' => $this->decodeLoginLocaleMap($settings->login_footer_text),
             'login_bg_color' => $settings->login_bg_color,
+            'login_bg_color_es' => $settings->login_bg_color_es ?? null,
             // Background is EITHER a color OR an uploaded image (image wins
             // when both are set -- see login.blade.php); background_mode
             // just tells the frontend which control to show, derived from
@@ -2692,6 +2693,11 @@ class SettingsController extends Controller
         $login_bg_color = $request->input('login_bg_color');
         if (! is_string($login_bg_color) || ! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $login_bg_color)) {
             $login_bg_color = null;
+        }
+        // Spanish background colour (2026-10-20); empty = same as English.
+        $login_bg_color_es = $request->input('login_bg_color_es');
+        if (! is_string($login_bg_color_es) || ! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $login_bg_color_es)) {
+            $login_bg_color_es = null;
         }
 
         $logoFilename = $setting->logo;
@@ -2789,7 +2795,7 @@ class SettingsController extends Controller
             'default_language' => $defaultLanguage,
             'login_bg_color' => $login_bg_color,
             'login_bg_image' => $bgImage,
-        ], $textUpdates));
+        ], \Illuminate\Support\Facades\Schema::hasColumn('settings', 'login_bg_color_es') ? ['login_bg_color_es' => $login_bg_color_es] : [], $textUpdates));
 
         // SetLocale::settingsLocale() caches the guest default for 10
         // minutes -- without this, a SuperAdmin changing the default

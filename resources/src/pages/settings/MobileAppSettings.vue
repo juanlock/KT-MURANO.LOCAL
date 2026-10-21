@@ -76,7 +76,7 @@
                     :max-count="1"
                     @remove="clearPickedLogo"
                   >
-                    <a-button><UploadOutlined /> {{ $t('Choose_File') || 'Choose file' }}</a-button>
+                    <a-button><UploadOutlined /> {{ $t('Choose_File') || tx('Choose file') }}</a-button>
                   </a-upload>
                   <a-button
                     v-if="setting.mobile_logo_url && !logoList.length"
@@ -134,9 +134,9 @@
               </a-col>
             </a-row>
             <div style="margin-top: 12px">
-              <a-button size="small" @click="setAllModules(true)">{{ $t('Select_All') || 'Select all' }}</a-button>
+              <a-button size="small" @click="setAllModules(true)">{{ $t('Select_All') || tx('Select all') }}</a-button>
               <a-button size="small" style="margin-left: 8px" @click="setAllModules(false)">
-                {{ $t('Deselect_All') || 'Deselect all' }}
+                {{ $t('Deselect_All') || tx('Deselect all') }}
               </a-button>
             </div>
           </a-card>
@@ -173,7 +173,7 @@
                 <div v-else class="m-preview__icon m-preview__icon--empty"></div>
                 <div class="m-preview__name">{{ effectiveName }}</div>
                 <div class="m-preview__panel" :style="{ background: effectiveColor }">
-                  <div class="m-preview__label">TODAY'S SALES</div>
+                  <div class="m-preview__label">{{ tx("TODAY'S SALES") }}</div>
                   <div class="m-preview__value">$ 2,431.67</div>
                 </div>
                 <div class="m-preview__tiles">
@@ -213,15 +213,18 @@ import { UploadOutlined } from '@ant-design/icons-vue';
 import { useI18n } from 'vue-i18n';
 import http from '../../lib/http';
 import PageHeader from '../../components/PageHeader.vue';
+import { useLocalText } from '../../lib/useLocalText';
+import ES from './lang/MobileAppSettings.es.js';
 
 const { t } = useI18n();
+const { s: tx } = useLocalText(ES);
 
 const DEFAULT_COLOR = '#4F46E5';
-const THEME_MODES = [
-  { value: 'system', label: 'Follow the device' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
+const THEME_MODES = computed(() => [
+  { value: 'system', label: tx('Follow the device') },
+  { value: 'light', label: tx('Light') },
+  { value: 'dark', label: tx('Dark') },
+]);
 
 // Labels for the module switches; keys must match the server's list.
 const MODULE_LABELS = {
@@ -253,7 +256,7 @@ const pickedLogoUrl = ref('');
 const removeLogo = ref(false);
 
 const moduleKeys = computed(() => setting.value.module_keys || Object.keys(MODULE_LABELS));
-const moduleLabel = key => MODULE_LABELS[key] || key;
+const moduleLabel = key => (MODULE_LABELS[key] ? tx(MODULE_LABELS[key]) : key);
 
 const effectiveName = computed(
   () => (setting.value.mobile_app_name || '').trim() || (setting.value.app_name || 'KcolTech - Murano').split('|')[0].trim(),

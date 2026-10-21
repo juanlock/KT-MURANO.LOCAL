@@ -268,6 +268,14 @@
                   plus your own pages and menus.
                 </div>
               </a-radio>
+              <a-radio value="onepage" class="fp-option">
+                <strong>{{ uiEs ? 'Plantilla de una página' : 'One-page template' }}</strong>
+                <div class="fp-help">
+                  {{ uiEs
+                    ? 'Un sitio de una sola página con secciones (portada, servicios, nosotros, galería, contacto…) y un menú que se desplaza a cada una. Cinco diseños según el tipo de negocio, con los datos de la empresa ya cargados y textos en inglés y español.'
+                    : 'A single-page website with sections (header, services, about, gallery, contact…) and a menu that scrolls to each one. Five designs by business type, prefilled with the company\'s details, texts in English and Spanish.' }}
+                </div>
+              </a-radio>
               <a-radio value="imported" class="fp-option">
                 <strong>Import your existing website from a URL</strong>
                 <div class="fp-help">
@@ -308,14 +316,49 @@
               >
                 <a-button
                   type="primary" :loading="front.busy"
-                  :disabled="front.mode === 'imported' ? !front.url : front.saved_mode === 'sections'"
+                  :disabled="front.mode === 'imported' ? !front.url : front.saved_mode === front.mode"
                   @click="() => { if (!(front.mode === 'imported' && front.imported_at)) applyFrontPage(); }"
                 >
-                  {{ front.mode === 'imported' ? 'Import now' : 'Use our website theme' }}
+                  {{ front.mode === 'imported' ? 'Import now'
+                    : front.mode === 'onepage' ? (uiEs ? 'Usar la plantilla de una página' : 'Use the one-page template')
+                    : 'Use our website theme' }}
                 </a-button>
               </a-popconfirm>
               <span v-if="front.mode !== front.saved_mode" class="fp-help">Not applied yet.</span>
             </a-space>
+
+            <!-- One-page template: design, sections, texts (prepared and previewed before applying) -->
+            <template v-if="front.mode === 'onepage'">
+              <a-divider />
+              <OnePageEditor :applied="front.saved_mode === 'onepage'" :key="'op-' + settings.company_id + '-' + front.saved_mode" />
+            </template>
+
+            <!-- Ready-made websites (KcolTech's designs, public/website-templates): use one as the imported website -->
+            <template v-if="front.mode === 'imported' && siteTemplates.length">
+              <a-divider orientation="left">{{ uiEs ? 'O empiece con un sitio web listo' : 'Or start from a ready-made website' }}</a-divider>
+              <div class="fp-help" style="margin-bottom: 10px">
+                {{ uiEs
+                  ? 'Diseños completos hechos por KcolTech. Elija uno y luego cambie sus textos, imágenes y enlaces en Sitio web › Páginas. El sitio actual se guarda antes en Sitios guardados.'
+                  : 'Complete designs made by KcolTech. Pick one, then change its texts, pictures and links in Website › Pages. The current website is saved first under Saved websites.' }}
+              </div>
+              <a-input-search v-if="siteTemplates.length > 8" v-model:value="tplSearch" :placeholder="uiEs ? 'Buscar…' : 'Search…'" style="max-width: 300px; margin-bottom: 10px" allow-clear />
+              <div class="tpl-grid">
+                <div v-for="tp in shownTemplates" :key="tp.key" class="tpl-card">
+                  <a :href="tp.preview" target="_blank" rel="noopener" class="tpl-thumb" :style="{ backgroundImage: `url('${tp.thumb}')` }" />
+                  <div class="tpl-body">
+                    <strong>{{ tp.name }}</strong>
+                    <div class="fp-help">{{ tp.pages }} {{ uiEs ? (tp.pages === 1 ? 'página' : 'páginas') : (tp.pages === 1 ? 'page' : 'pages') }}</div>
+                    <a-space style="margin-top: 6px">
+                      <a :href="tp.preview" target="_blank" rel="noopener">{{ uiEs ? 'Ver' : 'Preview' }}</a>
+                      <a-popconfirm
+                        :title="uiEs ? '¿Usar este sitio web? El sitio actual se guarda primero en Sitios guardados.' : 'Use this website? The current one is saved first under Saved websites.'"
+                        :ok-text="uiEs ? 'Usar' : 'Use it'" @confirm="useSiteTemplate(tp)"
+                      ><a-button size="small" type="primary" :loading="tplBusy === tp.key">{{ uiEs ? 'Usar este' : 'Use this' }}</a-button></a-popconfirm>
+                    </a-space>
+                  </div>
+                </div>
+              </div>
+            </template>
 
             <!-- Saved websites: copies kept before each import, usable as themes -->
             <template v-if="snapshots.length">
@@ -372,7 +415,7 @@
             </template>
           </a-alert>
           <a-tabs v-model:activeKey="homeSub" size="small" class="home-sub">
-            <a-tab-pane v-if="front.saved_mode !== 'imported'" key="blocks" :tab="$t('Homepage_Blocks')">
+            <a-tab-pane v-if="front.saved_mode !== 'imported' && front.saved_mode !== 'onepage'" key="blocks" :tab="$t('Homepage_Blocks')">
           <a-card size="small" :bordered="false">
             <template #title>
           {{ $t('Homepage_Blocks') }}
@@ -1023,6 +1066,7 @@ import TranslatableInput from '../../components/TranslatableInput.vue';
 import StorePagesPanel from './Pages.vue';
 import StoreMenusPanel from './Menus.vue';
 import SitePagesEditor from './SitePagesEditor.vue';
+import OnePageEditor from './OnePageEditor.vue';
 import PortfolioSectionCard from './PortfolioSectionCard.vue';
 import http from '../../lib/http';
 import { h } from 'vue';
@@ -1038,7 +1082,7 @@ const StoreOnlyNote = () => h(AAlert, {
 });
 import { uploadForm } from '../../lib/upload';
 
-const { t } = useI18n();
+const { t, locale: i18nLocale } = useI18n();
 const route = useRoute();
 
 // Two modules, one page (2026-10-06): Online Store -> Settings shows the shop
@@ -1058,9 +1102,14 @@ const front = ref({ mode: 'sections', saved_mode: 'sections', url: '', saved_url
 // (2026-10-06): the store's (store_settings) or the website's (website_settings).
 const SHARED_TABS = ['branding', 'topbar', 'seo', 'social'];
 const STORE_ONLY_TABS = ['store_menus'];
+// One-page template (2026-10-20): it has its own header section and no top bar,
+// so Hero and Top bar are hidden; SEO and Social links still apply to it.
+const NOT_ONEPAGE_TABS = ['hero', 'topbar'];
 const inScope = key => (SHARED_TABS.includes(key) || ((scope.value === 'website') === WEBSITE_TABS.includes(key)))
   && !(scope.value === 'website' && STORE_ONLY_TABS.includes(key))
-  && !(SECTIONS_ONLY_TABS.includes(key) && front.value.saved_mode === 'imported');
+  && !(SECTIONS_ONLY_TABS.includes(key) && front.value.saved_mode === 'imported')
+  && !(scope.value === 'website' && NOT_ONEPAGE_TABS.includes(key) && front.value.saved_mode === 'onepage');
+const uiEs = computed(() => String(i18nLocale.value || '').startsWith('es'));
 // Website scope: the fields Website Management owns (saved to admin/website/settings).
 const WEBSITE_OWNED = ['site_name', 'seo_meta_title', 'seo_meta_description', 'seo_title_template', 'topbar_text_left', 'topbar_text_right', 'footer_text', 'social_links'];
 const WEBSITE_TR = ['topbar_text_left', 'topbar_text_right', 'footer_text', 'seo_meta_title', 'seo_meta_description'];
@@ -1079,7 +1128,7 @@ watch(() => route.fullPath, () => {
 });
 const homeSub = computed({
   get: () => {
-    const imported = front.value.saved_mode === 'imported';
+    const imported = front.value.saved_mode === 'imported' || front.value.saved_mode === 'onepage';
     const k = homeSubPick.value || (imported ? 'pages' : 'blocks');
     return imported && k === 'blocks' ? 'pages' : k;
   },
@@ -1325,6 +1374,8 @@ async function applyFrontPage() {
       f.imported_at = res?.settings?.front_page_imported_at || new Date().toISOString();
       f.saved_url = f.url;
       message.success(`Website imported: ${res.pages} page(s), ${res.assets} file(s).`, 6);
+    } else if (f.mode === 'onepage') {
+      message.success(uiEs.value ? 'El sitio web ahora usa la plantilla de una página.' : 'The website now uses the one-page template.');
     } else {
       message.success('The website now uses our website theme.');
     }
@@ -1339,6 +1390,36 @@ async function applyFrontPage() {
 
 /* Saved websites (copies kept before each import) */
 const snapshots = ref([]);
+/* Ready-made websites (2026-10-20): GET admin/website/templates, POST .../{key}/use */
+const siteTemplates = ref([]);
+const tplSearch = ref('');
+const tplBusy = ref('');
+const shownTemplates = computed(() => {
+  const q = tplSearch.value.trim().toLowerCase();
+  return q ? siteTemplates.value.filter(tp => (tp.name + ' ' + tp.title).toLowerCase().includes(q)) : siteTemplates.value;
+});
+async function loadSiteTemplates() {
+  if (scope.value !== 'website') return;
+  try { siteTemplates.value = ((await http.get('admin/website/templates')) || {}).templates || []; } catch (e) { siteTemplates.value = []; }
+}
+async function useSiteTemplate(tp) {
+  tplBusy.value = tp.key;
+  try {
+    const res = await http.post(`admin/website/templates/${tp.key}/use`, {});
+    snapshots.value = res.snapshots || snapshots.value;
+    const st = res.settings || {};
+    Object.assign(front.value, {
+      mode: 'imported', saved_mode: 'imported', url: '', saved_url: '',
+      imported_at: st.front_page_imported_at || new Date().toISOString(),
+    });
+    message.success(uiEs.value ? `Su sitio web ahora es "${tp.name}". Edítelo en Sitio web › Páginas.` : `Your website is now "${tp.name}". Edit it in Website › Pages.`, 6);
+  } catch (e) {
+    message.error(e?.data?.message || (uiEs.value ? 'No se pudo usar este sitio web.' : 'Could not use this website.'), 8);
+  } finally {
+    tplBusy.value = '';
+  }
+}
+
 async function loadSnapshots() {
   if (scope.value !== 'website') return;
   try { snapshots.value = ((await http.get('admin/website/snapshots')) || {}).snapshots || []; } catch (e) { snapshots.value = []; }
@@ -1682,6 +1763,7 @@ async function fetch() {
       const w = wres.settings || {};
       site.value = { url_path: w.url_path || '', public_url: wres.public_url || '', url_origin: wres.url_origin || '/' };
       loadSnapshots();
+      loadSiteTemplates();
       WEBSITE_OWNED.forEach(k => { if (k !== 'social_links') form.value[k] = w[k] ?? ''; });
       form.value.social_links = normalizeSocialLinks(w.social_links);
       WEBSITE_TR.forEach(k => { form.value.text_translations[k] = { ...((w.text_translations || {})[k] || {}) }; });
@@ -1914,6 +1996,10 @@ onMounted(fetch);
 .fp-option { display: flex; align-items: flex-start; white-space: normal; margin-bottom: 12px; }
 .fp-help { font-size: 12px; opacity: 0.7; font-weight: normal; margin-top: 2px; }
 .fp-status { font-size: 13px; opacity: 0.85; }
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.tpl-card { border: 1px solid rgba(0, 0, 0, .08); border-radius: 10px; overflow: hidden; background: var(--ant-color-bg-container, #fff); }
+.tpl-thumb { display: block; aspect-ratio: 16 / 10; background: #f0f0f0 top center / cover no-repeat; border-bottom: 1px solid rgba(0, 0, 0, .06); }
+.tpl-body { padding: 8px 10px 10px; }
 .stab {
   display: inline-flex;
   align-items: center;

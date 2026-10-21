@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 19.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="main" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 285 51" style="enable-background:new 0 0 285 51;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#6A3D3F;}
+	.st1{fill:url(#mbd_1_);}
+</style>
+<polygon id="mrb" class="st0" points="3.6,6.1 18,1 18,6.1 "/>
+<linearGradient id="mbd_1_" gradientUnits="userSpaceOnUse" x1="141.6681" y1="6.1096" x2="141.6681" y2="45.1096">
+	<stop  offset="0" style="stop-color:#D0281E"/>
+	<stop  offset="1" style="stop-color:#A71F17"/>
+</linearGradient>
+<polygon id="mbd" class="st1" points="3.6,6.1 278.3,6.1 268.3,25.6 279.8,45.1 11.6,45.1 "/>
+</svg>

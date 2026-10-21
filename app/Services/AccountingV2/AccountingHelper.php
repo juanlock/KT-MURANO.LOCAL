@@ -836,6 +836,58 @@ class AccountingHelper
         });
     }
 
+    /**
+     * Hospital Management (2026-10-20): a hospital invoice = Accounts
+     * Receivable / Revenue, like a sale; a hospital payment = Cash / clear A/R,
+     * like a sale payment -- on the invoice's company chart (its company_id).
+     * App\Services\HospitalAccounting decides when (and replaces old entries).
+     */
+    public static function fromHospitalInvoice($invoice): void
+    {
+        self::$companyId = self::companyOf($invoice);
+        self::safe(function () use ($invoice) {
+            $amount = (float) ($invoice->total ?? 0);
+            if ($amount <= 0) {
+                return;
+            }
+            self::createBalancedEntry([
+                'journal' => [
+                    'date' => self::dateFrom($invoice->invoice_date ?? null),
+                    'description' => 'Hospital invoice '.($invoice->reference ?? '#'.$invoice->id),
+                    'reference_type' => 'hospital_invoice',
+                    'reference_id' => $invoice->id ?? null,
+                ],
+                'lines' => [
+                    ['coa_id' => self::getOrCreateCoa('1100-AR', 'Accounts Receivable', 'asset'), 'debit' => $amount, 'credit' => 0, 'memo' => 'Accounts Receivable'],
+                    ['coa_id' => self::getOrCreateCoa('4000-REV', 'Sales Revenue', 'income'), 'debit' => 0, 'credit' => $amount, 'memo' => 'Patient services revenue'],
+                ],
+            ]);
+        });
+    }
+
+    public static function fromHospitalPayment($payment): void
+    {
+        self::$companyId = self::companyOf($payment);
+        self::safe(function () use ($payment) {
+            $amount = (float) ($payment->amount ?? 0);
+            if ($amount <= 0) {
+                return;
+            }
+            self::createBalancedEntry([
+                'journal' => [
+                    'date' => self::dateFrom($payment->paid_on ?? null),
+                    'description' => 'Hospital payment '.($payment->reference ?? '#'.$payment->id),
+                    'reference_type' => 'hospital_payment',
+                    'reference_id' => $payment->id ?? null,
+                ],
+                'lines' => [
+                    ['coa_id' => self::getOrCreateCoa('1000-CASH', 'Cash', 'asset'), 'debit' => $amount, 'credit' => 0, 'memo' => 'Cash In ('.($payment->method ?? 'cash').')'],
+                    ['coa_id' => self::getOrCreateCoa('1100-AR', 'Accounts Receivable', 'asset'), 'debit' => 0, 'credit' => $amount, 'memo' => 'Clear A/R'],
+                ],
+            ]);
+        });
+    }
+
     public static function createBalancedEntry(array $data): void
     {
         self::safe(function () use ($data) {

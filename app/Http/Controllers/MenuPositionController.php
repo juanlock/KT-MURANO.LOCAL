@@ -197,6 +197,42 @@ class MenuPositionController extends Controller
         return response()->json(['success' => true, 'companies' => $updated]);
     }
 
+    /**
+     * POST menu-positions/default (2026-10-20): "Default order" -- the acting
+     * company's menu becomes a copy of AdminSystem's (template company 999):
+     * same order, groups, names and hidden items, at every level. SuperAdmin
+     * acting as a real company only; one transaction.
+     */
+    public function copyDefault(Request $request)
+    {
+        $user = $request->user('api');
+        abort_unless($user->type === 'SuperAdmin', 403);
+        $companyId = $this->resolveActingCompanyId($request);
+        $template = \App\Models\Setting::TEMPLATE_COMPANY_ID;
+        abort_if($companyId === $template, 422, 'Choose a company in the switcher: AdminSystem is the default itself.');
+        abort_unless(MenuPosition::where('company_id', $template)->exists(), 422, 'AdminSystem has no saved menu to copy.');
+
+        $count = DB::transaction(function () use ($companyId, $template) {
+            MenuPosition::where('company_id', $companyId)->delete();
+            $n = \App\Services\CompanyProvisioner::copyTemplateMenu($companyId);
+            // The older top-level order follows too, so both layouts agree.
+            DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->update([
+                'sidebar_menu_order' => DB::table('settings')->where('company_id', $template)->whereNull('deleted_at')->value('sidebar_menu_order'),
+                'updated_at' => now(),
+            ]);
+            // A hospital / school: its module menu first (BusinessTypes::MENU_FIRST).
+            \App\Support\BusinessTypes::promoteMenu($companyId);
+
+            return $n;
+        });
+
+        return response()->json([
+            'message' => "Menu order copied from AdminSystem ({$count} items).",
+            'count' => $count,
+            'sidebar_menu_order' => json_decode((string) DB::table('settings')->where('company_id', $companyId)->value('sidebar_menu_order'), true),
+        ]);
+    }
+
     /** SuperAdmin acting as AdminSystem (template company 999) -> every company. */
     private function appliesToAllCompanies($user, int $companyId): bool
     {

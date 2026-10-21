@@ -165,20 +165,24 @@ import { useI18n } from 'vue-i18n';
 import { UploadOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
+import { useLocalText } from '../../lib/useLocalText';
+import ES from './lang/PwaSettings.es.js';
 
 const { t } = useI18n();
+const { s: tx } = useLocalText(ES);
 
+// Display mode labels stay as the technical names (the help text refers to them).
 const DISPLAY_MODES = [
   { value: 'standalone', label: 'standalone' },
   { value: 'fullscreen', label: 'fullscreen' },
   { value: 'minimal-ui', label: 'minimal-ui' },
   { value: 'browser', label: 'browser' },
 ];
-const ORIENTATIONS = [
-  { value: 'any', label: 'any' },
-  { value: 'portrait', label: 'portrait' },
-  { value: 'landscape', label: 'landscape' },
-];
+const ORIENTATIONS = computed(() => [
+  { value: 'any', label: tx('any') },
+  { value: 'portrait', label: tx('portrait') },
+  { value: 'landscape', label: tx('landscape') },
+]);
 // Suggestions only — any in-app path is allowed.
 const START_URLS = [
   { value: '/' },

@@ -121,6 +121,15 @@ class LoginController extends Controller
                 // Never break login if tracking fails
             }
 
+            // A fresh sign-in is never "working as a company admin" any more.
+            \App\Support\SuperAdminSwitch::stop();
+            // SuperAdmin (2026-10-20): first the chooser -- dashboard, or enter
+            // as a company's admin (LoginChooseController). The intended URL is
+            // kept for "Go to the dashboard".
+            if ($signedIn && $signedIn->type === 'SuperAdmin' && ! ($request->expectsJson() || $request->ajax())) {
+                return redirect()->route('login.choose');
+            }
+
             return redirect()->intended($this->redirectTo);
         }
 
@@ -170,6 +179,8 @@ class LoginController extends Controller
         }
 
         Auth::guard('web')->logout();
+        // Signing out also ends "SuperAdmin working as a company admin".
+        \App\Support\SuperAdminSwitch::stop();
 
         // 2) Fully invalidate the web session
         //    - clears all session data

@@ -116,19 +116,22 @@ public function payment_gateway(User $user)
     return false;
 }
 
+// Mail settings: SuperAdmin-only by default (user's rule, 2026-10-20; every company
+// uses AdminSystem's server) -- only the mail_settings permission itself, no longer
+// System Settings (setting_system), which every company admin has.
 public function mail_settings(User $user)
 {
     $mailPermission = Permission::where('name', 'mail_settings')->first();
-    $systemPermission = Permission::where('name', 'setting_system')->first();
 
-    if (
-        ($mailPermission && $user->hasRole($mailPermission->roles)) ||
-        ($systemPermission && $user->hasRole($systemPermission->roles))
-    ) {
-        return true;
-    }
+    return $user->type === 'SuperAdmin' || ($mailPermission && $user->hasRole($mailPermission->roles));
+}
 
-    return false;
+// SMS templates are install-wide (sms_messages has no company): their own permission (2026-10-20).
+public function sms_templates(User $user)
+{
+    $permission = Permission::where('name', 'sms_templates')->first();
+
+    return $user->type === 'SuperAdmin' || ($permission && $user->hasRole($permission->roles));
 }
 
 

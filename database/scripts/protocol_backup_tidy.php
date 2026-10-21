@@ -43,7 +43,7 @@ foreach (glob($root.DIRECTORY_SEPARATOR.'dbmurano_*.zip') ?: [] as $f) {
 // 1b. old-style files sitting in the wrong PC folder (e.g. KTOPTIMUM_NB's in "KTOPTIMUM")
 foreach (glob($root.DIRECTORY_SEPARATOR.'*', GLOB_ONLYDIR) ?: [] as $d) {
     $folder = basename($d);
-    if (in_array($folder, ['production', 'Older'], true)) continue;
+    if (in_array($folder, ['production', 'Older', 'HOSTINGER'], true)) continue;
     foreach (glob($d.DIRECTORY_SEPARATOR.'dbmurano_*.zip') ?: [] as $f) {
         if (preg_match($pattern, basename($f), $m) && preg_replace('/[^A-Za-z0-9_-]/', '-', $m[2]) !== $folder) {
             $place($f, $m[2], $m[1], $m[3], $m[4] ?? null ?: null, $m[5] ?? null ?: null);

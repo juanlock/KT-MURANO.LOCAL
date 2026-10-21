@@ -25,5 +25,8 @@ class EncryptCookies extends Middleware
         // Language the customer picked on the PayPal "Pay now" page (en / es),
         // set by the page's own EN / ES switch in the browser.
         'pay_lang',
+        // SuperAdmin working as a company admin (2026-10-20): read on 'web' and
+        // 'api'; HMAC-signed with the app key instead (App\Support\SuperAdminSwitch).
+        \App\Support\SuperAdminSwitch::COOKIE,
     ];
 }

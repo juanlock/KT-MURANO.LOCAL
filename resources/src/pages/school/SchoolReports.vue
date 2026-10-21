@@ -1,40 +1,40 @@
 <template>
   <div class="page">
-    <PageHeader :title="$t('School Reports')" :breadcrumb="[$t('School'), $t('Reports')]">
+    <PageHeader :title="s('School Reports')" :breadcrumb="[s('School'), s('Reports')]">
       <template #actions>
         <a-button :loading="exporting === 'excel'" @click="doExport('excel')">
           <template #icon><FileExcelOutlined /></template>
-          {{ $t('Export') }} {{ $t('EXCEL') }}
+          {{ s('Export') }} {{ s('Excel') }}
         </a-button>
         <a-button :loading="exporting === 'pdf'" @click="doExport('pdf')">
           <template #icon><FilePdfOutlined /></template>
-          {{ $t('Export') }} {{ $t('PDF') }}
+          {{ s('Export') }} {{ s('PDF') }}
         </a-button>
       </template>
     </PageHeader>
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-tabs v-model:activeKey="report" @change="onReportChange">
-        <a-tab-pane v-for="r in REPORTS" :key="r.key" :tab="r.title" />
+        <a-tab-pane v-for="r in REPORTS" :key="r.key" :tab="s(r.title)" />
       </a-tabs>
 
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" :placeholder="current.searchHint"
+          v-model:value="crud.search.value" :placeholder="s(current.searchHint)"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="academicYearId" class="tb-item" allow-clear show-search
-          option-filter-prop="label" :placeholder="$t('Year')" :options="yearOptions" @change="crud.reload"
+          option-filter-prop="label" :placeholder="s('Year')" :options="yearOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="classId" class="tb-item" allow-clear show-search
-          option-filter-prop="label" :placeholder="$t('All_Classes')" :options="classOptions" @change="crud.reload"
+          option-filter-prop="label" :placeholder="s('All classes')" :options="classOptions" @change="crud.reload"
         />
         <a-select
           v-if="report === 'performance'"
           v-model:value="examId" class="tb-item" allow-clear show-search
-          option-filter-prop="label" :placeholder="$t('Latest_Exam')" :options="examOptions" @change="crud.reload"
+          option-filter-prop="label" :placeholder="s('Latest exam')" :options="examOptions" @change="crud.reload"
         />
         <PresetRangeFilter
           v-if="current.dateRange"
@@ -78,10 +78,13 @@
           <span v-if="record.earliest_due">
             {{ date(record.earliest_due) }}
             <a-tag v-if="record.days_overdue > 0" color="error" class="tag-tight">
-              {{ record.days_overdue }}{{ $t('d_late') }}
+              {{ s('{n}d late', { n: record.days_overdue }) }}
             </a-tag>
           </span>
           <span v-else class="muted">—</span>
+        </template>
+        <template v-else-if="column.key === 'busiest_day'">
+          {{ record.busiest_day ? s(labelOf(WEEK_DAYS, record.busiest_day)) : '—' }}
         </template>
       </template>
     </DataTable>
@@ -107,18 +110,22 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { WEEK_DAYS, labelOf } from './schoolOptions';
+import { useSchoolText } from './lang/useSchoolText';
+import ES from './lang/SchoolReports.es.js';
 
+const { s } = useSchoolText(ES);
 const { money, number, date } = useFormat();
 
+// title / searchHint are English keys, shown through s() so they follow the language.
 const REPORTS = [
-  { key: 'enrollment', title: t('Enrolment', 'Enrolment'), endpoint: 'school/reports/enrollment', sort: 'students', searchHint: t('Search_Class', 'Search class…'), dateRange: false },
-  { key: 'attendance', title: t('Attendance', 'Attendance'), endpoint: 'school/reports/attendance', sort: 'rate', searchHint: t('Search_Class', 'Search class…'), dateRange: true },
-  { key: 'absentees', title: t('Poor_Attendance', 'Poor attendance'), endpoint: 'school/reports/absentees', sort: 'rate', searchHint: t('Search_Student', 'Search student…'), dateRange: true },
-  { key: 'performance', title: t('Exam_Performance', 'Exam performance'), endpoint: 'school/reports/performance', sort: 'average_pct', searchHint: t('Search', 'Search…'), dateRange: false },
-  { key: 'fees', title: t('Fee_Collection', 'Fee collection'), endpoint: 'school/reports/fees', sort: 'outstanding', searchHint: t('Search_Class', 'Search class…'), dateRange: true },
-  { key: 'defaulters', title: t('Fee_Defaulters', 'Fee defaulters'), endpoint: 'school/reports/defaulters', sort: 'due', searchHint: t('Search_Student_Or_Guardian', 'Search student or guardian…'), dateRange: false },
-  { key: 'teachers', title: t('Teacher_Workload', 'Teacher workload'), endpoint: 'school/reports/teachers', sort: 'weekly_periods', searchHint: t('Search_Teacher', 'Search teacher…'), dateRange: false },
+  { key: 'enrollment', title: 'Enrolment', endpoint: 'school/reports/enrollment', sort: 'students', searchHint: 'Search class…', dateRange: false },
+  { key: 'attendance', title: 'Attendance', endpoint: 'school/reports/attendance', sort: 'rate', searchHint: 'Search class…', dateRange: true },
+  { key: 'absentees', title: 'Poor attendance', endpoint: 'school/reports/absentees', sort: 'rate', searchHint: 'Search student…', dateRange: true },
+  { key: 'performance', title: 'Exam performance', endpoint: 'school/reports/performance', sort: 'average_pct', searchHint: 'Search…', dateRange: false },
+  { key: 'fees', title: 'Fee collection', endpoint: 'school/reports/fees', sort: 'outstanding', searchHint: 'Search class…', dateRange: true },
+  { key: 'defaulters', title: 'Fee defaulters', endpoint: 'school/reports/defaulters', sort: 'due', searchHint: 'Search student or guardian…', dateRange: false },
+  { key: 'teachers', title: 'Teacher workload', endpoint: 'school/reports/teachers', sort: 'weekly_periods', searchHint: 'Search teacher…', dateRange: false },
 ];
 
 const report = ref('enrollment');
@@ -152,76 +159,79 @@ function onReportChange() {
   crud.reload();
 }
 
-const COLUMNS = {
+const COLUMNS = () => ({
   enrollment: [
-    { title: t('Class', 'Class'), dataIndex: 'class_name', key: 'class_name', sorter: true },
-    { title: t('Level', 'Level'), dataIndex: 'level', key: 'level', sorter: true, width: 90 },
-    { title: t('Sections', 'Sections'), dataIndex: 'sections', key: 'sections', sorter: true, width: 110 },
-    { title: t('Students', 'Students'), dataIndex: 'students', key: 'students', sorter: true, width: 110 },
-    { title: t('Male', 'Male'), dataIndex: 'male', key: 'male', sorter: true, width: 90 },
-    { title: t('Female', 'Female'), dataIndex: 'female', key: 'female', sorter: true, width: 100 },
-    { title: t('Capacity', 'Capacity'), dataIndex: 'capacity', key: 'capacity', width: 110 },
-    { title: t('Utilisation', 'Utilisation'), dataIndex: 'utilisation', key: 'utilisation', sorter: true, percent: true, width: 130 },
+    { title: s('Class'), dataIndex: 'class_name', key: 'class_name', sorter: true },
+    { title: s('Level'), dataIndex: 'level', key: 'level', sorter: true, width: 90 },
+    { title: s('Sections'), dataIndex: 'sections', key: 'sections', sorter: true, width: 110 },
+    { title: s('Students'), dataIndex: 'students', key: 'students', sorter: true, width: 110 },
+    { title: s('Male'), dataIndex: 'male', key: 'male', sorter: true, width: 90 },
+    { title: s('Female'), dataIndex: 'female', key: 'female', sorter: true, width: 100 },
+    { title: s('Capacity'), dataIndex: 'capacity', key: 'capacity', width: 110 },
+    { title: s('Utilisation'), dataIndex: 'utilisation', key: 'utilisation', sorter: true, percent: true, width: 130 },
   ],
   attendance: [
-    { title: t('Class', 'Class'), dataIndex: 'class_name', key: 'class_name', sorter: true },
-    { title: t('Marked', 'Marked'), dataIndex: 'marked_days', key: 'marked_days', sorter: true, width: 110 },
-    { title: t('Present', 'Present'), dataIndex: 'present', key: 'present', sorter: true, width: 110 },
-    { title: t('Absent', 'Absent'), dataIndex: 'absent', key: 'absent', sorter: true, width: 110 },
-    { title: t('Late', 'Late'), dataIndex: 'late', key: 'late', sorter: true, width: 100 },
-    { title: t('Excused', 'Excused'), dataIndex: 'excused', key: 'excused', sorter: true, width: 110 },
-    { title: t('Rate', 'Rate'), dataIndex: 'rate', key: 'rate', sorter: true, percent: true, width: 110 },
+    { title: s('Class'), dataIndex: 'class_name', key: 'class_name', sorter: true },
+    { title: s('Marked'), dataIndex: 'marked_days', key: 'marked_days', sorter: true, width: 110 },
+    { title: s('Present'), dataIndex: 'present', key: 'present', sorter: true, width: 110 },
+    { title: s('Absent'), dataIndex: 'absent', key: 'absent', sorter: true, width: 110 },
+    { title: s('Late'), dataIndex: 'late', key: 'late', sorter: true, width: 100 },
+    { title: s('Excused'), dataIndex: 'excused', key: 'excused', sorter: true, width: 110 },
+    { title: s('Rate'), dataIndex: 'rate', key: 'rate', sorter: true, percent: true, width: 110 },
   ],
   absentees: [
-    { title: t('Student', 'Student'), dataIndex: 'student_name', key: 'student_name', sorter: true },
-    { title: t('Class', 'Class'), dataIndex: 'class_name', key: 'class_name', width: 140 },
-    { title: t('Section', 'Section'), dataIndex: 'section_name', key: 'section_name', width: 100 },
-    { title: t('Guardian_Phone', 'Guardian phone'), dataIndex: 'guardian_phone', key: 'guardian_phone', width: 160 },
-    { title: t('Marked', 'Marked'), dataIndex: 'marked_days', key: 'marked_days', sorter: true, width: 110 },
-    { title: t('Absent', 'Absent'), dataIndex: 'absent', key: 'absent', sorter: true, width: 100 },
-    { title: t('Rate', 'Rate'), dataIndex: 'rate', key: 'rate', sorter: true, percent: true, width: 110 },
+    { title: s('Student'), dataIndex: 'student_name', key: 'student_name', sorter: true },
+    { title: s('Class'), dataIndex: 'class_name', key: 'class_name', width: 140 },
+    { title: s('Section'), dataIndex: 'section_name', key: 'section_name', width: 100 },
+    { title: s('Guardian phone'), dataIndex: 'guardian_phone', key: 'guardian_phone', width: 160 },
+    { title: s('Marked'), dataIndex: 'marked_days', key: 'marked_days', sorter: true, width: 110 },
+    { title: s('Absent'), dataIndex: 'absent', key: 'absent', sorter: true, width: 100 },
+    { title: s('Rate'), dataIndex: 'rate', key: 'rate', sorter: true, percent: true, width: 110 },
   ],
   performance: [
-    { title: t('Class', 'Class'), dataIndex: 'class_name', key: 'class_name', sorter: true, width: 140 },
-    { title: t('Subject', 'Subject'), dataIndex: 'subject_name', key: 'subject_name', sorter: true },
-    { title: t('Out_Of', 'Out of'), dataIndex: 'max_marks', key: 'max_marks', width: 100 },
-    { title: t('Entered', 'Entered'), dataIndex: 'entered', key: 'entered', sorter: true, width: 100 },
-    { title: t('Absent', 'Absent'), dataIndex: 'absent', key: 'absent', sorter: true, width: 100 },
-    { title: t('Average', 'Average'), dataIndex: 'average', key: 'average', sorter: true, decimal: true, width: 110 },
-    { title: t('Avg_Percent', 'Avg %'), dataIndex: 'average_pct', key: 'average_pct', sorter: true, percent: true, width: 110 },
-    { title: t('Highest', 'Highest'), dataIndex: 'highest', key: 'highest', sorter: true, decimal: true, width: 110 },
-    { title: t('Lowest', 'Lowest'), dataIndex: 'lowest', key: 'lowest', sorter: true, decimal: true, width: 110 },
-    { title: t('Pass_Rate', 'Pass rate'), dataIndex: 'pass_rate', key: 'pass_rate', sorter: true, percent: true, width: 120 },
+    { title: s('Class'), dataIndex: 'class_name', key: 'class_name', sorter: true, width: 140 },
+    { title: s('Subject'), dataIndex: 'subject_name', key: 'subject_name', sorter: true },
+    { title: s('Out of'), dataIndex: 'max_marks', key: 'max_marks', width: 100 },
+    { title: s('Entered'), dataIndex: 'entered', key: 'entered', sorter: true, width: 100 },
+    { title: s('Absent'), dataIndex: 'absent', key: 'absent', sorter: true, width: 100 },
+    { title: s('Average'), dataIndex: 'average', key: 'average', sorter: true, decimal: true, width: 110 },
+    { title: s('Avg %'), dataIndex: 'average_pct', key: 'average_pct', sorter: true, percent: true, width: 110 },
+    { title: s('Highest'), dataIndex: 'highest', key: 'highest', sorter: true, decimal: true, width: 110 },
+    { title: s('Lowest'), dataIndex: 'lowest', key: 'lowest', sorter: true, decimal: true, width: 110 },
+    { title: s('Pass rate'), dataIndex: 'pass_rate', key: 'pass_rate', sorter: true, percent: true, width: 120 },
   ],
   fees: [
-    { title: t('Class', 'Class'), dataIndex: 'class_name', key: 'class_name', sorter: true },
-    { title: t('Invoices', 'Invoices'), dataIndex: 'invoices', key: 'invoices', sorter: true, width: 110 },
-    { title: t('Billed', 'Billed'), dataIndex: 'billed', key: 'billed', sorter: true, money: true, width: 140 },
-    { title: t('Collected', 'Collected'), dataIndex: 'collected', key: 'collected', sorter: true, money: true, width: 140 },
-    { title: t('Outstanding', 'Outstanding'), dataIndex: 'outstanding', key: 'outstanding', sorter: true, money: true, width: 150 },
-    { title: t('Collection_Rate', 'Collection rate'), dataIndex: 'collection_rate', key: 'collection_rate', sorter: true, percent: true, width: 150 },
+    { title: s('Class'), dataIndex: 'class_name', key: 'class_name', sorter: true },
+    { title: s('Invoices'), dataIndex: 'invoices', key: 'invoices', sorter: true, width: 110 },
+    { title: s('Billed'), dataIndex: 'billed', key: 'billed', sorter: true, money: true, width: 140 },
+    { title: s('Collected'), dataIndex: 'collected', key: 'collected', sorter: true, money: true, width: 140 },
+    { title: s('Outstanding'), dataIndex: 'outstanding', key: 'outstanding', sorter: true, money: true, width: 150 },
+    { title: s('Collection rate'), dataIndex: 'collection_rate', key: 'collection_rate', sorter: true, percent: true, width: 150 },
   ],
   defaulters: [
-    { title: t('Student', 'Student'), dataIndex: 'student_name', key: 'student_name', sorter: true },
-    { title: t('Class', 'Class'), dataIndex: 'class_name', key: 'class_name', width: 140 },
-    { title: t('Guardian', 'Guardian'), dataIndex: 'guardian_name', key: 'guardian_name', width: 160 },
-    { title: t('Phone', 'Phone'), dataIndex: 'guardian_phone', key: 'guardian_phone', width: 150 },
-    { title: t('Invoices', 'Invoices'), dataIndex: 'invoices', key: 'invoices', sorter: true, width: 110 },
-    { title: t('Owed', 'Owed'), dataIndex: 'due', key: 'due', sorter: true, money: true, width: 140 },
-    { title: t('Oldest_Due', 'Oldest due'), key: 'earliest_due', dataIndex: 'earliest_due', sorter: true, width: 180 },
+    { title: s('Student'), dataIndex: 'student_name', key: 'student_name', sorter: true },
+    { title: s('Class'), dataIndex: 'class_name', key: 'class_name', width: 140 },
+    { title: s('Guardian'), dataIndex: 'guardian_name', key: 'guardian_name', width: 160 },
+    { title: s('Phone'), dataIndex: 'guardian_phone', key: 'guardian_phone', width: 150 },
+    { title: s('Invoices'), dataIndex: 'invoices', key: 'invoices', sorter: true, width: 110 },
+    { title: s('Owed'), dataIndex: 'due', key: 'due', sorter: true, money: true, width: 140 },
+    { title: s('Oldest due'), key: 'earliest_due', dataIndex: 'earliest_due', sorter: true, width: 180 },
   ],
   teachers: [
-    { title: t('Teacher', 'Teacher'), dataIndex: 'teacher_name', key: 'teacher_name', sorter: true },
-    { title: t('Specialism', 'Specialism'), dataIndex: 'specialization', key: 'specialization', width: 170 },
-    { title: t('Periods_Per_Week', 'Periods / week'), dataIndex: 'weekly_periods', key: 'weekly_periods', sorter: true, width: 150 },
-    { title: t('Subjects', 'Subjects'), dataIndex: 'subjects', key: 'subjects', sorter: true, width: 110 },
-    { title: t('Classes', 'Classes'), dataIndex: 'classes', key: 'classes', sorter: true, width: 110 },
-    { title: t('Form_Classes', 'Form classes'), dataIndex: 'form_classes', key: 'form_classes', sorter: true, width: 140 },
-    { title: t('Busiest_Day', 'Busiest day'), dataIndex: 'busiest_day', key: 'busiest_day', width: 130 },
+    { title: s('Teacher'), dataIndex: 'teacher_name', key: 'teacher_name', sorter: true },
+    { title: s('Specialism'), dataIndex: 'specialization', key: 'specialization', width: 170 },
+    { title: s('Periods / week'), dataIndex: 'weekly_periods', key: 'weekly_periods', sorter: true, width: 150 },
+    { title: s('Subjects'), dataIndex: 'subjects', key: 'subjects', sorter: true, width: 110 },
+    { title: s('Classes'), dataIndex: 'classes', key: 'classes', sorter: true, width: 110 },
+    { title: s('Form classes'), dataIndex: 'form_classes', key: 'form_classes', sorter: true, width: 140 },
+    { title: s('Busiest day'), dataIndex: 'busiest_day', key: 'busiest_day', width: 130 },
   ],
-};
+});
 
-const columns = computed(() => COLUMNS[report.value] || COLUMNS.enrollment);
+const columns = computed(() => {
+  const all = COLUMNS();
+  return all[report.value] || all.enrollment;
+});
 
 /** Higher is better for most rates; utilisation over 100 is overcrowding. */
 function percentColor(field, value) {
@@ -232,19 +242,20 @@ function percentColor(field, value) {
   return 'default';
 }
 
+// English keys, shown through s() in totalTiles.
 const TOTAL_LABELS = {
-  students: t('Students', 'Students'), male: t('Male', 'Male'), female: t('Female', 'Female'),
-  present: t('Present', 'Present'), absent: t('Absent', 'Absent'), marked_days: t('Marked_Days', 'Marked days'),
-  entered: t('Marks_Entered', 'Marks entered'), passed: t('Passed', 'Passed'),
-  billed: t('Billed', 'Billed'), collected: t('Collected', 'Collected'), outstanding: t('Outstanding', 'Outstanding'),
-  due: t('Owed', 'Owed'), weekly_periods: t('Periods_Per_Week', 'Periods / week'),
+  students: 'Students', male: 'Male', female: 'Female',
+  present: 'Present', absent: 'Absent', marked_days: 'Marked days',
+  entered: 'Marks entered', passed: 'Passed',
+  billed: 'Billed', collected: 'Collected', outstanding: 'Outstanding',
+  due: 'Owed', weekly_periods: 'Periods / week',
 };
 const MONEY_TOTALS = ['billed', 'collected', 'outstanding', 'due'];
 
 const totalTiles = computed(() => {
   const totals = crud.payload.value?.totals || {};
   return Object.entries(totals).map(([key, value]) => ({
-    label: TOTAL_LABELS[key] || key,
+    label: TOTAL_LABELS[key] ? s(TOTAL_LABELS[key]) : key,
     value: MONEY_TOTALS.includes(key) ? money(value || 0) : number(value || 0, 0),
   }));
 });
@@ -252,7 +263,7 @@ const totalTiles = computed(() => {
 const meta = ref({});
 const exams = ref([]);
 const yearOptions = computed(() => (meta.value.academic_years || []).map(y => ({
-  value: y.id, label: y.is_current ? `${y.name} (${t('Current', 'current')})` : y.name,
+  value: y.id, label: y.is_current ? s('{name} (current)', { name: y.name }) : y.name,
 })));
 const classOptions = computed(() => (meta.value.classes || []).map(c => ({ value: c.id, label: c.name })));
 const examOptions = computed(() => exams.value.map(e => ({ value: e.id, label: e.name })));
@@ -279,14 +290,14 @@ async function doExport(kind) {
     });
     const rows = data?.rows || [];
     if (!rows.length) {
-      message.warning(t('NodataAvailable', 'Nothing to export'));
+      message.warning(s('Nothing to export'));
       return;
     }
-    const title = `${t('School', 'School')} — ${current.value.title}`;
+    const title = `${s('School')} — ${s(current.value.title)}`;
     if (kind === 'excel') await exportExcel(title, columns.value, rows);
     else await exportPdf(title, columns.value, rows);
   } catch (e) {
-    message.error(t('InvalidData', 'Could not export this report'));
+    message.error(s('Could not export this report'));
   } finally {
     exporting.value = '';
   }

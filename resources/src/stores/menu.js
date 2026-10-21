@@ -71,7 +71,11 @@ export const useMenuStore = defineStore('menu', {
             // or an item moved into another group): isEntryEnabled.
             // The SuperAdmin sees every module of every company (2026-10-19).
             const flags = auth.user && (auth.user.type === 'SuperAdmin' ? ALL_MODULES_ON : auth.user.module_flags);
+            // A company whose type has its own dashboard (hospital, school, real
+            // estate -- 2026-10-20): no general Dashboard item.
+            const ownDashboard = !!(auth.user && auth.user.own_dashboard);
             const dropDisabled = entries => entries
+                .filter(entry => !(ownDashboard && (entry.key === 'dashboard' || entry.to === '/app/dashboard')))
                 .filter(entry => isEntryEnabled(flags, entry, spaPathOf))
                 .filter(entry => !entry.requiresSetting || auth[entry.requiresSetting] !== false)
                 .map(entry => (entry.children

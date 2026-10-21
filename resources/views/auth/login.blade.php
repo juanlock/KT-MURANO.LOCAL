@@ -674,11 +674,12 @@
         background-position: center;
       }
     </style>
-    @elseif (!empty($app_settings->login_bg_color) && preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $app_settings->login_bg_color))
+    @elseif ($app_settings->loginBgColor())
     <style>
-      /* Admin-configured login background color (Settings → Login Page Settings) */
+      /* Admin-configured login background color (Settings → Login Page Settings),
+         one for Spanish and one for English / other languages (2026-10-20). */
       .auth-hero {
-        background: {{ $app_settings->login_bg_color }};
+        background: {{ $app_settings->loginBgColor() }};
       }
     </style>
     @endif

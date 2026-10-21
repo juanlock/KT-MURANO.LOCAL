@@ -70,6 +70,7 @@ class EnforceModuleFlags
         'prestashop' => 'prestashop', 'quickbooks' => 'quickbooks', 'xero' => 'xero',
         'google-sheets' => 'google_sheets', 'mailchimp' => 'mailchimp', 'slack' => 'slack',
         'telegram' => 'telegram', 'kitchen' => 'kitchen',
+        'webhooks' => 'integrations', // Webhooks: part of the Integrations hub switch (off by default, 2026-10-20)
         'zatca' => 'zatca', // Saudi e-invoicing, off by default (ModuleFlags::DEFAULT_OFF)
         'paypal' => 'paypal', // PayPal invoice payments, off by default (on for KcolTech)
     ];

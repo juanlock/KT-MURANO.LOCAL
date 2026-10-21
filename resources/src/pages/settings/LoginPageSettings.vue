@@ -117,6 +117,8 @@
           </a-radio-group>
 
           <div v-if="backgroundMode === 'color'">
+            <!-- One colour per language (2026-10-20): English (and any other) / Spanish. -->
+            <div style="margin-bottom: 4px; font-weight: 500">English</div>
             <a-space>
               <input
                 type="color"
@@ -127,6 +129,20 @@
               <a-input v-model:value="setting.login_bg_color" placeholder="#4f46e5" style="width: 130px" />
               <a-button v-if="setting.login_bg_color" @click="setting.login_bg_color = null">{{ $t('Reset') }}</a-button>
             </a-space>
+            <div style="margin: 14px 0 4px; font-weight: 500">Español</div>
+            <a-space>
+              <input
+                type="color"
+                :value="setting.login_bg_color_es || setting.login_bg_color || '#4f46e5'"
+                style="width: 48px; height: 32px; padding: 2px; border: 1px solid #d9d9d9; border-radius: 6px; background: transparent; cursor: pointer"
+                @input="e => (setting.login_bg_color_es = e.target.value)"
+              />
+              <a-input v-model:value="setting.login_bg_color_es" :placeholder="setting.login_bg_color || '#4f46e5'" style="width: 130px" />
+              <a-button v-if="setting.login_bg_color_es" @click="setting.login_bg_color_es = null">{{ $t('Reset') }}</a-button>
+            </a-space>
+            <div style="margin-top: 6px; font-size: 12px; opacity: .7">
+              The login page uses the Spanish colour when it opens in Spanish; empty = same as English.
+            </div>
           </div>
 
           <div v-else>
@@ -295,6 +311,7 @@ async function save() {
   fd.append('background_mode', backgroundMode.value);
   if (backgroundMode.value === 'color') {
     fd.append('login_bg_color', s.login_bg_color || '');
+    fd.append('login_bg_color_es', s.login_bg_color_es || '');
   } else if (bgImageList.value.length) {
     fd.append('login_bg_image', bgImageList.value[0].originFileObj || bgImageList.value[0]);
   }
