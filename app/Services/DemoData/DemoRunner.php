@@ -240,7 +240,16 @@ class DemoRunner
 
             foreach ($rows as $r) {
                 if (Schema::hasTable($r->record_type)) {
-                    $count += DB::table($r->record_type)->where('id', $r->record_id)->delete();
+                    try {
+                        $count += DB::table($r->record_type)->where('id', $r->record_id)->delete();
+                    } catch (\Illuminate\Database\QueryException $e) {
+                        // A row of a SHARED table (no company_id, e.g. leave_types)
+                        // that another company's records still use (FK 1451,
+                        // 2026-10-21): it stays; only this company's tag goes.
+                        if ((int) ($e->errorInfo[1] ?? 0) !== 1451) {
+                            throw $e;
+                        }
+                    }
                 }
             }
             DB::table('demo_records')->whereIn('id', $rows->pluck('id'))->delete();
