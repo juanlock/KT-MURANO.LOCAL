@@ -115,6 +115,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import http from '../../lib/http';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 
@@ -144,12 +145,15 @@ const rules = computed(() => ({
   job_id: [{ required: true, message: t('Field_is_required') }],
 }));
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Candidate'), key: 'candidate' },
   { title: t('Job'), key: 'job' },
   { title: t('Stage'), key: 'stage', width: 170 },
   { title: t('Applied_Date'), dataIndex: 'applied_date', key: 'applied_date', sorter: true },
   { title: t('Rating'), dataIndex: 'rating', key: 'rating', align: 'center' },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Action'), key: 'actions', width: 100 },
 ]);
 

@@ -1,14 +1,14 @@
 <template>
   <div class="page">
-    <PageHeader title="Lab Orders" :breadcrumb="['Hospital', 'Laboratory', 'Orders']">
+    <PageHeader :title="s('Lab Orders')" :breadcrumb="[s('Hospital'), s('Laboratory'), s('Orders')]">
       <template #actions>
         <a-button @click="$router.push('/hospital/lab-tests')">
           <template #icon><UnorderedListOutlined /></template>
-          Catalogue
+          {{ s('Catalogue') }}
         </a-button>
         <a-button type="primary" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
-          New order
+          {{ s('New order') }}
         </a-button>
       </template>
     </PageHeader>
@@ -16,20 +16,20 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search patient, MRN or reference…"
+          v-model:value="crud.search.value" :placeholder="s('Search patient, MRN or reference…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.status" class="tb-item" allow-clear
-          placeholder="All statuses" :options="LAB_STATUSES" @change="crud.reload"
+          :placeholder="s('All statuses')" :options="labStatuses" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.priority" class="tb-item-sm" allow-clear
-          placeholder="Priority" :options="LAB_PRIORITIES" @change="crud.reload"
+          :placeholder="s('Priority')" :options="labPriorities" @change="crud.reload"
         />
         <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
         <a-checkbox v-model:checked="filters.pending" class="tb-check" @change="crud.reload">
-          Pending only
+          {{ s('Pending only') }}
         </a-checkbox>
       </div>
     </a-card>
@@ -46,28 +46,28 @@
         <template v-else-if="column.key === 'tests'">
           <a-badge :count="record.test_count" :number-style="{ backgroundColor: '#6d28d9' }" />
           <a-tag v-if="record.abnormal_count" color="error" class="abn">
-            {{ record.abnormal_count }} abnormal
+            {{ s('{n} abnormal', { n: record.abnormal_count }) }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'priority'">
           <a-tag :color="optionOf(LAB_PRIORITIES, record.priority).color">
-            {{ labelOf(LAB_PRIORITIES, record.priority) }}
+            {{ s(labelOf(LAB_PRIORITIES, record.priority)) }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'status'">
           <a-tag :color="optionOf(LAB_STATUSES, record.status).color">
-            {{ labelOf(LAB_STATUSES, record.status) }}
+            {{ s(labelOf(LAB_STATUSES, record.status)) }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'total'">{{ money(record.total) }}</template>
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
-            <a-tooltip title="Results">
+            <a-tooltip :title="s('Results')">
               <a-button type="text" size="small" @click="openResults(record)">
                 <template #icon><FileTextOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip title="Bill these tests">
+            <a-tooltip :title="s('Bill these tests')">
               <a-button type="text" size="small" @click="bill(record)">
                 <template #icon><DollarOutlined /></template>
               </a-button>
@@ -89,25 +89,25 @@
 
     <!-- Order form -->
     <a-modal
-      :open="formOpen" :title="editing ? 'Edit order' : 'New lab order'" :width="620"
+      :open="formOpen" :title="editing ? s('Edit order') : s('New lab order')" :width="620"
       :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
       @ok="submit" @cancel="formOpen = false"
     >
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
-        <a-form-item label="Patient *" name="patient_id">
+        <a-form-item :label="s('Patient *')" name="patient_id">
           <PatientPicker v-model="form.patient_id" :initial-option="editingPatient" />
         </a-form-item>
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Requested by">
+            <a-form-item :label="s('Requested by')">
               <a-select
                 v-model:value="form.doctor_id" allow-clear show-search option-filter-prop="label"
-                :options="doctorOptions" placeholder="Select"
+                :options="doctorOptions" :placeholder="s('Select')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Ordered at">
+            <a-form-item :label="s('Ordered at')">
               <a-date-picker
                 v-model:value="form.ordered_at" show-time style="width: 100%"
                 value-format="YYYY-MM-DD HH:mm:ss"
@@ -115,54 +115,54 @@
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Priority">
-              <a-select v-model:value="form.priority" :options="LAB_PRIORITIES" />
+            <a-form-item :label="s('Priority')">
+              <a-select v-model:value="form.priority" :options="labPriorities" />
             </a-form-item>
           </a-col>
         </a-row>
-        <a-form-item label="Tests *" name="test_ids">
+        <a-form-item :label="s('Tests *')" name="test_ids">
           <a-select
             v-model:value="form.test_ids" mode="multiple" show-search option-filter-prop="label"
-            :options="testOptions" placeholder="Pick the tests to run"
+            :options="testOptions" :placeholder="s('Pick the tests to run')"
           />
         </a-form-item>
         <div class="order-total">
-          Estimated total: <b>{{ money(estimate) }}</b>
+          {{ s('Estimated total:') }} <b>{{ money(estimate) }}</b>
         </div>
-        <a-form-item :label="$t('Note')" style="margin-bottom: 0">
+        <a-form-item :label="s('Note')" style="margin-bottom: 0">
           <a-textarea v-model:value="form.notes" :rows="2" />
         </a-form-item>
       </a-form>
     </a-modal>
 
     <!-- Results -->
-    <a-drawer :open="resultsOpen" :width="720" :title="`Results — ${current?.reference || ''}`" @close="resultsOpen = false">
+    <a-drawer :open="resultsOpen" :width="720" :title="s('Results — {ref}', { ref: current?.reference || '' })" @close="resultsOpen = false">
       <template #extra>
         <a-space>
-          <a-select v-model:value="resultStatus" :options="LAB_STATUSES" style="width: 170px" />
+          <a-select v-model:value="resultStatus" :options="labStatuses" style="width: 170px" />
           <a-button type="primary" :loading="savingResults" @click="saveResults">{{ $t('submit') }}</a-button>
         </a-space>
       </template>
 
       <a-descriptions v-if="current" :column="2" size="small" bordered style="margin-bottom: 16px">
-        <a-descriptions-item label="Patient">{{ current.patient_name }}</a-descriptions-item>
-        <a-descriptions-item label="MRN">{{ current.patient_mrn }}</a-descriptions-item>
-        <a-descriptions-item label="Ordered">{{ dateTime(current.ordered_at) }}</a-descriptions-item>
-        <a-descriptions-item label="Priority">{{ labelOf(LAB_PRIORITIES, current.priority) }}</a-descriptions-item>
+        <a-descriptions-item :label="s('Patient')">{{ current.patient_name }}</a-descriptions-item>
+        <a-descriptions-item :label="s('MRN')">{{ current.patient_mrn }}</a-descriptions-item>
+        <a-descriptions-item :label="s('Ordered')">{{ dateTime(current.ordered_at) }}</a-descriptions-item>
+        <a-descriptions-item :label="s('Priority')">{{ s(labelOf(LAB_PRIORITIES, current.priority)) }}</a-descriptions-item>
       </a-descriptions>
 
       <div v-for="item in resultItems" :key="item.id" class="res">
         <div class="res-head">
           <span class="res-name">{{ item.test_name }}</span>
-          <span v-if="item.normal_range" class="res-range">Normal: {{ item.normal_range }}{{ item.unit ? ` ${item.unit}` : '' }}</span>
+          <span v-if="item.normal_range" class="res-range">{{ s('Normal: {range}', { range: item.normal_range }) }}{{ item.unit ? ` ${item.unit}` : '' }}</span>
         </div>
         <div class="res-inputs">
-          <a-input v-model:value="item.result_value" placeholder="Result" class="res-value" />
-          <a-select v-model:value="item.flag" :options="RESULT_FLAGS" placeholder="Flag" allow-clear class="res-flag" />
-          <a-input v-model:value="item.remarks" placeholder="Remarks" class="res-remarks" />
+          <a-input v-model:value="item.result_value" :placeholder="s('Result')" class="res-value" />
+          <a-select v-model:value="item.flag" :options="resultFlags" :placeholder="s('Flag')" allow-clear class="res-flag" />
+          <a-input v-model:value="item.remarks" :placeholder="s('Remarks')" class="res-remarks" />
         </div>
       </div>
-      <a-empty v-if="!resultItems.length" description="No tests on this order" />
+      <a-empty v-if="!resultItems.length" :description="s('No tests on this order')" />
     </a-drawer>
   </div>
 </template>
@@ -192,6 +192,16 @@ import { LAB_STATUSES, LAB_PRIORITIES, RESULT_FLAGS, labelOf, optionOf } from '.
 import http from '../../lib/http';
 import { useRoute } from 'vue-router';
 import { t } from '../../i18n';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/LabOrders.es.js';
+
+const { s } = useHospitalText(ES);
+
+// Option lists in the active language (values unchanged).
+const tr = list => list.map(o => ({ ...o, label: s(o.label) }));
+const labStatuses = computed(() => tr(LAB_STATUSES));
+const labPriorities = computed(() => tr(LAB_PRIORITIES));
+const resultFlags = computed(() => tr(RESULT_FLAGS));
 
 const route = useRoute();
 const router = useRouter();
@@ -214,13 +224,13 @@ const crud = useCrudTable('hospital/lab-orders', {
 });
 
 const columns = computed(() => [
-  { title: 'Patient', key: 'patient', dataIndex: 'patient_name' },
-  { title: 'Ordered', key: 'ordered_at', dataIndex: 'ordered_at', sorter: true, width: 175 },
-  { title: 'Doctor', dataIndex: 'doctor_name', key: 'doctor_name', width: 150 },
-  { title: 'Tests', key: 'tests', width: 150 },
-  { title: 'Priority', key: 'priority', dataIndex: 'priority', sorter: true, width: 120 },
-  { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 160 },
-  { title: 'Total', key: 'total', dataIndex: 'total', sorter: true, width: 120 },
+  { title: s('Patient'), key: 'patient', dataIndex: 'patient_name' },
+  { title: s('Ordered'), key: 'ordered_at', dataIndex: 'ordered_at', sorter: true, width: 175 },
+  { title: s('Doctor'), dataIndex: 'doctor_name', key: 'doctor_name', width: 150 },
+  { title: s('Tests'), key: 'tests', width: 150 },
+  { title: s('Priority'), key: 'priority', dataIndex: 'priority', sorter: true, width: 120 },
+  { title: s('Status'), key: 'status', dataIndex: 'status', sorter: true, width: 160 },
+  { title: s('Total'), key: 'total', dataIndex: 'total', sorter: true, width: 120 },
   { title: '', key: 'actions', width: 150 },
 ]);
 
@@ -253,10 +263,10 @@ function empty() {
   };
 }
 
-const required = () => [{ required: true, message: t('Field_is_required', 'This field is required') }];
+const required = () => [{ required: true, message: t('Field_is_required', s('This field is required')) }];
 const rules = computed(() => ({
   patient_id: required(),
-  test_ids: [{ required: true, type: 'array', min: 1, message: 'Pick at least one test' }],
+  test_ids: [{ required: true, type: 'array', min: 1, message: s('Pick at least one test') }],
 }));
 
 const estimate = computed(() =>
@@ -285,7 +295,7 @@ async function openForm(record) {
         notes: o.notes || '',
       };
     } catch (e) {
-      message.error(t('InvalidData', 'Could not load this order'));
+      message.error(t('InvalidData', s('Could not load this order')));
       return;
     }
   } else {
@@ -307,12 +317,12 @@ async function submit() {
   try {
     if (editing.value) await http.put(`hospital/lab-orders/${editing.value.id}`, form.value);
     else await http.post('hospital/lab-orders', form.value);
-    message.success(t('Created_in_successfully', 'Saved successfully'));
+    message.success(t('Created_in_successfully', s('Saved successfully')));
     formOpen.value = false;
     editing.value = null;
     crud.fetchRows();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not save this order'));
+    message.error(e?.data?.message || t('InvalidData', s('Could not save this order')));
   } finally {
     saving.value = false;
   }
@@ -334,7 +344,7 @@ async function openResults(record) {
     resultStatus.value = current.value?.status === 'cancelled' ? 'cancelled' : 'completed';
     resultsOpen.value = true;
   } catch (e) {
-    message.error(t('InvalidData', 'Could not load this order'));
+    message.error(t('InvalidData', s('Could not load this order')));
   }
 }
 
@@ -350,11 +360,11 @@ async function saveResults() {
         remarks: i.remarks,
       })),
     });
-    message.success('Results saved.');
+    message.success(s('Results saved.'));
     resultsOpen.value = false;
     crud.fetchRows();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not save the results'));
+    message.error(e?.data?.message || t('InvalidData', s('Could not save the results')));
   } finally {
     savingResults.value = false;
   }

@@ -293,7 +293,7 @@ class HospitalWardController extends Controller
     {
         return [
             'name' => 'required|string|max:191',
-            'type' => 'required|in:general,private,semi_private,icu,nicu,maternity,isolation',
+            'type' => 'required|in:general,private,semi_private,icu,nicu,maternity,isolation,emergency',
             'department_id' => ['nullable', \App\Support\CompanyExists::rule('hospital_departments')],
             'daily_rate' => 'nullable|numeric|min:0',
         ];

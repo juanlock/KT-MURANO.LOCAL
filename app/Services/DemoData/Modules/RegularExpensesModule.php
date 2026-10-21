@@ -34,6 +34,12 @@ class RegularExpensesModule extends DemoModule
         return 'regular_expenses';
     }
 
+    /** Expenses live in Accounting: none when it is off. */
+    public function moduleFlags(): array
+    {
+        return ['accounting'];
+    }
+
     public function label(): string
     {
         return 'Regular expenses (monthly bills, last 12 months)';

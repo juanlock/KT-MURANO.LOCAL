@@ -23,6 +23,19 @@ class CompanyController extends Controller
         return optional($request->user('api'))->type === 'SuperAdmin';
     }
 
+    /**
+     * "superadmin/AdminSystem" (user's rule, 2026-10-21): the SuperAdmin with
+     * AdminSystem (999) -- or nothing -- picked in the company switcher. Only
+     * then the Companies list shows every company and companies can be created
+     * or deleted; with a company picked the SuperAdmin works on that one only.
+     */
+    private function isSystemContext(Request $request): bool
+    {
+        $acting = (int) $request->input('company_id');
+
+        return $this->isSuperAdmin($request) && (! $acting || $acting === \App\Models\Setting::TEMPLATE_COMPANY_ID);
+    }
+
     // ----------- GET ALL  company --------------\\
 
     public function index(Request $request)
@@ -38,8 +51,10 @@ class CompanyController extends Controller
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
         $companies = Company::where('deleted_at', '=', null)
-            // Admins only ever see their own company.
+            // Admins only ever see their own company; a SuperAdmin with a company
+            // picked in the switcher sees that one; every company only as AdminSystem.
             ->when(! $this->isSuperAdmin($request), fn ($q) => $q->where('id', $request->user('api')->company_id))
+            ->when($this->isSuperAdmin($request) && ! $this->isSystemContext($request), fn ($q) => $q->where('id', (int) $request->input('company_id')))
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
@@ -92,7 +107,7 @@ class CompanyController extends Controller
     public function store(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'create', Company::class);
-        abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can create companies.');
+        abort_unless($this->isSystemContext($request), 403, 'Only a SuperAdmin working as AdminSystem can create companies (pick AdminSystem in the company switcher).');
 
         // Company profile (owner, business type, address, helpdesk email, defaults) + admin / helpdesk users.
         $data = $request->validate(CompanyProfile::rules() + [
@@ -373,7 +388,7 @@ class CompanyController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Company::class);
-        abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can delete companies.');
+        abort_unless($this->isSystemContext($request), 403, 'Only a SuperAdmin working as AdminSystem can delete companies (pick AdminSystem in the company switcher).');
 
         Company::whereId($id)->update([
             'deleted_at' => Carbon::now(),
@@ -388,7 +403,7 @@ class CompanyController extends Controller
     {
 
         $this->authorizeForUser($request->user('api'), 'delete', Company::class);
-        abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can delete companies.');
+        abort_unless($this->isSystemContext($request), 403, 'Only a SuperAdmin working as AdminSystem can delete companies (pick AdminSystem in the company switcher).');
 
         $selectedIds = $request->selectedIds;
         foreach ($selectedIds as $company_id) {

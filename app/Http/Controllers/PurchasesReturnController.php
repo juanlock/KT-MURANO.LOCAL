@@ -84,12 +84,13 @@ class PurchasesReturnController extends BaseController
         // mirrors the fix already applied to PurchasesController/ClientController/
         // WarehouseController (record_view used to double as the company gate and
         // silently stopped scoping once every Admin got record_view=true).
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         // Check If User Has Permission View  All Records
         $PurchaseReturn = PurchaseReturn::with('purchase', 'facture', 'provider', 'warehouse')
             ->where('deleted_at', '=', null)
-            ->where('company_id', '=', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', '=', $companyId))
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -157,12 +158,15 @@ class PurchasesReturnController extends BaseController
             $item['paid_amount'] = number_format($Purchase_Return['paid_amount'], helpers::price_decimals(), '.', '');
             $item['due'] = number_format($item['GrandTotal'] - $item['paid_amount'], helpers::price_decimals(), '.', '');
             $item['payment_status'] = $Purchase_Return['payment_statut'];
+            $item['company_id'] = $Purchase_Return->company_id;
 
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
-        $suppliers = Provider::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
-        $purchases = Purchase::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'Ref']);
+        $suppliers = Provider::where('deleted_at', '=', null)->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->get(['id', 'name']);
+        $purchases = Purchase::where('deleted_at', '=', null)->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->get(['id', 'Ref']);
         // NOTE: accounts has no company_id column on this app either -- can't be
         // scoped here without a schema change, left as-is (pre-existing, out of scope,
         // matches PurchasesController::index()).

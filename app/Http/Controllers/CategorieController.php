@@ -34,10 +34,9 @@ class CategorieController extends BaseController
 
         // Company scoping -- SuperAdmin may pass ?company_id= (a company
         // picker sends it); everyone else is locked to their own company.
-        $companyId = $this->resolveActingCompanyId($request);
-        $query = Category::query()
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $query = $this->scopeListToCompany(Category::query(), $request)
             ->whereNull('deleted_at')
-            ->where('company_id', $companyId)
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($qq) use ($search) {
                     $qq->where('name', 'like', "%{$search}%")
@@ -62,6 +61,8 @@ class CategorieController extends BaseController
             ->offset($offSet)
             ->limit($perPage)
             ->get();
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $categories = \App\Support\CompanyNames::attach($categories);
 
         return response()->json([
             'categories' => $categories,

@@ -1,11 +1,11 @@
 <template>
   <div class="page">
-    <PageHeader title="Appointments" :breadcrumb="['Hospital', 'Appointments']">
+    <PageHeader :title="s('Appointments')" :breadcrumb="[s('Hospital'), s('Appointments')]">
       <template #actions>
-        <a-segmented v-model:value="view" :options="VIEW_OPTIONS" />
+        <a-segmented v-model:value="view" :options="viewOptions" />
         <a-button type="primary" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
-          Book appointment
+          {{ s('Book appointment') }}
         </a-button>
       </template>
     </PageHeader>
@@ -15,24 +15,24 @@
       <a-card size="small" style="margin-bottom: 16px">
         <div class="toolbar">
           <a-input-search
-            v-model:value="crud.search.value" placeholder="Search patient, MRN or reference…"
+            v-model:value="crud.search.value" :placeholder="s('Search patient, MRN or reference…')"
             allow-clear class="tb-search" @search="crud.reload"
           />
           <a-select
             v-model:value="filters.doctor_id" class="tb-item" allow-clear show-search
-            option-filter-prop="label" placeholder="All doctors"
+            option-filter-prop="label" :placeholder="s('All doctors')"
             :options="doctorOptions" @change="crud.reload"
           />
           <a-select
             v-model:value="filters.status" class="tb-item" allow-clear
-            placeholder="All statuses" :options="APPOINTMENT_STATUSES" @change="crud.reload"
+            :placeholder="s('All statuses')" :options="appointmentStatuses" @change="crud.reload"
           />
           <a-select
             v-model:value="filters.type" class="tb-item" allow-clear
-            placeholder="All types" :options="APPOINTMENT_TYPES" @change="crud.reload"
+            :placeholder="s('All types')" :options="appointmentTypes" @change="crud.reload"
           />
           <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
-          <a-checkbox v-model:checked="filters.today" class="tb-check" @change="crud.reload">Today</a-checkbox>
+          <a-checkbox v-model:checked="filters.today" class="tb-check" @change="crud.reload">{{ s('Today') }}</a-checkbox>
         </div>
       </a-card>
 
@@ -50,29 +50,29 @@
           </template>
           <template v-else-if="column.key === 'type'">
             <a-tag :color="optionOf(APPOINTMENT_TYPES, record.type).color">
-              {{ labelOf(APPOINTMENT_TYPES, record.type) }}
+              {{ s(labelOf(APPOINTMENT_TYPES, record.type)) }}
             </a-tag>
           </template>
           <template v-else-if="column.key === 'status'">
             <a-select
               :value="record.status" size="small" class="status-select"
-              :options="APPOINTMENT_STATUSES" @change="v => setStatus(record, v)"
+              :options="appointmentStatuses" @change="v => setStatus(record, v)"
             />
           </template>
           <template v-else-if="column.key === 'fee'">{{ money(record.fee) }}</template>
           <template v-else-if="column.key === 'actions'">
             <a-space :size="0">
-              <a-tooltip v-if="!record.has_visit" title="Start consultation">
+              <a-tooltip v-if="!record.has_visit" :title="s('Start consultation')">
                 <a-button type="text" size="small" @click="$router.push(`/hospital/visits/create?appointment=${record.id}`)">
                   <template #icon><FileAddOutlined /></template>
                 </a-button>
               </a-tooltip>
-              <a-tooltip :title="$t('Edit')">
+              <a-tooltip :title="s('Edit')">
                 <a-button type="text" size="small" @click="openForm(record)">
                   <template #icon><EditOutlined /></template>
                 </a-button>
               </a-tooltip>
-              <a-tooltip :title="$t('Delete')">
+              <a-tooltip :title="s('Delete')">
                 <a-button type="text" size="small" danger @click="crud.remove(record, { label: record.reference })">
                   <template #icon><DeleteOutlined /></template>
                 </a-button>
@@ -90,10 +90,10 @@
           <a-button @click="shiftDay(-1)"><template #icon><LeftOutlined /></template></a-button>
           <a-date-picker v-model:value="boardDate" value-format="YYYY-MM-DD" class="tb-item" @change="loadBoard" />
           <a-button @click="shiftDay(1)"><template #icon><RightOutlined /></template></a-button>
-          <a-button @click="today">Today</a-button>
+          <a-button @click="today">{{ s('Today') }}</a-button>
           <a-select
             v-model:value="boardDepartment" class="tb-item" allow-clear show-search
-            option-filter-prop="label" placeholder="All departments"
+            option-filter-prop="label" :placeholder="s('All departments')"
             :options="departmentOptions" @change="loadBoard"
           />
         </div>
@@ -106,7 +106,7 @@
               <div class="board-doctor">{{ col.doctor_name }}</div>
               <div class="board-hours">
                 <span v-if="col.working">{{ col.hours[0] }} – {{ col.hours[1] }}</span>
-                <span v-else class="off">Not in clinic</span>
+                <span v-else class="off">{{ s('Not in clinic') }}</span>
               </div>
             </div>
             <div v-if="col.appointments.length" class="board-slots">
@@ -116,47 +116,47 @@
               >
                 <span class="slot-time">{{ clock(a.scheduled_at) }}</span>
                 <span class="slot-name">{{ a.patient_name }}</span>
-                <span class="slot-type">{{ labelOf(APPOINTMENT_TYPES, a.type) }}</span>
+                <span class="slot-type">{{ s(labelOf(APPOINTMENT_TYPES, a.type)) }}</span>
               </button>
             </div>
-            <div v-else class="board-empty">No bookings</div>
+            <div v-else class="board-empty">{{ s('No bookings') }}</div>
           </div>
         </div>
         <a-card v-else>
-          <a-empty description="No active doctors to show" />
+          <a-empty :description="s('No active doctors to show')" />
         </a-card>
       </a-spin>
     </template>
 
     <!-- Booking form -->
     <a-modal
-      :open="formOpen" :title="editing ? 'Edit appointment' : 'Book appointment'" :width="640"
-      :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
+      :open="formOpen" :title="editing ? s('Edit appointment') : s('Book appointment')" :width="640"
+      :confirm-loading="saving" :ok-text="s('Save')" :cancel-text="s('Cancel')"
       @ok="submit" @cancel="formOpen = false"
     >
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
-        <a-form-item label="Patient *" name="patient_id">
+        <a-form-item :label="s('Patient') + ' *'" name="patient_id">
           <PatientPicker v-model="form.patient_id" :initial-option="editingPatient" />
         </a-form-item>
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Doctor *" name="doctor_id">
+            <a-form-item :label="s('Doctor') + ' *'" name="doctor_id">
               <a-select
                 v-model:value="form.doctor_id" show-search option-filter-prop="label"
-                :options="doctorOptions" placeholder="Select a doctor" @change="onDoctorChange"
+                :options="doctorOptions" :placeholder="s('Select a doctor')" @change="onDoctorChange"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Department">
+            <a-form-item :label="s('Department')">
               <a-select
                 v-model:value="form.department_id" allow-clear show-search
-                option-filter-prop="label" :options="departmentOptions" placeholder="None"
+                option-filter-prop="label" :options="departmentOptions" :placeholder="s('None')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="When *" name="scheduled_at">
+            <a-form-item :label="s('When') + ' *'" name="scheduled_at">
               <a-date-picker
                 v-model:value="form.scheduled_at" show-time style="width: 100%"
                 value-format="YYYY-MM-DD HH:mm:ss" @change="checkHours"
@@ -164,17 +164,17 @@
             </a-form-item>
           </a-col>
           <a-col :xs="8" :md="4">
-            <a-form-item label="Minutes">
+            <a-form-item :label="s('Minutes')">
               <a-input-number v-model:value="form.duration_minutes" :min="5" :max="480" :step="5" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="8" :md="4">
-            <a-form-item label="Type *" name="type">
-              <a-select v-model:value="form.type" :options="APPOINTMENT_TYPES" />
+            <a-form-item :label="s('Type') + ' *'" name="type">
+              <a-select v-model:value="form.type" :options="appointmentTypes" />
             </a-form-item>
           </a-col>
           <a-col :xs="8" :md="4">
-            <a-form-item label="Fee">
+            <a-form-item :label="s('Fee')">
               <a-input-number v-model:value="form.fee" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
@@ -182,17 +182,17 @@
             <a-alert v-if="hoursWarning" type="warning" show-icon :message="hoursWarning" style="margin-bottom: 16px" />
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Status *" name="status">
-              <a-select v-model:value="form.status" :options="APPOINTMENT_STATUSES" />
+            <a-form-item :label="s('Status') + ' *'" name="status">
+              <a-select v-model:value="form.status" :options="appointmentStatuses" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Reason">
-              <a-input v-model:value="form.reason" placeholder="e.g. Chest pain" allow-clear />
+            <a-form-item :label="s('Reason')">
+              <a-input v-model:value="form.reason" :placeholder="s('e.g. Chest pain')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item :label="$t('Note')" style="margin-bottom: 0">
+            <a-form-item :label="s('Note')" style="margin-bottom: 0">
               <a-textarea v-model:value="form.notes" :rows="2" allow-clear />
             </a-form-item>
           </a-col>
@@ -225,16 +225,22 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { APPOINTMENT_TYPES, APPOINTMENT_STATUSES, labelOf, optionOf } from './hospitalOptions';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/Appointments.es.js';
+
+const { s } = useHospitalText(ES);
 
 const route = useRoute();
 const { money, dateTime } = useFormat();
 
 const view = ref('list');
-const VIEW_OPTIONS = [
-  { value: 'list', label: 'List' },
-  { value: 'board', label: 'Day board' },
-];
+const viewOptions = computed(() => [
+  { value: 'list', label: s('List') },
+  { value: 'board', label: s('Day board') },
+]);
+// Shared option lists with their labels in the active language (values unchanged).
+const appointmentTypes = computed(() => APPOINTMENT_TYPES.map(o => ({ ...o, label: s(o.label) })));
+const appointmentStatuses = computed(() => APPOINTMENT_STATUSES.map(o => ({ ...o, label: s(o.label) })));
 
 const filters = reactive({
   doctor_id: undefined,
@@ -258,13 +264,13 @@ const crud = useCrudTable('hospital/appointments', {
 });
 
 const columns = computed(() => [
-  { title: 'When', key: 'scheduled_at', dataIndex: 'scheduled_at', sorter: true, width: 190 },
-  { title: 'Patient', key: 'patient', dataIndex: 'patient_name' },
-  { title: 'Doctor', dataIndex: 'doctor_name', key: 'doctor_name', width: 160 },
-  { title: 'Type', key: 'type', dataIndex: 'type', sorter: true, width: 130 },
-  { title: 'Reason', dataIndex: 'reason', key: 'reason', width: 180 },
-  { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 150 },
-  { title: 'Fee', key: 'fee', dataIndex: 'fee', sorter: true, width: 110 },
+  { title: s('When'), key: 'scheduled_at', dataIndex: 'scheduled_at', sorter: true, width: 190 },
+  { title: s('Patient'), key: 'patient', dataIndex: 'patient_name' },
+  { title: s('Doctor'), dataIndex: 'doctor_name', key: 'doctor_name', width: 160 },
+  { title: s('Type'), key: 'type', dataIndex: 'type', sorter: true, width: 130 },
+  { title: s('Reason'), dataIndex: 'reason', key: 'reason', width: 180 },
+  { title: s('Status'), key: 'status', dataIndex: 'status', sorter: true, width: 150 },
+  { title: s('Fee'), key: 'fee', dataIndex: 'fee', sorter: true, width: 110 },
   { title: '', key: 'actions', width: 120 },
 ]);
 
@@ -288,7 +294,7 @@ async function setStatus(record, status) {
     record.status = status;
     if (view.value === 'board') loadBoard();
   } catch (e) {
-    message.error(t('InvalidData', 'Could not update the status'));
+    message.error(s('Could not update the status'));
   }
 }
 
@@ -315,7 +321,7 @@ function empty() {
   };
 }
 
-const required = () => [{ required: true, message: t('Field_is_required', 'This field is required') }];
+const required = () => [{ required: true, message: s('This field is required') }];
 const rules = computed(() => ({
   patient_id: required(),
   doctor_id: required(),
@@ -374,12 +380,12 @@ async function checkHours() {
   try {
     const data = await http.get(`hospital/doctors/${form.value.doctor_id}/schedule`, { date });
     if (!data?.working) {
-      hoursWarning.value = 'This doctor has no clinic hours set for that day.';
+      hoursWarning.value = s('This doctor has no clinic hours set for that day.');
       return;
     }
     const time = String(form.value.scheduled_at).slice(11, 16);
     if (time < data.hours[0] || time >= data.hours[1]) {
-      hoursWarning.value = `Outside clinic hours (${data.hours[0]} – ${data.hours[1]}). You can still book it.`;
+      hoursWarning.value = s('Outside clinic hours ({from} – {to}). You can still book it.', { from: data.hours[0], to: data.hours[1] });
     }
   } catch (e) { /* leave the warning empty */ }
 }
@@ -395,14 +401,14 @@ async function submit() {
   try {
     if (editing.value) await http.put(`hospital/appointments/${editing.value.id}`, form.value);
     else await http.post('hospital/appointments', form.value);
-    message.success(t('Created_in_successfully', 'Saved successfully'));
+    message.success(s('Saved successfully'));
     formOpen.value = false;
     editing.value = null;
     crud.fetchRows();
     if (view.value === 'board') loadBoard();
   } catch (e) {
     // The clash guard answers 422 with a plain message.
-    message.error(e?.data?.message || t('InvalidData', 'Could not save this appointment'));
+    message.error(e?.data?.message || s('Could not save this appointment'));
   } finally {
     saving.value = false;
   }

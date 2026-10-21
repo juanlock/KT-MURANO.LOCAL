@@ -48,6 +48,8 @@ class TraysController extends Controller
             ->limit($perPage)
             ->orderBy($order, $dir)
             ->get();
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $trays = \App\Support\CompanyNames::attach($trays);
 
         return response()->json([
             'trays' => $trays,

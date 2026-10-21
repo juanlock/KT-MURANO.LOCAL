@@ -384,6 +384,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../../lib/systemContext';
 import { useRouter } from 'vue-router';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined, RollbackOutlined,
@@ -406,6 +407,7 @@ import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
 
 const { t } = useI18n();
+const { isSystem } = useSystemContext();
 const { money, roundMoney } = useFormat();
 const auth = useAuthStore();
 const router = useRouter();
@@ -451,6 +453,8 @@ const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 70, align: 'center', fixed: 'left' },
   { title: t('CustomerCode'), dataIndex: 'code', key: 'code', sorter: true },
   { title: t('CustomerName'), dataIndex: 'name', key: 'name', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose record it is.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
   { title: t('Email'), dataIndex: 'email', key: 'email', exportValue: r => [r.email, ...(r.additional_emails || [])].filter(Boolean).join(', ') },
   // Email Office emails from / to the customer; opens their Email conversation tab.

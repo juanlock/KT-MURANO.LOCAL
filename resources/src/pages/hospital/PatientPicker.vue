@@ -4,7 +4,7 @@
     show-search
     :filter-option="false"
     :options="options"
-    :placeholder="placeholder"
+    :placeholder="s(placeholder || 'Search patient by name, MRN or phone')"
     :loading="loading"
     :allow-clear="allowClear"
     :disabled="disabled"
@@ -16,7 +16,7 @@
     <template #notFoundContent>
       <div class="pp-empty">
         <a-spin v-if="loading" size="small" />
-        <span v-else>{{ term ? 'No patient matches that.' : 'Type a name, MRN or phone number.' }}</span>
+        <span v-else>{{ term ? s('No patient matches that.') : s('Type a name, MRN or phone number.') }}</span>
       </div>
     </template>
   </a-select>
@@ -37,12 +37,16 @@
  */
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import http from '../../lib/http';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/PatientPicker.es.js';
+
+const { s } = useHospitalText(ES);
 
 const props = defineProps({
   modelValue: { type: [Number, String], default: undefined },
   // { id, name, mrn } for the already-selected patient, when editing.
   initialOption: { type: Object, default: null },
-  placeholder: { type: String, default: 'Search patient by name, MRN or phone' },
+  placeholder: { type: String, default: '' },
   allowClear: { type: Boolean, default: true },
   disabled: { type: Boolean, default: false },
 });

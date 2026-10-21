@@ -53,14 +53,18 @@ class UserController extends BaseController
         // else only ever sees their own company's users, regardless of
         // record_view.
         $actingCompanyId = $this->resolveActingCompanyId($request);
+        // The list's company (2026-10-21): superadmin/AdminSystem = every company,
+        // superadmin/<company> = that company, anyone else = their own.
+        $listCompanyId = $this->listCompanyId($request);
         // A SuperAdmin opening Users from a role (Group Permissions -> Users
         // column, possibly another company's role): that role's company.
         if ($user->type === 'SuperAdmin' && ctype_digit((string) $request->filter_role)) {
             $actingCompanyId = Role::whereKey((int) $request->filter_role)->value('company_id') ?: $actingCompanyId;
+            $listCompanyId = $actingCompanyId;
         }
         $users = User::where('deleted_at', '=', null)
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($actingCompanyId) {
-                return $query->where('company_id', $actingCompanyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->where(function ($query) use ($ShowRecord) {
             if (! $ShowRecord) {
@@ -104,6 +108,9 @@ class UserController extends BaseController
                 $u->role_name = $u->roles->first()?->name;
                 $u->unsetRelation('roles');
             });
+        // Every company in the list (superadmin/AdminSystem): each row says whose it is.
+        $companyNames = Company::whereIn('id', $users->pluck('company_id')->unique())->pluck('name', 'id');
+        $users->each(fn ($u) => $u->company_name = $u->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$u->company_id] ?? null));
 
         // Roles are per-company copies (Owner/Admin/... exist once per
         // company) -- only offer the acting company's own, i.e. the company

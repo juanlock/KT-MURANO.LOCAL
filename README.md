@@ -95,6 +95,13 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 - **Multicompany.**
   - A **SuperAdmin** works through the company switcher and can act on any
     company.
+  - **superadmin/AdminSystem** (company 999 picked) sees every company's
+    records in every list and report (with a Company column) and has the
+    global screens (yellow, "Global": Login Page, Update, Currencies, Backup,
+    System Health, Login Devices; route / menu `systemOnly`).
+    **superadmin/<company>** works on that company only. Lists read their
+    company with `ScopesToCompany::listCompanyId()` (null = every company);
+    writes keep `resolveActingCompanyId()`.
   - An **Admin** (AdminKT, AdminRG, AdminNE...) is locked to their own company.
     They can only see and change records whose `company_id` is their company.
   - Every query on company data must respect this. Modules that were shared
@@ -189,6 +196,42 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
+
+### 2026-10-21 (Thundera)
+
+- **Hospital: Emergency Room and Pharmacy.**
+  - **Emergencias** (Hospital Management): the whole ER on one screen — new
+    arrival (registered or new patient), triage 1–5 with colours, vital
+    signs, doctor and ER bed; a board Waiting / In treatment / Observation
+    with the waiting time (red when it passes the triage's limit); the outcome
+    closes the case (home, admitted to a ward bed — the admission is created —,
+    transferred, left without being seen, deceased) and the visit goes to the
+    patient's record. ER beds are those of a ward of type "Emergency room".
+  - **Farmacia**: the medicines on hand with generic name, strength, form,
+    prescription (Rx), stock per warehouse, batches and next expiry, and cards
+    for low stock, out of stock and expiring.
+  - The whole Hospital module is in Spanish when the app is, and its demo data
+    comes in the company's language, with an ER ward, ER cases and medicines
+    with batches.
+- **School.** Marks out of 20 with letters (20 A+ … 11 E, 10 or less F) and
+  four bimestres. Each student has a **Libreta** (report card by bimestre,
+  weighted average, red / blue marks, Print and PDF); the Students list shows
+  it in a popup, a **Performance** column sorted from the best student, and
+  cards for the best student, grade, section, attendance… Attendance opens on
+  a whole-school overview. The demo asks the school year's dates and includes
+  absentees and low marks.
+- **superadmin/AdminSystem vs superadmin/<company>.** With AdminSystem picked,
+  every list and report shows all companies (Company column) and the global
+  screens appear in yellow; with a company picked, only that company (the
+  Companies list too) and the global screens are refused.
+- **Demo data**: offers only the modules the company has on; a SuperAdmin can
+  **delete a module's real (test) data** after a confirmation; fixed "has real
+  data" for shared tables and a duplicate patient number.
+- **Document Archive and budgets / tax reports** are separated by company;
+  Documents is on for every company and comes with every new one. Several
+  common messages had wrong Spanish (fixed for everyone).
+
+Setup: `php artisan migrate`, `npm run build`.
 
 ### 2026-10-20 (Thundera)
 
@@ -341,29 +384,6 @@ Setup: `php artisan migrate`, `npm run build`.
   another case (Deposit, SMS Templates…) are now translated.
 - Files the site serves are no longer stored with Git LFS (the Hostinger
   deploy doesn't fetch LFS; a sale document arrived broken).
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-10-17 (Optimum)
-
-- **Sorting lists by name works again.** Sorting Sales (any filter, e.g.
-  Unpaid, or All) by Customer or Warehouse showed an error. Fixed there and in
-  Purchases, Quotations, Expenses, Damages, Adjustments, Sale / Purchase
-  returns, Subscriptions, Shipments and online-store customer accounts.
-- **Mail Settings → "Send a copy to other emails".** Each company can add
-  extra addresses that get a hidden copy (BCC) of the emails it sends, and
-  choose for which: **Sales** (invoices, payment receipts), **Payment
-  reminders** and **Purchases** (orders, payments). Wrong addresses are
-  refused when saving.
-- **User manual → "Top bar icons".** Every top bar icon is shown with its own
-  look and color, its name and what it does (company selector, POS, Settings,
-  Install app, Como Vamos!, Full screen, manual, language, notifications,
-  clock in / out, log out, your name), in English and Spanish. It opens under
-  *This page* on the Dashboard and Profile, and is searchable.
-- **New manual icon:** a colored open book, in the top bar and in the manual.
-- **Protocols:** Sincroniza BD was removed; the new **Sube Git** is a quick
-  push (logs, build, detailed README, commit, push) without the database
-  backup of Pa Llevar.
 
 Setup: `php artisan migrate`, `npm run build`.
 

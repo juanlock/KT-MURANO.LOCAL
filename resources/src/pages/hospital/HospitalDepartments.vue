@@ -1,10 +1,10 @@
 <template>
   <div class="page">
-    <PageHeader title="Departments" :breadcrumb="['Hospital', 'Departments']">
+    <PageHeader :title="s('Departments')" :breadcrumb="[s('Hospital'), s('Departments')]">
       <template #actions>
         <a-button type="primary" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
-          {{ $t('Add') }}
+          {{ s('Add') }}
         </a-button>
       </template>
     </PageHeader>
@@ -12,12 +12,12 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search name, code or location…"
+          v-model:value="crud.search.value" :placeholder="s('Search name, code or location…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
-          v-model:value="filters.active" class="tb-item" allow-clear placeholder="All"
-          :options="[{ value: '1', label: 'Active' }, { value: '0', label: 'Inactive' }]"
+          v-model:value="filters.active" class="tb-item" allow-clear :placeholder="s('All')"
+          :options="[{ value: '1', label: s('Active') }, { value: '0', label: s('Inactive') }]"
           @change="crud.reload"
         />
       </div>
@@ -35,23 +35,23 @@
         </template>
         <template v-else-if="column.key === 'counts'">
           <a-space :size="4">
-            <a-tag>{{ record.doctors_count }} doctors</a-tag>
-            <a-tag>{{ record.wards_count }} wards</a-tag>
+            <a-tag>{{ s('{n} doctors', { n: record.doctors_count }) }}</a-tag>
+            <a-tag>{{ s('{n} wards', { n: record.wards_count }) }}</a-tag>
           </a-space>
         </template>
         <template v-else-if="column.key === 'is_active'">
           <a-tag :color="record.is_active ? 'success' : 'default'">
-            {{ record.is_active ? 'Active' : 'Inactive' }}
+            {{ record.is_active ? s('Active') : s('Inactive') }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
-            <a-tooltip :title="$t('Edit')">
+            <a-tooltip :title="s('Edit')">
               <a-button type="text" size="small" @click="openForm(record)">
                 <template #icon><EditOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip :title="$t('Delete')">
+            <a-tooltip :title="s('Delete')">
               <a-button type="text" size="small" danger @click="crud.remove(record, { label: record.name })">
                 <template #icon><DeleteOutlined /></template>
               </a-button>
@@ -62,40 +62,40 @@
     </DataTable>
 
     <a-modal
-      :open="formOpen" :title="editing ? 'Edit department' : 'New department'" :width="560"
-      :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
+      :open="formOpen" :title="editing ? s('Edit department') : s('New department')" :width="560"
+      :confirm-loading="saving" :ok-text="s('Save')" :cancel-text="s('Cancel')"
       @ok="submit" @cancel="formOpen = false"
     >
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="16">
-            <a-form-item label="Name *" name="name">
-              <a-input v-model:value="form.name" placeholder="e.g. Cardiology" allow-clear />
+            <a-form-item :label="s('Name') + ' *'" name="name">
+              <a-input v-model:value="form.name" :placeholder="s('e.g. Cardiology')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Code">
-              <a-input v-model:value="form.code" placeholder="e.g. CARD" allow-clear />
+            <a-form-item :label="s('Code')">
+              <a-input v-model:value="form.code" :placeholder="s('e.g. CARD')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Location">
-              <a-input v-model:value="form.location" placeholder="e.g. Block B, 2nd floor" allow-clear />
+            <a-form-item :label="s('Location')">
+              <a-input v-model:value="form.location" :placeholder="s('e.g. Block B, 2nd floor')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Extension / phone">
+            <a-form-item :label="s('Extension / phone')">
               <a-input v-model:value="form.phone" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item :label="$t('Description')">
+            <a-form-item :label="s('Description')">
               <a-textarea v-model:value="form.description" :rows="2" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :span="24">
             <a-form-item style="margin-bottom: 0">
-              <a-checkbox v-model:checked="form.is_active">Active</a-checkbox>
+              <a-checkbox v-model:checked="form.is_active">{{ s('Active') }}</a-checkbox>
             </a-form-item>
           </a-col>
         </a-row>
@@ -116,7 +116,10 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/HospitalDepartments.es.js';
+
+const { s } = useHospitalText(ES);
 
 const filters = reactive({ active: undefined });
 
@@ -128,12 +131,12 @@ const crud = useCrudTable('hospital/departments', {
 });
 
 const columns = computed(() => [
-  { title: 'Department', key: 'name', dataIndex: 'name', sorter: true },
-  { title: 'Code', key: 'code', dataIndex: 'code', sorter: true, width: 120 },
-  { title: 'Location', dataIndex: 'location', key: 'location', width: 200 },
-  { title: 'Phone', dataIndex: 'phone', key: 'phone', width: 140 },
-  { title: 'Contains', key: 'counts', width: 200 },
-  { title: 'Status', key: 'is_active', dataIndex: 'is_active', sorter: true, width: 110 },
+  { title: s('Department'), key: 'name', dataIndex: 'name', sorter: true },
+  { title: s('Code'), key: 'code', dataIndex: 'code', sorter: true, width: 120 },
+  { title: s('Location'), dataIndex: 'location', key: 'location', width: 200 },
+  { title: s('Phone'), dataIndex: 'phone', key: 'phone', width: 140 },
+  { title: s('Contains'), key: 'counts', width: 200 },
+  { title: s('Status'), key: 'is_active', dataIndex: 'is_active', sorter: true, width: 110 },
   { title: '', key: 'actions', width: 90 },
 ]);
 
@@ -148,7 +151,7 @@ function empty() {
 }
 
 const rules = computed(() => ({
-  name: [{ required: true, message: t('Field_is_required', 'This field is required') }],
+  name: [{ required: true, message: s('This field is required') }],
 }));
 
 function openForm(record) {
@@ -178,12 +181,12 @@ async function submit() {
   try {
     if (editing.value) await http.put(`hospital/departments/${editing.value.id}`, form.value);
     else await http.post('hospital/departments', form.value);
-    message.success(t('Created_in_successfully', 'Saved successfully'));
+    message.success(s('Saved successfully'));
     formOpen.value = false;
     editing.value = null;
     crud.fetchRows();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not save this department'));
+    message.error(e?.data?.message || s('Could not save this department'));
   } finally {
     saving.value = false;
   }

@@ -229,10 +229,12 @@ import http from '../../lib/http';
 import { uploadForm } from '../../lib/upload';
 import { sortByLabel } from '../../lib/filterOptions';
 import { localName, isSpanish } from '../../lib/localName';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 const { money, date } = useFormat();
 const auth = useAuthStore();
+const { isSystem } = useSystemContext();
 
 const filters = ref({
   date_from: '', date_to: '', Ref: '', payment_method_id: undefined,
@@ -327,6 +329,8 @@ const columns = computed(() => [
   // Expense group of the category (expense-list column).
   { title: isSpanish() ? 'Grupo de gasto' : 'Expense group', dataIndex: 'category_group', key: 'category_group', exportValue: r => localName(r, 'category_group') },
   { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Details'), dataIndex: 'details', key: 'details', ellipsis: true },
   { title: t('Documents'), key: 'documents', width: 100, align: 'center' },
   { title: t('Action'), key: 'actions', width: 140, align: 'center' },

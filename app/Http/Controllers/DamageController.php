@@ -38,7 +38,8 @@ class DamageController extends BaseController
 
         // Company boundary: SuperAdmin may narrow via ?company_id=; everyone else
         // is always scoped to their own company, regardless of record_view.
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
             $warehouse_ids = UserWarehouse::where('user_id', $user->id)
@@ -58,7 +59,7 @@ class DamageController extends BaseController
 
         $Damages = Damage::with('warehouse')
             ->where('deleted_at', '=', null)
-            ->where('company_id', '=', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', '=', $companyId))
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -94,8 +95,11 @@ class DamageController extends BaseController
             $item['Ref'] = $DamageRow->Ref;
             $item['warehouse_name'] = $DamageRow['warehouse']->name;
             $item['items'] = $DamageRow->items;
+            $item['company_id'] = $DamageRow->company_id;
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {

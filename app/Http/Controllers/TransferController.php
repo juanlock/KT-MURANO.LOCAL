@@ -40,7 +40,8 @@ class TransferController extends BaseController
 
         // Company boundary: SuperAdmin may narrow via ?company_id=; everyone else
         // is always scoped to their own company, regardless of record_view.
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $warehouse_ids = [];
         if (! $is_all_warehouses) {
@@ -65,7 +66,7 @@ class TransferController extends BaseController
         // Check If User Has Permission View  All Records
         $transfers = Transfer::with('from_warehouse', 'to_warehouse')
             ->where('deleted_at', '=', null)
-            ->where('company_id', '=', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', '=', $companyId))
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -120,8 +121,11 @@ class TransferController extends BaseController
             $item['statut'] = $transfer->statut;
             // NEW: explicit approval status (old NULL rows are treated as approved in the model accessor)
             $item['approval_status'] = $transfer->approval_status;
+            $item['company_id'] = $transfer->company_id;
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
         // get warehouses assigned to user
         $user_auth = auth()->user();

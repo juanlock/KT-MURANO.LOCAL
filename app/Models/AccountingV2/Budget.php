@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Budget extends Model
 {
+    // Multicompany (2026-10-21): only the acting company's rows.
+    use \App\Models\Concerns\BelongsToActingCompany;
+
     protected $table = 'acc_budgets';
 
     protected $fillable = [

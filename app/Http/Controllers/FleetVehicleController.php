@@ -49,8 +49,8 @@ class FleetVehicleController extends Controller
         $order = in_array($request->SortField, self::SORTABLE, true) ? $request->SortField : 'created_at';
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
-        $query = Vehicle::with('warehouse', 'driver')->whereNull('deleted_at')
-            ->where('company_id', $this->resolveActingCompanyId($request));
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $query = $this->scopeListToCompany(Vehicle::with('warehouse', 'driver')->whereNull('deleted_at'), $request);
 
         // Vehicles are stationed at a warehouse; one with no warehouse belongs
         // to the whole company and stays visible to everyone.
@@ -95,10 +95,14 @@ class FleetVehicleController extends Controller
         $offset = ($page * $perPage) - $perPage;
 
         $vehicles = $query->orderBy($order, $dir)->offset($offset)->limit($perPage)->get();
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $companyNames = \App\Models\Company::whereIn('id', $vehicles->pluck('company_id')->unique())->pluck('name', 'id');
 
         return response()->json([
             'totalRows' => $totalRows,
-            'vehicles' => $vehicles->map(fn ($v) => $this->present($v))->values(),
+            'vehicles' => $vehicles->map(fn ($v) => $this->present($v) + [
+                'company_name' => $v->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$v->company_id] ?? null),
+            ])->values(),
         ]);
     }
 
@@ -236,7 +240,8 @@ class FleetVehicleController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Vehicle::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
         $today = Carbon::today();
         $soon = $today->copy()->addDays(self::DUE_SOON_DAYS);
         $monthStart = $today->copy()->startOfMonth();
@@ -244,7 +249,7 @@ class FleetVehicleController extends Controller
         // Every tile below is counted over the vehicles this user may see, so
         // the totals and the cost figures describe the same fleet.
         $visibleVehicleIds = $this->scopeToWarehouses(
-            Vehicle::whereNull('deleted_at')->where('company_id', $companyId), 'warehouse_id', true
+            Vehicle::whereNull('deleted_at')->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId)), 'warehouse_id', true
         )->pluck('id')->all();
 
         $byStatus = Vehicle::whereNull('deleted_at')->whereIn('id', $visibleVehicleIds)

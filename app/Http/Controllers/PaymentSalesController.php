@@ -46,6 +46,8 @@ class PaymentSalesController extends BaseController
         $this->authorizeForUser($request->user('api'), 'Reports_payments_Sales', PaymentSale::class);
 
         $companyId = $this->resolveActingCompanyId($request);
+        // The list's company: null = every company (superadmin/AdminSystem, 2026-10-21).
+        $listCompanyId = $this->listCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -92,9 +94,10 @@ class PaymentSalesController extends BaseController
         // Company boundary: an is_all_warehouses admin has no warehouse
         // restriction above, so this is the only thing stopping them from
         // seeing another company's payments (same rule as SalesController).
-        if ($user->type !== 'SuperAdmin' || $request->filled('company_id')) {
-            $Payments->whereHas('sale', function ($q) use ($companyId) {
-                $q->where('company_id', $companyId);
+        // superadmin/AdminSystem: every company (2026-10-21) -- listCompanyId().
+        if ($listCompanyId !== null) {
+            $Payments->whereHas('sale', function ($q) use ($listCompanyId) {
+                $q->where('company_id', $listCompanyId);
             });
         }
         // Multiple Filter
@@ -172,10 +175,14 @@ class PaymentSalesController extends BaseController
             ->limit($perPage)
             ->orderBy($order, $dir)
             ->get();
+        // superadmin/AdminSystem: each row says whose it is (2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', $Payments->pluck('sale.company_id')->filter()->unique())->pluck('name', 'id');
 
         foreach ($Payments as $Payment) {
 
             $item['date'] = $Payment->date;
+            $paymentCompanyId = (int) optional($Payment['sale'])->company_id;
+            $item['company_name'] = $paymentCompanyId === \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$paymentCompanyId] ?? null);
             $item['Ref'] = $Payment->Ref;
             $item['Ref_Sale'] = $Payment['sale']->Ref;
             $item['sale_id'] = $Payment['sale']->id;
@@ -190,12 +197,12 @@ class PaymentSalesController extends BaseController
         // Company boundary: the Customer/Sale filter dropdowns must not leak
         // another company's records (same rule as SalesController).
         $clients = Client::where('deleted_at', '=', null)
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->get(['id', 'name']);
-        $sales = Sale::when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-            return $query->where('company_id', $companyId);
+        $sales = Sale::when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+            return $query->where('company_id', $listCompanyId);
         })->get(['Ref', 'id']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 

@@ -178,6 +178,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { uploadForm } from '../../lib/upload';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 
@@ -213,12 +214,15 @@ const rules = computed(() => ({
   ],
 }));
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Name'), key: 'full_name' },
   { title: t('Email'), dataIndex: 'email', key: 'email', sorter: true },
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
   { title: t('Source'), key: 'source' },
   { title: t('Applications'), dataIndex: 'applications_count', key: 'applications_count', align: 'center' },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Action'), key: 'actions', width: 100 },
 ]);
 

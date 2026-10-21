@@ -69,6 +69,7 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../../lib/systemContext';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
   CheckCircleOutlined, WarningOutlined, CloseCircleOutlined,
@@ -82,6 +83,7 @@ import { CONTRACT_TYPES, CONTRACT_STATUSES, contractTypeLabel, contractStatusLab
 import http from '../../lib/http';
 
 const { t } = useI18n();
+const { isSystem } = useSystemContext();
 const { money, date } = useFormat();
 
 const crud = useCrudTable('contracts', { rowsKey: 'contracts' });
@@ -102,6 +104,8 @@ const tiles = computed(() => [
 const columns = computed(() => [
   { title: '#', dataIndex: 'contract_number', key: 'contract_number', sorter: true },
   { title: t('Subject'), dataIndex: 'subject', key: 'subject', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose record it is.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Employee'), dataIndex: 'employee_name', key: 'employee_name' },
   { title: t('Amount'), key: 'value', dataIndex: 'value', sorter: true, align: 'right', exportValue: r => money(r.value) },
   { title: t('Categorie'), key: 'type', dataIndex: 'type', exportValue: r => typeLabel(r.type) },

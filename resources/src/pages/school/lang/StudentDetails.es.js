@@ -75,4 +75,5 @@ export default {
     'Unpaid': 'Sin pagar',
     'Partly paid': 'Pago parcial',
     'Cancelled': 'Anulado',
+    'Report card': 'Libreta',
 };

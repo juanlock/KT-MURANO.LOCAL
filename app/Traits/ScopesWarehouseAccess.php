@@ -80,6 +80,10 @@ trait ScopesWarehouseAccess
         // the header switcher (company_id), which then limits them to it.
         if ($user && $user->type === 'SuperAdmin') {
             $companyId = (int) request()->input('company_id');
+            // superadmin/AdminSystem (999) = every company, no warehouse restriction (2026-10-21).
+            if ($companyId === \App\Models\Setting::TEMPLATE_COMPANY_ID) {
+                $companyId = 0;
+            }
 
             return $companyId
                 ? Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->map(fn ($id) => (int) $id)->all()

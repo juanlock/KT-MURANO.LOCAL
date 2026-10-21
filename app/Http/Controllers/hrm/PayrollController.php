@@ -44,7 +44,8 @@ class PayrollController extends Controller
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Payroll::class);
-        $companyId = $this->payrollCompany($request);
+        // superadmin/AdminSystem: every company (2026-10-21)
+        $companyId = $this->listCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -84,7 +85,13 @@ class PayrollController extends Controller
             ->orderBy($order, $dir)
             ->get();
 
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $rowCompany = fn ($p) => $p->company_id ?: optional($p->employee)->company_id;
+        $companyNames = \App\Models\Company::whereIn('id', $payrolls_data->map($rowCompany)->filter()->unique())->pluck('name', 'id');
+
         foreach ($payrolls_data as $payroll) {
+            $rc = $rowCompany($payroll);
+            $item['company_name'] = $rc == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$rc] ?? null);
 
             $item['id'] = $payroll->id;
             $item['Ref'] = $payroll->Ref;

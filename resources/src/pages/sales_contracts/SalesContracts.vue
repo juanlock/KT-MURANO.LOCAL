@@ -84,9 +84,11 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { sortByLabel } from '../../lib/filterOptions';
+import { useSystemContext } from '../../lib/systemContext';
 import { STATUS_COLORS, statusLabel, billingLabel, STATUS_OPTIONS } from './salesContractVocab';
 
 const auth = useAuthStore();
+const { isSystem } = useSystemContext();
 const can = p => auth.user?.type === 'SuperAdmin' || auth.can(p);
 const { money, date } = useFormat();
 const today = dayjs().format('YYYY-MM-DD');
@@ -125,6 +127,8 @@ const columns = computed(() => [
   { title: 'Action', key: 'actions', width: 110, align: 'center' },
   { title: '#', dataIndex: 'contract_number', key: 'contract_number', sorter: true },
   { title: 'Subject', dataIndex: 'subject', key: 'subject', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose record it is.
+  ...(isSystem.value ? [{ title: 'Company', key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: 'Customer', dataIndex: 'client_name', key: 'client_name' },
   { title: 'Value', key: 'value', dataIndex: 'value', align: 'right', sorter: true, exportValue: r => money(r.value) },
   { title: 'Billing', key: 'billing', exportValue: r => (r.billing_enabled ? billingLabel(r) : 'One-off') },

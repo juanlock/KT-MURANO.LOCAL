@@ -160,7 +160,8 @@ class MeetingController extends Controller
     public function meetings_index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Meeting::class);
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -170,7 +171,7 @@ class MeetingController extends Controller
 
         $meetings = Meeting::with('organizer:id,firstname,lastname,username')
             ->withCount('participants')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('status'), function ($q) use ($request) {
                     $q->where('status', $request->status);
@@ -203,6 +204,9 @@ class MeetingController extends Controller
         }
 
         $meetings = $meetings->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get();
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $companyNames = \App\Models\Company::whereIn('id', $meetings->pluck('company_id')->unique())->pluck('name', 'id');
+        $meetings->each(fn ($m) => $m->company_name = $m->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$m->company_id] ?? null));
 
         return response()->json([
             'meetings'  => $meetings,

@@ -154,10 +154,12 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { sortByLabel } from '../../lib/filterOptions';
+import { useSystemContext } from '../../lib/systemContext';
 import { localName, isSpanish } from '../../lib/localName';
 import http from '../../lib/http';
 
 const { t } = useI18n();
+const { isSystem } = useSystemContext();
 // Follows the user's language live (lib/localName).
 const es = computed(() => isSpanish());
 
@@ -211,6 +213,8 @@ function onGroupPicked(value) {
 
 const columns = computed(() => [
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true, exportValue: r => localName(r) },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: L.value.reference, dataIndex: 'reference', key: 'reference', ellipsis: true, defaultHidden: true },
   { title: L.value.group, dataIndex: 'expense_group', key: 'expense_group', sorter: true, exportValue: r => localName(r, 'expense_group') },
   { title: L.value.type, dataIndex: 'account_type', key: 'account_type', sorter: true, exportValue: r => typeLabel(r.account_type) },

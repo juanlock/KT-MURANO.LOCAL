@@ -18,7 +18,8 @@ class SizeGuideController extends Controller
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', SizeGuide::class);
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -26,7 +27,7 @@ class SizeGuideController extends Controller
         $order = $request->SortField ?: 'id';
         $dir = $request->SortType ?: 'desc';
 
-        $query = SizeGuide::where('deleted_at', '=', null)->where('company_id', $companyId)
+        $query = SizeGuide::where('deleted_at', '=', null)->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
                     return $query->where('name', 'LIKE', "%{$request->search}%");
@@ -49,8 +50,11 @@ class SizeGuideController extends Controller
                     'rows_count' => is_array($g->rows) ? count($g->rows) : 0,
                     'status' => (bool) $g->status,
                     'created_at' => optional($g->created_at)->toDateTimeString(),
+                    'company_id' => $g->company_id,
                 ];
             });
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $guides = \App\Support\CompanyNames::attach($guides);
 
         return response()->json([
             'size_guides' => $guides,

@@ -89,9 +89,9 @@ class SalesReturnController extends BaseController
         $data = [];
 
         // Check If User Has Permission View  All Records
-        $SaleReturn = SaleReturn::with('sale', 'facture', 'client', 'warehouse')
+        // superadmin/AdminSystem: every company (2026-10-21) -- listCompanyId().
+        $SaleReturn = $this->scopeListToCompany(SaleReturn::with('sale', 'facture', 'client', 'warehouse'), $request)
             ->where('deleted_at', '=', null)
-            ->where('company_id', '=', $companyId)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -137,10 +137,13 @@ class SalesReturnController extends BaseController
             'client_name' => ['clients', 'client_id'],
             'warehouse_name' => ['warehouses', 'warehouse_id'],
         ], 'id')->get();
+        // superadmin/AdminSystem: each row says whose it is (2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', $SaleReturn->pluck('company_id')->unique())->pluck('name', 'id');
 
         foreach ($SaleReturn as $Sale_Return) {
 
             $item['id'] = $Sale_Return->id;
+            $item['company_name'] = (int) $Sale_Return->company_id === \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$Sale_Return->company_id] ?? null);
             $item['date'] = $Sale_Return['date'].' '.$Sale_Return['time'];
             $item['Ref'] = $Sale_Return->Ref;
             $item['discount'] = $Sale_Return->discount;
@@ -167,18 +170,19 @@ class SalesReturnController extends BaseController
         // Company boundary: the client/sale pickers must not leak another
         // company's data. Accounts/payment methods have no company_id column
         // (pre-existing, out of scope -- same note as PurchasesReturnController).
-        $customers = client::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
-        $sales = Sale::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'Ref']);
+        // Filter options follow the list's company (every company for superadmin/AdminSystem).
+        $customers = $this->scopeListToCompany(client::where('deleted_at', '=', null), $request)->get(['id', 'name']);
+        $sales = $this->scopeListToCompany(Sale::where('deleted_at', '=', null), $request)->get(['id', 'Ref']);
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
 
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::where('deleted_at', '=', null), $request)->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
-            $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->where('company_id', $companyId)->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id), $request)->get(['id', 'name']);
         }
 
         return response()->json([

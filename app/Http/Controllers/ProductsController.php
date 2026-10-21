@@ -58,7 +58,9 @@ class ProductsController extends BaseController
         // picker sends it); everyone else is locked to their own company.
         // Without this, products/categories/subcategories/brands from every
         // company were mixed together in this list.
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
+        $inCompany = fn ($q) => $q->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId));
 
         $perPage = $request->integer('limit', 10);
         $pageStart = (int) ($request->get('page', 1));
@@ -94,7 +96,7 @@ class ProductsController extends BaseController
 
         $productsQuery = Product::with('unit', 'category', 'subCategory', 'brand', 'categories', 'productGroup')
             ->whereNull('deleted_at')
-            ->where('company_id', $companyId);
+            ->when($companyId !== null, fn ($q) => $q->where('products.company_id', $companyId));
 
 
 
@@ -345,8 +347,11 @@ class ProductsController extends BaseController
                 $item['min_price'] = number_format((float) $product->min_price, helpers::price_decimals(), '.', '');
             }
 
+            $item['company_id'] = $product->company_id;
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
         // warehouses for user
         $user_auth = auth()->user();
@@ -357,9 +362,9 @@ class ProductsController extends BaseController
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $categories = Category::whereNull('deleted_at')->where('company_id', $companyId)->get(['id', 'name']);
-        $subcategories = SubCategory::where('company_id', $companyId)->orderBy('name')->get(['id', 'name', 'category_id']);
-        $brands = Brand::whereNull('deleted_at')->where('company_id', $companyId)->get(['id', 'name']);
+        $categories = $inCompany(Category::whereNull('deleted_at'))->get(['id', 'name']);
+        $subcategories = $inCompany(SubCategory::query())->orderBy('name')->get(['id', 'name', 'category_id']);
+        $brands = $inCompany(Brand::whereNull('deleted_at'))->get(['id', 'name']);
 
         return response()->json([
             'warehouses' => $warehouses,
@@ -2744,7 +2749,8 @@ class ProductsController extends BaseController
             ->join('products', 'product_warehouse.product_id', '=', 'products.id')
             // Belt-and-braces alongside the warehouse-assignment scope above --
             // guards a stale/legacy cross-company row from surfacing here.
-            ->where('products.company_id', $this->resolveActingCompanyId($request))
+            // superadmin/AdminSystem: every company (2026-10-21).
+            ->when($this->listCompanyId($request) !== null, fn ($q) => $q->where('products.company_id', $this->listCompanyId($request)))
             ->where('manage_stock', true)
             ->whereRaw('qte <= stock_alert')
             ->whereIn('product_warehouse.warehouse_id', $allowedWarehouseIds)
@@ -2768,10 +2774,14 @@ class ProductsController extends BaseController
                     $item['quantity'] = $product_warehouse->qte;
                     $item['warehouse'] = $product_warehouse['warehouse']->name;
                     $item['stock_alert'] = $product_warehouse['product']->stock_alert;
+                    $item['company_id'] = $product_warehouse['product']->company_id;
                     $data[] = $item;
                 }
             }
         }
+
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
         // Whole-set stats for the report's summary cards (before pagination).
         $stats = [
@@ -4285,13 +4295,16 @@ class ProductsController extends BaseController
         // its warehouse (every warehouse belongs to exactly one company).
         // Belt-and-braces alongside the userWarehouseIds() scope below.
         $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- the list only;
+        // the categories below (new count form) stay on the acting company.
+        $listCompanyId = $this->listCompanyId($request);
 
         $count_stock = CountStock::whereNull('deleted_at')
             ->with(['warehouse', 'user', 'category'])
             ->whereIn('warehouse_id', $this->userWarehouseIds())
-            ->whereHas('warehouse', function ($query) use ($companyId) {
-                $query->where('company_id', $companyId);
-            })
+            ->when($listCompanyId !== null, fn ($q) => $q->whereHas('warehouse', function ($query) use ($listCompanyId) {
+                $query->where('company_id', $listCompanyId);
+            }))
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('search'), function ($query) use ($request) {
                     $search = $request->search;
@@ -4321,9 +4334,12 @@ class ProductsController extends BaseController
             $item['warehouse_name'] = $stock['warehouse']->name;
             $item['category_name'] = $stock['category'] ? $stock['category']->name : '---';
             $item['file_stock'] = $stock->file_stock;
+            $item['company_id'] = $stock['warehouse']->company_id;
 
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
         // get warehouses assigned to user
         $user_auth = auth()->user();

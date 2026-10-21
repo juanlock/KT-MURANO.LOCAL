@@ -1086,6 +1086,18 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::put('hospital/lab-orders/{id}', 'HospitalLabController@updateOrder');
     Route::delete('hospital/lab-orders/{id}', 'HospitalLabController@destroyOrder');
 
+    // Emergency Room + Pharmacy (2026-10-21)
+    Route::get('hospital/er/board', 'HospitalErController@board');
+    Route::get('hospital/er/history', 'HospitalErController@history');
+    Route::get('hospital/er/patients', 'HospitalErController@searchPatients');
+    Route::post('hospital/er/{id}/status', 'HospitalErController@setStatus');
+    Route::post('hospital/er/{id}/close', 'HospitalErController@close');
+    Route::post('hospital/er', 'HospitalErController@store');
+    Route::put('hospital/er/{id}', 'HospitalErController@update');
+    Route::delete('hospital/er/{id}', 'HospitalErController@destroy');
+    Route::get('hospital/pharmacy', 'HospitalPharmacyController@index');
+    Route::get('hospital/pharmacy/{id}', 'HospitalPharmacyController@show');
+
     Route::get('hospital/payments', 'HospitalBillingController@payments');
     Route::post('hospital/invoices/draft-from', 'HospitalBillingController@draftFrom');
     Route::post('hospital/invoices/{id}/payments', 'HospitalBillingController@storePayment');
@@ -1140,6 +1152,8 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     // Students + enrolment
     Route::post('school/students/delete/by_selection', 'SchoolStudentController@deleteBySelection');
     Route::get('school/students/{id}/timeline', 'SchoolStudentController@timeline');
+    Route::get('school/students/{id}/report-card', 'SchoolStudentController@reportCard');
+    Route::get('school/students-highlights', 'SchoolStudentController@highlights');
     Route::get('school/students/{id}/edit', 'SchoolStudentController@edit');
     Route::post('school/students/{id}/update', 'SchoolStudentController@update');
     Route::get('school/students', 'SchoolStudentController@index');
@@ -1156,6 +1170,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('school/attendance/register', 'SchoolAttendanceController@register');
     Route::post('school/attendance/register', 'SchoolAttendanceController@save');
     Route::get('school/attendance/summary', 'SchoolAttendanceController@summary');
+    Route::get('school/attendance/overview', 'SchoolAttendanceController@overview');
 
     // Timetable
     Route::get('school/timetable', 'SchoolTimetableController@index');
@@ -1709,6 +1724,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('demo_data/status', 'DemoDataController@status');
     Route::post('demo_data/generate', 'DemoDataController@generate');
     Route::delete('demo_data', 'DemoDataController@reset');
+    Route::post('demo_data/wipe', 'DemoDataController@wipe');
     // Dedicated Dark Mode endpoints (independent from other settings APIs)
     Route::put('pos_settings/{id}', 'SettingsController@update_pos_settings');
     Route::get('get_pos_Settings', 'SettingsController@get_pos_Settings');

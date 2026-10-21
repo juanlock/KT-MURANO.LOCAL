@@ -418,6 +418,7 @@ import { ref, computed, createVNode } from 'vue';
 import { useRouter } from 'vue-router';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../../lib/systemContext';
 import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, MoreOutlined,
   FilePdfOutlined, FileExcelOutlined, MailOutlined, MessageOutlined,
@@ -600,10 +601,13 @@ const paymentStatusOptions = computed(() =>
   ))
 );
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 130, align: 'center', fixed: 'left' },
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true, exportValue: r => dateTime(r.date) },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Supplier'), dataIndex: 'provider_name', key: 'provider_name', sorter: true },
   { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name', sorter: true },
   { title: t('Status'), dataIndex: 'statut', key: 'statut', sorter: true, exportValue: r => r.statut },

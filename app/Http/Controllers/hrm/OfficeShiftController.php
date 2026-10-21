@@ -19,7 +19,8 @@ class OfficeShiftController extends Controller
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', OfficeShift::class);
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21)
+        $companyId = $this->listCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -30,7 +31,7 @@ class OfficeShiftController extends Controller
         $dir = $request->SortType;
         $data = [];
         $office_shifts = OfficeShift::with('company:id,name')->where('deleted_at', '=', null)
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
@@ -51,8 +52,8 @@ class OfficeShiftController extends Controller
 
             $item['id'] = $office_shift->id;
             $item['name'] = $office_shift->name;
-            $item['company_id'] = $office_shift['company']->id;
-            $item['company_name'] = $office_shift['company']->name;
+            $item['company_id'] = $office_shift->company_id;
+            $item['company_name'] = $office_shift->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : optional($office_shift['company'])->name;
             $item['monday_in'] = $office_shift->monday_in ? substr($office_shift->monday_in, 0, -2) : null;
             $item['monday_out'] = $office_shift->monday_out ? substr($office_shift->monday_out, 0, -2) : null;
             $item['tuesday_in'] = $office_shift->tuesday_in ? substr($office_shift->tuesday_in, 0, -2) : null;

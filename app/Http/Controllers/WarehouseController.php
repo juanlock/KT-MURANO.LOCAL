@@ -28,13 +28,13 @@ class WarehouseController extends Controller
         $order = $request->SortField;
         $dir = $request->SortType;
 
-        $user = $request->user('api');
+        // Company boundary -- superadmin/AdminSystem: every company (2026-10-21);
+        // superadmin/<company> = that company; everyone else only their own.
+        $listCompanyId = $this->listCompanyId($request);
 
         $warehouses = Warehouse::where('deleted_at', '=', null)
-            // Company boundary: a SuperAdmin sees every company (optionally
-            // narrowed via ?company_id=); everyone else only their own.
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($request) {
-                return $query->where('company_id', $this->resolveActingCompanyId($request));
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
 
         // Search With Multiple Param
@@ -56,6 +56,8 @@ class WarehouseController extends Controller
             ->limit($perPage)
             ->orderBy($order, $dir)
             ->get();
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $warehouses = \App\Support\CompanyNames::attach($warehouses);
 
         return response()->json([
             'warehouses' => $warehouses,

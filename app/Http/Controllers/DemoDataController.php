@@ -62,6 +62,9 @@ class DemoDataController extends Controller
             'business_type' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Support\BusinessTypes::LABELS))],
             // HRM / Payroll history: are the staff paid by hours or commission?
             'pay_type' => ['nullable', 'in:hourly,commission'],
+            // School: the school year's first and last day (they vary per school).
+            'school_start' => ['nullable', 'date'],
+            'school_end' => ['nullable', 'date', 'after:school_start'],
         ]);
         $companyId = (int) $this->resolveActingCompanyId($request);
         $userId = (int) $request->user('api')->id;
@@ -90,9 +93,36 @@ class DemoDataController extends Controller
             \App\Support\BusinessTypes::set($companyId, $data['business_type']);
         }
 
-        $results = DemoRunner::run($companyId, $userId, $modules, $data['pay_type'] ?? null);
+        $results = DemoRunner::run($companyId, $userId, $modules, $data['pay_type'] ?? null,
+            array_filter(['school_start' => $data['school_start'] ?? null, 'school_end' => $data['school_end'] ?? null]));
 
         return response()->json(['success' => true, 'results' => $results, 'replaced' => $replaced]);
+    }
+
+    /**
+     * SuperAdmin only (user's rule, 2026-10-21): delete ALL of one module's data
+     * for the acting company -- the real rows too -- so a test company's module
+     * can get fresh demo data. Never for AdminSystem; one transaction.
+     */
+    public function wipe(Request $request)
+    {
+        $user = $request->user('api');
+        abort_unless(optional($user)->type === 'SuperAdmin', 403, 'Only a SuperAdmin can delete real data.');
+        $data = $request->validate(['module' => ['required', 'string', 'max:40']]);
+        $companyId = (int) $this->resolveActingCompanyId($request);
+        abort_if(! $companyId || $companyId === Setting::TEMPLATE_COMPANY_ID, 422, 'Choose a company in the switcher first.');
+        $module = DemoModules::all()[$data['module']] ?? null;
+        abort_unless($module && $module->wipePlan(), 422, 'This module has no "delete real data" option.');
+
+        try {
+            $deleted = DemoRunner::wipe($companyId, $module);
+        } catch (\Illuminate\Database\QueryException $e) {
+            report($e);
+
+            return response()->json(['message' => 'Delete failed: other records still point to this data. Nothing was deleted.'], 409);
+        }
+
+        return response()->json(['success' => true, 'deleted' => $deleted]);
     }
 
     public function reset(Request $request)

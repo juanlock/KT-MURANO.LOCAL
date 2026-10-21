@@ -60,7 +60,8 @@ class AttendancesController extends Controller
         $dir = $request->SortType;
         $data = [];
         // Multicompany: the acting company's attendance only (a SuperAdmin on "all": every company).
-        $companyId = $this->attendanceCompany($request);
+        // superadmin/AdminSystem: every company (2026-10-21)
+        $companyId = $this->listCompanyId($request);
         $attendances = Attendance::with('employee', 'company')
             ->where('deleted_at', '=', null)
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
@@ -101,10 +102,10 @@ class AttendancesController extends Controller
             $item['clock_in'] = $attendance->clock_in;
             $item['clock_out'] = $attendance->clock_out;
             $item['total_work'] = $attendance->total_work;
-            $item['company_id'] = $attendance['company']->id;
-            $item['employee_id'] = $attendance['employee']->id;
-            $item['company_name'] = $attendance['company']->name;
-            $item['employee_username'] = $attendance['employee']->username;
+            $item['company_id'] = $attendance->company_id;
+            $item['employee_id'] = $attendance->employee_id;
+            $item['company_name'] = $attendance->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : optional($attendance['company'])->name;
+            $item['employee_username'] = optional($attendance['employee'])->username;
 
             $data[] = $item;
         }

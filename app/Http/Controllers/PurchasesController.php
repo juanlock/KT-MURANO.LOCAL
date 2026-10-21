@@ -98,13 +98,11 @@ class PurchasesController extends BaseController
         // mirrors the fix already applied to Billing's PurchasesController (record_view
         // used to double as the company gate and silently stopped scoping once every
         // Admin got record_view=true) and to this app's ClientController/WarehouseController.
-        $companyId = $this->resolveActingCompanyId($request);
-        // A SuperAdmin with no company picked in the switcher sees every
-        // company (same rule as SalesController::index). Previously this was
-        // an unconditional where(company_id = resolved id), and a SuperAdmin's
-        // own company_id is the pseudo-company 999 ("System"), which owns no
-        // purchases -- so the list and stat cards always showed 0 for them.
-        $scopeToCompany = $user->type !== 'SuperAdmin' || $request->filled('company_id');
+        // superadmin/AdminSystem: every company (2026-10-21) -- listCompanyId()
+        // is null for a SuperAdmin with AdminSystem (999) or nothing picked;
+        // superadmin/<company> = that company; anyone else = their own.
+        $companyId = $this->listCompanyId($request);
+        $scopeToCompany = $companyId !== null;
 
         // Check If User Has Permission View  All Records
         $Purchases = Purchase::with('facture', 'provider', 'warehouse', 'currency')
@@ -214,8 +212,12 @@ class PurchasesController extends BaseController
                 ->whereNull('deleted_at')
                 ->count();
 
+            $item['company_id'] = $Purchase->company_id;
+
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
         $suppliers = Provider::where('deleted_at', '=', null)
             ->when($scopeToCompany, function ($query) use ($companyId) {

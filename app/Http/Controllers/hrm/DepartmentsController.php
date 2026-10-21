@@ -18,7 +18,8 @@ class DepartmentsController extends Controller
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Department::class);
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21)
+        $companyId = $this->listCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -29,10 +30,11 @@ class DepartmentsController extends Controller
         $dir = $request->SortType;
 
         $departments = Department::leftjoin('employees', 'employees.id', '=', 'departments.department_head')
-            ->join('companies', 'companies.id', '=', 'departments.company_id')
+            ->leftJoin('companies', 'companies.id', '=', 'departments.company_id')
             ->where('departments.deleted_at', '=', null)
-            ->where('departments.company_id', $companyId)
-            ->select('departments.*', 'employees.username AS employee_head', 'companies.name AS company_name')
+            ->when($companyId !== null, fn ($q) => $q->where('departments.company_id', $companyId))
+            ->select('departments.*', 'employees.username AS employee_head',
+                \DB::raw("CASE WHEN departments.company_id = ".\App\Models\Setting::TEMPLATE_COMPANY_ID." THEN 'AdminSystem' ELSE companies.name END AS company_name"))
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {

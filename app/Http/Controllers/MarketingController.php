@@ -125,7 +125,8 @@ class MarketingController extends Controller
     public function campaigns_index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', MarketingCampaign::class);
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -133,7 +134,7 @@ class MarketingController extends Controller
         $order = $request->SortField ?: 'id';
         $dir = $request->SortType ?: 'desc';
 
-        $query = MarketingCampaign::where('company_id', $companyId);
+        $query = MarketingCampaign::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId));
 
         $query->when($request->filled('type'), function ($q) use ($request) {
             $q->where('type', $request->type);
@@ -156,6 +157,9 @@ class MarketingController extends Controller
 
         $campaigns = $query->orderBy($order, $dir)
             ->offset($offSet)->limit($perPage)->get();
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $companyNames = \App\Models\Company::whereIn('id', $campaigns->pluck('company_id')->unique())->pluck('name', 'id');
+        $campaigns->each(fn ($m) => $m->company_name = $m->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$m->company_id] ?? null));
 
         return response()->json([
             'campaigns' => $campaigns,

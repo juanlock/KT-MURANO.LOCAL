@@ -100,6 +100,7 @@ import { startPreset } from '../../lib/datePresetDefault';
  */
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../../lib/systemContext';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
 import { presetOf, presetRange } from '../../lib/datePresets';
@@ -118,6 +119,7 @@ import { printPosReceipt } from '../../lib/printPosReceipt';
 import http from '../../lib/http';
 
 const { t } = useI18n();
+const { isSystem } = useSystemContext();
 const auth = useAuthStore();
 const { money, number, dateTime } = useFormat();
 
@@ -189,6 +191,8 @@ const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 120, align: 'center', fixed: 'left' },
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true, exportValue: r => dateTime(r.date) },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose record it is.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: 'Cashier', dataIndex: 'created_by', key: 'created_by' },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name', sorter: true },
   { title: t('Name'), dataIndex: 'product_names', key: 'product_names', width: 240, ellipsis: { showTitle: true } },

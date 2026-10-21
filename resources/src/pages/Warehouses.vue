@@ -168,6 +168,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../lib/systemContext';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../components/PageHeader.vue';
 import DataTable from '../components/DataTable.vue';
@@ -183,8 +184,11 @@ const tab = ref('warehouses');
 /* ------------------------------------------------------------ warehouses */
 const crud = useCrudTable('warehouses', { rowsKey: 'warehouses' });
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Phone'), dataIndex: 'mobile', key: 'mobile' },
   { title: t('Country'), dataIndex: 'country', key: 'country' },
   { title: t('City'), dataIndex: 'city', key: 'city' },

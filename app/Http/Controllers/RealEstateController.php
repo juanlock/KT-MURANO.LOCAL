@@ -60,43 +60,53 @@ class RealEstateController extends Controller
         return $slug;
     }
 
+    /** superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is (one query). */
+    private function withCompanyNames($rows)
+    {
+        $names = \App\Models\Company::whereIn('id', $rows->pluck('company_id')->unique())->pluck('name', 'id');
+        $rows->each(fn ($r) => $r->company_name = $r->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($names[$r->company_id] ?? null));
+
+        return $rows;
+    }
+
     // ======================== DASHBOARD ========================
 
     public function dashboard(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Property::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $stats = [
-            'total_properties'     => Property::where('company_id', $companyId)->count(),
-            'available_properties' => Property::where('company_id', $companyId)->where('status', 'available')->count(),
-            'sold_properties'      => Property::where('company_id', $companyId)->where('status', 'sold')->count(),
-            'rented_properties'    => Property::where('company_id', $companyId)->where('status', 'rented')->count(),
-            'featured_properties'  => Property::where('company_id', $companyId)->where('featured', 1)->count(),
-            'total_categories'     => PropertyCategory::where('company_id', $companyId)->count(),
-            'new_inquiries'        => PropertyInquiry::where('company_id', $companyId)->where('status', 'new')->count(),
-            'total_inquiries'      => PropertyInquiry::where('company_id', $companyId)->count(),
+            'total_properties'     => Property::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->count(),
+            'available_properties' => Property::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->where('status', 'available')->count(),
+            'sold_properties'      => Property::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->where('status', 'sold')->count(),
+            'rented_properties'    => Property::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->where('status', 'rented')->count(),
+            'featured_properties'  => Property::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->where('featured', 1)->count(),
+            'total_categories'     => PropertyCategory::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->count(),
+            'new_inquiries'        => PropertyInquiry::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->where('status', 'new')->count(),
+            'total_inquiries'      => PropertyInquiry::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->count(),
         ];
 
         $latest_properties = Property::with('category:id,name')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->orderByDesc('created_at')
             ->limit(8)
             ->get();
 
         $latest_inquiries = PropertyInquiry::with('property:id,title')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->orderByDesc('created_at')
             ->limit(8)
             ->get();
 
         $by_purpose = Property::select('purpose', DB::raw('count(*) as count'))
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->groupBy('purpose')->pluck('count', 'purpose')->toArray();
 
         $by_status = Property::select('status', DB::raw('count(*) as count'))
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->groupBy('status')->pluck('count', 'status')->toArray();
 
         return response()->json([
@@ -114,7 +124,8 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Property::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage  = (int) $request->get('limit', 10);
         $page     = (int) $request->get('page', 1);
@@ -128,7 +139,7 @@ class RealEstateController extends Controller
         }
 
         $query = Property::with('category:id,name')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($w) use ($search) {
                     $w->where('title', 'like', "%{$search}%")
@@ -143,7 +154,7 @@ class RealEstateController extends Controller
             ->orderBy($sortBy, $sortType === 'asc' ? 'asc' : 'desc');
 
         $totalRows = $query->count();
-        $properties = $query->skip(($page - 1) * $perPage)->take($perPage)->get();
+        $properties = $this->withCompanyNames($query->skip(($page - 1) * $perPage)->take($perPage)->get());
 
         return response()->json([
             'totalRows'  => $totalRows,
@@ -318,7 +329,8 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', PropertyCategory::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage  = (int) $request->get('limit', 10);
         $page     = (int) $request->get('page', 1);
@@ -331,12 +343,12 @@ class RealEstateController extends Controller
         }
 
         $query = PropertyCategory::withCount('properties')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->when($search !== '', fn ($q) => $q->where('name', 'like', "%{$search}%"))
             ->orderBy($sortBy, $sortType === 'asc' ? 'asc' : 'desc');
 
         $totalRows = $query->count();
-        $categories = $query->skip(($page - 1) * $perPage)->take($perPage)->get();
+        $categories = $this->withCompanyNames($query->skip(($page - 1) * $perPage)->take($perPage)->get());
 
         return response()->json([
             'totalRows'  => $totalRows,
@@ -438,7 +450,8 @@ class RealEstateController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', PropertyInquiry::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage  = (int) $request->get('limit', 10);
         $page     = (int) $request->get('page', 1);
@@ -451,7 +464,7 @@ class RealEstateController extends Controller
         }
 
         $query = PropertyInquiry::with('property:id,title,slug')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($w) use ($search) {
                     $w->where('name', 'like', "%{$search}%")
@@ -463,7 +476,7 @@ class RealEstateController extends Controller
             ->orderBy($sortBy, $sortType === 'asc' ? 'asc' : 'desc');
 
         $totalRows = $query->count();
-        $inquiries = $query->skip(($page - 1) * $perPage)->take($perPage)->get();
+        $inquiries = $this->withCompanyNames($query->skip(($page - 1) * $perPage)->take($perPage)->get());
 
         return response()->json([
             'totalRows' => $totalRows,

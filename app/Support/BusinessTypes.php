@@ -51,7 +51,8 @@ class BusinessTypes
      * others before creating. Business Modules -> "Modules of <type>" applies
      * them to an existing company.
      */
-    public const BASE_MODULES = ['accounting', 'assets', 'email_office', 'gallery', 'helpdesk', 'hrm', 'website',
+    // Documents (archive) is base for every type too (2026-10-21).
+    public const BASE_MODULES = ['accounting', 'assets', 'documents', 'email_office', 'gallery', 'helpdesk', 'hrm', 'website',
         // Commerce (switchable since 2026-10-20): every type starts with them, except the ones in EXCLUDE.
         'sales', 'pos', 'purchases', 'suppliers', 'products', 'customers'];
 

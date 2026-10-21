@@ -970,15 +970,17 @@ export const MENU = [
         permissions: [
             'hms_dashboard', 'hms_patients_view', 'hms_doctors', 'hms_departments',
             'hms_appointments', 'hms_visits', 'hms_admissions', 'hms_wards',
-            'hms_lab', 'hms_billing', 'hms_reports',
+            'hms_lab', 'hms_billing', 'hms_reports', 'hms_er', 'hms_pharmacy',
         ],
         children: [
             { label: 'Dashboard', to: '/app/hospital/dashboard', permissions: ['hms_dashboard'] },
+            { label: 'Emergency Room', to: '/app/hospital/er', permissions: ['hms_er'] },
             { label: 'Patients', to: '/app/hospital/patients', permissions: ['hms_patients_view'] },
             { label: 'Appointments', to: '/app/hospital/appointments', permissions: ['hms_appointments'] },
             { label: 'Consultations', to: '/app/hospital/visits', permissions: ['hms_visits'] },
             { label: 'Admissions', to: '/app/hospital/admissions', permissions: ['hms_admissions'] },
             { label: 'Wards & Beds', to: '/app/hospital/wards', permissions: ['hms_wards'] },
+            { label: 'Pharmacy', to: '/app/hospital/pharmacy', permissions: ['hms_pharmacy'] },
             {
                 label: 'Laboratory',
                 permissions: ['hms_lab'],
@@ -1026,7 +1028,7 @@ export const MENU = [
             // delegable to a company-level Admin's role even if their role
             // has the permission below -- see isMenuEntryAllowed() and the
             // matching abort_unless(...type === 'SuperAdmin') server-side.
-            { label: 'update_settings', to: '/app/settings/update_settings', permissions: ['update_settings'], superAdminOnly: true },
+            { label: 'update_settings', to: '/app/settings/update_settings', permissions: ['update_settings'], superAdminOnly: true, systemOnly: true },
             { label: 'Warehouses', to: '/app/settings/Warehouses', permissions: ['warehouse'] },
             { label: 'Modules', to: '/app/settings/business_modules', permissions: ['business_modules', 'setting_system'], superAdminOnly: true },
             { key: 'zatca', label: 'Zatca_E_Invoicing', to: '/app/settings/zatca_settings', permissions: ['zatca_settings'], superAdminOnly: true },
@@ -1045,10 +1047,10 @@ export const MENU = [
             { label: 'email_templates', to: '/app/settings/email_templates', permissions: ['notification_template'] },
             { label: 'Pos_Settings', to: '/app/settings/pos_settings', permissions: ['pos_settings'] },
             { label: 'Payment_Gateway', to: '/app/settings/payment_gateway', permissions: ['payment_gateway'] },
-            { label: 'Currencies', to: '/app/settings/Currencies', permissions: ['currency'] },
-            { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true },
-            { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'] },
-            { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true },
+            { label: 'Currencies', to: '/app/settings/Currencies', permissions: ['currency'], systemOnly: true },
+            { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true, systemOnly: true },
+            { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'], systemOnly: true },
+            { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true, systemOnly: true },
             // Company-level (not superAdminOnly): a role with network_security manages its own company.
             { label: 'Network_Security', to: '/app/settings/network_security', permissions: ['network_security'] },
             // PayPal module (2026-10-19): hidden while the company's PayPal module is off (path settings/paypal).

@@ -109,6 +109,7 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../../lib/systemContext';
 import {
   FilePdfOutlined, FileExcelOutlined, PrinterOutlined,
   BellOutlined, StopOutlined, WarningOutlined, ShopOutlined,
@@ -175,9 +176,12 @@ const depletedChart = computed(() =>
 );
 
 /* --------------------------------------------------------------- table */
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('ProductCode'), dataIndex: 'code', key: 'code' },
   { title: t('ProductName'), dataIndex: 'name', key: 'name' },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('warehouse'), dataIndex: 'warehouse', key: 'warehouse' },
   { title: t('Status'), key: 'status', width: 120, exportValue: r => statusOf(r).label },
   { title: t('Quantity'), key: 'quantity', dataIndex: 'quantity', align: 'right', sum: true, exportValue: r => r.quantity },

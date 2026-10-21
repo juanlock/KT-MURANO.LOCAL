@@ -222,6 +222,7 @@ import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { VEHICLE_TYPES, VEHICLE_STATUSES, labelOf, optionOf, expiryTone, typeIcon } from './fleetOptions';
 import http from '../../lib/http';
+import { useSystemContext } from '../../lib/systemContext';
 
 const auth = useAuthStore();
 const route = useRoute();
@@ -282,6 +283,7 @@ function open(vehicle) {
 const warehouses = ref([]);
 const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id, label: w.name })));
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: 'Vehicle', key: 'name', dataIndex: 'name', sorter: true },
   { title: 'Type', key: 'type', dataIndex: 'type', sorter: true, width: 110 },
@@ -290,6 +292,8 @@ const columns = computed(() => [
   { title: 'Driver', key: 'driver', width: 160 },
   { title: 'Branch', dataIndex: 'warehouse_name', key: 'warehouse', width: 140 },
   { title: 'Renewals', key: 'renewals', width: 220 },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
+  ...(isSystem.value ? [{ title: 'Company', key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: '', key: 'actions', width: 120 },
 ]);
 

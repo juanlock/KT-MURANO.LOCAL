@@ -125,6 +125,69 @@ class SchoolAttendanceController extends Controller
         return response()->json(['success' => true, 'saved' => $saved]);
     }
 
+    /**
+     * The whole school on one date (2026-10-21: the page showed nothing until a
+     * class was picked): every class / section with its roll, whether the
+     * register was taken and the counts per status. Plus the last school day
+     * that has a register, so the page can jump to it.
+     */
+    public function overview(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', StudentAttendance::class);
+        $request->validate(['date' => 'nullable|date']);
+
+        $date = $request->filled('date') ? Carbon::parse($request->date)->toDateString() : Carbon::today()->toDateString();
+        $yearId = optional(AcademicYear::current())->id;
+
+        $roll = StudentEnrollment::whereNull('deleted_at')->where('status', 'active')
+            ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
+            ->select('class_id', 'section_id', DB::raw('count(*) as students'))
+            ->groupBy('class_id', 'section_id')->get();
+
+        $marks = StudentAttendance::whereNull('subject_id')->whereDate('attendance_date', $date)
+            ->select('class_id', 'section_id', 'status', DB::raw('count(*) as aggregate'))
+            ->groupBy('class_id', 'section_id', 'status')->get()
+            ->groupBy(fn ($r) => $r->class_id.'|'.($r->section_id ?? ''));
+
+        $classes = \App\Models\SchoolClass::whereNull('deleted_at')->get(['id', 'name', 'level'])->keyBy('id');
+        $sections = \App\Models\ClassSection::whereNull('deleted_at')->get(['id', 'name'])->keyBy('id');
+
+        $rows = $roll->map(function ($r) use ($marks, $classes, $sections) {
+            $m = $marks->get($r->class_id.'|'.($r->section_id ?? ''), collect());
+            $by = $m->pluck('aggregate', 'status');
+            $taken = (int) $m->sum('aggregate');
+            $present = 0;
+            foreach (StudentAttendance::presentStatuses() as $st) {
+                $present += (int) ($by[$st] ?? 0);
+            }
+
+            return [
+                'class_id' => $r->class_id,
+                'section_id' => $r->section_id,
+                'class_name' => optional($classes->get($r->class_id))->name,
+                'level' => optional($classes->get($r->class_id))->level,
+                'section_name' => optional($sections->get($r->section_id))->name,
+                'students' => (int) $r->students,
+                'taken' => $taken > 0,
+                'present' => (int) ($by['present'] ?? 0),
+                'absent' => (int) ($by['absent'] ?? 0),
+                'late' => (int) ($by['late'] ?? 0),
+                'excused' => (int) ($by['excused'] ?? 0),
+                'half_day' => (int) ($by['half_day'] ?? 0),
+                'rate' => $taken ? round($present / $taken * 100, 1) : null,
+            ];
+        })->sortBy(fn ($r) => [$r['level'] ?? 0, $r['section_name'] ?? ''])->values();
+
+        $lastTaken = StudentAttendance::whereNull('subject_id')->whereDate('attendance_date', '<=', Carbon::today()->toDateString())
+            ->max('attendance_date');
+
+        return response()->json([
+            'date' => $date,
+            'rows' => $rows,
+            'last_taken' => $lastTaken ? substr((string) $lastTaken, 0, 10) : null,
+        ]);
+    }
+
     /** Day-by-day summary for a class over a range, for the monthly sheet. */
     public function summary(Request $request)
     {

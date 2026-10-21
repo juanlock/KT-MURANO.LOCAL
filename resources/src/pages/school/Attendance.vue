@@ -14,24 +14,60 @@
           :options="sectionOptions" @change="loadRegister"
         />
         <a-date-picker
-          v-model:value="picker.date" class="tb-item-sm" value-format="YYYY-MM-DD"
-          :disabled-date="futureDate" @change="loadRegister"
+          v-model:value="picker.date" class="tb-item-sm" value-format="YYYY-MM-DD" :allow-clear="false"
+          :disabled-date="futureDate" @change="onDateChange"
         />
         <a-select
           v-model:value="picker.subject_id" class="tb-item" allow-clear show-search
           option-filter-prop="label" :placeholder="s('Whole day')" :options="subjectOptions"
           @change="loadRegister"
         />
-        <a-button :disabled="!picker.class_id" :loading="loading" @click="loadRegister">
+        <a-button :loading="loading" @click="picker.class_id ? loadRegister() : loadOverview()">
           <template #icon><ReloadOutlined /></template>
           {{ s('Load') }}
         </a-button>
+        <a-button v-if="picker.class_id" @click="backToOverview">{{ s('Whole school') }}</a-button>
       </div>
     </a-card>
 
-    <a-card v-if="!picker.class_id">
-      <a-empty :description="s('Pick a class to take its register')" />
-    </a-card>
+    <!-- No class picked: the whole school on that date (2026-10-21). -->
+    <template v-if="!picker.class_id">
+      <a-alert
+        v-if="overviewLoaded && !anyTaken && overview.last_taken && overview.last_taken !== picker.date"
+        type="info" show-icon style="margin-bottom: 16px"
+        :message="s('No register taken on {date} yet.', { date: date(picker.date) })"
+      >
+        <template #action>
+          <a-button size="small" @click="goToDate(overview.last_taken)">{{ s('See {date}', { date: date(overview.last_taken) }) }}</a-button>
+        </template>
+      </a-alert>
+      <a-spin :spinning="loading">
+        <a-card size="small" :title="s('Whole school — {date}', { date: date(picker.date) })" style="margin-bottom: 16px">
+          <a-table
+            :columns="overviewColumns" :data-source="overview.rows || []" :pagination="false" size="small"
+            :row-key="r => `${r.class_id}|${r.section_id || ''}`"
+            :custom-row="r => ({ onClick: () => openRegister(r), style: 'cursor: pointer' })"
+            :locale="{ emptyText: s('No students enrolled for the current year') }"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'class'">
+                <b>{{ record.class_name }}</b> {{ record.section_name || '' }}
+              </template>
+              <template v-else-if="column.key === 'taken'">
+                <a-tag :color="record.taken ? 'processing' : 'warning'">{{ record.taken ? s('Already taken') : s('Not taken yet') }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'rate'">
+                {{ record.rate === null ? '—' : record.rate + '%' }}
+              </template>
+            </template>
+          </a-table>
+          <div class="hint">{{ s('Click a class to open its register.') }}</div>
+        </a-card>
+      </a-spin>
+      <a-card size="small" :title="s('Whole school — last 30 days')">
+        <ReportChart :data="schoolDays" :fields="[{ key: 'rate', label: s('Attendance %') }]" type="area" :height="220" />
+      </a-card>
+    </template>
 
     <template v-else>
       <a-spin :spinning="loading">
@@ -140,12 +176,81 @@ const attendanceStatuses = computed(() => ATTENDANCE_STATUSES.map(o => ({
   ...o, label: s(o.label), short: s(o.short),
 })));
 
+/** Today on THIS computer (toISOString() is UTC: in the evening it was already tomorrow). */
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const picker = reactive({
   class_id: undefined,
   section_id: undefined,
   subject_id: undefined,
-  date: new Date().toISOString().slice(0, 10),
+  date: localToday(),
 });
+
+/* Whole school on a date (no class picked). */
+const overview = ref({ rows: [], last_taken: null });
+const overviewLoaded = ref(false);
+const schoolDays = ref([]);
+const anyTaken = computed(() => (overview.value.rows || []).some(r => r.taken));
+const overviewColumns = computed(() => [
+  { title: s('Class'), key: 'class' },
+  { title: s('On roll'), dataIndex: 'students', key: 'students', align: 'right', width: 90 },
+  { title: s('Register'), key: 'taken', width: 130 },
+  { title: s('Present'), dataIndex: 'present', key: 'present', align: 'right', width: 80 },
+  { title: s('Absent'), dataIndex: 'absent', key: 'absent', align: 'right', width: 80 },
+  { title: s('Late'), dataIndex: 'late', key: 'late', align: 'right', width: 70 },
+  { title: s('Excused'), dataIndex: 'excused', key: 'excused', align: 'right', width: 90 },
+  { title: s('Rate'), key: 'rate', align: 'right', width: 80 },
+]);
+
+async function loadOverview() {
+  loading.value = true;
+  try {
+    overview.value = await http.get('school/attendance/overview', { date: picker.date });
+  } catch (e) {
+    overview.value = { rows: [], last_taken: null };
+  } finally {
+    loading.value = false;
+    overviewLoaded.value = true;
+  }
+}
+
+async function loadSchoolDays() {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  try {
+    schoolDays.value = (await http.get('school/attendance/summary', { start_date: from, end_date: localToday() }))?.days || [];
+  } catch (e) {
+    schoolDays.value = [];
+  }
+}
+
+function openRegister(row) {
+  picker.class_id = row.class_id;
+  picker.section_id = row.section_id || undefined;
+  picker.subject_id = undefined;
+  loadRegister();
+}
+
+function backToOverview() {
+  picker.class_id = undefined;
+  picker.section_id = undefined;
+  picker.subject_id = undefined;
+  loadOverview();
+}
+
+function goToDate(d) {
+  picker.date = d;
+  onDateChange();
+}
+
+function onDateChange() {
+  if (picker.class_id) loadRegister();
+  else loadOverview();
+}
 
 const students = ref([]);
 const alreadyMarked = ref(false);
@@ -258,6 +363,8 @@ onMounted(async () => {
   try {
     meta.value = await http.get('school/meta');
   } catch (e) { /* selects stay empty */ }
+  loadOverview();
+  loadSchoolDays();
 });
 </script>
 
@@ -276,6 +383,11 @@ onMounted(async () => {
 }
 .tag-tight {
   margin-inline-start: 8px;
+}
+.hint {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.6;
 }
 .summary {
   display: grid;

@@ -84,7 +84,9 @@ class DailyTasksController extends BaseController
             default => [$date, $date],
         };
         $all = $this->can($request, 'daily_tasks_all');
-        $companyId = $this->companyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter
+        // (999 already was; now also a SuperAdmin with no company picked).
+        $companyId = $this->listCompanyId($request);
         $mine = $this->myTechnicianIds($request);
 
         $rows = $this->jobs($companyId)

@@ -28,6 +28,9 @@ class DemoContext
     /** How demo staff are paid (Demo Data -> "hours or commission"): hourly | commission. */
     public string $payType = 'hourly';
 
+    /** Answers asked on Demo Data for some modules (e.g. school_start / school_end: the school year's dates). */
+    public array $options = [];
+
     private static array $columnCache = [];
 
     public function __construct(
@@ -119,13 +122,23 @@ class DemoContext
             return false;
         }
         $q = DB::table($table);
+        $shared = false;
         if ($this->hasColumn($table, 'company_id')) {
             $q->where('company_id', $this->companyId);
+        } elseif ($this->hasColumn($table, 'warehouse_id')) {
+            // No company column (bookings...): the company's rows are those of its warehouses.
+            $q->whereIn('warehouse_id', $this->warehouseIds ?: [0]);
+        } else {
+            // A table shared by every company (accounting budgets, documents...):
+            // another company's demo examples are not this company's real data (2026-10-21).
+            $shared = true;
         }
         if ($this->hasColumn($table, 'deleted_at')) {
             $q->whereNull('deleted_at');
         }
-        $demo = $this->demoIds($table);
+        $demo = $shared
+            ? DB::table('demo_records')->where('record_type', $table)->pluck('record_id')->map(fn ($v) => (int) $v)->all()
+            : $this->demoIds($table);
         if ($demo) {
             $q->whereNotIn('id', $demo);
         }

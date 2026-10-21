@@ -335,7 +335,7 @@ class SchoolExamController extends Controller
                     [
                         'marks' => $marks,
                         'is_absent' => $absent,
-                        'grade' => $absent ? 'AB' : ExamResult::gradeFor($percentage),
+                        'grade' => $absent ? 'AB' : ExamResult::gradeFor($percentage, $paper->max_marks),
                         'remarks' => $row['remarks'] ?? null,
                         'entered_by' => $userId,
                     ]
@@ -413,7 +413,8 @@ class SchoolExamController extends Controller
                 'obtained' => round($obtained, 2),
                 'total' => round($totalMax, 2),
                 'percentage' => $percentage,
-                'grade' => ExamResult::gradeFor($percentage),
+                // Every paper out of 20: the overall letter on the same scale.
+                'grade' => ExamResult::gradeFor($percentage, $papers->every(fn ($p) => (float) $p->max_marks === 20.0) ? 20 : null),
                 'failed_subjects' => $failed,
                 'result' => $failed > 0 ? 'Fail' : 'Pass',
             ];
@@ -461,7 +462,7 @@ class SchoolExamController extends Controller
 
         ExamResult::where('exam_subject_id', $paper->id)->whereNotNull('marks')->get()
             ->each(function ($result) use ($max) {
-                $result->update(['grade' => ExamResult::gradeFor(((float) $result->marks / $max) * 100)]);
+                $result->update(['grade' => ExamResult::gradeFor(((float) $result->marks / $max) * 100, $max)]);
             });
     }
 
@@ -470,7 +471,7 @@ class SchoolExamController extends Controller
         return [
             'academic_year_id' => 'required|exists:academic_years,id',
             'name' => 'required|string|max:191',
-            'term' => 'required|in:term_1,term_2,term_3,final,other',
+            'term' => 'required|in:term_1,term_2,term_3,term_4,final,other',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'status' => 'required|in:draft,scheduled,ongoing,completed,published',

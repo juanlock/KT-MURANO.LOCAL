@@ -63,6 +63,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../lib/systemContext';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../components/PageHeader.vue';
 import DataTable from '../components/DataTable.vue';
@@ -73,9 +74,12 @@ import http from '../lib/http';
 const { t } = useI18n();
 const crud = useCrudTable('categories', { rowsKey: 'categories' });
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Codecategorie'), dataIndex: 'code', key: 'code', sorter: true },
   { title: t('Namecategorie'), dataIndex: 'name', key: 'name', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Icon'), key: 'icon', width: 90 },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);

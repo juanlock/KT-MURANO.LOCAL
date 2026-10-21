@@ -588,6 +588,7 @@ import { ref, computed, createVNode } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { message, Modal, Upload } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../../lib/systemContext';
 import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, MoreOutlined,
   FilePdfOutlined, FileExcelOutlined, FileTextOutlined, MailOutlined,
@@ -620,6 +621,7 @@ import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { printPosReceipt } from '../../lib/printPosReceipt';
 
 const { t } = useI18n();
+const { isSystem } = useSystemContext();
 const { money, number, dateTime, roundMoney } = useFormat();
 const auth = useAuthStore();
 const router = useRouter();
@@ -899,6 +901,8 @@ const columns = computed(() => [
   { title: t('Action'), key: 'actions', width: 130, align: 'center', fixed: 'left' },
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true, defaultSortOrder: 'descend', exportValue: r => dateTime(r.date) },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose record it is.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Seller'), dataIndex: 'seller_name', key: 'seller_name' },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name', sorter: true },
   { title: t('Items'), dataIndex: 'items_count', key: 'items_count', align: 'center', width: 80, exportValue: r => r.items_count },

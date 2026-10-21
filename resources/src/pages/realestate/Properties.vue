@@ -100,6 +100,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import http from '../../lib/http';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 
@@ -117,6 +118,7 @@ const crud = useCrudTable('realestate/properties', {
   }),
 });
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Image'), key: 'featured_image', width: 80 },
   { title: t('Property_Title'), key: 'title' },
@@ -125,6 +127,8 @@ const columns = computed(() => [
   { title: t('Price'), key: 'price', align: 'right', sorter: true },
   { title: t('Featured'), key: 'featured', width: 90, align: 'center' },
   { title: t('Status'), key: 'status', width: 110 },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Action'), key: 'actions', width: 100 },
 ]);
 

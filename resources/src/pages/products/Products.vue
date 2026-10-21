@@ -301,6 +301,7 @@ function productImg(v) {
 import { ref, computed, watch, createVNode } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../../lib/systemContext';
 import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, CopyOutlined,
   FilePdfOutlined, FileExcelOutlined, UploadOutlined, ExclamationCircleOutlined,
@@ -421,6 +422,7 @@ function onGroupFilterChange() {
   crud.reload();
 }
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   // Group Name leads: the list is ordered by it by default (then Name), so it
   // reads as the grouping key of the table.
@@ -430,6 +432,8 @@ const columns = computed(() => [
   // appended to the quantity string by the API, so neither needs a column of
   // its own. Code sits later (after cost/price) so it stops competing.
   { title: t('Name_product'), dataIndex: 'name', key: 'name', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Cost'), dataIndex: 'cost', key: 'cost', align: 'right', sorter: true },
   { title: t('Price'), dataIndex: 'price', key: 'price', align: 'right', sorter: true },
   // Off by default — users can enable them from the table's columns dropdown.
@@ -494,6 +498,8 @@ const subtitleOf = p => [p.brand, p.category].filter(v => v && v !== 'N/D').join
 const exportColumns = computed(() => [
   { title: t('GroupName'), dataIndex: 'group_name' },
   { title: t('Name_product'), dataIndex: 'name' },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), dataIndex: 'company_name' }] : []),
   { title: t('type'), dataIndex: 'type' },
   { title: t('Cost'), dataIndex: 'cost' },
   { title: t('Price'), dataIndex: 'price' },

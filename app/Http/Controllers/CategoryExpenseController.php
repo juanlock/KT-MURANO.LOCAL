@@ -88,8 +88,11 @@ class CategoryExpenseController extends BaseController
         $order = in_array($request->SortField, ['name', 'reference', 'expense_group', 'account_type', 'period', 'is_common', 'coa_code', 'sort_order', 'id'], true) ? $request->SortField : 'sort_order';
         $dir = strtolower((string) $request->SortType) === 'desc' ? 'desc' : 'asc';
 
+        // superadmin/AdminSystem: every company (2026-10-21); the form's
+        // accounts / groups below stay on the acting company ($cid).
+        $listCid = $this->listCompanyId($request);
         $ExpenseCategory = ExpenseCategory::where('deleted_at', '=', null)
-            ->where('company_id', $cid)
+            ->when($listCid !== null, fn ($q) => $q->where('company_id', $listCid))
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     // Own categories + the company's default set.
@@ -118,6 +121,9 @@ class CategoryExpenseController extends BaseController
             ->orderBy($order, $dir)
             ->orderBy('id')
             ->get();
+        // Each row says whose it is (one query).
+        $companyNames = \App\Models\Company::whereIn('id', $ExpenseCategory->pluck('company_id')->unique())->pluck('name', 'id');
+        $ExpenseCategory->each(fn ($c) => $c->company_name = $c->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$c->company_id] ?? null));
 
         return response()->json([
             'Expenses_category' => $ExpenseCategory,

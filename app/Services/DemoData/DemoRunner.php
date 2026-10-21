@@ -47,7 +47,9 @@ class DemoRunner
     public static function status(DemoContext $ctx, DemoModule $module, array $flags): array
     {
         $key = $module->key();
-        $enabled = $key === 'core' || ($flags[$key] ?? true) !== false;
+        // On when any of the Business Modules it belongs to is on (a school has no
+        // HRM / Accounting, so no holidays, payroll or regular expenses demo).
+        $enabled = collect($module->moduleFlags())->contains(fn ($f) => ($flags[$f] ?? true) !== false);
         $installed = collect($module->requiredTables())->every(fn ($t) => Schema::hasTable($t));
 
         $demoCount = DB::table('demo_records')->where('company_id', $ctx->companyId)->where('module', $key)->count();
@@ -66,6 +68,8 @@ class DemoRunner
             'demo_count' => $demoCount,
             'available' => $reason === null,
             'reason' => $reason,
+            // SuperAdmin can delete this module's real (test) data for the company.
+            'wipeable' => $installed && (bool) $module->wipePlan(),
         ];
     }
 
@@ -76,9 +80,10 @@ class DemoRunner
      *
      * @return array<string,array> key => {status, created|reason}
      */
-    public static function run(int $companyId, int $userId, ?array $keys = null, ?string $payType = null): array
+    public static function run(int $companyId, int $userId, ?array $keys = null, ?string $payType = null, array $options = []): array
     {
         $ctx = self::context($companyId, $userId, true);
+        $ctx->options = $options;
         // Demo staff pay (hours / commission): asked on Demo Data; default by business type.
         $ctx->payType = in_array($payType, ['hourly', 'commission'], true) ? $payType
             : (in_array($ctx->businessType, ['salon', 'barber'], true) ? 'commission' : 'hourly');
@@ -105,6 +110,56 @@ class DemoRunner
         }
 
         return $results;
+    }
+
+    /**
+     * SuperAdmin only (2026-10-21): delete EVERY row of one module for one
+     * company -- real (test) data and demo rows alike -- following the
+     * module's wipePlan(), in one transaction. Returns rows deleted.
+     */
+    public static function wipe(int $companyId, DemoModule $module): int
+    {
+        $plan = $module->wipePlan();
+        if (! $plan || $companyId === \App\Models\Setting::TEMPLATE_COMPANY_ID) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($companyId, $module, $plan) {
+            $deleted = 0;
+            $idsOf = fn (string $t) => Schema::hasTable($t) ? DB::table($t)->where('company_id', $companyId)->pluck('id')->all() : [];
+            foreach ($plan as $step) {
+                if (isset($step['journal'])) {
+                    if (! Schema::hasTable('acc_journal_entries') || ! ($ids = $idsOf($step['of']))) {
+                        continue;
+                    }
+                    foreach (array_chunk($ids, 500) as $chunk) {
+                        $je = DB::table('acc_journal_entries')->where('reference_type', $step['journal'])->whereIn('reference_id', $chunk)->pluck('id');
+                        if ($je->isNotEmpty()) {
+                            DB::table('acc_journal_entry_lines')->whereIn('journal_entry_id', $je)->delete();
+                            $deleted += DB::table('acc_journal_entries')->whereIn('id', $je)->delete();
+                        }
+                    }
+                    continue;
+                }
+                $t = $step['table'];
+                if (! Schema::hasTable($t)) {
+                    continue;
+                }
+                if (isset($step['parent'])) {
+                    [$col, $parent] = $step['parent'];
+                    foreach (array_chunk($idsOf($parent), 500) as $chunk) {
+                        $deleted += DB::table($t)->whereIn($col, $chunk)->delete();
+                    }
+                } else {
+                    $deleted += DB::table($t)->where('company_id', $companyId)->delete();
+                }
+                // Their demo tags go too.
+                DB::table('demo_records')->where('company_id', $companyId)->where('record_type', $t)->delete();
+            }
+            DB::table('demo_records')->where('company_id', $companyId)->where('module', $module->key())->delete();
+
+            return $deleted;
+        });
     }
 
     /** Remove a company's demo rows (optionally one module). Returns rows deleted. */

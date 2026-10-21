@@ -94,6 +94,7 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
 import { sortByLabel, withAllOption } from '../../lib/filterOptions';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -153,6 +154,7 @@ const statusOptions = computed(() => withAllOption([
   { value: '0', label: 'Disabled' },
 ]));
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Image'), key: 'avatar', dataIndex: 'avatar', width: 70, align: 'center', exportValue: r => r.avatar || '' },
   { title: t('Firstname'), dataIndex: 'firstname', key: 'firstname', sorter: true },
@@ -162,6 +164,8 @@ const columns = computed(() => [
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
   { title: t('type'), key: 'type', dataIndex: 'type', exportValue: r => typeLabel(r.type) },
   { title: t('RoleName'), key: 'role_name', dataIndex: 'role_name', exportValue: r => r.role_name || '' },
+  // superadmin/AdminSystem: every company's users -- whose is each one.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Status'), key: 'statut', dataIndex: 'statut', exportValue: r => (Number(r.statut) ? t('ActivateUser') : t('DisActivateUser')) },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);

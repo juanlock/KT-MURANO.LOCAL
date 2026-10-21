@@ -52,7 +52,8 @@ class HolidayController extends Controller
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Holiday::class);
-        $companyId = $this->holidayCompany($request);
+        // superadmin/AdminSystem: every company (2026-10-21)
+        $companyId = $this->listCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -86,7 +87,7 @@ class HolidayController extends Controller
             $item['id'] = $holiday->id;
             $item['title'] = $holiday->title;
             $item['company_id'] = $holiday->company_id;
-            $item['company_name'] = optional($holiday['company'])->name;
+            $item['company_name'] = $holiday->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : optional($holiday['company'])->name;
             $item['start_date'] = $holiday->start_date;
             $item['end_date'] = $holiday->end_date;
             $item['description'] = $holiday->description;

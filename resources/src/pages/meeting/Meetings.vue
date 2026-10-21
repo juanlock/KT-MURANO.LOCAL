@@ -164,6 +164,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import http from '../../lib/http';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 
@@ -189,6 +190,7 @@ const crud = useCrudTable('meeting/meetings', {
 // Humanize snake_case, matching legacy's format_label (no i18n keys exist).
 const label = s => String(s || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Title'), dataIndex: 'title', key: 'title', sorter: true },
   { title: t('date'), key: 'datetime', dataIndex: 'datetime', sorter: true, exportValue: r => r.datetime },
@@ -196,6 +198,8 @@ const columns = computed(() => [
   { title: t('Organizer'), dataIndex: 'organizer', key: 'organizer' },
   { title: t('Participants'), dataIndex: 'participants_count', key: 'participants_count', align: 'right' },
   { title: t('Status'), key: 'status', dataIndex: 'status', exportValue: r => label(r.status) },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);
 

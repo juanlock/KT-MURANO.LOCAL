@@ -60,7 +60,10 @@ class SalesContractController extends Controller
         $order = in_array($request->SortField, $sortable, true) ? $request->SortField : 'id';
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
-        $q = SalesContract::with('client:id,name')->whereNull('deleted_at')->where('company_id', $cid)
+        // superadmin/AdminSystem: every company (2026-10-21) -- listCompanyId();
+        // the list, its cards and its customer filter.
+        $listCid = $this->listCompanyId($request);
+        $q = SalesContract::with('client:id,name')->whereNull('deleted_at')->when($listCid !== null, fn ($q) => $q->where('company_id', $listCid))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', (int) $request->client_id))
             ->when($request->filled('billing'), fn ($q) => $q->where('billing_enabled', $request->billing === 'recurring'))
@@ -76,12 +79,14 @@ class SalesContractController extends Controller
         $rows = $q->orderBy($order, $dir)->offset(($page - 1) * $perPage)->limit($perPage)->get();
 
         $today = now()->toDateString();
-        $base = SalesContract::whereNull('deleted_at')->where('company_id', $cid);
+        $base = SalesContract::whereNull('deleted_at')->when($listCid !== null, fn ($q) => $q->where('company_id', $listCid));
+        $companyNames = \App\Models\Company::whereIn('id', $rows->pluck('company_id')->unique())->pluck('name', 'id');
 
         return response()->json([
             'totalRows' => $total,
             'contracts' => $rows->map(fn ($c) => [
                 'id' => $c->id,
+                'company_name' => (int) $c->company_id === Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$c->company_id] ?? null),
                 'contract_number' => $c->contract_number,
                 'subject' => $c->subject,
                 'client_id' => $c->client_id,
@@ -105,8 +110,8 @@ class SalesContractController extends Controller
                 'due' => (clone $base)->where('status', 'active')->where('billing_enabled', true)->whereNotNull('next_invoice_date')->where('next_invoice_date', '<=', $today)->count(),
                 'expiring' => (clone $base)->where('status', 'active')->whereNotNull('end_date')->whereBetween('end_date', [$today, now()->addDays(30)->toDateString()])->count(),
             ],
-            'clients' => Client::whereNull('deleted_at')->where('company_id', $cid)
-                ->whereIn('id', SalesContract::whereNull('deleted_at')->where('company_id', $cid)->select('client_id'))
+            'clients' => Client::whereNull('deleted_at')
+                ->whereIn('id', (clone $base)->select('client_id'))
                 ->orderBy('name')->get(['id', 'name']),
         ]);
     }

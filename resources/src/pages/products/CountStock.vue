@@ -57,6 +57,7 @@
 import { ref, computed } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../../lib/systemContext';
 import { PlusOutlined, DownloadOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
@@ -80,9 +81,12 @@ const categoryOptions = computed(() =>
   (crud.payload.value?.categories || []).map(c => ({ value: c.id, label: c.name }))
 );
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true },
   { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name' },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Categorie'), dataIndex: 'category_name', key: 'category_name' },
   { title: t('file'), dataIndex: 'file_stock', key: 'file_stock' },
 ]);

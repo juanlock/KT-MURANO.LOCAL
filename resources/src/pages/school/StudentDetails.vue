@@ -142,6 +142,11 @@
                 </a-table>
               </a-tab-pane>
 
+              <!-- Report card: marks per term, averages, weighted average, print (2026-10-21). -->
+              <a-tab-pane key="report_card" :tab="s('Report card')">
+                <ReportCard v-if="tab === 'report_card'" :student-id="id" />
+              </a-tab-pane>
+
               <a-tab-pane key="attendance" :tab="s('Attendance')">
                 <a-table
                   :columns="attendanceColumns" :data-source="timeline.attendance || []" :loading="tabLoading"
@@ -223,6 +228,7 @@ import { useRoute } from 'vue-router';
 import { message, Empty } from 'ant-design-vue';
 import { EditOutlined, ArrowLeftOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import ReportCard from './ReportCard.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import {

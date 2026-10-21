@@ -108,6 +108,7 @@ import { useAuthStore } from '../../stores/auth';
 import { EMPLOYMENT_TYPES } from './hrmVocab';
 import { useCompanyStore } from '../../stores/company';
 import { sortByLabel } from '../../lib/filterOptions';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -134,7 +135,9 @@ const companyOptions = computed(() =>
 // Multicompany: the header switcher decides the company; this filter only
 // helps a SuperAdmin who hasn't picked one (Admins never see it).
 const company = useCompanyStore();
-const showCompanyFilter = computed(() => auth.user?.type === 'SuperAdmin' && !company.actingCompanyId);
+// superadmin/AdminSystem: every company (2026-10-21) -- the filter narrows it.
+const { isSystem } = useSystemContext();
+const showCompanyFilter = computed(() => auth.user?.type === 'SuperAdmin' && (!company.actingCompanyId || isSystem.value));
 
 // The *_name columns are joined display values, not DB columns — sorting them
 // would feed a bad field into orderBy() (500). Sort only real columns.

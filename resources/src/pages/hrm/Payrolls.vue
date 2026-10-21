@@ -161,9 +161,11 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 const { money } = useFormat();
+const { isSystem } = useSystemContext();
 
 const crud = useCrudTable('payroll', { rowsKey: 'payrolls' });
 crud.fetchRows();
@@ -172,6 +174,8 @@ const columns = computed(() => [
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   { title: t('Employee'), dataIndex: 'employee_name', key: 'employee_name' },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: 'Week', key: 'period', exportValue: r => (r.period_start ? `${r.period_start} - ${r.period_end}` : '') },
   { title: 'Type', key: 'pay_type', exportValue: r => r.pay_type || 'manual' },
   { title: 'Detail', key: 'detail', exportValue: r => r.notes || '' },

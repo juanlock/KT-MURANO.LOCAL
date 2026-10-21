@@ -2,14 +2,20 @@
   <div class="page">
     <PageHeader :title="$t('Company')" :breadcrumb="[$t('HRM'), $t('Company')]">
       <template #actions>
-        <a-button v-if="isSuperAdmin" type="primary" @click="openCreate">
+        <a-button v-if="isSystem" type="primary" @click="openCreate">
           <template #icon><PlusOutlined /></template>
           {{ $t('Add') }}
         </a-button>
       </template>
     </PageHeader>
 
-    <DataTable :crud="crud" :columns="columns" selectable>
+    <a-alert
+      v-if="isSuperAdmin && !isSystem" type="info" show-icon style="margin-bottom: 12px"
+      :message="$i18n.locale.startsWith('es')
+        ? `Trabajando como ${companyStore.activeCompanyName || 'esta empresa'}: solo ves y editas esta empresa. Para ver todas, crear o borrar empresas, elige AdminSystem en el selector de arriba.`
+        : `Working as ${companyStore.activeCompanyName || 'this company'}: you see and edit only this company. To see them all, or to add or delete companies, pick AdminSystem in the switcher above.`"
+    />
+    <DataTable :crud="crud" :columns="columns" :selectable="isSystem">
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'logo'">
           <!-- The company's logo (Settings -> logo). -->
@@ -44,7 +50,7 @@
                 <template #icon><EditOutlined style="color: #52c41a" /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip v-if="isSuperAdmin" :title="$t('Del')">
+            <a-tooltip v-if="isSystem" :title="$t('Del')">
               <a-button type="text" size="small" danger @click="crud.remove(record)">
                 <template #icon><DeleteOutlined /></template>
               </a-button>
@@ -268,6 +274,7 @@ import StepFooter from '../../components/StepFooter.vue';
 import LogoCropper from '../../components/LogoCropper.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
+import { useCompanyStore } from '../../stores/company';
 import { sortByLabel } from '../../lib/filterOptions';
 import { TOGGLEABLE_MODULES } from '../../config/modules';
 import http from '../../lib/http';
@@ -275,6 +282,10 @@ import http from '../../lib/http';
 const { t, locale } = useI18n();
 const auth = useAuthStore();
 const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
+// superadmin/AdminSystem (2026-10-21): every company, Add and Delete; with a
+// company picked in the switcher the SuperAdmin sees and edits only that one.
+const companyStore = useCompanyStore();
+const isSystem = computed(() => isSuperAdmin.value && [999, null, undefined, 0].includes(companyStore.actingCompanyId === null ? null : Number(companyStore.actingCompanyId)));
 const crud = useCrudTable('company', { rowsKey: 'companies' });
 
 // Dropdown data for the profile (business types, currencies, languages) -- shipped with the list.

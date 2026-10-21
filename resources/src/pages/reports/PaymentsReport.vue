@@ -124,8 +124,10 @@ import { useUiStore } from '../../stores/ui';
 import { t as tf } from '../../i18n';
 import DateRangeFields from '../../components/DateRangeFields.vue';
 import ViewCurrencySelect from '../../components/ViewCurrencySelect.vue';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
+const { isSystem } = useSystemContext();
 const { money, date } = useFormat();
 const route = useRoute();
 const ui = useUiStore();
@@ -289,6 +291,8 @@ const methodOptions = computed(() =>
 const columns = computed(() => [
   { title: t('date'), key: 'date', dataIndex: 'date', sorter: true, exportValue: r => date(r.date) },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose payment it is.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t(kind.docLabel), dataIndex: kind.docKey, key: 'doc' },
   { title: t(kind.partyLabel), dataIndex: kind.partyKey, key: 'party' },
   { title: t('ModePaiement'), key: 'payment_method', dataIndex: 'payment_method', exportValue: r => r.payment_method },

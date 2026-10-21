@@ -99,6 +99,7 @@
 import { ref, computed, createVNode } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../../lib/systemContext';
 import {
   PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, FilePdfOutlined,
   CheckOutlined, ExclamationCircleOutlined,
@@ -155,9 +156,12 @@ function approvalColor(s) {
   return s === 'pending' ? 'warning' : 'error';
 }
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('date'), dataIndex: 'date', key: 'date', sorter: true, exportValue: r => dateTime(r.date) },
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('FromWarehouse'), dataIndex: 'from_warehouse', key: 'from_warehouse' },
   { title: t('ToWarehouse'), dataIndex: 'to_warehouse', key: 'to_warehouse' },
   { title: t('Items'), dataIndex: 'items', key: 'items', align: 'right' },

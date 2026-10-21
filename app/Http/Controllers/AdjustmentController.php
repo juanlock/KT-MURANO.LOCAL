@@ -40,7 +40,8 @@ class AdjustmentController extends BaseController
 
         // Company boundary: SuperAdmin may narrow via ?company_id=; everyone else
         // is always scoped to their own company, regardless of record_view.
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
             $warehouse_ids = UserWarehouse::where('user_id', $user->id)
@@ -64,7 +65,7 @@ class AdjustmentController extends BaseController
         // Check If User Has Permission View  All Records
         $Adjustments = Adjustment::with('warehouse')
             ->where('deleted_at', '=', null)
-            ->where('company_id', '=', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', '=', $companyId))
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
                     return $query->where('user_id', '=', Auth::user()->id);
@@ -101,8 +102,11 @@ class AdjustmentController extends BaseController
             $item['Ref'] = $Adjustment->Ref;
             $item['warehouse_name'] = $Adjustment['warehouse']->name;
             $item['items'] = $Adjustment->items;
+            $item['company_id'] = $Adjustment->company_id;
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
         // get warehouses assigned to user
         $user_auth = auth()->user();

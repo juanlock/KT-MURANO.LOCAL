@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Model;
  */
 class TaxReport extends Model
 {
+    // Multicompany (2026-10-21): only the acting company's rows.
+    use \App\Models\Concerns\BelongsToActingCompany;
+
     protected $table = 'acc_tax_reports';
 
     protected $fillable = [

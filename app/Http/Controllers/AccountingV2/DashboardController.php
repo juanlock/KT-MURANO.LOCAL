@@ -51,8 +51,9 @@ class DashboardController extends Controller
             }
         }
 
-        $all = optional($request->user('api'))->type === 'SuperAdmin' && $this->resolveActingCompanyId($request) === 999;
-        $cid = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21)
+        $cid = $this->listCompanyId($request);
+        $all = $cid === null;
         $scoped = fn ($q, $col) => $all ? $q : $q->where($col, $cid);
 
         // Range: from/to as given; "all" = since the company's first entry.

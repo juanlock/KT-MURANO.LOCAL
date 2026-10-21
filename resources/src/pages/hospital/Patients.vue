@@ -1,14 +1,14 @@
 <template>
   <div class="page">
-    <PageHeader title="Patients" :breadcrumb="['Hospital', 'Patients']">
+    <PageHeader :title="s('Patients')" :breadcrumb="[s('Hospital'), s('Patients')]">
       <template #actions>
         <a-button @click="$router.push('/hospital/dashboard')">
           <template #icon><DashboardOutlined /></template>
-          Dashboard
+          {{ s('Dashboard') }}
         </a-button>
         <a-button v-if="canAdd" type="primary" @click="$router.push('/hospital/patients/create')">
           <template #icon><UserAddOutlined /></template>
-          Register patient
+          {{ s('Register patient') }}
         </a-button>
       </template>
     </PageHeader>
@@ -17,23 +17,23 @@
       <div class="toolbar">
         <a-input-search
           v-model:value="crud.search.value"
-          placeholder="Search name, MRN, phone or national ID…"
+          :placeholder="s('Search name, MRN, phone or national ID…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.status" class="tb-item" allow-clear
-          placeholder="All statuses" :options="PATIENT_STATUSES" @change="crud.reload"
+          :placeholder="s('All statuses')" :options="statusOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.gender" class="tb-item" allow-clear
-          placeholder="Any gender" :options="GENDERS" @change="crud.reload"
+          :placeholder="s('Any gender')" :options="genderOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.blood_group" class="tb-item-sm" allow-clear
-          placeholder="Blood" :options="BLOOD_GROUPS" @change="crud.reload"
+          :placeholder="s('Blood')" :options="BLOOD_GROUPS" @change="crud.reload"
         />
         <a-checkbox v-model:checked="filters.admitted" class="tb-check" @change="crud.reload">
-          Currently admitted
+          {{ s('Currently admitted') }}
         </a-checkbox>
       </div>
     </a-card>
@@ -48,7 +48,7 @@
             <span class="cell-text">
               <span class="cell-name">
                 {{ record.name }}
-                <a-tag v-if="record.is_admitted" color="processing" class="cell-badge">Admitted</a-tag>
+                <a-tag v-if="record.is_admitted" color="processing" class="cell-badge">{{ s('Admitted') }}</a-tag>
               </span>
               <span class="cell-mrn">{{ record.mrn }}</span>
             </span>
@@ -60,7 +60,7 @@
           <span v-else class="muted">—</span>
         </template>
 
-        <template v-else-if="column.key === 'gender'">{{ labelOf(GENDERS, record.gender) }}</template>
+        <template v-else-if="column.key === 'gender'">{{ s(labelOf(GENDERS, record.gender)) }}</template>
 
         <template v-else-if="column.key === 'blood_group'">
           <a-tag v-if="record.blood_group" color="red">{{ record.blood_group }}</a-tag>
@@ -69,30 +69,30 @@
 
         <template v-else-if="column.key === 'allergies'">
           <a-tooltip v-if="record.allergies" :title="record.allergies">
-            <a-tag color="warning"><WarningOutlined /> Allergies</a-tag>
+            <a-tag color="warning"><WarningOutlined /> {{ s('Allergies') }}</a-tag>
           </a-tooltip>
           <span v-else class="muted">—</span>
         </template>
 
         <template v-else-if="column.key === 'status'">
           <a-tag :color="optionOf(PATIENT_STATUSES, record.status).color">
-            {{ labelOf(PATIENT_STATUSES, record.status) }}
+            {{ s(labelOf(PATIENT_STATUSES, record.status)) }}
           </a-tag>
         </template>
 
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
-            <a-tooltip title="Open record">
+            <a-tooltip :title="s('Open record')">
               <a-button type="text" size="small" @click="open(record)">
                 <template #icon><EyeOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip v-if="canEdit" :title="$t('Edit')">
+            <a-tooltip v-if="canEdit" :title="s('Edit')">
               <a-button type="text" size="small" @click="$router.push(`/hospital/patients/${record.id}/edit`)">
                 <template #icon><EditOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip v-if="canDelete" :title="$t('Delete')">
+            <a-tooltip v-if="canDelete" :title="s('Delete')">
               <a-button type="text" size="small" danger @click="crud.remove(record, { label: record.name })">
                 <template #icon><DeleteOutlined /></template>
               </a-button>
@@ -124,6 +124,13 @@ import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
 import { GENDERS, BLOOD_GROUPS, PATIENT_STATUSES, labelOf, optionOf } from './hospitalOptions';
+import { useSystemContext } from '../../lib/systemContext';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/Patients.es.js';
+
+const { s } = useHospitalText(ES);
+const statusOptions = computed(() => PATIENT_STATUSES.map(o => ({ ...o, label: s(o.label) })));
+const genderOptions = computed(() => GENDERS.map(o => ({ ...o, label: s(o.label) })));
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -146,14 +153,17 @@ const crud = useCrudTable('hospital/patients', {
   }),
 });
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
-  { title: 'Patient', key: 'name', dataIndex: 'name', sorter: true },
-  { title: 'Age', key: 'age', dataIndex: 'age', width: 80 },
-  { title: 'Gender', key: 'gender', dataIndex: 'gender', sorter: true, width: 110 },
-  { title: 'Blood', key: 'blood_group', dataIndex: 'blood_group', width: 100 },
-  { title: 'Phone', dataIndex: 'phone', key: 'phone', sorter: true, width: 150 },
-  { title: 'Alerts', key: 'allergies', width: 130 },
-  { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 120 },
+  { title: s('Patient'), key: 'name', dataIndex: 'name', sorter: true },
+  { title: s('Age'), key: 'age', dataIndex: 'age', width: 80 },
+  { title: s('Gender'), key: 'gender', dataIndex: 'gender', sorter: true, width: 110 },
+  { title: s('Blood'), key: 'blood_group', dataIndex: 'blood_group', width: 100 },
+  { title: s('Phone'), dataIndex: 'phone', key: 'phone', sorter: true, width: 150 },
+  { title: s('Alerts'), key: 'allergies', width: 130 },
+  { title: s('Status'), key: 'status', dataIndex: 'status', sorter: true, width: 120 },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
+  ...(isSystem.value ? [{ title: s('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: '', key: 'actions', width: 120 },
 ]);
 

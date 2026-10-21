@@ -62,6 +62,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { STATUS, PRIORITY, REQUESTER, SOURCE, options } from './helpdeskLabels';
+import { useSystemContext } from '../../lib/systemContext';
 
 const route = useRoute();
 const router = useRouter();
@@ -81,14 +82,17 @@ const f = ref({
   assigned: q0.assigned || undefined,
 });
 
-const columns = [
+const { isSystem } = useSystemContext();
+const columns = computed(() => [
   { title: 'Ticket', key: 'number', width: 110 },
   { title: 'Subject', key: 'subject' },
   { title: 'Status', key: 'status', width: 180 },
   { title: 'Priority', key: 'priority', width: 100 },
   { title: 'Assigned', key: 'assignee', width: 160 },
   { title: 'Last activity', key: 'last_message_at', width: 150 },
-];
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
+  ...(isSystem.value ? [{ title: 'Company', key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
+]);
 const assignedOptions = computed(() => [
   { value: 'me', label: 'Assigned to me' },
   { value: 'none', label: 'Unassigned' },

@@ -35,6 +35,15 @@ class ContractController extends Controller
         return Contract::where('company_id', $this->resolveActingCompanyId($request))->where('party_type', 'employee');
     }
 
+    /**
+     * Employee contracts the LIST / dashboard reads: superadmin/AdminSystem =
+     * every company (2026-10-21, listCompanyId()); writes keep scoped().
+     */
+    private function listScoped(Request $request)
+    {
+        return $this->scopeListToCompany(Contract::query(), $request)->where('party_type', 'employee');
+    }
+
     /** Child routes (attachments, comments, tasks, notes): the contract must be ours. */
     private function ownContract(Request $request, $contractId): void
     {
@@ -62,7 +71,7 @@ class ContractController extends Controller
         $param = [0 => 'like', 1 => '=', 2 => '=', 3 => '=', 4 => '='];
         $columns = [0 => 'contract_number', 1 => 'employee_id', 2 => 'status', 3 => 'type', 4 => 'project_id'];
 
-        $query = $this->scoped($request)->with('employee', 'project')->whereNull('deleted_at');
+        $query = $this->listScoped($request)->with('employee', 'project')->whereNull('deleted_at');
         $query = $helpers->filter($query, $columns, $param, $request);
         $query->where(function ($q) use ($request) {
             $q->when($request->filled('search'), function ($q) use ($request) {
@@ -79,11 +88,15 @@ class ContractController extends Controller
         }
         $contracts = $query->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get();
 
+        // superadmin/AdminSystem: each row says whose it is (2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', $contracts->pluck('company_id')->unique())->pluck('name', 'id');
+
         $data = [];
         foreach ($contracts as $c) {
             $employeeName = $c->employee ? trim($c->employee->firstname . ' ' . $c->employee->lastname) : '';
             $data[] = [
                 'id' => $c->id,
+                'company_name' => (int) $c->company_id === \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$c->company_id] ?? null),
                 'contract_number' => $c->contract_number,
                 'subject' => $c->subject,
                 'employee_id' => $c->employee_id,
@@ -104,7 +117,9 @@ class ContractController extends Controller
         return response()->json([
             'totalRows' => $totalRows,
             'contracts' => $data,
-            'employees' => $this->companyEmployees($request),
+            // Employee filter options follow the list's company.
+            'employees' => $this->scopeListToCompany(Employee::whereNull('deleted_at'), $request)
+                ->orderBy('firstname')->get(['id', 'firstname', 'lastname']),
             'projects' => $projects,
         ]);
     }
@@ -289,22 +304,22 @@ class ContractController extends Controller
         $recentlyAddedDays = 7;
         $recentlyAddedStart = Carbon::now()->subDays($recentlyAddedDays)->toDateString();
 
-        $countActive = $this->scoped($request)->whereNull('deleted_at')->where('status', 'active')
+        $countActive = $this->listScoped($request)->whereNull('deleted_at')->where('status', 'active')
             ->where('start_date', '<=', $now)->where('end_date', '>=', $now)->count();
-        $countExpired = $this->scoped($request)->whereNull('deleted_at')->where('end_date', '<', $now)->count();
-        $countAboutToExpire = $this->scoped($request)->whereNull('deleted_at')
+        $countExpired = $this->listScoped($request)->whereNull('deleted_at')->where('end_date', '<', $now)->count();
+        $countAboutToExpire = $this->listScoped($request)->whereNull('deleted_at')
             ->where('status', 'active')
             ->whereBetween('end_date', [$now, $aboutToExpireEnd])->count();
-        $countRecentlyAdded = $this->scoped($request)->whereNull('deleted_at')->where('created_at', '>=', $recentlyAddedStart)->count();
-        $countTrash = $this->scoped($request)->onlyTrashed()->count();
+        $countRecentlyAdded = $this->listScoped($request)->whereNull('deleted_at')->where('created_at', '>=', $recentlyAddedStart)->count();
+        $countTrash = $this->listScoped($request)->onlyTrashed()->count();
 
-        $byType = $this->scoped($request)->whereNull('deleted_at')
+        $byType = $this->listScoped($request)->whereNull('deleted_at')
             ->select('type', DB::raw('count(*) as total'))
             ->groupBy('type')
             ->get()
             ->map(fn ($r) => ['type' => $r->type ?: 'Other', 'count' => $r->total]);
 
-        $valueByType = $this->scoped($request)->whereNull('deleted_at')
+        $valueByType = $this->listScoped($request)->whereNull('deleted_at')
             ->select('type', DB::raw('SUM(value) as total_value'))
             ->groupBy('type')
             ->get()

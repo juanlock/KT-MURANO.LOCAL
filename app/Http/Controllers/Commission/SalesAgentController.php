@@ -22,10 +22,9 @@ class SalesAgentController extends BaseController
         $order = $request->SortField ?? 'id';
         $dir = $request->SortType ?? 'desc';
 
-        $companyId = $this->resolveActingCompanyId($request);
-        $query = SalesAgent::with('user:id,firstname,lastname,email')
-            ->withCount('saleCommissions')
-            ->where('company_id', $companyId)
+        // superadmin/AdminSystem: every company (2026-10-21) -- listCompanyId().
+        $query = $this->scopeListToCompany(SalesAgent::with('user:id,firstname,lastname,email')
+            ->withCount('saleCommissions'), $request)
             ->where('deleted_at', null);
 
         if ($request->filled('search')) {
@@ -45,6 +44,9 @@ class SalesAgentController extends BaseController
             $perPage = $totalRows;
         }
         $agents = $query->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get();
+        // superadmin/AdminSystem: each row says whose it is (2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', $agents->pluck('company_id')->unique())->pluck('name', 'id');
+        $agents->each(fn ($a) => $a->company_name = (int) $a->company_id === \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$a->company_id] ?? null));
 
         return $this->sendResponse([
             'agents' => $agents,

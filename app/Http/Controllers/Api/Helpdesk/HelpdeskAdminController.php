@@ -54,7 +54,9 @@ class HelpdeskAdminController extends Controller
     {
         $companyId = $this->companyId($request);
         $uid = $request->user('api')->id;
-        $base = fn () => HelpdeskTicket::where('company_id', $companyId);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $listCid = $this->listCompanyId($request);
+        $base = fn () => HelpdeskTicket::when($listCid !== null, fn ($q) => $q->where('company_id', $listCid));
 
         $byStatus = $base()->select('status', DB::raw('count(*) c'))->groupBy('status')->pluck('c', 'status');
         $bySource = $base()->select('source', DB::raw('count(*) c'))->groupBy('source')->pluck('c', 'source');
@@ -81,7 +83,9 @@ class HelpdeskAdminController extends Controller
     public function index(Request $request)
     {
         $companyId = $this->companyId($request);
-        $q = HelpdeskTicket::where('company_id', $companyId)->with('assignee:id,firstname,lastname');
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $listCid = $this->listCompanyId($request);
+        $q = HelpdeskTicket::when($listCid !== null, fn ($w) => $w->where('company_id', $listCid))->with('assignee:id,firstname,lastname');
         foreach (['status', 'priority', 'requester_type', 'category', 'source'] as $f) {
             if ($v = $request->query($f)) {
                 $q->whereIn($f, (array) $v);
@@ -97,9 +101,12 @@ class HelpdeskAdminController extends Controller
         }
         $sort = in_array($request->query('sort'), ['number', 'subject', 'status', 'priority', 'created_at', 'last_message_at'], true) ? $request->query('sort') : 'last_message_at';
         $p = $q->orderBy($sort, $request->query('dir') === 'asc' ? 'asc' : 'desc')->paginate(min(100, max(5, (int) $request->query('per_page', 20))));
+        // Each row says whose it is (superadmin/AdminSystem, 2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', collect($p->items())->pluck('company_id')->unique())->pluck('name', 'id');
 
         return response()->json([
             'data' => collect($p->items())->map(fn ($t) => $t->toArray() + [
+                'company_name' => $t->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$t->company_id] ?? null),
                 'assignee_name' => $t->assignee ? trim($t->assignee->firstname.' '.$t->assignee->lastname) : null,
             ]),
             'meta' => ['total' => $p->total()],

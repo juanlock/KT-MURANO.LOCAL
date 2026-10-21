@@ -64,6 +64,35 @@ and can switch/modify which company's data they're viewing or editing; an
 Admin (AdminKT, AdminRG, etc.) is fixed to their own company and never sees
 that selector -- only a SuperAdmin can change the acting company.
 
+**Glossary — "superadmin/<company>"** (user's convention, 2026-10-21): e.g.
+"superadmin/bicentenario" = the user is signed in to Murano in a browser as
+the SuperAdmin and picked that company (Colegio Bicentenario) in the top-bar
+company dropdown, so the changes are made as the SuperAdmin acting on that
+company. (Entering "as the company admin" from the login chooser is a
+different thing: that is "admin/<company>".)
+**superadmin/AdminSystem vs superadmin/<company>** (user's rule, 2026-10-21):
+superadmin/AdminSystem (company 999 picked) has every menu and form PLUS the
+global ones (effect on the whole install), which show in the side menu in
+yellow with a "Global" tag: Login Page Settings, Update Settings, Currencies,
+Backup, System Health, Login Device Management (menu / route `systemOnly`,
+router guard + `isMenuEntryAllowed`), plus Backup archives / Login devices in
+System Settings and the full Companies list with Add / Delete
+(`CompanyController::isSystemContext`). superadmin/<company> works on that
+company only: Companies shows just it, global pages are hidden and refused by
+URL. A new install-wide screen gets `systemOnly: true`.
+**Lists = no restriction on AdminSystem:** every list / report endpoint reads
+its company with `ScopesToCompany::listCompanyId()` (null = every company for
+superadmin/AdminSystem; that company for superadmin/<company>; own company
+for everyone else) or `scopeListToCompany()`, adds `company_name` to its rows
+(`App\Support\CompanyNames::attach()`), and the page shows a Company column
+when `useSystemContext().isSystem` (`lib/systemContext.js`). Reports:
+`ScopesReportsToCompany::reportCompanyId()` (999 = all); warehouses:
+`ScopesWarehouseAccess::warehouseScopeIds()` (999 = all). Writes (a new
+record's company, settings, number generation) keep `resolveActingCompanyId()`;
+form pickers stay on the acting company. Numbers unique install-wide
+(patients.mrn, students.admission_number) are generated with
+`withoutGlobalScope('company')`.
+
 ## Roles & Multicompany Model
 
 - **SuperAdmin** — a user (or users) with user type `Superadmin` in the users

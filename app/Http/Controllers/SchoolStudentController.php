@@ -37,7 +37,8 @@ class SchoolStudentController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Student::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = (int) ($request->limit ?? 10);
         $page = max(1, (int) $request->get('page', 1));
@@ -46,7 +47,7 @@ class SchoolStudentController extends Controller
 
         $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
 
-        $query = Student::whereNull('deleted_at')->where('company_id', $companyId);
+        $query = Student::whereNull('deleted_at')->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId));
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -57,7 +58,7 @@ class SchoolStudentController extends Controller
         // Class/section filters run through the enrolment for the chosen year.
         if ($request->filled('class_id') || $request->filled('section_id') || $request->boolean('unassigned')) {
             $enrollmentIds = StudentEnrollment::whereNull('deleted_at')
-                ->where('company_id', $companyId)
+                ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
                 ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
                 ->when($request->filled('class_id'), fn ($q) => $q->where('class_id', $request->class_id))
                 ->when($request->filled('section_id'), fn ($q) => $q->where('section_id', $request->section_id))
@@ -86,19 +87,153 @@ class SchoolStudentController extends Controller
         }
         $offset = ($page * $perPage) - $perPage;
 
-        $students = $query->orderBy($order, $dir)->offset($offset)->limit($perPage)->get();
+        // Performance (2026-10-21): the year's weighted average and each term's average.
+        $perf = $this->performance($companyId, $yearId ? (int) $yearId : null);
+        if ($request->SortField === 'performance') {
+            // Best first (no marks last), then by name; paginated after sorting.
+            $ids = (clone $query)->orderBy('name')->pluck('id')->all();
+            usort($ids, function ($a, $b) use ($perf, $dir) {
+                $x = $perf['students'][$a]['average'] ?? null;
+                $y = $perf['students'][$b]['average'] ?? null;
+                if ($x === $y) {
+                    return 0;
+                }
+                if ($x === null || $y === null) {
+                    return $x === null ? 1 : -1;
+                }
+
+                return $dir === 'asc' ? $x <=> $y : $y <=> $x;
+            });
+            $pageIds = array_slice($ids, $offset, $perPage);
+            $students = Student::whereIn('id', $pageIds)->get()->sortBy(fn ($s) => array_search($s->id, $pageIds))->values();
+        } else {
+            $students = $query->orderBy($order, $dir)->offset($offset)->limit($perPage)->get();
+        }
 
         // Current enrolments in one query rather than one per row.
         $enrollments = StudentEnrollment::with('schoolClass', 'section')
             ->whereNull('deleted_at')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->whereIn('student_id', $students->pluck('id'))
             ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))
             ->get()->keyBy('student_id');
 
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $companyNames = \App\Models\Company::whereIn('id', $students->pluck('company_id')->unique())->pluck('name', 'id');
+
         return response()->json([
             'totalRows' => $totalRows,
-            'students' => $students->map(fn ($s) => $this->present($s, $enrollments->get($s->id)))->values(),
+            'students' => $students->map(fn ($s) => $this->present($s, $enrollments->get($s->id)) + [
+                'company_name' => $s->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$s->company_id] ?? null),
+                'performance' => $perf['students'][$s->id]['average'] ?? null,
+                'performance_terms' => $perf['students'][$s->id]['terms'] ?? [],
+            ])->values(),
+            'terms' => $perf['terms'],
+            'pass_mark' => $perf['pass'],
+        ]);
+    }
+
+    /**
+     * Every student's marks for a year (2026-10-21), the same way the report
+     * card counts them: each subject's average over the terms (rounded to a
+     * whole mark when out of 20), then the credit-weighted average; plus each
+     * term's plain average. ['students' => [id => [average, terms => [exam_id => avg]]], 'terms', 'pass', 'max'].
+     */
+    private function performance(?int $companyId, ?int $yearId): array
+    {
+        $out = ['students' => [], 'terms' => [], 'pass' => null, 'max' => null];
+        if (! $yearId) {
+            return $out;
+        }
+        $rows = DB::table('exam_results as r')
+            ->join('exam_subjects as es', 'es.id', '=', 'r.exam_subject_id')
+            ->join('exams as e', 'e.id', '=', 'es.exam_id')
+            ->leftJoin('subjects as sb', 'sb.id', '=', 'es.subject_id')
+            ->when($companyId !== null, fn ($q) => $q->where('r.company_id', $companyId))->where('e.academic_year_id', $yearId)->whereNull('e.deleted_at')
+            ->whereNotNull('r.marks')
+            ->get(['r.student_id', 'es.exam_id', 'es.subject_id', 'sb.credit', 'r.marks', 'es.max_marks', 'es.pass_marks']);
+        if ($rows->isEmpty()) {
+            return $out;
+        }
+        $max = (float) $rows->max('max_marks');
+        $out['max'] = $max;
+        $out['pass'] = (float) $rows->max('pass_marks');
+        $whole = $max === 20.0;
+        $roman = ['term_1' => 'I', 'term_2' => 'II', 'term_3' => 'III', 'term_4' => 'IV'];
+        $out['terms'] = \App\Models\Exam::whereIn('id', $rows->pluck('exam_id')->unique())->orderBy('start_date')
+            ->get(['id', 'name', 'term'])->map(fn ($e) => ['id' => $e->id, 'term' => $e->term, 'label' => $roman[$e->term] ?? $e->name])->values()->all();
+
+        foreach ($rows->groupBy('student_id') as $sid => $mine) {
+            $sum = $credits = 0;
+            foreach ($mine->groupBy('subject_id') as $subRows) {
+                $avg = $subRows->avg('marks');
+                $avg = $whole ? floor($avg + 0.5) : $avg;
+                $credit = (float) ($subRows->first()->credit ?: 1);
+                $sum += $avg * $credit;
+                $credits += $credit;
+            }
+            $out['students'][$sid] = [
+                'average' => $credits ? round($sum / $credits, 2) : null,
+                'terms' => $mine->groupBy('exam_id')->map(fn ($g) => round($g->avg('marks'), 2))->all(),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Cards above the student list (2026-10-21): best student (and the top 3),
+     * best class and section by average, the school average, students below the
+     * pass mark, and the best / worst attendance -- for the year and company.
+     */
+    public function highlights(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', Student::class);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
+        $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
+        $perf = $this->performance($companyId, $yearId ? (int) $yearId : null);
+        $avgs = collect($perf['students'])->map(fn ($p) => $p['average'])->filter(fn ($v) => $v !== null);
+
+        $enrol = StudentEnrollment::with('schoolClass', 'section')->whereNull('deleted_at')->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
+            ->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))->where('status', 'active')->get()->keyBy('student_id');
+        $names = Student::whereIn('id', $enrol->keys())->pluck('name', 'id');
+        $place = fn ($sid) => $enrol->get($sid) ? trim(optional($enrol[$sid]->schoolClass)->name.' '.optional($enrol[$sid]->section)->name) : '';
+
+        $top = $avgs->sortDesc()->take(3)->map(fn ($a, $sid) => ['id' => $sid, 'name' => $names[$sid] ?? '', 'place' => $place($sid), 'average' => $a])->values();
+        $group = function (callable $key, callable $label) use ($avgs, $enrol) {
+            return $avgs->filter(fn ($a, $sid) => $enrol->has($sid))->groupBy(fn ($a, $sid) => $key($enrol[$sid]), true)
+                ->map(fn ($g, $k) => ['label' => $label($enrol[$g->keys()->first()]), 'average' => round($g->avg(), 2), 'students' => $g->count()])
+                ->sortByDesc('average')->values();
+        };
+        $classes = $group(fn ($e) => $e->class_id, fn ($e) => optional($e->schoolClass)->name);
+        $sections = $group(fn ($e) => $e->class_id.'-'.$e->section_id, fn ($e) => trim(optional($e->schoolClass)->name.' '.optional($e->section)->name));
+
+        // Attendance rate per student for the year (whole-day register).
+        $year = $yearId ? AcademicYear::find($yearId) : null;
+        $att = StudentAttendance::whereNull('subject_id')->whereIn('student_id', $enrol->keys())
+            ->when($year, fn ($q) => $q->whereDate('attendance_date', '>=', $year->start_date)->whereDate('attendance_date', '<=', $year->end_date))
+            ->select('student_id', 'status', DB::raw('count(*) as c'))->groupBy('student_id', 'status')->get()->groupBy('student_id')
+            ->map(function ($g) {
+                $total = $g->sum('c');
+                $present = $g->whereIn('status', StudentAttendance::presentStatuses())->sum('c');
+
+                return ['rate' => $total ? round($present / $total * 100, 1) : null, 'absent' => (int) $g->where('status', 'absent')->sum('c')];
+            })->filter(fn ($a) => $a['rate'] !== null);
+        $bestAtt = $att->sortByDesc('rate')->keys()->first();
+        $mostAbs = $att->sortByDesc('absent')->keys()->first();
+
+        return response()->json([
+            'pass_mark' => $perf['pass'],
+            'max' => $perf['max'],
+            'school_average' => $avgs->isNotEmpty() ? round($avgs->avg(), 2) : null,
+            'graded' => $avgs->count(),
+            'top' => $top,
+            'best_class' => $classes->first(),
+            'best_section' => $sections->first(),
+            'at_risk' => $perf['pass'] !== null ? $avgs->filter(fn ($a) => $a < $perf['pass'])->count() : 0,
+            'best_attendance' => $bestAtt ? ['id' => $bestAtt, 'name' => $names[$bestAtt] ?? '', 'place' => $place($bestAtt), 'rate' => $att[$bestAtt]['rate']] : null,
+            'most_absences' => $mostAbs ? ['id' => $mostAbs, 'name' => $names[$mostAbs] ?? '', 'place' => $place($mostAbs), 'absent' => $att[$mostAbs]['absent']] : null,
         ]);
     }
 
@@ -308,6 +443,144 @@ class SchoolStudentController extends Controller
                     'due' => $i->due,
                     'status' => $i->status,
                 ])->values(),
+        ]);
+    }
+
+    /**
+     * Report card ("Libreta", 2026-10-21): the student's marks for one academic
+     * year, one column per term exam (I-IV bimestre…), with each subject's
+     * average, the term averages, the credit-weighted average, the absences per
+     * term and the final situation -- plus the school's name / address for the
+     * printed copy (modelled on MINEDU's "Reporte de notas de estudiante").
+     */
+    public function reportCard(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', Student::class);
+
+        $companyId = $this->resolveActingCompanyId($request);
+        $student = Student::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $student->company_id === (int) $companyId, 404);
+        $yearId = $request->academic_year_id ?: optional(AcademicYear::current())->id;
+        $enrollmentQ = fn () => StudentEnrollment::with('schoolClass', 'section.teacher')
+            ->whereNull('deleted_at')->where('student_id', $student->id)->orderByDesc('id');
+        $enrollment = $enrollmentQ()->when($yearId, fn ($q) => $q->where('academic_year_id', $yearId))->first();
+        // Not enrolled in that year: the student's latest enrolment (and its year).
+        if (! $enrollment && ! $request->academic_year_id) {
+            $enrollment = $enrollmentQ()->first();
+            $yearId = $enrollment ? $enrollment->academic_year_id : $yearId;
+        }
+        $year = $yearId ? AcademicYear::find($yearId) : null;
+
+        $settings = \App\Models\Setting::forCompany((int) $companyId);
+        $school = [
+            'name' => $settings->CompanyName ?: DB::table('companies')->where('id', $companyId)->value('name'),
+            'address' => $settings->CompanyAdress,
+            'phone' => $settings->CompanyPhone,
+            'email' => $settings->email,
+            'logo_url' => $settings->logo ? asset($settings->logo) : null,
+        ];
+
+        $base = [
+            'school' => $school,
+            'student' => [
+                'name' => $student->name, 'admission_number' => $student->admission_number,
+                'national_id' => $student->national_id, 'date_of_birth' => optional($student->date_of_birth)->toDateString(),
+                'guardian_name' => $student->guardian_name,
+            ],
+            'year' => $year ? ['id' => $year->id, 'name' => $year->name, 'start_date' => optional($year->start_date)->toDateString(), 'end_date' => optional($year->end_date)->toDateString()] : null,
+            'enrollment' => $enrollment ? [
+                'class_name' => optional($enrollment->schoolClass)->name,
+                'section_name' => optional($enrollment->section)->name,
+                'roll_number' => $enrollment->roll_number,
+                'tutor' => optional(optional($enrollment->section)->teacher)->name,
+            ] : null,
+            'issued_at' => now()->toDateTimeString(),
+        ];
+        if (! $enrollment || ! $year) {
+            return response()->json($base + ['terms' => [], 'subjects' => [], 'summary' => null]);
+        }
+
+        // The class's exams of the year, in date order: one column each.
+        $exams = \App\Models\Exam::whereNull('deleted_at')->where('academic_year_id', $yearId)
+            ->whereHas('examSubjects', fn ($q) => $q->where('class_id', $enrollment->class_id))
+            ->orderBy('start_date')->get(['id', 'name', 'term', 'start_date', 'end_date', 'status']);
+        $papers = \App\Models\ExamSubject::with('subject')->whereIn('exam_id', $exams->pluck('id'))
+            ->where('class_id', $enrollment->class_id)->get();
+        $results = ExamResult::whereIn('exam_subject_id', $papers->pluck('id'))->where('student_id', $student->id)
+            ->get()->keyBy('exam_subject_id');
+
+        $max = (float) ($papers->max('max_marks') ?: 20);
+        $pass = (float) ($papers->max('pass_marks') ?: round($max * 0.55));
+        $vigesimal = $max === 20.0;
+        $round = fn ($v) => $v === null ? null : ($vigesimal ? (int) floor($v + 0.5) : round($v, 1));
+
+        $subjects = [];
+        foreach ($papers->groupBy('subject_id') as $subjectId => $rows) {
+            $subject = $rows->first()->subject;
+            $marks = [];
+            $nums = [];
+            foreach ($exams as $exam) {
+                $paper = $rows->firstWhere('exam_id', $exam->id);
+                $r = $paper ? $results->get($paper->id) : null;
+                if ($r && $r->marks !== null) {
+                    $marks[$exam->id] = (float) $r->marks;
+                    $nums[] = (float) $r->marks;
+                } else {
+                    $marks[$exam->id] = $r && $r->is_absent ? 'AUS' : null;
+                }
+            }
+            $avg = $nums ? $round(array_sum($nums) / count($nums)) : null;
+            $subjects[] = [
+                'subject_id' => (int) $subjectId,
+                'name' => $subject ? $subject->name : '',
+                'credit' => (float) ($subject->credit ?? 1) ?: 1.0,
+                'marks' => $marks,
+                'average' => $avg,
+                'grade' => $avg === null ? null : ExamResult::gradeFor($avg / $max * 100, $max),
+                'passed' => $avg === null ? null : $avg >= $pass,
+            ];
+        }
+        usort($subjects, fn ($a, $b) => strcmp($a['name'], $b['name']));
+
+        // Term averages (each column) and the credit-weighted average of the subject averages.
+        $termAvg = [];
+        foreach ($exams as $exam) {
+            $vals = array_filter(array_map(fn ($s) => is_numeric($s['marks'][$exam->id]) ? $s['marks'][$exam->id] : null, $subjects), fn ($v) => $v !== null);
+            $termAvg[$exam->id] = $vals ? round(array_sum($vals) / count($vals), 2) : null;
+        }
+        $graded = array_filter($subjects, fn ($s) => $s['average'] !== null);
+        $credits = array_sum(array_map(fn ($s) => $s['credit'], $graded));
+        $weighted = $credits > 0 ? round(array_sum(array_map(fn ($s) => $s['average'] * $s['credit'], $graded)) / $credits, 2) : null;
+
+        // Absences per term: from the year's start (or the previous exam) to each exam's last day.
+        $attendance = [];
+        $from = $year->start_date;
+        foreach ($exams as $exam) {
+            $to = $exam->end_date ?: $exam->start_date;
+            $counts = StudentAttendance::whereNull('subject_id')->where('student_id', $student->id)
+                ->whereDate('attendance_date', '>=', $from)->whereDate('attendance_date', '<=', $to)
+                ->select('status', DB::raw('count(*) as c'))->groupBy('status')->pluck('c', 'status');
+            $attendance[$exam->id] = ['absent' => (int) ($counts['absent'] ?? 0), 'late' => (int) ($counts['late'] ?? 0),
+                'excused' => (int) ($counts['excused'] ?? 0), 'days' => (int) $counts->sum()];
+            $from = optional($to)->copy()->addDay();
+        }
+
+        $pending = $exams->contains(fn ($e) => ! in_array($e->status, ['published', 'completed'], true));
+        $failed = count(array_filter($graded, fn ($s) => ! $s['passed']));
+
+        return response()->json($base + [
+            'scale' => ['max' => $max, 'pass' => $pass],
+            'terms' => $exams->map(fn ($e) => ['id' => $e->id, 'name' => $e->name, 'term' => $e->term,
+                'status' => $e->status, 'average' => $termAvg[$e->id], 'attendance' => $attendance[$e->id]])->values(),
+            'subjects' => $subjects,
+            'summary' => [
+                'weighted_average' => $weighted,
+                'weighted_grade' => $weighted === null ? null : ExamResult::gradeFor($weighted / $max * 100, $max),
+                'credits' => $credits,
+                'failed_subjects' => $failed,
+                // Year not over: in progress; then passed, or failed in N subjects.
+                'situation' => $pending ? 'in_progress' : ($failed ? 'failed' : 'passed'),
+            ],
         ]);
     }
 

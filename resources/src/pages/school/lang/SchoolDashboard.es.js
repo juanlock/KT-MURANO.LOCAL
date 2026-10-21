@@ -45,6 +45,7 @@ export default {
     'Term 1': 'Periodo 1',
     'Term 2': 'Periodo 2',
     'Term 3': 'Periodo 3',
+    'Term 4': 'Periodo 4',
     'Final': 'Final',
     'Other': 'Otro',
 };

@@ -1308,7 +1308,8 @@ class PosController extends BaseController
         $data = [];
 
         // Check If User Has Permission View  All Records
-        $draft_sales = $this->companyDrafts($request)->with('client', 'warehouse', 'user')
+        // superadmin/AdminSystem: every company (2026-10-21) -- listCompanyId().
+        $draft_sales = $this->scopeListToCompany(DraftSale::query(), $request, 'draft_sales.company_id')->with('client', 'warehouse', 'user')
             ->where('deleted_at', '=', null)
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
@@ -1328,10 +1329,13 @@ class PosController extends BaseController
             ->limit($perPage)
             ->orderBy($order, $dir)
             ->get();
+        // superadmin/AdminSystem: each row says whose it is (2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', $drafts->pluck('company_id')->unique())->pluck('name', 'id');
 
         foreach ($drafts as $draft) {
 
             $item['id'] = $draft['id'];
+            $item['company_name'] = (int) $draft['company_id'] === Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$draft['company_id']] ?? null);
             $item['date'] = $draft['date'];
             $item['Ref'] = $draft['Ref'];
             $item['warehouse_name'] = $draft['warehouse']['name'];

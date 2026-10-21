@@ -46,6 +46,21 @@
         </div>
       </a-card>
 
+      <!-- School: the school year's dates (they vary per school; default this year 1 Mar - 15 Dec). -->
+      <a-card v-if="needsSchoolYear" size="small" style="margin-bottom: 16px">
+        <div class="ddg-type">
+          <div>
+            <div class="ddg-type__title">{{ tx('When does the school year start and end?') }}</div>
+            <div class="ddg-muted">{{ tx(SCHOOL_HELP) }}</div>
+          </div>
+          <a-space>
+            <a-date-picker v-model:value="schoolStart" value-format="YYYY-MM-DD" :allow-clear="false" :placeholder="tx('Start date')" />
+            <span>{{ tx('to') }}</span>
+            <a-date-picker v-model:value="schoolEnd" value-format="YYYY-MM-DD" :allow-clear="false" :placeholder="tx('End date')" />
+          </a-space>
+        </div>
+      </a-card>
+
       <a-card size="small">
         <template #title>
           {{ tx('Modules') }}
@@ -89,6 +104,11 @@
                 v-if="record.demo_count" size="small" danger type="link"
                 :loading="resetting === record.key" @click="onReset(record)"
               >{{ tx('Remove') }}</a-button>
+              <!-- SuperAdmin only: a test company's "real" data in this module, deleted to start over. -->
+              <a-button
+                v-else-if="isSuperAdmin && record.has_real_data && record.wipeable" size="small" danger type="link"
+                :loading="wiping === record.key" @click="onWipe(record)"
+              >{{ tx('Delete real data') }}</a-button>
             </template>
           </template>
         </a-table>
@@ -133,6 +153,7 @@ import { ThunderboltOutlined, DeleteOutlined, ExclamationCircleOutlined } from '
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useLocalText } from '../../lib/useLocalText';
+import { useAuthStore } from '../../stores/auth';
 import ES from './lang/DemoDataGenerator.es.js';
 
 const { s: tx } = useLocalText(ES);
@@ -156,7 +177,7 @@ const columns = computed(() => [
   { title: tx('Module'), dataIndex: 'label', key: 'label' },
   { title: tx('Status'), key: 'status', width: 220 },
   { title: tx('Demo rows'), key: 'demo_count', width: 110, align: 'right' },
-  { title: '', key: 'actions', width: 90, align: 'right' },
+  { title: '', key: 'actions', width: 170, align: 'right' },
 ]);
 
 const availableKeys = computed(() => modules.value.filter(m => m.available).map(m => m.key));
@@ -185,6 +206,13 @@ const needsPay = computed(() => selected.value.some(k => ['hrm', 'payroll_histor
 const payType = ref(null);
 watch(businessType, bt => { if (!payType.value) payType.value = ['salon', 'barber'].includes(bt) ? 'commission' : 'hourly'; }, { immediate: true });
 
+// School: the school year's first and last day (default: this year, 1 March - 15 December).
+const SCHOOL_HELP = 'The example school year, its attendance (up to yesterday), exams and fees fall between these dates. Each school has its own calendar.';
+const needsSchoolYear = computed(() => selected.value.includes('school'));
+const thisYear = new Date().getFullYear();
+const schoolStart = ref(`${thisYear}-03-01`);
+const schoolEnd = ref(`${thisYear}-12-15`);
+
 function selectAvailable() {
   selected.value = [...availableKeys.value];
 }
@@ -192,7 +220,7 @@ function selectAvailable() {
 function summary(map) {
   return Object.entries(map || {})
     .filter(([, n]) => Number(n) > 0)
-    .map(([label, n]) => `${n} ${label.toLowerCase()}`)
+    .map(([label, n]) => `${n} ${tx(label).toLowerCase()}`)
     .join(', ');
 }
 
@@ -201,7 +229,8 @@ async function loadStatus() {
     const data = await http.get('demo_data/status');
     // Shown alphabetically by label (the server's order is the generation
     // order -- Core first -- which still applies when generating).
-    modules.value = sortByLabel(data.modules || []);
+    // Labels and reasons come from the server in English: shown in the app's language (2026-10-21).
+    modules.value = sortByLabel((data.modules || []).map(m => ({ ...m, label: tx(m.label), reason: m.reason ? tx(m.reason) : m.reason })));
     companyName.value = data.company_name || '';
     demoTotal.value = Number(data.demo_total) || 0;
     businessTypes.value = data.business_types || [];
@@ -217,6 +246,10 @@ async function loadStatus() {
 async function generate() {
   if (needsType.value && !businessType.value) {
     message.warning(tx('Choose what kind of business this is first — Accounting, Regular expenses, Assets, Portfolio and Website examples follow it.'));
+    return;
+  }
+  if (needsSchoolYear.value && (!schoolStart.value || !schoolEnd.value || schoolEnd.value <= schoolStart.value)) {
+    message.warning(tx('Choose when the school year starts and ends (the end after the start).'));
     return;
   }
   const replacing = modules.value.filter(willReplace);
@@ -238,9 +271,10 @@ async function generate() {
     const data = await http.post('demo_data/generate', {
       modules: selected.value, business_type: businessType.value || null,
       ...(needsPay.value ? { pay_type: payType.value || 'hourly' } : {}),
+      ...(needsSchoolYear.value ? { school_start: schoolStart.value, school_end: schoolEnd.value } : {}),
     });
     const byKey = Object.fromEntries(modules.value.map(m => [m.key, m.label]));
-    lastResults.value = sortByLabel(Object.entries(data.results || {}).map(([key, r]) => ({ key, label: byKey[key] || key, ...r })));
+    lastResults.value = sortByLabel(Object.entries(data.results || {}).map(([key, r]) => ({ key, label: byKey[key] || key, ...r, reason: r.reason ? tx(r.reason) : r.reason })));
     const ok = lastResults.value.filter(r => r.status === 'created').length;
     const failed = lastResults.value.filter(r => r.status === 'error').length;
     const replaced = (data.replaced || []).length;
@@ -276,6 +310,33 @@ function onReset(record) {
         message.error(e?.data?.message || e?.message || tx('Reset failed'));
       } finally {
         resetting.value = null;
+      }
+    },
+  });
+}
+
+/* SuperAdmin: delete a module's real (test) data for this company (2026-10-21). */
+const auth = useAuthStore();
+const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
+const wiping = ref(null);
+function onWipe(record) {
+  Modal.confirm({
+    title: tx('Delete ALL {label} data of {name}?', { label: record.label, name: companyName.value || tx('this company') }),
+    icon: createVNode(ExclamationCircleOutlined),
+    content: tx('Every record of this module in this company is deleted — the ones typed by hand too, not only the examples. Use it only for test data. This cannot be undone.'),
+    okText: tx('Yes, delete everything'),
+    cancelText: tx('Cancel'),
+    okType: 'danger',
+    async onOk() {
+      wiping.value = record.key;
+      try {
+        const data = await http.post('demo_data/wipe', { module: record.key });
+        message.success(tx('Deleted {n} records. You can generate the examples now.', { n: data.deleted ?? 0 }), 6);
+        await loadStatus();
+      } catch (e) {
+        message.error(e?.data?.message || e?.message || tx('Delete failed'));
+      } finally {
+        wiping.value = null;
       }
     },
   });

@@ -61,27 +61,26 @@ class EmployeesController extends Controller
         $param = [
             0 => 'like',
             1 => 'like',
-            2 => '=',
-
         ];
+        // company_id is not a plain filter any more: listCompanyId() below
+        // (AdminSystem 999 would have filtered "company_id = 999").
         $columns = [
             0 => 'username',
             1 => 'employment_type',
-            2 => 'company_id',
         ];
         $data = [];
 
         $user = $request->user('api');
+        // superadmin/AdminSystem: every company (2026-10-21)
+        $listCompanyId = $this->listCompanyId($request);
 
         $employees = Employee::with('company:id,name', 'office_shift:id,name', 'department:id,department', 'designation:id,designation')
             ->where('deleted_at', '=', null)
             ->where('leaving_date', null)
-            // Company boundary: a SuperAdmin sees every company (optionally
-            // narrowed via ?company_id=); everyone else only their own,
-            // regardless of what the request sends.
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($request) {
-                return $query->where('company_id', $this->resolveActingCompanyId($request));
-            })
+            // Company boundary: a SuperAdmin on AdminSystem (or none) sees every
+            // company, with a company picked only that one; everyone else only
+            // their own, regardless of what the request sends.
+            ->when($listCompanyId !== null, fn ($query) => $query->where('company_id', $listCompanyId))
             // Without "View all employees": only their own record.
             ->when(! $this->canViewAllEmployees($user), fn ($q) => $q->where('user_id', $user->id));
 
@@ -122,11 +121,11 @@ class EmployeesController extends Controller
             $item['firstname'] = $employee->firstname;
             $item['lastname'] = $employee->lastname;
             $item['phone'] = $employee->phone;
-            $item['company_name'] = $employee['company']->name;
+            $item['company_name'] = $employee->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : optional($employee['company'])->name;
             $pos = $positions->get($employee->id);
             $item['department_name'] = $pos ? $pos->pluck('department')->filter()->unique()->implode(', ') : optional($employee['department'])->department;
             $item['designation_name'] = $pos ? $pos->pluck('designation')->filter()->unique()->implode(', ') : optional($employee['designation'])->designation;
-            $item['office_shift_name'] = $employee['office_shift']->name;
+            $item['office_shift_name'] = optional($employee['office_shift'])->name;
 
             $data[] = $item;
         }

@@ -60,6 +60,7 @@ export const WARD_TYPES = [
     { value: 'nicu', label: 'NICU' },
     { value: 'maternity', label: 'Maternity' },
     { value: 'isolation', label: 'Isolation' },
+    { value: 'emergency', label: 'Emergency room' },
 ];
 
 export const BED_STATUSES = [

@@ -1,12 +1,12 @@
 <template>
   <div class="page">
     <PageHeader
-      :title="isEdit ? 'Edit patient' : 'Register patient'"
-      :breadcrumb="['Hospital', 'Patients', isEdit ? $t('Edit') : $t('Add')]"
+      :title="isEdit ? s('Edit patient') : s('Register patient')"
+      :breadcrumb="[s('Hospital'), s('Patients'), isEdit ? s('Edit') : s('Add')]"
     >
       <template #actions>
-        <a-button @click="back">{{ $t('Cancel') }}</a-button>
-        <a-button type="primary" :loading="saving" @click="submit">{{ $t('submit') }}</a-button>
+        <a-button @click="back">{{ s('Cancel') }}</a-button>
+        <a-button type="primary" :loading="saving" @click="submit">{{ s('Save') }}</a-button>
       </template>
     </PageHeader>
 
@@ -15,118 +15,118 @@
     <a-form v-else ref="formRef" :model="form" :rules="rules" layout="vertical">
       <a-row :gutter="16">
         <a-col :xs="24" :lg="16">
-          <a-card size="small" title="Identity" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Identity')" style="margin-bottom: 16px">
             <a-row :gutter="16">
               <a-col :xs="24" :md="12">
-                <a-form-item label="Full name *" name="name">
-                  <a-input v-model:value="form.name" placeholder="Patient's full name" allow-clear />
+                <a-form-item :label="s('Full name *')" name="name">
+                  <a-input v-model:value="form.name" :placeholder="s(`Patient's full name`)" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
                 <a-form-item
-                  label="Medical record number"
-                  :extra="isEdit ? null : 'Leave empty and one is issued automatically'"
+                  :label="s('Medical record number')"
+                  :extra="isEdit ? null : s('Leave empty and one is issued automatically')"
                 >
                   <a-input v-model:value="form.mrn" placeholder="MRN-000001" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Gender *" name="gender">
-                  <a-select v-model:value="form.gender" :options="GENDERS" />
+                <a-form-item :label="s('Gender *')" name="gender">
+                  <a-select v-model:value="form.gender" :options="genderOptions" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Date of birth" name="date_of_birth">
+                <a-form-item :label="s('Date of birth')" name="date_of_birth">
                   <a-date-picker v-model:value="form.date_of_birth" style="width: 100%" value-format="YYYY-MM-DD" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Blood group">
-                  <a-select v-model:value="form.blood_group" :options="BLOOD_GROUPS" allow-clear placeholder="Unknown" />
+                <a-form-item :label="s('Blood group')">
+                  <a-select v-model:value="form.blood_group" :options="BLOOD_GROUPS" allow-clear :placeholder="s('Unknown')" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-form-item label="Status *" name="status">
-                  <a-select v-model:value="form.status" :options="PATIENT_STATUSES" />
+                <a-form-item :label="s('Status *')" name="status">
+                  <a-select v-model:value="form.status" :options="statusOptions" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item label="Phone">
+                <a-form-item :label="s('Phone')">
                   <a-input v-model:value="form.phone" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item label="Email" name="email">
+                <a-form-item :label="s('Email')" name="email">
                   <a-input v-model:value="form.email" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item label="National ID">
+                <a-form-item :label="s('National ID')">
                   <a-input v-model:value="form.national_id" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="16">
-                <a-form-item label="Address">
+                <a-form-item :label="s('Address')">
                   <a-input v-model:value="form.address" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item label="City">
+                <a-form-item :label="s('City')">
                   <a-input v-model:value="form.city" allow-clear />
                 </a-form-item>
               </a-col>
             </a-row>
           </a-card>
 
-          <a-card size="small" title="Clinical alerts" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Clinical alerts')" style="margin-bottom: 16px">
             <a-alert
               type="warning" show-icon banner
-              message="Allergies entered here are shown on every consultation and prescription screen."
+              :message="s('Allergies entered here are shown on every consultation and prescription screen.')"
               style="margin-bottom: 16px"
             />
             <a-row :gutter="16">
               <a-col :xs="24" :md="12">
-                <a-form-item label="Allergies">
-                  <a-textarea v-model:value="form.allergies" :rows="3" placeholder="e.g. Penicillin, sulfa drugs" />
+                <a-form-item :label="s('Allergies')">
+                  <a-textarea v-model:value="form.allergies" :rows="3" :placeholder="s('e.g. Penicillin, sulfa drugs')" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-form-item label="Chronic conditions">
-                  <a-textarea v-model:value="form.chronic_conditions" :rows="3" placeholder="e.g. Type 2 diabetes, hypertension" />
+                <a-form-item :label="s('Chronic conditions')">
+                  <a-textarea v-model:value="form.chronic_conditions" :rows="3" :placeholder="s('e.g. Type 2 diabetes, hypertension')" />
                 </a-form-item>
               </a-col>
             </a-row>
           </a-card>
 
-          <a-card size="small" title="Emergency contact & insurance">
+          <a-card size="small" :title="s('Emergency contact & insurance')">
             <a-row :gutter="16">
               <a-col :xs="24" :md="8">
-                <a-form-item label="Contact name">
+                <a-form-item :label="s('Contact name')">
                   <a-input v-model:value="form.emergency_contact_name" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="Contact phone">
+                <a-form-item :label="s('Contact phone')">
                   <a-input v-model:value="form.emergency_contact_phone" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="Relationship">
-                  <a-input v-model:value="form.emergency_contact_relation" placeholder="e.g. Spouse" allow-clear />
+                <a-form-item :label="s('Relationship')">
+                  <a-input v-model:value="form.emergency_contact_relation" :placeholder="s('e.g. Spouse')" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item label="Insurance provider">
+                <a-form-item :label="s('Insurance provider')">
                   <a-input v-model:value="form.insurance_provider" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="Policy number">
+                <a-form-item :label="s('Policy number')">
                   <a-input v-model:value="form.insurance_number" allow-clear />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="Policy expiry" name="insurance_expiry">
+                <a-form-item :label="s('Policy expiry')" name="insurance_expiry">
                   <a-date-picker v-model:value="form.insurance_expiry" style="width: 100%" value-format="YYYY-MM-DD" />
                 </a-form-item>
               </a-col>
@@ -135,7 +135,7 @@
         </a-col>
 
         <a-col :xs="24" :lg="8">
-          <a-card size="small" title="Photo" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Photo')" style="margin-bottom: 16px">
             <div class="photo">
               <img v-if="previewUrl" :src="previewUrl" alt="Patient" />
               <span v-else class="photo-empty"><UserOutlined /></span>
@@ -144,36 +144,36 @@
               <a-upload :show-upload-list="false" accept="image/*" :before-upload="pickImage">
                 <a-button>
                   <template #icon><UploadOutlined /></template>
-                  {{ previewUrl ? 'Replace' : 'Upload' }}
+                  {{ previewUrl ? s('Replace') : s('Upload') }}
                 </a-button>
               </a-upload>
-              <a-button v-if="previewUrl" danger @click="clearImage">{{ $t('Delete') }}</a-button>
+              <a-button v-if="previewUrl" danger @click="clearImage">{{ s('Delete') }}</a-button>
             </a-space>
           </a-card>
 
-          <a-card size="small" title="Links" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Links')" style="margin-bottom: 16px">
             <a-form-item
-              :label="$t('Customer')"
-              extra="Link to a CRM customer if this patient also buys from the shop"
+              :label="s('Customer')"
+              :extra="s('Link to a CRM customer if this patient also buys from the shop')"
               style="margin-bottom: 0"
             >
               <a-select
                 v-model:value="form.client_id" allow-clear show-search
                 option-filter-prop="label" :options="clientOptions"
-                placeholder="Not linked"
+                :placeholder="s('Not linked')"
               />
             </a-form-item>
           </a-card>
 
-          <a-card size="small" :title="$t('Note')">
+          <a-card size="small" :title="s('Note')">
             <a-textarea v-model:value="form.notes" :rows="5" />
           </a-card>
         </a-col>
       </a-row>
 
       <div class="form-foot">
-        <a-button @click="back">{{ $t('Cancel') }}</a-button>
-        <a-button type="primary" size="large" :loading="saving" @click="submit">{{ $t('submit') }}</a-button>
+        <a-button @click="back">{{ s('Cancel') }}</a-button>
+        <a-button type="primary" size="large" :loading="saving" @click="submit">{{ s('Save') }}</a-button>
       </div>
     </a-form>
   </div>
@@ -195,7 +195,12 @@ import PageHeader from '../../components/PageHeader.vue';
 import { uploadForm } from '../../lib/upload';
 import http from '../../lib/http';
 import { GENDERS, BLOOD_GROUPS, PATIENT_STATUSES } from './hospitalOptions';
-import { t } from '../../i18n';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/PatientForm.es.js';
+
+const { s } = useHospitalText(ES);
+const genderOptions = computed(() => GENDERS.map(o => ({ ...o, label: s(o.label) })));
+const statusOptions = computed(() => PATIENT_STATUSES.map(o => ({ ...o, label: s(o.label) })));
 
 const route = useRoute();
 const router = useRouter();
@@ -218,12 +223,12 @@ const imageFile = ref(null);
 const previewUrl = ref('');
 const removeImage = ref(false);
 
-const required = () => [{ required: true, message: t('Field_is_required', 'This field is required') }];
+const required = () => [{ required: true, message: s('This field is required') }];
 const rules = computed(() => ({
   name: required(),
   gender: required(),
   status: required(),
-  email: [{ type: 'email', message: t('InvalidData', 'Enter a valid email address') }],
+  email: [{ type: 'email', message: s('Enter a valid email address') }],
 }));
 
 const clients = ref([]);
@@ -269,7 +274,7 @@ async function load() {
       previewUrl.value = p.image_url || '';
     }
   } catch (e) {
-    message.error(t('InvalidData', 'Could not load this patient'));
+    message.error(s('Could not load this patient'));
   } finally {
     loading.value = false;
   }
@@ -297,15 +302,15 @@ async function submit() {
     const res = await uploadForm(url, fd);
     if (res.status >= 200 && res.status < 300) {
       message.success(isEdit.value
-        ? t('Updated_in_successfully', 'Updated successfully')
-        : `Patient registered — ${res.data?.mrn || ''}`);
+        ? s('Updated successfully')
+        : s('Patient registered — {mrn}', { mrn: res.data?.mrn || '' }));
       router.push(isEdit.value ? `/hospital/patients/${route.params.id}` : `/hospital/patients/${res.data.id}`);
       return;
     }
     // uploadForm resolves on 422 instead of throwing.
-    message.error(firstError(res.data) || t('InvalidData', 'Could not save this patient'));
+    message.error(firstError(res.data) || s('Could not save this patient'));
   } catch (e) {
-    message.error(t('InvalidData', 'Could not save this patient'));
+    message.error(s('Could not save this patient'));
   } finally {
     saving.value = false;
   }

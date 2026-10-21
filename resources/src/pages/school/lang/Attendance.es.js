@@ -30,4 +30,13 @@ export default {
     'L': 'T',
     'E': 'J',
     'H': 'M',
+    // Whole-school overview (2026-10-21)
+    'Whole school': 'Todo el colegio',
+    'Whole school — {date}': 'Todo el colegio — {date}',
+    'Whole school — last 30 days': 'Todo el colegio — últimos 30 días',
+    'Register': 'Lista',
+    'Click a class to open its register.': 'Haga clic en una clase para abrir su lista.',
+    'No register taken on {date} yet.': 'Aún no se pasó lista el {date}.',
+    'See {date}': 'Ver el {date}',
+    'No students enrolled for the current year': 'No hay estudiantes matriculados en el año actual',
 };

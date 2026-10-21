@@ -18,7 +18,8 @@ class DesignationsController extends Controller
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Designation::class);
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21)
+        $companyId = $this->listCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -28,8 +29,8 @@ class DesignationsController extends Controller
         $order = $request->SortField;
         $dir = $request->SortType;
         $data = [];
-        $designations = Designation::with('department')->where('deleted_at', '=', null)
-            ->where('company_id', $companyId)
+        $designations = Designation::with('department', 'company')->where('deleted_at', '=', null)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
@@ -50,10 +51,10 @@ class DesignationsController extends Controller
 
             $item['id'] = $designation->id;
             $item['designation'] = $designation->designation;
-            $item['company_name'] = $designation['company']->name;
-            $item['company_id'] = $designation['company']->id;
-            $item['department_name'] = $designation['department']->department;
-            $item['department_id'] = $designation['department']->id;
+            $item['company_name'] = $designation->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : optional($designation['company'])->name;
+            $item['company_id'] = $designation->company_id;
+            $item['department_name'] = optional($designation['department'])->department;
+            $item['department_id'] = $designation->department_id;
 
             $data[] = $item;
         }

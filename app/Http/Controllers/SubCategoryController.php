@@ -30,8 +30,8 @@ class SubCategoryController extends BaseController
             $sortField = 'id';
         }
 
-        $query = SubCategory::query()
-            ->where('company_id', $this->resolveActingCompanyId($request))
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $query = $this->scopeListToCompany(SubCategory::query(), $request)
             ->with('category:id,name')
             ->when($search !== '', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%");
@@ -52,6 +52,8 @@ class SubCategoryController extends BaseController
             ->offset($offSet)
             ->limit($perPage)
             ->get();
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $rows = \App\Support\CompanyNames::attach($rows);
 
         return response()->json([
             'subcategories' => $rows,

@@ -1,14 +1,14 @@
 <template>
   <div class="page">
-    <PageHeader title="Admissions" :breadcrumb="['Hospital', 'Admissions']">
+    <PageHeader :title="s('Admissions')" :breadcrumb="[s('Hospital'), s('Admissions')]">
       <template #actions>
         <a-button @click="$router.push('/hospital/wards')">
           <template #icon><HomeOutlined /></template>
-          Bed board
+          {{ s('Bed board') }}
         </a-button>
         <a-button type="primary" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
-          Admit patient
+          {{ s('Admit patient') }}
         </a-button>
       </template>
     </PageHeader>
@@ -16,16 +16,16 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search patient, MRN or reference…"
+          v-model:value="crud.search.value" :placeholder="s('Search patient, MRN or reference…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.status" class="tb-item" allow-clear
-          placeholder="All statuses" :options="ADMISSION_STATUSES" @change="crud.reload"
+          :placeholder="s('All statuses')" :options="admissionStatusOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.ward_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All wards" :options="wardOptions" @change="crud.reload"
+          option-filter-prop="label" :placeholder="s('All wards')" :options="wardOptions" @change="crud.reload"
         />
         <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
       </div>
@@ -46,7 +46,7 @@
         <template v-else-if="column.key === 'admitted_at'">{{ dateTime(record.admitted_at) }}</template>
         <template v-else-if="column.key === 'discharged_at'">
           <span v-if="record.discharged_at">{{ dateTime(record.discharged_at) }}</span>
-          <span v-else class="muted">Still in</span>
+          <span v-else class="muted">{{ s('Still in') }}</span>
         </template>
         <template v-else-if="column.key === 'charge'">
           <div>{{ money(record.bed_charge) }}</div>
@@ -54,34 +54,34 @@
         </template>
         <template v-else-if="column.key === 'status'">
           <a-tag :color="optionOf(ADMISSION_STATUSES, record.status).color">
-            {{ labelOf(ADMISSION_STATUSES, record.status) }}
+            {{ s(labelOf(ADMISSION_STATUSES, record.status)) }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
             <template v-if="record.status === 'admitted'">
-              <a-tooltip title="Transfer bed">
+              <a-tooltip :title="s('Transfer bed')">
                 <a-button type="text" size="small" @click="openTransfer(record)">
                   <template #icon><SwapOutlined /></template>
                 </a-button>
               </a-tooltip>
-              <a-tooltip title="Discharge">
+              <a-tooltip :title="s('Discharge')">
                 <a-button type="text" size="small" @click="openDischarge(record)">
                   <template #icon><LogoutOutlined /></template>
                 </a-button>
               </a-tooltip>
             </template>
-            <a-tooltip title="Bill this stay">
+            <a-tooltip :title="s('Bill this stay')">
               <a-button type="text" size="small" @click="bill(record)">
                 <template #icon><DollarOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip :title="$t('Edit')">
+            <a-tooltip :title="s('Edit')">
               <a-button type="text" size="small" @click="openForm(record)">
                 <template #icon><EditOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip :title="$t('Delete')">
+            <a-tooltip :title="s('Delete')">
               <a-button type="text" size="small" danger @click="crud.remove(record, { label: record.reference })">
                 <template #icon><DeleteOutlined /></template>
               </a-button>
@@ -93,36 +93,36 @@
 
     <!-- Admit / edit -->
     <a-modal
-      :open="formOpen" :title="editing ? 'Edit admission' : 'Admit patient'" :width="620"
-      :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
+      :open="formOpen" :title="editing ? s('Edit admission') : s('Admit patient')" :width="620"
+      :confirm-loading="saving" :ok-text="s('Save')" :cancel-text="s('Cancel')"
       @ok="submit" @cancel="formOpen = false"
     >
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
-        <a-form-item label="Patient *" name="patient_id">
+        <a-form-item :label="s('Patient') + ' *'" name="patient_id">
           <PatientPicker v-model="form.patient_id" :initial-option="editingPatient" />
         </a-form-item>
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item v-if="!editing" label="Bed *" name="bed_id">
+            <a-form-item v-if="!editing" :label="s('Bed') + ' *'" name="bed_id">
               <a-select
                 v-model:value="form.bed_id" show-search option-filter-prop="label"
-                :options="bedOptions" placeholder="Pick a free bed" @change="onBedChange"
+                :options="bedOptions" :placeholder="s('Pick a free bed')" @change="onBedChange"
               />
             </a-form-item>
-            <a-form-item v-else label="Bed" extra="Use Transfer to move the patient">
+            <a-form-item v-else :label="s('Bed')" :extra="s('Use Transfer to move the patient')">
               <a-input :value="`${editing.ward_name || ''} / ${editing.bed_number || ''}`" disabled />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Consultant">
+            <a-form-item :label="s('Consultant')">
               <a-select
                 v-model:value="form.doctor_id" allow-clear show-search option-filter-prop="label"
-                :options="doctorOptions" placeholder="Select"
+                :options="doctorOptions" :placeholder="s('Select')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Admitted at *" name="admitted_at">
+            <a-form-item :label="s('Admitted at') + ' *'" name="admitted_at">
               <a-date-picker
                 v-model:value="form.admitted_at" show-time style="width: 100%"
                 value-format="YYYY-MM-DD HH:mm:ss"
@@ -130,17 +130,17 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Rate / night" extra="Defaults to the bed's rate">
+            <a-form-item :label="s('Rate / night')" :extra="s('Defaults to the bed\'s rate')">
               <a-input-number v-model:value="form.daily_rate" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="Reason for admission">
+            <a-form-item :label="s('Reason for admission')">
               <a-input v-model:value="form.reason" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="Working diagnosis" style="margin-bottom: 0">
+            <a-form-item :label="s('Working diagnosis')" style="margin-bottom: 0">
               <a-textarea v-model:value="form.diagnosis" :rows="2" />
             </a-form-item>
           </a-col>
@@ -150,19 +150,19 @@
 
     <!-- Discharge -->
     <a-modal
-      :open="dischargeOpen" title="Discharge patient" :width="520"
-      :confirm-loading="working" ok-text="Discharge" :cancel-text="$t('Cancel')"
+      :open="dischargeOpen" :title="s('Discharge patient')" :width="520"
+      :confirm-loading="working" :ok-text="s('Discharge')" :cancel-text="s('Cancel')"
       @ok="submitDischarge" @cancel="dischargeOpen = false"
     >
       <p v-if="target" class="target">
         {{ target.patient_name }} — {{ target.ward_name }} / {{ target.bed_number }},
-        {{ target.nights }} night(s) at {{ money(target.daily_rate) }}
+        {{ s('{n} night(s) at {rate}', { n: target.nights, rate: money(target.daily_rate) }) }}
         = <b>{{ money(target.bed_charge) }}</b>
       </p>
       <a-form layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Discharged at">
+            <a-form-item :label="s('Discharged at')">
               <a-date-picker
                 v-model:value="dischargeForm.discharged_at" show-time style="width: 100%"
                 value-format="YYYY-MM-DD HH:mm:ss"
@@ -170,12 +170,12 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Outcome">
+            <a-form-item :label="s('Outcome')">
               <a-select v-model:value="dischargeForm.status" :options="dischargeOutcomes" />
             </a-form-item>
           </a-col>
         </a-row>
-        <a-form-item label="Discharge summary" style="margin-bottom: 0">
+        <a-form-item :label="s('Discharge summary')" style="margin-bottom: 0">
           <a-textarea v-model:value="dischargeForm.discharge_summary" :rows="4" />
         </a-form-item>
       </a-form>
@@ -183,21 +183,21 @@
 
     <!-- Transfer -->
     <a-modal
-      :open="transferOpen" title="Transfer to another bed" :width="460"
-      :confirm-loading="working" ok-text="Transfer" :cancel-text="$t('Cancel')"
+      :open="transferOpen" :title="s('Transfer to another bed')" :width="460"
+      :confirm-loading="working" :ok-text="s('Transfer')" :cancel-text="s('Cancel')"
       @ok="submitTransfer" @cancel="transferOpen = false"
     >
       <p v-if="target" class="target">
-        {{ target.patient_name }} is currently in {{ target.ward_name }} / {{ target.bed_number }}.
+        {{ s('{patient} is currently in {ward} / {bed}.', { patient: target.patient_name, ward: target.ward_name, bed: target.bed_number }) }}
       </p>
       <a-form layout="vertical">
-        <a-form-item label="New bed">
+        <a-form-item :label="s('New bed')">
           <a-select
             v-model:value="transferForm.bed_id" show-search option-filter-prop="label"
-            :options="bedOptions" placeholder="Pick a free bed" @change="onTransferBedChange"
+            :options="bedOptions" :placeholder="s('Pick a free bed')" @change="onTransferBedChange"
           />
         </a-form-item>
-        <a-form-item label="Rate / night" style="margin-bottom: 0">
+        <a-form-item :label="s('Rate / night')" style="margin-bottom: 0">
           <a-input-number v-model:value="transferForm.daily_rate" :min="0" style="width: 100%" />
         </a-form-item>
       </a-form>
@@ -228,7 +228,10 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { ADMISSION_STATUSES, labelOf, optionOf } from './hospitalOptions';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/Admissions.es.js';
+
+const { s } = useHospitalText(ES);
 
 const router = useRouter();
 const { money, dateTime } = useFormat();
@@ -247,13 +250,13 @@ const crud = useCrudTable('hospital/admissions', {
 });
 
 const columns = computed(() => [
-  { title: 'Patient', key: 'patient', dataIndex: 'patient_name' },
-  { title: 'Ward / bed', key: 'bed', width: 180 },
-  { title: 'Consultant', dataIndex: 'doctor_name', key: 'doctor_name', width: 150 },
-  { title: 'Admitted', key: 'admitted_at', dataIndex: 'admitted_at', sorter: true, width: 175 },
-  { title: 'Discharged', key: 'discharged_at', dataIndex: 'discharged_at', sorter: true, width: 175 },
-  { title: 'Bed charge', key: 'charge', width: 150 },
-  { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 130 },
+  { title: s('Patient'), key: 'patient', dataIndex: 'patient_name' },
+  { title: s('Ward / bed'), key: 'bed', width: 180 },
+  { title: s('Consultant'), dataIndex: 'doctor_name', key: 'doctor_name', width: 150 },
+  { title: s('Admitted on'), key: 'admitted_at', dataIndex: 'admitted_at', sorter: true, width: 175 },
+  { title: s('Discharged on'), key: 'discharged_at', dataIndex: 'discharged_at', sorter: true, width: 175 },
+  { title: s('Bed charge'), key: 'charge', width: 150 },
+  { title: s('Status'), key: 'status', dataIndex: 'status', sorter: true, width: 130 },
   { title: '', key: 'actions', width: 170 },
 ]);
 
@@ -264,11 +267,13 @@ const doctorOptions = computed(() => doctors.value.map(d => ({ value: d.id, labe
 const wardOptions = computed(() => wards.value.map(w => ({ value: w.id, label: w.name })));
 const bedOptions = computed(() => beds.value.map(b => ({ value: b.id, label: b.label, bed: b })));
 
-const dischargeOutcomes = [
-  { value: 'discharged', label: 'Discharged' },
-  { value: 'transferred', label: 'Transferred out' },
-  { value: 'deceased', label: 'Deceased' },
-];
+const admissionStatusOptions = computed(() => ADMISSION_STATUSES.map(o => ({ ...o, label: s(o.label) })));
+
+const dischargeOutcomes = computed(() => [
+  { value: 'discharged', label: s('Discharged') },
+  { value: 'transferred', label: s('Transferred out') },
+  { value: 'deceased', label: s('Deceased') },
+]);
 
 // ---------------- admit / edit ----------------
 
@@ -291,7 +296,7 @@ function empty() {
   };
 }
 
-const required = () => [{ required: true, message: t('Field_is_required', 'This field is required') }];
+const required = () => [{ required: true, message: s('This field is required') }];
 const rules = computed(() => ({
   patient_id: required(),
   bed_id: editing.value ? [] : required(),
@@ -341,13 +346,13 @@ async function submit() {
   try {
     if (editing.value) await http.put(`hospital/admissions/${editing.value.id}`, form.value);
     else await http.post('hospital/admissions', form.value);
-    message.success(t('Created_in_successfully', 'Saved successfully'));
+    message.success(s('Saved successfully'));
     formOpen.value = false;
     editing.value = null;
     crud.fetchRows();
     loadBeds();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not save this admission'));
+    message.error(e?.data?.message || s('Could not save this admission'));
   } finally {
     saving.value = false;
   }
@@ -376,12 +381,12 @@ async function submitDischarge() {
   working.value = true;
   try {
     await http.post(`hospital/admissions/${target.value.id}/discharge`, { ...dischargeForm });
-    message.success('Patient discharged.');
+    message.success(s('Patient discharged.'));
     dischargeOpen.value = false;
     crud.fetchRows();
     loadBeds();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not discharge this patient'));
+    message.error(e?.data?.message || s('Could not discharge this patient'));
   } finally {
     working.value = false;
   }
@@ -401,18 +406,18 @@ function onTransferBedChange(id) {
 
 async function submitTransfer() {
   if (!transferForm.bed_id) {
-    message.warning('Pick a bed to transfer into.');
+    message.warning(s('Pick a bed to transfer into.'));
     return;
   }
   working.value = true;
   try {
     await http.post(`hospital/admissions/${target.value.id}/transfer`, { ...transferForm });
-    message.success('Patient transferred.');
+    message.success(s('Patient transferred.'));
     transferOpen.value = false;
     crud.fetchRows();
     loadBeds();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not transfer this patient'));
+    message.error(e?.data?.message || s('Could not transfer this patient'));
   } finally {
     working.value = false;
   }

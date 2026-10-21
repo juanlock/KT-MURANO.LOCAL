@@ -48,9 +48,10 @@ class ProvidersController extends BaseController
         // else is always scoped to their own company. Suppliers previously had
         // no company_id column at all -- this closes the same class of gap
         // already fixed on ClientController/WarehouseController.
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
-        $providers = Provider::where('deleted_at', '=', null)->where('company_id', $companyId);
+        $providers = Provider::where('deleted_at', '=', null)->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId));
 
         // Multiple Filter
         $Filtred = $helpers->filter($providers, $columns, $param, $request)
@@ -113,8 +114,11 @@ class ProvidersController extends BaseController
             $item['adresse'] = $provider->adresse;
             $item['credit_limit'] = $provider->credit_limit ?? 0;
             $item['opening_balance'] = $provider->opening_balance ?? 0;
+            $item['company_id'] = $provider->company_id;
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
         $company_info = Setting::where('deleted_at', '=', null)->first();
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
@@ -367,15 +371,16 @@ class ProvidersController extends BaseController
 
         // ✅ record_view decides whose documents; the assigned warehouses
         // decide which warehouses they may come from. Both apply.
-        $scopeIds = $this->warehouseScopeIds();
+        // superadmin/AdminSystem (2026-10-21): no warehouse restriction either.
+        $scopeIds = $this->listCompanyId($request) === null ? null : $this->warehouseScopeIds();
 
         // Company boundary: a non-SuperAdmin only ever sees purchases scoped to
         // their own company, regardless of the (client-supplied) provider_id.
-        $requester = $request->user('api');
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $purchases = Purchase::where('deleted_at', '=', null)
-            ->when($requester->type !== 'SuperAdmin' || $request->filled('company_id'), fn ($q) => $q->where('company_id', $companyId))
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->when($scopeIds !== null, fn ($q) => $q->whereIn('warehouse_id', $scopeIds))
             ->with('provider', 'warehouse')
             ->where('provider_id', $request->id)
@@ -444,15 +449,16 @@ class ProvidersController extends BaseController
 
         // ✅ record_view decides whose documents; the assigned warehouses
         // decide which warehouses they may come from. Both apply.
-        $scopeIds = $this->warehouseScopeIds();
+        // superadmin/AdminSystem (2026-10-21): no warehouse restriction either.
+        $scopeIds = $this->listCompanyId($request) === null ? null : $this->warehouseScopeIds();
 
         // Company boundary: a non-SuperAdmin only ever sees payments for
         // purchases scoped to their own company.
-        $requester = $request->user('api');
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $payments = DB::table('payment_purchases')
-            ->when($requester->type !== 'SuperAdmin' || $request->filled('company_id'), fn ($q) => $q->where('purchases.company_id', $companyId))
+            ->when($companyId !== null, fn ($q) => $q->where('purchases.company_id', $companyId))
             ->when($scopeIds !== null, fn ($q) => $q->whereIn('purchases.warehouse_id', $scopeIds))
             ->where(function ($query) use ($ShowRecord) {
                 if (! $ShowRecord) {
@@ -504,15 +510,17 @@ class ProvidersController extends BaseController
 
         // ✅ record_view decides whose documents; the assigned warehouses
         // decide which warehouses they may come from. Both apply.
-        $scopeIds = $this->warehouseScopeIds();
+        // superadmin/AdminSystem (2026-10-21): no warehouse restriction either.
+        $scopeIds = $this->listCompanyId($request) === null ? null : $this->warehouseScopeIds();
 
         // Company boundary: purchase_returns now has its own company_id column
         // (2026_09_22_100000_add_company_id_to_purchase_returns_table), so scope
         // directly on it instead of the old indirect provider-company check.
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $PurchaseReturn = PurchaseReturn::where('deleted_at', '=', null)
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->when($scopeIds !== null, fn ($q) => $q->whereIn('warehouse_id', $scopeIds))
             ->with('purchase', 'provider', 'warehouse')
             ->where('provider_id', $request->id)

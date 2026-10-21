@@ -26,8 +26,8 @@ class UnitsController extends BaseController
         $dir = $request->SortType;
         $data = [];
 
-        $Units = Unit::where('deleted_at', '=', null)
-            ->where('company_id', $this->resolveActingCompanyId($request))
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $Units = $this->scopeListToCompany(Unit::where('deleted_at', '=', null), $request)
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
@@ -61,8 +61,11 @@ class UnitsController extends BaseController
                 $unit_data['base_unit'] = '';
             }
 
+            $unit_data['company_id'] = $unit->company_id;
             $data[] = $unit_data;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
         $Units_base = Unit::where('base_unit', null)
             ->where('deleted_at', null)

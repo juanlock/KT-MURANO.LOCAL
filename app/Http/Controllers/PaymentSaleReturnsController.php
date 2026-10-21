@@ -70,8 +70,9 @@ class PaymentSaleReturnsController extends BaseController
         $Payments = PaymentSaleReturns::with('SaleReturn', 'SaleReturn.client', 'account', 'user')
             ->where('deleted_at', '=', null)
             ->whereBetween('date', [$request->from, $request->to])
-            ->whereHas('SaleReturn', function ($q) use ($companyId) {
-                $q->where('company_id', $companyId);
+            // superadmin/AdminSystem: every company (2026-10-21) -- listCompanyId().
+            ->whereHas('SaleReturn', function ($q) use ($request) {
+                $this->scopeListToCompany($q, $request);
             })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
@@ -160,10 +161,14 @@ class PaymentSaleReturnsController extends BaseController
             ->limit($perPage)
             ->orderBy($order, $dir)
             ->get();
+        // superadmin/AdminSystem: each row says whose it is (2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', $Payments->pluck('SaleReturn.company_id')->filter()->unique())->pluck('name', 'id');
 
         foreach ($Payments as $Payment) {
 
             $item['date'] = $Payment->date;
+            $paymentCompanyId = (int) optional($Payment['SaleReturn'])->company_id;
+            $item['company_name'] = $paymentCompanyId === \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$paymentCompanyId] ?? null);
             $item['Ref'] = $Payment->Ref;
             $item['Ref_return'] = $Payment['SaleReturn']->Ref;
             $item['sale_return_id'] = $Payment['SaleReturn']->id;
@@ -175,8 +180,9 @@ class PaymentSaleReturnsController extends BaseController
             $data[] = $item;
         }
 
-        $clients = Client::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
-        $sale_returns = SaleReturn::where('company_id', $companyId)->get(['Ref', 'id']);
+        // Filter options follow the list's company (every company for superadmin/AdminSystem).
+        $clients = $this->scopeListToCompany(Client::where('deleted_at', '=', null), $request)->get(['id', 'name']);
+        $sale_returns = $this->scopeListToCompany(SaleReturn::query(), $request)->get(['Ref', 'id']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 
         $methodNames = $payment_methods->pluck('name', 'id');

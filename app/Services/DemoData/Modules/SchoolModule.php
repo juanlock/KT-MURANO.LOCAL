@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * School examples -- a full working school (2026-10-20: the old package had 8
  * students and no attendance or timetable):
- *  - the current academic year (Sep -> Jun);
+ *  - the academic year with the dates asked on Demo Data (default: this year, 1 Mar -> 15 Dec);
  *  - 4 grades x 2 sections (A / B) with their classroom and homeroom teacher;
  *  - 7 subjects and 14 teachers (two per subject: grades 1-2 and 3-4);
  *  - 6 students per section (48), each enrolled for the year with a roll number;
@@ -42,8 +42,10 @@ class SchoolModule extends DemoModule
         'room' => ['Aula {n}', 'Room {n}'],
         'hall' => ['Salón {n}', 'Hall {n}'],
         'demo' => ['Datos de ejemplo', 'Demo data'],
-        'term1' => ['Examen del primer bimestre', 'Term 1 Examination'],
-        'term2' => ['Examen del segundo bimestre', 'Term 2 Examination'],
+        'term1' => ['Evaluación del I bimestre', 'Term 1 Examination'],
+        'term2' => ['Evaluación del II bimestre', 'Term 2 Examination'],
+        'term3' => ['Evaluación del III bimestre', 'Term 3 Examination'],
+        'term4' => ['Evaluación del IV bimestre', 'Term 4 Examination'],
         'absent_note' => ['Ausente (cita médica)', 'Absent (medical)'],
         'street' => ['Av. Los Próceres', 'Demo Street'],
         'city' => ['Lima', 'Demo City'],
@@ -111,6 +113,16 @@ class SchoolModule extends DemoModule
             'fee_structures', 'school_invoices', 'school_invoice_items', 'school_payments'];
     }
 
+    /** SuperAdmin "Delete real data": the company's whole school, children first. */
+    public function wipePlan(): array
+    {
+        return array_map(fn ($t) => ['table' => $t], [
+            'school_payments', 'school_invoice_items', 'school_invoices', 'fee_structures',
+            'exam_results', 'exam_subjects', 'exams', 'student_attendances', 'timetable_slots',
+            'student_enrollments', 'students', 'class_sections', 'subjects', 'teachers', 'school_classes', 'academic_years',
+        ]);
+    }
+
     private function t(string $key, array $p = []): string
     {
         $text = self::T[$key][$this->es ? 0 : 1];
@@ -143,13 +155,13 @@ class SchoolModule extends DemoModule
         $this->es = str_starts_with((string) $lang, 'es');
         $demo = $this->t('demo');
 
-        // ---- Academic year (Sep -> Jun around today)
-        $startYear = now()->month >= 9 ? now()->year : now()->year - 1;
-        $yearStart = now()->setDate($startYear, 9, 1)->startOfDay();
+        // ---- Academic year: the dates asked on Demo Data (they vary per school),
+        // else the current year, 1 March -> 15 December (2026-10-21).
+        [$yearStart, $yearEnd] = self::yearDates($ctx->options);
         $yearId = $ctx->insert('academic_years', [
-            'name' => $startYear.'-'.($startYear + 1),
+            'name' => $yearStart->year === $yearEnd->year ? (string) $yearStart->year : $yearStart->year.'-'.$yearEnd->year,
             'start_date' => $yearStart->toDateString(),
-            'end_date' => now()->setDate($startYear + 1, 6, 30)->toDateString(),
+            'end_date' => $yearEnd->toDateString(),
             'is_current' => 1,
             'is_locked' => 0,
         ]);
@@ -279,21 +291,21 @@ class SchoolModule extends DemoModule
             }
         }
 
-        // ---- Daily register: every school day from the start of the year (max ~8 weeks back) to yesterday.
-        // Today is left empty so "Take register" can be tried.
-        $from = $yearStart->copy()->max(now()->subWeeks(8)->startOfDay());
+        // ---- Daily register: every school day from the start of the year to yesterday (the
+        // report card counts absences per term). Today is left empty so "Take register" can be tried.
+        // Profiles (2026-10-21, so the reports have something to show): about 1 in 9 students
+        // misses school often, 1 in 13 is often late; the rest now and then.
+        $from = $yearStart->copy();
+        $until = now()->startOfDay()->min($yearEnd->copy()->addDay());
         $marks = 0;
-        for ($day = $from->copy(); $day->lt(now()->startOfDay()); $day->addDay()) {
+        for ($day = $from->copy(); $day->lt($until); $day->addDay()) {
             if ($day->isWeekend()) {
                 continue;
             }
             foreach ($students as $s) {
                 $r = random_int(1, 100);
-                // A couple of students miss more often (shows up in the reports).
-                if ($s['n'] % 17 === 3) {
-                    $r -= 8;
-                }
-                $status = $r <= 4 ? 'absent' : ($r <= 6 ? 'excused' : ($r <= 11 ? 'late' : 'present'));
+                [$abs, $exc, $late] = $s['n'] % 9 === 4 ? [16, 20, 28] : ($s['n'] % 13 === 6 ? [3, 5, 25] : [3, 5, 9]);
+                $status = $r <= $abs ? 'absent' : ($r <= $exc ? 'excused' : ($r <= $late ? 'late' : 'present'));
                 $ctx->insert('student_attendances', [
                     'student_id' => $s['id'],
                     'enrollment_id' => $s['enrollment'],
@@ -309,34 +321,31 @@ class SchoolModule extends DemoModule
             }
         }
 
-        // ---- Exams: Term 1 published with marks (every subject), Term 2 scheduled.
-        $term1Start = now()->subDays(14)->startOfDay();
-        if ($term1Start->lt($yearStart->copy()->addDays(7))) {
-            $term1Start = $yearStart->copy()->addWeeks(9);
+        // ---- Exams: one per term (4 bimestres), at the end of each quarter of the school year.
+        // Over = published with marks; under way = ongoing; still to come = scheduled.
+        $span = max(28, $yearStart->diffInDays($yearEnd));
+        $exams = [];
+        foreach ([1, 2, 3, 4] as $k) {
+            $start = $yearStart->copy()->addDays((int) floor($span * $k / 4) - 9);
+            while ($start->isWeekend()) {
+                $start->addDay();
+            }
+            $end = $this->schoolDay($start, count(self::SUBJECTS) - 1);
+            $over = $end->lt(now()->startOfDay());
+            $exams[] = [
+                'id' => $ctx->insert('exams', [
+                    'academic_year_id' => $yearId, 'name' => $this->t('term'.$k), 'term' => 'term_'.$k,
+                    'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(),
+                    'status' => $over ? 'published' : ($start->lte(now()) ? 'ongoing' : 'scheduled'), 'notes' => $demo,
+                ]),
+                'start' => $start, 'marked' => $over,
+            ];
         }
-        while ($term1Start->isWeekend()) {
-            $term1Start->addDay();
-        }
-        $term1Past = $term1Start->lt(now()->subDays(7));
-        $exam1 = $ctx->insert('exams', [
-            'academic_year_id' => $yearId, 'name' => $this->t('term1'), 'term' => 'term_1',
-            'start_date' => $term1Start->toDateString(), 'end_date' => $this->schoolDay($term1Start, count(self::SUBJECTS) - 1)->toDateString(),
-            'status' => $term1Past ? 'published' : 'scheduled', 'notes' => $demo,
-        ]);
-        $term2Start = $term1Start->copy()->addWeeks(10);
-        while ($term2Start->isWeekend()) {
-            $term2Start->addDay();
-        }
-        $exam2 = $ctx->insert('exams', [
-            'academic_year_id' => $yearId, 'name' => $this->t('term2'), 'term' => 'term_2',
-            'start_date' => $term2Start->toDateString(), 'end_date' => $this->schoolDay($term2Start, count(self::SUBJECTS) - 1)->toDateString(),
-            'status' => $term2Start->lt(now()) ? 'completed' : 'scheduled', 'notes' => $demo,
-        ]);
 
         // Marks out of 20 in Spanish schools (pass 11), out of 100 otherwise (pass 40).
         [$max, $pass] = $this->es ? [20, 11] : [100, 40];
         $examSubjects = $results = 0;
-        foreach ([$exam1 => $term1Start, $exam2 => $term2Start] as $examId => $examStart) {
+        foreach ($exams as ['id' => $examId, 'start' => $examStart, 'marked' => $marked]) {
             foreach ($classes as $ci => $class) {
                 foreach ($subjects as $si => $subjectId) {
                     $esId = $ctx->insert('exam_subjects', [
@@ -351,7 +360,7 @@ class SchoolModule extends DemoModule
                         'room' => $this->t('hall', ['n' => $ci + 1]),
                     ]);
                     $examSubjects++;
-                    if ($examId !== $exam1 || ! $term1Past) {
+                    if (! $marked) {
                         continue;
                     }
                     foreach ($students as $s) {
@@ -359,15 +368,22 @@ class SchoolModule extends DemoModule
                             continue;
                         }
                         $absent = random_int(1, 60) === 1;
-                        // Each student has a level; a few fail a subject.
-                        $base = 0.55 + (($s['n'] * 37) % 40) / 100;
-                        $score = $absent ? null : max(0, min($max, (int) round($max * ($base + random_int(-12, 12) / 100))));
+                        // Each student has a level (2026-10-21: some fail): about 1 in 8 struggles
+                        // (mostly 7-10 out of 20), 1 in 8 is borderline (10-12); the frequent absentees
+                        // lose a bit more; the rest 12-19. Each subject moves it a little.
+                        $base = $s['n'] % 8 === 5 ? 0.36 + (($s['n'] * 7) % 12) / 100
+                            : ($s['n'] % 8 === 1 ? 0.5 + (($s['n'] * 5) % 10) / 100
+                            : 0.6 + (($s['n'] * 37) % 36) / 100);
+                        if ($s['n'] % 9 === 4) {
+                            $base -= 0.1;
+                        }
+                        $score = $absent ? null : max(0, min($max, (int) round($max * ($base + random_int(-10, 10) / 100))));
                         $ctx->insert('exam_results', [
                             'exam_subject_id' => $esId,
                             'student_id' => $s['id'],
                             'marks' => $score,
                             'is_absent' => $absent ? 1 : 0,
-                            'grade' => $absent ? null : ExamResult::gradeFor($score * (100 / $max)),
+                            'grade' => $absent ? null : ExamResult::gradeFor($score * (100 / $max), $max),
                             'remarks' => $absent ? $this->t('absent_note') : null,
                             'entered_by' => $ctx->userId,
                         ]);
@@ -447,7 +463,7 @@ class SchoolModule extends DemoModule
             'Enrollments' => count($students),
             'Timetable periods' => $slots,
             'Attendance marks' => $marks,
-            'Exams' => 2,
+            'Exams' => count($exams),
             'Exam subjects' => $examSubjects,
             'Exam results' => $results,
             'Fee structures' => count($fees),
@@ -455,6 +471,23 @@ class SchoolModule extends DemoModule
             'Invoice items' => $items,
             'Payments' => $payments,
         ];
+    }
+
+    /**
+     * The school year's first and last day: Demo Data's school_start / school_end,
+     * else the current year from 1 March to 15 December.
+     *
+     * @return Carbon[]
+     */
+    public static function yearDates(array $options): array
+    {
+        $start = ! empty($options['school_start']) ? Carbon::parse($options['school_start'])->startOfDay() : now()->setDate(now()->year, 3, 1)->startOfDay();
+        $end = ! empty($options['school_end']) ? Carbon::parse($options['school_end'])->startOfDay() : now()->setDate(now()->year, 12, 15)->startOfDay();
+        if ($end->lte($start)) {
+            $end = $start->copy()->addMonths(9);
+        }
+
+        return [$start, $end];
     }
 
     /** $start + $n school days (weekends skipped). */

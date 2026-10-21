@@ -60,7 +60,8 @@ class PaymentPurchaseReturnsController extends BaseController
         // its own, so scope via the parent purchase_return's (now real) company_id.
         // SuperAdmin may narrow via ?company_id=; everyone else is always scoped
         // to their own company, regardless of record_view.
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         // Filter fields With Params to retriever
         $param = [0 => 'like', 1 => '=', 2 => '='];
@@ -72,7 +73,7 @@ class PaymentPurchaseReturnsController extends BaseController
             ->where('deleted_at', '=', null)
             ->whereBetween('date', [$request->from, $request->to])
             ->whereHas('PurchaseReturn', function ($q) use ($companyId) {
-                $q->where('company_id', $companyId);
+                $q->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId));
             })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
@@ -173,11 +174,14 @@ class PaymentPurchaseReturnsController extends BaseController
             $item['montant'] = $Payment->montant;
             $item['account_name'] = $Payment['account'] ? $Payment['account']->account_name : '---';
             $item['user_name'] = $Payment['user'] ? $Payment['user']->username : '---';
+            $item['company_id'] = $Payment['PurchaseReturn']->company_id;
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
-        $suppliers = Provider::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
-        $purchase_returns = PurchaseReturn::where('company_id', $companyId)->get(['Ref', 'id']);
+        $suppliers = Provider::where('deleted_at', '=', null)->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->get(['id', 'name']);
+        $purchase_returns = PurchaseReturn::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->get(['Ref', 'id']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 
         $methodNames = $payment_methods->pluck('name', 'id');

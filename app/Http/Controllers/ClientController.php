@@ -62,12 +62,15 @@ class ClientController extends BaseController
         // of this (which this was ported from) instead let any record_view
         // admin see every company's clients, the same class of gap already
         // found and fixed in UserController::index().
+        // superadmin/AdminSystem: every company (2026-10-21) -- listCompanyId()
+        // (null = no company filter), superadmin/<company> = that company.
+        $listCompanyId = $this->listCompanyId($request);
         $clients = Client::where('deleted_at', '=', null)
-            ->where(function ($query) use ($admin, $request) {
+            ->where(function ($query) use ($admin, $listCompanyId) {
                 if ($admin->type === 'customer') {
                     return $query->where('id', '=', optional($admin->client)->id ?? 0);
-                } elseif ($admin->type !== 'SuperAdmin' || $request->filled('company_id')) {
-                    return $query->where('company_id', '=', $this->resolveActingCompanyId($request));
+                } elseif ($listCompanyId !== null) {
+                    return $query->where('company_id', '=', $listCompanyId);
                 }
 
                 return $query;
@@ -113,8 +116,11 @@ class ClientController extends BaseController
         $to = $request->input('date_to');
         $inRange = fn ($q) => $q->when($from, fn ($q) => $q->whereDate('date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('date', '<=', $to));
+        // superadmin/AdminSystem: each row says whose it is (2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', $clients->pluck('company_id')->unique())->pluck('name', 'id');
 
         foreach ($clients as $client) {
+            $item['company_name'] = (int) $client->company_id === Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$client->company_id] ?? null);
 
             $client_exist = EcommerceClient::where('deleted_at', '=', null)
                 ->where('client_id', $client->id)->exists();
@@ -202,7 +208,7 @@ class ClientController extends BaseController
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
 
         $clientsWithoutEcommerce = \App\Models\Client::where('deleted_at', '=', null)
-            ->when($admin->type !== 'SuperAdmin' || $request->filled('company_id'), fn ($q) => $q->where('company_id', $actingCompanyId))
+            ->when($listCompanyId !== null, fn ($q) => $q->where('company_id', $listCompanyId))
             ->whereNotIn('id', function ($query) {
                 $query->select('client_id')->from('ecommerce_clients');
             })->count();

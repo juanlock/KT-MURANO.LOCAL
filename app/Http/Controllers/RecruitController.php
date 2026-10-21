@@ -33,31 +33,41 @@ class RecruitController extends Controller
         return $base . '/' . $filename;
     }
 
+    /** superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is (one query). */
+    private function withCompanyNames($rows)
+    {
+        $names = \App\Models\Company::whereIn('id', $rows->pluck('company_id')->unique())->pluck('name', 'id');
+        $rows->each(fn ($r) => $r->company_name = $r->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($names[$r->company_id] ?? null));
+
+        return $rows;
+    }
+
     // ======================== DASHBOARD ========================
 
     public function dashboard(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitJob::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $stats = [
-            'total_jobs'         => RecruitJob::where('company_id', $companyId)->count(),
-            'open_jobs'          => RecruitJob::where('company_id', $companyId)->where('status', 'open')->count(),
-            'total_candidates'   => RecruitCandidate::where('company_id', $companyId)->count(),
-            'total_applications' => RecruitApplication::where('company_id', $companyId)->count(),
-            'pending_interviews' => RecruitInterview::where('company_id', $companyId)->where('status', 'scheduled')->count(),
-            'hired_count'        => RecruitApplication::where('company_id', $companyId)->where('stage', 'hired')->count(),
+            'total_jobs'         => RecruitJob::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->count(),
+            'open_jobs'          => RecruitJob::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->where('status', 'open')->count(),
+            'total_candidates'   => RecruitCandidate::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->count(),
+            'total_applications' => RecruitApplication::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->count(),
+            'pending_interviews' => RecruitInterview::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->where('status', 'scheduled')->count(),
+            'hired_count'        => RecruitApplication::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->where('stage', 'hired')->count(),
         ];
 
         $recent_applications = RecruitApplication::with(['candidate', 'job'])
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
 
         $upcoming_interviews = RecruitInterview::with(['application.candidate', 'application.job'])
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where('status', 'scheduled')
             ->where('scheduled_at', '>=', now())
             ->orderBy('scheduled_at')
@@ -65,7 +75,7 @@ class RecruitController extends Controller
             ->get();
 
         $pipeline = RecruitApplication::select('stage', DB::raw('count(*) as count'))
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->groupBy('stage')
             ->pluck('count', 'stage')
             ->toArray();
@@ -84,7 +94,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitJobCategory::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -93,7 +104,7 @@ class RecruitController extends Controller
         $dir = $request->SortType ?: 'desc';
 
         $categories = RecruitJobCategory::withCount('jobs')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where(function ($query) use ($request) {
                 return $query->when($request->filled('search'), function ($query) use ($request) {
                     return $query->where('name', 'LIKE', "%{$request->search}%");
@@ -105,7 +116,7 @@ class RecruitController extends Controller
             $perPage = $totalRows;
         }
 
-        $categories = $categories->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get();
+        $categories = $this->withCompanyNames($categories->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get());
 
         return response()->json([
             'categories' => $categories,
@@ -184,7 +195,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitJob::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -194,7 +206,7 @@ class RecruitController extends Controller
 
         $jobs = RecruitJob::with('category')
             ->withCount('applications')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('status'), function ($q) use ($request) {
                     $q->where('status', $request->status);
@@ -212,7 +224,7 @@ class RecruitController extends Controller
             $perPage = $totalRows;
         }
 
-        $jobs = $jobs->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get();
+        $jobs = $this->withCompanyNames($jobs->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get());
 
         return response()->json([
             'jobs'      => $jobs,
@@ -299,7 +311,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitCandidate::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -308,7 +321,7 @@ class RecruitController extends Controller
         $dir = $request->SortType ?: 'desc';
 
         $candidates = RecruitCandidate::withCount('applications')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('source'), function ($q) use ($request) {
                     $q->where('source', $request->source);
@@ -328,7 +341,7 @@ class RecruitController extends Controller
             $perPage = $totalRows;
         }
 
-        $candidates = $candidates->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get();
+        $candidates = $this->withCompanyNames($candidates->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get());
 
         return response()->json([
             'candidates' => $candidates,
@@ -429,7 +442,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitApplication::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -438,7 +452,7 @@ class RecruitController extends Controller
         $dir = $request->SortType ?: 'desc';
 
         $apps = RecruitApplication::with(['job', 'candidate'])
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('job_id'), function ($q) use ($request) {
                     $q->where('job_id', $request->job_id);
@@ -461,7 +475,7 @@ class RecruitController extends Controller
             $perPage = $totalRows;
         }
 
-        $apps = $apps->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get();
+        $apps = $this->withCompanyNames($apps->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get());
 
         return response()->json([
             'applications' => $apps,
@@ -555,7 +569,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitInterview::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -564,7 +579,7 @@ class RecruitController extends Controller
         $dir = $request->SortType ?: 'desc';
 
         $interviews = RecruitInterview::with(['application.candidate', 'application.job'])
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where(function ($query) use ($request) {
                 $query->when($request->filled('status'), function ($q) use ($request) {
                     $q->where('status', $request->status);
@@ -579,7 +594,7 @@ class RecruitController extends Controller
             $perPage = $totalRows;
         }
 
-        $interviews = $interviews->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get();
+        $interviews = $this->withCompanyNames($interviews->offset($offSet)->limit($perPage)->orderBy($order, $dir)->get());
 
         return response()->json([
             'interviews' => $interviews,
@@ -660,7 +675,8 @@ class RecruitController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', RecruitJob::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $period = $request->get('period', '6months');
         $dateFrom = match ($period) {
@@ -671,14 +687,14 @@ class RecruitController extends Controller
         };
 
         $funnel = RecruitApplication::select('stage', DB::raw('count(*) as count'))
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where('created_at', '>=', $dateFrom)
             ->groupBy('stage')
             ->pluck('count', 'stage');
 
         $byJob = RecruitApplication::select('job_id', DB::raw('count(*) as count'))
             ->with('job:id,title')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where('created_at', '>=', $dateFrom)
             ->groupBy('job_id')
             ->orderByDesc('count')
@@ -686,7 +702,7 @@ class RecruitController extends Controller
             ->get();
 
         $bySource = RecruitCandidate::select('source', DB::raw('count(*) as count'))
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where('created_at', '>=', $dateFrom)
             ->groupBy('source')
             ->pluck('count', 'source');
@@ -697,13 +713,13 @@ class RecruitController extends Controller
                 DB::raw('SUM(CASE WHEN stage = "hired" THEN 1 ELSE 0 END) as hired'),
                 DB::raw('SUM(CASE WHEN stage = "rejected" THEN 1 ELSE 0 END) as rejected')
             )
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where('applied_date', '>=', $dateFrom)
             ->groupBy('month')
             ->orderBy('month')
             ->get();
 
-        $avgTimeToHire = RecruitApplication::where('company_id', $companyId)
+        $avgTimeToHire = RecruitApplication::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where('stage', 'hired')
             ->where('created_at', '>=', $dateFrom)
             ->selectRaw('AVG(DATEDIFF(reviewed_at, applied_date)) as avg_days')
@@ -711,7 +727,7 @@ class RecruitController extends Controller
 
         $byCategory = RecruitJob::select('category_id', DB::raw('count(*) as count'))
             ->with('category:id,name')
-            ->where('company_id', $companyId)
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->where('created_at', '>=', $dateFrom)
             ->whereNotNull('category_id')
             ->groupBy('category_id')

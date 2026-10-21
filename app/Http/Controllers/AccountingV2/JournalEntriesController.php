@@ -39,7 +39,11 @@ class JournalEntriesController extends Controller
             return response()->json(['data' => [], 'total' => 0]);
         }
         $dir = strtolower((string) $request->get('SortType')) === 'asc' ? 'asc' : 'desc';
-        $q = $this->entries($request)->orderBy('acc_journal_entries.date', $dir)->orderBy('acc_journal_entries.id', $dir);
+        // superadmin/AdminSystem: every company (2026-10-21) -- the list follows
+        // listCompanyId() (null = every company); show / post / edit keep entries().
+        $listCid = $this->listCompanyId($request);
+        $listEntries = fn () => JournalEntry::query()->when($listCid !== null, fn ($w) => $w->where('acc_journal_entries.company_id', $listCid));
+        $q = $listEntries()->orderBy('acc_journal_entries.date', $dir)->orderBy('acc_journal_entries.id', $dir);
         if ($request->filled('status')) {
             $q->where('status', $request->get('status'));
         }
@@ -77,21 +81,24 @@ class JournalEntriesController extends Controller
         $refs = collect($items->items())->filter(fn ($e) => $e->reference_type && $e->reference_id && $e->reference_type !== 'manual')
             ->map(fn ($e) => ['type' => $e->reference_type, 'id' => $e->reference_id])->values()->all();
         $sources = \App\Services\AccountingV2\JournalSource::summaries($refs);
-        $companies = $this->allCompanies($request) ? DB::table('companies')->pluck('name', 'id') : collect();
+        $companies = $listCid === null
+            ? DB::table('companies')->whereIn('id', collect($items->items())->pluck('company_id')->filter()->unique())->pluck('name', 'id')
+            : collect();
         $items->getCollection()->transform(function ($e) use ($sources, $companies) {
             $e->source_label = $sources["{$e->reference_type}:{$e->reference_id}"] ?? null;
             $e->source_type_label = \App\Services\AccountingV2\JournalSource::label($e->reference_type);
             $e->amount = round((float) $e->lines->sum('debit'), 6);
-            $e->company_name = $e->company_id ? ($companies[$e->company_id] ?? null) : null;
+            $e->company_name = $e->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem'
+                : ($e->company_id ? ($companies[$e->company_id] ?? null) : null);
 
             return $e;
         });
 
         $payload = $items->toArray();
         // Filter lists: the source types used, the company's accounts.
-        $payload['source_types'] = $this->entries($request)->distinct()->pluck('reference_type')->filter()->values()
+        $payload['source_types'] = $listEntries()->distinct()->pluck('reference_type')->filter()->values()
             ->map(fn ($t) => ['value' => $t, 'label' => \App\Services\AccountingV2\JournalSource::label($t)]);
-        $payload['all_companies'] = $this->allCompanies($request);
+        $payload['all_companies'] = $listCid === null;
 
         return response()->json($payload);
     }

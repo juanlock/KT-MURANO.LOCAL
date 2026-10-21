@@ -26,6 +26,12 @@ class PayrollHistoryModule extends DemoModule
         return 'payroll_history';
     }
 
+    /** Part of HRM: no payroll demo when HRM is off. */
+    public function moduleFlags(): array
+    {
+        return ['hrm'];
+    }
+
     public function label(): string
     {
         return 'Payroll history (weekly, since each employee\'s pay start: hourly staff = their office shift hours, holidays off; commission on their sales; posted to accounting)';

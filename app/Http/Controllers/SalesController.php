@@ -73,6 +73,9 @@ class SalesController extends BaseController
         // the same class of gap already found and fixed in
         // UserController/ClientController/WarehouseController/EmployeesController.
         $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no
+        // company filter on the list, its cards and its filter options.
+        $listCompanyId = $this->listCompanyId($request);
         $is_all_warehouses = $user->is_all_warehouses;
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
@@ -118,8 +121,8 @@ class SalesController extends BaseController
             'details:id,sale_id,product_id', 'details.product:id,name,product_group_id', 'details.product.productGroup:id,name')
             ->withCount('details')
             ->where('deleted_at', '=', null)
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
@@ -279,8 +282,8 @@ class SalesController extends BaseController
         $clientIds = $Sales->pluck('client_id')->filter()->unique()->values();
         $dueSalesByClient = Sale::whereIn('client_id', $clientIds)
             ->whereNull('deleted_at')
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->get(['id', 'client_id', 'Ref', 'date', 'GrandTotal', 'paid_amount', 'statut'])
             ->filter(fn ($s) => round((float) $s->GrandTotal - (float) $s->paid_amount, 2) > 0)
@@ -290,10 +293,14 @@ class SalesController extends BaseController
         $emailSummary = \App\Services\SaleEmailLog::summary($Sales->pluck('id')->all());
         // "Other Due" window: each owing invoice's emails with dates (one query).
         $otherDueEmails = \App\Services\SaleEmailLog::history($dueSalesByClient->flatten(1)->pluck('id')->all());
+        // superadmin/AdminSystem: each row says whose it is (2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', $Sales->pluck('company_id')->unique())->pluck('name', 'id');
 
         foreach ($Sales as $Sale) {
 
             $item['id'] = $Sale['id'];
+            $item['company_id'] = $Sale['company_id'];
+            $item['company_name'] = (int) $Sale['company_id'] === Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$Sale['company_id']] ?? null);
             $item['email_log'] = $emailSummary[(int) $Sale['id']] ?? null;
             $item['date'] = $Sale['date'].' '.$Sale['time'];
             $item['Ref'] = $Sale['Ref'];
@@ -384,19 +391,19 @@ class SalesController extends BaseController
         // company's customers. Accounts/payment methods have no company_id
         // column (pre-existing, out of scope -- same note as Billing).
         $customers = client::where('deleted_at', '=', null)
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->get(['id', 'name']);
         // Group / Name filter options (same company scope as customers).
         $product_groups = DB::table('product_groups')->whereNull('deleted_at')
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->get(['id', 'name']);
         $filter_products = Product::whereNull('deleted_at')
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->get(['id', 'name', 'product_group_id']);
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
@@ -405,8 +412,8 @@ class SalesController extends BaseController
         // this company (not the full static vocab) -- a company with no
         // legacy 'pending' rows, for example, never sees that option at all.
         $payment_statuses = Sale::where('deleted_at', '=', null)
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->whereNotNull('payment_statut')
             ->distinct()
@@ -418,16 +425,16 @@ class SalesController extends BaseController
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
             $warehouses = Warehouse::where('deleted_at', '=', null)
-                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                    return $query->where('company_id', $companyId);
+                ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                    return $query->where('company_id', $listCompanyId);
                 })
                 ->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
             $warehouses = Warehouse::where('deleted_at', '=', null)
                 ->whereIn('id', $warehouses_id)
-                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                    return $query->where('company_id', $companyId);
+                ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                    return $query->where('company_id', $listCompanyId);
                 })
                 ->get(['id', 'name']);
         }
@@ -447,7 +454,7 @@ class SalesController extends BaseController
             // POS Sales page: cashier filter = users who rang up POS sales here.
             'cashiers' => $request->boolean('is_pos')
                 ? \App\Models\User::whereIn('id', Sale::whereNull('deleted_at')->where('is_pos', 1)
-                    ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), fn ($q) => $q->where('company_id', $companyId))
+                    ->when($listCompanyId !== null, fn ($q) => $q->where('company_id', $listCompanyId))
                     ->distinct()->select('user_id'))
                     ->get(['id', 'username', 'firstname', 'lastname'])
                 : [],

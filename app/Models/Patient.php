@@ -74,7 +74,9 @@ class Patient extends Model
      */
     public static function generateMrn()
     {
-        $last = static::withTrashed()->where('mrn', 'like', 'MRN-%')->orderBy('id', 'desc')->first();
+        // Unique across the install (unique index): every company's MRNs count,
+        // not only the acting company's (2026-10-21: Vitalis's demo hit MRN-000001).
+        $last = static::withTrashed()->withoutGlobalScope('company')->where('mrn', 'like', 'MRN-%')->orderBy('id', 'desc')->first();
         $seq = $last ? ((int) substr($last->mrn, 4)) + 1 : 1;
 
         return 'MRN-' . str_pad((string) $seq, 6, '0', STR_PAD_LEFT);

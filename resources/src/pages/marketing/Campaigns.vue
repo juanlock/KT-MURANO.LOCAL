@@ -103,6 +103,7 @@ import {
   campaignStatusColor, campaignEditable, campaignSendable,
 } from './marketingVocab';
 import http from '../../lib/http';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 
@@ -124,12 +125,15 @@ const statusOptions = computed(() => [
   ...CAMPAIGN_STATUSES.map(s => ({ value: s, label: plainLabel(s) })),
 ]);
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Campaign_Title'), dataIndex: 'title', key: 'title', sorter: true },
   { title: t('Type'), dataIndex: 'type', key: 'type', sorter: true, exportValue: r => channelLabel(r.type) },
   { title: t('Status'), dataIndex: 'status', key: 'status', sorter: true, exportValue: r => plainLabel(r.status) },
   { title: t('Delivery_Status'), key: 'progress', exportValue: r => `${r.sent_count} / ${r.total_recipients}` },
   { title: t('Scheduled_At'), key: 'schedule', exportValue: r => (r.send_immediately ? '' : shortDt(r.scheduled_at)) },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Action'), key: 'actions', width: 160, align: 'center' },
 ]);
 

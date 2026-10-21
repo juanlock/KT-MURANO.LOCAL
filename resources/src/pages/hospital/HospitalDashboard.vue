@@ -1,18 +1,18 @@
 <template>
   <div class="page">
     <PageHeader
-      title="Hospital Dashboard"
-      subtitle="Census, activity and revenue at a glance."
-      :breadcrumb="['Hospital', 'Dashboard']"
+      :title="s('Hospital Dashboard')"
+      :subtitle="s('Census, activity and revenue at a glance.')"
+      :breadcrumb="[s('Hospital'), s('Dashboard')]"
     >
       <template #actions>
         <a-button @click="$router.push('/hospital/appointments')">
           <template #icon><CalendarOutlined /></template>
-          Appointments
+          {{ s('Appointments') }}
         </a-button>
         <a-button type="primary" @click="$router.push('/hospital/patients/create')">
           <template #icon><UserAddOutlined /></template>
-          Register patient
+          {{ s('Register patient') }}
         </a-button>
       </template>
     </PageHeader>
@@ -24,54 +24,54 @@
           <span class="kpi-ic kpi-ic--brand"><TeamOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.patients_total) }}</span>
-            <span class="kpi-label">Patients</span>
+            <span class="kpi-label">{{ s('Patients') }}</span>
           </span>
-          <span v-if="data.patients_new_today" class="kpi-note">+{{ data.patients_new_today }} today</span>
+          <span v-if="data.patients_new_today" class="kpi-note">{{ s('+{n} today', { n: data.patients_new_today }) }}</span>
         </button>
 
         <button type="button" class="kpi" @click="$router.push('/hospital/appointments?today=1')">
           <span class="kpi-ic kpi-ic--info"><CalendarOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.appointments_today) }}</span>
-            <span class="kpi-label">Appointments today</span>
+            <span class="kpi-label">{{ s('Appointments today') }}</span>
           </span>
-          <span v-if="data.appointments_pending" class="kpi-note">{{ data.appointments_pending }} pending</span>
+          <span v-if="data.appointments_pending" class="kpi-note">{{ s('{n} pending', { n: data.appointments_pending }) }}</span>
         </button>
 
         <button type="button" class="kpi" @click="$router.push('/hospital/admissions?status=admitted')">
           <span class="kpi-ic kpi-ic--warn"><MedicineBoxOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.admissions_current) }}</span>
-            <span class="kpi-label">Inpatients</span>
+            <span class="kpi-label">{{ s('Inpatients') }}</span>
           </span>
-          <span class="kpi-note">{{ data.admissions_today || 0 }} in / {{ data.discharges_today || 0 }} out</span>
+          <span class="kpi-note">{{ s('{a} in / {b} out', { a: data.admissions_today || 0, b: data.discharges_today || 0 }) }}</span>
         </button>
 
         <button type="button" class="kpi" @click="$router.push('/hospital/wards')">
           <span class="kpi-ic kpi-ic--bed"><HomeOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ data.occupancy_rate || 0 }}%</span>
-            <span class="kpi-label">Bed occupancy</span>
+            <span class="kpi-label">{{ s('Bed occupancy') }}</span>
           </span>
-          <span class="kpi-note">{{ data.beds_available || 0 }} free</span>
+          <span class="kpi-note">{{ s('{n} free', { n: data.beds_available || 0 }) }}</span>
         </button>
 
         <button type="button" class="kpi" @click="$router.push('/hospital/lab-orders?pending=1')">
           <span class="kpi-ic kpi-ic--lab"><ExperimentOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.lab_pending) }}</span>
-            <span class="kpi-label">Lab pending</span>
+            <span class="kpi-label">{{ s('Lab pending') }}</span>
           </span>
-          <span v-if="data.lab_critical" class="kpi-note kpi-note--danger">{{ data.lab_critical }} critical</span>
+          <span v-if="data.lab_critical" class="kpi-note kpi-note--danger">{{ s('{n} critical', { n: data.lab_critical }) }}</span>
         </button>
 
         <button type="button" class="kpi" @click="$router.push('/hospital/invoices?outstanding=1')">
           <span class="kpi-ic kpi-ic--money"><DollarOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ money(data.revenue_today || 0) }}</span>
-            <span class="kpi-label">Collected today</span>
+            <span class="kpi-label">{{ s('Collected today') }}</span>
           </span>
-          <span v-if="data.outstanding" class="kpi-note kpi-note--danger">{{ money(data.outstanding) }} due</span>
+          <span v-if="data.outstanding" class="kpi-note kpi-note--danger">{{ s('{amount} due', { amount: money(data.outstanding) }) }}</span>
         </button>
       </div>
 
@@ -80,24 +80,24 @@
           <ReportChart
             :data="data.trend || []"
             :fields="[
-              { key: 'visits', label: 'Consultations' },
-              { key: 'admissions', label: 'Admissions' },
+              { key: 'visits', label: s('Consultations') },
+              { key: 'admissions', label: s('Admissions') },
             ]"
-            title="Activity — last 14 days"
+            :title="s('Activity — last 14 days')"
             type="area"
             :height="280"
           />
 
           <ReportChart
             :data="data.trend || []"
-            :fields="[{ key: 'revenue', label: 'Collected' }]"
-            title="Collections — last 14 days"
+            :fields="[{ key: 'revenue', label: s('Collected') }]"
+            :title="s('Collections — last 14 days')"
             type="bar"
             :height="240"
             :format="money"
           />
 
-          <a-card size="small" title="Ward occupancy" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Ward occupancy')" style="margin-bottom: 16px">
             <div v-if="(data.ward_occupancy || []).length" class="wards">
               <div v-for="w in data.ward_occupancy" :key="w.id" class="ward">
                 <div class="ward-head">
@@ -110,16 +110,16 @@
                 />
               </div>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="No beds configured yet">
-              <a-button size="small" @click="$router.push('/hospital/wards')">Set up wards</a-button>
+            <a-empty v-else :image="simpleEmptyImage" :description="s('No beds configured yet')">
+              <a-button size="small" @click="$router.push('/hospital/wards')">{{ s('Set up wards') }}</a-button>
             </a-empty>
           </a-card>
         </a-col>
 
         <a-col :xs="24" :xl="8">
-          <a-card size="small" title="Next up today" style="margin-bottom: 16px">
+          <a-card size="small" :title="s('Next up today')" style="margin-bottom: 16px">
             <template #extra>
-              <a-button type="link" size="small" @click="$router.push('/hospital/appointments?today=1')">All</a-button>
+              <a-button type="link" size="small" @click="$router.push('/hospital/appointments?today=1')">{{ s('All') }}</a-button>
             </template>
             <div v-if="(data.upcoming || []).length" class="queue">
               <button
@@ -132,15 +132,15 @@
                   <span class="queue-meta">{{ a.doctor_name }}</span>
                 </span>
                 <a-tag :color="optionOf(APPOINTMENT_STATUSES, a.status).color">
-                  {{ labelOf(APPOINTMENT_STATUSES, a.status) }}
+                  {{ s(labelOf(APPOINTMENT_STATUSES, a.status)) }}
                 </a-tag>
               </button>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="Nothing else booked today" style="padding: 16px 0" />
+            <a-empty v-else :image="simpleEmptyImage" :description="s('Nothing else booked today')" style="padding: 16px 0" />
           </a-card>
 
-          <a-card size="small" title="Busiest departments" style="margin-bottom: 16px">
-            <template #extra><span class="card-hint">last 30 days</span></template>
+          <a-card size="small" :title="s('Busiest departments')" style="margin-bottom: 16px">
+            <template #extra><span class="card-hint">{{ s('last 30 days') }}</span></template>
             <div v-if="(data.by_department || []).length" class="depts">
               <div v-for="d in data.by_department" :key="d.name" class="dept">
                 <span class="dept-name">{{ d.name }}</span>
@@ -151,20 +151,20 @@
                 <span class="dept-count">{{ d.visits }}</span>
               </div>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="No consultations yet" />
+            <a-empty v-else :image="simpleEmptyImage" :description="s('No consultations yet')" />
           </a-card>
 
-          <a-card size="small" title="This month">
+          <a-card size="small" :title="s('This month')">
             <a-descriptions :column="1" size="small">
-              <a-descriptions-item label="Consultations today">{{ n(data.visits_today) }}</a-descriptions-item>
-              <a-descriptions-item label="Collected">{{ money(data.revenue_month || 0) }}</a-descriptions-item>
-              <a-descriptions-item label="Outstanding">
+              <a-descriptions-item :label="s('Consultations today')">{{ n(data.visits_today) }}</a-descriptions-item>
+              <a-descriptions-item :label="s('Collected')">{{ money(data.revenue_month || 0) }}</a-descriptions-item>
+              <a-descriptions-item :label="s('Outstanding')">
                 <span :class="{ danger: data.outstanding > 0 }">{{ money(data.outstanding || 0) }}</span>
               </a-descriptions-item>
-              <a-descriptions-item label="Active doctors">{{ n(data.doctors_active) }}</a-descriptions-item>
-              <a-descriptions-item label="Departments">{{ n(data.departments) }}</a-descriptions-item>
-              <a-descriptions-item label="Beds">
-                {{ n(data.beds_occupied) }} / {{ n(data.beds_total) }} occupied
+              <a-descriptions-item :label="s('Active doctors')">{{ n(data.doctors_active) }}</a-descriptions-item>
+              <a-descriptions-item :label="s('Departments')">{{ n(data.departments) }}</a-descriptions-item>
+              <a-descriptions-item :label="s('Beds')">
+                {{ s('{a} / {b} occupied', { a: n(data.beds_occupied), b: n(data.beds_total) }) }}
               </a-descriptions-item>
             </a-descriptions>
           </a-card>
@@ -194,8 +194,10 @@ import ReportChart from '../../components/ReportChart.vue';
 import { useFormat } from '../../composables/useFormat';
 import { APPOINTMENT_STATUSES, labelOf, optionOf } from './hospitalOptions';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/HospitalDashboard.es.js';
 
+const { s } = useHospitalText(ES);
 const { money, number, dateTime } = useFormat();
 
 const simpleEmptyImage = Empty.PRESENTED_IMAGE_SIMPLE;
@@ -225,7 +227,7 @@ async function load() {
   try {
     data.value = await http.get('hospital/dashboard');
   } catch (e) {
-    message.error(t('InvalidData', 'Could not load the hospital dashboard'));
+    message.error(s('Could not load the hospital dashboard'));
   } finally {
     loading.value = false;
   }

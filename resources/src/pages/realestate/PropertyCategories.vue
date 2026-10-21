@@ -73,6 +73,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { uploadForm } from '../../lib/upload';
+import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 
@@ -85,10 +86,13 @@ const imageFile = ref(null);
 const imagePreview = ref(null);
 const form = ref({ id: null, name: '', description: '' });
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Image'), key: 'image', width: 80 },
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
   { title: t('Properties'), key: 'properties_count', width: 110, align: 'center' },
+  // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Action'), key: 'actions', width: 100 },
 ]);
 

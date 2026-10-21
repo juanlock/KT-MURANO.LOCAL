@@ -36,14 +36,15 @@ class HospitalPatientController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Patient::class);
 
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         $perPage = (int) ($request->limit ?? 10);
         $page = max(1, (int) $request->get('page', 1));
         $order = in_array($request->SortField, self::SORTABLE, true) ? $request->SortField : 'created_at';
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
-        $query = Patient::whereNull('deleted_at')->where('company_id', $companyId);
+        $query = Patient::whereNull('deleted_at')->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId));
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -84,9 +85,14 @@ class HospitalPatientController extends Controller
             ->pluck('patient_id')
             ->all();
 
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $companyNames = \App\Models\Company::whereIn('id', $patients->pluck('company_id')->unique())->pluck('name', 'id');
+
         return response()->json([
             'totalRows' => $totalRows,
-            'patients' => $patients->map(fn ($p) => $this->present($p, in_array($p->id, $admittedIds)))->values(),
+            'patients' => $patients->map(fn ($p) => $this->present($p, in_array($p->id, $admittedIds)) + [
+                'company_name' => $p->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$p->company_id] ?? null),
+            ])->values(),
         ]);
     }
 

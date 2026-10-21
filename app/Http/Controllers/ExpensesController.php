@@ -120,9 +120,15 @@ class ExpensesController extends BaseController
             'account_name' => ['accounts', 'account_id', 'account_name'],
         ], 'id')->get();
 
+        // superadmin/AdminSystem: every company (2026-10-21) -- the list already
+        // follows reportCompanyId() (warehouses); each row says whose it is.
+        $companyNames = \App\Models\Company::whereIn('id', $Expenses->map(fn ($e) => optional($e->warehouse)->company_id)->filter()->unique())->pluck('name', 'id');
+
         foreach ($Expenses as $Expense) {
 
             $item['id'] = $Expense->id;
+            $rc = optional($Expense->warehouse)->company_id;
+            $item['company_name'] = $rc == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$rc] ?? null);
             $item['date'] = $Expense->date;
             $item['Ref'] = $Expense->Ref;
             $item['details'] = $Expense->details;

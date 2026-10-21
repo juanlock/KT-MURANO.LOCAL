@@ -36,7 +36,9 @@ trait ScopesReportsToCompany
     {
         $request ??= request();
         $user = $request->user('api') ?? auth()->user();
-        if ($user && $user->type === 'SuperAdmin' && ! $request->filled('company_id')) {
+        // superadmin/AdminSystem (2026-10-21): no company or AdminSystem (999) picked = every company.
+        if ($user && $user->type === 'SuperAdmin'
+            && (! $request->filled('company_id') || (int) $request->input('company_id') === \App\Models\Setting::TEMPLATE_COMPANY_ID)) {
             return null;
         }
 

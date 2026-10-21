@@ -124,6 +124,7 @@ class AuthServiceProvider extends ServiceProvider
         'App\Models\Appointment' => 'App\Policies\AppointmentPolicy',
         'App\Models\PatientVisit' => 'App\Policies\PatientVisitPolicy',
         'App\Models\Admission' => 'App\Policies\AdmissionPolicy',
+        'App\Models\ErCase' => 'App\Policies\ErCasePolicy',
         'App\Models\HospitalWard' => 'App\Policies\HospitalWardPolicy',
         'App\Models\LabOrder' => 'App\Policies\LabOrderPolicy',
         'App\Models\HospitalInvoice' => 'App\Policies\HospitalInvoicePolicy',

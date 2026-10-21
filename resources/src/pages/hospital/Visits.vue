@@ -1,10 +1,10 @@
 <template>
   <div class="page">
-    <PageHeader title="Consultations" :breadcrumb="['Hospital', 'Consultations']">
+    <PageHeader :title="s('Consultations')" :breadcrumb="[s('Hospital'), s('Consultations')]">
       <template #actions>
         <a-button type="primary" @click="$router.push('/hospital/visits/create')">
           <template #icon><PlusOutlined /></template>
-          New consultation
+          {{ s('New consultation') }}
         </a-button>
       </template>
     </PageHeader>
@@ -12,20 +12,20 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search patient, MRN, diagnosis…"
+          v-model:value="crud.search.value" :placeholder="s('Search patient, MRN, diagnosis…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.doctor_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All doctors" :options="doctorOptions" @change="crud.reload"
+          option-filter-prop="label" :placeholder="s('All doctors')" :options="doctorOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.department_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All departments" :options="departmentOptions" @change="crud.reload"
+          option-filter-prop="label" :placeholder="s('All departments')" :options="departmentOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.type" class="tb-item-sm" allow-clear
-          placeholder="Type" :options="VISIT_TYPES" @change="crud.reload"
+          :placeholder="s('Type')" :options="visitTypes" @change="crud.reload"
         />
         <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
       </div>
@@ -44,34 +44,34 @@
           </button>
         </template>
         <template v-else-if="column.key === 'type'">
-          <a-tag :color="optionOf(VISIT_TYPES, record.type).color">{{ labelOf(VISIT_TYPES, record.type) }}</a-tag>
+          <a-tag :color="optionOf(VISIT_TYPES, record.type).color">{{ s(labelOf(VISIT_TYPES, record.type)) }}</a-tag>
         </template>
         <template v-else-if="column.key === 'vitals'">
           <a-space :size="4">
-            <a-tag v-if="record.blood_pressure">BP {{ record.blood_pressure }}</a-tag>
-            <a-tag v-if="record.bmi">BMI {{ record.bmi }}</a-tag>
+            <a-tag v-if="record.blood_pressure">{{ s('BP') }} {{ record.blood_pressure }}</a-tag>
+            <a-tag v-if="record.bmi">{{ s('BMI') }} {{ record.bmi }}</a-tag>
             <span v-if="!record.blood_pressure && !record.bmi" class="muted">—</span>
           </a-space>
         </template>
         <template v-else-if="column.key === 'status'">
           <a-tag :color="optionOf(VISIT_STATUSES, record.status).color">
-            {{ labelOf(VISIT_STATUSES, record.status) }}
+            {{ s(labelOf(VISIT_STATUSES, record.status)) }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'fee'">{{ money(record.fee) }}</template>
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
-            <a-tooltip title="Bill this consultation">
+            <a-tooltip :title="s('Bill this consultation')">
               <a-button type="text" size="small" @click="bill(record)">
                 <template #icon><DollarOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip :title="$t('Edit')">
+            <a-tooltip :title="s('Edit')">
               <a-button type="text" size="small" @click="$router.push(`/hospital/visits/${record.id}/edit`)">
                 <template #icon><EditOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip :title="$t('Delete')">
+            <a-tooltip :title="s('Delete')">
               <a-button type="text" size="small" danger @click="crud.remove(record, { label: record.reference })">
                 <template #icon><DeleteOutlined /></template>
               </a-button>
@@ -100,6 +100,10 @@ import { useFormat } from '../../composables/useFormat';
 import { VISIT_TYPES, VISIT_STATUSES, labelOf, optionOf } from './hospitalOptions';
 import http from '../../lib/http';
 import { ref } from 'vue';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/Visits.es.js';
+
+const { s } = useHospitalText(ES);
 
 const router = useRouter();
 const { money, dateTime } = useFormat();
@@ -125,15 +129,18 @@ const departments = ref([]);
 const doctorOptions = computed(() => doctors.value.map(d => ({ value: d.id, label: d.name })));
 const departmentOptions = computed(() => departments.value.map(d => ({ value: d.id, label: d.name })));
 
+// Visit types with their labels in the active language (values unchanged).
+const visitTypes = computed(() => VISIT_TYPES.map(o => ({ ...o, label: s(o.label) })));
+
 const columns = computed(() => [
-  { title: 'When', key: 'visit_date', dataIndex: 'visit_date', sorter: true, width: 190 },
-  { title: 'Patient', key: 'patient', dataIndex: 'patient_name' },
-  { title: 'Doctor', dataIndex: 'doctor_name', key: 'doctor_name', width: 150 },
-  { title: 'Type', key: 'type', dataIndex: 'type', sorter: true, width: 120 },
-  { title: 'Diagnosis', dataIndex: 'diagnosis', key: 'diagnosis' },
-  { title: 'Vitals', key: 'vitals', width: 170 },
-  { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 120 },
-  { title: 'Fee', key: 'fee', dataIndex: 'fee', sorter: true, width: 110 },
+  { title: s('When'), key: 'visit_date', dataIndex: 'visit_date', sorter: true, width: 190 },
+  { title: s('Patient'), key: 'patient', dataIndex: 'patient_name' },
+  { title: s('Doctor'), dataIndex: 'doctor_name', key: 'doctor_name', width: 150 },
+  { title: s('Type'), key: 'type', dataIndex: 'type', sorter: true, width: 120 },
+  { title: s('Diagnosis'), dataIndex: 'diagnosis', key: 'diagnosis' },
+  { title: s('Vitals'), key: 'vitals', width: 170 },
+  { title: s('Status'), key: 'status', dataIndex: 'status', sorter: true, width: 120 },
+  { title: s('Fee'), key: 'fee', dataIndex: 'fee', sorter: true, width: 110 },
   { title: '', key: 'actions', width: 120 },
 ]);
 

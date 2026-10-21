@@ -1,33 +1,33 @@
 <template>
   <div class="page">
-    <PageHeader title="Wards & Beds" subtitle="Live bed board." :breadcrumb="['Hospital', 'Wards']">
+    <PageHeader :title="s('Wards & Beds')" :subtitle="s('Live bed board.')" :breadcrumb="[s('Hospital'), s('Wards')]">
       <template #actions>
         <a-button @click="openWard(null)">
           <template #icon><PlusOutlined /></template>
-          New ward
+          {{ s('New ward') }}
         </a-button>
         <a-button type="primary" :disabled="!wards.length" @click="openBed(null)">
           <template #icon><PlusOutlined /></template>
-          Add beds
+          {{ s('Add beds') }}
         </a-button>
       </template>
     </PageHeader>
 
     <div class="summary">
       <div class="sum">
-        <span class="sum-label">Beds</span>
+        <span class="sum-label">{{ s('Beds') }}</span>
         <span class="sum-value">{{ totals.total }}</span>
       </div>
       <div class="sum">
-        <span class="sum-label">Occupied</span>
+        <span class="sum-label">{{ s('Occupied') }}</span>
         <span class="sum-value danger">{{ totals.occupied }}</span>
       </div>
       <div class="sum">
-        <span class="sum-label">Available</span>
+        <span class="sum-label">{{ s('Available') }}</span>
         <span class="sum-value ok">{{ totals.available }}</span>
       </div>
       <div class="sum">
-        <span class="sum-label">Occupancy</span>
+        <span class="sum-label">{{ s('Occupancy') }}</span>
         <span class="sum-value">{{ totals.rate }}%</span>
       </div>
     </div>
@@ -36,13 +36,13 @@
       <a-card v-for="ward in wards" :key="ward.id" size="small" class="ward-card">
         <template #title>
           <span class="ward-title">{{ ward.name }}</span>
-          <a-tag>{{ labelOf(WARD_TYPES, ward.type) }}</a-tag>
+          <a-tag>{{ s(labelOf(WARD_TYPES, ward.type)) }}</a-tag>
           <span v-if="ward.floor" class="ward-floor">{{ ward.floor }}</span>
           <span v-if="ward.department_name" class="ward-dept">· {{ ward.department_name }}</span>
         </template>
         <template #extra>
           <a-space>
-            <span class="ward-rate">{{ money(ward.daily_rate) }}/night</span>
+            <span class="ward-rate">{{ s('{rate}/night', { rate: money(ward.daily_rate) }) }}</span>
             <a-tag :color="wardRate(ward) >= 90 ? 'error' : wardRate(ward) >= 70 ? 'warning' : 'success'">
               {{ occupiedIn(ward) }}/{{ ward.beds.length }}
             </a-tag>
@@ -62,59 +62,59 @@
           >
             <span class="bed-no">{{ bed.bed_number }}</span>
             <span v-if="bed.patient_name" class="bed-patient">{{ bed.patient_name }}</span>
-            <span v-else class="bed-state">{{ labelOf(BED_STATUSES, bed.status) }}</span>
+            <span v-else class="bed-state">{{ s(labelOf(BED_STATUSES, bed.status)) }}</span>
           </button>
         </div>
-        <a-empty v-else :image="simpleEmptyImage" description="No beds in this ward">
-          <a-button size="small" @click="openBed(ward)">Add beds</a-button>
+        <a-empty v-else :image="simpleEmptyImage" :description="s('No beds in this ward')">
+          <a-button size="small" @click="openBed(ward)">{{ s('Add beds') }}</a-button>
         </a-empty>
       </a-card>
 
       <a-card v-if="!loading && !wards.length">
-        <a-empty description="No wards configured yet">
-          <a-button type="primary" @click="openWard(null)">Create the first ward</a-button>
+        <a-empty :description="s('No wards configured yet')">
+          <a-button type="primary" @click="openWard(null)">{{ s('Create the first ward') }}</a-button>
         </a-empty>
       </a-card>
     </a-spin>
 
     <!-- Ward form -->
     <a-modal
-      :open="wardOpen" :title="editingWard ? 'Edit ward' : 'New ward'" :width="560"
-      :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
+      :open="wardOpen" :title="editingWard ? s('Edit ward') : s('New ward')" :width="560"
+      :confirm-loading="saving" :ok-text="s('Save')" :cancel-text="s('Cancel')"
       @ok="submitWard" @cancel="wardOpen = false"
     >
       <a-form ref="wardRef" :model="wardForm" :rules="wardRules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="14">
-            <a-form-item label="Ward name *" name="name">
-              <a-input v-model:value="wardForm.name" placeholder="e.g. Male Medical" allow-clear />
+            <a-form-item :label="s('Ward name') + ' *'" name="name">
+              <a-input v-model:value="wardForm.name" :placeholder="s('e.g. Male Medical')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="10">
-            <a-form-item label="Type *" name="type">
-              <a-select v-model:value="wardForm.type" :options="WARD_TYPES" />
+            <a-form-item :label="s('Type') + ' *'" name="type">
+              <a-select v-model:value="wardForm.type" :options="wardTypeOptions" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Floor">
+            <a-form-item :label="s('Floor')">
               <a-input v-model:value="wardForm.floor" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Rate / night">
+            <a-form-item :label="s('Rate / night')">
               <a-input-number v-model:value="wardForm.daily_rate" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Department">
+            <a-form-item :label="s('Department')">
               <a-select
                 v-model:value="wardForm.department_id" allow-clear show-search
-                option-filter-prop="label" :options="departmentOptions" placeholder="None"
+                option-filter-prop="label" :options="departmentOptions" :placeholder="s('None')"
               />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item :label="$t('Note')" style="margin-bottom: 0">
+            <a-form-item :label="s('Note')" style="margin-bottom: 0">
               <a-textarea v-model:value="wardForm.notes" :rows="2" allow-clear />
             </a-form-item>
           </a-col>
@@ -124,36 +124,36 @@
 
     <!-- Bed form -->
     <a-modal
-      :open="bedOpen" :title="editingBed ? 'Edit bed' : 'Add beds'" :width="520"
-      :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
+      :open="bedOpen" :title="editingBed ? s('Edit bed') : s('Add beds')" :width="520"
+      :confirm-loading="saving" :ok-text="s('Save')" :cancel-text="s('Cancel')"
       @ok="submitBed" @cancel="bedOpen = false"
     >
       <a-form ref="bedRef" :model="bedForm" :rules="bedRules" layout="vertical">
-        <a-form-item label="Ward *" name="ward_id">
+        <a-form-item :label="s('Ward') + ' *'" name="ward_id">
           <a-select
             v-model:value="bedForm.ward_id" :options="wardOptions" :disabled="!!editingBed"
             show-search option-filter-prop="label"
           />
         </a-form-item>
         <a-form-item
-          label="Bed number *" name="bed_number"
-          :extra="editingBed ? null : 'One number, a range like 1-12, or a comma list like A1,A2'"
+          :label="s('Bed number') + ' *'" name="bed_number"
+          :extra="editingBed ? null : s('One number, a range like 1-12, or a comma list like A1,A2')"
         >
-          <a-input v-model:value="bedForm.bed_number" placeholder="e.g. 1-12" allow-clear />
+          <a-input v-model:value="bedForm.bed_number" :placeholder="s('e.g. 1-12')" allow-clear />
         </a-form-item>
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Status">
+            <a-form-item :label="s('Status')">
               <a-select v-model:value="bedForm.status" :options="assignableBedStatuses" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Rate / night" extra="Leave empty to use the ward rate">
+            <a-form-item :label="s('Rate / night')" :extra="s('Leave empty to use the ward rate')">
               <a-input-number v-model:value="bedForm.daily_rate" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
         </a-row>
-        <a-form-item :label="$t('Note')" style="margin-bottom: 0">
+        <a-form-item :label="s('Note')" style="margin-bottom: 0">
           <a-textarea v-model:value="bedForm.notes" :rows="2" allow-clear />
         </a-form-item>
       </a-form>
@@ -178,7 +178,10 @@ import PageHeader from '../../components/PageHeader.vue';
 import { useFormat } from '../../composables/useFormat';
 import { WARD_TYPES, BED_STATUSES, labelOf } from './hospitalOptions';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { useHospitalText } from './lang/useHospitalText';
+import ES from './lang/Wards.es.js';
+
+const { s } = useHospitalText(ES);
 
 const router = useRouter();
 const { money } = useFormat();
@@ -193,7 +196,10 @@ const departmentOptions = computed(() => departments.value.map(d => ({ value: d.
 const wardOptions = computed(() => wards.value.map(w => ({ value: w.id, label: w.name })));
 
 // 'occupied' is deliberately not offered — see the component doc.
-const assignableBedStatuses = BED_STATUSES.filter(s => s.value !== 'occupied');
+const assignableBedStatuses = computed(() => BED_STATUSES
+  .filter(o => o.value !== 'occupied')
+  .map(o => ({ ...o, label: s(o.label) })));
+const wardTypeOptions = computed(() => WARD_TYPES.map(o => ({ ...o, label: s(o.label) })));
 
 const totals = computed(() => {
   let total = 0;
@@ -227,7 +233,7 @@ async function load() {
     wards.value = board?.wards || [];
     departments.value = meta?.departments || [];
   } catch (e) {
-    message.error(t('InvalidData', 'Could not load the bed board'));
+    message.error(s('Could not load the bed board'));
   } finally {
     loading.value = false;
   }
@@ -241,8 +247,8 @@ const editingWard = ref(null);
 const wardForm = reactive({ name: '', type: 'general', floor: '', daily_rate: null, department_id: undefined, notes: '' });
 
 const wardRules = computed(() => ({
-  name: [{ required: true, message: t('Field_is_required', 'This field is required') }],
-  type: [{ required: true, message: t('Field_is_required', 'This field is required') }],
+  name: [{ required: true, message: s('This field is required') }],
+  type: [{ required: true, message: s('This field is required') }],
 }));
 
 function openWard(ward) {
@@ -269,11 +275,11 @@ async function submitWard() {
   try {
     if (editingWard.value) await http.put(`hospital/wards/${editingWard.value.id}`, { ...wardForm });
     else await http.post('hospital/wards', { ...wardForm });
-    message.success(t('Created_in_successfully', 'Saved successfully'));
+    message.success(s('Saved successfully'));
     wardOpen.value = false;
     load();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not save this ward'));
+    message.error(e?.data?.message || s('Could not save this ward'));
   } finally {
     saving.value = false;
   }
@@ -281,19 +287,19 @@ async function submitWard() {
 
 function removeWard(ward) {
   Modal.confirm({
-    title: `Delete ${ward.name}?`,
+    title: s('Delete {name}?', { name: ward.name }),
     icon: createVNode(ExclamationCircleOutlined),
-    content: 'Its beds are deleted with it. Occupied wards cannot be deleted.',
-    okText: t('Delete_confirmButtonText', 'Yes, delete it!'),
+    content: s('Its beds are deleted with it. Occupied wards cannot be deleted.'),
+    okText: s('Yes, delete it!'),
     okType: 'danger',
-    cancelText: t('Delete_cancelButtonText', 'Cancel'),
+    cancelText: s('Cancel'),
     async onOk() {
       try {
         await http.delete(`hospital/wards/${ward.id}`);
-        message.success(t('Deleted_in_successfully', 'Deleted successfully'));
+        message.success(s('Deleted successfully'));
         load();
       } catch (e) {
-        message.error(e?.data?.message || t('InvalidData', 'Could not delete this ward'));
+        message.error(e?.data?.message || s('Could not delete this ward'));
       }
     },
   });
@@ -307,8 +313,8 @@ const editingBed = ref(null);
 const bedForm = reactive({ ward_id: undefined, bed_number: '', status: 'available', daily_rate: null, notes: '' });
 
 const bedRules = computed(() => ({
-  ward_id: [{ required: true, message: t('Field_is_required', 'This field is required') }],
-  bed_number: [{ required: true, message: t('Field_is_required', 'This field is required') }],
+  ward_id: [{ required: true, message: s('This field is required') }],
+  bed_number: [{ required: true, message: s('This field is required') }],
 }));
 
 function openBed(ward, bed = null) {
@@ -344,11 +350,11 @@ async function submitBed() {
   try {
     if (editingBed.value) await http.put(`hospital/beds/${editingBed.value.id}`, { ...bedForm });
     else await http.post('hospital/beds', { ...bedForm });
-    message.success(t('Created_in_successfully', 'Saved successfully'));
+    message.success(s('Saved successfully'));
     bedOpen.value = false;
     load();
   } catch (e) {
-    message.error(e?.data?.message || t('InvalidData', 'Could not save this bed'));
+    message.error(e?.data?.message || s('Could not save this bed'));
   } finally {
     saving.value = false;
   }

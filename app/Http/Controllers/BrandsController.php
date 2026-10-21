@@ -18,7 +18,8 @@ class BrandsController extends Controller
     public function index(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'view', Brand::class);
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
         // How many items do you want to display.
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -28,7 +29,7 @@ class BrandsController extends Controller
         $dir = strtolower($request->SortType ?: 'desc') === 'asc' ? 'asc' : 'desc';
         $helpers = new helpers;
 
-        $brands = Brand::where('deleted_at', '=', null)->where('company_id', $companyId)
+        $brands = Brand::where('deleted_at', '=', null)->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
 
         // Search With Multiple Param
             ->where(function ($query) use ($request) {
@@ -45,6 +46,8 @@ class BrandsController extends Controller
             ->limit($perPage)
             ->orderBy($order, $dir)
             ->get();
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $brands = \App\Support\CompanyNames::attach($brands);
 
         return response()->json([
             'brands' => $brands,

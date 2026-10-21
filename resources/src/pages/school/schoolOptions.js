@@ -44,6 +44,8 @@ export const EXAM_TERMS = [
     { value: 'term_1', label: 'Term 1' },
     { value: 'term_2', label: 'Term 2' },
     { value: 'term_3', label: 'Term 3' },
+    // Four terms (bimestres) in Peru (2026-10-21).
+    { value: 'term_4', label: 'Term 4' },
     { value: 'final', label: 'Final' },
     { value: 'other', label: 'Other' },
 ];

@@ -56,6 +56,9 @@ class QuotationsController extends BaseController
         // Company scoping -- SuperAdmin may pass ?company_id= (a company
         // picker sends it); everyone else is locked to their own company.
         $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no
+        // company filter on the list, its cards and its filter options.
+        $listCompanyId = $this->listCompanyId($request);
         $is_all_warehouses = $user->is_all_warehouses;
         // If the user is restricted, fetch their assigned warehouse IDs once and reuse below.
         if (! $is_all_warehouses) {
@@ -92,8 +95,8 @@ class QuotationsController extends BaseController
         // Check If User Has Permission View  All Records
         $Quotations = Quotation::with('client', 'warehouse')
             ->where('deleted_at', '=', null)
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
@@ -154,10 +157,14 @@ class QuotationsController extends BaseController
         $convertedRefs = ! empty($convertedIds)
             ? Sale::whereIn('id', $convertedIds)->whereNull('deleted_at')->pluck('Ref', 'id')
             : collect();
+        // superadmin/AdminSystem: each row says whose it is (2026-10-21).
+        $companyNames = \App\Models\Company::whereIn('id', $Quotations->pluck('company_id')->unique())->pluck('name', 'id');
 
         foreach ($Quotations as $Quotation) {
 
             $item['id'] = $Quotation->id;
+            $item['company_id'] = $Quotation->company_id;
+            $item['company_name'] = (int) $Quotation->company_id === \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$Quotation->company_id] ?? null);
             $item['date'] = $Quotation['date'].' '.$Quotation['time'];
             $item['Ref'] = $Quotation->Ref;
             $item['statut'] = $Quotation->statut;
@@ -176,8 +183,8 @@ class QuotationsController extends BaseController
         }
 
         $customers = client::where('deleted_at', '=', null)
-            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
+            ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                return $query->where('company_id', $listCompanyId);
             })
             ->get();
 
@@ -185,16 +192,16 @@ class QuotationsController extends BaseController
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
             $warehouses = Warehouse::where('deleted_at', '=', null)
-                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                    return $query->where('company_id', $companyId);
+                ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                    return $query->where('company_id', $listCompanyId);
                 })
                 ->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
             $warehouses = Warehouse::where('deleted_at', '=', null)
                 ->whereIn('id', $warehouses_id)
-                ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), function ($query) use ($companyId) {
-                    return $query->where('company_id', $companyId);
+                ->when($listCompanyId !== null, function ($query) use ($listCompanyId) {
+                    return $query->where('company_id', $listCompanyId);
                 })
                 ->get(['id', 'name']);
         }

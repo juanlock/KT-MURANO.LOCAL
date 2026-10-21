@@ -1242,6 +1242,16 @@ export const PERMISSION_GROUPS = [
                 "v": "hms_reports",
                 "l": "Reports",
                 "f": "Reports"
+            },
+            {
+                "v": "hms_er",
+                "l": "Emergency Room",
+                "f": "Emergency Room"
+            },
+            {
+                "v": "hms_pharmacy",
+                "l": "Pharmacy",
+                "f": "Pharmacy"
             }
         ]
     },

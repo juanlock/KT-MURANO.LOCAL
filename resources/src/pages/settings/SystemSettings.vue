@@ -64,8 +64,8 @@
               <a-menu-item v-if="isSuperAdmin" key="payment"><CreditCardOutlined /> {{ ls('Payment gateway') }}</a-menu-item>
               <a-menu-item v-if="isSuperAdmin && setting.zatca_module" key="zatca"><AuditOutlined /> {{ ls('ZATCA e-invoicing') }}</a-menu-item>
               <a-menu-item key="custom_fields"><FormOutlined /> {{ ls('Custom Fields') }}</a-menu-item>
-              <a-menu-item v-if="isSuperAdmin" key="backups"><DatabaseOutlined /> {{ ls('Backup archives') }}</a-menu-item>
-              <a-menu-item v-if="isSuperAdmin" key="devices"><LaptopOutlined /> {{ ls('Login Devices') }}</a-menu-item>
+              <a-menu-item v-if="isSystem" key="backups"><DatabaseOutlined /> {{ ls('Backup archives') }}</a-menu-item>
+              <a-menu-item v-if="isSystem" key="devices"><LaptopOutlined /> {{ ls('Login Devices') }}</a-menu-item>
             </a-menu-item-group>
           </a-menu>
         </a-card>
@@ -1425,6 +1425,7 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import { useUiStore } from '../../stores/ui';
 import { useAuthStore } from '../../stores/auth';
+import { getActingCompanyId } from '../../lib/actingCompany';
 import { useLocalText } from '../../lib/useLocalText';
 import SETTINGS_ES from './lang/SystemSettings.es.js';
 import SETTINGS_ES1 from './lang/SystemSettings.part1.es.js';
@@ -1445,6 +1446,8 @@ const auth = useAuthStore();
 // superAdminOnly gate as their standalone routes -- see menu.js and
 // router/index.js -- since embedding them here would otherwise bypass it.
 const isSuperAdmin = computed(() => auth.user?.type === 'SuperAdmin');
+// Global sections (backup archives, login devices): only superadmin/AdminSystem (2026-10-21).
+const isSystem = computed(() => isSuperAdmin.value && Number(getActingCompanyId()) === 999);
 // Menu / section names in the active language (2026-10-20).
 const { s: ls } = useLocalText({ ...SETTINGS_ES, ...SETTINGS_ES1, ...SETTINGS_ES2 });
 // Sections that only make sense with these modules (a school has none of them).

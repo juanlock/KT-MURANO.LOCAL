@@ -46,7 +46,8 @@ class PaymentPurchasesController extends BaseController
         // scoped via the parent purchase's -- applied unconditionally, same
         // as PurchasesController/PaymentPurchaseReturnsController (not gated
         // by record_view, which only controls "just my own rows" beneath it).
-        $companyId = $this->resolveActingCompanyId($request);
+        // superadmin/AdminSystem: every company (2026-10-21) -- null = no company filter.
+        $companyId = $this->listCompanyId($request);
 
         // How many items do you want to display.
         $perPage = $request->limit;
@@ -79,7 +80,7 @@ class PaymentPurchasesController extends BaseController
             ->where('deleted_at', '=', null)
             ->whereBetween('date', [$request->from, $request->to])
             ->whereHas('purchase', function ($q) use ($companyId) {
-                $q->where('company_id', $companyId);
+                $q->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId));
             })
             ->where(function ($query) use ($view_records) {
                 if (! $view_records) {
@@ -180,11 +181,14 @@ class PaymentPurchasesController extends BaseController
             $item['montant'] = $Payment->montant;
             $item['account_name'] = $Payment['account'] ? $Payment['account']->account_name : '---';
             $item['user_name'] = $Payment['user'] ? $Payment['user']->username : '---';
+            $item['company_id'] = $Payment['purchase']->company_id;
             $data[] = $item;
         }
+        // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
+        $data = \App\Support\CompanyNames::attach($data);
 
-        $suppliers = provider::where('deleted_at', '=', null)->where('company_id', $companyId)->get(['id', 'name']);
-        $purchases = Purchase::where('company_id', $companyId)->get(['Ref', 'id']);
+        $suppliers = provider::where('deleted_at', '=', null)->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->get(['id', 'name']);
+        $purchases = Purchase::when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))->get(['Ref', 'id']);
         $payment_methods = PaymentMethod::active()->where('deleted_at', '=', null)->get(['id', 'name']);
 
         $methodNames = $payment_methods->pluck('name', 'id');

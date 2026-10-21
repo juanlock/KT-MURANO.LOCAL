@@ -89,6 +89,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../lib/systemContext';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../components/PageHeader.vue';
 import DataTable from '../components/DataTable.vue';
@@ -107,9 +108,12 @@ const IMAGE_FALLBACK =
 const crud = useCrudTable('brands', { rowsKey: 'brands' });
 
 // computed so the headers re-render when the language changes
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('BrandImage'), key: 'image', width: 80 },
   { title: t('BrandName'), dataIndex: 'name', key: 'name', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('BrandDescription'), dataIndex: 'description', key: 'description', ellipsis: true },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);

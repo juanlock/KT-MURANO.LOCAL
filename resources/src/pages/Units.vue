@@ -89,6 +89,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../lib/systemContext';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../components/PageHeader.vue';
 import DataTable from '../components/DataTable.vue';
@@ -110,9 +111,12 @@ const operatorOptions = [
   { value: '/', label: '/ (divide)' },
 ];
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
   { title: t('ShortName'), dataIndex: 'ShortName', key: 'ShortName', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('BaseUnit'), key: 'base_unit' },
   { title: t('Operator'), dataIndex: 'operator', key: 'operator', width: 100 },
   { title: t('OperationValue'), dataIndex: 'operator_value', key: 'operator_value', width: 140 },

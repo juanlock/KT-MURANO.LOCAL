@@ -40,6 +40,8 @@ class DemoModules
         Modules\FleetModule::class,
         Modules\HospitalModule::class,
         Modules\SchoolModule::class,
+        // Listings for sale / rent and buyers' inquiries (2026-10-21).
+        Modules\RealEstateModule::class,
     ];
 
     /** @return DemoModule[] keyed by module key */

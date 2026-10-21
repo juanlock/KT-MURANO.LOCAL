@@ -20,6 +20,12 @@ class HolidaysModule extends DemoModule
         return 'holidays';
     }
 
+    /** Part of HRM: no holidays demo when HRM is off (a school). */
+    public function moduleFlags(): array
+    {
+        return ['hrm'];
+    }
+
     public function label(): string
     {
         return 'Holidays (US federal holidays of this year and next)';

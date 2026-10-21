@@ -40,10 +40,17 @@ class ExamResult extends Model
      * scale in ONE place is why the grade is derived on save rather than typed
      * per row, where two people would inevitably disagree about a 79.5.
      */
-    public static function gradeFor($percentage)
+    public static function gradeFor($percentage, $maxMarks = null)
     {
         if ($percentage === null) {
             return null;
+        }
+
+        // Marks out of 20 (vigesimal, Peru; user's rule 2026-10-21): one letter per
+        // mark -- 20 A+, 19 A, 18 B+, 17 B, 16 C+, 15 C, 14 D+, 13 D, 12 E+, 11 E
+        // (pass), 10 and below F.
+        if ((float) $maxMarks === 20.0) {
+            return self::vigesimalGrade((int) round($percentage * 20 / 100));
         }
 
         $scale = [
@@ -58,6 +65,13 @@ class ExamResult extends Model
         }
 
         return 'F';
+    }
+
+    /** The letter for a mark out of 20. */
+    public static function vigesimalGrade(int $mark): string
+    {
+        return [20 => 'A+', 19 => 'A', 18 => 'B+', 17 => 'B', 16 => 'C+', 15 => 'C',
+            14 => 'D+', 13 => 'D', 12 => 'E+', 11 => 'E'][$mark] ?? 'F';
     }
 
     /** Grade points for the same scale, used to average a term. */

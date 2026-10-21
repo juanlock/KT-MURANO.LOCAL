@@ -5,6 +5,7 @@ namespace App\Services\DemoData\Modules;
 use App\Services\DemoData\DemoContext;
 use App\Services\DemoData\DemoModule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Core examples: products (with stock), customers, suppliers, sales,
@@ -22,12 +23,34 @@ class CoreModule extends DemoModule
         'Bluetooth Speaker', 'Noise-Cancelling Headphones', 'Portable SSD 1TB', 'Smartphone Case',
         'Power Bank 20000mAh', 'LED Desk Lamp', 'Ergonomic Chair', 'Coffee Maker', 'Electric Kettle',
     ];
-    /** A hospital's products are its pharmacy / supplies (prescriptions price from them). */
-    private const HOSPITAL_PRODUCT_NAMES = [
-        'Paracetamol 500 mg (box of 20)', 'Amoxicillin 500 mg (box of 21)', 'Ibuprofen 400 mg (box of 20)', 'Omeprazole 20 mg (box of 14)',
-        'Loratadine 10 mg (box of 10)', 'Metformin 850 mg (box of 30)', 'Saline solution 0.9% 1 L', 'Sterile gauze pads (pack of 50)',
-        'Nitrile gloves (box of 100)', 'Disposable syringe 5 ml (box of 100)', 'Surgical masks (box of 50)', 'Alcohol 70% 1 L',
-        'Losartan 50 mg (box of 30)', 'Salbutamol inhaler 100 mcg',
+    /**
+     * A hospital's products are its pharmacy / supplies (prescriptions price
+     * from them; the Pharmacy screen lists them). [es, en, generic, strength,
+     * form es, form en, pack, prescription] -- names follow the company's
+     * language (2026-10-21).
+     */
+    private const HOSPITAL_PRODUCTS = [
+        ['Paracetamol 500 mg (caja x 20)', 'Paracetamol 500 mg (box of 20)', 'Paracetamol', '500 mg', 'Tableta', 'Tablet', '20', 0],
+        ['Amoxicilina 500 mg (caja x 21)', 'Amoxicillin 500 mg (box of 21)', 'Amoxicillin', '500 mg', 'Cápsula', 'Capsule', '21', 1],
+        ['Ibuprofeno 400 mg (caja x 20)', 'Ibuprofen 400 mg (box of 20)', 'Ibuprofen', '400 mg', 'Tableta', 'Tablet', '20', 0],
+        ['Omeprazol 20 mg (caja x 14)', 'Omeprazole 20 mg (box of 14)', 'Omeprazole', '20 mg', 'Cápsula', 'Capsule', '14', 1],
+        ['Loratadina 10 mg (caja x 10)', 'Loratadine 10 mg (box of 10)', 'Loratadine', '10 mg', 'Tableta', 'Tablet', '10', 0],
+        ['Metformina 850 mg (caja x 30)', 'Metformin 850 mg (box of 30)', 'Metformin', '850 mg', 'Tableta', 'Tablet', '30', 1],
+        ['Solución salina 0.9% 1 L', 'Saline solution 0.9% 1 L', 'Sodium chloride', '0.9%', 'Solución inyectable', 'Injectable solution', '1 L', 1],
+        ['Gasas estériles (paquete x 50)', 'Sterile gauze pads (pack of 50)', null, null, 'Insumo', 'Supply', '50', 0],
+        ['Guantes de nitrilo (caja x 100)', 'Nitrile gloves (box of 100)', null, null, 'Insumo', 'Supply', '100', 0],
+        ['Jeringa descartable 5 ml (caja x 100)', 'Disposable syringe 5 ml (box of 100)', null, '5 ml', 'Insumo', 'Supply', '100', 0],
+        ['Mascarillas quirúrgicas (caja x 50)', 'Surgical masks (box of 50)', null, null, 'Insumo', 'Supply', '50', 0],
+        ['Alcohol 70% 1 L', 'Alcohol 70% 1 L', 'Ethanol', '70%', 'Solución tópica', 'Topical solution', '1 L', 0],
+        ['Losartán 50 mg (caja x 30)', 'Losartan 50 mg (box of 30)', 'Losartan', '50 mg', 'Tableta', 'Tablet', '30', 1],
+        ['Salbutamol inhalador 100 mcg', 'Salbutamol inhaler 100 mcg', 'Salbutamol', '100 mcg', 'Inhalador', 'Inhaler', '200 dosis', 1],
+        ['Diclofenaco 75 mg/3 ml ampolla', 'Diclofenac 75 mg/3 ml ampoule', 'Diclofenac', '75 mg/3 ml', 'Ampolla', 'Ampoule', '1', 1],
+        ['Ceftriaxona 1 g ampolla', 'Ceftriaxone 1 g vial', 'Ceftriaxone', '1 g', 'Polvo para inyección', 'Powder for injection', '1', 1],
+    ];
+    private const GENERIC_ES = [
+        'Amoxicillin' => 'Amoxicilina', 'Ibuprofen' => 'Ibuprofeno', 'Omeprazole' => 'Omeprazol', 'Loratadine' => 'Loratadina',
+        'Metformin' => 'Metformina', 'Sodium chloride' => 'Cloruro de sodio', 'Ethanol' => 'Etanol', 'Losartan' => 'Losartán',
+        'Diclofenac' => 'Diclofenaco', 'Ceftriaxone' => 'Ceftriaxona',
     ];
     private const COMPANY_WORDS =['Global', 'Prime', 'Atlas', 'Delta', 'Nova', 'Summit', 'Horizon', 'Union', 'Vertex', 'Coastal'];
     private const COMPANY_TYPES = ['Supplies', 'Trading', 'Distribution', 'Wholesale', 'Logistics', 'Industries'];
@@ -47,6 +70,12 @@ class CoreModule extends DemoModule
     public function label(): string
     {
         return 'Core (Products, Customers, Suppliers, Sales, Purchases, Quotations, Expenses)';
+    }
+
+    /** Offered when the company sells, buys or keeps accounts (not a school). */
+    public function moduleFlags(): array
+    {
+        return ['products', 'sales', 'purchases', 'suppliers', 'accounting'];
     }
 
     public function dataTables(): array
@@ -88,7 +117,8 @@ class CoreModule extends DemoModule
             'Sales' => $sales ? $this->makeSales($ctx, 48, $clientIds, $productIds, $paymentMethodId, $agentId) : 0,
             'Purchases' => $purchases ? $this->makePurchases($ctx, 24, $providerIds, $productIds, $paymentMethodId) : 0,
             'Quotations' => $sales ? $this->makeQuotations($ctx, 5, $clientIds, $productIds) : 0,
-            'Expenses' => $this->makeExpenses($ctx, 24),
+            // Expenses live in Accounting: none when it is off.
+            'Expenses' => $on('accounting') ? $this->makeExpenses($ctx, 24) : 0,
             'Journal entries' => $this->postJournal($ctx),
         ], fn ($n, $k) => $n > 0 || in_array($k, ['Products', 'Expenses', 'Journal entries'], true), ARRAY_FILTER_USE_BOTH);
     }
@@ -118,17 +148,29 @@ class CoreModule extends DemoModule
 
     private function makeProducts(DemoContext $ctx, int $count): array
     {
-        $categoryId = $ctx->insert('categories', ['code' => 'DEMO'.random_int(100, 999), 'name' => 'Demo Category']);
+        $hospital = ($ctx->businessType ?? null) === 'hospital';
+        $es = str_starts_with((string) DB::table('settings')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->value('default_language'), 'es');
+        $categoryId = $ctx->insert('categories', ['code' => 'DEMO'.random_int(100, 999),
+            'name' => $hospital ? ($es ? 'Medicamentos e insumos' : 'Medicines & supplies') : 'Demo Category']);
         $unitId = $this->companyRowOr($ctx, 'units', fn () => $ctx->insert('units', [
             'name' => 'Piece', 'ShortName' => 'pc', 'base_unit' => null, 'operator' => '*', 'operator_value' => 1, 'is_active' => 1,
         ]));
 
-        $names = ($ctx->businessType ?? null) === 'hospital' ? self::HOSPITAL_PRODUCT_NAMES : self::PRODUCT_NAMES;
+        $names = $hospital ? array_map(fn ($m) => $es ? $m[0] : $m[1], self::HOSPITAL_PRODUCTS) : self::PRODUCT_NAMES;
+        if ($hospital) {
+            $count = max($count, count(self::HOSPITAL_PRODUCTS));
+        }
         $ids = [];
         for ($i = 0; $i < $count; $i++) {
-            $cost = random_int(5, 400) + 0.99;
+            $cost = $hospital ? random_int(1, 40) + 0.5 : random_int(5, 400) + 0.99;
             $price = round($cost * (1 + random_int(20, 60) / 100), 2);
-            $id = $ctx->insert('products', [
+            $med = $hospital ? self::HOSPITAL_PRODUCTS[$i % count(self::HOSPITAL_PRODUCTS)] : null;
+            $pharmacy = $med ? array_filter([
+                'generic_name' => $es && $med[2] ? (self::GENERIC_ES[$med[2]] ?? $med[2]) : $med[2], 'strength' => $med[3], 'dosage_form' => $es ? $med[4] : $med[5],
+                'pack_size' => $med[6], 'prescription_required' => $med[7],
+                'manufacturer' => $ctx->pick(['Laboratorios Andinos', 'Medifarma', 'Genfar', 'Bayer', 'Pfizer']),
+            ], fn ($v) => $v !== null) : [];
+            $id = $ctx->insert('products', $pharmacy + [
                 'type' => 'is_single',
                 'code' => 'DEMO'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
                 'Type_barcode' => 'CODE128',
@@ -145,10 +187,22 @@ class CoreModule extends DemoModule
                 'note' => 'Demo data',
             ]);
             $ids[] = $id;
-            foreach ($ctx->warehouseIds as $wid) {
+            foreach ($ctx->warehouseIds as $w => $wid) {
+                // Hospital: a few low / out of stock and expiring batches so the Pharmacy alerts have examples.
+                $qty = $hospital && $w === 0 ? ([0 => 0, 3 => 6, 5 => 4][$i] ?? random_int(30, 200)) : random_int(30, 200);
                 $ctx->insert('product_warehouse', [
-                    'product_id' => $id, 'warehouse_id' => $wid, 'qte' => random_int(30, 200), 'manage_stock' => 1,
+                    'product_id' => $id, 'warehouse_id' => $wid, 'qte' => $qty, 'manage_stock' => 1,
                 ]);
+                if ($med && $med[2] && $qty > 0 && Schema::hasTable('product_batches')) {
+                    $expiry = match ($i % 6) { 1 => now()->addDays(40), 4 => now()->subDays(10), default => now()->addMonths(random_int(8, 30)) };
+                    $ctx->insert('product_batches', [
+                        'product_id' => $id, 'warehouse_id' => $wid,
+                        'batch_no' => 'L'.now()->format('y').str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
+                        'expiry_date' => $expiry->toDateString(), 'mfg_date' => $expiry->copy()->subYears(2)->toDateString(),
+                        'qty' => $qty, 'unit_cost' => $cost, 'status' => 'active', 'notes' => 'Demo data',
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                }
             }
         }
 

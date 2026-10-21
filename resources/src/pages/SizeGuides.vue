@@ -159,6 +159,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useSystemContext } from '../lib/systemContext';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, CloseOutlined,
 } from '@ant-design/icons-vue';
@@ -170,9 +171,12 @@ import http from '../lib/http';
 const { t } = useI18n();
 const crud = useCrudTable('size_guides', { rowsKey: 'size_guides' });
 
+const { isSystem } = useSystemContext();
 const columns = computed(() => [
   { title: t('Image'), key: 'image', width: 80 },
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
+  // superadmin/AdminSystem: every company (2026-10-21)
+  ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: t('Rows'), dataIndex: 'rows_count', key: 'rows_count', width: 100 },
   { title: t('Status'), key: 'status', width: 120 },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },

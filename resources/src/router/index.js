@@ -5,6 +5,7 @@ import { start as progressStart, done as progressDone } from '../lib/progress';
 import { autoOpenPath, recordVisit, startPageOpened, markStartPageOpened, pageOptions } from '../lib/startPage';
 import { setPageTitle } from '../lib/docTitle';
 import { installNavKind } from '../composables/useListState';
+import { getActingCompanyId } from '../lib/actingCompany';
 // The shell is needed on every page, so it stays in the entry bundle.
 import AdminLayout from '../layouts/AdminLayout.vue';
 
@@ -381,6 +382,8 @@ const HospitalLabTests = lazy('HospitalLabTests', () => import('../pages/hospita
 const HospitalLabOrders = lazy('HospitalLabOrders', () => import('../pages/hospital/LabOrders.vue'));
 const HospitalInvoices = lazy('HospitalInvoices', () => import('../pages/hospital/Invoices.vue'));
 const HospitalReports = lazy('HospitalReports', () => import('../pages/hospital/HospitalReports.vue'));
+const HospitalEr = lazy('HospitalEr', () => import('../pages/hospital/EmergencyRoom.vue'));
+const HospitalPharmacy = lazy('HospitalPharmacy', () => import('../pages/hospital/Pharmacy.vue'));
 const SchoolDashboard = lazy('SchoolDashboard', () => import('../pages/school/SchoolDashboard.vue'));
 const SchoolStudents = lazy('SchoolStudents', () => import('../pages/school/Students.vue'));
 const SchoolStudentForm = lazy('SchoolStudentForm', () => import('../pages/school/StudentForm.vue'));
@@ -431,7 +434,7 @@ const routes = [
             { path: 'subcategories', name: 'subcategories', component: SubCategories, meta: { title: 'SubCategories', permission: 'subcategory' } },
             { path: 'units', name: 'units', component: Units, meta: { title: 'Units', permission: 'unit' } },
             { path: 'size-guides', name: 'size-guides', component: SizeGuides, meta: { title: 'Size Guides', permission: 'size_guides' } },
-            { path: 'currencies', name: 'currencies', component: Currencies, meta: { title: 'Currencies', permission: 'currency' } },
+            { path: 'currencies', name: 'currencies', component: Currencies, meta: { title: 'Currencies', permission: 'currency', systemOnly: true } },
             { path: 'warehouses', name: 'warehouses', component: Warehouses, meta: { title: 'Locations', permission: 'warehouse' } },
             // Reports
             { path: 'reports/dead-stock', name: 'dead-stock-report', component: DeadStockReport, meta: { title: 'Dead Stock Report', permission: 'Dead_Stock_Report' } },
@@ -766,6 +769,8 @@ const routes = [
             { path: 'hospital/lab-orders', name: 'hospital-lab-orders', component: HospitalLabOrders, meta: { title: 'Lab Orders', permission: 'hms_lab' } },
             { path: 'hospital/invoices', name: 'hospital-invoices', component: HospitalInvoices, meta: { title: 'Hospital Billing', permission: 'hms_billing' } },
             { path: 'hospital/reports', name: 'hospital-reports', component: HospitalReports, meta: { title: 'Hospital Reports', permission: 'hms_reports' } },
+            { path: 'hospital/er', name: 'hospital-er', component: HospitalEr, meta: { title: 'Emergency Room', permission: 'hms_er' } },
+            { path: 'hospital/pharmacy', name: 'hospital-pharmacy', component: HospitalPharmacy, meta: { title: 'Pharmacy', permission: 'hms_pharmacy' } },
             // School Management. `create` is declared before the :id routes so
             // it is never read as a record id.
             { path: 'school/dashboard', name: 'school-dashboard', component: SchoolDashboard, meta: { title: 'School Dashboard', permission: 'school_dashboard' } },
@@ -871,15 +876,15 @@ const routes = [
             { path: 'settings/warehouse-locations', redirect: '/warehouses' },
             { path: 'settings/payment-gateway', name: 'payment-gateway', component: PaymentGateway, meta: { title: 'Payment Gateway', permission: 'payment_gateway' } },
             { path: 'settings/mail', name: 'mail-settings', component: MailSettings, meta: { title: 'Mail Settings', permission: 'mail_settings' } },
-            { path: 'settings/login-devices', name: 'login-devices', component: LoginDevices, meta: { title: 'Login Devices', permission: 'login_device_management', superAdminOnly: true } },
+            { path: 'settings/login-devices', name: 'login-devices', component: LoginDevices, meta: { title: 'Login Devices', permission: 'login_device_management', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/paypal', name: 'paypal-settings', component: () => import('../pages/settings/PayPalSettings.vue'), meta: { title: 'PayPal', permission: 'paypal_manage' } },
             { path: 'settings/network-security', name: 'network-security', component: () => import('../pages/settings/NetworkSecurity.vue'), meta: { title: 'Network security', permission: 'network_security' } },
-            { path: 'settings/system-health', name: 'system-health', component: SystemHealth, meta: { title: 'System Health', permission: 'system_health_view' } },
+            { path: 'settings/system-health', name: 'system-health', component: SystemHealth, meta: { title: 'System Health', permission: 'system_health_view', systemOnly: true } },
             { path: 'settings/sms-templates', name: 'sms-templates', component: SmsTemplates, meta: { title: 'SMS Templates', permission: 'sms_templates' } },
             { path: 'settings/email-templates', name: 'email-templates', component: EmailTemplates, meta: { title: 'Email Templates', permission: 'notification_template' } },
             // Legacy route has no permission gate — keep it open the same way.
             { path: 'settings/custom-fields', name: 'custom-fields', component: CustomFields, meta: { title: 'Custom Fields' } },
-            { path: 'settings/backup', name: 'backup', component: Backup, meta: { title: 'Backup', permission: 'backup', superAdminOnly: true } },
+            { path: 'settings/backup', name: 'backup', component: Backup, meta: { title: 'Backup', permission: 'backup', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/pos', name: 'pos-settings', component: PosSettings, meta: { title: 'POS Settings', permission: 'pos_settings' } },
             // Old standalone Appearance page -- it duplicated System Settings ->
             // Integrations -> Appearance (same component); kept only as a
@@ -889,7 +894,7 @@ const routes = [
             // auth.user.type === 'SuperAdmin' (and enforced server-side the
             // same way), not by the role-based permission system, since this
             // must never be delegable to a company-level Admin's role.
-            { path: 'settings/login-page', name: 'login-page-settings', component: LoginPageSettings, meta: { title: 'Login Page' } },
+            { path: 'settings/login-page', name: 'login-page-settings', component: LoginPageSettings, meta: { title: 'Login Page', systemOnly: true } },
             { path: 'settings/pwa', name: 'pwa-settings', component: PwaSettings, meta: { title: 'PWA Settings', permission: 'appearance_settings' } },
             { path: 'settings/mobile-app', name: 'mobile-app-settings', component: MobileAppSettings, meta: { title: 'Mobile App Settings', permission: 'appearance_settings' } },
             { path: 'settings/sms', name: 'sms-settings', component: SmsSettings, meta: { title: 'SMS Settings', permission: 'sms_settings' } },
@@ -900,7 +905,7 @@ const routes = [
             { path: 'settings/pos-receipt', redirect: { path: '/settings/pos', query: { tab: 'receipt' } } },
             { path: 'settings/modules', name: 'module-settings', component: ModuleSettings, meta: { title: 'Module Settings', permission: 'module_settings' } },
             { path: 'settings/business-modules', name: 'business-modules', component: Modules, meta: { title: 'Modules', permission: ['business_modules', 'setting_system'], superAdminOnly: true } },
-            { path: 'settings/update', name: 'update-settings', component: UpdateSettings, meta: { title: 'Update Settings', permission: 'update_settings', superAdminOnly: true } },
+            { path: 'settings/update', name: 'update-settings', component: UpdateSettings, meta: { title: 'Update Settings', permission: 'update_settings', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/system', name: 'system-settings', component: SystemSettings, meta: { title: 'System Settings', permission: 'setting_system' } },
             { path: 'settings/quickbooks', name: 'quickbooks-sync', component: QuickBooksSync, meta: { title: 'QuickBooks Sync', permission: 'quickbooks_settings' } },
             { path: 'settings/zatca', name: 'zatca-settings', component: ZatcaSettings, meta: { title: 'ZATCA E-Invoicing', permission: 'zatca_settings', superAdminOnly: true } },
@@ -963,6 +968,12 @@ router.beforeEach(async to => {
     // sidebar's superAdminOnly gate and the same abort_unless(...) check
     // enforced server-side.
     if (to.meta.superAdminOnly && auth.user?.type !== 'SuperAdmin') {
+        return { name: 'not-found' };
+    }
+    // Global pages (user's rule, 2026-10-21): only "superadmin/AdminSystem" --
+    // the SuperAdmin with AdminSystem (999) picked in the company switcher.
+    // With another company picked the SuperAdmin acts only on that company.
+    if (to.meta.systemOnly && (auth.user?.type !== 'SuperAdmin' || Number(getActingCompanyId()) !== 999)) {
         return { name: 'not-found' };
     }
     // Pages of a module the admin switched off (Settings → Modules) are

@@ -568,8 +568,10 @@ watch(openKeys, (nv, ov) => {
 .sidebar-menu :deep([data-menu-id$="|system"]) {
   position: relative;
 }
+/* Yellow for every global (superadmin/AdminSystem) item -- 2026-10-21: the
+   older dark amber read as red. */
 .sidebar-menu :deep([data-menu-id$="|system"] .ant-menu-title-content) {
-  color: #b45309;
+  color: #d4a106;
   font-weight: 600;
 }
 .sidebar-menu :deep([data-menu-id$="|system"])::after {
@@ -580,8 +582,8 @@ watch(openKeys, (nv, ov) => {
   transform: translateY(-50%);
   padding: 0 6px;
   border-radius: 4px;
-  background: rgba(180, 83, 9, 0.14);
-  color: #b45309;
+  background: rgba(212, 161, 6, 0.18);
+  color: #d4a106;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
