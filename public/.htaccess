@@ -9,11 +9,9 @@
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    # RewriteRule ^ %1 [L,R=301]
-    RewriteRule ^ ^$1 [N]
+    # Trailing slashes: no rewrite here (2026-10-21). The old rule
+    # "RewriteRule ^ ^$1 [N]" looped (Apache 500) on any URL ending in "/",
+    # e.g. /next/; Laravel's router accepts the slash as it is.
 
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
