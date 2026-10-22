@@ -175,6 +175,10 @@ class CompanyController extends Controller
             if (\App\Support\BusinessTypes::of($cid) === 'school') {
                 \App\Support\SchoolRoles::ensure($cid);
             }
+            // A hospital: Emergencia, Admisión, Médico, Enfermero, Jefe de enfermería, Farmacia... (2026-10-21).
+            if (\App\Support\BusinessTypes::of($cid) === 'hospital') {
+                \App\Support\HospitalRoles::apply($cid);
+            }
             // Its mail server: AdminSystem's, sender "Admin {company}".
             \App\Models\Server::forCompany($cid);
         }));

@@ -1095,6 +1095,41 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::post('hospital/er', 'HospitalErController@store');
     Route::put('hospital/er/{id}', 'HospitalErController@update');
     Route::delete('hospital/er/{id}', 'HospitalErController@destroy');
+    // Staff shifts, admission desk, treatments, operating room (2026-10-21)
+    Route::get('hospital/shifts', 'HospitalStaffController@index');
+    Route::post('hospital/shifts', 'HospitalStaffController@store');
+    Route::post('hospital/shifts/copy-day', 'HospitalStaffController@copyDay');
+    Route::post('hospital/shifts/{id}/patients', 'HospitalStaffController@setPatients');
+    Route::delete('hospital/shifts/{id}', 'HospitalStaffController@destroy');
+    Route::get('hospital/my-patients', 'HospitalStaffController@myPatients');
+    Route::post('hospital/my-patients/{id}/visited', 'HospitalStaffController@markVisited');
+    Route::get('hospital/desk', 'HospitalDeskController@overview');
+    Route::post('hospital/desk/intake', 'HospitalDeskController@intake');
+    Route::post('hospital/desk/waiting/{id}/call', 'HospitalDeskController@callIn');
+    Route::get('hospital/visitors', 'HospitalDeskController@visitors');
+    Route::post('hospital/visitors', 'HospitalDeskController@checkIn');
+    Route::post('hospital/visitors/{id}/checkout', 'HospitalDeskController@checkOut');
+    Route::get('hospital/treatments/meta', 'HospitalTreatmentController@meta');
+    Route::get('hospital/treatments', 'HospitalTreatmentController@index');
+    Route::post('hospital/treatments', 'HospitalTreatmentController@store');
+    Route::get('hospital/treatments/{id}', 'HospitalTreatmentController@show');
+    Route::put('hospital/treatments/{id}', 'HospitalTreatmentController@update');
+    Route::post('hospital/treatments/{id}/orders', 'HospitalTreatmentController@storeOrder');
+    Route::post('hospital/medication-orders/{id}/stop', 'HospitalTreatmentController@stopOrder');
+    Route::post('hospital/doses/{id}', 'HospitalTreatmentController@recordDose');
+    Route::get('hospital/pharmacy/dispense-queue', 'HospitalTreatmentController@dispenseQueue');
+    Route::post('hospital/pharmacy/dispense/{id}', 'HospitalTreatmentController@dispense');
+    Route::get('hospital/surgeries', 'HospitalSurgeryController@index');
+    Route::post('hospital/surgeries', 'HospitalSurgeryController@store');
+    Route::get('hospital/surgeries/{id}', 'HospitalSurgeryController@show');
+    Route::put('hospital/surgeries/{id}', 'HospitalSurgeryController@update');
+    Route::post('hospital/surgeries/{id}/move', 'HospitalSurgeryController@move');
+    Route::post('hospital/surgeries/{id}/bill', 'HospitalSurgeryController@bill');
+    Route::delete('hospital/surgeries/{id}', 'HospitalSurgeryController@destroy');
+    Route::post('hospital/operating-rooms', 'HospitalSurgeryController@saveRoom');
+    Route::put('hospital/operating-rooms/{id}', 'HospitalSurgeryController@saveRoom');
+    Route::delete('hospital/operating-rooms/{id}', 'HospitalSurgeryController@destroyRoom');
+
     Route::get('hospital/pharmacy', 'HospitalPharmacyController@index');
     Route::get('hospital/pharmacy/{id}', 'HospitalPharmacyController@show');
 

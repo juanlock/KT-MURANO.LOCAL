@@ -1252,6 +1252,46 @@ export const PERMISSION_GROUPS = [
                 "v": "hms_pharmacy",
                 "l": "Pharmacy",
                 "f": "Pharmacy"
+            },
+            {
+                "v": "hms_pharmacy_dispense",
+                "l": "Pharmacy: dispense",
+                "f": "Pharmacy: dispense"
+            },
+            {
+                "v": "hms_admission_desk",
+                "l": "Admission desk",
+                "f": "Admission desk"
+            },
+            {
+                "v": "hms_visitors",
+                "l": "Visitors",
+                "f": "Visitors"
+            },
+            {
+                "v": "hms_shifts",
+                "l": "Staff shifts (assign)",
+                "f": "Staff shifts (assign)"
+            },
+            {
+                "v": "hms_my_patients",
+                "l": "My patients",
+                "f": "My patients"
+            },
+            {
+                "v": "hms_treatments",
+                "l": "Treatments",
+                "f": "Treatments"
+            },
+            {
+                "v": "hms_treatments_administer",
+                "l": "Treatments: give medication",
+                "f": "Treatments: give medication"
+            },
+            {
+                "v": "hms_surgery",
+                "l": "Operating room",
+                "f": "Operating room"
             }
         ]
     },

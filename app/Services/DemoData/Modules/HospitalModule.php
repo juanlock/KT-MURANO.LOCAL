@@ -44,6 +44,21 @@ class HospitalModule extends DemoModule
         [2, 'Cardiólogo', 'Cardiologist', 'MBBS, MD, DM (Cardiology)', 90],
         [3, 'Traumatólogo', 'Orthopedic Surgeon', 'MBBS, MS (Ortho)', 80],
         [4, 'Emergenciólogo', 'Emergency Physician', 'MBBS, MD (Emergency Medicine)', 70],
+        // 2026-10-21: enough doctors for the roster (1 emergency doctor + 3 specialists x 3 shifts).
+        [0, 'Cirujano general', 'General Surgeon', 'MD (General Surgery)', 85],
+        [4, 'Anestesiólogo', 'Anesthesiologist', 'MD (Anesthesiology)', 75],
+        [0, 'Ginecólogo', 'Gynecologist', 'MD (Obstetrics & Gynecology)', 60],
+        [2, 'Neumólogo', 'Pulmonologist', 'MD (Pulmonology)', 65],
+    ];
+    // Staff of the demo (2026-10-21): [count, role, es title, en title]
+    private const STAFF = [
+        [3, 'Head Nurse', 'Supervisora de enfermería', 'Nurse supervisor'],
+        [12, 'Nurse', 'Enfermero(a)', 'Nurse'],
+        [1, 'Admission', 'Admisión', 'Admission clerk'],
+        [1, 'Pharmacy', 'Farmacéutico(a)', 'Pharmacist'],
+        [1, 'Billing', 'Cajero(a)', 'Cashier'],
+        [1, 'Laboratory', 'Tecnólogo(a) de laboratorio', 'Lab technologist'],
+        [1, 'Operating Room', 'Coordinador(a) de quirófano', 'Operating room coordinator'],
     ];
     // [es, en, code, category es, category en, sample es, sample en, unit, normal range, price, turnaround h]
     private const LAB_TESTS = [
@@ -139,6 +154,17 @@ class HospitalModule extends DemoModule
             ['table' => 'lab_orders'],
             ['table' => 'prescription_items', 'parent' => ['prescription_id', 'prescriptions']],
             ['table' => 'prescriptions'],
+            ['table' => 'hms_medication_doses'],
+            ['table' => 'hms_dispenses'],
+            ['table' => 'hms_medication_orders'],
+            ['table' => 'hms_treatment_doctors', 'parent' => ['treatment_id', 'hms_treatments']],
+            ['table' => 'hms_treatments'],
+            ['table' => 'hms_shift_patients'],
+            ['table' => 'hms_staff_shifts'],
+            ['table' => 'hms_visitors'],
+            ['table' => 'hms_surgery_events', 'parent' => ['surgery_id', 'hms_surgeries']],
+            ['table' => 'hms_surgeries'],
+            ['table' => 'hms_operating_rooms'],
             ['table' => 'er_cases'],
             ['table' => 'admissions'],
             ['table' => 'patient_visits'],
@@ -459,6 +485,7 @@ class HospitalModule extends DemoModule
 
         // ---- Emergency Room: open cases on the board (ER beds taken) + closed ones.
         $erCount = 0;
+        $erIds = [];
         if (Schema::hasTable('er_cases') && isset($wardIds[3])) {
             $erDoctor = $doctors[5]['id'];
             $freeErBeds = $bedIds[3];
@@ -466,8 +493,10 @@ class HospitalModule extends DemoModule
                 $arrived = now()->subMinutes($ago);
                 $open = $status !== 'closed';
                 $bed = $open && $status !== 'waiting' ? array_shift($freeErBeds) : null;
-                $ctx->insert('er_cases', [
+                $erIds[$p] = $ctx->insert('er_cases', [
                     'reference' => ErCase::nextReference('ER'),
+                    'location' => $open ? ($bed ? 'er_bed' : 'waiting_room') : null,
+                    'location' => $open ? ($bed ? 'er_bed' : 'waiting_room') : null,
                     'patient_id' => $patientIds[$p],
                     'doctor_id' => $status === 'waiting' ? null : $erDoctor,
                     'bed_id' => $bed,
@@ -493,7 +522,10 @@ class HospitalModule extends DemoModule
             }
         }
 
-        return [
+        // ---- Staff with their roles, today's shifts, treatments, operating room, visitors (2026-10-21).
+        $care = $this->makeStaffAndCare($ctx, $doctors, $patientIds, $erIds, $admissionId);
+
+        return $care + [
             'Departments' => count($deptIds),
             'Doctors' => count($doctors),
             'Wards' => count($wardIds),
@@ -579,6 +611,209 @@ class HospitalModule extends DemoModule
         }
 
         return $count;
+    }
+
+    /**
+     * Staff, shifts, treatments, operating room and visitors (2026-10-21):
+     *  - every doctor gets an employee + login (role Médico; the emergency
+     *    doctor Emergencia); 3 nurse supervisors, 12 nurses and one person for
+     *    Admisión / Farmacia / Caja / Laboratorio / Quirófano, each with its role;
+     *  - the roster of yesterday and today (24 h guard + 3 specialists, 1
+     *    supervisor and 4 nurses per 8-hour shift) with the patients in the
+     *    hospital shared out among them;
+     *  - treatments for the admitted patient and the ER patients in a bed,
+     *    with medication orders and their dose sheet (past doses given, one
+     *    omitted, one overdue, upcoming pending; the next hours dispensed);
+     *  - two operating rooms, an urgent appendectomy in pre-op and an elective
+     *    surgery for tomorrow; visitors at the admission desk.
+     */
+    private function makeStaffAndCare(DemoContext $ctx, array $doctors, array $patientIds, array $erIds, int $admissionId): array
+    {
+        if (! Schema::hasTable('hms_staff_shifts')) {
+            return [];
+        }
+        $cid = $ctx->companyId;
+        $roleId = fn (string $name) => \App\Support\HospitalRoles::roleId($cid, $name);
+
+        // HRM frame for the staff: department + designations + office shift.
+        $deptId = $ctx->insert('departments', ['department' => $this->es ? 'Personal asistencial' : 'Clinical staff', 'department_head' => null]);
+        $shiftId = $ctx->insert('office_shifts', ['name' => $this->es ? 'Turnos del hospital' : 'Hospital shifts']);
+        $made = [];
+        $designation = function (string $title) use ($ctx, $deptId, &$made) {
+            return $made[$title] ??= $ctx->insert('designations', ['department_id' => $deptId, 'designation' => $title]);
+        };
+        $employee = function (string $first, string $last, string $gender, string $title, ?string $role) use ($ctx, $deptId, $shiftId, $designation, $roleId) {
+            $id = $ctx->insert('employees', [
+                'user_id' => null, 'firstname' => $first, 'lastname' => $last, 'username' => "$first $last",
+                'email' => $this->slug("$first $last").'.staff'.random_int(100, 999).'@example.com',
+                'phone' => ($this->es ? '9' : '555').random_int(10000000, 99999999), 'gender' => $gender, 'avatar' => 'no_avatar.png',
+                'joining_date' => now()->subDays(random_int(120, 1500))->toDateString(), 'department_id' => $deptId,
+                'designation_id' => $designation($title), 'office_shift_id' => $shiftId, 'total_leave' => 18, 'remaining_leave' => 18,
+                'basic_salary' => 0, 'employment_type' => 'full_time',
+            ]);
+            $userId = DB::table('employees')->where('id', $id)->value('user_id');
+            if ($userId && $role && ($rid = $roleId($role))) {
+                DB::table('role_user')->where('user_id', $userId)->delete();
+                DB::table('role_user')->insert(['user_id' => $userId, 'role_id' => $rid]);
+                DB::table('users')->where('id', $userId)->update(['role_id' => $rid]);
+            }
+
+            return [$id, $userId];
+        };
+
+        // Doctors -> employees + logins.
+        foreach ($doctors as $i => $d) {
+            $name = preg_replace('/^Dr\.\s*/', '', (string) DB::table('doctors')->where('id', $d['id'])->value('name'));
+            [$first, $last] = array_pad(explode(' ', $name, 2), 2, '');
+            [$empId] = $employee($first, $last ?: '-', 'male', $this->es ? 'Médico' : 'Doctor', $i === 5 ? 'Emergency' : 'Doctor');
+            DB::table('doctors')->where('id', $d['id'])->update(['employee_id' => $empId]);
+        }
+        // Nurses and the other roles.
+        $people = [];
+        foreach (self::STAFF as [$count, $role, $es, $en]) {
+            for ($n = 0; $n < $count; $n++) {
+                [$first, $last, $gender] = $this->person($ctx, in_array($role, ['Head Nurse', 'Nurse'], true) && $n % 3 !== 2 ? 'female' : null);
+                [$empId, $userId] = $employee($first, $last, $gender, $this->es ? $es : $en, $role);
+                $people[$role][] = ['employee_id' => $empId, 'user_id' => $userId];
+            }
+        }
+
+        // Roster: yesterday and today.
+        $inside = [3, 0, 4, 1, 2, 5]; // admitted + ER patients (indexes of $patientIds)
+        $specialists = [[0, 1, 6], [2, 3, 7], [4, 8, 9]];
+        $shifts = ['morning', 'afternoon', 'night'];
+        $rows = 0;
+        foreach ([now()->subDay()->toDateString(), now()->toDateString()] as $date) {
+            $er = $ctx->insert('hms_staff_shifts', ['shift_date' => $date, 'shift' => 'er24', 'position' => 'er_doctor', 'doctor_id' => $doctors[5]['id'], 'created_by' => $ctx->userId]);
+            $rows++;
+            foreach ([0, 1, 4, 2, 5] as $p) {
+                $ctx->insert('hms_shift_patients', ['staff_shift_id' => $er, 'patient_id' => $patientIds[$p]]);
+            }
+            foreach ($shifts as $si => $shift) {
+                foreach ($specialists[$si] as $k => $di) {
+                    $id = $ctx->insert('hms_staff_shifts', ['shift_date' => $date, 'shift' => $shift, 'position' => 'specialist', 'doctor_id' => $doctors[$di]['id'], 'created_by' => $ctx->userId]);
+                    $rows++;
+                    foreach (array_slice($inside, $k * 2, 2) as $p) {
+                        $ctx->insert('hms_shift_patients', ['staff_shift_id' => $id, 'patient_id' => $patientIds[$p]]);
+                    }
+                }
+                $sup = $people['Head Nurse'][$si] ?? null;
+                if ($sup) {
+                    $ctx->insert('hms_staff_shifts', ['shift_date' => $date, 'shift' => $shift, 'position' => 'nurse_supervisor', 'employee_id' => $sup['employee_id'], 'created_by' => $ctx->userId]);
+                    $rows++;
+                }
+                foreach (array_slice($people['Nurse'] ?? [], $si * 4, 4) as $k => $nurse) {
+                    $id = $ctx->insert('hms_staff_shifts', ['shift_date' => $date, 'shift' => $shift, 'position' => 'nurse', 'employee_id' => $nurse['employee_id'], 'created_by' => $ctx->userId]);
+                    $rows++;
+                    foreach ([[3, 0], [4], [1, 2], [5]][$k] as $p) {
+                        $ctx->insert('hms_shift_patients', ['staff_shift_id' => $id, 'patient_id' => $patientIds[$p]]);
+                    }
+                }
+            }
+        }
+
+        // Treatments with medication orders and their dose sheet.
+        $product = fn (string $like) => DB::table('products')->where('company_id', $cid)->whereNull('deleted_at')->where('name', 'like', $like)->value('id');
+        $nurseUser = $people['Nurse'][0]['user_id'] ?? $ctx->userId;
+        $plans = [
+            [3, 1, ['Hiperglucemia, diabetes tipo 2 descompensada', 'Hyperglycaemia, uncontrolled type 2 diabetes'],
+                ['Control de glucosa cada 6 h, dieta para diabético, educación.', 'Blood glucose every 6 h, diabetic diet, education.'], [
+                    ['Metformin%', 'Metformina 850 mg', '850 mg', 'oral', 12, 5, 1],
+                    [null, 'Insulina NPH', '10 UI', 'sc', 12, 5, 0],
+                    ['Paracetamol%', 'Paracetamol 500 mg', '500 mg', 'oral', 8, 3, 1],
+                ], ['admission_id' => $admissionId]],
+            [0, 5, ['Síndrome coronario agudo - en estudio', 'Acute coronary syndrome - under study'],
+                ['Monitoreo cardíaco, ECG seriado, enzimas cardíacas.', 'Cardiac monitoring, serial ECG, cardiac enzymes.'], [
+                    [null, 'Ácido acetilsalicílico 100 mg', '100 mg', 'oral', 24, 3, 0],
+                    ['Losart%', 'Losartán 50 mg', '50 mg', 'oral', 24, 3, 1],
+                ], ['er_case_id' => $erIds[0] ?? null]],
+            [4, 9, ['Crisis asmática moderada', 'Moderate asthma exacerbation'],
+                ['Nebulizaciones, oxígeno para SpO2 > 92 %, control en 6 h.', 'Nebulisation, oxygen for SpO2 > 92%, review in 6 h.'], [
+                    ['Salbutamol%', 'Salbutamol inhalador', '2 puffs', 'inhaled', 6, 2, 1],
+                    ['Ceftriax%', 'Ceftriaxona 1 g', '1 g', 'iv', 24, 3, 1],
+                ], ['er_case_id' => $erIds[4] ?? null]],
+        ];
+        $treatments = $orders = $doses = 0;
+        $first = true;
+        foreach ($plans as [$p, $lead, $dx, $plan, $meds, $link]) {
+            $start = now()->subHours($p === 3 ? 30 : 4)->minute(0)->second(0);
+            $tid = $ctx->insert('hms_treatments', $link + [
+                'reference' => \App\Models\HmsTreatment::nextReference('TRT'), 'patient_id' => $patientIds[$p],
+                'lead_doctor_id' => $doctors[$lead]['id'], 'diagnosis' => $dx[$this->es ? 0 : 1], 'plan' => $plan[$this->es ? 0 : 1],
+                'status' => 'active', 'started_at' => $start, 'created_by' => $ctx->userId,
+            ]);
+            $treatments++;
+            $ctx->insert('hms_treatment_doctors', ['treatment_id' => $tid, 'doctor_id' => $doctors[$lead]['id'], 'role' => 'lead']);
+            foreach ($meds as [$like, $name, $dose, $route, $every, $days, $units]) {
+                $pid = $like ? $product($like) : null;
+                $oid = $ctx->insert('hms_medication_orders', [
+                    'treatment_id' => $tid, 'product_id' => $pid, 'medicine' => $pid ? DB::table('products')->where('id', $pid)->value('name') : $name,
+                    'dose' => $dose, 'route' => $route, 'every_hours' => $every, 'starts_at' => $start, 'days' => $days,
+                    'units_per_dose' => $units, 'status' => 'active', 'doctor_id' => $doctors[$lead]['id'], 'created_by' => $ctx->userId,
+                ]);
+                $orders++;
+                for ($at = $start->copy(); $at < $start->copy()->addDays($days); $at->addHours($every)) {
+                    $past = $at < now()->subHour();
+                    $status = $past ? 'given' : 'pending';
+                    if ($past && $first) { // one omitted dose, to show it
+                        $status = 'omitted';
+                        $first = false;
+                    }
+                    $ctx->insert('hms_medication_doses', [
+                        'order_id' => $oid, 'treatment_id' => $tid, 'patient_id' => $patientIds[$p], 'scheduled_at' => $at->copy(),
+                        'status' => $status, 'given_at' => $past ? $at->copy()->addMinutes(random_int(0, 25)) : null,
+                        'given_by' => $past ? $nurseUser : null, 'dispensed' => $at < now()->addHours(6),
+                        'notes' => $status === 'omitted' ? ($this->es ? 'Paciente en ayunas para examen' : 'Patient fasting for a test') : null,
+                    ]);
+                    $doses++;
+                }
+            }
+        }
+
+        // Operating room.
+        $or1 = $ctx->insert('hms_operating_rooms', ['name' => $this->es ? 'Quirófano 1' : 'Operating room 1', 'status' => 'available']);
+        $or2 = $ctx->insert('hms_operating_rooms', ['name' => $this->es ? 'Quirófano 2' : 'Operating room 2', 'status' => 'available']);
+        $surgeries = [
+            [1, $or1, now()->addHour()->minute(0), 'pre_op', 'urgent', true,
+                ['Apendicitis aguda', 'Acute appendicitis'], ['Apendicectomía laparoscópica', 'Laparoscopic appendectomy'], 1200],
+            [3, $or2, now()->addDay()->setTime(9, 0), 'scheduled', 'elective', false,
+                ['Úlcera de pie diabético', 'Diabetic foot ulcer'], ['Desbridamiento quirúrgico', 'Surgical debridement'], 800],
+        ];
+        foreach ($surgeries as [$p, $room, $at, $status, $priority, $consent, $dx, $proc, $fee]) {
+            $sid = $ctx->insert('hms_surgeries', [
+                'reference' => \App\Models\HmsSurgery::nextReference('SUR'), 'patient_id' => $patientIds[$p],
+                'admission_id' => $p === 3 ? $admissionId : null, 'operating_room_id' => $room,
+                'surgeon_id' => $doctors[6]['id'], 'anesthetist_id' => $doctors[7]['id'],
+                'team' => $this->es ? 'Ayudante: Dr. de guardia · Instrumentista: Enf. de turno' : 'Assistant: doctor on duty · Scrub nurse: nurse on shift',
+                'scheduled_at' => $at, 'estimated_minutes' => 90, 'status' => $status, 'priority' => $priority,
+                'pre_op_diagnosis' => $dx[$this->es ? 0 : 1], 'planned_procedure' => $proc[$this->es ? 0 : 1],
+                'risks' => $this->es ? 'Sangrado, infección, riesgo anestésico ASA II' : 'Bleeding, infection, anaesthetic risk ASA II',
+                'consent_signed' => $consent, 'fee' => $fee, 'created_by' => $ctx->userId,
+            ]);
+            $ctx->insert('hms_surgery_events', ['surgery_id' => $sid, 'event' => 'scheduled', 'at' => now()->subHours(2), 'user_id' => $ctx->userId]);
+            if ($status === 'pre_op') {
+                $ctx->insert('hms_surgery_events', ['surgery_id' => $sid, 'event' => 'pre_op', 'at' => now()->subMinutes(20), 'user_id' => $ctx->userId]);
+            }
+        }
+
+        // Visitors.
+        $visitors = 0;
+        foreach ([[3, 60, null, 'Esposa', 'Wife'], [3, 240, 180, 'Hijo', 'Son'], [4, 30, null, 'Madre', 'Mother']] as $n => [$p, $inAgo, $outAgo, $rEs, $rEn]) {
+            [$first, $last] = $this->person($ctx);
+            $ctx->insert('hms_visitors', [
+                'patient_id' => $patientIds[$p], 'name' => "$first $last", 'document' => (string) random_int(10000000, 99999999),
+                'relation' => $this->es ? $rEs : $rEn, 'phone' => '9'.random_int(10000000, 99999999),
+                'checked_in_at' => now()->subMinutes($inAgo), 'checked_out_at' => $outAgo ? now()->subMinutes($outAgo) : null,
+                'badge' => 'V-'.now()->format('md').'-'.str_pad((string) ($n + 1), 3, '0', STR_PAD_LEFT), 'created_by' => $ctx->userId,
+            ]);
+            $visitors++;
+        }
+
+        return [
+            'Staff (with logins)' => count($doctors) + array_sum(array_map(fn ($s) => $s[0], self::STAFF)),
+            'Shift assignments' => $rows, 'Treatments' => $treatments, 'Medication orders' => $orders, 'Doses' => $doses,
+            'Operating rooms' => 2, 'Surgeries' => count($surgeries), 'Visitors' => $visitors,
+        ];
     }
 
     /** The ward type exists in the column's enum (older databases before 2026-10-21 have no 'emergency'). */

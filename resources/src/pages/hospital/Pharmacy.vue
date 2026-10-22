@@ -11,6 +11,8 @@
       </template>
     </PageHeader>
 
+    <a-tabs v-model:activeKey="tab">
+    <a-tab-pane v-if="canStock" key="stock" :tab="s('Stock')">
     <div class="kpis">
       <button v-for="k in kpiCards" :key="k.key" type="button" class="kpi" :class="{ on: filter === k.filter }" @click="setFilter(k.filter)">
         <div class="kpi-v" :style="{ color: k.color }">{{ k.value }}</div>
@@ -80,6 +82,33 @@
         </a-spin>
       </template>
     </a-table>
+    </a-tab-pane>
+
+    <!-- Dispatch (2026-10-21): the treatments' medication orders waiting for the pharmacy. -->
+    <a-tab-pane v-if="canDispense" key="dispense" :tab="`${s('Dispatch')} (${queue.length})`">
+      <p class="muted">{{ s('Medication orders of the treatments with doses due in the next 24 hours that the pharmacy has not dispatched yet. Dispatching takes the stock out of the pharmacy.') }}</p>
+      <a-table :data-source="queue" :columns="queueColumns" row-key="id" size="small" :loading="queueLoading" :pagination="false" :scroll="{ x: 900 }">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'patient'">
+            <b>{{ record.patient_name }}</b>
+            <div class="cell-sub">{{ record.treatment_reference }}<template v-if="record.where"> · {{ record.where }}</template></div>
+          </template>
+          <template v-else-if="column.key === 'med'">
+            <b>{{ record.medicine }}</b>
+            <div class="cell-sub">{{ record.dose }} · {{ record.route }} · {{ s('every') }} {{ record.every_hours }} h · {{ record.units_per_dose }} {{ s('unit(s) per dose') }}</div>
+          </template>
+          <template v-else-if="column.key === 'first'">{{ dt(record.first_at) }}</template>
+          <template v-else-if="column.key === 'stock'">
+            <span :class="{ out: record.stock !== null && record.stock < record.units_per_dose }">{{ record.stock === null ? '—' : number(record.stock) }}</span>
+          </template>
+          <template v-else-if="column.key === 'act'">
+            <a-input-number v-model:value="dispenseN[record.id]" :min="1" :max="record.doses_pending" size="small" style="width: 70px" />
+            <a-button size="small" type="primary" style="margin-left: 6px" @click="dispense(record)">{{ s('Dispatch') }}</a-button>
+          </template>
+        </template>
+      </a-table>
+    </a-tab-pane>
+    </a-tabs>
   </div>
 </template>
 
@@ -96,6 +125,8 @@ import PageHeader from '../../components/PageHeader.vue';
 import { useFormat } from '../../composables/useFormat';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useSystemContext } from '../../lib/systemContext';
+import { useAuthStore } from '../../stores/auth';
+import dayjs from 'dayjs';
 import http from '../../lib/http';
 import { useHospitalText } from './lang/useHospitalText';
 import ES from './lang/Pharmacy.es.js';
@@ -103,6 +134,44 @@ import ES from './lang/Pharmacy.es.js';
 const { s } = useHospitalText(ES);
 const { money, number, date } = useFormat();
 const { isSystem } = useSystemContext();
+
+// Dispatch (2026-10-21): the treatments' medication orders waiting for the pharmacy.
+const auth = useAuthStore();
+const canStock = computed(() => auth.can('hms_pharmacy'));
+const canDispense = computed(() => auth.can('hms_pharmacy_dispense'));
+const tab = ref(canStock.value ? 'stock' : 'dispense');
+const queue = ref([]);
+const queueLoading = ref(false);
+const dispenseN = reactive({});
+const dt = iso => (iso ? dayjs(iso).format('DD/MM HH:mm') : '—');
+const queueColumns = computed(() => [
+  { title: s('Patient'), key: 'patient' }, { title: s('Medicine'), key: 'med' }, { title: s('First dose'), key: 'first', width: 120 },
+  { title: s('Doses'), dataIndex: 'doses_pending', width: 80 }, { title: s('Stock'), key: 'stock', width: 90 }, { title: '', key: 'act', width: 190 },
+]);
+async function loadQueue() {
+  if (!canDispense.value) return;
+  queueLoading.value = true;
+  try {
+    queue.value = (await http.get('hospital/pharmacy/dispense-queue'))?.queue || [];
+    queue.value.forEach(q => {
+      if (!dispenseN[q.id]) dispenseN[q.id] = Math.min(q.doses_pending, Math.max(1, Math.round(24 / q.every_hours)));
+    });
+  } catch (e) {
+    queue.value = [];
+  } finally {
+    queueLoading.value = false;
+  }
+}
+async function dispense(r) {
+  try {
+    const d = await http.post(`hospital/pharmacy/dispense/${r.id}`, { doses: dispenseN[r.id] || 1 });
+    message.success(`${s('Dispatched')}: ${d.doses} ${s('doses')} (${d.quantity})`);
+    loadQueue();
+    if (canStock.value) load();
+  } catch (e) {
+    message.error(s(e?.data?.message || 'Could not save'));
+  }
+}
 
 const loading = ref(false);
 const rows = ref([]);
@@ -173,7 +242,10 @@ async function onExpand(open, record) {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  if (canStock.value) load();
+  loadQueue();
+});
 </script>
 
 <style scoped>

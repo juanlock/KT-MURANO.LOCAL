@@ -136,6 +136,11 @@ class DemoContext
         if ($this->hasColumn($table, 'deleted_at')) {
             $q->whereNull('deleted_at');
         }
+        // Service items the system makes itself (hospital bill lines HMS-*, the
+        // booking "Appointment" service) are not the company's catalogue (2026-10-21).
+        if ($table === 'products') {
+            $q->where(fn ($w) => $w->whereNull('code')->orWhere(fn ($x) => $x->where('code', 'not like', 'HMS-%')->where('code', '!=', 'BOOKING-SVC')));
+        }
         $demo = $shared
             ? DB::table('demo_records')->where('record_type', $table)->pluck('record_id')->map(fn ($v) => (int) $v)->all()
             : $this->demoIds($table);

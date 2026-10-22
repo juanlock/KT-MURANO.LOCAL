@@ -384,6 +384,11 @@ const HospitalInvoices = lazy('HospitalInvoices', () => import('../pages/hospita
 const HospitalReports = lazy('HospitalReports', () => import('../pages/hospital/HospitalReports.vue'));
 const HospitalEr = lazy('HospitalEr', () => import('../pages/hospital/EmergencyRoom.vue'));
 const HospitalPharmacy = lazy('HospitalPharmacy', () => import('../pages/hospital/Pharmacy.vue'));
+const HospitalDesk = lazy('HospitalDesk', () => import('../pages/hospital/AdmissionDesk.vue'));
+const HospitalMyPatients = lazy('HospitalMyPatients', () => import('../pages/hospital/MyPatients.vue'));
+const HospitalTreatments = lazy('HospitalTreatments', () => import('../pages/hospital/Treatments.vue'));
+const HospitalSurgery = lazy('HospitalSurgery', () => import('../pages/hospital/Surgery.vue'));
+const HospitalShifts = lazy('HospitalShifts', () => import('../pages/hospital/StaffShifts.vue'));
 const SchoolDashboard = lazy('SchoolDashboard', () => import('../pages/school/SchoolDashboard.vue'));
 const SchoolStudents = lazy('SchoolStudents', () => import('../pages/school/Students.vue'));
 const SchoolStudentForm = lazy('SchoolStudentForm', () => import('../pages/school/StudentForm.vue'));
@@ -770,7 +775,12 @@ const routes = [
             { path: 'hospital/invoices', name: 'hospital-invoices', component: HospitalInvoices, meta: { title: 'Hospital Billing', permission: 'hms_billing' } },
             { path: 'hospital/reports', name: 'hospital-reports', component: HospitalReports, meta: { title: 'Hospital Reports', permission: 'hms_reports' } },
             { path: 'hospital/er', name: 'hospital-er', component: HospitalEr, meta: { title: 'Emergency Room', permission: 'hms_er' } },
-            { path: 'hospital/pharmacy', name: 'hospital-pharmacy', component: HospitalPharmacy, meta: { title: 'Pharmacy', permission: 'hms_pharmacy' } },
+            { path: 'hospital/pharmacy', name: 'hospital-pharmacy', component: HospitalPharmacy, meta: { title: 'Pharmacy', permission: ['hms_pharmacy', 'hms_pharmacy_dispense'] } },
+            { path: 'hospital/admission-desk', name: 'hospital-desk', component: HospitalDesk, meta: { title: 'Admission desk', permission: ['hms_admission_desk', 'hms_visitors'] } },
+            { path: 'hospital/my-patients', name: 'hospital-my-patients', component: HospitalMyPatients, meta: { title: 'My patients', permission: ['hms_my_patients', 'hms_shifts'] } },
+            { path: 'hospital/treatments', name: 'hospital-treatments', component: HospitalTreatments, meta: { title: 'Treatments', permission: ['hms_treatments', 'hms_treatments_administer'] } },
+            { path: 'hospital/surgery', name: 'hospital-surgery', component: HospitalSurgery, meta: { title: 'Operating room', permission: 'hms_surgery' } },
+            { path: 'hospital/shifts', name: 'hospital-shifts', component: HospitalShifts, meta: { title: 'Staff shifts', permission: ['hms_shifts', 'hms_my_patients'] } },
             // School Management. `create` is declared before the :id routes so
             // it is never read as a record id.
             { path: 'school/dashboard', name: 'school-dashboard', component: SchoolDashboard, meta: { title: 'School Dashboard', permission: 'school_dashboard' } },

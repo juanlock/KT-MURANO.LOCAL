@@ -31,10 +31,9 @@ class ErCasePolicy
         return $this->check($user);
     }
 
+    /** hms_er, or the admission desk (it registers arrivals and sends them to the waiting room / an ER bed, 2026-10-21). */
     private function check(User $user)
     {
-        $permission = Permission::where('name', 'hms_er')->first();
-
-        return $permission ? $user->hasRole($permission->roles) : false;
+        return \App\Support\HospitalShifts::can($user, 'hms_er', 'hms_admission_desk');
     }
 }

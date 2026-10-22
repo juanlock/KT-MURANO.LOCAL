@@ -156,6 +156,7 @@ class HospitalErController extends Controller
                 $data['reference'] = ErCase::nextReference('ER');
                 $data['arrived_at'] = $request->arrived_at ?: now();
                 $data['status'] = 'waiting';
+                $data['location'] = $bed ? 'er_bed' : 'waiting_room';
                 $data['created_by'] = $userId;
                 $case = ErCase::create($data);
                 if ($bed) {
@@ -186,6 +187,7 @@ class HospitalErController extends Controller
             DB::transaction(function () use ($request, $case) {
                 $data = $this->payload($request);
                 $newBed = $request->bed_id ? (int) $request->bed_id : null;
+                $data['location'] = $newBed ? 'er_bed' : 'waiting_room';
                 if ($newBed !== $case->bed_id) {
                     $bed = $this->lockErBed($newBed);
                     $this->freeBed($case->bed_id);
@@ -418,6 +420,7 @@ class HospitalErController extends Controller
             'doctor_name' => optional($c->doctor)->name,
             'bed_id' => $c->bed_id,
             'bed_number' => optional($c->bed)->bed_number,
+            'location' => $c->location ?: ($c->bed_id ? 'er_bed' : 'waiting_room'),
             'arrived_at' => optional($c->arrived_at)->toIso8601String(),
             'arrival_mode' => $c->arrival_mode,
             'triage_level' => $c->triage_level,

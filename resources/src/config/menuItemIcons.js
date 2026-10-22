@@ -10,7 +10,7 @@
 import {
     AlarmClock, Archive, ArrowUpCircle, Atom, Banknote, BarChart, BarChart3, Barcode, BellRing, Book, Bookmark, BriefcaseBusiness, Bug, Building, Calculator, Calendar, CalendarCheck, CalendarDays, Camera, Check, CheckCheck, ChevronLeft, ChevronRight, ClipboardList, Clock, Cloud, Copy, CornerUpLeft, CreditCard, Database, DatabaseBackup, DatabaseZap, DollarSign, Download, FilePlus, FileText, Files, Folder, HeartPulse, History, IdCard, Key, Layers, LayoutDashboard, Library, Lightbulb, List, Lock, Mail, MapPin, Megaphone, Menu, MessageCircle, MessageSquare, MonitorUp, Package, Pencil, PieChart, Plus, Quote, Receipt, ReceiptText, Ruler, ScanBarcode, Settings, Shield, ShieldCheck, ShoppingBasket, ShoppingCart, Star, Store, Tag, Ticket, TrendingUp, Trophy, User, UserMinus, Users, Wallet, Warehouse, Wrench, Zap,
     // Manual additions for reports that don't exist in the legacy reference sidebar:
-    ArrowLeftRight, Award, Siren, Pill, CalendarClock, FilePen, ListChecks, PackageX, Percent, SlidersHorizontal, TrendingDown, Truck,
+    ArrowLeftRight, Award, Siren, Pill, DoorOpen, Syringe, Scissors, CalendarClock, FilePen, ListChecks, PackageX, Percent, SlidersHorizontal, TrendingDown, Truck,
     // Manual additions for other items not in the reference sidebar:
     ChefHat, CircleDollarSign, Gift, PackageCheck,
     // Fleet module — without these, every row under Fleet Management inherits
@@ -331,6 +331,11 @@ export const MENU_ITEM_ICONS = {
     "/app/hospital/reports": BarChart3,
     "/app/hospital/er": Siren,
     "/app/hospital/pharmacy": Pill,
+    "/app/hospital/admission-desk": DoorOpen,
+    "/app/hospital/my-patients": ClipboardPlus,
+    "/app/hospital/treatments": Syringe,
+    "/app/hospital/surgery": Scissors,
+    "/app/hospital/shifts": CalendarRange,
 
     // School Management
     "/app/school/dashboard": LayoutDashboard,

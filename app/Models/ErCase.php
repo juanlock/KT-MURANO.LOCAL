@@ -22,7 +22,7 @@ class ErCase extends Model
     public const ARRIVAL_MODES = ['walk_in', 'ambulance', 'referral', 'police', 'other'];
 
     protected $fillable = [
-        'reference', 'patient_id', 'doctor_id', 'bed_id', 'admission_id', 'arrived_at', 'arrival_mode',
+        'reference', 'patient_id', 'doctor_id', 'bed_id', 'location', 'admission_id', 'arrived_at', 'arrival_mode',
         'triage_level', 'complaint', 'temperature', 'pulse', 'bp_systolic', 'bp_diastolic',
         'respiratory_rate', 'spo2', 'pain_score', 'status', 'treatment_started_at', 'diagnosis',
         'notes', 'disposition', 'closed_at', 'disposition_notes', 'created_by',
