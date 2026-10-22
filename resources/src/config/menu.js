@@ -320,6 +320,8 @@ export const MIGRATED_ROUTES = {
     '/app/hospital/lab-orders': '/hospital/lab-orders',
     '/app/hospital/invoices': '/hospital/invoices',
     '/app/hospital/reports': '/hospital/reports',
+    '/app/hospital/er': '/hospital/er',
+    '/app/hospital/pharmacy': '/hospital/pharmacy',
     '/app/school/dashboard': '/school/dashboard',
     '/app/school/students': '/school/students',
     '/app/school/enrollments': '/school/enrollments',
