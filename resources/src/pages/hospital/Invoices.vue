@@ -48,6 +48,9 @@
             <div class="cell-name">{{ record.patient_name }}</div>
             <div class="cell-mrn">{{ record.patient_mrn }} · {{ record.reference }}</div>
           </button>
+          <div v-if="record.sale_ref" class="cell-mrn">
+            {{ s('Sale') }} <PermLink :to="`/sales/${record.sale_id}`" permission="Sales_view">{{ record.sale_ref }}</PermLink>
+          </div>
         </template>
         <template v-else-if="column.key === 'invoice_date'">{{ date(record.invoice_date) }}</template>
         <template v-else-if="column.key === 'total'">{{ money(record.total) }}</template>
@@ -179,6 +182,9 @@
       <template v-if="detail">
         <a-descriptions :column="2" size="small" bordered style="margin-bottom: 16px">
           <a-descriptions-item :label="s('Patient')">{{ detail.patient_name }}</a-descriptions-item>
+          <a-descriptions-item v-if="detail.sale_ref" :label="s('Sale')">
+            <PermLink :to="`/sales/${detail.sale_id}`" permission="Sales_view">{{ detail.sale_ref }}</PermLink>
+          </a-descriptions-item>
           <a-descriptions-item :label="s('MRN')">{{ detail.patient_mrn }}</a-descriptions-item>
           <a-descriptions-item :label="s('Date')">{{ date(detail.invoice_date) }}</a-descriptions-item>
           <a-descriptions-item :label="s('Status')">

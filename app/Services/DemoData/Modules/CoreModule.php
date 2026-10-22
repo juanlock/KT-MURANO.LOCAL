@@ -52,6 +52,7 @@ class CoreModule extends DemoModule
         'Metformin' => 'Metformina', 'Sodium chloride' => 'Cloruro de sodio', 'Ethanol' => 'Etanol', 'Losartan' => 'Losartán',
         'Diclofenac' => 'Diclofenaco', 'Ceftriaxone' => 'Ceftriaxona',
     ];
+    private const PHARMA_SUPPLIERS = ['Droguería Andina', 'Laboratorios Medifarma', 'Distribuidora Farmacéutica del Sur', 'Insumos Médicos Lima', 'Química Suiza'];
     private const COMPANY_WORDS =['Global', 'Prime', 'Atlas', 'Delta', 'Nova', 'Summit', 'Horizon', 'Union', 'Vertex', 'Coastal'];
     private const COMPANY_TYPES = ['Supplies', 'Trading', 'Distribution', 'Wholesale', 'Logistics', 'Industries'];
     /** Days back that sales / purchases / expenses spread over (a year, so accounting has history). */
@@ -98,7 +99,10 @@ class CoreModule extends DemoModule
         $on = fn (string $k) => ($flags[$k] ?? true) !== false;
         // No products / customers either when those modules are off (a school).
         $products = $on('products');
-        $sales = $on('sales') && $products;
+        // A hospital's customers are its patients and its sales its hospital bills
+        // (2026-10-21, HospitalModule): no generic demo customers / sales here.
+        $hospital = ($ctx->businessType ?? null) === 'hospital';
+        $sales = $on('sales') && $products && ! $hospital;
         $purchases = $on('purchases') && $products;
         $suppliers = $purchases || $on('suppliers');
 
@@ -234,11 +238,14 @@ class CoreModule extends DemoModule
         $code = (int) (DB::table('providers')->max('code') ?? 0);
         $ids = [];
         for ($i = 0; $i < $count; $i++) {
-            $name = $ctx->pick(self::COMPANY_WORDS).' '.$ctx->pick(self::COMPANY_TYPES);
+            // A hospital buys from laboratories / drug wholesalers (2026-10-21).
+            $name = ($ctx->businessType ?? null) === 'hospital'
+                ? self::PHARMA_SUPPLIERS[$i % count(self::PHARMA_SUPPLIERS)]
+                : $ctx->pick(self::COMPANY_WORDS).' '.$ctx->pick(self::COMPANY_TYPES);
             $ids[] = $ctx->insert('providers', [
                 'code' => ++$code,
                 'name' => $name,
-                'email' => strtolower(str_replace(' ', '.', $name)).'.demo'.random_int(1000, 9999).'@example.com',
+                'email' => strtolower(str_replace(' ', '.', \Illuminate\Support\Str::ascii($name))).'.demo'.random_int(1000, 9999).'@example.com',
                 'phone' => '555'.random_int(1000000, 9999999),
                 'country' => 'United States', 'city' => 'Demo City',
                 'adresse' => random_int(1, 200).' Industrial Zone',

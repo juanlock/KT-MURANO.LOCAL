@@ -1,5 +1,6 @@
 // Hospital -> Billing (Invoices.vue), English -> Spanish, 2026-10-21.
 export default {
+    'Sale': 'Venta',
     'New invoice': 'Nueva factura',
     'Edit invoice': 'Editar factura',
     'Billed': 'Facturado',

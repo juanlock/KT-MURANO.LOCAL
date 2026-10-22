@@ -62,6 +62,20 @@ class Patient extends Model
         return $this->belongsTo(Client::class, 'client_id', 'id');
     }
 
+    /**
+     * A patient is a customer (2026-10-21): any path that saves a patient
+     * (form, Emergency Room intake, import) links / creates its customer and
+     * keeps its name, phone, email and address in step (App\Services\PatientClient).
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Patient $p) {
+            if ($p->wasRecentlyCreated || ! $p->client_id || $p->wasChanged(['name', 'phone', 'email', 'address', 'city', 'company_id'])) {
+                \App\Services\PatientClient::ensure($p);
+            }
+        });
+    }
+
     /** Null when no date of birth is on file, rather than a misleading 0. */
     public function getAgeAttribute()
     {

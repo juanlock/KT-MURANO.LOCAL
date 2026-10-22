@@ -650,8 +650,8 @@ export const MANUAL = [
     paths: ['hospital'],
     title: { en: 'Hospital Management', es: 'Gestión hospitalaria' },
     intro: {
-      en: 'A clinic\'s whole day: patients, appointments, consultations, emergency room, pharmacy, lab, admissions, billing and payments — each company with its own doctors, beds and patients.',
-      es: 'El día completo de una clínica: pacientes, citas, consultas, emergencias, farmacia, laboratorio, internaciones, facturación y cobros — cada empresa con sus propios médicos, camas y pacientes.',
+      en: 'A clinic\'s whole day: patients (each one a customer), appointments, consultations, emergency room, pharmacy, lab, admissions, billing (each bill a sale) and payments — each company with its own doctors, beds and patients.',
+      es: 'El día completo de una clínica: pacientes (cada uno es un cliente), citas, consultas, emergencias, farmacia, laboratorio, internaciones, facturación (cada factura es una venta) y cobros — cada empresa con sus propios médicos, camas y pacientes.',
     },
     sections: [
       {
@@ -698,8 +698,8 @@ export const MANUAL = [
         id: 'hms-billing', perms: ['hms_billing'], paths: ['hospital/invoices'],
         title: { en: 'Billing and payments', es: 'Facturación y cobros' },
         steps: {
-          en: ['**Billing**: build the bill from a consultation (fee + medicines), an admission (nights × daily rate) or a lab order — or type the lines.', '**Payment**: record what the patient pays; the invoice turns partial / paid by itself. A payment larger than the balance is refused.', 'With **Automatic journal entries** on, each invoice and payment goes to **Accounting** (Accounts receivable / Revenue, Cash): change or cancel the invoice and its entry follows.'],
-          es: ['**Facturación**: arme la factura desde una consulta (honorario + medicamentos), una internación (noches × tarifa diaria) o un pedido de laboratorio — o escriba las líneas.', '**Cobro**: registre lo que paga el paciente; la factura pasa sola a parcial / pagada. No se acepta un cobro mayor al saldo.', 'Con los **Asientos automáticos** activos, cada factura y cada cobro van a **Contabilidad** (Cuentas por cobrar / Ingresos, Caja): si cambia o anula la factura, su asiento la sigue.'],
+          en: ['**Billing**: build the bill from a consultation (fee + medicines), an admission (nights × daily rate) or a lab order — or type the lines.', '**Every bill is a sale**: saving it creates its sale in **Sales** (the company\'s sale number, shown on the bill) for the patient\'s customer — every patient is a customer in **People › Customers**. Medicines on the bill leave the pharmacy stock; consultations, bed nights and lab tests go on the company\'s hospital service items. Changing or cancelling the bill changes or removes its sale.', '**Payment**: record what the patient pays; the invoice turns partial / paid by itself and the payment is the sale\'s payment. A payment larger than the balance is refused.', 'With **Automatic journal entries** on, Accounting gets the sale and its payments like any sale (one entry per bill).', 'Medicines are bought from **Suppliers** in **Purchases** (they raise the stock and the batches).'],
+          es: ['**Facturación**: arme la factura desde una consulta (honorario + medicamentos), una internación (noches × tarifa diaria) o un pedido de laboratorio — o escriba las líneas.', '**Cada factura es una venta**: al guardarla se crea su venta en **Ventas** (con el número de venta de la empresa, que se ve en la factura) a nombre del cliente del paciente — todo paciente es un cliente en **Personas › Clientes**. Los medicamentos de la factura salen del stock de la farmacia; consultas, días de internación y exámenes van a los servicios hospitalarios de la empresa. Si cambia o anula la factura, su venta cambia o se elimina.', '**Cobro**: registre lo que paga el paciente; la factura pasa sola a parcial / pagada y el cobro es el cobro de la venta. No se acepta un cobro mayor al saldo.', 'Con los **Asientos automáticos** activos, Contabilidad recibe la venta y sus cobros como cualquier venta (un asiento por factura).', 'Los medicamentos se compran a los **Proveedores** en **Compras** (suben el stock y los lotes).'],
         },
       },
       {

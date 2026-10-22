@@ -336,6 +336,17 @@ the start of each session).
   method PayPal, account balance, sale paid / status, `paypal_payments`).
   `PayPalService::forCompany($id)` = that company's keys; the online store's
   checkout still uses `store_settings` (not multicompany yet).
+- **Hospital = commerce (user's rule, 2026-10-21, replacing 2026-10-20's
+  "hospital without Sales / Purchases / Suppliers"):** a patient IS a
+  customer (`patients.client_id`, `App\Services\PatientClient` from the
+  `Patient` saved hook: same email + company = same customer, else a new one
+  with its login); a hospital bill IS a sale (`hospital_invoices.sale_id`,
+  `hospital_payments.payment_sale_id`, `App\Services\HospitalSale`:
+  medicines = their products with stock, other lines = the company's
+  HMS-* service products; accounting comes from the sale, the hospital no
+  longer posts its own entries); medicines are bought from suppliers. The
+  hospital type has Sales, Purchases and Suppliers on (`BusinessTypes::EXCLUDE`
+  = POS only); its demo has pharma suppliers, purchases and bills as sales.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the

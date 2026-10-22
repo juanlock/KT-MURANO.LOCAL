@@ -57,12 +57,13 @@ class BusinessTypes
         'sales', 'pos', 'purchases', 'suppliers', 'products', 'customers'];
 
     /**
-     * Base modules a type does NOT start with (user's rule, 2026-10-20): a
-     * hospital registers patients and bills through Hospital Management, so no
-     * Sales, POS, Purchases or Suppliers.
+     * Base modules a type does NOT start with. A hospital (user's rule,
+     * 2026-10-21, replacing 2026-10-20's): its patients are customers, its bills
+     * are sales and its medicines are bought from suppliers -- so Sales,
+     * Purchases and Suppliers are on; only POS stays off.
      */
     public const EXCLUDE = [
-        'hospital' => ['sales', 'pos', 'purchases', 'suppliers'],
+        'hospital' => ['pos'],
         // A school (user's rule, 2026-10-20): only School, Portfolio, Intranet,
         // Documents and Website -- none of the commerce or back-office base.
         'school' => ['sales', 'pos', 'purchases', 'suppliers', 'products', 'customers',

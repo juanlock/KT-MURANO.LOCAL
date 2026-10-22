@@ -186,7 +186,7 @@ class HospitalBillingController extends Controller
         DB::transaction(function () use ($invoice) {
             HospitalInvoiceItem::where('invoice_id', $invoice->id)->delete();
             $invoice->delete();
-            \App\Services\HospitalAccounting::syncInvoice($invoice); // deleted -> its entry removed
+            \App\Services\HospitalSale::remove($invoice); // its sale (and that sale's entry) removed
         });
 
         return response()->json(['success' => true]);
@@ -235,7 +235,7 @@ class HospitalBillingController extends Controller
             ]);
 
             $this->recalculate($invoice);
-            \App\Services\HospitalAccounting::postPayment($payment);
+            \App\Services\HospitalSale::syncPayment($payment, $invoice);
         });
 
         return response()->json(['success' => true, 'due' => $invoice->fresh()->due]);
@@ -250,7 +250,7 @@ class HospitalBillingController extends Controller
 
         DB::transaction(function () use ($payment, $invoice) {
             $payment->delete();
-            \App\Services\HospitalAccounting::removePayment($payment);
+            \App\Services\HospitalSale::removePayment($payment, $invoice);
             $this->recalculate($invoice);
         });
 
@@ -434,8 +434,9 @@ class HospitalBillingController extends Controller
         $invoice->total = round(max(0, $subtotal - (float) $invoice->discount + (float) $invoice->tax), 2);
         $invoice->paid = round($paid, 2);
         $invoice->syncStatus()->save();
-        // Accounting (2026-10-20): the invoice's journal entry follows its total / status.
-        \App\Services\HospitalAccounting::syncInvoice($invoice);
+        // The invoice is a sale (2026-10-21): its sale follows lines / total / status,
+        // and accounting comes from that sale (App\Services\HospitalSale).
+        \App\Services\HospitalSale::sync($invoice);
 
         return $invoice;
     }
@@ -461,6 +462,9 @@ class HospitalBillingController extends Controller
             'due' => $i->due,
             'status' => $i->status,
             'notes' => $i->notes,
+            // The invoice's sale (2026-10-21): number in Sales.
+            'sale_id' => $i->sale_id,
+            'sale_ref' => $i->sale_id ? \App\Models\Sale::whereKey($i->sale_id)->value('Ref') : null,
         ];
     }
 

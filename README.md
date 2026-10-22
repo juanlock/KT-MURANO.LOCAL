@@ -210,6 +210,13 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
   - **Farmacia**: the medicines on hand with generic name, strength, form,
     prescription (Rx), stock per warehouse, batches and next expiry, and cards
     for low stock, out of stock and expiring.
+  - **Patients are customers and bills are sales**: every patient has its
+    customer (People › Customers), every hospital bill creates its sale
+    (with the company's sale number, medicines out of stock, payments as sale
+    payments, accounting from the sale). Hospitals now have Sales, Purchases
+    and Suppliers (no POS); the demo buys medicines from pharma suppliers.
+  - **Patients** opens on "In the hospital" (admitted or in the ER) with a
+    "No longer here" button beside the search.
   - The whole Hospital module is in Spanish when the app is, and its demo data
     comes in the company's language, with an ER ward, ER cases and medicines
     with batches.

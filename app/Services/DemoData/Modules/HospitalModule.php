@@ -270,16 +270,26 @@ class HospitalModule extends DemoModule
         // ---- Patients
         $bloods = ['A+', 'A-', 'B+', 'O+', 'O-', 'AB+'];
         $patientIds = [];
+        $clientCode = (int) (DB::table('clients')->max('code') ?? 0);
         for ($i = 0; $i < 10; $i++) {
             [$first, $last, $gender] = $this->person($ctx);
             [$eFirst] = $this->person($ctx);
+            $email = $this->slug("$first $last").'.demo'.random_int(1000, 9999).'@example.com';
+            $phone = ($this->es ? '9' : '555').random_int(10000000, 99999999);
+            // A patient is a customer (2026-10-21): its demo customer (+ login) first.
+            $clientId = $ctx->insert('clients', [
+                'code' => ++$clientCode, 'name' => "$first $last", 'firstname' => $first, 'lastname' => $last,
+                'email' => $email, 'phone' => $phone, 'city' => $this->t('city'),
+                'adresse' => $this->t('street').' '.random_int(100, 3000), 'opening_balance' => 0, 'credit_limit' => 0,
+            ]);
             $patientIds[] = $ctx->insert('patients', [
+                'client_id' => $clientId,
                 'mrn' => Patient::generateMrn(),
                 'name' => "$first $last",
                 'gender' => $gender,
                 'date_of_birth' => now()->subYears(random_int(4, 78))->subDays(random_int(0, 360))->toDateString(),
-                'phone' => ($this->es ? '9' : '555').random_int(10000000, 99999999),
-                'email' => $this->slug("$first $last").'.demo'.random_int(1000, 9999).'@example.com',
+                'phone' => $phone,
+                'email' => $email,
                 'address' => $this->t('street').' '.random_int(100, 3000),
                 'city' => $this->t('city'),
                 'blood_group' => $ctx->pick($bloods),
@@ -427,7 +437,7 @@ class HospitalModule extends DemoModule
         }
 
         // ---- One current admission (general ward, bed 1 = occupied above)
-        $ctx->insert('admissions', [
+        $admissionId = $ctx->insert('admissions', [
             'reference' => Admission::nextReference('ADM'),
             'patient_id' => $patientIds[3],
             'doctor_id' => $doctors[1]['id'],
@@ -441,6 +451,11 @@ class HospitalModule extends DemoModule
             'status' => 'admitted',
             'created_by' => $ctx->userId,
         ]);
+
+        // ---- Bills (2026-10-21: a hospital bill IS a sale): two consultations and
+        // the current stay so far; their sales / sale payments come from
+        // HospitalSale like real ones and are tagged demo as well.
+        $invoices = $this->makeInvoices($ctx, $visits, $doctors, $patientIds, $admissionId, $wards[0][4]);
 
         // ---- Emergency Room: open cases on the board (ER beds taken) + closed ones.
         $erCount = 0;
@@ -491,7 +506,79 @@ class HospitalModule extends DemoModule
             'Lab order items' => $labItems,
             'Admissions' => 1,
             'ER cases' => $erCount,
+            'Bills (sales)' => $invoices,
         ];
+    }
+
+    /**
+     * Demo bills: the first two consultations (one paid, one partly paid) and
+     * the current stay (unpaid). Each becomes a sale through HospitalSale, and
+     * the sale, its lines and payments are tagged demo so Remove demo data
+     * takes them away (their journal entries go with them, DemoRunner).
+     */
+    private function makeInvoices(DemoContext $ctx, array $visits, array $doctors, array $patientIds, int $admissionId, float $bedRate): int
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('hospital_invoices', 'sale_id')) {
+            return 0;
+        }
+        $plan = [];
+        foreach (array_slice($visits, 0, 2) as $n => $v) {
+            $plan[] = [
+                'patient' => $patientIds[$v['p']], 'visit_id' => $v['id'], 'admission_id' => null, 'date' => $v['at'],
+                'items' => [['consultation', ($this->es ? 'Consulta — ' : 'Consultation — ').DB::table('doctors')->where('id', $doctors[$v['d']]['id'])->value('name'), 1, $doctors[$v['d']]['fee']]],
+                'pay' => $n === 0 ? 1.0 : 0.5,
+            ];
+        }
+        $plan[] = [
+            'patient' => $patientIds[3], 'visit_id' => null, 'admission_id' => $admissionId, 'date' => now()->subDay(),
+            'items' => [['bed', ($this->es ? 'Hospitalización — ' : 'Bed charge — ').$this->t('ward_general'), 2, $bedRate]],
+            'pay' => 0,
+        ];
+
+        $count = 0;
+        foreach ($plan as $b) {
+            $total = array_sum(array_map(fn ($i) => $i[2] * $i[3], $b['items']));
+            $invoiceId = $ctx->insert('hospital_invoices', [
+                'reference' => \App\Models\HospitalInvoice::nextReference('INV'),
+                'patient_id' => $b['patient'], 'visit_id' => $b['visit_id'], 'admission_id' => $b['admission_id'],
+                'invoice_date' => $b['date']->toDateString(), 'subtotal' => $total, 'discount' => 0, 'tax' => 0,
+                'total' => $total, 'paid' => 0, 'status' => 'unpaid', 'notes' => $this->t('demo'), 'created_by' => $ctx->userId,
+            ]);
+            foreach ($b['items'] as [$type, $desc, $qty, $price]) {
+                $ctx->insert('hospital_invoice_items', [
+                    'invoice_id' => $invoiceId, 'type' => $type, 'description' => $desc,
+                    'quantity' => $qty, 'unit_price' => $price, 'total' => $qty * $price,
+                ]);
+            }
+            $invoice = \App\Models\HospitalInvoice::withoutGlobalScope('company')->find($invoiceId);
+            $sale = \App\Services\HospitalSale::sync($invoice, $ctx->userId);
+            if (! $sale) {
+                continue;
+            }
+            $ctx->tag('sales', (int) $sale->id);
+            foreach (DB::table('sale_details')->where('sale_id', $sale->id)->pluck('id') as $id) {
+                $ctx->tag('sale_details', (int) $id);
+            }
+            if ($b['pay'] > 0) {
+                $amount = round($total * $b['pay'], 2);
+                $paymentId = $ctx->insert('hospital_payments', [
+                    'reference' => \App\Models\HospitalPayment::nextReference('PAY'),
+                    'invoice_id' => $invoiceId, 'patient_id' => $b['patient'], 'paid_on' => $b['date']->toDateString(),
+                    'amount' => $amount, 'method' => 'cash', 'notes' => $this->t('demo'), 'created_by' => $ctx->userId,
+                ]);
+                DB::table('hospital_invoices')->where('id', $invoiceId)->update([
+                    'paid' => $amount, 'status' => $b['pay'] >= 1 ? 'paid' : 'partial',
+                ]);
+                $invoice = \App\Models\HospitalInvoice::withoutGlobalScope('company')->find($invoiceId);
+                \App\Services\HospitalSale::syncPayment(\App\Models\HospitalPayment::withoutGlobalScope('company')->find($paymentId), $invoice);
+                foreach (DB::table('payment_sales')->where('sale_id', $sale->id)->pluck('id') as $id) {
+                    $ctx->tag('payment_sales', (int) $id);
+                }
+            }
+            $count++;
+        }
+
+        return $count;
     }
 
     /** The ward type exists in the column's enum (older databases before 2026-10-21 have no 'emergency'). */
