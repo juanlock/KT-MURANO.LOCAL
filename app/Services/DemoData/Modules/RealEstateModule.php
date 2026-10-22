@@ -66,6 +66,15 @@ class RealEstateModule extends DemoModule
         return [['table' => 'property_inquiries'], ['table' => 'properties']];
     }
 
+    private const ES_FIRST = ['María', 'Lucía', 'Valentina', 'Camila', 'Sofía', 'Rosa', 'Mateo', 'Santiago', 'Diego', 'Alejandro', 'Jorge', 'Luis', 'Carlos', 'Miguel'];
+    private const ES_LAST = ['García', 'Rodríguez', 'Quispe', 'Flores', 'Sánchez', 'Ramírez', 'Torres', 'Mendoza', 'Rojas', 'Vargas', 'Castillo', 'Chávez'];
+
+    /** [first, last] in the company's language (Spanish: two surnames). */
+    private function person(DemoContext $ctx, bool $es): array
+    {
+        return $es ? [$ctx->pick(self::ES_FIRST), $ctx->pick(self::ES_LAST).' '.$ctx->pick(self::ES_LAST)] : $ctx->personName();
+    }
+
     public function generate(DemoContext $ctx): array
     {
         $lang = DB::table('settings')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->value('default_language');
@@ -96,7 +105,7 @@ class RealEstateModule extends DemoModule
             $title = $es ? $titleEs : $titleEn;
             // A few already closed: sold / rented.
             $status = $n % 5 === 4 ? ($purpose === 'rent' ? 'rented' : 'sold') : 'available';
-            [$first, $last] = $ctx->personName();
+            [$first, $last] = $this->person($ctx, $es);
             $properties[] = $ctx->insert('properties', [
                 'title' => $title,
                 'slug' => Str::slug($title).'-'.Str::lower(Str::random(6)),
@@ -119,7 +128,7 @@ class RealEstateModule extends DemoModule
                 'amenities' => json_encode($es ? ['Seguridad 24 h', 'Áreas verdes', 'Estacionamiento'] : ['24 h security', 'Green areas', 'Parking']),
                 'agent_name' => "$first $last",
                 'agent_phone' => '9'.random_int(10000000, 99999999),
-                'agent_email' => strtolower(Str::ascii("$first.$last")).'@example.com',
+                'agent_email' => str_replace(' ', '.', strtolower(Str::ascii("$first.$last"))).'@example.com',
                 'views' => random_int(5, 400),
                 'created_by' => $ctx->userId,
             ]);
@@ -132,12 +141,12 @@ class RealEstateModule extends DemoModule
             : ['Is it still available? I would like to visit this weekend.', 'Do you accept bank financing?', 'What are the maintenance fees?', 'Is the price negotiable?', 'Are pets allowed?'];
         $inquiries = 0;
         foreach ($statuses as $i => $st) {
-            [$first, $last] = $ctx->personName();
+            [$first, $last] = $this->person($ctx, $es);
             $ctx->insert('property_inquiries', [
                 'property_id' => $properties[$i % count($properties)],
                 'name' => "$first $last",
                 'phone' => '9'.random_int(10000000, 99999999),
-                'email' => strtolower(Str::ascii("$first.$last")).random_int(10, 99).'@example.com',
+                'email' => str_replace(' ', '.', strtolower(Str::ascii("$first.$last"))).random_int(10, 99).'@example.com',
                 'message' => $messages[$i % count($messages)],
                 'status' => $st,
                 'created_at' => now()->subDays(random_int(0, 30)),

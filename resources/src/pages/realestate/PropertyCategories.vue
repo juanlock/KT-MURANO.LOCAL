@@ -45,7 +45,7 @@
         <a-form-item :label="$t('Description')">
           <a-textarea v-model:value="form.description" :rows="3" />
         </a-form-item>
-        <a-form-item :label="$t('Image')">
+        <a-form-item :label="$t('image')">
           <img v-if="imagePreview" :src="imagePreview" style="max-height: 120px; max-width: 100%; border-radius: 8px; margin-bottom: 10px; display: block" />
           <a-upload :file-list="[]" :before-upload="() => false" :max-count="1" accept="image/*" @change="onImageChange">
             <a-button>
@@ -88,7 +88,7 @@ const form = ref({ id: null, name: '', description: '' });
 
 const { isSystem } = useSystemContext();
 const columns = computed(() => [
-  { title: t('Image'), key: 'image', width: 80 },
+  { title: t('image'), key: 'image', width: 80 },
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
   { title: t('Properties'), key: 'properties_count', width: 110, align: 'center' },
   // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.

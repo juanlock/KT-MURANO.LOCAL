@@ -120,7 +120,7 @@ const crud = useCrudTable('realestate/properties', {
 
 const { isSystem } = useSystemContext();
 const columns = computed(() => [
-  { title: t('Image'), key: 'featured_image', width: 80 },
+  { title: t('image'), key: 'featured_image', width: 80 },
   { title: t('Property_Title'), key: 'title' },
   { title: t('Property_Type'), key: 'category' },
   { title: t('Purpose'), key: 'purpose', width: 110 },

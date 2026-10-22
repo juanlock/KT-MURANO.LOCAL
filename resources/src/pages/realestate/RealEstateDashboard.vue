@@ -24,7 +24,7 @@
 
       <a-row :gutter="[12, 12]" style="margin-top: 12px">
         <a-col :xs="24" :md="12">
-          <a-card size="small" :title="tf('By_status', 'By status')">
+          <a-card size="small" :title="tf('By_Status', 'By status')">
             <div v-if="!Object.keys(byStatus).length" class="re-empty">—</div>
             <div v-for="(n, s) in byStatus" :key="s" class="re-bar">
               <span class="re-bar-label">{{ statusLabel(s) }}</span>
@@ -102,7 +102,7 @@ const kpis = computed(() => [
   { key: 'total_categories', label: tf('Property_Categories', 'Categories'), color: '#8c8c8c' },
 ]);
 const propColumns = computed(() => [
-  { title: tf('Title', 'Title'), key: 'title' },
+  { title: tf('title', 'Title'), key: 'title' },
   { title: tf('Category', 'Category'), key: 'category' },
   { title: tf('Status', 'Status'), key: 'status' },
   { title: tf('Price', 'Price'), key: 'price', align: 'right' },

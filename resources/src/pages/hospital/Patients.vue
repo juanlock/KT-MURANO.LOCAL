@@ -15,6 +15,22 @@
 
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
+        <div class="presence">
+          <button
+            type="button" class="pr-btn in" :class="{ on: filters.presence === 'in' }"
+            @click="setPresence('in')"
+          >
+            <span class="pr-n">{{ presenceCounts.in ?? '—' }}</span>
+            <span class="pr-l">{{ s('In the hospital') }}</span>
+          </button>
+          <button
+            type="button" class="pr-btn out" :class="{ on: filters.presence === 'out' }"
+            @click="setPresence('out')"
+          >
+            <span class="pr-n">{{ presenceCounts.out ?? '—' }}</span>
+            <span class="pr-l">{{ s('No longer here') }}</span>
+          </button>
+        </div>
         <a-input-search
           v-model:value="crud.search.value"
           :placeholder="s('Search name, MRN, phone or national ID…')"
@@ -32,9 +48,6 @@
           v-model:value="filters.blood_group" class="tb-item-sm" allow-clear
           :placeholder="s('Blood')" :options="BLOOD_GROUPS" @change="crud.reload"
         />
-        <a-checkbox v-model:checked="filters.admitted" class="tb-check" @change="crud.reload">
-          {{ s('Currently admitted') }}
-        </a-checkbox>
       </div>
     </a-card>
 
@@ -49,6 +62,7 @@
               <span class="cell-name">
                 {{ record.name }}
                 <a-tag v-if="record.is_admitted" color="processing" class="cell-badge">{{ s('Admitted') }}</a-tag>
+            <a-tag v-if="record.in_er" color="red" class="cell-badge">{{ s('In the ER') }}</a-tag>
               </span>
               <span class="cell-mrn">{{ record.mrn }}</span>
             </span>
@@ -139,7 +153,9 @@ const canAdd = computed(() => auth.can('hms_patients_add'));
 const canEdit = computed(() => auth.can('hms_patients_edit'));
 const canDelete = computed(() => auth.can('hms_patients_delete'));
 
-const filters = reactive({ status: undefined, gender: undefined, blood_group: undefined, admitted: false });
+// presence (2026-10-21): 'in' = in the hospital now (open admission or ER case,
+// the default), 'out' = no longer here; clicking the active button shows everyone.
+const filters = reactive({ status: undefined, gender: undefined, blood_group: undefined, presence: 'in' });
 
 const crud = useCrudTable('hospital/patients', {
   rowsKey: 'patients',
@@ -149,9 +165,16 @@ const crud = useCrudTable('hospital/patients', {
     status: filters.status || '',
     gender: filters.gender || '',
     blood_group: filters.blood_group || '',
-    admitted: filters.admitted ? 1 : '',
+    presence: filters.presence || '',
   }),
 });
+
+const presenceCounts = computed(() => crud.payload.value?.presence_counts || {});
+function setPresence(p) {
+  filters.presence = filters.presence === p ? '' : p;
+  crud.page.value = 1;
+  crud.reload();
+}
 
 const { isSystem } = useSystemContext();
 const columns = computed(() => [
@@ -200,6 +223,41 @@ onMounted(crud.fetchRows);
 }
 .tb-item-sm {
   width: 100px;
+}
+.presence {
+  display: flex;
+  gap: 8px;
+}
+.pr-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 170px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 2px solid rgba(128, 128, 128, 0.3);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pr-n {
+  font-size: 20px;
+}
+.pr-btn.in.on {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
+}
+.pr-btn.out.on {
+  border-color: #64748b;
+  background: #64748b;
+  color: #fff;
+}
+@media (max-width: 600px) {
+  .presence { width: 100%; }
+  .pr-btn { flex: 1; min-width: 0; }
 }
 .tb-check {
   white-space: nowrap;

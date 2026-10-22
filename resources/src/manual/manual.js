@@ -666,8 +666,8 @@ export const MANUAL = [
         id: 'hms-patients', perms: ['hms_patients_view', 'hms_appointments', 'hms_visits'], paths: ['hospital/patients', 'hospital/appointments', 'hospital/visits'],
         title: { en: 'Patients, appointments and consultations', es: 'Pacientes, citas y consultas' },
         steps: {
-          en: ['**Patients › Register**: each patient gets a record number (MRN); **Patient record** shows the whole history.', '**Appointments**: a doctor can\'t be booked twice at the same time.', '**Consultations**: open one from the appointment (or new); the consultation and its prescription are saved together, and completing it completes the appointment.'],
-          es: ['**Pacientes › Registrar**: cada paciente recibe un número de historia (MRN); **Historia del paciente** muestra todo su historial.', '**Citas**: un médico no puede tener dos citas a la misma hora.', '**Consultas**: ábrala desde la cita (o nueva); la consulta y su receta se guardan juntas, y al completarla se completa la cita.'],
+          en: ['**Patients › Register**: each patient gets a record number (MRN); **Patient record** shows the whole history. The list opens on **In the hospital** (an open admission or an open Emergency Room case, with their count); **No longer here** shows the rest; clicking the active button shows everyone.', '**Appointments**: a doctor can\'t be booked twice at the same time.', '**Consultations**: open one from the appointment (or new); the consultation and its prescription are saved together, and completing it completes the appointment.'],
+          es: ['**Pacientes › Registrar**: cada paciente recibe un número de historia (MRN); **Historia del paciente** muestra todo su historial. La lista abre en **En el hospital** (internación abierta o caso abierto en Emergencias, con su cantidad); **Ya no están** muestra el resto; un clic en el botón activo muestra a todos.', '**Citas**: un médico no puede tener dos citas a la misma hora.', '**Consultas**: ábrala desde la cita (o nueva); la consulta y su receta se guardan juntas, y al completarla se completa la cita.'],
         },
       },
       {

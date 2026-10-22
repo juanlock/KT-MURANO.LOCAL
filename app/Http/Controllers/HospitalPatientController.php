@@ -59,6 +59,19 @@ class HospitalPatientController extends Controller
         if ($request->boolean('admitted')) {
             $query->whereIn('id', Admission::whereNull('deleted_at')->where('status', 'admitted')->pluck('patient_id'));
         }
+        // In the hospital now (2026-10-21) = an open admission or an open ER
+        // case; "out" = everyone else. The two big buttons on Patients.
+        $insideIds = $this->insideIds();
+        if ($request->get('presence') === 'in') {
+            $query->whereIn('id', $insideIds);
+        } elseif ($request->get('presence') === 'out') {
+            $query->whereNotIn('id', $insideIds);
+        }
+        $base = Patient::whereNull('deleted_at')->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId));
+        $presenceCounts = [
+            'in' => (clone $base)->whereIn('id', $insideIds)->count(),
+            'out' => (clone $base)->whereNotIn('id', $insideIds)->count(),
+        ];
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -88,12 +101,29 @@ class HospitalPatientController extends Controller
         // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
         $companyNames = \App\Models\Company::whereIn('id', $patients->pluck('company_id')->unique())->pluck('name', 'id');
 
+        $erIds = \Illuminate\Support\Facades\Schema::hasTable('er_cases')
+            ? \App\Models\ErCase::whereNull('deleted_at')->where('status', '!=', 'closed')->whereIn('patient_id', $patients->pluck('id'))->pluck('patient_id')->all()
+            : [];
+
         return response()->json([
             'totalRows' => $totalRows,
+            'presence_counts' => $presenceCounts,
             'patients' => $patients->map(fn ($p) => $this->present($p, in_array($p->id, $admittedIds)) + [
+                'in_er' => in_array($p->id, $erIds),
                 'company_name' => $p->company_id == \App\Models\Setting::TEMPLATE_COMPANY_ID ? 'AdminSystem' : ($companyNames[$p->company_id] ?? null),
             ])->values(),
         ]);
+    }
+
+    /** Patients in the hospital now: an open admission or an open Emergency Room case. */
+    private function insideIds(): array
+    {
+        $ids = Admission::whereNull('deleted_at')->where('status', 'admitted')->pluck('patient_id')->all();
+        if (\Illuminate\Support\Facades\Schema::hasTable('er_cases')) {
+            $ids = array_merge($ids, \App\Models\ErCase::whereNull('deleted_at')->where('status', '!=', 'closed')->pluck('patient_id')->all());
+        }
+
+        return array_values(array_unique(array_map('intval', $ids))) ?: [0];
     }
 
     public function store(Request $request)
