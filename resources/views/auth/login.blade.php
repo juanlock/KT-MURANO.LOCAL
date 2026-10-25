@@ -143,7 +143,7 @@
         font-size: clamp(0.98rem, 1.15vw, 1.12rem);
         color: var(--text-secondary);
         line-height: 1.6;
-        max-width: 460px;
+        max-width: 440px;
       }
 
       /* Three features in columns with thin dividers, icon above the text. */
@@ -179,9 +179,9 @@
       .hero-scene {
         position: absolute;
         z-index: 0;
-        right: max(-4vw, -60px);
-        bottom: 4%;
-        width: min(46vw, 700px);
+        right: max(-3vw, -50px);
+        bottom: 3%;
+        width: min(40vw, 640px);
         pointer-events: none;
         -webkit-mask-image: radial-gradient(ellipse 72% 70% at 55% 52%, #000 62%, transparent 100%);
         mask-image: radial-gradient(ellipse 72% 70% at 55% 52%, #000 62%, transparent 100%);
@@ -803,7 +803,7 @@
                 <span class="input-icon">
                   <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                 </span>
-                <input id="email" class="form-input" type="email" name="email" value="{{ old('email') }}" placeholder="{{ tdb('Email_placeholder', 'you@company.com') }}" required autofocus />
+                <input id="email" class="form-input" type="email" name="email" value="{{ old('email') }}" placeholder="{{ tdb('Login_email_placeholder', 'Email address') }}" required autofocus />
               </div>
             </div>
 
@@ -813,7 +813,7 @@
                 <span class="input-icon">
                   <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 </span>
-                <input id="password" class="form-input" type="password" name="password" placeholder="{{ tdb('Password_placeholder', 'Enter your password') }}" required />
+                <input id="password" class="form-input" type="password" name="password" placeholder="{{ tdb('Login_password_placeholder', 'Password') }}" required />
                 <button type="button" class="toggle-password" data-target="password" aria-label="{{ tdb('Toggle_password_visibility', 'Toggle password visibility') }}">
                   <svg class="eye-open" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   <svg class="eye-closed" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -826,7 +826,7 @@
                 <input type="checkbox" name="remember">
                 {{ tdb('Remember_me', 'Remember me') }}
               </label>
-              <a class="forgot-link" href="{{ route('password.request') }}">{{ tdb('Forgot_Password', 'Forgot password?') }}</a>
+              <a class="forgot-link" href="{{ route('password.request') }}">{{ tdb('Login_forgot_password', 'Forgot your password?') }}</a>
             </div>
 
             <button type="submit" class="auth-btn" id="login_submit_btn">
@@ -837,7 +837,9 @@
           </form>
 
           <div class="auth-footer">
-            {{ login_locale_text($app_settings->login_footer_text) ?: '© ' . date('Y') . ' ' . ($app_settings->app_name ?? 'KcolTech - Murano') . '. ' . tdb('All_rights_reserved', 'All rights reserved') . '.' }}
+            {{-- Login Page Settings footer ({year} = the current year), else the KCOLTECH design's line. --}}
+            {{ str_replace('{year}', date('Y'), (string) login_locale_text($app_settings->login_footer_text))
+               ?: '© ' . date('Y') . ' KCOLTECH. ' . (app()->getLocale() === 'es' ? 'Todos los derechos reservados.' : 'All rights reserved.') }}
           </div>
         </div>
       </section>

@@ -1,12 +1,12 @@
 {{--
   SuperAdmin login chooser (2026-10-20) -- LoginChooseController@show: right
   after signing in, "Go to the dashboard" or "Enter as the admin" of a company.
-  Same background as the login page (colour per language, or its image).
+  Same look as the login page (2026-10-25 KCOLTECH design: light blue page, navy
+  palette; the login background image when one is set).
 --}}
 @php
   $es = app()->getLocale() === 'es';
   $L = fn ($en, $esText) => $es ? $esText : $en;
-  $bgColor = $app_settings->loginBgColor();
   $bgImage = $app_settings->login_bg_image ?? null;
   $bgImageUrl = $bgImage ? (str_contains($bgImage, '/') ? asset($bgImage) : asset('images/'.$bgImage)) : null;
   $firstName = trim($user->firstname ?? '') ?: ($user->username ?? '');
@@ -22,28 +22,37 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root { --primary: #6366f1; --primary-hover: #4f46e5; --text: #0f172a; --muted: #64748b; --border: #e2e8f0; }
+    :root { --primary: #0b4fa0; --primary-hover: #083f82; --text: #0f2747; --muted: #5b6b82; --border: #dbe5ef; --navy: #03387b; }
     * { box-sizing: border-box; }
     body {
       margin: 0; min-height: 100vh; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text);
-      background: linear-gradient(160deg, #4f46e5 0%, #6366f1 30%, #818cf8 70%, #a78bfa 100%);
-      @if ($bgImageUrl) background: url('{{ $bgImageUrl }}') center / cover no-repeat fixed; @elseif ($bgColor) background: {{ $bgColor }}; @endif
+      background: linear-gradient(160deg, #f7fbfe 0%, #f1f8fe 40%, #e3f0fd 75%, #d4e8fc 100%) fixed;
+      @if ($bgImageUrl) background: url('{{ $bgImageUrl }}') center / cover no-repeat fixed; @endif
       display: flex; align-items: center; justify-content: center; padding: 24px 16px;
     }
-    .overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, .35); backdrop-filter: blur(2px); }
+    /* Soft curved light bands, like the login page. */
+    .overlay { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+    .overlay::before, .overlay::after { content: ''; position: absolute; border-radius: 50%; }
+    .overlay::before { width: 140vw; height: 70vw; left: -35vw; bottom: -52vw; background: radial-gradient(closest-side, rgba(255,255,255,.85), rgba(255,255,255,0)); }
+    .overlay::after { width: 60vw; height: 60vw; right: -26vw; top: -30vw; background: radial-gradient(closest-side, rgba(150,200,248,.55), rgba(150,200,248,0)); }
     .modal {
       position: relative; width: 100%; max-width: 860px; max-height: calc(100vh - 48px); display: flex; flex-direction: column;
-      background: #fff; border-radius: 20px; box-shadow: 0 30px 80px rgba(15, 23, 42, .35); overflow: hidden;
+      background: #fff; border: 1px solid rgba(219,229,239,.8); border-radius: 18px; overflow: hidden;
+      box-shadow: 0 30px 70px -25px rgba(16,64,128,.25), 0 8px 24px -12px rgba(16,64,128,.12);
     }
-    .head { padding: 26px 28px 14px; }
-    .head h1 { margin: 0; font-size: 1.45rem; font-weight: 800; }
+    .head { padding: 26px 28px 14px; display: flex; align-items: center; gap: 16px; }
+    .head img { height: 52px; width: auto; flex: none; }
+    .head h1 { margin: 0; font-size: 1.6rem; font-weight: 800; color: var(--navy); letter-spacing: -.02em; }
     .head p { margin: 6px 0 0; color: var(--muted); }
     .dash {
       margin: 8px 28px 4px; display: flex; align-items: center; gap: 16px; width: calc(100% - 56px); text-align: left;
-      padding: 16px 18px; border: 2px solid var(--primary); border-radius: 14px; background: #eef2ff; cursor: pointer; font: inherit; color: inherit;
+      padding: 16px 18px; border: 2px solid var(--primary); border-radius: 14px; background: #eef5fd; cursor: pointer; font: inherit; color: inherit;
       transition: background .15s, transform .15s;
     }
-    .dash:hover { background: #e0e7ff; transform: translateY(-1px); }
+    .dash:hover { background: #dbe8f8; transform: translateY(-1px); }
+    .dash:focus { outline: none; }
+    .dash:focus-visible { outline: 3px solid #b9d3f2; outline-offset: 2px; }
+    .dash strong { color: var(--navy); }
     .dash .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
     .dash strong { display: block; font-size: 1.05rem; }
     .dash span { color: var(--muted); font-size: .9rem; }
@@ -51,7 +60,7 @@
     .sep::before, .sep::after { content: ""; flex: 1; height: 1px; background: var(--border); }
     .search { margin: 0 28px 12px; }
     .search input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; font: inherit; }
-    .search input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px #e0e7ff; }
+    .search input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px #dbe8f8; }
     .list { padding: 0 28px 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
     .co { border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
     .co-top { display: flex; align-items: center; gap: 12px; }
@@ -60,7 +69,7 @@
     .co-name { font-weight: 700; line-height: 1.2; }
     .co-type { color: var(--muted); font-size: .8rem; }
     .adm { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff; cursor: pointer; font: inherit; color: inherit; text-align: left; }
-    .adm:hover { border-color: var(--primary); background: #f5f7ff; }
+    .adm:hover { border-color: var(--primary); background: #f3f8fe; }
     .adm small { display: block; color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
     .adm b { color: var(--primary); font-size: .85rem; white-space: nowrap; }
     .none { color: var(--muted); font-size: .85rem; font-style: italic; }
@@ -74,8 +83,11 @@
   <div class="overlay"></div>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ch-title">
     <div class="head">
-      <h1 id="ch-title">{{ $L('Hi', 'Hola') }}, {{ $firstName }}</h1>
-      <p>{{ $L('How do you want to enter?', '¿Cómo quiere entrar?') }}</p>
+      <img src="{{ asset('images/login/kcoltech-mark.png') }}" alt="KCOLTECH">
+      <div>
+        <h1 id="ch-title">{{ $L('Hi', 'Hola') }}, {{ $firstName }}</h1>
+        <p>{{ $L('How do you want to enter?', '¿Cómo quiere entrar?') }}</p>
+      </div>
     </div>
 
     <form method="POST" action="{{ route('login.choose.enter') }}">
