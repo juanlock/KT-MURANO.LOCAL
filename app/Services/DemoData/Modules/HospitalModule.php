@@ -531,6 +531,8 @@ class HospitalModule extends DemoModule
                 }
                 $erCount++;
             }
+            // Arrivals at the window waiting for triage / for a bed (2026-10-25).
+            $erCount += \App\Support\HospitalTriageExamples::seed($ctx->companyId, $this->es, fn ($table, $id) => $ctx->tag($table, $id));
         }
 
         // ---- Staff with their roles, today's shifts, treatments, operating room, visitors (2026-10-21).
