@@ -1164,6 +1164,18 @@ Route::get('hospital/beds', 'HospitalWardController@beds');
     Route::post('hospital/visitors', 'HospitalDeskController@checkIn');
     Route::post('hospital/visitors/{id}/checkout', 'HospitalDeskController@checkOut');
 Route::get('hospital/visitors/{id}/pass', 'HospitalDeskController@visitorPass')->whereNumber('id');
+// Administrative admission + account (2026-10-25, phase 2).
+Route::get('hospital/admissions/{id}/account', 'HospitalAccountController@show')->whereNumber('id');
+Route::put('hospital/admissions/{id}/account', 'HospitalAccountController@update')->whereNumber('id');
+Route::post('hospital/admissions/{id}/consents', 'HospitalAccountController@sign')->whereNumber('id');
+Route::delete('hospital/admissions/{id}/consents/{type}', 'HospitalAccountController@unsign')->whereNumber('id');
+Route::post('hospital/admissions/{id}/deposit', 'HospitalAccountController@deposit')->whereNumber('id');
+Route::post('hospital/admissions/{id}/close-account', 'HospitalAccountController@close')->whereNumber('id');
+Route::post('hospital/invoices/{id}/plan', 'HospitalAccountController@plan')->whereNumber('id');
+Route::get('hospital/drg', 'HospitalAccountController@drgIndex');
+Route::post('hospital/drg', 'HospitalAccountController@drgSave');
+Route::put('hospital/drg/{id}', 'HospitalAccountController@drgSave')->whereNumber('id');
+Route::delete('hospital/drg/{id}', 'HospitalAccountController@drgDelete')->whereNumber('id');
 Route::get('hospital/patients/{patientId}/wristband', 'HospitalDeskController@wristband')->whereNumber('patientId');
     Route::get('hospital/treatments/meta', 'HospitalTreatmentController@meta');
     Route::get('hospital/treatments', 'HospitalTreatmentController@index');

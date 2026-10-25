@@ -73,6 +73,19 @@ export default {
     'Cancel': 'Cancelar',
     'Delete': 'Eliminar',
     'Hospital': 'Hospital',
+    // DRG rates (phase 2)
+    'DRG rates': 'Tarifas GRD',
+    'Fixed price by diagnosis group: a stay billed by DRG costs that amount whatever its days (common in insurer and public agreements).':
+        'Precio fijo por grupo de diagnóstico: una estancia facturada por GRD cuesta ese monto sin importar los días (común en convenios con aseguradoras y el sistema público).',
+    'Add a DRG rate': 'Agregar tarifa GRD',
+    'Edit DRG rate': 'Editar tarifa GRD',
+    'Code': 'Código',
+    'Diagnosis group': 'Grupo de diagnóstico',
+    'Price': 'Precio',
+    'Average days': 'Días promedio',
+    'Active': 'Activa',
+    'Off': 'Apagada',
+    'Type the code and the group.': 'Escriba el código y el grupo.',
     // space kinds
     'Patient room': 'Habitación de pacientes',
     'Office': 'Oficina',

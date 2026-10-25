@@ -71,8 +71,8 @@
                 </a-button>
               </a-tooltip>
             </template>
-            <a-tooltip :title="s('Bill this stay')">
-              <a-button type="text" size="small" @click="bill(record)">
+            <a-tooltip :title="s('Administrative file and account')">
+              <a-button type="text" size="small" @click="accountId = record.id">
                 <template #icon><DollarOutlined /></template>
               </a-button>
             </a-tooltip>
@@ -90,6 +90,9 @@
         </template>
       </template>
     </DataTable>
+
+    <!-- Administrative file and account of a stay (phase 2, 2026-10-25) -->
+    <AccountDrawer :open="!!accountId" :admission-id="accountId" @close="accountId = null" @changed="crud.fetchRows()" />
 
     <!-- Admit / edit -->
     <a-modal
@@ -215,7 +218,8 @@ import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
  * patient already admitted is refused rather than duplicated.
  */
 import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
+import AccountDrawer from './AccountDrawer.vue';
 import { message } from 'ant-design-vue';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined,
@@ -234,6 +238,8 @@ import ES from './lang/Admissions.es.js';
 const { s } = useHospitalText(ES);
 
 const router = useRouter();
+// ?account=ID (e.g. from the admission desk) opens that stay's file and account.
+const accountId = ref(Number(useRoute().query.account) || null);
 const { money, dateTime } = useFormat();
 
 const filters = reactive({ status: undefined, ward_id: undefined, range: null });
@@ -385,6 +391,8 @@ async function submitDischarge() {
     dischargeOpen.value = false;
     crud.fetchRows();
     loadBeds();
+    // Discharge -> close the account so the patient can leave (the file opens on its account step).
+    accountId.value = target.value.id;
   } catch (e) {
     message.error(e?.data?.message || s('Could not discharge this patient'));
   } finally {

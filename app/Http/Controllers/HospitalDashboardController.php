@@ -63,6 +63,9 @@ class HospitalDashboardController extends Controller
             'discharges_today' => Admission::whereNull('deleted_at')
                 ->whereDate('discharged_at', $today->toDateString())->count(),
 
+            // Efficiency (user's analysis, 2026-10-25): last 30 days.
+            'efficiency' => $this->efficiency($totalBeds),
+
             // Beds
             'beds_total' => $totalBeds,
             'beds_occupied' => $occupied,
@@ -96,6 +99,36 @@ class HospitalDashboardController extends Controller
             'upcoming' => $this->upcoming($today),
             'ward_occupancy' => $this->wardOccupancy(),
         ]);
+    }
+
+    /**
+     * Efficiency of the last 30 days (user's analysis, 2026-10-25): wait from
+     * the admission order to the bed, average length of stay, bed turnover
+     * (discharges per bed), readmissions within 30 days, beds waiting for
+     * cleaning more than 30 minutes now.
+     */
+    private function efficiency(int $totalBeds): array
+    {
+        $since = now()->subDays(30);
+        $waits = Admission::whereNull('deleted_at')->where('admitted_at', '>=', $since)->whereNotNull('ordered_at')->get(['ordered_at', 'admitted_at'])
+            ->map(fn ($a) => $a->admitted_at >= $a->ordered_at ? $a->ordered_at->diffInMinutes($a->admitted_at) : null)->filter(fn ($m) => $m !== null);
+        $discharged = Admission::whereNull('deleted_at')->where('discharged_at', '>=', $since)->whereNotNull('admitted_at')->get(['patient_id', 'admitted_at', 'discharged_at']);
+        $readmitted = 0;
+        foreach ($discharged as $d) {
+            if (Admission::whereNull('deleted_at')->where('patient_id', $d->patient_id)->where('admitted_at', '>', $d->discharged_at)
+                ->where('admitted_at', '<=', $d->discharged_at->copy()->addDays(30))->exists()) {
+                $readmitted++;
+            }
+        }
+
+        return [
+            'avg_wait_minutes' => $waits->count() ? (int) round($waits->avg()) : null,
+            'avg_stay_days' => $discharged->count() ? round($discharged->avg(fn ($a) => max(0.0, $a->admitted_at->diffInHours($a->discharged_at) / 24)), 1) : null,
+            'bed_turnover' => $totalBeds > 0 ? round($discharged->count() / $totalBeds, 2) : null,
+            'readmission_rate' => $discharged->count() ? round($readmitted * 100 / $discharged->count(), 1) : null,
+            'discharges' => $discharged->count(),
+            'cleaning_late' => \App\Models\HospitalBed::whereNull('deleted_at')->where('status', 'cleaning')->where('status_changed_at', '<', now()->subMinutes(30))->count(),
+        ];
     }
 
     /** Visits and revenue for the last 14 days, oldest first. */

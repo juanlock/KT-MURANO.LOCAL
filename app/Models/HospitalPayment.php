@@ -12,7 +12,8 @@ class HospitalPayment extends Model
 
     protected $table = 'hospital_payments';
 
-    protected $fillable = ['company_id', 'reference', 'invoice_id', 'patient_id', 'paid_on', 'amount', 'method', 'notes', 'created_by'];
+    // payer: patient | insurer (who paid, for the split account, 2026-10-25).
+    protected $fillable = ['company_id', 'reference', 'invoice_id', 'patient_id', 'paid_on', 'amount', 'method', 'payer', 'notes', 'created_by'];
 
     protected $casts = [
         'invoice_id' => 'integer',

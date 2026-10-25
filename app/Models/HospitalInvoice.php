@@ -16,6 +16,8 @@ class HospitalInvoice extends Model
         'company_id', 'reference', 'patient_id', 'visit_id', 'admission_id', 'lab_order_id',
         'invoice_date', 'due_date', 'subtotal', 'discount', 'tax', 'total', 'paid',
         'status', 'notes', 'created_by', 'sale_id',
+        // Insurer / patient split and payment plan (2026-10-25).
+        'payer_type', 'insurer', 'authorization_no', 'insurer_amount', 'patient_amount', 'payment_plan',
     ];
 
     protected $casts = [
@@ -25,6 +27,9 @@ class HospitalInvoice extends Model
         'lab_order_id' => 'integer',
         'invoice_date' => 'date',
         'due_date' => 'date',
+        'payment_plan' => 'array',
+        'insurer_amount' => 'decimal:2',
+        'patient_amount' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'discount' => 'decimal:2',
         'tax' => 'decimal:2',

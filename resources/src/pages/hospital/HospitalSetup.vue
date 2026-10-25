@@ -113,9 +113,36 @@
             </div>
             <a-empty v-else :description="s('Add the first floor of the building.')" />
           </a-tab-pane>
+          <!-- ===================== DRG rates ===================== -->
+          <a-tab-pane key="drg" :tab="s('DRG rates')">
+            <p class="hint">{{ s('Fixed price by diagnosis group: a stay billed by DRG costs that amount whatever its days (common in insurer and public agreements).') }}</p>
+            <a-table :data-source="drg" :columns="drgColumns" row-key="id" size="small" :pagination="false">
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'price'">{{ money(record.price) }}</template>
+                <template v-else-if="column.key === 'active'"><a-tag :color="record.is_active ? 'green' : 'default'">{{ record.is_active ? s('Active') : s('Off') }}</a-tag></template>
+                <template v-else-if="column.key === 'act'">
+                  <a-button type="text" size="small" @click="openDrg(record)"><EditOutlined /></a-button>
+                  <a-button type="text" size="small" danger @click="removeDrg(record)"><DeleteOutlined /></a-button>
+                </template>
+              </template>
+            </a-table>
+            <a-button type="primary" ghost style="margin-top: 10px" @click="openDrg(null)"><PlusOutlined /> {{ s('Add a DRG rate') }}</a-button>
+          </a-tab-pane>
         </a-tabs>
       </a-card>
     </a-spin>
+
+    <a-modal :open="drgOpen" :title="drgForm.id ? s('Edit DRG rate') : s('Add a DRG rate')" :ok-text="s('Save')" :cancel-text="s('Cancel')" :confirm-loading="saving" @ok="saveDrg" @cancel="drgOpen = false">
+      <a-form layout="vertical">
+        <a-row :gutter="10">
+          <a-col :span="8"><a-form-item :label="s('Code')"><a-input v-model:value="drgForm.code" /></a-form-item></a-col>
+          <a-col :span="16"><a-form-item :label="s('Diagnosis group')"><a-input v-model:value="drgForm.name" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item :label="s('Price')"><a-input-number v-model:value="drgForm.price" :min="0" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item :label="s('Average days')"><a-input-number v-model:value="drgForm.avg_days" :min="0" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item :label="s('Active')"><a-switch v-model:checked="drgForm.is_active" /></a-form-item></a-col>
+        </a-row>
+      </a-form>
+    </a-modal>
 
     <!-- Floor -->
     <a-modal :open="floorOpen" :title="floorForm.id ? s('Edit floor') : s('Add a floor')" :ok-text="s('Save')" :cancel-text="s('Cancel')" :confirm-loading="saving" @ok="saveFloor" @cancel="floorOpen = false">
@@ -171,6 +198,7 @@ import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { BED_STATUSES, labelOf } from './hospitalOptions';
 import FloorMap from './FloorMap.vue';
+import { useFormat } from '../../composables/useFormat';
 import { useHospitalText } from './lang/useHospitalText';
 import ES from './lang/HospitalSetup.es.js';
 
@@ -361,7 +389,33 @@ async function saveMap() {
   } catch (e) { err(e); } finally { saving.value = false; }
 }
 
-onMounted(load);
+// ---------------- DRG rates (phase 2)
+const { money } = useFormat();
+const drg = ref([]);
+const drgColumns = computed(() => [
+  { title: s('Code'), dataIndex: 'code', width: 110 }, { title: s('Diagnosis group'), dataIndex: 'name' },
+  { title: s('Price'), key: 'price', width: 130, align: 'right' }, { title: s('Average days'), dataIndex: 'avg_days', width: 120 },
+  { title: '', key: 'active', width: 90 }, { title: '', key: 'act', width: 90, align: 'right' },
+]);
+const drgOpen = ref(false);
+const drgForm = reactive({ id: null, code: '', name: '', price: 0, avg_days: null, is_active: true });
+async function loadDrg() { try { drg.value = (await http.get('hospital/drg')).drg; } catch (e) { drg.value = []; } }
+function openDrg(r) { Object.assign(drgForm, r ? { ...r, is_active: !!r.is_active } : { id: null, code: '', name: '', price: 0, avg_days: null, is_active: true }); drgOpen.value = true; }
+async function saveDrg() {
+  if (!drgForm.code.trim() || !drgForm.name.trim()) return message.warning(s('Type the code and the group.'));
+  saving.value = true;
+  try {
+    const body = { code: drgForm.code.trim(), name: drgForm.name.trim(), price: drgForm.price || 0, avg_days: drgForm.avg_days, is_active: drgForm.is_active };
+    drg.value = (drgForm.id ? await http.put(`hospital/drg/${drgForm.id}`, body) : await http.post('hospital/drg', body)).drg;
+    drgOpen.value = false;
+  } catch (e) { err(e); } finally { saving.value = false; }
+}
+function removeDrg(r) {
+  Modal.confirm({ title: s('Delete {r}?', { r: r.code }), okType: 'danger', okText: s('Delete'), cancelText: s('Cancel'),
+    async onOk() { try { drg.value = (await http.delete(`hospital/drg/${r.id}`)).drg; } catch (e) { err(e); } } });
+}
+
+onMounted(() => { load(); loadDrg(); });
 </script>
 
 <style scoped>

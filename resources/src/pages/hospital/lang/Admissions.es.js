@@ -43,4 +43,5 @@ export default {
     'Pick a bed to transfer into.': 'Elija la cama de destino.',
     'Patient transferred.': 'Paciente trasladado.',
     'Could not transfer this patient': 'No se pudo trasladar a este paciente',
+    'Administrative file and account': 'Expediente administrativo y cuenta',
 };

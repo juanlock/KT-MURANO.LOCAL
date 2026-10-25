@@ -105,6 +105,7 @@ class HospitalBillingController extends Controller
             'paid_on' => optional($p->paid_on)->toDateString(),
             'amount' => (float) $p->amount,
             'method' => $p->method,
+            'payer' => $p->payer ?: 'patient',
             'notes' => $p->notes,
         ])->values();
 
@@ -204,6 +205,7 @@ class HospitalBillingController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'paid_on' => 'nullable|date',
             'method' => 'nullable|string|max:64',
+            'payer' => 'nullable|in:patient,insurer',
         ]);
 
         $invoice = HospitalInvoice::whereNull('deleted_at')->findOrFail($invoiceId);
@@ -214,7 +216,9 @@ class HospitalBillingController extends Controller
 
         // Overpayment is refused rather than silently absorbed: a credit that
         // exists nowhere in the ledger is how reconciliations go wrong.
-        $due = $invoice->due;
+        // A split account (insurer / patient, 2026-10-25): each payer up to its own share.
+        $payer = $request->payer === 'insurer' ? 'insurer' : 'patient';
+        $due = (float) $invoice->insurer_amount > 0 ? self::dueOf($invoice, $payer) : $invoice->due;
         if ((float) $request->amount > $due + 0.001) {
             return response()->json([
                 'message' => 'That is more than the outstanding balance (' . number_format($due, 2) . ').',
@@ -229,7 +233,8 @@ class HospitalBillingController extends Controller
                 'patient_id' => $invoice->patient_id,
                 'paid_on' => $request->paid_on ?: now()->toDateString(),
                 'amount' => $request->amount,
-                'method' => $request->method ?: 'cash',
+                'method' => $request->method ?: ($payer === 'insurer' ? 'insurance' : 'cash'),
+                'payer' => $payer,
                 'notes' => $request->notes,
                 'created_by' => optional($request->user('api'))->id,
             ]);
@@ -397,7 +402,8 @@ class HospitalBillingController extends Controller
         ];
     }
 
-    private function syncItems(HospitalInvoice $invoice, $items)
+    /** Public: the admission account (App\Services\HospitalAccount) builds invoices with it too. */
+    public function syncItems(HospitalInvoice $invoice, $items)
     {
         $items = is_string($items) ? json_decode($items, true) : $items;
         $items = is_array($items) ? $items : [];
@@ -424,8 +430,8 @@ class HospitalBillingController extends Controller
         }
     }
 
-    /** Recompute subtotal/total/paid and re-derive the status. */
-    private function recalculate(HospitalInvoice $invoice)
+    /** Recompute subtotal/total/paid and re-derive the status (public: also HospitalAccount). */
+    public function recalculate(HospitalInvoice $invoice)
     {
         $subtotal = (float) HospitalInvoiceItem::where('invoice_id', $invoice->id)->sum('total');
         $paid = (float) HospitalPayment::where('invoice_id', $invoice->id)->whereNull('deleted_at')->sum('amount');
@@ -439,6 +445,29 @@ class HospitalBillingController extends Controller
         \App\Services\HospitalSale::sync($invoice);
 
         return $invoice;
+    }
+
+    /** What a payer (patient | insurer) still owes on a split account. */
+    public static function dueOf(HospitalInvoice $i, string $payer): float
+    {
+        $share = $payer === 'insurer' ? (float) $i->insurer_amount : (float) ($i->patient_amount ?? ((float) $i->total - (float) $i->insurer_amount));
+        $paid = (float) HospitalPayment::where('invoice_id', $i->id)->whereNull('deleted_at')->where('payer', $payer)->sum('amount');
+
+        return round(max(0, $share - $paid), 2);
+    }
+
+    /** Record a payment and bring the invoice / its sale up to date (also used for the admission deposit). */
+    public function addPayment(HospitalInvoice $invoice, float $amount, string $method, string $payer, ?string $notes, ?int $userId): HospitalPayment
+    {
+        $payment = HospitalPayment::create([
+            'company_id' => $invoice->company_id, 'reference' => HospitalPayment::nextReference('PAY'), 'invoice_id' => $invoice->id,
+            'patient_id' => $invoice->patient_id, 'paid_on' => now()->toDateString(), 'amount' => round($amount, 2),
+            'method' => $method, 'payer' => $payer, 'notes' => $notes, 'created_by' => $userId,
+        ]);
+        $this->recalculate($invoice);
+        \App\Services\HospitalSale::syncPayment($payment, $invoice);
+
+        return $payment;
     }
 
     private function present(HospitalInvoice $i)
@@ -465,6 +494,13 @@ class HospitalBillingController extends Controller
             // The invoice's sale (2026-10-21): number in Sales.
             'sale_id' => $i->sale_id,
             'sale_ref' => $i->sale_id ? \App\Models\Sale::whereKey($i->sale_id)->value('Ref') : null,
+            // Split account (2026-10-25): the insurer's share and the patient's, each with what is still due.
+            'payer_type' => $i->payer_type, 'insurer' => $i->insurer, 'authorization_no' => $i->authorization_no,
+            'insurer_amount' => (float) $i->insurer_amount,
+            'patient_amount' => $i->patient_amount !== null ? (float) $i->patient_amount : null,
+            'insurer_due' => (float) $i->insurer_amount > 0 ? self::dueOf($i, 'insurer') : 0,
+            'patient_due' => (float) $i->insurer_amount > 0 ? self::dueOf($i, 'patient') : $i->due,
+            'payment_plan' => $i->payment_plan ?: [],
         ];
     }
 

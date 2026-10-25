@@ -49,4 +49,11 @@ export default {
     'Bank transfer': 'Transferencia',
     'Insurance': 'Seguro',
     'Cheque': 'Cheque',
+    // Insurer / patient split (2026-10-25)
+    'Who pays': 'Quién paga',
+    'Patient': 'Paciente',
+    'Insurer': 'Aseguradora',
+    'Patient pays': 'Cobrar al paciente',
+    'Insurer pays': 'Cobrar a la aseguradora',
+    'Payment plan': 'Plan de pagos',
 };

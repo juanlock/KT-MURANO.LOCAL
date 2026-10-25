@@ -34,4 +34,12 @@ export default {
     'Could not load the hospital dashboard': 'No se pudo cargar el panel del hospital',
     'Arrived': 'Llegó',
     'No show': 'No asistió',
+    // Efficiency (2026-10-25)
+    'Efficiency — last 30 days': 'Eficiencia — últimos 30 días',
+    'Order to bed': 'De la orden a la cama',
+    'Average stay': 'Estancia promedio',
+    '{n} days': '{n} días',
+    'Bed turnover (discharges per bed)': 'Giro de camas (altas por cama)',
+    'Readmissions within 30 days': 'Reingresos a 30 días',
+    'Beds waiting for cleaning +30 min': 'Camas esperando limpieza +30 min',
 };

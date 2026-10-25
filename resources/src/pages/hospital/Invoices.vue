@@ -212,7 +212,19 @@
           <div class="grand"><span>{{ s('Total') }}</span><b>{{ money(detail.total) }}</b></div>
           <div><span>{{ s('Paid') }}</span><b>{{ money(detail.paid) }}</b></div>
           <div class="grand" :class="{ danger: detail.due > 0 }"><span>{{ s('Due') }}</span><b>{{ money(detail.due) }}</b></div>
+          <template v-if="isSplit(detail)">
+            <div><span>{{ detail.insurer || s('Insurer') }}<template v-if="detail.authorization_no"> · {{ detail.authorization_no }}</template></span><b>{{ money(detail.insurer_due) }} / {{ money(detail.insurer_amount) }}</b></div>
+            <div><span>{{ s('Patient') }}</span><b>{{ money(detail.patient_due) }} / {{ money(detail.patient_amount) }}</b></div>
+            <a-space style="margin-top: 6px">
+              <a-button v-if="detail.patient_due > 0" size="small" @click="openPayment(detail, 'patient')">{{ s('Patient pays') }}</a-button>
+              <a-button v-if="detail.insurer_due > 0" size="small" @click="openPayment(detail, 'insurer')">{{ s('Insurer pays') }}</a-button>
+            </a-space>
+          </template>
         </div>
+        <template v-if="detail.payment_plan && detail.payment_plan.length">
+          <a-divider orientation="left">{{ s('Payment plan') }}</a-divider>
+          <div v-for="p in detail.payment_plan" :key="p.n" class="plan-row"><span>#{{ p.n }} · {{ date(p.due) }}</span><b>{{ money(p.amount) }}</b></div>
+        </template>
 
         <a-divider orientation="left">{{ s('Payments') }}</a-divider>
         <a-list :data-source="detail.payments" size="small">
@@ -220,7 +232,7 @@
             <a-list-item>
               <a-list-item-meta
                 :title="money(item.amount)"
-                :description="`${date(item.paid_on)} · ${s(labelOf(PAYMENT_METHODS, item.method))}${item.notes ? ' · ' + item.notes : ''}`"
+                :description="`${date(item.paid_on)} · ${s(labelOf(PAYMENT_METHODS, item.method))}${item.payer === 'insurer' ? ' · ' + s('Insurer') : ''}${item.notes ? ' · ' + item.notes : ''}`"
               />
               <template #actions>
                 <a-button type="text" size="small" danger @click="removePayment(item)">
@@ -241,11 +253,17 @@
       @ok="submitPayment" @cancel="paymentOpen = false"
     >
       <p v-if="payTarget" class="target">
-        {{ payTarget.patient_name }} — {{ s('outstanding') }} <b>{{ money(payTarget.due) }}</b>
+        {{ payTarget.patient_name }} — {{ s('outstanding') }} <b>{{ money(payerDue(payTarget, paymentForm.payer)) }}</b>
       </p>
       <a-form layout="vertical">
+        <a-form-item v-if="isSplit(payTarget)" :label="s('Who pays')">
+          <a-radio-group v-model:value="paymentForm.payer" button-style="solid" @change="onPayerChange">
+            <a-radio-button value="patient">{{ s('Patient') }} ({{ money(payTarget.patient_due) }})</a-radio-button>
+            <a-radio-button value="insurer">{{ payTarget.insurer || s('Insurer') }} ({{ money(payTarget.insurer_due) }})</a-radio-button>
+          </a-radio-group>
+        </a-form-item>
         <a-form-item :label="s('Amount')">
-          <a-input-number v-model:value="paymentForm.amount" :min="0.01" :max="roundMoney(payTarget?.due)" style="width: 100%" />
+          <a-input-number v-model:value="paymentForm.amount" :min="0.01" :max="roundMoney(payerDue(payTarget, paymentForm.payer))" style="width: 100%" />
         </a-form-item>
         <a-row :gutter="16">
           <a-col :span="12">
@@ -454,17 +472,25 @@ async function openDetail(record) {
 const paymentOpen = ref(false);
 const paying = ref(false);
 const payTarget = ref(null);
-const paymentForm = reactive({ amount: null, paid_on: null, method: 'cash', notes: '' });
+const paymentForm = reactive({ amount: null, paid_on: null, method: 'cash', notes: '', payer: 'patient' });
+// A split account (insurer / patient, 2026-10-25): each payer pays its own share.
+const isSplit = r => Number(r?.insurer_amount || 0) > 0;
+const payerDue = (r, payer) => (isSplit(r) ? (payer === 'insurer' ? r.insurer_due : r.patient_due) : r?.due);
 
-function openPayment(record) {
+function openPayment(record, payer = 'patient') {
   payTarget.value = record;
   Object.assign(paymentForm, {
-    amount: roundMoney(record.due),
+    payer,
+    amount: roundMoney(payerDue(record, payer)),
     paid_on: new Date().toISOString().slice(0, 10),
-    method: 'cash',
+    method: payer === 'insurer' ? 'insurance' : 'cash',
     notes: '',
   });
   paymentOpen.value = true;
+}
+function onPayerChange() {
+  paymentForm.amount = roundMoney(payerDue(payTarget.value, paymentForm.payer));
+  paymentForm.method = paymentForm.payer === 'insurer' ? 'insurance' : 'cash';
 }
 
 async function submitPayment() {
@@ -638,6 +664,7 @@ onMounted(() => {
   font-weight: 600;
   font-size: 13px;
 }
+.plan-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed rgba(128, 128, 128, 0.2); }
 .totals-box {
   margin-top: 12px;
   padding: 12px 14px;

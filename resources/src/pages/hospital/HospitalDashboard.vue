@@ -75,6 +75,18 @@
         </button>
       </div>
 
+      <!-- Efficiency, last 30 days (2026-10-25) -->
+      <div v-if="data.efficiency" class="eff">
+        <div class="eff-h">{{ s('Efficiency — last 30 days') }}</div>
+        <div class="eff-row">
+          <div class="eff-i"><b>{{ data.efficiency.avg_wait_minutes != null ? mins(data.efficiency.avg_wait_minutes) : '—' }}</b><span>{{ s('Order to bed') }}</span></div>
+          <div class="eff-i"><b>{{ data.efficiency.avg_stay_days != null ? s('{n} days', { n: data.efficiency.avg_stay_days }) : '—' }}</b><span>{{ s('Average stay') }}</span></div>
+          <div class="eff-i"><b>{{ data.efficiency.bed_turnover != null ? data.efficiency.bed_turnover : '—' }}</b><span>{{ s('Bed turnover (discharges per bed)') }}</span></div>
+          <div class="eff-i"><b>{{ data.efficiency.readmission_rate != null ? data.efficiency.readmission_rate + '%' : '—' }}</b><span>{{ s('Readmissions within 30 days') }}</span></div>
+          <div class="eff-i" :class="{ bad: data.efficiency.cleaning_late }" @click="$router.push('/hospital/wards')"><b>{{ data.efficiency.cleaning_late }}</b><span>{{ s('Beds waiting for cleaning +30 min') }}</span></div>
+        </div>
+      </div>
+
       <a-row :gutter="16">
         <a-col :xs="24" :xl="16">
           <ReportChart
@@ -205,6 +217,7 @@ const data = ref({});
 const loading = ref(false);
 
 const n = value => number(value || 0, 0);
+const mins = m => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`);
 
 /** Time only — the whole panel is already scoped to today. */
 function time(iso) {
@@ -237,6 +250,13 @@ onMounted(load);
 </script>
 
 <style scoped>
+.eff { margin: 4px 0 16px; padding: 12px 14px; border-radius: 12px; background: rgba(128, 128, 128, 0.06); }
+.eff-h { font-weight: 700; margin-bottom: 8px; }
+.eff-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.eff-i { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.6); }
+.eff-i b { font-size: 20px; }
+.eff-i span { font-size: 12px; opacity: 0.7; }
+.eff-i.bad { background: rgba(220, 38, 38, 0.1); color: #b91c1c; cursor: pointer; }
 .danger {
   color: #ff4d4f;
 }
