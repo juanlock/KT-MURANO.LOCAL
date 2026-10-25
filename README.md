@@ -197,7 +197,7 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
-### 2026-10-25 (Optimum) — not in production yet
+### 2026-10-25 (Optimum)
 
 - **Hospital, the whole stay.**
   - **Configuration**: shifts with their hours, floors, rooms and beds, and a
@@ -237,6 +237,9 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 - **Protocols**: Pa Llevar now deploys without asking and shuts the PC down
   when everything went well; new **Restaura BD Dev** (restore this PC's dev
   database from a backup).
+- **After the deploy**: the hospital demo staff, beds and stays exist only in
+  the developer database; regenerate the hospital demo of Vitalis in
+  production (System Settings › Demo data, SuperAdmin) to have them there.
 
 Setup: `php artisan migrate`, `npm run build`.
 
