@@ -24,18 +24,25 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
+      /* Login design (2026-10-25, user's mockup KT-TOOLS/files/login/KCOLTECH SaaS
+         Dashboard Login Showcase.png): light blue page, brand + headline + features +
+         laptop scene on the left, white sign-in card on the right. Colors sampled
+         from the mockup; pictures in public/images/login/. */
       :root {
         --surface: #ffffff;
-        --primary: #6366f1;
-        --primary-hover: #4f46e5;
-        --primary-light: #e0e7ff;
-        --primary-glow: rgba(99, 102, 241, 0.4);
-        --text: #0f172a;
-        --text-secondary: #475569;
+        --primary: #0b4fa0;
+        --primary-hover: #083f82;
+        --primary-light: #dbe8f8;
+        --primary-glow: rgba(11, 79, 160, 0.35);
+        --navy: #03387b;
+        --accent: #05c2de;
+        --link: #0b5cc0;
+        --text: #0f2747;
+        --text-secondary: #4a5d78;
         --text-muted: #94a3b8;
-        --border: #e2e8f0;
-        --border-focus: #6366f1;
-        --bg-input: #f8fafc;
+        --border: #dbe5ef;
+        --border-focus: #0b5cc0;
+        --bg-input: #ffffff;
         --bg-input-focus: #ffffff;
         --danger: #ef4444;
         --danger-soft: rgba(239, 68, 68, 0.08);
@@ -59,179 +66,153 @@
       body {
         font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         color: var(--text);
-        background: #f0f0ff;
+        background: linear-gradient(160deg, #f7fbfe 0%, #f1f8fe 40%, #e3f0fd 75%, #d4e8fc 100%);
+        background-attachment: fixed;
         overflow-x: hidden;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
       }
 
-      /* ─── LAYOUT ─── */
+      /* ─── LAYOUT: brand on the left, sign-in card on the right ─── */
       .auth-page {
+        position: relative;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(380px, 560px);
+        align-items: center;
+        gap: clamp(1.5rem, 3vw, 3rem);
         min-height: 100dvh;
+        padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1.5rem, 5vw, 5.5rem);
+        overflow: hidden;
+        isolation: isolate;
+      }
+      /* Soft curved light bands of the mockup (bottom-left white, top-right blue). */
+      .auth-page::before,
+      .auth-page::after {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .auth-page::before {
+        width: 140vw; height: 70vw;
+        left: -35vw; bottom: -52vw;
+        background: radial-gradient(closest-side, rgba(255,255,255,0.85), rgba(255,255,255,0) 100%);
+        box-shadow: 0 -30px 80px rgba(150, 196, 245, 0.25);
+      }
+      .auth-page::after {
+        width: 60vw; height: 60vw;
+        right: -26vw; top: -30vw;
+        background: radial-gradient(closest-side, rgba(150, 200, 248, 0.55), rgba(150, 200, 248, 0) 100%);
       }
 
-      /* ─── HERO ─── */
+      /* ─── HERO (left) ─── */
       .auth-hero {
         position: relative;
+        align-self: stretch;
         display: flex;
-        align-items: center;
+        flex-direction: column;
         justify-content: center;
-        padding: 4rem clamp(2.5rem, 6vw, 5rem);
-        background: linear-gradient(160deg, #4f46e5 0%, #6366f1 30%, #818cf8 70%, #a78bfa 100%);
-        overflow: hidden;
-      }
-
-      .hero-bg-pattern {
-        position: absolute;
-        inset: 0;
-        opacity: 0.07;
-        background-image:
-          radial-gradient(circle at 20% 50%, #fff 1px, transparent 1px),
-          radial-gradient(circle at 80% 20%, #fff 1px, transparent 1px),
-          radial-gradient(circle at 60% 80%, #fff 1px, transparent 1px);
-        background-size: 60px 60px, 80px 80px, 40px 40px;
-      }
-
-      .hero-shape {
-        position: absolute;
-        border-radius: 50%;
-        filter: blur(60px);
-        opacity: 0.3;
-        animation: float 20s ease-in-out infinite;
-      }
-
-      .hero-shape-1 {
-        width: 400px; height: 400px;
-        background: #c4b5fd;
-        top: -100px; right: -80px;
-        animation-delay: 0s;
-      }
-
-      .hero-shape-2 {
-        width: 300px; height: 300px;
-        background: #7c3aed;
-        bottom: -60px; left: -60px;
-        animation-delay: -7s;
-      }
-
-      .hero-shape-3 {
-        width: 200px; height: 200px;
-        background: #e0e7ff;
-        top: 40%; left: 20%;
-        animation-delay: -14s;
-      }
-
-      @keyframes float {
-        0%, 100% { transform: translate(0, 0) scale(1); }
-        33% { transform: translate(30px, -20px) scale(1.05); }
-        66% { transform: translate(-20px, 20px) scale(0.95); }
+        min-width: 0;
       }
 
       .hero-content {
         position: relative;
         z-index: 1;
-        max-width: 440px;
-        color: #fff;
+        max-width: 560px;
       }
 
-      .hero-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: rgba(255,255,255,0.15);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2);
-        border-radius: var(--radius-full);
-        padding: 0.4rem 1rem;
-        font-size: 0.8rem;
-        font-weight: 500;
-        letter-spacing: 0.02em;
-        margin-bottom: 1.5rem;
-      }
-
-      .hero-badge-dot {
-        width: 6px; height: 6px;
-        background: #34d399;
-        border-radius: 50%;
-        animation: pulse-dot 2s ease-in-out infinite;
-      }
-
-      @keyframes pulse-dot {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.5; transform: scale(1.4); }
+      .hero-brand img {
+        display: block;
+        width: min(100%, 500px);
+        height: auto;
+        margin-bottom: clamp(1.75rem, 4vh, 3rem);
       }
 
       .hero-title {
-        font-size: clamp(2rem, 4vw, 2.75rem);
+        font-size: clamp(2rem, 3.3vw, 3.5rem);
         font-weight: 800;
-        line-height: 1.15;
-        letter-spacing: -0.03em;
-        margin-bottom: 1rem;
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+        color: var(--navy);
+        margin-bottom: 1.4rem;
       }
+      .hero-title .accent { color: var(--accent); }
 
       .hero-subtitle {
-        font-size: clamp(0.95rem, 1.5vw, 1.05rem);
-        color: rgba(255,255,255,0.8);
-        line-height: 1.7;
-        max-width: 380px;
+        font-size: clamp(0.98rem, 1.15vw, 1.12rem);
+        color: var(--text-secondary);
+        line-height: 1.6;
+        max-width: 460px;
       }
 
+      /* Three features in columns with thin dividers, icon above the text. */
       .hero-features {
         display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        margin-top: 2.5rem;
+        align-items: flex-start;
+        margin-top: clamp(1.5rem, 4vh, 2.5rem);
       }
-
       .hero-feature {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 0.75rem;
-        font-size: 0.9rem;
-        color: rgba(255,255,255,0.9);
+        text-align: center;
+        gap: 0.55rem;
+        width: 8.5rem;
+        padding: 0 0.75rem;
+        font-size: 0.95rem;
+        line-height: 1.25;
+        color: var(--text);
       }
-
-      .hero-feature-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px; height: 28px;
-        background: rgba(255,255,255,0.15);
-        border-radius: 8px;
-        flex-shrink: 0;
-      }
-
+      .hero-feature:first-child { padding-inline-start: 0; width: 7.75rem; }
+      .hero-feature + .hero-feature { border-inline-start: 1px solid #c9d8ea; }
       .hero-feature-icon svg {
-        width: 14px; height: 14px;
-        stroke: #fff;
+        width: 38px; height: 38px;
+        stroke: #2c66a8;
         fill: none;
-        stroke-width: 2.5;
+        stroke-width: 1.5;
         stroke-linecap: round;
         stroke-linejoin: round;
       }
 
-      /* ─── FORM PANEL ─── */
+      /* Laptop scene between the text and the card; its edges fade into the page. */
+      .hero-scene {
+        position: absolute;
+        z-index: 0;
+        right: max(-4vw, -60px);
+        bottom: 4%;
+        width: min(46vw, 700px);
+        pointer-events: none;
+        -webkit-mask-image: radial-gradient(ellipse 72% 70% at 55% 52%, #000 62%, transparent 100%);
+        mask-image: radial-gradient(ellipse 72% 70% at 55% 52%, #000 62%, transparent 100%);
+      }
+      .hero-scene img { display: block; width: 100%; height: auto; mix-blend-mode: multiply; }
+
+      /* ─── FORM PANEL (right) ─── */
       .auth-panel {
         position: relative;
+        z-index: 2;
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        align-items: stretch;
         justify-content: center;
-        padding: clamp(1.5rem, 5vw, 4rem);
-        background: linear-gradient(180deg, #f8f9ff 0%, #f0f0ff 100%);
       }
 
       /* Guest language switcher -- picks the locale BEFORE signing in (the
          page otherwise has no way to know which company/user is about to
          log in, so it can't infer a language any other way). */
       .auth-lang-switch {
-        position: absolute;
-        top: 1.25rem;
+        position: fixed;
+        z-index: 5;
+        top: 1.1rem;
         inset-inline-end: 1.5rem;
         display: flex;
         gap: 0.5rem;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        padding: 0.25rem;
+        border-radius: 10px;
       }
       .auth-lang-switch a {
         display: inline-flex;
@@ -254,9 +235,9 @@
       }
       .auth-lang-switch a:hover { background: rgba(0, 0, 0, 0.05); }
       .auth-lang-switch a.active {
-        color: var(--brand, #4f46e5);
-        background: rgba(79, 70, 229, 0.1);
-        border-color: rgba(79, 70, 229, 0.25);
+        color: var(--primary);
+        background: rgba(11, 79, 160, 0.08);
+        border-color: rgba(11, 79, 160, 0.25);
       }
       /* Phones: the switcher sits above the card (it used to overlap the card's top). */
       @media (max-width: 720px) {
@@ -270,15 +251,16 @@
 
       .auth-card {
         background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
+        border: 1px solid rgba(219, 229, 239, 0.8);
+        border-radius: 18px;
         width: 100%;
-        max-width: 420px;
-        padding: clamp(1.75rem, 4vw, 2.5rem);
-        box-shadow: var(--shadow-xl);
+        max-width: 545px;
+        margin-inline-start: auto;
+        padding: clamp(2rem, 3.6vw, 3.5rem) clamp(1.75rem, 3vw, 3rem) clamp(1.5rem, 2.6vw, 2.5rem);
+        box-shadow: 0 30px 70px -25px rgba(16, 64, 128, 0.25), 0 8px 24px -12px rgba(16, 64, 128, 0.12);
         display: flex;
         flex-direction: column;
-        gap: 1.75rem;
+        gap: 1.6rem;
       }
 
       .auth-card-header {
@@ -288,47 +270,50 @@
       .auth-logo {
         display: flex;
         justify-content: center;
-        margin-bottom: 1.25rem;
+        margin-bottom: 1.4rem;
       }
 
       .auth-logo img {
-        max-height: 46px;
+        max-height: 96px;
+        max-width: 70%;
         object-fit: contain;
       }
 
       .auth-card-title {
-        font-size: 1.5rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        color: var(--text);
+        font-size: clamp(1.75rem, 2.3vw, 2.3rem);
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        color: var(--navy);
       }
 
       .auth-card-subtitle {
-        font-size: 0.9rem;
+        font-size: 1.05rem;
         color: var(--text-secondary);
-        margin-top: 0.35rem;
+        margin-top: 0.6rem;
         line-height: 1.5;
       }
 
       /* ─── FORM ─── */
-      .auth-form { display: flex; flex-direction: column; gap: 1.25rem; }
+      .auth-form { display: flex; flex-direction: column; gap: 1.3rem; }
 
       .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
 
+      /* The mockup has no labels above the fields (icon + placeholder): kept for screen readers only. */
       .form-label {
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+        position: absolute;
+        width: 1px; height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
       }
 
       .input-wrapper {
         position: relative;
         display: flex;
         align-items: center;
+        min-height: 58px;
         border: 1.5px solid var(--border);
-        border-radius: var(--radius-md);
+        border-radius: 10px;
         background: var(--bg-input);
         transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
       }
@@ -343,8 +328,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        padding-inline-start: 0.875rem;
-        color: var(--text-muted);
+        padding-inline-start: 1.1rem;
+        color: #5b6b82;
         transition: color var(--transition);
         flex-shrink: 0;
       }
@@ -354,7 +339,7 @@
       }
 
       .input-icon svg {
-        width: 18px; height: 18px;
+        width: 22px; height: 22px;
         stroke: currentColor;
         fill: none;
         stroke-width: 1.8;
@@ -366,8 +351,8 @@
         flex: 1;
         border: none;
         background: transparent;
-        padding: 0.8rem 0.875rem;
-        font-size: 0.95rem;
+        padding: 0.8rem 1rem;
+        font-size: 1.05rem;
         font-family: inherit;
         color: var(--text);
         outline: none;
@@ -395,7 +380,7 @@
       }
 
       .toggle-password svg {
-        width: 18px; height: 18px;
+        width: 22px; height: 22px;
         stroke: currentColor;
         fill: none;
         stroke-width: 1.8;
@@ -412,24 +397,24 @@
       .remember-check {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.6rem;
         cursor: pointer;
-        font-size: 0.85rem;
+        font-size: 0.98rem;
         color: var(--text-secondary);
         user-select: none;
       }
 
       .remember-check input[type="checkbox"] {
-        width: 16px; height: 16px;
+        width: 20px; height: 20px;
         accent-color: var(--primary);
         border-radius: 4px;
         cursor: pointer;
       }
 
       .forgot-link {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--primary);
+        font-size: 0.98rem;
+        font-weight: 500;
+        color: var(--link);
         text-decoration: none;
         transition: color var(--transition);
       }
@@ -442,13 +427,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
+        gap: 0.75rem;
+        min-height: 57px;
         padding: 0.85rem 1.5rem;
         border: none;
-        border-radius: var(--radius-md);
+        border-radius: 10px;
         background: var(--primary);
         color: #fff;
-        font-size: 0.95rem;
+        font-size: 1.15rem;
         font-weight: 600;
         font-family: inherit;
         cursor: pointer;
@@ -568,43 +554,44 @@
       /* ─── FOOTER ─── */
       .auth-footer {
         text-align: center;
-        font-size: 0.8rem;
-        color: var(--text-muted);
-        padding-top: 0.5rem;
+        font-size: 0.85rem;
+        color: #6b7a90;
+        padding-top: 0.25rem;
       }
 
       /* ─── RESPONSIVE ─── */
+      /* Narrower screens: the laptop scene goes first (it would cover the text). */
+      @media (max-width: 1500px), (max-height: 860px) {
+        .hero-scene { display: none; }
+      }
+      /* Tablets / phones: only the card, centered. */
       @media (max-width: 1024px) {
-        .auth-page { grid-template-columns: 1fr; }
+        .auth-page { grid-template-columns: 1fr; padding: 4rem 1.25rem 1.5rem; }
         .auth-hero { display: none; }
-        .auth-panel { min-height: 100dvh; }
+        .auth-card { margin-inline: auto; }
       }
 
       @media (max-width: 640px) {
-        .auth-panel {
-          padding: 1.25rem 1rem;
-          padding-top: max(1.25rem, env(safe-area-inset-top));
+        .auth-page {
+          padding: 4rem 1rem 1.25rem;
           padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
-          background: #f8f9ff;
           align-items: flex-start;
         }
         .auth-card {
-          padding: 1.5rem 1.25rem;
-          border-radius: 18px;
+          padding: 1.75rem 1.25rem 1.25rem;
+          border-radius: 16px;
           gap: 1.25rem;
-          box-shadow: var(--shadow-md);
-          margin-top: 1rem;
         }
         .auth-logo { margin-bottom: 1rem; }
-        .auth-logo img { max-height: 40px; }
-        .auth-card-title { font-size: 1.25rem; }
-        .auth-card-subtitle { font-size: 0.85rem; }
+        .auth-logo img { max-height: 64px; }
+        .auth-card-title { font-size: 1.55rem; }
+        .auth-card-subtitle { font-size: 0.92rem; }
         .auth-form { gap: 1rem; }
-        .form-label { font-size: 0.75rem; }
         /* iOS: 16px+ prevents auto-zoom on focus */
+        .input-wrapper { min-height: 50px; }
         .form-input { font-size: 16px; padding: 0.75rem 0.75rem; }
-        .input-icon { padding-inline-start: 0.75rem; }
-        .input-icon svg { width: 16px; height: 16px; }
+        .input-icon { padding-inline-start: 0.85rem; }
+        .input-icon svg { width: 19px; height: 19px; }
         .toggle-password { padding: 0 0.625rem; }
         .auth-btn {
           padding: 0.95rem 1.25rem;
@@ -668,39 +655,32 @@
       /* Admin-configured login background image (Settings → Login Page Settings)
          -- takes priority over the solid color below, mutually exclusive
          (same rule the settings page itself enforces on save). */
-      .auth-hero {
+      body {
         background-image: url({{ str_contains($app_settings->login_bg_image, '/') ? asset($app_settings->login_bg_image) : asset('images/'.$app_settings->login_bg_image) }});
         background-size: cover;
         background-position: center;
       }
     </style>
-    @elseif ($app_settings->loginBgColor())
-    <style>
-      /* Admin-configured login background color (Settings → Login Page Settings),
-         one for Spanish and one for English / other languages (2026-10-20). */
-      .auth-hero {
-        background: {{ $app_settings->loginBgColor() }};
-      }
-    </style>
     @endif
+    {{-- The background COLOR setting (made for the old dark panel) is not applied by this
+         light design (2026-10-25): a dark color would hide the navy headline. --}}
   </head>
 
   <body>
     <div class="auth-page">
       <!-- HERO -->
       <section class="auth-hero">
-        <div class="hero-bg-pattern"></div>
-        <div class="hero-shape hero-shape-1"></div>
-        <div class="hero-shape hero-shape-2"></div>
-        <div class="hero-shape hero-shape-3"></div>
-
         <div class="hero-content">
-          <div class="hero-badge">
-            <span class="hero-badge-dot"></span>
-            {{ login_locale_text($app_settings->login_hero_badge) }}
+          <div class="hero-brand">
+            <img src="{{ asset('images/login/kcoltech-logo.png') }}" alt="KCOLTECH - IT Advisory, Development, Security" width="505" height="102">
           </div>
 
-          <h1 class="hero-title">{{ login_locale_text($app_settings->login_hero_title) }}</h1>
+          @php
+            // The headline's last word in the accent color ("Manage your business smarter.").
+            $heroTitle = (string) login_locale_text($app_settings->login_hero_title);
+            $heroSplit = preg_match('/^(.*\s)(\S+)$/su', trim($heroTitle), $hm) ? [$hm[1], $hm[2]] : ['', $heroTitle];
+          @endphp
+          <h1 class="hero-title">{{ $heroSplit[0] }}<span class="accent">{{ $heroSplit[1] }}</span></h1>
           <p class="hero-subtitle">
             {{ login_locale_text($app_settings->login_hero_subtitle) }}
           </p>
@@ -718,17 +698,28 @@
                 login_locale_text($app_settings->login_hero_feature_3),
               ];
             @endphp
-            @foreach ($features as $feature)
+            @php
+              // One icon per position (mockup): box = inventory, pin = locations / POS, bars = reports.
+              $featureIcons = [
+                '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+                '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+                '<line x1="4" y1="21" x2="20" y2="21"/><rect x="5" y="11" width="3" height="10" rx="1"/><rect x="10.5" y="4" width="3" height="17" rx="1"/><rect x="16" y="8" width="3" height="13" rx="1"/>',
+              ];
+            @endphp
+            @foreach ($features as $i => $feature)
               @if ($feature)
               <div class="hero-feature">
                 <span class="hero-feature-icon">
-                  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  <svg viewBox="0 0 24 24">{!! $featureIcons[$i] ?? $featureIcons[0] !!}</svg>
                 </span>
                 {{ $feature }}
               </div>
               @endif
             @endforeach
           </div>
+        </div>
+        <div class="hero-scene" aria-hidden="true">
+          <img src="{{ asset('images/login/login-scene.jpg') }}" alt="" width="694" height="410">
         </div>
       </section>
 
@@ -755,6 +746,10 @@
                 // other company-owned image path in this app.
                 $loginLogo = $app_settings->logo ?? 'logo.png';
                 $loginLogoUrl = str_contains($loginLogo, '/') ? asset($loginLogo) : asset('images/'.$loginLogo);
+                // The stock product logo (never customized) -> the KCOLTECH mark of the login design.
+                if (str_contains($loginLogo, 'logo-default') || $loginLogo === 'logo.png') {
+                    $loginLogoUrl = asset('images/login/kcoltech-mark.png');
+                }
             @endphp
             <div class="auth-logo">
               <img src="{{ $loginLogoUrl }}" alt="{{ $app_settings->app_name ?? 'KcolTech - Murano' }}">
