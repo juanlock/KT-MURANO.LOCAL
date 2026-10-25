@@ -82,6 +82,7 @@ class HospitalClinicalController extends Controller
         $orders = DB::table('hms_care_orders')->where('admission_id', $a->id)->orderBy('status')->orderByDesc('starts_at')->get();
         $logs = DB::table('hms_care_logs')->whereIn('care_order_id', $orders->pluck('id'))->orderByDesc('done_at')->get()->groupBy('care_order_id');
         $treatments = DB::table('hms_treatments')->where('admission_id', $a->id)->pluck('id');
+        \App\Models\HmsMedicationDose::markMissed(); // past days' unrecorded doses = not given
         $doses = DB::table('hms_medication_doses as d')->join('hms_medication_orders as o', 'o.id', '=', 'd.order_id')
             ->whereIn('d.treatment_id', $treatments)->whereBetween('d.scheduled_at', [now()->subHours(24), now()->addHours(24)])
             ->orderBy('d.scheduled_at')->get(['d.id', 'd.scheduled_at', 'd.status', 'd.given_at', 'd.given_by', 'd.dispensed', 'o.medicine', 'o.dose', 'o.route']);
@@ -110,7 +111,8 @@ class HospitalClinicalController extends Controller
                 return (array) $o + ['last_done' => $last ? $last->done_at : null, 'last_by' => $last ? ($names[$last->user_id] ?? null) : null,
                     'done_count' => optional($logs->get($o->id))->count() ?? 0, 'due' => $due];
             })->values(),
-            'doses' => $doses->map(fn ($d) => (array) $d + ['by' => $names[$d->given_by] ?? null])->values(),
+            'doses' => $doses->map(fn ($d) => (array) $d + ['by' => $names[$d->given_by] ?? null,
+                'today' => \Carbon\Carbon::parse($d->scheduled_at)->isSameDay(now())])->values(),
             'labs' => $labs,
             'consults' => $consults->map(fn ($c) => (array) $c + ['to_doctor' => $doctors[$c->to_doctor_id] ?? null, 'from_doctor' => $doctors[$c->requested_by] ?? null])->values(),
             'portal' => ['status' => $a->portal_status, 'note' => $a->portal_note, 'at' => $a->portal_status_at],

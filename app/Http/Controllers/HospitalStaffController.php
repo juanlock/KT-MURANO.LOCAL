@@ -321,8 +321,11 @@ class HospitalStaffController extends Controller
         $ids = $all ? $census->keys()->all() : $assigned->keys()->all();
 
         $now = now();
+        HmsMedicationDose::markMissed(); // past days' unrecorded doses = not given
+        // The next 2 h, but only today's (tomorrow's can't be recorded ahead).
+        $until = $now->copy()->addHours(2)->min($now->copy()->endOfDay());
         $doses = HmsMedicationDose::whereIn('patient_id', $ids ?: [0])->where('status', 'pending')
-            ->where('scheduled_at', '<=', $now->copy()->addHours(2))->orderBy('scheduled_at')->get()->groupBy('patient_id');
+            ->where('scheduled_at', '<=', $until)->orderBy('scheduled_at')->get()->groupBy('patient_id');
         $orders = \App\Models\HmsMedicationOrder::whereIn('id', $doses->flatten()->pluck('order_id'))->get()->keyBy('id');
 
         return response()->json([

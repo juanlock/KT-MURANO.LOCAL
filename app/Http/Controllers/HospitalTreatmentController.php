@@ -35,6 +35,7 @@ class HospitalTreatmentController extends Controller
     public function index(Request $request)
     {
         abort_unless(HospitalShifts::can($request->user('api'), 'hms_treatments', 'hms_treatments_administer'), 403);
+        HmsMedicationDose::markMissed();
         $q = HmsTreatment::whereNull('deleted_at');
         $q->where('status', $request->get('status', 'active') ?: 'active');
         if ($request->filled('search')) {
@@ -65,6 +66,7 @@ class HospitalTreatmentController extends Controller
     {
         abort_unless(HospitalShifts::can($request->user('api'), 'hms_treatments', 'hms_treatments_administer', 'hms_pharmacy_dispense'), 403);
         $t = HmsTreatment::whereNull('deleted_at')->findOrFail($id);
+        HmsMedicationDose::markMissed();
         $patient = Patient::find($t->patient_id);
         $census = HospitalShifts::census()->firstWhere('patient_id', $t->patient_id);
         $docRows = DB::table('hms_treatment_doctors as td')->join('doctors as d', 'd.id', '=', 'td.doctor_id')
@@ -100,6 +102,7 @@ class HospitalTreatmentController extends Controller
                 'id' => $d->id, 'order_id' => $d->order_id, 'scheduled_at' => $d->scheduled_at->toIso8601String(), 'status' => $d->status,
                 'given_at' => optional($d->given_at)->toIso8601String(), 'given_by' => $givers[$d->given_by] ?? null,
                 'dispensed' => (bool) $d->dispensed, 'notes' => $d->notes, 'late' => $d->status === 'pending' && $d->scheduled_at < now(),
+                'today' => $d->scheduled_at->isSameDay(now()),
             ])->values(),
         ],
             'can_edit' => HospitalShifts::can($request->user('api'), 'hms_treatments'),
@@ -218,13 +221,20 @@ class HospitalTreatmentController extends Controller
         return response()->json(['success' => true]);
     }
 
-    /** The nurse records a dose: given / omitted / refused (with a note). */
+    /** The nurse records a dose of TODAY: given / omitted / refused (with a note). */
     public function recordDose(Request $request, $doseId)
     {
         abort_unless(HospitalShifts::can($request->user('api'), 'hms_treatments_administer', 'hms_treatments'), 403);
         $request->validate(['status' => 'required|in:given,omitted,refused,pending', 'notes' => 'nullable|string|max:255', 'scan' => 'nullable|string|max:64']);
         $d = HmsMedicationDose::findOrFail($doseId);
         abort_unless(HmsTreatment::whereKey($d->treatment_id)->exists(), 404); // acting company
+        // Only today's doses (user's rule, 2026-10-25): tomorrow's can't be recorded
+        // ahead, past days' unrecorded ones are "missed".
+        if (! $d->recordableToday()) {
+            return response()->json(['message' => $d->scheduled_at->isFuture() && ! $d->scheduled_at->isSameDay(now())
+                ? 'Only today\'s doses can be recorded. This one is for another day.'
+                : 'This dose was not recorded on its day: it stays as not given.'], 422);
+        }
         // The kardex confirms a given dose by scanning the patient's wristband (2026-10-25): the barcode is the record number.
         if ($request->filled('scan') && $request->status === 'given') {
             $mrn = DB::table('patients')->where('id', $d->patient_id)->value('mrn');
@@ -352,6 +362,7 @@ class HospitalTreatmentController extends Controller
             'days' => $o->days, 'units_per_dose' => (float) $o->units_per_dose, 'instructions' => $o->instructions, 'status' => $o->status,
             'given' => (int) ($counts['given'] ?? 0), 'pending' => (int) ($counts['pending'] ?? 0),
             'omitted' => (int) (($counts['omitted'] ?? 0) + ($counts['refused'] ?? 0)),
+            'missed' => (int) ($counts['missed'] ?? 0),
         ];
     }
 

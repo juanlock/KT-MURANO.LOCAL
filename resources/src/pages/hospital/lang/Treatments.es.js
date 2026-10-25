@@ -71,4 +71,10 @@ export default {
     'Reopen': 'Reabrir',
     'Oral': 'Oral', 'IV': 'EV', 'IM': 'IM', 'SC': 'SC', 'Topical': 'Tópica', 'Inhaled': 'Inhalada', 'Sublingual': 'Sublingual', 'Rectal': 'Rectal',
     'This patient already has an active treatment.': 'Este paciente ya tiene un tratamiento activo.',
+    // Only today's doses (2026-10-25)
+    'Not given (not recorded)': 'No puesta (sin registro)',
+    'Pending · another day': 'Pendiente · otro día',
+    'not given': 'no puestas',
+    "Only today's doses can be recorded. This one is for another day.": 'Solo se registran las dosis de hoy. Esta es de otro día.',
+    'This dose was not recorded on its day: it stays as not given.': 'Esta dosis no se registró en su día: queda como no puesta.',
 };

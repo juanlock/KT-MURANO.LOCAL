@@ -55,7 +55,7 @@
             <span>{{ t.patient_mrn }}</span>
             <span v-if="t.age != null">· {{ t.age }} {{ s('y') }}</span>
             <span v-if="t.blood_group">· {{ t.blood_group }}</span>
-            <span>· {{ s(AREA_LABEL[t.area] || '—') }}<template v-if="t.where"> {{ t.where }}</template></span>
+            <span>· {{ s(AREA_LABEL[t.area] || '—') }}<template v-if="t.where"> · {{ t.where }}</template></span>
             <span v-if="t.surgery_id">· <a-tag color="purple">{{ s('Post-op') }}</a-tag></span>
           </div>
           <div v-if="t.allergies" class="allergy"><WarningOutlined /> {{ s('Allergies') }}: {{ t.allergies }}</div>
@@ -73,18 +73,22 @@
                 <span class="d-time">{{ dt(d.scheduled_at) }}</span>
                 <span class="d-med">{{ orderOf(d.order_id).medicine }} · {{ orderOf(d.order_id).dose }} · {{ s(ROUTE_LABEL[orderOf(d.order_id).route] || '') }}</span>
                 <a-tag v-if="!d.dispensed && d.status === 'pending'" color="orange">{{ s('Not dispensed') }}</a-tag>
+                <!-- Only today's doses are recorded (user's rule, 2026-10-25). -->
                 <template v-if="d.status === 'pending'">
-                  <template v-if="canGive">
+                  <template v-if="canGive && d.today">
                     <a-button size="small" type="primary" @click="record(d, 'given')">{{ s('Given') }}</a-button>
                     <a-button size="small" @click="record(d, 'omitted')">{{ s('Omitted') }}</a-button>
                     <a-button size="small" @click="record(d, 'refused')">{{ s('Refused') }}</a-button>
                   </template>
-                  <span v-else class="muted">{{ s('Pending') }}</span>
+                  <span v-else class="muted">{{ d.today ? s('Pending') : s('Pending · another day') }}</span>
+                </template>
+                <template v-else-if="d.status === 'missed'">
+                  <a-tag color="volcano">{{ s(DOSE_LABEL.missed) }}</a-tag>
                 </template>
                 <template v-else>
                   <a-tag :color="d.status === 'given' ? 'green' : 'red'">{{ s(DOSE_LABEL[d.status]) }}</a-tag>
                   <span class="muted">{{ dt(d.given_at) }}<template v-if="d.given_by"> · {{ d.given_by }}</template></span>
-                  <a-button v-if="canGive" size="small" type="text" @click="record(d, 'pending')">{{ s('Undo') }}</a-button>
+                  <a-button v-if="canGive && d.today" size="small" type="text" @click="record(d, 'pending')">{{ s('Undo') }}</a-button>
                 </template>
               </div>
             </a-tab-pane>
@@ -94,7 +98,10 @@
                 <template #bodyCell="{ column, record: o }">
                   <template v-if="column.key === 'med'"><b>{{ o.medicine }}</b><div class="muted">{{ o.instructions }}</div></template>
                   <template v-else-if="column.key === 'how'">{{ o.dose }} · {{ s(ROUTE_LABEL[o.route] || o.route) }} · {{ s('every') }} {{ o.every_hours }} h · {{ o.days }} {{ s('days') }}</template>
-                  <template v-else-if="column.key === 'progress'">{{ o.given }} / {{ o.given + o.pending + o.omitted }}</template>
+                  <template v-else-if="column.key === 'progress'">
+                  {{ o.given }} / {{ o.given + o.pending + o.omitted + (o.missed || 0) }}
+                  <a-tag v-if="o.missed" color="volcano" style="margin-left: 4px">{{ o.missed }} {{ s('not given') }}</a-tag>
+                </template>
                   <template v-else-if="column.key === 'status'">
                     <a-tag :color="o.status === 'active' ? 'green' : 'default'">{{ s(ORDER_LABEL[o.status] || o.status) }}</a-tag>
                     <a-popconfirm v-if="canEdit && o.status === 'active'" :title="s('Stop this order? Its future doses are removed.')" :ok-text="s('Yes')" :cancel-text="s('No')" @confirm="stopOrder(o)">
@@ -178,7 +185,7 @@ const canGive = computed(() => auth.can('hms_treatments_administer') || auth.can
 const AREA_LABEL = { ward: 'Ward', er_bed: 'ER bed', waiting_room: 'Waiting room' };
 const STATUS_LABEL = { active: 'Active', completed: 'Completed', cancelled: 'Cancelled' };
 const ORDER_LABEL = { active: 'Active', stopped: 'Stopped', completed: 'Completed' };
-const DOSE_LABEL = { given: 'Given', omitted: 'Omitted', refused: 'Refused', pending: 'Pending' };
+const DOSE_LABEL = { given: 'Given', omitted: 'Omitted', refused: 'Refused', pending: 'Pending', missed: 'Not given (not recorded)' };
 const ROUTE_LABEL = { oral: 'Oral', iv: 'IV', im: 'IM', sc: 'SC', topical: 'Topical', inhaled: 'Inhaled', sublingual: 'Sublingual', rectal: 'Rectal', other: 'Other' };
 const ROLE_LABEL = { lead: 'Lead', consultant: 'Consultant', surgeon: 'Surgeon' };
 const SHIFT_LABEL = { er24: 'Emergency guard (24 h)', morning: 'Morning', afternoon: 'Afternoon', night: 'Night' };
@@ -329,6 +336,7 @@ onMounted(async () => {
 .dose { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; border-bottom: 1px dashed rgba(128, 128, 128, 0.2); }
 .dose.late .d-time { color: #dc2626; font-weight: 700; }
 .dose.given { opacity: 0.75; }
+.dose.missed { background: rgba(234, 88, 12, 0.06); }
 .d-time { width: 90px; font-family: ui-monospace, Menlo, Consolas, monospace; }
 .d-med { flex: 1; min-width: 180px; }
 .d-title { font-weight: 600; margin-bottom: 4px; }

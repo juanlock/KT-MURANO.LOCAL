@@ -135,4 +135,9 @@ export default {
     'Home-care videos': 'Videos de cuidados en casa',
     'Hospital -> Configuration -> Patient portal': 'Hospital -> Configuración -> Portal del paciente',
     'Follow-up appointment': 'Cita de control',
+    // Only today's doses (2026-10-25)
+    'Not given (not recorded)': 'No puesta (sin registro)',
+    'Pending · another day': 'Pendiente · otro día',
+    "Only today's doses can be recorded. This one is for another day.": 'Solo se registran las dosis de hoy. Esta es de otro día.',
+    'This dose was not recorded on its day: it stays as not given.': 'Esta dosis no se registró en su día: queda como no puesta.',
 };

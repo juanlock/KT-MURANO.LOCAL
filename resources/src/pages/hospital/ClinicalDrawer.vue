@@ -39,11 +39,14 @@
               <span class="time">{{ hm(d.scheduled_at) }}</span>
               <span class="what">{{ d.medicine }} · {{ d.dose }} · {{ d.route }}</span>
               <a-tag v-if="!d.dispensed && d.status === 'pending'" color="orange">{{ s('Not dispensed') }}</a-tag>
-              <template v-if="d.status === 'pending'">
+              <!-- Only today's doses are recorded; past days' unrecorded ones are "not given". -->
+              <template v-if="d.status === 'pending' && d.today">
                 <a-button size="small" type="primary" @click="openGive(d)"><ScanOutlined /> {{ s('Give') }}</a-button>
                 <a-button size="small" @click="dose(d, 'omitted')">{{ s('Omitted') }}</a-button>
                 <a-button size="small" @click="dose(d, 'refused')">{{ s('Refused') }}</a-button>
               </template>
+              <span v-else-if="d.status === 'pending'" class="muted">{{ s('Pending · another day') }}</span>
+              <a-tag v-else-if="d.status === 'missed'" color="volcano">{{ s('Not given (not recorded)') }}</a-tag>
               <span v-else class="muted">{{ s(DOSE_LABEL[d.status] || d.status) }} · {{ hm(d.given_at) }}<template v-if="d.by"> · {{ d.by }}</template></span>
             </div>
 
