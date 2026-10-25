@@ -37,6 +37,12 @@
           <span v-else class="muted">—</span>
           <div class="muted small">{{ tx('{n} accesses', '{n} accesos').replace('{n}', (perms[record.role_id] || []).length) }}</div>
         </template>
+        <template v-else-if="column.key === 'patients'">
+          <a-tooltip v-if="record.patients && record.patients.length" :title="record.patients.join(', ')">
+            <a-tag color="purple" style="cursor: help">{{ record.patients.length }}</a-tag>
+          </a-tooltip>
+          <span v-else-if="record.patients" class="muted">0</span>
+        </template>
         <template v-else-if="column.key === 'active'">
           <a-tag :color="record.active ? 'green' : 'default'">{{ record.active ? tx('Active', 'Activo') : tx('Disabled', 'Desactivado') }}</a-tag>
           <div v-if="record.portal !== null" class="muted small">{{ record.portal ? tx('Portal on', 'Portal activo') : tx('No portal', 'Sin portal') }}</div>
@@ -107,6 +113,8 @@ const columns = computed(() => [
   { title: tx('Login', 'Login'), key: 'name' },
   { title: tx('Type', 'Tipo'), key: 'type', width: 130 },
   { title: tx('Role and accesses', 'Rol y accesos'), key: 'role', width: 220 },
+  // Hospital staff only: patients assigned today (roster + attending doctor).
+  ...(logins.value.some(l => l.patients) ? [{ title: tx('Patients today', 'Pacientes hoy'), key: 'patients', width: 110 }] : []),
   { title: tx('Status', 'Estado'), key: 'active', width: 110 },
   { title: tx('Password', 'Contraseña'), key: 'password', width: 210 },
   { title: '', key: 'open', width: 100 },
