@@ -58,11 +58,11 @@
         <div v-if="ward.beds.length" class="beds">
           <button
             v-for="bed in ward.beds" :key="bed.id" type="button"
-            class="bed" :class="bed.status" @click="onBedClick(bed, ward)"
+            class="bed" :class="[bed.status, { late: bed.status === 'cleaning' && bed.status_minutes > 30 }]" @click="onBedClick(bed, ward)"
           >
             <span class="bed-no">{{ bed.bed_number }}</span>
             <span v-if="bed.patient_name" class="bed-patient">{{ bed.patient_name }}</span>
-            <span v-else class="bed-state">{{ s(labelOf(BED_STATUSES, bed.status)) }}</span>
+            <span v-else class="bed-state">{{ s(labelOf(BED_STATUSES, bed.status)) }}<template v-if="bed.status === 'cleaning' && bed.status_minutes != null"> · {{ bed.status_minutes }} min</template></span>
           </button>
         </div>
         <a-empty v-else :image="simpleEmptyImage" :description="s('No beds in this ward')">
@@ -336,6 +336,26 @@ function onBedClick(bed, ward) {
     router.push(`/hospital/patients/${bed.patient_id}`);
     return;
   }
+  // A bed waiting for cleaning: one click marks it clean (free again).
+  if (bed.status === 'cleaning') {
+    Modal.confirm({
+      title: s('Bed {bed}: cleaning finished?', { bed: bed.bed_number }),
+      content: s('It becomes available for a new patient.'),
+      okText: s('Mark clean'),
+      cancelText: s('Edit the bed'),
+      async onOk() {
+        try {
+          await http.post(`hospital/beds/${bed.id}/clean`);
+          message.success(s('Bed available'));
+          load();
+        } catch (e) {
+          message.error(e?.data?.message || e?.message || s('Could not save'));
+        }
+      },
+      onCancel: () => openBed(ward, bed),
+    });
+    return;
+  }
   openBed(ward, bed);
 }
 
@@ -448,6 +468,15 @@ onMounted(load);
 .bed.maintenance {
   border-style: dashed;
   opacity: 0.65;
+}
+.bed.cleaning {
+  border-color: rgba(124, 58, 237, 0.5);
+  background: rgba(124, 58, 237, 0.08);
+}
+/* Waiting for cleaning longer than 30 minutes after a discharge. */
+.bed.cleaning.late {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
 }
 .bed-no {
   font-weight: 600;

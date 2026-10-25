@@ -154,6 +154,7 @@ class HospitalWardController extends Controller
                             'id' => $bed->id,
                             'bed_number' => $bed->bed_number,
                             'status' => $bed->status,
+                            'status_minutes' => $bed->status_changed_at ? (int) $bed->status_changed_at->diffInMinutes(now()) : null,
                             'daily_rate' => $bed->effective_rate,
                             'notes' => $bed->notes,
                             'admission_id' => $admission ? $admission->id : null,
@@ -317,7 +318,7 @@ class HospitalWardController extends Controller
         return [
             'ward_id' => [$isUpdate ? 'nullable' : 'required', \App\Support\CompanyExists::rule('hospital_wards')],
             'bed_number' => ($isUpdate ? 'nullable' : 'required') . '|string|max:40',
-            'status' => 'nullable|in:available,occupied,maintenance,reserved',
+            'status' => 'nullable|in:available,occupied,cleaning,maintenance,reserved',
             'daily_rate' => 'nullable|numeric|min:0',
         ];
     }

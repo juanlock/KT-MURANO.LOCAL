@@ -389,6 +389,7 @@ const HospitalMyPatients = lazy('HospitalMyPatients', () => import('../pages/hos
 const HospitalTreatments = lazy('HospitalTreatments', () => import('../pages/hospital/Treatments.vue'));
 const HospitalSurgery = lazy('HospitalSurgery', () => import('../pages/hospital/Surgery.vue'));
 const HospitalShifts = lazy('HospitalShifts', () => import('../pages/hospital/StaffShifts.vue'));
+const HospitalSetup = lazy('HospitalSetup', () => import('../pages/hospital/HospitalSetup.vue'));
 const SchoolDashboard = lazy('SchoolDashboard', () => import('../pages/school/SchoolDashboard.vue'));
 const SchoolStudents = lazy('SchoolStudents', () => import('../pages/school/Students.vue'));
 const SchoolStudentForm = lazy('SchoolStudentForm', () => import('../pages/school/StudentForm.vue'));
@@ -798,6 +799,7 @@ const routes = [
             { path: 'hospital/treatments', name: 'hospital-treatments', component: HospitalTreatments, meta: { title: 'Treatments', permission: ['hms_treatments', 'hms_treatments_administer'] } },
             { path: 'hospital/surgery', name: 'hospital-surgery', component: HospitalSurgery, meta: { title: 'Operating room', permission: 'hms_surgery' } },
             { path: 'hospital/shifts', name: 'hospital-shifts', component: HospitalShifts, meta: { title: 'Staff shifts', permission: ['hms_shifts', 'hms_my_patients'] } },
+            { path: 'hospital/setup', name: 'hospital-setup', component: HospitalSetup, meta: { title: 'Hospital configuration', permission: 'hms_setup' } },
             // School Management. `create` is declared before the :id routes so
             // it is never read as a record id.
             { path: 'school/dashboard', name: 'school-dashboard', component: SchoolDashboard, meta: { title: 'School Dashboard', permission: 'school_dashboard' } },

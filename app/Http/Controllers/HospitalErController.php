@@ -358,11 +358,10 @@ class HospitalErController extends Controller
         return $bed;
     }
 
+    /** The patient left the ER bed: it waits for cleaning (HospitalBed::release). */
     private function freeBed($bedId): void
     {
-        if ($bedId) {
-            HospitalBed::where('id', $bedId)->where('status', 'occupied')->update(['status' => 'available']);
-        }
+        HospitalBed::release($bedId);
     }
 
     private function rules(): array

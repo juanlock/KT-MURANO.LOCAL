@@ -40,4 +40,12 @@ export default {
     'Deleted successfully': 'Eliminado correctamente',
     'Could not delete this ward': 'No se pudo eliminar esta sala',
     'Could not save this bed': 'No se pudo guardar esta cama',
+    // Cleaning after a discharge (2026-10-25)
+    'Cleaning': 'En limpieza',
+    'Bed {bed}: cleaning finished?': 'Cama {bed}: ¿terminó la limpieza?',
+    'It becomes available for a new patient.': 'Queda libre para un nuevo paciente.',
+    'Mark clean': 'Marcar limpia',
+    'Edit the bed': 'Editar la cama',
+    'Bed available': 'Cama libre',
+    'Could not save': 'No se pudo guardar',
 };

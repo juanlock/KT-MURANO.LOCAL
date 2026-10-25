@@ -15,7 +15,11 @@ use Illuminate\Support\Facades\DB;
  */
 class HospitalShifts
 {
-    /** key => [start hour, length hours] */
+    /**
+     * The standard shifts: key => [start hour, length hours]. Since 2026-10-25
+     * each company configures its own (hms_shift_types, Hospital ->
+     * Configuration -> Shifts); these are the defaults it starts with.
+     */
     public const SHIFTS = [
         'morning' => [7, 8],
         'afternoon' => [15, 8],
@@ -23,7 +27,14 @@ class HospitalShifts
         'er24' => [7, 24],
     ];
 
-    /** position => [shifts it works, people per shift, doctor|nurse] */
+    private const DEFAULT_NAMES = [
+        'morning' => ['Morning', 'Mañana'], 'afternoon' => ['Afternoon', 'Tarde'],
+        'night' => ['Night', 'Noche'], 'er24' => ['Emergency guard (24 h)', 'Guardia de emergencia (24 h)'],
+    ];
+
+    private const DEFAULT_COLORS = ['morning' => '#f59e0b', 'afternoon' => '#0ea5e9', 'night' => '#6366f1', 'er24' => '#ef4444'];
+
+    /** position => [shifts it works, people per shift, doctor|nurse] (the standard shifts; see positions()). */
     public const POSITIONS = [
         'er_doctor' => [['er24'], 1, 'doctor'],
         'specialist' => [['morning', 'afternoon', 'night'], 3, 'doctor'],
@@ -31,13 +42,80 @@ class HospitalShifts
         'nurse' => [['morning', 'afternoon', 'night'], 4, 'nurse'],
     ];
 
+    /**
+     * The company's shifts, in order: code => [code, name, start (HH:MM), hours,
+     * color, active]. A company with none yet gets the standard four (in its
+     * language). No acting company (SuperAdmin on all / console): the standard ones.
+     */
+    public static function types(?int $companyId = null): \Illuminate\Support\Collection
+    {
+        $companyId ??= \App\Models\HmsShiftType::actingCompanyId();
+        if (! $companyId || ! \Illuminate\Support\Facades\Schema::hasTable('hms_shift_types')) {
+            return self::defaults('en');
+        }
+        if (isset(self::$memo[$companyId])) {
+            return self::$memo[$companyId];
+        }
+        $rows = \App\Models\HmsShiftType::withoutGlobalScope('company')->where('company_id', $companyId)->orderBy('sort_order')->orderBy('id')->get();
+        if ($rows->isEmpty()) {
+            $lang = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->value('default_language') === 'es' ? 'es' : 'en';
+            foreach (self::defaults($lang)->values() as $i => $t) {
+                \App\Models\HmsShiftType::withoutGlobalScope('company')->firstOrCreate(['company_id' => $companyId, 'code' => $t['code']],
+                    ['name' => $t['name'], 'starts_at' => $t['start'], 'hours' => $t['hours'], 'color' => $t['color'], 'sort_order' => $i + 1, 'is_active' => true]);
+            }
+            $rows = \App\Models\HmsShiftType::withoutGlobalScope('company')->where('company_id', $companyId)->orderBy('sort_order')->orderBy('id')->get();
+        }
+
+        return self::$memo[$companyId] = $rows->mapWithKeys(fn ($r) => [$r->code => [
+            'code' => $r->code, 'name' => $r->name, 'start' => $r->starts_at, 'hours' => (int) $r->hours,
+            'color' => $r->color, 'active' => (bool) $r->is_active,
+        ]]);
+    }
+
+    /** types() per company within one request (forget() after a change). */
+    private static array $memo = [];
+
+    public static function forget(): void
+    {
+        self::$memo = [];
+    }
+
+    private static function defaults(string $lang): \Illuminate\Support\Collection
+    {
+        $order = ['er24', 'morning', 'afternoon', 'night'];
+
+        return collect($order)->mapWithKeys(fn ($code) => [$code => [
+            'code' => $code, 'name' => self::DEFAULT_NAMES[$code][$lang === 'es' ? 1 : 0],
+            'start' => sprintf('%02d:00', self::SHIFTS[$code][0]), 'hours' => self::SHIFTS[$code][1],
+            'color' => self::DEFAULT_COLORS[$code], 'active' => true,
+        ]]);
+    }
+
+    /**
+     * Positions with the shifts they work, from the company's shifts: the
+     * emergency doctor works the 24-hour ones, the others every shorter one.
+     */
+    public static function positions(?int $companyId = null): array
+    {
+        $types = self::types($companyId)->where('active', true);
+        $long = $types->where('hours', '>=', 24)->keys()->values()->all();
+        $short = $types->where('hours', '<', 24)->keys()->values()->all();
+        $out = [];
+        foreach (self::POSITIONS as $pos => [, $quota, $kind]) {
+            $out[$pos] = [$pos === 'er_doctor' ? $long : $short, $quota, $kind];
+        }
+
+        return $out;
+    }
+
     /** [start, end] of a shift on a date. */
     public static function window(string $date, string $shift): array
     {
-        [$h, $len] = self::SHIFTS[$shift] ?? self::SHIFTS['morning'];
-        $start = Carbon::parse($date)->setTime($h, 0);
+        $t = self::types()->get($shift) ?? self::defaults('en')->get($shift) ?? self::defaults('en')->get('morning');
+        [$h, $m] = array_map('intval', explode(':', $t['start'].':0'));
+        $start = Carbon::parse($date)->setTime($h, $m);
 
-        return [$start, $start->copy()->addHours($len)];
+        return [$start, $start->copy()->addHours($t['hours'])];
     }
 
     /** The [date, shift] pairs running at $at (the 8-hour one and the 24-hour guard). */
@@ -45,7 +123,7 @@ class HospitalShifts
     {
         $at = $at ?: now();
         $out = [];
-        foreach (self::SHIFTS as $shift => [$h]) {
+        foreach (self::types()->where('active', true)->keys() as $shift) {
             foreach ([$at->copy()->subDay()->toDateString(), $at->toDateString()] as $date) {
                 [$s, $e] = self::window($date, $shift);
                 if ($at >= $s && $at < $e) {

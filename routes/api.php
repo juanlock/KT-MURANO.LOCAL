@@ -1098,7 +1098,20 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::put('hospital/visits/{id}', 'HospitalVisitController@update');
     Route::delete('hospital/visits/{id}', 'HospitalVisitController@destroy');
 
-    Route::get('hospital/beds', 'HospitalWardController@beds');
+    // Hospital -> Configuration (2026-10-25): shifts, floors, rooms, beds, floor maps.
+Route::get('hospital/setup', 'HospitalSetupController@index');
+Route::put('hospital/setup/shifts', 'HospitalSetupController@saveShifts');
+Route::post('hospital/setup/floors', 'HospitalSetupController@storeFloor');
+Route::put('hospital/setup/floors/{id}', 'HospitalSetupController@updateFloor')->whereNumber('id');
+Route::delete('hospital/setup/floors/{id}', 'HospitalSetupController@destroyFloor')->whereNumber('id');
+Route::put('hospital/setup/floors/{id}/map', 'HospitalSetupController@saveMap')->whereNumber('id');
+Route::post('hospital/setup/rooms', 'HospitalSetupController@storeRoom');
+Route::put('hospital/setup/rooms/{id}', 'HospitalSetupController@updateRoom')->whereNumber('id');
+Route::delete('hospital/setup/rooms/{id}', 'HospitalSetupController@destroyRoom')->whereNumber('id');
+Route::post('hospital/setup/rooms/{id}/beds', 'HospitalSetupController@storeBeds')->whereNumber('id');
+Route::get('hospital/bed-map', 'HospitalSetupController@bedMap');
+Route::post('hospital/beds/{id}/clean', 'HospitalSetupController@cleanBed')->whereNumber('id');
+Route::get('hospital/beds', 'HospitalWardController@beds');
     Route::post('hospital/beds', 'HospitalWardController@storeBed');
     Route::put('hospital/beds/{id}', 'HospitalWardController@updateBed');
     Route::delete('hospital/beds/{id}', 'HospitalWardController@destroyBed');

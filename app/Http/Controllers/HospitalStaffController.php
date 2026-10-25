@@ -32,8 +32,9 @@ class HospitalStaffController extends Controller
 
         return response()->json([
             'date' => $date,
-            'shifts' => HospitalShifts::SHIFTS,
-            'positions' => HospitalShifts::POSITIONS,
+            // The company's shifts with their hours (Configuration -> Shifts) and the positions working each.
+            'shifts' => HospitalShifts::types()->where('active', true)->values(),
+            'positions' => HospitalShifts::positions(),
             'roster' => $rows->map(fn ($r) => [
                 'id' => $r->id, 'shift' => $r->shift, 'position' => $r->position,
                 'doctor_id' => $r->doctor_id, 'employee_id' => $r->employee_id, 'ward_id' => $r->ward_id,
@@ -56,13 +57,13 @@ class HospitalStaffController extends Controller
         abort_unless(HospitalShifts::can($request->user('api'), 'hms_shifts'), 403);
         $request->validate([
             'date' => 'required|date',
-            'shift' => ['required', Rule::in(array_keys(HospitalShifts::SHIFTS))],
+            'shift' => ['required', Rule::in(HospitalShifts::types()->where('active', true)->keys()->all())],
             'position' => ['required', Rule::in(array_keys(HospitalShifts::POSITIONS))],
             'doctor_id' => ['nullable', \App\Support\CompanyExists::rule('doctors')],
             'employee_id' => ['nullable', 'integer'],
             'ward_id' => ['nullable', \App\Support\CompanyExists::rule('hospital_wards')],
         ]);
-        [$shifts, $quota, $kind] = HospitalShifts::POSITIONS[$request->position];
+        [$shifts, $quota, $kind] = HospitalShifts::positions()[$request->position];
         if (! in_array($request->shift, $shifts, true)) {
             return response()->json(['message' => 'That position does not work this shift.'], 422);
         }

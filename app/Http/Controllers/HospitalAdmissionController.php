@@ -160,11 +160,8 @@ class HospitalAdmissionController extends Controller
                 'discharge_summary' => $request->discharge_summary ?: $admission->discharge_summary,
             ]);
 
-            if ($admission->bed_id) {
-                HospitalBed::where('id', $admission->bed_id)
-                    ->where('status', 'occupied')
-                    ->update(['status' => 'available']);
-            }
+            // The bed waits for the cleaning staff before it can be assigned again.
+            HospitalBed::release($admission->bed_id);
         });
 
         return response()->json([
@@ -205,11 +202,7 @@ class HospitalAdmissionController extends Controller
 
                 $bed->update(['status' => 'occupied']);
 
-                if ($previousBedId) {
-                    HospitalBed::where('id', $previousBedId)
-                        ->where('status', 'occupied')
-                        ->update(['status' => 'available']);
-                }
+                HospitalBed::release($previousBedId);
             });
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
@@ -262,6 +255,9 @@ class HospitalAdmissionController extends Controller
         }
         if (in_array($bed->status, ['maintenance'], true)) {
             throw new \RuntimeException('That bed is out of service.');
+        }
+        if ($bed->status === 'cleaning') {
+            throw new \RuntimeException('That bed is waiting for cleaning. Mark it clean first, or pick another one.');
         }
 
         return $bed;

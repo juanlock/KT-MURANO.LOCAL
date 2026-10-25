@@ -1292,6 +1292,11 @@ export const PERMISSION_GROUPS = [
                 "v": "hms_surgery",
                 "l": "Operating room",
                 "f": "Operating room"
+            },
+            {
+                "v": "hms_setup",
+                "l": "Hospital configuration",
+                "f": "Hospital configuration (shifts, floors, rooms, beds, map)"
             }
         ]
     },

@@ -66,6 +66,7 @@ export const WARD_TYPES = [
 export const BED_STATUSES = [
     { value: 'available', label: 'Available', color: 'success' },
     { value: 'occupied', label: 'Occupied', color: 'error' },
+    { value: 'cleaning', label: 'Cleaning', color: 'purple' },
     { value: 'reserved', label: 'Reserved', color: 'warning' },
     { value: 'maintenance', label: 'Maintenance', color: 'default' },
 ];
