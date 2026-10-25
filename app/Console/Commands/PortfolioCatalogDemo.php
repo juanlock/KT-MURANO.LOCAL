@@ -240,7 +240,7 @@ class PortfolioCatalogDemo extends Command
      * files/company_{id}/portfolio/models/barber/ (Wikimedia Commons, see CREDITS.txt),
      * at least 10 per service, the ones matching the service first.
      */
-    private function barberModels(object $c, int $gid): void
+    private function barberModels(object $c, int $gid, ?array $only = null): void
     {
         $dir = 'files/company_'.$c->company_id.'/portfolio/models/barber';
         $pool = array_map(fn ($f) => $dir.'/'.basename($f), glob(public_path($dir).'/*.jpg') ?: []);
@@ -254,7 +254,7 @@ class PortfolioCatalogDemo extends Command
         $prefer = ['head' => ['buzz', 'mid-fade'], 'beard' => ['beard', 'ritual-07', 'ritual-10'], 'towel|shave' => ['hot-towel', 'aftershave', 'ritual-07'],
             'design' => ['mid-fade-01', 'mid-fade-06', 'mid-fade'], 'fade|taper|line' => ['mid-fade', 'buzz'], 'kid' => ['personal-stylist', 'jorj-barbershop-in-iran-hair']];
         $items = DB::table('portfolio_catalog_items as i')->join('products as p', 'p.id', '=', 'i.product_id')
-            ->where('i.group_id', $gid)->orderBy('i.sort_order')->get(['i.id', 'p.name']);
+            ->where('i.group_id', $gid)->when($only, fn ($q) => $q->whereIn('p.name', $only))->orderBy('i.sort_order')->get(['i.id', 'p.name']);
         foreach ($items->values() as $k => $it) {
             // Photos of the cut itself from Pexels (database/scripts/company3_barber_models_pexels.php) win when present.
             $pex = 'files/company_'.$c->company_id.'/portfolio/models/pexels';
@@ -298,23 +298,35 @@ class PortfolioCatalogDemo extends Command
         ]);
         // Who each category is for (Woman / Man) -- the rest fit everyone.
         $gender = ['Barber Mens' => ['m'], 'Braids & Textured Hair' => ['w'], 'Make -up' => ['w'], 'Tanning' => ['w', 'm'], 'Med Spa' => ['w', 'm']];
+        // Kids = only the services made for kids, all in their own "Kids" group (user's rules,
+        // 2026-10-25: choosing Kids must not offer a beard trim or an adult haircut, nor show
+        // Barber Mens / Hair & Beauty -- only Kids); those services don't show for Adult.
+        $isKids = fn ($p) => (bool) preg_match('/\b(kids?|child|children|boys?|girls?)\b/i', $p->name);
+        $kids = $byCat->flatten(1)->filter($isKids)->values();
         $sort = 0;
         foreach ($byCat as $cat => $products) {
-            $gid = $this->group($c, $cat, ++$sort, $products->first()->image);
-            foreach ($products->values() as $i => $p) {
-                // Kids = only the services made for kids (user's rule, 2026-10-25: choosing Kids
-                // must not offer a beard trim or an adult haircut); those don't show for Adult.
-                $forKids = (bool) preg_match('/\b(kids?|child|children|boys?|girls?)\b/i', $p->name);
-                $opts = [];
-                if (isset($gender[$cat])) {
-                    $opts['s1'] = $gender[$cat];
-                }
-                $opts['s2'] = $forKids ? ['k'] : ['a'];
-                $this->item($c, $gid, (int) $p->id, $i + 1, $opts);
+            $adult = $products->reject($isKids)->values();
+            if ($adult->isEmpty()) {
+                continue;
+            }
+            $gid = $this->group($c, $cat, ++$sort, $adult->first()->image);
+            foreach ($adult as $i => $p) {
+                $this->item($c, $gid, (int) $p->id, $i + 1, (isset($gender[$cat]) ? ['s1' => $gender[$cat]] : []) + ['s2' => ['a']]);
             }
             if ($cat === 'Barber Mens') {
                 $this->barberModels($c, $gid);
             }
+        }
+        if ($kids->isNotEmpty()) {
+            $kidsGroup = $this->group($c, $es ? 'Niños' : 'Kids', ++$sort, ($kids->firstWhere('name', 'Kids Barber Cut') ?? $kids->first())->image);
+            foreach ($kids as $i => $p) {
+                // Boys' barber cut -> Men; braids -> Women; a kids haircut -> both.
+                $who = preg_match('/barber|boy/i', $p->name) ? ['m'] : (preg_match('/braid|girl/i', $p->name) ? ['w'] : null);
+                $this->item($c, $kidsGroup, (int) $p->id, $i + 1, ($who ? ['s1' => $who] : []) + ['s2' => ['k']]);
+            }
+            // The kids services leave the groups they were in before.
+            DB::table('portfolio_catalog_items')->where('catalog_id', $c->id)->where('group_id', '!=', $kidsGroup)->whereIn('product_id', $kids->pluck('id'))->delete();
+            $this->barberModels($c, $kidsGroup, ['Kids Barber Cut']);
         }
         // Any other service with its Pexels photos (Kids Haircut, Kids Braids...).
         $pex = 'files/company_'.$cid.'/portfolio/models/pexels';
@@ -342,10 +354,12 @@ class PortfolioCatalogDemo extends Command
         };
         $services = [
             'Cortes' => [['Corte clásico', 25, ['m'], ['a']], ['Fade / degradado', 30, ['m'], ['a']], ['Corte con navaja', 32, ['m'], ['a']],
-                ['Corte infantil', 18, ['m', 'w'], ['k']], ['Corte + diseño', 35, ['m'], ['a']], ['Corte de dama (pelo corto)', 30, ['w'], ['a']]],
+                ['Corte + diseño', 35, ['m'], ['a']], ['Corte de dama (pelo corto)', 30, ['w'], ['a']]],
             'Barba' => [['Perfilado de barba', 15, ['m'], ['a']], ['Barba con toalla caliente', 22, ['m'], ['a']], ['Afeitado clásico', 20, ['m'], ['a']]],
-            'Combos' => [['Corte + barba', 40, ['m'], ['a']], ['Papá e hijo', 38, ['m'], ['a', 'k']], ['Corte + lavado', 32, ['m', 'w'], ['a']]],
+            'Combos' => [['Corte + barba', 40, ['m'], ['a']], ['Corte + lavado', 32, ['m', 'w'], ['a']]],
             'Tratamientos' => [['Lavado y peinado', 15, ['m', 'w'], ['a']], ['Tinte de barba', 25, ['m'], ['a']], ['Mascarilla negra', 20, ['m', 'w'], ['a']]],
+            // Kids: their own group, the only one shown when the customer picks Niño.
+            'Niños' => [['Corte infantil', 18, ['m', 'w'], ['k']], ['Papá e hijo', 38, ['m'], ['k']]],
         ];
         $c = $this->catalog($cid, 'models', 'Servicios - Urban Cuts', [
             'title' => 'Urban Cuts', 'subtitle' => 'Barbería · Elija su corte', 'accent' => '#e11d48',
@@ -362,6 +376,8 @@ class PortfolioCatalogDemo extends Command
                 $pid = $this->product($cid, $name, $price, $pic, $group);
                 $gid ??= $this->group($c, $group, ++$sort, $pic);
                 $this->item($c, $gid, $pid, $i + 1, ['s1' => $who, 's2' => $age]);
+                // A service moved to another group (e.g. into Niños) leaves its old one.
+                DB::table('portfolio_catalog_items')->where('catalog_id', $c->id)->where('product_id', $pid)->where('group_id', '!=', $gid)->delete();
                 if ($pic && count($slides) < 3 && $i === 0) {
                     $slides[] = $pic;
                 }

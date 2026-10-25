@@ -212,10 +212,13 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
       });
       h += '</div>';
     } else {
-      h += chips() + '<h2>' + (D.type === 'models' ? T.services : T.menu) + '</h2>';
-      var gs = visibleGroups();
+      var gs = visibleGroups(), single = gs.length === 1 && D.steps.length;
+      h += chips() + (single ? '' : '<h2>' + (D.type === 'models' ? T.services : T.menu) + '</h2>');
       if (!gs.length) h += '<div class="empty">' + T.none + '</div>';
-      else {
+      else if (single) {
+        // Only one group fits the answers (e.g. Kids): its services right away.
+        h += '<h2>' + esc(gs[0].name) + '</h2><div class="items">' + visibleItems(gs[0].id).map(itemCard).join('') + '</div>';
+      } else {
         h += '<div class="groups">';
         gs.forEach(function (g) { h += '<button class="group" data-act="group" data-id="' + g.id + '">' + (g.image ? '<div class="bg" style="background-image:url(\'' + esc(g.image) + '\')"></div>' : '') + '<span>' + esc(g.name) + '</span></button>'; });
         h += '</div>';
@@ -342,7 +345,7 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
     gal.innerHTML = h + '</div>';
     gal.classList.add('on');
   }
-  function closeGal() { gal.classList.remove('on'); big.classList.remove('on'); state.gal = null; if (state.view === 'group') renderGroup(); }
+  function closeGal() { gal.classList.remove('on'); big.classList.remove('on'); state.gal = null; var top = main.scrollTop; render(); main.scrollTop = top; }
   function showPhoto(n) {
     var it = itemById(state.gal); if (!it) return;
     var c = it.photos.length; n = ((n - 1 + c) % c) + 1; state.photo = n;
@@ -369,7 +372,7 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
     else if (a === 'home') { state.view = 'home'; render(); main.scrollTop = 0; }
     else if (a === 'pick') { state.picks[b.getAttribute('data-step')] = b.getAttribute('data-opt'); render(); main.scrollTop = 0; }
     else if (a === 'reset') { state.picks = {}; state.view = 'home'; render(); }
-    else if (a === 'inc' || a === 'dec') { setQty(id, a === 'inc' ? 1 : -1); if (panel.classList.contains('on')) renderPanel(); if (state.view === 'group') renderGroup(); updateCount(); }
+    else if (a === 'inc' || a === 'dec') { setQty(id, a === 'inc' ? 1 : -1); if (panel.classList.contains('on')) renderPanel(); var top = main.scrollTop; render(); main.scrollTop = top; }
     else if (a === 'gal') openGal(id);
     else if (a === 'galClose') closeGal();
     else if (a === 'photo') showPhoto(Number(b.getAttribute('data-n')));
