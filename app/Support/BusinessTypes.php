@@ -22,7 +22,9 @@ class BusinessTypes
 
     /** key => label (Demo Data dropdown, sorted there by label). */
     public const LABELS = [
-        'general' => 'General / other',
+        // No specific sector yet (user's rule, 2026-10-24): only the base modules; the sector is asked for later
+        // and the company moves to that type (Companies -> Edit, then Business Modules -> "Modules of <type>").
+        'general' => 'General (no specific sector yet)',
         'it_services' => 'IT / technology services',
         'landscaping' => 'Landscaping / lawn care',
         'salon' => 'Hair salon / beauty',
@@ -40,6 +42,7 @@ class BusinessTypes
         'hospital' => 'Hospital / clinic',
         'factory' => 'Factory / manufacturing',
         'school' => 'School / academy',
+        'tourism' => 'Tourism / travel agency',
     ];
 
     /**
@@ -159,6 +162,9 @@ class BusinessTypes
         'factory' => ['documents', 'fleet', 'manufacturing', 'projects', 'service'],
         // School Management (students, teachers, academics, exams, timetable, fees), staff intranet, its portfolio, records (2026-10-20: nothing else, EXCLUDE).
         'school' => ['documents', 'intranet', 'portfolio', 'school'],
+        // Tours and packages (2026-10-24, Turismo Cautivo): reservations (Bookings), agents' commissions,
+        // campaigns, promotions and the tours' portfolio; complaints (Libro de Reclamos) via Helpdesk (base).
+        'tourism' => ['bookings', 'commissions', 'marketing', 'portfolio', 'promotions'],
     ];
 
     /** The modules a company of $type starts with (base + the type's own). */
@@ -232,6 +238,11 @@ class BusinessTypes
             ['6064', '6000-6999', 'Educational Materials and Textbooks', 'Material educativo y libros de texto'],
             ['7597', '7500-7999', 'Classroom and Lab Equipment', 'Equipo de aulas y laboratorios'],
             ['8599', '8500-8999', 'Student Activities and Field Trips', 'Actividades estudiantiles y excursiones'],
+        ],
+        'tourism' => [
+            ['6068', '6000-6999', 'Tour and Package Costs', 'Costos de tours y paquetes'],
+            ['7579', '7500-7999', 'Tourist Transport', 'Transporte turístico'],
+            ['8591', '8500-8999', 'Tourism Licenses and Permits', 'Licencias y permisos de turismo'],
         ],
     ];
 
@@ -331,6 +342,14 @@ class BusinessTypes
             ['Student activities and field trips', 'Actividades estudiantiles y excursiones', 'operating_expense', 'General Expenses', 'Student Activities Expense', 'As incurred', false, '8599',
                 'Field trips, events, graduations, competitions and their transport.'],
         ],
+        'tourism' => [
+            ['Tour and package costs', 'Costos de tours y paquetes', 'cogs', 'COGS', 'Cost of Services — Tours and Packages', 'As incurred', true, '6068',
+                'Hotels, entrance tickets, guides, meals and other services bought for the customers\' tours and packages.'],
+            ['Tourist transport', 'Transporte turístico', 'cogs', 'COGS', 'Cost of Services — Tourist Transport', 'As incurred / recurring', true, '7579',
+                'Buses, vans, boats, flights and drivers hired to move the customers on their tours.'],
+            ['Tourism licenses and permits', 'Licencias y permisos de turismo', 'operating_expense', 'Professional and Administrative Services', 'Licenses and Permits Expense', 'Monthly or annual', false, '8591',
+                'Tourism operator licenses, park and site permits, registry fees and required insurance.'],
+        ],
     ];
 
     /** Regular monthly bills: [category, base amount, variation 0-1, day of the month]. */
@@ -417,6 +436,12 @@ class BusinessTypes
             ['Classroom and lab equipment', 600, 0.7, 17], ['Student activities and field trips', 700, 0.8, 19], ['Advertising', 350, 0.5, 20],
             ['Accounting services', 500, 0, 25], ['Credit card processing fees', 250, 0.4, 28], ['Bank fees', 40, 0.4, 28],
         ],
+        'tourism' => [
+            ['Office rent', 1800, 0, 1], ['Software subscriptions', 200, 0.1, 3], ['Internet and telecommunications', 120, 0, 5],
+            ['Tour and package costs', 6500, 0.5, 8], ['Tourist transport', 2800, 0.4, 10], ['Utilities', 220, 0.3, 12],
+            ['Insurance', 450, 0, 15], ['Tourism licenses and permits', 150, 0, 16], ['Advertising', 900, 0.5, 20],
+            ['Accounting services', 350, 0, 25], ['Credit card processing fees', 420, 0.4, 28], ['Bank fees', 35, 0.4, 28],
+        ],
     ];
 
     /** Accounting demo wording: [quarterly invoice, quarterly supplies purchase, supplies account code]. */
@@ -435,6 +460,7 @@ class BusinessTypes
         'legal' => ['Legal services invoice — monthly retainer (on credit)', 'Court filing fees for a client case', '6095'],
         'hospital' => ['Insurance claims billed for patient services (on credit)', 'Weekly medical supplies order', '6062'],
         'factory' => ['Wholesale order of finished goods to a distributor (on credit)', 'Raw materials for the production run', '6031'],
+        'tourism' => ['Group tour package invoice (on credit)', 'Entrance tickets and guides for a tour', '6068'],
         'school' => ['Term tuition invoice (on credit)', 'Textbooks and class materials for the term', '6064'],
     ];
 
