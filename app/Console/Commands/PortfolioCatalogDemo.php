@@ -252,7 +252,9 @@ class PortfolioCatalogDemo extends Command
         }
         // First match wins; within it, photos in the order of the keys.
         $prefer = ['head' => ['buzz', 'mid-fade'], 'beard' => ['beard', 'ritual-07', 'ritual-10'], 'towel|shave' => ['hot-towel', 'aftershave', 'ritual-07'],
-            'design' => ['mid-fade-01', 'mid-fade-06', 'mid-fade'], 'fade|taper|line' => ['mid-fade', 'buzz'], 'kid' => ['personal-stylist', 'jorj-barbershop-in-iran-hair']];
+            'design' => ['mid-fade-01', 'mid-fade-06', 'mid-fade'], 'fade|taper|line' => ['mid-fade', 'buzz'],
+            // Kids: only the photos with a child (user, 2026-10-25: "a kid never has a beard") -- never topped up with adults.
+            'kid' => ['personal-stylist-barbershop-in-iran-mostafa-mera-98d6df', 'personal-stylist-barbershop-in-iran-mostafa-mera-9d922d', 'jorj-barbershop-in-iran-mashhad-city-canon-photo-3fa7b7']];
         $items = DB::table('portfolio_catalog_items as i')->join('products as p', 'p.id', '=', 'i.product_id')
             ->where('i.group_id', $gid)->when($only, fn ($q) => $q->whereIn('p.name', $only))->orderBy('i.sort_order')->get(['i.id', 'p.name']);
         foreach ($items->values() as $k => $it) {
@@ -272,6 +274,11 @@ class PortfolioCatalogDemo extends Command
                     }
                     break;
                 }
+            }
+            if (preg_match('/kid/i', $it->name)) {
+                DB::table('portfolio_catalog_items')->where('id', $it->id)->update(['photos' => $first ? json_encode(array_values(array_unique($first))) : null]);
+
+                continue;
             }
             $rest = array_merge(array_slice($pool, ($k * 7) % count($pool)), array_slice($pool, 0, ($k * 7) % count($pool)));
             $photos = array_slice(array_values(array_unique(array_merge($first, $rest))), 0, 12);
