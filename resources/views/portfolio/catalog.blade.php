@@ -35,12 +35,15 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
 .dots i.on { background: var(--accent); }
 .sec { padding: 18px 16px 28px; }
 .sec h2 { margin: 0 0 14px; font-size: 20px; }
-.groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
-.group { position: relative; height: 110px; border-radius: 16px; overflow: hidden; background: var(--panel2); display: flex; align-items: flex-end; padding: 12px; text-align: left; }
+/* home: step options and groups centered on the screen */
+.sec.home h2 { text-align: center; }
+.sec.home .chips { justify-content: center; }
+.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 210px)); justify-content: center; gap: 12px; }
+.group { position: relative; height: 110px; border-radius: 16px; overflow: hidden; background: var(--panel2); display: flex; align-items: center; justify-content: center; padding: 12px; text-align: center; }
 .group .bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: .55; }
 .group span { position: relative; font-size: 19px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
 .group::after { content: ""; position: absolute; inset: auto 0 0 0; height: 4px; background: var(--accent); }
-.steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 260px)); justify-content: center; gap: 14px; }
 .opt { position: relative; height: 160px; border-radius: 18px; overflow: hidden; background: var(--panel2); font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid transparent; }
 .opt .bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: .5; }
 .opt span { position: relative; }
@@ -117,6 +120,8 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
 .big .bar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line); }
 .big .bar .t { flex: 1; font-weight: 700; font-size: 17px; }
 .big .bar .t small { display: block; color: var(--muted); font-weight: 400; }
+/* round icon buttons: the symbol in the exact middle */
+.add, .back, .qty button, .big .nav { display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--panel2); padding: 10px 18px; border-radius: 999px; z-index: 50; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .toast.on { opacity: 1; }
 </style>
@@ -197,7 +202,7 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
     return h + '</div>';
   }
   function renderHome() {
-    var h = hero() + '<div class="sec">';
+    var h = hero() + '<div class="sec home">';
     if (D.steps.length && !stepsDone()) {
       var step = D.steps.find(function (s) { return !state.picks[s.id]; });
       h += chips();
