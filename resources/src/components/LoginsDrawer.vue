@@ -48,8 +48,8 @@
           <span v-else class="muted">{{ tx('Custom (not visible)', 'Personalizada (no visible)') }}</span>
         </template>
         <template v-else-if="column.key === 'open'">
-          <a-tooltip v-if="canOpen(record)" :title="tx('Work as this login in a new tab', 'Trabajar como este login en otra pestaña')">
-            <a-button size="small" :loading="opening === record.id" @click="openAs(record)"><template #icon><ExportOutlined /></template>{{ tx('Open', 'Abrir') }}</a-button>
+          <a-tooltip v-if="canOpen(record)" :title="tx('Work as this login (Back to admin in the header)', 'Entrar como este login (Volver a admin en el encabezado)')">
+            <a-button size="small" :loading="opening === record.id" @click="openAs(record)"><template #icon><LoginOutlined /></template>{{ tx('Enter', 'Entrar') }}</a-button>
           </a-tooltip>
         </template>
       </template>
@@ -60,7 +60,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { message } from 'ant-design-vue';
-import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, ExportOutlined } from '@ant-design/icons-vue';
+import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, LoginOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
 import { sortByLabel } from '../lib/filterOptions';
@@ -111,30 +111,22 @@ const columns = computed(() => [
   { title: '', key: 'open', width: 100 },
 ]);
 
-// "Open" (switch + back): a login with the standard password, not my own.
+// "Enter" (switch + back): a login with the standard password, not my own.
 const auth = useAuthStore();
 const opening = ref(null);
 const canOpen = r => r.password && r.active && r.id !== auth.user?.id && r.type !== 'Online_store';
+// Same tab (user's rule, 2026-10-25): every tab shares the session, so the
+// admin simply becomes that login here and returns with "Back to admin".
 async function openAs(r) {
-  // The tab opens now (inside the click), or the browser blocks it as a pop-up.
-  const tab = window.open('about:blank', '_blank');
   opening.value = r.id;
   try {
     const res = await http.webPost(`login/as/${r.id}`);
     if (r.type !== 'customer') {
-      // This browser is that login now: the admin's auth cache goes too.
       try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
     }
-    if (tab) tab.location.href = res?.redirect || '/';
-    else window.open(res?.redirect || '/', '_blank');
-    if (r.type !== 'customer') {
-      message.info(tx(`This browser now works as ${r.name}. Use "Back to admin" in the header to return.`,
-        `Este navegador ahora trabaja como ${r.name}. Use "Volver a admin" en el encabezado para regresar.`), 6);
-    }
+    window.location.href = res?.redirect || '/';
   } catch (e) {
-    if (tab) tab.close();
     message.error(e?.data?.message || tx('Could not open that login', 'No se pudo abrir ese login'));
-  } finally {
     opening.value = null;
   }
 }

@@ -275,9 +275,10 @@ the start of each session).
   (migration 2026_10_25_190000). **Company logins** (profile menu, the
   company's admin only: admin login + `company_logins_view`): every login, its
   role and accesses, the password when still standard (bcrypt-checked, a
-  changed one shows "custom"), and **Open** = work as that login in a new tab
-  (`/login/as/{id}`, `AdminSwitch` cookie, header "Back to admin"; a customer
-  opens the portal instead; the other tabs reload as the login in use).
+  changed one shows "custom"), a filter by type and by role, and **Enter** =
+  work as that login in the same tab (`/login/as/{id}`, `AdminSwitch` cookie,
+  header "Back to admin"; a customer opens the portal instead; any other open
+  tab reloads as the login in use).
 - **Users -> Add creates Admin / SuperAdmin logins only** (SuperAdmin only by a
   SuperAdmin). Employee / customer / supplier / sales-agent logins are created
   in HRM -> Employees, People -> Customers / Suppliers, Commissions -> Sales
