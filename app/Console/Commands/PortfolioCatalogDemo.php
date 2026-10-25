@@ -309,10 +309,13 @@ class PortfolioCatalogDemo extends Command
         // 2026-10-25: choosing Kids must not offer a beard trim or an adult haircut, nor show
         // Barber Mens / Hair & Beauty -- only Kids); those services don't show for Adult.
         $isKids = fn ($p) => (bool) preg_match('/\b(kids?|child|children|boys?|girls?)\b/i', $p->name);
-        $kids = $byCat->flatten(1)->filter($isKids)->values();
+        // One kids cut for boys and girls: "Kids Barber Cut" is merged into "Kids Haircut" (user, 2026-10-25).
+        $merged = $byCat->flatten(1)->where('name', 'Kids Barber Cut')->pluck('id');
+        DB::table('portfolio_catalog_items')->where('catalog_id', $c->id)->whereIn('product_id', $merged)->delete();
+        $kids = $byCat->flatten(1)->filter($isKids)->whereNotIn('id', $merged)->values();
         $sort = 0;
         foreach ($byCat as $cat => $products) {
-            $adult = $products->reject($isKids)->values();
+            $adult = $products->reject($isKids)->whereNotIn('id', $merged)->values();
             if ($adult->isEmpty()) {
                 continue;
             }
@@ -325,15 +328,17 @@ class PortfolioCatalogDemo extends Command
             }
         }
         if ($kids->isNotEmpty()) {
-            $kidsGroup = $this->group($c, $es ? 'Niños' : 'Kids', ++$sort, ($kids->firstWhere('name', 'Kids Barber Cut') ?? $kids->first())->image);
+            $cover = ($kids->firstWhere('name', 'Kids Haircut') ?? $kids->first())->image;
+            $kidsGroup = $this->group($c, $es ? 'Niños' : 'Kids', ++$sort, $cover);
+            DB::table('portfolio_catalog_groups')->where('id', $kidsGroup)->update(['image' => $cover]);
             foreach ($kids as $i => $p) {
-                // Boys' barber cut -> Men; braids -> Women; a kids haircut -> both.
-                $who = preg_match('/barber|boy/i', $p->name) ? ['m'] : (preg_match('/braid|girl/i', $p->name) ? ['w'] : null);
+                // Kids Haircut -> boys and girls; braids -> Women.
+                $who = preg_match('/boy/i', $p->name) ? ['m'] : (preg_match('/braid|girl/i', $p->name) ? ['w'] : null);
                 $this->item($c, $kidsGroup, (int) $p->id, $i + 1, ($who ? ['s1' => $who] : []) + ['s2' => ['k']]);
             }
             // The kids services leave the groups they were in before.
             DB::table('portfolio_catalog_items')->where('catalog_id', $c->id)->where('group_id', '!=', $kidsGroup)->whereIn('product_id', $kids->pluck('id'))->delete();
-            $this->barberModels($c, $kidsGroup, ['Kids Barber Cut']);
+            $this->barberModels($c, $kidsGroup, ['Kids Haircut']);
         }
         // Any other service with its Pexels photos (Kids Haircut, Kids Braids...).
         $pex = 'files/company_'.$cid.'/portfolio/models/pexels';

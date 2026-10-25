@@ -37,8 +37,8 @@ $Q = [
     'Head Shave' => ['caucasian bald man', 'shaved head man', 'clean shaved head'],
     'Hot Towel Shave' => ['hot towel shave', 'straight razor shave close up', 'shaving foam face razor'],
     // Kids: a style catalog of finished cuts on children (user's example, 2026-10-25: "112 modern haircuts for kids").
-    'Kids Barber Cut' => ['blonde toddler boy haircut', 'boy side part haircut', 'little boy fade haircut', 'boy short haircut', 'boy undercut hairstyle', 'kid boy hairstyle'],
-    'Kids Haircut' => ['little girl haircut', 'girl bob haircut', 'little girl short hair', 'girl hairstyle kids'],
+    // One kids cut for boys and girls (Kids Barber Cut merged into Kids Haircut).
+    'Kids Haircut' => ['blonde toddler boy haircut', 'boy side part haircut', 'little boy fade haircut', 'little girl haircut', 'girl bob haircut', 'boy short haircut'],
     'Kids Braids' => ['little girl braids hairstyle', 'girl braided hair', 'kids braids hairstyle'],
     'Line Up / Edge Up' => ['white man line up haircut', 'hairline edge up', 'sharp hairline haircut'],
     'Senior Cut' => ['older white man haircut', 'gray hair man short haircut', 'senior man hairstyle'],
