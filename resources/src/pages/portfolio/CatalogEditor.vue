@@ -61,11 +61,18 @@
                     <div class="ce-iinfo">
                       <div class="ce-iname">{{ it.name }} <a-tag v-if="!it.available" color="red">{{ es ? 'no disponible' : 'unavailable' }}</a-tag></div>
                       <div class="ce-muted">{{ c.currency }}{{ Number(it.price).toFixed(2) }}<span v-if="it.code"> · {{ it.code }}</span></div>
+                      <!-- Steps on one row; each answer is a chip that lights up when the service fits it (none lit = everyone). -->
                       <div v-if="c.type === 'models' && s.steps.length" class="ce-opts">
-                        <span v-for="st in s.steps" :key="st.id" class="ce-opt">
-                          <b>{{ st.name }}:</b>
-                          <a-checkbox-group :value="(it.options && it.options[st.id]) || []" :options="st.options.map(o => ({ value: o.id, label: o.label }))" @change="v => setOptions(it, st.id, v)" />
-                        </span>
+                        <div v-for="st in s.steps" :key="st.id" class="ce-opt">
+                          <span class="ce-ostep">{{ st.name }}</span>
+                          <button
+                            v-for="o in st.options" :key="o.id" type="button" class="ce-chip"
+                            :class="{ on: picked(it, st.id).includes(o.id) }" @click="toggleOpt(it, st.id, o.id)"
+                          >
+                            <span v-if="optIcon(o.label)" class="ce-cicon">{{ optIcon(o.label) }}</span>{{ o.label }}
+                          </button>
+                          <span v-if="!picked(it, st.id).length" class="ce-all">{{ es ? 'todos' : 'everyone' }}</span>
+                        </div>
                       </div>
                     </div>
                     <span class="ce-iact">
@@ -77,7 +84,7 @@
                   </div>
                   <a-empty v-if="!itemsOf(group.id).length" :description="es ? 'Agrega productos de Productos (imagen, nombre y precio salen de ahí).' : 'Add products from Products (picture, name and price come from there).'" />
                 </div>
-                <div v-if="c.type === 'models'" class="ce-muted ce-small">{{ es ? 'Sin opciones marcadas = el servicio se muestra para todas las respuestas.' : 'No option ticked = the service shows for every answer.' }}</div>
+                <div v-if="c.type === 'models'" class="ce-muted ce-small">{{ es ? 'Toca una respuesta para encenderla o apagarla. Ninguna encendida = el servicio se muestra para todos.' : 'Tap an answer to turn it on or off. None on = the service shows for everyone.' }}</div>
               </div>
               <a-empty v-else :description="es ? 'Crea un grupo (ej. Arroces, Sopas, Postres, Bebidas).' : 'Create a group (e.g. Rice, Soups, Desserts, Drinks).'" />
             </div>
@@ -355,6 +362,20 @@ async function moveItem(gid, i, d) {
 async function removeItem(it) {
   try { take((await http.delete(`portfolio/catalogs/items/${it.id}`)).catalog); } catch (e) { err(e); }
 }
+const picked = (it, stepId) => (it.options && it.options[stepId]) || [];
+function toggleOpt(it, stepId, optId) {
+  const now = picked(it, stepId);
+  setOptions(it, stepId, now.includes(optId) ? now.filter(x => x !== optId) : [...now, optId]);
+}
+// A friendly icon for the usual answers (Women / Men, Adult / Kids, in English or Spanish).
+function optIcon(label) {
+  const l = String(label).toLowerCase();
+  if (/^(women|woman|mujer|mujeres|dama|damas)$/.test(l)) return '👩';
+  if (/^(men|man|hombre|hombres|caballero|caballeros)$/.test(l)) return '👨';
+  if (/^(adult|adults|adulto|adultos)$/.test(l)) return '🧑';
+  if (/^(kids|kid|child|children|niño|niños|niña|niñas|nino|ninos)$/.test(l)) return '🧒';
+  return '';
+}
 async function setOptions(it, stepId, values) {
   const options = { ...(it.options || {}), [stepId]: values };
   try { take((await http.put(`portfolio/catalogs/items/${it.id}`, { options })).catalog); } catch (e) { err(e); }
@@ -471,8 +492,18 @@ onMounted(load);
 .ce-pact { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 4px; padding: 4px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.55)); }
 .ce-oline { display: flex; align-items: center; gap: 6px; }
 .ce-oline img { width: 28px; height: 36px; object-fit: cover; border-radius: 4px; }
-.ce-opts { margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
-.ce-opt { font-size: 12.5px; }
+.ce-opts { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.ce-opt { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ce-ostep { font-size: 12px; font-weight: 600; opacity: 0.7; }
+.ce-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(128, 128, 128, 0.35); background: transparent; color: inherit; font-size: 13px; line-height: 20px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ce-chip:hover { border-color: #1677ff; }
+.ce-chip.on { background: #1677ff; border-color: #1677ff; color: #fff; }
+.ce-cicon { font-size: 15px; }
+.ce-all { font-size: 12px; font-style: italic; opacity: 0.55; }
 .ce-muted { opacity: 0.6; }
 .ce-small { font-size: 12px; margin-top: 8px; }
 .ce-step { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; padding: 10px; margin-bottom: 12px; }

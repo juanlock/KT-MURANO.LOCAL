@@ -34,7 +34,7 @@
       <span v-if="catalogs.length && auth.headerIcon('catalog') && (auth.can('portfolio_manage') || auth.can('Pos_view'))" class="tb-slot" :style="{ order: auth.headerOrder('catalog') }">
         <a-button v-if="catalogs.length === 1" class="pos-btn cat-btn" @click="openCatalog(catalogs[0])">
           <template #icon><TabletOutlined /></template>
-          <span class="hide-sm">{{ catalogs[0].type === 'menu' ? 'Menu' : 'Catálogo' }}</span>
+          <span class="hide-sm">{{ catalogs[0].type === 'menu' ? (ui.locale === 'es' ? 'Carta' : 'Menu') : (ui.locale === 'es' ? 'Catálogo' : 'Catalog') }}</span>
         </a-button>
         <a-dropdown v-else :trigger="['click']">
           <a-button class="pos-btn cat-btn"><template #icon><TabletOutlined /></template><span class="hide-sm">{{ catalogsLabel }}</span></a-button>
