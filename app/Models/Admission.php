@@ -20,12 +20,40 @@ class Admission extends Model
         // Administrative admission + account (2026-10-25).
         'origin', 'ordered_by', 'ordered_at', 'payer_type', 'insurer', 'policy_number', 'authorization_no', 'authorization_status',
         'coverage_percent', 'copay', 'deductible', 'consents', 'deposit_amount', 'deposit_method', 'deposit_at',
-        'billing_mode', 'drg_id', 'account_invoice_id', 'left_at',
+        'billing_mode', 'drg_id', 'account_invoice_id', 'left_at', 'card_type', 'card_last4',
     ];
 
     public const ORIGINS = ['er', 'elective', 'outpatient', 'referral', 'transfer', 'other'];
 
     public const PAYERS = ['self', 'private', 'public'];
+
+    /** Insurance (insurer + policy) and / or a guarantee card on file (2026-10-25). */
+    public function hasFinancialData(): bool
+    {
+        $insured = in_array($this->payer_type, ['private', 'public'], true) && ($this->policy_number || $this->insurer)
+            && $this->authorization_status !== 'denied';
+
+        return $insured || (bool) $this->card_last4;
+    }
+
+    /**
+     * The money of an arrival (the window's data on er_cases) for the stay it
+     * becomes: payer, insurer, policy, authorization, guarantee card.
+     */
+    public static function payerFromArrival(?ErCase $c): array
+    {
+        if (! $c || ! $c->payer_type) {
+            return [];
+        }
+
+        return array_filter([
+            'payer_type' => $c->payer_type === 'self_pay' ? 'self' : $c->payer_type,
+            'insurer' => $c->insurer, 'policy_number' => $c->policy_no, 'authorization_no' => $c->authorization_no,
+            'authorization_status' => $c->authorization_no ? 'approved' : null,
+            'card_type' => $c->card_type, 'card_last4' => $c->card_last4,
+            'origin' => $c->pathway === 'scheduled' ? 'referral' : 'er',
+        ], fn ($v) => $v !== null && $v !== '');
+    }
 
     /** The consents signed at admission (key => label). */
     public const CONSENTS = ['admission' => 'Admission authorization', 'informed' => 'Informed consent', 'rules' => 'Internal rules', 'financial' => 'Financial responsibility'];

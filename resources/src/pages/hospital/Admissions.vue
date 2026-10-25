@@ -230,7 +230,7 @@ import { useRouter, useRoute } from 'vue-router';
 import AccountDrawer from './AccountDrawer.vue';
 import ClinicalDrawer from './ClinicalDrawer.vue';
 import { FileTextOutlined } from '@ant-design/icons-vue';
-import { message } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined,
   LogoutOutlined, SwapOutlined, HomeOutlined,
@@ -398,13 +398,21 @@ function openDischarge(record) {
 async function submitDischarge() {
   working.value = true;
   try {
-    await http.post(`hospital/admissions/${target.value.id}/discharge`, { ...dischargeForm });
+    const res = await http.post(`hospital/admissions/${target.value.id}/discharge`, { ...dischargeForm });
     message.success(s('Patient discharged.'));
     dischargeOpen.value = false;
     crud.fetchRows();
     loadBeds();
-    // Discharge -> close the account so the patient can leave (the file opens on its account step).
-    accountId.value = target.value.id;
+    if (res?.invoice?.status === 'paid') {
+      // Insurance / card on file: the account was closed and paid at discharge (2026-10-25).
+      Modal.success({
+        title: s('Account closed and paid'),
+        content: s('Invoice {ref}: {total}, charged to the insurance / card on file.', { ref: res.invoice.reference, total: money(res.invoice.total) }),
+      });
+    } else {
+      // No financial data: close the account at the cashier (the file opens on its account step).
+      accountId.value = target.value.id;
+    }
   } catch (e) {
     message.error(e?.data?.message || s('Could not discharge this patient'));
   } finally {

@@ -145,7 +145,7 @@ class HospitalDeskController extends Controller
                     'admitted_at' => now(), 'daily_rate' => $bed->effective_rate,
                     'reason' => trim($triage.($request->complaint ?? '')), 'diagnosis' => $request->diagnosis,
                     'status' => 'admitted', 'created_by' => $userId,
-                ]);
+                ] + Admission::payerFromArrival(new ErCase($request->only(['payer_type', 'insurer', 'policy_no', 'authorization_no', 'card_type', 'card_last4', 'pathway']))));
                 $bed->update(['status' => 'occupied']);
 
                 return $a;
@@ -194,7 +194,7 @@ class HospitalDeskController extends Controller
                     'admitted_at' => now(), 'daily_rate' => $bed->effective_rate,
                     'reason' => trim('Triage '.($case->triage_level ?: '?').'. '.($case->complaint ?? '')), 'diagnosis' => $case->diagnosis,
                     'status' => 'admitted', 'created_by' => auth('api')->id(),
-                ]);
+                ] + Admission::payerFromArrival($case));
                 $bed->update(['status' => 'occupied']);
                 $case->update(['status' => 'closed', 'disposition' => 'admitted', 'closed_at' => now(), 'admission_id' => $a->id,
                     'treatment_started_at' => $case->treatment_started_at ?: now()]);

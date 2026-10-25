@@ -279,7 +279,7 @@ class HospitalErController extends Controller
                         'diagnosis' => $diagnosis,
                         'status' => 'admitted',
                         'created_by' => $userId,
-                    ])->id;
+                    ] + Admission::payerFromArrival($case))->id; // the window's money goes with the stay
                     $bed->update(['status' => 'occupied']);
                 }
 

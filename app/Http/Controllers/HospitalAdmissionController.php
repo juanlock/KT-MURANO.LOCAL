@@ -172,10 +172,20 @@ class HospitalAdmissionController extends Controller
             }
         });
 
+        // With insurance and / or a card on file: the account is closed and paid now (2026-10-25).
+        $invoice = null;
+        try {
+            $invoice = \App\Services\HospitalAccount::settleAtDischarge($admission->fresh(), optional($request->user('api'))->id);
+        } catch (\Throwable $e) {
+            report($e); // the discharge stands; the account can be settled at the cashier
+        }
+
         return response()->json([
             'success' => true,
             'nights' => $admission->fresh()->nights,
             'bed_charge' => $admission->fresh()->bed_charge,
+            'invoice' => $invoice ? ['id' => $invoice->id, 'reference' => $invoice->reference, 'total' => (float) $invoice->total,
+                'paid' => (float) $invoice->paid, 'status' => $invoice->status] : null,
         ]);
     }
 

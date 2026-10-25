@@ -425,7 +425,12 @@ the start of each session).
   level 1-5, send to a free ER bed. **Without financial data an emergency
   patient is never admitted to a ward** (`ErCase::hasFinancialData()`: desk
   call-in to a ward bed and ER close as "admitted" refuse it): waiting room or
-  ER bed until sent home.
+  ER bed until sent home. The window's money goes with the stay
+  (`Admission::payerFromArrival`, `admissions.card_type / card_last4`) and **at
+  discharge a stay with insurance and / or a card is closed and paid**
+  (`HospitalAccount::settleAtDischarge`: insurer's share = insurer payment,
+  patient's share = the card, or the insurer when there is no card; invoice
+  paid). Without financial data the account stays for the cashier.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the

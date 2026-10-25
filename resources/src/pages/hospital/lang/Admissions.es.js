@@ -46,4 +46,6 @@ export default {
     'Administrative file and account': 'Expediente administrativo y cuenta',
     'Chart of the stay': 'Historia de la estancia',
     'The patient already left the room (the bed goes to cleaning)': 'El paciente ya dejó la habitación (la cama pasa a limpieza)',
+    'Account closed and paid': 'Cuenta cerrada y pagada',
+    'Invoice {ref}: {total}, charged to the insurance / card on file.': 'Factura {ref}: {total}, cargada al seguro / tarjeta registrados.',
 };

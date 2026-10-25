@@ -143,6 +143,47 @@ class HospitalAccount
         });
     }
 
+    /**
+     * At discharge (user's rule, 2026-10-25): a patient who came with insurance
+     * and / or a credit card leaves with the account closed and PAID -- the
+     * insurer's share as the insurer's payment, the patient's share charged to
+     * the guarantee card (or to the insurer when there is no card). Without
+     * financial data nothing happens (the account stays to be settled at the
+     * cashier). Returns the invoice or null.
+     */
+    public static function settleAtDischarge(Admission $a, ?int $userId): ?HospitalInvoice
+    {
+        if (! $a->hasFinancialData()) {
+            return null;
+        }
+        $invoice = $a->account_invoice_id ? HospitalInvoice::whereNull('deleted_at')->find($a->account_invoice_id) : null;
+        if (! $invoice) {
+            try {
+                $invoice = self::close($a, $userId);
+            } catch (\RuntimeException $e) {
+                return null; // nothing to bill
+            }
+        }
+        $billing = app(HospitalBillingController::class);
+        $insured = in_array($a->payer_type, ['private', 'public'], true) && $a->authorization_status !== 'denied';
+        $insurerName = $a->insurer ?: 'insurance';
+
+        return DB::transaction(function () use ($invoice, $a, $userId, $billing, $insured, $insurerName) {
+            $insurerDue = HospitalBillingController::dueOf($invoice, 'insurer');
+            if ($insurerDue > 0) {
+                $billing->addPayment($invoice, $insurerDue, 'insurance', 'insurer', "Charged to {$insurerName} at discharge ({$a->reference})", $userId);
+            }
+            $patientDue = HospitalBillingController::dueOf($invoice->fresh(), 'patient');
+            if ($patientDue > 0 && $a->card_last4) {
+                $billing->addPayment($invoice, $patientDue, 'card', 'patient', 'Charged to '.trim(($a->card_type ?: 'card').' ****'.$a->card_last4)." at discharge ({$a->reference})", $userId);
+            } elseif ($patientDue > 0 && $insured) {
+                $billing->addPayment($invoice, $patientDue, 'insurance', 'insurer', "Charged to {$insurerName} at discharge ({$a->reference})", $userId);
+            }
+
+            return $invoice->fresh();
+        });
+    }
+
     /** Minutes from the admission order to the patient in the bed (null when no order time). */
     public static function waitMinutes(Admission $a): ?int
     {
