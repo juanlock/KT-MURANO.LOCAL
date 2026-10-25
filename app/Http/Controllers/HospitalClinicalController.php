@@ -26,6 +26,7 @@ use Illuminate\Validation\Rule;
  *  GET  hospital/admissions/{id}/epicrisis   the discharge summary drafted from the stay
  *  PUT  hospital/admissions/{id}/epicrisis   saved (admissions.discharge_summary)
  *  GET  hospital/control-tower               bed status, alerts, suggestion of a bed
+ *  PUT  hospital/admissions/{id}/portal-status what the family sees in the patient portal (phase 4)
  */
 class HospitalClinicalController extends Controller
 {
@@ -38,6 +39,9 @@ class HospitalClinicalController extends Controller
         'account' => 'Account closed (billing)',
         'family' => 'Family told the time of discharge',
     ];
+
+    /** The day's status the family sees in the patient portal (phase 4). */
+    public const PORTAL_STATUSES = ['stable', 'improving', 'observation', 'resting', 'in_procedure', 'preparing_discharge'];
 
     private function canView(Request $r): void
     {
@@ -83,7 +87,7 @@ class HospitalClinicalController extends Controller
             ->orderBy('d.scheduled_at')->get(['d.id', 'd.scheduled_at', 'd.status', 'd.given_at', 'd.given_by', 'd.dispensed', 'o.medicine', 'o.dose', 'o.route']);
         $labs = DB::table('lab_order_items as i')->join('lab_orders as o', 'o.id', '=', 'i.lab_order_id')
             ->where('o.patient_id', $a->patient_id)->whereNull('o.deleted_at')->where('o.ordered_at', '>=', $a->admitted_at)
-            ->orderByDesc('o.ordered_at')->get(['o.reference', 'o.ordered_at', 'o.status', 'o.priority', 'i.test_name', 'i.result_value', 'i.unit', 'i.normal_range', 'i.flag']);
+            ->orderByDesc('o.ordered_at')->get(['i.id', 'o.id as order_id', 'o.reference', 'o.ordered_at', 'o.status', 'o.priority', 'i.test_name', 'i.result_value', 'i.unit', 'i.normal_range', 'i.flag', 'i.critical_seen_at']);
         $consults = DB::table('hms_consults')->where('admission_id', $a->id)->orderByDesc('id')->get();
         $plan = DB::table('hms_discharge_plans')->where('admission_id', $a->id)->first();
         $names = $users(array_merge($notes->pluck('user_id')->all(), $vitals->pluck('user_id')->all(), $doses->pluck('given_by')->all(), $logs->flatten()->pluck('user_id')->all()));
@@ -109,8 +113,12 @@ class HospitalClinicalController extends Controller
             'doses' => $doses->map(fn ($d) => (array) $d + ['by' => $names[$d->given_by] ?? null])->values(),
             'labs' => $labs,
             'consults' => $consults->map(fn ($c) => (array) $c + ['to_doctor' => $doctors[$c->to_doctor_id] ?? null, 'from_doctor' => $doctors[$c->requested_by] ?? null])->values(),
+            'portal' => ['status' => $a->portal_status, 'note' => $a->portal_note, 'at' => $a->portal_status_at],
+            'videos' => DB::table('hms_care_videos')->where('company_id', $cid)->where('is_active', 1)->orderBy('sort_order')->orderBy('title')->get(['id', 'title', 'topic']),
             'plan' => [
                 'planned_at' => $plan ? $plan->planned_at : null,
+                'home_prescriptions' => optional($plan)->home_prescriptions, 'home_care' => optional($plan)->home_care,
+                'video_ids' => json_decode((string) optional($plan)->video_ids, true) ?: [], 'follow_up_at' => optional($plan)->follow_up_at,
                 'items' => collect(self::PLAN_ITEMS)->map(fn ($label, $key) => ['key' => $key, 'label' => $label] + ((json_decode((string) optional($plan)->items, true) ?: [])[$key] ?? ['done' => false]))->values(),
             ],
             'doctors' => DB::table('doctors')->where('company_id', $cid)->whereNull('deleted_at')->where('is_active', 1)->orderBy('name')->get(['id', 'name', 'specialty']),
@@ -247,16 +255,39 @@ class HospitalClinicalController extends Controller
     {
         $this->canView($request);
         $a = $this->stay($id);
-        $v = $request->validate(['planned_at' => 'required|date', 'items' => 'array']);
-        $old = json_decode((string) DB::table('hms_discharge_plans')->where('admission_id', $a->id)->value('items'), true) ?: [];
+        $v = $request->validate(['planned_at' => 'nullable|date', 'items' => 'array',
+            // What the patient takes home (shown in the patient portal, phase 4).
+            'home_prescriptions' => 'nullable|string|max:5000', 'home_care' => 'nullable|string|max:5000',
+            'video_ids' => 'nullable|array', 'video_ids.*' => ['integer', Rule::exists('hms_care_videos', 'id')->where('company_id', $a->company_id)],
+            'follow_up_at' => 'nullable|date']);
+        $current = DB::table('hms_discharge_plans')->where('admission_id', $a->id)->first();
+        $old = json_decode((string) optional($current)->items, true) ?: [];
         $items = [];
         foreach (array_keys(self::PLAN_ITEMS) as $key) {
             $done = (bool) ($v['items'][$key] ?? false);
             $items[$key] = $done ? (($old[$key]['done'] ?? false) ? $old[$key] : ['done' => true, 'by' => $this->userName($request->user('api')->id), 'at' => now()->toIso8601String()])
                 : ['done' => false];
         }
-        DB::table('hms_discharge_plans')->updateOrInsert(['admission_id' => $a->id], ['company_id' => $a->company_id, 'planned_at' => $v['planned_at'],
-            'items' => json_encode($items), 'created_by' => $request->user('api')->id, 'updated_at' => now(), 'created_at' => now()]);
+        DB::table('hms_discharge_plans')->updateOrInsert(['admission_id' => $a->id], [
+            'company_id' => $a->company_id,
+            'planned_at' => $v['planned_at'] ?? (optional($current)->planned_at ?: ($a->discharged_at ?: now()->addDay())),
+            'items' => json_encode($items),
+            'home_prescriptions' => $v['home_prescriptions'] ?? null, 'home_care' => $v['home_care'] ?? null,
+            'video_ids' => json_encode(array_values(array_map('intval', $v['video_ids'] ?? []))),
+            'follow_up_at' => $v['follow_up_at'] ?? null,
+            'created_by' => optional($current)->created_by ?: $request->user('api')->id,
+            'updated_at' => now(), 'created_at' => optional($current)->created_at ?: now()]);
+
+        return $this->chart($request, $a->id);
+    }
+
+    /** What the family sees in the patient portal today (no clinical data). */
+    public function portalStatus(Request $request, $id)
+    {
+        $this->canNurse($request);
+        $a = $this->stay($id);
+        $v = $request->validate(['portal_status' => ['nullable', Rule::in(self::PORTAL_STATUSES)], 'portal_note' => 'nullable|string|max:255']);
+        $a->forceFill(['portal_status' => $v['portal_status'] ?? null, 'portal_note' => $v['portal_note'] ?? null, 'portal_status_at' => now()])->save();
 
         return $this->chart($request, $a->id);
     }

@@ -21,6 +21,15 @@
           <template #action><a-button size="small" type="primary" danger @click="emptyBed">{{ s('Empty bed') }}</a-button></template>
         </a-alert>
 
+        <!-- What the family sees today in the patient portal (no clinical data) -->
+        <div v-if="a.status === 'admitted'" class="family">
+          <span class="fam-l"><TeamOutlined /> {{ s('For the family (portal)') }}</span>
+          <a-select v-model:value="fam.status" :options="portalOptions" allow-clear :placeholder="s('Status of the day')" style="width: 200px" />
+          <a-input v-model:value="fam.note" :maxlength="255" :placeholder="s('A short message, e.g. Ate well and walked')" style="flex: 1; min-width: 200px" />
+          <a-button :loading="saving" @click="saveFamily">{{ s('Publish') }}</a-button>
+          <span v-if="c.portal?.at" class="muted">{{ s('updated {t}', { t: dt(c.portal.at) }) }}</span>
+        </div>
+
         <a-tabs v-model:activeKey="tab">
           <!-- ============ Kardex ============ -->
           <a-tab-pane key="kardex" :tab="s('Kardex')">
@@ -125,7 +134,10 @@
           <a-tab-pane key="lab" :tab="s('Lab')">
             <a-table :data-source="c.labs" :columns="labColumns" size="small" :pagination="{ pageSize: 15, hideOnSinglePage: true }" :row-key="(r, i) => i">
               <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'flag'"><a-tag v-if="record.flag" :color="record.flag === 'critical' ? 'red' : record.flag === 'normal' ? 'green' : 'orange'">{{ s(FLAG_LABEL[record.flag] || record.flag) }}</a-tag></template>
+                <template v-if="column.key === 'flag'">
+                  <a-tag v-if="record.flag" :color="record.flag === 'critical' ? 'red' : record.flag === 'normal' ? 'green' : 'orange'">{{ s(FLAG_LABEL[record.flag] || record.flag) }}</a-tag>
+                  <a-button v-if="record.flag === 'critical' && !record.critical_seen_at" size="small" type="primary" danger @click="labSeen(record)">{{ s('Seen') }}</a-button>
+                </template>
                 <template v-else-if="column.key === 'when'">{{ dt(record.ordered_at) }}</template>
               </template>
             </a-table>
@@ -142,6 +154,28 @@
               <a-checkbox v-model:checked="planDone[i.key]">{{ s(i.label) }}</a-checkbox>
               <span v-if="i.done && i.by" class="muted">{{ i.by }} · {{ dt(i.at) }}</span>
             </div>
+
+            <div class="h">{{ s('For the patient at home (shown in the patient portal)') }}</div>
+            <a-form layout="vertical">
+              <a-form-item :label="s('Discharge prescriptions')">
+                <a-textarea v-model:value="home.home_prescriptions" :rows="3" :placeholder="s('One medicine per line: name, dose, how often, for how many days')" />
+              </a-form-item>
+              <a-form-item :label="s('Home care')">
+                <a-textarea v-model:value="home.home_care" :rows="3" :placeholder="s('Diet, wound care, activity, warning signs to come back')" />
+              </a-form-item>
+              <a-row :gutter="12">
+                <a-col :xs="24" :md="14">
+                  <a-form-item :label="s('Home-care videos')">
+                    <a-select v-model:value="home.video_ids" mode="multiple" :options="videoOptions" :placeholder="s('Hospital -> Configuration -> Patient portal')" />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :md="10">
+                  <a-form-item :label="s('Follow-up appointment')">
+                    <a-date-picker v-model:value="home.follow_up_at" show-time format="DD/MM/YYYY HH:mm" value-format="YYYY-MM-DD HH:mm" style="width: 100%" />
+                  </a-form-item>
+                </a-col>
+              </a-row>
+            </a-form>
             <a-button type="primary" :loading="saving" style="margin-top: 6px" @click="savePlan">{{ s('Save plan') }}</a-button>
 
             <div class="h">{{ s('Epicrisis') }}</div>
@@ -175,7 +209,7 @@
 import { ref, reactive, computed, watch, nextTick } from 'vue';
 import dayjs from 'dayjs';
 import { message, Modal, Empty } from 'ant-design-vue';
-import { ScanOutlined, ThunderboltOutlined, PrinterOutlined } from '@ant-design/icons-vue';
+import { ScanOutlined, ThunderboltOutlined, PrinterOutlined, TeamOutlined } from '@ant-design/icons-vue';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useHospitalText } from './lang/useHospitalText';
@@ -215,6 +249,15 @@ const labColumns = computed(() => [
   { title: s('Unit'), dataIndex: 'unit', width: 80 }, { title: s('Normal range'), dataIndex: 'normal_range' }, { title: '', key: 'flag', width: 100 },
 ]);
 
+const PORTAL_LABEL = {
+  stable: 'Stable', improving: 'Improving', observation: 'Under observation', resting: 'Resting',
+  in_procedure: 'In a procedure', preparing_discharge: 'Preparing the discharge',
+};
+const portalOptions = computed(() => Object.entries(PORTAL_LABEL).map(([v, l]) => ({ value: v, label: s(l) })));
+const videoOptions = computed(() => sortByLabel((c.value?.videos || []).map(v => ({ value: v.id, label: v.topic ? `${v.title} · ${v.topic}` : v.title }))));
+const fam = reactive({ status: undefined, note: '' });
+const home = reactive({ home_prescriptions: '', home_care: '', video_ids: [], follow_up_at: null });
+
 const planAt = ref(null);
 const planDone = reactive({});
 const epi = ref('');
@@ -222,6 +265,11 @@ function take(data) {
   c.value = data;
   planAt.value = data.plan.planned_at ? dayjs(data.plan.planned_at).format('YYYY-MM-DD HH:mm') : null;
   data.plan.items.forEach(i => { planDone[i.key] = !!i.done; });
+  Object.assign(fam, { status: data.portal?.status || undefined, note: data.portal?.note || '' });
+  Object.assign(home, {
+    home_prescriptions: data.plan.home_prescriptions || '', home_care: data.plan.home_care || '', video_ids: data.plan.video_ids || [],
+    follow_up_at: data.plan.follow_up_at ? dayjs(data.plan.follow_up_at).format('YYYY-MM-DD HH:mm') : null,
+  });
   if (epi.value === '' && data.admission.discharge_summary) epi.value = data.admission.discharge_summary;
 }
 async function load() {
@@ -286,9 +334,25 @@ async function sendAnswer() {
 }
 // discharge
 async function savePlan() {
-  if (!planAt.value) return message.warning(s('Pick the planned discharge time.'));
+  if (!planAt.value && a.value.status === 'admitted') return message.warning(s('Pick the planned discharge time.'));
   saving.value = true;
-  try { take(await http.put(`hospital/admissions/${props.admissionId}/discharge-plan`, { planned_at: planAt.value, items: { ...planDone } })); message.success(s('Saved')); emit('changed'); } catch (e) { err(e); } finally { saving.value = false; }
+  try {
+    take(await http.put(`hospital/admissions/${props.admissionId}/discharge-plan`, { planned_at: planAt.value, items: { ...planDone }, ...home }));
+    message.success(s('Saved'));
+    emit('changed');
+  } catch (e) { err(e); } finally { saving.value = false; }
+}
+// family status in the portal
+async function saveFamily() {
+  saving.value = true;
+  try {
+    take(await http.put(`hospital/admissions/${props.admissionId}/portal-status`, { portal_status: fam.status || null, portal_note: fam.note || null }));
+    message.success(s('Published in the patient portal'));
+  } catch (e) { err(e); } finally { saving.value = false; }
+}
+// lab: critical value acknowledged
+async function labSeen(r) {
+  try { await http.post(`hospital/lab-orders/${r.order_id}/critical-seen`, { item_id: r.id }); load(); } catch (e) { err(e); }
 }
 async function draftEpicrisis() {
   try { epi.value = (await http.get(`hospital/admissions/${props.admissionId}/epicrisis`)).text; } catch (e) { err(e); }
@@ -340,5 +404,7 @@ function emptyBed() {
 .consult.cs-answered { border-color: rgba(22, 163, 74, 0.5); }
 .consult .ans { margin-top: 4px; background: rgba(22, 163, 74, 0.06); padding: 6px; border-radius: 6px; }
 .chk { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+.family { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-radius: 10px; background: rgba(22, 119, 255, 0.06); margin-bottom: 8px; }
+.fam-l { font-weight: 600; }
 .epi { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
 </style>

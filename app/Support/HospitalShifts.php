@@ -194,6 +194,46 @@ class HospitalShifts
         return $rows->map(fn ($r) => $r + ['treatment_id' => $treatments[$r['patient_id']] ?? null])->values();
     }
 
+    /**
+     * Coverage of the roster from $from to $to (acting company): one row per
+     * day with, for each shift, people per position against the quota.
+     * gaps = the [date, shift] pairs with any position short (phase 4, 2026-10-25).
+     */
+    public static function coverage(string $from, string $to): array
+    {
+        $positions = self::positions();
+        $rows = \App\Models\HmsStaffShift::whereNull('deleted_at')->whereDate('shift_date', '>=', $from)->whereDate('shift_date', '<=', $to)
+            ->get(['shift_date', 'shift', 'position'])
+            ->groupBy(fn ($r) => $r->shift_date->toDateString().'|'.$r->shift.'|'.$r->position)->map->count();
+        $days = [];
+        $gaps = 0;
+        for ($d = Carbon::parse($from); $d->toDateString() <= $to; $d->addDay()) {
+            $date = $d->toDateString();
+            $shifts = [];
+            $short = 0;
+            foreach (self::types()->where('active', true) as $code => $t) {
+                $per = [];
+                $missing = 0;
+                foreach ($positions as $pos => [$works, $quota]) {
+                    if (! in_array($code, $works, true)) {
+                        continue;
+                    }
+                    $have = $rows[$date.'|'.$code.'|'.$pos] ?? 0;
+                    $per[$pos] = ['have' => $have, 'need' => $quota];
+                    $missing += max(0, $quota - $have);
+                }
+                $shifts[$code] = ['positions' => $per, 'missing' => $missing];
+                if ($missing) {
+                    $short++;
+                }
+            }
+            $gaps += $short;
+            $days[] = ['date' => $date, 'shifts' => $shifts, 'short' => $short];
+        }
+
+        return ['days' => $days, 'gaps' => $gaps];
+    }
+
     /** The user's employee id and doctor ids (a doctor is linked to an employee, the employee to the login). */
     public static function staffOf($user): array
     {

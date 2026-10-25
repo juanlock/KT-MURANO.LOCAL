@@ -367,6 +367,23 @@ the start of each session).
   and every hospital screen shows the role's forms as buttons
   (`hospitalNav.js`, `HospitalQuickNav`, `/hospital/home`). Printouts: visitor
   pass and patient wristband with the record barcode (`hospitalPrint.js`).
+- **Hospital phases 2-4 (2026-10-25):** the stay's administrative file and
+  account (`HospitalAccount`, Admissions -> $: origin, coverage, consents,
+  deposit, close -> one invoice with insurer / patient split, DRG rates); the
+  clinical chart (`ClinicalDrawer.vue`, `HospitalClinicalController`: Kardex
+  with wristband scan, SOAP notes, vitals, care / diet orders, consults,
+  discharge plan, epicrisis; discharge keeps the bed until "Empty bed") and
+  the **Control tower** (`/hospital/control-tower`). Lab: an inpatient's
+  order is at least urgent, critical values alert until someone presses
+  "Seen" (`critical_seen_at`), images / reports are private files
+  (`files/company_{id}/lab/`). Shifts: Plan month / semester repeats a model
+  week with rotation (`hms_shift_plans`, undo from today on), coverage
+  calendar and the bell alert. **Patient portal** = the customer portal's
+  "My hospital" (`PortalHospitalController`, only when the customer is a
+  patient): the day's status the nurses publish (never diagnoses, results or
+  medication), diet, visit hours, discharge prescriptions / home care /
+  videos (Configuration -> Patient portal), appointments;
+  `hospital:appointment-reminders` emails the patient 24 h before.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the

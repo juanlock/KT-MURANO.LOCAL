@@ -46,4 +46,15 @@ export default {
     'Low': 'Bajo',
     'High': 'Alto',
     'Critical': 'Crítico',
+    // Critical values, inpatient priority, files (2026-10-25)
+    'Critical results to acknowledge ({n})': 'Resultados críticos por confirmar ({n})',
+    'Seen': 'Visto',
+    'Images and result files': 'Imágenes y archivos de resultados',
+    'Add file': 'Agregar archivo',
+    'X-ray, ultrasound, CT pictures or the lab report (JPG, PNG, PDF, DICOM, up to 30 MB). Only staff can open them.': 'Rayos X, ecografía, tomografía o el informe del laboratorio (JPG, PNG, PDF, DICOM, hasta 30 MB). Solo el personal puede abrirlos.',
+    'Delete this file?': '¿Eliminar este archivo?',
+    'The patient is admitted: the order was marked urgent.': 'El paciente está internado: la orden se marcó como urgente.',
+    'Could not upload the file': 'No se pudo subir el archivo',
+    'Could not open the file': 'No se pudo abrir el archivo',
+    'Could not save': 'No se pudo guardar',
 };

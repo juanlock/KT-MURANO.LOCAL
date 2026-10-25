@@ -301,6 +301,41 @@ class BookingNotifier
         return $sent;
     }
 
+    /**
+     * Hospital appointment reminder to the patient (phase 4, 2026-10-25), in
+     * the company's language. Returns the address it went to, or null.
+     */
+    public static function hospitalAppointmentReminder(int $companyId, int $appointmentId, ?Mailer $mailer = null): ?string
+    {
+        $ap = DB::table('appointments as a')->leftJoin('patients as p', 'p.id', '=', 'a.patient_id')
+            ->leftJoin('doctors as d', 'd.id', '=', 'a.doctor_id')->leftJoin('hospital_departments as h', 'h.id', '=', 'a.department_id')
+            ->where('a.id', $appointmentId)->first(['a.reference', 'a.scheduled_at', 'a.reason', 'p.name', 'p.email', 'p.client_id', 'd.name as doctor', 'h.name as department']);
+        $email = $ap ? ($ap->email ?: ($ap->client_id ? DB::table('clients')->where('id', $ap->client_id)->value('email') : null)) : null;
+        if (! $ap || ! $email || self::reserved($email)) {
+            return null;
+        }
+        $settings = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['CompanyName', 'email', 'CompanyPhone', 'default_language']);
+        $company = trim((string) DB::table('companies')->where('id', $companyId)->value('name')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Hospital');
+        $companyEmail = filter_var($settings->email ?? '', FILTER_VALIDATE_EMAIL) && ! self::reserved($settings->email) ? $settings->email : null;
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
+        $es = ($settings->default_language ?? 'en') === 'es';
+        $at = \Carbon\Carbon::parse($ap->scheduled_at)->locale($es ? 'es' : 'en');
+        $date = $es ? $at->isoFormat('dddd D [de] MMMM [de] YYYY, HH:mm') : $at->format('l, F j, Y, H:i');
+        $rows = $es
+            ? array_filter(['Cita' => $ap->reference, 'Fecha' => $date, 'Médico' => $ap->doctor, 'Especialidad' => $ap->department, 'Motivo' => $ap->reason])
+            : array_filter(['Appointment' => $ap->reference, 'Date' => $date, 'Doctor' => $ap->doctor, 'Department' => $ap->department, 'Reason' => $ap->reason]);
+        $phone = ! empty($settings->CompanyPhone) ? $settings->CompanyPhone : null;
+        $ok = $es
+            ? self::deliver($mailer, $from, $company, $email, $ap->name, "Recordatorio: su cita del {$at->isoFormat('D/MM HH:mm')} - {$company}",
+                "Hola {$ap->name},\n\nLe recordamos su cita en {$company}.", $rows,
+                'Llegue 15 minutos antes con su documento.'.($phone ? " Para cambiarla llame al {$phone}." : ''), $companyEmail)
+            : self::deliver($mailer, $from, $company, $email, $ap->name, "Reminder: your appointment on {$at->format('M j H:i')} - {$company}",
+                "Hello {$ap->name},\n\nThis is a reminder of your appointment at {$company}.", $rows,
+                'Please arrive 15 minutes early with your ID.'.($phone ? " To change it call {$phone}." : ''), $companyEmail);
+
+        return $ok ? $email : null;
+    }
+
     private static function deliver(Mailer $mailer, ?string $from, string $company, ?string $to, ?string $toName, string $subject,
         string $intro, array $rows, string $outro, ?string $replyTo = null, ?string $button = null, ?string $confirmUrl = null): bool
     {

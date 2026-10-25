@@ -35,6 +35,7 @@ const router = createRouter({
             { path: 'tickets', name: 'PortalTickets', component: () => import('./views/Tickets.vue') },
             { path: 'tickets/new', name: 'PortalTicketNew', component: () => import('./views/TicketNew.vue') },
             { path: 'tickets/:id(\\d+)', name: 'PortalTicketDetail', component: () => import('./views/TicketDetail.vue') },
+            { path: 'hospital', name: 'PortalHospital', component: () => import('./views/Hospital.vue') },
             { path: 'help', name: 'PortalKnowledgeBase', component: () => import('./views/KnowledgeBase.vue') },
             { path: 'help/:slug', name: 'PortalArticle', component: () => import('./views/Article.vue') },
             { path: 'profile', name: 'PortalProfile', component: () => import('./views/Profile.vue') },

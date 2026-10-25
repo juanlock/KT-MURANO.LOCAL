@@ -128,9 +128,42 @@
             </a-table>
             <a-button type="primary" ghost style="margin-top: 10px" @click="openDrg(null)"><PlusOutlined /> {{ s('Add a DRG rate') }}</a-button>
           </a-tab-pane>
+          <!-- ===================== Patient portal ===================== -->
+          <a-tab-pane key="portal" :tab="s('Patient portal')">
+            <p class="hint">{{ s('What patients and their families see in the customer portal: the visit hours and the home-care videos the doctor picks at discharge.') }}</p>
+            <a-form layout="vertical">
+              <a-form-item :label="s('Visit hours')">
+                <a-textarea v-model:value="visitHours" :rows="2" :maxlength="500" :placeholder="s('e.g. Every day 10:00-12:00 and 16:00-19:00. ICU: 15:00-15:30, one visitor.')" />
+              </a-form-item>
+              <a-button type="primary" :loading="saving" @click="saveVisitHours"><SaveOutlined /> {{ s('Save') }}</a-button>
+            </a-form>
+            <div class="hint" style="margin-top: 18px"><b>{{ s('Home-care videos') }}</b> — {{ s('a link to YouTube, Vimeo or any page.') }}</div>
+            <a-table :data-source="videos" :columns="videoColumns" row-key="id" size="small" :pagination="false">
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'url'"><a :href="record.url" target="_blank" rel="noopener noreferrer">{{ record.url }}</a></template>
+                <template v-else-if="column.key === 'active'"><a-tag :color="record.is_active ? 'green' : 'default'">{{ record.is_active ? s('Yes') : s('No') }}</a-tag></template>
+                <template v-else-if="column.key === 'actions'">
+                  <a-button type="text" size="small" @click="openVideo(record)"><EditOutlined /></a-button>
+                  <a-button type="text" size="small" danger @click="removeVideo(record)"><DeleteOutlined /></a-button>
+                </template>
+              </template>
+            </a-table>
+            <a-button type="primary" ghost style="margin-top: 10px" @click="openVideo(null)"><PlusOutlined /> {{ s('Add a video') }}</a-button>
+          </a-tab-pane>
         </a-tabs>
       </a-card>
     </a-spin>
+
+    <a-modal :open="videoOpen" :title="videoForm.id ? s('Edit video') : s('Add a video')" :ok-text="s('Save')" :cancel-text="s('Cancel')" :confirm-loading="saving" @ok="saveVideo" @cancel="videoOpen = false">
+      <a-form layout="vertical">
+        <a-form-item :label="s('Title')"><a-input v-model:value="videoForm.title" :maxlength="150" /></a-form-item>
+        <a-form-item :label="s('Link')"><a-input v-model:value="videoForm.url" placeholder="https://" /></a-form-item>
+        <a-row :gutter="12">
+          <a-col :span="16"><a-form-item :label="s('Topic')"><a-input v-model:value="videoForm.topic" :maxlength="80" :placeholder="s('e.g. Diabetes, Wound care')" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item :label="s('Active')"><a-switch v-model:checked="videoForm.is_active" /></a-form-item></a-col>
+        </a-row>
+      </a-form>
+    </a-modal>
 
     <a-modal :open="drgOpen" :title="drgForm.id ? s('Edit DRG rate') : s('Add a DRG rate')" :ok-text="s('Save')" :cancel-text="s('Cancel')" :confirm-loading="saving" @ok="saveDrg" @cancel="drgOpen = false">
       <a-form layout="vertical">
@@ -239,6 +272,8 @@ async function load() {
     wards.value = d.wards;
     unplaced.value = d.unplaced_beds;
     kinds.value = d.kinds;
+    visitHours.value = d.visit_hours || '';
+    videos.value = d.videos || [];
     dirtyShifts.value = false;
     dirtyMap.value = false;
   } catch (e) { err(e); } finally { loading.value = false; }
@@ -413,6 +448,38 @@ async function saveDrg() {
 function removeDrg(r) {
   Modal.confirm({ title: s('Delete {r}?', { r: r.code }), okType: 'danger', okText: s('Delete'), cancelText: s('Cancel'),
     async onOk() { try { drg.value = (await http.delete(`hospital/drg/${r.id}`)).drg; } catch (e) { err(e); } } });
+}
+
+// ---------------- Patient portal (phase 4): visit hours + home-care videos
+
+const visitHours = ref('');
+const videos = ref([]);
+const videoColumns = computed(() => [
+  { title: s('Title'), dataIndex: 'title' }, { title: s('Topic'), dataIndex: 'topic', width: 160 },
+  { title: s('Link'), key: 'url' }, { title: s('Active'), key: 'active', width: 80 }, { title: '', key: 'actions', width: 90 },
+]);
+const videoOpen = ref(false);
+const videoForm = reactive({ id: null, title: '', url: '', topic: '', is_active: true });
+async function saveVisitHours() {
+  saving.value = true;
+  try { await http.put('hospital/setup/visit-hours', { visit_hours: visitHours.value }); message.success(s('Saved')); } catch (e) { err(e); } finally { saving.value = false; }
+}
+function openVideo(r) {
+  Object.assign(videoForm, r ? { ...r, topic: r.topic || '', is_active: !!r.is_active } : { id: null, title: '', url: '', topic: '', is_active: true });
+  videoOpen.value = true;
+}
+async function saveVideo() {
+  if (!videoForm.title.trim() || !videoForm.url.trim()) return message.warning(s('Type the title and the link.'));
+  saving.value = true;
+  try {
+    const body = { title: videoForm.title.trim(), url: videoForm.url.trim(), topic: videoForm.topic.trim() || null, is_active: videoForm.is_active };
+    videos.value = (videoForm.id ? await http.put(`hospital/setup/care-videos/${videoForm.id}`, body) : await http.post('hospital/setup/care-videos', body)).videos;
+    videoOpen.value = false;
+  } catch (e) { err(e); } finally { saving.value = false; }
+}
+function removeVideo(r) {
+  Modal.confirm({ title: s('Delete this video?'), content: r.title, okText: s('Delete'), okType: 'danger', cancelText: s('Cancel'),
+    async onOk() { try { videos.value = (await http.delete(`hospital/setup/care-videos/${r.id}`)).videos; } catch (e) { err(e); } } });
 }
 
 onMounted(() => { load(); loadDrg(); });

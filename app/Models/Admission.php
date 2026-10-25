@@ -43,6 +43,7 @@ class Admission extends Model
         'ordered_at' => 'datetime',
         'deposit_at' => 'datetime',
         'left_at' => 'datetime',
+        'portal_status_at' => 'datetime',
         'consents' => 'array',
         'coverage_percent' => 'decimal:2',
         'copay' => 'decimal:2',

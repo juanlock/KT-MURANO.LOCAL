@@ -12,7 +12,7 @@ class HmsStaffShift extends Model
 
     protected $table = 'hms_staff_shifts';
 
-    protected $fillable = ['shift_date', 'shift', 'position', 'doctor_id', 'employee_id', 'ward_id', 'notes', 'created_by', 'company_id'];
+    protected $fillable = ['shift_date', 'shift', 'position', 'doctor_id', 'employee_id', 'ward_id', 'notes', 'plan_id', 'created_by', 'company_id'];
 
     protected $casts = ['shift_date' => 'date', 'doctor_id' => 'integer', 'employee_id' => 'integer', 'ward_id' => 'integer'];
 }

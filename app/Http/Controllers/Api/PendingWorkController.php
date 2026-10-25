@@ -216,6 +216,14 @@ class PendingWorkController extends Controller
                     ->when(\App\Models\Admission::actingCompanyId(), fn ($q, $cid) => $q->where('a.company_id', $cid))
                     ->where('p.items', 'like', '%"done":false%')->count(),
             ],
+            // Shifts of the next 7 days with a position short -- only for a company that keeps a roster.
+            'hms_shift_gaps' => [
+                'label' => 'Hms_shift_gaps', 'route' => '/hospital/shifts', 'permission' => 'hms_shifts', 'module' => 'hospital',
+                'table' => 'hms_staff_shifts',
+                'count' => fn () => \App\Models\HmsStaffShift::actingCompanyId('hms_staff_shifts')
+                    && \App\Models\HmsStaffShift::whereNull('deleted_at')->whereDate('shift_date', '>=', now()->subDays(30)->toDateString())->exists()
+                    ? \App\Support\HospitalShifts::coverage(now()->toDateString(), now()->addDays(6)->toDateString())['gaps'] : 0,
+            ],
             // Withdrawals are approved on E-Wallet -> Dashboard (there was no /store/wallet page).
             'wallet_withdrawals' => [
                 'label' => 'Pending_Withdrawals',

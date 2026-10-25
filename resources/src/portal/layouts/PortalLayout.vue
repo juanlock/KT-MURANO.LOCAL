@@ -17,7 +17,7 @@
           <ul class="navbar-nav pt-lg-2 pb-4">
             <template v-for="group in navGroups" :key="group.heading || 'main'">
               <li v-if="group.heading" class="rst-nav-heading">{{ tr(group.heading, group.fallback) }}</li>
-              <li v-for="item in group.items.filter(i => !i.module || modules[i.module] !== false)" :key="item.to" class="nav-item">
+              <li v-for="item in group.items.filter(i => !i.module || (i.optIn ? modules[i.module] === true : modules[i.module] !== false))" :key="item.to" class="nav-item">
                 <router-link :to="item.to" class="nav-link" :class="{ active: isActive(item.to) }" @click="closeDrawer">
                   <i :class="`ti ti-${item.icon}`"></i>
                   <span>{{ $t(item.label) }}</span>
@@ -223,6 +223,7 @@ export default {
           { to: '/quotations', label: 'nav_quotations', icon: 'file-description' },
           { to: '/appointments', label: 'nav_appointments', icon: 'calendar-event' },
           { to: '/contracts', label: 'nav_contracts', icon: 'file-certificate' },
+        { to: '/hospital', label: 'nav_hospital', icon: 'building-hospital', module: 'hospital', optIn: true },
         ] },
         { heading: 'nav_support', fallback: 'Support', items: [
           { to: '/tickets', label: 'nav_tickets', icon: 'lifebuoy', module: 'helpdesk' },

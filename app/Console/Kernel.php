@@ -41,6 +41,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('meetings:send-reminders')->everyMinute()->withoutOverlapping();
         // Bookings: reminder emails before appointments (Settings -> Booking -> Reminders).
         $schedule->command('bookings:send-reminders')->everyFiveMinutes()->withoutOverlapping();
+        // Hospital: appointment reminders to patients, 24 h before.
+        $schedule->command('hospital:appointment-reminders')->everyFiveMinutes()->withoutOverlapping();
 
         $schedule->command('marketing:process-scheduled')->everyMinute()->withoutOverlapping();
 

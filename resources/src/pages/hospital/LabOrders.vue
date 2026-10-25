@@ -34,6 +34,20 @@
       </div>
     </a-card>
 
+    <!-- Critical values nobody acknowledged yet (phase 4) -->
+    <a-alert v-if="critical.length" type="error" show-icon class="crit-box">
+      <template #message>{{ s('Critical results to acknowledge ({n})', { n: critical.length }) }}</template>
+      <template #description>
+        <div v-for="c in critical" :key="c.id" class="crit-row">
+          <span><b>{{ c.patient }}</b> · {{ c.reference }} — {{ c.test_name }}: <b>{{ c.result_value }}</b>{{ c.unit ? ' ' + c.unit : '' }}<template v-if="c.normal_range"> ({{ s('Normal: {range}', { range: c.normal_range }) }})</template></span>
+          <a-space :size="4">
+            <a-button size="small" @click="openResults({ id: c.order_id })">{{ s('Results') }}</a-button>
+            <a-button size="small" type="primary" danger @click="seen(c.order_id)">{{ s('Seen') }}</a-button>
+          </a-space>
+        </div>
+      </template>
+    </a-alert>
+
     <DataTable :crud="crud" :columns="columns" :searchable="false" selectable>
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'patient'">
@@ -48,6 +62,8 @@
           <a-tag v-if="record.abnormal_count" color="error" class="abn">
             {{ s('{n} abnormal', { n: record.abnormal_count }) }}
           </a-tag>
+          <a-tag v-if="record.critical_unseen" color="red" class="abn"><b>{{ s('Critical') }}</b></a-tag>
+          <a-tag v-if="record.files?.length" class="abn"><PaperClipOutlined /> {{ record.files.length }}</a-tag>
         </template>
         <template v-else-if="column.key === 'priority'">
           <a-tag :color="optionOf(LAB_PRIORITIES, record.priority).color">
@@ -163,7 +179,30 @@
         </div>
       </div>
       <a-empty v-if="!resultItems.length" :description="s('No tests on this order')" />
+
+      <!-- Images / result documents (private files, phase 4) -->
+      <div class="files">
+        <div class="files-head">
+          <b>{{ s('Images and result files') }}</b>
+          <a-upload :show-upload-list="false" :custom-request="upload" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.dcm,.zip">
+            <a-button size="small" :loading="uploading"><template #icon><UploadOutlined /></template>{{ s('Add file') }}</a-button>
+          </a-upload>
+        </div>
+        <div class="files-hint">{{ s('X-ray, ultrasound, CT pictures or the lab report (JPG, PNG, PDF, DICOM, up to 30 MB). Only staff can open them.') }}</div>
+        <div v-for="f in current?.files || []" :key="f.id" class="file-row">
+          <a class="file-name" @click="openFile(f)"><PaperClipOutlined /> {{ f.name }}</a>
+          <span class="files-hint">{{ Math.max(1, Math.round(f.size / 1024)) }} KB</span>
+          <a-popconfirm :title="s('Delete this file?')" @confirm="removeFile(f)">
+            <a-button type="text" size="small" danger><template #icon><DeleteOutlined /></template></a-button>
+          </a-popconfirm>
+        </div>
+      </div>
     </a-drawer>
+
+    <a-modal :open="!!preview" :title="preview?.name" :footer="null" :width="900" @cancel="closePreview">
+      <img v-if="preview?.image" :src="preview.url" style="max-width: 100%; display: block; margin: 0 auto" />
+      <iframe v-else-if="preview" :src="preview.url" style="width: 100%; height: 70vh; border: 0" />
+    </a-modal>
   </div>
 </template>
 
@@ -181,8 +220,9 @@ import { useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined,
-  FileTextOutlined, UnorderedListOutlined,
+  FileTextOutlined, UnorderedListOutlined, PaperClipOutlined, UploadOutlined,
 } from '@ant-design/icons-vue';
+import { getActingCompanyId } from '../../lib/actingCompany';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import PatientPicker from './PatientPicker.vue';
@@ -316,7 +356,11 @@ async function submit() {
   saving.value = true;
   try {
     if (editing.value) await http.put(`hospital/lab-orders/${editing.value.id}`, form.value);
-    else await http.post('hospital/lab-orders', form.value);
+    else {
+      const res = await http.post('hospital/lab-orders', form.value);
+      // An inpatient's order goes in as urgent (the patient waits in a bed).
+      if (res?.auto_urgent) message.info(s('The patient is admitted: the order was marked urgent.'), 5);
+    }
     message.success(t('Created_in_successfully', s('Saved successfully')));
     formOpen.value = false;
     editing.value = null;
@@ -363,6 +407,7 @@ async function saveResults() {
     message.success(s('Results saved.'));
     resultsOpen.value = false;
     crud.fetchRows();
+    loadCritical();
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData', s('Could not save the results')));
   } finally {
@@ -374,8 +419,86 @@ function bill(record) {
   router.push(`/hospital/invoices?draft=lab_order&id=${record.id}`);
 }
 
+// ---------------- critical values + files (phase 4) ----------------
+
+const critical = ref([]);
+
+async function loadCritical() {
+  try {
+    critical.value = (await http.get('hospital/lab-critical'))?.critical || [];
+  } catch (e) { critical.value = []; }
+}
+
+async function seen(orderId) {
+  try {
+    await http.post(`hospital/lab-orders/${orderId}/critical-seen`);
+    loadCritical();
+    crud.fetchRows();
+  } catch (e) {
+    message.error(e?.data?.message || s('Could not save'));
+  }
+}
+
+const uploading = ref(false);
+
+async function upload({ file, onSuccess, onError }) {
+  const fd = new FormData();
+  fd.append('file', file);
+  uploading.value = true;
+  try {
+    const res = await http.postForm(`hospital/lab-orders/${current.value.id}/files`, fd);
+    current.value = { ...current.value, files: res?.files || [] };
+    crud.fetchRows();
+    onSuccess?.(res);
+  } catch (e) {
+    message.error(e?.data?.message || s('Could not upload the file'));
+    onError?.(e);
+  } finally {
+    uploading.value = false;
+  }
+}
+
+async function removeFile(f) {
+  try {
+    const res = await http.delete(`hospital/lab-files/${f.id}`);
+    current.value = { ...current.value, files: res?.files || [] };
+    crud.fetchRows();
+  } catch (e) {
+    message.error(e?.data?.message || s('Could not save'));
+  }
+}
+
+const preview = ref(null);
+
+async function openFile(f) {
+  const cid = getActingCompanyId();
+  const url = `hospital/lab-files/${f.id}?inline=1${cid ? `&company_id=${cid}` : ''}`;
+  try {
+    const b = await http.blob(url, true);
+    const typed = f.mime && b.type !== f.mime ? new Blob([b], { type: f.mime }) : b;
+    if (!f.image && f.mime !== 'application/pdf') {
+      // DICOM / ZIP: save it for the viewer program.
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(typed);
+      a.download = f.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      return;
+    }
+    preview.value = { name: f.name, image: f.image, url: URL.createObjectURL(typed) };
+  } catch (e) {
+    message.error(s('Could not open the file'));
+  }
+}
+
+function closePreview() {
+  if (preview.value?.url) URL.revokeObjectURL(preview.value.url);
+  preview.value = null;
+}
+
 onMounted(async () => {
   crud.fetchRows();
+  loadCritical();
   try {
     const meta = await http.get('hospital/meta');
     doctors.value = meta?.doctors || [];
@@ -470,5 +593,43 @@ onMounted(async () => {
 }
 .res-remarks {
   flex: 2 1 180px;
+}
+.crit-box {
+  margin-bottom: 16px;
+}
+.crit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+.files {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(128, 128, 128, 0.25);
+}
+.files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.files-hint {
+  font-size: 12px;
+  opacity: 0.6;
+  margin: 2px 0 8px;
+}
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

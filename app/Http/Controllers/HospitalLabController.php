@@ -183,15 +183,25 @@ class HospitalLabController extends Controller
         $request->validate($this->orderRules());
 
         $userId = optional($request->user('api'))->id;
+        // An inpatient's order is at least urgent (phase 4, 2026-10-25): the
+        // patient is in a bed waiting for it. STAT stays STAT.
+        $stay = \App\Models\Admission::whereNull('deleted_at')->where('patient_id', $request->patient_id)
+            ->where('status', 'admitted')->orderByDesc('admitted_at')->first(['id']);
+        $priority = $request->priority ?: 'routine';
+        $autoUrgent = $stay && $priority === 'routine';
+        if ($autoUrgent) {
+            $priority = 'urgent';
+        }
 
-        $order = DB::transaction(function () use ($request, $userId) {
+        $order = DB::transaction(function () use ($request, $userId, $stay, $priority) {
             $order = LabOrder::create([
                 'reference' => LabOrder::nextReference('LAB'),
                 'patient_id' => $request->patient_id,
                 'doctor_id' => $request->doctor_id ?: null,
                 'visit_id' => $request->visit_id ?: null,
+                'admission_id' => optional($stay)->id,
                 'ordered_at' => $request->ordered_at ?: now(),
-                'priority' => $request->priority ?: 'routine',
+                'priority' => $priority,
                 'status' => 'ordered',
                 'notes' => $request->notes,
                 'created_by' => $userId,
@@ -202,7 +212,7 @@ class HospitalLabController extends Controller
             return $order;
         });
 
-        return response()->json(['success' => true, 'id' => $order->id, 'reference' => $order->reference]);
+        return response()->json(['success' => true, 'id' => $order->id, 'reference' => $order->reference, 'auto_urgent' => $autoUrgent]);
     }
 
     public function updateOrder(Request $request, $id)
@@ -250,13 +260,22 @@ class HospitalLabController extends Controller
 
         DB::transaction(function () use ($request, $order) {
             foreach ((array) $request->input('results', []) as $result) {
-                LabOrderItem::where('lab_order_id', $order->id)
-                    ->where('id', $result['id'])
-                    ->update([
-                        'result_value' => $result['result_value'] ?? null,
-                        'flag' => $result['flag'] ?? null,
-                        'remarks' => $result['remarks'] ?? null,
-                    ]);
+                $item = LabOrderItem::where('lab_order_id', $order->id)->where('id', $result['id'])->first();
+                if (! $item) {
+                    continue;
+                }
+                $flag = $result['flag'] ?? null;
+                $values = [
+                    'result_value' => $result['result_value'] ?? null,
+                    'flag' => $flag,
+                    'remarks' => $result['remarks'] ?? null,
+                ];
+                // A value that turns critical (or changes while critical) alerts
+                // the doctor again until someone acknowledges it.
+                if ($flag === 'critical' && ($item->flag !== 'critical' || (string) $item->result_value !== (string) ($result['result_value'] ?? ''))) {
+                    $values += ['critical_seen_at' => null, 'critical_seen_by' => null];
+                }
+                LabOrderItem::where('id', $item->id)->update($values);
             }
 
             $order->update([
@@ -294,6 +313,96 @@ class HospitalLabController extends Controller
         });
 
         return response()->json(['success' => true, 'count' => count($ids)]);
+    }
+
+    // ------------------------------------------------------------------
+    // Critical values and result files (phase 4, 2026-10-25)
+    // ------------------------------------------------------------------
+
+    /**
+     * Critical results nobody has acknowledged yet. Lab staff see them all; a
+     * doctor sees those of the orders they asked for and of their inpatients.
+     */
+    public function critical(Request $request)
+    {
+        $user = $request->user('api');
+        abort_unless(\App\Support\HospitalShifts::can($user, 'hms_lab', 'hms_treatments', 'hms_admissions', 'hms_my_patients'), 403);
+        $all = \App\Support\HospitalShifts::can($user, 'hms_lab');
+        [, $doctorIds] = \App\Support\HospitalShifts::staffOf($user);
+
+        $rows = DB::table('lab_order_items as i')->join('lab_orders as o', 'o.id', '=', 'i.lab_order_id')
+            ->leftJoin('patients as p', 'p.id', '=', 'o.patient_id')
+            ->leftJoin('admissions as a', 'a.id', '=', 'o.admission_id')
+            ->whereNull('o.deleted_at')->where('i.flag', 'critical')->whereNull('i.critical_seen_at')
+            ->when(LabOrder::actingCompanyId(), fn ($q, $cid) => $q->where('o.company_id', $cid))
+            ->when(! $all, fn ($q) => $q->where(fn ($w) => $w->whereIn('o.doctor_id', $doctorIds ?: [0])->orWhereIn('a.doctor_id', $doctorIds ?: [0])))
+            ->orderByDesc('o.ordered_at')->limit(100)
+            ->get(['i.id', 'o.id as order_id', 'o.reference', 'o.admission_id', 'p.name as patient', 'p.mrn', 'i.test_name', 'i.result_value', 'i.unit', 'i.normal_range', 'o.ordered_at']);
+
+        return response()->json(['critical' => $rows]);
+    }
+
+    /** "I saw it": acknowledges the critical values of an order (or one line). */
+    public function criticalSeen(Request $request, $id)
+    {
+        abort_unless(\App\Support\HospitalShifts::can($request->user('api'), 'hms_lab', 'hms_treatments', 'hms_admissions', 'hms_my_patients'), 403);
+        $order = LabOrder::whereNull('deleted_at')->findOrFail($id);
+        LabOrderItem::where('lab_order_id', $order->id)->where('flag', 'critical')->whereNull('critical_seen_at')
+            ->when($request->filled('item_id'), fn ($q) => $q->where('id', $request->item_id))
+            ->update(['critical_seen_at' => now(), 'critical_seen_by' => $request->user('api')->id]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /** Images (X-ray, ultrasound...) or the lab's result document, kept private. */
+    public function uploadFile(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', LabOrder::class);
+        $request->validate(['file' => 'required|file|max:30720|mimes:jpg,jpeg,png,webp,gif,pdf,dcm,zip']);
+        $order = LabOrder::whereNull('deleted_at')->findOrFail($id);
+        $file = $request->file('file');
+        $name = mb_substr($file->getClientOriginalName(), 0, 191);
+        $mime = $file->getClientMimeType();
+        $size = (int) $file->getSize();
+        $path = \App\Support\CompanyFiles::putUpload((int) $order->company_id, 'lab', $file, true);
+        DB::table('hms_lab_files')->insert(['company_id' => $order->company_id, 'lab_order_id' => $order->id, 'path' => $path,
+            'name' => $name, 'mime' => $mime, 'size' => $size, 'uploaded_by' => $request->user('api')->id,
+            'created_at' => now(), 'updated_at' => now()]);
+
+        return response()->json(['success' => true, 'files' => $this->files($order)]);
+    }
+
+    public function downloadFile(Request $request, $fileId)
+    {
+        abort_unless(\App\Support\HospitalShifts::can($request->user('api'), 'hms_lab', 'hms_treatments', 'hms_admissions', 'hms_my_patients'), 403);
+        $f = DB::table('hms_lab_files')->where('id', $fileId)->first();
+        abort_unless($f && LabOrder::whereNull('deleted_at')->whereKey($f->lab_order_id)->exists(), 404); // acting company (global scope)
+        abort_unless(\App\Support\CompanyFiles::owns($f->path, (int) $f->company_id, 'lab'), 404);
+        if ($request->boolean('inline')) {
+            return response()->file(public_path($f->path), ['Content-Type' => $f->mime ?: 'application/octet-stream']);
+        }
+
+        return \App\Support\CompanyFiles::download($f->path, $f->name);
+    }
+
+    public function deleteFile(Request $request, $fileId)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', LabOrder::class);
+        $f = DB::table('hms_lab_files')->where('id', $fileId)->first();
+        abort_unless($f && ($order = LabOrder::whereNull('deleted_at')->find($f->lab_order_id)), 404);
+        if (\App\Support\CompanyFiles::owns($f->path, (int) $f->company_id, 'lab')) {
+            @unlink(public_path($f->path));
+        }
+        DB::table('hms_lab_files')->where('id', $f->id)->delete();
+
+        return response()->json(['success' => true, 'files' => $this->files($order)]);
+    }
+
+    private function files(LabOrder $order)
+    {
+        return DB::table('hms_lab_files')->where('lab_order_id', $order->id)->orderBy('id')
+            ->get(['id', 'name', 'mime', 'size', 'created_at'])
+            ->map(fn ($f) => (array) $f + ['image' => str_starts_with((string) $f->mime, 'image/')])->values();
     }
 
     // ------------------------------------------------------------------
@@ -369,9 +478,12 @@ class HospitalLabController extends Controller
             'notes' => $o->notes,
             'test_count' => $o->items->count(),
             'abnormal_count' => $o->items->whereIn('flag', ['low', 'high', 'critical'])->count(),
+            'critical_unseen' => $o->items->where('flag', 'critical')->whereNull('critical_seen_at')->count(),
+            'admission_id' => $o->admission_id,
         ];
 
         if ($withItems) {
+            $data['files'] = $this->files($o);
             $data['items'] = $o->items->map(fn ($i) => [
                 'id' => $i->id,
                 'lab_test_id' => $i->lab_test_id,
@@ -382,6 +494,7 @@ class HospitalLabController extends Controller
                 'normal_range' => $i->normal_range,
                 'flag' => $i->flag,
                 'remarks' => $i->remarks,
+                'critical_seen_at' => $i->critical_seen_at,
             ])->values();
         }
 

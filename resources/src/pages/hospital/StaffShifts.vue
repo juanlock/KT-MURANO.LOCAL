@@ -8,22 +8,26 @@
         <a-button v-if="canManage" :loading="copying" @click="copyPrevious">
           <template #icon><CopyOutlined /></template>{{ s('Copy the previous day') }}
         </a-button>
+        <a-button v-if="canManage" type="primary" @click="plannerOpen = true">
+          <template #icon><CalendarOutlined /></template>{{ s('Plan month / semester') }}
+        </a-button>
       </template>
     </PageHeader>
 
-    <p class="hint">{{ s('Morning 07-15, afternoon 15-23, night 23-07; the emergency doctor works 24 h (07-07). Each 8-hour shift: 3 specialists, 1 nurse supervisor and 4 nurses.') }}</p>
+    <p class="hint">{{ s('The shifts and their hours come from Hospital -> Configuration -> Shifts. Each shift has its places per position (specialists, nurse supervisor, nurses; the emergency doctor on the 24-hour guard).') }}</p>
 
     <a-spin :spinning="loading">
       <div class="grid">
-        <a-card v-for="sh in SHIFT_ORDER" :key="sh" size="small" class="shift" :class="{ now: isNow(sh) }">
+        <a-card v-for="sh in shiftList" :key="sh.code" size="small" class="shift" :class="{ now: isNow(sh) }">
           <template #title>
-            <span>{{ s(SHIFT_LABEL[sh]) }}</span>
+            <span class="sh-dot" :style="{ background: sh.color || '#94a3b8' }" />
+            <span>{{ sh.name }}</span>
             <span class="hours">{{ hours(sh) }}</span>
             <a-tag v-if="isNow(sh)" color="green" style="margin-left: 6px">{{ s('Now') }}</a-tag>
           </template>
-          <div v-for="pos in positionsOf(sh)" :key="pos" class="pos">
-            <div class="pos-title">{{ s(POS_LABEL[pos]) }} <span class="muted">({{ rowsOf(sh, pos).length }}/{{ quota(pos) }})</span></div>
-            <div v-for="r in rowsOf(sh, pos)" :key="r.id" class="person">
+          <div v-for="pos in positionsOf(sh.code)" :key="pos" class="pos">
+            <div class="pos-title">{{ s(POS_LABEL[pos]) }} <span class="muted">({{ rowsOf(sh.code, pos).length }}/{{ quota(pos) }})</span></div>
+            <div v-for="r in rowsOf(sh.code, pos)" :key="r.id" class="person">
               <div class="p-top">
                 <b>{{ r.name }}</b>
                 <span v-if="r.ward_id" class="muted"> · {{ wardName(r.ward_id) }}</span>
@@ -38,14 +42,14 @@
                 <a-tag v-for="p in r.patients" :key="p.id" :color="p.visited_at ? 'green' : 'default'">{{ p.name }}</a-tag>
               </div>
             </div>
-            <div v-if="canManage && rowsOf(sh, pos).length < quota(pos)" class="add">
+            <div v-if="canManage && rowsOf(sh.code, pos).length < quota(pos)" class="add">
               <a-select
-                v-model:value="pick[sh + pos]" show-search option-filter-prop="label" size="small" style="flex: 1; min-width: 0"
+                v-model:value="pick[sh.code + pos]" show-search option-filter-prop="label" size="small" style="flex: 1; min-width: 0"
                 :placeholder="KIND[pos] === 'doctor' ? s('Add a doctor') : s('Add a nurse')"
                 :options="KIND[pos] === 'doctor' ? doctorOptions : nurseOptions(pos)"
               />
-              <a-select v-if="KIND[pos] === 'nurse'" v-model:value="pickWard[sh + pos]" size="small" allow-clear style="width: 130px" :placeholder="s('Area')" :options="wardOptions" />
-              <a-button size="small" type="primary" :disabled="!pick[sh + pos]" @click="add(sh, pos)"><PlusOutlined /></a-button>
+              <a-select v-if="KIND[pos] === 'nurse'" v-model:value="pickWard[sh.code + pos]" size="small" allow-clear style="width: 130px" :placeholder="s('Area')" :options="wardOptions" />
+              <a-button size="small" type="primary" :disabled="!pick[sh.code + pos]" @click="add(sh.code, pos)"><PlusOutlined /></a-button>
             </div>
           </div>
         </a-card>
@@ -63,6 +67,8 @@
       </a-checkbox-group>
       <a-empty v-if="!census.length" :description="s('Nobody in the hospital now')" />
     </a-modal>
+
+    <ShiftPlanner :open="plannerOpen" :date="date" @close="plannerOpen = false" @changed="load" @go="d => { date = d; plannerOpen = false; load(); }" />
   </div>
 </template>
 
@@ -76,8 +82,9 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import dayjs from 'dayjs';
 import { message } from 'ant-design-vue';
-import { LeftOutlined, RightOutlined, CopyOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { LeftOutlined, RightOutlined, CopyOutlined, PlusOutlined, DeleteOutlined, CalendarOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import ShiftPlanner from './ShiftPlanner.vue';
 import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
 import { useHospitalText } from './lang/useHospitalText';
@@ -85,8 +92,6 @@ import ES from './lang/StaffShifts.es.js';
 
 const { s } = useHospitalText(ES);
 
-const SHIFT_ORDER = ['er24', 'morning', 'afternoon', 'night'];
-const SHIFT_LABEL = { er24: 'Emergency guard (24 h)', morning: 'Morning', afternoon: 'Afternoon', night: 'Night' };
 const POS_LABEL = { er_doctor: 'Emergency doctor', specialist: 'Specialists', nurse_supervisor: 'Nurse supervisor', nurse: 'Nurses' };
 const KIND = { er_doctor: 'doctor', specialist: 'doctor', nurse_supervisor: 'nurse', nurse: 'nurse' };
 const AREA_LABEL = { ward: 'Ward', er_bed: 'ER bed', waiting_room: 'Waiting room' };
@@ -95,11 +100,14 @@ const date = ref(dayjs().format('YYYY-MM-DD'));
 const loading = ref(false);
 const copying = ref(false);
 const saving = ref(false);
-const data = ref({ roster: [], shifts: {}, positions: {}, doctors: [], nurses: [], wards: [], census: [], can_manage: false });
+const data = ref({ roster: [], shifts: [], positions: {}, doctors: [], nurses: [], wards: [], census: [], can_manage: false });
 const pick = reactive({});
 const pickWard = reactive({});
+const plannerOpen = ref(false);
 
 const canManage = computed(() => data.value.can_manage);
+// The company's active shifts, in their order: {code, name, start 'HH:MM', hours, color}.
+const shiftList = computed(() => (Array.isArray(data.value.shifts) ? data.value.shifts : []));
 const census = computed(() => data.value.census || []);
 const doctorOptions = computed(() => sortByLabel((data.value.doctors || []).map(d => ({ value: d.id, label: d.specialty ? `${d.name} (${d.specialty})` : d.name }))));
 const wardOptions = computed(() => sortByLabel((data.value.wards || []).map(w => ({ value: w.id, label: w.name }))));
@@ -111,16 +119,13 @@ const positionsOf = sh => Object.keys(data.value.positions || {}).filter(p => (d
 const quota = pos => (data.value.positions[pos] || [])[1] || 0;
 const rowsOf = (sh, pos) => (data.value.roster || []).filter(r => r.shift === sh && r.position === pos);
 const wardName = id => (data.value.wards.find(w => w.id === id) || {}).name;
+const startOf = sh => dayjs(`${date.value} ${sh.start || '00:00'}`);
 function hours(sh) {
-  const [h, len] = data.value.shifts[sh] || [0, 0];
-  const end = (h + len) % 24;
-  return `${String(h).padStart(2, '0')}:00 – ${String(end).padStart(2, '0')}:00`;
+  return `${startOf(sh).format('HH:mm')} – ${startOf(sh).add(sh.hours || 0, 'hour').format('HH:mm')}`;
 }
 function isNow(sh) {
-  const [h, len] = data.value.shifts[sh] || [0, 0];
-  const start = dayjs(date.value).hour(h).minute(0);
   const now = dayjs();
-  return now.isAfter(start) && now.isBefore(start.add(len, 'hour'));
+  return now.isAfter(startOf(sh)) && now.isBefore(startOf(sh).add(sh.hours || 0, 'hour'));
 }
 
 async function load() {
@@ -198,6 +203,7 @@ onMounted(load);
 .hint { opacity: 0.7; margin: -4px 0 12px; font-size: 13px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
 .shift.now { border-color: #16a34a; box-shadow: 0 0 0 1px #16a34a inset; }
+.sh-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
 .hours { font-weight: 400; opacity: 0.6; margin-left: 8px; font-size: 12px; }
 .pos { margin-bottom: 12px; }
 .pos-title { font-weight: 600; margin-bottom: 6px; }

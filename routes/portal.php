@@ -81,6 +81,9 @@ Route::prefix('api/portal')->middleware(['web', 'portal.locale', 'portal.auth', 
         Route::post('tickets/{id}/reply', [PortalTicketsController::class, 'reply'])
             ->whereNumber('id')->middleware(['request.safety', 'throttle:20,1,portal-tickets-reply']);
 
+        // Hospital: the patient's stay, discharge instructions, appointments (read-only, 2026-10-25)
+        Route::get('hospital', [\App\Http\Controllers\Api\Portal\PortalHospitalController::class, 'index']);
+
         // Knowledge base (read-only)
         Route::get('knowledge-base', [PortalKnowledgeBaseController::class, 'index']);
         Route::get('knowledge-base/{slug}', [PortalKnowledgeBaseController::class, 'show']);

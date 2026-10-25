@@ -179,6 +179,9 @@ class PortalAuthController extends Controller
             // Business Modules of the customer's company (portal nav hides what's off).
             'modules' => [
                 'helpdesk' => \App\Support\ModuleFlags::enabled((int) $portalClient->client->company_id, 'helpdesk'),
+                // "My hospital" only for a customer who is a patient there (2026-10-25).
+                'hospital' => \App\Support\ModuleFlags::enabled((int) $portalClient->client->company_id, 'hospital')
+                    && \Illuminate\Support\Facades\DB::table('patients')->where('client_id', $portalClient->client_id)->whereNull('deleted_at')->exists(),
             ],
         ];
     }

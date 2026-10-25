@@ -32,6 +32,7 @@ use Illuminate\Validation\Rule;
  *  PUT  hospital/setup/floors/{id}/map {rooms: [{id,x,y,w,h}], beds: [{id,x,y,room_id}]}
  *  GET  hospital/bed-map?floor_id=             floors with rooms and beds + status + patient (read only)
  *  POST hospital/beds/{id}/clean               cleaning -> available
+ *  PUT  hospital/setup/visit-hours; POST/PUT/DELETE hospital/setup/care-videos[/{id}]   patient portal (phase 4)
  */
 class HospitalSetupController extends Controller
 {
@@ -51,7 +52,52 @@ class HospitalSetupController extends Controller
             'unplaced_beds' => HospitalBed::with('ward')->whereNull('deleted_at')->whereNull('room_id')->orderBy('ward_id')->orderBy('bed_number')->get()
                 ->map(fn ($b) => ['id' => $b->id, 'bed_number' => $b->bed_number, 'ward_id' => $b->ward_id, 'ward_name' => optional($b->ward)->name, 'status' => $b->status])->values(),
             'kinds' => HmsRoom::KINDS,
+            'visit_hours' => DB::table('settings')->where('company_id', HmsShiftType::actingCompanyId())->whereNull('deleted_at')->value('hms_visit_hours'),
+            'videos' => DB::table('hms_care_videos')->where('company_id', HmsShiftType::actingCompanyId())->orderBy('sort_order')->orderBy('title')->get(),
         ]);
+    }
+
+    // ------------------------------------------------------------------ patient portal (phase 4)
+
+    /** Visit hours shown in the patient portal and on the visitor pass desk. */
+    public function saveVisitHours(Request $request)
+    {
+        $this->canSetup($request);
+        $request->validate(['visit_hours' => 'nullable|string|max:500']);
+        $cid = (int) HmsShiftType::actingCompanyId();
+        abort_unless($cid, 422, 'Pick the company first.');
+        DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->update(['hms_visit_hours' => strip_tags((string) $request->visit_hours) ?: null]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /** Home-care videos (a link to YouTube / Vimeo / any page), picked at discharge. */
+    public function saveVideo(Request $request, $id = null)
+    {
+        $this->canSetup($request);
+        $v = $request->validate(['title' => 'required|string|max:150', 'url' => ['required', 'url:http,https', 'max:500'],
+            'topic' => 'nullable|string|max:80', 'is_active' => 'boolean']);
+        $cid = (int) HmsShiftType::actingCompanyId();
+        abort_unless($cid, 422, 'Pick the company first.');
+        $row = ['title' => strip_tags($v['title']), 'url' => $v['url'], 'topic' => isset($v['topic']) ? strip_tags($v['topic']) : null,
+            'is_active' => (bool) ($v['is_active'] ?? true), 'updated_at' => now()];
+        if ($id) {
+            abort_unless(DB::table('hms_care_videos')->where('id', $id)->where('company_id', $cid)->exists(), 404);
+            DB::table('hms_care_videos')->where('id', $id)->update($row);
+        } else {
+            DB::table('hms_care_videos')->insert($row + ['company_id' => $cid, 'sort_order' => (int) DB::table('hms_care_videos')->where('company_id', $cid)->max('sort_order') + 1, 'created_at' => now()]);
+        }
+
+        return response()->json(['videos' => DB::table('hms_care_videos')->where('company_id', $cid)->orderBy('sort_order')->orderBy('title')->get()]);
+    }
+
+    public function destroyVideo(Request $request, $id)
+    {
+        $this->canSetup($request);
+        $cid = (int) HmsShiftType::actingCompanyId();
+        abort_unless(DB::table('hms_care_videos')->where('id', $id)->where('company_id', $cid)->delete(), 404);
+
+        return response()->json(['videos' => DB::table('hms_care_videos')->where('company_id', $cid)->orderBy('sort_order')->orderBy('title')->get()]);
     }
 
     // ------------------------------------------------------------------ shifts

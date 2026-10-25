@@ -152,6 +152,149 @@ class HospitalStaffController extends Controller
         return response()->json(['success' => true, 'copied' => $copied]);
     }
 
+    // ------------------------------------------------------------------
+    // Planning by month / semester (phase 4, 2026-10-25)
+    // ------------------------------------------------------------------
+
+    /** People per position and shift against the quota, day by day. */
+    public function coverage(Request $request)
+    {
+        abort_unless(HospitalShifts::can($request->user('api'), 'hms_shifts'), 403);
+        $request->validate(['from' => 'required|date', 'to' => 'required|date|after_or_equal:from']);
+        $from = \Carbon\Carbon::parse($request->from)->toDateString();
+        $to = \Carbon\Carbon::parse($request->to)->toDateString();
+        abort_if(\Carbon\Carbon::parse($from)->diffInDays(\Carbon\Carbon::parse($to)) > 200, 422, 'Pick at most a semester.');
+
+        return response()->json(HospitalShifts::coverage($from, $to) + [
+            'shifts' => HospitalShifts::types()->where('active', true)->values(),
+            'positions' => HospitalShifts::positions(),
+            'plans' => DB::table('hms_shift_plans')->when(HmsStaffShift::actingCompanyId('hms_staff_shifts'), fn ($q, $cid) => $q->where('company_id', $cid))
+                ->orderByDesc('id')->limit(20)->get(),
+        ]);
+    }
+
+    /**
+     * Repeat a model week over a period (a month, a semester): each day takes
+     * the people of the same weekday of the model week. With rotation every N
+     * weeks, each person moves to the next shift of their position (morning ->
+     * afternoon -> night -> morning). Places already taken, a person already
+     * working that day and approved leaves are skipped. preview=1 counts only.
+     */
+    public function plan(Request $request)
+    {
+        abort_unless(HospitalShifts::can($request->user('api'), 'hms_shifts'), 403);
+        $request->validate([
+            'from' => 'required|date', 'to' => 'required|date|after_or_equal:from', 'model_from' => 'required|date',
+            'rotate_weeks' => 'nullable|integer|min:0|max:12', 'name' => 'nullable|string|max:120',
+        ]);
+        $from = \Carbon\Carbon::parse($request->from)->startOfDay();
+        $to = \Carbon\Carbon::parse($request->to)->startOfDay();
+        $modelFrom = \Carbon\Carbon::parse($request->model_from)->startOfDay();
+        abort_if($from->diffInDays($to) > 200, 422, 'Pick at most a semester.');
+        $modelTo = $modelFrom->copy()->addDays(6);
+        abort_if($from <= $modelTo && $to >= $modelFrom, 422, 'The period cannot include the model week.');
+        $rotate = (int) $request->input('rotate_weeks', 0);
+
+        $model = HmsStaffShift::whereNull('deleted_at')->whereDate('shift_date', '>=', $modelFrom->toDateString())
+            ->whereDate('shift_date', '<=', $modelTo->toDateString())->orderBy('id')->get()
+            ->groupBy(fn ($r) => $r->shift_date->dayOfWeek);
+        abort_if($model->isEmpty(), 422, 'The model week has no shifts. Fill in a week first.');
+
+        $positions = HospitalShifts::positions();
+        $existing = HmsStaffShift::whereNull('deleted_at')->whereDate('shift_date', '>=', $from->toDateString())
+            ->whereDate('shift_date', '<=', $to->toDateString())->get(['shift_date', 'shift', 'position', 'doctor_id', 'employee_id']);
+        $taken = [];   // date|shift|position => count
+        $busy = [];    // date|d:id or date|e:id => true
+        foreach ($existing as $e) {
+            $date = $e->shift_date->toDateString();
+            $k = $date.'|'.$e->shift.'|'.$e->position;
+            $taken[$k] = ($taken[$k] ?? 0) + 1;
+            $busy[$date.'|'.($e->doctor_id ? 'd:'.$e->doctor_id : 'e:'.$e->employee_id)] = true;
+        }
+        $leaves = \Illuminate\Support\Facades\Schema::hasTable('leaves')
+            ? DB::table('leaves')->whereNull('deleted_at')->where('status', 'approved')
+                ->whereDate('start_date', '<=', $to->toDateString())->whereDate('end_date', '>=', $from->toDateString())->get(['employee_id', 'start_date', 'end_date'])
+            : collect();
+        $doctorEmployee = DB::table('doctors')->whereNull('deleted_at')->whereNotNull('employee_id')->pluck('employee_id', 'id');
+        $onLeave = function ($date, $r) use ($leaves, $doctorEmployee) {
+            $emp = $r->employee_id ?: ($doctorEmployee[$r->doctor_id] ?? null);
+
+            return $emp && $leaves->contains(fn ($l) => (int) $l->employee_id === (int) $emp && $l->start_date <= $date && substr($l->end_date, 0, 10) >= $date);
+        };
+
+        $insert = [];
+        $skipped = 0;
+        $leaveSkips = 0;
+        $userId = optional($request->user('api'))->id;
+        for ($d = $from->copy(); $d <= $to; $d->addDay()) {
+            $date = $d->toDateString();
+            $step = $rotate > 0 ? intdiv(intdiv((int) $from->diffInDays($d), 7), $rotate) : 0;
+            foreach ($model->get($d->dayOfWeek, collect()) as $r) {
+                $works = $positions[$r->position][0] ?? [$r->shift];
+                $i = array_search($r->shift, $works, true);
+                $shift = ($i === false || ! $step) ? $r->shift : $works[($i + $step) % count($works)];
+                $who = $r->doctor_id ? 'd:'.$r->doctor_id : 'e:'.$r->employee_id;
+                $k = $date.'|'.$shift.'|'.$r->position;
+                if (isset($busy[$date.'|'.$who]) || ($taken[$k] ?? 0) >= ($positions[$r->position][1] ?? 1)) {
+                    $skipped++;
+                    continue;
+                }
+                if ($onLeave($date, $r)) {
+                    $leaveSkips++;
+                    continue;
+                }
+                $busy[$date.'|'.$who] = true;
+                $taken[$k] = ($taken[$k] ?? 0) + 1;
+                $insert[] = ['company_id' => $r->company_id, 'shift_date' => $date, 'shift' => $shift, 'position' => $r->position,
+                    'doctor_id' => $r->doctor_id, 'employee_id' => $r->employee_id, 'ward_id' => $r->ward_id, 'notes' => $r->notes,
+                    'created_by' => $userId, 'created_at' => now(), 'updated_at' => now()];
+            }
+        }
+
+        $result = ['to_create' => count($insert), 'skipped' => $skipped, 'on_leave' => $leaveSkips];
+        if ($request->boolean('preview')) {
+            return response()->json($result);
+        }
+        abort_unless($insert, 422, 'Nothing to create: every place of the period is already taken.');
+        $companyId = $insert[0]['company_id'];
+        $planId = DB::transaction(function () use ($request, $from, $to, $modelFrom, $rotate, $insert, $userId, $companyId) {
+            $planId = DB::table('hms_shift_plans')->insertGetId([
+                'company_id' => $companyId, 'name' => $request->input('name') ?: $from->format('d/m/Y').' - '.$to->format('d/m/Y'),
+                'from_date' => $from->toDateString(), 'to_date' => $to->toDateString(), 'model_from' => $modelFrom->toDateString(),
+                'rotate_weeks' => $rotate, 'rows_created' => count($insert), 'created_by' => $userId, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            foreach (array_chunk($insert, 500) as $chunk) {
+                DB::table('hms_staff_shifts')->insert(array_map(fn ($row) => $row + ['plan_id' => $planId], $chunk));
+            }
+
+            return $planId;
+        });
+
+        return response()->json($result + ['success' => true, 'plan_id' => $planId]);
+    }
+
+    /** Undo a plan: its shifts from today on (the days already worked stay). */
+    public function destroyPlan(Request $request, $id)
+    {
+        abort_unless(HospitalShifts::can($request->user('api'), 'hms_shifts'), 403);
+        $plan = DB::table('hms_shift_plans')->where('id', $id)
+            ->when(HmsStaffShift::actingCompanyId('hms_staff_shifts'), fn ($q, $cid) => $q->where('company_id', $cid))->first();
+        abort_unless($plan, 404);
+        $removed = 0;
+        DB::transaction(function () use ($plan, &$removed) {
+            $ids = HmsStaffShift::where('plan_id', $plan->id)->whereDate('shift_date', '>=', now()->toDateString())->pluck('id');
+            HmsShiftPatient::whereIn('staff_shift_id', $ids)->delete();
+            $removed = HmsStaffShift::whereIn('id', $ids)->delete();
+            if (! HmsStaffShift::where('plan_id', $plan->id)->exists()) {
+                DB::table('hms_shift_plans')->where('id', $plan->id)->delete();
+            } else {
+                DB::table('hms_shift_plans')->where('id', $plan->id)->update(['to_date' => now()->subDay()->toDateString(), 'updated_at' => now()]);
+            }
+        });
+
+        return response()->json(['success' => true, 'removed' => $removed]);
+    }
+
     /**
      * The logged-in doctor's / nurse's patients for the shift(s) running now,
      * with where each one is, the active treatment and the doses due (next 2 h

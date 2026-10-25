@@ -13,7 +13,7 @@ class LabOrder extends Model
     protected $table = 'lab_orders';
 
     protected $fillable = [
-        'reference', 'patient_id', 'doctor_id', 'visit_id', 'ordered_at', 'completed_at',
+        'reference', 'patient_id', 'doctor_id', 'visit_id', 'admission_id', 'ordered_at', 'completed_at',
         'priority', 'status', 'total', 'notes', 'created_by',
     ];
 

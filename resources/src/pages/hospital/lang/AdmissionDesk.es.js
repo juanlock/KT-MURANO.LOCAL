@@ -94,7 +94,6 @@ export default {
     'Floor': 'Piso',
     'Room': 'Habitación',
     'Bed': 'Cama',
-    'Ward': 'Sala',
     'Born': 'Nac.',
     'Blood': 'Sangre',
     'ALLERGIES': 'ALERGIAS',

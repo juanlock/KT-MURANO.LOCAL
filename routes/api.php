@@ -1181,6 +1181,20 @@ Route::put('hospital/admissions/{id}/discharge-plan', 'HospitalClinicalControlle
 Route::get('hospital/admissions/{id}/epicrisis', 'HospitalClinicalController@epicrisis')->whereNumber('id');
 Route::put('hospital/admissions/{id}/epicrisis', 'HospitalClinicalController@saveEpicrisis')->whereNumber('id');
 Route::get('hospital/control-tower', 'HospitalClinicalController@tower');
+// Phase 4 (2026-10-25): lab critical values + files, shift planning, patient portal.
+Route::put('hospital/admissions/{id}/portal-status', 'HospitalClinicalController@portalStatus')->whereNumber('id');
+Route::get('hospital/lab-critical', 'HospitalLabController@critical');
+Route::post('hospital/lab-orders/{id}/critical-seen', 'HospitalLabController@criticalSeen')->whereNumber('id');
+Route::post('hospital/lab-orders/{id}/files', 'HospitalLabController@uploadFile')->whereNumber('id');
+Route::get('hospital/lab-files/{id}', 'HospitalLabController@downloadFile')->whereNumber('id');
+Route::delete('hospital/lab-files/{id}', 'HospitalLabController@deleteFile')->whereNumber('id');
+Route::get('hospital/shifts/coverage', 'HospitalStaffController@coverage');
+Route::post('hospital/shifts/plan', 'HospitalStaffController@plan');
+Route::delete('hospital/shifts/plans/{id}', 'HospitalStaffController@destroyPlan')->whereNumber('id');
+Route::put('hospital/setup/visit-hours', 'HospitalSetupController@saveVisitHours');
+Route::post('hospital/setup/care-videos', 'HospitalSetupController@saveVideo');
+Route::put('hospital/setup/care-videos/{id}', 'HospitalSetupController@saveVideo')->whereNumber('id');
+Route::delete('hospital/setup/care-videos/{id}', 'HospitalSetupController@destroyVideo')->whereNumber('id');
 Route::put('hospital/admissions/{id}/account', 'HospitalAccountController@update')->whereNumber('id');
 Route::post('hospital/admissions/{id}/consents', 'HospitalAccountController@sign')->whereNumber('id');
 Route::delete('hospital/admissions/{id}/consents/{type}', 'HospitalAccountController@unsign')->whereNumber('id');
