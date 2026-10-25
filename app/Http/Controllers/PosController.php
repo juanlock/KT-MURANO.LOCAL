@@ -837,6 +837,8 @@ class PosController extends BaseController
                     try {
                         $draft = $this->companyDrafts($request)->find($request->draft_sale_id);
                         if ($draft) {
+                            // Its kitchen ticket (tablet menu order) now follows the sale (2026-10-25).
+                            KitchenOrderController::movedToSale((int) $draft->id, $order);
                             $draft->details()->delete();
                             $draft->update(['deleted_at' => Carbon::now()]);
                         }
@@ -958,7 +960,8 @@ class PosController extends BaseController
             $kitchenAction = (string) $request->input('kitchen_action', 'none');
             $kitchenEnabled = (bool) optional(Setting::forCompany($this->resolveActingCompanyId($request)))->enable_kitchen_display;
 
-            if ($kitchenEnabled && $kitchenAction === 'send') {
+            // Not twice: a held order from a tablet menu already has its ticket (moved to this sale).
+            if ($kitchenEnabled && $kitchenAction === 'send' && ! \App\Models\KitchenOrder::where('sale_id', $sale->id)->exists()) {
                 KitchenOrderController::createForSale($sale->id, $request->notes);
             }
         } catch (\Throwable $e) {
@@ -1486,6 +1489,8 @@ class PosController extends BaseController
             // Backward compatibility: If record_view is null, fall back to role permission check
             $draft = $this->companyDrafts($request)->findOrFail($id);
 
+            // A held order removed in the POS: its kitchen ticket (tablet menu order) goes too.
+            \App\Models\KitchenOrder::where('draft_sale_id', $draft->id)->whereNull('sale_id')->delete();
             $draft->details()->delete();
             $draft->update([
                 'deleted_at' => Carbon::now(),
@@ -1806,6 +1811,8 @@ class PosController extends BaseController
                     'discount_from_points' => $order_discount_from_points,
                 ]);
 
+                // Its kitchen ticket (tablet menu order) now follows the sale (2026-10-25).
+                KitchenOrderController::movedToSale((int) $draft->id, $order);
                 $draft->details()->delete();
                 $draft->update([
                     'deleted_at' => Carbon::now(),

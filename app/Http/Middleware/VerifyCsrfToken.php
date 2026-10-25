@@ -36,6 +36,8 @@ class VerifyCsrfToken extends Middleware
         // POST /f/{key}: Forms module public forms, same reason (iframes on other sites);
         // spam handled in PublicFormController (throttle, honeypot, time-to-submit).
         'f/*',
+        // POST /c/{key}/order: Portfolio tablet catalogs (kiosk browser, no session).
+        'c/*',
 
         // PayPal module webhook: posted by PayPal's servers, checked with
         // PayPal's verify-webhook-signature API (PayPalInvoiceController).

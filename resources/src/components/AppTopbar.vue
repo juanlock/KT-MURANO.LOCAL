@@ -30,6 +30,22 @@
         </a-button>
       </span>
 
+      <!-- Portfolio tablet catalogs (2026-10-25): like POS, opens the menu / models on the tablet. -->
+      <span v-if="catalogs.length && auth.headerIcon('catalog') && (auth.can('portfolio_manage') || auth.can('Pos_view'))" class="tb-slot" :style="{ order: auth.headerOrder('catalog') }">
+        <a-button v-if="catalogs.length === 1" class="pos-btn cat-btn" @click="openCatalog(catalogs[0])">
+          <template #icon><TabletOutlined /></template>
+          <span class="hide-sm">{{ catalogs[0].type === 'menu' ? 'Menu' : 'Catálogo' }}</span>
+        </a-button>
+        <a-dropdown v-else :trigger="['click']">
+          <a-button class="pos-btn cat-btn"><template #icon><TabletOutlined /></template><span class="hide-sm">{{ catalogsLabel }}</span></a-button>
+          <template #overlay>
+            <a-menu @click="({ key }) => openCatalog(catalogs.find(x => String(x.id) === String(key)))">
+              <a-menu-item v-for="x in catalogs" :key="x.id">{{ x.name }}</a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+      </span>
+
       <!-- Customize — theme/layout/language drawer (moved here from the old
            floating bottom-right handle), matching legacy's setting to hide it. -->
       <span v-if="auth.headerIcon('customize')" class="tb-slot" :style="{ order: auth.headerOrder('customize') }">
@@ -278,7 +294,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  MenuFoldOutlined, MenuUnfoldOutlined, CalculatorOutlined,
+  MenuFoldOutlined, MenuUnfoldOutlined, CalculatorOutlined, TabletOutlined,
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, UserOutlined, SettingOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
@@ -348,6 +364,26 @@ function onCompanyChange(id) {
 }
 
 onMounted(() => company.load());
+
+// Portfolio tablet catalogs of the acting company (header button, like POS).
+const catalogs = ref([]);
+const catalogsLabel = computed(() => (ui.locale === 'es' ? 'Catálogos' : 'Catalogs'));
+async function loadCatalogs() {
+  if (!auth.user || !(auth.can('portfolio_manage') || auth.can('Pos_view')) || !auth.moduleEnabled('portfolio')) {
+    catalogs.value = [];
+    return;
+  }
+  try {
+    catalogs.value = (await http.get('portfolio/catalogs/launch')).catalogs || [];
+  } catch (e) {
+    catalogs.value = [];
+  }
+}
+function openCatalog(x) {
+  if (x) window.open(x.url, 'murano-catalog-' + x.id);
+}
+onMounted(loadCatalogs);
+watch(() => company.actingCompanyId, loadCatalogs);
 
 const summaryOpen = ref(false);
 const manualOpen = ref(false);

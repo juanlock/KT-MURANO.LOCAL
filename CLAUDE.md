@@ -418,6 +418,17 @@ the start of each session).
   files/company_{id}/gallery/) and ONE Portfolio (the Portfolio module -- the
   old store_portfolio_* tables were merged into it; the website's Portfolio
   section reads `portfolio_projects`).
+- **Portfolio tablet catalogs** (user's rule, 2026-10-25): besides the website
+  portfolio, a company has as many full-screen dark catalogs for a tablet
+  handed to the customer as it needs (`portfolio_catalogs`, Portfolio ->
+  Tablet catalogs, header button "Catalog" like POS, page `/c/{key}`): type
+  **menu** (restaurant / food: slider on top, group buttons, 2-column grid of
+  dishes) and **models** (salon / barber: the catalog's steps, e.g. Woman / Man,
+  Adult / Child, filter the services). Dishes / services are Products (picture,
+  name, price from there). An order = one transaction (`CatalogOrderService`):
+  a POS held order (draft_sales, charged from POS -> Recent drafts) + a Kitchen
+  ticket on that draft (`kitchen_orders.draft_sale_id`, source `tablet`) moved to
+  the sale when the cashier charges it. Demos: `php artisan portfolio:catalog-demo`.
 
 ## Frontend Conventions
 

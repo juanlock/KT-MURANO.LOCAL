@@ -185,7 +185,9 @@ class KitchenOrderController extends Controller
 
         $order = KitchenOrder::findOrFail($id);
 
-        $detailIds = SaleDetail::where('sale_id', $order->sale_id)->pluck('id');
+        $detailIds = $order->sale_id
+            ? SaleDetail::where('sale_id', $order->sale_id)->pluck('id')
+            : \App\Models\DraftSaleDetail::where('draft_sale_id', $order->draft_sale_id)->pluck('id');
         if (! $detailIds->contains((int) $data['item_id'])) {
             return response()->json(['error' => 'Item does not belong to this order.'], 422);
         }
@@ -558,6 +560,42 @@ class KitchenOrderController extends Controller
     }
 
     /**
+     * Ticket for a POS held order (2026-10-25: a Portfolio tablet menu order waits in
+     * the POS as a draft and goes to the Kitchen at once). sale_id stays null until
+     * the cashier charges the draft -- then movedToSale() points it to the sale.
+     */
+    public static function createForDraft(int $draftId, ?string $instructions = null, string $source = 'tablet', ?int $userId = null): ?KitchenOrder
+    {
+        $draft = \App\Models\DraftSale::find($draftId);
+        if (! $draft) {
+            return null;
+        }
+        $token = (int) KitchenOrder::withTrashed()->whereDate('created_at', now()->toDateString())->max('token_number') + 1;
+
+        return KitchenOrder::create([
+            'sale_id' => null,
+            'draft_sale_id' => $draft->id,
+            'ref' => $draft->Ref,
+            'token_number' => $token,
+            'source' => in_array($source, ['pos', 'online', 'manual', 'tablet'], true) ? $source : 'tablet',
+            'client_id' => $draft->client_id,
+            'warehouse_id' => $draft->warehouse_id,
+            'user_id' => $userId ?? optional(Auth::user())->id,
+            'status' => 'pending',
+            'instructions' => $instructions,
+            'sent_at' => now(),
+        ]);
+    }
+
+    /** The cashier charged a held order in the POS: its ticket now follows the sale. */
+    public static function movedToSale(int $draftId, \App\Models\Sale $sale): int
+    {
+        return KitchenOrder::where('draft_sale_id', $draftId)->whereNull('sale_id')->update([
+            'sale_id' => $sale->id, 'ref' => $sale->Ref, 'item_states' => null, 'updated_at' => now(),
+        ]);
+    }
+
+    /**
      * Shape a kitchen order for the frontend.
      */
     protected function mapOrder(KitchenOrder $o, bool $withItems = false): array
@@ -589,10 +627,24 @@ class KitchenOrderController extends Controller
         ];
 
         if ($withItems) {
-            $payload['items'] = $this->itemsForSale($o->sale_id, (array) ($o->item_states ?? []));
+            $payload['items'] = $o->sale_id
+                ? $this->itemsForSale($o->sale_id, (array) ($o->item_states ?? []))
+                : $this->itemsForDraft((int) $o->draft_sale_id, (array) ($o->item_states ?? []));
         }
 
         return $payload;
+    }
+
+    /** The lines of a POS held order (ticket not charged yet), same shape as itemsForSale(). */
+    protected function itemsForDraft(int $draftId, array $itemStates = []): array
+    {
+        return \App\Models\DraftSaleDetail::where('draft_sale_id', $draftId)->get()->map(function ($d) use ($itemStates) {
+            $p = \App\Models\Product::find($d->product_id);
+
+            return ['id' => $d->id, 'product_id' => $d->product_id, 'category_id' => optional($p)->category_id,
+                'name' => optional($p)->name ?? ('#'.$d->product_id), 'quantity' => (float) $d->quantity, 'unit' => null,
+                'price' => (float) $d->price, 'total' => (float) $d->total, 'done' => ! empty($itemStates[(string) $d->id])];
+        })->values()->all();
     }
 
     /**

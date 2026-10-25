@@ -405,6 +405,9 @@ const Employees = lazy('Employees', () => import('../pages/hrm/Employees.vue'));
 const EmployeeForm = lazy('EmployeeForm', () => import('../pages/hrm/EmployeeForm.vue'));
 const PortfolioAdmin = lazy('PortfolioAdmin', () => import('../pages/portfolio/PortfolioAdmin.vue'));
 const PortfolioSettings = lazy('PortfolioSettings', () => import('../pages/portfolio/PortfolioSettings.vue'));
+// Portfolio tablet catalogs (2026-10-25): menu / models.
+const CatalogsList = lazy('CatalogsList', () => import('../pages/portfolio/CatalogsList.vue'));
+const CatalogEditor = lazy('CatalogEditor', () => import('../pages/portfolio/CatalogEditor.vue'));
 // Forms module (2026-10-24): forms embedded on websites / the store.
 const FormsList = lazy('FormsList', () => import('../pages/forms/FormsList.vue'));
 const FormsDashboard = lazy('FormsDashboard', () => import('../pages/forms/FormsDashboard.vue'));
@@ -663,6 +666,8 @@ const routes = [
             // Website moved into Portfolio -> Settings (theme, logo, menu, pages...).
             { path: 'portfolio/website', redirect: '/portfolio/settings' },
             { path: 'portfolio/settings', name: 'portfolio-settings', component: PortfolioSettings, meta: { title: 'Portfolio · Settings', permission: 'portfolio_manage' } },
+            { path: 'portfolio/catalogs', name: 'portfolio-catalogs', component: CatalogsList, meta: { title: 'Tablet catalogs', permission: 'portfolio_manage' } },
+            { path: 'portfolio/catalogs/:id', name: 'portfolio-catalog', component: CatalogEditor, meta: { title: 'Tablet catalog', permission: 'portfolio_manage' } },
             { path: 'portfolio/messages', name: 'portfolio-messages', component: PortfolioAdmin, meta: { title: 'Portfolio · Messages', permission: 'portfolio_manage', tab: 'messages' } },
             { path: 'email-office/settings', name: 'email-office-settings', component: EmailOfficeSettings, meta: { title: 'Email Office settings', permission: 'email_office_manage' } },
             { path: 'email-office/received', name: 'email-office-received', component: EmailOfficeList, props: { direction: 'in' }, meta: { title: 'Email received', permission: 'email_office_view' } },

@@ -13,7 +13,7 @@ class KitchenOrder extends Model
     public const STATUSES = ['pending', 'preparing', 'completed', 'on_hold'];
 
     protected $fillable = [
-        'sale_id', 'ref', 'token_number', 'source', 'client_id', 'warehouse_id', 'dispatched_warehouse_id', 'user_id', 'assigned_to',
+        'sale_id', 'draft_sale_id', 'ref', 'token_number', 'source', 'client_id', 'warehouse_id', 'dispatched_warehouse_id', 'user_id', 'assigned_to',
         'status', 'instructions', 'item_states', 'sent_at', 'started_at', 'completed_at', 'dispatched_at',
     ];
 

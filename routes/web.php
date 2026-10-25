@@ -513,6 +513,13 @@ Route::middleware(['web', 'request.safety'])->prefix('f/{key}')->where(['key' =>
     Route::post('/start', [\App\Http\Controllers\PublicFormController::class, 'start'])->middleware('throttle:30,1,form-start')->name('forms.start');
 });
 
+// Portfolio tablet catalogs (2026-10-25): menu / models on a tablet handed to the
+// customer; its order POST is CSRF-exempt like /f (kiosk browser, no session).
+Route::middleware(['web', 'request.safety'])->prefix('c/{key}')->where(['key' => '[a-z0-9]{8,24}'])->group(function () {
+    Route::get('/', [\App\Http\Controllers\PortfolioCatalogPublicController::class, 'show'])->middleware('throttle:120,1,catalog-view')->name('catalog.show');
+    Route::post('/order', [\App\Http\Controllers\PortfolioCatalogPublicController::class, 'order'])->middleware('throttle:20,1,catalog-order')->name('catalog.order');
+});
+
 // Bookings public channel: "Book an appointment" page (company = its domain or
 // ?company=ID; &embed=1 = compact iframe layout for external websites). The
 // POST is CSRF-exempt (VerifyCsrfToken) since it is posted from cross-site

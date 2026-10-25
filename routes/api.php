@@ -678,6 +678,26 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
 
     // ------------------------------Employee------------------------------------\\
 
+    // Portfolio -> tablet catalogs (2026-10-25): menu / models, many per company.
+    Route::prefix('portfolio/catalogs')->controller(\App\Http\Controllers\Api\Portfolio\CatalogsController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::get('/launch', 'launch');
+        Route::post('/', 'store');
+        Route::put('/groups/{gid}', 'updateGroup')->whereNumber('gid');
+        Route::delete('/groups/{gid}', 'destroyGroup')->whereNumber('gid');
+        Route::post('/groups/{gid}/items', 'addItems')->whereNumber('gid');
+        Route::post('/groups/{gid}/items/reorder', 'reorderItems')->whereNumber('gid');
+        Route::put('/items/{iid}', 'updateItem')->whereNumber('iid');
+        Route::delete('/items/{iid}', 'destroyItem')->whereNumber('iid');
+        Route::get('/{id}', 'show')->whereNumber('id');
+        Route::put('/{id}', 'update')->whereNumber('id');
+        Route::delete('/{id}', 'destroy')->whereNumber('id');
+        Route::post('/{id}/image', 'image')->whereNumber('id');
+        Route::post('/{id}/groups', 'storeGroup')->whereNumber('id');
+        Route::post('/{id}/groups/reorder', 'reorderGroups')->whereNumber('id');
+        Route::get('/{id}/products', 'products')->whereNumber('id');
+        Route::get('/{id}/orders', 'orders')->whereNumber('id');
+    });
     // Portfolio module (back office of the public /portfolio/{slug} website).
     Route::prefix('portfolio')->controller(\App\Http\Controllers\Api\Portfolio\PortfolioController::class)->group(function () {
         Route::get('/', 'index');

@@ -215,6 +215,7 @@ export const MIGRATED_ROUTES = {
     '/app/portfolio/categories': '/portfolio/categories',
     '/app/portfolio/settings': '/portfolio/settings',
     '/app/portfolio/messages': '/portfolio/messages',
+    '/app/portfolio/catalogs': '/portfolio/catalogs',
     '/app/email-office/settings': '/email-office/settings',
     '/app/email-office/received': '/email-office/received',
     '/app/email-office/sent': '/email-office/sent',
@@ -514,6 +515,8 @@ export const MENU = [
             { label: 'Photos', raw: true, to: '/app/portfolio/photos', permissions: ['portfolio_manage'] },
             { label: 'Categories', raw: true, to: '/app/portfolio/categories', permissions: ['portfolio_manage'] },
             { label: 'Messages', raw: true, to: '/app/portfolio/messages', permissions: ['portfolio_manage'] },
+            // Tablet catalogs (2026-10-25): menu / models for a tablet handed to the customer.
+            { label: 'Portfolio_Catalogs', to: '/app/portfolio/catalogs', permissions: ['portfolio_manage'] },
             // Theme, logo, menu, pages, social links (the old "Website" tab lives here now).
             { label: 'Settings', raw: true, to: '/app/portfolio/settings', permissions: ['portfolio_manage'] },
         ],

@@ -7,6 +7,7 @@
  */
 export const HEADER_ICONS = [
   { key: 'pos', label: 'POS button', help: 'Also needs the role\'s POS permission.' },
+  { key: 'catalog', label: 'Catalog button (tablet)', help: 'Opens the Portfolio tablet catalogs (menu / models). Shows only when the company has one.' },
   { key: 'customize', label: 'Settings (theme and layout)' },
   { key: 'install', label: 'Install app', help: 'Only shows while the browser offers to install it.' },
   { key: 'summary', label: 'Como Vamos! (today\'s summary)' },
