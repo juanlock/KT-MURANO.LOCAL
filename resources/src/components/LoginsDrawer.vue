@@ -120,10 +120,10 @@ const columns = computed(() => [
   { title: '', key: 'open', width: 100 },
 ]);
 
-// "Enter" (switch + back): a login with the standard password, not my own.
+// "Enter" (switch + back): any active login of the company but my own.
 const auth = useAuthStore();
 const opening = ref(null);
-const canOpen = r => r.password && r.active && r.id !== auth.user?.id && r.type !== 'Online_store';
+const canOpen = r => r.active && r.id !== auth.user?.id && r.type !== 'Online_store';
 // Same tab (user's rule, 2026-10-25): every tab shares the session, so the
 // admin simply becomes that login here and returns with "Back to admin".
 async function openAs(r, enablePortal = false) {

@@ -276,7 +276,8 @@ the start of each session).
   company's admin only: admin login + `company_logins_view`): every login, its
   role and accesses, the password when still standard (bcrypt-checked, a
   changed one shows "custom"), a filter by type and by role, and **Enter** =
-  work as that login in the same tab (`/login/as/{id}`, `AdminSwitch` cookie,
+  work as ANY active login of the company (whatever its password; never a
+  SuperAdmin; logged) in the same tab (`/login/as/{id}`, `AdminSwitch` cookie,
   header "Back to admin"; a customer opens the portal instead; any other open
   tab reloads as the login in use).
 - **Customer portal on by default, every company** (user's rule, 2026-10-25):

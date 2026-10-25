@@ -60,11 +60,10 @@ class CompanyLoginsController extends Controller
     }
 
     /**
-     * POST /login/as/{id} (web): "Open" -- this browser works as that login
-     * (user's choice, 2026-10-25: switch + back). Only a login of the same
-     * company that still has its standard password (the admin knows it
-     * anyway). A customer opens the customer portal, which has its own
-     * session, so the admin's stays. Answers {redirect} for the new tab.
+     * POST /login/as/{id} (web): "Enter" -- this browser works as that login
+     * (user's rules, 2026-10-25: switch + back, same tab, any login of the
+     * admin's own company whatever its password; logged). A customer opens
+     * the customer portal, which has its own session, so the admin's stays.
      */
     public function open(Request $request, $id)
     {
@@ -74,9 +73,8 @@ class CompanyLoginsController extends Controller
         abort_unless($target, 404);
         abort_if((int) $target->id === (int) $admin->id, 422, 'That is your own login.');
         abort_unless((int) $target->statut === 1, 422, 'That login is disabled.');
-        $candidates = array_filter([CompanyLogins::PASSWORDS[['Online_store' => 'online_store'][$target->type] ?? $target->type] ?? null, CompanyLogins::ACCESS_PASSWORD]);
-        abort_unless(collect($candidates)->contains(fn ($pw) => $this->matches($target->password, $pw)), 422,
-            'This login has its own password now; only logins with the standard password can be opened.');
+        // Any login of the admin's own company (user's rule, 2026-10-25), whatever its password -- never a SuperAdmin.
+        abort_if($target->type === 'SuperAdmin', 403);
 
         \Illuminate\Support\Facades\Log::info('Company admin opened a login', ['admin_id' => $admin->id, 'target_id' => $target->id, 'company_id' => $admin->company_id, 'ip' => $request->ip()]);
 
