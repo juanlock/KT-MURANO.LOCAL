@@ -503,6 +503,15 @@ Route::middleware(['web', 'request.safety'])->prefix('support')->group(function 
         ->middleware('throttle:60,1,support-file')->name('support.attachment');
 });
 
+// Forms module (2026-10-24): a public form -- own page, iframe page (embedded on any
+// website by /embed/murano-forms.js) and its POST (CSRF-exempt like /book: posted
+// from cross-site iframes; throttle + honeypot + time-to-submit in the controller).
+Route::middleware(['web', 'request.safety'])->prefix('f/{key}')->where(['key' => '[a-z0-9]{8,24}'])->group(function () {
+    Route::get('/', [\App\Http\Controllers\PublicFormController::class, 'page'])->middleware('throttle:120,1,form-view')->name('forms.public');
+    Route::get('/embed', [\App\Http\Controllers\PublicFormController::class, 'embed'])->middleware('throttle:120,1,form-view')->name('forms.embed');
+    Route::post('/', [\App\Http\Controllers\PublicFormController::class, 'submit'])->middleware('throttle:10,1,form-submit')->name('forms.submit');
+});
+
 // Bookings public channel: "Book an appointment" page (company = its domain or
 // ?company=ID; &embed=1 = compact iframe layout for external websites). The
 // POST is CSRF-exempt (VerifyCsrfToken) since it is posted from cross-site

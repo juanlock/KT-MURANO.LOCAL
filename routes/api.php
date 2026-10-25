@@ -704,6 +704,20 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
         Route::put('/messages/{id}', 'updateMessage')->whereNumber('id');
         Route::delete('/messages/{id}', 'destroyMessage')->whereNumber('id');
     });
+    // Forms module (2026-10-24): forms embedded on websites / the store (public side: /f/{key}).
+    Route::prefix('forms')->controller(\App\Http\Controllers\Api\Forms\FormsController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/', 'store');
+        Route::get('/submissions/{id}', 'showSubmission')->whereNumber('id');
+        Route::put('/submissions/{id}', 'updateSubmission')->whereNumber('id');
+        Route::delete('/submissions/{id}', 'destroySubmission')->whereNumber('id');
+        Route::get('/submissions/{id}/file/{key}', 'file')->whereNumber('id')->where('key', '[a-z0-9_]+');
+        Route::get('/{id}', 'show')->whereNumber('id');
+        Route::put('/{id}', 'update')->whereNumber('id');
+        Route::post('/{id}/duplicate', 'duplicate')->whereNumber('id');
+        Route::delete('/{id}', 'destroy')->whereNumber('id');
+        Route::get('/{id}/submissions', 'submissions')->whereNumber('id');
+    });
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
     Route::get('employees/{id}/assets', 'hrm\EmployeesController@assets')->whereNumber('id');
     Route::get('employees/{id}/print', 'hrm\EmployeesController@printProfile')->whereNumber('id');

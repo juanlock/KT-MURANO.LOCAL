@@ -206,6 +206,7 @@ export const MIGRATED_ROUTES = {
     '/app/Store/ShippingMethods': '/store/shipping-methods',
     '/app/Store/ShippingZones': '/store/shipping-zones',
     '/app/Store/Banners': '/store/banners',
+    '/app/forms': '/forms',
     '/app/portfolio/sections': '/portfolio/sections',
     '/app/portfolio/photos': '/portfolio/photos',
     '/app/portfolio/works': '/portfolio/photos',
@@ -514,6 +515,15 @@ export const MENU = [
             // Theme, logo, menu, pages, social links (the old "Website" tab lives here now).
             { label: 'Settings', raw: true, to: '/app/portfolio/settings', permissions: ['portfolio_manage'] },
         ],
+    },
+    {
+        // Forms (2026-10-24): forms for the website / store / any site (iframe or script),
+        // and their submissions. Public side: /f/{key}.
+        key: 'forms',
+        icon: 'clipboard-list',
+        label: 'Forms_Module',
+        to: '/app/forms',
+        permissions: ['forms_view', 'forms_manage'],
     },
     {
         // Email Office: the company mailbox (settings, received, sent).

@@ -33,6 +33,9 @@ class VerifyCsrfToken extends Middleware
         // could never match. Anonymous form (no account is acted on); spam is
         // handled in PublicBookingController (throttle, honeypot, time-to-submit).
         'book',
+        // POST /f/{key}: Forms module public forms, same reason (iframes on other sites);
+        // spam handled in PublicFormController (throttle, honeypot, time-to-submit).
+        'f/*',
 
         // PayPal module webhook: posted by PayPal's servers, checked with
         // PayPal's verify-webhook-signature API (PayPalInvoiceController).

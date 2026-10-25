@@ -405,6 +405,10 @@ const Employees = lazy('Employees', () => import('../pages/hrm/Employees.vue'));
 const EmployeeForm = lazy('EmployeeForm', () => import('../pages/hrm/EmployeeForm.vue'));
 const PortfolioAdmin = lazy('PortfolioAdmin', () => import('../pages/portfolio/PortfolioAdmin.vue'));
 const PortfolioSettings = lazy('PortfolioSettings', () => import('../pages/portfolio/PortfolioSettings.vue'));
+// Forms module (2026-10-24): forms embedded on websites / the store.
+const FormsList = lazy('FormsList', () => import('../pages/forms/FormsList.vue'));
+const FormBuilder = lazy('FormBuilder', () => import('../pages/forms/FormBuilder.vue'));
+const FormSubmissions = lazy('FormSubmissions', () => import('../pages/forms/FormSubmissions.vue'));
 const EmployeeDetails = lazy('EmployeeDetails', () => import('../pages/hrm/EmployeeDetails.vue'));
 const Attendance = lazy('Attendance', () => import('../pages/hrm/Attendance.vue'));
 const Leaves = lazy('Leaves', () => import('../pages/hrm/Leaves.vue'));
@@ -643,6 +647,10 @@ const routes = [
             { path: 'store/portfolio', redirect: '/portfolio/photos' },
             { path: 'portfolio/works', redirect: '/portfolio/photos' },
             { path: 'store/gallery', redirect: '/gallery' },
+            // Forms module (2026-10-24).
+            { path: 'forms', name: 'forms', component: FormsList, meta: { title: 'Forms', permission: ['forms_view', 'forms_manage'] } },
+            { path: 'forms/:id/edit', name: 'form-edit', component: FormBuilder, meta: { title: 'Form', permission: 'forms_manage' } },
+            { path: 'forms/:id/submissions', name: 'form-submissions', component: FormSubmissions, meta: { title: 'Form submissions', permission: ['forms_view', 'forms_manage'] } },
             // Portfolio module: one page, one route per tab (= one menu entry each).
             { path: 'portfolio', redirect: '/portfolio/sections' },
             { path: 'portfolio/sections', name: 'portfolio-sections', component: PortfolioAdmin, meta: { title: 'Portfolio · Home sections', permission: 'portfolio_manage', tab: 'sections' } },

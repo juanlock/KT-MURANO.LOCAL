@@ -55,7 +55,8 @@ class BusinessTypes
      * them to an existing company.
      */
     // Documents (archive) is base for every type too (2026-10-21).
-    public const BASE_MODULES = ['accounting', 'assets', 'documents', 'email_office', 'gallery', 'helpdesk', 'hrm', 'website',
+    // Forms is base for every type too (2026-10-24).
+    public const BASE_MODULES = ['accounting', 'assets', 'documents', 'email_office', 'forms', 'gallery', 'helpdesk', 'hrm', 'website',
         // Commerce (switchable since 2026-10-20): every type starts with them, except the ones in EXCLUDE.
         'sales', 'pos', 'purchases', 'suppliers', 'products', 'customers'];
 

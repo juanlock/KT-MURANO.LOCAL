@@ -1463,6 +1463,21 @@ export const PERMISSION_GROUPS = [
         ]
     },
     {
+        "label": "Forms",
+        "items": [
+            {
+                "v": "forms_view",
+                "l": "Forms_View",
+                "f": "See forms and their submissions"
+            },
+            {
+                "v": "forms_manage",
+                "l": "Forms_Manage",
+                "f": "Build, publish and delete forms and submissions"
+            }
+        ]
+    },
+    {
         "label": "Portfolio",
         "items": [
             {

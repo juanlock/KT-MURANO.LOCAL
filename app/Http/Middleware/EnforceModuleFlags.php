@@ -33,6 +33,7 @@ class EnforceModuleFlags
         'helpdesk' => 'helpdesk',
         'email-office' => 'email_office',
         'portfolio' => 'portfolio',
+        'forms' => 'forms', // Forms module (2026-10-24)
         'recruit' => 'recruit',
         'meeting' => 'meeting',
         'marketing' => 'marketing',
