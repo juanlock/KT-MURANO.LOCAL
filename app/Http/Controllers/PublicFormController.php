@@ -169,6 +169,9 @@ class PublicFormController extends Controller
         if ($s['notify']) {
             FormNotifier::submitted($f, $fields, $s, $sub);
         }
+        if ($s['confirm_email']) {
+            FormNotifier::confirmVisitor($f, $fields, $s, $sub);
+        }
 
         $ref = $s['number_prefix'].$sub->number;
         $message = str_replace('{number}', $ref, $s['success_message']);

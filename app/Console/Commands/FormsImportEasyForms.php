@@ -26,7 +26,8 @@ use Illuminate\Support\Facades\DB;
  */
 class FormsImportEasyForms extends Command
 {
-    protected $signature = 'forms:import-easyforms {--apply : Write (default: dry run)} {--map=* : legacyFormId:companyId}';
+    protected $signature = 'forms:import-easyforms {--apply : Write (default: dry run)} {--map=* : legacyFormId:companyId}
+        {--refresh-settings : Also re-read the notification / receipt settings of forms already imported}';
 
     protected $description = 'Import the forms and submissions of the old Easy Forms install into the Forms module';
 
@@ -76,7 +77,17 @@ class FormsImportEasyForms extends Command
                 'redirect_url' => (string) ($conf->url ?? ''),
                 'hide_after_submit' => true,
                 'notify' => ! empty($mail->to),
-                'notify_emails' => array_map('trim', explode(',', (string) ($mail->to ?? ''))),
+                // To + CC + BCC: everyone who got Easy Forms' notification.
+                'notify_emails' => array_map('trim', explode(',', implode(',', [(string) ($mail->to ?? ''), (string) ($mail->cc ?? ''), (string) ($mail->bcc ?? '')]))),
+                // The receipt for the visitor (Easy Forms' "send confirmation email", or its
+                // notification also sent to the visitor's email field).
+                'confirm_email' => (bool) ($conf->send_email ?? false) || ! empty($mail->field_to),
+                'confirm_field' => (string) (($conf->send_email ?? false) && ! empty($conf->mail_to) ? $conf->mail_to : ($mail->field_to ?? '')),
+                'confirm_subject' => (string) (($conf->send_email ?? false) ? ($conf->mail_subject ?? '') : ($mail->subject ?? '')),
+                'confirm_message' => $this->intro((string) ($conf->mail_message ?? '')),
+                'confirm_data' => true,
+                'confirm_bcc' => array_map('trim', explode(',', (string) ($conf->mail_cc ?? '').','.(string) ($conf->mail_bcc ?? ''))),
+                'from_name' => (string) ($conf->mail_from_name ?? ''),
                 'notify_subject' => (string) ($mail->subject ?? '') ?: ($es ? 'Nuevo envío: {form}' : 'New submission: {form}'),
                 'reply_to_field' => collect($fields)->firstWhere('type', 'email')['key'] ?? '',
                 'honeypot' => (bool) $old->honeypot,
@@ -98,7 +109,7 @@ class FormsImportEasyForms extends Command
             DB::transaction(function () use (&$form, $old, $cid, $fields, $settings, $new, $maxNumber, $tz, &$totals) {
                 if (! $form) {
                     $id = DB::table('forms')->insertGetId([
-                        'company_id' => $cid, 'name' => mb_substr($old->name, 0, 150), 'public_key' => FormsController::newKey(),
+                        'company_id' => $cid, 'name' => mb_substr($old->name, 0, 150), 'public_key' => self::stableKey((int) $old->id),
                         'status' => (bool) $old->status, 'fields' => json_encode($fields, JSON_UNESCAPED_UNICODE),
                         'settings' => json_encode($settings, JSON_UNESCAPED_UNICODE),
                         'next_number' => max((int) $old->submission_number, $maxNumber + 1),
@@ -107,6 +118,18 @@ class FormsImportEasyForms extends Command
                     ]);
                     $form = DB::table('forms')->find($id);
                     $totals['forms']++;
+                } elseif ($this->option('refresh-settings')) {
+                    // Re-read the old form's settings into an already imported form
+                    // (only the keys the import fills; the rest stays as edited in Murano).
+                    $now = json_decode((string) $form->settings, true) ?: [];
+                    $keys = ['notify', 'notify_emails', 'confirm_email', 'confirm_field', 'confirm_subject', 'confirm_message', 'confirm_data', 'confirm_bcc', 'from_name'];
+                    $merged = FormSchema::settings(array_merge($now, array_intersect_key($settings, array_flip($keys))));
+                    DB::table('forms')->where('id', $form->id)->update(['settings' => json_encode($merged, JSON_UNESCAPED_UNICODE)]);
+                }
+                if ($form->public_key !== self::stableKey((int) $old->id)
+                    && ! DB::table('forms')->where('public_key', self::stableKey((int) $old->id))->exists()) {
+                    // Forms imported before 2026-10-24's stable keys get theirs too.
+                    DB::table('forms')->where('id', $form->id)->update(['public_key' => self::stableKey((int) $old->id)]);
                 }
                 $keys = array_column(FormSchema::inputs($fields), 'key');
                 $multi = collect($fields)->filter(fn ($f) => $f['type'] === 'checkbox')->pluck('key')->flip();
@@ -193,6 +216,27 @@ class FormsImportEasyForms extends Command
         }
 
         return count($out);
+    }
+
+    /** The plain-text intro of an Easy Forms email body (the text before its data table). */
+    private function intro(string $html): string
+    {
+        $before = preg_split('/<table/i', $html)[0] ?? '';
+        $text = html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '<br/>', '<br />'], "\n", $before)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Lines with its {{tokens}} (opt-in link...) mean nothing here: dropped.
+        $lines = array_filter(array_map('trim', preg_split('/\R/', $text)), fn ($l) => $l !== '' && ! str_contains($l, '{{'));
+
+        return implode("\n", array_map(fn ($l) => preg_replace('/[ \t]+/', ' ', $l), $lines));
+    }
+
+    /**
+     * The same public key for an imported form in every database (dev and
+     * production import it separately): the embed / link codes given to the
+     * customers' websites stay valid whichever copy is live.
+     */
+    public static function stableKey(int $legacyId): string
+    {
+        return 'ef'.substr(sha1('easyforms-form-'.$legacyId), 0, 10);
     }
 
     /** The old database, from its Yii config/db.php (credentials never printed or copied). */

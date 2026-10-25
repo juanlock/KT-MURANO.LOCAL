@@ -184,7 +184,7 @@
                   <div class="fb-sec">{{ es ? 'Avisos por correo' : 'Email notifications' }}</div>
                   <a-form-item><a-checkbox v-model:checked="s.notify" @change="dirty = true">{{ es ? 'Avisar por correo de cada envío' : 'Email me every submission' }}</a-checkbox></a-form-item>
                   <template v-if="s.notify">
-                    <a-form-item :label="es ? 'Enviar a' : 'Send to'" :extra="es ? 'Vacío = los administradores de la empresa.' : 'Empty = the company\'s admins.'">
+                    <a-form-item :label="es ? 'Enviar a' : 'Send to'" :extra="es ? 'Uno o varios correos. Vacío = los administradores de la empresa.' : 'One or more emails. Empty = the company\'s admins.'">
                       <a-select v-model:value="s.notify_emails" mode="tags" :token-separators="[',', ' ', ';']" :placeholder="es ? 'correo@empresa.com' : 'email@company.com'" @change="dirty = true" />
                     </a-form-item>
                     <a-form-item :label="es ? 'Asunto' : 'Subject'" :extra="es ? '{form} = nombre del formulario, {number} = número' : '{form} = form name, {number} = number'">
@@ -192,6 +192,30 @@
                     </a-form-item>
                     <a-form-item :label="es ? 'Responder a' : 'Reply to'" :extra="es ? 'Al responder el aviso, la respuesta va al correo que escribió el visitante.' : 'Replying to the notification answers the visitor\'s email.'">
                       <a-select v-model:value="s.reply_to_field" :options="emailFieldOptions" allow-clear @change="dirty = true" />
+                    </a-form-item>
+                  </template>
+
+                  <a-form-item :label="es ? 'Nombre del remitente' : 'Sender name'" :extra="es ? 'Vacío = el nombre de la empresa.' : 'Empty = the company\'s name.'">
+                    <a-input v-model:value="s.from_name" :maxlength="190" />
+                  </a-form-item>
+
+                  <div class="fb-sec">{{ es ? 'Constancia al visitante' : 'Receipt to the visitor' }}</div>
+                  <a-form-item>
+                    <a-checkbox v-model:checked="s.confirm_email" @change="dirty = true">{{ es ? 'Enviarle por correo una constancia con su número' : 'Email them a receipt with their number' }}</a-checkbox>
+                  </a-form-item>
+                  <template v-if="s.confirm_email">
+                    <a-form-item :label="es ? 'Al correo escrito en' : 'To the email typed in'">
+                      <a-select v-model:value="s.confirm_field" :options="emailFieldOptions" :placeholder="es ? 'Campo de correo' : 'Email field'" @change="dirty = true" />
+                    </a-form-item>
+                    <a-form-item :label="es ? 'Asunto' : 'Subject'" :extra="es ? '{form} = formulario, {number} = número. Vacío = nombre del formulario + número.' : '{form} = form, {number} = number. Empty = form name + number.'">
+                      <a-input v-model:value="s.confirm_subject" :maxlength="190" />
+                    </a-form-item>
+                    <a-form-item :label="es ? 'Mensaje' : 'Message'">
+                      <a-textarea v-model:value="s.confirm_message" :auto-size="{ minRows: 2, maxRows: 6 }" :placeholder="es ? 'Hemos recibido su envío. Este es su comprobante.' : 'We received your submission. This is your receipt.'" />
+                    </a-form-item>
+                    <a-form-item><a-checkbox v-model:checked="s.confirm_data" @change="dirty = true">{{ es ? 'Incluir los datos que envió' : 'Include what they sent' }}</a-checkbox></a-form-item>
+                    <a-form-item :label="es ? 'Copia oculta a' : 'Hidden copy to'">
+                      <a-select v-model:value="s.confirm_bcc" mode="tags" :token-separators="[',', ' ', ';']" @change="dirty = true" />
                     </a-form-item>
                   </template>
 

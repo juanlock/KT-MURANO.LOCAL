@@ -42,6 +42,14 @@ class FormSchema
             'notify_emails' => [],               // [] = the company's admins
             'notify_subject' => 'New submission: {form}',
             'reply_to_field' => '',              // an email field: replying to the notification answers the visitor
+            // Receipt to the visitor (2026-10-24; e.g. the complaints book's copy for the consumer).
+            'confirm_email' => false,
+            'confirm_field' => '',               // the email field to send it to
+            'confirm_subject' => '',             // '' = the form's name; {form} {number}
+            'confirm_message' => '',             // text above the details
+            'confirm_data' => true,              // include what they sent
+            'confirm_bcc' => [],                 // hidden copy to staff
+            'from_name' => '',                   // sender name ('' = the company)
             'number_prefix' => '',               // e.g. REC- -> REC-2001
             'honeypot' => true,
             'min_seconds' => 3,                  // faster than this = a bot
@@ -57,7 +65,9 @@ class FormSchema
     public static function settings(?array $saved): array
     {
         $s = array_merge(self::defaultSettings(), array_intersect_key($saved ?? [], self::defaultSettings()));
-        $s['notify_emails'] = array_values(array_filter(array_map('trim', (array) $s['notify_emails']), fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL)));
+        foreach (['notify_emails', 'confirm_bcc'] as $k) {
+            $s[$k] = array_values(array_unique(array_filter(array_map('trim', (array) $s[$k]), fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL))));
+        }
         $s['allowed_domains'] = array_values(array_filter(array_map(fn ($d) => self::domain((string) $d), (array) $s['allowed_domains'])));
         $s['language'] = in_array($s['language'], ['en', 'es'], true) ? $s['language'] : 'en';
         $s['confirmation'] = in_array($s['confirmation'], ['message', 'redirect'], true) ? $s['confirmation'] : 'message';
@@ -68,13 +78,13 @@ class FormSchema
             $s[$c] = preg_match('/^#[0-9a-f]{3,8}$/i', (string) $s[$c]) ? $s[$c] : self::defaultSettings()[$c];
         }
         $s['font'] = in_array($s['font'], ['system', 'serif'], true) ? $s['font'] : 'system';
-        foreach (['title', 'submit_text', 'notify_subject', 'number_prefix', 'reply_to_field'] as $k) {
+        foreach (['title', 'submit_text', 'notify_subject', 'number_prefix', 'reply_to_field', 'confirm_field', 'confirm_subject', 'from_name'] as $k) {
             $s[$k] = mb_substr(strip_tags((string) $s[$k]), 0, 190);
         }
-        foreach (['description', 'success_message'] as $k) {
+        foreach (['description', 'success_message', 'confirm_message'] as $k) {
             $s[$k] = mb_substr(strip_tags((string) $s[$k]), 0, 5000);
         }
-        foreach (['hide_after_submit', 'notify', 'honeypot', 'active'] as $k) {
+        foreach (['hide_after_submit', 'notify', 'honeypot', 'active', 'confirm_email', 'confirm_data'] as $k) {
             $s[$k] = (bool) $s[$k];
         }
 
