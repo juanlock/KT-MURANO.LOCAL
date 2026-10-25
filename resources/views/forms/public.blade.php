@@ -181,6 +181,15 @@ body {
 
     if (!form || !window.fetch || !window.FormData) return;
     var msg = document.getElementById('fm-msg'), err = document.getElementById('fm-err');
+    // Dashboard funnel: "started" once, when the visitor begins typing / choosing.
+    var started = params.has('preview');
+    function start() {
+        if (started) return;
+        started = true;
+        fetch(form.action + '/start', { method: 'POST', keepalive: true, headers: { 'X-Requested-With': 'XMLHttpRequest' } }).catch(function () {});
+    }
+    form.addEventListener('input', start);
+    form.addEventListener('change', start);
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         var btn = form.querySelector('.fm-btn');

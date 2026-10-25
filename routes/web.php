@@ -510,6 +510,7 @@ Route::middleware(['web', 'request.safety'])->prefix('f/{key}')->where(['key' =>
     Route::get('/', [\App\Http\Controllers\PublicFormController::class, 'page'])->middleware('throttle:120,1,form-view')->name('forms.public');
     Route::get('/embed', [\App\Http\Controllers\PublicFormController::class, 'embed'])->middleware('throttle:120,1,form-view')->name('forms.embed');
     Route::post('/', [\App\Http\Controllers\PublicFormController::class, 'submit'])->middleware('throttle:10,1,form-submit')->name('forms.submit');
+    Route::post('/start', [\App\Http\Controllers\PublicFormController::class, 'start'])->middleware('throttle:30,1,form-start')->name('forms.start');
 });
 
 // Bookings public channel: "Book an appointment" page (company = its domain or

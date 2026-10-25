@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\FormNotifier;
 use App\Support\CompanyFiles;
 use App\Support\FormSchema;
+use App\Support\FormStats;
 use App\Support\ModuleFlags;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
@@ -54,6 +55,10 @@ class PublicFormController extends Controller
     {
         [$f, $fields, $s] = $this->load($key);
         $open = (bool) $f->status && $s['active'];
+        // Dashboard: a view (not the builder's preview, not a re-render after an error).
+        if ($open && ! $request->has('preview') && ! session()->has('form_errors_'.$f->id)) {
+            FormStats::bump($f, 'views');
+        }
         $view = view('forms.public', [
             'form' => $f, 'fields' => $fields, 's' => $s, 'embed' => $embed, 'open' => $open,
             'brand' => $this->brand((int) $f->company_id),
@@ -79,6 +84,17 @@ class PublicFormController extends Controller
     public function embed(Request $request, string $key)
     {
         return $this->render($request, $key, true);
+    }
+
+    /** POST /f/{key}/start: the visitor began typing (once per page load) -- dashboard funnel. */
+    public function start(Request $request, string $key)
+    {
+        [$f, , $s] = $this->load($key);
+        if ($f->status && $s['active'] && ! $request->has('preview')) {
+            FormStats::bump($f, 'starts');
+        }
+
+        return response()->noContent();
     }
 
     public function submit(Request $request, string $key)
@@ -149,6 +165,7 @@ class PublicFormController extends Controller
             return DB::table('form_submissions')->find($id);
         });
 
+        FormStats::bump($f, 'submissions');
         if ($s['notify']) {
             FormNotifier::submitted($f, $fields, $s, $sub);
         }

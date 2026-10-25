@@ -708,6 +708,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::prefix('forms')->controller(\App\Http\Controllers\Api\Forms\FormsController::class)->group(function () {
         Route::get('/', 'index');
         Route::post('/', 'store');
+        Route::get('/dashboard', 'dashboard');
         Route::get('/submissions/{id}', 'showSubmission')->whereNumber('id');
         Route::put('/submissions/{id}', 'updateSubmission')->whereNumber('id');
         Route::delete('/submissions/{id}', 'destroySubmission')->whereNumber('id');

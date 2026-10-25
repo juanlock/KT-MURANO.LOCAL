@@ -207,6 +207,7 @@ export const MIGRATED_ROUTES = {
     '/app/Store/ShippingZones': '/store/shipping-zones',
     '/app/Store/Banners': '/store/banners',
     '/app/forms': '/forms',
+    '/app/forms/dashboard': '/forms/dashboard',
     '/app/portfolio/sections': '/portfolio/sections',
     '/app/portfolio/photos': '/portfolio/photos',
     '/app/portfolio/works': '/portfolio/photos',
@@ -522,8 +523,11 @@ export const MENU = [
         key: 'forms',
         icon: 'clipboard-list',
         label: 'Forms_Module',
-        to: '/app/forms',
         permissions: ['forms_view', 'forms_manage'],
+        children: [
+            { label: 'Forms_Dashboard', to: '/app/forms/dashboard', permissions: ['forms_view', 'forms_manage'] },
+            { label: 'Forms_All', to: '/app/forms', permissions: ['forms_view', 'forms_manage'] },
+        ],
     },
     {
         // Email Office: the company mailbox (settings, received, sent).
