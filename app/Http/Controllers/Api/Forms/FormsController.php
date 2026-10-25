@@ -137,10 +137,16 @@ class FormsController extends Controller
     }
 
     /**
-     * GET forms/dashboard?from&to -- the funnel (seen -> started -> sent) and its
-     * conversion, per day and per form, unread / latest submissions and the pages
-     * the submissions come from. Views / starts are counted since 2026-10-24
-     * (form_stats_daily); submissions come from form_submissions (imported ones too).
+     * GET forms/dashboard?from&to (2026-10-24, the 8 cards + lists):
+     *  - users (unique visitors), starters + starter rate, conversions + conversion
+     *    rate, abandons (started, not sent) + abandonment rate, completion rate
+     *    (conversions / starters); forms viewed / filled / submitted; average
+     *    filling time -- rates over unique users, like the old Easy Forms panel
+     *  - performance per day (users, starters, conversions), most visited / most
+     *    started / most conversions / last updated forms, new (unread) submissions,
+     *    pages the submissions come from.
+     * Counters: form_stats_daily (Easy Forms' history imported); submissions
+     * lists: form_submissions.
      */
     public function dashboard(Request $request)
     {
@@ -154,51 +160,57 @@ class FormsController extends Controller
 
         $subs = DB::table('form_submissions')->whereIn('form_id', $ids)->whereNull('deleted_at')
             ->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to);
-        $subsByDay = (clone $subs)->selectRaw('DATE(created_at) d, count(*) n')->groupBy('d')->pluck('n', 'd');
         $subsByForm = (clone $subs)->selectRaw('form_id, count(*) n')->groupBy('form_id')->pluck('n', 'form_id');
         $stats = DB::table('form_stats_daily')->whereIn('form_id', $ids)->whereBetween('day', [$from, $to]);
-        $statsByDay = (clone $stats)->selectRaw('day, sum(views) v, sum(starts) s')->groupBy('day')->get()->keyBy(fn ($r) => (string) $r->day);
-        // Conversion = submissions COUNTED WITH the views (same table, same days): imported /
-        // older submissions have no views behind them and would inflate it.
-        $statsByForm = (clone $stats)->selectRaw('form_id, sum(views) v, sum(starts) s, sum(submissions) n')->groupBy('form_id')->get()->keyBy('form_id');
-        $statsTotal = (clone $stats)->selectRaw('sum(views) v, sum(submissions) n')->first();
+        $sum = 'sum(views) v, sum(users) u, sum(starts) s, sum(submissions) c, sum(fill_ms) ms, sum(timed) t';
+        $statsByDay = (clone $stats)->selectRaw("day, $sum")->groupBy('day')->get()->keyBy(fn ($r) => (string) $r->day);
+        $statsByForm = (clone $stats)->selectRaw("form_id, $sum")->groupBy('form_id')->get()->keyBy('form_id');
+        $t = (clone $stats)->selectRaw($sum)->first();
         $unreadByForm = DB::table('form_submissions')->whereIn('form_id', $ids)->whereNull('deleted_at')->where('is_read', false)
             ->selectRaw('form_id, count(*) n')->groupBy('form_id')->pluck('n', 'form_id');
 
-        // One point per day of the range (max ~2 years of days; longer ranges by month).
+        // Performance per day (per month beyond ~2 years).
+        $point = fn ($k, $r) => ['d' => $k, 'users' => (int) ($r->u ?? 0), 'starts' => (int) ($r->s ?? 0), 'submissions' => (int) ($r->c ?? 0), 'views' => (int) ($r->v ?? 0)];
         $series = [];
         $start = \Carbon\Carbon::parse($from);
         $end = \Carbon\Carbon::parse($to);
         if ($start->diffInDays($end) <= 731) {
             for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
                 $k = $d->toDateString();
-                $series[] = ['d' => $k, 'views' => (int) ($statsByDay[$k]->v ?? 0), 'starts' => (int) ($statsByDay[$k]->s ?? 0), 'submissions' => (int) ($subsByDay[$k] ?? 0)];
+                $series[] = $point($k, $statsByDay[$k] ?? null);
             }
         } else {
             $byMonth = [];
-            foreach ($subsByDay as $k => $n) {
-                $byMonth[substr($k, 0, 7)]['submissions'] = ($byMonth[substr($k, 0, 7)]['submissions'] ?? 0) + $n;
-            }
             foreach ($statsByDay as $k => $r) {
                 $m = substr($k, 0, 7);
-                $byMonth[$m]['views'] = ($byMonth[$m]['views'] ?? 0) + $r->v;
-                $byMonth[$m]['starts'] = ($byMonth[$m]['starts'] ?? 0) + $r->s;
+                foreach (['v', 'u', 's', 'c'] as $c) {
+                    $byMonth[$m][$c] = ($byMonth[$m][$c] ?? 0) + (int) $r->$c;
+                }
             }
             ksort($byMonth);
             foreach ($byMonth as $m => $x) {
-                $series[] = ['d' => $m, 'views' => (int) ($x['views'] ?? 0), 'starts' => (int) ($x['starts'] ?? 0), 'submissions' => (int) ($x['submissions'] ?? 0)];
+                $series[] = $point($m, (object) $x);
             }
         }
 
-        $perForm = $forms->map(function ($f) use ($subsByForm, $statsByForm, $unreadByForm) {
-            $v = (int) ($statsByForm[$f->id]->v ?? 0);
-            $s = (int) ($statsByForm[$f->id]->s ?? 0);
-            $n = (int) ($subsByForm[$f->id] ?? 0);
+        $users = (int) ($t->u ?? 0);
+        $starters = (int) ($t->s ?? 0);
+        $conversions = (int) ($t->c ?? 0);
+        $abandons = max(0, $starters - $conversions);
+        $rate = fn ($n, $of) => $of > 0 ? (int) round(min(100, $n * 100 / $of)) : 0;
+        $avgMs = (int) ($t->t ?? 0) > 0 ? (int) round($t->ms / $t->t) : 0;
+        $withStat = fn ($col) => $statsByForm->filter(fn ($r) => (int) $r->$col > 0)->count();
+
+        $perForm = $forms->map(function ($f) use ($subsByForm, $statsByForm, $unreadByForm, $rate) {
+            $r = $statsByForm[$f->id] ?? null;
+            $u = (int) ($r->u ?? 0);
 
             return ['id' => $f->id, 'company_id' => $f->company_id, 'name' => $f->name, 'status' => (bool) $f->status,
-                'views' => $v, 'starts' => $s, 'submissions' => $n, 'unread' => (int) ($unreadByForm[$f->id] ?? 0),
-                'conversion' => $v ? round(min(100, (int) ($statsByForm[$f->id]->n ?? 0) / $v * 100), 1) : null, 'updated_at' => $f->updated_at];
+                'views' => (int) ($r->v ?? 0), 'users' => $u, 'starts' => (int) ($r->s ?? 0), 'conversions' => (int) ($r->c ?? 0),
+                'submissions' => (int) ($subsByForm[$f->id] ?? 0), 'unread' => (int) ($unreadByForm[$f->id] ?? 0),
+                'conversion' => $u ? $rate((int) ($r->c ?? 0), $u) : null, 'updated_at' => $f->updated_at];
         })->sortByDesc('submissions')->values()->all();
+        $top = fn ($key) => CompanyNames::attach(collect($perForm)->filter(fn ($f) => $f[$key] > 0)->sortByDesc($key)->take(5)->values()->all());
 
         $prefix = fn ($fid) => FormSchema::settings(json_decode((string) ($forms[$fid]->settings ?? ''), true))['number_prefix'];
         $list = function ($q) use ($forms, $prefix) {
@@ -220,22 +232,28 @@ class FormsController extends Controller
                 return isset($p['host']) ? preg_replace('/^www\./', '', $p['host']).rtrim($p['path'] ?? '', '/') : null;
             })->filter()->countBy()->sortDesc()->take(8)->map(fn ($n, $page) => ['page' => $page, 'submissions' => $n])->values()->all();
 
-        $tot = ['views' => array_sum(array_column($series, 'views')), 'starts' => array_sum(array_column($series, 'starts')),
-            'submissions' => array_sum(array_column($series, 'submissions'))];
-
         return response()->json([
             'from' => $from, 'to' => $to,
-            'totals' => $tot + [
-                'conversion' => (int) ($statsTotal->v ?? 0) ? round(min(100, (int) $statsTotal->n / (int) $statsTotal->v * 100), 1) : null,
+            'cards' => [
+                'users' => $users, 'starter_rate' => $rate($starters, $users),
+                'starters' => $starters, 'completion_rate' => $rate($conversions, $starters),
+                'conversions' => $conversions, 'conversion_rate' => $rate($conversions, $users),
+                'abandons' => $abandons, 'abandonment_rate' => $rate($abandons, $users),
+                'viewed_forms' => $withStat('u'), 'filled_forms' => $withStat('s'), 'submitted_forms' => $withStat('c'),
+                'avg_fill_seconds' => (int) round($avgMs / 1000),
+                'views' => (int) ($t->v ?? 0),
                 'unread' => (int) array_sum($unreadByForm->all()),
                 'forms' => $forms->count(), 'published' => $forms->where('status', 1)->count(),
             ],
             'series' => $series,
             'forms' => CompanyNames::attach($perForm),
+            'most_visited' => $top('users'),
+            'most_started' => $top('starts'),
+            'most_conversions' => $top('conversions'),
+            'last_updated' => CompanyNames::attach(collect($perForm)->sortByDesc(fn ($f) => (string) $f['updated_at'])->take(5)->values()->all()),
             'unread' => CompanyNames::attach($list($base()->where('is_read', false))),
             'latest' => CompanyNames::attach($list($base())),
             'pages' => $pages,
-            'counting_since' => '2026-10-24',
         ]);
     }
 

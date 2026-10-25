@@ -144,6 +144,8 @@ class FormsImportEasyForms extends Command
                 $next = max((int) $form->next_number, $maxNumber + 1);
                 DB::table('forms')->where('id', $form->id)->update(['next_number' => $next]);
             });
+            $days = $this->importStats($src, (int) $old->id, $form, $tz);
+            $this->line("    statistics: {$days} day(s)");
         }
 
         $this->info($apply
@@ -151,6 +153,46 @@ class FormsImportEasyForms extends Command
             : 'Dry run -- nothing written. Run with --apply.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The old install's statistics -> form_stats_daily (dashboard): per day, page
+     * views (its "pv" events), unique users, starters (fills), conversions and
+     * the total filling time (ms). Days before today only, written as they were
+     * (re-running replaces them, never adds twice).
+     */
+    private function importStats($src, int $legacyId, object $form, string $tz): int
+    {
+        $today = now()->toDateString();
+        $rows = [];
+        foreach ($src->table('log_event')->where('event', 'pv')->where('app_id', (string) $legacyId)->pluck('collector_tstamp') as $ts) {
+            $d = Carbon::createFromTimestamp((int) $ts, $tz)->toDateString();
+            $rows[$d]['views'] = ($rows[$d]['views'] ?? 0) + 1;
+        }
+        foreach ($src->table('stats_performance')->where('app_id', (string) $legacyId)->get() as $p) {
+            $d = (string) $p->day;
+            $ms = (int) $p->conversionTime;
+            $rows[$d]['users'] = (int) $p->users;
+            $rows[$d]['starts'] = (int) $p->fills;
+            $rows[$d]['submissions'] = (int) $p->conversions;
+            $ok = $ms > 0 && (int) $p->conversions > 0 && $ms < \App\Support\FormStats::MAX_FILL_MS * max(1, (int) $p->conversions);
+            $rows[$d]['fill_ms'] = $ok ? $ms : 0;
+            $rows[$d]['timed'] = $ok ? (int) $p->conversions : 0;
+        }
+        $out = [];
+        foreach ($rows as $d => $r) {
+            if ($d >= $today) {
+                continue;
+            }
+            $out[] = ['company_id' => $form->company_id, 'form_id' => $form->id, 'day' => $d,
+                'views' => $r['views'] ?? 0, 'users' => $r['users'] ?? 0, 'starts' => $r['starts'] ?? 0,
+                'submissions' => $r['submissions'] ?? 0, 'fill_ms' => $r['fill_ms'] ?? 0, 'timed' => $r['timed'] ?? 0];
+        }
+        foreach (array_chunk($out, 300) as $chunk) {
+            DB::table('form_stats_daily')->upsert($chunk, ['form_id', 'day'], ['views', 'users', 'starts', 'submissions', 'fill_ms', 'timed']);
+        }
+
+        return count($out);
     }
 
     /** The old database, from its Yii config/db.php (credentials never printed or copied). */

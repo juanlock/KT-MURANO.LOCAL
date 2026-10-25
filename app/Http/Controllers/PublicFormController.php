@@ -57,7 +57,7 @@ class PublicFormController extends Controller
         $open = (bool) $f->status && $s['active'];
         // Dashboard: a view (not the builder's preview, not a re-render after an error).
         if ($open && ! $request->has('preview') && ! session()->has('form_errors_'.$f->id)) {
-            FormStats::bump($f, 'views');
+            FormStats::view($f, $request);
         }
         $view = view('forms.public', [
             'form' => $f, 'fields' => $fields, 's' => $s, 'embed' => $embed, 'open' => $open,
@@ -165,7 +165,7 @@ class PublicFormController extends Controller
             return DB::table('form_submissions')->find($id);
         });
 
-        FormStats::bump($f, 'submissions');
+        FormStats::submitted($f, $request->input('_ms'));
         if ($s['notify']) {
             FormNotifier::submitted($f, $fields, $s, $sub);
         }

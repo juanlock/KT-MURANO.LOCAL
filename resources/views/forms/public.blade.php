@@ -183,7 +183,9 @@ body {
     var msg = document.getElementById('fm-msg'), err = document.getElementById('fm-err');
     // Dashboard funnel: "started" once, when the visitor begins typing / choosing.
     var started = params.has('preview');
+    var startedAt = 0;
     function start() {
+        if (!startedAt) startedAt = Date.now();
         if (started) return;
         started = true;
         fetch(form.action + '/start', { method: 'POST', keepalive: true, headers: { 'X-Requested-With': 'XMLHttpRequest' } }).catch(function () {});
@@ -199,7 +201,9 @@ body {
             c.classList.remove('has-error');
             var x = c.querySelector('.fm-error'); if (x) { x.hidden = true; x.textContent = ''; }
         });
-        fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        var body = new FormData(form);
+        if (startedAt) body.append('_ms', String(Date.now() - startedAt));   // filling time (dashboard)
+        fetch(form.action, { method: 'POST', body: body, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json().catch(function () { return { ok: false, message: 'Error ' + r.status }; }); })
             .then(function (res) {
                 btn.disabled = false;
