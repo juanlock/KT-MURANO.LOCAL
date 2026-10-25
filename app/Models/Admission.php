@@ -20,7 +20,7 @@ class Admission extends Model
         // Administrative admission + account (2026-10-25).
         'origin', 'ordered_by', 'ordered_at', 'payer_type', 'insurer', 'policy_number', 'authorization_no', 'authorization_status',
         'coverage_percent', 'copay', 'deductible', 'consents', 'deposit_amount', 'deposit_method', 'deposit_at',
-        'billing_mode', 'drg_id', 'account_invoice_id',
+        'billing_mode', 'drg_id', 'account_invoice_id', 'left_at',
     ];
 
     public const ORIGINS = ['er', 'elective', 'outpatient', 'referral', 'transfer', 'other'];
@@ -42,6 +42,7 @@ class Admission extends Model
         'created_by' => 'integer',
         'ordered_at' => 'datetime',
         'deposit_at' => 'datetime',
+        'left_at' => 'datetime',
         'consents' => 'array',
         'coverage_percent' => 'decimal:2',
         'copay' => 'decimal:2',

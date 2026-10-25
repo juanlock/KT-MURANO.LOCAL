@@ -71,6 +71,11 @@
                 </a-button>
               </a-tooltip>
             </template>
+            <a-tooltip :title="s('Chart of the stay')">
+              <a-button type="text" size="small" @click="chartId = record.id">
+                <template #icon><FileTextOutlined /></template>
+              </a-button>
+            </a-tooltip>
             <a-tooltip :title="s('Administrative file and account')">
               <a-button type="text" size="small" @click="accountId = record.id">
                 <template #icon><DollarOutlined /></template>
@@ -93,6 +98,7 @@
 
     <!-- Administrative file and account of a stay (phase 2, 2026-10-25) -->
     <AccountDrawer :open="!!accountId" :admission-id="accountId" @close="accountId = null" @changed="crud.fetchRows()" />
+    <ClinicalDrawer :open="!!chartId" :admission-id="chartId" @close="chartId = null" @changed="crud.fetchRows()" />
 
     <!-- Admit / edit -->
     <a-modal
@@ -178,9 +184,11 @@
             </a-form-item>
           </a-col>
         </a-row>
-        <a-form-item :label="s('Discharge summary')" style="margin-bottom: 0">
+        <a-form-item :label="s('Discharge summary')">
           <a-textarea v-model:value="dischargeForm.discharge_summary" :rows="4" />
         </a-form-item>
+        <!-- Medical discharge first; the bed is freed when the room is really empty (2026-10-25). -->
+        <a-checkbox v-model:checked="dischargeForm.left">{{ s('The patient already left the room (the bed goes to cleaning)') }}</a-checkbox>
       </a-form>
     </a-modal>
 
@@ -220,6 +228,8 @@ import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import AccountDrawer from './AccountDrawer.vue';
+import ClinicalDrawer from './ClinicalDrawer.vue';
+import { FileTextOutlined } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined,
@@ -240,6 +250,7 @@ const { s } = useHospitalText(ES);
 const router = useRouter();
 // ?account=ID (e.g. from the admission desk) opens that stay's file and account.
 const accountId = ref(Number(useRoute().query.account) || null);
+const chartId = ref(Number(useRoute().query.chart) || null);
 const { money, dateTime } = useFormat();
 
 const filters = reactive({ status: undefined, ward_id: undefined, range: null });
@@ -379,6 +390,7 @@ function openDischarge(record) {
     discharged_at: stamp(),
     status: 'discharged',
     discharge_summary: record.discharge_summary || '',
+    left: false,
   });
   dischargeOpen.value = true;
 }

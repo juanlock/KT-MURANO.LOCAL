@@ -100,4 +100,7 @@ export default {
     'ALLERGIES': 'ALERGIAS',
     'Male': 'Masculino',
     'Female': 'Femenino',
+    'Suggested: {ward} · bed {bed}': 'Sugerida: {ward} · cama {bed}',
+    'By the severity (triage) and the free beds of each ward.': 'Según la gravedad (triaje) y las camas libres de cada sala.',
+    'Use it': 'Usarla',
 };

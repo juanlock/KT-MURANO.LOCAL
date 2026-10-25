@@ -44,4 +44,6 @@ export default {
     'Patient transferred.': 'Paciente trasladado.',
     'Could not transfer this patient': 'No se pudo trasladar a este paciente',
     'Administrative file and account': 'Expediente administrativo y cuenta',
+    'Chart of the stay': 'Historia de la estancia',
+    'The patient already left the room (the bed goes to cleaning)': 'El paciente ya dejó la habitación (la cama pasa a limpieza)',
 };

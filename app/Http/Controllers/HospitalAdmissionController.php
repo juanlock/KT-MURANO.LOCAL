@@ -146,22 +146,30 @@ class HospitalAdmissionController extends Controller
             'discharged_at' => 'nullable|date',
             'status' => 'nullable|in:discharged,transferred,deceased',
             'discharge_summary' => 'nullable|string',
+            // false = medical discharge only, the patient is still in the room (the
+            // nurse frees it later with "Empty bed", 2026-10-25). Default: left now.
+            'left' => 'nullable|boolean',
         ]);
+        $left = $request->has('left') ? $request->boolean('left') : true;
 
         $admission = Admission::whereNull('deleted_at')->findOrFail($id);
         if ($admission->status !== 'admitted') {
             return response()->json(['message' => 'This admission is already closed.'], 422);
         }
 
-        DB::transaction(function () use ($request, $admission) {
+        DB::transaction(function () use ($request, $admission, $left) {
             $admission->update([
                 'status' => $request->status ?: 'discharged',
                 'discharged_at' => $request->discharged_at ?: now(),
                 'discharge_summary' => $request->discharge_summary ?: $admission->discharge_summary,
+                'left_at' => $left ? now() : null,
             ]);
 
-            // The bed waits for the cleaning staff before it can be assigned again.
-            HospitalBed::release($admission->bed_id);
+            // The bed waits for the cleaning staff before it can be assigned again
+            // (only once the patient left the room).
+            if ($left) {
+                HospitalBed::release($admission->bed_id);
+            }
         });
 
         return response()->json([
@@ -169,6 +177,29 @@ class HospitalAdmissionController extends Controller
             'nights' => $admission->fresh()->nights,
             'bed_charge' => $admission->fresh()->bed_charge,
         ]);
+    }
+
+    /**
+     * "Empty bed" (one click, nursing): a discharged patient physically left the
+     * room -- the bed goes to cleaning; the bed board / bell tell the cleaning
+     * staff and the bed manager.
+     */
+    public function left(Request $request, $id)
+    {
+        abort_unless(\App\Support\HospitalShifts::can($request->user('api'), 'hms_admissions', 'hms_treatments_administer', 'hms_my_patients', 'hms_wards'), 403);
+        $admission = Admission::whereNull('deleted_at')->findOrFail($id);
+        if ($admission->status === 'admitted') {
+            return response()->json(['message' => 'Discharge the patient first.'], 422);
+        }
+        if ($admission->left_at) {
+            return response()->json(['message' => 'The room was already freed.'], 422);
+        }
+        DB::transaction(function () use ($admission) {
+            $admission->update(['left_at' => now()]);
+            HospitalBed::release($admission->bed_id);
+        });
+
+        return response()->json(['success' => true]);
     }
 
     /** Move an admitted patient to another bed, freeing the old one. */

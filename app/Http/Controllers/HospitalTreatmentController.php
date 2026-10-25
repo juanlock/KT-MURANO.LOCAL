@@ -222,9 +222,16 @@ class HospitalTreatmentController extends Controller
     public function recordDose(Request $request, $doseId)
     {
         abort_unless(HospitalShifts::can($request->user('api'), 'hms_treatments_administer', 'hms_treatments'), 403);
-        $request->validate(['status' => 'required|in:given,omitted,refused,pending', 'notes' => 'nullable|string|max:255']);
+        $request->validate(['status' => 'required|in:given,omitted,refused,pending', 'notes' => 'nullable|string|max:255', 'scan' => 'nullable|string|max:64']);
         $d = HmsMedicationDose::findOrFail($doseId);
         abort_unless(HmsTreatment::whereKey($d->treatment_id)->exists(), 404); // acting company
+        // The kardex confirms a given dose by scanning the patient's wristband (2026-10-25): the barcode is the record number.
+        if ($request->filled('scan') && $request->status === 'given') {
+            $mrn = DB::table('patients')->where('id', $d->patient_id)->value('mrn');
+            if (strcasecmp(trim($request->scan), (string) $mrn) !== 0) {
+                return response()->json(['message' => 'The wristband scanned is not this patient\'s. Check the patient.'], 422);
+            }
+        }
         $d->update([
             'status' => $request->status, 'notes' => $request->notes,
             'given_at' => $request->status === 'pending' ? null : now(),

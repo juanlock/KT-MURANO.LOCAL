@@ -34,6 +34,7 @@ export const HOSPITAL_NAV = [
         stage: 'Beds and staff',
         color: '#7c3aed',
         items: [
+            { path: '/hospital/control-tower', label: 'Control tower', icon: 'RadarChartOutlined', perms: ['hms_wards', 'hms_admission_desk', 'hms_admissions', 'hms_setup'] },
             { path: '/hospital/wards', label: 'Wards & beds', icon: 'AppstoreOutlined', perms: ['hms_wards'] },
             { path: '/hospital/shifts', label: 'Staff shifts', icon: 'ScheduleOutlined', perms: ['hms_shifts', 'hms_my_patients'] },
             { path: '/hospital/doctors', label: 'Doctors', icon: 'UserOutlined', perms: ['hms_doctors'] },

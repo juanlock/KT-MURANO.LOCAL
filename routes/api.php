@@ -1166,6 +1166,21 @@ Route::get('hospital/beds', 'HospitalWardController@beds');
 Route::get('hospital/visitors/{id}/pass', 'HospitalDeskController@visitorPass')->whereNumber('id');
 // Administrative admission + account (2026-10-25, phase 2).
 Route::get('hospital/admissions/{id}/account', 'HospitalAccountController@show')->whereNumber('id');
+// Clinical stay (2026-10-25, phase 3): chart, progress notes, vitals, care orders, consults, discharge plan, epicrisis.
+Route::post('hospital/admissions/{id}/left', 'HospitalAdmissionController@left')->whereNumber('id');
+Route::get('hospital/admissions/{id}/chart', 'HospitalClinicalController@chart')->whereNumber('id');
+Route::post('hospital/admissions/{id}/notes', 'HospitalClinicalController@addNote')->whereNumber('id');
+Route::post('hospital/admissions/{id}/vitals', 'HospitalClinicalController@addVitals')->whereNumber('id');
+Route::post('hospital/admissions/{id}/care-orders', 'HospitalClinicalController@addCareOrder')->whereNumber('id');
+Route::post('hospital/care-orders/{id}/stop', 'HospitalClinicalController@stopCareOrder')->whereNumber('id');
+Route::post('hospital/care-orders/{id}/done', 'HospitalClinicalController@careDone')->whereNumber('id');
+Route::post('hospital/admissions/{id}/consults', 'HospitalClinicalController@addConsult')->whereNumber('id');
+Route::get('hospital/consults', 'HospitalClinicalController@consults');
+Route::post('hospital/consults/{id}/answer', 'HospitalClinicalController@answerConsult')->whereNumber('id');
+Route::put('hospital/admissions/{id}/discharge-plan', 'HospitalClinicalController@savePlan')->whereNumber('id');
+Route::get('hospital/admissions/{id}/epicrisis', 'HospitalClinicalController@epicrisis')->whereNumber('id');
+Route::put('hospital/admissions/{id}/epicrisis', 'HospitalClinicalController@saveEpicrisis')->whereNumber('id');
+Route::get('hospital/control-tower', 'HospitalClinicalController@tower');
 Route::put('hospital/admissions/{id}/account', 'HospitalAccountController@update')->whereNumber('id');
 Route::post('hospital/admissions/{id}/consents', 'HospitalAccountController@sign')->whereNumber('id');
 Route::delete('hospital/admissions/{id}/consents/{type}', 'HospitalAccountController@unsign')->whereNumber('id');

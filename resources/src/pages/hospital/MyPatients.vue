@@ -14,6 +14,19 @@
       <span v-else class="muted">{{ s('You are not on a shift now.') }}</span>
     </div>
 
+    <!-- Interconsultations waiting for me (2026-10-25) -->
+    <div v-if="consults.length" class="consults">
+      <div class="d-title">{{ s('Interconsultations for you') }}</div>
+      <div v-for="x in consults" :key="x.id" class="consult-row">
+        <a-tag :color="x.priority === 'urgent' ? 'red' : 'blue'">{{ x.priority === 'urgent' ? s('Urgent') : s('Normal') }}</a-tag>
+        <b>{{ x.patient_name }}</b> <span class="muted">{{ x.mrn }}</span>
+        <span class="c-reason">{{ x.reason }}</span>
+        <a-button v-if="x.admission_id" size="small" type="primary" @click="chartId = x.admission_id; chartTab = 'consults'">{{ s('Open') }}</a-button>
+      </div>
+    </div>
+
+    <ClinicalDrawer :open="!!chartId" :admission-id="chartId" :start-tab="chartTab" @close="chartId = null; chartTab = 'kardex'; loadConsults()" />
+
     <a-spin :spinning="loading">
       <a-empty v-if="!data.patients.length" :description="s('No patients assigned to you in this shift.')" />
       <div class="cards">
@@ -41,6 +54,7 @@
             </div>
           </div>
           <div class="c-actions">
+            <a v-if="p.admission_id" @click="chartId = p.admission_id"><FileTextOutlined /> {{ s('Chart of the stay') }}</a>
             <PermLink v-if="p.treatment_id" :to="`/hospital/treatments?id=${p.treatment_id}`" :permission="['hms_treatments', 'hms_treatments_administer']">{{ s('Open treatment') }}</PermLink>
             <span v-else class="muted">{{ s('No active treatment') }}</span>
             <PermLink :to="`/hospital/patients/${p.patient_id}`" permission="hms_patients_view">{{ s('Patient record') }}</PermLink>
@@ -60,8 +74,9 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import dayjs from 'dayjs';
 import { message } from 'ant-design-vue';
-import { ReloadOutlined, CheckOutlined, WarningOutlined } from '@ant-design/icons-vue';
+import { ReloadOutlined, CheckOutlined, WarningOutlined, FileTextOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import ClinicalDrawer from './ClinicalDrawer.vue';
 import http from '../../lib/http';
 import { useHospitalText } from './lang/useHospitalText';
 import ES from './lang/MyPatients.es.js';
@@ -77,6 +92,14 @@ const loading = ref(false);
 const all = ref(false);
 const data = ref({ shifts: [], patients: [], can_all: false });
 const time = iso => dayjs(iso).format('DD/MM HH:mm');
+// The chart of a stay and the interconsultations waiting for this doctor (2026-10-25).
+const chartId = ref(null);
+const chartTab = ref('kardex');
+const consults = ref([]);
+async function loadConsults() {
+  try { consults.value = (await http.get('hospital/consults', { mine: 1 }))?.consults || []; } catch (e) { consults.value = []; }
+}
+onMounted(loadConsults);
 
 async function load() {
   loading.value = true;
@@ -112,6 +135,9 @@ onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <style scoped>
+.consults { border: 1.5px solid #f59e0b; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; background: rgba(245, 158, 11, 0.05); }
+.consult-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; flex-wrap: wrap; }
+.c-reason { flex: 1; min-width: 160px; opacity: 0.8; }
 .shifts { margin-bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
 .card { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 12px; background: var(--ant-color-bg-container, #fff); }

@@ -332,6 +332,7 @@ export const MIGRATED_ROUTES = {
     '/app/hospital/surgery': '/hospital/surgery',
     '/app/hospital/shifts': '/hospital/shifts',
     '/app/hospital/setup': '/hospital/setup',
+    '/app/hospital/control-tower': '/hospital/control-tower',
     '/app/school/dashboard': '/school/dashboard',
     '/app/school/students': '/school/students',
     '/app/school/enrollments': '/school/enrollments',
@@ -1012,6 +1013,7 @@ export const MENU = [
             { label: 'Treatments', to: '/app/hospital/treatments', permissions: ['hms_treatments', 'hms_treatments_administer'] },
             { label: 'Operating room', to: '/app/hospital/surgery', permissions: ['hms_surgery'] },
             { label: 'Wards & Beds', to: '/app/hospital/wards', permissions: ['hms_wards'] },
+            { label: 'Control tower', to: '/app/hospital/control-tower', permissions: ['hms_wards', 'hms_admission_desk', 'hms_admissions', 'hms_setup'] },
             { label: 'Pharmacy', to: '/app/hospital/pharmacy', permissions: ['hms_pharmacy', 'hms_pharmacy_dispense'] },
             {
                 label: 'Laboratory',

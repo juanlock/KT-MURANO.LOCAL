@@ -22,6 +22,7 @@ export default {
     'Laboratory': 'Laboratorio',
     'Pharmacy': 'Farmacia',
     'Wards & beds': 'Salas y camas',
+    'Control tower': 'Torre de control',
     'Staff shifts': 'Turnos del personal',
     'Doctors': 'Médicos',
     'Dashboard': 'Panel',

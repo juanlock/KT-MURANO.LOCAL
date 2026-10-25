@@ -176,6 +176,46 @@ class PendingWorkController extends Controller
                     return \Illuminate\Support\Facades\DB::table('trusted_devices')->where('company_id', $cid)->where('status', 'pending')->count();
                 },
             ],
+            // Hospital (2026-10-25): the control-tower alerts and what waits on a doctor / nurse.
+            'hms_beds_cleaning_late' => [
+                'label' => 'Hms_beds_cleaning_late', 'route' => '/hospital/wards', 'permission' => 'hms_wards', 'module' => 'hospital',
+                'table' => 'hospital_beds', 'severity' => 'warning',
+                'count' => fn () => \App\Models\HospitalBed::whereNull('deleted_at')->where('status', 'cleaning')->where('status_changed_at', '<', now()->subMinutes(30))->count(),
+            ],
+            'hms_rooms_to_free' => [
+                'label' => 'Hms_rooms_to_free', 'route' => '/hospital/admissions', 'permission' => 'hms_admissions', 'module' => 'hospital',
+                'table' => 'admissions',
+                'count' => fn () => \App\Models\Admission::whereNull('deleted_at')->where('status', '!=', 'admitted')->whereNull('left_at')->whereNotNull('bed_id')->count(),
+            ],
+            'hms_consults_pending' => [
+                'label' => 'Hms_consults_pending', 'route' => '/hospital/my-patients', 'permission' => 'hms_my_patients', 'module' => 'hospital',
+                'table' => 'hms_consults', 'severity' => 'warning',
+                'count' => function () {
+                    [, $docIds] = \App\Support\HospitalShifts::staffOf(request()->user('api'));
+                    if (! $docIds) {
+                        return 0;
+                    }
+                    $specs = \Illuminate\Support\Facades\DB::table('doctors')->whereIn('id', $docIds)->pluck('specialty')->filter()->all();
+
+                    return \Illuminate\Support\Facades\DB::table('hms_consults')->whereIn('status', ['requested'])
+                        ->where(fn ($w) => $w->whereIn('to_doctor_id', $docIds)->orWhere(fn ($x) => $x->whereNull('to_doctor_id')->whereIn('specialty', $specs ?: ['~'])))->count();
+                },
+            ],
+            'hms_lab_critical' => [
+                'label' => 'Hms_lab_critical', 'route' => '/hospital/lab-orders', 'permission' => 'hms_lab', 'module' => 'hospital',
+                'table' => 'lab_order_items', 'severity' => 'warning',
+                'count' => fn () => \Illuminate\Support\Facades\DB::table('lab_order_items as i')->join('lab_orders as o', 'o.id', '=', 'i.lab_order_id')
+                    ->whereNull('o.deleted_at')->where('i.flag', 'critical')->whereNull('i.critical_seen_at')
+                    ->when(\App\Models\LabOrder::actingCompanyId(), fn ($q, $cid) => $q->where('o.company_id', $cid))->count(),
+            ],
+            'hms_discharges_due' => [
+                'label' => 'Hms_discharges_due', 'route' => '/hospital/admissions', 'permission' => 'hms_admissions', 'module' => 'hospital',
+                'table' => 'hms_discharge_plans',
+                'count' => fn () => \Illuminate\Support\Facades\DB::table('hms_discharge_plans as p')->join('admissions as a', 'a.id', '=', 'p.admission_id')
+                    ->where('a.status', 'admitted')->where('p.planned_at', '<=', now()->addHours(48))
+                    ->when(\App\Models\Admission::actingCompanyId(), fn ($q, $cid) => $q->where('a.company_id', $cid))
+                    ->where('p.items', 'like', '%"done":false%')->count(),
+            ],
             // Withdrawals are approved on E-Wallet -> Dashboard (there was no /store/wallet page).
             'wallet_withdrawals' => [
                 'label' => 'Pending_Withdrawals',

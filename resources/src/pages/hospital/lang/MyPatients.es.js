@@ -27,5 +27,7 @@ export default {
     'Open treatment': 'Abrir tratamiento',
     'No active treatment': 'Sin tratamiento activo',
     'Patient record': 'Historia del paciente',
+    'Chart of the stay': 'Historia de la estancia', 'Interconsultations for you': 'Interconsultas para usted',
+    'Urgent': 'Urgente', 'Normal': 'Normal', 'Open': 'Abrir',
     'Oral': 'Oral', 'IV': 'EV', 'IM': 'IM', 'SC': 'SC', 'Topical': 'Tópica', 'Inhaled': 'Inhalada', 'Sublingual': 'Sublingual', 'Rectal': 'Rectal',
 };

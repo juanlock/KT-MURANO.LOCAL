@@ -156,9 +156,14 @@
     <!-- Bed picker: the floor maps (free beds of the right kind are bright), and the beds not on a map yet -->
     <a-modal :open="picker.open" :title="picker.kind === 'er' ? s('Pick an ER bed') : s('Pick a ward bed')" :footer="null" width="min(1100px, 96vw)" @cancel="picker.open = false">
       <a-spin :spinning="picker.loading">
+        <a-alert v-if="picker.suggested" type="success" show-icon style="margin-bottom: 10px"
+          :message="s('Suggested: {ward} · bed {bed}', { ward: picker.suggested.ward, bed: picker.suggested.bed })"
+          :description="s('By the severity (triage) and the free beds of each ward.')">
+          <template #action><a-button size="small" type="primary" @click="pickBed({ id: picker.suggested.bed_id })">{{ s('Use it') }}</a-button></template>
+        </a-alert>
         <template v-if="pickFloors.length">
           <a-segmented v-model:value="picker.floorId" :options="pickFloors.map(f => ({ value: f.id, label: `${f.name} (${freeOn(f)})` }))" style="margin-bottom: 10px" />
-          <FloorMap v-if="pickFloor" :floor="pickFloor" :pickable="canPickBed" :status-label="st => s(BED_LABEL[st] || st)" @pick-bed="pickBed" />
+          <FloorMap v-if="pickFloor" :floor="pickFloor" :pickable="canPickBed" :selected-bed-id="picker.suggested?.bed_id ?? null" :status-label="st => s(BED_LABEL[st] || st)" @pick-bed="pickBed" />
           <div class="legend">
             <span v-for="st in ['available', 'occupied', 'cleaning', 'reserved', 'maintenance']" :key="st"><i :class="'s-' + st" /> {{ s(BED_LABEL[st]) }}</span>
           </div>
@@ -338,7 +343,7 @@ function clearNewPatient() {
 }
 
 // ---- bed picker: the floor maps + the free beds not on a map (hospital/bed-map)
-const picker = reactive({ open: false, kind: 'er', loading: false, floors: [], floorId: null, onPick: null });
+const picker = reactive({ open: false, kind: 'er', loading: false, floors: [], floorId: null, onPick: null, suggested: null });
 const isErBed = b => b.ward_type === 'emergency';
 const canPickBed = b => b.status === 'available' && (picker.kind === 'er' ? isErBed(b) : !isErBed(b));
 const freeOn = f => f.beds.filter(canPickBed).length;
@@ -356,11 +361,17 @@ const bedLabels = computed(() => {
 });
 const bedName = id => bedLabels.value[id] || `#${id}`;
 async function openPicker(kind, onPick) {
-  Object.assign(picker, { open: true, kind, onPick, loading: true });
+  Object.assign(picker, { open: true, kind, onPick, loading: true, suggested: null });
   try {
-    picker.floors = (await http.get('hospital/bed-map'))?.floors || [];
-    // Start on the floor with the most free beds of this kind.
-    const best = [...pickFloors.value].sort((a, b) => freeOn(b) - freeOn(a))[0];
+    const [map, tower] = await Promise.all([
+      http.get('hospital/bed-map'),
+      http.get('hospital/control-tower', { kind, triage: form.value.triage_level || 3 }).catch(() => null),
+    ]);
+    picker.floors = map?.floors || [];
+    picker.suggested = tower?.suggested || null;
+    // Start on the floor of the suggested bed, else the one with the most free beds of this kind.
+    const sugFloor = picker.suggested && pickFloors.value.find(f => f.beds.some(b => b.id === picker.suggested.bed_id));
+    const best = sugFloor || [...pickFloors.value].sort((a, b) => freeOn(b) - freeOn(a))[0];
     picker.floorId = best ? best.id : null;
   } catch (e) {
     picker.floors = [];
