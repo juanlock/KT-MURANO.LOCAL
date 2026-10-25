@@ -9,7 +9,9 @@
   <a-drawer :open="open" :width="1140" :title="tx('Company logins', 'Logins de la empresa')" @close="$emit('close')">
     <div class="bar">
       <a-segmented v-model:value="type" :options="typeOptions" />
-      <a-input-search v-model:value="search" allow-clear :placeholder="tx('Search name, user or email', 'Buscar nombre, usuario o correo')" style="width: 260px" />
+      <a-select v-model:value="role" :options="roleOptions" allow-clear show-search option-filter-prop="label"
+        :placeholder="tx('All roles', 'Todos los roles')" style="width: 190px" />
+      <a-input-search v-model:value="search" allow-clear :placeholder="tx('Search name, user or email', 'Buscar nombre, usuario o correo')" style="width: 210px" />
       <a-button @click="load"><template #icon><ReloadOutlined /></template></a-button>
     </div>
     <a-alert type="info" show-icon class="note"
@@ -61,6 +63,7 @@ import { message } from 'ant-design-vue';
 import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, ExportOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
+import { sortByLabel } from '../lib/filterOptions';
 import { t } from '../i18n';
 import { useUiStore } from '../stores/ui';
 import { PERMISSION_GROUPS } from '../config/permissions';
@@ -85,9 +88,18 @@ const typeLabel = v => (TYPES[v] ? tx(...TYPES[v]) : v);
 const typeOptions = computed(() => [{ value: 'all', label: `${tx('All', 'Todos')} (${logins.value.length})` }]
   .concat(Object.keys(TYPES).filter(k => logins.value.some(l => l.type === k))
     .map(k => ({ value: k, label: `${typeLabel(k)} (${logins.value.filter(l => l.type === k).length})` }))));
+// Roles of the logins of the chosen type, with how many each has.
+const role = ref(undefined);
+const roleOptions = computed(() => {
+  const counts = {};
+  logins.value.filter(l => l.role && (type.value === 'all' || l.type === type.value))
+    .forEach(l => { counts[l.role] = (counts[l.role] || 0) + 1; });
+  return sortByLabel(Object.entries(counts).map(([name, n]) => ({ value: name, label: `${name} (${n})` })));
+});
+watch(type, () => { if (role.value && !roleOptions.value.some(o => o.value === role.value)) role.value = undefined; });
 const rows = computed(() => {
   const q = search.value.trim().toLowerCase();
-  return logins.value.filter(l => (type.value === 'all' || l.type === type.value)
+  return logins.value.filter(l => (type.value === 'all' || l.type === type.value) && (!role.value || l.role === role.value)
     && (!q || [l.name, l.username, l.email, l.role].some(v => String(v || '').toLowerCase().includes(q))));
 });
 const columns = computed(() => [
