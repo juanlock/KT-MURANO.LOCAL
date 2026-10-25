@@ -252,6 +252,14 @@ class PortfolioCatalogDemo extends Command
         $items = DB::table('portfolio_catalog_items as i')->join('products as p', 'p.id', '=', 'i.product_id')
             ->where('i.group_id', $gid)->orderBy('i.sort_order')->get(['i.id', 'p.name']);
         foreach ($items->values() as $k => $it) {
+            // Photos of the cut itself from Pexels (database/scripts/company3_barber_models_pexels.php) win when present.
+            $pex = 'files/company_'.$c->company_id.'/portfolio/models/pexels';
+            $own = array_map(fn ($f) => $pex.'/'.basename($f), glob(public_path($pex).'/'.Str::slug($it->name).'-*.jpg') ?: []);
+            if (count($own) >= 10) {
+                DB::table('portfolio_catalog_items')->where('id', $it->id)->update(['photos' => json_encode(array_slice($own, 0, 12))]);
+
+                continue;
+            }
             $first = [];
             foreach ($prefer as $re => $keys) {
                 if (preg_match('/'.$re.'/i', $it->name)) {
@@ -273,7 +281,11 @@ class PortfolioCatalogDemo extends Command
         $byCat = DB::table('products as p')->join('categories as c', 'c.id', '=', 'p.category_id')
             ->where('p.company_id', $cid)->whereNull('p.deleted_at')->where('p.image', 'like', 'files/%')
             ->orderBy('c.name')->orderBy('p.name')->get(['p.id', 'p.name', 'p.image', 'c.name as cat'])->groupBy('cat');
-        $slides = $byCat->flatten(1)->filter(fn ($p) => in_array($p->cat, ['Hair & Beauty', 'Braids & Textured Hair', 'Nail Care'], true))->pluck('image')->take(3)->values()->all();
+        // Unisex salon: the cover slider alternates men's and women's services.
+        $pick = fn (array $names) => $byCat->flatten(1)->filter(fn ($p) => in_array($p->name, $names, true))->sortBy(fn ($p) => array_search($p->name, $names))->pluck('image')->values()->all();
+        $men = $pick(['Fades & Tapers', 'Barber Haircut', 'Haircut & Beard Combo']);
+        $women = $pick(['Balayage', 'Blowout', 'Box Braids']);
+        $slides = array_values(array_filter(array_merge(...array_map(null, $men, $women))));
         $es = $this->lang($cid) === 'es';
         $c = $this->catalog($cid, 'models', 'Servicios - New Era', [
             'title' => 'New Era Unisex Salon', 'subtitle' => $es ? 'Elija su servicio' : 'Choose your service', 'slides' => $slides, 'accent' => '#d4af37',
