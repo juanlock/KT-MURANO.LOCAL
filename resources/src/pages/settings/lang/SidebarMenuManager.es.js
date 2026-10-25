@@ -4,6 +4,11 @@ export default {
     'Settings': 'Configuración',
     'Default order': 'Orden predeterminado',
     'Reset to default': 'Restablecer',
+    // AdminSystem Save -> every company: confirmation (2026-10-25).
+    'Apply to every company?': '¿Aplicar a todas las empresas?',
+    'You are working as AdminSystem: this menu (order, locations, groups, names and hidden items) will REPLACE the menu of all {n} companies, including the changes each company made to its own menu. Continue?':
+        'Está trabajando como AdminSystem: este menú (orden, ubicaciones, grupos, nombres y elementos ocultos) REEMPLAZARÁ el menú de las {n} empresas, incluidos los cambios que cada empresa hizo en su propio menú. ¿Continuar?',
+    'Yes, apply to all companies': 'Sí, aplicar a todas las empresas',
     'Save': 'Guardar',
     'Arrange the menu': 'Ordene el menú',
     'Use the arrows to move an item up or down, "Move to…" to put it in another module, group or at the top level, or drag and drop it. The pencil renames, + adds a submenu item, the eye hides or shows, the trash removes a custom item. Modules turned off for this company are not listed; they keep their place for when they are turned back on.':

@@ -80,6 +80,12 @@ System Settings and the full Companies list with Add / Delete
 (`CompanyController::isSystemContext`). superadmin/<company> works on that
 company only: Companies shows just it, global pages are hidden and refused by
 URL. A new install-wide screen gets `systemOnly: true`.
+**A company's menu is its own (user's rule, 2026-10-25):** what admin/<company>
+or superadmin/<company> saves in Manage Menu stays in that company and is
+changed only from there. Only superadmin/AdminSystem reaches every company
+(Save / Reset / the role editor's "show / hide for everyone"), and only after a
+confirmation ("applies to all companies"): the screen sends `apply_to_all=1`,
+`MenuPositionController` answers 409 without it.
 **Lists = no restriction on AdminSystem:** every list / report endpoint reads
 its company with `ScopesToCompany::listCompanyId()` (null = every company for
 superadmin/AdminSystem; that company for superadmin/<company>; own company

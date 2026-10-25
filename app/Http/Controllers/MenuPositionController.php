@@ -149,6 +149,7 @@ class MenuPositionController extends Controller
         }
 
         $toAllCompanies = $this->appliesToAllCompanies($user, $companyId);
+        $this->requireAllConfirmed($request, $toAllCompanies);
 
         DB::transaction(function () use ($positions, $companyId, $toAllCompanies) {
             $this->writeCompanyPositions($companyId, $positions);
@@ -186,6 +187,7 @@ class MenuPositionController extends Controller
         $user = $request->user('api');
         $companyId = $this->resolveActingCompanyId($request);
         abort_unless($this->appliesToAllCompanies($user, $companyId), 403, 'Only a SuperAdmin working as AdminSystem can force a menu item for everyone.');
+        $this->requireAllConfirmed($request, true);
 
         $data = $request->validate([
             'key' => 'required|string|max:191',
@@ -231,6 +233,20 @@ class MenuPositionController extends Controller
             'count' => $count,
             'sidebar_menu_order' => json_decode((string) DB::table('settings')->where('company_id', $companyId)->value('sidebar_menu_order'), true),
         ]);
+    }
+
+    /**
+     * A change that reaches EVERY company (AdminSystem) needs the user's explicit
+     * yes (user's rule, 2026-10-25): the screen asks "this applies to all
+     * companies" and sends apply_to_all=1. Without it nothing is written, so a
+     * company's own menu (saved by its admin or superadmin/<company>) is never
+     * replaced by accident.
+     */
+    private function requireAllConfirmed(Request $request, bool $toAllCompanies): void
+    {
+        if ($toAllCompanies && ! $request->boolean('apply_to_all')) {
+            abort(409, 'This change applies to EVERY company and must be confirmed (apply_to_all).');
+        }
     }
 
     /** SuperAdmin acting as AdminSystem (template company 999) -> every company. */
@@ -287,6 +303,7 @@ class MenuPositionController extends Controller
         // Same scope rule as store(): as AdminSystem -> every company;
         // acting as one company -> only that company.
         $toAllCompanies = $this->appliesToAllCompanies($user, $companyId);
+        $this->requireAllConfirmed($request, $toAllCompanies);
 
         DB::transaction(function () use ($companyId, $toAllCompanies) {
             MenuPosition::where('company_id', $companyId)->delete();

@@ -857,7 +857,22 @@ function flattenPositions(list, parentKey = null) {
   return rows;
 }
 
-async function save() {
+// AdminSystem: Save reaches EVERY company -- ask first (user's rule, 2026-10-25); a
+// company's own menu (its admin's or superadmin/<company>'s) is otherwise never touched.
+const otherCompanies = computed(() => (companyStore.companies || []).filter(c => Number(c.id) !== 999).length);
+function save() {
+  if (!appliesToAll.value) return doSave();
+  Modal.confirm({
+    title: s('Apply to every company?'),
+    content: s('You are working as AdminSystem: this menu (order, locations, groups, names and hidden items) will REPLACE the menu of all {n} companies, including the changes each company made to its own menu. Continue?', { n: otherCompanies.value }),
+    okText: s('Yes, apply to all companies'),
+    cancelText: s('Cancel'),
+    okType: 'danger',
+    onOk: doSave,
+  });
+}
+
+async function doSave() {
   saving.value = true;
   try {
     const order = serialize(treeData.value);
@@ -870,7 +885,7 @@ async function save() {
     // decided server-side (MenuPositionController::store()): a SuperAdmin
     // acting as AdminSystem (999) -> copied to every company; otherwise
     // only the acting company.
-    const res = await http.post('menu-positions', { positions });
+    const res = await http.post('menu-positions', { positions, ...(appliesToAll.value ? { apply_to_all: 1 } : {}) });
     menuPositions.value = positions;
     // Live-update the sidebar for this session; other users get it at next boot.
     if (auth.user) auth.user.sidebar_menu_order = order;
@@ -938,7 +953,7 @@ async function reset() {
     // factory layout -- both must go for a true reset. Scope as for save:
     // AdminSystem -> every company, otherwise the acting company only
     // (MenuPositionController::reset()).
-    const res = await http.delete('menu-positions');
+    const res = await http.delete('menu-positions', appliesToAll.value ? { apply_to_all: 1 } : undefined);
     menuPositions.value = null;
     treeData.value = buildTree(null, null);
     menuStore.loadPositions();

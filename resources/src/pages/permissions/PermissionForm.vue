@@ -182,7 +182,7 @@
  */
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { message } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   MenuOutlined, AppstoreOutlined, SafetyCertificateOutlined, EyeOutlined, PlusOutlined,
@@ -418,12 +418,23 @@ function toggleMenu(node, on) {
 // (999) may force them shown / hidden -- for every company at once.
 const canForceVisibility = computed(() => isSuperAdmin.value && Number(company.actingCompanyId) === 999);
 const visibilityBusy = ref('');
-async function forceVisibility(node, hidden) {
+// It changes EVERY company's menu: confirm first (user's rule, 2026-10-25).
+function forceVisibility(node, hidden) {
   const key = node.entry && (node.entry.to || node.entry.key);
   if (!key) return;
+  Modal.confirm({
+    title: hidden ? 'Hide for every company?' : 'Show to every company?',
+    content: `"${nodeLabel(node)}" will be ${hidden ? 'hidden in' : 'shown in'} the menu of ALL companies, including those that changed it in their own menu. Continue?`,
+    okText: 'Yes, all companies',
+    cancelText: 'Cancel',
+    okType: 'danger',
+    onOk: () => doForceVisibility(node, key, hidden),
+  });
+}
+async function doForceVisibility(node, key, hidden) {
   visibilityBusy.value = key;
   try {
-    const res = await http.post('menu-positions/visibility', { key, hidden });
+    const res = await http.post('menu-positions/visibility', { key, hidden, apply_to_all: 1 });
     await menuStore.loadPositions();
     message.success(`${nodeLabel(node)}: ${hidden ? 'hidden for everyone' : 'shown to everyone'} (${res?.companies ?? 0} companies)`);
   } catch (e) {
