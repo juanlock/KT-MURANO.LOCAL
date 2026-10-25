@@ -197,6 +197,49 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-10-25 (Optimum) — not in production yet
+
+- **Hospital, the whole stay.**
+  - **Configuration**: shifts with their hours, floors, rooms and beds, and a
+    map per floor; a freed bed goes to cleaning first.
+  - **Admission window + Triage**: the window registers the patient, the
+    insurance or card (only its last 4 digits) and why they come; emergencies
+    wait for the **triage nurse** (new role and screen: call the patient,
+    vital signs, weight, height, level 1–5, send to an ER bed); critical
+    patients go to a bed first and are registered after; referred patients
+    (e.g. surgery) wait for a bed. Without insurance or a card an emergency
+    patient is not admitted to a ward.
+  - **Stay**: administrative file and account (insurer / patient split, DRG),
+    the clinical chart (Kardex with wristband scan, progress notes, vitals,
+    care orders, interconsultations, discharge plan, epicrisis), the
+    **Control tower** and **My round** (the doctor's / nurse's patients on the
+    floor plan with the route and a visit window).
+  - **Doses**: only today's can be recorded; unrecorded past ones become "not
+    given". **At discharge** a stay with insurance and / or a card is billed
+    and paid automatically.
+  - **Lab** critical values and image files; monthly / semester **shift
+    planning** with rotation; **patient portal** ("My hospital": status of the
+    day, diet, visit hours, discharge instructions, videos, appointments, 24 h
+    email reminders).
+  - Hospital demos stay alive every day (today's roster, patients assigned,
+    example stays); Vitalis has triage and inpatient examples.
+- **Logins.** Every company gets standard logins ({company}-admin / -helpdesk
+  / -info) and default passwords per type in new companies and demos.
+  **Company logins** (profile menu, the company's admin): every login with its
+  function, role and accesses, the password when still the standard one, and
+  **Enter** to work as that user (back with "Back to admin").
+- **Customer portal on by default** for every customer of every company.
+- **Dates** follow the company's country (Peru DD-MM-YYYY, USA MM-DD-YYYY) and
+  every date field can be typed.
+- **Tablet catalogs** (menu / models with photos), Business Modules reset by
+  business type, a copy of modules and menu from another company
+  (SuperAdmin), and the new login screen.
+- **Protocols**: Pa Llevar now deploys without asking and shuts the PC down
+  when everything went well; new **Restaura BD Dev** (restore this PC's dev
+  database from a backup).
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-10-21 (Thundera)
 
 - **Hospital: Emergency Room and Pharmacy.**
@@ -351,48 +394,6 @@ Setup: `npm run build`.
 
 Setup: `php artisan migrate`, `npm run build`.
 
-### 2026-10-18 (Optimum)
-
-- **Production ↔ dev sync.** Production owns the business data; dev's
-  database changes travel only as migrations.
-  - **Baja Prod** (new protocol, and Pa Llevar's first step every run) brings
-    production down to dev: the files created there (`public/files`, over
-    SSH) and the new / changed records. Nothing is deleted on either side.
-  - **Sube Prod** ("actualiza producción") replaces the Hostinger Git deploy,
-    which kept the project 4–5 times and ran the account out of files. From
-    this PC over SSH it sends the code, the assets built here and the
-    migrations (production backup first), keeps production's `.env`, and
-    shows a maintenance page only while files change. It also sends the data
-    created or changed in dev since the last Baja Prod, with conflict checks.
-  - A role edited on one side keeps that side's permissions (no duplicates,
-    nothing removed comes back).
-  - Each machine needs its own `.env.production-db` / `.env.production-ssh`
-    (not in git).
-- **Business Modules (per company):** alphabetical list; **Real Estate** has
-  its own switch (it followed the Store); new switches for Kitchen,
-  QuickBooks, Xero, Google Sheets, Mailchimp, Slack, Telegram and PrestaShop.
-  A module turned off also disappears from **Manage Menu**, and its items kept
-  elsewhere in the menu (e.g. Hospital Reports under Reports) are hidden too.
-- **ZATCA E-Invoicing (Saudi Arabia)** is now a module, **off by default** for
-  every company: no ZATCA settings, QR or reporting unless turned on by hand.
-- **Production outage fixed for good.** Hostinger was giving PHP old
-  database settings that beat the server's `.env`. Now the `.env` always
-  wins, and System Settings → Save no longer freezes the configuration in
-  a cache.
-- **Email Office assigns emails to customers by themselves**: sent ones also
-  by CC, invoices / reminders to the sale's customer, and at once when a
-  customer gets a new address. Assigning one email assigns every email with
-  that address (received and sent).
-- **New companies start with the SuperAdmin's menu order** (they used to get
-  the factory order). Reminder: a menu change made as AdminSystem applies to
-  every company.
-- **The side menu is fully in the user's language**: renamed items
-  ("Main Modules", "Access Management"…) and items whose translation key had
-  another case (Deposit, SMS Templates…) are now translated.
-- Files the site serves are no longer stored with Git LFS (the Hostinger
-  deploy doesn't fetch LFS; a sale document arrived broken).
-
-Setup: `php artisan migrate`, `npm run build`.
 
 ---
 
@@ -403,9 +404,10 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | Protocol | What it does |
 |----------|--------------|
 | **Wake-up** | Start of the day on any PC. Updates the PC from GitHub (installs only when needed), replaces the local database with a copy of production (`php artisan murano:from-prod`, about a minute, then the local migrations), builds, offers to deploy this PC's newer code (your OK), reloads the rules and the history, and sums up in the chat with the last 5 changes. |
-| **Pa Llevar** | End of the day. The user manual, build, logs, a local backup (`…_pallevar.zip`, also copied to `KT-TOOLS/SQL/` for the external backup program), this README, commit, push, and the code deploy to production (your OK; production is backed up first; no data goes up). |
+| **Pa Llevar** | End of the day. Build, logs, a local backup (`…_pallevar.zip`, also copied to `KT-TOOLS/SQL/` for the external backup program), this README, commit, push, then the code deploy to production **without asking** (production is backed up first; no data goes up) and, when every step went well, the PC shuts down (2 minutes, `shutdown /a` cancels). The user manual only when asked. |
 | **A Dormir** | End of the day without touching production (work not ready yet): local backup, a production backup into `KT-TOOLS/database/HOSTINGER/` (not in git), logs, README, commit and push. |
 | **Copia BD** | A copy of the local database on demand (`KT-TOOLS/database/<PC>/…_copiabd.zip`): a main zip plus 3 Email Office zips. Every backup (dev and production) is compressed and imports as-is in phpMyAdmin. |
+| **Restaura BD Dev** | Restores THIS PC's dev database from a backup: shows the latest one and asks first; the current database is backed up before (`…_prerestore.zip`). Never production. The usual way to align a PC is still Wake-up. |
 | **Kelsy** | Logs each finished request in `kt_logs`. This happens automatically after every request. |
 
 Pushing uses GitHub Desktop when the terminal has no GitHub credentials. Never
