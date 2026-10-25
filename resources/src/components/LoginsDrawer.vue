@@ -6,7 +6,7 @@
     when it is still the standard one of its type; a changed password can't
     be read back (stored hashed) and shows as "custom".
   -->
-  <a-drawer :open="open" :width="1140" :title="tx('Company logins', 'Logins de la empresa')" @close="$emit('close')">
+  <a-drawer :open="open" width="min(1320px, 96vw)" :title="tx('Company logins', 'Logins de la empresa')" @close="$emit('close')">
     <div class="bar">
       <a-segmented v-model:value="type" :options="typeOptions" />
       <a-select v-model:value="role" :options="roleOptions" allow-clear show-search option-filter-prop="label"
@@ -23,6 +23,10 @@
           <div class="muted">{{ record.email }}</div>
         </template>
         <template v-else-if="column.key === 'type'">{{ typeLabel(record.type) }}</template>
+        <template v-else-if="column.key === 'function'">
+          <div v-if="record.job" class="nm small-b">{{ record.job }}</div>
+          <a-tooltip :title="functionOf(record)"><div class="fn">{{ functionOf(record) }}</div></a-tooltip>
+        </template>
         <template v-else-if="column.key === 'role'">
           <a-popover v-if="record.role" :title="record.role" placement="left" trigger="click" overlay-class-name="logins-pop">
             <template #content>
@@ -112,6 +116,7 @@ const rows = computed(() => {
 const columns = computed(() => [
   { title: tx('Login', 'Login'), key: 'name' },
   { title: tx('Type', 'Tipo'), key: 'type', width: 130 },
+  { title: tx('Function', 'Función'), key: 'function', width: 240 },
   { title: tx('Role and accesses', 'Rol y accesos'), key: 'role', width: 220 },
   // Hospital staff only: patients assigned today (roster + attending doctor).
   ...(logins.value.some(l => l.patients) ? [{ title: tx('Patients today', 'Pacientes hoy'), key: 'patients', width: 110 }] : []),
@@ -148,6 +153,43 @@ async function openAs(r, enablePortal = false) {
     }
     message.error(e?.data?.message || tx('Could not open that login', 'No se pudo abrir ese login'));
   }
+}
+
+// What the login is for: its role's description, else a sentence by role / type.
+const FUNCTION_BY_ROLE = {
+  'Admin-ALL': ['Runs the whole company: every module, users and settings.', 'Administra toda la empresa: todos los módulos, usuarios y configuración.'],
+  Owner: ['Owner of the company: every module.', 'Dueño de la empresa: todos los módulos.'],
+  Helpdesk: ['Support: works the helpdesk tickets and reads the company mail.', 'Soporte: atiende los tickets de helpdesk y lee el correo de la empresa.'],
+  Info: ['The info@ mailbox: reads and answers the company email, registers customers.', 'Buzón info@: lee y responde el correo de la empresa, registra clientes.'],
+  Employee: ['Staff without a role yet: intranet and own employee file.', 'Personal sin rol todavía: intranet y su ficha de empleado.'],
+  // Hospital roles (App\Support\HospitalRoles)
+  Emergency: ['Emergency room: arrivals, triage, the ER board, its patients and their history.', 'Emergencias: llegadas, triaje, el tablero de emergencia, sus pacientes y su historia.'],
+  Admission: ['Admission window: registers the patient, the insurance or card and why they come; visitors and appointments.', 'Ventanilla de admisión: registra al paciente, su seguro o tarjeta y el motivo; visitas y citas.'],
+  Triage: ['Triage nurse: calls the patient, takes vital signs, weight and height, sets the level and sends them to an ER bed.', 'Enfermera de triaje: llama al paciente, toma signos vitales, peso y estatura, fija el nivel y lo envía a una cama de emergencia.'],
+  Doctor: ['Doctor: the patients of the shift, progress notes, prescriptions, lab, surgeries.', 'Médico: los pacientes del turno, evolución, prescripciones, laboratorio, cirugías.'],
+  Nurse: ['Nurse: the patients of the shift, medication doses, vital signs and care.', 'Enfermero(a): los pacientes del turno, dosis de medicación, signos vitales y cuidados.'],
+  'Head Nurse': ['Head nurse: the shifts and who looks after each patient; every medication sheet.', 'Jefe de enfermería: los turnos y quién atiende a cada paciente; todas las hojas de medicación.'],
+  Pharmacy: ['Pharmacy: medicine stock, batches and dispatching the treatments.', 'Farmacia: stock de medicinas, lotes y despacho de los tratamientos.'],
+  Billing: ['Cashier: hospital bills and payments.', 'Caja: facturas del hospital y pagos.'],
+  Laboratory: ['Laboratory: lab orders, results and images.', 'Laboratorio: órdenes, resultados e imágenes.'],
+  'Operating Room': ['Operating room: surgeries, rooms and moving the patients.', 'Quirófano: cirugías, salas y traslado de los pacientes.'],
+  Customer: ['Customer: signs in to the customer portal (invoices, payments, appointments).', 'Cliente: entra al portal del cliente (facturas, pagos, citas).'],
+  Supplier: ['Supplier: sees their purchases and payments.', 'Proveedor: ve sus compras y pagos.'],
+};
+const FUNCTION_BY_TYPE = {
+  admin: ['Administrator of the company.', 'Administrador de la empresa.'],
+  employee: ['Staff of the company.', 'Personal de la empresa.'],
+  customer: ['Customer: signs in to the customer portal (invoices, payments, appointments).', 'Cliente: entra al portal del cliente (facturas, pagos, citas).'],
+  supplier: ['Supplier: sees their purchases and payments.', 'Proveedor: ve sus compras y pagos.'],
+  sales_agent: ['Sales agent: sales and commissions.', 'Vendedor: ventas y comisiones.'],
+  Online_store: ['Online store shopper.', 'Comprador de la tienda en línea.'],
+};
+function functionOf(r) {
+  // Known roles in the screen's language; a company's own role keeps its description.
+  if (FUNCTION_BY_ROLE[r.role]) return tx(...FUNCTION_BY_ROLE[r.role]);
+  if (r.role_description) return r.role_description;
+  const pair = FUNCTION_BY_TYPE[r.type];
+  return pair ? tx(pair[0], pair[1]) : '—';
 }
 
 // permission name -> [group label, item label]
@@ -192,4 +234,6 @@ watch(() => props.open, o => { if (o) load(); });
 .pw code { background: rgba(22, 119, 255, 0.08); padding: 1px 6px; border-radius: 4px; }
 .role-tag { cursor: pointer; }
 .acc { font-size: 12px; margin-bottom: 3px; max-width: 460px; }
+.small-b { font-size: 12.5px; }
+.fn { font-size: 12px; opacity: 0.75; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>

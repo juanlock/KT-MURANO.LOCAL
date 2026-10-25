@@ -36,10 +36,13 @@ class CompanyLoginsController extends Controller
             ->get(['pr.role_id', 'p.name'])->groupBy('role_id')->map(fn ($g) => $g->pluck('name')->values());
 
         $assigned = $this->assignedPatients($cid, $users->pluck('id')->all());
+        // The job title of each employee login (HRM -> designation), for the Function column.
+        $jobs = DB::table('employees as e')->leftJoin('designations as d', 'd.id', '=', 'e.designation_id')
+            ->whereIn('e.user_id', $users->pluck('id'))->whereNull('e.deleted_at')->pluck('d.designation', 'e.user_id');
         $types = ['admin' => null, 'employee' => 'employee', 'customer' => 'customer', 'supplier' => 'supplier', 'sales_agent' => 'sales_agent', 'Online_store' => 'online_store'];
 
         return response()->json([
-            'logins' => $users->map(function ($u) use ($roleIds, $roles, $types, $assigned) {
+            'logins' => $users->map(function ($u) use ($roleIds, $roles, $types, $assigned, $jobs) {
                 $role = $roles[$roleIds[$u->id] ?? $u->role_id] ?? null;
                 // Its type's standard password, else the access one (a helpdesk agent is an employee).
                 $candidates = array_filter([$u->type === 'admin' ? null : (CompanyLogins::PASSWORDS[$types[$u->type] ?? ''] ?? null), CompanyLogins::ACCESS_PASSWORD]);
@@ -52,6 +55,7 @@ class CompanyLoginsController extends Controller
                     // Hospital staff: the patients they have today (null = not hospital staff).
                     'patients' => $assigned[$u->id] ?? null,
                     'role_id' => $role->id ?? null, 'role' => $role->name ?? null, 'role_description' => $role->description ?? null,
+                    'role_label' => $role->label ?? null, 'job' => $jobs[$u->id] ?? null,
                     'password' => $standard,
                 ];
             })->values(),
