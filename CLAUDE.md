@@ -353,6 +353,20 @@ the start of each session).
   longer posts its own entries); medicines are bought from suppliers. The
   hospital type has Sales, Purchases and Suppliers on (`BusinessTypes::EXCLUDE`
   = POS only); its demo has pharma suppliers, purchases and bills as sales.
+- **Hospital phase 1 (user's analysis, 2026-10-25):** Hospital ->
+  **Configuration** (`hms_setup`, `HospitalSetupController`): the company's
+  shifts with their hours (`hms_shift_types`, `HospitalShifts::types()` --
+  never the fixed constants), floors (`hms_floors`, map grid), rooms / offices /
+  ER / nursing... (`hms_rooms`, position on the map) and beds in rooms; floor
+  map editor (`FloorMap.vue`) + "Build from the wards" (`HospitalLayout`).
+  A bed freed by discharge / transfer / ER close goes to **cleaning**
+  (`HospitalBed::release()`), never straight to available; one click marks it
+  clean. The admission desk is compact (patient / triage / destination on one
+  line, windows for a new patient, the consultation data and a visual bed
+  picker on the floor maps). In a hospital company the side menu starts hidden
+  and every hospital screen shows the role's forms as buttons
+  (`hospitalNav.js`, `HospitalQuickNav`, `/hospital/home`). Printouts: visitor
+  pass and patient wristband with the record barcode (`hospitalPrint.js`).
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the

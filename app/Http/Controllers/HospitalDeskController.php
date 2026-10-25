@@ -106,7 +106,7 @@ class HospitalDeskController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['success' => true, 'admission_id' => $admission->id, 'reference' => $admission->reference]);
+        return response()->json(['success' => true, 'admission_id' => $admission->id, 'reference' => $admission->reference, 'patient_id' => $admission->patient_id]);
     }
 
     /** Waiting room -> an ER bed (or a ward bed = admitted from the waiting room). */
@@ -201,6 +201,67 @@ class HospitalDeskController extends Controller
         $v->update(['checked_out_at' => now()]);
 
         return response()->json(['success' => true]);
+    }
+
+    // ------------------------------------------------------------- printouts (2026-10-25)
+
+    /** Where a patient is now: ward / room / bed / floor (open admission, else open ER case). */
+    private function locationOf(int $patientId): array
+    {
+        $a = Admission::with('ward', 'bed.room.floor')->whereNull('deleted_at')->where('patient_id', $patientId)->where('status', 'admitted')->first();
+        $bed = $a?->bed;
+        $ref = $a?->reference;
+        $area = 'ward';
+        if (! $a) {
+            $c = ErCase::with('bed.ward', 'bed.room.floor')->whereNull('deleted_at')->where('patient_id', $patientId)->where('status', '!=', 'closed')->first();
+            $bed = $c?->bed;
+            $ref = $c?->reference;
+            $area = $c ? ($c->bed_id ? 'er_bed' : 'waiting_room') : null;
+        }
+        $room = $bed ? $bed->room : null;
+
+        return [
+            'area' => $area, 'reference' => $ref,
+            'ward' => $bed ? optional($bed->ward)->name : optional($a?->ward)->name,
+            'room' => $room ? $room->name : null,
+            'bed' => $bed ? $bed->bed_number : null,
+            'floor' => $room && $room->floor ? $room->floor->name : ($bed && $bed->ward ? $bed->ward->floor : null),
+        ];
+    }
+
+    private function companyHeader(): array
+    {
+        $cid = (int) (Patient::actingCompanyId() ?? auth('api')->user()->company_id);
+        $set = \App\Models\Setting::forCompany($cid);
+        $logo = $set ? (string) $set->logo : '';
+
+        return ['company' => DB::table('companies')->where('id', $cid)->value('name'),
+            'logo' => $logo !== '' ? (str_contains($logo, '/') ? asset($logo) : asset('images/'.$logo)) : null];
+    }
+
+    /** The visitor pass: who visits, whom, where (room / floor), badge number. */
+    public function visitorPass(Request $request, $id)
+    {
+        abort_unless(HospitalShifts::can($request->user('api'), 'hms_visitors', 'hms_admission_desk'), 403);
+        $v = HmsVisitor::whereNull('deleted_at')->findOrFail($id);
+        $p = Patient::find($v->patient_id);
+
+        return response()->json($this->companyHeader() + [
+            'badge' => $v->badge, 'visitor' => $v->name, 'document' => $v->document, 'relation' => $v->relation,
+            'patient' => optional($p)->name, 'checked_in_at' => optional($v->checked_in_at)->toIso8601String(),
+        ] + $this->locationOf((int) $v->patient_id));
+    }
+
+    /** The patient's wristband: name, record number (barcode), birth date, allergies, blood group, where. */
+    public function wristband(Request $request, $patientId)
+    {
+        abort_unless(HospitalShifts::can($request->user('api'), 'hms_admission_desk', 'hms_patients_view', 'hms_er', 'hms_admissions'), 403);
+        $p = Patient::whereNull('deleted_at')->findOrFail($patientId);
+
+        return response()->json($this->companyHeader() + [
+            'name' => $p->name, 'mrn' => $p->mrn, 'gender' => $p->gender, 'date_of_birth' => optional($p->date_of_birth)->toDateString() ?? $p->date_of_birth,
+            'blood_group' => $p->blood_group, 'allergies' => $p->allergies, 'national_id' => $p->national_id,
+        ] + $this->locationOf((int) $p->id));
     }
 
     private function newPatient(?array $np): int

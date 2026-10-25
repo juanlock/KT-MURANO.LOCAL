@@ -9,6 +9,7 @@
     <div v-if="isMobile && mobileOpen" class="sidebar-backdrop" @click="mobileOpen = false"></div>
 
     <a-layout-sider
+      v-show="!menuHidden"
       :collapsed="effectiveCollapsed"
       collapsible
       :trigger="null"
@@ -81,6 +82,8 @@
         <!-- Keyed by path: pages resolve their endpoint/filters at setup, so
              sibling routes sharing a component (the payment reports) must
              remount rather than reuse the previous one's state. -->
+        <!-- Hospital company: the role's forms as buttons on every hospital screen (2026-10-25). -->
+        <HospitalQuickNav v-if="isHospital && ($route.path.startsWith('/hospital') || menuHidden)" />
         <router-view :key="$route.path" />
       </a-layout-content>
 
@@ -111,6 +114,7 @@ import SidebarFlat from '../components/SidebarFlat.vue';
 import AppTopbar from '../components/AppTopbar.vue';
 import { SearchOutlined } from '@ant-design/icons-vue';
 import Customizer from '../components/Customizer.vue';
+import HospitalQuickNav from '../pages/hospital/HospitalQuickNav.vue';
 import { useUiStore } from '../stores/ui';
 import { useAuthStore } from '../stores/auth';
 import { t as tf } from '../i18n';
@@ -146,9 +150,20 @@ function syncMq(e) {
 // hamburger controls visibility (mobileOpen) instead of collapse.
 const effectiveCollapsed = computed(() => (isMobile.value ? false : collapsed.value));
 
+// Hospital company (user's analysis, 2026-10-25): the side menu starts HIDDEN --
+// people work with the button bar (HospitalQuickNav). The hamburger shows /
+// hides it; the choice is kept for this browser tab.
+const isHospital = computed(() => auth.user?.business_type === 'hospital');
+const HOSP_MENU_KEY = 'hospital_menu_shown';
+const hospitalMenuShown = ref((() => { try { return sessionStorage.getItem(HOSP_MENU_KEY) === '1'; } catch (e) { return false; } })());
+const menuHidden = computed(() => isHospital.value && !isMobile.value && !hospitalMenuShown.value);
+
 function onToggleSidebar() {
   if (isMobile.value) mobileOpen.value = !mobileOpen.value;
-  else ui.toggleSidebar();
+  else if (isHospital.value) {
+    hospitalMenuShown.value = !hospitalMenuShown.value;
+    try { sessionStorage.setItem(HOSP_MENU_KEY, hospitalMenuShown.value ? '1' : '0'); } catch (e) { /* storage blocked */ }
+  } else ui.toggleSidebar();
 }
 function goHome() {
   router.push('/dashboard');

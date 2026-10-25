@@ -169,7 +169,7 @@ class HospitalErController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['success' => true, 'id' => $case->id, 'reference' => $case->reference]);
+        return response()->json(['success' => true, 'id' => $case->id, 'reference' => $case->reference, 'patient_id' => $case->patient_id]);
     }
 
     /** Triage / vitals / doctor / notes, and moving to another ER bed (the old one is freed). */

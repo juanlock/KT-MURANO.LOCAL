@@ -52,7 +52,13 @@ onMounted(() => {
 onBeforeUnmount(() => ro && ro.disconnect());
 
 const cols = computed(() => props.floor.map_cols || 24);
-const rows = computed(() => props.floor.map_rows || 14);
+// Read only: the map ends one row below its last room (no empty grid to scroll past).
+const rows = computed(() => {
+  const all = props.floor.map_rows || 14;
+  if (props.editable) return all;
+  const bottom = Math.max(0, ...(props.floor.rooms || []).map(r => (r.y ?? 0) + (r.h ?? 0)));
+  return Math.min(all, Math.max(4, bottom + 1));
+});
 const cell = computed(() => Math.max(14, Math.floor(width.value / cols.value)));
 const gridStyle = computed(() => ({
   width: cell.value * cols.value + 'px', height: cell.value * rows.value + 'px',

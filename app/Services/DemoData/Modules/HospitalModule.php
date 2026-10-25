@@ -170,7 +170,10 @@ class HospitalModule extends DemoModule
             ['table' => 'patient_visits'],
             ['table' => 'appointments'],
             ['table' => 'hospital_beds'],
+            ['table' => 'hms_rooms'],
             ['table' => 'hospital_wards'],
+            ['table' => 'hms_floors'],
+            ['table' => 'hms_shift_types'],
             ['table' => 'doctors'],
             ['table' => 'hospital_departments'],
             ['table' => 'lab_tests'],
@@ -276,6 +279,13 @@ class HospitalModule extends DemoModule
                     'daily_rate' => null,
                 ]);
                 $bedCount++;
+            }
+        }
+
+        // ---- Floors with their maps, built from the wards (Hospital -> Configuration, 2026-10-25).
+        if (\Illuminate\Support\Facades\Schema::hasTable('hms_rooms')) {
+            foreach (\App\Support\HospitalLayout::floorsFromWards($ctx->companyId) as $floor) {
+                \App\Support\HospitalLayout::build($floor, $this->es);
             }
         }
 

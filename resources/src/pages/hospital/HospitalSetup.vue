@@ -87,6 +87,9 @@
               <span class="lbl">×</span>
               <a-input-number v-if="floor" v-model:value="floor.map_rows" :min="4" :max="60" size="small" style="width: 70px" @change="dirtyMap = true" />
               <a-button type="primary" :disabled="!dirtyMap" :loading="saving" @click="saveMap"><SaveOutlined /> {{ s('Save map') }}</a-button>
+              <a-tooltip :title="s('One room per ward of this floor, with its beds inside (the rooms already on the map are kept).')">
+                <a-button :loading="saving" @click="autoLayout"><ThunderboltOutlined /> {{ s('Build from the wards') }}</a-button>
+              </a-tooltip>
             </div>
             <p class="hint">{{ s('Drag a room to move it and its corner to resize it. Drag a bed to another room. To place a bed that is not on the map yet, click it on the right and then click inside a room.') }}</p>
             <div v-if="floor" class="map-two">
@@ -162,7 +165,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, createVNode } from 'vue';
 import { message, Modal } from 'ant-design-vue';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined, ArrowUpOutlined, ArrowDownOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined, ArrowUpOutlined, ArrowDownOutlined, ExclamationCircleOutlined, ThunderboltOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
@@ -331,6 +334,16 @@ function placeBed({ bed, x, y, room_id }) {
   unplaced.value = unplaced.value.filter(b => b.id !== bed.id);
   placing.value = null;
   dirtyMap.value = true;
+}
+async function autoLayout() {
+  if (dirtyMap.value) return message.warning(s('Save the map first.'));
+  saving.value = true;
+  try {
+    const d = await http.post(`hospital/setup/floors/${floorId.value}/auto`);
+    takeFloors(d.floors);
+    refreshUnplaced();
+    message.success(s('{n} rooms created', { n: d.rooms }));
+  } catch (e) { err(e); } finally { saving.value = false; }
 }
 async function saveMap() {
   saving.value = true;

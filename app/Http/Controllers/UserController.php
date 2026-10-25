@@ -268,8 +268,10 @@ class UserController extends BaseController
             // The company's type has its own dashboard (hospital, school, real estate --
             // 2026-10-20): the general Dashboard menu item is hidden (stores/menu.js).
             // A SuperAdmin follows the company picked in the switcher (AdminSystem / none = no own dashboard).
-            'own_dashboard' => $typeHome = \App\Support\BusinessTypes::homePath(\App\Support\BusinessTypes::of(
+            'own_dashboard' => $typeHome = \App\Support\BusinessTypes::homePath($businessType = \App\Support\BusinessTypes::of(
                 $user->type === 'SuperAdmin' ? (int) $this->resolveActingCompanyId($request) : (int) $user->company_id)),
+            // The acting company's business type (hospital: side menu hidden by default + button bar, 2026-10-25).
+            'business_type' => $businessType,
             // Else the company's business-type start page (hospital -> Hospital dashboard, 2026-10-20).
             'role_home' => $user->type === 'SuperAdmin' ? $typeHome
                 : ($user->roles()->first()?->home_path ?: $typeHome),

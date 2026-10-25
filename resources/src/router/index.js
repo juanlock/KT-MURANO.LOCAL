@@ -390,6 +390,7 @@ const HospitalTreatments = lazy('HospitalTreatments', () => import('../pages/hos
 const HospitalSurgery = lazy('HospitalSurgery', () => import('../pages/hospital/Surgery.vue'));
 const HospitalShifts = lazy('HospitalShifts', () => import('../pages/hospital/StaffShifts.vue'));
 const HospitalSetup = lazy('HospitalSetup', () => import('../pages/hospital/HospitalSetup.vue'));
+const HospitalHome = lazy('HospitalHome', () => import('../pages/hospital/HospitalHome.vue'));
 const SchoolDashboard = lazy('SchoolDashboard', () => import('../pages/school/SchoolDashboard.vue'));
 const SchoolStudents = lazy('SchoolStudents', () => import('../pages/school/Students.vue'));
 const SchoolStudentForm = lazy('SchoolStudentForm', () => import('../pages/school/StudentForm.vue'));
@@ -800,6 +801,12 @@ const routes = [
             { path: 'hospital/surgery', name: 'hospital-surgery', component: HospitalSurgery, meta: { title: 'Operating room', permission: 'hms_surgery' } },
             { path: 'hospital/shifts', name: 'hospital-shifts', component: HospitalShifts, meta: { title: 'Staff shifts', permission: ['hms_shifts', 'hms_my_patients'] } },
             { path: 'hospital/setup', name: 'hospital-setup', component: HospitalSetup, meta: { title: 'Hospital configuration', permission: 'hms_setup' } },
+            // Hospital home (2026-10-25): big buttons for the forms the role can open.
+            { path: 'hospital/home', name: 'hospital-home', component: HospitalHome, meta: { title: 'Hospital home', permission: [
+              'hms_dashboard', 'hms_admission_desk', 'hms_visitors', 'hms_er', 'hms_my_patients', 'hms_patients_view', 'hms_appointments', 'hms_visits',
+              'hms_admissions', 'hms_treatments', 'hms_treatments_administer', 'hms_surgery', 'hms_lab', 'hms_pharmacy', 'hms_pharmacy_dispense',
+              'hms_billing', 'hms_wards', 'hms_shifts', 'hms_doctors', 'hms_reports', 'hms_departments', 'hms_setup',
+            ] } },
             // School Management. `create` is declared before the :id routes so
             // it is never read as a record id.
             { path: 'school/dashboard', name: 'school-dashboard', component: SchoolDashboard, meta: { title: 'School Dashboard', permission: 'school_dashboard' } },

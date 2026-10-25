@@ -9,6 +9,7 @@ use App\Models\HmsRoom;
 use App\Models\HmsShiftType;
 use App\Models\HospitalBed;
 use App\Models\HospitalWard;
+use App\Support\HospitalLayout;
 use App\Support\HospitalShifts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -152,7 +153,7 @@ class HospitalSetupController extends Controller
         $v = $this->roomRules($request);
         // A new room is dropped at a free spot of the map (top-left first), 4 x 3 cells.
         $floor = HmsFloor::whereNull('deleted_at')->findOrFail($v['floor_id']);
-        [$x, $y] = $this->freeSpot($floor, (int) ($v['map_w'] ?? 4), (int) ($v['map_h'] ?? 3));
+        [$x, $y] = HospitalLayout::freeSpot($floor, (int) ($v['map_w'] ?? 4), (int) ($v['map_h'] ?? 3));
         $r = HmsRoom::create($v + ['map_x' => $x, 'map_y' => $y, 'map_w' => $v['map_w'] ?? 4, 'map_h' => $v['map_h'] ?? 3]);
 
         return response()->json(['id' => $r->id, 'floors' => $this->floors(false)]);
@@ -225,6 +226,26 @@ class HospitalSetupController extends Controller
             'map_w' => 'nullable|integer|min:1|max:40',
             'map_h' => 'nullable|integer|min:1|max:40',
         ]);
+    }
+
+    /**
+     * Start a floor's map from its wards: one room per ward of this floor (ER
+     * wards as "er"), sized to its beds that are not on a map yet, laid out
+     * left to right, the beds lined up inside; on the ground floor also a
+     * reception and a nursing station. Existing rooms are kept.
+     */
+    public function autoLayout(Request $request, $id)
+    {
+        $this->canSetup($request);
+        $floor = HmsFloor::whereNull('deleted_at')->findOrFail($id);
+        $wards = HospitalWard::whereNull('deleted_at')->where('floor_id', $floor->id)->orderBy('name')->get();
+        if ($wards->isEmpty()) {
+            return response()->json(['message' => 'No ward is on this floor. Set the floor of the wards first (Wards & beds -> edit ward).'], 422);
+        }
+        $es = DB::table('settings')->where('company_id', $floor->company_id)->whereNull('deleted_at')->value('default_language') === 'es';
+        $made = HospitalLayout::build($floor, $es);
+
+        return response()->json(['rooms' => $made, 'floors' => $this->floors(false)]);
     }
 
     // ------------------------------------------------------------------ map
@@ -321,35 +342,19 @@ class HospitalSetupController extends Controller
                 'ward_type' => optional($r->ward)->type, 'x' => $r->map_x, 'y' => $r->map_y, 'w' => $r->map_w, 'h' => $r->map_h,
                 'color' => $r->color, 'notes' => $r->notes,
             ])->values(),
-            'beds' => $beds->filter(fn ($b) => $rooms->firstWhere('id', $b->room_id)?->floor_id === $f->id)->map(function ($b) use ($occupants, $er, $withPatients) {
+            'beds' => $beds->filter(fn ($b) => optional($rooms->firstWhere('id', $b->room_id))->floor_id === $f->id)->map(function ($b) use ($occupants, $er, $withPatients) {
                 $a = $occupants->get($b->id);
                 $c = $er->get($b->id);
-                $p = $a?->patient ?? $c?->patient;
+                $p = optional($a)->patient ?? optional($c)->patient;
 
                 return [
                     'id' => $b->id, 'bed_number' => $b->bed_number, 'room_id' => $b->room_id, 'ward_id' => $b->ward_id,
                     'ward_name' => optional($b->ward)->name, 'ward_type' => optional($b->ward)->type,
                     'x' => $b->map_x, 'y' => $b->map_y, 'status' => $b->status, 'rate' => $b->effective_rate,
                     'status_minutes' => $b->status_changed_at ? (int) $b->status_changed_at->diffInMinutes(now()) : null,
-                ] + ($withPatients ? ['patient_id' => $p?->id, 'patient_name' => $p?->name, 'admission_id' => $a?->id, 'er_case_id' => $c?->id] : []);
+                ] + ($withPatients ? ['patient_id' => optional($p)->id, 'patient_name' => optional($p)->name, 'admission_id' => optional($a)->id, 'er_case_id' => optional($c)->id] : []);
             })->values(),
         ])->values()->all();
-    }
-
-    /** The first free top-left spot of the floor for a w x h rectangle (0,0 when full). */
-    private function freeSpot(HmsFloor $floor, int $w, int $h): array
-    {
-        $taken = HmsRoom::where('floor_id', $floor->id)->whereNotNull('map_x')->get(['map_x', 'map_y', 'map_w', 'map_h']);
-        for ($y = 0; $y + $h <= $floor->map_rows; $y++) {
-            for ($x = 0; $x + $w <= $floor->map_cols; $x++) {
-                $clash = $taken->first(fn ($r) => $x < $r->map_x + $r->map_w && $x + $w > $r->map_x && $y < $r->map_y + $r->map_h && $y + $h > $r->map_y);
-                if (! $clash) {
-                    return [$x, $y];
-                }
-            }
-        }
-
-        return [0, 0];
     }
 
     /** "12" -> [12]; "1-4" -> [1..4]; "A,B" -> [A,B]. */
