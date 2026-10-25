@@ -193,9 +193,21 @@
     <!-- Model photos of one item: tapping its picture on the tablet shows them; the customer picks one. -->
     <a-modal :open="!!photoItem" :title="(es ? 'Modelos (fotos) — ' : 'Models (photos) — ') + (photoItem?.name || '')" :footer="null" width="820px" @cancel="photosOf = null">
       <p class="ce-muted">{{ es ? 'En la tablet, al tocar la imagen del servicio se muestran estas fotos y el cliente elige su modelo (sale en el pedido como "Modelo N").' : 'On the tablet, tapping the service picture shows these photos and the customer picks a style (it shows on the order as "Model N").' }}</p>
-      <a-upload :before-upload="uploadPhoto" :show-upload-list="false" accept="image/*" multiple>
-        <a-button type="primary" :loading="photoBusy > 0"><PlusOutlined /> {{ es ? 'Subir fotos' : 'Upload photos' }}</a-button>
-      </a-upload>
+      <div class="ce-padd">
+        <a-upload :before-upload="uploadPhoto" :show-upload-list="false" accept="image/*" multiple>
+          <a-button type="primary" :loading="photoBusy > 0"><UploadOutlined /> {{ es ? 'Subir fotos' : 'Upload photos' }}</a-button>
+        </a-upload>
+        <!-- Tablet / phone: opens the camera; a computer without one gets the file picker. -->
+        <a-button :loading="photoBusy > 0" @click="cameraInput?.click()"><CameraOutlined /> {{ es ? 'Tomar foto' : 'Take photo' }}</a-button>
+        <input ref="cameraInput" type="file" accept="image/*" capture="environment" class="ce-hidden" @change="onCamera">
+        <a-input-search
+          v-model:value="photoUrl" :placeholder="es ? 'O pega el enlace de una imagen de la web' : 'Or paste a picture link from the web'"
+          :enter-button="es ? 'Agregar' : 'Add'" :loading="urlBusy" class="ce-purl" @search="addFromUrl"
+        >
+          <template #prefix><LinkOutlined /></template>
+        </a-input-search>
+      </div>
+      <div class="ce-muted ce-small">{{ es ? 'Las fotos grandes se reducen solas (máx. 1600 px). Usa fotos propias o con permiso de uso.' : 'Large photos are reduced automatically (max 1600 px). Use your own photos or ones you may use.' }}</div>
       <div v-if="photoItem" class="ce-photos">
         <div v-for="(p, n) in photoItem.photos" :key="p.path" class="ce-photo">
           <img :src="p.url" alt="">
@@ -218,7 +230,7 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { message, Modal } from 'ant-design-vue';
 import {
   SaveOutlined, TabletOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined, PictureOutlined,
-  ExportOutlined, CopyOutlined, ExclamationCircleOutlined,
+  ExportOutlined, CopyOutlined, ExclamationCircleOutlined, UploadOutlined, CameraOutlined, LinkOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
@@ -359,6 +371,24 @@ async function uploadPhoto(file) {
   try { take((await http.postForm(`portfolio/catalogs/items/${photosOf.value}/photos`, fd)).catalog); } catch (e) { err(e); } finally { photoBusy.value--; }
   return false;
 }
+const cameraInput = ref(null);
+async function onCamera(e) {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (file) await uploadPhoto(file);
+}
+const photoUrl = ref('');
+const urlBusy = ref(false);
+async function addFromUrl() {
+  const url = photoUrl.value.trim();
+  if (!url) return;
+  urlBusy.value = true;
+  try {
+    take((await http.post(`portfolio/catalogs/items/${photosOf.value}/photos/url`, { url })).catalog);
+    photoUrl.value = '';
+    message.success(es.value ? 'Foto agregada.' : 'Photo added.');
+  } catch (e) { err(e); } finally { urlBusy.value = false; }
+}
 async function savePhotos(paths) {
   try { take((await http.put(`portfolio/catalogs/items/${photosOf.value}/photos`, { photos: paths })).catalog); } catch (e) { err(e); }
 }
@@ -431,6 +461,9 @@ onMounted(load);
 .ce-iinfo { flex: 1; min-width: 0; }
 .ce-iname { font-weight: 600; }
 .ce-iact { display: inline-flex; align-items: center; gap: 2px; }
+.ce-padd { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+.ce-purl { flex: 1; min-width: 260px; }
+.ce-hidden { display: none; }
 .ce-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 14px; }
 .ce-photo { position: relative; border-radius: 8px; overflow: hidden; background: rgba(128, 128, 128, 0.12); }
 .ce-photo img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }

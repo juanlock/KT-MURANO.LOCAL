@@ -431,7 +431,9 @@ the start of each session).
   the sale when the cashier charges it. Demos: `php artisan portfolio:catalog-demo`.
   A catalog speaks its company's language (`settings.default_language`; New
   Era = English: Men / Women, Adult / Kids). An item can have **model photos**
-  (`portfolio_catalog_items.photos`, editor -> "Models"): tapping the service
+  (`portfolio_catalog_items.photos`, editor -> "Models": upload, take a photo
+  with the device camera, or paste a web link -- an image or a page's og:image,
+  public addresses only; saved as JPEG max 1600 px, EXIF-rotated): tapping the service
   picture on the tablet shows them, the customer picks one ("Model N" + photo on
   the order line). New Era's barber demo photos are CC0 (Wikimedia Commons,
   `files/company_3/portfolio/models/barber/CREDITS.txt`).

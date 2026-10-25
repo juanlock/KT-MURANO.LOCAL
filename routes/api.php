@@ -691,6 +691,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
         Route::delete('/items/{iid}', 'destroyItem')->whereNumber('iid');
         Route::post('/items/{iid}/photos', 'uploadPhotos')->whereNumber('iid');
         Route::put('/items/{iid}/photos', 'savePhotos')->whereNumber('iid');
+        Route::post('/items/{iid}/photos/url', 'photoFromUrl')->whereNumber('iid');
         Route::get('/{id}', 'show')->whereNumber('id');
         Route::put('/{id}', 'update')->whereNumber('id');
         Route::delete('/{id}', 'destroy')->whereNumber('id');

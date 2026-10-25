@@ -31,7 +31,8 @@ use Illuminate\Support\Str;
  *  PUT    portfolio/catalogs/groups/{gid} {name, image}; DELETE portfolio/catalogs/groups/{gid}
  *  POST   portfolio/catalogs/groups/{gid}/items {product_ids}; POST .../items/reorder {ids}
  *  PUT    portfolio/catalogs/items/{iid} {options}; DELETE portfolio/catalogs/items/{iid}
- *  POST   portfolio/catalogs/items/{iid}/photos (files "photos[]"); PUT .../photos {photos: [paths]}  model photos
+ *  POST   portfolio/catalogs/items/{iid}/photos (files "photos[]", also camera shots); PUT .../photos {photos: [paths]}  model photos
+ *  POST   portfolio/catalogs/items/{iid}/photos/url {url}   a model photo from a web link
  *  GET    portfolio/catalogs/{id}/products?search  the company's products to add
  *  GET    portfolio/catalogs/{id}/orders           orders sent from the tablet
  */
@@ -304,17 +305,101 @@ class CatalogsController extends Controller
         return response()->json(['catalog' => $this->out($c, true)]);
     }
 
-    /** Model photos of an item: upload more (files "photos[]"), appended at the end. */
+    /**
+     * A model photo saved as a JPEG of at most 1600 px (camera photos are large):
+     * turned upright from the camera's EXIF orientation, null if not a picture.
+     */
+    private function storePhoto(int $companyId, string $bytes, string $name): ?string
+    {
+        $info = @getimagesizefromstring($bytes);
+        $img = $info ? @imagecreatefromstring($bytes) : false;
+        if (! $img) {
+            return null;
+        }
+        if (($info[2] ?? 0) === IMAGETYPE_JPEG && function_exists('exif_read_data')) {
+            $exif = @exif_read_data('data://image/jpeg;base64,'.base64_encode($bytes));
+            $turn = [3 => 180, 6 => -90, 8 => 90][(int) ($exif['Orientation'] ?? 1)] ?? 0;
+            if ($turn) {
+                $img = imagerotate($img, $turn, 0);
+            }
+        }
+        $w = imagesx($img);
+        $h = imagesy($img);
+        $k = min(1, 1600 / max($w, $h));
+        if ($k < 1) {
+            $small = imagecreatetruecolor((int) round($w * $k), (int) round($h * $k));
+            imagecopyresampled($small, $img, 0, 0, 0, 0, imagesx($small), imagesy($small), $w, $h);
+            $img = $small;
+        }
+        ob_start();
+        imagejpeg($img, null, 85);
+        $out = (string) ob_get_clean();
+
+        return CompanyFiles::putBytes($companyId, 'portfolio', (Str::slug(pathinfo($name, PATHINFO_FILENAME)) ?: 'photo').'.jpg', $out);
+    }
+
+    private function addPhotos(object $i, object $c, array $paths): void
+    {
+        $list = array_merge(PortfolioCatalog::photos($i->photos, (int) $c->company_id), $paths);
+        DB::table('portfolio_catalog_items')->where('id', $i->id)->update(['photos' => json_encode(PortfolioCatalog::photos($list, (int) $c->company_id)), 'updated_at' => now()]);
+    }
+
+    /** Model photos of an item: upload more or a camera shot (files "photos[]"), appended at the end. */
     public function uploadPhotos(Request $request, int $iid)
     {
         $this->can($request);
         [$i, $c] = $this->item($request, $iid);
-        $request->validate(['photos' => 'required|array|min:1|max:30', 'photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:6144']);
-        $list = PortfolioCatalog::photos($i->photos, (int) $c->company_id);
+        $request->validate(['photos' => 'required|array|min:1|max:30', 'photos.*' => 'image|mimes:jpg,jpeg,png,webp,heic,heif|max:20480']);
+        $paths = [];
         foreach ($request->file('photos') as $f) {
-            $list[] = CompanyFiles::putUpload((int) $c->company_id, 'portfolio', $f);
+            $p = $this->storePhoto((int) $c->company_id, (string) file_get_contents($f->getRealPath()), $f->getClientOriginalName());
+            abort_unless($p, 422, 'This picture format cannot be read; use JPG, PNG or WebP.');
+            $paths[] = $p;
         }
-        DB::table('portfolio_catalog_items')->where('id', $i->id)->update(['photos' => json_encode(PortfolioCatalog::photos($list, (int) $c->company_id)), 'updated_at' => now()]);
+        $this->addPhotos($i, $c, $paths);
+
+        return response()->json(['catalog' => $this->out($c, true)]);
+    }
+
+    /**
+     * Model photo from a web link ({url}): an image address, or a page whose
+     * og:image is taken. Only public http(s) addresses (no local network), up to
+     * 3 redirects, 15 MB.
+     */
+    public function photoFromUrl(Request $request, int $iid)
+    {
+        $this->can($request);
+        [$i, $c] = $this->item($request, $iid);
+        $url = $request->validate(['url' => 'required|url:http,https|max:2000'])['url'];
+        $fetch = function (string $url) {
+            for ($hop = 0; $hop < 4; $hop++) {
+                $host = parse_url($url, PHP_URL_HOST);
+                $ips = $host ? (gethostbynamel($host) ?: []) : [];
+                $public = $ips && collect($ips)->every(fn ($ip) => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE));
+                abort_unless($public && in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true), 422, 'This address cannot be used.');
+                $res = \Illuminate\Support\Facades\Http::withOptions(['allow_redirects' => false])->timeout(20)
+                    ->withHeaders(['User-Agent' => 'Mozilla/5.0 (Murano catalog)'])->get($url);
+                if ($res->redirect() && $res->header('Location')) {
+                    $url = (string) \GuzzleHttp\Psr7\UriResolver::resolve(new \GuzzleHttp\Psr7\Uri($url), new \GuzzleHttp\Psr7\Uri($res->header('Location')));
+
+                    continue;
+                }
+                abort_unless($res->ok(), 422, 'The address did not answer (HTTP '.$res->status().').');
+                abort_if(strlen($res->body()) > 15 * 1024 * 1024, 422, 'The picture is larger than 15 MB.');
+
+                return [$url, $res];
+            }
+            abort(422, 'Too many redirects.');
+        };
+        [$url, $res] = $fetch($url);
+        if (str_contains(strtolower((string) $res->header('Content-Type')), 'text/html')
+            && (preg_match('~<meta[^>]+(?:property|name)=["\']og:image["\'][^>]*content=["\']([^"\']+)~i', $res->body(), $m)
+                || preg_match('~<meta[^>]+content=["\']([^"\']+)["\'][^>]*(?:property|name)=["\']og:image["\']~i', $res->body(), $m))) {
+            [$url, $res] = $fetch(html_entity_decode($m[1]));
+        }
+        $p = $this->storePhoto((int) $c->company_id, $res->body(), basename((string) parse_url($url, PHP_URL_PATH)));
+        abort_unless($p, 422, 'No picture found at that address.');
+        $this->addPhotos($i, $c, [$p]);
 
         return response()->json(['catalog' => $this->out($c, true)]);
     }
