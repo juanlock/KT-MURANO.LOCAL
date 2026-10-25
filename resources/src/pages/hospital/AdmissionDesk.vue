@@ -34,34 +34,34 @@
           </div>
           <div class="arrow">›</div>
 
-          <!-- 2. Triage: picking a level asks the consultation data -->
-          <div class="step" :class="{ done: triageReady }">
-            <div class="st-h"><span class="num">{{ triageReady ? '✓' : '2' }}</span>{{ s('Triage') }}</div>
-            <div class="triage-pick compact">
-              <a-tooltip v-for="t in TRIAGE" :key="t.value" :title="s(t.label)">
-                <button type="button" class="tp" :class="{ on: form.triage_level === t.value }" :style="{ '--c': t.color }" @click="pickTriage(t.value)">
-                  <b>{{ t.value }}</b>
-                </button>
-              </a-tooltip>
+          <!-- 2. Arrival (2026-10-25): emergency -> triage; scheduled (referred) -> waiting for a bed; critical -> an ER bed now -->
+          <div class="step" :class="{ done: arrivalReady }">
+            <div class="st-h"><span class="num">{{ arrivalReady ? '✓' : '2' }}</span>{{ s('Arrival') }}</div>
+            <div class="dest-pick">
+              <button v-for="d in PATHWAYS" :key="d.value" type="button" class="dp" :class="{ on: form.pathway === d.value }" @click="pickPathway(d.value)">
+                <span class="dp-i">{{ d.icon }}</span><span>{{ s(d.label) }}</span>
+              </button>
             </div>
-            <div v-if="triageReady" class="sum small">
-              {{ s(TRIAGE.find(t => t.value === form.triage_level).label) }}<template v-if="form.complaint"> · {{ form.complaint }}</template>
-              <a @click="consultOpen = true"> · {{ s('Edit') }}</a>
+            <a-input v-model:value="form.complaint" size="small" style="margin-top: 6px" :placeholder="s('Why the patient comes')" />
+            <div v-if="form.pathway === 'scheduled' && (form.procedure || form.referred_by)" class="sum small">
+              {{ form.procedure }}<template v-if="form.referred_by"> · {{ s('referred by {d}', { d: form.referred_by }) }}</template> <a @click="refOpen = true">· {{ s('Edit') }}</a>
+            </div>
+            <div v-if="form.pathway === 'critical' && form.bed_id" class="sum small">
+              {{ s('Bed') }}: <b>{{ bedName(form.bed_id) }}</b> <a @click="openPicker('er', b => (form.bed_id = b.id))">· {{ s('Change') }}</a>
             </div>
           </div>
           <div class="arrow">›</div>
 
-          <!-- 3. Destination: a bed opens the bed picker -->
-          <div class="step" :class="{ done: destReady }">
-            <div class="st-h"><span class="num">{{ destReady ? '✓' : '3' }}</span>{{ s('Destination') }}</div>
+          <!-- 3. The money: insurance or a credit card (a critical patient can complete it later) -->
+          <div class="step" :class="{ done: moneyReady }">
+            <div class="st-h"><span class="num">{{ moneyReady ? '✓' : '3' }}</span>{{ s('Financial data') }}</div>
             <div class="dest-pick">
-              <button v-for="d in DESTS" :key="d.value" type="button" class="dp" :class="{ on: form.destination === d.value }" @click="pickDestination(d.value)">
+              <button v-for="d in PAYERS" :key="d.value" type="button" class="dp" :class="{ on: form.payer_type === d.value }" @click="pickPayer(d.value)">
                 <span class="dp-i">{{ d.icon }}</span><span>{{ s(d.label) }}</span>
               </button>
             </div>
-            <div v-if="form.destination !== 'waiting_room' && form.bed_id" class="sum small">
-              {{ s('Bed') }}: <b>{{ bedName(form.bed_id) }}</b> <a @click="openPicker(form.destination === 'er_bed' ? 'er' : 'ward', b => (form.bed_id = b.id))">· {{ s('Change') }}</a>
-            </div>
+            <div v-if="moneyComplete" class="sum small">{{ moneyLine(form) }} <a @click="payOpen = true">· {{ s('Edit') }}</a></div>
+            <div v-else-if="form.pathway === 'critical'" class="sum small muted">{{ s('Can be completed after the patient is seen.') }}</div>
           </div>
 
           <div class="go">
@@ -77,10 +77,25 @@
           <span class="triage" :style="{ background: (TRIAGE.find(t => t.value === w.triage_level) || {}).color || '#9ca3af' }">{{ w.triage_level || '?' }}</span>
           <div class="w-who">
             <b>{{ w.name }}</b> <span class="muted">{{ w.mrn }} · {{ w.reference }}</span>
-            <div class="muted">{{ w.complaint || '—' }}</div>
+            <a-tag :color="STAGE[w.stage]?.color" style="margin-left: 6px">{{ s(STAGE[w.stage]?.label || w.stage) }}</a-tag>
+            <a-tag v-if="w.registration_pending" color="red">{{ s('Registration pending') }}</a-tag>
+            <div class="muted">{{ w.pathway === 'scheduled' ? [w.procedure, w.referred_by ? s('referred by {d}', { d: w.referred_by }) : null].filter(Boolean).join(' · ') : (w.complaint || '—') }}</div>
           </div>
           <span class="w-time" :class="{ late: w.wait_minutes > (LIMIT[w.triage_level] ?? 999) }">{{ mins(w.wait_minutes) }}</span>
-          <a-button v-if="canDesk" type="primary" @click="openCall(w)">{{ s('Call to a bed') }}</a-button>
+          <a-button v-if="canDesk && w.registration_pending" @click="openRegistration(w)">{{ s('Complete registration') }}</a-button>
+          <a-button v-if="canDesk && w.stage === 'waiting_bed'" type="primary" @click="openCall(w)">{{ s('Call to a bed') }}</a-button>
+        </div>
+      </a-tab-pane>
+
+      <!-- Registration pending: critical patients registered after being seen -->
+      <a-tab-pane v-if="canDesk && desk.registration_pending?.length" key="registration" :tab="`${s('Registration pending')} (${desk.registration_pending.length})`">
+        <a-alert type="warning" show-icon style="margin-bottom: 10px" :message="s('Without insurance or a credit card an emergency patient is not admitted: they stay in the waiting room or an ER bed until sent home.')" />
+        <div v-for="w in desk.registration_pending" :key="w.id" class="wait-row">
+          <div class="w-who">
+            <b>{{ w.name }}</b> <span class="muted">{{ w.mrn }} · {{ w.reference }}</span>
+            <div class="muted">{{ w.where ? s('ER bed') + ' ' + w.where : s('Waiting room') }} · {{ dt(w.arrived_at) }}</div>
+          </div>
+          <a-button type="primary" @click="openRegistration(w)">{{ s('Complete registration') }}</a-button>
         </div>
       </a-tab-pane>
 
@@ -132,6 +147,37 @@
           <a-col :span="12"><a-form-item :label="s('ID document')"><a-input v-model:value="np.national_id" /></a-form-item></a-col>
           <a-col :span="12"><a-form-item :label="s('Phone')"><a-input v-model:value="np.phone" /></a-form-item></a-col>
         </a-row>
+      </a-form>
+    </a-modal>
+
+    <!-- Scheduled: who refers the patient and for what -->
+    <a-modal :open="refOpen" :title="s('Scheduled (referred)')" :ok-text="s('Continue')" :cancel-text="s('Cancel')" @ok="refOpen = false" @cancel="refOpen = false">
+      <a-form layout="vertical">
+        <a-form-item :label="s('Referred by (doctor)')"><a-input v-model:value="form.referred_by" /></a-form-item>
+        <a-form-item :label="s('Procedure / surgery')"><a-input v-model:value="form.procedure" :placeholder="s('e.g. Laparoscopic cholecystectomy')" /></a-form-item>
+        <a-form-item :label="s('Planned for')"><a-date-picker v-model:value="form.planned_at" show-time value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" /></a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- The money (new arrival, or completing a pending registration) -->
+    <a-modal :open="payOpen" :title="s('Financial data')" :ok-text="regTarget ? s('Save') : s('Continue')" :cancel-text="s('Cancel')" :confirm-loading="saving" @ok="savePay" @cancel="payOpen = false; regTarget = null">
+      <p v-if="regTarget" class="muted">{{ regTarget.name }} · {{ regTarget.reference }}</p>
+      <a-segmented v-model:value="pay.payer_type" :options="PAYERS.map(p => ({ value: p.value, label: `${p.icon} ${s(p.label)}` }))" style="margin-bottom: 12px" />
+      <a-form layout="vertical">
+        <template v-if="pay.payer_type === 'self_pay'">
+          <p class="muted">{{ s('A credit card as a guarantee: only its type and last 4 digits are kept, never the full number.') }}</p>
+          <a-row :gutter="10">
+            <a-col :span="12"><a-form-item :label="s('Card')"><a-select v-model:value="pay.card_type" :options="CARDS.map(c => ({ value: c, label: c }))" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item :label="s('Last 4 digits')"><a-input v-model:value="pay.card_last4" :maxlength="4" inputmode="numeric" placeholder="1234" /></a-form-item></a-col>
+          </a-row>
+        </template>
+        <template v-else>
+          <a-row :gutter="10">
+            <a-col :span="12"><a-form-item :label="pay.payer_type === 'public' ? s('Public insurance (e.g. SIS, EsSalud)') : s('Insurer')"><a-input v-model:value="pay.insurer" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item :label="s('Policy / card number')"><a-input v-model:value="pay.policy_no" /></a-form-item></a-col>
+          </a-row>
+          <a-form-item :label="s('Authorization number (if any)')"><a-input v-model:value="pay.authorization_no" /></a-form-item>
+        </template>
       </a-form>
     </a-modal>
 
@@ -247,6 +293,9 @@ function emptyForm() {
     patientMode: 'existing', patient_id: undefined, new_patient: { name: '', gender: 'male', date_of_birth: null, national_id: '', phone: '' },
     triage_level: null, complaint: '', temperature: null, pulse: null, spo2: null, bp_systolic: null, bp_diastolic: null, arrival_mode: 'walk_in',
     destination: 'waiting_room', bed_id: undefined, doctor_id: undefined,
+    // The window (2026-10-25): arrival type, the money, the referral.
+    pathway: null, payer_type: null, insurer: '', policy_no: '', authorization_no: '', card_type: 'Visa', card_last4: '',
+    referred_by: '', procedure: '', planned_at: null,
   };
 }
 const form = ref(emptyForm());
@@ -274,11 +323,12 @@ async function submitIntake() {
   const f = form.value;
   if (f.patientMode === 'existing' && !f.patient_id) return message.warning(s('Pick the patient.'));
   if (f.patientMode === 'new' && !f.new_patient.name.trim()) return message.warning(s("Type the patient's name."));
-  if (f.destination !== 'waiting_room' && !f.bed_id) return message.warning(s('Pick a free bed'));
+  if (f.pathway === 'critical' && !f.bed_id) return message.warning(s('Pick a free bed'));
   const body = {
-    destination: f.destination, bed_id: f.bed_id || null, doctor_id: f.doctor_id || null, triage_level: f.triage_level,
-    complaint: f.complaint, temperature: f.temperature, pulse: f.pulse, spo2: f.spo2, bp_systolic: f.bp_systolic, bp_diastolic: f.bp_diastolic,
-    arrival_mode: f.arrival_mode,
+    pathway: f.pathway, destination: f.pathway === 'critical' ? 'er_bed' : 'waiting_room', bed_id: f.bed_id || null, doctor_id: f.doctor_id || null,
+    complaint: f.complaint, arrival_mode: f.arrival_mode,
+    ...(moneyComplete.value ? { payer_type: f.payer_type, insurer: f.insurer, policy_no: f.policy_no, authorization_no: f.authorization_no, card_type: f.card_type, card_last4: f.card_last4 } : {}),
+    ...(f.pathway === 'scheduled' ? { referred_by: f.referred_by, procedure: f.procedure, planned_at: f.planned_at } : {}),
   };
   if (f.patientMode === 'existing') body.patient_id = f.patient_id; else body.new_patient = f.new_patient;
   saving.value = true;
@@ -314,7 +364,76 @@ const consultDone = ref(false);
 const patientReady = computed(() => (form.value.patientMode === 'new' ? !!form.value.new_patient.name.trim() : !!form.value.patient_id));
 const triageReady = computed(() => !!form.value.triage_level && consultDone.value);
 const destReady = computed(() => form.value.destination === 'waiting_room' || !!form.value.bed_id);
-const ready = computed(() => patientReady.value && triageReady.value && destReady.value);
+
+// ---- the window's steps 2 and 3 (2026-10-25)
+const PATHWAYS = [
+  { value: 'emergency', label: 'Emergency (to triage)', icon: '🚑' },
+  { value: 'scheduled', label: 'Scheduled (referred)', icon: '📅' },
+  { value: 'critical', label: 'Critical (bed now)', icon: '🔴' },
+];
+const PAYERS = [
+  { value: 'private', label: 'Private insurance', icon: '🛡' },
+  { value: 'public', label: 'Public insurance', icon: '🏛' },
+  { value: 'self_pay', label: 'Self-pay (card)', icon: '💳' },
+];
+const CARDS = ['Visa', 'Mastercard', 'American Express', 'Diners', 'Other'];
+const STAGE = {
+  waiting_triage: { label: 'Waiting for triage', color: 'orange' },
+  in_triage: { label: 'In triage', color: 'blue' },
+  waiting_bed: { label: 'Waiting for a bed', color: 'green' },
+};
+const moneyOk = f => (f.payer_type === 'self_pay' ? /^\d{4}$/.test(f.card_last4 || '')
+  : f.payer_type === 'private' ? !!(f.insurer && f.policy_no) : f.payer_type === 'public' ? !!(f.policy_no || f.insurer) : false);
+const moneyComplete = computed(() => moneyOk(form.value));
+const moneyLine = f => (f.payer_type === 'self_pay' ? `${f.card_type || ''} ****${f.card_last4}` : [f.insurer, f.policy_no].filter(Boolean).join(' · '));
+const arrivalReady = computed(() => !!form.value.pathway && (form.value.pathway !== 'critical' || !!form.value.bed_id)
+  && (form.value.pathway !== 'scheduled' || !!form.value.procedure));
+// A critical patient goes to the bed now; the money is completed after.
+const moneyReady = computed(() => moneyComplete.value || form.value.pathway === 'critical');
+const ready = computed(() => patientReady.value && arrivalReady.value && moneyReady.value);
+const refOpen = ref(false);
+const payOpen = ref(false);
+const regTarget = ref(null);
+const pay = reactive({ payer_type: 'private', insurer: '', policy_no: '', authorization_no: '', card_type: 'Visa', card_last4: '' });
+function pickPathway(v) {
+  form.value.pathway = v;
+  form.value.bed_id = undefined;
+  if (v === 'scheduled') refOpen.value = true;
+  if (v === 'critical') openPicker('er', b => { form.value.bed_id = b.id; });
+}
+function pickPayer(v) {
+  regTarget.value = null;
+  Object.assign(pay, { payer_type: v, insurer: form.value.insurer, policy_no: form.value.policy_no, authorization_no: form.value.authorization_no,
+    card_type: form.value.card_type || 'Visa', card_last4: form.value.card_last4 });
+  payOpen.value = true;
+}
+function openRegistration(w) {
+  regTarget.value = w;
+  Object.assign(pay, { payer_type: w.insurer ? 'private' : 'self_pay', insurer: w.insurer || '', policy_no: w.policy_no || '', authorization_no: '', card_type: 'Visa', card_last4: '' });
+  payOpen.value = true;
+}
+async function savePay() {
+  if (!moneyOk(pay)) {
+    return message.warning(pay.payer_type === 'self_pay' ? s('Type the last 4 digits of the card.') : s('Type the insurer and the policy number.'));
+  }
+  if (!regTarget.value) {
+    Object.assign(form.value, { ...pay });
+    payOpen.value = false;
+    return;
+  }
+  saving.value = true;
+  try {
+    await http.post(`hospital/desk/arrivals/${regTarget.value.id}/registration`, { ...pay });
+    message.success(s('Registration completed'));
+    payOpen.value = false;
+    regTarget.value = null;
+    load();
+  } catch (e) {
+    message.error(s(e?.data?.message || 'Could not save'));
+  } finally {
+    saving.value = false;
+  }
+}
 const triageTitle = computed(() => {
   const t = TRIAGE.find(x => x.value === form.value.triage_level);
   return t ? `${s('Triage')} ${t.value} · ${s(t.label)} — ${s('Consultation data')}` : '';

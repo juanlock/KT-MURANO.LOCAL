@@ -1269,6 +1269,11 @@ export const PERMISSION_GROUPS = [
                 "f": "Admission desk"
             },
             {
+                "v": "hms_triage",
+                "l": "Triage",
+                "f": "Triage (vital signs, weight, height, triage level, send to an ER bed)"
+            },
+            {
                 "v": "hms_visitors",
                 "l": "Visitors",
                 "f": "Visitors"

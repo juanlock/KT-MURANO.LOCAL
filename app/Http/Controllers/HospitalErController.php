@@ -244,6 +244,10 @@ class HospitalErController extends Controller
             return response()->json(['message' => 'This case is already closed.'], 422);
         }
         if ($request->disposition === 'admitted') {
+            // No insurance / credit card on file: an emergency patient is not admitted (user's rule, 2026-10-25).
+            if (! $case->hasFinancialData()) {
+                return response()->json(['message' => 'Without financial data (insurance or credit card) the patient cannot be admitted: they stay in the ER until sent home. Complete the registration at the admission desk first.'], 422);
+            }
             $already = Admission::whereNull('deleted_at')->where('patient_id', $case->patient_id)->where('status', 'admitted')->first();
             if ($already) {
                 return response()->json(['message' => 'This patient is already admitted ('.$already->reference.').'], 422);

@@ -216,6 +216,13 @@ class PendingWorkController extends Controller
                     ->when(\App\Models\Admission::actingCompanyId(), fn ($q, $cid) => $q->where('a.company_id', $cid))
                     ->where('p.items', 'like', '%"done":false%')->count(),
             ],
+            // Patients registered at the window waiting for triage (2026-10-25).
+            'hms_triage_waiting' => [
+                'label' => 'Hms_triage_waiting', 'route' => '/hospital/triage', 'permission' => 'hms_triage', 'module' => 'hospital',
+                'table' => 'er_cases', 'severity' => 'warning',
+                'count' => fn () => \App\Models\ErCase::whereNull('deleted_at')->where('status', '!=', 'closed')
+                    ->whereIn('pathway', ['emergency', 'critical'])->whereIn('triage_status', ['pending', 'called'])->count(),
+            ],
             // Shifts of the next 7 days with a position short -- only for a company that keeps a roster.
             'hms_shift_gaps' => [
                 'label' => 'Hms_shift_gaps', 'route' => '/hospital/shifts', 'permission' => 'hms_shifts', 'module' => 'hospital',

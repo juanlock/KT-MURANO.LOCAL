@@ -55,6 +55,7 @@ class HospitalModule extends DemoModule
         [3, 'Head Nurse', 'Supervisora de enfermería', 'Nurse supervisor'],
         [12, 'Nurse', 'Enfermero(a)', 'Nurse'],
         [1, 'Admission', 'Admisión', 'Admission clerk'],
+        [1, 'Triage', 'Enfermera de triaje', 'Triage nurse'],
         [1, 'Pharmacy', 'Farmacéutico(a)', 'Pharmacist'],
         [1, 'Billing', 'Cajero(a)', 'Cashier'],
         [1, 'Laboratory', 'Tecnólogo(a) de laboratorio', 'Lab technologist'],

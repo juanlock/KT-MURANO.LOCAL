@@ -38,7 +38,20 @@ class HospitalDeskController extends Controller
                 'triage_level' => $c->triage_level, 'complaint' => $c->complaint, 'status' => $c->status,
                 'arrived_at' => optional($c->arrived_at)->toIso8601String(),
                 'wait_minutes' => $c->arrived_at ? (int) $c->arrived_at->diffInMinutes(now()) : null,
+                // Where the patient is in the flow (2026-10-25): waiting_triage, in_triage, waiting_bed.
+                'pathway' => $c->pathway, 'procedure' => $c->procedure, 'referred_by' => $c->referred_by,
+                'stage' => $c->pathway === 'emergency' && $c->triage_status === 'pending' ? 'waiting_triage'
+                    : ($c->pathway === 'emergency' && $c->triage_status === 'called' ? 'in_triage' : 'waiting_bed'),
+                'registration_pending' => $c->registration_status === 'pending',
             ])->values(),
+            // Arrivals whose money is still missing (critical ones are registered after being seen).
+            'registration_pending' => ErCase::with('patient', 'bed')->whereNull('deleted_at')->where('status', '!=', 'closed')
+                ->where('registration_status', 'pending')->orderBy('arrived_at')->get()->map(fn ($c) => [
+                    'id' => $c->id, 'reference' => $c->reference, 'name' => optional($c->patient)->name, 'mrn' => optional($c->patient)->mrn,
+                    'where' => $c->bed_id ? optional($c->bed)->bed_number : null, 'pathway' => $c->pathway,
+                    'insurer' => optional($c->patient)->insurance_provider, 'policy_no' => optional($c->patient)->insurance_number,
+                    'arrived_at' => optional($c->arrived_at)->toIso8601String(),
+                ])->values(),
             'er_beds' => $beds->filter(fn ($b) => optional($b->ward)->type === 'emergency')->map(fn ($b) => ['id' => $b->id, 'label' => $b->bed_number.' · '.optional($b->ward)->name])->values(),
             'ward_beds' => $beds->filter(fn ($b) => optional($b->ward)->type !== 'emergency')->map(fn ($b) => [
                 'id' => $b->id, 'label' => optional($b->ward)->name.' · '.$b->bed_number, 'rate' => $b->effective_rate,
@@ -62,15 +75,50 @@ class HospitalDeskController extends Controller
     public function intake(Request $request)
     {
         abort_unless(HospitalShifts::can($request->user('api'), 'hms_admission_desk'), 403);
+        // The window (2026-10-25): emergency -> waiting for triage; critical -> an ER bed now
+        // (registration and triage after the patient is seen); scheduled (referred) -> waiting for a bed.
+        $pathway = in_array($request->pathway, ErCase::PATHWAYS, true) ? $request->pathway : null;
+        if ($pathway) {
+            $request->merge(['destination' => $pathway === 'critical' ? 'er_bed' : ($request->destination === 'ward' && $pathway === 'scheduled' ? 'ward' : 'waiting_room')]);
+        }
         $request->validate([
             'destination' => 'required|in:waiting_room,er_bed,ward',
             'bed_id' => ['nullable', 'required_unless:destination,waiting_room', \App\Support\CompanyExists::rule('hospital_beds')],
+            'payer_type' => ['nullable', \Illuminate\Validation\Rule::in(ErCase::PAYER_TYPES)],
+            'insurer' => 'nullable|string|max:120', 'policy_no' => 'nullable|string|max:60', 'authorization_no' => 'nullable|string|max:60',
+            'card_type' => 'nullable|string|max:20', 'card_last4' => 'nullable|digits:4',
+            'referred_by' => 'nullable|string|max:150', 'procedure' => 'nullable|string|max:255', 'planned_at' => 'nullable|date',
         ]);
+        $money = $request->only(['payer_type', 'insurer', 'policy_no', 'authorization_no', 'card_type', 'card_last4']);
+        $paid = ErCase::financialComplete($money);
+        if ($pathway === 'scheduled' && ! $paid) {
+            return response()->json(['message' => 'A scheduled (referred) patient comes with the financial data: insurance or a credit card.'], 422);
+        }
+        if ($request->destination === 'ward' && ! $paid) {
+            return response()->json(['message' => 'Without financial data (insurance or credit card) the patient cannot be admitted.'], 422);
+        }
 
         if ($request->destination !== 'ward') {
             $request->merge(['bed_id' => $request->destination === 'er_bed' ? $request->bed_id : null]);
+            if ($pathway) {
+                // The triage nurse sets the level; a critical patient is level 1 until triaged.
+                $request->merge(['triage_level' => $pathway === 'critical' ? ($request->triage_level ?: 1) : null,
+                    'arrival_mode' => $pathway === 'scheduled' ? 'referral' : ($request->arrival_mode ?: 'walk_in')]);
+            }
+            $res = app(HospitalErController::class)->store($request);
+            $id = $res->getData(true)['id'] ?? null;
+            if ($id && $pathway) {
+                $case = ErCase::find($id);
+                $case->update(array_filter($money, fn ($v) => $v !== null && $v !== '') + [
+                    'pathway' => $pathway,
+                    'triage_status' => $pathway === 'scheduled' ? 'skipped' : 'pending',
+                    'registration_status' => $paid ? 'done' : 'pending',
+                    'referred_by' => $request->referred_by, 'procedure' => $request->procedure, 'planned_at' => $request->planned_at,
+                ]);
+                $this->keepInsurance($case->patient_id, $money);
+            }
 
-            return app(HospitalErController::class)->store($request);
+            return $res;
         }
 
         $request->validate([
@@ -118,6 +166,15 @@ class HospitalDeskController extends Controller
         if ($case->bed_id) {
             return response()->json(['message' => 'This patient already has a bed.'], 422);
         }
+        // An emergency goes through triage first (the triage nurse sends them to a bed).
+        if ($case->pathway === 'emergency' && in_array($case->triage_status, ['pending', 'called'], true)) {
+            return response()->json(['message' => 'This patient has not been through triage yet.'], 422);
+        }
+        $target = HospitalBed::with('ward')->find($request->bed_id);
+        $toWard = $target && optional($target->ward)->type !== 'emergency';
+        if ($toWard && $case->pathway !== 'scheduled' && ! $case->hasFinancialData()) {
+            return response()->json(['message' => 'Without financial data (insurance or credit card) the patient cannot be admitted: they stay in the ER until sent home. Complete the registration at the admission desk first.'], 422);
+        }
         try {
             DB::transaction(function () use ($request, $case) {
                 $bed = HospitalBed::with('ward')->whereNull('deleted_at')->lockForUpdate()->find($request->bed_id);
@@ -147,6 +204,39 @@ class HospitalDeskController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * POST hospital/desk/arrivals/{id}/registration: the window completes the
+     * money of an arrival (a critical patient registered after being seen).
+     */
+    public function registration(Request $request, $id)
+    {
+        abort_unless(HospitalShifts::can($request->user('api'), 'hms_admission_desk'), 403);
+        $request->validate([
+            'payer_type' => ['required', \Illuminate\Validation\Rule::in(ErCase::PAYER_TYPES)],
+            'insurer' => 'nullable|string|max:120', 'policy_no' => 'nullable|string|max:60', 'authorization_no' => 'nullable|string|max:60',
+            'card_type' => 'nullable|string|max:20', 'card_last4' => 'nullable|digits:4',
+        ]);
+        $case = ErCase::whereNull('deleted_at')->where('status', '!=', 'closed')->findOrFail($id);
+        $money = $request->only(['payer_type', 'insurer', 'policy_no', 'authorization_no', 'card_type', 'card_last4']);
+        if (! ErCase::financialComplete($money)) {
+            return response()->json(['message' => 'Self-pay needs a credit card (last 4 digits); insurance needs the insurer and the policy number.'], 422);
+        }
+        $case->update($money + ['registration_status' => 'done']);
+        $this->keepInsurance($case->patient_id, $money);
+
+        return response()->json(['success' => true]);
+    }
+
+    /** The patient's insurance stays on the patient for the next visit. */
+    private function keepInsurance(int $patientId, array $money): void
+    {
+        if (in_array($money['payer_type'] ?? null, ['private', 'public'], true) && (! empty($money['insurer']) || ! empty($money['policy_no']))) {
+            Patient::whereKey($patientId)->update(array_filter([
+                'insurance_provider' => $money['insurer'] ?? null, 'insurance_number' => $money['policy_no'] ?? null,
+            ]));
+        }
     }
 
     // ------------------------------------------------------------- visitors

@@ -327,6 +327,7 @@ export const MIGRATED_ROUTES = {
     '/app/hospital/er': '/hospital/er',
     '/app/hospital/pharmacy': '/hospital/pharmacy',
     '/app/hospital/admission-desk': '/hospital/admission-desk',
+  '/app/hospital/triage': '/hospital/triage',
     '/app/hospital/my-patients': '/hospital/my-patients',
     '/app/hospital/treatments': '/hospital/treatments',
     '/app/hospital/surgery': '/hospital/surgery',
@@ -1005,6 +1006,7 @@ export const MENU = [
         children: [
             { label: 'Dashboard', to: '/app/hospital/dashboard', permissions: ['hms_dashboard'] },
             { label: 'Admission desk', to: '/app/hospital/admission-desk', permissions: ['hms_admission_desk', 'hms_visitors'] },
+      { label: 'Triage', to: '/app/hospital/triage', permissions: ['hms_triage'] },
             { label: 'My patients', to: '/app/hospital/my-patients', permissions: ['hms_my_patients'] },
       { label: 'My round', to: '/app/hospital/rounds', permissions: ['hms_my_patients', 'hms_shifts', 'hms_treatments', 'hms_admissions'] },
             { label: 'Emergency Room', to: '/app/hospital/er', permissions: ['hms_er'] },

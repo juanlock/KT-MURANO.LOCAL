@@ -1188,6 +1188,11 @@ Route::get('hospital/control-tower', 'HospitalClinicalController@tower');
 Route::put('hospital/admissions/{id}/portal-status', 'HospitalClinicalController@portalStatus')->whereNumber('id');
 // My round: patients as cards on the floor maps with the route (2026-10-25).
 Route::get('hospital/rounds', 'HospitalRoundsController@index');
+// Admission window + triage (2026-10-25).
+Route::post('hospital/desk/arrivals/{id}/registration', 'HospitalDeskController@registration')->whereNumber('id');
+Route::get('hospital/triage', 'HospitalTriageController@index');
+Route::post('hospital/triage/{id}/call', 'HospitalTriageController@call')->whereNumber('id');
+Route::post('hospital/triage/{id}', 'HospitalTriageController@save')->whereNumber('id');
 Route::post('hospital/admissions/{id}/nursing-note', 'HospitalRoundsController@nursingNote')->whereNumber('id');
 Route::get('hospital/lab-critical', 'HospitalLabController@critical');
 Route::post('hospital/lab-orders/{id}/critical-seen', 'HospitalLabController@criticalSeen')->whereNumber('id');

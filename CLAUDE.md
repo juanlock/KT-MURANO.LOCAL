@@ -412,6 +412,20 @@ the start of each session).
   labs) and the visit modal (`RoundVisit.vue`: Today / Nursing -- doses, care,
   vitals, "report a change" = nursing note (`hms_progress_notes.kind`) /
   Doctor -- SOAP and prescription on the active treatment).
+  **Admission window + triage (user's rules, 2026-10-25):** the window
+  (Admission) registers the patient, the money (private / public insurance, or
+  a credit card = type + last 4 digits only) and why they come; arrival type
+  (`er_cases.pathway`): **emergency** -> waiting for triage (the desk can't put
+  them in a bed), **critical** -> an ER bed now, registration and triage
+  completed after the patient is seen ("Registration pending" / "Complete
+  registration"), **scheduled** (referred, e.g. surgery) -> must come with the
+  money, waiting for a bed, no triage. **Triage** (role Triaje, `hms_triage`,
+  `/hospital/triage`, `HospitalTriageController`): call the patient, vital
+  signs, weight, height (BMI), reason, allergies / chronic / usual medication,
+  level 1-5, send to a free ER bed. **Without financial data an emergency
+  patient is never admitted to a ward** (`ErCase::hasFinancialData()`: desk
+  call-in to a ward bed and ER close as "admitted" refuse it): waiting room or
+  ER bed until sent home.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the

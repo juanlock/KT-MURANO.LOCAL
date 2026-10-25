@@ -11,6 +11,7 @@ export const HOSPITAL_NAV = [
         color: '#2563eb',
         items: [
             { path: '/hospital/admission-desk', label: 'Admission desk', icon: 'LoginOutlined', perms: ['hms_admission_desk', 'hms_visitors'] },
+            { path: '/hospital/triage', label: 'Triage', icon: 'FormOutlined', perms: ['hms_triage'] },
             { path: '/hospital/er', label: 'Emergency Room', icon: 'AlertOutlined', perms: ['hms_er'] },
             { path: '/hospital/patients', label: 'Patients', icon: 'TeamOutlined', perms: ['hms_patients_view'] },
             { path: '/hospital/appointments', label: 'Appointments', icon: 'CalendarOutlined', perms: ['hms_appointments'] },
