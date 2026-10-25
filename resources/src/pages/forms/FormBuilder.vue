@@ -4,7 +4,7 @@
       <template #actions>
         <a-space wrap>
           <a-button @click="back">{{ es ? 'Volver' : 'Back' }}</a-button>
-          <a-button v-if="form" @click="embedOpen = true"><template #icon><CodeOutlined /></template>{{ es ? 'Publicar' : 'Publish' }}</a-button>
+          <a-button v-if="form" @click="tab = 'publish'"><template #icon><CodeOutlined /></template>{{ es ? 'Publicar' : 'Publish' }}</a-button>
           <a-button v-if="form" @click="$router.push(`/forms/${form.id}/submissions`)"><template #icon><InboxOutlined /></template>{{ es ? 'Envíos' : 'Submissions' }}</a-button>
           <a-button type="primary" :loading="saving" :disabled="!canManage" @click="save"><template #icon><SaveOutlined /></template>{{ es ? 'Guardar' : 'Save' }}</a-button>
         </a-space>
@@ -222,6 +222,12 @@
             </a-form>
           </a-tab-pane>
 
+          <!-- ============ PUBLISH ============ -->
+          <a-tab-pane key="publish" :tab="es ? 'Publicar' : 'Publish'">
+            <a-alert v-if="dirty" type="info" show-icon style="margin-bottom: 12px" :message="es ? 'Guarda los cambios antes de publicar.' : 'Save your changes before publishing.'" />
+            <FormPublish :form="form" />
+          </a-tab-pane>
+
           <!-- ============ PREVIEW ============ -->
           <a-tab-pane key="preview" :tab="es ? 'Vista previa' : 'Preview'">
             <a-alert v-if="dirty" type="info" show-icon style="margin-bottom: 12px" :message="es ? 'La vista previa muestra lo guardado: guarda para ver los cambios.' : 'The preview shows what is saved: save to see your changes.'" />
@@ -247,6 +253,7 @@ import {
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import EmbedCodeModal from './EmbedCodeModal.vue';
+import FormPublish from './FormPublish.vue';
 import http from '../../lib/http';
 import { goBack } from '../../lib/goBack';
 import { useAuthStore } from '../../stores/auth';

@@ -2,7 +2,12 @@
   <div class="page">
     <PageHeader :title="es ? 'Panel de formularios' : 'Forms dashboard'" :breadcrumb="[$t('Forms_Module'), $t('Forms_Dashboard')]">
       <template #actions>
-        <a-button @click="$router.push('/forms')">{{ $t('Forms_All') }}</a-button>
+        <a-space>
+          <a-button @click="$router.push('/forms')">{{ $t('Forms_All') }}</a-button>
+          <a-button v-if="auth.can('forms_manage')" type="primary" @click="$router.push({ path: '/forms', query: { new: 1 } })">
+            <template #icon><PlusOutlined /></template>{{ es ? 'Nuevo formulario' : 'New form' }}
+          </a-button>
+        </a-space>
       </template>
     </PageHeader>
 
@@ -99,8 +104,11 @@ import ReportChart from '../../components/ReportChart.vue';
 import http from '../../lib/http';
 import { useUiStore } from '../../stores/ui';
 import { useSystemContext } from '../../lib/systemContext';
+import { useAuthStore } from '../../stores/auth';
+import { PlusOutlined } from '@ant-design/icons-vue';
 
 const router = useRouter();
+const auth = useAuthStore();
 const ui = useUiStore();
 const es = computed(() => ui.locale === 'es');
 const { isSystem } = useSystemContext();

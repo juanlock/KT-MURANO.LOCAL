@@ -35,7 +35,7 @@
               <a-tooltip :title="es ? 'Envíos' : 'Submissions'">
                 <a-button type="text" size="small" @click="$router.push(`/forms/${record.id}/submissions`)"><template #icon><InboxOutlined /></template></a-button>
               </a-tooltip>
-              <a-tooltip :title="es ? 'Código para insertar' : 'Embed code'">
+              <a-tooltip :title="es ? 'Publicar (web, ventana, enlace, QR, correo)' : 'Publish (web, popup, link, QR, email)'">
                 <a-button type="text" size="small" @click="openEmbed(record)"><template #icon><CodeOutlined /></template></a-button>
               </a-tooltip>
               <a-tooltip v-if="canManage" :title="es ? 'Editar' : 'Edit'">
@@ -55,6 +55,10 @@
 
     <a-modal v-model:open="createOpen" :title="es ? 'Nuevo formulario' : 'New form'" :confirm-loading="saving" @ok="create">
       <a-form layout="vertical">
+        <!-- superadmin/AdminSystem: which company the new form is for (else the acting company). -->
+        <a-form-item v-if="isSystem" :label="es ? 'Empresa' : 'Company'" required>
+          <a-select v-model:value="newCompany" :options="companyOptions" show-search option-filter-prop="label" :placeholder="es ? 'Elige la empresa' : 'Choose the company'" />
+        </a-form-item>
         <a-form-item :label="es ? 'Nombre' : 'Name'" required :extra="es ? 'Empieza con Nombre, Correo y Mensaje; luego agrega o quita campos.' : 'Starts with Name, Email and Message; then add or remove fields.'">
           <a-input v-model:value="newName" :maxlength="150" @press-enter="create" />
         </a-form-item>
@@ -77,6 +81,9 @@ import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
 import { useUiStore } from '../../stores/ui';
 import { useSystemContext } from '../../lib/systemContext';
+import { useCompanyStore } from '../../stores/company';
+import { sortByLabel } from '../../lib/filterOptions';
+import { useRoute } from 'vue-router';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -116,16 +123,24 @@ async function load() {
 
 const createOpen = ref(false);
 const newName = ref('');
+const newCompany = ref(undefined);
 const saving = ref(false);
+const companyStore = useCompanyStore();
+const companyOptions = computed(() => sortByLabel((companyStore.companies || []).filter(c => c.id !== 999).map(c => ({ value: c.id, label: c.name }))));
 function openCreate() {
   newName.value = '';
+  newCompany.value = undefined;
   createOpen.value = true;
 }
 async function create() {
   if (!newName.value.trim()) return;
+  if (isSystem.value && !newCompany.value) {
+    message.warning(es.value ? 'Elige la empresa del formulario.' : 'Choose the form\'s company.');
+    return;
+  }
   saving.value = true;
   try {
-    const res = await http.post('forms', { name: newName.value.trim() });
+    const res = await http.post('forms', { name: newName.value.trim(), ...(isSystem.value ? { company_id: newCompany.value } : {}) });
     createOpen.value = false;
     router.push(`/forms/${res.form.id}/edit`);
   } catch (e) {
@@ -169,7 +184,12 @@ function openEmbed(r) {
   embedOpen.value = true;
 }
 
-onMounted(load);
+const route = useRoute();
+onMounted(() => {
+  load();
+  // Dashboard -> "New form" opens the list with ?new=1.
+  if (route.query.new && canManage.value) openCreate();
+});
 </script>
 
 <style scoped>

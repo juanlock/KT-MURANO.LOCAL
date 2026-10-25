@@ -716,6 +716,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
         Route::get('/{id}', 'show')->whereNumber('id');
         Route::put('/{id}', 'update')->whereNumber('id');
         Route::post('/{id}/duplicate', 'duplicate')->whereNumber('id');
+        Route::post('/{id}/share-email', 'shareEmail')->whereNumber('id');
         Route::delete('/{id}', 'destroy')->whereNumber('id');
         Route::get('/{id}/submissions', 'submissions')->whereNumber('id');
     });

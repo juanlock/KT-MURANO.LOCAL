@@ -286,6 +286,50 @@ class FormsController extends Controller
         return response()->json(['form' => $this->out(DB::table('forms')->find($f->id), true)]);
     }
 
+    /**
+     * POST forms/{id}/share-email {to: [emails], subject?, message?} -- sends the
+     * form's link (Publish -> Send by email) through the company's mail server.
+     */
+    public function shareEmail(Request $request, int $id)
+    {
+        $this->can($request, 'forms_manage');
+        $f = $this->form($request, $id);
+        $v = $request->validate([
+            'to' => 'required|array|min:1|max:20',
+            'to.*' => 'email:rfc|max:190',
+            'subject' => 'nullable|string|max:190',
+            'message' => 'nullable|string|max:5000',
+        ]);
+        $cid = (int) $f->company_id;
+        $company = trim((string) DB::table('companies')->where('id', $cid)->value('name')) ?: 'Forms';
+        $link = PublicUrl::base($cid).'/f/'.$f->public_key;
+        $s = FormSchema::settings(json_decode((string) $f->settings, true));
+        $es = $s['language'] === 'es';
+        $subject = trim((string) ($v['subject'] ?? '')) ?: ($s['title'] ?: $f->name);
+        $msg = trim(strip_tags((string) ($v['message'] ?? ''))) ?: ($es ? 'Por favor complete el siguiente formulario:' : 'Please fill in the following form:');
+        $btn = $es ? 'Abrir el formulario' : 'Open the form';
+        $html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#222;max-width:560px">'
+            .'<p>'.nl2br(e($msg)).'</p><p><a href="'.e($link).'" style="display:inline-block;background:'.e($s['primary_color']).';color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px">'.e($btn).'</a></p>'
+            .'<p style="color:#888;font-size:12px">'.e($link).'</p><p style="color:#888;font-size:12px;margin-top:24px">'.e($company).'</p></div>';
+        [$mailer, $from] = \App\Support\CompanyMail::mailer($cid);
+        $sent = [];
+        $failed = [];
+        foreach (array_unique($v['to']) as $to) {
+            try {
+                $mailer->html($html, function ($m) use ($to, $from, $company, $subject, $msg, $link) {
+                    $m->to($to)->from($from ?: config('mail.from.address'), $company)->subject($subject);
+                    $m->getSymfonyMessage()->text($msg."\n\n".$link."\n\n--\n".$company);
+                });
+                $sent[] = $to;
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('form share mail failed: '.$e->getMessage(), ['form' => $f->id, 'to' => $to]);
+                $failed[] = $to;
+            }
+        }
+
+        return response()->json(['sent' => $sent, 'failed' => $failed], $sent ? 200 : 422);
+    }
+
     public function duplicate(Request $request, int $id)
     {
         $this->can($request, 'forms_manage');
