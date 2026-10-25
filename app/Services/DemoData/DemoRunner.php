@@ -108,8 +108,33 @@ class DemoRunner
                 $results[$key] = ['status' => 'error', 'reason' => $e->getMessage()];
             }
         }
+        self::standardLogins($companyId);
 
         return $results;
+    }
+
+    /**
+     * Demos are for testing every role (user's rule, 2026-10-25): the demo's
+     * people (staff, patients, students, customers...) sign in with the
+     * standard password of their type, and the company has its admin /
+     * helpdesk / info access logins (App\Support\CompanyLogins). Only demo
+     * users are touched; real logins keep their passwords.
+     */
+    public static function standardLogins(int $companyId): void
+    {
+        try {
+            \App\Support\CompanyLogins::applyDefaults($companyId);
+            $access = \App\Support\CompanyLogins::ensureAccess($companyId);
+            $demoUsers = DB::table('demo_records')->where('company_id', $companyId)->where('record_type', 'users')->pluck('record_id')
+                ->diff(array_values($access));
+            $types = ['employee' => 'employee', 'customer' => 'customer', 'supplier' => 'supplier', 'sales_agent' => 'sales_agent', 'Online_store' => 'online_store'];
+            foreach ($types as $type => $key) {
+                DB::table('users')->whereIn('id', $demoUsers)->where('type', $type)
+                    ->update(['password' => \Illuminate\Support\Facades\Hash::make(\App\Support\CompanyLogins::PASSWORDS[$key]), 'statut' => 1]);
+            }
+        } catch (\Throwable $e) {
+            report($e); // the demo itself is done; logins can be fixed from Users
+        }
     }
 
     /**

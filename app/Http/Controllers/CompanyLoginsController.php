@@ -1,0 +1,135 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Permission;
+use App\Support\CompanyLogins;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+
+/**
+ * GET company-logins (user's rule, 2026-10-25): "Company logins" in the profile
+ * menu, for the company's admin only (an admin login whose role has
+ * company_logins_view; not the SuperAdmin) -- every login of the
+ * acting company with its role, the role's accesses and its password when it
+ * is still the standard one of its type (CompanyLogins). Passwords are stored
+ * hashed: a changed one can't be read back and shows as "custom".
+ */
+class CompanyLoginsController extends Controller
+{
+    public function index(Request $request)
+    {
+        $user = $request->user('api');
+        abort_unless($this->allowed($user), 403, 'Your role cannot see the company logins.');
+        $cid = \App\Support\CompanyFiles::actingCompanyId($request);
+
+        $users = DB::table('users')->where('company_id', $cid)->whereNull('deleted_at')
+            ->orderByRaw("FIELD(type, 'admin', 'employee', 'sales_agent', 'supplier', 'customer', 'Online_store')")->orderBy('firstname')
+            ->get(['id', 'firstname', 'lastname', 'username', 'email', 'type', 'statut', 'password', 'role_id']);
+        $roleIds = DB::table('role_user')->whereIn('user_id', $users->pluck('id'))->pluck('role_id', 'user_id');
+        $roles = DB::table('roles')->whereIn('id', $roleIds->values()->merge($users->pluck('role_id'))->filter()->unique())
+            ->get(['id', 'name', 'label', 'description'])->keyBy('id');
+        $perms = DB::table('permission_role as pr')->join('permissions as p', 'p.id', '=', 'pr.permission_id')
+            ->whereIn('pr.role_id', $roles->keys())->where('p.name', 'not like', 'menu_hide:%')
+            ->get(['pr.role_id', 'p.name'])->groupBy('role_id')->map(fn ($g) => $g->pluck('name')->values());
+
+        $types = ['admin' => null, 'employee' => 'employee', 'customer' => 'customer', 'supplier' => 'supplier', 'sales_agent' => 'sales_agent', 'Online_store' => 'online_store'];
+
+        return response()->json([
+            'logins' => $users->map(function ($u) use ($roleIds, $roles, $types) {
+                $role = $roles[$roleIds[$u->id] ?? $u->role_id] ?? null;
+                // Its type's standard password, else the access one (a helpdesk agent is an employee).
+                $candidates = array_filter([$u->type === 'admin' ? null : (CompanyLogins::PASSWORDS[$types[$u->type] ?? ''] ?? null), CompanyLogins::ACCESS_PASSWORD]);
+                $standard = collect($candidates)->first(fn ($pw) => $this->matches($u->password, $pw));
+
+                return [
+                    'id' => $u->id, 'name' => trim($u->firstname.' '.$u->lastname), 'username' => $u->username, 'email' => $u->email,
+                    'type' => $u->type, 'active' => (int) $u->statut === 1,
+                    'role_id' => $role->id ?? null, 'role' => $role->name ?? null, 'role_description' => $role->description ?? null,
+                    'password' => $standard,
+                ];
+            })->values(),
+            'role_permissions' => $perms,
+        ]);
+    }
+
+    /**
+     * POST /login/as/{id} (web): "Open" -- this browser works as that login
+     * (user's choice, 2026-10-25: switch + back). Only a login of the same
+     * company that still has its standard password (the admin knows it
+     * anyway). A customer opens the customer portal, which has its own
+     * session, so the admin's stays. Answers {redirect} for the new tab.
+     */
+    public function open(Request $request, $id)
+    {
+        $admin = \Illuminate\Support\Facades\Auth::guard('web')->user();
+        abort_unless($this->allowed($admin), 403, 'Only the company admin can open other logins.');
+        $target = \App\Models\User::whereKey((int) $id)->where('company_id', $admin->company_id)->whereNull('deleted_at')->first();
+        abort_unless($target, 404);
+        abort_if((int) $target->id === (int) $admin->id, 422, 'That is your own login.');
+        abort_unless((int) $target->statut === 1, 422, 'That login is disabled.');
+        $candidates = array_filter([CompanyLogins::PASSWORDS[['Online_store' => 'online_store'][$target->type] ?? $target->type] ?? null, CompanyLogins::ACCESS_PASSWORD]);
+        abort_unless(collect($candidates)->contains(fn ($pw) => $this->matches($target->password, $pw)), 422,
+            'This login has its own password now; only logins with the standard password can be opened.');
+
+        \Illuminate\Support\Facades\Log::info('Company admin opened a login', ['admin_id' => $admin->id, 'target_id' => $target->id, 'company_id' => $admin->company_id, 'ip' => $request->ip()]);
+
+        if ($target->type === 'customer') {
+            $portal = \App\Models\PortalClient::find($target->id);
+            abort_unless($portal && (int) $portal->status === 1, 422, 'This customer has no portal access. Turn it on in People -> Customers first.');
+            \Illuminate\Support\Facades\Auth::guard('portal')->login($portal);
+
+            return response()->json(['redirect' => url('/portal/dashboard')]);
+        }
+        abort_unless(in_array($target->type, ['admin', 'employee', 'sales_agent', 'supplier'], true), 422, 'This kind of login cannot be opened here.');
+
+        \Illuminate\Support\Facades\Auth::guard('web')->login($target);
+        $request->session()->regenerate();
+        $request->session()->forget('url.intended');
+        \App\Support\AdminSwitch::start($admin, $target);
+
+        return response()->json(['redirect' => url('/')]);
+    }
+
+    /** POST /login/as-back (web): back to the admin who opened this login. */
+    public function back(Request $request)
+    {
+        $current = \Illuminate\Support\Facades\Auth::guard('web')->user();
+        $admin = \App\Support\AdminSwitch::adminFor($current, $request);
+        abort_unless($admin, 403, 'Not working as another login.');
+        \Illuminate\Support\Facades\Auth::guard('web')->login($admin);
+        $request->session()->regenerate();
+        \App\Support\AdminSwitch::stop();
+
+        return response()->json(['redirect' => url('/')]);
+    }
+
+    /** GET session-user (api): who this browser is now (another tab may have switched it). */
+    public function whoami(Request $request)
+    {
+        return response()->json(['id' => optional($request->user('api'))->id]);
+    }
+
+    private function allowed($user): bool
+    {
+        // The company's admin only (user's rule, 2026-10-25): an admin login whose role has the permission.
+        if (! $user || $user->type !== 'admin') {
+            return false;
+        }
+        $perm = Permission::where('name', 'company_logins_view')->first();
+
+        return $perm && $user->hasRole($perm->roles);
+    }
+
+    /** bcrypt check, remembered per hash (a new password = a new hash). */
+    private function matches(?string $hash, string $plain): bool
+    {
+        if (! $hash) {
+            return false;
+        }
+
+        return Cache::rememberForever('login_std:'.sha1($hash.'|'.$plain), fn () => Hash::check($plain, $hash) ? 1 : 0) === 1;
+    }
+}

@@ -184,6 +184,13 @@
         </a-button>
       </a-tooltip>
 
+      <!-- A company admin opened this login (Company logins -> Open): back to the admin. -->
+      <a-tooltip v-if="auth.user?.admin_switch" :title="`${isEs ? 'Volver a' : 'Back to'} ${auth.user.admin_switch.name}`">
+        <a-button size="small" class="sa-back admin-back" style="order: 99" :loading="adminBackBusy" @click="backToAdmin">
+          <RollbackOutlined /> <span>{{ isEs ? 'Estás como' : 'You are' }} {{ auth.username }} · {{ isEs ? 'Volver a admin' : 'Back to admin' }}</span>
+        </a-button>
+      </a-tooltip>
+
       <!-- User -->
       <span class="topbar-divider" aria-hidden="true" style="order: 100"></span>
       <a-dropdown v-model:open="userMenuOpen" placement="bottomRight" :trigger="['click']">
@@ -220,6 +227,11 @@
             <button v-if="auth.can('Pos_view')" type="button" class="acct-item" @click="go('/pos')">
               <DesktopOutlined class="acct-ic" />
               <span>Open POS</span>
+            </button>
+            <!-- The company's logins, roles and standard passwords: the company admin only. -->
+            <button v-if="canSeeLogins" type="button" class="acct-item" @click="userMenuOpen = false; loginsOpen = true">
+              <KeyOutlined class="acct-ic" />
+              <span>{{ ui.locale === 'es' ? 'Logins de la empresa' : 'Company logins' }}</span>
             </button>
 
             <div class="acct-sep" role="separator"></div>
@@ -271,6 +283,7 @@
     <!-- Today's summary drawer -->
     <TodaySummary :open="summaryOpen" @close="summaryOpen = false" />
     <ManualDrawer :open="manualOpen" @close="manualOpen = false" />
+    <LoginsDrawer v-if="canSeeLogins" :open="loginsOpen" @close="loginsOpen = false" />
   </div>
 </template>
 
@@ -302,6 +315,8 @@ import {
 } from '@ant-design/icons-vue';
 import TodaySummary from './TodaySummary.vue';
 import ManualDrawer from './ManualDrawer.vue';
+import LoginsDrawer from './LoginsDrawer.vue';
+import { KeyOutlined } from '@ant-design/icons-vue';
 import OpenBookIcon from './icons/OpenBookIcon.vue';
 import { canInstall as pwaCanInstall, promptInstall } from '../lib/pwaInstall';
 import { useAuthStore } from '../stores/auth';
@@ -387,6 +402,9 @@ watch(() => company.actingCompanyId, loadCatalogs);
 
 const summaryOpen = ref(false);
 const manualOpen = ref(false);
+const loginsOpen = ref(false);
+// Company logins list (2026-10-25): only the company's admin login with the role's permission.
+const canSeeLogins = computed(() => auth.user?.type === 'admin' && auth.can('company_logins_view'));
 
 // ---------------- notifications ----------------
 
@@ -440,6 +458,20 @@ async function backToSuperAdmin() {
   } catch (e) {
     message.error(e.message || 'Could not go back to SuperAdmin.');
     saBackBusy.value = false;
+  }
+}
+
+// Company logins -> Open (2026-10-25): POST /login/as-back returns this browser to the admin.
+const adminBackBusy = ref(false);
+async function backToAdmin() {
+  adminBackBusy.value = true;
+  try {
+    const data = await http.webPost('login/as-back');
+    try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
+    window.location.replace(data?.redirect || '/');
+  } catch (e) {
+    message.error(e?.data?.message || 'Could not go back to the admin.');
+    adminBackBusy.value = false;
   }
 }
 

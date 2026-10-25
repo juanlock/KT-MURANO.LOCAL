@@ -114,7 +114,8 @@ class CompanyController extends Controller
             'admin_firstname' => ['required', 'string', 'max:100'],
             'admin_lastname' => ['nullable', 'string', 'max:100'],
             'admin_email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->whereNull('deleted_at')],
-            'admin_password' => ['required', 'string', 'min:8'],
+            // Empty = the standard password of new companies (CompanyLogins, 2026-10-25).
+            'admin_password' => ['nullable', 'string', 'min:8'],
             'admin_role' => ['nullable', Rule::in(['Owner', 'Admin', 'Admin-ALL'])],
             // Optional helpdesk agent (role "Helpdesk").
             'helpdesk_firstname' => ['nullable', 'string', 'max:100'],
@@ -122,7 +123,7 @@ class CompanyController extends Controller
             // (helpdesk_email = the company's support mailbox, in the profile;
             // helpdesk_login_email = this agent's own login)
             'helpdesk_login_email' => ['nullable', 'email', 'max:190', 'different:admin_email', Rule::unique('users', 'email')->whereNull('deleted_at')],
-            'helpdesk_password' => ['nullable', 'required_with:helpdesk_login_email', 'string', 'min:8'],
+            'helpdesk_password' => ['nullable', 'string', 'min:8'],
             'demo_data' => ['nullable', 'boolean'],
             // Website: import the company's existing site (original design)
             // or use the default online store + its standard pages.
@@ -148,12 +149,12 @@ class CompanyController extends Controller
             ['name' => $data['name'], 'email' => $data['email'] ?? null, 'phone' => $data['phone'] ?? null, 'country' => $data['country'] ?? null],
             [
                 'firstname' => $data['admin_firstname'], 'lastname' => $data['admin_lastname'] ?? null,
-                'email' => $data['admin_email'], 'password' => $data['admin_password'],
+                'email' => $data['admin_email'], 'password' => ($data['admin_password'] ?? null) ?: \App\Support\CompanyLogins::ACCESS_PASSWORD,
                 'role' => $data['admin_role'] ?? 'Admin-ALL',
             ],
             ! empty($data['helpdesk_login_email']) ? [
                 'firstname' => $data['helpdesk_firstname'] ?? null, 'lastname' => $data['helpdesk_lastname'] ?? null,
-                'email' => $data['helpdesk_login_email'], 'password' => $data['helpdesk_password'],
+                'email' => $data['helpdesk_login_email'], 'password' => ($data['helpdesk_password'] ?? null) ?: \App\Support\CompanyLogins::ACCESS_PASSWORD,
             ] : null
         ), function ($r) use ($data) {
             $cid = (int) $r['company']->id;
@@ -181,6 +182,10 @@ class CompanyController extends Controller
             }
             // Its mail server: AdminSystem's, sender "Admin {company}".
             \App\Models\Server::forCompany($cid);
+            // Standard logins (2026-10-25): default passwords per type where none was typed,
+            // and the admin / helpdesk / info access logins with their roles.
+            \App\Support\CompanyLogins::applyDefaults($cid);
+            \App\Support\CompanyLogins::ensureAccess($cid);
         }));
         $this->storeLogo((int) $result['company']->id, $logoBytes);
 

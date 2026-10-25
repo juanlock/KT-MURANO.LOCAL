@@ -182,6 +182,10 @@ class UserController extends BaseController
             'superadmin_switch' => ($sa = \App\Support\SuperAdminSwitch::superAdminFor($user, $request))
                 ? ['name' => trim(($sa->firstname ?? '').' '.($sa->lastname ?? '')) ?: $sa->username, 'email' => $sa->email]
                 : null,
+            // A company admin opened this login from Company logins: "Back to admin" (POST /login/as-back).
+            'admin_switch' => ($ad = \App\Support\AdminSwitch::adminFor($user, $request))
+                ? ['name' => trim(($ad->firstname ?? '').' '.($ad->lastname ?? '')) ?: $ad->username, 'email' => $ad->email]
+                : null,
             'app_name' => $settings->app_name ?? config('app.name'),
             'page_title_suffix' => $settings->page_title_suffix ?? '',
             // Appearance -> Show breadcrumbs (every page header).

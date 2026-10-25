@@ -28,5 +28,7 @@ class EncryptCookies extends Middleware
         // SuperAdmin working as a company admin (2026-10-20): read on 'web' and
         // 'api'; HMAC-signed with the app key instead (App\Support\SuperAdminSwitch).
         \App\Support\SuperAdminSwitch::COOKIE,
+        // Company admin working as one of its logins (2026-10-25, App\Support\AdminSwitch).
+        \App\Support\AdminSwitch::COOKIE,
     ];
 }

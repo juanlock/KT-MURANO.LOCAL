@@ -27,9 +27,9 @@
       <!-- Real branding from settings, like the legacy sidebar: uploaded logo
            or a company-initial placeholder, plus the company name (hidden when
            the admin set hide_site_name). Clicking returns to the dashboard. -->
-      <div class="brand" @click="goHome">
+      <div class="brand" :class="{ 'brand--collapsed': effectiveCollapsed }" @click="goHome">
         <template v-if="auth.showSidebarLogo">
-          <img v-if="auth.logoUrl" :src="auth.logoUrl" alt="logo" class="brand-logo" :style="auth.sidebarLogoStyle" />
+          <img v-if="auth.logoUrl" :src="auth.logoUrl" alt="logo" class="brand-logo" :style="logoStyle" />
           <span v-else class="brand-initial">{{ auth.brandInitial }}</span>
         </template>
         <span v-if="!effectiveCollapsed && auth.companyName" class="brand-name">{{ auth.companyName }}</span>
@@ -172,18 +172,45 @@ function goHome() {
 // Any navigation closes the mobile drawer.
 watch(() => route.path, () => { mobileOpen.value = false; });
 
+// All tabs share one session: when another tab switched it (Company logins ->
+// Open / Back to admin), this tab reloads as the login really in use, so nobody
+// keeps working as the wrong person.
+let checkingSession = false;
+async function checkSessionUser() {
+  if (document.visibilityState !== 'visible' || checkingSession || !auth.user?.id) return;
+  checkingSession = true;
+  try {
+    const res = await http.get('session-user');
+    if (res?.id && res.id !== auth.user.id) {
+      try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
+      window.location.reload();
+    }
+  } catch (e) { /* offline / signed out: the normal 401 handling applies */ } finally { checkingSession = false; }
+}
+
 onMounted(() => {
   mq = window.matchMedia('(max-width: 991px)');
   syncMq(mq);
   mq.addEventListener('change', syncMq);
+  window.addEventListener('focus', checkSessionUser);
+  document.addEventListener('visibilitychange', checkSessionUser);
 });
-onBeforeUnmount(() => mq && mq.removeEventListener('change', syncMq));
+onBeforeUnmount(() => {
+  if (mq) mq.removeEventListener('change', syncMq);
+  window.removeEventListener('focus', checkSessionUser);
+  document.removeEventListener('visibilitychange', checkSessionUser);
+});
 
 // The large layout needs room for the rail + submenu panel; collapsed it drops
 // to the rail only. The default layout keeps the familiar 240 / 72 icon rail.
 const isLarge = computed(() => ui.sidebarLayout === 'large');
 const siderWidth = computed(() => (isLarge.value ? 300 : 240));
 const collapsedWidth = computed(() => (isLarge.value ? 88 : 72));
+// The logo follows the sidebar: its configured size when open (never wider
+// than the sidebar), shrunk to fit the icon rail when collapsed.
+const logoStyle = computed(() => (effectiveCollapsed.value
+  ? { width: 'auto', height: 'auto', maxWidth: `${collapsedWidth.value - 20}px`, maxHeight: '40px' }
+  : { ...auth.sidebarLogoStyle, maxWidth: '100%' }));
 // The "dark" layout is always dark; every other layout follows the app theme.
 const siderTheme = computed(() =>
   ui.sidebarLayout === 'dark' || ui.dark ? 'dark' : 'light'
@@ -340,6 +367,13 @@ async function logout() {
   cursor: pointer;
   border-right: 1px solid #ececee;
   border-bottom: 1px solid #ececee;
+  min-width: 0;
+  overflow: hidden;
+  transition: padding 0.2s;
+}
+.brand--collapsed {
+  justify-content: center;
+  padding: 16px 10px;
 }
 /* Same tint as .topbar--dark's border; covers app dark mode AND the "dark
    sidebar in a light app" layout, both of which set sider--dark. */

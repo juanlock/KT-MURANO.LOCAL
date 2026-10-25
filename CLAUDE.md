@@ -264,6 +264,20 @@ the start of each session).
   The standard login page texts have Spanish (migration
   2026_10_19_130000); a company's own texts need their own Spanish in
   Settings -> Login Page.
+- **Standard logins (user's rule, 2026-10-25):** every new company and every
+  demo gets them (`App\Support\CompanyLogins`): default passwords per type
+  employee `Empleado2020`, customer `Cliente2024`, supplier / sales agent /
+  store `C0ntr0l123`; and three access logins with their own roles,
+  `{slug}-admin` (Admin-ALL), `{slug}-helpdesk` (Helpdesk), `{slug}-info`
+  (Info) `@kcoltech.com`, password `C0ntr0l123$` (Companies -> Add: an empty
+  password field = these). A demo's people (staff, patients, students...)
+  get their type's password (`DemoRunner::standardLogins`). Vitalis has them
+  (migration 2026_10_25_190000). **Company logins** (profile menu, the
+  company's admin only: admin login + `company_logins_view`): every login, its
+  role and accesses, the password when still standard (bcrypt-checked, a
+  changed one shows "custom"), and **Open** = work as that login in a new tab
+  (`/login/as/{id}`, `AdminSwitch` cookie, header "Back to admin"; a customer
+  opens the portal instead; the other tabs reload as the login in use).
 - **Users -> Add creates Admin / SuperAdmin logins only** (SuperAdmin only by a
   SuperAdmin). Employee / customer / supplier / sales-agent logins are created
   in HRM -> Employees, People -> Customers / Suppliers, Commissions -> Sales

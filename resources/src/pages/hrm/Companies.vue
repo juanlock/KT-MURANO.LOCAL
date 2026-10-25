@@ -148,7 +148,7 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('password')" name="helpdesk_password" extra="Min. 8 characters">
+                  <a-form-item :label="$t('password')" name="helpdesk_password" extra="Empty = the standard password of new companies. Min. 8 characters.">
                     <a-input-password v-model:value="cform.helpdesk_password" autocomplete="new-password" />
                   </a-form-item>
                 </a-col>
@@ -191,7 +191,7 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('password')" name="admin_password" extra="Min. 8 characters">
+                  <a-form-item :label="$t('password')" name="admin_password" extra="Empty = the standard password of new companies (also given to the -info and -helpdesk logins). Min. 8 characters.">
                     <a-input-password v-model:value="cform.admin_password" autocomplete="new-password" />
                   </a-form-item>
                 </a-col>
@@ -483,10 +483,10 @@ const createRules = computed(() => ({
   logo_data: [{ required: true, message: 'Upload the company logo' }],
   admin_firstname: [{ required: true, message: t('Field_is_required') }],
   admin_email: [{ required: true, message: t('Field_is_required') }, { type: 'email', message: t('InvalidData') }],
-  admin_password: [{ required: true, min: 8, message: 'Min. 8 characters' }],
+  admin_password: [{ min: 8, message: 'Min. 8 characters' }],
   ...(cform.value.with_helpdesk ? {
     helpdesk_login_email: [{ required: true, message: t('Field_is_required') }, { type: 'email', message: t('InvalidData') }],
-    helpdesk_password: [{ required: true, min: 8, message: 'Min. 8 characters' }],
+    helpdesk_password: [{ min: 8, message: 'Min. 8 characters' }],
   } : {}),
 }));
 

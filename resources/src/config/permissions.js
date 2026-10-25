@@ -36,6 +36,11 @@ export const PERMISSION_GROUPS = [
             {
                 "v": "users_delete",
                 "l": "Del"
+            },
+            {
+                "v": "company_logins_view",
+                "l": "Company_logins_view",
+                "f": "Header list of the company's logins (role, access, standard password)"
             }
         ]
     },
