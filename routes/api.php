@@ -709,6 +709,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
         Route::get('/', 'index');
         Route::post('/', 'store');
         Route::get('/dashboard', 'dashboard');
+        Route::get('/report', 'report');
         Route::get('/submissions/{id}', 'showSubmission')->whereNumber('id');
         Route::put('/submissions/{id}', 'updateSubmission')->whereNumber('id');
         Route::delete('/submissions/{id}', 'destroySubmission')->whereNumber('id');

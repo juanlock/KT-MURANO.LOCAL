@@ -257,6 +257,63 @@ class FormsController extends Controller
         ]);
     }
 
+    /**
+     * GET forms/report?form_id&from&to&search&page&per_page&all=1 -- every submission
+     * of every form the user may see (AdminSystem: all companies), newest first,
+     * with its form, number, date, a summary and every field as "label: value".
+     */
+    public function report(Request $request)
+    {
+        $this->can($request, 'forms_view');
+        $fq = DB::table('forms')->whereNull('deleted_at');
+        $this->scopeListToCompany($fq, $request);
+        $forms = $fq->get(['id', 'company_id', 'name', 'fields', 'settings'])->keyBy('id');
+        $q = DB::table('form_submissions')->whereIn('form_id', $forms->keys())->whereNull('deleted_at');
+        if ($fid = (int) $request->input('form_id')) {
+            $q->where('form_id', $fid);
+        }
+        if ($from = $request->input('from')) {
+            $q->whereDate('created_at', '>=', $from);
+        }
+        if ($to = $request->input('to')) {
+            $q->whereDate('created_at', '<=', $to);
+        }
+        if ($s = trim((string) $request->input('search'))) {
+            $q->where('data', 'like', '%'.str_replace(['%', '_'], ['\%', '\_'], $s).'%');
+        }
+        $total = (clone $q)->count();
+        $q->orderByDesc('created_at')->orderByDesc('id');
+        if ($request->boolean('all')) {
+            $q->limit(20000);
+        } else {
+            $q->forPage(max(1, (int) $request->input('page', 1)), max(5, min(200, (int) $request->input('per_page', 20))));
+        }
+        $meta = [];
+        $rows = $q->get()->map(function ($s) use ($forms, &$meta) {
+            $f = $forms[$s->form_id];
+            $meta[$f->id] ??= [
+                'inputs' => array_filter(FormSchema::inputs(json_decode((string) $f->fields, true) ?: []), fn ($x) => $x['type'] !== 'hidden'),
+                'prefix' => FormSchema::settings(json_decode((string) $f->settings, true))['number_prefix'],
+            ];
+            $data = json_decode((string) $s->data, true) ?: [];
+            $details = [];
+            foreach ($meta[$f->id]['inputs'] as $in) {
+                $details[] = ['label' => trim(rtrim($in['label'] ?: $in['key'], ':')), 'value' => FormSchema::text($data[$in['key']] ?? '')];
+            }
+            $first = collect($details)->first(fn ($d) => $d['value'] !== '' && ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $d['value']));
+
+            return ['id' => $s->id, 'form_id' => $f->id, 'form' => $f->name, 'company_id' => $f->company_id,
+                'ref' => $meta[$f->id]['prefix'].$s->number, 'created_at' => $s->created_at, 'is_read' => (bool) $s->is_read,
+                'summary' => mb_substr((string) ($first['value'] ?? ''), 0, 120), 'details' => $details,
+                'page_url' => $s->page_url, 'ip' => $s->ip];
+        })->all();
+
+        return response()->json([
+            'submissions' => CompanyNames::attach($rows), 'total' => $total,
+            'forms' => CompanyNames::attach($forms->map(fn ($f) => ['id' => $f->id, 'name' => $f->name, 'company_id' => $f->company_id])->values()->all()),
+        ]);
+    }
+
     public static function newKey(): string
     {
         do {

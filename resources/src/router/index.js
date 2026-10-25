@@ -408,6 +408,7 @@ const PortfolioSettings = lazy('PortfolioSettings', () => import('../pages/portf
 // Forms module (2026-10-24): forms embedded on websites / the store.
 const FormsList = lazy('FormsList', () => import('../pages/forms/FormsList.vue'));
 const FormsDashboard = lazy('FormsDashboard', () => import('../pages/forms/FormsDashboard.vue'));
+const FormsReport = lazy('FormsReport', () => import('../pages/forms/FormsReport.vue'));
 const FormBuilder = lazy('FormBuilder', () => import('../pages/forms/FormBuilder.vue'));
 const FormSubmissions = lazy('FormSubmissions', () => import('../pages/forms/FormSubmissions.vue'));
 const EmployeeDetails = lazy('EmployeeDetails', () => import('../pages/hrm/EmployeeDetails.vue'));
@@ -650,6 +651,7 @@ const routes = [
             { path: 'store/gallery', redirect: '/gallery' },
             // Forms module (2026-10-24).
             { path: 'forms', name: 'forms', component: FormsList, meta: { title: 'Forms', permission: ['forms_view', 'forms_manage'] } },
+            { path: 'forms/report', name: 'forms-report', component: FormsReport, meta: { title: 'Submissions report', permission: ['forms_view', 'forms_manage'] } },
             { path: 'forms/dashboard', name: 'forms-dashboard', component: FormsDashboard, meta: { title: 'Forms dashboard', permission: ['forms_view', 'forms_manage'] } },
             { path: 'forms/:id/edit', name: 'form-edit', component: FormBuilder, meta: { title: 'Form', permission: 'forms_manage' } },
             { path: 'forms/:id/submissions', name: 'form-submissions', component: FormSubmissions, meta: { title: 'Form submissions', permission: ['forms_view', 'forms_manage'] } },

@@ -208,6 +208,7 @@ export const MIGRATED_ROUTES = {
     '/app/Store/Banners': '/store/banners',
     '/app/forms': '/forms',
     '/app/forms/dashboard': '/forms/dashboard',
+    '/app/forms/report': '/forms/report',
     '/app/portfolio/sections': '/portfolio/sections',
     '/app/portfolio/photos': '/portfolio/photos',
     '/app/portfolio/works': '/portfolio/photos',
@@ -527,6 +528,7 @@ export const MENU = [
         children: [
             { label: 'Forms_Dashboard', to: '/app/forms/dashboard', permissions: ['forms_view', 'forms_manage'] },
             { label: 'Forms_All', to: '/app/forms', permissions: ['forms_view', 'forms_manage'] },
+            { label: 'Forms_Report', to: '/app/forms/report', permissions: ['forms_view', 'forms_manage'] },
         ],
     },
     {

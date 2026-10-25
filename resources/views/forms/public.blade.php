@@ -17,7 +17,7 @@
     --fm-primary: {{ $s['primary_color'] }};
     --fm-bg: {{ $s['background'] }};
     --fm-radius: {{ $s['radius'] }}px;
-    --fm-text: #1f2328;
+    --fm-text: {{ $s['text_color'] }};
     --fm-muted: #6b7280;
     --fm-border: #d0d7de;
     --fm-error: #d93025;
@@ -26,7 +26,7 @@
 html, body { margin: 0; padding: 0; }
 body {
     font-family: {!! $s['font'] === 'serif' ? 'Georgia, "Times New Roman", serif' : 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif' !!};
-    color: var(--fm-text); background: {{ $embed ? 'transparent' : '#f4f6f8' }}; font-size: 15px; line-height: 1.45;
+    color: var(--fm-text); background: {{ $embed ? 'transparent' : $s['page_background'] }}; font-size: 15px; line-height: 1.45;
 }
 .fm-page { max-width: 760px; margin: 0 auto; padding: {{ $embed ? '4px' : '32px 16px' }}; }
 .fm-card { background: var(--fm-bg); border-radius: var(--fm-radius); padding: {{ $embed ? '12px 4px' : '28px' }}; {{ $embed ? '' : 'box-shadow: 0 2px 14px rgba(0,0,0,.07);' }} }

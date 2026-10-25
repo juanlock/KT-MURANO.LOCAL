@@ -103,6 +103,9 @@ class SitePageEditor
             // Murano's own "Book an appointment" page, compact layout for an iframe
             // (relative: the website is served by this same app, on any of its addresses).
             'booking_url' => self::bookingUrl($companyId),
+            // Forms module (2026-10-24): the company's forms, for "Insert a form" in a section
+            // (relative /f/{key}/embed frames; FrontPage::withFormResize grows them).
+            'forms' => self::formsFor($companyId),
         ] + ($withEditHtml ? ['edit_html' => self::editHtml($html, $seg, $base)] : []);
     }
 
@@ -119,6 +122,18 @@ class SitePageEditor
         }
 
         return '/book?'.http_build_query(['company' => $companyId, 'embed' => 1] + ($return ? ['return' => $return] : []));
+    }
+
+    /** The company's forms (Forms module, when it is on): name, published, frame address. */
+    public static function formsFor(int $companyId): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('forms') || ! \App\Support\ModuleFlags::enabled($companyId, 'forms')) {
+            return [];
+        }
+
+        return \Illuminate\Support\Facades\DB::table('forms')->where('company_id', $companyId)->whereNull('deleted_at')->orderBy('name')
+            ->get(['id', 'name', 'status', 'public_key'])
+            ->map(fn ($f) => ['id' => $f->id, 'name' => $f->name, 'status' => (bool) $f->status, 'url' => '/f/'.$f->public_key.'/embed'])->all();
     }
 
     /* ------------------------------------------------------- sections */
@@ -209,6 +224,11 @@ class SitePageEditor
             if ($name === 'iframe' && $inBody && ! $skip) {
                 $embeds[] = [$i, $parent, 'iframe', (string) self::attr($raw, 'src')];
             }
+            // An old HTML form (e.g. a contact form posting to a script): listed so it can
+            // be swapped for one of the company's Forms (2026-10-24).
+            if ($name === 'form' && $inBody && ! $skip) {
+                $embeds[] = [$i, $parent, 'form', (string) self::attr($raw, 'action')];
+            }
             if (! in_array($name, self::VOID, true) && ! str_ends_with(rtrim($raw, '> '), '/')) {
                 $stack[] = $i;
             }
@@ -271,7 +291,7 @@ class SitePageEditor
                 if ($b === null || ! $el[$b][5]) {
                     continue;
                 }
-                $add($b, '', $kind === 'iframe' ? 'Embedded frame' : 'Embedded script');
+                $add($b, '', ['iframe' => 'Embedded frame', 'form' => 'Form'][$kind] ?? 'Embedded script');
                 $owner = $b;
             }
             if (isset($out[$owner])) {

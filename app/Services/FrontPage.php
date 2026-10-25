@@ -65,6 +65,7 @@ class FrontPage
         // Store -> Portfolio section, live (after rebasing: its URLs are absolute).
         $html = Portfolio::injectInto($html, $companyId);
         $html = self::withBookingResize($html);
+        $html = self::withFormResize($html);
 
         return response($html, 200)->header('Content-Type', 'text/html; charset=UTF-8');
     }
@@ -84,6 +85,25 @@ class FrontPage
             .'if(!e.data||e.data.type!=="murano-booking-height")return;'
             .'document.querySelectorAll("iframe[src*=\'/book?\']").forEach(function(f){'
             .'if(f.contentWindow===e.source){f.style.height=(e.data.height+20)+"px";}});});</script>';
+
+        return stripos($html, '</body>') !== false ? preg_replace('~</body>~i', $js.'</body>', $html, 1) : $html.$js;
+    }
+
+    /**
+     * Forms module (2026-10-24): a form frame (/f/{key}/embed, Website -> Pages ->
+     * Sections -> "Insert a form") grows with the form and follows its redirect,
+     * like the booking frame above -- company admins can't add scripts there.
+     */
+    public static function withFormResize(string $html): string
+    {
+        if (! preg_match('~<iframe\b[^>]*\ssrc=["\'][^"\']*/f/[a-z0-9]+/embed~i', $html) || str_contains($html, 'murano-form-resize')) {
+            return $html;
+        }
+        $js = '<script id="murano-form-resize">window.addEventListener("message",function(e){'
+            .'var d=e.data;if(!d||d.type!=="murano-form")return;'
+            .'document.querySelectorAll("iframe[src*=\'/f/\']").forEach(function(f){if(f.contentWindow!==e.source)return;'
+            .'if(d.height){f.style.height=(d.height+10)+"px";}'
+            .'if(d.redirect&&/^https?:\/\//i.test(d.redirect)){window.location.href=d.redirect;}});});</script>';
 
         return stripos($html, '</body>') !== false ? preg_replace('~</body>~i', $js.'</body>', $html, 1) : $html.$js;
     }

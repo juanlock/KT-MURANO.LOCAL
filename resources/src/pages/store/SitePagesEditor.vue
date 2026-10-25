@@ -184,6 +184,11 @@
       <template v-if="secEdit">
         <a-space wrap style="margin-bottom: 8px">
           <a-button v-if="secEdit.embeds.length" size="small" @click="secHtml = withBooking(secHtml)">Replace the embed with our booking calendar</a-button>
+          <!-- Forms module: one of the company's forms in this block (in place of an old form / embed, else at its end). -->
+          <template v-if="formOptions.length">
+            <a-select v-model:value="formPick" :options="formOptions" size="small" style="width: 240px" placeholder="Insert a form…" />
+            <a-button size="small" type="primary" ghost :disabled="!formPick" @click="secHtml = withForm(secHtml, formPick)">Insert the form</a-button>
+          </template>
           <a-button v-if="secChanged" size="small" @click="secHtml = secEdit.html">Undo changes</a-button>
         </a-space>
         <a-textarea v-model:value="secHtml" :auto-size="{ minRows: 12, maxRows: 26 }" class="sp-code" spellcheck="false" />
@@ -523,6 +528,24 @@ function withBooking(html) {
     done = true;
     return frame;
   });
+}
+// Forms module (2026-10-24): one of the company's forms, as a frame that grows with it
+// (FrontPage adds that script). It takes the place of the block's old <form> (e.g. a
+// contact form posting to a missing script) or its first embed; else it goes at the end.
+const formPick = ref(undefined);
+const formOptions = computed(() => sortByLabel((current.value?.forms || []).map(f => ({ value: f.url, label: f.status ? f.name : `${f.name} (draft)` }))));
+function withForm(html, url) {
+  const name = (current.value?.forms || []).find(f => f.url === url)?.name || 'Form';
+  const frame = `<iframe src="${url}" title="${name.replace(/"/g, '&quot;')}" loading="lazy" style="width:100%;height:700px;border:0;display:block"></iframe>`;
+  let done = false;
+  const swap = re => html.replace(re, () => { if (done) return ''; done = true; return frame; });
+  let out = swap(/<form\b[\s\S]*?<\/form\s*>/i);
+  if (!done) out = swap(/<script\b(?![^>]*\ssrc\s*=)[^>]*>[\s\S]*?<\/script\s*>|<iframe\b[\s\S]*?<\/iframe\s*>/i);
+  if (!done) {
+    const at = html.lastIndexOf('</');
+    out = at > 0 ? html.slice(0, at) + frame + html.slice(at) : html + frame;
+  }
+  return out;
 }
 async function editSection(s, booking = false) {
   if (dirtyCount.value) {

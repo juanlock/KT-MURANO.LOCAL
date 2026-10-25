@@ -230,9 +230,13 @@
 
                   <div class="fb-sec">{{ es ? 'Apariencia' : 'Look' }}</div>
                   <a-row :gutter="12">
-                    <a-col :span="8"><a-form-item :label="es ? 'Color' : 'Color'"><input v-model="s.primary_color" type="color" class="fb-color" @input="dirty = true"></a-form-item></a-col>
-                    <a-col :span="8"><a-form-item :label="es ? 'Fondo' : 'Background'"><input v-model="s.background" type="color" class="fb-color" @input="dirty = true"></a-form-item></a-col>
-                    <a-col :span="8">
+                    <a-col :span="6"><a-form-item :label="es ? 'Color (botón)' : 'Color (button)'"><input v-model="s.primary_color" type="color" class="fb-color" @input="dirty = true"></a-form-item></a-col>
+                    <a-col :span="6"><a-form-item :label="es ? 'Fondo del formulario' : 'Form background'"><input v-model="s.background" type="color" class="fb-color" @input="dirty = true"></a-form-item></a-col>
+                    <a-col :span="6"><a-form-item :label="es ? 'Fondo de la página' : 'Page background'" :extra="es ? 'Solo en su propia página.' : 'Only on its own page.'"><input v-model="s.page_background" type="color" class="fb-color" @input="dirty = true"></a-form-item></a-col>
+                    <a-col :span="6"><a-form-item :label="es ? 'Texto' : 'Text'"><input v-model="s.text_color" type="color" class="fb-color" @input="dirty = true"></a-form-item></a-col>
+                  </a-row>
+                  <a-row :gutter="12">
+                    <a-col :span="12">
                       <a-form-item :label="es ? 'Letra' : 'Font'">
                         <a-select v-model:value="s.font" :options="fontOptions" @change="dirty = true" />
                       </a-form-item>
@@ -255,7 +259,7 @@
           <!-- ============ PREVIEW ============ -->
           <a-tab-pane key="preview" :tab="es ? 'Vista previa' : 'Preview'">
             <a-alert v-if="dirty" type="info" show-icon style="margin-bottom: 12px" :message="es ? 'La vista previa muestra lo guardado: guarda para ver los cambios.' : 'The preview shows what is saved: save to see your changes.'" />
-            <div class="fb-preview">
+            <div class="fb-preview" :style="{ background: s.page_background }">
               <iframe v-if="tab === 'preview'" :key="previewKey" :src="form.links.embed + '?preview=' + previewKey" title="Preview" />
             </div>
           </a-tab-pane>

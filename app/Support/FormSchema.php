@@ -56,7 +56,9 @@ class FormSchema
             'allowed_domains' => [],             // [] = any site may embed it
             'active' => true,
             'primary_color' => '#1677ff',
-            'background' => '#ffffff',
+            'background' => '#ffffff',           // the form's box
+            'page_background' => '#f4f6f8',      // around it on its own page ('' in a frame: the website shows through)
+            'text_color' => '#1f2328',
             'radius' => 8,
             'font' => 'system',                  // system | serif
         ];
@@ -74,7 +76,7 @@ class FormSchema
         $s['redirect_url'] = preg_match('~^https?://~i', (string) $s['redirect_url']) ? mb_substr((string) $s['redirect_url'], 0, 500) : '';
         $s['min_seconds'] = max(0, min(60, (int) $s['min_seconds']));
         $s['radius'] = max(0, min(24, (int) $s['radius']));
-        foreach (['primary_color', 'background'] as $c) {
+        foreach (['primary_color', 'background', 'page_background', 'text_color'] as $c) {
             $s[$c] = preg_match('/^#[0-9a-f]{3,8}$/i', (string) $s[$c]) ? $s[$c] : self::defaultSettings()[$c];
         }
         $s['font'] = in_array($s['font'], ['system', 'serif'], true) ? $s['font'] : 'system';
