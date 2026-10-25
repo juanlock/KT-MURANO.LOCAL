@@ -145,9 +145,10 @@ class BusinessTypes
         'it_services' => ['documents', 'projects', 'portfolio', 'service'],
         'landscaping' => ['bookings', 'fleet', 'portfolio', 'service'],
         'salon' => ['bookings', 'commissions', 'portfolio', 'promotions'],
-        'barber' => ['bookings', 'commissions', 'promotions'],
+        // Portfolio for barbers and restaurants too (2026-10-25): their tablet catalogs (models / menu) live there.
+        'barber' => ['bookings', 'commissions', 'portfolio', 'promotions'],
         'retail' => ['EWallet', 'marketing', 'promotions', 'Store'],
-        'restaurant' => ['bookings', 'kitchen', 'promotions'],
+        'restaurant' => ['bookings', 'kitchen', 'portfolio', 'promotions'],
         'professional' => ['bookings', 'documents', 'meeting', 'projects'],
         'laundry' => ['bookings', 'promotions', 'service'],
         'delivery' => ['fleet', 'service'],

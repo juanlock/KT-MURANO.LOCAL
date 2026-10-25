@@ -28,6 +28,21 @@
       </a-space>
     </div>
 
+    <!-- SuperAdmin only (2026-10-25): copy another company's modules and menu order into this one. -->
+    <div v-if="isSuper" class="mt-copy">
+      <div class="mt-copy-h"><CopyOutlined /> Copy from another company</div>
+      <div class="mt-copy-row">
+        <a-select
+          v-model:value="copyFrom" show-search option-filter-prop="label" :options="companyOptions"
+          placeholder="Company to copy from" style="min-width: 240px; flex: 1"
+        />
+        <a-checkbox v-model:checked="copyModules">Modules</a-checkbox>
+        <a-checkbox v-model:checked="copyMenu">Menu order (Manage Menu)</a-checkbox>
+        <a-button :disabled="!copyFrom || (!copyModules && !copyMenu)" :loading="copying" @click="confirmCopy">Copy</a-button>
+      </div>
+      <div class="mt-copy-hint">Into <b>{{ companyStore.activeCompanyName || 'the company picked in the top bar' }}</b>. Its current modules / menu are replaced; roles and permissions are not touched.</div>
+    </div>
+
     <div class="mt-list">
       <div v-for="mod in modules" :key="mod.key" class="mt-row" :class="{ 'mt-off': !flags[mod.key] }">
         <span class="mt-icon">
@@ -54,10 +69,11 @@
  * is written back onto auth.user.module_flags so the sidebar and router react
  * immediately without a reload. Missing key / null map = module enabled.
  */
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { SaveOutlined, UndoOutlined, AppstoreOutlined } from '@ant-design/icons-vue';
+import { SaveOutlined, UndoOutlined, AppstoreOutlined, CopyOutlined } from '@ant-design/icons-vue';
+import { useCompanyStore } from '../../stores/company';
 import { TOGGLEABLE_MODULES, isModuleEnabled } from '../../config/modules';
 import { MENU } from '../../config/menu';
 import { MENU_ICONS } from '../../config/menuIcons';
@@ -126,10 +142,14 @@ async function save() {
   }
 }
 
+// Reset to default = the modules this company's business type starts with
+// (a barber shop gets the barber modules, never Hospital), the rest off.
 function confirmReset() {
   Modal.confirm({
     title: t('Reset_to_Default'),
-    content: 'Re-enable every module for all users?',
+    content: typeModules.value.length
+      ? `Turn on the modules a ${typeLabel.value} company starts with and turn the others off?`
+      : 'Re-enable every module for all users?',
     okText: t('Reset_to_Default'),
     okType: 'danger',
     onOk: reset,
@@ -139,9 +159,17 @@ function confirmReset() {
 async function reset() {
   resetting.value = true;
   try {
-    await http.delete('module_flags');
-    if (auth.user) auth.user.module_flags = null;
-    applyFlags(null);
+    if (typeModules.value.length) {
+      const payload = {};
+      for (const m of TOGGLEABLE_MODULES) payload[m.key] = typeModules.value.includes(m.key);
+      await http.put('module_flags', { flags: payload });
+      if (auth.user) auth.user.module_flags = payload;
+      applyFlags(payload);
+    } else {
+      await http.delete('module_flags');
+      if (auth.user) auth.user.module_flags = null;
+      applyFlags(null);
+    }
     dirty.value = false;
     message.success(t('Successfully_Updated'));
   } catch (e) {
@@ -151,7 +179,48 @@ async function reset() {
   }
 }
 
+// ---- copy modules / menu order from another company (SuperAdmin only)
+const companyStore = useCompanyStore();
+const isSuper = computed(() => auth.user?.type === 'SuperAdmin');
+const companyOptions = computed(() => sortByLabel(companyStore.companies
+  .filter(c => c.id !== 999 && c.id !== companyStore.actingCompanyId)
+  .map(c => ({ value: c.id, label: c.name }))));
+const copyFrom = ref(null);
+const copyModules = ref(true);
+const copyMenu = ref(true);
+const copying = ref(false);
+function confirmCopy() {
+  const from = companyOptions.value.find(o => o.value === copyFrom.value)?.label;
+  const what = [copyModules.value && 'modules', copyMenu.value && 'menu order'].filter(Boolean).join(' and ');
+  Modal.confirm({
+    title: `Copy the ${what} of ${from}?`,
+    content: `They replace the ${what} of ${companyStore.activeCompanyName || 'this company'}. This cannot be undone from here.`,
+    okText: 'Copy',
+    okType: 'danger',
+    onOk: copy,
+  });
+}
+async function copy() {
+  copying.value = true;
+  try {
+    const res = await http.post('settings/copy_company_layout', { from_company_id: copyFrom.value, modules: copyModules.value, menu: copyMenu.value });
+    if (copyModules.value) {
+      applyFlags(res.module_flags || null);
+      if (auth.user) auth.user.module_flags = res.module_flags || null;
+      dirty.value = false;
+    }
+    message.success(copyMenu.value ? `Copied (${res.menu_items} menu items). Reloading the menu…` : 'Modules copied.');
+    // The side menu is built at boot: reload it to show the copied order.
+    if (copyMenu.value) setTimeout(() => window.location.reload(), 900);
+  } catch (e) {
+    message.error(e?.data?.message || e?.message || t('InvalidData'));
+  } finally {
+    copying.value = false;
+  }
+}
+
 onMounted(async () => {
+  companyStore.load();
   try {
     const data = await http.get('module_flags');
     applyFlags(data?.module_flags || null);
@@ -173,6 +242,28 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+}
+.mt-copy {
+  border: 1px dashed rgba(22, 119, 255, 0.45);
+  background: rgba(22, 119, 255, 0.04);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.mt-copy-h {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.mt-copy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.mt-copy-hint {
+  color: #8c8c8c;
+  font-size: 12.5px;
+  margin-top: 6px;
 }
 .mt-list {
   display: flex;

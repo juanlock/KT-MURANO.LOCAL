@@ -1776,6 +1776,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('module_flags', 'SettingsController@getModuleFlags');
     Route::put('module_flags', 'SettingsController@updateModuleFlags');
     Route::delete('module_flags', 'SettingsController@resetModuleFlags');
+    Route::post('settings/copy_company_layout', 'SettingsController@copyCompanyLayout');
 
     // Feature toggles (Settings → Modules → Features tab)
     Route::get('feature_settings', 'SettingsController@getFeatureSettings');

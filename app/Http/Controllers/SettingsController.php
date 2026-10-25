@@ -10,6 +10,7 @@ use App\Models\Language;
 use App\Models\PaymentMethod;
 use App\Models\PosSetting;
 use App\Models\Setting;
+use Illuminate\Support\Facades\DB;
 use App\Models\sms_gateway;
 use App\Models\User;
 use App\Models\UserWarehouse;
@@ -1663,7 +1664,56 @@ class SettingsController extends Controller
         return response()->json(['success' => true], 200);
     }
 
-    // ----------------- Feature toggles (Settings Ã¢â€ â€™ Modules Ã¢â€ â€™ Features tab) -----------------\\
+    /**
+     * Business Modules -> "Copy from another company" (user's rule, 2026-10-25):
+     * ONLY a SuperAdmin, acting on a company, copies another company's modules
+     * (settings.module_flags) and / or its menu (Manage Menu rows in
+     * menu_positions + the top-level order settings.sidebar_menu_order), in one
+     * transaction. Roles and their permissions are not touched.
+     *   POST settings/copy_company_layout {from_company_id, modules: bool, menu: bool}
+     */
+    public function copyCompanyLayout(Request $request)
+    {
+        abort_unless(optional($request->user('api'))->type === 'SuperAdmin', 403, 'Only a SuperAdmin can copy another company\'s modules and menu.');
+        $to = (int) $this->resolveActingCompanyId($request);
+        $v = $request->validate(['from_company_id' => 'required|integer', 'modules' => 'boolean', 'menu' => 'boolean']);
+        $from = (int) $v['from_company_id'];
+        $modules = (bool) ($v['modules'] ?? true);
+        $menu = (bool) ($v['menu'] ?? true);
+        abort_if($to === 999 || ! $to, 422, 'Pick the company to copy INTO in the top bar first.');
+        abort_if($from === $to, 422, 'Pick a different company to copy from.');
+        abort_unless($modules || $menu, 422, 'Choose what to copy: modules, menu or both.');
+        abort_unless(DB::table('companies')->where('id', $from)->whereNull('deleted_at')->exists(), 404, 'Company not found.');
+        $src = DB::table('settings')->where('company_id', $from)->whereNull('deleted_at')->first(['module_flags', 'sidebar_menu_order']);
+        $dst = Setting::forCompany($to);
+        abort_unless($src && $dst, 404, 'Settings not found.');
+
+        $copied = DB::transaction(function () use ($src, $dst, $from, $to, $modules, $menu) {
+            $n = 0;
+            if ($modules) {
+                $dst->module_flags = $src->module_flags;
+            }
+            if ($menu) {
+                $dst->sidebar_menu_order = $src->sidebar_menu_order;
+                DB::table('menu_positions')->where('company_id', $to)->delete();
+                $now = now();
+                $rows = DB::table('menu_positions')->where('company_id', $from)->orderBy('id')->get()
+                    ->map(fn ($r) => array_merge(array_diff_key((array) $r, ['id' => 1]), ['company_id' => $to, 'created_at' => $now, 'updated_at' => $now]))->all();
+                foreach (array_chunk($rows, 200) as $chunk) {
+                    DB::table('menu_positions')->insert($chunk);
+                }
+                $n = count($rows);
+            }
+            $dst->save();
+
+            return $n;
+        });
+
+        return response()->json(['success' => true, 'menu_items' => $copied,
+            'module_flags' => $dst->module_flags ? json_decode($dst->module_flags, true) : null]);
+    }
+
+    // ----------------- Feature toggles (SettingsÃ¢â€ â€™ Modules Ã¢â€ â€™ Features tab) -----------------\\
     // The same optional-capability switches as System Settings Ã¢â€ â€™ Features,
     // exposed as a small standalone endpoint so the Modules page can save them
     // without posting the full settings row (the main update() clobbers any
