@@ -122,11 +122,13 @@
         max-width: 560px;
       }
 
+      /* Brand logo at 60% (user, 2026-10-25), a little further left and up. */
       .hero-brand img {
         display: block;
-        width: min(100%, 500px);
+        width: min(60%, 300px);
         height: auto;
-        margin-bottom: clamp(1.75rem, 4vh, 3rem);
+        margin-bottom: clamp(1.5rem, 3.5vh, 2.5rem);
+        transform: translate(clamp(-28px, -1.6vw, -12px), clamp(-56px, -5vh, -24px));
       }
 
       .hero-title {
