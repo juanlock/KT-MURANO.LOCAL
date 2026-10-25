@@ -41,6 +41,11 @@ exceptional case.
   git-ignored: customer data), Kelsy, README (block marked "not in production
   yet"), commit, push. No deploy, no migrations or data to production.
 - **Copia BD** -- a database copy on demand, tagged `copiabd`.
+- **Restaura BD Dev** (`/restaura-bd-dev`, 2026-10-25) -- shows the latest
+  backup (`php artisan murano:restore-dev --list`) and asks whether to restore
+  THIS PC's dev database from it (or another); the current one is backed up
+  first (tag `prerestore`); local migrations run after. Never production. The
+  usual way to align a PC stays Wake-up (copy of production).
 - **Kelsy** -- the `kt_logs` logging rules; rows are written to production.
 Every protocol starts by running `hostname` (never asks the user): the PC name
 for file names and the Kelsy location (`KT-THUNDERA` -> Thundera,
