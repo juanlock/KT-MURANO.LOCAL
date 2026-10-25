@@ -392,6 +392,7 @@ const HospitalShifts = lazy('HospitalShifts', () => import('../pages/hospital/St
 const HospitalSetup = lazy('HospitalSetup', () => import('../pages/hospital/HospitalSetup.vue'));
 const HospitalHome = lazy('HospitalHome', () => import('../pages/hospital/HospitalHome.vue'));
 const HospitalTower = lazy('HospitalTower', () => import('../pages/hospital/ControlTower.vue'));
+const HospitalRounds = lazy('HospitalRounds', () => import('../pages/hospital/Rounds.vue'));
 const SchoolDashboard = lazy('SchoolDashboard', () => import('../pages/school/SchoolDashboard.vue'));
 const SchoolStudents = lazy('SchoolStudents', () => import('../pages/school/Students.vue'));
 const SchoolStudentForm = lazy('SchoolStudentForm', () => import('../pages/school/StudentForm.vue'));
@@ -802,7 +803,8 @@ const routes = [
             { path: 'hospital/surgery', name: 'hospital-surgery', component: HospitalSurgery, meta: { title: 'Operating room', permission: 'hms_surgery' } },
             { path: 'hospital/shifts', name: 'hospital-shifts', component: HospitalShifts, meta: { title: 'Staff shifts', permission: ['hms_shifts', 'hms_my_patients'] } },
             { path: 'hospital/setup', name: 'hospital-setup', component: HospitalSetup, meta: { title: 'Hospital configuration', permission: 'hms_setup' } },
-            { path: 'hospital/control-tower', name: 'hospital-tower', component: HospitalTower, meta: { title: 'Control tower', permission: ['hms_wards', 'hms_admission_desk', 'hms_admissions', 'hms_setup'] } },
+            { path: 'hospital/rounds', name: 'hospital-rounds', component: HospitalRounds, meta: { title: 'My round', permission: ['hms_my_patients', 'hms_shifts', 'hms_treatments', 'hms_admissions'] } },
+        { path: 'hospital/control-tower', name: 'hospital-tower', component: HospitalTower, meta: { title: 'Control tower', permission: ['hms_wards', 'hms_admission_desk', 'hms_admissions', 'hms_setup'] } },
             // Hospital home (2026-10-25): big buttons for the forms the role can open.
             { path: 'hospital/home', name: 'hospital-home', component: HospitalHome, meta: { title: 'Hospital home', permission: [
               'hms_dashboard', 'hms_admission_desk', 'hms_visitors', 'hms_er', 'hms_my_patients', 'hms_patients_view', 'hms_appointments', 'hms_visits',

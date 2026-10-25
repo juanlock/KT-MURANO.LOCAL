@@ -1186,6 +1186,9 @@ Route::put('hospital/admissions/{id}/epicrisis', 'HospitalClinicalController@sav
 Route::get('hospital/control-tower', 'HospitalClinicalController@tower');
 // Phase 4 (2026-10-25): lab critical values + files, shift planning, patient portal.
 Route::put('hospital/admissions/{id}/portal-status', 'HospitalClinicalController@portalStatus')->whereNumber('id');
+// My round: patients as cards on the floor maps with the route (2026-10-25).
+Route::get('hospital/rounds', 'HospitalRoundsController@index');
+Route::post('hospital/admissions/{id}/nursing-note', 'HospitalRoundsController@nursingNote')->whereNumber('id');
 Route::get('hospital/lab-critical', 'HospitalLabController@critical');
 Route::post('hospital/lab-orders/{id}/critical-seen', 'HospitalLabController@criticalSeen')->whereNumber('id');
 Route::post('hospital/lab-orders/{id}/files', 'HospitalLabController@uploadFile')->whereNumber('id');

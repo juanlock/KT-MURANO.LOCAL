@@ -135,6 +135,7 @@ export default {
     'Home-care videos': 'Videos de cuidados en casa',
     'Hospital -> Configuration -> Patient portal': 'Hospital -> Configuración -> Portal del paciente',
     'Follow-up appointment': 'Cita de control',
+    'Nursing': 'Enfermería',
     // Only today's doses (2026-10-25)
     'Not given (not recorded)': 'No puesta (sin registro)',
     'Pending · another day': 'Pendiente · otro día',

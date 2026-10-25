@@ -23,6 +23,7 @@ export default {
     'Pharmacy': 'Farmacia',
     'Wards & beds': 'Salas y camas',
     'Control tower': 'Torre de control',
+    'My round': 'Mi ronda',
     'Staff shifts': 'Turnos del personal',
     'Doctors': 'Médicos',
     'Dashboard': 'Panel',

@@ -369,6 +369,12 @@ class HospitalSetupController extends Controller
 
     // ------------------------------------------------------------------ helpers
 
+    /** The floor maps (rooms + beds + who is in them) for other screens (My round). */
+    public function mapFloors(bool $withPatients = true): array
+    {
+        return $this->floors($withPatients);
+    }
+
     private function floors(bool $withPatients, ?int $onlyFloor = null): array
     {
         $floors = HmsFloor::whereNull('deleted_at')->when($onlyFloor, fn ($q) => $q->where('id', $onlyFloor))->orderBy('sort_order')->orderBy('level')->orderBy('id')->get();

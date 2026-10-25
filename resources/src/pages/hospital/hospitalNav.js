@@ -21,6 +21,7 @@ export const HOSPITAL_NAV = [
         stage: 'Stay and care',
         color: '#16a34a',
         items: [
+            { path: '/hospital/rounds', label: 'My round', icon: 'NodeIndexOutlined', perms: ['hms_my_patients', 'hms_shifts', 'hms_treatments', 'hms_admissions'] },
             { path: '/hospital/my-patients', label: 'My patients', icon: 'HeartOutlined', perms: ['hms_my_patients', 'hms_shifts'] },
             { path: '/hospital/admissions', label: 'Inpatients', icon: 'HomeOutlined', perms: ['hms_admissions'] },
             { path: '/hospital/visits', label: 'Consultations', icon: 'SolutionOutlined', perms: ['hms_visits'] },

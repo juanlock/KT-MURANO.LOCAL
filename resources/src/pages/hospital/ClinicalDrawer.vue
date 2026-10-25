@@ -84,7 +84,7 @@
             </div>
             <a-timeline style="margin-top: 16px">
               <a-timeline-item v-for="n in c.notes" :key="n.id">
-                <div class="muted">{{ dt(n.noted_at) }} · {{ n.doctor || n.by }}</div>
+                <div class="muted">{{ dt(n.noted_at) }} · <a-tag v-if="n.kind === 'nursing'" color="green">{{ s('Nursing') }}</a-tag>{{ n.kind === 'nursing' ? n.by : (n.doctor || n.by) }}</div>
                 <div v-if="n.subjective"><b>S:</b> {{ n.subjective }}</div>
                 <div v-if="n.objective"><b>O:</b> {{ n.objective }}</div>
                 <div v-if="n.assessment"><b>A:</b> {{ n.assessment }}</div>

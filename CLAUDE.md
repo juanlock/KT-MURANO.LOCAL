@@ -403,6 +403,15 @@ the start of each session).
   medication), diet, visit hours, discharge prescriptions / home care /
   videos (Configuration -> Patient portal), appointments;
   `hospital:appointment-reminders` emails the patient 24 h before.
+  **Doses: only today's can be recorded** (`HmsMedicationDose::recordableToday`);
+  past days' unrecorded ones become `missed` ("Not given (not recorded)",
+  `markMissed()` on opening the sheets + nightly command). **My round**
+  (`/hospital/rounds`, `HospitalRoundsController`): the doctor's / nurse's
+  patients of the shift on the floor plan with the numbered route, a card per
+  patient (suffers from, allergies, today's doses, care due, vitals, recent
+  labs) and the visit modal (`RoundVisit.vue`: Today / Nursing -- doses, care,
+  vitals, "report a change" = nursing note (`hms_progress_notes.kind`) /
+  Doctor -- SOAP and prescription on the active treatment).
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
