@@ -363,12 +363,14 @@ the start of each session).
   (company switch, `config/modules.js`), `perms` (any) and screen `paths`;
   sections can narrow those again. A user only sees what their company has
   turned on and their role allows.
-- **Every change to a module, form, screen, button, role or permission
-  updates its manual entry in English AND Spanish** in the same session
-  (Pa Llevar step 00 checks it). A new module gets a new entry.
+- **The manual is updated ONLY when the user asks for it** (user's rule,
+  2026-10-24, replacing the 2026-10-07 "every change updates the manual in
+  the same session"): changes to modules, forms, screens, roles or
+  permissions do NOT touch `manual.js` nor the overview by themselves, and
+  Pa Llevar skips its manual step unless the user asks. When asked, the
+  entry is written in English AND Spanish; a new module gets a new entry.
 - The overview by company and role (`KT-TOOLS/Manual/murano_user_manual.html`
-  + `.pdf`, `node KT-TOOLS/Manual/export_pdf.cjs`) is refreshed when roles,
-  home pages, company modules or guide steps change.
+  + `.pdf`, `node KT-TOOLS/Manual/export_pdf.cjs`) likewise only on request.
 
 ### Online Store vs Website Management (user's rule, 2026-10-06)
 

@@ -646,7 +646,7 @@ export const MANUAL = [
   // ------------------------------------------------------------------ hospital
   {
     key: 'hospital', module: 'hospital',
-    perms: ['hms_dashboard', 'hms_patients_view', 'hms_doctors', 'hms_departments', 'hms_appointments', 'hms_visits', 'hms_wards', 'hms_admissions', 'hms_lab', 'hms_billing', 'hms_reports', 'hms_er', 'hms_pharmacy'],
+    perms: ['hms_dashboard', 'hms_patients_view', 'hms_doctors', 'hms_departments', 'hms_appointments', 'hms_visits', 'hms_wards', 'hms_admissions', 'hms_lab', 'hms_billing', 'hms_reports', 'hms_er', 'hms_pharmacy', 'hms_admission_desk', 'hms_visitors', 'hms_shifts', 'hms_my_patients', 'hms_treatments', 'hms_treatments_administer', 'hms_surgery', 'hms_pharmacy_dispense'],
     paths: ['hospital'],
     title: { en: 'Hospital Management', es: 'Gestión hospitalaria' },
     intro: {
@@ -676,6 +676,46 @@ export const MANUAL = [
         steps: {
           en: ['**Lab orders**: order tests, then enter results; price and normal range are kept as they were when ordered.', '**Admissions**: **Admit** to a free bed, **Transfer** to another bed, **Discharge** (the bed is free again).'],
           es: ['**Pedidos de laboratorio**: pida pruebas y luego cargue los resultados; el precio y el rango normal quedan como estaban al pedirlas.', '**Internaciones**: **Internar** en una cama libre, **Trasladar** a otra cama, **Dar de alta** (la cama queda libre).'],
+        },
+      },
+      {
+        id: 'hms-desk', perms: ['hms_admission_desk', 'hms_visitors'], paths: ['hospital/admission-desk'],
+        title: { en: 'Admission desk (the front door)', es: 'Admisión (la entrada del hospital)' },
+        steps: {
+          en: ['Every patient comes in through **Admission desk › New arrival**: a registered patient or a new one, the **triage** (initial assessment 1–5, vital signs, chief complaint) and the **destination**: the **Waiting room**, an **ER bed** (both are Emergency Room cases) or a **ward bed** (the patient is admitted straight away).', '**Waiting room**: the patients waiting, by triage and waiting time (red when it passes the triage limit); **Call to a bed** sends one to an ER bed or admits them to a ward bed.', '**Visitors**: check a visitor in (name, ID, relationship, the patient — only patients in the hospital now) and out; each one gets a badge number. **In the hospital** lists every patient and where they are.'],
+          es: ['Todo paciente entra por **Admisión › Nuevo ingreso**: paciente registrado o nuevo, el **triaje** (diagnóstico inicial 1–5, signos vitales, motivo) y el **destino**: **Sala de espera**, **cama de emergencia** (ambos son casos de Emergencias) o **cama de sala** (se interna de inmediato).', '**Sala de espera**: los que esperan, por triaje y tiempo de espera (en rojo cuando pasa el límite del triaje); **Pasar a una cama** lo lleva a una cama de emergencia o lo interna en una cama de sala.', '**Visitas**: registre la entrada del visitante (nombre, documento, parentesco, paciente — solo pacientes que están en el hospital) y su salida; cada uno recibe un número de pase. **En el hospital** lista a todos los pacientes y dónde están.'],
+        },
+      },
+      {
+        id: 'hms-shifts', perms: ['hms_shifts', 'hms_my_patients'], paths: ['hospital/shifts', 'hospital/my-patients'],
+        title: { en: 'Staff shifts and My patients', es: 'Turnos del personal y Mis pacientes' },
+        steps: {
+          en: ['**Staff shifts** (head nurse / admin): for each day, the **emergency guard 24 h (07–07)** with 1 emergency doctor, and the **morning 07–15, afternoon 15–23 and night 23–07** shifts with 3 specialists, 1 nurse supervisor and 4 nurses. **Patients** on each person sets the patients they see in that shift. **Copy the previous day** repeats yesterday\'s roster.', '**My patients**: what the logged-in doctor or nurse has in the shift running now — where each patient is, allergies, the doses due in the next 2 hours (overdue in red) with **Given / Omitted**, **Mark visited**, and links to the treatment and the patient record. The head nurse can see everyone in the hospital.'],
+          es: ['**Turnos del personal** (jefe de enfermería / admin): por cada día, la **guardia de emergencia de 24 h (07–07)** con 1 médico de emergencia, y los turnos **mañana 07–15, tarde 15–23 y noche 23–07** con 3 especialistas, 1 supervisora de enfermería y 4 enfermeros. **Pacientes** en cada persona define los pacientes que ve en ese turno. **Copiar el día anterior** repite el rol de ayer.', '**Mis pacientes**: lo que el médico o enfermero conectado tiene en el turno actual — dónde está cada paciente, alergias, las dosis de las próximas 2 horas (atrasadas en rojo) con **Colocada / Omitida**, **Marcar visitado**, y enlaces al tratamiento y a la historia. El jefe de enfermería puede ver a todos los del hospital.'],
+        },
+      },
+      {
+        id: 'hms-treatments', perms: ['hms_treatments', 'hms_treatments_administer', 'hms_pharmacy_dispense'], paths: ['hospital/treatments', 'hospital/pharmacy'],
+        title: { en: 'Treatments and medication', es: 'Tratamientos y medicación' },
+        steps: {
+          en: ['**Treatments › New treatment** (doctors): a patient in the hospital, the diagnosis, the plan, the lead doctor and other doctors.', '**Medication orders**: the medicine (from the pharmacy, or typed), dose, route (oral, IV, IM, SC…), **every N hours**, the first dose and the number of days — the system builds the dose schedule. **Stop** removes its future doses.', '**Medication sheet**: each dose with its time; the nurse records it as **Given**, **Omitted** or **Refused** (with who and when); late doses in red; doses the pharmacy has not dispatched show "Not dispensed".', '**Care team**: the doctors of the treatment and who has the patient each shift (from Staff shifts). **Finish treatment** closes it.', '**Pharmacy › Dispatch** (pharmacy): the orders with doses due in the next 24 h; **Dispatch** N doses takes the units out of the pharmacy stock and marks them dispensed.'],
+          es: ['**Tratamientos › Nuevo tratamiento** (médicos): un paciente que está en el hospital, el diagnóstico, el plan, el médico responsable y otros médicos.', '**Indicaciones**: el medicamento (de farmacia o escrito), dosis, vía (oral, EV, IM, SC…), **cada N horas**, la primera dosis y los días — el sistema arma el horario de dosis. **Suspender** quita sus dosis futuras.', '**Hoja de medicación**: cada dosis con su hora; el enfermero la registra como **Colocada**, **Omitida** o **Rechazada** (con quién y cuándo); las atrasadas en rojo; las que farmacia no despachó dicen "Sin despachar".', '**Equipo**: los médicos del tratamiento y quién tiene al paciente en cada turno (de Turnos del personal). **Terminar tratamiento** lo cierra.', '**Farmacia › Despacho** (farmacia): las indicaciones con dosis para las próximas 24 h; **Despachar** N dosis saca las unidades del stock de farmacia y las marca despachadas.'],
+        },
+      },
+      {
+        id: 'hms-surgery', perms: ['hms_surgery'], paths: ['hospital/surgery'],
+        title: { en: 'Operating room', es: 'Quirófano' },
+        steps: {
+          en: ['**Operating rooms** (Room +): each one with its status (available, in use, cleaning, maintenance).', '**Schedule surgery**: patient, date and time, minutes, priority (elective, urgent, emergency), room (two surgeries can\'t overlap in a room), surgeon, anesthetist, team, **pre-op diagnosis**, planned procedure, risks, **consent** and fee.', 'The board moves the patient step by step — **To pre-op → Into the operating room** (needs the consent and the room; the room is in use) **→ To recovery** (the room goes to cleaning) **→ Back to the bed** — every move is logged with time and user (Patient movements).', '**Surgery** tab: procedure performed, anesthesia, findings, complications; **Post-op**: final diagnosis and instructions. Finishing opens (or updates) the patient\'s **Treatment** with them, the surgeon joins it. **Bill surgery** makes the bill (a sale) with the fee.'],
+          es: ['**Salas de operaciones** (Sala +): cada una con su estado (disponible, en uso, limpieza, mantenimiento).', '**Programar cirugía**: paciente, fecha y hora, minutos, prioridad (electiva, urgente, emergencia), sala (dos cirugías no pueden coincidir en una sala), cirujano, anestesiólogo, equipo, **diagnóstico pre-operatorio**, procedimiento previsto, riesgos, **consentimiento** y honorario.', 'El tablero mueve al paciente paso a paso — **Pasar a pre-operatorio → Entrar a quirófano** (pide el consentimiento y la sala; la sala queda en uso) **→ Pasar a recuperación** (la sala pasa a limpieza) **→ Volver a su cama** — cada movimiento queda registrado con hora y usuario (Movimientos del paciente).', 'Pestaña **Cirugía**: procedimiento realizado, anestesia, hallazgos, complicaciones; **Post-operatorio**: diagnóstico final e indicaciones. Al terminar se abre (o actualiza) el **Tratamiento** del paciente con ellas y el cirujano se suma. **Facturar cirugía** crea la factura (una venta) con el honorario.'],
+        },
+      },
+      {
+        id: 'hms-roles', perms: ['hms_dashboard', 'hms_shifts', 'hms_admission_desk'], paths: ['hospital'],
+        title: { en: 'Hospital roles', es: 'Roles del hospital' },
+        steps: {
+          en: ['A hospital company has these roles (Roles), each with its home page: **Administrador** (everything), **Emergencia** (ER, doctors, patients and their history), **Admisión** (admission desk, visitors, appointments), **Médico** (my patients, consultations, treatments, lab, surgeries), **Enfermero** (my patients and their medication sheet), **Jefe de enfermería** (staff shifts, every patient), **Farmacia** (medicines, batches, dispatch), **Caja / Facturación** (bills and payments), **Laboratorio**, **Quirófano**, **Paciente (cliente)**, **Proveedor** and **Personal sin rol** (a new employee until you pick their role in Users).'],
+          es: ['Una empresa de tipo hospital tiene estos roles (Roles), cada uno con su página de inicio: **Administrador** (todo), **Emergencia** (emergencias, médicos, pacientes y su historial), **Admisión** (admisión, visitas, citas), **Médico** (mis pacientes, consultas, tratamientos, laboratorio, cirugías), **Enfermero** (mis pacientes y su hoja de medicación), **Jefe de enfermería** (turnos del personal, todos los pacientes), **Farmacia** (medicamentos, lotes, despacho), **Caja / Facturación** (facturas y cobros), **Laboratorio**, **Quirófano**, **Paciente (cliente)**, **Proveedor** y **Personal sin rol** (un empleado nuevo hasta que elija su rol en Usuarios).'],
         },
       },
       {
