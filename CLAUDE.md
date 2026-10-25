@@ -26,9 +26,12 @@ exceptional case.
   reloaded (memory digest), and a summary **in the chat** with the **last 5
   changes** (date and origin). "Preparate" / "buenos días, prepárate" mean
   Wake-up.
-- **Pa Llevar** -- the end of the day: an offer to deploy the code (no data
-  goes up), manual, build, Kelsy, a local backup tagged `pallevar`, README,
-  commit, push.
+- **Pa Llevar** -- the end of the day: manual (only when asked), build, Kelsy,
+  a local backup tagged `pallevar`, README, commit, push, then **the code is
+  deployed to production without asking** (user's rule, 2026-10-25: "pa
+  llevar" is the yes; no data goes up) and, **when every step went well, the
+  PC shuts down** (`shutdown /s /t 120`, cancel with `shutdown /a`; nothing
+  failed or pending, push included). Not ready for production: A Dormir.
 - **A Dormir** (`/a-dormir`, "Jarvis, a dormir", 2026-10-20) -- the end of the
   day WITHOUT touching production, for work not ready / not tested yet: local
   dev backup tagged `adormir` (PC folder + a copy in the root of
@@ -626,8 +629,9 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   git-ignored) -- never in `.env`, this file, README, kt_logs, reports or
   commits.
 - **Pa Llevar** (`/pa-llevar`, "Jarvis, run protocolo pa llevar") — the end of
-  the day (A Dormir and Sube Git were merged into it): Wake-up's production
-  code step (deploy with the user's yes; no data goes up), the user manual (in-app EN + ES, overview HTML + PDF),
+  the day: Wake-up's production code step (since 2026-10-25 deployed WITHOUT
+  asking, after the commit / push; no data goes up; then the PC shuts down
+  when every step went well), the user manual (only when asked; in-app EN + ES, overview HTML + PDF),
   `npm run build`, Kelsy (no HTML daily report), a local backup tagged
   `pallevar` (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office
   emails 1/2/3.zip` for the external backup program), `README.md` (Latest
