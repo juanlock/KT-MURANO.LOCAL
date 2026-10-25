@@ -121,6 +121,10 @@ class CompanyProfile
                     $set[$col] = $d[$in];
                 }
             }
+            // Dates follow the country: Peru day-month-year, USA month-day-year (2026-10-25).
+            if (array_key_exists('country', $company) && ($fmt = DateFormats::forCountry($company['country']))) {
+                $set['date_format'] = $fmt;
+            }
             if (array_key_exists('public_base_url', $d)) {
                 $set['public_base_url'] = $d['public_base_url'] ? rtrim(trim($d['public_base_url']), '/') : null;
             }

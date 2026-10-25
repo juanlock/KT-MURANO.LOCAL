@@ -510,6 +510,15 @@ the start of each session).
   Exceptions need a deliberate reason (e.g. a "Manage Menu" admin-defined
   order, or a list where recency/relevance genuinely matters more than
   alphabetical) -- default to alphabetical unless there's a reason not to.
+- **Dates follow the company's country and can be typed (user's rule,
+  2026-10-25).** `settings.date_format` comes from `companies.country`
+  (`App\Support\DateFormats`: Peru / Spanish-speaking DD-MM-YYYY, USA
+  MM-DD-YYYY; set again when the country changes). `<a-date-picker>` and
+  `<a-range-picker>` are replaced app-wide by `components/CompanyDatePicker.js`
+  (main.js): they show that format with a "dd-mm-aaaa" hint and accept typing
+  with or without separators, 2- or 4-digit year (`lib/dateInput.js`); the
+  stored `value-format` never changes. Don't hard-code a display `format` on a
+  new date field -- the wrapper sets it.
 - **Links to another module's page respect the role** (2026-10-06): use
   `<PermLink :to="..." permission="Sales_view">` (global component,
   `components/PermLink.vue`) instead of a bare `<router-link>` -- a user whose

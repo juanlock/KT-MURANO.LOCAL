@@ -11,6 +11,7 @@ import App from './App.vue';
 import router from './router';
 import { goBack } from './lib/goBack';
 import PermLink from './components/PermLink.vue';
+import { CompanyDatePicker, CompanyRangePicker } from './components/CompanyDatePicker';
 import { i18n, loadLocale, storedLocale } from './i18n';
 // Arms the beforeinstallprompt listener before the topbar exists (see file).
 import './lib/pwaInstall';
@@ -74,6 +75,10 @@ app.config.globalProperties.$goBack = fallback => goBack(router, fallback);
 // <PermLink permission="Sales_view">: a link only when the role may open the page, else plain text.
 app.component('PermLink', PermLink);
 app.use(Antd);
+// Dates in the company's format (Peru DD-MM-YYYY, USA MM-DD-YYYY) that can be
+// typed: replaces Ant's <a-date-picker> / <a-range-picker> everywhere (2026-10-25).
+app.component('ADatePicker', CompanyDatePicker);
+app.component('ARangePicker', CompanyRangePicker);
 // Same global <apexchart> tag the plugin would register, but async: apexcharts
 // (~550 kB min) stays out of the entry and loads as its own cached chunk only
 // when a chart page renders.
