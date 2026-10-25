@@ -171,6 +171,9 @@ class CompanyLogins
                 ->whereNotIn('id', array_values($access))
                 ->update(['password' => Hash::make(self::PASSWORDS[$key]), 'updated_at' => now()]);
         }
+        // Test customers can sign in to the customer portal too.
+        $counts['portal_on'] = DB::table('users')->where('company_id', $companyId)->where('type', 'customer')->whereNull('deleted_at')
+            ->update(['portal_enabled' => 1, 'invitation_token' => null]);
 
         return ['access' => $access, 'reset' => $counts];
     }

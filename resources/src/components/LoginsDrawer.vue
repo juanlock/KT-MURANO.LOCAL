@@ -39,6 +39,7 @@
         </template>
         <template v-else-if="column.key === 'active'">
           <a-tag :color="record.active ? 'green' : 'default'">{{ record.active ? tx('Active', 'Activo') : tx('Disabled', 'Desactivado') }}</a-tag>
+          <div v-if="record.portal !== null" class="muted small">{{ record.portal ? tx('Portal on', 'Portal activo') : tx('No portal', 'Sin portal') }}</div>
         </template>
         <template v-else-if="column.key === 'password'">
           <span v-if="record.password" class="pw">
@@ -59,7 +60,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { message } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, LoginOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
@@ -117,17 +118,27 @@ const opening = ref(null);
 const canOpen = r => r.password && r.active && r.id !== auth.user?.id && r.type !== 'Online_store';
 // Same tab (user's rule, 2026-10-25): every tab shares the session, so the
 // admin simply becomes that login here and returns with "Back to admin".
-async function openAs(r) {
+async function openAs(r, enablePortal = false) {
   opening.value = r.id;
   try {
-    const res = await http.webPost(`login/as/${r.id}`);
+    const res = await http.webPost(`login/as/${r.id}`, enablePortal ? { enable_portal: 1 } : {});
     if (r.type !== 'customer') {
       try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
     }
     window.location.href = res?.redirect || '/';
   } catch (e) {
-    message.error(e?.data?.message || tx('Could not open that login', 'No se pudo abrir ese login'));
     opening.value = null;
+    // A customer whose portal was turned off: ask, then turn it on and enter.
+    if (e?.status === 409 && e?.data?.needs_portal) {
+      Modal.confirm({
+        title: tx('This customer has no portal access', 'Este cliente no tiene acceso al portal'),
+        content: tx('Turn on the customer portal for them and enter?', '¿Activarle el portal del cliente y entrar?'),
+        okText: tx('Turn on and enter', 'Activar y entrar'), cancelText: tx('Cancel', 'Cancelar'),
+        onOk: () => openAs(r, true),
+      });
+      return;
+    }
+    message.error(e?.data?.message || tx('Could not open that login', 'No se pudo abrir ese login'));
   }
 }
 

@@ -132,6 +132,8 @@ class DemoRunner
                 DB::table('users')->whereIn('id', $demoUsers)->where('type', $type)
                     ->update(['password' => \Illuminate\Support\Facades\Hash::make(\App\Support\CompanyLogins::PASSWORDS[$key]), 'statut' => 1]);
             }
+            // Demo customers (patients, parents...) can use the customer portal.
+            DB::table('users')->whereIn('id', $demoUsers)->where('type', 'customer')->update(['portal_enabled' => 1, 'invitation_token' => null]);
         } catch (\Throwable $e) {
             report($e); // the demo itself is done; logins can be fixed from Users
         }

@@ -27,7 +27,7 @@ class CompanyLoginsController extends Controller
 
         $users = DB::table('users')->where('company_id', $cid)->whereNull('deleted_at')
             ->orderByRaw("FIELD(type, 'admin', 'employee', 'sales_agent', 'supplier', 'customer', 'Online_store')")->orderBy('firstname')
-            ->get(['id', 'firstname', 'lastname', 'username', 'email', 'type', 'statut', 'password', 'role_id']);
+            ->get(['id', 'firstname', 'lastname', 'username', 'email', 'type', 'statut', 'password', 'role_id', 'portal_enabled']);
         $roleIds = DB::table('role_user')->whereIn('user_id', $users->pluck('id'))->pluck('role_id', 'user_id');
         $roles = DB::table('roles')->whereIn('id', $roleIds->values()->merge($users->pluck('role_id'))->filter()->unique())
             ->get(['id', 'name', 'label', 'description'])->keyBy('id');
@@ -47,6 +47,7 @@ class CompanyLoginsController extends Controller
                 return [
                     'id' => $u->id, 'name' => trim($u->firstname.' '.$u->lastname), 'username' => $u->username, 'email' => $u->email,
                     'type' => $u->type, 'active' => (int) $u->statut === 1,
+                    'portal' => $u->type === 'customer' ? (int) $u->portal_enabled === 1 : null,
                     'role_id' => $role->id ?? null, 'role' => $role->name ?? null, 'role_description' => $role->description ?? null,
                     'password' => $standard,
                 ];
@@ -78,7 +79,15 @@ class CompanyLoginsController extends Controller
 
         if ($target->type === 'customer') {
             $portal = \App\Models\PortalClient::find($target->id);
-            abort_unless($portal && (int) $portal->status === 1, 422, 'This customer has no portal access. Turn it on in People -> Customers first.');
+            abort_unless($portal, 404);
+            if ((int) $portal->status !== 1) {
+                // The admin is asked first; on yes the portal is turned on (as People -> Customers does).
+                if (! $request->boolean('enable_portal')) {
+                    return response()->json(['needs_portal' => true, 'message' => 'This customer has no portal access yet.'], 409);
+                }
+                DB::table('users')->where('id', $portal->id)->update(['portal_enabled' => 1, 'invitation_token' => null, 'updated_at' => now()]);
+                $portal = \App\Models\PortalClient::find($target->id);
+            }
             \Illuminate\Support\Facades\Auth::guard('portal')->login($portal);
 
             return response()->json(['redirect' => url('/portal/dashboard')]);

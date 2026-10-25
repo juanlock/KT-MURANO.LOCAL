@@ -57,6 +57,8 @@ class LinkedUserService
             'role_id' => $roleId,
             'type' => $type,
             'statut' => 1,
+            // Customer portal on by default in every company (user's rule, 2026-10-25).
+            'portal_enabled' => $type === 'customer' ? 1 : 0,
             'is_all_warehouses' => 0,
             'record_view' => 0,
         ]);

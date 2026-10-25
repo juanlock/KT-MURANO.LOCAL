@@ -279,6 +279,10 @@ the start of each session).
   work as that login in the same tab (`/login/as/{id}`, `AdminSwitch` cookie,
   header "Back to admin"; a customer opens the portal instead; any other open
   tab reloads as the login in use).
+- **Customer portal on by default, every company** (user's rule, 2026-10-25):
+  `users.portal_enabled` defaults to 1 and `LinkedUserService` sets it for
+  customers; only a deleted customer or one who closed their own portal
+  account is off. Admins can still turn one off in People -> Customers.
 - **Users -> Add creates Admin / SuperAdmin logins only** (SuperAdmin only by a
   SuperAdmin). Employee / customer / supplier / sales-agent logins are created
   in HRM -> Employees, People -> Customers / Suppliers, Commissions -> Sales
