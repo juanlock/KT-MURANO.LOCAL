@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Company 3 (New Era): model photos for the tablet catalog's barber services,
+ * Company 3 (New Era): model photos for the tablet catalog's barber and kids services,
  * from Pexels (free for commercial use, no attribution required -- photographers
  * listed in CREDITS.txt anyway). Photos that show the CUT / service, not the
  * barber: hand-written queries per service (back / side of the head, fades,
@@ -36,7 +36,10 @@ $Q = [
     'Haircut & Beard Combo' => ['white man fade haircut beard', 'haircut and beard man', 'beard fade man'],
     'Head Shave' => ['caucasian bald man', 'shaved head man', 'clean shaved head'],
     'Hot Towel Shave' => ['hot towel shave', 'straight razor shave close up', 'shaving foam face razor'],
-    'Kids Barber Cut' => ['caucasian boy haircut', 'boy haircut', 'little boy fade haircut'],
+    // Kids: a style catalog of finished cuts on children (user's example, 2026-10-25: "112 modern haircuts for kids").
+    'Kids Barber Cut' => ['blonde toddler boy haircut', 'boy side part haircut', 'little boy fade haircut', 'boy short haircut', 'boy undercut hairstyle', 'kid boy hairstyle'],
+    'Kids Haircut' => ['little girl haircut', 'girl bob haircut', 'little girl short hair', 'girl hairstyle kids'],
+    'Kids Braids' => ['little girl braids hairstyle', 'girl braided hair', 'kids braids hairstyle'],
     'Line Up / Edge Up' => ['white man line up haircut', 'hairline edge up', 'sharp hairline haircut'],
     'Senior Cut' => ['older white man haircut', 'gray hair man short haircut', 'senior man hairstyle'],
 ];

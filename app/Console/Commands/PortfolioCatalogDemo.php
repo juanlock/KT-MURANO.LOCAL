@@ -108,7 +108,11 @@ class PortfolioCatalogDemo extends Command
 
     private function item(object $c, int $gid, int $pid, int $sort, array $options = []): void
     {
-        if (DB::table('portfolio_catalog_items')->where('group_id', $gid)->where('product_id', $pid)->exists()) {
+        $id = DB::table('portfolio_catalog_items')->where('group_id', $gid)->where('product_id', $pid)->value('id');
+        if ($id) {
+            // The demo's own step tags are applied again (e.g. after the Kids rule changed).
+            DB::table('portfolio_catalog_items')->where('id', $id)->update(['options' => $options ? json_encode($options) : null]);
+
             return;
         }
         DB::table('portfolio_catalog_items')->insert(['company_id' => $c->company_id, 'catalog_id' => $c->id, 'group_id' => $gid, 'product_id' => $pid,
@@ -298,17 +302,26 @@ class PortfolioCatalogDemo extends Command
         foreach ($byCat as $cat => $products) {
             $gid = $this->group($c, $cat, ++$sort, $products->first()->image);
             foreach ($products->values() as $i => $p) {
-                $kidsOk = (bool) preg_match('/hair ?cut|braid|trim|kid|child|cornrow|twist|nail|manicure|pedicure/i', $p->name)
-                    && ! preg_match('/wax|laser|botox|filler|tattoo|pierc|tan|peel|bikini|brazilian/i', $p->name);
+                // Kids = only the services made for kids (user's rule, 2026-10-25: choosing Kids
+                // must not offer a beard trim or an adult haircut); those don't show for Adult.
+                $forKids = (bool) preg_match('/\b(kids?|child|children|boys?|girls?)\b/i', $p->name);
                 $opts = [];
                 if (isset($gender[$cat])) {
                     $opts['s1'] = $gender[$cat];
                 }
-                $opts['s2'] = $kidsOk ? ['a', 'k'] : ['a'];
+                $opts['s2'] = $forKids ? ['k'] : ['a'];
                 $this->item($c, $gid, (int) $p->id, $i + 1, $opts);
             }
             if ($cat === 'Barber Mens') {
                 $this->barberModels($c, $gid);
+            }
+        }
+        // Any other service with its Pexels photos (Kids Haircut, Kids Braids...).
+        $pex = 'files/company_'.$cid.'/portfolio/models/pexels';
+        foreach (DB::table('portfolio_catalog_items as i')->join('products as p', 'p.id', '=', 'i.product_id')->where('i.catalog_id', $c->id)->get(['i.id', 'p.name']) as $it) {
+            $own = array_map(fn ($f) => $pex.'/'.basename($f), glob(public_path($pex).'/'.Str::slug($it->name).'-*.jpg') ?: []);
+            if (count($own) >= 10) {
+                DB::table('portfolio_catalog_items')->where('id', $it->id)->update(['photos' => json_encode(array_slice($own, 0, 12))]);
             }
         }
         $this->line("New Era: models catalog /c/{$c->public_key}");
@@ -329,10 +342,10 @@ class PortfolioCatalogDemo extends Command
         };
         $services = [
             'Cortes' => [['Corte clásico', 25, ['m'], ['a']], ['Fade / degradado', 30, ['m'], ['a']], ['Corte con navaja', 32, ['m'], ['a']],
-                ['Corte infantil', 18, ['m', 'w'], ['k']], ['Corte + diseño', 35, ['m'], ['a', 'k']], ['Corte de dama (pelo corto)', 30, ['w'], ['a']]],
+                ['Corte infantil', 18, ['m', 'w'], ['k']], ['Corte + diseño', 35, ['m'], ['a']], ['Corte de dama (pelo corto)', 30, ['w'], ['a']]],
             'Barba' => [['Perfilado de barba', 15, ['m'], ['a']], ['Barba con toalla caliente', 22, ['m'], ['a']], ['Afeitado clásico', 20, ['m'], ['a']]],
-            'Combos' => [['Corte + barba', 40, ['m'], ['a']], ['Papá e hijo', 38, ['m'], ['a', 'k']], ['Corte + lavado', 32, ['m', 'w'], ['a', 'k']]],
-            'Tratamientos' => [['Lavado y peinado', 15, ['m', 'w'], ['a', 'k']], ['Tinte de barba', 25, ['m'], ['a']], ['Mascarilla negra', 20, ['m', 'w'], ['a']]],
+            'Combos' => [['Corte + barba', 40, ['m'], ['a']], ['Papá e hijo', 38, ['m'], ['a', 'k']], ['Corte + lavado', 32, ['m', 'w'], ['a']]],
+            'Tratamientos' => [['Lavado y peinado', 15, ['m', 'w'], ['a']], ['Tinte de barba', 25, ['m'], ['a']], ['Mascarilla negra', 20, ['m', 'w'], ['a']]],
         ];
         $c = $this->catalog($cid, 'models', 'Servicios - Urban Cuts', [
             'title' => 'Urban Cuts', 'subtitle' => 'Barbería · Elija su corte', 'accent' => '#e11d48',
