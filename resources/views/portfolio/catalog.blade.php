@@ -95,6 +95,28 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
 .done .big { font-size: 64px; color: var(--accent); }
 .done h2 { margin: 8px 0; font-size: 28px; }
 .done p { color: var(--muted); font-size: 18px; }
+/* model photos of a service: gallery + big view */
+.item button.pic { padding: 0; text-align: left; }
+.item .pic .cam { position: absolute; left: 8px; bottom: 8px; background: rgba(0,0,0,.7); color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 700; }
+.item .pic .cam b { color: var(--accent); }
+.gal { position: fixed; inset: 64px 0 0 0; z-index: 15; background: var(--bg); display: none; flex-direction: column; }
+.gal.on { display: flex; }
+.gal .gh { padding: 12px 16px; margin: 0; border-bottom: 1px solid var(--line); }
+.gal .gh small { color: var(--muted); font-weight: 400; display: block; font-size: 14px; }
+.gal .grid { flex: 1; overflow-y: auto; padding: 12px 16px 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-content: start; }
+@media (max-width: 700px) { .gal .grid { grid-template-columns: 1fr 1fr; } }
+.gal .ph2 { position: relative; aspect-ratio: 3 / 4; border-radius: 14px; background: var(--panel2) center/cover no-repeat; padding: 0; }
+.gal .ph2 span { position: absolute; left: 8px; top: 8px; background: rgba(0,0,0,.7); border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 700; }
+.gal .ph2.in { outline: 3px solid var(--accent); }
+.big { position: fixed; inset: 0; z-index: 36; background: rgba(0,0,0,.96); display: none; flex-direction: column; }
+.big.on { display: flex; }
+.big .stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.big .stage img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.big .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,.12); font-size: 28px; }
+.big .nav.l { left: 12px; } .big .nav.r { right: 12px; }
+.big .bar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.big .bar .t { flex: 1; font-weight: 700; font-size: 17px; }
+.big .bar .t small { display: block; color: var(--muted); font-weight: 400; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--panel2); padding: 10px 18px; border-radius: 999px; z-index: 50; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .toast.on { opacity: 1; }
 </style>
@@ -111,6 +133,8 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
 <main id="main"></main>
 <div class="veil" id="veil"></div>
 <aside class="panel" id="panel" aria-hidden="true"></aside>
+<div class="gal" id="gal"></div>
+<div class="big" id="big"></div>
 <div class="done" id="done"></div>
 <div class="toast" id="toast"></div>
 
@@ -124,12 +148,14 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
     home: 'Inicio', order: 'Mi pedido', menu: 'Nuestro menú', services: 'Nuestros servicios', choose: 'Elija una opción', change: 'Cambiar',
     empty: 'No hay productos en esta sección.', none: 'Aún no hay productos en el catálogo.', cartEmpty: 'Su pedido está vacío. Toque + para agregar.',
     notes: 'Notas para el pedido', total: 'Total', send: 'Enviar pedido', sending: 'Enviando…', added: 'Agregado', orderNo: 'Pedido N.º',
-    close: 'Listo', remove: 'Quitar', back: 'Volver'
+    close: 'Listo', remove: 'Quitar', back: 'Volver', models: 'modelos', model: 'Modelo', pickModel: 'Elegir este modelo',
+    galHint: 'Toque una foto para verla y elegir su modelo.'
   } : {
     home: 'Home', order: 'My order', menu: 'Our menu', services: 'Our services', choose: 'Choose an option', change: 'Change',
     empty: 'Nothing in this section.', none: 'The catalog has no products yet.', cartEmpty: 'Your order is empty. Tap + to add.',
     notes: 'Notes for the order', total: 'Total', send: 'Send order', sending: 'Sending…', added: 'Added', orderNo: 'Order #',
-    close: 'Done', remove: 'Remove', back: 'Back'
+    close: 'Done', remove: 'Remove', back: 'Back', models: 'models', model: 'Model', pickModel: 'Choose this style',
+    galHint: 'Tap a photo to see it and choose your style.'
   };
   var main = document.getElementById('main');
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
@@ -194,10 +220,14 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
     startSlides();
   }
   function itemCard(it) {
-    var q = state.cart[it.id] || 0;
-    var pic = it.image ? '<div class="pic" style="background-image:url(\'' + esc(it.image) + '\')"></div>' : '<div class="pic none">◍</div>';
-    var ctl = !D.orders ? '' : (q ? '<span class="qty"><button data-act="dec" data-id="' + it.id + '">−</button><b>' + q + '</b><button data-act="inc" data-id="' + it.id + '">+</button></span>'
-      : '<button class="add" data-act="inc" data-id="' + it.id + '" aria-label="+">+</button>');
+    var key = it.id + '|0', q = state.cart[key] || 0, n = (it.photos || []).length;
+    // A service with model photos: its picture opens them.
+    var cam = n ? '<span class="cam">📷 <b>' + n + '</b> ' + T.models + '</span>' : '';
+    var pic = it.image || n
+      ? '<' + (n ? 'button data-act="gal" data-id="' + it.id + '"' : 'div') + ' class="pic" style="background-image:url(\'' + esc(it.image || it.photos[0]) + '\')">' + cam + '</' + (n ? 'button' : 'div') + '>'
+      : '<div class="pic none">◍</div>';
+    var ctl = !D.orders ? '' : (q ? '<span class="qty"><button data-act="dec" data-id="' + key + '">−</button><b>' + q + '</b><button data-act="inc" data-id="' + key + '">+</button></span>'
+      : '<button class="add" data-act="inc" data-id="' + key + '" aria-label="+">+</button>');
     return '<div class="item">' + pic + '<div class="info"><div class="name">' + esc(it.name) + '</div>' + (it.note ? '<div class="note">' + esc(it.note) + '</div>' : '')
       + '<div class="row"><span class="price">' + (D.show_prices ? money(it.price) : '') + '</span>' + ctl + '</div></div></div>';
   }
@@ -231,7 +261,13 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
   function stopSlides() { if (slideTimer) clearInterval(slideTimer); slideTimer = null; }
 
   // ---- order
-  function cartLines() { return Object.keys(state.cart).map(function (id) { var it = D.items.find(function (x) { return String(x.id) === id; }); return it ? { it: it, q: state.cart[id] } : null; }).filter(Boolean); }
+  // Cart keys "itemId|model" (model = number of the picked model photo, 0 = none).
+  function cartLines() {
+    return Object.keys(state.cart).map(function (k) {
+      var p = k.split('|'), m = Number(p[1] || 0), it = D.items.find(function (x) { return String(x.id) === p[0]; });
+      return it ? { key: k, it: it, m: m, photo: m ? (it.photos || [])[m - 1] : null, q: state.cart[k] } : null;
+    }).filter(Boolean);
+  }
   function updateCount() { var c = document.getElementById('count'); if (c) c.textContent = cartLines().reduce(function (s, l) { return s + l.q; }, 0); }
   function setQty(id, d) {
     var q = (state.cart[id] || 0) + d;
@@ -246,8 +282,9 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
     var h = '<div class="ph"><h3>' + T.order + '</h3><button class="back" data-act="close">✕</button></div><div class="pl">';
     if (!lines.length) h += '<div class="empty">' + T.cartEmpty + '</div>';
     lines.forEach(function (l) {
-      h += '<div class="line"><div class="n"><div>' + esc(l.it.name) + '</div><small>' + (D.show_prices ? money(l.it.price) : '') + '</small></div>'
-        + '<span class="qty"><button data-act="dec" data-id="' + l.it.id + '">−</button><b>' + l.q + '</b><button data-act="inc" data-id="' + l.it.id + '">+</button></span></div>';
+      h += '<div class="line">' + (l.photo ? '<img src="' + esc(l.photo) + '" alt="" style="width:48px;height:60px;object-fit:cover;border-radius:8px">' : '')
+        + '<div class="n"><div>' + esc(l.it.name) + '</div><small>' + (l.m ? T.model + ' ' + l.m + (D.show_prices ? ' · ' : '') : '') + (D.show_prices ? money(l.it.price) : '') + '</small></div>'
+        + '<span class="qty"><button data-act="dec" data-id="' + l.key + '">−</button><b>' + l.q + '</b><button data-act="inc" data-id="' + l.key + '">+</button></span></div>';
     });
     h += '</div><div class="pf">';
     if (error) h += '<div class="err">' + esc(error) + '</div>';
@@ -261,7 +298,7 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
     var t = document.getElementById('fTable'), n = document.getElementById('fNotes');
     state.table = t ? t.value.trim() : ''; state.notes = n ? n.value.trim() : '';
     state.sending = true; renderPanel();
-    var body = { table: state.table, notes: state.notes, lines: cartLines().map(function (l) { return { item_id: l.it.id, qty: l.q }; }) };
+    var body = { table: state.table, notes: state.notes, lines: cartLines().map(function (l) { return l.m ? { item_id: l.it.id, qty: l.q, model: l.m } : { item_id: l.it.id, qty: l.q }; }) };
     fetch(ORDER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
@@ -285,11 +322,37 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
     render();
   }
 
+  // ---- model photos of a service: gallery, then one photo big with "Choose this style"
+  var gal = document.getElementById('gal'), big = document.getElementById('big');
+  function itemById(id) { return D.items.find(function (x) { return String(x.id) === String(id); }); }
+  function openGal(id) {
+    var it = itemById(id); if (!it) return;
+    state.gal = it.id;
+    var h = '<div class="gh"><button class="back" data-act="galClose" aria-label="' + T.back + '">←</button><h2>' + esc(it.name)
+      + '<small>' + (D.show_prices ? money(it.price) + ' · ' : '') + it.photos.length + ' ' + T.models + ' · ' + T.galHint + '</small></h2></div><div class="grid">';
+    it.photos.forEach(function (u, i) {
+      var inCart = state.cart[it.id + '|' + (i + 1)];
+      h += '<button class="ph2' + (inCart ? ' in' : '') + '" data-act="photo" data-n="' + (i + 1) + '" style="background-image:url(\'' + esc(u) + '\')"><span>' + (i + 1) + '</span></button>';
+    });
+    gal.innerHTML = h + '</div>';
+    gal.classList.add('on');
+  }
+  function closeGal() { gal.classList.remove('on'); big.classList.remove('on'); state.gal = null; if (state.view === 'group') renderGroup(); }
+  function showPhoto(n) {
+    var it = itemById(state.gal); if (!it) return;
+    var c = it.photos.length; n = ((n - 1 + c) % c) + 1; state.photo = n;
+    big.innerHTML = '<div class="stage"><img src="' + esc(it.photos[n - 1]) + '" alt="">'
+      + (c > 1 ? '<button class="nav l" data-act="prev">‹</button><button class="nav r" data-act="next">›</button>' : '') + '</div>'
+      + '<div class="bar"><button class="back" data-act="bigClose">✕</button><div class="t">' + esc(it.name) + '<small>' + T.model + ' ' + n + ' / ' + c + (D.show_prices ? ' · ' + money(it.price) : '') + '</small></div>'
+      + (D.orders ? '<button class="tbtn accent" data-act="pickModel">' + T.pickModel + '</button>' : '') + '</div>';
+    big.classList.add('on');
+  }
+
   var toastTimer = null;
   function toast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('on'); }, 900); }
 
   // Back to the start after 3 minutes untouched (the next customer), order kept only while in use.
-  function idle() { clearTimeout(idleTimer); idleTimer = setTimeout(function () { closePanel(); state.cart = {}; state.picks = {}; state.view = 'home'; render(); }, 180000); }
+  function idle() { clearTimeout(idleTimer); idleTimer = setTimeout(function () { closePanel(); gal.classList.remove('on'); big.classList.remove('on'); state.cart = {}; state.picks = {}; state.view = 'home'; render(); }, 180000); }
 
   // ---- taps
   document.addEventListener('click', function (e) {
@@ -302,13 +365,27 @@ main { position: absolute; inset: 64px 0 0 0; overflow-y: auto; -webkit-overflow
     else if (a === 'pick') { state.picks[b.getAttribute('data-step')] = b.getAttribute('data-opt'); render(); main.scrollTop = 0; }
     else if (a === 'reset') { state.picks = {}; state.view = 'home'; render(); }
     else if (a === 'inc' || a === 'dec') { setQty(id, a === 'inc' ? 1 : -1); if (panel.classList.contains('on')) renderPanel(); if (state.view === 'group') renderGroup(); updateCount(); }
+    else if (a === 'gal') openGal(id);
+    else if (a === 'galClose') closeGal();
+    else if (a === 'photo') showPhoto(Number(b.getAttribute('data-n')));
+    else if (a === 'prev' || a === 'next') showPhoto(state.photo + (a === 'next' ? 1 : -1));
+    else if (a === 'bigClose') big.classList.remove('on');
+    else if (a === 'pickModel') { setQty(state.gal + '|' + state.photo, 1); updateCount(); closeGal(); }
     else if (a === 'close') closePanel();
     else if (a === 'send') send();
     else if (a === 'finish') finish();
   });
-  document.getElementById('bHome').addEventListener('click', function () { closePanel(); state.view = 'home'; render(); main.scrollTop = 0; });
+  // Swipe left / right on the big photo.
+  var sx = null;
+  big.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
+  big.addEventListener('touchend', function (e) {
+    if (sx === null) return;
+    var dx = e.changedTouches[0].clientX - sx; sx = null;
+    if (Math.abs(dx) > 50) showPhoto(state.photo + (dx < 0 ? 1 : -1));
+  });
+  document.getElementById('bHome').addEventListener('click', function () { closePanel(); gal.classList.remove('on'); big.classList.remove('on'); state.view = 'home'; render(); main.scrollTop = 0; });
   var bo = document.getElementById('bOrder');
-  if (bo) bo.addEventListener('click', openPanel);
+  if (bo) bo.addEventListener('click', function () { gal.classList.remove('on'); big.classList.remove('on'); openPanel(); });
   veil.addEventListener('click', closePanel);
 
   render();

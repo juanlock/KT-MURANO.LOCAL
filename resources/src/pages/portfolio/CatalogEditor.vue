@@ -69,6 +69,7 @@
                       </div>
                     </div>
                     <span class="ce-iact">
+                      <a-button size="small" @click="photosOf = it.id"><PictureOutlined /> {{ es ? 'Modelos' : 'Models' }} ({{ (it.photos || []).length }})</a-button>
                       <a-button type="text" size="small" :disabled="i === 0" @click="moveItem(group.id, i, -1)"><ArrowUpOutlined /></a-button>
                       <a-button type="text" size="small" @click="moveItem(group.id, i, 1)"><ArrowDownOutlined /></a-button>
                       <a-button type="text" size="small" danger @click="removeItem(it)"><DeleteOutlined /></a-button>
@@ -163,7 +164,12 @@
           <a-tab-pane key="orders" :tab="es ? 'Pedidos' : 'Orders'">
             <a-table :columns="orderColumns" :data-source="orders" row-key="id" size="small" :loading="ordersLoading" :pagination="{ pageSize: 20, hideOnSinglePage: true }">
               <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'lines'">{{ record.lines.map(l => `${l.qty} × ${l.name}`).join(', ') }}</template>
+                <template v-if="column.key === 'lines'">
+                  <div v-for="(l, n) in record.lines" :key="n" class="ce-oline">
+                    <a v-if="l.photo" :href="'/' + l.photo" target="_blank"><img :src="'/' + l.photo" alt=""></a>
+                    {{ l.qty }} × {{ l.name }}<span v-if="l.note" class="ce-muted"> — {{ l.note }}</span>
+                  </div>
+                </template>
                 <template v-else-if="column.key === 'total'">{{ c.currency }}{{ Number(record.total).toFixed(2) }}</template>
                 <template v-else-if="column.key === 'date'">{{ fmt(record.created_at) }}</template>
               </template>
@@ -183,6 +189,26 @@
         </a-tabs>
       </a-card>
     </a-spin>
+
+    <!-- Model photos of one item: tapping its picture on the tablet shows them; the customer picks one. -->
+    <a-modal :open="!!photoItem" :title="(es ? 'Modelos (fotos) — ' : 'Models (photos) — ') + (photoItem?.name || '')" :footer="null" width="820px" @cancel="photosOf = null">
+      <p class="ce-muted">{{ es ? 'En la tablet, al tocar la imagen del servicio se muestran estas fotos y el cliente elige su modelo (sale en el pedido como "Modelo N").' : 'On the tablet, tapping the service picture shows these photos and the customer picks a style (it shows on the order as "Model N").' }}</p>
+      <a-upload :before-upload="uploadPhoto" :show-upload-list="false" accept="image/*" multiple>
+        <a-button type="primary" :loading="photoBusy > 0"><PlusOutlined /> {{ es ? 'Subir fotos' : 'Upload photos' }}</a-button>
+      </a-upload>
+      <div v-if="photoItem" class="ce-photos">
+        <div v-for="(p, n) in photoItem.photos" :key="p.path" class="ce-photo">
+          <img :src="p.url" alt="">
+          <span class="ce-pn">{{ n + 1 }}</span>
+          <span class="ce-pact">
+            <a-button size="small" :disabled="n === 0" @click="movePhoto(n, -1)"><ArrowUpOutlined style="transform: rotate(-90deg)" /></a-button>
+            <a-button size="small" :disabled="n === photoItem.photos.length - 1" @click="movePhoto(n, 1)"><ArrowDownOutlined style="transform: rotate(-90deg)" /></a-button>
+            <a-button size="small" danger @click="removePhoto(n)"><DeleteOutlined /></a-button>
+          </span>
+        </div>
+      </div>
+      <a-empty v-if="photoItem && !photoItem.photos.length" :description="es ? 'Sin fotos: en la tablet el servicio se muestra sin modelos.' : 'No photos: the service shows without models on the tablet.'" />
+    </a-modal>
   </div>
 </template>
 
@@ -322,6 +348,29 @@ async function setOptions(it, stepId, values) {
   try { take((await http.put(`portfolio/catalogs/items/${it.id}`, { options })).catalog); } catch (e) { err(e); }
 }
 
+// ---- model photos of an item
+const photosOf = ref(null);
+const photoItem = computed(() => (c.value?.items || []).find(i => i.id === photosOf.value) || null);
+const photoBusy = ref(0);
+async function uploadPhoto(file) {
+  const fd = new FormData();
+  fd.append('photos[]', file);
+  photoBusy.value++;
+  try { take((await http.postForm(`portfolio/catalogs/items/${photosOf.value}/photos`, fd)).catalog); } catch (e) { err(e); } finally { photoBusy.value--; }
+  return false;
+}
+async function savePhotos(paths) {
+  try { take((await http.put(`portfolio/catalogs/items/${photosOf.value}/photos`, { photos: paths })).catalog); } catch (e) { err(e); }
+}
+function movePhoto(n, d) {
+  const paths = photoItem.value.photos.map(p => p.path);
+  [paths[n], paths[n + d]] = [paths[n + d], paths[n]];
+  savePhotos(paths);
+}
+function removePhoto(n) {
+  savePhotos(photoItem.value.photos.map(p => p.path).filter((p, i) => i !== n));
+}
+
 // ---- orders
 const orders = ref([]);
 const ordersLoading = ref(false);
@@ -381,7 +430,14 @@ onMounted(load);
 .ce-item img, .ce-item .ce-noimg { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; flex: none; }
 .ce-iinfo { flex: 1; min-width: 0; }
 .ce-iname { font-weight: 600; }
-.ce-iact { display: inline-flex; }
+.ce-iact { display: inline-flex; align-items: center; gap: 2px; }
+.ce-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 14px; }
+.ce-photo { position: relative; border-radius: 8px; overflow: hidden; background: rgba(128, 128, 128, 0.12); }
+.ce-photo img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+.ce-pn { position: absolute; left: 6px; top: 6px; background: rgba(0, 0, 0, 0.65); color: #fff; border-radius: 999px; padding: 0 8px; font-size: 12px; font-weight: 600; }
+.ce-pact { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 4px; padding: 4px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.55)); }
+.ce-oline { display: flex; align-items: center; gap: 6px; }
+.ce-oline img { width: 28px; height: 36px; object-fit: cover; border-radius: 4px; }
 .ce-opts { margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
 .ce-opt { font-size: 12.5px; }
 .ce-muted { opacity: 0.6; }

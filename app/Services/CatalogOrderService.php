@@ -26,33 +26,41 @@ class CatalogOrderService
     {
         $cid = (int) $c->company_id;
         $es = $s['language'] === 'es';
+        // One line per item + model photo picked (the same cut in two models = two lines).
         $qty = [];
         $notes = [];
         foreach ($v['lines'] as $l) {
-            $qty[(int) $l['item_id']] = ($qty[(int) $l['item_id']] ?? 0) + (int) $l['qty'];
+            $k = (int) $l['item_id'].'|'.(int) ($l['model'] ?? 0);
+            $qty[$k] = ($qty[$k] ?? 0) + (int) $l['qty'];
             if (! empty($l['note'])) {
-                $notes[(int) $l['item_id']] = mb_substr(strip_tags($l['note']), 0, 200);
+                $notes[$k] = mb_substr(strip_tags($l['note']), 0, 200);
             }
         }
+        $ids = array_unique(array_map(fn ($k) => (int) explode('|', $k)[0], array_keys($qty)));
         $items = DB::table('portfolio_catalog_items as i')->join('products as p', 'p.id', '=', 'i.product_id')
-            ->where('i.catalog_id', $c->id)->whereIn('i.id', array_keys($qty))
+            ->where('i.catalog_id', $c->id)->whereIn('i.id', $ids)
             ->where('p.company_id', $cid)->whereNull('p.deleted_at')
-            ->get(['i.id as item_id', 'p.id', 'p.name', 'p.price', 'p.TaxNet', 'p.tax_method', 'p.unit_sale_id'])->keyBy('item_id');
-        if ($items->count() !== count($qty)) {
+            ->get(['i.id as item_id', 'i.photos', 'p.id', 'p.name', 'p.price', 'p.TaxNet', 'p.tax_method', 'p.unit_sale_id'])->keyBy('item_id');
+        if ($items->count() !== count($ids)) {
             throw ValidationException::withMessages(['lines' => $es ? 'Algunos productos ya no están disponibles. Actualice la página.' : 'Some products are no longer available. Refresh the page.']);
         }
 
         $lines = [];
         $total = 0.0;
-        foreach ($qty as $itemId => $q) {
+        foreach ($qty as $k => $q) {
+            [$itemId, $model] = array_map('intval', explode('|', $k));
             $p = $items[$itemId];
+            $photos = \App\Support\PortfolioCatalog::photos($p->photos, $cid);
+            $photo = $model > 0 ? ($photos[$model - 1] ?? null) : null;
+            $note = trim(($photo ? ($es ? 'Modelo ' : 'Model ').$model : '').($photo && ! empty($notes[$k]) ? ' · ' : '').($notes[$k] ?? ''));
             $price = round((float) $p->price, 2);
             $tax = (float) $p->TaxNet;
             $exclusive = (string) $p->tax_method === '1';
             $sub = round($price * $q * ($exclusive ? 1 + $tax / 100 : 1), 2);
             $total += $sub;
             $lines[] = ['product_id' => (int) $p->id, 'name' => $p->name, 'price' => $price, 'qty' => $q, 'total' => $sub,
-                'tax' => $tax, 'tax_method' => (string) ($p->tax_method ?? '1'), 'unit' => $p->unit_sale_id, 'note' => $notes[$itemId] ?? null];
+                'tax' => $tax, 'tax_method' => (string) ($p->tax_method ?? '1'), 'unit' => $p->unit_sale_id, 'note' => $note !== '' ? $note : null,
+                'model' => $photo ? $model : null, 'photo' => $photo];
         }
         $table = trim(strip_tags((string) ($v['table'] ?? '')));
         $orderNotes = trim(strip_tags((string) ($v['notes'] ?? '')));
@@ -109,7 +117,7 @@ class CatalogOrderService
             DB::table('portfolio_catalog_orders')->insert([
                 'company_id' => $cid, 'catalog_id' => $c->id, 'number' => $number, 'table_label' => $table !== '' ? mb_substr($table, 0, 60) : null,
                 'notes' => $orderNotes !== '' ? mb_substr($orderNotes, 0, 500) : null,
-                'lines' => json_encode(array_map(fn ($l) => array_intersect_key($l, array_flip(['product_id', 'name', 'price', 'qty', 'total', 'note'])), $lines), JSON_UNESCAPED_UNICODE),
+                'lines' => json_encode(array_map(fn ($l) => array_intersect_key($l, array_flip(['product_id', 'name', 'price', 'qty', 'total', 'note', 'model', 'photo'])), $lines), JSON_UNESCAPED_UNICODE),
                 'total' => round($total, 2), 'draft_sale_id' => $draftId, 'kitchen_order_id' => $kitchenId,
                 'status' => 'sent', 'ip' => $ip, 'created_at' => now(), 'updated_at' => now(),
             ]);

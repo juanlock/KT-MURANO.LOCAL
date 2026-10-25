@@ -55,9 +55,20 @@ class PortfolioCatalogDemo extends Command
         return $id ? (int) $id : null;
     }
 
-    /** The catalog (rebuilt with --fresh), its settings merged. */
+    /** The company's language (the catalog speaks it): 'en' or 'es'. */
+    private function lang(int $cid): string
+    {
+        return DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->value('default_language') === 'en' ? 'en' : 'es';
+    }
+
+    /**
+     * The catalog (rebuilt with --fresh) in the company's language. On an existing
+     * catalog the demo's own texts / steps are applied again (slides only when given).
+     */
     private function catalog(int $cid, string $type, string $name, array $settings): object
     {
+        $lang = $this->lang($cid);
+        $settings['language'] = $lang;
         $c = DB::table('portfolio_catalogs')->where('company_id', $cid)->where('name', $name)->whereNull('deleted_at')->first();
         if ($c && $this->option('fresh')) {
             DB::table('portfolio_catalog_items')->where('catalog_id', $c->id)->delete();
@@ -71,13 +82,17 @@ class PortfolioCatalogDemo extends Command
             } while (DB::table('portfolio_catalogs')->where('public_key', $key)->exists());
             $id = DB::table('portfolio_catalogs')->insertGetId([
                 'company_id' => $cid, 'type' => $type, 'name' => $name, 'public_key' => $key, 'status' => true,
-                'settings' => json_encode(array_merge(\App\Support\PortfolioCatalog::defaults($type, 'es'), $settings), JSON_UNESCAPED_UNICODE),
+                'settings' => json_encode(array_merge(\App\Support\PortfolioCatalog::defaults($type, $lang), $settings), JSON_UNESCAPED_UNICODE),
                 'created_at' => now(), 'updated_at' => now(),
             ]);
-            $c = DB::table('portfolio_catalogs')->find($id);
-        }
 
-        return $c;
+            return DB::table('portfolio_catalogs')->find($id);
+        }
+        $cur = json_decode((string) $c->settings, true) ?: [];
+        $new = array_merge(\App\Support\PortfolioCatalog::defaults($type, $lang), $cur, array_filter($settings, fn ($v) => $v !== []));
+        DB::table('portfolio_catalogs')->where('id', $c->id)->update(['settings' => json_encode($new, JSON_UNESCAPED_UNICODE), 'updated_at' => now()]);
+
+        return DB::table('portfolio_catalogs')->find($c->id);
     }
 
     private function group(object $c, string $name, int $sort, ?string $image): int
@@ -203,13 +218,54 @@ class PortfolioCatalogDemo extends Command
         $this->line("La Sazon de Lock: menu catalog /c/{$c->public_key}");
     }
 
-    /** Steps Woman / Man, Adult / Child (option ids fixed so the tags below match). */
-    private function steps(): array
+    /** Steps Women / Men, Adult / Kids in the company's language (option ids fixed so the tags below match). */
+    private function steps(string $lang): array
     {
+        $es = $lang === 'es';
+
         return [
-            ['id' => 's1', 'name' => '¿Para quién es?', 'options' => [['id' => 'w', 'label' => 'Mujer', 'image' => ''], ['id' => 'm', 'label' => 'Hombre', 'image' => '']]],
-            ['id' => 's2', 'name' => 'Edad', 'options' => [['id' => 'a', 'label' => 'Adulto', 'image' => ''], ['id' => 'k', 'label' => 'Niño', 'image' => '']]],
+            ['id' => 's1', 'name' => $es ? '¿Para quién es?' : 'Who is it for?', 'options' => [
+                ['id' => 'w', 'label' => $es ? 'Mujer' : 'Women', 'image' => ''], ['id' => 'm', 'label' => $es ? 'Hombre' : 'Men', 'image' => '']]],
+            ['id' => 's2', 'name' => $es ? 'Edad' : 'Age', 'options' => [
+                ['id' => 'a', 'label' => $es ? 'Adulto' : 'Adult', 'image' => ''], ['id' => 'k', 'label' => $es ? 'Niño' : 'Kids', 'image' => '']]],
         ];
+    }
+
+    /**
+     * Model photos for each barber service: the CC0 photos in
+     * files/company_{id}/portfolio/models/barber/ (Wikimedia Commons, see CREDITS.txt),
+     * at least 10 per service, the ones matching the service first.
+     */
+    private function barberModels(object $c, int $gid): void
+    {
+        $dir = 'files/company_'.$c->company_id.'/portfolio/models/barber';
+        $pool = array_map(fn ($f) => $dir.'/'.basename($f), glob(public_path($dir).'/*.jpg') ?: []);
+        sort($pool);
+        if (count($pool) < 10) {
+            $this->warn("No model photos in public/$dir -- barber services left without models.");
+
+            return;
+        }
+        // First match wins; within it, photos in the order of the keys.
+        $prefer = ['head' => ['buzz', 'mid-fade'], 'beard' => ['beard', 'ritual-07', 'ritual-10'], 'towel|shave' => ['hot-towel', 'aftershave', 'ritual-07'],
+            'design' => ['mid-fade-01', 'mid-fade-06', 'mid-fade'], 'fade|taper|line' => ['mid-fade', 'buzz'], 'kid' => ['personal-stylist', 'jorj-barbershop-in-iran-hair']];
+        $items = DB::table('portfolio_catalog_items as i')->join('products as p', 'p.id', '=', 'i.product_id')
+            ->where('i.group_id', $gid)->orderBy('i.sort_order')->get(['i.id', 'p.name']);
+        foreach ($items->values() as $k => $it) {
+            $first = [];
+            foreach ($prefer as $re => $keys) {
+                if (preg_match('/'.$re.'/i', $it->name)) {
+                    foreach ($keys as $w) {
+                        $first = array_merge($first, array_filter($pool, fn ($p) => str_contains(basename($p), $w)));
+                    }
+                    break;
+                }
+            }
+            $rest = array_merge(array_slice($pool, ($k * 7) % count($pool)), array_slice($pool, 0, ($k * 7) % count($pool)));
+            $photos = array_slice(array_values(array_unique(array_merge($first, $rest))), 0, 12);
+            DB::table('portfolio_catalog_items')->where('id', $it->id)->update(['photos' => json_encode($photos)]);
+        }
+        $this->line('  '.$items->count().' barber services with 12 model photos each');
     }
 
     private function neweraDemo(int $cid): void
@@ -218,9 +274,11 @@ class PortfolioCatalogDemo extends Command
             ->where('p.company_id', $cid)->whereNull('p.deleted_at')->where('p.image', 'like', 'files/%')
             ->orderBy('c.name')->orderBy('p.name')->get(['p.id', 'p.name', 'p.image', 'c.name as cat'])->groupBy('cat');
         $slides = $byCat->flatten(1)->filter(fn ($p) => in_array($p->cat, ['Hair & Beauty', 'Braids & Textured Hair', 'Nail Care'], true))->pluck('image')->take(3)->values()->all();
+        $es = $this->lang($cid) === 'es';
         $c = $this->catalog($cid, 'models', 'Servicios - New Era', [
-            'title' => 'New Era Unisex Salon', 'subtitle' => 'Elija su servicio', 'slides' => $slides, 'accent' => '#d4af37',
-            'send_kitchen' => false, 'hold_in_pos' => true, 'table_label' => 'Nombre', 'steps' => $this->steps(),
+            'title' => 'New Era Unisex Salon', 'subtitle' => $es ? 'Elija su servicio' : 'Choose your service', 'slides' => $slides, 'accent' => '#d4af37',
+            'send_kitchen' => false, 'hold_in_pos' => true, 'table_label' => $es ? 'Nombre' : 'Name', 'steps' => $this->steps($es ? 'es' : 'en'),
+            'thanks' => $es ? '¡Gracias! Su pedido fue enviado.' : 'Thank you! Your order was sent.',
         ]);
         // Who each category is for (Woman / Man) -- the rest fit everyone.
         $gender = ['Barber Mens' => ['m'], 'Braids & Textured Hair' => ['w'], 'Make -up' => ['w'], 'Tanning' => ['w', 'm'], 'Med Spa' => ['w', 'm']];
@@ -236,6 +294,9 @@ class PortfolioCatalogDemo extends Command
                 }
                 $opts['s2'] = $kidsOk ? ['a', 'k'] : ['a'];
                 $this->item($c, $gid, (int) $p->id, $i + 1, $opts);
+            }
+            if ($cat === 'Barber Mens') {
+                $this->barberModels($c, $gid);
             }
         }
         $this->line("New Era: models catalog /c/{$c->public_key}");
@@ -263,7 +324,7 @@ class PortfolioCatalogDemo extends Command
         ];
         $c = $this->catalog($cid, 'models', 'Servicios - Urban Cuts', [
             'title' => 'Urban Cuts', 'subtitle' => 'Barbería · Elija su corte', 'accent' => '#e11d48',
-            'send_kitchen' => false, 'hold_in_pos' => true, 'table_label' => 'Nombre', 'steps' => $this->steps(),
+            'send_kitchen' => false, 'hold_in_pos' => true, 'table_label' => 'Nombre', 'steps' => $this->steps($this->lang($cid)),
         ]);
         $n = 0;
         $sort = 0;

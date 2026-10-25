@@ -429,6 +429,12 @@ the start of each session).
   a POS held order (draft_sales, charged from POS -> Recent drafts) + a Kitchen
   ticket on that draft (`kitchen_orders.draft_sale_id`, source `tablet`) moved to
   the sale when the cashier charges it. Demos: `php artisan portfolio:catalog-demo`.
+  A catalog speaks its company's language (`settings.default_language`; New
+  Era = English: Men / Women, Adult / Kids). An item can have **model photos**
+  (`portfolio_catalog_items.photos`, editor -> "Models"): tapping the service
+  picture on the tablet shows them, the customer picks one ("Model N" + photo on
+  the order line). New Era's barber demo photos are CC0 (Wikimedia Commons,
+  `files/company_3/portfolio/models/barber/CREDITS.txt`).
 
 ## Frontend Conventions
 

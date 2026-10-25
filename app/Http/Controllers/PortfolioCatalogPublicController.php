@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\DB;
  * tablet / iPad is handed to the customer.
  *
  *  GET  /c/{key}         full-screen catalog (menu or models)
- *  POST /c/{key}/order   {table, notes, lines: [{item_id, qty}]} -> the order
+ *  POST /c/{key}/order   {table, notes, lines: [{item_id, qty, model?}]} -> the order
+ *                        (model = number of the item's model photo the customer picked)
  *                        (prices from Products, never from the tablet)
  * CSRF-exempt like the public forms (the page may live in a kiosk browser
  * without a session); throttled.
@@ -49,6 +50,7 @@ class PortfolioCatalogPublicController extends Controller
             'lines.*.item_id' => 'required|integer',
             'lines.*.qty' => 'required|integer|min:1|max:99',
             'lines.*.note' => 'nullable|string|max:200',
+            'lines.*.model' => 'nullable|integer|min:1|max:60',
         ], ['table.required' => $es ? 'Escriba su '.mb_strtolower($s['table_label']).'.' : 'Enter your '.mb_strtolower($s['table_label']).'.']);
 
         $order = CatalogOrderService::place($c, $s, $v, $request->ip());

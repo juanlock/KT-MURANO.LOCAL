@@ -35,12 +35,12 @@ class PortfolioCatalog
             'thanks' => $es ? '¡Gracias! Su pedido fue enviado.' : 'Thank you! Your order was sent.',
             'steps' => $type === 'models' ? [
                 ['id' => 's1', 'name' => $es ? '¿Para quién es?' : 'Who is it for?', 'options' => [
-                    ['id' => 'o1', 'label' => $es ? 'Hombre' : 'Man', 'image' => ''],
-                    ['id' => 'o2', 'label' => $es ? 'Mujer' : 'Woman', 'image' => ''],
+                    ['id' => 'o1', 'label' => $es ? 'Hombre' : 'Men', 'image' => ''],
+                    ['id' => 'o2', 'label' => $es ? 'Mujer' : 'Women', 'image' => ''],
                 ]],
                 ['id' => 's2', 'name' => $es ? 'Edad' : 'Age', 'options' => [
                     ['id' => 'o3', 'label' => $es ? 'Adulto' : 'Adult', 'image' => ''],
-                    ['id' => 'o4', 'label' => $es ? 'Niño' : 'Child', 'image' => ''],
+                    ['id' => 'o4', 'label' => $es ? 'Niño' : 'Kids', 'image' => ''],
                 ]],
             ] : [],
         ];
@@ -94,6 +94,15 @@ class PortfolioCatalog
         return ($p !== '' && ! str_contains($p, '..') && preg_match('~^files/company_\d+/[\w./-]+$~', $p)) ? $p : '';
     }
 
+    /** An item's model photos (stored JSON) -> clean list of this company's paths. */
+    public static function photos($json, int $companyId): array
+    {
+        $list = is_array($json) ? $json : (json_decode((string) $json, true) ?: []);
+        $own = 'files/company_'.$companyId.'/';
+
+        return array_values(array_slice(array_unique(array_filter(array_map([self::class, 'path'], $list), fn ($p) => str_starts_with($p, $own))), 0, 60));
+    }
+
     public static function url(?string $p): ?string
     {
         $p = trim((string) $p);
@@ -135,7 +144,7 @@ class PortfolioCatalog
             ->where('i.catalog_id', $c->id)->where('p.company_id', $c->company_id)->whereNull('p.deleted_at')
             ->where(fn ($q) => $q->whereNull('p.is_active')->orWhere('p.is_active', 1))
             ->orderBy('i.sort_order')->orderBy('i.id')
-            ->get(['i.id', 'i.group_id', 'i.product_id', 'i.options', 'p.name', 'p.price', 'p.image', 'p.note']);
+            ->get(['i.id', 'i.group_id', 'i.product_id', 'i.options', 'i.photos', 'p.name', 'p.price', 'p.image', 'p.note']);
         $company = DB::table('companies')->where('id', $c->company_id)->value('name');
 
         return [
@@ -152,6 +161,7 @@ class PortfolioCatalog
                 'price' => round((float) $i->price, 2), 'image' => self::productImage($i->image),
                 'note' => $i->note ? Str::limit(strip_tags((string) $i->note), 140) : null,
                 'options' => (object) (json_decode((string) $i->options, true) ?: []),
+                'photos' => array_map([self::class, 'url'], self::photos($i->photos, (int) $c->company_id)),
             ])->values(),
         ];
     }

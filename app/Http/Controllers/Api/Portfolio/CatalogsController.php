@@ -31,6 +31,7 @@ use Illuminate\Support\Str;
  *  PUT    portfolio/catalogs/groups/{gid} {name, image}; DELETE portfolio/catalogs/groups/{gid}
  *  POST   portfolio/catalogs/groups/{gid}/items {product_ids}; POST .../items/reorder {ids}
  *  PUT    portfolio/catalogs/items/{iid} {options}; DELETE portfolio/catalogs/items/{iid}
+ *  POST   portfolio/catalogs/items/{iid}/photos (files "photos[]"); PUT .../photos {photos: [paths]}  model photos
  *  GET    portfolio/catalogs/{id}/products?search  the company's products to add
  *  GET    portfolio/catalogs/{id}/orders           orders sent from the tablet
  */
@@ -89,11 +90,16 @@ class CatalogsController extends Controller
             ->map(fn ($g) => ['id' => $g->id, 'name' => $g->name, 'image' => $g->image, 'image_url' => PortfolioCatalog::url($g->image)])->values();
         $a['items'] = DB::table('portfolio_catalog_items as i')->leftJoin('products as p', 'p.id', '=', 'i.product_id')
             ->where('i.catalog_id', $c->id)->orderBy('i.sort_order')->orderBy('i.id')
-            ->get(['i.id', 'i.group_id', 'i.product_id', 'i.options', 'p.name', 'p.code', 'p.price', 'p.image', 'p.deleted_at', 'p.is_active'])
-            ->map(fn ($i) => ['id' => $i->id, 'group_id' => $i->group_id, 'product_id' => $i->product_id, 'name' => $i->name ?? '(deleted product)',
-                'code' => $i->code, 'price' => (float) $i->price, 'image_url' => PortfolioCatalog::productImage($i->image),
-                'available' => $i->name !== null && ! $i->deleted_at && $i->is_active !== 0,
-                'options' => (object) (json_decode((string) $i->options, true) ?: [])])->values();
+            ->get(['i.id', 'i.group_id', 'i.product_id', 'i.options', 'i.photos', 'p.name', 'p.code', 'p.price', 'p.image', 'p.deleted_at', 'p.is_active'])
+            ->map(function ($i) use ($c) {
+                $photos = PortfolioCatalog::photos($i->photos, (int) $c->company_id);
+
+                return ['id' => $i->id, 'group_id' => $i->group_id, 'product_id' => $i->product_id, 'name' => $i->name ?? '(deleted product)',
+                    'code' => $i->code, 'price' => (float) $i->price, 'image_url' => PortfolioCatalog::productImage($i->image),
+                    'available' => $i->name !== null && ! $i->deleted_at && $i->is_active !== 0,
+                    'options' => (object) (json_decode((string) $i->options, true) ?: []),
+                    'photos' => array_map(fn ($p) => ['path' => $p, 'url' => PortfolioCatalog::url($p)], $photos)];
+            })->values();
 
         return $a;
     }
@@ -294,6 +300,33 @@ class CatalogsController extends Controller
             }
         }
         DB::table('portfolio_catalog_items')->where('id', $i->id)->update(['options' => $opts ? json_encode($opts) : null, 'updated_at' => now()]);
+
+        return response()->json(['catalog' => $this->out($c, true)]);
+    }
+
+    /** Model photos of an item: upload more (files "photos[]"), appended at the end. */
+    public function uploadPhotos(Request $request, int $iid)
+    {
+        $this->can($request);
+        [$i, $c] = $this->item($request, $iid);
+        $request->validate(['photos' => 'required|array|min:1|max:30', 'photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:6144']);
+        $list = PortfolioCatalog::photos($i->photos, (int) $c->company_id);
+        foreach ($request->file('photos') as $f) {
+            $list[] = CompanyFiles::putUpload((int) $c->company_id, 'portfolio', $f);
+        }
+        DB::table('portfolio_catalog_items')->where('id', $i->id)->update(['photos' => json_encode(PortfolioCatalog::photos($list, (int) $c->company_id)), 'updated_at' => now()]);
+
+        return response()->json(['catalog' => $this->out($c, true)]);
+    }
+
+    /** Model photos of an item: the new order / what is left after removing ({photos: [paths]}). */
+    public function savePhotos(Request $request, int $iid)
+    {
+        $this->can($request);
+        [$i, $c] = $this->item($request, $iid);
+        $request->validate(['photos' => 'present|array|max:60', 'photos.*' => 'string|max:255']);
+        $list = PortfolioCatalog::photos($request->input('photos', []), (int) $c->company_id);
+        DB::table('portfolio_catalog_items')->where('id', $i->id)->update(['photos' => $list ? json_encode($list) : null, 'updated_at' => now()]);
 
         return response()->json(['catalog' => $this->out($c, true)]);
     }
