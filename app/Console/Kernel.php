@@ -45,6 +45,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('hospital:appointment-reminders')->everyFiveMinutes()->withoutOverlapping();
         // Hospital: yesterday's unrecorded doses -> missed (not given).
         $schedule->command('hospital:mark-missed-doses')->dailyAt('00:05')->withoutOverlapping();
+        // Hospital demos: today's roster, assignments and example stays.
+        $schedule->command('hospital:demo-day')->dailyAt('00:15')->withoutOverlapping();
 
         $schedule->command('marketing:process-scheduled')->everyMinute()->withoutOverlapping();
 

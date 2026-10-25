@@ -319,6 +319,11 @@ class HospitalStaffController extends Controller
         $census = HospitalShifts::census()->keyBy('patient_id');
         $assigned = HmsShiftPatient::whereIn('staff_shift_id', $mine->pluck('id'))->get()->keyBy('patient_id');
         $ids = $all ? $census->keys()->all() : $assigned->keys()->all();
+        // A doctor also has the inpatients they attend, whatever the roster says (2026-10-25).
+        if (! $all && $doctorIds) {
+            $attending = DB::table('admissions')->whereIn('doctor_id', $doctorIds)->where('status', 'admitted')->whereNull('deleted_at')->pluck('patient_id')->all();
+            $ids = array_values(array_unique(array_merge($ids, array_filter($attending, fn ($pid) => $census->has($pid)))));
+        }
 
         $now = now();
         HmsMedicationDose::markMissed(); // past days' unrecorded doses = not given

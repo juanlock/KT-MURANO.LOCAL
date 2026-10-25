@@ -431,6 +431,12 @@ the start of each session).
   (`HospitalAccount::settleAtDischarge`: insurer's share = insurer payment,
   patient's share = the card, or the insurer when there is no card; invoice
   paid). Without financial data the account stays for the cashier.
+  **Hospital demos stay alive** (`App\Support\HospitalDemoDay`,
+  `php artisan hospital:demo-day`, daily 00:15, companies with hospital demo
+  data): today's roster copied from the last day that has one, patients
+  shared out among doctors / nurses, and four example stays (treatment, doses,
+  diet, vitals, progress, labs with a critical glucose, interconsultations).
+  A doctor's My patients also lists the inpatients they attend.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
