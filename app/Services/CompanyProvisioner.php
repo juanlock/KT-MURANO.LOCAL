@@ -40,7 +40,7 @@ use Illuminate\Support\Facades\Hash;
 class CompanyProvisioner
 {
     /**
-     * @param  array  $company  name, email?, phone?, country?
+     * @param  array  $company  name, email?, phone?, country?, default_language? (names of the defaults)
      * @param  array  $admin    firstname, lastname?, email, password, role? (role name)
      * @param  array|null  $helpdesk  firstname, lastname?, email, password -- the helpdesk agent
      * @return array{company: Company, user: User, employee_id: int, helpdesk_user: ?User}
@@ -49,6 +49,10 @@ class CompanyProvisioner
     {
         return DB::transaction(function () use ($company, $admin, $helpdesk) {
             $now = now();
+            // The default names below in the company's language (2026-10-26: a Spanish company got
+            // "Regular Hours / Administration / Administrator / Main Location").
+            $es = str_starts_with((string) ($company['default_language'] ?? ''), 'es');
+            $L = fn ($en, $sp) => $es ? $sp : $en;
 
             $co = Company::create([
                 'name' => $company['name'],
@@ -76,7 +80,7 @@ class CompanyProvisioner
 
             // Warehouse.
             $warehouseId = DB::table('warehouses')->insertGetId([
-                'company_id' => $cid, 'name' => 'Main Location',
+                'company_id' => $cid, 'name' => $L('Main Location', 'Local principal'),
                 'email' => $company['email'] ?? null, 'mobile' => $company['phone'] ?? null,
                 'country' => $company['country'] ?? null,
                 'created_at' => $now, 'updated_at' => $now,
@@ -106,7 +110,7 @@ class CompanyProvisioner
 
             // HR basics every employee needs.
             $shiftId = DB::table('office_shifts')->insertGetId([
-                'company_id' => $cid, 'name' => 'Regular Hours 9:00-17:00',
+                'company_id' => $cid, 'name' => $L('Regular Hours 9:00-17:00', 'Horario regular 9:00-17:00'),
                 'monday_in' => '09:00AM', 'monday_out' => '17:00PM',
                 'tuesday_in' => '09:00AM', 'tuesday_out' => '17:00PM',
                 'wednesday_in' => '09:00AM', 'wednesday_out' => '17:00PM',
@@ -115,10 +119,10 @@ class CompanyProvisioner
                 'created_at' => $now, 'updated_at' => $now,
             ]);
             $departmentId = DB::table('departments')->insertGetId([
-                'company_id' => $cid, 'department' => 'Administration', 'created_at' => $now, 'updated_at' => $now,
+                'company_id' => $cid, 'department' => $L('Administration', 'Administración'), 'created_at' => $now, 'updated_at' => $now,
             ]);
             $designationId = DB::table('designations')->insertGetId([
-                'company_id' => $cid, 'department_id' => $departmentId, 'designation' => 'Administrator',
+                'company_id' => $cid, 'department_id' => $departmentId, 'designation' => $L('Administrator', 'Administrador'),
                 'created_at' => $now, 'updated_at' => $now,
             ]);
 

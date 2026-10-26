@@ -94,7 +94,7 @@ class ProjectController extends Controller
             $data[] = $item;
         }
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
         $clients = Client::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
 
         $count_not_started = Project::where('deleted_at', '=', null)
@@ -135,7 +135,7 @@ class ProjectController extends Controller
         $this->authorizeForUser($request->user('api'), 'create', Project::class);
 
         $clients = Client::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
             'clients' => $clients,
@@ -203,7 +203,7 @@ class ProjectController extends Controller
         $project = Project::where('deleted_at', '=', null)->findOrFail($id);
         $assigned_employees = EmployeeProject::where('project_id', $id)->pluck('employee_id')->toArray();
         $clients = Client::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
         $employees = Employee::where('company_id', $project->company_id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'username']);
 
         return response()->json([

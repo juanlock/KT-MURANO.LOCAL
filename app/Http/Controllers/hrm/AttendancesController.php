@@ -249,7 +249,7 @@ class AttendancesController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'update', Attendance::class);
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
             'companies' => $companies,

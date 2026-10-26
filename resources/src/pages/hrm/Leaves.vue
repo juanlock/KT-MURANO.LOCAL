@@ -14,6 +14,7 @@
         <template v-if="column.key === 'status'">
           <a-tag :color="leaveStatusColor(record.status)">{{ leaveStatusLabel(record.status) }}</a-tag>
         </template>
+        <template v-else-if="column.key === 'leave_type_title'">{{ leaveTypeLabel(record.leave_type_title) }}</template>
         <template v-else-if="column.key === 'actions'">
           <a-space>
             <a-tooltip :title="$t('Edit')">
@@ -145,7 +146,8 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
-import { LEAVE_STATUSES, leaveStatusColor, leaveStatusLabel } from './hrmVocab';
+import { LEAVE_STATUSES, leaveStatusColor, leaveStatusLabel, leaveTypeLabel } from './hrmVocab';
+import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
 
 const { t } = useI18n();
@@ -186,10 +188,10 @@ function emptyForm() {
   };
 }
 
-const companyOptions = computed(() => companies.value.map(c => ({ value: c.id, label: c.name })));
-const departmentOptions = computed(() => departments.value.map(d => ({ value: d.id, label: d.department })));
-const employeeOptions = computed(() => employees.value.map(e => ({ value: e.id, label: e.username })));
-const leaveTypeOptions = computed(() => leaveTypes.value.map(x => ({ value: x.id, label: x.title })));
+const companyOptions = computed(() => sortByLabel(companies.value.map(c => ({ value: c.id, label: c.name }))));
+const departmentOptions = computed(() => sortByLabel(departments.value.map(d => ({ value: d.id, label: d.department }))));
+const employeeOptions = computed(() => sortByLabel(employees.value.map(e => ({ value: e.id, label: e.username }))));
+const leaveTypeOptions = computed(() => sortByLabel(leaveTypes.value.map(x => ({ value: x.id, label: leaveTypeLabel(x.title) }))));
 
 const formRules = computed(() => ({
   company_id: [{ required: true, message: t('Field_is_required') }],

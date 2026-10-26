@@ -107,6 +107,7 @@ class EmployeesController extends Controller
         $logins = \App\Models\User::whereIn('id', $employees->pluck('user_id')->filter())
             ->get(['id', 'username', 'role_id', 'statut'])->keyBy('id');
         $roleNames = \App\Models\Role::whereIn('id', $logins->pluck('role_id')->filter())->pluck('name', 'id');
+        $roleLabels = \App\Models\Role::whereIn('id', $logins->pluck('role_id')->filter())->pluck('label', 'id'); // Spanish names
         // All positions of the page's employees (one employee, several departments / designations).
         $positions = $this->positionRows($employees->pluck('id')->all())->groupBy('employee_id');
 
@@ -115,6 +116,7 @@ class EmployeesController extends Controller
             $item['username'] = optional($login)->username;
             $item['user_id'] = optional($login)->id; // Username column links to Users -> Edit
             $item['role_name'] = $login ? ($roleNames[$login->role_id] ?? null) : null;
+            $item['role_label'] = $login ? ($roleLabels[$login->role_id] ?? null) : null;
             $item['login_enabled'] = $login ? (int) $login->statut === 1 : false;
 
             $item['id'] = $employee->id;
@@ -130,7 +132,7 @@ class EmployeesController extends Controller
             $data[] = $item;
         }
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
             'employees' => $data,
@@ -492,6 +494,18 @@ class EmployeesController extends Controller
         $db = \Illuminate\Support\Facades\DB::class;
         $e = $employee;
         $photo = $e->avatar && ! str_contains((string) $e->avatar, 'no_avatar') ? asset(ltrim($e->avatar, '/')) : null;
+        // The company's language and currency (2026-10-26: labels and values were fixed English, "$").
+        $es = \App\Models\Setting::forCompany((int) $e->company_id)->default_language === 'es';
+        $L = fn ($en, $sp) => $es ? $sp : $en;
+        $cur = (new \App\utils\helpers)->Get_Currency((int) $e->company_id) ?: '$';
+        $VOCAB = [
+            'male' => ['Male', 'Masculino'], 'female' => ['Female', 'Femenino'],
+            'married' => ['Married', 'Casado(a)'], 'single' => ['Single', 'Soltero(a)'], 'divorced' => ['Divorced', 'Divorciado(a)'],
+            'full_time' => ['Full-time', 'Tiempo completo'], 'part_time' => ['Part-time', 'Medio tiempo'], 'self_employed' => ['Self-employed', 'Independiente'],
+            'freelance' => ['Freelance', 'Freelance'], 'contract' => ['Contract', 'Por contrato'], 'internship' => ['Internship', 'Prácticas'],
+            'apprenticeship' => ['Apprenticeship', 'Aprendiz'], 'seasonal' => ['Seasonal', 'Temporal'],
+        ];
+        $v = fn ($value) => $value === null || $value === '' ? null : (isset($VOCAB[$value]) ? $L(...$VOCAB[$value]) : $value);
 
         return response()->json([
             'company' => [
@@ -501,34 +515,39 @@ class EmployeesController extends Controller
             'name' => trim($e->firstname.' '.$e->lastname),
             'photo' => $can('basic') ? $photo : null,
             'basic' => $can('basic') ? [
-                'First name' => $e->firstname, 'Last name' => $e->lastname, 'Gender' => $e->gender, 'Marital status' => $e->marital_status,
-                'Birth date' => $e->birth_date, 'Email' => $e->email, 'Phone' => $e->phone,
-                'Address' => trim(implode(', ', array_filter([$e->address, $e->city, $e->province, $e->zipcode, $e->country])), ', '),
+                $L('First name', 'Nombres') => $e->firstname, $L('Last name', 'Apellidos') => $e->lastname, $L('Gender', 'Género') => $v($e->gender),
+                $L('Marital status', 'Estado civil') => $v($e->marital_status), $L('Birth date', 'Fecha de nacimiento') => $e->birth_date,
+                $L('Email', 'Correo') => $e->email, $L('Phone', 'Teléfono') => $e->phone,
+                $L('Address', 'Dirección') => trim(implode(', ', array_filter([$e->address, $e->city, $e->province, $e->zipcode, $e->country])), ', '),
             ] : null,
             'company_info' => $can('company') ? [
-                'Company' => $db::table('companies')->where('id', $e->company_id)->value('name'),
-                'Department' => $db::table('departments')->where('id', $e->department_id)->value('department'),
-                'Designation' => $db::table('designations')->where('id', $e->designation_id)->value('designation'),
-                'Office shift' => $db::table('office_shifts')->where('id', $e->office_shift_id)->value('name'),
-                'Employment type' => $e->employment_type, 'Joining date' => $e->joining_date, 'Leaving date' => $e->leaving_date,
-                'Pay' => $e->pay_type === 'commission' ? ((float) $e->commission_rate).'% commission'
-                    : ($e->hourly_rate ? '$'.number_format((float) $e->hourly_rate, 2).' / hour' : ($e->basic_salary ? '$'.number_format((float) $e->basic_salary, 2).' salary' : null)),
-                'Leave (total / remaining)' => $e->total_leave !== null ? $e->total_leave.' / '.$e->remaining_leave : null,
+                $L('Company', 'Empresa') => $db::table('companies')->where('id', $e->company_id)->value('name'),
+                $L('Department', 'Departamento') => $db::table('departments')->where('id', $e->department_id)->value('department'),
+                $L('Designation', 'Cargo') => $db::table('designations')->where('id', $e->designation_id)->value('designation'),
+                $L('Office shift', 'Horario') => $db::table('office_shifts')->where('id', $e->office_shift_id)->value('name'),
+                $L('Employment type', 'Tipo de empleo') => $v($e->employment_type), $L('Joining date', 'Fecha de ingreso') => $e->joining_date,
+                $L('Leaving date', 'Fecha de salida') => $e->leaving_date,
+                $L('Pay', 'Pago') => $e->pay_type === 'commission' ? ((float) $e->commission_rate).$L('% commission', '% de comisión')
+                    : ($e->hourly_rate ? $cur.' '.number_format((float) $e->hourly_rate, 2).$L(' / hour', ' / hora')
+                        : ($e->basic_salary ? $cur.' '.number_format((float) $e->basic_salary, 2).$L(' salary', ' sueldo') : null)),
+                $L('Leave (total / remaining)', 'Vacaciones (total / restantes)') => $e->total_leave !== null ? $e->total_leave.' / '.$e->remaining_leave : null,
             ] : null,
             'social' => $can('social') ? array_filter([
                 'Facebook' => $e->facebook, 'WhatsApp' => $e->whatsapp, 'LinkedIn' => $e->linkedin, 'Twitter' => $e->twitter, 'Skype' => $e->skype,
             ]) : null,
             'experiences' => $can('experiences') ? $db::table('employee_experiences')->where('employee_id', $e->id)->whereNull('deleted_at')
-                ->orderByDesc('start_date')->get(['title', 'company_name', 'location', 'employment_type', 'start_date', 'end_date']) : null,
+                ->orderByDesc('start_date')->get(['title', 'company_name', 'location', 'employment_type', 'start_date', 'end_date'])
+                ->map(fn ($x) => ['employment_type' => $v($x->employment_type)] + (array) $x) : null,
             'accounts' => $can('accounts') ? $db::table('employee_accounts')->where('employee_id', $e->id)->whereNull('deleted_at')->get(['bank_name', 'bank_branch', 'account_no'])
                 ->map(fn ($a) => ['bank_name' => $a->bank_name, 'bank_branch' => $a->bank_branch,
                     'account_no' => strlen((string) $a->account_no) > 4 ? str_repeat('•', 4).substr((string) $a->account_no, -4) : $a->account_no]) : null,
             'user' => $can('user') && ($u = $this->linkedUser($employee)) ? [
-                'Username' => $u['username'] ?? null, 'Login email' => $u['email'] ?? null,
-                'Role' => $u['role'] ?? null, 'Status' => isset($u['statut']) ? ($u['statut'] ? 'Active' : 'Disabled') : null,
+                $L('Username', 'Usuario') => $u['username'] ?? null, $L('Login email', 'Correo de acceso') => $u['email'] ?? null,
+                $L('Role', 'Rol') => $u['role'] ?? null, $L('Status', 'Estado') => isset($u['statut']) ? ($u['statut'] ? $L('Active', 'Activo') : $L('Disabled', 'Desactivado')) : null,
             ] : null,
             'assets' => $can('assets') ? $this->assetRows($employee) : null,
-            'printed_at' => now()->format('M j, Y g:i A'),
+            'printed_at' => $es ? now()->format('d/m/Y H:i') : now()->format('M j, Y g:i A'),
+            'es' => $es, // the page's own titles follow it too
             'printed_by' => trim(($user->firstname ?? '').' '.($user->lastname ?? '')) ?: $user->username,
         ]);
     }
@@ -1066,7 +1085,7 @@ class EmployeesController extends Controller
         return \App\Models\Role::whereNull('deleted_at')->where('name', '!=', 'Owner')
             ->when($actor && $actor->type !== 'SuperAdmin', fn ($q) => $q->where('company_id', $actor->company_id))
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
-            ->orderBy('name')->get(['id', 'name', 'company_id']);
+            ->orderBy('name')->get(['id', 'name', 'label', 'company_id']); // label: the role's name in Spanish
     }
 
     // ------------ Delete Employee -----------\\

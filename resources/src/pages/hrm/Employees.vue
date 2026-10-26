@@ -56,12 +56,12 @@
             <!-- Opens the login in Users -> Edit (when allowed to see users). -->
             <router-link v-if="record.user_id && auth.can('users_view')" :to="`/users/${record.user_id}/edit`">{{ record.username }}</router-link>
             <template v-else>{{ record.username }}</template>
-            <span v-if="!record.login_enabled" style="font-size: 11px"> (disabled)</span>
+            <span v-if="!record.login_enabled" style="font-size: 11px"> ({{ tx('disabled', 'desactivado') }})</span>
           </span>
-          <span v-else style="opacity: 0.45">No login</span>
+          <span v-else style="opacity: 0.45">{{ tx('No login', 'Sin usuario') }}</span>
         </template>
         <template v-else-if="column.key === 'role_name'">
-          <a-tag v-if="record.role_name" :color="record.login_enabled ? 'blue' : 'default'">{{ record.role_name }}</a-tag>
+          <a-tag v-if="record.role_name" :color="record.login_enabled ? 'blue' : 'default'">{{ (ui.locale === 'es' && record.role_label) || record.role_name }}</a-tag>
           <span v-else style="opacity: 0.45">—</span>
         </template>
         <template v-else-if="column.key === 'actions'">
@@ -105,6 +105,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useAuthStore } from '../../stores/auth';
+import { useUiStore } from '../../stores/ui';
 import { EMPLOYMENT_TYPES } from './hrmVocab';
 import { useCompanyStore } from '../../stores/company';
 import { sortByLabel } from '../../lib/filterOptions';
@@ -112,6 +113,8 @@ import { useSystemContext } from '../../lib/systemContext';
 
 const { t } = useI18n();
 const auth = useAuthStore();
+const ui = useUiStore();
+const tx = (en, es) => (ui.locale === 'es' ? es : en);
 
 const filterUsername = ref('');
 const filterEmploymentType = ref(undefined);

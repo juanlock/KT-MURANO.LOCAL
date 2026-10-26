@@ -125,7 +125,7 @@ class UserController extends BaseController
             ? Warehouse::where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
             : Warehouse::where('deleted_at', '=', null)->where('company_id', $user->company_id)->get(['id', 'name', 'company_id']);
 
-        $companies = Company::where('deleted_at', null)->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
             'users' => $users,
@@ -595,7 +595,7 @@ class UserController extends BaseController
         $all_warehouses = $unrestrictedWarehouses
             ? Warehouse::where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
             : Warehouse::where('deleted_at', '=', null)->where('company_id', $user->company_id)->get(['id', 'name', 'company_id']);
-        $companies = Company::where('deleted_at', null)->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
             'user' => $user,

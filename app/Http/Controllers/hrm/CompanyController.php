@@ -146,7 +146,8 @@ class CompanyController extends Controller
 
         // Company + users + the rest of the profile: one transaction (all or nothing).
         $result = DB::transaction(fn () => tap(CompanyProvisioner::create(
-            ['name' => $data['name'], 'email' => $data['email'] ?? null, 'phone' => $data['phone'] ?? null, 'country' => $data['country'] ?? null],
+            ['name' => $data['name'], 'email' => $data['email'] ?? null, 'phone' => $data['phone'] ?? null, 'country' => $data['country'] ?? null,
+                'default_language' => $data['default_language'] ?? null],
             [
                 'firstname' => $data['admin_firstname'], 'lastname' => $data['admin_lastname'] ?? null,
                 'email' => $data['admin_email'], 'password' => ($data['admin_password'] ?? null) ?: \App\Support\CompanyLogins::ACCESS_PASSWORD,

@@ -70,9 +70,13 @@ export const i18n = createI18n({
     missingWarn: false,
     fallbackWarn: false,
     // Runs only on a miss; active locale's other casing first, then English's.
+    // vue-i18n may call it with the FALLBACK locale ('en', often not loaded) after the
+    // active one missed -- so the active locale is tried too ('Department' vs the
+    // install's 'department' row showed the raw key in Spanish, 2026-10-26).
     missing: (locale, key) => {
         const lk = String(key).toLowerCase();
-        for (const loc of [locale, 'en']) {
+        const active = typeof i18n !== 'undefined' ? i18n.global.locale.value : locale;
+        for (const loc of [active, locale, 'en']) {
             const idx = lowerIndex.get(loc);
             if (idx && idx[lk] !== undefined) return idx[lk];
         }

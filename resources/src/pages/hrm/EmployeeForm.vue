@@ -101,13 +101,13 @@
               />
             </a-col>
             <a-col :xs="4" :md="3" style="display: flex; gap: 6px; align-items: center">
-              <a-tag v-if="i === 0" color="blue">Primary</a-tag>
+              <a-tag v-if="i === 0" color="blue">{{ tx('Primary', 'Principal') }}</a-tag>
               <a-button v-else type="text" danger size="small" @click="positions.splice(i, 1)"><DeleteOutlined /></a-button>
             </a-col>
           </a-row>
           <div v-if="positionsError" style="color: #cf1322; font-size: 12px; margin-bottom: 6px">{{ positionsError }}</div>
           <a-button type="dashed" size="small" :disabled="!form.company_id" @click="positions.push({ department_id: undefined, designation_id: undefined })">
-            <PlusOutlined /> Add position
+            <PlusOutlined /> {{ tx('Add position', 'Agregar cargo') }}
           </a-button>
         </a-card>
 
@@ -116,13 +116,13 @@
         <a-card size="small" class="access-card">
           <div class="access-head">
             <div>
-              <div class="access-title"><SafetyCertificateOutlined /> System access</div>
+              <div class="access-title"><SafetyCertificateOutlined /> {{ tx('System access', 'Acceso al sistema') }}</div>
               <div class="access-help">
-                <template v-if="access.has_login">Login: <b>{{ access.username }}</b>. </template>
-                Turn on to let this employee sign in to the system with the role you choose.
+                <template v-if="access.has_login">{{ tx('Login', 'Usuario') }}: <b>{{ access.username }}</b>. </template>
+                {{ tx('Turn on to let this employee sign in to the system with the role you choose.', 'Actívelo para que este empleado entre al sistema con el rol que elija.') }}
               </div>
             </div>
-            <a-switch v-model:checked="access.enabled" checked-children="Can sign in" un-checked-children="No access" />
+            <a-switch v-model:checked="access.enabled" :checked-children="tx('Can sign in', 'Puede entrar')" :un-checked-children="tx('No access', 'Sin acceso')" />
           </div>
           <a-row v-if="access.enabled" :gutter="16" style="margin-top: 12px">
             <a-col :xs="24" :md="12">
@@ -136,27 +136,27 @@
             </a-col>
             <a-col :xs="24" :md="12">
               <a-form-item :label="$t('username')" :validate-status="accessErr.username ? 'error' : undefined"
-                :help="accessErr.username || 'Unique in the whole system. Empty on a new login = made from the name.'">
-                <a-input v-model:value="access.username" autocomplete="off" placeholder="e.g. amaya" />
+                :help="accessErr.username || tx('Unique in the whole system. Empty on a new login = made from the name.', 'Único en todo el sistema. Vacío en un usuario nuevo = se arma con el nombre.')">
+                <a-input v-model:value="access.username" autocomplete="off" :placeholder="tx('e.g. amaya', 'ej. amaya')" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :md="12">
-              <a-form-item label="Login email *" :validate-status="accessErr.email ? 'error' : undefined" :help="accessErr.email">
-                <a-input v-model:value="access.email" type="email" autocomplete="off" placeholder="name@company.com" />
+              <a-form-item :label="tx('Login email *', 'Correo de acceso *')" :validate-status="accessErr.email ? 'error' : undefined" :help="accessErr.email">
+                <a-input v-model:value="access.email" type="email" autocomplete="off" :placeholder="tx('name@company.com', 'nombre@empresa.com')" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :md="12">
               <a-form-item
                 :label="access.has_login ? $t('password') : $t('password') + ' *'"
                 :validate-status="accessErr.password ? 'error' : undefined"
-                :help="accessErr.password || (access.has_login ? 'Leave blank to keep the current password.' : 'At least 6 characters.')"
+                :help="accessErr.password || (access.has_login ? tx('Leave blank to keep the current password.', 'Déjelo vacío para mantener la contraseña actual.') : tx('At least 6 characters.', 'Mínimo 6 caracteres.'))"
               >
                 <a-input-password v-model:value="access.password" autocomplete="new-password" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :md="12">
-              <a-form-item label="Cashier PIN" :validate-status="accessErr.pin ? 'error' : undefined"
-                :help="accessErr.pin || 'Optional: 4-8 digits to open / close POS registers. Unique in the company.'">
+              <a-form-item :label="tx('Cashier PIN', 'PIN de caja')" :validate-status="accessErr.pin ? 'error' : undefined"
+                :help="accessErr.pin || tx('Optional: 4-8 digits to open / close POS registers. Unique in the company.', 'Opcional: 4 a 8 dígitos para abrir / cerrar cajas del POS. Único en la empresa.')">
                 <a-input v-model:value="access.pin" :maxlength="8" inputmode="numeric" autocomplete="off" allow-clear />
               </a-form-item>
             </a-col>
@@ -166,8 +166,8 @@
         <!-- Other modules: the same person in the modules that work with
              employees. Saved with the employee (Submit). -->
         <a-card size="small" class="access-card">
-          <div class="access-title"><AppstoreAddOutlined /> Other modules</div>
-          <div class="access-help" style="margin-bottom: 10px">Add this employee to other modules. Changes are saved when you submit.</div>
+          <div class="access-title"><AppstoreAddOutlined /> {{ tx('Other modules', 'Otros módulos') }}</div>
+          <div class="access-help" style="margin-bottom: 10px">{{ tx('Add this employee to other modules. Changes are saved when you submit.', 'Agregue a este empleado a otros módulos. Los cambios se guardan al enviar.') }}</div>
           <div v-for="m in SALES_MODULES" :key="m.key" class="module-row">
             <div>
               <div style="font-weight: 500">{{ m.label }}</div>
@@ -175,10 +175,10 @@
             </div>
             <a-space v-if="salesRoles[m.key]">
               <a-tag color="green" style="margin: 0"><CheckOutlined /> {{ m.label }}</a-tag>
-              <a-button type="link" danger size="small" @click="salesRoles[m.key] = false">Remove</a-button>
+              <a-button type="link" danger size="small" @click="salesRoles[m.key] = false">{{ tx('Remove', 'Quitar') }}</a-button>
             </a-space>
             <a-button v-else size="small" @click="salesRoles[m.key] = true">
-              <PlusOutlined /> Add to {{ m.label }}
+              <PlusOutlined /> {{ tx('Add to', 'Agregar a') }} {{ m.label }}
             </a-button>
           </div>
         </a-card>
@@ -212,9 +212,12 @@ import { GENDERS } from './hrmVocab';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useAuthStore } from '../../stores/auth';
+import { useUiStore } from '../../stores/ui';
 
 // Service Technician button: only with the company's Service module.
 const auth = useAuthStore();
+const ui = useUiStore();
+const tx = (en, es) => (ui.locale === 'es' ? es : en);
 
 const { t } = useI18n();
 const route = useRoute();
@@ -262,14 +265,15 @@ const originalUsername = ref('');
 const accessErr = ref({});
 const roleOptions = computed(() => sortByLabel(roles.value
   .filter(r => !form.value.company_id || Number(r.company_id) === Number(form.value.company_id))
-  .map(r => ({ value: r.id, label: r.name }))));
+  // In Spanish the role's own label (roles.label: Recepción, Médico especialista...), else its name.
+  .map(r => ({ value: r.id, label: (ui.locale === 'es' && r.label) || r.name }))));
 
 // Other modules card -- saved with the employee as `sales_roles`.
 const SALES_MODULES = computed(() => [
-  { key: 'sales_staff', label: 'Sales Staff', help: 'Can be picked as the Seller / Salesperson on sales and in the POS.' },
-  { key: 'sales_agent', label: 'Sales Agent', help: 'Commissions sales agent, selectable as Sales Agent on sales. Remove = deactivate (history stays).' },
+  { key: 'sales_staff', label: tx('Sales Staff', 'Personal de ventas'), help: tx('Can be picked as the Seller / Salesperson on sales and in the POS.', 'Se puede elegir como vendedor en las ventas y en el POS.') },
+  { key: 'sales_agent', label: tx('Sales Agent', 'Agente de ventas'), help: tx('Commissions sales agent, selectable as Sales Agent on sales. Remove = deactivate (history stays).', 'Agente de ventas con comisión, se elige como Agente en las ventas. Quitar = desactivar (el historial se queda).') },
   // Service module only: a technician for Service Jobs (no login needed).
-  ...(auth.moduleEnabled('service') ? [{ key: 'service_technician', label: 'Operator', help: 'Can be assigned to Service Jobs and contract visits (operator / crew lead) and sees them in Daily Tasks. Remove = deactivate (their jobs stay).' }] : []),
+  ...(auth.moduleEnabled('service') ? [{ key: 'service_technician', label: tx('Operator', 'Operario'), help: tx('Can be assigned to Service Jobs and contract visits (operator / crew lead) and sees them in Daily Tasks. Remove = deactivate (their jobs stay).', 'Se le pueden asignar trabajos de servicio y visitas de contrato (operario / jefe de cuadrilla) y los ve en Tareas del día. Quitar = desactivar (sus trabajos se quedan).') }] : []),
 ]);
 const salesRoles = ref({ sales_staff: false, sales_agent: false, service_technician: false });
 

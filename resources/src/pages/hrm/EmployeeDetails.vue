@@ -21,7 +21,8 @@
       <a-spin size="large" />
     </div>
 
-    <a-empty v-else-if="!TAB_ORDER.some(canView)" description="Your role can't see any tab of the employee details. Ask an admin (Users → Roles → HRM → Employees)." />
+    <a-empty v-else-if="!TAB_ORDER.some(canView)" :description="tx(`Your role can't see any tab of the employee details. Ask an admin (Users → Roles → HRM → Employees).`,
+      'Su rol no puede ver ninguna pestaña de la ficha del empleado. Pídaselo a un administrador (Usuarios → Roles → RRHH → Empleados).')" />
     <a-tabs v-else v-model:activeKey="tab">
       <!-- ============ Basic information ============ -->
       <!-- Each tab: shown with its View permission, editable with its Edit one (Users -> Roles). -->
@@ -34,13 +35,13 @@
             <div v-if="canEdit('basic')" class="ph-actions">
               <a-space>
                 <a-upload :show-upload-list="false" accept="image/*" :before-upload="f => uploadPhoto('employee', f)">
-                  <a-button size="small" :loading="photoBusy === 'employee'"><template #icon><UploadOutlined /></template> {{ photoUrl(employee.avatar) ? 'Change photo' : 'Upload photo' }}</a-button>
+                  <a-button size="small" :loading="photoBusy === 'employee'"><template #icon><UploadOutlined /></template> {{ photoUrl(employee.avatar) ? tx('Change photo', 'Cambiar foto') : tx('Upload photo', 'Subir foto') }}</a-button>
                 </a-upload>
-                <a-popconfirm v-if="photoUrl(employee.avatar)" title="Remove the employee's photo?" @confirm="removePhoto('employee')">
-                  <a-button size="small" danger>Remove</a-button>
+                <a-popconfirm v-if="photoUrl(employee.avatar)" :title="tx(`Remove the employee's photo?`, '¿Quitar la foto del empleado?')" :ok-text="tx('Yes', 'Sí')" :cancel-text="tx('No', 'No')" @confirm="removePhoto('employee')">
+                  <a-button size="small" danger>{{ tx('Remove', 'Quitar') }}</a-button>
                 </a-popconfirm>
               </a-space>
-              <div class="prod-muted">JPG, PNG or WebP, up to 5 MB — cropped square. Click the photo to view it.</div>
+              <div class="prod-muted">{{ tx('JPG, PNG or WebP, up to 5 MB — cropped square. Click the photo to view it.', 'JPG, PNG o WebP, hasta 5 MB, recortada en cuadrado. Haga clic en la foto para verla.') }}</div>
             </div>
           </div>
           <a-form ref="basicRef" :model="employee" :rules="basicRules" layout="vertical" :disabled="!canEdit('basic')">
@@ -59,7 +60,7 @@
                 <a-form-item :label="$t('Gender') + ' *'" name="gender">
                   <a-select
                     v-model:value="employee.gender" :placeholder="$t('Choose_Gender')"
-                    :options="[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]"
+                    :options="GENDERS"
                   />
                 </a-form-item>
               </a-col>
@@ -68,7 +69,7 @@
                 <a-form-item :label="$t('Family_status')">
                   <a-select
                     v-model:value="employee.marital_status" allow-clear
-                    :placeholder="$t('Choose_Family_status')" :options="MARITAL"
+                    :placeholder="$t('Choose_Family_status')" :options="MARITAL_STATUSES"
                   />
                 </a-form-item>
               </a-col>
@@ -169,7 +170,7 @@
                 <a-form-item :label="$t('Department') + ' *'" name="department_id">
                   <a-select
                     v-model:value="employee.department_id" :placeholder="$t('Department')"
-                    :options="departments.map(d => ({ value: d.id, label: d.department }))"
+                    :options="sortByLabel(departments.map(d => ({ value: d.id, label: d.department })))"
                     @change="onDepartmentChange"
                   />
                 </a-form-item>
@@ -178,7 +179,7 @@
                 <a-form-item :label="$t('Designation') + ' *'" name="designation_id">
                   <a-select
                     v-model:value="employee.designation_id" :placeholder="$t('Choose_Designation')"
-                    :options="designations.map(d => ({ value: d.id, label: d.designation }))"
+                    :options="sortByLabel(designations.map(d => ({ value: d.id, label: d.designation })))"
                   />
                 </a-form-item>
               </a-col>
@@ -186,7 +187,7 @@
                 <a-form-item :label="$t('Office_Shift') + ' *'" name="office_shift_id">
                   <a-select
                     v-model:value="employee.office_shift_id" :placeholder="$t('Choose_Office_Shift')"
-                    :options="officeShifts.map(o => ({ value: o.id, label: o.name }))"
+                    :options="sortByLabel(officeShifts.map(o => ({ value: o.id, label: o.name })))"
                   />
                 </a-form-item>
               </a-col>
@@ -194,25 +195,25 @@
               <!-- Payroll: weekly run pays hourly staff for the hours on the service
                    jobs they complete, commission staff a % of their sales. -->
               <a-col :xs="24" :md="6">
-                <a-form-item label="Paid by" extra="Empty = not on the weekly payroll.">
+                <a-form-item :label="tx('Paid by', 'Se le paga por')" :extra="tx('Empty = not on the weekly payroll.', 'Vacío = no entra en la planilla semanal.')">
                   <a-select
-                    v-model:value="employee.pay_type" allow-clear placeholder="Not on payroll"
-                    :options="[{ value: 'commission', label: 'Commission (% of sales)' }, { value: 'hourly', label: 'Hours (on service jobs)' }]"
+                    v-model:value="employee.pay_type" allow-clear :placeholder="tx('Not on payroll', 'Fuera de planilla')"
+                    :options="PAY_TYPES"
                   />
                 </a-form-item>
               </a-col>
               <a-col v-if="employee.pay_type !== 'commission'" :xs="24" :md="6">
                 <a-form-item :label="$t('Hourly_rate')">
-                  <a-input-number v-model:value="employee.hourly_rate" :min="0" :step="0.5" prefix="$" style="width: 100%" />
+                  <a-input-number v-model:value="employee.hourly_rate" :min="0" :step="0.5" :prefix="auth.currency" style="width: 100%" />
                 </a-form-item>
               </a-col>
               <a-col v-else :xs="24" :md="6">
-                <a-form-item label="Commission %">
+                <a-form-item :label="tx('Commission %', 'Comisión %')">
                   <a-input-number v-model:value="employee.commission_rate" :min="0" :max="100" addon-after="%" style="width: 100%" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="6">
-                <a-form-item label="Pay from" extra="Payroll counts from this date.">
+                <a-form-item :label="tx('Pay from', 'Pagar desde')" :extra="tx('Payroll counts from this date.', 'La planilla cuenta desde esta fecha.')">
                   <a-date-picker v-model:value="employee.pay_effective_from" value-format="YYYY-MM-DD" style="width: 100%" />
                 </a-form-item>
               </a-col>
@@ -309,7 +310,8 @@
       <!-- ============ User: the login account linked to this employee ============ -->
       <a-tab-pane v-if="canView('user')" key="user" :tab="$t('User')">
         <a-card size="small">
-          <a-empty v-if="!linkedUser" description="No user is linked to this employee. Link one in Users (Add / Edit user → employee) so they can sign in, be booked as staff and appear in Production." />
+          <a-empty v-if="!linkedUser" :description="tx('No user is linked to this employee. Link one in Users (Add / Edit user → employee) so they can sign in, be booked as staff and appear in Production.',
+            'Este empleado no tiene un usuario vinculado. Vincule uno en Usuarios (Agregar / Editar usuario → empleado) para que pueda entrar, recibir reservas y aparecer en Producción.')" />
           <template v-else>
             <!-- The user's avatar (top bar, booking calendar, team pages). -->
             <div class="ph">
@@ -318,76 +320,76 @@
               <div v-if="canEdit('user')" class="ph-actions">
                 <a-space>
                   <a-upload :show-upload-list="false" accept="image/*" :before-upload="f => uploadPhoto('user', f)">
-                    <a-button size="small" :loading="photoBusy === 'user'"><template #icon><UploadOutlined /></template> {{ photoUrl(linkedUser.avatar) ? 'Change picture' : 'Upload picture' }}</a-button>
+                    <a-button size="small" :loading="photoBusy === 'user'"><template #icon><UploadOutlined /></template> {{ photoUrl(linkedUser.avatar) ? tx('Change picture', 'Cambiar imagen') : tx('Upload picture', 'Subir imagen') }}</a-button>
                   </a-upload>
-                  <a-popconfirm v-if="photoUrl(linkedUser.avatar)" title="Remove the user's picture?" @confirm="removePhoto('user')">
-                    <a-button size="small" danger>Remove</a-button>
+                  <a-popconfirm v-if="photoUrl(linkedUser.avatar)" :title="tx(`Remove the user's picture?`, '¿Quitar la imagen del usuario?')" :ok-text="tx('Yes', 'Sí')" :cancel-text="tx('No', 'No')" @confirm="removePhoto('user')">
+                    <a-button size="small" danger>{{ tx('Remove', 'Quitar') }}</a-button>
                   </a-popconfirm>
                 </a-space>
-                <div class="prod-muted">The user's profile picture — JPG, PNG or WebP, up to 5 MB.</div>
+                <div class="prod-muted">{{ tx(`The user's profile picture — JPG, PNG or WebP, up to 5 MB.`, 'La imagen de perfil del usuario: JPG, PNG o WebP, hasta 5 MB.') }}</div>
               </div>
             </div>
             <a-descriptions :column="{ xs: 1, md: 2 }" size="small" bordered>
-              <a-descriptions-item label="Username">{{ linkedUser.username }}</a-descriptions-item>
-              <a-descriptions-item label="Name">{{ [linkedUser.firstname, linkedUser.lastname].filter(Boolean).join(' ') || '—' }}</a-descriptions-item>
-              <a-descriptions-item label="Email">{{ linkedUser.email || '—' }}</a-descriptions-item>
-              <a-descriptions-item label="Phone">{{ linkedUser.phone || '—' }}</a-descriptions-item>
-              <a-descriptions-item label="User type">{{ linkedUser.type || '—' }}</a-descriptions-item>
-              <a-descriptions-item label="Role">{{ linkedUser.role || '—' }}</a-descriptions-item>
-              <a-descriptions-item label="Company">{{ linkedUser.company || '—' }}</a-descriptions-item>
-              <a-descriptions-item label="Status">
-                <a-tag v-if="linkedUser.deleted_at" color="red">Deleted</a-tag>
-                <a-tag v-else :color="Number(linkedUser.statut) === 1 ? 'green' : 'default'">{{ Number(linkedUser.statut) === 1 ? 'Active' : 'Inactive' }}</a-tag>
+              <a-descriptions-item :label="tx('Username', 'Usuario')">{{ linkedUser.username }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Name', 'Nombre')">{{ [linkedUser.firstname, linkedUser.lastname].filter(Boolean).join(' ') || '—' }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Email', 'Correo')">{{ linkedUser.email || '—' }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Phone', 'Teléfono')">{{ linkedUser.phone || '—' }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('User type', 'Tipo de usuario')">{{ userTypeLabel(linkedUser.type) }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Role', 'Rol')">{{ linkedUser.role || '—' }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Company', 'Empresa')">{{ linkedUser.company || '—' }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Status', 'Estado')">
+                <a-tag v-if="linkedUser.deleted_at" color="red">{{ tx('Deleted', 'Eliminado') }}</a-tag>
+                <a-tag v-else :color="Number(linkedUser.statut) === 1 ? 'green' : 'default'">{{ Number(linkedUser.statut) === 1 ? tx('Active', 'Activo') : tx('Inactive', 'Inactivo') }}</a-tag>
               </a-descriptions-item>
-              <a-descriptions-item label="Locations">{{ linkedUser.is_all_warehouses ? 'All locations' : (linkedUser.warehouses.join(', ') || '—') }}</a-descriptions-item>
-              <a-descriptions-item label="Sees records">{{ linkedUser.record_view ? 'Everyone\'s' : 'Only their own' }}</a-descriptions-item>
-              <a-descriptions-item label="Sales staff">{{ linkedUser.is_sales_staff ? 'Yes' : 'No' }}</a-descriptions-item>
-              <a-descriptions-item label="Sales agent">{{ linkedUser.sales_agents.join(', ') || '—' }}</a-descriptions-item>
-              <a-descriptions-item label="Bookings as staff">{{ linkedUser.bookings_count }}</a-descriptions-item>
-              <a-descriptions-item label="Customer portal">{{ linkedUser.portal_enabled ? 'On' : 'Off' }}</a-descriptions-item>
-              <a-descriptions-item label="Language">{{ linkedUser.preferred_locale || '—' }}</a-descriptions-item>
-              <a-descriptions-item label="Last sign-in">{{ linkedUser.last_login ? fmtDateTime(linkedUser.last_login) : 'Never' }}</a-descriptions-item>
-              <a-descriptions-item label="Created">{{ fmtDateTime(linkedUser.created_at) }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Locations', 'Locales')">{{ linkedUser.is_all_warehouses ? tx('All locations', 'Todos los locales') : (linkedUser.warehouses.join(', ') || '—') }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Sees records', 'Ve registros')">{{ linkedUser.record_view ? tx(`Everyone's`, 'De todos') : tx('Only their own', 'Solo los suyos') }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Sales staff', 'Personal de ventas')">{{ linkedUser.is_sales_staff ? tx('Yes', 'Sí') : tx('No', 'No') }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Sales agent', 'Vendedor')">{{ linkedUser.sales_agents.join(', ') || '—' }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Bookings as staff', 'Reservas como personal')">{{ linkedUser.bookings_count }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Customer portal', 'Portal del cliente')">{{ linkedUser.portal_enabled ? tx('On', 'Activo') : tx('Off', 'Inactivo') }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Language', 'Idioma')">{{ linkedUser.preferred_locale || '—' }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Last sign-in', 'Último ingreso')">{{ linkedUser.last_login ? fmtDateTime(linkedUser.last_login) : tx('Never', 'Nunca') }}</a-descriptions-item>
+              <a-descriptions-item :label="tx('Created', 'Creado')">{{ fmtDateTime(linkedUser.created_at) }}</a-descriptions-item>
             </a-descriptions>
             <a-button v-if="auth.can('users_view')" style="margin-top: 12px" @click="$router.push(`/users/${linkedUser.id}/edit`)">
-              <template #icon><EditOutlined /></template> Edit user
+              <template #icon><EditOutlined /></template> {{ tx('Edit user', 'Editar usuario') }}
             </a-button>
           </template>
         </a-card>
       </a-tab-pane>
 
       <!-- ============ Assets assigned (Assets -> Assignments, to the employee's login) ============ -->
-      <a-tab-pane v-if="canView('assets')" key="assets" :tab="`Assets assigned${assetsOpen ? ` (${assetsOpen})` : ''}`">
+      <a-tab-pane v-if="canView('assets')" key="assets" :tab="`${tx('Assets assigned', 'Activos asignados')}${assetsOpen ? ` (${assetsOpen})` : ''}`">
         <a-card size="small">
           <div class="prod-filter">
-            <span class="prod-muted">Equipment and tools in this employee's care (open assignments first).</span>
-            <PermLink to="/assets/assignments" permission="asset_assignments" style="margin-left: auto">Assets → Assignments</PermLink>
+            <span class="prod-muted">{{ tx("Equipment and tools in this employee's care (open assignments first).", 'Equipos y herramientas a cargo de este empleado (primero las asignaciones abiertas).') }}</span>
+            <PermLink to="/assets/assignments" permission="asset_assignments" style="margin-left: auto">{{ tx('Assets → Assignments', 'Activos → Asignaciones') }}</PermLink>
           </div>
           <a-table
             :data-source="assets.rows" :loading="assets.loading" row-key="id" size="small" :pagination="false"
-            :scroll="{ x: 760 }" :locale="{ emptyText: 'No assets assigned to this employee.' }"
+            :scroll="{ x: 760 }" :locale="{ emptyText: tx('No assets assigned to this employee.', 'Este empleado no tiene activos asignados.') }"
           >
-            <a-table-column title="Asset" key="asset">
+            <a-table-column :title="tx('Asset', 'Activo')" key="asset">
               <template #default="{ record }">
                 <b>{{ record.name }}</b>
                 <div class="prod-muted">{{ [record.tag, record.category, record.serial_number ? `S/N ${record.serial_number}` : ''].filter(Boolean).join(' · ') }}</div>
               </template>
             </a-table-column>
-            <a-table-column title="Assigned" data-index="assigned_on" key="assigned_on" />
-            <a-table-column title="Due back" key="due">
+            <a-table-column :title="tx('Assigned', 'Asignado')" data-index="assigned_on" key="assigned_on" />
+            <a-table-column :title="tx('Due back', 'Devolver el')" key="due">
               <template #default="{ record }">
                 <span :style="record.overdue ? 'color:#cf1322;font-weight:600' : ''">{{ record.due_back_on || '—' }}</span>
               </template>
             </a-table-column>
-            <a-table-column title="Returned" key="returned">
+            <a-table-column :title="tx('Returned', 'Devuelto')" key="returned">
               <template #default="{ record }">{{ record.returned_on || '—' }}</template>
             </a-table-column>
-            <a-table-column title="Condition" key="cond">
+            <a-table-column :title="tx('Condition', 'Estado físico')" key="cond">
               <template #default="{ record }">{{ [record.condition_out, record.condition_in].filter(Boolean).join(' → ') || '—' }}</template>
             </a-table-column>
-            <a-table-column title="Status" key="status">
+            <a-table-column :title="$t('Status')" key="status">
               <template #default="{ record }">
-                <a-tag :color="record.overdue ? 'red' : record.status === 'assigned' ? 'blue' : 'default'">{{ record.overdue ? 'Overdue' : record.status }}</a-tag>
+                <a-tag :color="record.overdue ? 'red' : record.status === 'assigned' ? 'blue' : 'default'">{{ record.overdue ? tx('Overdue', 'Vencido') : assetStatus(record.status) }}</a-tag>
               </template>
             </a-table-column>
           </a-table>
@@ -395,31 +397,32 @@
       </a-tab-pane>
 
       <!-- ============ Production: services done and payments received ============ -->
-      <a-tab-pane v-if="canView('production')" key="production" tab="Production">
+      <a-tab-pane v-if="canView('production')" key="production" :tab="tx('Production', 'Producción')">
         <a-card size="small">
           <div class="prod-filter">
-            <span class="prod-muted">Dates</span>
+            <span class="prod-muted">{{ tx('Dates', 'Fechas') }}</span>
             <PresetRangeFilter v-model:value="prodRange" @change="fetchProduction" />
           </div>
           <a-alert v-if="production.summary && !production.summary.has_user" type="info" show-icon style="margin-bottom: 12px"
-            message="Services come from the bookings / sales of the employee's user — link a user (User tab) to see them. Payments are shown." />
+            :message="tx(`Services come from the bookings / sales of the employee's user — link a user (User tab) to see them. Payments are shown.`,
+              'Los servicios salen de las reservas / ventas del usuario del empleado: vincule un usuario (pestaña Usuario) para verlos. Los pagos sí se muestran.')" />
           <a-spin :spinning="production.loading">
             <a-row :gutter="[12, 12]" style="margin-bottom: 16px">
               <a-col :xs="12" :md="6">
-                <a-statistic title="Services" :value="production.summary?.services_count || 0" />
+                <a-statistic :title="tx('Services', 'Servicios')" :value="production.summary?.services_count || 0" />
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-statistic title="Produced" :value="money(production.summary?.services_total)" />
+                <a-statistic :title="tx('Produced', 'Producido')" :value="money(production.summary?.services_total)" />
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-statistic title="Paid to them" :value="money(production.summary?.payments_total)" />
+                <a-statistic :title="tx('Paid to them', 'Pagado al empleado')" :value="money(production.summary?.payments_total)" />
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-statistic title="Paid / produced" :value="production.summary?.payout_pct == null ? '—' : production.summary.payout_pct + '%'" />
+                <a-statistic :title="tx('Paid / produced', 'Pagado / producido')" :value="production.summary?.payout_pct == null ? '—' : production.summary.payout_pct + '%'" />
               </a-col>
             </a-row>
 
-            <h4 class="prod-h">Services ({{ production.services.length }})</h4>
+            <h4 class="prod-h">{{ tx('Services', 'Servicios') }} ({{ production.services.length }})</h4>
             <a-table
               :columns="serviceColumns" :data-source="production.services" size="small" :row-key="r => r.source + r.id"
               :pagination="{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10', '25', '50', '100'] }" :scroll="{ x: 800 }"
@@ -439,7 +442,7 @@
             </a-table>
 
             <div class="prod-muted" style="margin-top: 8px">
-              Payments made to this employee are in the <a @click="tab = 'payments'">Payments</a> tab.
+              {{ tx('Payments made to this employee are in the', 'Los pagos hechos a este empleado están en la pestaña') }} <a @click="tab = 'payments'">{{ $t('Payments') }}</a>{{ tx(' tab.', '.') }}
             </div>
           </a-spin>
         </a-card>
@@ -449,18 +452,18 @@
       <a-tab-pane v-if="canView('payments')" key="payments" :tab="$t('Payments')">
         <a-card size="small">
           <div class="prod-filter">
-            <span class="prod-muted">Dates</span>
+            <span class="prod-muted">{{ tx('Dates', 'Fechas') }}</span>
             <!-- Same dates as Production (no default re-applied when this tab opens). -->
             <PresetRangeFilter v-model:value="prodRange" :apply-default="false" @change="fetchProduction" />
-            <a-button v-if="auth.can('payroll')" size="small" style="margin-left: auto" @click="$router.push('/hrm/payrolls')">Open Payroll</a-button>
+            <a-button v-if="auth.can('payroll')" size="small" style="margin-left: auto" @click="$router.push('/hrm/payrolls')">{{ tx('Open Payroll', 'Abrir planilla') }}</a-button>
           </div>
           <a-spin :spinning="production.loading">
             <a-row :gutter="[12, 12]" style="margin-bottom: 16px">
               <a-col :xs="12" :md="6">
-                <a-statistic title="Payments" :value="production.payments.length" />
+                <a-statistic :title="$t('Payments')" :value="production.payments.length" />
               </a-col>
               <a-col :xs="12" :md="6">
-                <a-statistic title="Total paid" :value="money(production.summary?.payments_total)" />
+                <a-statistic :title="tx('Total paid', 'Total pagado')" :value="money(production.summary?.payments_total)" />
               </a-col>
               <a-col v-for="c in paymentsByCategory" :key="c.name" :xs="12" :md="6">
                 <a-statistic :title="c.name" :value="money(c.total)" />
@@ -472,7 +475,7 @@
             >
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'source'">
-                  <a-tag :color="record.source === 'payroll' ? 'blue' : 'volcano'">{{ record.source === 'payroll' ? 'Payroll' : 'Expense' }}</a-tag>
+                  <a-tag :color="record.source === 'payroll' ? 'blue' : 'volcano'">{{ record.source === 'payroll' ? tx('Payroll', 'Planilla') : tx('Expense', 'Gasto') }}</a-tag>
                 </template>
                 <template v-else-if="column.key === 'ref'">
                   <a v-if="record.source === 'expense'" @click="$router.push(`/expenses/${record.id}/edit`)">{{ record.ref }}</a>
@@ -598,8 +601,12 @@ import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
+import { useUiStore } from '../../stores/ui';
+import { GENDERS, MARITAL_STATUSES, EMPLOYMENT_TYPES, PAY_TYPES } from './hrmVocab';
 
 const { t } = useI18n();
+const ui = useUiStore();
+const tx = (en, es) => (ui.locale === 'es' ? es : en);
 const route = useRoute();
 const id = route.params.id;
 const auth = useAuthStore();
@@ -622,21 +629,11 @@ const departments = ref([]);
 const designations = ref([]);
 const officeShifts = ref([]);
 
-const MARITAL = [
-  { value: 'married', label: 'Married' },
-  { value: 'single', label: 'Single' },
-  { value: 'divorced', label: 'Divorced' },
-];
-const EMPLOYMENT_TYPES = [
-  { value: 'full_time', label: 'Full-time' },
-  { value: 'part_time', label: 'Part-time' },
-  { value: 'self_employed', label: 'Self-employed' },
-  { value: 'freelance', label: 'Freelance' },
-  { value: 'contract', label: 'Contract' },
-  { value: 'internship', label: 'Internship' },
-  { value: 'apprenticeship', label: 'Apprenticeship' },
-  { value: 'seasonal', label: 'Seasonal' },
-];
+// Gender, marital status, employment and pay types: hrmVocab (in the screen's language).
+const userTypeLabel = v => (ui.locale === 'es'
+  ? ({ admin: 'Administrador', employee: 'Empleado', customer: 'Cliente', supplier: 'Proveedor', sales_agent: 'Vendedor', SuperAdmin: 'SuperAdmin' }[v] || v || '—')
+  : (v || '—'));
+const assetStatus = s =>(ui.locale === 'es' ? ({ assigned: 'Asignado', returned: 'Devuelto', lost: 'Perdido', damaged: 'Dañado' }[s] || s) : s);
 const SOCIAL = [
   { key: 'skype', label: 'Skype', placeholder: 'Enter_Skype' },
   { key: 'facebook', label: 'Facebook', placeholder: 'Enter_Facebook' },
@@ -955,8 +952,8 @@ const prodRange = ref(null);
 const production = reactive({ services: [], payments: [], summary: null, loading: false });
 const serviceColumns = computed(() => [
   { title: t('date'), key: 'date', width: 140 },
-  { title: 'Booking / sale', key: 'ref', width: 110 },
-  { title: 'Service', dataIndex: 'service', key: 'service', width: 200, ellipsis: true },
+  { title: tx('Booking / sale', 'Reserva / venta'), key: 'ref', width: 110 },
+  { title: tx('Service', 'Servicio'), dataIndex: 'service', key: 'service', width: 200, ellipsis: true },
   { title: t('Customer'), dataIndex: 'customer', key: 'customer', width: 180, ellipsis: true },
   { title: t('Status'), dataIndex: 'status', key: 'status', width: 100 },
   { title: t('Sale'), key: 'sale_ref', width: 100 },
@@ -964,11 +961,11 @@ const serviceColumns = computed(() => [
 ]);
 const paymentColumns = computed(() => [
   { title: t('date'), dataIndex: 'date', key: 'date', width: 110 },
-  { title: 'Type', key: 'source', width: 100 },
+  { title: tx('Type', 'Tipo'), key: 'source', width: 100 },
   { title: t('Reference'), key: 'ref', width: 110 },
-  { title: 'Category', dataIndex: 'category', key: 'category', width: 170, ellipsis: true },
-  { title: 'Paid with', dataIndex: 'method', key: 'method', width: 100 },
-  { title: 'Details', dataIndex: 'details', key: 'details', ellipsis: true },
+  { title: tx('Category', 'Categoría'), dataIndex: 'category', key: 'category', width: 170, ellipsis: true },
+  { title: tx('Paid with', 'Pagado con'), dataIndex: 'method', key: 'method', width: 100 },
+  { title: tx('Details', 'Detalle'), dataIndex: 'details', key: 'details', ellipsis: true },
   { title: t('Amount'), key: 'amount', width: 110, align: 'right' },
 ]);
 // Payments tab: total per category (e.g. Contract labor (1099), Payroll), biggest first.
@@ -1020,7 +1017,7 @@ function kvTable(obj) {
   return rows.length ? `<table class="kv">${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>` : '<p class="muted">—</p>';
 }
 function listTable(cols, rows) {
-  if (!rows?.length) return '<p class="muted">None.</p>';
+  if (!rows?.length) return `<p class="muted">${tx('None.', 'Ninguno.')}</p>`;
   return `<table class="list"><thead><tr>${cols.map(c => `<th>${esc(c[0])}</th>`).join('')}</tr></thead><tbody>${
     rows.map(r => `<tr>${cols.map(c => `<td>${esc(typeof c[1] === 'function' ? c[1](r) : r[c[1]])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
@@ -1029,19 +1026,23 @@ async function printProfile() {
   const w = window.open('', '_blank'); // opened on the click, so pop-up blockers allow it
   try {
     const d = await http.get(`employees/${id}/print`);
+    // The company's language (the server says which; labels / values come translated from it).
+    const L = (en, es) => (d.es ? es : en);
     const sec = (title, html) => (html === null ? '' : `<section><h2>${esc(title)}</h2>${html}</section>`);
     const body = [
-      d.basic ? sec('Basic information', kvTable(d.basic)) : '',
-      d.company_info ? sec('Company', kvTable(d.company_info)) : '',
-      d.social ? sec('Social media', kvTable(d.social)) : '',
-      d.experiences ? sec('Experiences', listTable([['Title', 'title'], ['Company', 'company_name'], ['Location', 'location'], ['Type', 'employment_type'], ['From', 'start_date'], ['To', 'end_date']], d.experiences)) : '',
-      d.accounts ? sec('Bank accounts', listTable([['Bank', 'bank_name'], ['Branch', 'bank_branch'], ['Account', 'account_no']], d.accounts)) : '',
-      d.user ? sec('User (login)', kvTable(d.user)) : '',
-      d.assets ? sec('Assets assigned', listTable([['Asset', r => [r.name, r.tag].filter(Boolean).join(' · ')], ['Category', 'category'], ['Serial', 'serial_number'],
-        ['Assigned', 'assigned_on'], ['Due back', 'due_back_on'], ['Returned', 'returned_on'], ['Status', r => (r.overdue ? 'Overdue' : r.status)]], d.assets)) : '',
+      d.basic ? sec(L('Basic information', 'Datos básicos'), kvTable(d.basic)) : '',
+      d.company_info ? sec(L('Company', 'Empresa'), kvTable(d.company_info)) : '',
+      d.social ? sec(L('Social media', 'Redes sociales'), kvTable(d.social)) : '',
+      d.experiences ? sec(L('Experiences', 'Experiencia'), listTable([[L('Title', 'Cargo'), 'title'], [L('Company', 'Empresa'), 'company_name'], [L('Location', 'Lugar'), 'location'],
+        [L('Type', 'Tipo'), 'employment_type'], [L('From', 'Desde'), 'start_date'], [L('To', 'Hasta'), 'end_date']], d.experiences)) : '',
+      d.accounts ? sec(L('Bank accounts', 'Cuentas bancarias'), listTable([[L('Bank', 'Banco'), 'bank_name'], [L('Branch', 'Sucursal'), 'bank_branch'], [L('Account', 'Cuenta'), 'account_no']], d.accounts)) : '',
+      d.user ? sec(L('User (login)', 'Usuario (login)'), kvTable(d.user)) : '',
+      d.assets ? sec(L('Assets assigned', 'Activos asignados'), listTable([[L('Asset', 'Activo'), r => [r.name, r.tag].filter(Boolean).join(' · ')], [L('Category', 'Categoría'), 'category'],
+        [L('Serial', 'Serie'), 'serial_number'], [L('Assigned', 'Asignado'), 'assigned_on'], [L('Due back', 'Devolver'), 'due_back_on'], [L('Returned', 'Devuelto'), 'returned_on'],
+        [L('Status', 'Estado'), r => (r.overdue ? L('Overdue', 'Vencido') : r.status)]], d.assets)) : '',
     ].join('');
     const initials = (d.name || '?').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(d.name)} — Employee profile</title><style>
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(d.name)} — ${L('Employee profile', 'Ficha del empleado')}</title><style>
       body{font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1f2937;margin:28px}
       header{display:flex;gap:20px;align-items:center;border-bottom:2px solid #1f2937;padding-bottom:14px;margin-bottom:6px}
       .photo{width:110px;height:110px;border-radius:12px;object-fit:cover;border:1px solid #ddd}
@@ -1059,7 +1060,7 @@ async function printProfile() {
         <div class="co">${d.company.logo ? `<img src="${esc(d.company.logo)}" alt=""><br>` : ''}<b>${esc(d.company.name || '')}</b></div>
       </header>
       ${body}
-      <footer>Printed ${esc(d.printed_at)} by ${esc(d.printed_by)} · Confidential employee information</footer>
+      <footer>${L('Printed', 'Impreso el')} ${esc(d.printed_at)} ${L('by', 'por')} ${esc(d.printed_by)} · ${L('Confidential employee information', 'Información confidencial del empleado')}</footer>
     </body></html>`);
     w.document.close();
     // Print once the photo / logo have loaded.

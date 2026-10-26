@@ -92,6 +92,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 
@@ -120,8 +121,8 @@ const form = ref({
   date: null, clock_in: null, clock_out: null,
 });
 
-const companyOptions = computed(() => companies.value.map(c => ({ value: c.id, label: c.name })));
-const employeeOptions = computed(() => employees.value.map(e => ({ value: e.id, label: e.username })));
+const companyOptions = computed(() => sortByLabel(companies.value.map(c => ({ value: c.id, label: c.name }))));
+const employeeOptions = computed(() => sortByLabel(employees.value.map(e => ({ value: e.id, label: e.username }))));
 
 const formRules = computed(() => ({
   company_id: [{ required: true, message: t('Field_is_required') }],

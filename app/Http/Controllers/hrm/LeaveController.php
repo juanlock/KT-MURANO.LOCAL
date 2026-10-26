@@ -68,7 +68,7 @@ class LeaveController extends Controller
         $this->authorizeForUser($request->user('api'), 'create', Leave::class);
 
         $leave_types = LeaveType::where('deleted_at', '=', null)->orderBy('id', 'desc')->get();
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
             'companies' => $companies,
@@ -155,7 +155,7 @@ class LeaveController extends Controller
 
         $leave = Leave::where('deleted_at', '=', null)->findOrFail($id);
         $leave_types = LeaveType::where('deleted_at', '=', null)->orderBy('id', 'desc')->get();
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
             'leave' => $leave,

@@ -42,9 +42,12 @@ class HrmModule extends DemoModule
     public function generate(DemoContext $ctx): array
     {
         $counts = [];
+        // Names in the company's language (2026-10-26: a Spanish company got Sales / Warehouse Clerk...).
+        $es = str_starts_with((string) DB::table('settings')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->value('default_language'), 'es');
+        $L = fn ($en, $sp) => $es ? $sp : $en;
 
         // Office shift, Mon-Fri 09:00-17:00 (stored as "09:00AM" like the form does).
-        $shift = ['name' => 'Standard 9-5 (demo)'];
+        $shift = ['name' => $L('Standard 9-5 (demo)', 'Horario 9-17 (demo)')];
         foreach (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] as $day) {
             $shift[$day.'_in'] = '09:00AM';
             $shift[$day.'_out'] = '05:00PM';
@@ -53,7 +56,11 @@ class HrmModule extends DemoModule
         $counts['Office shifts'] = 1;
 
         // Departments -> designations.
-        $structure = [
+        $structure = $es ? [
+            'Ventas' => ['Representante de ventas', 'Gerente de ventas'],
+            'Operaciones' => ['Almacenero'],
+            'Finanzas' => ['Contador'],
+        ] : [
             'Sales' => ['Sales Representative', 'Sales Manager'],
             'Operations' => ['Warehouse Clerk'],
             'Finance' => ['Accountant'],
@@ -145,7 +152,7 @@ class HrmModule extends DemoModule
                 'start_date' => $start->toDateString(),
                 'end_date' => $start->copy()->addDays($days - 1)->toDateString(),
                 'days' => (string) $days,
-                'reason' => $ctx->pick(['Family event', 'Medical appointment', 'Vacation', 'Personal matters']),
+                'reason' => $ctx->pick($es ? ['Evento familiar', 'Cita médica', 'Vacaciones', 'Asuntos personales'] : ['Family event', 'Medical appointment', 'Vacation', 'Personal matters']),
                 'attachment' => 'no_image.png',
                 'half_day' => 0,
                 'status' => $status,

@@ -72,6 +72,7 @@ import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const { date } = useFormat();
@@ -86,7 +87,7 @@ const columns = computed(() => [
 ]);
 
 const companies = ref([]);
-const companyOptions = computed(() => companies.value.map(c => ({ value: c.id, label: c.name })));
+const companyOptions = computed(() => sortByLabel(companies.value.map(c => ({ value: c.id, label: c.name }))));
 
 const modalOpen = ref(false);
 const editMode = ref(false);

@@ -23,6 +23,18 @@ class CompanyNames
     }
 
     /**
+     * The companies a form's / filter's company picker may offer (2026-10-26): every company
+     * for a SuperAdmin, only their own for anyone else -- a company admin used to get the
+     * whole install's company names (Leaves, Attendance, Projects, Tasks, Users...).
+     */
+    public static function visibleTo($user, array $columns = ['id', 'name'])
+    {
+        return Company::whereNull('deleted_at')
+            ->when(! $user || $user->type !== 'SuperAdmin', fn ($q) => $q->where('id', (int) optional($user)->company_id))
+            ->orderBy('name')->get($columns);
+    }
+
+    /**
      * Adds company_name to each row (arrays or objects with company_id) and
      * returns the rows (same type: array or Collection).
      */

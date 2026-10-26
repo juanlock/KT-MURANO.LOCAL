@@ -80,6 +80,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import http from '../../lib/http';
+import { sortByLabel } from '../../lib/filterOptions';
 
 const { t } = useI18n();
 const crud = useCrudTable('departments', { rowsKey: 'departments' });
@@ -95,9 +96,9 @@ const companies = ref([]);
 const employees = ref([]);
 const loadingEmployees = ref(false);
 
-const companyOptions = computed(() => companies.value.map(c => ({ value: c.id, label: c.name })));
+const companyOptions = computed(() => sortByLabel(companies.value.map(c => ({ value: c.id, label: c.name }))));
 const employeeOptions = computed(() =>
-  employees.value.map(e => ({ value: e.id, label: e.username || e.name }))
+  sortByLabel(employees.value.map(e => ({ value: e.id, label: e.username || e.name })))
 );
 
 const modalOpen = ref(false);

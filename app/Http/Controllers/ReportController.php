@@ -9159,7 +9159,7 @@ public function sales_by_brand_report(Request $request)
         }
 
         // Basic filter data (companies, employees)
-        $companies = Company::whereNull('deleted_at')->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
         $employees = $this->rc(Employee::query(), 'employees.company_id')->whereNull('employees.deleted_at')->get(['id', 'username']);
 
         return response()->json([

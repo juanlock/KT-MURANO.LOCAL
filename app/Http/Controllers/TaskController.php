@@ -87,7 +87,7 @@ class TaskController extends Controller
             $data[] = $item;
         }
 
-        $companies = Company::where('deleted_at', '=', null)->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
         $projects = Project::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'title']);
 
         $count_not_started = Task::where('deleted_at', '=', null)
@@ -129,7 +129,7 @@ class TaskController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Task::class);
 
         $projects = Project::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'title']);
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
             'projects' => $projects,
@@ -210,7 +210,7 @@ class TaskController extends Controller
         $task = Task::where('deleted_at', '=', null)->findOrFail($id);
         $assigned_employees = EmployeeTask::where('task_id', $id)->pluck('employee_id')->toArray();
         $projects = Project::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'title']);
-        $companies = Company::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
         $employees = Employee::where('company_id', $task->company_id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'username']);
 
         return response()->json([
