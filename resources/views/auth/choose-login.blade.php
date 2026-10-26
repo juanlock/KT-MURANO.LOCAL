@@ -79,6 +79,7 @@
     .foot { border-top: 1px solid var(--border); padding: 12px 28px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: .85rem; }
     .foot button { background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; text-decoration: underline; }
     form { margin: 0; }
+    .notice { margin: 0 28px 8px; padding: 10px 14px; border-radius: 10px; background: #fff7e6; border: 1px solid #ffd591; color: #874d00; font-size: .9rem; }
     @media (max-width: 560px) { .head, .foot { padding-left: 18px; padding-right: 18px; } .dash { margin-left: 18px; margin-right: 18px; width: calc(100% - 36px); } .sep, .search { margin-left: 18px; margin-right: 18px; } .list { padding: 0 18px 18px; grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -92,6 +93,9 @@
         <p>{{ $L('How do you want to enter?', '¿Cómo quiere entrar?') }}</p>
       </div>
     </div>
+    @if (session('choose_notice'))
+      <div class="notice" role="status">{{ session('choose_notice') }}</div>
+    @endif
 
     <form method="POST" action="{{ route('login.choose.enter') }}">
       @csrf
@@ -137,6 +141,8 @@
   </div>
 
   <script>
+    // Shown again from the browser's history (Back) -> its token is old: reload it.
+    window.addEventListener('pageshow', function (e) { if (e.persisted) window.location.reload(); });
     (function () {
       var s = document.getElementById('ch-search');
       if (!s) return;

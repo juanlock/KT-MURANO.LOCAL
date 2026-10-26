@@ -28,7 +28,7 @@
           <a-tooltip :title="functionOf(record)"><div class="fn">{{ functionOf(record) }}</div></a-tooltip>
         </template>
         <template v-else-if="column.key === 'role'">
-          <a-popover v-if="record.role" :title="record.role" placement="left" trigger="click" overlay-class-name="logins-pop">
+          <a-popover v-if="record.role" :title="roleName(record)" placement="left" trigger="click" overlay-class-name="logins-pop">
             <template #content>
               <div v-if="record.role_description" class="muted" style="margin-bottom: 6px">{{ record.role_description }}</div>
               <div v-for="g in accesses(record.role_id)" :key="g.group" class="acc">
@@ -36,7 +36,7 @@
               </div>
               <div v-if="!accesses(record.role_id).length" class="muted">{{ tx('No permissions.', 'Sin permisos.') }}</div>
             </template>
-            <a-tag color="blue" class="role-tag">{{ record.role }} <InfoCircleOutlined /></a-tag>
+            <a-tag color="blue" class="role-tag">{{ roleName(record) }} <InfoCircleOutlined /></a-tag>
           </a-popover>
           <span v-else class="muted">—</span>
           <div class="muted small">{{ tx('{n} accesses', '{n} accesos').replace('{n}', (perms[record.role_id] || []).length) }}</div>
@@ -99,19 +99,23 @@ const typeLabel = v => (TYPES[v] ? tx(...TYPES[v]) : v);
 const typeOptions = computed(() => [{ value: 'all', label: `${tx('All', 'Todos')} (${logins.value.length})` }]
   .concat(Object.keys(TYPES).filter(k => logins.value.some(l => l.type === k))
     .map(k => ({ value: k, label: `${typeLabel(k)} (${logins.value.filter(l => l.type === k).length})` }))));
+// The role as the screen shows it: in Spanish its label (roles.label: Recepción,
+// Médico especialista...), else its name.
+const roleName = r => (ui.locale === 'es' && r.role_label ? r.role_label : r.role);
 // Roles of the logins of the chosen type, with how many each has.
 const role = ref(undefined);
 const roleOptions = computed(() => {
   const counts = {};
+  const names = {};
   logins.value.filter(l => l.role && (type.value === 'all' || l.type === type.value))
-    .forEach(l => { counts[l.role] = (counts[l.role] || 0) + 1; });
-  return sortByLabel(Object.entries(counts).map(([name, n]) => ({ value: name, label: `${name} (${n})` })));
+    .forEach(l => { counts[l.role] = (counts[l.role] || 0) + 1; names[l.role] = roleName(l); });
+  return sortByLabel(Object.entries(counts).map(([name, n]) => ({ value: name, label: `${names[name]} (${n})` })));
 });
 watch(type, () => { if (role.value && !roleOptions.value.some(o => o.value === role.value)) role.value = undefined; });
 const rows = computed(() => {
   const q = search.value.trim().toLowerCase();
   return logins.value.filter(l => (type.value === 'all' || l.type === type.value) && (!role.value || l.role === role.value)
-    && (!q || [l.name, l.username, l.email, l.role].some(v => String(v || '').toLowerCase().includes(q))));
+    && (!q || [l.name, l.username, l.email, l.role, l.role_label].some(v => String(v || '').toLowerCase().includes(q))));
 });
 const columns = computed(() => [
   { title: tx('Login', 'Login'), key: 'name' },

@@ -80,6 +80,18 @@ class Handler extends ExceptionHandler
 
     public function render($request, Throwable $exception)
     {
+        // SuperAdmin login chooser with an old token (Back after entering as an admin,
+        // an expired session, another tab): a fresh chooser -- or the login page when
+        // the session is gone -- instead of "419 Page Expired".
+        if ($exception instanceof \Illuminate\Session\TokenMismatchException && ! $request->expectsJson()
+            && in_array(trim($request->path(), '/'), ['login/choose', 'login/back'], true)) {
+            $es = app()->getLocale() === 'es';
+
+            return redirect('/login/choose')->with('choose_notice', $es
+                ? 'La página había caducado. Elija otra vez cómo entrar.'
+                : 'The page had expired. Choose again how to enter.');
+        }
+
         if ($exception instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
             return response()->json([
                 'message' => 'Not found',

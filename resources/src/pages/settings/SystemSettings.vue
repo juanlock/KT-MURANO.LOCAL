@@ -123,16 +123,7 @@
                 </a-col>
                 <a-col :span="24">
                   <a-form-item :label="$t('ChangeLogo')">
-                    <a-upload
-                      :file-list="logoFileList"
-                      :before-upload="onLogoPicked"
-                      :max-count="1"
-                      list-type="picture"
-                      accept="image/*"
-                      @remove="() => { logoFileList = []; logoFile = null; }"
-                    >
-                      <a-button><UploadOutlined /> {{ $t('ChangeLogo') }}</a-button>
-                    </a-upload>
+                    <LogoCropper v-model="logoData" :current="auth.logoUrl || ''" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
@@ -1408,7 +1399,7 @@
  * Post-save side effects kept: date_format → localStorage app_date_format,
  * price format + decimals caches, ui-store dark/rtl sync, locale switch.
  */
-import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, h } from 'vue';
 import { useRoute } from 'vue-router';
 import { message, Skeleton } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
@@ -1423,6 +1414,7 @@ import {
   ExperimentOutlined, TableOutlined, PrinterOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import LogoCropper from '../../components/LogoCropper.vue';
 import { useUiStore } from '../../stores/ui';
 import { useAuthStore } from '../../stores/auth';
 import { getActingCompanyId } from '../../lib/actingCompany';
@@ -1577,7 +1569,6 @@ const zonesArray = ref([]);
 const languages = ref([]);
 
 const logoFile = ref(null);
-const logoFileList = ref([]);
 
 function asBool(v) {
   return v === 1 || v === '1' || v === true;
@@ -1723,11 +1714,16 @@ const sessionTimeoutPreset = computed({
 });
 
 /* ------------------------------------------------------------------ logo */
-function onLogoPicked(file) {
-  logoFile.value = file;
-  logoFileList.value = [file];
-  return false;
-}
+// The logo goes through the crop / resize window (LogoCropper, a data URL);
+// it is sent on Save as an ordinary file.
+const logoData = ref('');
+watch(logoData, (url) => {
+  if (!url) { logoFile.value = null; return; }
+  const [head, b64] = url.split(',');
+  const mime = (head.match(/data:([^;]+)/) || [])[1] || 'image/png';
+  const bytes = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
+  logoFile.value = new File([bytes], `logo.${mime.split('/')[1] || 'png'}`, { type: mime });
+});
 
 // Defaults -> Booking: online booking hours. Closed days are stored as
 // "0,6" (0 = Sunday); edited here as a checkbox group of weekday numbers.
@@ -1954,7 +1950,8 @@ async function save() {
     }).catch(() => {});
     // Refresh the auth payload so the sidebar brand (logo size/visibility,
     // company name) reflects the new settings without a full page reload.
-    auth.reload?.().catch?.(() => {});
+    // The new logo then shows from there, so it isn't uploaded again.
+    auth.reload?.().then?.(() => { logoData.value = ''; }).catch?.(() => {});
     // Legacy post-save side effects.
     try {
       if (s.date_format) localStorage.setItem('app_date_format', s.date_format);

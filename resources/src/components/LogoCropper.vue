@@ -1,37 +1,38 @@
 <template>
-  <!-- Logo picker with crop / resize (Companies -> Add / Edit). v-model = the
+  <!-- Logo picker with crop / resize (Companies -> Add / Edit, System Settings -> General). v-model = the
        final image as a data URL (PNG keeps transparency), or '' for none.
        `current` = the logo already saved (URL), shown until a new one is chosen. -->
   <div class="lc">
     <div class="lc-preview" :class="{ 'lc-preview--empty': !shown }">
       <img v-if="shown" :src="shown" alt="Logo" />
-      <span v-else class="lc-muted">No logo</span>
+      <span v-else class="lc-muted">{{ tx('No logo', 'Sin logo') }}</span>
     </div>
     <div class="lc-side">
       <a-space wrap>
         <a-upload :show-upload-list="false" accept="image/png,image/jpeg,image/webp,image/gif" :before-upload="pick">
-          <a-button><template #icon><UploadOutlined /></template>{{ shown ? 'Change logo' : 'Upload logo' }}</a-button>
+          <a-button><template #icon><UploadOutlined /></template>{{ shown ? tx('Change logo', 'Cambiar logo') : tx('Upload logo', 'Subir logo') }}</a-button>
         </a-upload>
-        <a-button v-if="source" @click="open = true"><template #icon><ScissorOutlined /></template>Crop / resize</a-button>
-        <a-button v-if="modelValue" type="link" danger @click="clear">Remove new logo</a-button>
+        <a-button v-if="source" @click="open = true"><template #icon><ScissorOutlined /></template>{{ tx('Crop / resize', 'Recortar / redimensionar') }}</a-button>
+        <a-button v-if="modelValue" type="link" danger @click="clear">{{ tx('Remove new logo', 'Quitar el logo nuevo') }}</a-button>
       </a-space>
       <div class="lc-muted lc-hint">
-        PNG, JPG, WebP or GIF. After choosing it you can cut (crop) it and set its size.
-        <template v-if="outInfo"> Ready: {{ outInfo }}.</template>
+        {{ tx('PNG, JPG, WebP or GIF. After choosing it you can cut (crop) it and set its size.', 'PNG, JPG, WebP o GIF. Después de elegirlo puede recortarlo y fijar su tamaño.') }}
+        <template v-if="outInfo"> {{ tx('Ready', 'Listo') }}: {{ outInfo }}.</template>
       </div>
     </div>
 
-    <a-modal v-model:open="open" title="Crop / resize the logo" :width="660" ok-text="Use this logo" @ok="apply">
+    <a-modal v-model:open="open" :title="tx('Crop / resize the logo', 'Recortar / redimensionar el logo')" :width="660"
+      :ok-text="tx('Use this logo', 'Usar este logo')" :cancel-text="tx('Cancel', 'Cancelar')" @ok="apply">
       <div class="lc-tools">
         <div>
-          <span class="lc-label">Shape</span>
+          <span class="lc-label">{{ tx('Shape', 'Forma') }}</span>
           <a-radio-group v-model:value="aspect" size="small" button-style="solid" @change="resetCrop">
-            <a-radio-button value="free">Free</a-radio-button>
-            <a-radio-button :value="1">Square 1:1</a-radio-button>
-            <a-radio-button :value="3">Wide 3:1</a-radio-button>
+            <a-radio-button value="free">{{ tx('Free', 'Libre') }}</a-radio-button>
+            <a-radio-button :value="1">{{ tx('Square 1:1', 'Cuadrado 1:1') }}</a-radio-button>
+            <a-radio-button :value="3">{{ tx('Wide 3:1', 'Ancho 3:1') }}</a-radio-button>
           </a-radio-group>
         </div>
-        <a-button size="small" @click="wholeImage">Whole image (no crop)</a-button>
+        <a-button size="small" @click="wholeImage">{{ tx('Whole image (no crop)', 'Imagen completa (sin recorte)') }}</a-button>
       </div>
 
       <div class="lc-stage" :style="{ width: dispW + 'px', height: dispH + 'px' }">
@@ -50,10 +51,10 @@
 
       <div class="lc-tools" style="margin-top: 12px">
         <div>
-          <span class="lc-label">Size (longest side)</span>
+          <span class="lc-label">{{ tx('Size (longest side)', 'Tamaño (lado más largo)') }}</span>
           <a-select v-model:value="maxSide" size="small" style="width: 150px" :options="sizeOptions" />
         </div>
-        <span class="lc-muted">Result: {{ outW }} × {{ outH }} px (crop {{ Math.round(crop.w) }} × {{ Math.round(crop.h) }} of {{ natW }} × {{ natH }})</span>
+        <span class="lc-muted">{{ tx('Result', 'Resultado') }}: {{ outW }} × {{ outH }} px ({{ tx('crop', 'recorte') }} {{ Math.round(crop.w) }} × {{ Math.round(crop.h) }} {{ tx('of', 'de') }} {{ natW }} × {{ natH }})</span>
       </div>
     </a-modal>
   </div>
@@ -63,6 +64,10 @@
 import { ref, reactive, computed, onBeforeUnmount } from 'vue';
 import { message } from 'ant-design-vue';
 import { UploadOutlined, ScissorOutlined } from '@ant-design/icons-vue';
+import { useUiStore } from '../stores/ui';
+
+const ui = useUiStore();
+const tx = (en, es) => (ui.locale === 'es' ? es : en);
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -93,11 +98,11 @@ const outH = computed(() => Math.max(1, Math.round(crop.h * outScale.value)));
 
 function pick(file) {
   if (!/^image\/(png|jpe?g|webp|gif)$/.test(file.type)) {
-    message.error('Choose a PNG, JPG, WebP or GIF image.');
+    message.error(tx('Choose a PNG, JPG, WebP or GIF image.', 'Elija una imagen PNG, JPG, WebP o GIF.'));
     return false;
   }
   if (file.size > 15 * 1024 * 1024) {
-    message.error('That image is over 15 MB.');
+    message.error(tx('That image is over 15 MB.', 'Esa imagen pesa más de 15 MB.'));
     return false;
   }
   const reader = new FileReader();
@@ -111,7 +116,7 @@ function pick(file) {
       wholeImage();
       open.value = true;
     };
-    img.onerror = () => message.error('That file could not be read as an image.');
+    img.onerror = () => message.error(tx('That file could not be read as an image.', 'Ese archivo no se pudo leer como imagen.'));
     img.src = reader.result;
   };
   reader.readAsDataURL(file);
