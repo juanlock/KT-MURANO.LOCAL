@@ -2,6 +2,22 @@
   <div class="page">
     <PageHeader :title="s('Reception and schedule')" :breadcrumb="[s('Clinic'), s('Reception and schedule')]">
       <template #actions>
+        <!-- Ready patients waiting too long for the doctor: one icon with the count, the list on click. -->
+        <a-popover v-if="data.late.length" trigger="click" placement="bottomRight" :title="s('Waiting too long for the doctor')">
+          <template #content>
+            <div class="late-list">
+              <div v-for="l in data.late" :key="l.appointment_id" class="late-row" @click="openLate(l)">
+                <div><b>{{ l.patient }}</b><div class="late-doc">{{ l.doctor }}</div></div>
+                <a-tag color="orange">{{ l.minutes }} min</a-tag>
+              </div>
+            </div>
+          </template>
+          <a-tooltip :title="s('Waiting too long for the doctor')">
+            <a-badge :count="data.late.length" :offset="[-4, 4]">
+              <a-button class="late-btn"><WarningOutlined /></a-button>
+            </a-badge>
+          </a-tooltip>
+        </a-popover>
         <a-button @click="moveDay(-1)"><LeftOutlined /></a-button>
         <a-date-picker v-model:value="date" value-format="YYYY-MM-DD" :allow-clear="false" @change="load" />
         <a-button @click="moveDay(1)"><RightOutlined /></a-button>
@@ -13,9 +29,6 @@
     <div class="kpis">
       <div v-for="k in KPI" :key="k.key" class="kpi"><div class="kpi-v" :style="{ color: k.color }">{{ data.kpis[k.key] ?? 0 }}</div><div class="kpi-l">{{ s(k.label) }}</div></div>
     </div>
-
-    <a-alert v-for="l in data.late" :key="l.appointment_id" type="warning" show-icon style="margin-bottom: 8px"
-      :message="`${l.doctor}: ${s('patient ready and waiting')} ${l.patient} · ${l.minutes} min`" />
 
     <div class="layout">
       <!-- Schedule grid: one column per doctor -->
@@ -154,7 +167,7 @@
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import dayjs from 'dayjs';
 import { message } from 'ant-design-vue';
-import { LeftOutlined, RightOutlined, PlusOutlined } from '@ant-design/icons-vue';
+import { LeftOutlined, RightOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useFormat } from '../../composables/useFormat';
@@ -294,6 +307,10 @@ async function cancelRequest(r) {
 const apptOpen = ref(false);
 const sel = ref(null);
 function openAppt(a) { sel.value = a; apptOpen.value = true; }
+function openLate(l) {
+  const a = data.value.appointments.find(x => x.id === l.appointment_id);
+  if (a) openAppt(a);
+}
 async function setStatus(st2) {
   try {
     await http.post(`hospital/clinic/appointments/${sel.value.id}/status`, { status: st2 });
@@ -331,6 +348,12 @@ onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <style scoped>
+.late-btn { color: #d97706; border-color: #fcd34d; }
+.late-list { width: 280px; max-height: 320px; overflow-y: auto; }
+.late-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 6px; border-radius: 6px; cursor: pointer; }
+.late-row + .late-row { border-top: 1px solid rgba(128, 128, 128, 0.15); }
+.late-row:hover { background: rgba(217, 119, 6, 0.08); }
+.late-doc { font-size: 12px; opacity: 0.65; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .kpi { padding: 10px 12px; border-radius: 12px; background: rgba(128, 128, 128, 0.08); }
 .kpi-v { font-size: 22px; font-weight: 700; }

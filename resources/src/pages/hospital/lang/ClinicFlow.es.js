@@ -12,7 +12,7 @@ export default {
     'In consultation': 'En consulta',
     'Attended': 'Atendidos',
     'No-show': 'No asistió',
-    'patient ready and waiting': 'paciente listo esperando:',
+    'Waiting too long for the doctor': 'Esperando al médico más de 15 min',
     '1st': '1.ª',
     'Pre-registered from home': 'Pre-registro hecho desde casa',
     'To schedule': 'Por agendar',
