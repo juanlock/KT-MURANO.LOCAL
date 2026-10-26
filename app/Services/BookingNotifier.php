@@ -343,6 +343,41 @@ class BookingNotifier
     }
 
     /**
+     * The patient's appointment is cancelled because their doctor left (a doctor
+     * removed from employees, EmployeeRemoval, 2026-10-26): reception will call
+     * to give them another doctor. Company's language. Returns the address, or null.
+     */
+    public static function clinicRescheduleNotice(int $companyId, int $appointmentId, ?Mailer $mailer = null): ?string
+    {
+        $ap = DB::table('appointments as a')->leftJoin('patients as p', 'p.id', '=', 'a.patient_id')->leftJoin('doctors as d', 'd.id', '=', 'a.doctor_id')
+            ->where('a.id', $appointmentId)->first(['a.reference', 'a.scheduled_at', 'p.name', 'p.email', 'p.client_id', 'd.name as doctor', 'd.specialty']);
+        $email = $ap ? ($ap->email ?: ($ap->client_id ? DB::table('clients')->where('id', $ap->client_id)->value('email') : null)) : null;
+        if (! $ap || ! $email || self::reserved($email)) {
+            return null;
+        }
+        $settings = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['CompanyName', 'email', 'CompanyPhone', 'default_language']);
+        $company = trim((string) DB::table('companies')->where('id', $companyId)->value('name')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Clinic');
+        $companyEmail = filter_var($settings->email ?? '', FILTER_VALIDATE_EMAIL) && ! self::reserved($settings->email) ? $settings->email : null;
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
+        $es = ($settings->default_language ?? 'en') === 'es';
+        $at = \Carbon\Carbon::parse($ap->scheduled_at)->locale($es ? 'es' : 'en');
+        $date = $es ? $at->isoFormat('dddd D [de] MMMM [de] YYYY, HH:mm') : $at->format('l, F j, Y, H:i');
+        $phone = ! empty($settings->CompanyPhone) ? $settings->CompanyPhone : null;
+        $rows = $es
+            ? array_filter(['Cita' => $ap->reference, 'Fecha' => $date, 'Médico' => $ap->doctor, 'Especialidad' => $ap->specialty])
+            : array_filter(['Appointment' => $ap->reference, 'Date' => $date, 'Doctor' => $ap->doctor, 'Specialty' => $ap->specialty]);
+        $ok = $es
+            ? self::deliver($mailer, $from, $company, $email, $ap->name, "Su cita del {$at->isoFormat('D/MM HH:mm')} será reprogramada - {$company}",
+                "Hola {$ap->name},\n\nSu médico ya no atiende en {$company}, así que su cita quedó sin efecto. Nuestra recepción lo contactará para darle una nueva cita con otro especialista.", $rows,
+                $phone ? "Si prefiere, llámenos al {$phone}." : '', $companyEmail)
+            : self::deliver($mailer, $from, $company, $email, $ap->name, "Your appointment on {$at->format('M j H:i')} will be rescheduled - {$company}",
+                "Hello {$ap->name},\n\nYour doctor no longer works at {$company}, so this appointment has been cancelled. Our reception will contact you to book a new one with another specialist.", $rows,
+                $phone ? "If you prefer, call us at {$phone}." : '', $companyEmail);
+
+        return $ok ? $email : null;
+    }
+
+    /**
      * Satisfaction survey after a consultation (specialist clinic, 2026-10-26):
      * "How likely are you to recommend us? 0-10" (NPS) + a comment, on a
      * public page with the survey's token. Returns the address, or null.

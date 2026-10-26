@@ -52,8 +52,11 @@ class HospitalClinicController extends Controller
 
         return response()->json([
             'from' => $from->toDateString(), 'days' => $days,
-            'doctors' => Doctor::whereNull('deleted_at')->where('is_active', 1)->orderBy('name')
-                ->get(['id', 'name', 'specialty', 'specialty_template', 'consultation_fee', 'availability']),
+            // Active doctors, plus an inactive one (removed today) while those days still have their
+            // appointments in progress / attended -- otherwise those rows vanish from the grid.
+            'doctors' => Doctor::whereNull('deleted_at')
+                ->where(fn ($q) => $q->where('is_active', 1)->orWhereIn('id', $rows->where('status', '!=', 'cancelled')->pluck('doctor_id')->unique()->values()))
+                ->orderBy('name')->get(['id', 'name', 'specialty', 'specialty_template', 'consultation_fee', 'availability', 'is_active']),
             'appointments' => $rows->map(fn ($a) => $this->presentAppointment($a))->values(),
             'requests' => $this->pendingRequests(),
             'late' => $this->lateDoctors(),
@@ -77,6 +80,9 @@ class HospitalClinicController extends Controller
             'request_id' => 'nullable|integer',
         ]);
         $doctor = Doctor::findOrFail($request->doctor_id);
+        if (! $doctor->is_active) {
+            return response()->json(['message' => 'This doctor no longer takes appointments.'], 422);
+        }
         $start = Carbon::parse($request->scheduled_at);
         $minutes = (int) ($request->duration_minutes ?: 20);
         if ($clash = $this->clash($doctor->id, $start, $minutes)) {
@@ -118,6 +124,9 @@ class HospitalClinicController extends Controller
             return response()->json(['message' => 'Only an appointment not checked in yet can be moved.'], 422);
         }
         $doctorId = (int) ($request->doctor_id ?: $a->doctor_id);
+        if (! Doctor::whereKey($doctorId)->value('is_active')) {
+            return response()->json(['message' => 'This doctor no longer takes appointments.'], 422);
+        }
         $start = Carbon::parse($request->scheduled_at);
         if ($clash = $this->clash($doctorId, $start, (int) ($a->duration_minutes ?: 20), $a->id)) {
             return response()->json(['message' => 'The doctor already has an appointment then ('.$clash.').'], 422);
@@ -619,7 +628,7 @@ class HospitalClinicController extends Controller
             ->where('r.status', 'pending')->when($cid !== null, fn ($q) => $q->where('r.company_id', $cid))
             ->orderBy('r.wanted_on')->limit(200)
             ->get(['r.id', 'r.kind', 'r.wanted_on', 'r.reason', 'r.studies', 'r.patient_id', 'r.doctor_id', 'p.name as patient', 'p.phone',
-                'p.mrn', 'd.name as doctor', 'f.name as from_doctor']);
+                'p.mrn', 'd.name as doctor', 'f.name as from_doctor', 'f.specialty as from_specialty']);
 
         return $rows->map(fn ($r) => (array) $r + ['overdue' => $r->wanted_on && $r->wanted_on < today()->toDateString()])->values();
     }

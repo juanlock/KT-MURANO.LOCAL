@@ -29,6 +29,8 @@ export default {
     'Follow-up': 'Control',
     'Referral': 'Interconsulta',
     'Requested from the portal': 'Pedida desde el portal',
+    'Reassign doctor': 'Reasignar médico',
+    'Removed': 'Dado de baja',
     'Phone': 'Teléfono',
     'Web / portal': 'Web / portal',
     'WhatsApp': 'WhatsApp',

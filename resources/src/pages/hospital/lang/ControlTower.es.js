@@ -12,6 +12,8 @@ export default {
     'Empty bed': 'Cama vacía',
     'triage {t}, waiting {m}': 'triaje {t}, esperando {m}',
     'Admission desk': 'Admisión',
+    'no attending doctor': 'sin médico tratante',
+    'Assign doctor': 'Asignar médico',
     'No floor maps yet: Hospital -> Configuration -> Floor map.': 'Aún no hay mapas: Hospital -> Configuración -> Mapa por planta.',
     'Available': 'Libres',
     'Occupied': 'Ocupadas',

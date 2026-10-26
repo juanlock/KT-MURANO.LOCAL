@@ -26,6 +26,10 @@
             <span>🛏 <b>{{ x.patient }}</b> — {{ x.ward }} · {{ x.bed }}: {{ s('discharged, still in the room') }}<template v-if="x.minutes != null"> ({{ dur(x.minutes) }})</template></span>
             <a-button size="small" @click="emptyBed(x.admission_id)">{{ s('Empty bed') }}</a-button>
           </div>
+          <div v-for="n in t.alerts?.no_doctor || []" :key="'n' + n.admission_id" class="al bad">
+            <span>🩺 <b>{{ n.patient }}</b> — <template v-if="n.ward">{{ n.ward }} · {{ n.bed }}: </template>{{ s('no attending doctor') }}</span>
+            <PermLink to="/hospital/admissions" :permission="['hms_admissions', 'hms_admission_desk']"><a-button size="small">{{ s('Assign doctor') }}</a-button></PermLink>
+          </div>
           <div v-for="w in t.alerts?.waiting_long || []" :key="'w' + w.er_case_id" class="al warn">
             <span>⏱ <b>{{ w.patient }}</b> — {{ s('triage {t}, waiting {m}', { t: w.triage || '?', m: dur(w.minutes) }) }}</span>
             <PermLink to="/hospital/admission-desk" :permission="['hms_admission_desk', 'hms_visitors']"><a-button size="small">{{ s('Admission desk') }}</a-button></PermLink>
@@ -63,7 +67,7 @@ const floorId = ref(null);
 const floor = computed(() => floors.value.find(f => f.id === floorId.value) || null);
 // 45 -> "45 min", 914 -> "15 h 14 min"
 const dur = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
-const alertCount = computed(() => ['cleaning_late', 'to_free', 'waiting_long'].reduce((n, k) => n + (t.value.alerts?.[k]?.length || 0), 0));
+const alertCount = computed(() => ['cleaning_late', 'to_free', 'no_doctor', 'waiting_long'].reduce((n, k) => n + (t.value.alerts?.[k]?.length || 0), 0));
 
 async function load() {
   try {

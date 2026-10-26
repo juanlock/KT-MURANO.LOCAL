@@ -35,13 +35,14 @@
       <div class="grid-wrap">
         <div class="grid" :style="{ gridTemplateColumns: `64px repeat(${doctors.length}, minmax(170px, 1fr))` }">
           <div class="corner"></div>
-          <div v-for="d in doctors" :key="d.id" class="doc-head">
+          <div v-for="d in doctors" :key="d.id" class="doc-head" :class="{ 'doc-off': !d.is_active }">
             <b>{{ d.name }}</b><div class="muted">{{ d.specialty }}</div>
+            <a-tag v-if="!d.is_active" color="red" class="off-tag">{{ s('Removed') }}</a-tag>
           </div>
           <template v-for="t in slots" :key="t">
             <div class="time">{{ t }}</div>
             <div v-for="d in doctors" :key="d.id + t" class="cell" :class="{ over: dragOver === d.id + t, past: isPast(t) }"
-              @dragover.prevent="dragOver = d.id + t" @dragleave="dragOver = null" @drop="drop(d, t)" @dblclick="openNew(d, t)">
+              @dragover.prevent="dragOver = d.id + t" @dragleave="dragOver = null" @drop="d.is_active && drop(d, t)" @dblclick="d.is_active && openNew(d, t)">
               <div v-for="a in at(d.id, t)" :key="a.id" class="appt" :class="['st-' + state(a)]" :draggable="!a.flow && !['completed','cancelled','no_show'].includes(a.status)"
                 @dragstart="dragging = a" @dragend="dragging = null; dragOver = null" @click.stop="openAppt(a)">
                 <div class="a-top"><b>{{ a.patient }}</b><span class="a-time">{{ hm(a.scheduled_at) }}</span></div>
@@ -62,7 +63,10 @@
           <a-empty v-if="!data.requests.length" :description="s('Nothing to schedule')" />
           <div v-for="r in data.requests" :key="r.id" class="req" :class="{ overdue: r.overdue }">
             <div><b>{{ r.patient }}</b> <span class="muted">{{ r.phone }}</span></div>
-            <div class="muted">{{ s(KIND[r.kind] || r.kind) }} · {{ r.doctor || s('Any doctor') }} · {{ r.wanted_on }}</div>
+            <div v-if="r.kind === 'reassign'" class="muted">
+              <a-tag color="red" style="margin: 0 4px 0 0">{{ s(KIND.reassign) }}</a-tag>{{ r.from_specialty || s('Any doctor') }} · {{ r.wanted_on }}
+            </div>
+            <div v-else class="muted">{{ s(KIND[r.kind] || r.kind) }} · {{ r.doctor || s('Any doctor') }} · {{ r.wanted_on }}</div>
             <div v-if="r.reason" class="muted">{{ r.reason }}</div>
             <div v-if="r.studies" class="muted">{{ s('Bring') }}: {{ r.studies }}</div>
             <a-space style="margin-top: 4px">
@@ -192,7 +196,8 @@ const STATE = {
   in_consult: { label: 'In consultation', color: 'purple' }, finished: { label: 'Attended', color: 'cyan' },
   no_show: { label: 'No-show', color: 'red' }, cancelled: { label: 'Cancelled', color: 'default' },
 };
-const KIND = { follow_up: 'Follow-up', referral: 'Referral', portal: 'Requested from the portal' };
+// reassign: the doctor was removed (EmployeeRemoval) -- give the patient another one of that specialty.
+const KIND = { follow_up: 'Follow-up', referral: 'Referral', portal: 'Requested from the portal', reassign: 'Reassign doctor' };
 const CHANNEL = { phone: 'Phone', web: 'Web / portal', whatsapp: 'WhatsApp', walk_in: 'Walk-in', email: 'Email' };
 const PAYMENT = { paid: 'Paid', insurance: 'Insurance', pending: 'Pays at the end' };
 
@@ -203,7 +208,8 @@ const dragging = ref(null);
 const dragOver = ref(null);
 
 const doctors = computed(() => data.value.doctors);
-const doctorOptions = computed(() => sortByLabel(doctors.value.map(d => ({ value: d.id, label: d.specialty ? `${d.name} (${d.specialty})` : d.name }))));
+// Only doctors who still take appointments (a removed one may keep a column for today's history).
+const doctorOptions = computed(() => sortByLabel(doctors.value.filter(d => d.is_active).map(d => ({ value: d.id, label: d.specialty ? `${d.name} (${d.specialty})` : d.name }))));
 const channelOptions = computed(() => Object.keys(CHANNEL).map(k => ({ value: k, label: s(CHANNEL[k]) })));
 const methodOptions = computed(() => sortByLabel([{ value: 'cash', label: s('Cash') }, { value: 'card', label: s('Card') }, { value: 'transfer', label: s('Transfer') }]));
 const doctorName = id => (doctors.value.find(d => d.id === id) || {}).name;
@@ -363,6 +369,8 @@ onBeforeUnmount(() => clearInterval(timer));
 .grid-wrap { overflow: auto; max-height: calc(100vh - 260px); border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 10px; }
 .grid { display: grid; }
 .corner, .doc-head { position: sticky; top: 0; z-index: 2; background: var(--ant-color-bg-container, #fff); border-bottom: 1px solid rgba(128, 128, 128, 0.25); padding: 6px 8px; }
+.doc-off b { text-decoration: line-through; opacity: 0.6; }
+.off-tag { margin-top: 2px; font-size: 11px; }
 .time { font-size: 12px; opacity: 0.6; padding: 4px 6px; border-top: 1px dashed rgba(128, 128, 128, 0.2); }
 .cell { min-height: 46px; border-top: 1px dashed rgba(128, 128, 128, 0.2); border-left: 1px solid rgba(128, 128, 128, 0.12); padding: 2px; }
 .cell.past { background: rgba(128, 128, 128, 0.04); }

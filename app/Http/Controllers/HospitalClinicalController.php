@@ -387,6 +387,9 @@ class HospitalClinicalController extends Controller
                 'waiting_long' => ErCase::with('patient')->whereNull('deleted_at')->where('status', '!=', 'closed')->whereNull('bed_id')->get()
                     ->filter(fn ($c) => $c->arrived_at && $c->arrived_at->diffInMinutes(now()) > ($limits[$c->triage_level] ?? 120))
                     ->map(fn ($c) => ['er_case_id' => $c->id, 'patient' => optional($c->patient)->name, 'triage' => $c->triage_level, 'minutes' => (int) $c->arrived_at->diffInMinutes(now())])->values(),
+                // Inpatients left without attending doctor (e.g. their doctor was removed from employees, 2026-10-26).
+                'no_doctor' => Admission::with('patient', 'bed', 'ward')->whereNull('deleted_at')->where('status', 'admitted')->whereNull('doctor_id')->get()
+                    ->map(fn ($a) => ['admission_id' => $a->id, 'patient' => optional($a->patient)->name, 'bed' => optional($a->bed)->bed_number, 'ward' => optional($a->ward)->name])->values(),
             ],
             'suggested' => $this->suggest($beds, (int) $request->get('triage', 3), $request->get('department_id'), $request->get('kind', 'ward')),
         ]);
