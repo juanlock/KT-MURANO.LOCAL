@@ -1994,6 +1994,10 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('system_health', 'SystemHealthController@index');
     Route::get('system_health/pdf', 'SystemHealthController@pdf');
 
+    // KT-Log (2026-10-26): the kt_logs history -- SuperAdmin on AdminSystem only.
+    Route::get('kt_logs', 'KtLogController@index');
+    Route::get('kt_logs/{id}', 'KtLogController@show')->whereNumber('id');
+
     // ------------------------------- Module Settings ------------------------\\
 
     Route::get('get_modules_info', 'ModuleSettingsController@get_modules_info');

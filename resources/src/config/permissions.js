@@ -1701,6 +1701,11 @@ export const PERMISSION_GROUPS = [
                 "l": "System_Health"
             },
             {
+                "v": "kt_logs_view",
+                "l": "KT_Log",
+                "f": "KT-Log (work history)"
+            },
+            {
                 "v": "appearance_settings",
                 "l": "appearance_settings",
                 "f": "Dynamic Appearance"

@@ -222,6 +222,7 @@ export const MENU_ITEM_ICONS = {
     "/app/settings/Currencies": DollarSign,
     "/app/settings/Backup": DatabaseBackup,
     "/app/settings/system_health": MonitorUp,
+    "/app/settings/kt_log": ScrollText,
     "/app/settings/webhooks": Cloud,
     "/app/settings/login_devices": Lock,
     "/app/settings/network_security": Lock,

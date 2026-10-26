@@ -44,6 +44,7 @@ export const MIGRATED_ROUTES = {
     '/app/settings/network_security': '/settings/network-security',
     '/app/settings/paypal': '/settings/paypal',
     '/app/settings/system_health': '/settings/system-health',
+    '/app/settings/kt_log': '/settings/kt-log',
     '/app/settings/sms_templates': '/settings/sms-templates',
     '/app/settings/email_templates': '/settings/email-templates',
     '/app/settings/Backup': '/settings/backup',
@@ -1070,7 +1071,7 @@ export const MENU = [
         key: 'settings',
         icon: 'database-zap',
         label: 'Settings',
-        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'sms_templates', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'paypal_manage'],
+        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'sms_templates', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'paypal_manage', 'kt_logs_view'],
         children: [
             { label: 'SystemSettings', to: '/app/settings/System_settings', permissions: ['setting_system'] },
             // superAdminOnly: install-level admin tooling that must never be
@@ -1099,6 +1100,8 @@ export const MENU = [
             { label: 'Currencies', to: '/app/settings/Currencies', permissions: ['currency'], systemOnly: true },
             { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true, systemOnly: true },
             { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'], systemOnly: true },
+            // KT-Log (2026-10-26): the kt_logs work history -- superadmin/AdminSystem only.
+            { label: 'KT_Log', to: '/app/settings/kt_log', permissions: ['kt_logs_view'], superAdminOnly: true, systemOnly: true },
             { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true, systemOnly: true },
             // Company-level (not superAdminOnly): a role with network_security manages its own company.
             { label: 'Network_Security', to: '/app/settings/network_security', permissions: ['network_security'] },

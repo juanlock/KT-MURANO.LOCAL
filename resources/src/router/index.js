@@ -931,6 +931,7 @@ const routes = [
             { path: 'settings/paypal', name: 'paypal-settings', component: () => import('../pages/settings/PayPalSettings.vue'), meta: { title: 'PayPal', permission: 'paypal_manage' } },
             { path: 'settings/network-security', name: 'network-security', component: () => import('../pages/settings/NetworkSecurity.vue'), meta: { title: 'Network security', permission: 'network_security' } },
             { path: 'settings/system-health', name: 'system-health', component: SystemHealth, meta: { title: 'System Health', permission: 'system_health_view', systemOnly: true } },
+            { path: 'settings/kt-log', name: 'kt-log', component: () => import('../pages/settings/KtLog.vue'), meta: { title: 'KT-Log', permission: 'kt_logs_view', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/sms-templates', name: 'sms-templates', component: SmsTemplates, meta: { title: 'SMS Templates', permission: 'sms_templates' } },
             { path: 'settings/email-templates', name: 'email-templates', component: EmailTemplates, meta: { title: 'Email Templates', permission: 'notification_template' } },
             // Legacy route has no permission gate — keep it open the same way.
