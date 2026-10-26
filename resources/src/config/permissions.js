@@ -1304,6 +1304,26 @@ export const PERMISSION_GROUPS = [
                 "f": "Operating room"
             },
             {
+                "v": "hms_reception",
+                "l": "Clinic: reception and schedule",
+                "f": "Clinic: reception and schedule"
+            },
+            {
+                "v": "hms_nursing_station",
+                "l": "Clinic: nursing station",
+                "f": "Clinic: nursing station"
+            },
+            {
+                "v": "hms_specialist",
+                "l": "Clinic: specialist consultation (EMR)",
+                "f": "Clinic: specialist consultation (EMR)"
+            },
+            {
+                "v": "hms_clinic_reports",
+                "l": "Clinic: reports",
+                "f": "Clinic: reports"
+            },
+            {
                 "v": "hms_setup",
                 "l": "Hospital configuration",
                 "f": "Hospital configuration (shifts, floors, rooms, beds, map)"

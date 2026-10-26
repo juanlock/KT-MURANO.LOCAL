@@ -178,6 +178,9 @@ class HospitalModule extends DemoModule
             ['table' => 'doctors'],
             ['table' => 'hospital_departments'],
             ['table' => 'lab_tests'],
+            ['table' => 'hms_surveys'],
+            ['table' => 'hms_appointment_requests'],
+            ['table' => 'hms_patient_problems'],
             ['table' => 'patients'],
         ];
     }
@@ -213,6 +216,10 @@ class HospitalModule extends DemoModule
     {
         $lang = DB::table('settings')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->value('default_language');
         $this->es = str_starts_with((string) $lang, 'es');
+        // A specialist clinic (2026-10-26) gets its own outpatient demo (no wards / ER / surgery).
+        if (($ctx->businessType ?? null) === 'health_specialist') {
+            return (new SpecialistDemo($this->es))->generate($ctx);
+        }
         $demo = $this->t('demo');
 
         // ---- Departments

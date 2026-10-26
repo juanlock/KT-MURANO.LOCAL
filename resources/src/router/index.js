@@ -384,6 +384,10 @@ const HospitalInvoices = lazy('HospitalInvoices', () => import('../pages/hospita
 const HospitalReports = lazy('HospitalReports', () => import('../pages/hospital/HospitalReports.vue'));
 const HospitalEr = lazy('HospitalEr', () => import('../pages/hospital/EmergencyRoom.vue'));
 const HospitalPharmacy = lazy('HospitalPharmacy', () => import('../pages/hospital/Pharmacy.vue'));
+const ClinicAgenda = lazy('ClinicAgenda', () => import('../pages/hospital/ClinicAgenda.vue'));
+const NursingStation = lazy('NursingStation', () => import('../pages/hospital/NursingStation.vue'));
+const SpecialistConsult = lazy('SpecialistConsult', () => import('../pages/hospital/SpecialistConsult.vue'));
+const ClinicReports = lazy('ClinicReports', () => import('../pages/hospital/ClinicReports.vue'));
 const HospitalDesk = lazy('HospitalDesk', () => import('../pages/hospital/AdmissionDesk.vue'));
 const HospitalMyPatients = lazy('HospitalMyPatients', () => import('../pages/hospital/MyPatients.vue'));
 const HospitalTreatments = lazy('HospitalTreatments', () => import('../pages/hospital/Treatments.vue'));
@@ -798,6 +802,11 @@ const routes = [
             { path: 'hospital/reports', name: 'hospital-reports', component: HospitalReports, meta: { title: 'Hospital Reports', permission: 'hms_reports' } },
             { path: 'hospital/er', name: 'hospital-er', component: HospitalEr, meta: { title: 'Emergency Room', permission: 'hms_er' } },
             { path: 'hospital/pharmacy', name: 'hospital-pharmacy', component: HospitalPharmacy, meta: { title: 'Pharmacy', permission: ['hms_pharmacy', 'hms_pharmacy_dispense'] } },
+            // Specialist clinic (2026-10-26)
+            { path: 'hospital/agenda', name: 'clinic-agenda', component: ClinicAgenda, meta: { title: 'Reception and schedule', permission: 'hms_reception' } },
+            { path: 'hospital/nursing', name: 'clinic-nursing', component: NursingStation, meta: { title: 'Nursing station', permission: 'hms_nursing_station' } },
+            { path: 'hospital/specialist', name: 'clinic-specialist', component: SpecialistConsult, meta: { title: 'My consultation', permission: ['hms_specialist', 'hms_reception'] } },
+            { path: 'hospital/clinic-reports', name: 'clinic-reports', component: ClinicReports, meta: { title: 'Clinic reports', permission: 'hms_clinic_reports' } },
             { path: 'hospital/admission-desk', name: 'hospital-desk', component: HospitalDesk, meta: { title: 'Admission desk', permission: ['hms_admission_desk', 'hms_visitors'] } },
             { path: 'hospital/my-patients', name: 'hospital-my-patients', component: HospitalMyPatients, meta: { title: 'My patients', permission: ['hms_my_patients', 'hms_shifts'] } },
             { path: 'hospital/treatments', name: 'hospital-treatments', component: HospitalTreatments, meta: { title: 'Treatments', permission: ['hms_treatments', 'hms_treatments_administer'] } },

@@ -101,7 +101,7 @@ class CoreModule extends DemoModule
         $products = $on('products');
         // A hospital's customers are its patients and its sales its hospital bills
         // (2026-10-21, HospitalModule): no generic demo customers / sales here.
-        $hospital = ($ctx->businessType ?? null) === 'hospital';
+        $hospital = in_array($ctx->businessType ?? null, ['hospital', 'health_specialist'], true);
         $sales = $on('sales') && $products && ! $hospital;
         $purchases = $on('purchases') && $products;
         $suppliers = $purchases || $on('suppliers');
@@ -152,7 +152,7 @@ class CoreModule extends DemoModule
 
     private function makeProducts(DemoContext $ctx, int $count): array
     {
-        $hospital = ($ctx->businessType ?? null) === 'hospital';
+        $hospital = in_array($ctx->businessType ?? null, ['hospital', 'health_specialist'], true);
         $es = str_starts_with((string) DB::table('settings')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->value('default_language'), 'es');
         $categoryId = $ctx->insert('categories', ['code' => 'DEMO'.random_int(100, 999),
             'name' => $hospital ? ($es ? 'Medicamentos e insumos' : 'Medicines & supplies') : 'Demo Category']);
@@ -239,7 +239,7 @@ class CoreModule extends DemoModule
         $ids = [];
         for ($i = 0; $i < $count; $i++) {
             // A hospital buys from laboratories / drug wholesalers (2026-10-21).
-            $name = ($ctx->businessType ?? null) === 'hospital'
+            $name = in_array($ctx->businessType ?? null, ['hospital', 'health_specialist'], true)
                 ? self::PHARMA_SUPPLIERS[$i % count(self::PHARMA_SUPPLIERS)]
                 : $ctx->pick(self::COMPANY_WORDS).' '.$ctx->pick(self::COMPANY_TYPES);
             $ids[] = $ctx->insert('providers', [

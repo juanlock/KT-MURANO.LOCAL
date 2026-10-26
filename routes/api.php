@@ -1152,6 +1152,23 @@ Route::get('hospital/beds', 'HospitalWardController@beds');
     Route::post('hospital/er', 'HospitalErController@store');
     Route::put('hospital/er/{id}', 'HospitalErController@update');
     Route::delete('hospital/er/{id}', 'HospitalErController@destroy');
+    // Specialist clinic flow (2026-10-26)
+    Route::get('hospital/clinic/agenda', 'HospitalClinicController@agenda');
+    Route::post('hospital/clinic/appointments', 'HospitalClinicController@store');
+    Route::put('hospital/clinic/appointments/{id}/move', 'HospitalClinicController@move');
+    Route::post('hospital/clinic/appointments/{id}/status', 'HospitalClinicController@setStatus');
+    Route::post('hospital/clinic/appointments/{id}/check-in', 'HospitalClinicController@checkIn');
+    Route::get('hospital/clinic/nursing', 'HospitalClinicController@nursingQueue');
+    Route::post('hospital/clinic/appointments/{id}/vitals', 'HospitalClinicController@saveVitals');
+    Route::get('hospital/clinic/my-queue', 'HospitalClinicController@myQueue');
+    Route::get('hospital/clinic/consult/{id}', 'HospitalClinicController@consult');
+    Route::post('hospital/clinic/consult/{id}/start', 'HospitalClinicController@start');
+    Route::put('hospital/clinic/consult/{id}', 'HospitalClinicController@save');
+    Route::post('hospital/clinic/consult/{id}/finish', 'HospitalClinicController@finish');
+    Route::get('hospital/clinic/requests', 'HospitalClinicController@requests');
+    Route::post('hospital/clinic/requests/{id}/cancel', 'HospitalClinicController@cancelRequest');
+    Route::get('hospital/clinic/reports', 'HospitalClinicController@reports');
+
     // Staff shifts, admission desk, treatments, operating room (2026-10-21)
     Route::get('hospital/shifts', 'HospitalStaffController@index');
     Route::post('hospital/shifts', 'HospitalStaffController@store');

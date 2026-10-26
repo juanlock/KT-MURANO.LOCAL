@@ -325,19 +325,55 @@ class BookingNotifier
             ? array_filter(['Cita' => $ap->reference, 'Fecha' => $date, 'Médico' => $ap->doctor, 'Especialidad' => $ap->department, 'Motivo' => $ap->reason])
             : array_filter(['Appointment' => $ap->reference, 'Date' => $date, 'Doctor' => $ap->doctor, 'Department' => $ap->department, 'Reason' => $ap->reason]);
         $phone = ! empty($settings->CompanyPhone) ? $settings->CompanyPhone : null;
+        // Confirm / cancel without signing in (signed links, 2026-10-26): fewer no-shows.
+        $sign = fn (string $action) => \App\Support\PublicUrl::base($companyId)
+            .\Illuminate\Support\Facades\URL::signedRoute('clinic.appointment.answer', ['appointment' => $appointmentId, 'action' => $action], now()->addDays(7), false);
+        $actions = $es
+            ? [['Confirmar mi cita', $sign('confirm'), '#2e7d32'], ['No podré asistir', $sign('cancel'), '#b91c1c']]
+            : [['Confirm my appointment', $sign('confirm'), '#2e7d32'], ["I can't come", $sign('cancel'), '#b91c1c']];
         $ok = $es
             ? self::deliver($mailer, $from, $company, $email, $ap->name, "Recordatorio: su cita del {$at->isoFormat('D/MM HH:mm')} - {$company}",
                 "Hola {$ap->name},\n\nLe recordamos su cita en {$company}.", $rows,
-                'Llegue 15 minutos antes con su documento.'.($phone ? " Para cambiarla llame al {$phone}." : ''), $companyEmail)
+                'Llegue 15 minutos antes con su documento.'.($phone ? " Para cambiarla llame al {$phone}." : ''), $companyEmail, null, null, $actions)
             : self::deliver($mailer, $from, $company, $email, $ap->name, "Reminder: your appointment on {$at->format('M j H:i')} - {$company}",
                 "Hello {$ap->name},\n\nThis is a reminder of your appointment at {$company}.", $rows,
-                'Please arrive 15 minutes early with your ID.'.($phone ? " To change it call {$phone}." : ''), $companyEmail);
+                'Please arrive 15 minutes early with your ID.'.($phone ? " To change it call {$phone}." : ''), $companyEmail, null, null, $actions);
+
+        return $ok ? $email : null;
+    }
+
+    /**
+     * Satisfaction survey after a consultation (specialist clinic, 2026-10-26):
+     * "How likely are you to recommend us? 0-10" (NPS) + a comment, on a
+     * public page with the survey's token. Returns the address, or null.
+     */
+    public static function clinicSurvey(int $companyId, int $surveyId, ?Mailer $mailer = null): ?string
+    {
+        $s = DB::table('hms_surveys as s')->join('patients as p', 'p.id', '=', 's.patient_id')->leftJoin('doctors as d', 'd.id', '=', 's.doctor_id')
+            ->where('s.id', $surveyId)->first(['s.token', 'p.name', 'p.email', 'p.client_id', 'd.name as doctor']);
+        $email = $s ? ($s->email ?: ($s->client_id ? DB::table('clients')->where('id', $s->client_id)->value('email') : null)) : null;
+        if (! $s || ! $email || self::reserved($email)) {
+            return null;
+        }
+        $settings = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['CompanyName', 'email', 'default_language']);
+        $company = trim((string) DB::table('companies')->where('id', $companyId)->value('name')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Clinic');
+        $companyEmail = filter_var($settings->email ?? '', FILTER_VALIDATE_EMAIL) && ! self::reserved($settings->email) ? $settings->email : null;
+        [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
+        $es = ($settings->default_language ?? 'en') === 'es';
+        $url = \App\Support\PublicUrl::base($companyId).'/survey/'.$s->token;
+        $ok = $es
+            ? self::deliver($mailer, $from, $company, $email, $s->name, "¿Cómo fue su consulta? - {$company}",
+                "Hola {$s->name},\n\nGracias por atenderse en {$company}".($s->doctor ? " con {$s->doctor}" : '').". Su opinión nos ayuda a mejorar: son 30 segundos.",
+                [], '', $companyEmail, null, null, [['Responder la encuesta', $url, '#2563eb']])
+            : self::deliver($mailer, $from, $company, $email, $s->name, "How was your visit? - {$company}",
+                "Hello {$s->name},\n\nThank you for visiting {$company}".($s->doctor ? " with {$s->doctor}" : '').". Your opinion helps us improve: it takes 30 seconds.",
+                [], '', $companyEmail, null, null, [['Answer the survey', $url, '#2563eb']]);
 
         return $ok ? $email : null;
     }
 
     private static function deliver(Mailer $mailer, ?string $from, string $company, ?string $to, ?string $toName, string $subject,
-        string $intro, array $rows, string $outro, ?string $replyTo = null, ?string $button = null, ?string $confirmUrl = null): bool
+        string $intro, array $rows, string $outro, ?string $replyTo = null, ?string $button = null, ?string $confirmUrl = null, array $actions = []): bool
     {
         if (! $to || ! filter_var($to, FILTER_VALIDATE_EMAIL)) {
             return false;
@@ -349,7 +385,8 @@ class BookingNotifier
         }
 
         $text = $intro."\n\n".collect($rows)->map(fn ($v, $k) => "{$k}: {$v}")->implode("\n")."\n\n".$outro
-            .($confirmUrl ? "\nConfirm it without signing in: {$confirmUrl}" : '')."\n\n--\n".$company;
+            .($confirmUrl ? "\nConfirm it without signing in: {$confirmUrl}" : '')
+            .collect($actions)->map(fn ($x) => "\n{$x[0]}: {$x[1]}")->implode('')."\n\n--\n".$company;
         // "Confirm appointment" (signed link, no login) next to "Open booking".
         $confirmBtn = $confirmUrl
             ? ' <a href="'.e($confirmUrl).'" style="display:inline-block;background:#2e7d32;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;margin-left:8px">Confirm appointment</a>'
@@ -359,6 +396,8 @@ class BookingNotifier
             .collect($rows)->map(fn ($v, $k) => '<tr><td style="padding:4px 16px 4px 0;color:#666;vertical-align:top">'.e($k).'</td><td style="padding:4px 0;font-weight:600">'.nl2br(e($v)).'</td></tr>')->implode('')
             .'</table>'
             .($button ? '<p><a href="'.e($button).'" style="display:inline-block;background:#b8860b;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px">Open booking</a>'.$confirmBtn.'</p>' : '<p>'.e($outro).'</p>')
+            // Buttons in the company's language (2026-10-26): [label, url, colour].
+            .($actions ? '<p>'.collect($actions)->map(fn ($x) => '<a href="'.e($x[1]).'" style="display:inline-block;background:'.e($x[2] ?? '#2e7d32').';color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;margin:0 8px 8px 0">'.e($x[0]).'</a>')->implode('').'</p>' : '')
             .'<p style="color:#888;font-size:12px;margin-top:24px">'.e($company).'</p></div>';
 
         try {

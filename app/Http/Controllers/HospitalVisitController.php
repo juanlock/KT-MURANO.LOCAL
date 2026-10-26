@@ -207,7 +207,8 @@ class HospitalVisitController extends Controller
      * lines wholesale (rather than diffing) is right here: a doctor amending a
      * prescription means "this is now the prescription", not "add one drug".
      */
-    private function syncPrescription(Request $request, PatientVisit $visit, $userId)
+    /** Public since 2026-10-26: the specialist EMR (HospitalClinicController) saves its prescription with the same rules. */
+    public function syncPrescription(Request $request, PatientVisit $visit, $userId)
     {
         $items = $request->input('prescription_items');
         if (is_string($items)) {

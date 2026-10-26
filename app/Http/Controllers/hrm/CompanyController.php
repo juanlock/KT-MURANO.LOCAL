@@ -180,6 +180,10 @@ class CompanyController extends Controller
             if (\App\Support\BusinessTypes::of($cid) === 'hospital') {
                 \App\Support\HospitalRoles::apply($cid);
             }
+            // A specialist clinic: Recepción, Enfermería, Médico especialista, Caja (2026-10-26).
+            if (\App\Support\BusinessTypes::of($cid) === 'health_specialist') {
+                \App\Support\HospitalRoles::apply($cid, \App\Support\SpecialistRoles::ROLES);
+            }
             // Its mail server: AdminSystem's, sender "Admin {company}".
             \App\Models\Server::forCompany($cid);
             // Standard logins (2026-10-25): default passwords per type where none was typed,

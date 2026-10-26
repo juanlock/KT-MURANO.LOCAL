@@ -231,6 +231,31 @@ class PendingWorkController extends Controller
                     && \App\Models\HmsStaffShift::whereNull('deleted_at')->whereDate('shift_date', '>=', now()->subDays(30)->toDateString())->exists()
                     ? \App\Support\HospitalShifts::coverage(now()->toDateString(), now()->addDays(6)->toDateString())['gaps'] : 0,
             ],
+            // Specialist clinic (2026-10-26): the logged-in doctor's patients ready to go in.
+            'hms_clinic_ready' => [
+                'label' => 'Hms_clinic_ready', 'route' => '/hospital/specialist', 'permission' => 'hms_specialist', 'module' => 'hospital',
+                'table' => 'appointments', 'severity' => 'warning',
+                'count' => function () {
+                    [, $docIds] = \App\Support\HospitalShifts::staffOf(request()->user('api'));
+
+                    return $docIds ? \App\Models\Appointment::whereNull('deleted_at')->whereIn('doctor_id', $docIds)
+                        ->whereDate('scheduled_at', today())->where('flow_status', 'ready')->count() : 0;
+                },
+            ],
+            // Follow-ups / referrals / portal requests waiting to be scheduled by reception.
+            'hms_clinic_requests' => [
+                'label' => 'Hms_clinic_requests', 'route' => '/hospital/agenda', 'permission' => 'hms_reception', 'module' => 'hospital',
+                'table' => 'hms_appointment_requests',
+                'count' => fn () => \Illuminate\Support\Facades\DB::table('hms_appointment_requests')->where('status', 'pending')
+                    ->when(\App\Models\Patient::actingCompanyId('patients'), fn ($q, $cid) => $q->where('company_id', $cid))->count(),
+            ],
+            // Patients ready more than 15 minutes and the doctor has not called them in.
+            'hms_clinic_late' => [
+                'label' => 'Hms_clinic_late', 'route' => '/hospital/agenda', 'permission' => 'hms_reception', 'module' => 'hospital',
+                'table' => 'appointments', 'severity' => 'warning',
+                'count' => fn () => \App\Models\Appointment::whereNull('deleted_at')->whereDate('scheduled_at', today())->where('flow_status', 'ready')
+                    ->where('ready_at', '<', now()->subMinutes(\App\Http\Controllers\HospitalClinicController::LATE_MINUTES))->count(),
+            ],
             // Withdrawals are approved on E-Wallet -> Dashboard (there was no /store/wallet page).
             'wallet_withdrawals' => [
                 'label' => 'Pending_Withdrawals',

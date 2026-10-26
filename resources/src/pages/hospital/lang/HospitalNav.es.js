@@ -1,6 +1,14 @@
 // Hospital buttons (quick bar + Home), English -> Spanish, 2026-10-25.
 export default {
     'Home': 'Inicio',
+    // Specialist clinic (2026-10-26)
+    'Booking and arrival': 'Agenda y llegada',
+    'Consultation': 'Consulta',
+    'Closing and management': 'Cierre y gestión',
+    'Reception and schedule': 'Recepción y agenda',
+    'Nursing station': 'Estación de enfermería',
+    'My consultation': 'Mi consulta',
+    'Clinic reports': 'Reportes del consultorio',
     'Hospital home': 'Inicio del hospital',
     'Hello, {name}': 'Hola, {name}',
     'What do you want to do?': '¿Qué desea hacer?',

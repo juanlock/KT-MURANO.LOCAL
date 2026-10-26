@@ -153,7 +153,8 @@ const effectiveCollapsed = computed(() => (isMobile.value ? false : collapsed.va
 // Hospital company (user's analysis, 2026-10-25): the side menu starts HIDDEN --
 // people work with the button bar (HospitalQuickNav). The hamburger shows /
 // hides it; the choice is kept for this browser tab.
-const isHospital = computed(() => auth.user?.business_type === 'hospital');
+// A specialist clinic too (2026-10-26): same button bar, its own buttons (hospitalNav.js).
+const isHospital = computed(() => ['hospital', 'health_specialist'].includes(auth.user?.business_type));
 const HOSP_MENU_KEY = 'hospital_menu_shown';
 const hospitalMenuShown = ref((() => { try { return sessionStorage.getItem(HOSP_MENU_KEY) === '1'; } catch (e) { return false; } })());
 const menuHidden = computed(() => isHospital.value && !isMobile.value && !hospitalMenuShown.value);

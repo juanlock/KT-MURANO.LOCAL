@@ -62,16 +62,18 @@ class HospitalRoles
     ];
 
     /** Apply to a hospital company. Returns [created, updated, removed] role names. */
-    public static function apply(int $companyId): array
+    public static function apply(int $companyId, ?array $set = null): array
     {
         $now = now();
+        // The set of roles: the hospital's, or another type's (a specialist clinic, SpecialistRoles, 2026-10-26).
+        $set ??= self::ROLES;
         $roles = DB::table('roles')->where('company_id', $companyId)->whereNull('deleted_at')->get(['id', 'name']);
         $employeeRole = $roles->firstWhere('name', 'Employee');
         $created = $updated = $removed = [];
 
         // 1. Remove the roles that are neither kept nor hospital roles (their users -> Employee).
         foreach ($roles as $r) {
-            if (isset(self::KEEP[$r->name]) || isset(self::ROLES[$r->name])) {
+            if (isset(self::KEEP[$r->name]) || isset($set[$r->name])) {
                 continue;
             }
             if ($employeeRole) {
@@ -94,8 +96,8 @@ class HospitalRoles
         }
 
         // 3. Hospital roles: create or bring permissions / home / label up to date.
-        foreach (array_keys(self::ROLES) as $name) {
-            self::syncRole($companyId, $name) ? $created[] = $name : $updated[] = $name;
+        foreach (array_keys($set) as $name) {
+            self::syncRole($companyId, $name, $set[$name]) ? $created[] = $name : $updated[] = $name;
         }
 
         return [$created, $updated, $removed];
@@ -106,9 +108,9 @@ class HospitalRoles
      * brought up to date (permissions only added). Never removes another role.
      * Returns true when it was created.
      */
-    public static function syncRole(int $companyId, string $name): bool
+    public static function syncRole(int $companyId, string $name, ?array $def = null): bool
     {
-        [$label, $description, $home, $perms] = self::ROLES[$name];
+        [$label, $description, $home, $perms] = $def ?? self::ROLES[$name];
         $now = now();
         $perms = SettingsAccess::filter($companyId, $perms);
         $permIds = DB::table('permissions')->whereIn('name', $perms)->pluck('id')->all();

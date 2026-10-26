@@ -40,6 +40,8 @@ class BusinessTypes
         'real_estate' => 'Real estate (selling houses)',
         'legal' => 'Law services / law firm',
         'hospital' => 'Hospital / clinic',
+        // 2026-10-26: an outpatient specialist clinic (Hospital Management with the clinic flow, no wards / ER / surgery).
+        'health_specialist' => 'Health specialist (specialist clinic)',
         'factory' => 'Factory / manufacturing',
         'school' => 'School / academy',
         'tourism' => 'Tourism / travel agency',
@@ -68,6 +70,7 @@ class BusinessTypes
      */
     public const EXCLUDE = [
         'hospital' => ['pos'],
+        'health_specialist' => ['pos'],
         // A school (user's rule, 2026-10-20): only School, Portfolio, Intranet,
         // Documents and Website -- none of the commerce or back-office base.
         'school' => ['sales', 'pos', 'purchases', 'suppliers', 'products', 'customers',
@@ -86,6 +89,7 @@ class BusinessTypes
      */
     public const HOME = [
         'hospital' => '/hospital/dashboard',
+        'health_specialist' => '/hospital/agenda',
         'school' => '/school/dashboard',
         'real_estate' => '/realestate/dashboard',
     ];
@@ -102,6 +106,7 @@ class BusinessTypes
      */
     public const MENU_FIRST = [
         'hospital' => 'hospital',
+        'health_specialist' => 'hospital',
         'school' => 'school',
         'real_estate' => 'group:Real_Estate',
     ];
@@ -160,6 +165,8 @@ class BusinessTypes
         'legal' => ['bookings', 'documents', 'meeting', 'projects'],
         // Hospital Management (patients, doctors, appointments, admissions, wards, lab, billing), records, staff meetings.
         'hospital' => ['bookings', 'documents', 'hospital', 'meeting'],
+        // Hospital Management's clinic flow (schedule, nursing station, specialist EMR, portal, NPS), records.
+        'health_specialist' => ['documents', 'hospital'],
         // MRP (bills of materials, production orders, work centers, quality), delivery trucks, machine maintenance, projects.
         'factory' => ['documents', 'fleet', 'manufacturing', 'projects', 'service'],
         // School Management (students, teachers, academics, exams, timetable, fees), staff intranet, its portfolio, records (2026-10-20: nothing else, EXCLUDE).
@@ -467,7 +474,8 @@ class BusinessTypes
     ];
 
     /** Types that share another type's accounts / categories / bills / journal wording. */
-    private const SAME_AS = ['barber' => 'salon', 'catering' => 'restaurant'];
+    // A specialist clinic keeps a hospital's accounts, expense categories and bills (2026-10-26).
+    private const SAME_AS = ['barber' => 'salon', 'catering' => 'restaurant', 'health_specialist' => 'hospital'];
 
     private static function base(string $type): string
     {

@@ -83,6 +83,11 @@ Route::prefix('api/portal')->middleware(['web', 'portal.locale', 'portal.auth', 
 
         // Hospital: the patient's stay, discharge instructions, appointments (read-only, 2026-10-25)
         Route::get('hospital', [\App\Http\Controllers\Api\Portal\PortalHospitalController::class, 'index']);
+        // Specialist clinic (2026-10-26): book online, pre-register, print a prescription.
+        Route::get('hospital/slots', [\App\Http\Controllers\Api\Portal\PortalHospitalController::class, 'slots']);
+        Route::post('hospital/book', [\App\Http\Controllers\Api\Portal\PortalHospitalController::class, 'book'])->middleware('throttle:10,1');
+        Route::post('hospital/appointments/{reference}/pre-registration', [\App\Http\Controllers\Api\Portal\PortalHospitalController::class, 'preRegister']);
+        Route::get('hospital/prescriptions/{reference}', [\App\Http\Controllers\Api\Portal\PortalHospitalController::class, 'prescription']);
 
         // Knowledge base (read-only)
         Route::get('knowledge-base', [PortalKnowledgeBaseController::class, 'index']);

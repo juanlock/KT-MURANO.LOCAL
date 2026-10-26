@@ -10,6 +10,7 @@ export const spaPathOf = to => {
 import { applyMenuOrder } from '../lib/menuOrder';
 import { buildTopLevelMenu, hasNestedPositions } from '../lib/menuTree';
 import { useAuthStore } from './auth';
+import { NOT_IN_CLINIC } from '../pages/hospital/hospitalNav';
 import http from '../lib/http';
 
 /**
@@ -74,8 +75,11 @@ export const useMenuStore = defineStore('menu', {
             // A company whose type has its own dashboard (hospital, school, real
             // estate -- 2026-10-20): no general Dashboard item.
             const ownDashboard = !!(auth.user && auth.user.own_dashboard);
+            // A specialist clinic (2026-10-26): no hospital-only screens (wards, ER, surgery...).
+            const clinic = auth.user?.business_type === 'health_specialist';
             const dropDisabled = entries => entries
                 .filter(entry => !(ownDashboard && (entry.key === 'dashboard' || entry.to === '/app/dashboard')))
+                .filter(entry => !(clinic && entry.to && NOT_IN_CLINIC.includes(spaPathOf(entry.to))))
                 .filter(entry => isEntryEnabled(flags, entry, spaPathOf))
                 .filter(entry => !entry.requiresSetting || auth[entry.requiresSetting] !== false)
                 .map(entry => (entry.children

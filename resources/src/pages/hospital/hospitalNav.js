@@ -54,8 +54,48 @@ export const HOSPITAL_NAV = [
     },
 ];
 
+/**
+ * A specialist clinic (Health Specialist, 2026-10-26): the outpatient flow in
+ * its four phases -- before the appointment, arrival, consultation, closing.
+ */
+export const SPECIALIST_NAV = [
+    {
+        stage: 'Booking and arrival',
+        color: '#2563eb',
+        items: [
+            { path: '/hospital/agenda', label: 'Reception and schedule', icon: 'ScheduleOutlined', perms: ['hms_reception'] },
+            { path: '/hospital/nursing', label: 'Nursing station', icon: 'HeartOutlined', perms: ['hms_nursing_station'] },
+            { path: '/hospital/patients', label: 'Patients', icon: 'TeamOutlined', perms: ['hms_patients_view'] },
+        ],
+    },
+    {
+        stage: 'Consultation',
+        color: '#16a34a',
+        items: [
+            { path: '/hospital/specialist', label: 'My consultation', icon: 'SolutionOutlined', perms: ['hms_specialist'] },
+            { path: '/hospital/visits', label: 'Consultations', icon: 'MedicineBoxOutlined', perms: ['hms_visits'] },
+            { path: '/hospital/lab-orders', label: 'Laboratory', icon: 'ExperimentOutlined', perms: ['hms_lab'] },
+        ],
+    },
+    {
+        stage: 'Closing and management',
+        color: '#d97706',
+        items: [
+            { path: '/hospital/invoices', label: 'Billing', icon: 'DollarOutlined', perms: ['hms_billing'] },
+            { path: '/hospital/clinic-reports', label: 'Clinic reports', icon: 'BarChartOutlined', perms: ['hms_clinic_reports'] },
+            { path: '/hospital/doctors', label: 'Doctors', icon: 'UserOutlined', perms: ['hms_doctors'] },
+            { path: '/hospital/pharmacy', label: 'Pharmacy', icon: 'ShopOutlined', perms: ['hms_pharmacy'] },
+        ],
+    },
+];
+
+/** Hospital screens a specialist clinic does not use (side menu + buttons). */
+export const NOT_IN_CLINIC = ['/hospital/admission-desk', '/hospital/triage', '/hospital/er', '/hospital/rounds', '/hospital/my-patients',
+    '/hospital/admissions', '/hospital/treatments', '/hospital/surgery', '/hospital/control-tower', '/hospital/wards', '/hospital/shifts', '/hospital/appointments'];
+
 /** The groups with only the items the user can open (auth.can). */
 export function allowedNav(auth) {
     const can = p => auth.user?.type === 'SuperAdmin' || auth.can(p);
-    return HOSPITAL_NAV.map(g => ({ ...g, items: g.items.filter(i => i.perms.some(can)) })).filter(g => g.items.length);
+    const nav = auth.user?.business_type === 'health_specialist' ? SPECIALIST_NAV : HOSPITAL_NAV;
+    return nav.map(g => ({ ...g, items: g.items.filter(i => i.perms.some(can)) })).filter(g => g.items.length);
 }

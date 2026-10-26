@@ -553,6 +553,16 @@ Route::middleware(['web', 'request.safety'])->prefix('pay')->group(function () {
     Route::post('/{sale}', [$c, 'start'])->whereNumber('sale')->middleware(['signed:relative', 'throttle:10,1'])->name('invoice.pay.start');
 });
 
+// Specialist clinic (2026-10-26): the reminder's confirm / cancel (signed, no
+// login) and the satisfaction survey by its token (ClinicPublicController).
+Route::middleware(['web', 'request.safety'])->group(function () {
+    $c = \App\Http\Controllers\ClinicPublicController::class;
+    Route::get('/appointment/{appointment}/{action}', [$c, 'answer'])->whereNumber('appointment')->where('action', 'confirm|cancel')
+        ->middleware(['signed:relative', 'throttle:30,1'])->name('clinic.appointment.answer');
+    Route::get('/survey/{token}', [$c, 'survey'])->where('token', '[A-Za-z0-9]{20,64}')->middleware('throttle:60,1')->name('clinic.survey');
+    Route::post('/survey/{token}', [$c, 'answerSurvey'])->where('token', '[A-Za-z0-9]{20,64}')->middleware('throttle:10,1')->name('clinic.survey.answer');
+});
+
 // Portfolio module: each company's public portfolio website (PortfolioSiteController).
 Route::middleware(['web', 'request.safety'])->prefix('portfolio/{site}')->where(['site' => '[a-z0-9]+(?:-[a-z0-9]+)*'])->group(function () {
     $c = \App\Http\Controllers\PortfolioSiteController::class;

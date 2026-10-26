@@ -23,11 +23,16 @@ class HospitalSendAppointmentReminders extends Command
     {
         $rows = DB::table('appointments')->whereNull('deleted_at')->whereNull('reminder_sent_at')
             ->whereIn('status', ['scheduled', 'confirmed'])
-            ->whereBetween('scheduled_at', [now(), now()->addHours(24)])
+            // A specialist clinic reminds 48 h before (2026-10-26), a hospital 24 h.
+            ->whereBetween('scheduled_at', [now(), now()->addHours(48)])
             ->orderBy('scheduled_at')->get(['id', 'company_id', 'reference', 'scheduled_at']);
         $sent = 0;
         foreach ($rows as $a) {
             if (! ModuleFlags::enabled((int) $a->company_id, 'hospital')) {
+                continue;
+            }
+            $hours = \App\Support\BusinessTypes::of((int) $a->company_id) === 'health_specialist' ? 48 : 24;
+            if (\Carbon\Carbon::parse($a->scheduled_at) > now()->addHours($hours)) {
                 continue;
             }
             if ($this->option('dry-run')) {
