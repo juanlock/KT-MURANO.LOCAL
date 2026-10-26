@@ -450,7 +450,7 @@ class PaymentPurchaseReturnsController extends BaseController
 
         $payment['id'] = $request->id;
         $payment['Ref'] = $request->Ref;
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (optional(optional(PaymentPurchaseReturns::find($request->id))->PurchaseReturn)->company_id) ?: null);
         $payment['company_name'] = $settings->CompanyName;
 
         $pdf = $this->payment_return($request, $payment['id']);
@@ -504,7 +504,7 @@ class PaymentPurchaseReturnsController extends BaseController
         $payment_data['payment_method'] = $payment['payment_method']->name;
 
         $helpers = new helpers;
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (optional($payment->PurchaseReturn)->company_id) ?: null);
         $symbol = $helpers->Get_Currency_Code();
 
         $Html = view('pdf.Payment_Purchase_Return', [
@@ -540,7 +540,7 @@ class PaymentPurchaseReturnsController extends BaseController
             abort_unless((int) optional($payment->PurchaseReturn)->company_id === (int) $requester->company_id, 403);
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (optional($payment->PurchaseReturn)->company_id) ?: null);
         $gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->where('deleted_at', '=', null)->first();
 

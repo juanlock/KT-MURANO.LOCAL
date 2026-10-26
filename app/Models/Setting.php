@@ -25,6 +25,26 @@ class Setting extends Model
         return tap((new static)->forceFill($attrs + ['company_id' => $companyId]))->save();
     }
 
+    /**
+     * The settings row a screen / document uses (multicompany, 2026-10-26):
+     * $companyId's (a document's own company), else the signed-in user's acting
+     * company (CompanyFiles::actingCompanyId: a SuperAdmin's picked company, else
+     * the user's). Replaces Setting::whereNull('deleted_at')->first(), which
+     * read company 1's row for every company (its name, logo, currency, footer
+     * on everybody's PDFs). Nobody signed in (queues, console) and no company:
+     * that old first row, as before.
+     */
+    public static function current(?int $companyId = null): ?self
+    {
+        if (! $companyId && (request()->user('api') ?? request()->user())) {
+            $companyId = \App\Support\CompanyFiles::actingCompanyId();
+        }
+
+        return $companyId
+            ? static::forCompany($companyId)
+            : static::whereNull('deleted_at')->first();
+    }
+
     protected $fillable = [
         'currency_id', 'email', 'CompanyName', 'CompanyPhone', 'CompanyAdress', 'quotation_with_stock',
         'logo', 'footer', 'developed_by', 'client_id', 'warehouse_id', 'default_account_id', 'default_payment_method_id', 'default_language', 'show_language',

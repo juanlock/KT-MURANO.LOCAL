@@ -25,7 +25,7 @@ class OnlineOrderInvoiceService
     {
         $order->loadMissing(['items.product', 'items.productVariant', 'client', 'shippingMethod']);
 
-        $settings = Setting::whereNull('deleted_at')->first();
+        $settings = Setting::current();
         $store = StoreSetting::first();
         // Multi-Currency: print in the currency the order was placed in
         // (base symbol with rate 1 for legacy orders).

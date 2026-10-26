@@ -188,7 +188,7 @@ class MarketingDispatcher
 
     protected function sendEmail(MarketingCampaign $campaign, MarketingCampaignRecipient $recipient, string $message, MarketingSetting $settings): void
     {
-        $appSettings = Setting::where('deleted_at', '=', null)->first();
+        $appSettings = Setting::current((int) ($campaign->company_id) ?: null);
         $businessName = $settings->default_sender_name
             ?: ($appSettings->CompanyName ?? config('app.name'));
 

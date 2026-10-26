@@ -365,7 +365,7 @@ class ContractController extends Controller
             'signed_ip' => $contract->signed_ip,
         ];
 
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::current((int) ($contract->company_id) ?: null);
         $Html = view('pdf.contract_pdf', ['contract' => $contractData, 'setting' => $setting])->render();
 
         if (class_exists(\ArPHP\I18N\Arabic::class)) {

@@ -949,7 +949,7 @@ class SalesReturnController extends BaseController
     public function getNumberOrder()
     {
         // Get prefix from settings, fallback to 'RT' if not set
-        $setting = \App\Models\Setting::where('deleted_at', '=', null)->first();
+        $setting = \App\Models\Setting::current();
         $prefix = !empty($setting->sale_return_prefix) ? $setting->sale_return_prefix : 'RT';
         
         // Get the last sale return with a reference that starts with the prefix
@@ -1118,7 +1118,7 @@ class SalesReturnController extends BaseController
 
         }
 
-        $company = Setting::where('deleted_at', '=', null)->first();
+        $company = Setting::current((int) ($Sale_Return->company_id) ?: null);
 
         return response()->json([
             'details' => $details,
@@ -1463,7 +1463,7 @@ class SalesReturnController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($Sale_Return->company_id) ?: null);
         $symbol = $docCurrency['code'];
 
         $Html = view('pdf.Sales_Return_pdf', [

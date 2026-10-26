@@ -31,7 +31,7 @@ class WholesalePricingService
     public function enabled(): bool
     {
         if ($this->enabled === null) {
-            $setting = Setting::whereNull('deleted_at')->first();
+            $setting = Setting::current();
             $this->enabled = (bool) ($setting->enable_wholesale_pricing ?? false);
         }
 

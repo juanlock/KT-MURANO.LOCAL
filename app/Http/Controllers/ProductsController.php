@@ -2106,7 +2106,7 @@ class ProductsController extends BaseController
         // (single and variant products). Empty otherwise, so the detail UI hides
         // the section. Variant packs carry their variant's name for display.
         $item['packs'] = [];
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::current();
         if ((bool) ($setting->enable_multi_pack_selling ?? false) && in_array($Product->type, ['is_single', 'is_variant'], true)) {
             $packVariantNames = $Product->type == 'is_variant'
                 ? ProductVariant::where('product_id', $id)->whereNull('deleted_at')->pluck('name', 'id')
@@ -2175,7 +2175,7 @@ class ProductsController extends BaseController
         // adjustment and damage forms â€” otherwise they can never be picked even
         // though selling them is permitted. Only the stock condition is
         // dropped; the service / manage_stock semantics stay untouched.
-        $global_setting = Setting::whereNull('deleted_at')->first();
+        $global_setting = Setting::current();
         $allow_overselling = (bool) ($global_setting->allow_overselling ?? false);
 
         $product_warehouse_data = product_warehouse::with('warehouse', 'product', 'productVariant')
@@ -2681,7 +2681,7 @@ class ProductsController extends BaseController
         // for single products the flat list, for variant products the packs of
         // the requested variant. Empty otherwise, so non-pack flows are unchanged.
         $item['packs'] = [];
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::current();
         if ((bool) ($setting->enable_multi_pack_selling ?? false)) {
             $packQuery = null;
             if ($Product_data['type'] == 'is_single') {
@@ -2923,11 +2923,11 @@ class ProductsController extends BaseController
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
         }
 
-        $setting = Setting::where('deleted_at', '=', null)->first();
+        $setting = Setting::current();
         $label_settings = $setting && $setting->barcode_label_settings
             ? json_decode($setting->barcode_label_settings, true) : null;
 
-        $posSetting = \App\Models\PosSetting::where('deleted_at', '=', null)->first();
+        $posSetting = \App\Models\PosSetting::forCompany(\App\Support\CompanyFiles::actingCompanyId());
 
         return response()->json([
             'warehouses' => $warehouses,
@@ -2954,7 +2954,7 @@ class ProductsController extends BaseController
     {
         $this->authorizeForUser($request->user('api'), 'barcode', Product::class);
 
-        $posSetting = \App\Models\PosSetting::where('deleted_at', '=', null)->first();
+        $posSetting = \App\Models\PosSetting::forCompany(\App\Support\CompanyFiles::actingCompanyId());
         if (! $posSetting || ! $posSetting->label_printer_enabled) {
             return response()->json(['success' => false, 'configured' => false,
                 'message' => 'Direct label printing is not enabled.'], 422);
@@ -5286,7 +5286,7 @@ class ProductsController extends BaseController
      */
     protected function syncProductPriceTiers(Request $request, Product $product): void
     {
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::current();
         if (! (bool) ($setting->enable_wholesale_pricing ?? false)) {
             return;
         }
@@ -5382,7 +5382,7 @@ class ProductsController extends BaseController
      */
     protected function syncProductPacks(Request $request, Product $product): void
     {
-        $setting = Setting::whereNull('deleted_at')->first();
+        $setting = Setting::current();
         if (! (bool) ($setting->enable_multi_pack_selling ?? false)) {
             return;
         }

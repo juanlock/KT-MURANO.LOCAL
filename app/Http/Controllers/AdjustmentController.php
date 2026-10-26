@@ -942,7 +942,7 @@ class AdjustmentController extends BaseController
     public function getNumberOrder()
     {
         // Get prefix from settings, fallback to 'AD' if not set
-        $setting = \App\Models\Setting::where('deleted_at', '=', null)->first();
+        $setting = \App\Models\Setting::current();
         $prefix = !empty($setting->adjustment_prefix) ? $setting->adjustment_prefix : 'AD';
         
         // Get the last adjustment with a reference that starts with the prefix
@@ -1302,7 +1302,7 @@ class AdjustmentController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($adjustment_data->company_id) ?: null);
         $symbol = $helpers->Get_Currency_Code();
 
         $Html = view('pdf.adjustment_pdf', [

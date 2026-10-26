@@ -38,7 +38,7 @@ class MeetingInvitationNotification extends Notification implements ShouldQueue
 
     public function toMail($notifiable)
     {
-        $settings = Setting::whereNull('deleted_at')->first();
+        $settings = Setting::current((int) ($this->meeting->company_id) ?: null);
         $businessName = $settings ? $settings->CompanyName : config('app.name');
 
         $url = url('/app/meeting/details/' . $this->meeting->id);

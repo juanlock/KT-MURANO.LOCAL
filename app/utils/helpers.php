@@ -92,14 +92,7 @@ class helpers
      */
     private function companyCurrency(?int $companyId = null): ?Currency
     {
-        if (! $companyId && (request()->user('api') ?? request()->user())) {
-            $companyId = \App\Support\CompanyFiles::actingCompanyId();
-        }
-        $settings = $companyId
-            ? Setting::where('company_id', $companyId)->whereNull('deleted_at')->first()
-            : null;
-        $settings ??= Setting::where('company_id', Setting::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')->first()
-            ?? Setting::whereNull('deleted_at')->first();
+        $settings = Setting::current($companyId);
 
         return $settings && $settings->currency_id
             ? Currency::where('id', $settings->currency_id)->whereNull('deleted_at')->first()
@@ -122,21 +115,22 @@ class helpers
      * Whether the Multi-Currency module is enabled. Read once per request and
      * cached statically like price_decimals().
      */
-    public static function multi_currency_enabled()
+    public static function multi_currency_enabled(?int $companyId = null)
     {
-        static $enabled = null;
+        static $enabled = [];
+        $key = (int) $companyId;
 
-        if ($enabled === null) {
+        if (! array_key_exists($key, $enabled)) {
             try {
-                $enabled = (bool) Setting::where('deleted_at', '=', null)
-                    ->value('enable_multi_currency');
+                // The company's own switch (multicompany, 2026-10-26).
+                $enabled[$key] = (bool) optional(Setting::current($companyId))->enable_multi_currency;
             } catch (\Throwable $e) {
                 // Settings table/column may not exist yet (e.g. during migration) — fall back.
-                $enabled = false;
+                $enabled[$key] = false;
             }
         }
 
-        return $enabled;
+        return $enabled[$key];
     }
 
     /**
@@ -153,14 +147,16 @@ class helpers
     public static function Get_Document_Currency($doc)
     {
         $helpers = new self;
+        // The document's own company (a SuperAdmin may print another company's).
+        $cid = (int) ($doc->company_id ?? 0) ?: null;
         $default = [
             'id' => null,
-            'symbol' => $helpers->Get_Currency(),
-            'code' => $helpers->Get_Currency_Code(),
+            'symbol' => $helpers->Get_Currency($cid),
+            'code' => $helpers->Get_Currency_Code($cid),
             'rate' => 1.0,
         ];
 
-        if (! $doc || ! self::multi_currency_enabled()) {
+        if (! $doc || ! self::multi_currency_enabled($cid)) {
             return $default;
         }
 
@@ -229,7 +225,7 @@ class helpers
             return ['currency_id' => null, 'exchange_rate' => null];
         }
 
-        $default = Setting::where('deleted_at', '=', null)->value('currency_id');
+        $default = optional(Setting::current())->currency_id; // the company's base currency
         if ((int) $currencyId === (int) $default) {
             return ['currency_id' => null, 'exchange_rate' => null];
         }

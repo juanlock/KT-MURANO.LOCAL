@@ -17,7 +17,7 @@ class SmsOtpSender
 {
     public function send(string $toPhone, string $message): void
     {
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current();
         if (! $settings || ! $settings->sms_gateway) {
             throw new \RuntimeException('SMS gateway is not configured');
         }

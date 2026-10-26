@@ -542,7 +542,7 @@ class OnlineOrdersApiController extends Controller
             // module and the auto-send option are on. Best-effort: a kitchen failure
             // must never roll back an already-confirmed order.
             try {
-                $settings = \App\Models\Setting::whereNull('deleted_at')->first();
+                $settings = \App\Models\Setting::current();
                 if ($settings && $settings->enable_kitchen_display && $settings->kitchen_auto_online_orders) {
                     \App\Http\Controllers\KitchenOrderController::createForSale(
                         $sale->id,
@@ -717,7 +717,7 @@ class OnlineOrdersApiController extends Controller
     public function getNumberOrder()
     {
         // Get prefix from settings, fallback to 'SL' if not set
-        $setting = \App\Models\Setting::where('deleted_at', '=', null)->first();
+        $setting = \App\Models\Setting::current();
         $prefix = !empty($setting->sale_prefix) ? $setting->sale_prefix : 'SL';
         
         // Get the last sale with a reference that starts with the prefix

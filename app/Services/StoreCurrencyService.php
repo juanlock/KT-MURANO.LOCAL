@@ -89,7 +89,8 @@ class StoreCurrencyService
         $baseSymbol = (string) (store_settings()->currency_code ?: '$');
         $baseCurrency = null;
         try {
-            $baseId = Setting::where('deleted_at', '=', null)->value('currency_id');
+            // The store's company base currency (multicompany, 2026-10-26).
+            $baseId = optional(Setting::current((int) (store_settings()->company_id ?? 0) ?: null))->currency_id;
             $baseCurrency = $baseId ? Currency::whereNull('deleted_at')->find($baseId) : null;
         } catch (\Throwable $e) {
             // settings table unavailable (install/migration) — symbol fallback

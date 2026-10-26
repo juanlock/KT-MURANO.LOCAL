@@ -759,7 +759,7 @@ class QuotationsController extends BaseController
             $details[] = $data;
         }
 
-        $company = Setting::where('deleted_at', '=', null)->first();
+        $company = Setting::current((int) ($quotation_data->company_id) ?: null);
 
         return response()->json([
             'quote' => $quote,
@@ -774,7 +774,7 @@ class QuotationsController extends BaseController
     public function getNumberOrder()
     {
         // Get prefix from settings, fallback to 'QT' if not set
-        $setting = \App\Models\Setting::where('deleted_at', '=', null)->first();
+        $setting = \App\Models\Setting::current();
         $prefix = !empty($setting->quotation_prefix) ? $setting->quotation_prefix : 'QT';
         
         // Get the last quotation with a reference that starts with the prefix
@@ -900,7 +900,7 @@ class QuotationsController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($Quotation->company_id) ?: null);
         $symbol = $docCurrency['code'];
 
         $Html = view('pdf.quotation_pdf', [
@@ -1025,7 +1025,7 @@ class QuotationsController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($Quotation->company_id) ?: null);
         $symbol = $docCurrency['code'];
 
         $Html = view('pdf.quotation_pdf', [
@@ -1099,7 +1099,7 @@ class QuotationsController extends BaseController
                 return $query->where('company_id', $companyId);
             })
             ->get(['id', 'name']);
-        $quotation_with_stock = Setting::where('deleted_at', '=', null)->first()->quotation_with_stock;
+        $quotation_with_stock = Setting::current()->quotation_with_stock;
         // Company-scoped on purpose -- $quotation_with_stock above is the
         // install-wide unscoped lookup (a pre-existing quirk, out of scope
         // here), which would silently ignore a company's own Default -
@@ -1451,7 +1451,7 @@ class QuotationsController extends BaseController
         $currency = $docCurrency['symbol'];
 
         // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($quotation->company_id) ?: null);
 
         $default_sms_gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->where('deleted_at', '=', null)->first();
@@ -1592,7 +1592,7 @@ class QuotationsController extends BaseController
         $currency = $docCurrency['symbol'];
 
         // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($quotation->company_id) ?: null);
 
         // the custom msg of quotation
         $smsMessage = SMSMessage::getForLocale('quotation');

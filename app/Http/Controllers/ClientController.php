@@ -1666,7 +1666,7 @@ class ClientController extends BaseController
             ->orderByDesc('id')->get();
 
         // ---------------- PDF ----------------
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current();
         $html = view('pdf.customer_ledger', compact(
             'client', 'sales', 'payments', 'quotations', 'returns', 'serviceJobs', 'settings'
         ))->render();

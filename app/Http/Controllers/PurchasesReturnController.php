@@ -1233,7 +1233,7 @@ class PurchasesReturnController extends BaseController
     public function getNumberOrder()
     {
         // Get prefix from settings, fallback to 'RT' if not set
-        $setting = \App\Models\Setting::where('deleted_at', '=', null)->first();
+        $setting = \App\Models\Setting::current();
         $prefix = !empty($setting->purchase_return_prefix) ? $setting->purchase_return_prefix : 'RT';
         
         // Get the last purchase return with a reference that starts with the prefix
@@ -1398,7 +1398,7 @@ class PurchasesReturnController extends BaseController
             $details[] = $data;
         }
 
-        $company = Setting::where('deleted_at', '=', null)->first();
+        $company = Setting::current((int) ($Purchase_Return->company_id) ?: null);
 
         return response()->json([
             'details' => $details,
@@ -1520,7 +1520,7 @@ class PurchasesReturnController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($PurchaseReturn->company_id) ?: null);
         $symbol = $docCurrency['code'];
 
         $Html = view('pdf.Purchase_Return_pdf', [

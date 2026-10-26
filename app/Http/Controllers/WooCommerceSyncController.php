@@ -1250,7 +1250,7 @@ class WooCommerceSyncController extends BaseController
         // Determine a default warehouse (same logic used by POS element)
         $warehouseId = 0;
         try {
-            $appSettings = Setting::whereNull('deleted_at')->first();
+            $appSettings = Setting::current();
             $candidate = $appSettings ? (int) ($appSettings->warehouse_id ?? 0) : 0;
 
             $user = $request->user('api');

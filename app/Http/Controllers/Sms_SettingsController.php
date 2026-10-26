@@ -40,7 +40,7 @@ class Sms_SettingsController extends Controller
         ];
 
         $sms_gateway = sms_gateway::where('deleted_at', '=', null)->get(['id', 'title']);
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current();
 
         if ($settings->sms_gateway) {
             if (sms_gateway::where('id', $settings->sms_gateway)->where('deleted_at', '=', null)->first()) {

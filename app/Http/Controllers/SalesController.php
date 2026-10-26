@@ -479,7 +479,7 @@ class SalesController extends BaseController
         if (! $request->filled('seller_id')) {
             return null;
         }
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current();
         if (! (bool) ($settings->enable_pos_salesperson_switch ?? false)) {
             return null;
         }
@@ -2724,8 +2724,9 @@ class SalesController extends BaseController
             ->orderBy('id', 'DESC')
             ->get();
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
-        $pos_settings = PosSetting::where('deleted_at', '=', null)->first();
+        // The sale's own company: its name, logo, footer and receipt settings.
+        $settings = Setting::current((int) $sale->company_id);
+        $pos_settings = PosSetting::forCompany((int) $sale->company_id);
 
         // Allow Overselling lives on the global settings row, not on pos_settings
         // (that column is a dead duplicate). The POS merges this payload into its
@@ -2780,7 +2781,8 @@ class SalesController extends BaseController
     // (window.print / PDF popup) is untouched and remains the default.
     public function Direct_Network_Print_POS(Request $request, $id)
     {
-        $pos_settings = PosSetting::where('deleted_at', '=', null)->first();
+        // The printer of the sale's company.
+        $pos_settings = PosSetting::forCompany((int) Sale::whereKey($id)->value('company_id') ?: null);
 
         if (!$pos_settings || !$pos_settings->direct_network_printing) {
             return response()->json([
@@ -2809,7 +2811,7 @@ class SalesController extends BaseController
             abort_unless((int) $sale->company_id === (int) $this->resolveActingCompanyId($request), 403);
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) $sale->company_id);
         $docCurrency = helpers::Get_Document_Currency($sale);
         $symbol = $docCurrency['code'];
 
@@ -2985,7 +2987,7 @@ class SalesController extends BaseController
     {
         $cid = $warehouseId ? (int) Warehouse::whereKey($warehouseId)->value('company_id') : 0;
         $cid = $cid ?: (int) ($companyId ?: $this->resolveActingCompanyId(request()));
-        $setting = \App\Models\Setting::forCompany($cid) ?? \App\Models\Setting::whereNull('deleted_at')->first();
+        $setting = \App\Models\Setting::forCompany($cid) ?? \App\Models\Setting::current();
         $prefix = trim((string) ($setting->sale_prefix ?? '')) ?: 'SL';
 
         // Highest number after "PREFIX_" or "PREFIX-" in this company; the next one
@@ -3188,7 +3190,7 @@ class SalesController extends BaseController
     protected function validateStockForImportSales(array $data, int $warehouse_id): array
     {
         // Global Allow Overselling (Features): imports may drive stock negative.
-        $globalSetting = Setting::whereNull('deleted_at')->first();
+        $globalSetting = Setting::current();
         if ((bool) ($globalSetting->allow_overselling ?? false)) {
             return [];
         }
@@ -3992,7 +3994,7 @@ class SalesController extends BaseController
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
         $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null)->where('is_active', true))->get(['id', 'name']);
         $stripe_key = config('app.STRIPE_KEY');
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current();
         $salesperson_switch_enabled = (bool) ($settings->enable_pos_salesperson_switch ?? false);
 
         return response()->json([
@@ -4154,7 +4156,7 @@ class SalesController extends BaseController
             // Multi-Pack Selling: when enabled, preload active packs per
             // (product, variant) so the edit UI can restore and re-select packs.
             // Empty otherwise. Key "productId:variantId" (0 = no variant).
-            $mpSetting = Setting::whereNull('deleted_at')->first();
+            $mpSetting = Setting::current((int) ($Sale_data->company_id) ?: null);
             $mpEnabled = (bool) ($mpSetting->enable_multi_pack_selling ?? false);
             $mpPacksByKey = [];
             if ($mpEnabled) {
@@ -4314,7 +4316,7 @@ class SalesController extends BaseController
             $sales_agents = $scopeCompany(SalesAgent::where('deleted_at', '=', null)
                 ->where(fn ($q) => $q->where('is_active', true)->when($currentAgentId, fn ($q2) => $q2->orWhere('id', $currentAgentId))))
                 ->get(['id', 'name']);
-            $settings = Setting::where('deleted_at', '=', null)->first();
+            $settings = Setting::current((int) ($Sale_data->company_id) ?: null);
 
             $salesperson_switch_enabled = (bool) ($settings->enable_pos_salesperson_switch ?? false);
 
@@ -5289,7 +5291,7 @@ class SalesController extends BaseController
         $helpers = new helpers;
         $currency = $helpers->Get_Currency();
 
-        $settings = Setting::whereNull('deleted_at')->first();
+        $settings = Setting::current();
         $default_sms_gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->whereNull('deleted_at')->first();
 
@@ -5715,7 +5717,7 @@ class SalesController extends BaseController
             ->orderBy('id', 'DESC')
             ->get();
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($sale->company_id) ?: null);
         $symbol = $docCurrency['code'];
 
         // The blade reads these monetary fields straight off the model, so convert
@@ -5750,7 +5752,7 @@ class SalesController extends BaseController
      */
     protected function assertPackStockSufficient(Request $request): void
     {
-        $mpSetting = Setting::whereNull('deleted_at')->first();
+        $mpSetting = Setting::current();
         if ((bool) ($mpSetting->allow_overselling ?? false)) {
             return; // overselling permitted by the global Features switch
         }

@@ -1279,7 +1279,7 @@ class PurchasesController extends BaseController
             $details[] = $data;
         }
 
-        $company = Setting::where('deleted_at', '=', null)->first();
+        $company = Setting::current((int) ($purchase->company_id) ?: null);
 
         return response()->json([
             'details' => $details,
@@ -1336,7 +1336,7 @@ class PurchasesController extends BaseController
     public function getNumberOrder()
     {
         // Get prefix from settings, fallback to 'PR' if not set
-        $setting = \App\Models\Setting::where('deleted_at', '=', null)->first();
+        $setting = \App\Models\Setting::current();
         $prefix = !empty($setting->purchase_prefix) ? $setting->purchase_prefix : 'PR';
 
         // Get the last purchase with a reference that starts with the prefix
@@ -1469,7 +1469,7 @@ class PurchasesController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($Purchase_data->company_id) ?: null);
         $symbol = $docCurrency['code'];
 
         $Html = view('pdf.purchase_pdf', [
@@ -1602,7 +1602,7 @@ class PurchasesController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($Purchase_data->company_id) ?: null);
         $symbol = $docCurrency['code'];
 
         $Html = view('pdf.purchase_pdf', [
@@ -2236,7 +2236,7 @@ class PurchasesController extends BaseController
         $currency = $docCurrency['symbol'];
 
         // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($purchase->company_id) ?: null);
 
         $default_sms_gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->where('deleted_at', '=', null)->first();
@@ -2387,7 +2387,7 @@ class PurchasesController extends BaseController
         $currency = $docCurrency['symbol'];
 
         // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($purchase->company_id) ?: null);
 
         // the custom msg of purchase
         $smsMessage = SMSMessage::getForLocale('purchase');

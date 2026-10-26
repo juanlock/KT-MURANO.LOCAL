@@ -801,7 +801,7 @@ class DamageController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($damage_data->company_id) ?: null);
         $Html = view('pdf.adjustment_pdf', [
             'setting' => $settings,
             'adjustment' => $adjustment,

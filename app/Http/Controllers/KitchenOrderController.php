@@ -53,7 +53,7 @@ class KitchenOrderController extends Controller
             $grouped[$s] = $data->where('status', $s)->values();
         }
 
-        $settings = \App\Models\Setting::whereNull('deleted_at')->first();
+        $settings = \App\Models\Setting::current();
 
         return response()->json([
             'data' => $data->values(),
@@ -273,7 +273,7 @@ class KitchenOrderController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', KitchenOrder::class);
 
-        $settings = \App\Models\Setting::whereNull('deleted_at')->first();
+        $settings = \App\Models\Setting::current();
 
         return response()->json([
             'stations' => self::decodeStations($settings),
@@ -304,7 +304,7 @@ class KitchenOrderController extends Controller
             'category_ids' => array_values(array_unique(array_map('intval', $s['category_ids']))),
         ])->values()->all();
 
-        $settings = \App\Models\Setting::whereNull('deleted_at')->first();
+        $settings = \App\Models\Setting::current();
         if (! $settings) {
             return response()->json(['error' => 'Settings not found.'], 404);
         }
@@ -467,7 +467,7 @@ class KitchenOrderController extends Controller
             ->limit($perPage)
             ->get();
 
-        $settings = \App\Models\Setting::whereNull('deleted_at')->first();
+        $settings = \App\Models\Setting::current();
         $target = $settings && $settings->kitchen_target_minutes ? (int) $settings->kitchen_target_minutes : null;
 
         $kpi = (clone $base)->selectRaw("

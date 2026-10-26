@@ -494,7 +494,7 @@ class PaymentPurchasesController extends BaseController
         $payment_data['payment_method'] = $payment['payment_method']->name;
 
         $helpers = new helpers;
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (optional($payment->purchase)->company_id) ?: null);
         $symbol = $helpers->Get_Currency_Code();
 
         $Html = view('pdf.payments_purchase', [
@@ -598,7 +598,7 @@ class PaymentPurchasesController extends BaseController
         }
 
         // settings
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (optional($payment->purchase)->company_id) ?: null);
 
         $default_sms_gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->where('deleted_at', '=', null)->first();

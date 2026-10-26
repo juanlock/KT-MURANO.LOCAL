@@ -17,7 +17,7 @@ class SMSMessage extends Model
      */
     public static function getForLocale(string $name, ?string $locale = null): ?self
     {
-        $locale = $locale ?: (\App\Models\Setting::where('deleted_at', null)->value('default_language') ?: 'en');
+        $locale = $locale ?: (optional(\App\Models\Setting::current())->default_language ?: 'en');
         $message = static::where('name', $name)
             ->where('locale', $locale)
             ->whereNull('deleted_at')

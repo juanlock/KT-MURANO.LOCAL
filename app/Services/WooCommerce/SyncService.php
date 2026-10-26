@@ -332,7 +332,7 @@ class SyncService
 
         // Pick default warehouse if not provided
         if (!$warehouseId || $warehouseId <= 0) {
-            $settings = Setting::whereNull('deleted_at')->first();
+            $settings = Setting::current();
             $candidate = $settings ? (int) ($settings->warehouse_id ?? 0) : 0;
             $warehouseId = $candidate > 0 && Warehouse::where('id', $candidate)->whereNull('deleted_at')->exists()
                 ? $candidate
@@ -779,7 +779,7 @@ class SyncService
 
         // Pick default warehouse if not provided (same as pullOrders)
         if (!$warehouseId || $warehouseId <= 0) {
-            $settings = Setting::whereNull('deleted_at')->first();
+            $settings = Setting::current();
             $candidate = $settings ? (int) ($settings->warehouse_id ?? 0) : 0;
             $warehouseId = $candidate > 0 && Warehouse::where('id', $candidate)->whereNull('deleted_at')->exists()
                 ? $candidate
@@ -2348,7 +2348,7 @@ class SyncService
     private function ensureDefaultWarehouseId(): int
     {
         try {
-            $settings = Setting::whereNull('deleted_at')->first();
+            $settings = Setting::current();
             $candidate = $settings ? (int) ($settings->warehouse_id ?? 0) : 0;
             if ($candidate > 0 && Warehouse::where('id', $candidate)->whereNull('deleted_at')->exists()) {
                 return $candidate;

@@ -870,7 +870,7 @@ class BookingController extends BaseController
             'notes' => $booking->notes,
         ];
 
-        $settings = Setting::whereNull('deleted_at')->first();
+        $settings = Setting::current();
         $symbol = $helpers->Get_Currency_Code();
 
         $Html = view('pdf.booking_pdf', [

@@ -120,7 +120,7 @@ class ProvidersController extends BaseController
         // superadmin/AdminSystem: every company (2026-10-21) -- each row says whose it is.
         $data = \App\Support\CompanyNames::attach($data);
 
-        $company_info = Setting::where('deleted_at', '=', null)->first();
+        $company_info = Setting::current();
         $accounts = Account::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'account_name']);
         $payment_methods = PaymentMethod::active()->whereNull('deleted_at')->get(['id', 'name']);
 

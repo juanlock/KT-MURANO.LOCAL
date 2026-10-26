@@ -1043,7 +1043,7 @@ class TransferController extends BaseController
     public function getNumberOrder()
     {
         // Get prefix from settings, fallback to 'TR' if not set
-        $setting = \App\Models\Setting::where('deleted_at', '=', null)->first();
+        $setting = \App\Models\Setting::current();
         $prefix = !empty($setting->transfer_prefix) ? $setting->transfer_prefix : 'TR';
         
         // Get the last transfer with a reference that starts with the prefix
@@ -1489,7 +1489,7 @@ class TransferController extends BaseController
             $details[] = $data;
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) ($transfer_data->company_id) ?: null);
         $Html = view('pdf.transfer_pdf', [
             'setting' => $settings,
             'transfer' => $transfer,

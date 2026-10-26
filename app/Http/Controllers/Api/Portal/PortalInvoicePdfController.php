@@ -31,7 +31,7 @@ class PortalInvoicePdfController extends Controller
             ->firstOrFail();
 
         $helpers = new helpers;
-        $settings = Setting::whereNull('deleted_at')->first();
+        $settings = Setting::current((int) ($sale->company_id) ?: null);
         $symbol = $helpers->Get_Currency_Code();
 
         $sale_data = $sale;

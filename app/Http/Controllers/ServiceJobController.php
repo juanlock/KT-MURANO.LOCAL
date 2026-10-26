@@ -1306,7 +1306,7 @@ class ServiceJobController extends BaseController
 
         return $this->renderPdf('pdf.service_job_pdf', [
             'symbol' => $helpers->Get_Currency_Code(),
-            'setting' => Setting::whereNull('deleted_at')->first(),
+            'setting' => Setting::current(),
             'job' => $this->buildPdfJobData($job),
         ], 'Service_Job_'.$job->id.'.pdf');
     }
@@ -1324,7 +1324,7 @@ class ServiceJobController extends BaseController
 
         return $this->renderPdf('pdf.service_quote_pdf', [
             'symbol' => $helpers->Get_Currency_Code(),
-            'setting' => Setting::whereNull('deleted_at')->first(),
+            'setting' => Setting::current(),
             'job' => $this->buildPdfJobData($job),
         ], 'Service_Quote_'.$job->id.'.pdf');
     }

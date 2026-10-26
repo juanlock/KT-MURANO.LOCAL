@@ -5532,7 +5532,7 @@ class ReportController extends BaseController
         $data['return_Due'] = $data['total_amount_return'] - $data['total_paid_return'];
 
         $symbol = $helpers->Get_Currency();
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (\App\Models\Client::whereKey($id)->value('company_id')) ?: null);
 
         $html = view('pdf.report_client_pdf', [
             'symbol' => $symbol,
@@ -5615,7 +5615,7 @@ class ReportController extends BaseController
         $data['return_Due'] = $data['total_amount_return'] - $data['total_paid_return'];
 
         $symbol = $helpers->Get_Currency();
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (\App\Models\Provider::whereKey($id)->value('company_id')) ?: null);
 
         $html = view('pdf.report_provider_pdf', [
             'symbol' => $symbol,
@@ -6476,7 +6476,7 @@ class ReportController extends BaseController
         $users = $this->rc(User::query(), 'users.company_id')->where('deleted_at', '=', null)->get(['id', 'username']);
         $categories_list = $this->rc(Category::query(), 'categories.company_id')->whereNull('categories.deleted_at')->get(['id', 'name']);
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current();
         $helpers = new helpers;
 
         // Fall back to the raw id when the warehouse/user was deleted, so a filtered

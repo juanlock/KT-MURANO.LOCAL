@@ -470,7 +470,7 @@ class PaymentSaleReturnsController extends BaseController
 
         $payment['id'] = $request->id;
         $payment['Ref'] = $request->Ref;
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (optional(optional(PaymentSaleReturns::find($request->id))->SaleReturn)->company_id) ?: null);
         $payment['company_name'] = $settings->CompanyName;
 
         $pdf = $this->payment_return($request, $payment['id']);
@@ -507,7 +507,7 @@ class PaymentSaleReturnsController extends BaseController
         $payment_data['payment_method'] = $payment['payment_method']->name;
 
         $helpers = new helpers;
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (optional($payment->SaleReturn)->company_id) ?: null);
         $symbol = $helpers->Get_Currency_Code();
 
         $Html = view('pdf.Payment_Sale_Return', [
@@ -543,7 +543,7 @@ class PaymentSaleReturnsController extends BaseController
             abort_unless((int) $payment['SaleReturn']->company_id === (int) $requester->company_id, 403);
         }
 
-        $settings = Setting::where('deleted_at', '=', null)->first();
+        $settings = Setting::current((int) (optional($payment->SaleReturn)->company_id) ?: null);
         $gateway = sms_gateway::where('id', $settings->sms_gateway)
             ->where('deleted_at', '=', null)->first();
 
