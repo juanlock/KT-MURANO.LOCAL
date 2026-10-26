@@ -36,7 +36,7 @@
     .overlay::before { width: 140vw; height: 70vw; left: -35vw; bottom: -52vw; background: radial-gradient(closest-side, rgba(255,255,255,.85), rgba(255,255,255,0)); }
     .overlay::after { width: 60vw; height: 60vw; right: -26vw; top: -30vw; background: radial-gradient(closest-side, rgba(150,200,248,.55), rgba(150,200,248,0)); }
     .modal {
-      position: relative; width: 100%; max-width: 860px; max-height: calc(100vh - 48px); display: flex; flex-direction: column;
+      position: relative; width: 100%; max-width: 1080px; max-height: calc(100vh - 48px); display: flex; flex-direction: column;
       background: #fff; border: 1px solid rgba(219,229,239,.8); border-radius: 18px; overflow: hidden;
       box-shadow: 0 30px 70px -25px rgba(16,64,128,.25), 0 8px 24px -12px rgba(16,64,128,.12);
     }
@@ -61,7 +61,7 @@
     .search { margin: 0 28px 12px; }
     .search input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; font: inherit; }
     .search input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px #dbe8f8; }
-    .list { padding: 0 28px 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+    .list { padding: 0 28px 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-items: start; }
     .co { border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
     .co-top { display: flex; align-items: center; gap: 12px; }
     .co-logo { width: 44px; height: 44px; border-radius: 10px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none; font-weight: 800; color: var(--primary); }
@@ -70,13 +70,16 @@
     .co-type { color: var(--muted); font-size: .8rem; }
     .adm { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff; cursor: pointer; font: inherit; color: inherit; text-align: left; }
     .adm:hover { border-color: var(--primary); background: #f3f8fe; }
-    .adm small { display: block; color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
-    .adm b { color: var(--primary); font-size: .85rem; white-space: nowrap; }
+    /* The name / email side shrinks (ellipsis) so "Enter" never overlaps it. */
+    .adm > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .adm small { display: block; color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .adm b { flex: none; color: var(--primary); font-size: .85rem; white-space: nowrap; }
+    .co-top > div:last-child { min-width: 0; }
     .none { color: var(--muted); font-size: .85rem; font-style: italic; }
     .foot { border-top: 1px solid var(--border); padding: 12px 28px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: .85rem; }
     .foot button { background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; text-decoration: underline; }
     form { margin: 0; }
-    @media (max-width: 560px) { .head, .foot { padding-left: 18px; padding-right: 18px; } .dash { margin-left: 18px; margin-right: 18px; width: calc(100% - 36px); } .sep, .search { margin-left: 18px; margin-right: 18px; } .list { padding: 0 18px 18px; } }
+    @media (max-width: 560px) { .head, .foot { padding-left: 18px; padding-right: 18px; } .dash { margin-left: 18px; margin-right: 18px; width: calc(100% - 36px); } .sep, .search { margin-left: 18px; margin-right: 18px; } .list { padding: 0 18px 18px; grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
