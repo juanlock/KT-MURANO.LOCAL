@@ -13,6 +13,8 @@ import { getActingCompanyId, setActingCompanyId } from '../lib/actingCompany';
  * stays null, so http.js never attaches anything and every request falls
  * back to the user's own company_id server-side, same as before this existed.
  */
+let loading = null; // the load() in flight (list + company picked)
+
 export const useCompanyStore = defineStore('company', {
     state: () => ({
         companies: [],
@@ -30,17 +32,24 @@ export const useCompanyStore = defineStore('company', {
         },
     },
     actions: {
-        async load() {
+        load() {
             // Not a SuperAdmin: drop any acting company left in this browser by an
             // earlier SuperAdmin session (e.g. AdminSystem/999) -- an Admin always
             // acts as their own company and never has a selector.
             if (!this.isSuperAdmin) {
                 if (this.actingCompanyId) this.setCompany(null);
-                return;
+                return Promise.resolve();
             }
-            if (this.loaded) return;
+            // A second caller (the router guard of a global page while the topbar
+            // is still loading) waits for the same whole load -- list AND the
+            // company picked -- instead of returning early.
+            if (loading) return loading;
+            if (this.loaded) return Promise.resolve();
             this.loaded = true;
-
+            loading = this.fetchCompanies().finally(() => { loading = null; });
+            return loading;
+        },
+        async fetchCompanies() {
             try {
                 this.companies = await http.get('get_all_company');
             } catch (e) {

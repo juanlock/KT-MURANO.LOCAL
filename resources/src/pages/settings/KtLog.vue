@@ -4,7 +4,18 @@
       title="KT-Log"
       :subtitle="tx('Every request worked with Claude (Protocol Kelsy), newest first.', 'Cada pedido trabajado con Claude (Protocolo Kelsy), lo más reciente primero.')"
       :breadcrumb="[tx('Settings', 'Ajustes'), 'KT-Log']"
-    />
+    >
+      <!-- Where the rows come from (KtLogSource): production's kt_logs, or this database's copy. -->
+      <template v-if="source" #actions>
+        <a-tooltip :title="source === 'production'
+          ? tx('kt_logs lives in production: this list reads it directly (read only).', 'kt_logs vive en producción: esta lista la lee directamente (solo lectura).')
+          : tx('Production did not answer: this is the copy of this database (last Wake-up).', 'Producción no respondió: es la copia de esta base (último Wake-up).')">
+          <a-tag :color="source === 'production' ? 'green' : 'orange'">
+            {{ source === 'production' ? tx('Source: production', 'Fuente: producción') : tx('Source: local copy', 'Fuente: copia local') }}
+          </a-tag>
+        </a-tooltip>
+      </template>
+    </PageHeader>
 
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
@@ -158,6 +169,7 @@ const crud = useCrudTable('kt_logs', {
 // Back from elsewhere = the same filters, page and search (Frontend Conventions).
 const listState = useListState('kt-log', { filters }, crud);
 
+const source = computed(() => crud.payload.value?.source || null);
 const opt = key => sortByLabel((crud.payload.value?.options?.[key] || []).map(v => ({ value: v, label: v })));
 
 const columns = computed(() => [

@@ -4,13 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\KtLog;
 use App\Models\Setting;
+use App\Support\KtLogSource;
 use Illuminate\Http\Request;
 
 /**
  * KT-Log (2026-10-26): the kt_logs history (every request worked with Claude,
  * Protocol Kelsy) as a list with our standard filters and a detail drawer.
  * Install-wide: only the SuperAdmin with AdminSystem (999) picked -- nobody else,
- * whatever their role says (superadmin/<company> neither).
+ * whatever their role says (superadmin/<company> neither). Reads production's
+ * kt_logs from a developer PC with production access (KtLogSource), read only.
  */
 class KtLogController extends Controller
 {
@@ -21,7 +23,8 @@ class KtLogController extends Controller
     public function index(Request $request)
     {
         $this->authorizeSystem($request);
-        $q = KtLog::query()
+        [$conn, $source] = KtLogSource::resolve();
+        $q = KtLog::on($conn)
             ->when($request->filled('from'), fn ($q) => $q->whereDate('log_date', '>=', $request->from))
             ->when($request->filled('to'), fn ($q) => $q->whereDate('log_date', '<=', $request->to))
             ->when($request->filled('location'), fn ($q) => $q->where('location', $request->location))
@@ -45,12 +48,13 @@ class KtLogController extends Controller
             'logs' => $q->orderBy($sort, $dir)->when($sort !== 'id', fn ($q) => $q->orderBy('id', 'desc'))
                 ->offset(($page - 1) * $limit)->limit($limit)->get(self::LIST_COLUMNS),
             'totalRows' => $total,
+            'source' => $source, // production | local (KtLogSource)
             // Filter choices, from the data itself.
             'options' => [
-                'locations' => KtLog::whereNotNull('location')->distinct()->orderBy('location')->pluck('location'),
-                'categories' => KtLog::whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
-                'statuses' => KtLog::whereNotNull('status')->distinct()->orderBy('status')->pluck('status'),
-                'users' => KtLog::whereNotNull('claude_user')->distinct()->orderBy('claude_user')->pluck('claude_user'),
+                'locations' => KtLog::on($conn)->whereNotNull('location')->distinct()->orderBy('location')->pluck('location'),
+                'categories' => KtLog::on($conn)->whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
+                'statuses' => KtLog::on($conn)->whereNotNull('status')->distinct()->orderBy('status')->pluck('status'),
+                'users' => KtLog::on($conn)->whereNotNull('claude_user')->distinct()->orderBy('claude_user')->pluck('claude_user'),
             ],
         ]);
     }
@@ -59,7 +63,7 @@ class KtLogController extends Controller
     {
         $this->authorizeSystem($request);
 
-        return response()->json(['log' => KtLog::findOrFail($id)]);
+        return response()->json(['log' => KtLog::on(KtLogSource::connection())->findOrFail($id)]);
     }
 
     /** superadmin/AdminSystem only: a SuperAdmin with no company or AdminSystem (999) picked. */

@@ -6,6 +6,7 @@ import { autoOpenPath, recordVisit, startPageOpened, markStartPageOpened, pageOp
 import { setPageTitle } from '../lib/docTitle';
 import { installNavKind } from '../composables/useListState';
 import { getActingCompanyId } from '../lib/actingCompany';
+import { useCompanyStore } from '../stores/company';
 // The shell is needed on every page, so it stays in the entry bundle.
 import AdminLayout from '../layouts/AdminLayout.vue';
 
@@ -1025,6 +1026,12 @@ router.beforeEach(async to => {
     // Global pages (user's rule, 2026-10-21): only "superadmin/AdminSystem" --
     // the SuperAdmin with AdminSystem (999) picked in the company switcher.
     // With another company picked the SuperAdmin acts only on that company.
+    // A global page opened directly (new browser, nothing picked yet): the company
+    // switcher picks the SuperAdmin's own company on load -- wait for it, or the
+    // check below ran on "none" and answered "Page not available" (2026-10-26).
+    if (to.meta.systemOnly && auth.user?.type === 'SuperAdmin' && !getActingCompanyId()) {
+        await useCompanyStore().load();
+    }
     if (to.meta.systemOnly && (auth.user?.type !== 'SuperAdmin' || Number(getActingCompanyId()) !== 999)) {
         return { name: 'not-found' };
     }
