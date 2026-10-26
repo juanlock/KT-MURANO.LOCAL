@@ -8,6 +8,15 @@
       </template>
     </a-button>
 
+    <!-- The company's logo and name next to the toggle while the side menu (and
+         its brand) is hidden or collapsed, so the header is never left empty. -->
+    <div v-if="showBrand" class="tb-brand" @click="$router.push('/')">
+      <img v-if="auth.logoUrl" :src="auth.logoUrl" alt="" class="tb-brand-logo" />
+      <span v-else class="tb-brand-initial">{{ auth.brandInitial }}</span>
+      <!-- The name always (auth.companyName follows the sidebar's own "show name" switch). -->
+      <span v-if="auth.user?.company" class="tb-brand-name">{{ auth.user.company }}</span>
+    </div>
+
     <!-- Right: actions (icons placed by the user's order, Profile -> Header icons) -->
     <div class="tb-actions">
       <!-- Company switcher (SuperAdmin only) -- every page/form acts on
@@ -66,7 +75,8 @@
       </span>
 
       <!-- Today's summary -->
-      <span v-if="auth.headerIcon('summary') && auth.moduleEnabled('sales')" class="tb-slot" :style="{ order: auth.headerOrder('summary') }">
+      <!-- Profit and stock at cost: roles with the Profit report only (owners / admins / managers). -->
+      <span v-if="auth.headerIcon('summary') && auth.moduleEnabled('sales') && auth.can('Reports_profit')" class="tb-slot" :style="{ order: auth.headerOrder('summary') }">
         <a-tooltip title="Como Vamos!">
           <a-button type="text" class="icon-btn summary-btn" @click="summaryOpen = true">
             <template #icon><PieChartOutlined /></template>
@@ -330,6 +340,7 @@ import { message } from 'ant-design-vue';
 
 defineProps({
   collapsed: { type: Boolean, default: false },
+  showBrand: { type: Boolean, default: false },
 });
 const emit = defineEmits(['toggle-sidebar', 'logout']);
 
@@ -629,6 +640,20 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   padding-inline: 14px;
   margin-right: 4px;
 }
+
+/* Company logo + name beside the toggle when the side menu is hidden / collapsed
+   (margin-right: auto keeps it on the left, the actions on the right). */
+.tb-brand {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  margin: 0 auto 0 8px; padding-right: 12px; cursor: pointer;
+}
+.tb-brand-logo { height: 34px; max-width: 120px; width: auto; object-fit: contain; flex: none; }
+.tb-brand-initial {
+  width: 34px; height: 34px; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center;
+  background: #e6f0ff; color: #1677ff; font-weight: 700;
+}
+.tb-brand-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+@media (max-width: 767px) { .tb-brand-name { display: none; } }
 
 /* Company switcher (SuperAdmin only) -- tinted like the install-btn so it
    reads as its own distinct, always-visible context control rather than a

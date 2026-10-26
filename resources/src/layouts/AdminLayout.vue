@@ -66,6 +66,7 @@
       <a-layout-header class="topbar" :class="{ 'topbar--dark': ui.dark }">
         <AppTopbar
           :collapsed="collapsed"
+          :show-brand="menuHidden || effectiveCollapsed || (isMobile && !mobileOpen)"
           @toggle-sidebar="onToggleSidebar"
           @logout="logout"
         />

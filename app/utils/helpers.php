@@ -85,44 +85,37 @@ class helpers
         return false;
     }
 
-    // Get Currency
-    public function Get_Currency()
+    /**
+     * The company's currency (multicompany, 2026-10-26): $companyId's settings, else
+     * the signed-in user's acting company. It used to read the first settings row
+     * of the install, so every company showed company 1's symbol ($).
+     */
+    private function companyCurrency(?int $companyId = null): ?Currency
     {
-        $settings = Setting::with('Currency')->where('deleted_at', '=', null)->first();
-
-        if ($settings && $settings->currency_id) {
-            if (Currency::where('id', $settings->currency_id)
-                ->where('deleted_at', '=', null)
-                ->first()) {
-                $symbol = $settings['Currency']->symbol;
-            } else {
-                $symbol = '';
-            }
-        } else {
-            $symbol = '';
+        if (! $companyId && (request()->user('api') ?? request()->user())) {
+            $companyId = \App\Support\CompanyFiles::actingCompanyId();
         }
+        $settings = $companyId
+            ? Setting::where('company_id', $companyId)->whereNull('deleted_at')->first()
+            : null;
+        $settings ??= Setting::where('company_id', Setting::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')->first()
+            ?? Setting::whereNull('deleted_at')->first();
 
-        return $symbol;
+        return $settings && $settings->currency_id
+            ? Currency::where('id', $settings->currency_id)->whereNull('deleted_at')->first()
+            : null;
     }
 
-    // Get Currency COde
-    public function Get_Currency_Code()
+    // Get Currency (symbol)
+    public function Get_Currency(?int $companyId = null)
     {
-        $settings = Setting::with('Currency')->where('deleted_at', '=', null)->first();
+        return optional($this->companyCurrency($companyId))->symbol ?? '';
+    }
 
-        if ($settings && $settings->currency_id) {
-            if (Currency::where('id', $settings->currency_id)
-                ->where('deleted_at', '=', null)
-                ->first()) {
-                $code = $settings['Currency']->code;
-            } else {
-                $code = 'usd';
-            }
-        } else {
-            $code = 'usd';
-        }
-
-        return $code;
+    // Get Currency Code
+    public function Get_Currency_Code(?int $companyId = null)
+    {
+        return optional($this->companyCurrency($companyId))->code ?? 'usd';
     }
 
     /**

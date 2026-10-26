@@ -26,6 +26,10 @@ class TodaySummaryController extends Controller
      */
     public function index(Request $request)
     {
+        // Profit, costs and the stock value (2026-10-26): only roles with the Profit
+        // report (owners / admins / managers) -- a receptionist saw the stock at cost.
+        $this->authorizeForUser($request->user('api'), 'Reports_profit', \App\Models\Client::class);
+
         // Today / Month (default) / Year -- the topbar drawer's period toggle.
         // Every section below queries this range instead of a single day.
         $period = in_array($request->input('period'), ['today', 'month', 'year'], true)
