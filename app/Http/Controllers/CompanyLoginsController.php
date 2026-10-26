@@ -129,7 +129,7 @@ class CompanyLoginsController extends Controller
     /**
      * Hospital (2026-10-25): for each nurse / doctor login, the patients they
      * have today -- the ones on their roster rows of today, plus (doctors) the
-     * admitted patients they attend. user id => [names]. Empty when the company
+     * admitted patients they attend and today's appointments. user id => [names]. Empty when the company
      * has no hospital staff.
      */
     private function assignedPatients(int $cid, array $userIds): array
@@ -155,6 +155,14 @@ class CompanyLoginsController extends Controller
         }
         foreach (DB::table('admissions')->where('company_id', $cid)->where('status', 'admitted')->whereNull('deleted_at')
             ->whereIn('doctor_id', $doctors->keys())->get(['doctor_id', 'patient_id']) as $a) {
+            if ($uid = $userOfDoctor($a->doctor_id)) {
+                $out[$uid][$a->patient_id] = true;
+            }
+        }
+        // A doctor's appointments of today (specialist clinic / outpatients, 2026-10-26):
+        // a clinic doctor has no roster or inpatients, so the count showed 0.
+        foreach (DB::table('appointments')->where('company_id', $cid)->whereNull('deleted_at')->whereIn('doctor_id', $doctors->keys())
+            ->whereDate('scheduled_at', now()->toDateString())->whereNotIn('status', ['cancelled', 'no_show'])->get(['doctor_id', 'patient_id']) as $a) {
             if ($uid = $userOfDoctor($a->doctor_id)) {
                 $out[$uid][$a->patient_id] = true;
             }
