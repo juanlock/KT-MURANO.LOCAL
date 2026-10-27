@@ -197,6 +197,44 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-10-26 (Thundera)
+
+- **New company type: Health Specialist** (outpatient specialist clinic, on the
+  hospital data). Reception and schedule (doctor columns, drag & drop, check-in
+  with payment / insurance, late-doctor alert icon), nursing station (vitals,
+  "ready to go in" tells the doctor), the specialist's EMR (problem list, SOAP
+  with dictation, templates for general medicine, pediatrics with growth chart,
+  ophthalmology, cardiology, gynecology, psychology, psychiatry, prescriptions,
+  lab / imaging orders, referrals, follow-ups), 48 h email reminder with
+  Confirm / Can't come, NPS survey, clinic reports, and the patient portal
+  (book, pre-registration, prescriptions). Roles: Reception, Clinic Nurse,
+  Specialist, Billing.
+- **Arrival scans**: at the clinic check-in and the hospital admission window
+  the desk scans / photographs the insurance card and the ID (front and back);
+  private files, never a payment card.
+- **Removing a doctor** (HRM → Employees): off the schedule and the portal, their
+  upcoming appointments go to "To schedule" (patients emailed), inpatients
+  without attending doctor show in the Control tower, roster cleared.
+- **Multicompany documents**: invoices, purchases, quotations, returns, payments,
+  receipts, SMS / WhatsApp / emails and reference prefixes now use each
+  company's own name, logo, currency and footer (they used the first company's).
+  The currency symbol follows the company everywhere.
+- **Emails**: the subject replaces its {tags} too; {invoice_url} is now a
+  "View invoice" link to the public signed invoice (which works again, the QR
+  of the receipts too).
+- **HRM in the company's language**: every dropdown (employment type, gender,
+  marital status, pay, leaves), the employee tabs, form and printout; default
+  HR names created in the company's language. Company pickers only show other
+  companies to the SuperAdmin.
+- **KT-Log** (Settings, SuperAdmin on AdminSystem only): the work history with
+  our filters and the closing message of each request.
+- Header shows the company logo and name when the side menu is hidden; login
+  chooser cards fixed (and an expired page returns to a fresh chooser);
+  "How are we doing" only for roles with the profit report; demo data: save the
+  business type on its own, Commissions / Store no longer blocked by false "real
+  data"; crop / resize for the System Settings logo.
+- Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-10-25 (Optimum)
 
 - **Hospital, the whole stay.**
@@ -359,44 +397,6 @@ Setup: `php artisan migrate`, `npm run build`.
   longer write HTML reports (the summary is in the chat).
 
 Setup: `npm run build`.
-
-### 2026-10-19 (Thundera)
-
-- **Only four protocols now: Wake-up, Pa Llevar, Copia BD and Kelsy.**
-  - **Wake-up** (start of the day on any PC) replaces Preparate, Baja Prod and
-    Sube Prod: update from GitHub, local backup, compare with production,
-    bring production's new files and records down, offer to update production
-    (backup + your OK), and a report with the current rules and the last 5
-    changes.
-  - **Pa Llevar** (end of the day) does the same production sync, then the
-    manual, logs, backup, this README, commit and push (Sube Git is gone).
-  - Backups are compressed, import as-is in phpMyAdmin, and go to
-    `KT-TOOLS/database/<PC>/`, tagged wakeup / pallevar / copiabd.
-- **PayPal module (per company; on for KcolTech only).**
-  - Customers pay invoices into the company's own PayPal account with a "Pay
-    now" link. Copy it from Sales › ⋮ › PayPal pay link, or put `{pay_link}`
-    in the invoice email / SMS template.
-  - The payment is recorded on the invoice by itself (method PayPal, into the
-    chosen deposit account), never twice.
-  - Settings › PayPal: Client ID / Secret (stored encrypted), Sandbox or
-    Live, deposit account, optional webhook, and the list of PayPal payments.
-    New permission "PayPal".
-  - Ruba, New Era and Vanclem have it off.
-- **Murano opens in the computer's language.** A computer set to Spanish
-  (e.g. in Peru) sees the login page and the whole system in Spanish; any
-  other computer sees English, or the company's language when the computer's
-  isn't English or Spanish. The EN / ES switch on the login page (now
-  working) and the globe in the app always win. The PayPal pay page and the
-  customer portal follow the same rule.
-- **Login page in Spanish.** The standard login texts now have Spanish
-  ("Bienvenido de nuevo", "Ingresar"…). A company with its own login texts
-  adds their Spanish in Settings › Login Page.
-- **Manage Menu fix.** An Admin's reorder was refused ("Only a SuperAdmin can
-  add or remove menu items") when Murano had a new built-in menu item; now
-  only custom items count as added or removed.
-
-Setup: `php artisan migrate`, `npm run build`.
-
 
 ---
 
