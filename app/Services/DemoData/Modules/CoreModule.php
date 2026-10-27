@@ -52,7 +52,33 @@ class CoreModule extends DemoModule
         'Metformin' => 'Metformina', 'Sodium chloride' => 'Cloruro de sodio', 'Ethanol' => 'Etanol', 'Losartan' => 'Losartán',
         'Diclofenac' => 'Diclofenaco', 'Ceftriaxone' => 'Ceftriaxona',
     ];
-    private const PHARMA_SUPPLIERS = ['Droguería Andina', 'Laboratorios Medifarma', 'Distribuidora Farmacéutica del Sur', 'Insumos Médicos Lima', 'Química Suiza'];
+    /**
+     * What a barber shop / salon sells over the counter (2026-10-27: Urban Cuts sold
+     * keyboards and webcams). [es, en, cost]. Their services (cuts, beard...) are the
+     * company's own service products and go into the demo sales too.
+     */
+    private const RETAIL_PRODUCTS = [
+        'barber' => [
+            ['Pomada mate 100 g', 'Matte pomade 100 g', 18], ['Cera fijación fuerte 100 g', 'Strong hold wax 100 g', 16],
+            ['Aceite para barba 30 ml', 'Beard oil 30 ml', 20], ['Bálsamo para barba 60 g', 'Beard balm 60 g', 19],
+            ['Shampoo anticaspa 250 ml', 'Anti-dandruff shampoo 250 ml', 14], ['Gel fijador 250 ml', 'Styling gel 250 ml', 9],
+            ['Loción after shave 100 ml', 'After-shave lotion 100 ml', 17], ['Peine de madera', 'Wooden comb', 6],
+            ['Cepillo para barba', 'Beard brush', 12], ['Kit de afeitado clásico', 'Classic shaving kit', 55],
+            ['Cuchillas de afeitar (x10)', 'Razor blades (x10)', 8], ['Tónico capilar 200 ml', 'Hair tonic 200 ml', 21],
+        ],
+        'salon' => [
+            ['Shampoo profesional 500 ml', 'Professional shampoo 500 ml', 22], ['Acondicionador 500 ml', 'Conditioner 500 ml', 22],
+            ['Mascarilla capilar 250 ml', 'Hair mask 250 ml', 26], ['Sérum reparador 50 ml', 'Repair serum 50 ml', 28],
+            ['Aceite de argán 100 ml', 'Argan oil 100 ml', 30], ['Spray fijador 300 ml', 'Hairspray 300 ml', 15],
+            ['Protector térmico 200 ml', 'Heat protectant 200 ml', 18], ['Esmalte de uñas', 'Nail polish', 7],
+            ['Removedor de esmalte 120 ml', 'Nail polish remover 120 ml', 5], ['Cepillo redondo térmico', 'Round thermal brush', 24],
+            ['Tinte permanente', 'Permanent hair color', 16], ['Kit de manicure', 'Manicure kit', 35],
+        ],
+    ];
+    private const RETAIL_CATEGORY = ['barber' => ['Productos de barbería', 'Barber products'], 'salon' => ['Productos de belleza', 'Beauty products']];
+    private const RETAIL_SUPPLIERS = ['Distribuidora de Belleza Lima', 'Barber Supply Perú', 'Cosméticos del Pacífico', 'Importadora Estilo', 'Insumos Profesionales SAC'];
+    private const EXPENSE_DETAILS_ES = ['Alquiler del local', 'Recibo de luz', 'Internet', 'Movilidad', 'Limpieza', 'Útiles de oficina', 'Almuerzo del equipo', 'Reparación de equipos'];
+    private const PHARMA_SUPPLIERS =['Droguería Andina', 'Laboratorios Medifarma', 'Distribuidora Farmacéutica del Sur', 'Insumos Médicos Lima', 'Química Suiza'];
     private const COMPANY_WORDS =['Global', 'Prime', 'Atlas', 'Delta', 'Nova', 'Summit', 'Horizon', 'Union', 'Vertex', 'Coastal'];
     private const COMPANY_TYPES = ['Supplies', 'Trading', 'Distribution', 'Wholesale', 'Logistics', 'Industries'];
     /** Days back that sales / purchases / expenses spread over (a year, so accounting has history). */
@@ -113,12 +139,19 @@ class CoreModule extends DemoModule
         // the Sales Agent field / Commissions have something to show.
         $agentId = $sales ? $this->makeSalesAgent($ctx) : null;
 
+        // A barber shop / salon mostly sells its services (cuts, beard...): they join the sales too.
+        $saleItems = $productIds;
+        if (isset(self::RETAIL_PRODUCTS[$this->retailType($ctx)])) {
+            $services = DB::table('products')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->where('type', 'is_service')->pluck('id')->map(fn ($v) => (int) $v)->all();
+            $saleItems = array_merge($productIds, $services, $services); // services weigh double
+        }
+
         return array_filter([
             'Products' => count($productIds),
             'Customers' => count($clientIds),
             'Suppliers' => count($providerIds),
             'Sales agents' => $agentId ? 1 : 0,
-            'Sales' => $sales ? $this->makeSales($ctx, 48, $clientIds, $productIds, $paymentMethodId, $agentId) : 0,
+            'Sales' => $sales ? $this->makeSales($ctx, 48, $clientIds, $saleItems, $paymentMethodId, $agentId) : 0,
             'Purchases' => $purchases ? $this->makePurchases($ctx, 24, $providerIds, $productIds, $paymentMethodId) : 0,
             'Quotations' => $sales ? $this->makeQuotations($ctx, 5, $clientIds, $productIds) : 0,
             // Expenses live in Accounting: none when it is off.
@@ -154,19 +187,23 @@ class CoreModule extends DemoModule
     {
         $hospital = in_array($ctx->businessType ?? null, ['hospital', 'health_specialist'], true);
         $es = str_starts_with((string) DB::table('settings')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->value('default_language'), 'es');
+        $retail = self::RETAIL_PRODUCTS[$this->retailType($ctx)] ?? null;
         $categoryId = $ctx->insert('categories', ['code' => 'DEMO'.random_int(100, 999),
-            'name' => $hospital ? ($es ? 'Medicamentos e insumos' : 'Medicines & supplies') : 'Demo Category']);
+            'name' => $hospital ? ($es ? 'Medicamentos e insumos' : 'Medicines & supplies')
+                : ($retail ? self::RETAIL_CATEGORY[$this->retailType($ctx)][$es ? 0 : 1] : 'Demo Category')]);
         $unitId = $this->companyRowOr($ctx, 'units', fn () => $ctx->insert('units', [
             'name' => 'Piece', 'ShortName' => 'pc', 'base_unit' => null, 'operator' => '*', 'operator_value' => 1, 'is_active' => 1,
         ]));
 
-        $names = $hospital ? array_map(fn ($m) => $es ? $m[0] : $m[1], self::HOSPITAL_PRODUCTS) : self::PRODUCT_NAMES;
+        $names = $hospital ? array_map(fn ($m) => $es ? $m[0] : $m[1], self::HOSPITAL_PRODUCTS)
+            : ($retail ? array_map(fn ($m) => $es ? $m[0] : $m[1], $retail) : self::PRODUCT_NAMES);
         if ($hospital) {
             $count = max($count, count(self::HOSPITAL_PRODUCTS));
         }
         $ids = [];
         for ($i = 0; $i < $count; $i++) {
-            $cost = $hospital ? random_int(1, 40) + 0.5 : random_int(5, 400) + 0.99;
+            $cost = $hospital ? random_int(1, 40) + 0.5
+                : ($retail ? (float) $retail[$i % count($retail)][2] : random_int(5, 400) + 0.99);
             $price = round($cost * (1 + random_int(20, 60) / 100), 2);
             $med = $hospital ? self::HOSPITAL_PRODUCTS[$i % count(self::HOSPITAL_PRODUCTS)] : null;
             $pharmacy = $med ? array_filter([
@@ -223,14 +260,20 @@ class CoreModule extends DemoModule
                 'code' => ++$code,
                 'name' => "$first $last",
                 'firstname' => $first, 'lastname' => $last,
-                'email' => strtolower("$first.$last.demo".random_int(1000, 9999).'@example.com'),
-                'phone' => '555'.random_int(1000000, 9999999),
-                'country' => 'United States', 'city' => 'Demo City',
-                'adresse' => random_int(1, 200).' Demo Street',
+                'email' => strtolower(\Illuminate\Support\Str::ascii("$first.$last").'.demo'.random_int(1000, 9999).'@example.com'),
+                'phone' => $ctx->phone(),
+                'country' => $ctx->country, 'city' => $ctx->city(),
+                'adresse' => $ctx->street(),
             ]);
         }
 
         return $ids;
+    }
+
+    /** barber / salon (the products a shop of that kind sells), else ''. */
+    private function retailType(DemoContext $ctx): string
+    {
+        return ['barber' => 'barber', 'salon' => 'salon'][$ctx->businessType] ?? '';
     }
 
     private function makeProviders(DemoContext $ctx, int $count): array
@@ -241,14 +284,15 @@ class CoreModule extends DemoModule
             // A hospital buys from laboratories / drug wholesalers (2026-10-21).
             $name = in_array($ctx->businessType ?? null, ['hospital', 'health_specialist'], true)
                 ? self::PHARMA_SUPPLIERS[$i % count(self::PHARMA_SUPPLIERS)]
-                : $ctx->pick(self::COMPANY_WORDS).' '.$ctx->pick(self::COMPANY_TYPES);
+                : ($this->retailType($ctx) ? self::RETAIL_SUPPLIERS[$i % count(self::RETAIL_SUPPLIERS)]
+                    : $ctx->pick(self::COMPANY_WORDS).' '.$ctx->pick(self::COMPANY_TYPES));
             $ids[] = $ctx->insert('providers', [
                 'code' => ++$code,
                 'name' => $name,
                 'email' => strtolower(str_replace(' ', '.', \Illuminate\Support\Str::ascii($name))).'.demo'.random_int(1000, 9999).'@example.com',
-                'phone' => '555'.random_int(1000000, 9999999),
-                'country' => 'United States', 'city' => 'Demo City',
-                'adresse' => random_int(1, 200).' Industrial Zone',
+                'phone' => $ctx->phone(),
+                'country' => $ctx->country, 'city' => $ctx->city(),
+                'adresse' => $ctx->es ? $ctx->street() : random_int(1, 200).' Industrial Zone',
             ]);
         }
 
@@ -262,10 +306,11 @@ class CoreModule extends DemoModule
     {
         $picked = (array) array_rand(array_flip($productIds), min(random_int(1, 4), count($productIds)));
         $prices = DB::table('products')->whereIn('id', $picked)->pluck($priceColumn, 'id');
+        $services = DB::table('products')->whereIn('id', $picked)->where('type', 'is_service')->pluck('id')->flip();
         $lines = [];
         $total = 0.0;
         foreach ($picked as $pid) {
-            $qty = random_int(1, 5);
+            $qty = isset($services[$pid]) ? 1 : random_int(1, 5); // a service (a haircut) is sold once
             $price = (float) ($prices[$pid] ?? 10);
             $lineTotal = round($qty * $price, 2);
             $total += $lineTotal;
@@ -307,8 +352,8 @@ class CoreModule extends DemoModule
             'user_id' => null,
             'code' => 'SA-DEMO'.random_int(10, 99),
             'name' => "$first $last",
-            'email' => strtolower("$first.$last").random_int(10, 99).'@example.com',
-            'phone' => '+1 555 '.random_int(100, 999).' '.random_int(1000, 9999),
+            'email' => strtolower(\Illuminate\Support\Str::ascii("$first.$last")).random_int(10, 99).'@example.com',
+            'phone' => $ctx->phone(),
             'is_active' => 1,
             'notes' => 'Demo sales agent',
         ]);
@@ -460,7 +505,7 @@ class CoreModule extends DemoModule
                 'user_id' => $ctx->userId,
                 'expense_category_id' => $categoryId,
                 'warehouse_id' => $ctx->warehouse(),
-                'details' => $ctx->pick(self::EXPENSE_DETAILS),
+                'details' => $ctx->pick($ctx->es ? self::EXPENSE_DETAILS_ES : self::EXPENSE_DETAILS),
                 'amount' => random_int(20, 1500) + random_int(0, 99) / 100,
                 'created_at' => $date, 'updated_at' => $date,
             ]);

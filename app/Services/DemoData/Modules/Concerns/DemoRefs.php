@@ -86,10 +86,10 @@ trait DemoRefs
             'firstname' => $first,
             'lastname' => $last,
             'code' => $code,
-            'email' => strtolower($first.'.'.$last).'.'.random_int(1000, 9999).'@example.com',
-            'phone' => '+1 555 '.random_int(100, 999).' '.random_int(1000, 9999),
-            'city' => $ctx->pick(['Springfield', 'Riverside', 'Fairview', 'Madison']),
-            'country' => 'United States',
+            'email' => strtolower(\Illuminate\Support\Str::ascii($first.'.'.$last)).'.'.random_int(1000, 9999).'@example.com',
+            'phone' => $ctx->phone(),
+            'city' => $ctx->city(),
+            'country' => $ctx->country,
         ]);
     }
 

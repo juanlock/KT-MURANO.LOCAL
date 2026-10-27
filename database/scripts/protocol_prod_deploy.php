@@ -171,6 +171,13 @@ try {
         echo $sh('git merge --ff-only FETCH_HEAD | tail -3'), PHP_EOL;
         $restoreEnv();
         if ($sh('git rev-parse HEAD') !== $localHead) { echo "Code NOT deployed (fast-forward failed) -- nothing else done.\n"; return; }
+        // A deploy never deletes the companies' files (2026-10-27: public/files left git --
+        // the commit that untracks them reads as "deleted"): whatever the new commits removed
+        // under public/files is put back from the previous commit and left untracked.
+        $gone = array_filter(explode("\n", $lg('diff --name-only --diff-filter=D '.$serverHead.' HEAD -- public/files')));
+        if ($gone) {
+            echo $sh('git checkout '.$q($serverHead).' -- public/files && git reset -q -- public/files && echo "public/files: '.count($gone).' file(s) kept on the server (untracked)"'), PHP_EOL;
+        }
         $sftp->exec('rm -f '.$q($work.'/deploy.bundle'));
     }
     // 2) public/js, built on this PC

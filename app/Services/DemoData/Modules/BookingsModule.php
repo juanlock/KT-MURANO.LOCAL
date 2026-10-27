@@ -40,6 +40,9 @@ class BookingsModule extends DemoModule
 
     public function generate(DemoContext $ctx): array
     {
+        if (in_array($ctx->businessType, ['barber', 'salon'], true)) {
+            return $this->shopDay($ctx);
+        }
         $clients = $this->clientIds($ctx, 6);
         $products = DB::table('products')->whereIn('id', $this->productIds($ctx, 6, 'is_service'))
             ->get(['id', 'name', 'price'])->values();
@@ -86,6 +89,89 @@ class BookingsModule extends DemoModule
                 'notes' => $status === 'cancelled' ? 'Customer called to cancel.' : ($i === 4 ? 'First visit -- allow extra time.' : null),
             ]);
             $count++;
+        }
+
+        return ['Trays' => count($trays), 'Bookings' => $count];
+    }
+
+    /**
+     * A barber shop / salon's agenda (2026-10-27: Urban Cuts had none): its chairs, and
+     * from three weeks ago to two weeks ahead, Monday to Saturday, several appointments a
+     * day per barber / stylist with the company's own services -- done or cancelled in the
+     * past, confirmed today, confirmed / pending ahead. No barber is booked twice at once.
+     */
+    private function shopDay(DemoContext $ctx): array
+    {
+        $clients = $this->clientIds($ctx, 12);
+        $services = DB::table('products')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->where('type', 'is_service')
+            ->get(['id', 'name', 'price'])->values();
+        if ($services->isEmpty()) {
+            $services = DB::table('products')->whereIn('id', $this->productIds($ctx, 6, 'is_service'))->get(['id', 'name', 'price'])->values();
+        }
+        $chair = $ctx->businessType === 'barber' ? ($ctx->es ? 'Silla' : 'Chair') : ($ctx->es ? 'Puesto' : 'Station');
+        $trays = [];
+        for ($n = 1; $n <= 3; $n++) {
+            $trays[] = $ctx->insert('trays', ['name' => "$chair $n", 'description' => null]);
+        }
+        // The people on the chairs: employees whose position is a barber / stylist (HRM demo), else any staff login.
+        $staff = DB::table('employees as e')->join('designations as d', 'd.id', '=', 'e.designation_id')
+            ->where('e.company_id', $ctx->companyId)->whereNull('e.deleted_at')->whereNotNull('e.user_id')
+            ->where(fn ($q) => $q->where('d.designation', 'like', '%arber%')->orWhere('d.designation', 'like', '%stilist%')
+                ->orWhere('d.designation', 'like', '%tylist%')->orWhere('d.designation', 'like', '%olorist%')->orWhere('d.designation', 'like', '%anicur%'))
+            ->pluck('e.user_id')->map(fn ($v) => (int) $v)->all()
+            ?: DB::table('users')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->where('statut', 1)->where('type', 'employee')->pluck('id')->map(fn ($v) => (int) $v)->all()
+            ?: [$ctx->userId];
+        $minutes = function (string $name): int {
+            $n = mb_strtolower($name);
+
+            return match (true) {
+                str_contains($n, '+') || str_contains($n, 'hijo') || str_contains($n, 'combo') || str_contains($n, 'tinte') || str_contains($n, 'color') => 60,
+                str_contains($n, 'barba') || str_contains($n, 'beard') || str_contains($n, 'lavado') || str_contains($n, 'wash') || str_contains($n, 'mascarilla') => 30,
+                default => 45,
+            };
+        };
+
+        $ref = $this->nextRef('bookings', 'BK');
+        $count = 0;
+        for ($d = -21; $d <= 14; $d++) {
+            $day = now()->addDays($d);
+            if ($day->isSunday()) {
+                continue;
+            }
+            foreach ($staff as $s => $barber) {
+                // 2-4 appointments per barber, on free half-hour slots between 09:00 and 19:00
+                $free = 9 * 60;
+                $todo = random_int(2, 4);
+                while ($todo-- > 0 && $free < 19 * 60) {
+                    $free += $ctx->pick([0, 0, 30, 60]);
+                    $service = $services[random_int(0, $services->count() - 1)];
+                    $len = $minutes((string) $service->name);
+                    if ($free + $len > 20 * 60) {
+                        break;
+                    }
+                    $start = $day->copy()->setTime(intdiv($free, 60), $free % 60);
+                    $status = $d < 0 ? (random_int(1, 10) === 1 ? 'cancelled' : 'completed') : ($d === 0 ? 'confirmed' : (random_int(1, 10) <= 6 ? 'confirmed' : 'pending'));
+                    $price = round((float) $service->price ?: 30, 2);
+                    $ctx->insert('bookings', [
+                        'Ref' => 'BK_'.($ref++),
+                        'customer_id' => $clients[array_rand($clients)],
+                        'product_id' => $service->id,
+                        'tray_id' => $trays[$s % count($trays)],
+                        'warehouse_id' => $ctx->warehouse(),
+                        'sales_person_id' => $barber,
+                        'product_name' => $service->name,
+                        'price' => $price,
+                        'amount' => $price,
+                        'booking_date' => $start->toDateString(),
+                        'booking_time' => $start->format('H:i:s'),
+                        'booking_end_time' => $start->copy()->addMinutes($len)->format('H:i:s'),
+                        'status' => $status,
+                        'notes' => $status === 'cancelled' ? ($ctx->es ? 'El cliente llamó para cancelar.' : 'Customer called to cancel.') : null,
+                    ]);
+                    $free += $len;
+                    $count++;
+                }
+            }
         }
 
         return ['Trays' => count($trays), 'Bookings' => $count];

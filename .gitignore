@@ -30,6 +30,9 @@
 /KT-TOOLS/documentation
 /KT-TOOLS/VERSION
 /KT-TOOLS/database/Older
+# The companies' files are not in git (2026-10-27): production owns them; they travel with
+# murano:from-prod / protocol_prod_push and are copied to Google Drive by Pa Llevar.
+/public/files/
 # The backup archive lives in Google Drive (App\Support\BackupPaths, 2026-10-27):
 # in the repo only the copy of the latest backup (KT-TOOLS/database/*.zip).
 /KT-TOOLS/database/*/

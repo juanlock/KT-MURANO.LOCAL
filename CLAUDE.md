@@ -249,8 +249,15 @@ the start of each session).
 - **Only a SuperAdmin, for install-wide/global settings** (system logo,
   defaults), may write elsewhere under `public/` (e.g. `public/images/`).
   Company Admins never write outside their own `files/company_{id}/`.
-- Company folders are git-tracked like the rest of `public/files` (they travel
-  between machines with Pa Llevar) -- keep big imports in mind.
+- **`public/files` is NOT in git (user's rule, 2026-10-27):** production owns the
+  companies' files. They travel without git: production -> PC with
+  `murano:from-prod` (every morning), PC -> production with
+  `protocol_prod_push.php` (Pa Llevar; never a live company's folder). A deploy
+  never deletes them (`protocol_prod_deploy.php` puts back anything a commit
+  removed under `public/files`). Pa Llevar copies this PC's `public/files` to
+  Google Drive (`<archive>\..\files`, `protocol_files_mirror.php`, never
+  deletes). The old history still holds them (2 GB) until a history rewrite
+  the user approves.
 
 ### People, logins and permissions (user's rules, 2026-10-05 / 2026-10-06)
 

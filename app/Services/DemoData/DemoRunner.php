@@ -27,6 +27,9 @@ class DemoRunner
         }
         $ctx = new DemoContext($companyId, $userId, $warehouseIds, $default ?: null);
         $ctx->businessType = \App\Support\BusinessTypes::of($companyId);
+        // The company's language and country: Spanish names, cities and phones for a Spanish company (2026-10-27).
+        $ctx->es = str_starts_with((string) Setting::forCompany($companyId)->default_language, 'es');
+        $ctx->country = (string) (DB::table('companies')->where('id', $companyId)->value('country') ?: ($ctx->es ? 'Perú' : 'United States'));
         if (! $warehouseIds && $ensureWarehouse) {
             $ctx->module = 'core';
             $ctx->warehouseIds = [$ctx->insert('warehouses', ['name' => 'Demo Warehouse'])];

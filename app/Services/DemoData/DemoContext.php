@@ -31,6 +31,12 @@ class DemoContext
     /** Answers asked on Demo Data for some modules (e.g. school_start / school_end: the school year's dates). */
     public array $options = [];
 
+    /** The company works in Spanish (settings.default_language): Spanish names, cities, phones (2026-10-27). */
+    public bool $es = false;
+
+    /** The company's country (companies.country). */
+    public string $country = 'United States';
+
     private static array $columnCache = [];
 
     public function __construct(
@@ -206,8 +212,38 @@ class DemoContext
     public const FIRST_NAMES = ['James', 'Sarah', 'Mohamed', 'Fatima', 'David', 'Aisha', 'Carlos', 'Nadia', 'Kevin', 'Leila', 'Omar', 'Julia', 'Youssef', 'Emma', 'Karim'];
     public const LAST_NAMES = ['Smith', 'Johnson', 'Alami', 'Benali', 'Garcia', 'Martin', 'Idrissi', 'Brown', 'Tazi', 'Lee', 'Haddad', 'Wilson', 'Mansouri', 'Clark', 'Amrani'];
 
+    /** Spanish-speaking companies get Latin American names (2026-10-27: Urban Cuts, Peru, had "Julia Tazi"). */
+    public const ES_FIRST_NAMES = ['Luis', 'María', 'José', 'Carmen', 'Carlos', 'Rosa', 'Jorge', 'Lucía', 'Miguel', 'Ana', 'Diego', 'Valeria', 'Andrés', 'Camila', 'Renzo', 'Daniela', 'Ricardo', 'Gabriela'];
+    public const ES_LAST_NAMES = ['Quispe', 'Flores', 'Rodríguez', 'García', 'Sánchez', 'Ramírez', 'Torres', 'Vargas', 'Rojas', 'Mendoza', 'Castillo', 'Chávez', 'Huamán', 'Salazar', 'Paredes', 'Gutiérrez'];
+    public const ES_FEMALE = ['María', 'Carmen', 'Rosa', 'Lucía', 'Ana', 'Valeria', 'Camila', 'Daniela', 'Gabriela'];
+
     public function personName(): array
     {
-        return [$this->pick(self::FIRST_NAMES), $this->pick(self::LAST_NAMES)];
+        return $this->es
+            ? [$this->pick(self::ES_FIRST_NAMES), $this->pick(self::ES_LAST_NAMES)]
+            : [$this->pick(self::FIRST_NAMES), $this->pick(self::LAST_NAMES)];
+    }
+
+    public function isFemale(string $first): bool
+    {
+        return in_array($first, array_merge(self::ES_FEMALE, ['Sarah', 'Fatima', 'Aisha', 'Nadia', 'Leila', 'Julia', 'Emma']), true);
+    }
+
+    /** A city of the company's country (Spanish companies: Lima; else the old demo cities). */
+    public function city(): string
+    {
+        return $this->es ? $this->pick(['Lima', 'Miraflores', 'San Isidro', 'Surco', 'San Borja']) : $this->pick(['Miami', 'Orlando', 'Tampa']);
+    }
+
+    public function phone(): string
+    {
+        return $this->es ? '9'.random_int(10000000, 99999999) : '555'.random_int(1000000, 9999999);
+    }
+
+    public function street(): string
+    {
+        return $this->es
+            ? $this->pick(['Av. Larco', 'Av. Arequipa', 'Jr. de la Unión', 'Av. Benavides', 'Calle Las Begonias', 'Av. Javier Prado']).' '.random_int(100, 1999)
+            : random_int(1, 200).' Demo Street';
     }
 }

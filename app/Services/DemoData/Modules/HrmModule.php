@@ -55,8 +55,15 @@ class HrmModule extends DemoModule
         $shiftId = $ctx->insert('office_shifts', $shift);
         $counts['Office shifts'] = 1;
 
-        // Departments -> designations.
-        $structure = $es ? [
+        // Departments -> designations. A barber shop / salon: its chairs and front desk (2026-10-27:
+        // Urban Cuts had a warehouse clerk and an accountant instead of barbers).
+        $shop = [
+            'barber' => $es ? ['Barbería' => ['Barbero', 'Barbero senior'], 'Recepción' => ['Recepcionista']]
+                : ['Barber shop' => ['Barber', 'Senior barber'], 'Front desk' => ['Receptionist']],
+            'salon' => $es ? ['Salón' => ['Estilista', 'Colorista', 'Manicurista'], 'Recepción' => ['Recepcionista']]
+                : ['Salon' => ['Stylist', 'Colorist', 'Nail technician'], 'Front desk' => ['Receptionist']],
+        ][$ctx->businessType] ?? null;
+        $structure = $shop ?? ($es ? [
             'Ventas' => ['Representante de ventas', 'Gerente de ventas'],
             'Operaciones' => ['Almacenero'],
             'Finanzas' => ['Contador'],
@@ -64,7 +71,7 @@ class HrmModule extends DemoModule
             'Sales' => ['Sales Representative', 'Sales Manager'],
             'Operations' => ['Warehouse Clerk'],
             'Finance' => ['Accountant'],
-        ];
+        ]);
         $positions = []; // [department_id, designation_id, title]
         foreach ($structure as $dept => $titles) {
             $deptId = $ctx->insert('departments', ['department' => $dept, 'department_head' => null]);
@@ -84,18 +91,21 @@ class HrmModule extends DemoModule
                 [$first, $last] = $ctx->personName();
             } while (isset($used[$first.$last]));
             $used[$first.$last] = true;
-            [$deptId, $desId, $title] = $positions[$i % count($positions)];
+            // A shop: most of the staff on the chairs (the first designation), one at the front desk.
+            [$deptId, $desId, $title] = $shop
+                ? ($i === 4 ? end($positions) : $positions[$i % max(1, count($positions) - 1)])
+                : $positions[$i % count($positions)];
             $salary = $ctx->pick([2800, 3200, 3600, 4200, 5000]);
             $id = $ctx->insert('employees', [
                 'user_id' => null,
                 'firstname' => $first,
                 'lastname' => $last,
                 'username' => $first.' '.$last,
-                'email' => strtolower($first.'.'.$last).'.'.random_int(100, 999).'@example.com',
-                'phone' => '+1 555 '.random_int(100, 999).' '.random_int(1000, 9999),
-                'country' => 'United States',
-                'city' => $ctx->pick(['Miami', 'Orlando', 'Tampa']),
-                'gender' => in_array($first, ['Sarah', 'Fatima', 'Aisha', 'Nadia', 'Leila', 'Julia', 'Emma'], true) ? 'female' : 'male',
+                'email' => strtolower(\Illuminate\Support\Str::ascii($first.'.'.$last)).'.'.random_int(100, 999).'@example.com',
+                'phone' => $ctx->phone(),
+                'country' => $ctx->country,
+                'city' => $ctx->city(),
+                'gender' => $ctx->isFemale($first) ? 'female' : 'male',
                 'avatar' => 'no_avatar.png',
                 'birth_date' => Carbon::now()->subYears(random_int(24, 50))->subDays(random_int(0, 360))->toDateString(),
                 'joining_date' => Carbon::now()->subDays(random_int(120, 900))->toDateString(),
