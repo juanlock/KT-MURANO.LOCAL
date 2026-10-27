@@ -6,7 +6,7 @@ Run Protocol Restaura BD Dev (user's request, 2026-10-25). The normal way to ali
 
 0. **Which PC** -- run `hostname` (don't ask): the Kelsy location (`KT-THUNDERA` -> Thundera, `KTOPTIMUM_NB` -> Optimum, any other -> Home).
 
-1. **Latest backups** -- if the git tree may be behind, say so (the backups travel with git: `KT-TOOLS/database/`, LFS; GitHub Desktop "Fetch origin" + "Pull" first). Then `php artisan murano:restore-dev --list` (newest first: date and time from the file name, tag -- copiabd / wakeup / pallevar / adormir / prerestore --, origin PC, size, the office_emails 1/2/3 parts).
+1. **Latest backups** -- they travel through Google Drive (`<archive>`, not git since 2026-10-27): if the other PC's newest backup is missing, the Drive may still be syncing. Then `php artisan murano:restore-dev --list` (newest first: date and time from the file name, tag -- copiabd / wakeup / pallevar / adormir / prerestore --, origin PC, size, the office_emails 1/2/3 parts).
 
 2. **Ask** (AskUserQuestion) with the first one as the recommended option: "Restore the dev database of <this PC> from <date time> (<tag>, PC <origin>, <size>)?" -- options: **Restore from it**, **Pick another** (then offer the next 3-4 of the list), **Cancel**. Mention: everything in this PC's dev database is replaced (it is backed up first, tag `prerestore`), production is not touched, and Wake-up is the usual way to get production's current data.
 

@@ -71,9 +71,10 @@ for file names and the Kelsy location (`KT-THUNDERA` -> Thundera,
 path on every developer PC; `.env` `BACKUP_ARCHIVE_DIR` overrides it;
 `App\Support\BackupPaths`; without Drive it falls back to `KT-TOOLS/database/`).**
 Its subfolders: `<PC name>/`, `production/` (production backups,
-`from_prod_latest.zip`, `last_sync.json`), `HOSTINGER/`. In the repo only the
-copy of the latest backup stays (`KT-TOOLS/database/*.zip`; subfolders are
-git-ignored).
+`from_prod_latest.zip`, `last_sync.json`), `HOSTINGER/`. **No backup, dump,
+`.env` or customer document is ever in git** (2026-10-27; `.gitignore`, no Git
+LFS any more): the copy of the latest backup in `KT-TOOLS/database/` and the
+`KT-TOOLS/SQL/` copies stay on this PC's disk only.
 Every database backup is compressed and phpMyAdmin-ready
 (`database/scripts/protocol_sql_clean.php`): local ones in
 **`<archive>/<PC name>/dbmurano_<date>_<time>_<wakeup|pallevar|copiabd>.zip`**
@@ -257,10 +258,18 @@ the start of each session).
   removed under `public/files`). Pa Llevar copies this PC's `public/files` to
   Google Drive (`<archive>\..\files`, `protocol_files_mirror.php`, never
   deletes).
-  **Git history rewritten on 2026-10-27 (user's OK):** `public/files` was removed
-  from every commit (it held customer documents). Old -> new commit ids:
-  `KT-TOOLS/history_rewrite_map.txt`; full backup of the old repo:
-  `G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\git\…before_history_rewrite….bundle`.
+  **Git history rewritten on 2026-10-27 (user's OK) and the GitHub repository
+  recreated:** removed from every commit: `public/files` (customer documents),
+  `.env`, `KT-TOOLS/.env_modelo`, every database dump / backup
+  (`KT-TOOLS/database`, `KT-TOOLS/SQL`, `KT-TOOLS/VERSION`, `database/dev_sync`,
+  `database/snapshots`, `storage/app/public/backup`, `storage/app.zip`),
+  production logs (`KT-TOOLS/prod`), invoices (`KT-TOOLS/invoicesKT.csv`, the
+  POS invoice PDF) and `KT-TOOLS/app.zip` / `KT-TOOLS/sources` -- all still on
+  disk, git-ignored. Old -> new commit ids (both earlier histories):
+  `KT-TOOLS/history_rewrite_map.txt`; full backups of the old repo:
+  `G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\git\*.bundle`.
+  **Rotate what the old `.env` exposed** (it was on GitHub): mail / API
+  passwords and keys it holds.
   **A PC still on the old history must NEVER pull / merge** (it would bring the
   old history back): `git fetch origin` then `git reset --mixed origin/main`
   (never `--hard`: it would delete `public/files` from the disk), then
@@ -725,8 +734,8 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   translations, menus -- is a migration, safe to run twice, by name not by
   id; other dev data goes up with `protocol_prod_push.php` (see the top).** Production is backed up
   before every write (`<archive>/production/`, git-ignored, compressed,
-  phpMyAdmin-ready); if the backup fails nothing is written. `public/` stays out
-  of Git LFS (`.gitattributes` = LFS only for KT-TOOLS zips). Production access
+  phpMyAdmin-ready); if the backup fails nothing is written. No Git LFS since
+  2026-10-27 (backups live in Google Drive). Production access
   lives ONLY in `.env.production-db` / `.env.production-ssh` (per machine,
   git-ignored) -- never in `.env`, this file, README, kt_logs, reports or
   commits.
@@ -752,8 +761,8 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   (imports as-is into any selected database, e.g. Hostinger): all CREATE TABLE
   first, then data, then triggers; no CREATE DATABASE / USE / LOCK TABLES /
   DEFINER / MariaDB sandbox line; portable utf8mb4_unicode_ci collations
-  (`protocol_sql_clean.php`). Git-tracked (LFS), so the copies travel to every
-  PC.Billing's originals stay untouched (billing is read-only, per the Hard Rules
+  (`protocol_sql_clean.php`). Not in git: the copies travel to every PC through
+  Google Drive (`<archive>`). Billing's originals stay untouched (billing is read-only, per the Hard Rules
 below) — these are Murano's own copies, kept in sync manually if the protocol
 logic evolves.
 

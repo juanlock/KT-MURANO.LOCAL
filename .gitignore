@@ -30,6 +30,24 @@
 /KT-TOOLS/documentation
 /KT-TOOLS/VERSION
 /KT-TOOLS/database/Older
+# Never in git (2026-10-27, history rewritten and the repository recreated): environment files,
+# database dumps / backups (they live in Google Drive), production logs, customer documents.
+/.env
+/KT-TOOLS/.env_modelo
+/database/dev_sync/
+/database/snapshots/
+/KT-TOOLS/database/
+/KT-TOOLS/SQL/
+/KT-TOOLS/VERSION/
+/KT-TOOLS/prod/
+/KT-TOOLS/sources/
+/KT-TOOLS/app.zip
+/KT-TOOLS/invoicesKT.csv
+/KT-TOOLS/Sale-POS-InvoiceNumber_DateTime.pdf
+/storage/app.zip
+/storage/app/public/backup/
+*.sql
+*.sql.gz
 # The companies' files are not in git (2026-10-27): production owns them; they travel with
 # murano:from-prod / protocol_prod_push and are copied to Google Drive by Pa Llevar.
 /public/files/
