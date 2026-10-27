@@ -29,70 +29,76 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
+        // Hostinger's PHP has no proc_open / exec (2026-10-27): `schedule:run` couldn't start a single
+        // command (they showed DONE in 1 ms and never ran). Without proc_open each task runs
+        // inside schedule:run itself (Artisan::call); withoutOverlapping still guards them.
+        $cmd = fn (string $command) => function_exists('proc_open')
+            ? $schedule->command($command)
+            : $schedule->call(fn () => \Illuminate\Support\Facades\Artisan::call($command))->name($command);
 
         // Server backup (2026-10-27): once a day, gzipped, outside the website folder, 14 kept
         // (MuranoServerBackup). database:backup (Stocky's) had no frequency = every minute.
-        $schedule->command('murano:server-backup')->dailyAt('03:15')->withoutOverlapping(60);
+        $cmd('murano:server-backup')->dailyAt('03:15')->withoutOverlapping(60);
         // Yesterday's errors in the log -> email to the SuperAdmin (only when there are any).
-        $schedule->command('murano:error-digest')->dailyAt('07:00')->withoutOverlapping();
+        $cmd('murano:error-digest')->dailyAt('07:00')->withoutOverlapping();
         // Install-wide integrations only while some company uses them (ModuleFlags::anyCompany).
         $uses = fn (string $key) => fn () => \App\Support\ModuleFlags::anyCompany($key);
 
-        $schedule->command('assets:check-validation-due')->daily();
+        $cmd('assets:check-validation-due')->daily();
         // Sales Contracts: recurring invoices whose date has come.
-        $schedule->command('sales-contracts:invoice')->dailyAt('06:00')->withoutOverlapping();
+        $cmd('sales-contracts:invoice')->dailyAt('06:00')->withoutOverlapping();
         // Recurring expenses (rent, internet...): the ones whose date has come.
-        $schedule->command('expenses:recurring')->dailyAt('06:10')->withoutOverlapping();
+        $cmd('expenses:recurring')->dailyAt('06:10')->withoutOverlapping();
 
-        $schedule->command('meetings:send-reminders')->everyMinute()->withoutOverlapping();
+        $cmd('meetings:send-reminders')->everyMinute()->withoutOverlapping();
         // Bookings: reminder emails before appointments (Settings -> Booking -> Reminders).
-        $schedule->command('bookings:send-reminders')->everyFiveMinutes()->withoutOverlapping();
+        $cmd('bookings:send-reminders')->everyFiveMinutes()->withoutOverlapping();
         // Hospital: appointment reminders to patients, 24 h before.
-        $schedule->command('hospital:appointment-reminders')->everyFiveMinutes()->withoutOverlapping();
+        $cmd('hospital:appointment-reminders')->everyFiveMinutes()->withoutOverlapping();
         // Hospital: yesterday's unrecorded doses -> missed (not given).
-        $schedule->command('hospital:mark-missed-doses')->dailyAt('00:05')->withoutOverlapping();
+        $cmd('hospital:mark-missed-doses')->dailyAt('00:05')->withoutOverlapping();
         // Hospital demos: today's roster, assignments and example stays.
-        $schedule->command('hospital:demo-day')->dailyAt('00:15')->withoutOverlapping();
+        $cmd('hospital:demo-day')->dailyAt('00:15')->withoutOverlapping();
 
-        $schedule->command('marketing:process-scheduled')->everyMinute()->withoutOverlapping();
+        $cmd('marketing:process-scheduled')->everyMinute()->withoutOverlapping();
 
         // Helpdesk: import new emails from each company's mailbox into tickets.
-        $schedule->command('helpdesk:fetch-mail')->everyFiveMinutes()->withoutOverlapping();
+        $cmd('helpdesk:fetch-mail')->everyFiveMinutes()->withoutOverlapping();
         // Email Office: each company's mailbox, at its own "check every" interval.
-        $schedule->command('email-office:fetch')->everyMinute()->withoutOverlapping(30);
+        $cmd('email-office:fetch')->everyMinute()->withoutOverlapping(30);
 
         // Keep integration OAuth connections alive: Salla refresh tokens die
         // after 1 month idle, Xero's after 60 days. A daily authenticated ping
         // refreshes them long before either cliff.
-        $schedule->command('integrations:keep-alive')->daily()->withoutOverlapping()
+        $cmd('integrations:keep-alive')->daily()->withoutOverlapping()
             ->when(fn () => collect(['salla', 'xero', 'quickbooks', 'shopify', 'google_sheets'])->contains(fn ($k) => \App\Support\ModuleFlags::anyCompany($k)));
 
         // Nightly Google Sheets snapshot when auto-export is enabled (kept off
         // peak hours; full-tab rewrites can take a while on big datasets).
-        $schedule->command('google-sheets:auto-export')->dailyAt('02:30')->withoutOverlapping()->when($uses('google_sheets'));
+        $cmd('google-sheets:auto-export')->dailyAt('02:30')->withoutOverlapping()->when($uses('google_sheets'));
 
         // WooCommerce push (Stocky -> Woo): push only not-yet-linked products
         // nightly; stock changes often, so sync it hourly.
-        $schedule->command('woocommerce:sync --scope=products --only-unsynced')
+        $cmd('woocommerce:sync --scope=products --only-unsynced')
             ->dailyAt('02:00')
             ->withoutOverlapping()->when($uses('woocommerce_settings'));
 
-        $schedule->command('woocommerce:sync --scope=stock')
+        $cmd('woocommerce:sync --scope=stock')
             ->hourly()
             ->withoutOverlapping()->when($uses('woocommerce_settings'));
 
         // WooCommerce pull (Woo -> Stocky). Orders run often so online sales land in
         // Stocky quickly and are incremental (only orders changed since the last run).
         // Products and customers are full scans, so keep them to once a night.
-        $schedule->command('woocommerce:sync --scope=orders')
+        $cmd('woocommerce:sync --scope=orders')
             ->everyFifteenMinutes()
             ->withoutOverlapping(30)->when($uses('woocommerce_settings'));
 
-        $schedule->command('woocommerce:sync --scope=pull-products')
+        $cmd('woocommerce:sync --scope=pull-products')
             ->dailyAt('03:00')
             ->withoutOverlapping(120)->when($uses('woocommerce_settings'));
 
-        $schedule->command('woocommerce:sync --scope=customers')
+        $cmd('woocommerce:sync --scope=customers')
             ->dailyAt('03:30')
             ->withoutOverlapping(120)->when($uses('woocommerce_settings'));
 
@@ -107,7 +113,7 @@ class Kernel extends ConsoleKernel
         // 'webhooks' carries outgoing webhooks, Slack/Telegram notifications and
         // the Mailchimp/Xero auto-sync jobs — it must drain here too, or none of
         // them ever run on cron-only (no Supervisor) hosting.
-        $schedule->command('queue:work database --once --queue=default,webhooks --sleep=1 --tries=1 --timeout='.((int) env('QUEUE_WORKER_TIMEOUT', 1200)))
+        $cmd('queue:work database --once --queue=default,webhooks --sleep=1 --tries=1 --timeout='.((int) env('QUEUE_WORKER_TIMEOUT', 1200)))
             ->everyMinute()
             ->withoutOverlapping()
             ->evenInMaintenanceMode();
@@ -115,7 +121,7 @@ class Kernel extends ConsoleKernel
         // Woo batches re-dispatch themselves one slice at a time, so --once would move a
         // sync forward by a single batch per minute. --stop-when-empty + --max-time keeps
         // draining for most of the minute and then exits, which the next tick restarts.
-        $schedule->command('queue:work database --queue='.SyncQueue::NAME.' --stop-when-empty --max-time=55 --sleep=1 --tries=1 --timeout='.((int) env('QUEUE_WORKER_TIMEOUT', 1200)))
+        $cmd('queue:work database --queue='.SyncQueue::NAME.' --stop-when-empty --max-time=55 --sleep=1 --tries=1 --timeout='.((int) env('QUEUE_WORKER_TIMEOUT', 1200)))
             ->everyMinute()
             ->withoutOverlapping(10)
             ->evenInMaintenanceMode()->when($uses('woocommerce_settings'));

@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Process;
 
 /*
  * The server's own daily database backup (2026-10-27; scheduled 03:15 in Console\Kernel):
@@ -34,12 +33,40 @@ class MuranoServerBackup extends Command
             .' --single-transaction --quick --no-tablespaces --routines --triggers --default-character-set=utf8mb4 '.$q((string) $db['database'])
             .' | gzip -6 > '.$q($file);
 
-        $res = Process::timeout(1800)->env(['MYSQL_PWD' => (string) $db['password']])->run(['bash', '-c', $cmd]);
-        if (! $res->successful() || ! is_file($file) || filesize($file) < 1000) {
+        // Hostinger's PHP has no proc_open (Laravel's Process): exec() like Stocky's
+        // backup, the password in the environment; else a pure-PHP dump, gzipped.
+        $error = 'exec() is not available';
+        if (function_exists('exec')) {
+            putenv('MYSQL_PWD='.$db['password']);
+            $out = [];
+            @exec('bash -c '.$q($cmd).' 2>&1', $out, $code);
+            putenv('MYSQL_PWD');
+            $error = $code === 0 ? null : trim(implode("\n", $out));
+        }
+        if ($error !== null || ! is_file($file) || filesize($file) < 1000) {
             @unlink($file);
-            $this->error('Backup FAILED: '.trim($res->errorOutput() ?: $res->output()));
+            $this->warn('mysqldump: '.($error ?: 'empty file').' -- pure-PHP dump instead.');
+            try {
+                $sql = substr($file, 0, -3);
+                $service = new \App\Services\Updater\DatabaseBackupService();
+                $cursor = [];
+                do {
+                    $service->dumpChunkPhp($sql, $cursor, static fn () => false);
+                } while (empty($cursor['done']));
+                $in = fopen($sql, 'rb');
+                $gz = gzopen($file, 'wb6');
+                while (! feof($in)) {
+                    gzwrite($gz, fread($in, 1 << 20));
+                }
+                fclose($in);
+                gzclose($gz);
+                @unlink($sql);
+            } catch (\Throwable $e) {
+                @unlink($file);
+                $this->error('Backup FAILED: '.$e->getMessage());
 
-            return self::FAILURE;
+                return self::FAILURE;
+            }
         }
         @chmod($file, 0600);
 
