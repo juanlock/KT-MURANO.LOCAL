@@ -1095,7 +1095,7 @@ class PosController extends BaseController
 
         // Tags
         $random_number = Str::random(10);
-        $invoice_url = url('/api/sale_pdf/'.$id.'?'.$random_number);
+        $invoice_url = \App\Support\PublicInvoice::url((int) $id); // the customer's own link (public, signed)
         $invoice_number = $sale->Ref;
 
         $total_amount = $currency.' '.number_format($sale->GrandTotal, helpers::price_decimals(), '.', ',');
@@ -1111,7 +1111,7 @@ class PosController extends BaseController
         // replace the text with tags
         $message_body = str_replace('{contact_name}', $contact_name, $message_body);
         $message_body = str_replace('{business_name}', $business_name, $message_body);
-        $message_body = str_replace('{invoice_url}', $invoice_url, $message_body);
+        $message_body = \App\Support\PublicInvoice::fillBody($message_body, (int) $id); // "View invoice" link
         $message_body = str_replace('{invoice_number}', $invoice_number, $message_body);
 
         $message_body = str_replace('{total_amount}', $total_amount, $message_body);
@@ -1161,7 +1161,7 @@ class PosController extends BaseController
 
         // Tags
         $random_number = Str::random(10);
-        $invoice_url = url('/api/sale_pdf/'.$id.'?'.$random_number);
+        $invoice_url = \App\Support\PublicInvoice::url((int) $id); // the customer's own link (public, signed)
         $invoice_number = $sale->Ref;
 
         $total_amount = $currency.' '.number_format($sale->GrandTotal, helpers::price_decimals(), '.', ',');

@@ -603,7 +603,9 @@ Route::group(['middleware' => ['web', 'auth:web', 'Is_Active', 'request.safety']
             }
 
             return redirect('/next');
-        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|set-locale|support|book(?:/|$)).*$');
+        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|set-locale|support|book(?:/|$)|invoice/).*$');
+    // invoice/: the public signed invoice (/invoice/{id}/{signature}, registered further down) --
+    // this wildcard swallowed it and sent the customer to /login (2026-10-26).
 
 });
 

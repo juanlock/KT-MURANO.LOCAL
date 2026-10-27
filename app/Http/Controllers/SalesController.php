@@ -4768,7 +4768,7 @@ class SalesController extends BaseController
 
         // Tags
         $random_number = Str::random(10);
-        $invoice_url = url('/api/sale_pdf/'.$request->id.'?'.$random_number);
+        $invoice_url = \App\Support\PublicInvoice::url((int) $request->id); // the customer's own link (public, signed)
         $invoice_number = $sale->Ref;
 
         $total_amount = $currency.' '.number_format($sale->GrandTotal * $docCurrency['rate'], helpers::price_decimals(), '.', ',');
@@ -4795,6 +4795,7 @@ class SalesController extends BaseController
 
         // replace the tags -- in the subject too (2026-10-26: the subject went out as
         // "Invoice {invoice_number} — {business_name}").
+        $message_body = \App\Support\PublicInvoice::fillBody($message_body, (int) $sale->id, (int) $sale->company_id);
         $tags = $this->saleEmailTags($sale, $contact_name, $business_name, $invoice_url, $invoice_number, $total_amount, $paid_amount, $due_amount);
 
         $email['subject'] = strtr($message_subject, $tags);
@@ -4882,7 +4883,7 @@ class SalesController extends BaseController
 
         // Tags -- same set as Send_Email's, so the same {token} vocabulary works.
         $random_number = Str::random(10);
-        $invoice_url = url('/api/sale_pdf/'.$request->id.'?'.$random_number);
+        $invoice_url = \App\Support\PublicInvoice::url((int) $request->id); // the customer's own link (public, signed)
         $invoice_number = $sale->Ref;
 
         $total_amount = $currency.' '.number_format($sale->GrandTotal * $docCurrency['rate'], helpers::price_decimals(), '.', ',');
@@ -4904,6 +4905,7 @@ class SalesController extends BaseController
         }
 
         // replace the tags -- in the subject too ("Payment reminder: Invoice {invoice_number} — {business_name}").
+        $message_body = \App\Support\PublicInvoice::fillBody($message_body, (int) $sale->id, (int) $sale->company_id);
         $tags = $this->saleEmailTags($sale, $contact_name, $business_name, $invoice_url, $invoice_number, $total_amount, $paid_amount, $due_amount);
 
         $email['subject'] = strtr($message_subject, $tags);
@@ -4972,7 +4974,7 @@ class SalesController extends BaseController
 
         // Tags
         $random_number = Str::random(10);
-        $invoice_url = url('/api/sale_pdf/'.$request->id.'?'.$random_number);
+        $invoice_url = \App\Support\PublicInvoice::url((int) $request->id); // the customer's own link (public, signed)
         $invoice_number = $sale->Ref;
 
         $total_amount = $currency.' '.number_format($sale->GrandTotal * $docCurrency['rate'], helpers::price_decimals(), '.', ',');
@@ -5127,7 +5129,7 @@ class SalesController extends BaseController
 
         // Tags
         $random_number = Str::random(10);
-        $invoice_url = url('/api/sale_pdf/'.$request->id.'?'.$random_number);
+        $invoice_url = \App\Support\PublicInvoice::url((int) $request->id); // the customer's own link (public, signed)
         $invoice_number = $sale->Ref;
 
         $total_amount = $currency.' '.number_format($sale->GrandTotal * $docCurrency['rate'], helpers::price_decimals(), '.', ',');
