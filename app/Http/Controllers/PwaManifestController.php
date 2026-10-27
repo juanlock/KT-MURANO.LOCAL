@@ -178,7 +178,7 @@ class PwaManifestController extends Controller
         }
 
         try {
-            $storeName = trim((string) (StoreSetting::first()->store_name ?? ''));
+            $storeName = trim((string) (StoreSetting::current()->store_name ?? ''));
             if ($storeName !== '') {
                 return $storeName;
             }

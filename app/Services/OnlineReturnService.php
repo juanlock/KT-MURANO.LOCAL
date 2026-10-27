@@ -39,7 +39,7 @@ class OnlineReturnService
     /** Can this order be cancelled by the customer right now? */
     public function cancelEligibility(OnlineOrder $order): array
     {
-        $s = StoreSetting::first();
+        $s = StoreSetting::forWarehouse((int) $order->warehouse_id);
 
         if (! ($s->allow_cancellations ?? true)) {
             return ['ok' => false, 'reason' => 'cancellations_disabled'];
@@ -57,7 +57,7 @@ class OnlineReturnService
     /** Can this order be returned by the customer right now? */
     public function returnEligibility(OnlineOrder $order): array
     {
-        $s = StoreSetting::first();
+        $s = StoreSetting::forWarehouse((int) $order->warehouse_id);
         $window = (int) ($s->return_window_days ?? 0);
 
         if ($window <= 0) {
@@ -292,8 +292,8 @@ class OnlineReturnService
         // Refund to the customer's wallet when configured, or always for orders
         // that were themselves paid from the wallet (a wallet debit can't be
         // reversed to a card).
-        $walletEnabled = (bool) (StoreSetting::query()->value('wallet_enabled') ?? false);
-        $refundDestination = (string) (StoreSetting::query()->value('wallet_refund_destination') ?: 'wallet');
+        $walletEnabled = (bool) (StoreSetting::forWarehouse((int) $order->warehouse_id)->wallet_enabled ?? false);
+        $refundDestination = (string) (StoreSetting::forWarehouse((int) $order->warehouse_id)->wallet_refund_destination ?: 'wallet');
         if ($order->client_id
             && ($order->payment_method === 'wallet' || ($walletEnabled && $refundDestination === 'wallet'))) {
             $wallet = $this->wallets->walletFor((int) $order->client_id);

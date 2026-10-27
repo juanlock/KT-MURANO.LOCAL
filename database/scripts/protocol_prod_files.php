@@ -108,7 +108,7 @@ if (! $apply || (! $new && ! $changed)) {
     return;
 }
 
-$backupDir = base_path('KT-TOOLS/database/production/files_replaced_'.now()->format('Y-m-d_h-i-s-A'));
+$backupDir = \App\Support\BackupPaths::production('files_replaced_'.now()->format('Y-m-d_h-i-s-A'));
 $done = 0; $failed = [];
 foreach (array_merge($new, $changed) as $p => $s) {
     $local = $pub.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $p);

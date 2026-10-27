@@ -44,7 +44,7 @@ class StoreAuthController extends BaseController
     /** GET /store/login */
     public function showLogin(Request $request)
     {
-        $s = StoreSetting::first();
+        $s = StoreSetting::current();
         $redirect = $this->safeRedirect($request);
 
         return view('store.auth.login', compact('s', 'redirect'));
@@ -62,7 +62,7 @@ class StoreAuthController extends BaseController
 
         $ecomClient = EcommerceClient::where('email', $cred['email'])->first();
         // The account's own company's settings (verification required?).
-        $s = $ecomClient ? StoreAccountService::settingsForAccount($ecomClient) : StoreSetting::first();
+        $s = $ecomClient ? StoreAccountService::settingsForAccount($ecomClient) : StoreSetting::current();
 
         if ($ecomClient && Hash::check($cred['password'], $ecomClient->password)) {
             if ($ecomClient->is_blocked) {
@@ -309,7 +309,7 @@ class StoreAuthController extends BaseController
     /** GET /store/forgot-password */
     public function showForgotPassword(Request $request)
     {
-        $s = StoreSetting::first();
+        $s = StoreSetting::current();
 
         return view('store.auth.forgot-password', compact('s'));
     }
@@ -331,7 +331,7 @@ class StoreAuthController extends BaseController
                 ['token' => Hash::make($token), 'created_at' => now()]
             );
 
-            $this->sendResetEmail($email, $token, StoreSetting::first());
+            $this->sendResetEmail($email, $token, StoreSetting::current());
         }
 
         return back()->with('reset_link_sent', true);
@@ -340,7 +340,7 @@ class StoreAuthController extends BaseController
     /** GET /store/reset-password/{token} */
     public function showResetForm(Request $request, $token)
     {
-        $s = StoreSetting::first();
+        $s = StoreSetting::current();
         $email = (string) $request->query('email', '');
 
         return view('store.auth.reset-password', compact('s', 'token', 'email'));

@@ -29,7 +29,7 @@ class MuranoProdBackup extends Command
         }
         $tag = preg_replace('/[^a-z0-9-]/', '', strtolower((string) $this->option('tag'))) ?: 'a-dormir';
         $pc = preg_replace('/[^A-Za-z0-9_-]/', '-', gethostname() ?: 'unknown-pc');
-        $dir = base_path('KT-TOOLS/database/HOSTINGER');
+        $dir = \App\Support\BackupPaths::hostinger(); // <archive>/HOSTINGER (Google Drive, 2026-10-27)
         if (! is_dir($dir)) {
             mkdir($dir, 0775, true);
         }

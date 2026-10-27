@@ -6,9 +6,8 @@ use Illuminate\Support\Facades\Cache;
 if (! function_exists('store_settings')) {
     function store_settings(): StoreSetting
     {
-        return Cache::remember('store_settings', 600, function () {
-            return StoreSetting::query()->first() ?? new StoreSetting;
-        });
+        // The store in use (its company), not the first row (StoreSetting::current, 2026-10-27).
+        return StoreSetting::current();
     }
 }
 

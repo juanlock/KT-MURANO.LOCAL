@@ -89,7 +89,7 @@ class CustomerQuestionsController extends Controller
     /** GET /account/questions — the signed-in customer's own questions. */
     public function mine()
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
         $user = Auth::guard('store')->user();
 
         $questions = $user && $user->client_id

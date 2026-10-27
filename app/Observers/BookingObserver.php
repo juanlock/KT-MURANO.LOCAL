@@ -103,7 +103,7 @@ class BookingObserver
             $this->notifyAdmins($booking, $booking->status === 'confirmed' ? 'confirmed' : 'created');
         }
 
-        if ($booking->status === 'confirmed') {
+        if ($booking->status === 'confirmed' && self::calendarConnected($booking)) {
             SyncBookingToGoogleCalendar::dispatch(
                 $booking->id,
                 SyncBookingToGoogleCalendar::ACTION_UPSERT
@@ -130,7 +130,7 @@ class BookingObserver
         }
 
         $relevant = ['status', 'booking_date', 'booking_time', 'booking_end_time', 'customer_id', 'product_id', 'price', 'notes'];
-        if (empty(array_intersect($relevant, array_keys($booking->getChanges())))) {
+        if (empty(array_intersect($relevant, array_keys($booking->getChanges()))) || ! self::calendarConnected($booking)) {
             return;
         }
 
@@ -138,6 +138,19 @@ class BookingObserver
             $booking->id,
             SyncBookingToGoogleCalendar::ACTION_UPSERT
         );
+    }
+
+    /**
+     * Google Calendar sync only when the booking's company connected a calendar
+     * (2026-10-27: unconnected companies filled the queue with jobs that did nothing).
+     */
+    private static function calendarConnected(Booking $booking): bool
+    {
+        $cid = (int) ($booking->company_id ?? 0);
+
+        return (bool) \Illuminate\Support\Facades\DB::table('settings')->whereNull('deleted_at')
+            ->when($cid, fn ($q) => $q->where('company_id', $cid))
+            ->whereNotNull('google_calendar_refresh_token')->where('google_calendar_refresh_token', '!=', '')->exists();
     }
 
     public function deleted(Booking $booking): void

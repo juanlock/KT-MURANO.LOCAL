@@ -30,6 +30,9 @@
 /KT-TOOLS/documentation
 /KT-TOOLS/VERSION
 /KT-TOOLS/database/Older
+# The backup archive lives in Google Drive (App\Support\BackupPaths, 2026-10-27):
+# in the repo only the copy of the latest backup (KT-TOOLS/database/*.zip).
+/KT-TOOLS/database/*/
 # Production database backups stay on the machine that made them.
 /KT-TOOLS/database/production
 # Protocol A Dormir's production backups (real customer data, 2026-10-20).

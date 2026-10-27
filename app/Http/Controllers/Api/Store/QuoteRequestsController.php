@@ -126,7 +126,7 @@ class QuoteRequestsController extends BaseController
     {
         try {
             $this->Set_config_mail();
-            $ownerEmail = StoreSetting::query()->value('contact_email')
+            $ownerEmail = StoreSetting::current()->contact_email
                 ?: optional(Setting::current())->email;
 
             if ($ownerEmail) {

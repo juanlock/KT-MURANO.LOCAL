@@ -910,7 +910,9 @@ class SalesController extends BaseController
         try {
             $realmGuess = $sale->quickbooks_realm_id ?: env('QUICKBOOKS_REALM_ID'); // may be null
 
-            if (class_exists(\App\Jobs\SyncSaleToQuickBooks::class)) {
+            if (! \App\Support\ModuleFlags::enabled((int) $sale->company_id, 'quickbooks')) {
+                // QuickBooks off for this company: nothing to sync (2026-10-27).
+            } elseif (class_exists(\App\Jobs\SyncSaleToQuickBooks::class)) {
                 \App\Jobs\SyncSaleToQuickBooks::dispatch($sale->id, $realmGuess)->afterCommit();
                 $qboSync = 'queued';
             } else {
@@ -949,7 +951,9 @@ class SalesController extends BaseController
         // ZATCA Phase 2: report/clear the invoice (non-blocking; the job is a
         // no-op unless Phase 2 is enabled and onboarding is finished).
         try {
-            \App\Jobs\SubmitDocumentToZatca::dispatch(\App\Models\Sale::class, $sale->id)->afterCommit();
+            if (\App\Support\ModuleFlags::enabled((int) $sale->company_id, 'zatca')) {
+                \App\Jobs\SubmitDocumentToZatca::dispatch(\App\Models\Sale::class, $sale->id)->afterCommit();
+            }
         } catch (\Throwable $e) {
             \Log::warning('ZATCA submit dispatch failed (non-blocking): '.$e->getMessage(), ['sale_id' => $sale->id]);
         }

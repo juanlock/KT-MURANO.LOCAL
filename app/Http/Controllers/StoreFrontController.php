@@ -113,7 +113,7 @@ class StoreFrontController extends Controller
         // request is on its domain (the shared store keeps the first row).
         $s = \App\Services\FrontPage::explicitCompanyId($request)
             ? StoreSetting::forCompany($frontCompany)
-            : StoreSetting::firstOrFail();
+            : StoreSetting::current();
 
         // Theme switch: when the Real Estate theme is active, the storefront
         // homepage is served by the dedicated real estate controller. This keeps
@@ -570,7 +570,7 @@ class StoreFrontController extends Controller
 
      public function shop(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         $q = trim((string) $request->get('q', ''));
         $cat = $request->get('category');
@@ -746,7 +746,7 @@ class StoreFrontController extends Controller
         if ($r = $this->websiteRedirect($request, 'contact')) {
             return $r;
         }
-        $s = StoreSetting::first();
+        $s = StoreSetting::current();
         // Contact is a website page (the company's own contact details / settings).
         $companyId = \App\Services\FrontPage::explicitCompanyId($request) ?? (int) ($s->company_id ?? 0);
         $w = $s ? $this->website($s, $companyId) : null;
@@ -763,7 +763,7 @@ class StoreFrontController extends Controller
         if ($r = $this->websiteRedirect($request, 'gallery')) {
             return $r;
         }
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
         $companyId = \App\Services\FrontPage::explicitCompanyId($request) ?? (int) $s->company_id;
         $images = \App\Models\StoreGalleryImage::where('company_id', $companyId)->where('active', true)
             ->orderBy('sort_order')->orderBy('id')->get();
@@ -803,7 +803,7 @@ class StoreFrontController extends Controller
         if ($r = $this->websiteRedirect($request, 'pages/'.$slug)) {
             return $r;
         }
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         // Pages are per company. On a company's own domain, only that
         // company's pages; otherwise (the shared store URL) prefer the store's
@@ -861,7 +861,7 @@ class StoreFrontController extends Controller
      */
     public function productShow(Request $request, $id)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         [$minVariantSub, $baseExpr, $afterDiscountExpr, $finalExpr] = $this->priceExprs();
         $defaultTaxRate = (float) ($s->default_tax_rate ?? 0);
@@ -1068,7 +1068,7 @@ class StoreFrontController extends Controller
             return response()->json(['enabled' => true, 'tiers' => (object) []]);
         }
 
-        $s = StoreSetting::first();
+        $s = StoreSetting::current();
         $defaultTaxRate = (float) ($s->default_tax_rate ?? 0);
 
         // Warm the service cache for the whole set in one query, then format
@@ -1091,7 +1091,7 @@ class StoreFrontController extends Controller
      */
     public function wishlist(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
         $client = Auth::guard('store')->user();
 
         $ids = [];
@@ -1119,7 +1119,7 @@ class StoreFrontController extends Controller
      */
     public function compare(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         $ids = collect(explode(',', (string) $request->get('ids', '')))
             ->map(fn ($v) => (int) trim($v))
@@ -1299,7 +1299,7 @@ class StoreFrontController extends Controller
      */
     public function flashSales(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         $minVariantSub = DB::table('product_variants')
             ->select('product_id', DB::raw('MIN(price) AS min_variant_price'))

@@ -149,7 +149,7 @@ class PosController extends BaseController
 
         return response()->json([
             'balance' => (float) ($balance ?? 0),
-            'enabled' => (bool) (\App\Models\StoreSetting::query()->value('wallet_enabled') ?? false),
+            'enabled' => (bool) (\App\Models\StoreSetting::current()->wallet_enabled ?? false),
         ]);
     }
 
@@ -881,8 +881,11 @@ class PosController extends BaseController
 
 
         // ---------- AFTER COMMIT: ZATCA Phase 2 reporting (best effort) ----------
+        // Only queued when the company has the module on (2026-10-27: the queue filled with no-ops).
         try {
-            \App\Jobs\SubmitDocumentToZatca::dispatch(\App\Models\Sale::class, $sale->id)->afterCommit();
+            if (\App\Support\ModuleFlags::enabled((int) $sale->company_id, 'zatca')) {
+                \App\Jobs\SubmitDocumentToZatca::dispatch(\App\Models\Sale::class, $sale->id)->afterCommit();
+            }
         } catch (\Throwable $e) {
             \Log::warning('ZATCA submit dispatch failed (non-blocking): '.$e->getMessage(), ['sale_id' => $sale->id]);
         }
@@ -890,7 +893,9 @@ class PosController extends BaseController
         // ---------- AFTER COMMIT: QBO sync (best effort, non-blocking) ----------
         $qboSync = 'skipped';
         try {
-            if (class_exists(\App\Jobs\SyncSaleToQuickBooks::class)) {
+            if (! \App\Support\ModuleFlags::enabled((int) $sale->company_id, 'quickbooks')) {
+                // QuickBooks off for this company: nothing to sync.
+            } elseif (class_exists(\App\Jobs\SyncSaleToQuickBooks::class)) {
                 \App\Jobs\SyncSaleToQuickBooks::dispatch($sale->id)->afterCommit();
                 $qboSync = 'queued';
             } else {
@@ -1827,7 +1832,9 @@ class PosController extends BaseController
 
             // ---------- AFTER COMMIT: ZATCA Phase 2 reporting (best effort) ----------
             try {
-                \App\Jobs\SubmitDocumentToZatca::dispatch(\App\Models\Sale::class, $sale->id)->afterCommit();
+                if (\App\Support\ModuleFlags::enabled((int) $sale->company_id, 'zatca')) {
+                    \App\Jobs\SubmitDocumentToZatca::dispatch(\App\Models\Sale::class, $sale->id)->afterCommit();
+                }
             } catch (\Throwable $e) {
                 \Log::warning('ZATCA submit dispatch failed (non-blocking): '.$e->getMessage(), ['sale_id' => $sale->id]);
             }
@@ -1835,7 +1842,9 @@ class PosController extends BaseController
             // ---------- AFTER COMMIT: QBO sync (best effort, non-blocking) ----------
             $qboSync = 'skipped';
             try {
-                if (class_exists(\App\Jobs\SyncSaleToQuickBooks::class)) {
+                if (! \App\Support\ModuleFlags::enabled((int) $sale->company_id, 'quickbooks')) {
+                    // QuickBooks off for this company: nothing to sync.
+                } elseif (class_exists(\App\Jobs\SyncSaleToQuickBooks::class)) {
                     \App\Jobs\SyncSaleToQuickBooks::dispatch($sale->id)->afterCommit();
                     $qboSync = 'queued';
                 } else {

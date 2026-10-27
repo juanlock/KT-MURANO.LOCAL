@@ -27,7 +27,7 @@ class PayPalService
 
     private function settings(): ?object
     {
-        return $this->settings ??= StoreSetting::query()->first();
+        return $this->settings ??= StoreSetting::current();
     }
 
     /**

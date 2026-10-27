@@ -77,7 +77,9 @@ class MuranoFromProd extends Command
         $this->line("  sent {$missing->count()} row(s)");
 
         // 2. Dump production.
-        $dir = base_path('KT-TOOLS/database/production');
+        // Work files on this disk (storage/app/from_prod); the zip kept goes to the backup
+        // archive's production/ folder (Google Drive, App\Support\BackupPaths, 2026-10-27).
+        $dir = storage_path('app'.DIRECTORY_SEPARATOR.'from_prod');
         if (! is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
@@ -117,6 +119,11 @@ class MuranoFromProd extends Command
             return self::FAILURE;
         }
         $zip = ($sqlTools['zip'])($sql);
+        $kept = \App\Support\BackupPaths::production(basename($zip));
+        if (@copy($zip, $kept)) {
+            @unlink($zip);
+            $zip = $kept;
+        }
         $this->line('  imported ('.count(DB::select('SHOW TABLES')).' tables); copy kept: '.$zip);
 
         // 4. Files.
@@ -137,7 +144,7 @@ class MuranoFromProd extends Command
         foreach (DB::select("SELECT table_name t FROM information_schema.columns WHERE table_schema = DATABASE() AND column_name = 'id'") as $r) {
             $maxIds[$r->t] = (int) DB::table($r->t)->max('id');
         }
-        file_put_contents("$dir/last_sync.json", json_encode(['pulled_at' => $dumpedAt, 'dev_max_ids' => $maxIds, 'by' => 'murano:from-prod']));
+        file_put_contents(\App\Support\BackupPaths::production('last_sync.json'), json_encode(['pulled_at' => $dumpedAt, 'dev_max_ids' => $maxIds, 'by' => 'murano:from-prod']));
 
         $this->info('Done in '.round(microtime(true) - $started).' s -- this PC now has production\'s data.');
 

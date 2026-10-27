@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-10-21';
+export const MANUAL_UPDATED = '2026-10-27';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -35,12 +35,12 @@ export const MANUAL = [
         id: 'signin', paths: ['dashboard'],
         title: { en: 'Sign in and your home page', es: 'Ingresar y su página de inicio' },
         steps: {
-          en: ['Sign in with your email and password.', 'Murano opens your role\'s home page: the Dashboard, **Daily Tasks** (field crews) or the **Bookings calendar** (salon staff).', 'Use the left menu (☰ on a phone) to move around.', 'On a shared computer, always sign out from your name in the top bar.'],
-          es: ['Ingrese con su correo y contraseña.', 'Murano abre la página de inicio de su rol: el Panel, **Tareas diarias** (cuadrillas) o el **Calendario de reservas** (personal del salón).', 'Use el menú de la izquierda (☰ en el celular) para moverse.', 'En una computadora compartida, cierre siempre la sesión desde su nombre en la barra superior.'],
+          en: ['Sign in with your email and password.', 'If you used a **standard password** (the one given to new logins, e.g. Empleado2020), Murano asks you to choose your own before entering: at least 8 characters with letters and numbers, not a standard one, not your email, not one of your last 3.', 'If your company (or you, in Profile) turned on **two-step verification**, type the 6-digit code we email you — or the one in your authenticator app. Tick **Remember this computer** and it won\'t ask again for 30 days.', 'Murano opens your role\'s home page: the Dashboard, **Daily Tasks** (field crews) or the **Bookings calendar** (salon staff).', 'Use the left menu (☰ on a phone) to move around.', 'On a shared computer, always sign out from your name in the top bar.'],
+          es: ['Ingrese con su correo y contraseña.', 'Si usó una **contraseña estándar** (la que reciben los usuarios nuevos, p. ej. Empleado2020), Murano le pide elegir una propia antes de entrar: al menos 8 caracteres con letras y números, que no sea estándar, ni su correo, ni una de sus 3 últimas.', 'Si su empresa (o usted, en Perfil) activó la **verificación en dos pasos**, escriba el código de 6 dígitos que le enviamos por correo — o el de su app autenticadora. Marque **Recordar este equipo** y no se lo pedirá por 30 días.', 'Murano abre la página de inicio de su rol: el Panel, **Tareas diarias** (cuadrillas) o el **Calendario de reservas** (personal del salón).', 'Use el menú de la izquierda (☰ en el celular) para moverse.', 'En una computadora compartida, cierre siempre la sesión desde su nombre en la barra superior.'],
         },
         note: {
-          en: 'Forgot your password, or your login says it is disabled? Ask your company administrator.',
-          es: '¿Olvidó su contraseña o su usuario aparece deshabilitado? Consulte al administrador de su empresa.',
+          en: '5 wrong passwords in an hour lock your login for 1 hour (you and your administrators get an email). Reset your password by email or ask your administrator to unlock it. A sign-in from a new computer also sends you an email: if it wasn\'t you, change your password.',
+          es: '5 contraseñas incorrectas en una hora bloquean su usuario por 1 hora (usted y sus administradores reciben un correo). Restablezca su contraseña por correo o pida a su administrador que lo desbloquee. Un ingreso desde un equipo nuevo también le envía un correo: si no fue usted, cambie su contraseña.',
         },
       },
       {
@@ -74,8 +74,8 @@ export const MANUAL = [
         id: 'profile', paths: ['profile'],
         title: { en: 'Profile, password and header icons', es: 'Perfil, contraseña e íconos del encabezado' },
         steps: {
-          en: ['Click your name › **Profile**.', 'Change your password, photo and contact details, then **Save**.', 'Under **Header icons**, choose for each icon: Company default, Show (green) or Hide (red).', 'Change their order with the **‹ ›** arrows: the list goes from left to right in the top bar (**Reset order** puts it back). Then **Save**.'],
-          es: ['Haga clic en su nombre › **Perfil**.', 'Cambie su contraseña, foto y datos de contacto, luego **Guardar**.', 'En **Íconos del encabezado**, elija para cada ícono: Predeterminado de la empresa, Mostrar (verde) u Ocultar (rojo).', 'Cambie su orden con las flechas **‹ ›**: la lista va de izquierda a derecha en la barra superior (**Restablecer orden** la devuelve). Luego **Guardar**.'],
+          en: ['Click your name › **Profile**.', 'Change your password, photo and contact details, then **Save**.', '**Two-step verification**: turn on **Code by email**, or **Set up** an authenticator app (Google / Microsoft Authenticator): scan the QR, type its first code and keep the 8 **recovery codes** somewhere safe (each one lets you in once if you lose the phone). **Forget them** asks again on the computers remembered for 30 days.', 'Under **Header icons**, choose for each icon: Company default, Show (green) or Hide (red).', 'Change their order with the **‹ ›** arrows: the list goes from left to right in the top bar (**Reset order** puts it back). Then **Save**.'],
+          es: ['Haga clic en su nombre › **Perfil**.', 'Cambie su contraseña, foto y datos de contacto, luego **Guardar**.', '**Verificación en dos pasos**: active **Código por email**, o **Configure** una app autenticadora (Google / Microsoft Authenticator): escanee el QR, escriba su primer código y guarde los 8 **códigos de recuperación** en un lugar seguro (cada uno sirve una vez para entrar si pierde el teléfono). **Olvidarlos** vuelve a pedir el código en los equipos recordados por 30 días.', 'En **Íconos del encabezado**, elija para cada ícono: Predeterminado de la empresa, Mostrar (verde) u Ocultar (rojo).', 'Cambie su orden con las flechas **‹ ›**: la lista va de izquierda a derecha en la barra superior (**Restablecer orden** la devuelve). Luego **Guardar**.'],
         },
         note: {
           en: 'Your PIN (4 to 8 digits, unique in your company) is set by your administrator in Users. It identifies you at the shared register: never share it.',
@@ -682,8 +682,8 @@ export const MANUAL = [
         id: 'hms-desk', perms: ['hms_admission_desk', 'hms_visitors'], paths: ['hospital/admission-desk'],
         title: { en: 'Admission desk (the front door)', es: 'Admisión (la entrada del hospital)' },
         steps: {
-          en: ['Every patient comes in through **Admission desk › New arrival**: a registered patient or a new one, the **triage** (initial assessment 1–5, vital signs, chief complaint) and the **destination**: the **Waiting room**, an **ER bed** (both are Emergency Room cases) or a **ward bed** (the patient is admitted straight away).', '**Waiting room**: the patients waiting, by triage and waiting time (red when it passes the triage limit); **Call to a bed** sends one to an ER bed or admits them to a ward bed.', '**Visitors**: check a visitor in (name, ID, relationship, the patient — only patients in the hospital now) and out; each one gets a badge number. **In the hospital** lists every patient and where they are.'],
-          es: ['Todo paciente entra por **Admisión › Nuevo ingreso**: paciente registrado o nuevo, el **triaje** (diagnóstico inicial 1–5, signos vitales, motivo) y el **destino**: **Sala de espera**, **cama de emergencia** (ambos son casos de Emergencias) o **cama de sala** (se interna de inmediato).', '**Sala de espera**: los que esperan, por triaje y tiempo de espera (en rojo cuando pasa el límite del triaje); **Pasar a una cama** lo lleva a una cama de emergencia o lo interna en una cama de sala.', '**Visitas**: registre la entrada del visitante (nombre, documento, parentesco, paciente — solo pacientes que están en el hospital) y su salida; cada uno recibe un número de pase. **En el hospital** lista a todos los pacientes y dónde están.'],
+          en: ['Every patient comes in through **Admission desk › New arrival**: a registered patient or a new one, the **triage** (initial assessment 1–5, vital signs, chief complaint) and the **destination**: the **Waiting room**, an **ER bed** (both are Emergency Room cases) or a **ward bed** (the patient is admitted straight away).', '**Waiting room**: the patients waiting, by triage and waiting time (red when it passes the triage limit); **Call to a bed** sends one to an ER bed or admits them to a ward bed.', '**Visitors**: check a visitor in (name, ID, relationship, the patient — only patients in the hospital now) and out; each one gets a badge number. **In the hospital** lists every patient and where they are.', '**Scans** at the window: with insurance, photograph or scan the **insurance card** and the **ID** (front and back) with the camera or a file. They are saved privately in the patient\'s record — never a payment card.'],
+          es: ['Todo paciente entra por **Admisión › Nuevo ingreso**: paciente registrado o nuevo, el **triaje** (diagnóstico inicial 1–5, signos vitales, motivo) y el **destino**: **Sala de espera**, **cama de emergencia** (ambos son casos de Emergencias) o **cama de sala** (se interna de inmediato).', '**Sala de espera**: los que esperan, por triaje y tiempo de espera (en rojo cuando pasa el límite del triaje); **Pasar a una cama** lo lleva a una cama de emergencia o lo interna en una cama de sala.', '**Visitas**: registre la entrada del visitante (nombre, documento, parentesco, paciente — solo pacientes que están en el hospital) y su salida; cada uno recibe un número de pase. **En el hospital** lista a todos los pacientes y dónde están.', '**Escaneos** en la ventanilla: con seguro, fotografíe o escanee la **tarjeta del seguro** y el **documento de identidad** (frente y reverso) con la cámara o un archivo. Se guardan en privado en la historia del paciente — nunca una tarjeta de pago.'],
         },
       },
       {
@@ -753,6 +753,51 @@ export const MANUAL = [
     ],
   },
 
+  // ------------------------------------------------------------------ specialist clinic
+  {
+    key: 'clinic', module: 'hospital', perms: ['hms_reception', 'hms_nursing_station', 'hms_specialist', 'hms_clinic_reports'],
+    paths: ['hospital/agenda', 'hospital/nursing', 'hospital/specialist', 'hospital/clinic-reports'],
+    title: { en: 'Specialist clinic (Health Specialist)', es: 'Centro de especialistas (Health Specialist)' },
+    intro: {
+      en: 'For an outpatient clinic of specialists (business type Health Specialist): the day of reception, nursing and each specialist, on the same patients and bills as Hospital Management.',
+      es: 'Para un centro ambulatorio de especialistas (tipo de negocio Health Specialist): el día de la recepción, enfermería y cada especialista, sobre los mismos pacientes y facturas de Gestión hospitalaria.',
+    },
+    sections: [
+      {
+        id: 'clinic-agenda', perms: ['hms_reception'], paths: ['hospital/agenda'],
+        title: { en: 'Reception and schedule', es: 'Recepción y agenda' },
+        steps: {
+          en: ['One column per doctor for the chosen day; drag an appointment to move it to another time or doctor. **New appointment** books a patient (registered or new).', '**Check in** when the patient arrives: the payment (private, insurance or card type + last 4 digits only) and, with insurance, the **scans** of the insurance card and the ID.', 'The **warning icon** at the top counts doctors who are late with their patients; click it to see the list.', '**To schedule**: follow-ups, referrals and appointments of a doctor who left, waiting for a date.'],
+          es: ['Una columna por médico para el día elegido; arrastre una cita para moverla a otra hora o médico. **Nueva cita** agenda a un paciente (registrado o nuevo).', '**Registrar llegada** cuando llega el paciente: el pago (particular, seguro o tipo de tarjeta + solo los 4 últimos dígitos) y, con seguro, los **escaneos** de la tarjeta del seguro y del documento.', 'El **ícono de alerta** de arriba cuenta los médicos atrasados con sus pacientes; haga clic para ver la lista.', '**Por agendar**: controles, interconsultas y citas de un médico que se fue, esperando fecha.'],
+        },
+      },
+      {
+        id: 'clinic-nursing', perms: ['hms_nursing_station'], paths: ['hospital/nursing'],
+        title: { en: 'Nursing station', es: 'Estación de enfermería' },
+        steps: {
+          en: ['The patients who arrived, in order: take the **vital signs** (and weight / height).', '**Ready to go in** tells the doctor the patient is waiting for them.'],
+          es: ['Los pacientes que llegaron, en orden: tome los **signos vitales** (y peso / talla).', '**Listo para pasar** avisa al médico que el paciente lo espera.'],
+        },
+      },
+      {
+        id: 'clinic-specialist', perms: ['hms_specialist'], paths: ['hospital/specialist'],
+        title: { en: 'My consultation (the specialist)', es: 'Mi consulta (el especialista)' },
+        steps: {
+          en: ['Your patients of the day; open one to see the **problem list**, history, vitals and the arrival scans.', 'Write the visit as **SOAP** (you can dictate), with the template of your specialty: general medicine, pediatrics (growth chart), ophthalmology, cardiology, gynecology, psychology or psychiatry.', '**Prescription**, **lab / imaging orders**, **referral** to another specialist and **follow-up**: referrals and follow-ups go to reception\'s "To schedule".', 'The patient gets an email 48 h before (Confirm / Can\'t come) and a short satisfaction survey after the visit; in the customer portal they book, pre-register and see their prescriptions.'],
+          es: ['Sus pacientes del día; abra uno para ver la **lista de problemas**, la historia, los signos vitales y los escaneos de la llegada.', 'Escriba la consulta como **SOAP** (puede dictar), con la plantilla de su especialidad: medicina general, pediatría (curva de crecimiento), oftalmología, cardiología, ginecología, psicología o psiquiatría.', '**Receta**, **órdenes de laboratorio / imágenes**, **interconsulta** a otro especialista y **control**: interconsultas y controles van a "Por agendar" de recepción.', 'El paciente recibe un correo 48 h antes (Confirmar / No puedo ir) y una encuesta corta de satisfacción después de la consulta; en el portal del cliente agenda, se pre-registra y ve sus recetas.'],
+        },
+      },
+      {
+        id: 'clinic-reports', perms: ['hms_clinic_reports'], paths: ['hospital/clinic-reports'],
+        title: { en: 'Clinic reports and roles', es: 'Reportes del centro y roles' },
+        steps: {
+          en: ['**Clinic reports**: appointments per doctor, attendance / no-shows, waiting times, survey score and income.', 'Roles: **Reception**, **Clinic Nurse**, **Specialist** and **Billing**, each with its own home page.', 'When a doctor is removed (HRM › Employees), their future appointments go to "To schedule" and the patients are emailed.'],
+          es: ['**Reportes del centro**: citas por médico, asistencia / inasistencias, tiempos de espera, puntaje de la encuesta e ingresos.', 'Roles: **Recepción**, **Enfermería**, **Médico especialista** y **Caja**, cada uno con su página de inicio.', 'Cuando se da de baja a un médico (RR. HH. › Empleados), sus próximas citas pasan a "Por agendar" y se avisa a los pacientes por correo.'],
+        },
+      },
+    ],
+  },
+
   // ------------------------------------------------------------------ store
   {
     key: 'store', module: 'Store', perms: ['Store_settings_view', 'Orders_view'], paths: ['store'],
@@ -771,8 +816,8 @@ export const MANUAL = [
         id: 'store-setup', perms: ['Store_settings_view'], paths: ['store'],
         title: { en: 'Store setup', es: 'Configuración de la tienda' },
         steps: {
-          en: ['**Store › Settings**, **Shipping Methods / Zones**, **Tax Rates**, **Coupons** and **Flash Sales**.'],
-          es: ['**Tienda › Configuración**, **Métodos / Zonas de envío**, **Impuestos**, **Cupones** y **Ofertas relámpago**.'],
+          en: ['**Store › Settings**, **Shipping Methods / Zones**, **Tax Rates**, **Coupons** and **Flash Sales**.', 'Each company has its own store: its settings, payment methods, warehouses and emails are the company\'s. A visitor who opens the company\'s website or domain stays in that company\'s store through the cart and the checkout.'],
+          es: ['**Tienda › Configuración**, **Métodos / Zonas de envío**, **Impuestos**, **Cupones** y **Ofertas relámpago**.', 'Cada empresa tiene su propia tienda: su configuración, medios de pago, almacenes y correos son los de la empresa. Un visitante que abre el sitio web o el dominio de la empresa se queda en la tienda de esa empresa en el carrito y el pago.'],
         },
       },
     ],
@@ -956,8 +1001,8 @@ export const MANUAL = [
         id: 'users-list', perms: ['users_view'], paths: ['users'],
         title: { en: 'Users', es: 'Usuarios' },
         steps: {
-          en: ['**Users › Add** creates administrator logins only. Employees, customers, suppliers and sales agents get theirs from their own module.', 'Edit a login here: role, locations, password and PIN.', 'The **Active / Disabled** switch signs the person out everywhere. You can\'t disable yourself.', 'Filter the list by **Type**, **Role** (or "No role") and **Status**; **Clear filters** shows everyone again.', 'When the login belongs to an employee, **Edit** also shows that employee (department, position, shift, pay) with a link to HRM › Employees, where it is changed.'],
-          es: ['**Usuarios › Agregar** crea solo accesos de administrador. Empleados, clientes, proveedores y vendedores reciben el suyo desde su propio módulo.', 'Edite un acceso aquí: rol, locales, contraseña y PIN.', 'El interruptor **Activo / Deshabilitado** cierra la sesión de la persona en todos lados. No puede deshabilitarse a sí mismo.', 'Filtre la lista por **Tipo**, **Rol** (o "Sin rol") y **Estado**; **Clear filters** vuelve a mostrar a todos.', 'Cuando el acceso pertenece a un empleado, **Editar** también muestra ese empleado (departamento, puesto, turno, pago) con un enlace a RR. HH. › Empleados, donde se cambia.'],
+          en: ['**Users › Add** creates administrator logins only. Employees, customers, suppliers and sales agents get theirs from their own module.', 'Edit a login here: role, locations, password and PIN.', 'The **Active / Disabled** switch signs the person out everywhere. You can\'t disable yourself.', 'Filter the list by **Type**, **Role** (or "No role") and **Status**; **Clear filters** shows everyone again.', 'When the login belongs to an employee, **Edit** also shows that employee (department, position, shift, pay) with a link to HRM › Employees, where it is changed.', 'A login locked after 5 wrong passwords shows **Locked until HH:MM** under its status; **Unlock** (role with Login security) opens it at once.'],
+          es: ['**Usuarios › Agregar** crea solo accesos de administrador. Empleados, clientes, proveedores y vendedores reciben el suyo desde su propio módulo.', 'Edite un acceso aquí: rol, locales, contraseña y PIN.', 'El interruptor **Activo / Deshabilitado** cierra la sesión de la persona en todos lados. No puede deshabilitarse a sí mismo.', 'Filtre la lista por **Tipo**, **Rol** (o "Sin rol") y **Estado**; **Clear filters** vuelve a mostrar a todos.', 'Cuando el acceso pertenece a un empleado, **Editar** también muestra ese empleado (departamento, puesto, turno, pago) con un enlace a RR. HH. › Empleados, donde se cambia.', 'Un acceso bloqueado por 5 contraseñas incorrectas muestra **Bloqueado hasta HH:MM** bajo su estado; **Desbloquear** (rol con Seguridad de acceso) lo abre de inmediato.'],
         },
       },
       {
@@ -973,7 +1018,7 @@ export const MANUAL = [
 
   // ------------------------------------------------------------------ settings
   {
-    key: 'settings', module: null, perms: ['setting_system', 'pos_settings', 'mail_settings', 'payment_methods', 'company', 'network_security', 'paypal_manage'], paths: ['settings', 'hrm/companies'],
+    key: 'settings', module: null, perms: ['setting_system', 'pos_settings', 'mail_settings', 'payment_methods', 'company', 'network_security', 'login_security', 'login_device_management', 'kt_logs_view', 'paypal_manage'], paths: ['settings', 'hrm/companies'],
     title: { en: 'Settings', es: 'Configuración' },
     intro: { en: 'Company-wide options.', es: 'Opciones para toda la empresa.' },
     sections: [
@@ -1105,6 +1150,42 @@ export const MANUAL = [
         note: {
           en: 'Blocked users see: "You can\'t use Murano from this network…" on the sign-in page. Clearing the browser\'s data or using another browser needs a new approval.',
           es: 'Los usuarios bloqueados ven: "You can\'t use Murano from this network…" en la página de ingreso. Borrar los datos del navegador o usar otro navegador requiere una nueva aprobación.',
+        },
+      },
+      {
+        id: 'login-sec', perms: ['login_security'], paths: ['settings/login-security'],
+        title: { en: 'Login security', es: 'Seguridad de acceso' },
+        steps: {
+          en: ['**Settings › Login security**: tick the **user types** that must enter a code after their password (admins, employees, customers of the portal, suppliers, sales agents). On AdminSystem the choice is the SuperAdmin\'s.', '**Sign-in alerts** (on by default): an email to the person when their login is used from a computer or browser it never used.', '**Locked logins**: who is locked after 5 wrong passwords and until when; **Unlock** opens it now.', '**Authenticator app**: who uses one; **Reset** removes it when someone loses the phone (they get email codes again when required).', '**Recent activity**: the last 100 sign-ins, wrong passwords, locks, codes and password changes, with IP and device.'],
+          es: ['**Configuración › Seguridad de acceso**: marque los **tipos de usuario** que deben escribir un código después de la contraseña (admins, empleados, clientes del portal, proveedores, agentes de venta). En AdminSystem la elección es la del SuperAdmin.', '**Alertas de ingreso** (activas por defecto): un correo a la persona cuando su usuario se usa desde un equipo o navegador nuevo.', '**Logins bloqueados**: quién está bloqueado por 5 contraseñas incorrectas y hasta cuándo; **Desbloquear** lo abre ya.', '**App autenticadora**: quién la usa; **Resetear** la quita cuando alguien pierde el teléfono (vuelve a recibir códigos por correo cuando se exigen).', '**Actividad reciente**: los últimos 100 ingresos, contraseñas incorrectas, bloqueos, códigos y cambios de contraseña, con IP y equipo.'],
+        },
+        note: {
+          en: 'Rules for every login: 5 wrong passwords in an hour lock it for 1 hour; a standard password must be changed at sign-in (demo logins excepted); new passwords need 8+ characters with letters and numbers and can\'t repeat the last 3.',
+          es: 'Reglas para todos los usuarios: 5 contraseñas incorrectas en una hora lo bloquean por 1 hora; una contraseña estándar se cambia al ingresar (salvo usuarios de demos); las contraseñas nuevas llevan 8+ caracteres con letras y números y no repiten las 3 últimas.',
+        },
+      },
+      {
+        id: 'login-devices', perms: ['login_device_management'], paths: ['settings/login-devices'],
+        title: { en: 'Login devices (SuperAdmin)', es: 'Dispositivos de inicio de sesión (SuperAdmin)' },
+        steps: {
+          en: ['Every session open now: user and email, **company**, **role** and type, device / browser, IP, login and last activity.', 'Filter by dates (presets), **company**, **role** and **user type**, or search; the list comes back as you left it.', 'The trash icon signs one device out; **Logout my other devices** closes your other sessions.'],
+          es: ['Cada sesión abierta ahora: usuario y correo, **empresa**, **rol** y tipo, equipo / navegador, IP, ingreso y última actividad.', 'Filtre por fechas (presets), **empresa**, **rol** y **tipo de usuario**, o busque; la lista vuelve como la dejó.', 'El ícono de la papelera cierra la sesión de un equipo; **Cerrar mis otras sesiones** cierra sus otras sesiones.'],
+        },
+      },
+      {
+        id: 'kt-log', perms: ['kt_logs_view'], paths: ['settings/kt-log'],
+        title: { en: 'KT-Log (SuperAdmin on AdminSystem)', es: 'KT-Log (SuperAdmin en AdminSystem)' },
+        steps: {
+          en: ['The history of every request worked on Murano, newest first: date, location, status, category, summary and the request.', 'Filter by dates, location, category, status and user, or search; **Open** shows the whole entry, with the closing message as it was sent.'],
+          es: ['El historial de cada pedido trabajado en Murano, lo más reciente primero: fecha, ubicación, estado, categoría, resumen y el pedido.', 'Filtre por fechas, ubicación, categoría, estado y usuario, o busque; **Ver** muestra el registro completo, con el mensaje final tal como se envió.'],
+        },
+      },
+      {
+        id: 'set-live', perms: ['company'], paths: ['hrm/companies'],
+        title: { en: 'Companies in production', es: 'Compañías en producción' },
+        steps: {
+          en: ['**Companies › Edit › Website › Company in production** (SuperAdmin with AdminSystem picked): its data lives in production — nothing done on a development PC is ever sent up for it. The list shows the tag **In production**.', 'Today: Ruba, New Era and Turismo Cautivo. Other companies\' work in development goes up at the end of the day.'],
+          es: ['**Empresas › Editar › Sitio web › Compañía en producción** (SuperAdmin con AdminSystem escogido): sus datos viven en producción — nada hecho en una PC de desarrollo se sube nunca para ella. La lista muestra la etiqueta **En producción**.', 'Hoy: Ruba, New Era y Turismo Cautivo. El trabajo de otras empresas en desarrollo sube al final del día.'],
         },
       },
       {

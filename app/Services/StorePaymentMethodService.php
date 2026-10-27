@@ -24,7 +24,7 @@ class StorePaymentMethodService
      */
     public static function enabled(?StoreSetting $s = null): array
     {
-        $s = $s ?: StoreSetting::first();
+        $s = $s ?: StoreSetting::current();
         if (! $s) {
             return [];
         }

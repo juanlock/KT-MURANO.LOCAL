@@ -48,7 +48,7 @@ class CustomerTicketsController extends Controller
 
     private function settings(): StoreSetting
     {
-        return StoreSetting::first() ?: new StoreSetting;
+        return StoreSetting::current() ?: new StoreSetting;
     }
 
     public function index()

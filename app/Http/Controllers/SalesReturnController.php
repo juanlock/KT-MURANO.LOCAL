@@ -336,7 +336,9 @@ class SalesReturnController extends BaseController
         // ZATCA Phase 2: report the return as a credit note (non-blocking;
         // no-op unless Phase 2 is enabled and onboarding is finished).
         try {
-            \App\Jobs\SubmitDocumentToZatca::dispatch(SaleReturn::class, $createdReturn->id)->afterCommit();
+            if (\App\Support\ModuleFlags::enabled((int) $createdReturn->company_id, 'zatca')) {
+                \App\Jobs\SubmitDocumentToZatca::dispatch(SaleReturn::class, $createdReturn->id)->afterCommit();
+            }
         } catch (\Throwable $e) {
             \Log::warning('ZATCA submit dispatch failed (non-blocking): '.$e->getMessage(), ['sale_return_id' => $createdReturn->id]);
         }

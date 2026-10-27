@@ -39,6 +39,24 @@ class ModuleFlags
     }
 
     /**
+     * Is the module on for ANY company? (2026-10-27) The install-wide integrations
+     * (WooCommerce, QuickBooks, ZATCA...) don't schedule tasks or queue jobs while
+     * no company uses them. Cached 10 minutes.
+     */
+    public static function anyCompany(string $key): bool
+    {
+        return \Illuminate\Support\Facades\Cache::remember('module_any:'.$key, 600, function () use ($key) {
+            foreach (Setting::whereNull('deleted_at')->whereNotNull('company_id')->pluck('company_id') as $cid) {
+                if (self::enabled((int) $cid, $key)) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    }
+
+    /**
      * 403 (staff API) when the module is switched off for the company.
      * Never for the SuperAdmin (user's rule, 2026-10-19): the system's owner
      * sees and opens every module of every company. (Business logic that

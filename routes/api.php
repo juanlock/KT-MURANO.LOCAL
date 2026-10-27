@@ -2513,6 +2513,10 @@ Route::prefix('mobile')->group(function () {
     Route::get('ping', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'ping']);
     Route::post('login', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'login'])
         ->middleware('throttle:10,1');
+    // Login security steps (2026-10-27): two-step code / new password with the login_token.
+    Route::post('login/verify', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'loginVerify'])->middleware('throttle:10,1');
+    Route::post('login/resend', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'loginResend'])->middleware('throttle:3,1');
+    Route::post('login/password', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'loginPassword'])->middleware('throttle:10,1');
 
     Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])->group(function () {
         Route::get('me', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'me']);

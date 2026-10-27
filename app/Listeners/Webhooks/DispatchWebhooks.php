@@ -48,6 +48,17 @@ class DispatchWebhooks implements ShouldQueue
     {
     }
 
+    /**
+     * Queued only while some webhook subscription is active (2026-10-27): with none,
+     * every sale / payment / expense still queued a job that did nothing (3,400 piled up).
+     */
+    public function shouldQueue(object $event): bool
+    {
+        return isset(self::EVENT_MAP[get_class($event)])
+            && \Illuminate\Support\Facades\Cache::remember('webhooks_active', 300, fn () => \Illuminate\Support\Facades\Schema::hasTable('webhooks')
+                && \Illuminate\Support\Facades\DB::table('webhooks')->where('is_active', 1)->whereNull('deleted_at')->exists());
+    }
+
     public function handle(object $event): void
     {
         try {

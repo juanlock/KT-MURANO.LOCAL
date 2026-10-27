@@ -72,10 +72,11 @@ if (! $mysqldump) {
     return;
 }
 
-// Target folder (user's rule, 2026-10-19): one folder per PC,
-// KT-TOOLS/database/<PC name>/ (e.g. KT-TOOLS/database/KT-THUNDERA/), so each
-// machine's backups stay apart. Another folder under KT-TOOLS can still be set
-// before the require, e.g. $outSubdir = 'SQL'.
+// Target folder (user's rules, 2026-10-19 / 2026-10-27): one folder per PC in the
+// backup archive OUTSIDE the repo -- Google Drive, G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\database\<PC>\
+// (App\Support\BackupPaths; KT-TOOLS/database/<PC>/ when Drive isn't there). Only
+// the copy of the latest backup stays in the repo (KT-TOOLS/database/, tidy step).
+// Another folder under KT-TOOLS can still be set before the require, e.g. $outSubdir = 'SQL'.
 // Which protocol made it goes in the name ($backupTag, set before the require):
 // 'wakeup' (start of the day), 'pallevar' (end of the day), 'adormir' (end of
 // the day without touching production), 'copiabd' (a database copy on demand --
@@ -83,7 +84,9 @@ if (! $mysqldump) {
 $host = gethostname() ?: 'unknown-host';
 $backupTag = isset($backupTag) && preg_match('/^[a-z0-9]+$/', (string) $backupTag) ? $backupTag : 'copiabd';
 $outSubdir = isset($outSubdir) && preg_match('/^[A-Za-z0-9_-]+$/', (string) $outSubdir) ? $outSubdir : 'database'.DIRECTORY_SEPARATOR.preg_replace('/[^A-Za-z0-9_-]/', '-', $host);
-$outDir = base_path('KT-TOOLS'.DIRECTORY_SEPARATOR.$outSubdir);
+$outDir = str_starts_with($outSubdir, 'database'.DIRECTORY_SEPARATOR)
+    ? \App\Support\BackupPaths::pc($host)
+    : base_path('KT-TOOLS'.DIRECTORY_SEPARATOR.$outSubdir);
 if (! is_dir($outDir)) {
     mkdir($outDir, 0777, true);
 }

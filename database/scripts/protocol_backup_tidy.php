@@ -5,8 +5,12 @@
  * 2026-10-19), required by protocol_copia_bd.php with $written (the new zips)
  * and $host:
  *
- *  1. KT-TOOLS/database/ is tidied: a backup zip found in the root, or in another
- *     PC's folder, goes to its PC's folder -- the PC comes from the file name:
+ * Since 2026-10-27 the PC folders live in the backup archive outside the repo
+ * (Google Drive, App\Support\BackupPaths::archive()); KT-TOOLS/database/ in the repo
+ * keeps only the copy of the latest backup.
+ *
+ *  1. KT-TOOLS/database/ is tidied: a backup zip found in its root, or in a PC
+ *     folder, goes to its PC's folder in the archive -- the PC comes from the file name:
  *       old style  dbmurano_<date>_<PC>_<time>[_office_emails_N].zip
  *       root copy  dbmurano_<date>_<PC>_<time>_<tag>[_office_emails_N].zip
  *     A root copy whose original is already in the PC folder is just removed (it
@@ -17,8 +21,9 @@
  *     copy is removed in step 1 on the next run).
  */
 
-$root = base_path('KT-TOOLS'.DIRECTORY_SEPARATOR.'database');
-$pcDir = fn (string $pc) => $root.DIRECTORY_SEPARATOR.preg_replace('/[^A-Za-z0-9_-]/', '-', $pc);
+$root = \App\Support\BackupPaths::latest();      // in the repo: the latest copy only
+$archive = \App\Support\BackupPaths::archive();  // Google Drive (or $root without it)
+$pcDir = fn (string $pc) => $archive.DIRECTORY_SEPARATOR.preg_replace('/[^A-Za-z0-9_-]/', '-', $pc);
 // dbmurano_<date>_<PC>_<time>[_<tag>][_office_emails_N].zip  (the PC may contain "_")
 $pattern = '/^dbmurano_(\d{4}-\d{2}-\d{2})_(.+)_(\d{2}-\d{2}-\d{2}-[AP]M)(?:_([a-z]+))?(_office_emails_\d)?\.zip$/';
 $moved = 0; $removed = 0;
@@ -40,12 +45,14 @@ foreach (glob($root.DIRECTORY_SEPARATOR.'dbmurano_*.zip') ?: [] as $f) {
     if (in_array($f, $written, true)) continue;
     if (preg_match($pattern, basename($f), $m)) $place($f, $m[2], $m[1], $m[3], $m[4] ?? null ?: null, $m[5] ?? null ?: null);
 }
-// 1b. old-style files sitting in the wrong PC folder (e.g. KTOPTIMUM_NB's in "KTOPTIMUM")
-foreach (glob($root.DIRECTORY_SEPARATOR.'*', GLOB_ONLYDIR) ?: [] as $d) {
+// 1b. files sitting in a wrong PC folder of the archive (e.g. KTOPTIMUM_NB's in "KTOPTIMUM"),
+// and any PC folder still inside the repo (KT-TOOLS/database/<PC>/) -> the archive
+foreach (array_unique(array_merge(glob($archive.DIRECTORY_SEPARATOR.'*', GLOB_ONLYDIR) ?: [], glob($root.DIRECTORY_SEPARATOR.'*', GLOB_ONLYDIR) ?: [])) as $d) {
     $folder = basename($d);
     if (in_array($folder, ['production', 'Older', 'HOSTINGER'], true)) continue;
+    $inRepo = $archive !== $root && dirname($d) === $root;
     foreach (glob($d.DIRECTORY_SEPARATOR.'dbmurano_*.zip') ?: [] as $f) {
-        if (preg_match($pattern, basename($f), $m) && preg_replace('/[^A-Za-z0-9_-]/', '-', $m[2]) !== $folder) {
+        if (preg_match($pattern, basename($f), $m) && ($inRepo || preg_replace('/[^A-Za-z0-9_-]/', '-', $m[2]) !== $folder)) {
             $place($f, $m[2], $m[1], $m[3], $m[4] ?? null ?: null, $m[5] ?? null ?: null);
         }
     }
@@ -59,5 +66,5 @@ foreach ($written as $f) {
     $copy = $root.DIRECTORY_SEPARATOR."dbmurano_{$m[1]}_{$host}_{$m[2]}_{$m[3]}";
     if (@copy($f, $copy)) $copies[] = basename($copy);
 }
-echo 'KT-TOOLS/database tidied: ', $moved, ' moved to their PC folder, ', $removed, ' old root copies removed',
+echo 'KT-TOOLS/database tidied: ', $moved, ' moved to their PC folder in ', $archive, ', ', $removed, ' old root copies removed',
     $copies ? ' | latest backup copied to KT-TOOLS/database/: '.$copies[0].(count($copies) > 1 ? ' (+'.(count($copies) - 1).')' : '') : '', PHP_EOL;

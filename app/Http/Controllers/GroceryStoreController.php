@@ -28,7 +28,7 @@ class GroceryStoreController extends ElectronicsStoreController
 
     public function home(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
         $opts = GroceryTheme::options($s);
         $sections = $opts['sections'];
         $limits = $opts['limits'];

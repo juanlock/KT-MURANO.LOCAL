@@ -20,7 +20,7 @@ Needs on this PC (per machine, git-ignored -- never ask for passwords, never pri
 2. **Copy production to this PC** -- `php artisan murano:from-prod` (`app/Console/Commands/MuranoFromProd.php`, ~1 minute; long timeout):
    - this PC's `kt_logs` rows production lacks go up first (insert-only, matched by location + summary);
    - `mysqldump | gzip` on the server, downloaded over SFTP (fallback: remote MySQL, ~7 min); if the dump fails the local database is untouched;
-   - every local table dropped, the dump imported (copy kept: `KT-TOOLS/database/production/from_prod_latest.zip`, git-ignored);
+   - every local table dropped, the dump imported (copy kept: `<archive>/production/from_prod_latest.zip`, git-ignored);
    - production's new files into `public/files` (`protocol_prod_files.php`);
    - `migrate --force` (this PC's migrations production doesn't have yet -- list them), `optimize:clear`.
    `--backup` makes a local backup first (tag `wakeup`) -- only when the user asks, or when this PC holds something not yet in production that must not be lost (ask first).

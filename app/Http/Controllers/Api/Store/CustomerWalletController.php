@@ -50,10 +50,10 @@ class CustomerWalletController extends Controller
 
         return response()->json([
             'balance' => (float) $wallet->balance,
-            'currency' => (string) (StoreSetting::query()->value('currency_code') ?: ''),
+            'currency' => (string) (StoreSetting::current()->currency_code ?: ''),
             'status' => $wallet->status,
-            'withdrawal_enabled' => (bool) (StoreSetting::query()->value('wallet_withdrawal_enabled') ?? false),
-            'min_withdrawal' => (float) (StoreSetting::query()->value('wallet_min_withdrawal') ?? 0),
+            'withdrawal_enabled' => (bool) (StoreSetting::current()->wallet_withdrawal_enabled ?? false),
+            'min_withdrawal' => (float) (StoreSetting::current()->wallet_min_withdrawal ?? 0),
             'transactions' => $transactions,
             'pending_withdrawals' => $pending,
         ]);
@@ -116,11 +116,11 @@ class CustomerWalletController extends Controller
             return $error;
         }
 
-        if (! (bool) (StoreSetting::query()->value('wallet_withdrawal_enabled') ?? false)) {
+        if (! (bool) (StoreSetting::current()->wallet_withdrawal_enabled ?? false)) {
             return response()->json(['error' => __('messages.WithdrawalsDisabled')], 422);
         }
 
-        $min = (float) (StoreSetting::query()->value('wallet_min_withdrawal') ?? 0);
+        $min = (float) (StoreSetting::current()->wallet_min_withdrawal ?? 0);
 
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01'],
@@ -170,7 +170,7 @@ class CustomerWalletController extends Controller
         if (! $user->client_id) {
             return [null, response()->json(['error' => __('messages.CustomerProfileMissing')], 422)];
         }
-        if (! (bool) (StoreSetting::query()->value('wallet_enabled') ?? false)) {
+        if (! (bool) (StoreSetting::current()->wallet_enabled ?? false)) {
             return [null, response()->json(['error' => __('messages.WalletDisabled')], 403)];
         }
 

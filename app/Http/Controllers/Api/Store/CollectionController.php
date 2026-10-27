@@ -68,7 +68,7 @@ class CollectionController extends Controller
             $c = \App\Models\Collection::create($data);
 
             // 2) Insert into homepage_lineup (before first "newsletter"), de-duping by slug
-            $settings = \App\Models\StoreSetting::query()->first(); // adjust for multi-tenant if needed
+            $settings = \App\Models\StoreSetting::current(); // adjust for multi-tenant if needed
             if ($settings) {
                 $lineup = $settings->homepage_lineup ?? [];
 
@@ -136,7 +136,7 @@ class CollectionController extends Controller
             $collection->refresh();
 
             // Sync homepage_lineup
-            $settings = \App\Models\StoreSetting::query()->first(); // scope for tenant if needed
+            $settings = \App\Models\StoreSetting::current(); // scope for tenant if needed
             if ($settings) {
                 $lineup = $settings->homepage_lineup ?? [];
                 if ($lineup instanceof \Illuminate\Support\Collection) {
@@ -237,7 +237,7 @@ class CollectionController extends Controller
             $collection->delete();
 
             // 2) Remove from homepage_lineup if present
-            $settings = \App\Models\StoreSetting::query()->first(); // scope for tenant if needed
+            $settings = \App\Models\StoreSetting::current(); // scope for tenant if needed
             if ($settings) {
                 $lineup = $settings->homepage_lineup ?? [];
 

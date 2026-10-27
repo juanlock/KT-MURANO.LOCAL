@@ -24,7 +24,7 @@ class PaymentProofReviewed extends Mailable
 
     public function build()
     {
-        $storeName = StoreSetting::query()->value('store_name') ?: config('app.name');
+        $storeName = StoreSetting::forWarehouse((int) optional($this->proof->order)->warehouse_id)->store_name ?: config('app.name');
         $approved = $this->proof->status === 'approved';
 
         $subject = $approved

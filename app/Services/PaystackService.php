@@ -23,7 +23,7 @@ class PaystackService
 
     private function settings(): ?StoreSetting
     {
-        return $this->settings ??= StoreSetting::query()->first();
+        return $this->settings ??= StoreSetting::current();
     }
 
     /** Enabled by the admin AND both keys present (same rule as SaaS). */

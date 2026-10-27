@@ -42,7 +42,7 @@ if (! $prodEnv) return;
 $p = DB::connection('prod');
 $d = DB::connection();
 
-$syncFile = base_path('KT-TOOLS/database/production/last_sync.json');
+$syncFile = \App\Support\BackupPaths::production('last_sync.json');
 $syncInfo = json_decode((string) @file_get_contents($syncFile), true) ?: [];
 $since = $since ?? ($syncInfo['pulled_at'] ?? null);
 // Each table's highest dev id at the last pull (2026-10-20): a higher id = created in dev after it, even

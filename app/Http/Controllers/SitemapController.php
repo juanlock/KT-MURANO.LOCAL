@@ -15,7 +15,7 @@ class SitemapController extends Controller
      */
     public function index()
     {
-        $s = StoreSetting::first();
+        $s = StoreSetting::current();
 
         $urls = [];
         $add = function (string $path, $lastmod = null, string $freq = 'weekly', string $priority = '0.6') use (&$urls, $s) {
@@ -93,7 +93,7 @@ class SitemapController extends Controller
      */
     public function robots()
     {
-        $s = StoreSetting::first();
+        $s = StoreSetting::current();
         $enabled = $s ? (bool) ($s->enabled ?? true) : true;
 
         $lines = ['User-agent: *'];

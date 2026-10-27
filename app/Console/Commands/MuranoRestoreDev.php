@@ -101,7 +101,7 @@ class MuranoRestoreDev extends Command
             ]);
             fclose($in);
             if (! $res->successful()) {
-                $this->error('Import FAILED: '.trim($res->errorOutput()).' -- the prerestore backup is in KT-TOOLS/database/'.gethostname().'/');
+                $this->error('Import FAILED: '.trim($res->errorOutput()).' -- the prerestore backup is in '.\App\Support\BackupPaths::pc().'/');
 
                 return self::FAILURE;
             }
@@ -121,8 +121,10 @@ class MuranoRestoreDev extends Command
     /** Every main backup zip (not the office_emails parts), newest first, with its parts. */
     private function backups(): array
     {
-        $root = base_path('KT-TOOLS/database');
-        $zips = array_merge(glob("$root/dbmurano_*.zip") ?: [], glob("$root/*/dbmurano_*.zip") ?: []);
+        // The latest copy in the repo + every PC folder of the backup archive (Google Drive, 2026-10-27).
+        $root = \App\Support\BackupPaths::latest();
+        $archive = \App\Support\BackupPaths::archive();
+        $zips = array_values(array_unique(array_merge(glob("$root/dbmurano_*.zip") ?: [], glob("$root/*/dbmurano_*.zip") ?: [], glob("$archive/*/dbmurano_*.zip") ?: [])));
         $out = [];
         foreach ($zips as $z) {
             $name = basename($z);

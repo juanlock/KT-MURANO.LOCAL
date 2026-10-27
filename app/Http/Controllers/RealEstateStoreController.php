@@ -24,7 +24,7 @@ class RealEstateStoreController extends Controller
      */
     public function home(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         $categories = PropertyCategory::withCount('properties')
             ->orderBy('name')
@@ -88,7 +88,7 @@ class RealEstateStoreController extends Controller
      */
     public function listings(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         $q        = trim((string) $request->get('q', ''));
         $category = $request->get('category');           // id or slug
@@ -150,7 +150,7 @@ class RealEstateStoreController extends Controller
      */
     public function show(Request $request, $slug)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         $property = Property::with('category:id,name')
             ->where('slug', $slug)
@@ -235,7 +235,7 @@ class RealEstateStoreController extends Controller
     private function notifyInquiry(PropertyInquiry $inquiry): void
     {
         try {
-            $s = StoreSetting::first();
+            $s = StoreSetting::current();
             $property = $inquiry->property_id ? Property::find($inquiry->property_id) : null;
 
             $recipient = $property?->agent_email ?: ($s?->contact_email ?: null);

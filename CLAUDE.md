@@ -52,7 +52,7 @@ Turismo Cautivo and Arce were created in production with a one-off script).
   dev backup tagged `adormir` (PC folder + a copy in the root of
   `KT-TOOLS/database/`, the root's older copy moved to its PC folder), a
   production backup (`php artisan murano:prod-backup` ->
-  `KT-TOOLS/database/HOSTINGER/hostinger-<date>_<time>-<PC>-a-dormir.zip`,
+  `<archive>/HOSTINGER/hostinger-<date>_<time>-<PC>-a-dormir.zip`,
   git-ignored: customer data), Kelsy, README (block marked "not in production
   yet"), commit, push. No deploy, no migrations or data to production (the
   day's dev data is lost with the next Wake-up unless Pa Llevar sends it).
@@ -66,12 +66,20 @@ Turismo Cautivo and Arce were created in production with a one-off script).
 Every protocol starts by running `hostname` (never asks the user): the PC name
 for file names and the Kelsy location (`KT-THUNDERA` -> Thundera,
 `KTOPTIMUM_NB` -> Optimum, any other -> Home).
+**`<archive>` = the backup archive OUTSIDE the repo (user's rule, 2026-10-27):
+`G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\database` (Google Drive, same
+path on every developer PC; `.env` `BACKUP_ARCHIVE_DIR` overrides it;
+`App\Support\BackupPaths`; without Drive it falls back to `KT-TOOLS/database/`).**
+Its subfolders: `<PC name>/`, `production/` (production backups,
+`from_prod_latest.zip`, `last_sync.json`), `HOSTINGER/`. In the repo only the
+copy of the latest backup stays (`KT-TOOLS/database/*.zip`; subfolders are
+git-ignored).
 Every database backup is compressed and phpMyAdmin-ready
 (`database/scripts/protocol_sql_clean.php`): local ones in
-**`KT-TOOLS/database/<PC name>/dbmurano_<date>_<time>_<wakeup|pallevar|copiabd>.zip`**
-(+ `_office_emails_1/_2/_3`), production ones in `KT-TOOLS/database/production/`
+**`<archive>/<PC name>/dbmurano_<date>_<time>_<wakeup|pallevar|copiabd>.zip`**
+(+ `_office_emails_1/_2/_3`), production ones in `<archive>/production/`
 (git-ignored), made before anything is written to production. Every local
-backup also tidies `KT-TOOLS/database/` (a stray backup goes to its PC's folder)
+backup also tidies `KT-TOOLS/database/` (a stray backup goes to its PC's folder in `<archive>`)
 and leaves a **copy of the latest backup in its root**
 (`dbmurano_<date>_<PC>_<time>_<tag>...zip`, only the latest one;
 `protocol_backup_tidy.php`; user's rule, 2026-10-19).
@@ -159,6 +167,8 @@ form pickers stay on the acting company. Numbers unique install-wide
 - **Billing** (aka the "older system") — lives at `KT-BILLING.LOCAL`, database
   `dbbilling`. This is the current system in production use.
   **Read-only for us: never modify billing's code or database.**
+  **The user turns billing off by hand on 2026-10-28** (user's rule, 2026-10-27):
+  from then on Ruba and New Era work in Murano only.
 - **Murano** (aka "the new system") — lives at `KT-MURANO.LOCAL` (this repo),
   database `dbmurano`. New code, new features/modules.
 
@@ -388,6 +398,21 @@ the start of each session).
   default on): a browser the login never used -> email. Everything goes to
   `login_events`. Way back in: `php artisan murano:login-reset {email}
   [--no-2fa-types]`. The 2FA secret / recovery codes are in `User::$hidden`.
+  The mobile app's steps are API-ready (`mobile/login` answers 403 with
+  `login_token` + step; `mobile/login/verify | resend | password`); the Flutter
+  app itself (not in this workspace) still needs those screens.
+- **Production server tasks (2026-10-27):** the Laravel scheduler needs the
+  hPanel cron `* * * * * /usr/bin/php <PROD_PATH>/artisan schedule:run`
+  (Hostinger has no `crontab` command). It runs the queue (`queue:work --once`),
+  reminders, Email Office / Helpdesk mail, `murano:server-backup` (03:15:
+  mysqldump | gzip into `~/murano_backups/`, outside the website, 14 kept) and
+  `murano:error-digest` (07:00: yesterday's log errors emailed to the
+  SuperAdmin). Logs rotate daily (`LOG_CHANNEL=daily`). Install-wide
+  integrations (WooCommerce, Google Sheets, QuickBooks, ZATCA, Google Calendar,
+  webhooks, customer-display broadcast) neither schedule tasks nor queue jobs
+  unless some company uses them (`ModuleFlags::anyCompany`, `enabled()` per
+  company, `DispatchWebhooks::shouldQueue`). Stocky's `database:backup` is no
+  longer scheduled (it ran every minute).
 - **Network security** (user's rule, 2026-10-16): per company (Settings ->
   Network security, permission `network_security`, default off; on for
   KcolTech). Staff (admin / employee logins) can use the **admin panel only**
@@ -529,6 +554,13 @@ the start of each session).
   HTML (+ "Use our booking calendar" = `/book?company={id}&embed=1`). Company
   admins can't add scripts / event handlers there; only a SuperAdmin can. Same settings page (`StoreSettings.vue`), scope from
   route meta (`/store/settings` vs `/website/settings`).
+- **Each company's online store is its own (2026-10-27):** storefront, cart,
+  checkout, store account, payment gateways, wallet, returns and their emails
+  read `StoreSetting::current()` (the company of the website path / domain /
+  `?company=`, remembered in the session for the cart and checkout calls; the
+  store customer's company; a staff user's acting company) -- never
+  `StoreSetting::first()`. Order-bound code uses
+  `StoreSetting::forWarehouse($order->warehouse_id)`.
 - Website pages (front page with our website theme, CMS pages, gallery,
   contact) render with `WebsiteSetting::applyTo()` and `$website = true` (no
   cart / search / shop category bar / shop sign-in); shop pages keep the
@@ -671,7 +703,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   database change a feature needs -- schema, permissions, settings,
   translations, menus -- is a migration, safe to run twice, by name not by
   id; other dev data goes up with `protocol_prod_push.php` (see the top).** Production is backed up
-  before every write (`KT-TOOLS/database/production/`, git-ignored, compressed,
+  before every write (`<archive>/production/`, git-ignored, compressed,
   phpMyAdmin-ready); if the backup fails nothing is written. `public/` stays out
   of Git LFS (`.gitattributes` = LFS only for KT-TOOLS zips). Production access
   lives ONLY in `.env.production-db` / `.env.production-ssh` (per machine,
@@ -691,7 +723,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
 - **Copia BD** (`/copia-bd`, "Jarvis, run protocolo copia bd") — a database
   copy on demand, tagged `copiabd`. Same script as Wake-up's / Pa Llevar's
   backups (`database/scripts/protocol_copia_bd.php`, `$backupTag`):
-  `KT-TOOLS/database/<PC name>/dbmurano_<date>_<time>_<tag>.zip` (every table
+  `<archive>/<PC name>/dbmurano_<date>_<time>_<tag>.zip` (every table
   except the Email Office ones) + `..._<tag>_office_emails_1/_2/_3.zip`
   (`office_emails` in three parts of about the same size; file 1 has the
   tables' structure, file 3 the triggers). Restore = unzip all, import the main

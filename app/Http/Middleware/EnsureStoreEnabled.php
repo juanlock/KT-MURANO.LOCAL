@@ -13,7 +13,7 @@ class EnsureStoreEnabled
      */
     public function handle(Request $request, Closure $next)
     {
-        $settings = StoreSetting::first();
+        $settings = StoreSetting::current();
 
         if (! $settings || ! $settings->enabled) {
             // Root-domain mode: keep "/" useful for staff when the store is off

@@ -25,8 +25,9 @@ class OnlineOrderInvoiceService
     {
         $order->loadMissing(['items.product', 'items.productVariant', 'client', 'shippingMethod']);
 
+        // The order's own company (its warehouse), also from a queue / console (2026-10-27).
         $settings = Setting::current();
-        $store = StoreSetting::first();
+        $store = StoreSetting::forWarehouse((int) $order->warehouse_id);
         // Multi-Currency: print in the currency the order was placed in
         // (base symbol with rate 1 for legacy orders).
         $docCurrency = StoreCurrencyService::forDocument($order);

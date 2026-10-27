@@ -27,7 +27,7 @@ class BkashService
 
     private function settings(): ?StoreSetting
     {
-        return $this->settings ??= StoreSetting::query()->first();
+        return $this->settings ??= StoreSetting::current();
     }
 
     /** Enabled by the admin AND all four credentials present. */

@@ -18,7 +18,7 @@ class AccountPagesController extends Controller
 {
     public function account()
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         $user = Auth::guard('store')->user();
         $client = $user && $user->client_id ? Client::find($user->client_id) : null;
@@ -28,7 +28,7 @@ class AccountPagesController extends Controller
 
     public function orders()
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
 
         return view('store.account_orders', compact('s'));
     }

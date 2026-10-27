@@ -16,8 +16,8 @@
  * the caller must then write NOTHING to production.
  */
 
-$dir = base_path('KT-TOOLS/database/production');
-if (! is_dir($dir)) mkdir($dir, 0775, true);
+// <archive>/production/ (Google Drive, App\Support\BackupPaths; KT-TOOLS/database/production without it)
+$dir = \App\Support\BackupPaths::production();
 $label = isset($backupLabel) && preg_match('/^[a-z0-9_]+$/', (string) $backupLabel) ? '_'.$backupLabel : '';
 $raw = "$dir/{$prodEnv['PROD_DB_DATABASE']}_".now()->format('Y-m-d_h-i-s-A')."{$label}.raw.sql";
 $dump = env('MYSQLDUMP_PATH', 'mysqldump');

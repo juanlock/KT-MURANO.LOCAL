@@ -65,7 +65,7 @@ class WalletController extends Controller
             ->map(fn (WalletWithdrawal $w) => $this->presentWithdrawal($w));
 
         return response()->json([
-            'currency' => (string) (StoreSetting::query()->value('currency_code') ?: ''),
+            'currency' => (string) (StoreSetting::current()->currency_code ?: ''),
             // POS spends wallets through the payment method named "Wallet";
             // the admin pages warn when it is missing (e.g. renamed after an
             // id-8 collision).
@@ -211,7 +211,7 @@ class WalletController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Wallet::class);
 
-        $s = StoreSetting::first();
+        $s = StoreSetting::current();
 
         return response()->json([
             'wallet_enabled' => (bool) ($s->wallet_enabled ?? false),
@@ -246,7 +246,7 @@ class WalletController extends Controller
             'wallet_min_withdrawal' => 'nullable|numeric|min:0',
         ]);
 
-        $s = StoreSetting::first() ?: new StoreSetting;
+        $s = StoreSetting::current() ?: new StoreSetting;
         $s->fill($data)->save();
 
         return response()->json(['success' => true]);

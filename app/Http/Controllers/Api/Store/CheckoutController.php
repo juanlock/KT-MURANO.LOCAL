@@ -306,7 +306,7 @@ class CheckoutController extends BaseController
             return response()->json(['error' => __('messages.PaymentMethodNotConfigured')], 422);
         }
         // Admin on/off for cash-on-delivery and mobile money (default on).
-        $storeSetting = \App\Models\StoreSetting::first();
+        $storeSetting = StoreSetting::current();
         if ($paymentMethod === 'cod' && $storeSetting && $storeSetting->payment_cod_enabled === false) {
             return response()->json(['error' => __('messages.PaymentMethodNotConfigured')], 422);
         }
@@ -479,7 +479,7 @@ class CheckoutController extends BaseController
                 // ---- (5f) Stock re-check under row locks (prevent overselling) ----
                 // Combined stock across all enabled warehouses, matching what
                 // the storefront displays.
-                $allowOverselling = (bool) (StoreSetting::query()->value('allow_overselling') ?? false);
+                $allowOverselling = (bool) (StoreSetting::current()->allow_overselling ?? false);
                 if (! $allowOverselling) {
                     $shortages = $this->lockAndCheckStock($breakdown['items'], $warehouseIds);
                     if ($shortages) {
@@ -1291,7 +1291,7 @@ class CheckoutController extends BaseController
 
         try {
             $this->Set_config_mail();
-            $storeName = StoreSetting::query()->value('store_name');
+            $storeName = StoreSetting::current()->store_name;
             $mail = new OnlineOrderPlaced($order, $storeName);
 
             // Attach the invoice PDF only if it is internally consistent.
@@ -1320,12 +1320,12 @@ class CheckoutController extends BaseController
     /** Public: also called by the store WebhookController (see sendOrderEmail). */
     public function notifyAdminsOfOrder(OnlineOrder $order): void
     {
-        $storeName = StoreSetting::query()->value('store_name');
+        $storeName = StoreSetting::current()->store_name;
 
         // 1) Email the store owner once.
         try {
             $this->Set_config_mail();
-            $ownerEmail = StoreSetting::query()->value('contact_email')
+            $ownerEmail = StoreSetting::current()->contact_email
                 ?: optional(Setting::current())->email;
 
             if ($ownerEmail) {

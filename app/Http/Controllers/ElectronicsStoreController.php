@@ -28,7 +28,7 @@ class ElectronicsStoreController extends StoreFrontController
 {
     public function home(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
         $opts = ElectronicsTheme::options($s);
         $sections = $opts['sections'];
         $limits = $opts['limits'];

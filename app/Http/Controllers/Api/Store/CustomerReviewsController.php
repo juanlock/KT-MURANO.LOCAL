@@ -83,7 +83,7 @@ class CustomerReviewsController extends Controller
             return response()->json(['error' => __('messages.ReviewProductNotInOrder')], 422);
         }
 
-        $autoApprove = (bool) (StoreSetting::query()->value('auto_approve_reviews') ?? false);
+        $autoApprove = (bool) (StoreSetting::current()->auto_approve_reviews ?? false);
         $clientName = optional(Client::find($order->client_id))->name;
 
         $review = ProductReview::updateOrCreate(

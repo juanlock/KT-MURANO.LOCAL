@@ -8,6 +8,62 @@ class StoreSetting extends Model
 {
     public const TEMPLATE_COMPANY_ID = 999;
 
+    /**
+     * The store settings of the store being used now (2026-10-27: the storefront,
+     * cart, checkout and payments read the FIRST row = one company's store for
+     * everybody). The company comes from, in order: the request (the company's
+     * website path, its domain or ?company=, remembered in the session so the
+     * cart / checkout calls that follow keep it), the session, the signed-in
+     * store customer, a staff user's acting company; else the first row as before.
+     */
+    public static function current(): self
+    {
+        $cid = self::currentCompanyId();
+
+        return $cid ? static::forCompany($cid) : (static::query()->orderBy('id')->first() ?? new static);
+    }
+
+    public static function currentCompanyId(): ?int
+    {
+        $r = app()->bound('request') && ! app()->runningInConsole() ? request() : null;
+        // Storefront requests (shop pages, cart, checkout, store account): the shop's company.
+        // Anything else (the admin panel): the staff user's acting company.
+        $isStore = $r && function_exists('is_store_request') && is_store_request($r);
+        if ($r && ($cid = \App\Services\FrontPage::explicitCompanyId($r))) {
+            if ($isStore && $r->hasSession()) {
+                $r->session()->put('store_company', $cid);
+            }
+
+            return $cid;
+        }
+        try {
+            if ($isStore) {
+                if ($r->hasSession() && ($cid = (int) $r->session()->get('store_company'))) {
+                    return $cid;
+                }
+                if (($account = auth('store')->user()) && ($cid = (int) optional($account->client)->company_id)) {
+                    return $cid;
+                }
+            }
+            $staff = auth('api')->user() ?? auth('web')->user();
+            if ($staff && ! in_array($staff->type, ['customer'], true)) {
+                return \App\Support\CompanyFiles::actingCompanyId($r);
+            }
+        } catch (\Throwable $e) {
+            // no auth in this context (console, early boot)
+        }
+
+        return null;
+    }
+
+    /** The store settings of the company a warehouse belongs to (orders, returns, their emails). */
+    public static function forWarehouse(?int $warehouseId): self
+    {
+        $cid = $warehouseId ? (int) \Illuminate\Support\Facades\DB::table('warehouses')->where('id', $warehouseId)->value('company_id') : 0;
+
+        return $cid ? static::forCompany($cid) : static::current();
+    }
+
     public static function forCompany(?int $companyId): self
     {
         $companyId = $companyId ?: self::TEMPLATE_COMPANY_ID;
@@ -150,9 +206,9 @@ class StoreSetting extends Model
      */
     public static function storeWarehouseIds(): array
     {
-        $s = static::first();
+        $s = static::current();
 
-        return $s ? $s->activeWarehouseIds() : Warehouse::whereNull('deleted_at')->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return $s->exists ? $s->activeWarehouseIds() : Warehouse::whereNull('deleted_at')->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 
     /**
@@ -162,7 +218,7 @@ class StoreSetting extends Model
      */
     public static function stripeEnabled(): bool
     {
-        $value = static::query()->value('payment_stripe_enabled');
+        $value = static::current()->payment_stripe_enabled;
 
         return $value === null ? true : (bool) $value;
     }

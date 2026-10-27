@@ -45,4 +45,13 @@ class CartUpdated implements ShouldBroadcast
     {
         return 'CartUpdated';
     }
+
+    /**
+     * Only with a real broadcaster (Pusher / Reverb...): with "log" or "null" the queued
+     * broadcast went nowhere and only filled the queue (2026-10-27).
+     */
+    public function broadcastWhen(): bool
+    {
+        return ! in_array(config('broadcasting.default'), ['log', 'null', null], true);
+    }
 }

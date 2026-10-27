@@ -52,7 +52,7 @@ class WalletService
             [
                 'balance' => 0,
                 'status' => 'active',
-                'currency' => (string) (StoreSetting::query()->value('currency_code') ?: null),
+                'currency' => (string) (StoreSetting::current()->currency_code ?: null),
             ]
         );
     }
@@ -65,12 +65,12 @@ class WalletService
     /** Whether the E-Wallet feature is switched on. */
     public function enabled(): bool
     {
-        return (bool) (StoreSetting::query()->value('wallet_enabled') ?? false);
+        return (bool) (StoreSetting::current()->wallet_enabled ?? false);
     }
 
     public function allowsNegative(): bool
     {
-        return (bool) (StoreSetting::query()->value('wallet_allow_negative') ?? false);
+        return (bool) (StoreSetting::current()->wallet_allow_negative ?? false);
     }
 
     /**

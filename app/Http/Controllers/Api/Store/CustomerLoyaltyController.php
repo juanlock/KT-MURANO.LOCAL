@@ -50,7 +50,7 @@ class CustomerLoyaltyController extends Controller
         return response()->json([
             'points' => (float) ($client->points ?? 0),
             'eligible' => (bool) $eligible,
-            'currency' => (string) (StoreSetting::query()->value('currency_code') ?: ''),
+            'currency' => (string) (StoreSetting::current()->currency_code ?: ''),
             'rewards' => $rewards,
             'transactions' => $recent,
         ]);

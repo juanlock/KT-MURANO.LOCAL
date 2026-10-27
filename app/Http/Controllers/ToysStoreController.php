@@ -21,7 +21,7 @@ class ToysStoreController extends ElectronicsStoreController
 {
     public function home(Request $request)
     {
-        $s = StoreSetting::firstOrFail();
+        $s = StoreSetting::current();
         $opts = ToysTheme::options($s);
         $sections = $opts['sections'];
         $limits = $opts['limits'];
