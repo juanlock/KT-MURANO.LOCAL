@@ -85,9 +85,14 @@ echo 'public/js built here: ', $jsAge ? date('Y-m-d H:i', $jsAge) : 'MISSING -- 
 
 // server-side local changes that the incoming commits would overwrite
 $conflicts = []; $sameAsIncoming = [];
+// Files the new commits stop tracking under public/files (2026-10-27: public/files left git):
+// production keeps ITS copy as it is -- uploaded, edited or deleted there -- so they are
+// never a conflict; they are taken out of the server's index before the fast-forward.
+$gone = $serverHead === $localHead ? [] : array_values(array_filter(explode("\n", $lg('diff --name-only --diff-filter=D '.$serverHead.' HEAD -- public/files'))));
+$goneSet = array_flip($gone);
 foreach (array_filter(explode("\n", $sh('git status --porcelain --untracked-files=all'))) as $line) {
     $path = trim(substr($line, 3));
-    if ($path === '.env' || ! in_array($path, $changed, true)) continue;
+    if ($path === '.env' || ! in_array($path, $changed, true) || isset($goneSet[$path])) continue;
     $incoming = $lg('rev-parse HEAD:'.escapeshellarg($path));
     $serverBlob = $sh('git hash-object '.$q($path));
     // a copy uploaded from Windows may carry CRLF: same file once CR is dropped
@@ -168,16 +173,18 @@ try {
         foreach ($sameAsIncoming as $p) {   // identical to the new version: let git write them itself
             $sh('(git ls-files --error-unmatch '.$q($p).' >/dev/null 2>&1 && git checkout -- '.$q($p).') || rm -f '.$q($p));
         }
+        // A deploy never deletes the companies' files: what the new commits untrack under
+        // public/files leaves the server's INDEX only (git rm --cached), the disk is untouched,
+        // so the fast-forward has nothing to delete there.
+        if ($gone) {
+            $list = $work.'/untrack.txt';
+            $sftp->put($list, implode("\n", $gone)."\n");
+            echo $sh('xargs -a '.$q($list).' -d '.$q("\n").' git rm -q --cached --ignore-unmatch -- && echo "public/files: '.count($gone).' file(s) untracked on the server, kept on disk"'), PHP_EOL;
+            $sftp->exec('rm -f '.$q($list));
+        }
         echo $sh('git merge --ff-only FETCH_HEAD | tail -3'), PHP_EOL;
         $restoreEnv();
         if ($sh('git rev-parse HEAD') !== $localHead) { echo "Code NOT deployed (fast-forward failed) -- nothing else done.\n"; return; }
-        // A deploy never deletes the companies' files (2026-10-27: public/files left git --
-        // the commit that untracks them reads as "deleted"): whatever the new commits removed
-        // under public/files is put back from the previous commit and left untracked.
-        $gone = array_filter(explode("\n", $lg('diff --name-only --diff-filter=D '.$serverHead.' HEAD -- public/files')));
-        if ($gone) {
-            echo $sh('git checkout '.$q($serverHead).' -- public/files && git reset -q -- public/files && echo "public/files: '.count($gone).' file(s) kept on the server (untracked)"'), PHP_EOL;
-        }
         $sftp->exec('rm -f '.$q($work.'/deploy.bundle'));
     }
     // 2) public/js, built on this PC
