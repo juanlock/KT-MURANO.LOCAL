@@ -1413,7 +1413,8 @@ class QuotationsController extends BaseController
         $message_body = str_replace('{quotation_number}', $quotation_number, $message_body);
         $message_body = str_replace('{total_amount}', $total_amount, $message_body);
 
-        $email['subject'] = $message_subject;
+        // The subject gets the same {tags} as the body (2026-10-26: they went out unreplaced).
+        $email['subject'] = strtr($message_subject, ['{total_amount}' => (string) $total_amount, '{quotation_number}' => (string) $quotation_number, '{quotation_url}' => (string) $quotation_url, '{business_name}' => (string) $business_name, '{contact_name}' => (string) $contact_name]);
         $email['body'] = $message_body;
         $email['company_name'] = $business_name;
 

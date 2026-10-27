@@ -4793,20 +4793,12 @@ class SalesController extends BaseController
             return $this->sendError('Mail is not configured for this company yet. Set it up under Settings > Mail Settings, then try again.');
         }
 
-        // replace the text with tags
-        $message_body = str_replace('{contact_name}', $contact_name, $message_body);
-        $message_body = str_replace('{business_name}', $business_name, $message_body);
-        $message_body = str_replace('{invoice_url}', $invoice_url, $message_body);
-        // PayPal module: "Pay now" link of the invoice (empty when PayPal is off / not set up or nothing is due).
-        $message_body = str_replace('{pay_link}', ($sale->GrandTotal - $sale->paid_amount) > 0 ? (string) \App\Services\PayPalInvoicePayment::payLink((int) $sale->id) : '', $message_body);
-        $message_body = str_replace('{invoice_number}', $invoice_number, $message_body);
+        // replace the tags -- in the subject too (2026-10-26: the subject went out as
+        // "Invoice {invoice_number} — {business_name}").
+        $tags = $this->saleEmailTags($sale, $contact_name, $business_name, $invoice_url, $invoice_number, $total_amount, $paid_amount, $due_amount);
 
-        $message_body = str_replace('{total_amount}', $total_amount, $message_body);
-        $message_body = str_replace('{paid_amount}', $paid_amount, $message_body);
-        $message_body = str_replace('{due_amount}', $due_amount, $message_body);
-
-        $email['subject'] = $message_subject;
-        $email['body'] = $message_body;
+        $email['subject'] = strtr($message_subject, $tags);
+        $email['body'] = strtr($message_body, $tags);
         $email['company_name'] = $business_name;
 
         $this->Set_config_mail($sale->company_id);
@@ -4826,6 +4818,22 @@ class SalesController extends BaseController
 
         return response()->json(['message' => 'Email sent successfully to '.implode(', ', $recipients)], 200);
 
+    }
+
+    /** The {tags} of the invoice / reminder emails -- for the subject and the body. */
+    private function saleEmailTags($sale, $contactName, $businessName, $invoiceUrl, $invoiceNumber, $total, $paid, $due): array
+    {
+        return [
+            '{contact_name}' => (string) $contactName,
+            '{business_name}' => (string) $businessName,
+            '{invoice_url}' => (string) $invoiceUrl,
+            // PayPal module: "Pay now" link of the invoice (empty when PayPal is off / not set up or nothing is due).
+            '{pay_link}' => ($sale->GrandTotal - $sale->paid_amount) > 0 ? (string) \App\Services\PayPalInvoicePayment::payLink((int) $sale->id) : '',
+            '{invoice_number}' => (string) $invoiceNumber,
+            '{total_amount}' => (string) $total,
+            '{paid_amount}' => (string) $paid,
+            '{due_amount}' => (string) $due,
+        ];
     }
 
     // ------------- Send payment reminder on Email -----------\\
@@ -4895,20 +4903,11 @@ class SalesController extends BaseController
             return $this->sendError('Mail is not configured for this company yet. Set it up under Settings > Mail Settings, then try again.');
         }
 
-        // replace the text with tags
-        $message_body = str_replace('{contact_name}', $contact_name, $message_body);
-        $message_body = str_replace('{business_name}', $business_name, $message_body);
-        $message_body = str_replace('{invoice_url}', $invoice_url, $message_body);
-        // PayPal module: "Pay now" link of the invoice (empty when PayPal is off / not set up or nothing is due).
-        $message_body = str_replace('{pay_link}', ($sale->GrandTotal - $sale->paid_amount) > 0 ? (string) \App\Services\PayPalInvoicePayment::payLink((int) $sale->id) : '', $message_body);
-        $message_body = str_replace('{invoice_number}', $invoice_number, $message_body);
+        // replace the tags -- in the subject too ("Payment reminder: Invoice {invoice_number} — {business_name}").
+        $tags = $this->saleEmailTags($sale, $contact_name, $business_name, $invoice_url, $invoice_number, $total_amount, $paid_amount, $due_amount);
 
-        $message_body = str_replace('{total_amount}', $total_amount, $message_body);
-        $message_body = str_replace('{paid_amount}', $paid_amount, $message_body);
-        $message_body = str_replace('{due_amount}', $due_amount, $message_body);
-
-        $email['subject'] = $message_subject;
-        $email['body'] = $message_body;
+        $email['subject'] = strtr($message_subject, $tags);
+        $email['body'] = strtr($message_body, $tags);
         $email['company_name'] = $business_name;
 
         $this->Set_config_mail($sale->company_id);
