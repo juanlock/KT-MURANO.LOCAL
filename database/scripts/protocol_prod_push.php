@@ -13,9 +13,15 @@
  *  - "created in dev" = created_at after $since, OR an id above that table's highest dev id at the
  *    last pull (last_sync.json dev_max_ids, 2026-10-20: back-dated demo rows, tables without
  *    timestamps); a new role takes its whole permission_role set with it
+ *  - COMPANIES IN PRODUCTION (user's rule, 2026-10-26; companies.is_live, read from production:
+ *    Ruba, New Era, Turismo Cautivo...): nothing of theirs is ever sent -- rows with their
+ *    company_id, rows hanging from one of their rows (sale_details.sale_id -> a Ruba sale), the
+ *    company row itself and files/company_{id}/. Every other company's dev data goes up.
  *  - a dev row created after $since that production doesn't have -> inserted
- *    with the SAME id when that id is free in production; taken by another
- *    row = CONFLICT (reported, not sent)
+ *    with the SAME id when that id is free in production; taken by another row
+ *    (e.g. Ruba's sales of the day) -> inserted with a NEW id, and the rows sent in
+ *    this run that point to it (`<name>_id` -> <names>, parent_id, company_id, and
+ *    "files/company_{id}/" paths for a new company) are rewritten to match
  *  - a dev row changed after $since that production has -> production's copy
  *    is replaced only when production did NOT change it after $since too;
  *    both changed = CONFLICT (reported, not sent)
@@ -45,6 +51,7 @@ $since = $since ?? ($syncInfo['pulled_at'] ?? null);
 $devMaxAtPull = $syncInfo['dev_max_ids'] ?? [];
 $isNewInDev = fn (string $t, $row) => isset($devMaxAtPull[$t]) && (int) ($row['id'] ?? 0) > $devMaxAtPull[$t];
 if (! $since) { echo "No production pull recorded on this PC -- run Wake-up (it brings production down first), or pass \$since.\n"; return; }
+if (! empty($syncInfo['remapped_pending'])) { echo "The last push gave new ids to {$syncInfo['remapped_pending']} row(s): dev no longer matches production -- run `php artisan murano:from-prod` before pushing again.\n"; return; }
 echo 'dev changes since ', $since, " (dev's clock) -> production ", $p->getDatabaseName(), ($apply ? '  (APPLY)' : '  (dry run)'), PHP_EOL;
 // Both sides read TIMESTAMP columns in UTC (else the same row looks different);
 // $since was written on dev's clock (app timezone) -> UTC too.
@@ -57,6 +64,59 @@ $skip = ['migrations', 'kt_logs', 'translations', 'permissions', 'menu_positions
     'oauth_refresh_tokens', 'oauth_auth_codes', 'personal_access_tokens', 'telescope_entries', 'booking_public_requests'];
 $tablesOf = fn ($c) => collect($c->select("SELECT table_name t FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'"))->pluck('t')->all();
 $colsOf = fn ($c, $t) => collect($c->select('SELECT column_name c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? ORDER BY ordinal_position', [$t]))->pluck('c')->all();
+
+// Companies in production (2026-10-26): production's list, never sent.
+if (! in_array('is_live', $colsOf($p, 'companies'), true)) { echo "Production has no companies.is_live yet -- deploy the code first (migration 2026_10_26_190000).\n"; return; }
+$live = $p->table('companies')->where('is_live', 1)->pluck('name', 'id')->all();
+echo '  companies in production (never sent): ', implode(', ', array_map(fn ($id, $n) => "$n ($id)", array_keys($live), $live)), PHP_EOL;
+$liveIds = array_map('intval', array_keys($live));
+$devTables = $tablesOf($d);
+$hasCompanyCol = [];
+$companyCol = function (string $t) use (&$hasCompanyCol, $colsOf, $d) { return $hasCompanyCol[$t] ??= in_array('company_id', $colsOf($d, $t), true); };
+// The table a `<name>_id` column points to: parent_id = the same table, company_id = companies, else <names>.
+$refTable = function (string $t, string $col) use ($devTables) {
+    if ($col === 'parent_id') return $t;
+    if ($col === 'id' || ! str_ends_with($col, '_id')) return null;
+    $rt = \Illuminate\Support\Str::plural(substr($col, 0, -3));
+    return in_array($rt, $devTables, true) ? $rt : null;
+};
+$liveSkipped = [];
+// Drops the rows of a live company: own company_id, the company row itself, or a parent row (dev) of a live company.
+$dropLive = function (string $t, $rows) use ($liveIds, $companyCol, $refTable, $d, &$liveSkipped) {
+    $rows = collect($rows)->map(fn ($r) => (array) $r);
+    if (! $liveIds || $rows->isEmpty()) return $rows->values();
+    $cols = array_keys($rows->first());
+    $bad = fn ($r) => false;
+    if ($t === 'companies') {
+        $bad = fn ($r) => in_array((int) $r['id'], $liveIds, true);
+    } elseif (in_array('company_id', $cols, true)) {
+        $bad = fn ($r) => in_array((int) $r['company_id'], $liveIds, true);
+    } else {
+        $liveRefs = [];
+        foreach ($cols as $col) {
+            $rt = $refTable($t, $col);
+            if (! $rt || $rt === $t || ! $companyCol($rt)) continue;
+            $ids = $rows->pluck($col)->filter()->unique()->values()->all();
+            if (! $ids) continue;
+            $liveRefs[$col] = array_flip($d->table($rt)->whereIn('id', $ids)->whereIn('company_id', $liveIds)->pluck('id')->all());
+        }
+        if ($liveRefs) {
+            $bad = function ($r) use ($liveRefs) {
+                foreach ($liveRefs as $col => $set) if (isset($set[$r[$col] ?? null])) return true;
+                return false;
+            };
+        }
+    }
+    $kept = $rows->reject($bad)->values();
+    if ($n = $rows->count() - $kept->count()) $liveSkipped[$t] = ($liveSkipped[$t] ?? 0) + $n;
+    return $kept;
+};
+// New rows whose id production already uses get a new id (per table: above both sides' highest id).
+$remap = []; $nextId = [];
+$allocId = function (string $t) use (&$nextId, $p, $d) {
+    $nextId[$t] ??= max((int) $p->table($t)->max('id'), (int) $d->table($t)->max('id')) + 1;
+    return $nextId[$t]++;
+};
 
 // Never overwritten on rows production already has: what each person sets in
 // production (password, sign-in token, portal language, start page) -- dev only
@@ -86,7 +146,8 @@ foreach ($parentSets as $t => [$pt, $fk, $pair]) {
     $parents = $d->table($pt)->where(function ($q) use ($since, $devMaxAtPull, $pt) {
         $q->where('updated_at', '>', $since);
         if (isset($devMaxAtPull[$pt])) $q->orWhere('id', '>', $devMaxAtPull[$pt]);
-    })->pluck('updated_at', 'id');
+    })->when($liveIds && $companyCol($pt), fn ($q) => $q->where(fn ($w) => $w->whereNotIn('company_id', $liveIds)->orWhereNull('company_id')))
+        ->pluck('updated_at', 'id');
     foreach ($parents as $pid => $devU) {
         $prodU = $p->table($pt)->where('id', $pid)->value('updated_at');
         if (! $p->table($pt)->where('id', $pid)->exists()) {
@@ -112,11 +173,11 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip, array_
     $hasC = in_array('created_at', $c); $hasU = in_array('updated_at', $c);
     $byId = isset($devMaxAtPull[$t]);
     if (! $hasC && ! $hasU && ! $byId) continue;   // no way to tell what changed in dev
-    $changed = $d->table($t)->where(function ($q) use ($hasC, $hasU, $since, $byId, $devMaxAtPull, $t) {
+    $changed = $dropLive($t, $d->table($t)->where(function ($q) use ($hasC, $hasU, $since, $byId, $devMaxAtPull, $t) {
         if ($hasC) $q->orWhere('created_at', '>', $since);
         if ($hasU) $q->orWhere('updated_at', '>', $since);
         if ($byId) $q->orWhere('id', '>', $devMaxAtPull[$t]);
-    })->get($c);
+    })->get($c));
     if ($changed->isEmpty()) continue;
     $prodRows = $p->table($t)->whereIn('id', $changed->pluck('id'))->get($c)->keyBy('id');
     $ins = []; $upd = [];
@@ -130,7 +191,8 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip, array_
             continue;
         }
         $pr = (array) $pr;
-        if ($isNew && ($pr['created_at'] ?? null) != $row['created_at']) { $conflicts[] = "$t #{$row['id']}: id already used in production by another row"; continue; }
+        // Created in dev, but production gave that id to another row meanwhile: it goes up with a new id.
+        if ($isNew && (! $hasC || ($pr['created_at'] ?? null) != $row['created_at'])) { $remap[$t][$row['id']] = $allocId($t); $ins[] = $row; continue; }
         $skipCols = array_merge(['id', 'updated_at'], $noUpdateCols[$t] ?? []);
         $diff = array_keys(array_filter($c, fn ($col) => ! in_array($col, $skipCols, true) && (string) ($row[$col] ?? '') !== (string) ($pr[$col] ?? '')));
         if (! $diff) continue;
@@ -159,12 +221,49 @@ foreach ($pivots as $t => $c) {
     if ($rows) $plan[$t] = ['ins' => $rows, 'upd' => [], 'pivot' => true];
 }
 
+// New ids: each remapped row and every row of this run pointing to it; a new company's
+// "files/company_{old}/" paths follow its new id.
+$remapped = array_sum(array_map('count', $remap));
+$pathMap = [];
+if ($remap) {
+    foreach ($remap['companies'] ?? [] as $old => $new) $pathMap["files/company_$old/"] = "files/company_$new/";
+    $fix = function (string $t, array $row) use ($remap, $refTable, $pathMap) {
+        foreach ($row as $col => $v) {
+            if ($v === null) continue;
+            if ($col === 'id') { if (isset($remap[$t][$v])) $row[$col] = $remap[$t][$v]; continue; }
+            if (($rt = $refTable($t, $col)) && isset($remap[$rt][$v])) $row[$col] = $remap[$rt][$v];
+            elseif ($pathMap && is_string($v) && str_contains($v, 'files/company_')) $row[$col] = strtr($v, $pathMap);
+        }
+        return $row;
+    };
+    foreach ($plan as $t => $x) {
+        $plan[$t]['ins'] = array_map(fn ($r) => $fix($t, $r), $x['ins']);
+        $plan[$t]['upd'] = array_map(function ($u) use ($fix, $t) {
+            $row = $fix($t, $u['row']);
+            foreach ($row as $k => $v) if ($v !== $u['row'][$k]) $u['cols'][] = $k;   // rewritten = written
+            return ['row' => $row, 'cols' => array_values(array_unique($u['cols']))];
+        }, $x['upd']);
+    }
+    foreach ($replaceSets as $t => $sets) {
+        $fk = $parentSets[$t][1];
+        $out = [];
+        foreach ($sets as $pid => $rows) $out[$remap[$parentSets[$t][0]][$pid] ?? $pid] = array_map(fn ($r) => $fix($t, $r), $rows);
+        $replaceSets[$t] = $out;
+    }
+    foreach ($remap as $t => $m) echo "  $t: ", count($m), ' new row(s) with a new id (taken in production) [', implode(', ', array_slice(array_map(fn ($o, $n) => "$o->$n", array_keys($m), $m), 0, 8)), "]\n";
+}
+foreach ($liveSkipped as $t => $n) echo "  $t: $n row(s) of a company in production -- not sent\n";
+
 // files: public/files written in dev after $since that production doesn't have (same size)
 $sinceTs = \Carbon\Carbon::parse($since, 'UTC')->getTimestamp();
 $devFiles = [];
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(public_path('files'), FilesystemIterator::SKIP_DOTS)) as $f) {
     if ($f->getMTime() > $sinceTs) $devFiles[str_replace('\\', '/', substr($f->getPathname(), strlen(public_path()) + 1))] = $f->getSize();
 }
+// never a company in production's files; a remapped company's go to its new folder (local path => production path)
+$livePrefixes = array_map(fn ($id) => "files/company_$id/", $liveIds);
+$devFiles = array_filter($devFiles, fn ($rel) => ! \Illuminate\Support\Str::startsWith($rel, $livePrefixes), ARRAY_FILTER_USE_KEY);
+$remoteRel = fn (string $rel) => strtr($rel, $pathMap);
 $filesToSend = [];
 $sshCfg = is_file(base_path('.env.production-ssh')) ? Dotenv\Dotenv::parse(file_get_contents(base_path('.env.production-ssh'))) : null;
 if ($devFiles && $sshCfg) {
@@ -172,7 +271,7 @@ if ($devFiles && $sshCfg) {
     $sftp->setTimeout(600);
     if ($sftp->login($sshCfg['PROD_SSH_USER'], $sshCfg['PROD_SSH_PASSWORD'] ?? '')) {
         foreach ($devFiles as $rel => $size) {
-            $st = $sftp->stat(rtrim($sshCfg['PROD_PATH'], '/').'/public/'.$rel);
+            $st = $sftp->stat(rtrim($sshCfg['PROD_PATH'], '/').'/public/'.$remoteRel($rel));
             if (! $st || (int) $st['size'] !== $size) $filesToSend[] = $rel;
         }
     }
@@ -192,7 +291,7 @@ if (! $apply || ! $hasWork) { if (! $apply && $hasWork) echo "Dry run -- nothing
 
 // files first (never overwrites a production file of another size without a copy)
 foreach ($filesToSend as $rel) {
-    $remote = rtrim($sshCfg['PROD_PATH'], '/').'/public/'.$rel;
+    $remote = rtrim($sshCfg['PROD_PATH'], '/').'/public/'.$remoteRel($rel);
     $q = fn (string $s) => "'".str_replace("'", "'\\''", $s)."'";
     $sftp->exec('mkdir -p '.$q(dirname($remote)).' && (test -f '.$q($remote).' && cp -p '.$q($remote).' '.$q($remote.'.bak-'.date('Ymd-His')).' || true)');
     echo $sftp->put($remote, public_path($rel), phpseclib3\Net\SFTP::SOURCE_LOCAL_FILE) ? "  file sent: $rel\n" : "  FILE FAILED: $rel\n";
@@ -220,4 +319,9 @@ $p->transaction(function () use ($plan, $p, $replaceSets, $parentSets) {
     }
     $p->statement('SET FOREIGN_KEY_CHECKS = 1');
 });
-echo "Sent.\n";
+// Sent: the next push starts from here (never the same rows twice). Rows that got a new id
+// differ between dev and production until the next murano:from-prod.
+$maxIds = [];
+foreach (collect($d->select("SELECT table_name t FROM information_schema.columns WHERE table_schema = DATABASE() AND column_name = 'id'"))->pluck('t') as $t) $maxIds[$t] = (int) $d->table($t)->max('id');
+file_put_contents($syncFile, json_encode(['pulled_at' => now()->format('Y-m-d H:i:s'), 'dev_max_ids' => $maxIds, 'by' => 'protocol_prod_push'] + ($remapped ? ['remapped_pending' => $remapped] : [])));
+echo "Sent.\n", $remapped ? "$remapped row(s) went up with a new id: run `php artisan murano:from-prod` before working on them in dev.\n" : '';

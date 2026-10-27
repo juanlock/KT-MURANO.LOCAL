@@ -13,11 +13,25 @@ developer PC's `dbmurano` is a disposable copy of production, replaced every
 morning by `php artisan murano:from-prod` (~1 min: `mysqldump | gzip` on the
 server over SSH, import, production's new files, local migrations). Code goes
 up (git -> `protocol_prod_deploy.php`, with the user's yes); schema and the
-data a feature needs go as migrations; **dev data never goes up** (test data
-is gone the next morning). `kt_logs` lives in production
+data a feature needs go as migrations. `kt_logs` lives in production
 (`database/scripts/protocol_kt_log.php`). The row-by-row
-`protocol_prod_pull.php` / `protocol_prod_push.php` are only for an
-exceptional case.
+`protocol_prod_pull.php` is only for an exceptional case.
+**Dev data goes up, except the companies in production (user's rule,
+2026-10-26, replacing "dev data never goes up"):** `companies.is_live`
+(Companies -> Edit -> Website, superadmin/AdminSystem only; today **Ruba**
+(sales), **New Era** (appointments), **Turismo Cautivo** (forms)) = production
+owns that company's data and nothing of it is ever sent from dev. Everything
+else created / changed in dev since the morning's copy (`last_sync.json`,
+written by `murano:from-prod`) goes up with `protocol_prod_push.php` (Pa
+Llevar, after the code deploy): rows of a live company, rows hanging from one
+(sale_details of a Ruba sale) and `files/company_{live}/` are skipped; a new
+row whose id production already used meanwhile goes up with a **new id** and
+the rows of the same run that point to it (`<name>_id`, `parent_id`,
+`company_id`, a new company's `files/company_{id}/` paths) are rewritten;
+both sides changed = conflict, never sent. After ids were remapped, dev no
+longer matches production: `murano:from-prod` before another push (the script
+refuses). A new company built in dev keeps its data this way (2026-10-26:
+Turismo Cautivo and Arce were created in production with a one-off script).
 
 - **Wake-up** (`/wake-up`, "Jarvis, wake up" / "protocolo wake-up") -- the
   start of the day on any PC: git pull (+ composer / npm ci only when
@@ -29,7 +43,8 @@ exceptional case.
 - **Pa Llevar** -- the end of the day: manual (only when asked), build, Kelsy,
   a local backup tagged `pallevar`, README, commit, push, then **the code is
   deployed to production without asking** (user's rule, 2026-10-25: "pa
-  llevar" is the yes; no data goes up) and, **when every step went well, the
+  llevar" is the yes), **then the dev data** (`protocol_prod_push.php`, never
+  the live companies; 2026-10-26) and, **when every step went well, the
   PC shuts down** (`shutdown /s /t 120`, cancel with `shutdown /a`; nothing
   failed or pending, push included). Not ready for production: A Dormir.
 - **A Dormir** (`/a-dormir`, "Jarvis, a dormir", 2026-10-20) -- the end of the
@@ -39,7 +54,8 @@ exceptional case.
   production backup (`php artisan murano:prod-backup` ->
   `KT-TOOLS/database/HOSTINGER/hostinger-<date>_<time>-<PC>-a-dormir.zip`,
   git-ignored: customer data), Kelsy, README (block marked "not in production
-  yet"), commit, push. No deploy, no migrations or data to production.
+  yet"), commit, push. No deploy, no migrations or data to production (the
+  day's dev data is lost with the next Wake-up unless Pa Llevar sends it).
 - **Copia BD** -- a database copy on demand, tagged `copiabd`.
 - **Restaura BD Dev** (`/restaura-bd-dev`, 2026-10-25) -- shows the latest
   backup (`php artisan murano:restore-dev --list`) and asks whether to restore
@@ -624,9 +640,10 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   change, `$rollback` undoes the code) -> CLAUDE.md + `kt_logs` history
   reloaded (memory digest), Kelsy catch-up -> summary in the chat (no HTML
   report), with the last 5 changes (date + origin).
-  **Production owns the business data; every dev database change -- schema and
-  the data a feature needs (permissions, settings, translations, menus) -- is a
-  migration, safe to run twice, by name not by id.** Production is backed up
+  **Production owns the live companies' data (`companies.is_live`); every dev
+  database change a feature needs -- schema, permissions, settings,
+  translations, menus -- is a migration, safe to run twice, by name not by
+  id; other dev data goes up with `protocol_prod_push.php` (see the top).** Production is backed up
   before every write (`KT-TOOLS/database/production/`, git-ignored, compressed,
   phpMyAdmin-ready); if the backup fails nothing is written. `public/` stays out
   of Git LFS (`.gitattributes` = LFS only for KT-TOOLS zips). Production access
@@ -635,7 +652,8 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   commits.
 - **Pa Llevar** (`/pa-llevar`, "Jarvis, run protocolo pa llevar") — the end of
   the day: Wake-up's production code step (since 2026-10-25 deployed WITHOUT
-  asking, after the commit / push; no data goes up; then the PC shuts down
+  asking, after the commit / push; then the dev data, never the live
+  companies' (2026-10-26); then the PC shuts down
   when every step went well), the user manual (only when asked; in-app EN + ES, overview HTML + PDF),
   `npm run build`, Kelsy (no HTML daily report), a local backup tagged
   `pallevar` (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office

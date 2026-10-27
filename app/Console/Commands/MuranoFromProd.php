@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Process;
  * Production -> this PC, the whole database (user's rule, 2026-10-20): production
  * is the only real database; a developer PC's dbmurano is a copy of it, replaced
  * every morning by Wake-up. Code goes the other way (git + protocol_prod_deploy.php,
- * schema and needed data as migrations); test data made in dev is never sent up.
+ * schema and needed data as migrations); dev data goes up with protocol_prod_push.php,
+ * never for the companies in production (companies.is_live, 2026-10-26).
  *
  *   php artisan murano:from-prod            (database + public/files + migrate)
  *   php artisan murano:from-prod --backup   (local backup tagged wakeup first)
@@ -23,7 +24,8 @@ use Illuminate\Support\Facades\Process;
  * KT-TOOLS/database/production/ (git-ignored) -- if it fails dev is untouched;
  * 3) every local table / view dropped and the dump imported; 4) production's new
  * files (protocol_prod_files.php); 5) `migrate` for this PC's migrations
- * production doesn't have yet; 6) optimize:clear.
+ * production doesn't have yet; 6) optimize:clear; 7) last_sync.json (the copy's time +
+ * each table's highest id) for the push.
  */
 class MuranoFromProd extends Command
 {
@@ -81,6 +83,7 @@ class MuranoFromProd extends Command
         }
         $raw = "$dir/from_prod.raw.sql";
         $sql = "$dir/from_prod_latest.sql";
+        $dumpedAt = now()->format('Y-m-d H:i:s');
         $this->info("Downloading production ({$prodEnv['PROD_DB_DATABASE']})...");
         if (! ProdDump::dump($prodEnv, $raw, fn ($l) => $this->line('  '.$l))) {
             @unlink($raw);
@@ -127,6 +130,14 @@ class MuranoFromProd extends Command
         $this->info('Local migrations...');
         $this->call('migrate', ['--force' => true]);
         $this->call('optimize:clear');
+
+        // 7. What dev creates from now on goes up with protocol_prod_push.php (user's rule, 2026-10-26):
+        // the copy's time and each table's highest id (a higher id later = created in dev).
+        $maxIds = [];
+        foreach (DB::select("SELECT table_name t FROM information_schema.columns WHERE table_schema = DATABASE() AND column_name = 'id'") as $r) {
+            $maxIds[$r->t] = (int) DB::table($r->t)->max('id');
+        }
+        file_put_contents("$dir/last_sync.json", json_encode(['pulled_at' => $dumpedAt, 'dev_max_ids' => $maxIds, 'by' => 'murano:from-prod']));
 
         $this->info('Done in '.round(microtime(true) - $started).' s -- this PC now has production\'s data.');
 

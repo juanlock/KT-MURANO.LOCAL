@@ -4,7 +4,7 @@ description: "Protocol Wake-up -- the start of the day on any PC: update it from
 
 Run Protocol Wake-up (user's rules, 2026-10-19 / 2026-10-20). In this order. Stop and report if a step fails; never skip ahead silently.
 
-**The model (user's rule, 2026-10-20): production is the only real database.** A developer PC's `dbmurano` is a copy of production, replaced every morning. Code goes up (git -> `protocol_prod_deploy.php`; schema and the data a feature needs -- permissions, settings, translations, menus -- as migrations, safe to run twice, by name not by id). Data comes down. Test data made in dev is never sent up and is gone the next morning. `kt_logs` lives in production (Kelsy writes there).
+**The model (user's rule, 2026-10-20): production is the only real database.** A developer PC's `dbmurano` is a copy of production, replaced every morning. Code goes up (git -> `protocol_prod_deploy.php`; schema and the data a feature needs -- permissions, settings, translations, menus -- as migrations, safe to run twice, by name not by id). Data comes down. Dev data goes up with Pa Llevar (`protocol_prod_push.php`, user's rule 2026-10-26), never for the **companies in production** (`companies.is_live`: Ruba, New Era, Turismo Cautivo...); what was not sent is gone the next morning. `kt_logs` lives in production (Kelsy writes there).
 
 Needs on this PC (per machine, git-ignored -- never ask for passwords, never print them): `.env.production-db` and `.env.production-ssh`. Without them, steps 2 and 4 are skipped with a note.
 

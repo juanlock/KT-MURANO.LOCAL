@@ -321,6 +321,10 @@ class CompanyController extends Controller
             Company::whereId($id)->update($domains);
             \App\Support\CompanyDomain::forget();
         }
+        // "In production" (2026-10-26): the dev -> production push never sends its data. AdminSystem only.
+        if ($this->isSystemContext($request) && $request->has('is_live')) {
+            DB::table('companies')->where('id', (int) $id)->update(['is_live' => $request->boolean('is_live'), 'updated_at' => now()]);
+        }
 
         return response()->json(['success' => true, 'missing' => CompanyProfile::missing((int) $id)]);
     }

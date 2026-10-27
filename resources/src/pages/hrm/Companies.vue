@@ -22,6 +22,12 @@
           <img v-if="record.logo_url" :src="record.logo_url" :alt="record.name" class="co-logo" loading="lazy" />
           <span v-else class="muted">—</span>
         </template>
+        <template v-else-if="column.key === 'name'">
+          {{ record.name }}
+          <a-tooltip v-if="record.is_live" :title="liveText.hint">
+            <a-tag color="green" style="margin-left: 6px">{{ liveText.tag }}</a-tag>
+          </a-tooltip>
+        </template>
         <template v-else-if="column.key === 'setup'">
           <!-- Required company information still missing (CompanyProfile::REQUIRED). -->
           <a-tooltip v-if="(record.profile_missing || []).length" :title="'Missing: ' + record.profile_missing.join(', ')">
@@ -91,6 +97,9 @@
                 extra="The company's own website address, e.g. kcoltech.com (www. optional; separate several with commas)."
               >
                 <a-input v-model:value="form.domains" placeholder="example.com" />
+              </a-form-item>
+              <a-form-item v-if="isSystem" :label="liveText.label" :extra="liveText.hint">
+                <a-switch v-model:checked="form.is_live" />
               </a-form-item>
               <WebsiteChoice v-model:mode="form.website_mode" v-model:url="form.website_url" :current="form.current_website_mode" />
             </template>
@@ -364,9 +373,13 @@ function serverErrTabs(e, steps, errTabs, activeTab) {
 const editOpen = ref(false);
 const editFormRef = ref();
 const emptyForm = () => ({
-  id: null, ...emptyProfile(), domains: '', logo_data: '', logo_url: '',
+  id: null, ...emptyProfile(), domains: '', logo_data: '', logo_url: '', is_live: false,
   website_mode: 'default', website_url: '', current_website_mode: 'default',
 });
+// "In production" (2026-10-26): production owns its data; the dev -> production push never sends it.
+const liveText = computed(() => (locale.value.startsWith('es')
+  ? { tag: 'En producción', label: 'Compañía en producción', hint: 'Sus datos viven en producción: lo que se haga en una PC de desarrollo nunca se sube para esta compañía.' }
+  : { tag: 'In production', label: 'Company in production', hint: 'Its data lives in production: nothing done on a development PC is ever sent up for this company.' }));
 const form = ref(emptyForm());
 const loadingEdit = ref(false);
 const editMissing = ref([]);
@@ -374,7 +387,7 @@ const companyRules = computed(() => profileRules());
 
 // Edit loads the whole profile (GET company/{id}): companies + settings + helpdesk.
 async function openEdit(record) {
-  form.value = { ...emptyForm(), id: record.id, name: record.name || '', website_mode: record.website_mode || 'default', current_website_mode: record.website_mode || 'default' };
+  form.value = { ...emptyForm(), id: record.id, name: record.name || '', is_live: !!record.is_live, website_mode: record.website_mode || 'default', current_website_mode: record.website_mode || 'default' };
   editMissing.value = [];
   editErrTabs.value = [];
   editTab.value = 'company';
@@ -410,8 +423,10 @@ async function submitEdit() {
   if (!(await validateSteps(editFormRef, editSteps.value, editErrTabs, editTab))) return;
   submitting.value = true;
   try {
-    const { id, website_mode, website_url, current_website_mode, domains, logo_data, logo_url, ...profile } = form.value;
-    await http.put(`company/${id}`, { ...profilePayload(profile), ...(isSuperAdmin.value ? { domains } : {}), ...(logo_data ? { logo_data } : {}) });
+    const { id, website_mode, website_url, current_website_mode, domains, logo_data, logo_url, is_live, ...profile } = form.value;
+    await http.put(`company/${id}`, {
+      ...profilePayload(profile), ...(isSuperAdmin.value ? { domains } : {}), ...(isSystem.value ? { is_live } : {}), ...(logo_data ? { logo_data } : {}),
+    });
     // Website: re-import when a URL is given, or switch mode when changed.
     if (isSuperAdmin.value && ((website_mode === 'import' && website_url) || website_mode !== current_website_mode)) {
       if (website_mode === 'import' && !website_url) {

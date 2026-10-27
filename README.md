@@ -108,7 +108,10 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
     (Hospital, School) filter with `App\Models\Concerns\BelongsToActingCompany`.
 - **Production is the only real database.** Dev is a disposable copy
   (`php artisan murano:from-prod`); every database change a feature needs is a
-  migration, safe to run twice, by name not by id. Dev data never goes up.
+  migration, safe to run twice, by name not by id. Other dev data goes up at
+  Pa Llevar, **never for the companies in production** (Ruba, New Era,
+  Turismo Cautivo; Companies -> Edit -> "Company in production"); a row whose
+  id production already used goes up with a new id.
 - **Settings a company manages** are limited (`App\Support\SettingsAccess`);
   mail, payment methods, SMS templates, PayPal, ZATCA, currencies and
   integrations are the SuperAdmin's. Every company uses AdminSystem's mail
@@ -199,6 +202,12 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 
 ### 2026-10-26 (Thundera)
 
+- **Companies in production** (Companies -> Edit -> Website, AdminSystem only):
+  Ruba, New Era and Turismo Cautivo are marked; production owns their data.
+  Pa Llevar now also sends the day's dev data to production -- never anything
+  of those companies -- and a new row whose number production already used
+  goes up with a new one. New companies Turismo Cautivo and Centro de
+  Especialista Arce (with demo data) are in production.
 - **New company type: Health Specialist** (outpatient specialist clinic, on the
   hospital data). Reception and schedule (doctor columns, drag & drop, check-in
   with payment / insurance, late-doctor alert icon), nursing station (vitals,
@@ -407,7 +416,7 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | Protocol | What it does |
 |----------|--------------|
 | **Wake-up** | Start of the day on any PC. Updates the PC from GitHub (installs only when needed), replaces the local database with a copy of production (`php artisan murano:from-prod`, about a minute, then the local migrations), builds, offers to deploy this PC's newer code (your OK), reloads the rules and the history, and sums up in the chat with the last 5 changes. |
-| **Pa Llevar** | End of the day. Build, logs, a local backup (`…_pallevar.zip`, also copied to `KT-TOOLS/SQL/` for the external backup program), this README, commit, push, then the code deploy to production **without asking** (production is backed up first; no data goes up) and, when every step went well, the PC shuts down (2 minutes, `shutdown /a` cancels). The user manual only when asked. |
+| **Pa Llevar** | End of the day. Build, logs, a local backup (`…_pallevar.zip`, also copied to `KT-TOOLS/SQL/` for the external backup program), this README, commit, push, then the code deploy to production **without asking** (production is backed up first) and the dev data, never the companies in production, and, when every step went well, the PC shuts down (2 minutes, `shutdown /a` cancels). The user manual only when asked. |
 | **A Dormir** | End of the day without touching production (work not ready yet): local backup, a production backup into `KT-TOOLS/database/HOSTINGER/` (not in git), logs, README, commit and push. |
 | **Copia BD** | A copy of the local database on demand (`KT-TOOLS/database/<PC>/…_copiabd.zip`): a main zip plus 3 Email Office zips. Every backup (dev and production) is compressed and imports as-is in phpMyAdmin. |
 | **Restaura BD Dev** | Restores THIS PC's dev database from a backup: shows the latest one and asks first; the current database is backed up before (`…_prerestore.zip`). Never production. The usual way to align a PC is still Wake-up. |
