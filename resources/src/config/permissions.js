@@ -1565,6 +1565,11 @@ export const PERMISSION_GROUPS = [
                 "f": "Network security (allowed networks, approved computers)"
             },
             {
+                "v": "login_security",
+                "l": "Login_Security",
+                "f": "Login security (two-step verification, sign-in alerts, locked accounts)"
+            },
+            {
                 "v": "paypal_manage",
                 "l": "PayPal_Settings",
                 "f": "PayPal: account settings and PayPal payments (PayPal module)"

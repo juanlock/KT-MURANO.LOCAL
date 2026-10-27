@@ -28,6 +28,8 @@ class PortalClient extends User
 
     protected $hidden = [
         'password', 'remember_token', 'invitation_token',
+        // Login security (2026-10-27): never in a payload.
+        'two_factor_secret', 'two_factor_recovery',
     ];
 
     protected $casts = [

@@ -41,10 +41,13 @@ class ResetPasswordController extends BaseController
      */
     public function reset(Request $request)
     {
+        // Password rules + history (App\Support\PasswordPolicy, 2026-10-27), checked
+        // against the login the email belongs to.
+        $target = \App\Models\User::where('email', (string) $request->email)->whereNull('deleted_at')->first();
         $request->validate([
             'token' => 'required',
             'email' => 'required|email',
-            'password' => 'required|min:8|confirmed',
+            'password' => \App\Support\PasswordPolicy::rules($target),
         ]);
 
         // Set mail configuration from database before sending email (if password reset success email is sent)
@@ -52,11 +55,11 @@ class ResetPasswordController extends BaseController
 
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user, $password) {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
+            function ($user, $password) use ($request) {
+                \App\Support\PasswordPolicy::save($user, $password, 'web', $request);
+                // A reset also unlocks the login (LoginSecurity lockout).
+                \App\Support\LoginSecurity::unlock((int) $user->id, null, $request);
+                $user->forceFill(['remember_token' => Str::random(60)])->save();
 
                 event(new PasswordReset($user));
             }

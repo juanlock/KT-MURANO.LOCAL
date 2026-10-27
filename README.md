@@ -200,6 +200,29 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-10-27 (Thundera)
+
+- **Login security, for every way in** (staff login, customer portal, mobile
+  app):
+  - **Locked after 5 wrong passwords** in an hour, for 1 hour, from any
+    computer. The person and the company's admins get an email; an admin
+    unlocks it in Settings -> Login security or in Users ("Locked until").
+    Resetting the password by email unlocks it too.
+  - **Standard passwords must be changed** at the first sign-in (Empleado2020,
+    Cliente2024, C0ntr0l123...), except the demo logins.
+  - **Password rules:** at least 8 characters with letters and numbers, not a
+    standard password, not the email, not one of the last 3.
+  - **Two-step verification:** each company picks which user types need a code
+    after the password (Settings -> Login security); anyone can turn it on in
+    Profile. The code arrives by email, or comes from an authenticator app
+    (QR + recovery codes). "Remember this computer" skips it for 30 days.
+  - **Sign-in alerts:** an email when a login is used from a new computer.
+  - Settings -> Login security also shows the latest sign-in activity.
+- **Login devices** (AdminSystem): Company and Role columns, and the usual
+  filters (dates, company, role, type, search).
+
+Setup: `php artisan migrate`, `npm install`, `npm run build`.
+
 ### 2026-10-26 (Thundera)
 
 - **Companies in production** (Companies -> Edit -> Website, AdminSystem only):
@@ -376,36 +399,6 @@ Setup: `php artisan migrate`, `npm run build`.
   "outstanding fees" was always 0 — fixed.
 
 Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-10-20 (Optimum)
-
-- **Business types decide a new company's modules.**
-  - New types: Laundry, Delivery, Catering / buffet, Call center, Real estate
-    (selling houses), Law services, Hospital / clinic, Factory / manufacturing
-    and School / academy (17 in all). Each has its own accounts, expense
-    categories and demo data.
-  - Every company starts with Accounting, Assets, Email Office, Gallery,
-    Helpdesk, HRM and Website, plus its type's own (Kitchen for a restaurant,
-    Bookings for a salon, Hospital Management for a clinic, MRP for a factory,
-    School Management for a school…). The rest start off.
-  - Companies › Add has a new **Modules** step: the type's modules come ticked
-    and you add or remove any. Business Modules has "Modules of <type>" for an
-    existing company.
-- **Company logo with crop / resize.** Companies › Add asks for the logo; cut
-  it (free, square or wide) and choose its size before saving. Edit can replace
-  it. The Companies list has a **Logo** column.
-- **The SuperAdmin sees every module of every company.** Business Modules
-  switches apply only to the company's own users.
-- **A company's language wins after sign-in.** A company set to Spanish opens
-  in Spanish for its users, whatever the computer's language (a user's own
-  pick still wins). The login page still follows the computer.
-- **New companies start from the AdminSystem company** (System (SuperAdmin)):
-  its menu, settings, roles, and now its language and currency in the Add form.
-- **Backups tidy themselves.** Stray backup files go to their PC's folder and
-  the latest backup is also copied to `KT-TOOLS/database/`. The protocols no
-  longer write HTML reports (the summary is in the chat).
-
-Setup: `npm run build`.
 
 ---
 

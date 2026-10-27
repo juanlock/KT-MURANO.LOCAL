@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\UserLoginSession;
 use App\Providers\RouteServiceProvider;
+use App\Support\LoginSecurity;
+use App\Support\WebLogin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -76,73 +77,57 @@ class LoginController extends Controller
         ]);
 
         $remember = (bool) $request->input('remember', false);
+        $email = (string) $request->input('email');
 
-        if (Auth::attempt($this->credentials($request), $remember)) {
-            // Network security (2026-10-16): a restricted user outside the
-            // company's networks, on a computer not approved yet, is signed out
-            // again and this computer is sent to the admins for approval.
-            $signedIn = Auth::guard('web')->user();
-            if ($signedIn && \App\Support\NetworkAccess::check($signedIn, $request)) {
-                \App\Support\NetworkAccess::requestApproval($signedIn, $request);
-                Auth::guard('web')->logout();
-                $message = \App\Support\NetworkAccess::blockedMessage();
-                if ($request->expectsJson() || $request->ajax()) {
-                    return response()->json(['message' => $message, 'code' => 'network_blocked'], 403);
-                }
+        // Login security (2026-10-27, App\Support\LoginSecurity): a locked login is
+        // refused before its password is even checked; wrong passwords count
+        // towards the lock (5 in an hour = locked for an hour, from any IP).
+        $logins = \App\Models\User::where('email', $email)->where('type', '!=', 'customer')->whereNull('deleted_at')->get();
+        foreach ($logins as $login) {
+            if ($until = LoginSecurity::lockedUntil($login)) {
+                LoginSecurity::event($login, $email, 'web', 'blocked', $request, 'locked');
 
-                return back()->withErrors(['email' => $message])->withInput($request->only('email', 'remember'));
+                return $this->failed($request, LoginSecurity::lockedMessage($until));
+            }
+        }
+        $guard = Auth::guard('web');
+        if (! $guard->validate($this->credentials($request))) {
+            $locked = LoginSecurity::recordFailure($logins, $email, $request, 'web');
+
+            return $this->failed($request, $locked ? LoginSecurity::lockedMessage($locked) : 'These credentials do not match our records.');
+        }
+        $user = $guard->getLastAttempted();
+        LoginSecurity::clearFailures($user);
+
+        // Network security (2026-10-16): a restricted user outside the
+        // company's networks, on a computer not approved yet, is refused and
+        // this computer is sent to the admins for approval.
+        if (\App\Support\NetworkAccess::check($user, $request)) {
+            \App\Support\NetworkAccess::requestApproval($user, $request);
+            $message = \App\Support\NetworkAccess::blockedMessage();
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => $message, 'code' => 'network_blocked'], 403);
             }
 
-            // Regenerate the web session ID to prevent fixation
-            $request->session()->regenerate();
-
-            // Persist the current web session ID in user_login_sessions
-            try {
-                $user = Auth::guard('web')->user();
-                if ($user) {
-                    $sessionId = $request->session()->getId();
-
-                    UserLoginSession::query()->updateOrCreate(
-                        [
-                            'user_id' => (int) $user->id,
-                            'session_id' => $sessionId,
-                        ],
-                        [
-                            'access_token_id' => $sessionId, // marker for web sessions
-                            'ip_address' => $request->ip(),
-                            'user_agent' => (string) ($request->userAgent() ?? ''),
-                            'logged_in_at' => now(),
-                            'last_activity_at' => now(),
-                            'revoked_at' => null,
-                        ]
-                    );
-                }
-            } catch (\Throwable $e) {
-                // Never break login if tracking fails
-            }
-
-            // A fresh sign-in is never "working as a company admin" any more.
-            \App\Support\SuperAdminSwitch::stop();
-            // SuperAdmin (2026-10-20): first the chooser -- dashboard, or enter
-            // as a company's admin (LoginChooseController). The intended URL is
-            // kept for "Go to the dashboard".
-            if ($signedIn && $signedIn->type === 'SuperAdmin' && ! ($request->expectsJson() || $request->ajax())) {
-                return redirect()->route('login.choose');
-            }
-
-            return redirect()->intended($this->redirectTo);
+            return back()->withErrors(['email' => $message])->withInput($request->only('email', 'remember'));
         }
 
-        // Failed login
+        // Two-step code and / or a new password first (LoginStepsController), else straight in.
+        $steps = LoginSecurity::pendingSteps($user, $request, (string) $request->input('password'));
+        if ($steps) {
+            return WebLogin::begin($request, $user, $remember, $steps);
+        }
+
+        return WebLogin::complete($request, $user, $remember);
+    }
+
+    private function failed(Request $request, string $message)
+    {
         if ($request->expectsJson() || $request->ajax()) {
-            return response()->json([
-                'message' => 'These credentials do not match our records.',
-            ], 422);
+            return response()->json(['message' => $message], 422);
         }
 
-        return back()->withErrors([
-            'email' => 'These credentials do not match our records.',
-        ])->withInput($request->only('email', 'remember'));
+        return back()->withErrors(['email' => $message])->withInput($request->only('email', 'remember'));
     }
 
     /**

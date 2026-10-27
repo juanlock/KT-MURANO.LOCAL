@@ -74,13 +74,14 @@ Route::get('/system-update/ping', 'SystemUpdateController@ping');
 Route::group([
     'prefix' => 'password',
 ], function () {
-    Route::post('create', 'PasswordResetController@create');
-    Route::post('reset', 'PasswordResetController@reset');
+    Route::post('create', 'PasswordResetController@create')->middleware('throttle:5,10');
+    Route::post('reset', 'PasswordResetController@reset')->middleware('throttle:10,10');
 });
 
 Route::get('/products_clean_names', 'ProductsController@cleanNames');
 
-Route::post('getAccessToken', 'AuthController@getAccessToken');
+// Old Stocky token door (the SPA doesn't use it): throttled + LoginSecurity (2026-10-27).
+Route::post('getAccessToken', 'AuthController@getAccessToken')->middleware('throttle:5,1');
 
 Route::get('/get-logo-setting', function () {
     $setting = \App\Models\Setting::first();
@@ -2531,6 +2532,23 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::put('users/{id}', [\App\Http\Controllers\NetworkSecurityController::class, 'userAccess']);
     Route::post('devices/{id}/approve', [\App\Http\Controllers\NetworkSecurityController::class, 'approve']);
     Route::delete('devices/{id}', [\App\Http\Controllers\NetworkSecurityController::class, 'remove']);
+});
+
+// Login security (2026-10-27): my own two-step verification (Profile), and Settings ->
+// Login security for the acting company (permission login_security).
+Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])->group(function () {
+    $c = \App\Http\Controllers\LoginSecurityController::class;
+    Route::get('my_2fa', [$c, 'my']);
+    Route::post('my_2fa/email', [$c, 'myEmail']);
+    Route::post('my_2fa/app/start', [$c, 'myAppStart']);
+    Route::post('my_2fa/app/confirm', [$c, 'myAppConfirm'])->middleware('throttle:10,1');
+    Route::post('my_2fa/app/disable', [$c, 'myAppDisable'])->middleware('throttle:10,1');
+    Route::post('my_2fa/recovery', [$c, 'myRecovery'])->middleware('throttle:10,1');
+    Route::post('my_2fa/forget-devices', [$c, 'myForgetDevices']);
+    Route::get('login_security', [$c, 'show']);
+    Route::put('login_security', [$c, 'update']);
+    Route::post('login_security/unlock/{id}', [$c, 'unlock'])->whereNumber('id');
+    Route::post('login_security/reset-app/{id}', [$c, 'resetApp'])->whereNumber('id');
 });
 
 // PayPal module (2026-10-19): the company's PayPal account (Settings -> PayPal,

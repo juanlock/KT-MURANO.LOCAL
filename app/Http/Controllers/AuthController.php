@@ -20,6 +20,28 @@ class AuthController extends BaseController
         // Staff app only: customers use the Client Portal; no deleted users.
         $credentials[] = fn ($query) => $query->where('type', '!=', 'customer')->whereNull('deleted_at');
 
+        // Login security (2026-10-27): this old token door obeys the same rules as /login --
+        // locked logins refused, wrong passwords counted, and no token while a two-step
+        // code or a new password is pending (those are done on the web login).
+        $logins = \App\Models\User::where('email', (string) $request->email)->where('type', '!=', 'customer')->whereNull('deleted_at')->get();
+        foreach ($logins as $login) {
+            if ($until = \App\Support\LoginSecurity::lockedUntil($login)) {
+                \App\Support\LoginSecurity::event($login, $request->email, 'api', 'blocked', $request, 'locked');
+
+                return response()->json(['message' => \App\Support\LoginSecurity::lockedMessage($until), 'status' => false], 423);
+            }
+        }
+        if (! Auth::guard('web')->validate($credentials)) {
+            \App\Support\LoginSecurity::recordFailure($logins, (string) $request->email, $request, 'api');
+
+            return response()->json(['message' => 'Incorrect Login', 'status' => false]);
+        }
+        $candidate = Auth::guard('web')->getLastAttempted();
+        \App\Support\LoginSecurity::clearFailures($candidate);
+        if (\App\Support\LoginSecurity::pendingSteps($candidate, $request, (string) $request->password)) {
+            return response()->json(['message' => 'Sign in on the web login to finish the security steps.', 'status' => false], 403);
+        }
+
         if (Auth::attempt($credentials)) {
             $userStatus = Auth::User()->statut;
             if ($userStatus === 0) {

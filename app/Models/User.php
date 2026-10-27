@@ -35,6 +35,8 @@ class User extends Authenticatable
         'pin',
         // Start page choice + usage counts (get_user_auth sends the user's own).
         'start_preferences',
+        // Login security (2026-10-27): the authenticator secret and recovery codes never leave the server.
+        'two_factor_secret', 'two_factor_recovery',
     ];
 
     // Does $pin confirm this user? (constant-time compare)

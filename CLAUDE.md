@@ -361,6 +361,33 @@ the start of each session).
   as `_order` in `users.header_icons`, `HeaderIcons::userOrder()`, topbar
   slots use `auth.headerOrder(key)` as the flex order -- a new icon goes in a
   `tb-slot` too).
+- **Login security** (user's rules, 2026-10-27; `App\Support\LoginSecurity`,
+  `App\Support\PasswordPolicy`) -- every door obeys it: staff `/login`
+  (`LoginController` + `LoginStepsController`, Blade steps `/login/verify` and
+  `/login/password`, `WebLogin::complete`), the customer portal
+  (`PortalAuthController` + steps in `portal/views/Login.vue`), the mobile app and
+  the old `api/getAccessToken` (both refuse while a step is pending). A new door
+  must use it too.
+  **Lockout:** 5 wrong passwords in an hour lock that login for **1 hour**, from
+  any IP (the per-IP throttle stays); the person and the company's admins get an
+  email; unlock in Settings -> Login security or Users (tag "Locked until"), a
+  password reset also unlocks. **Standard password:** whoever signs in with one
+  (`CompanyLogins` PASSWORDS / ACCESS_PASSWORD or the company's default of the
+  type) must choose their own before entering -- except the demos' people
+  (`demo_records` users), who keep them to test roles. **Password rules** for
+  every password a person chooses (forced change, Profile, reset links, portal):
+  8+ with letters and numbers, not standard, not the email, not one of the last
+  3 (`password_histories`); passwords an admin sets for someone else are not
+  checked (a standard one is forced to change at sign-in). **Two-step
+  verification:** per company and user type (Settings -> Login security,
+  permission `login_security`, `settings.security_2fa_types`; the SuperAdmin
+  follows AdminSystem's), or by the person's own choice (Profile): a 6-digit
+  code by email, or the authenticator app (own RFC 6238 TOTP, QR with `qrcode`,
+  8 recovery codes) when set up; "remember this computer" 30 days
+  (`login_devices`); never for demo people. **Sign-in alerts** (company switch,
+  default on): a browser the login never used -> email. Everything goes to
+  `login_events`. Way back in: `php artisan murano:login-reset {email}
+  [--no-2fa-types]`. The 2FA secret / recovery codes are in `User::$hidden`.
 - **Network security** (user's rule, 2026-10-16): per company (Settings ->
   Network security, permission `network_security`, default off; on for
   KcolTech). Staff (admin / employee logins) can use the **admin panel only**

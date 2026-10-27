@@ -122,6 +122,9 @@
           </a-form>
         </a-card>
 
+        <!-- Login security (2026-10-27): my two-step verification. -->
+        <TwoFactorCard />
+
         <!-- My header icons: show / hide each one for me ("Company default" = what the admin chose). -->
         <a-card style="margin-top: 16px">
           <div class="section-title">Header icons</div>
@@ -180,6 +183,7 @@ import {
   PhoneOutlined, LockOutlined, LeftOutlined, RightOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import TwoFactorCard from './TwoFactorCard.vue';
 import { useAuthStore } from '../../stores/auth';
 import { uploadForm } from '../../lib/upload';
 import http from '../../lib/http';
@@ -230,7 +234,8 @@ const profileRules = computed(() => ({
 
 const passwordRules = computed(() => ({
   current_password: [{ required: true, message: t('Field_is_required') }],
-  new_password: [{ required: true, message: t('Field_is_required') }, { min: 6 }],
+  // Password rules (App\Support\PasswordPolicy, 2026-10-27): 8+ with letters and numbers; the rest the server says.
+  new_password: [{ required: true, message: t('Field_is_required') }, { min: 8 }],
   new_password_confirmation: [
     { required: true, message: t('Field_is_required') },
     {

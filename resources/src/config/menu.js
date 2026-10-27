@@ -42,6 +42,7 @@ export const MIGRATED_ROUTES = {
     '/app/settings/mail_settings': '/settings/mail',
     '/app/settings/login_devices': '/settings/login-devices',
     '/app/settings/network_security': '/settings/network-security',
+    '/app/settings/login_security': '/settings/login-security',
     '/app/settings/paypal': '/settings/paypal',
     '/app/settings/system_health': '/settings/system-health',
     '/app/settings/kt_log': '/settings/kt-log',
@@ -1071,7 +1072,7 @@ export const MENU = [
         key: 'settings',
         icon: 'database-zap',
         label: 'Settings',
-        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'sms_templates', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'paypal_manage', 'kt_logs_view'],
+        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'sms_templates', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'login_security', 'paypal_manage', 'kt_logs_view'],
         children: [
             { label: 'SystemSettings', to: '/app/settings/System_settings', permissions: ['setting_system'] },
             // superAdminOnly: install-level admin tooling that must never be
@@ -1105,6 +1106,8 @@ export const MENU = [
             { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true, systemOnly: true },
             // Company-level (not superAdminOnly): a role with network_security manages its own company.
             { label: 'Network_Security', to: '/app/settings/network_security', permissions: ['network_security'] },
+            // Login security (2026-10-27): two-step verification, sign-in alerts, locked logins -- per company.
+            { label: 'Login_Security', to: '/app/settings/login_security', permissions: ['login_security'] },
             // PayPal module (2026-10-19): hidden while the company's PayPal module is off (path settings/paypal).
             { label: 'PayPal_Settings', to: '/app/settings/paypal', permissions: ['paypal_manage'] },
             // requiresSetting: hidden while the named auth-store flag is off

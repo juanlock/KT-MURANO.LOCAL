@@ -931,6 +931,7 @@ const routes = [
             { path: 'settings/login-devices', name: 'login-devices', component: LoginDevices, meta: { title: 'Login Devices', permission: 'login_device_management', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/paypal', name: 'paypal-settings', component: () => import('../pages/settings/PayPalSettings.vue'), meta: { title: 'PayPal', permission: 'paypal_manage' } },
             { path: 'settings/network-security', name: 'network-security', component: () => import('../pages/settings/NetworkSecurity.vue'), meta: { title: 'Network security', permission: 'network_security' } },
+            { path: 'settings/login-security', name: 'login-security', component: () => import('../pages/settings/LoginSecurity.vue'), meta: { title: 'Login security', permission: 'login_security' } },
             { path: 'settings/system-health', name: 'system-health', component: SystemHealth, meta: { title: 'System Health', permission: 'system_health_view', systemOnly: true } },
             { path: 'settings/kt-log', name: 'kt-log', component: () => import('../pages/settings/KtLog.vue'), meta: { title: 'KT-Log', permission: 'kt_logs_view', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/sms-templates', name: 'sms-templates', component: SmsTemplates, meta: { title: 'SMS Templates', permission: 'sms_templates' } },

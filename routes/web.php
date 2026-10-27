@@ -623,6 +623,13 @@ Route::get('login', 'Auth\LoginController@showLoginForm')->name('login');
 // 5 attempts per minute per IP — blocks credential-stuffing / brute force.
 Route::post('login', 'Auth\LoginController@login')->middleware('throttle:5,1');
 Route::post('logout', 'Auth\LoginController@logout')->name('logout');
+// Login security (2026-10-27): the steps after the right password -- two-step code, new password.
+Route::get('login/verify', 'Auth\LoginStepsController@showVerify')->name('login.verify');
+Route::post('login/verify', 'Auth\LoginStepsController@verify')->middleware('throttle:10,1');
+Route::post('login/verify/resend', 'Auth\LoginStepsController@resend')->middleware('throttle:3,1')->name('login.verify.resend');
+Route::get('login/password', 'Auth\LoginStepsController@showPassword')->name('login.password');
+Route::post('login/password', 'Auth\LoginStepsController@password')->middleware('throttle:10,1');
+Route::post('login/cancel', 'Auth\LoginStepsController@cancel')->name('login.cancel');
 // SuperAdmin login chooser (2026-10-20): dashboard, or enter as a company's admin; and back.
 Route::get('login/choose', 'Auth\LoginChooseController@show')->middleware('auth:web')->name('login.choose');
 Route::post('login/choose', 'Auth\LoginChooseController@enter')->middleware(['auth:web', 'throttle:20,1'])->name('login.choose.enter');

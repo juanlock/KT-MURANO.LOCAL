@@ -56,6 +56,11 @@
               @change="toggleStatus(record)"
             />
           </a-tooltip>
+          <!-- Login security (2026-10-27): locked after 5 wrong passwords. -->
+          <div v-if="isLocked(record)" class="locked">
+            <a-tag color="red">{{ lockedText(record) }}</a-tag>
+            <a v-if="auth.can('login_security')" @click="unlock(record)">{{ ui.locale === 'es' ? 'Desbloquear' : 'Unlock' }}</a>
+          </div>
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space>
@@ -95,6 +100,8 @@ import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
 import { sortByLabel, withAllOption } from '../../lib/filterOptions';
 import { useSystemContext } from '../../lib/systemContext';
+import { useUiStore } from '../../stores/ui';
+import dayjs from 'dayjs';
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -185,10 +192,25 @@ async function toggleStatus(record) {
   }
 }
 
+// Locked logins (LoginSecurity): tag + Unlock (permission login_security).
+const ui = useUiStore();
+const isLocked = record => record.locked_until && dayjs(record.locked_until).isAfter(dayjs());
+const lockedText = record => `${ui.locale === 'es' ? 'Bloqueado hasta' : 'Locked until'} ${dayjs(record.locked_until).format('HH:mm')}`;
+async function unlock(record) {
+  try {
+    await http.post(`login_security/unlock/${record.id}`);
+    record.locked_until = null;
+    message.success(ui.locale === 'es' ? 'Desbloqueado' : 'Unlocked');
+  } catch (e) {
+    message.error(e?.data?.message || t('InvalidData'));
+  }
+}
+
 onMounted(crud.fetchRows);
 </script>
 
 <style scoped>
+.locked { margin-top: 4px; display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .uf { display: inline-flex; align-items: center; gap: 8px; }
 .uf-label { font-size: 13px; opacity: 0.75; }
 </style>

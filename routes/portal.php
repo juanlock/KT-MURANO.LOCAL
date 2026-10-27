@@ -30,7 +30,11 @@ use Illuminate\Support\Facades\Route;
 // portal.locale runs before portal.auth so its 403 message is already translated.
 Route::prefix('api/portal')->middleware(['web', 'portal.locale', 'portal.auth', 'throttle:60,1'])->group(function () {
     // Public - no auth (portal login / set password only)
-    Route::post('login', [PortalAuthController::class, 'login']);
+    Route::post('login', [PortalAuthController::class, 'login'])->middleware('throttle:10,1,portal-login');
+    // Login security (2026-10-27): two-step code / new password before the portal opens.
+    Route::post('login/verify', [PortalAuthController::class, 'loginVerify'])->middleware('throttle:10,1,portal-login-step');
+    Route::post('login/resend', [PortalAuthController::class, 'loginResend'])->middleware('throttle:3,1,portal-login-resend');
+    Route::post('login/password', [PortalAuthController::class, 'loginPassword'])->middleware('throttle:10,1,portal-login-step');
     Route::get('validate-invite', [PortalAuthController::class, 'validateInviteToken']);
     Route::post('set-password', [PortalAuthController::class, 'setPassword']);
 

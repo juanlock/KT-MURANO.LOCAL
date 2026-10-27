@@ -87,7 +87,6 @@ class PasswordResetController extends BaseController
     {
         $request->validate([
             'email' => 'required|string|email',
-            'password' => 'required|string|confirmed',
             'token' => 'required|string',
         ]);
         $user = User::where('email', $request->email)->first();
@@ -103,16 +102,19 @@ class PasswordResetController extends BaseController
             ['token', $request->token],
             ['email', $request->email],
         ])->first();
-        if (! $passwordReset) {
+        // The link lasts 60 minutes here too (find() checked it, reset() didn't -- 2026-10-27).
+        if (! $passwordReset || Carbon::parse($passwordReset->updated_at)->addMinutes(60)->isPast()) {
             return response()->json([
                 'message' => 'This password reset token is invalid.',
                 'status' => false,
                 'code' => 3,
             ]);
         }
-
-        $user->password = bcrypt($request->password);
-        $user->save();
+        // Password rules + history (App\Support\PasswordPolicy); a reset also unlocks the login.
+        $request->validate(['password' => \App\Support\PasswordPolicy::rules($user)]);
+        \App\Support\PasswordPolicy::save($user, (string) $request->password, 'web', $request);
+        \App\Support\LoginSecurity::unlock((int) $user->id, null, $request);
+        $user->refresh();
         $passwordReset->delete();
         $this->Set_config_mail(); // Set_config_mail => BaseController
         Mail::to($request->email)->send(new Password_Reset_Success);

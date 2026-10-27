@@ -874,9 +874,10 @@ class UserController extends BaseController
     {
         $user = Auth::user();
 
+        // Password rules + history (App\Support\PasswordPolicy, 2026-10-27).
         $this->validate($request, [
             'current_password' => ['required'],
-            'new_password' => ['required', 'min:6', 'max:14', 'confirmed'],
+            'new_password' => \App\Support\PasswordPolicy::rules($user),
         ]);
 
         if (! Hash::check($request->input('current_password'), $user->password)) {
@@ -886,8 +887,7 @@ class UserController extends BaseController
             ], 422);
         }
 
-        $user->password = Hash::make($request->input('new_password'));
-        $user->save();
+        \App\Support\PasswordPolicy::save($user, (string) $request->input('new_password'), 'web', $request);
 
         return response()->json([
             'success' => true,

@@ -49,16 +49,17 @@ class PortalProfileController extends Controller
         $portalClient = Auth::guard('portal')->user();
         $this->assertPortalActive($portalClient);
 
+        // Password rules (2026-10-27): App\Support\PasswordPolicy (history, no standard passwords).
         $data = $request->validate([
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'confirmed', Password::defaults()],
+            'password' => \App\Support\PasswordPolicy::rules($portalClient),
         ]);
 
         if (!Hash::check($data['current_password'], $portalClient->password)) {
             return response()->json(['message' => __('portal.current_password_incorrect')], 422);
         }
 
-        $portalClient->update(['password' => Hash::make($data['password'])]);
+        \App\Support\PasswordPolicy::save($portalClient, $data['password'], 'portal', $request);
 
         return response()->json(['success' => true]);
     }

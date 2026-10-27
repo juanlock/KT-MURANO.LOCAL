@@ -97,11 +97,31 @@ class MobileAuthController extends BaseController
             ->where('type', '!=', 'customer')
             ->first();
 
+        // Login security (2026-10-27, App\Support\LoginSecurity): locked = refused before
+        // the password; wrong ones count towards the lock.
+        if ($user && ($until = \App\Support\LoginSecurity::lockedUntil($user))) {
+            \App\Support\LoginSecurity::event($user, $request->email, 'mobile', 'blocked', $request, 'locked');
+
+            return response()->json(['status' => 'Locked', 'message' => \App\Support\LoginSecurity::lockedMessage($until)], 423);
+        }
         if (! $user || ! Hash::check($request->password, $user->password)) {
+            $locked = \App\Support\LoginSecurity::recordFailure($user ? [$user] : [], (string) $request->email, $request, 'mobile');
+
             return response()->json([
-                'status' => false,
-                'message' => 'Incorrect Login',
-            ], 401);
+                'status' => $locked ? 'Locked' : false,
+                'message' => $locked ? \App\Support\LoginSecurity::lockedMessage($locked) : 'Incorrect Login',
+            ], $locked ? 423 : 401);
+        }
+        \App\Support\LoginSecurity::clearFailures($user);
+        // The app has no screen for the two-step code or a new password: those
+        // sign-ins are finished once on the web (Murano's login page) first.
+        if ($steps = \App\Support\LoginSecurity::pendingSteps($user, $request, (string) $request->password)) {
+            return response()->json([
+                'status' => in_array('password', $steps, true) ? 'PasswordChangeRequired' : 'TwoFactorRequired',
+                'message' => in_array('password', $steps, true)
+                    ? 'You are using a standard password: sign in to Murano on the web once and choose your own.'
+                    : 'Your account uses two-step verification, which the app does not support yet: sign in on the web.',
+            ], 403);
         }
 
         if (! (bool) $user->statut) {
@@ -123,6 +143,7 @@ class MobileAuthController extends BaseController
 
         $deviceName = $request->input('device_name') ?: 'Mobile App';
         $accessToken = $user->createToken($deviceName)->accessToken;
+        \App\Support\LoginSecurity::event($user, $user->email, 'mobile', 'success', $request, $deviceName);
 
         return response()->json([
             'status' => true,
