@@ -4,23 +4,27 @@
          embedded in System Settings — the logout action lives on the card. -->
     <PageHeader :title="$t('Login_Device_Management')" :breadcrumb="[$t('Settings'), $t('Login_Device_Management')]" />
 
+    <!-- Date range: its own row (login date). -->
     <a-card size="small" style="margin-bottom: 16px">
-      <div class="toolbar">
-        <PresetRangeFilter v-model:value="filters.range" value-format="YYYY-MM-DD" @change="crud.reload" />
+      <PresetRangeFilter v-model:value="filters.range" value-format="YYYY-MM-DD" @change="crud.reload" />
+    </a-card>
+
+    <DataTable :crud="crud" :columns="columns" row-key="token_id">
+      <!-- Company / role / type, beside the search box. -->
+      <template #filters>
         <a-select v-model:value="filters.company" class="tb-item" allow-clear show-search option-filter-prop="label"
           :placeholder="tx('All companies', 'Todas las empresas')" :options="companyOptions" @change="crud.reload" />
         <a-select v-model:value="filters.role" class="tb-item" allow-clear show-search option-filter-prop="label"
           :placeholder="tx('All roles', 'Todos los roles')" :options="opt('roles')" @change="crud.reload" />
         <a-select v-model:value="filters.type" class="tb-item" allow-clear
           :placeholder="tx('All user types', 'Todos los tipos')" :options="opt('types')" @change="crud.reload" />
-        <a-button danger :loading="revokingOthers" class="tb-end" @click="logoutOthers">
+      </template>
+      <template #toolbar>
+        <a-button danger :loading="revokingOthers" @click="logoutOthers">
           <template #icon><LogoutOutlined /></template>
           {{ tx('Logout my other devices', 'Cerrar mis otras sesiones') }}
         </a-button>
-      </div>
-    </a-card>
-
-    <DataTable :crud="crud" :columns="columns" row-key="token_id">
+      </template>
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'user_name'">
           {{ record.user_name || '—' }}
@@ -150,13 +154,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.tb-item { width: 190px; }
-.tb-end { margin-left: auto; }
+.tb-item { width: 180px; }
 .muted { opacity: 0.6; }
 .small { font-size: 12px; }
-@media (max-width: 767px) {
-  .tb-item { width: 100%; }
-  .tb-end { margin-left: 0; width: 100%; }
-}
 </style>

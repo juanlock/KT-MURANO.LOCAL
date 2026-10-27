@@ -4,16 +4,19 @@
     :class="{ 'dt-th-bg': !!thBg, 'dt-th-color': !!dt.headerColor }"
   >
     <div v-if="toolbarVisible" class="datatable-toolbar">
-      <a-input-search
-        v-if="searchable && dt.showSearch"
-        :value="crud.search.value"
-        :placeholder="$t('Search_this_table')"
-        allow-clear
-        style="max-width: 280px"
-        @update:value="v => (crud.search.value = v)"
-        @search="crud.reload()"
-      />
-      <span v-else></span>
+      <!-- Search + the page's own filters right beside it (#filters slot, 2026-10-27). -->
+      <div class="dt-left">
+        <a-input-search
+          v-if="searchable && dt.showSearch"
+          :value="crud.search.value"
+          :placeholder="$t('Search_this_table')"
+          allow-clear
+          class="dt-search"
+          @update:value="v => (crud.search.value = v)"
+          @search="crud.reload()"
+        />
+        <slot name="filters" />
+      </div>
       <a-space>
         <a-button
           v-if="selectionEnabled && crud.selectedIds.value.length"
@@ -177,7 +180,7 @@
  * components show) come from the datatable store — customized under
  * System Settings > DataTable and persisted per device.
  */
-import { ref, computed } from 'vue';
+import { ref, computed, useSlots } from 'vue';
 import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import {
@@ -224,8 +227,9 @@ const selectionEnabled = false;
 // Checkboxes shown: only for a page that opted into safe bulk actions (bulkSelect).
 const checkboxes = computed(() => selectionEnabled || props.bulkSelect);
 
+const slots = useSlots();
 const toolbarVisible = computed(() =>
-  (props.searchable && dt.showSearch) || checkboxes.value || dt.showColumns || dt.showRefresh
+  (props.searchable && dt.showSearch) || checkboxes.value || dt.showColumns || dt.showRefresh || !!slots.filters
 );
 
 // tbody/thead styling via CSS vars, so 'default' cleanly inherits Ant's stack.
@@ -505,6 +509,11 @@ function sumFor(col) {
   flex-wrap: wrap;
   padding: 16px;
   border-bottom: 1px solid rgba(5, 5, 5, 0.06);
+}
+.dt-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+.dt-search { max-width: 280px; }
+@media (max-width: 767px) {
+  .dt-left > * { width: 100% !important; max-width: none; }
 }
 .col-toggle-list {
   display: flex;
