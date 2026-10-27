@@ -4,103 +4,123 @@
          embedded in System Settings — the logout action lives on the card. -->
     <PageHeader :title="$t('Login_Device_Management')" :breadcrumb="[$t('Settings'), $t('Login_Device_Management')]" />
 
-    <a-card size="small" :title="$t('Login_Device_Management')" :body-style="{ padding: 0 }">
-      <template #extra>
-        <a-button danger :loading="revokingOthers" @click="logoutOthers">
+    <a-card size="small" style="margin-bottom: 16px">
+      <div class="toolbar">
+        <PresetRangeFilter v-model:value="filters.range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <a-select v-model:value="filters.company" class="tb-item" allow-clear show-search option-filter-prop="label"
+          :placeholder="tx('All companies', 'Todas las empresas')" :options="companyOptions" @change="crud.reload" />
+        <a-select v-model:value="filters.role" class="tb-item" allow-clear show-search option-filter-prop="label"
+          :placeholder="tx('All roles', 'Todos los roles')" :options="opt('roles')" @change="crud.reload" />
+        <a-select v-model:value="filters.type" class="tb-item" allow-clear
+          :placeholder="tx('All user types', 'Todos los tipos')" :options="opt('types')" @change="crud.reload" />
+        <a-button danger :loading="revokingOthers" class="tb-end" @click="logoutOthers">
           <template #icon><LogoutOutlined /></template>
-          Logout other devices
+          {{ tx('Logout my other devices', 'Cerrar mis otras sesiones') }}
         </a-button>
-      </template>
-      <a-table
-        :columns="columns" :data-source="sessions" :loading="loading"
-        :pagination="false" :row-key="r => r.token_id" size="middle" :scroll="{ x: 'max-content' }"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'device'">
-            {{ record.device }}
-            <a-tag v-if="record.is_current" color="success" style="margin-left: 6px">Current</a-tag>
-          </template>
-          <template v-else-if="column.key === 'actions'">
-            <a-button
-              v-if="!record.is_current"
-              type="text" size="small" danger
-              @click="revoke(record)"
-            >
+      </div>
+    </a-card>
+
+    <DataTable :crud="crud" :columns="columns" row-key="token_id">
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'user_name'">
+          {{ record.user_name || '—' }}
+          <div v-if="record.email" class="muted small">{{ record.email }}</div>
+        </template>
+        <template v-else-if="column.key === 'company_name'">
+          {{ record.company_name || '—' }}
+        </template>
+        <template v-else-if="column.key === 'role'">
+          {{ record.role || '—' }}
+          <div v-if="record.user_type" class="muted small">{{ record.user_type }}</div>
+        </template>
+        <template v-else-if="column.key === 'device'">
+          {{ record.device }}
+          <a-tag v-if="record.is_current" color="success" style="margin-left: 6px">{{ tx('Current', 'Actual') }}</a-tag>
+        </template>
+        <template v-else-if="column.key === 'login_at' || column.key === 'last_activity_at'">
+          {{ record[column.key] ? dateTime(record[column.key]) : '—' }}
+        </template>
+        <template v-else-if="column.key === 'actions'">
+          <a-tooltip v-if="!record.is_current" :title="tx('Sign this device out', 'Cerrar esta sesión')">
+            <a-button type="text" size="small" danger @click="revoke(record)">
               <template #icon><DeleteOutlined /></template>
             </a-button>
-          </template>
+          </a-tooltip>
         </template>
-        <template #emptyText>
-          <a-empty :description="$t('NodataAvailable')" style="padding: 32px 0" />
-        </template>
-      </a-table>
-    </a-card>
+      </template>
+    </DataTable>
   </div>
 </template>
 
 <script setup>
 /**
- * GET security/sessions → {sessions (token_id, user_name, device, ip_address,
- * login_at, last_activity_at, is_current)}. Revoke one =
- * DELETE security/sessions/{token_id}; revoke all others =
- * POST security/sessions/logout-other → {revoked}. Column headers are literal
- * English in legacy too.
+ * GET security/sessions -> {sessions (token_id, user_name, email, company_name, role,
+ * user_type, device, ip_address, login_at, last_activity_at, is_current), totalRows,
+ * options} with our standard list filters (2026-10-27): dates (login), company, role,
+ * user type, search, sort, pages -- restored on Back (useListState). Revoke one =
+ * DELETE security/sessions/{token_id}; revoke my others = POST security/sessions/logout-other.
  */
 import { ref, computed, createVNode, onMounted } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import { DeleteOutlined, LogoutOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
-import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
+import DataTable from '../../components/DataTable.vue';
+import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
+import { useCrudTable } from '../../composables/useCrudTable';
+import { useListState } from '../../composables/useListState';
+import { useFormat } from '../../composables/useFormat';
+import { sortByLabel } from '../../lib/filterOptions';
+import { useUiStore } from '../../stores/ui';
 import http from '../../lib/http';
 
 const { t } = useI18n();
+const ui = useUiStore();
+const tx = (en, es) => (ui.locale === 'es' ? es : en);
+const { dateTime } = useFormat();
 
-// API sends raw ISO timestamps (2026-07-27T16:02:03.000000Z) — render them in
-// the admin-configured date format + time instead.
-const DATE_FMT = (() => {
-  try { return localStorage.getItem('app_date_format') || 'YYYY-MM-DD'; } catch (e) { return 'YYYY-MM-DD'; }
-})();
-const fmtDateTime = v => (v ? dayjs(v).format(`${DATE_FMT} HH:mm`) : '');
+const filters = ref({ range: null, company: undefined, role: undefined, type: undefined });
+const crud = useCrudTable('security/sessions', {
+  rowsKey: 'sessions',
+  limit: 25,
+  params: () => ({
+    from: filters.value.range?.[0] || '',
+    to: filters.value.range?.[1] || '',
+    company: filters.value.company || '',
+    role: filters.value.role || '',
+    type: filters.value.type || '',
+  }),
+});
+// Back from elsewhere = the same filters, page and search (Frontend Conventions).
+const listState = useListState('login-devices', { filters }, crud);
 
-const loading = ref(true);
-const revokingOthers = ref(false);
-const sessions = ref([]);
+const opt = key => sortByLabel((crud.payload.value?.options?.[key] || []).map(v => ({ value: v, label: v })));
+const companyOptions = computed(() => sortByLabel(crud.payload.value?.options?.companies || []));
 
 const columns = computed(() => [
-  { title: 'User', dataIndex: 'user_name', key: 'user_name' },
-  { title: 'Device / Browser', dataIndex: 'device', key: 'device' },
-  { title: 'IP Address', dataIndex: 'ip_address', key: 'ip_address' },
-  { title: 'Login', dataIndex: 'login_at', key: 'login_at', customRender: ({ text }) => fmtDateTime(text) },
-  { title: 'Last activity', dataIndex: 'last_activity_at', key: 'last_activity_at', customRender: ({ text }) => fmtDateTime(text) },
+  { title: tx('User', 'Usuario'), key: 'user_name', dataIndex: 'user_name', sorter: true },
+  { title: tx('Company', 'Empresa'), key: 'company_name', dataIndex: 'company_name', sorter: true },
+  { title: tx('Role', 'Rol'), key: 'role', dataIndex: 'role', sorter: true },
+  { title: tx('Device / Browser', 'Equipo / navegador'), key: 'device', dataIndex: 'device', sorter: true },
+  { title: tx('IP address', 'Dirección IP'), key: 'ip_address', dataIndex: 'ip_address', sorter: true },
+  { title: tx('Login', 'Ingreso'), key: 'login_at', dataIndex: 'login_at', sorter: true },
+  { title: tx('Last activity', 'Última actividad'), key: 'last_activity_at', dataIndex: 'last_activity_at', sorter: true },
   { title: t('Action'), key: 'actions', width: 70, align: 'center' },
 ]);
 
-async function load() {
-  loading.value = true;
-  try {
-    const data = await http.get('security/sessions');
-    sessions.value = data.sessions || [];
-  } catch (e) {
-    message.error(e?.data?.message || t('InvalidData'));
-  } finally {
-    loading.value = false;
-  }
-}
-
 function revoke(record) {
   Modal.confirm({
-    title: t('Delete_Title'),
+    title: tx('Sign this device out?', '¿Cerrar esta sesión?'),
     icon: createVNode(ExclamationCircleOutlined),
-    content: `${record.device} — ${record.ip_address || ''}`,
+    content: `${record.user_name || ''} — ${record.device} — ${record.ip_address || ''}`,
     okType: 'danger',
-    okText: t('Delete_confirmButtonText'),
+    okText: tx('Sign out', 'Cerrar sesión'),
     cancelText: t('Delete_cancelButtonText'),
     async onOk() {
       try {
         await http.delete(`security/sessions/${encodeURIComponent(record.token_id)}`);
         message.success(t('Success'));
-        load();
+        crud.fetchRows();
       } catch (e) {
         message.error(e?.data?.message || t('InvalidData'));
       }
@@ -108,12 +128,13 @@ function revoke(record) {
   });
 }
 
+const revokingOthers = ref(false);
 async function logoutOthers() {
   revokingOthers.value = true;
   try {
     const data = await http.post('security/sessions/logout-other');
     message.success(data?.revoked !== undefined ? `${t('Success')} (${data.revoked})` : t('Success'));
-    load();
+    crud.fetchRows();
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData'));
   } finally {
@@ -121,5 +142,21 @@ async function logoutOthers() {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  // Restored (Back) = its own filters; otherwise PresetRangeFilter applies the user's
+  // default preset and its @change loads. First load in any case:
+  if (listState.restored || !filters.value.range) crud.fetchRows();
+});
 </script>
+
+<style scoped>
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tb-item { width: 190px; }
+.tb-end { margin-left: auto; }
+.muted { opacity: 0.6; }
+.small { font-size: 12px; }
+@media (max-width: 767px) {
+  .tb-item { width: 100%; }
+  .tb-end { margin-left: 0; width: 100%; }
+}
+</style>

@@ -54,7 +54,7 @@ class SecuritySettingsController extends Controller
 
         $userMap = User::query()
             ->whereIn('id', $userIds)
-            ->get(['id', 'firstname', 'lastname', 'username'])
+            ->get(['id', 'firstname', 'lastname', 'username', 'email', 'type', 'company_id', 'role_id'])
             ->keyBy('id');
 
         $resolveUserName = function ($userId) use ($userMap) {
@@ -107,8 +107,49 @@ class SecuritySettingsController extends Controller
 
         $sessions = $cookieSessions->concat($tokenSessions)->values();
 
+        // Company, role and type of each login (2026-10-27), then our standard list
+        // filters: dates (login), company, role, type, search; sort and pages.
+        $companies = \Illuminate\Support\Facades\DB::table('companies')->pluck('name', 'id');
+        $roles = \Illuminate\Support\Facades\DB::table('roles')->pluck('name', 'id');
+        $sessions = $sessions->map(function ($s) use ($userMap, $companies, $roles) {
+            $u = $userMap->get($s['user_id']);
+
+            return $s + [
+                'email' => $u->email ?? null,
+                'user_type' => $u->type ?? null,
+                'company_id' => $u ? (int) $u->company_id : null,
+                'company_name' => $u ? ($companies[$u->company_id] ?? null) : null,
+                'role' => $u ? ($roles[$u->role_id] ?? null) : null,
+            ];
+        });
+        $options = [
+            'companies' => $sessions->whereNotNull('company_id')->unique('company_id')->map(fn ($s) => ['value' => $s['company_id'], 'label' => $s['company_name'] ?? '#'.$s['company_id']])->values(),
+            'roles' => $sessions->pluck('role')->filter()->unique()->sort()->values(),
+            'types' => $sessions->pluck('user_type')->filter()->unique()->sort()->values(),
+        ];
+        $day = fn ($v) => $v ? Carbon::parse($v)->toDateString() : null;
+        $search = mb_strtolower(trim((string) $request->search));
+        $sessions = $sessions
+            ->when($request->filled('from'), fn ($c) => $c->filter(fn ($s) => $day($s['login_at']) >= $request->from))
+            ->when($request->filled('to'), fn ($c) => $c->filter(fn ($s) => $day($s['login_at']) && $day($s['login_at']) <= $request->to))
+            ->when($request->filled('company'), fn ($c) => $c->where('company_id', (int) $request->company))
+            ->when($request->filled('role'), fn ($c) => $c->where('role', $request->role))
+            ->when($request->filled('type'), fn ($c) => $c->where('user_type', $request->type))
+            ->when($search !== '', fn ($c) => $c->filter(fn ($s) => str_contains(mb_strtolower(implode(' ', [
+                $s['user_name'], $s['email'], $s['company_name'], $s['role'], $s['device'], $s['ip_address'],
+            ])), $search)));
+        $sort = in_array($request->SortField, ['user_name', 'company_name', 'role', 'user_type', 'device', 'ip_address', 'login_at', 'last_activity_at'], true) ? $request->SortField : 'last_activity_at';
+        $sessions = $sessions->sortBy(fn ($s) => (string) $s[$sort], SORT_NATURAL | SORT_FLAG_CASE, strtolower((string) $request->SortType) !== 'asc')->values();
+        $total = $sessions->count();
+        $limit = (int) $request->get('limit', 0);
+        if ($limit > 0) {
+            $sessions = $sessions->slice((max(1, (int) $request->get('page', 1)) - 1) * $limit, $limit)->values();
+        }
+
         return response()->json([
             'sessions' => $sessions,
+            'totalRows' => $total,
+            'options' => $options,
         ]);
     }
 
