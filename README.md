@@ -219,7 +219,24 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
   - **Sign-in alerts:** an email when a login is used from a new computer.
   - Settings -> Login security also shows the latest sign-in activity.
 - **Login devices** (AdminSystem): Company and Role columns, and the usual
-  filters (dates, company, role, type, search).
+  filters (dates, company, role, type, search); the filters sit beside the
+  table's search (any list can now put its filters there).
+- **Production server**: a daily backup of the database on the server
+  (outside the website, 14 kept), a morning email to the SuperAdmin with the
+  previous day's errors, daily log files, and the scheduled tasks work on
+  Hostinger (it blocks starting processes; they now run inside the scheduler).
+  The 3,583 jobs stuck in the queue since September (integrations no company
+  uses) were removed and those integrations no longer queue anything.
+- **Each company's online store is its own**: settings, payments, warehouses
+  and emails of the store the visitor opened (they used the first company's).
+- **Mobile app**: the server is ready for the two-step code and the password
+  change in the app (the app needs its screens).
+- **Backups** live in Google Drive (`Versions\database`, one folder per PC,
+  production, HOSTINGER); only the latest copy stays in the repo.
+- **User manual** updated (sign-in, two-step, Login security, specialist
+  clinic, arrival scans, companies in production), in-app and the PDF.
+- Billing is turned off by hand on 2026-10-28: Ruba and New Era work in Murano
+  only from then on.
 
 Setup: `php artisan migrate`, `npm install`, `npm run build`.
 

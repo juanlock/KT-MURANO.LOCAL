@@ -403,9 +403,14 @@ the start of each session).
   app itself (not in this workspace) still needs those screens.
 - **Production server tasks (2026-10-27):** the Laravel scheduler needs the
   hPanel cron `* * * * * /usr/bin/php <PROD_PATH>/artisan schedule:run`
-  (Hostinger has no `crontab` command). It runs the queue (`queue:work --once`),
-  reminders, Email Office / Helpdesk mail, `murano:server-backup` (03:15:
-  mysqldump | gzip into `~/murano_backups/`, outside the website, 14 kept) and
+  (Hostinger has no `crontab` command). **Production's PHP disables
+  `proc_open`, `exec`, `popen`, `shell_exec`**: without `proc_open` the
+  scheduler runs each task in-process (`Console\Kernel` `$cmd` ->
+  `schedule->call(Artisan::call(...))`), and nothing on the server may rely on
+  Laravel's `Process` / `exec`. It runs the queue (`queue:work --once`),
+  reminders, Email Office / Helpdesk mail, `murano:server-backup` (03:15: a
+  gzipped dump -- mysqldump when exec exists, else pure PHP -- into
+  `~/murano_backups/`, outside the website, 14 kept) and
   `murano:error-digest` (07:00: yesterday's log errors emailed to the
   SuperAdmin). Logs rotate daily (`LOG_CHANNEL=daily`). Install-wide
   integrations (WooCommerce, Google Sheets, QuickBooks, ZATCA, Google Calendar,
