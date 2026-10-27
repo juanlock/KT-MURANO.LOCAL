@@ -256,8 +256,17 @@ the start of each session).
   never deletes them (`protocol_prod_deploy.php` puts back anything a commit
   removed under `public/files`). Pa Llevar copies this PC's `public/files` to
   Google Drive (`<archive>\..\files`, `protocol_files_mirror.php`, never
-  deletes). The old history still holds them (2 GB) until a history rewrite
-  the user approves.
+  deletes).
+  **Git history rewritten on 2026-10-27 (user's OK):** `public/files` was removed
+  from every commit (it held customer documents). Old -> new commit ids:
+  `KT-TOOLS/history_rewrite_map.txt`; full backup of the old repo:
+  `G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\git\…before_history_rewrite….bundle`.
+  **A PC still on the old history must NEVER pull / merge** (it would bring the
+  old history back): `git fetch origin` then `git reset --mixed origin/main`
+  (never `--hard`: it would delete `public/files` from the disk), then
+  `git reflog expire --expire=now --all` and `git gc --prune=now`.
+  `protocol_prod_deploy.php` re-points production's branch to the new twin of
+  its old commit by itself (mixed reset on the server, disk untouched).
 
 ### People, logins and permissions (user's rules, 2026-10-05 / 2026-10-06)
 

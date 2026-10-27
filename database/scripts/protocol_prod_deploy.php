@@ -65,6 +65,22 @@ if ($rollback) {
 $serverHead = $sh('git rev-parse HEAD');
 $localHead = $lg('rev-parse HEAD');
 if (! preg_match('/^[0-9a-f]{40}$/', $serverHead)) { echo "Server public_html is not a git checkout: $serverHead\n"; return; }
+// History rewritten on 2026-10-27 (public/files removed from every commit): production may sit on
+// an old commit; KT-TOOLS/history_rewrite_map.txt ("old new" per line) gives its new twin, and the
+// apply re-points the server's branch to it (git reset --mixed: the disk is not touched).
+$rebasedFrom = null;
+$onOurHistory = $lg('cat-file -t '.$serverHead) === 'commit' && $lg('merge-base '.$serverHead.' HEAD') === $serverHead;
+if (! $onOurHistory && is_file(base_path('KT-TOOLS/history_rewrite_map.txt'))) {
+    foreach (file(base_path('KT-TOOLS/history_rewrite_map.txt'), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $l) {
+        [$old, $new] = array_pad(preg_split('/\s+/', trim($l)), 2, null);
+        if ($old === $serverHead && $new && $lg('cat-file -t '.$new) === 'commit') {
+            $rebasedFrom = $serverHead;
+            $serverHead = $new;
+            echo 'production is on the old history (', substr($rebasedFrom, 0, 9), ') = ', substr($new, 0, 9), " in the rewritten one -- its branch is re-pointed on apply\n";
+            break;
+        }
+    }
+}
 if ($lg('cat-file -t '.$serverHead) !== 'commit') { echo "Production is at $serverHead, which this PC doesn't have -- pull first.\n"; return; }
 if ($serverHead === $localHead) { echo "Production already has this PC's HEAD ($localHead) -- no code to deploy.\n"; }
 if ($lg('merge-base '.$serverHead.' HEAD') !== $serverHead) {
@@ -143,7 +159,7 @@ try {
         }
         fclose($fh);
         $missing = array_values(array_filter($prereqs, fn ($c) => $sh('git cat-file -t '.$c) !== 'commit'));
-        if ($missing && $sh('git rev-parse --is-shallow-repository') === 'true') {
+        if ($missing && ($rebasedFrom || $sh('git rev-parse --is-shallow-repository') === 'true')) {
             echo 'server is shallow and lacks base commit(s) ', implode(', ', array_map(fn ($c) => substr($c, 0, 9), $missing)), " -- sending only their missing objects\n";
             $objs = [];
             foreach ($missing as $c) {
@@ -165,6 +181,12 @@ try {
             echo '  ', $sh('git index-pack --stdin < '.$q($work.'/base.pack').' >/dev/null && echo "pack stored"'), PHP_EOL;
             foreach ($missing as $c) $sh('grep -qx '.$c.' .git/shallow || echo '.$c.' >> .git/shallow');
             $sftp->exec('rm -f '.$q($work.'/base.pack').' '.$q($work.'/objs.txt'));
+        }
+        if ($rebasedFrom) {
+            // The twin commit's objects are on the server now (base pack above): the branch moves
+            // to it and the index follows (mixed reset) -- files on disk stay as they are.
+            echo $sh('git cat-file -t '.$q($serverHead).' && git update-ref HEAD '.$q($serverHead).' && git reset -q && echo "branch re-pointed to '.substr($serverHead, 0, 9).' (disk untouched)"'), PHP_EOL;
+            if ($sh('git rev-parse HEAD') !== $serverHead) { echo "Could not re-point production's branch -- nothing deployed.\n"; return; }
         }
         $sftp->put($work.'/deploy.bundle', $bundle, SFTP::SOURCE_LOCAL_FILE);
         unlink($bundle);
