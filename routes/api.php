@@ -1165,6 +1165,10 @@ Route::get('hospital/beds', 'HospitalWardController@beds');
     Route::post('hospital/clinic/consult/{id}/start', 'HospitalClinicController@start');
     Route::put('hospital/clinic/consult/{id}', 'HospitalClinicController@save');
     Route::post('hospital/clinic/consult/{id}/finish', 'HospitalClinicController@finish');
+    // Patient scans: insurance card / ID, front and back (2026-10-26).
+    Route::get('hospital/patients/{id}/scans', 'HospitalPatientScanController@index')->whereNumber('id');
+    Route::post('hospital/patient-scans', 'HospitalPatientScanController@store');
+    Route::delete('hospital/patient-scans/{id}', 'HospitalPatientScanController@destroy')->whereNumber('id');
     Route::get('hospital/clinic/requests', 'HospitalClinicController@requests');
     Route::post('hospital/clinic/requests/{id}/cancel', 'HospitalClinicController@cancelRequest');
     Route::get('hospital/clinic/reports', 'HospitalClinicController@reports');

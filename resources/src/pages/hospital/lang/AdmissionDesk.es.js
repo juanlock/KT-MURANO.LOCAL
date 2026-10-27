@@ -36,6 +36,7 @@ export default {
     'Assign later': 'Asignar después',
     'Register arrival': 'Registrar ingreso',
     'Arrival registered': 'Ingreso registrado',
+    'The arrival was registered, but the scans could not be uploaded: {e}': 'Se registró el ingreso, pero no se pudieron subir los escaneos: {e}',
     'The waiting room is empty': 'La sala de espera está vacía',
     'Call to a bed': 'Pasar a una cama',
     'Assign': 'Asignar',

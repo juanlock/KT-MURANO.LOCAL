@@ -155,6 +155,9 @@
           <a-form-item :label="s('Insurer')"><a-input v-model:value="ci.insurance_provider" /></a-form-item>
           <a-form-item :label="s('Policy / card number')"><a-input v-model:value="ci.insurance_number" /></a-form-item>
         </template>
+        <!-- The insurance card (when it pays) and the ID, scanned or photographed (2026-10-26). -->
+        <PatientScans v-if="sel" :patient-id="sel.patient_id" :docs="ci.payment === 'insurance' ? ['insurance', 'id'] : ['id']"
+          :context="{ appointment_id: sel.id }" />
       </a-form>
     </a-modal>
   </div>
@@ -173,6 +176,7 @@ import dayjs from 'dayjs';
 import { message } from 'ant-design-vue';
 import { LeftOutlined, RightOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import PatientScans from './PatientScans.vue';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useFormat } from '../../composables/useFormat';
 import http from '../../lib/http';

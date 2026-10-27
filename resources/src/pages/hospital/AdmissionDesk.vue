@@ -178,6 +178,11 @@
           </a-row>
           <a-form-item :label="s('Authorization number (if any)')"><a-input v-model:value="pay.authorization_no" /></a-form-item>
         </template>
+        <!-- Insurance card + ID scanned / photographed; with a card only the ID (never the card's image). -->
+        <PatientScans
+          :patient-id="scanPatientId" :docs="pay.payer_type === 'self_pay' ? ['id'] : ['insurance', 'id']"
+          :context="regTarget ? { er_case_id: regTarget.id } : {}" v-model:pending="pendingScans"
+        />
       </a-form>
     </a-modal>
 
@@ -238,6 +243,7 @@ import dayjs from 'dayjs';
 import { message, Modal } from 'ant-design-vue';
 import { ReloadOutlined, PlusOutlined, PrinterOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
+import PatientScans, { uploadPendingScans } from './PatientScans.vue';
 import FloorMap from './FloorMap.vue';
 import { printVisitorPass, printWristband } from './hospitalPrint';
 import { useAuthStore } from '../../stores/auth';
@@ -334,6 +340,15 @@ async function submitIntake() {
   saving.value = true;
   try {
     const res = await http.post('hospital/desk/intake', body);
+    // The scans taken before the patient existed (a new patient): up now, with the arrival.
+    if (res?.patient_id && Object.keys(pendingScans.value).length) {
+      try {
+        await uploadPendingScans(res.patient_id, pendingScans.value, { er_case_id: res.admission_id ? null : res.id, admission_id: res.admission_id || null });
+      } catch (err) {
+        message.warning(s('The arrival was registered, but the scans could not be uploaded: {e}', { e: err?.message || '' }));
+      }
+    }
+    pendingScans.value = {};
     message.success(s('Arrival registered'));
     form.value = emptyForm();
     consultDone.value = false;
@@ -394,6 +409,10 @@ const ready = computed(() => patientReady.value && arrivalReady.value && moneyRe
 const refOpen = ref(false);
 const payOpen = ref(false);
 const regTarget = ref(null);
+// Scans (insurance card / ID): of the existing patient, or kept until a new one is registered.
+const pendingScans = ref({});
+const scanPatientId = computed(() => (regTarget.value ? regTarget.value.patient_id
+  : (form.value.patientMode === 'existing' ? form.value.patient_id || null : null)));
 const pay = reactive({ payer_type: 'private', insurer: '', policy_no: '', authorization_no: '', card_type: 'Visa', card_last4: '' });
 function pickPathway(v) {
   form.value.pathway = v;

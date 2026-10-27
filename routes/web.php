@@ -561,6 +561,10 @@ Route::middleware(['web', 'request.safety'])->group(function () {
         ->middleware(['signed:relative', 'throttle:30,1'])->name('clinic.appointment.answer');
     Route::get('/survey/{token}', [$c, 'survey'])->where('token', '[A-Za-z0-9]{20,64}')->middleware('throttle:60,1')->name('clinic.survey');
     Route::post('/survey/{token}', [$c, 'answerSurvey'])->where('token', '[A-Za-z0-9]{20,64}')->middleware('throttle:10,1')->name('clinic.survey.answer');
+    // A patient scan (insurance card / ID): private file, opened only with a signed link of a few
+    // minutes that the app makes for staff with the hospital permissions (2026-10-26).
+    Route::get('/hospital-scan/{id}', [\App\Http\Controllers\HospitalPatientScanController::class, 'file'])->whereNumber('id')
+        ->middleware(['signed:relative', 'throttle:120,1'])->name('hospital.scan');
 });
 
 // Portfolio module: each company's public portfolio website (PortfolioSiteController).
