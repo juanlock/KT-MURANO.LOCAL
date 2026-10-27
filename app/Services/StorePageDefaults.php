@@ -15,6 +15,9 @@ use App\Models\StorePage;
  */
 class StorePageDefaults
 {
+    /** The pages it creates (Demo Data does not count them as the company's own data while unedited). */
+    public const SLUGS = ['about-us', 'contact-us', 'shipping-returns', 'privacy-policy', 'faq'];
+
     /** @return int number of pages created */
     public static function ensure(int $companyId): int
     {

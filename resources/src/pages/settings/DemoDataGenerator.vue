@@ -26,7 +26,11 @@
               {{ tx(TYPE_HELP) }} <b>{{ tx('Choosing another type replaces those examples') }}</b> {{ tx('— the old ones are removed first.') }}
             </div>
           </div>
-          <a-select v-model:value="businessType" :options="businessTypeOptions" style="width: 320px" :placeholder="tx('Choose the type of business')" />
+          <a-space>
+            <a-select v-model:value="businessType" :options="businessTypeOptions" style="width: 320px" :placeholder="tx('Choose the type of business')" />
+            <!-- Saved on its own too (it used to be saved only when generating examples). -->
+            <a-button v-if="businessType && businessType !== savedType" type="primary" :loading="savingType" @click="saveType">{{ tx('Save') }}</a-button>
+          </a-space>
         </div>
       </a-card>
 
@@ -212,6 +216,21 @@ const needsSchoolYear = computed(() => selected.value.includes('school'));
 const thisYear = new Date().getFullYear();
 const schoolStart = ref(`${thisYear}-03-01`);
 const schoolEnd = ref(`${thisYear}-12-15`);
+
+// Save the business type without generating anything.
+const savingType = ref(false);
+async function saveType() {
+  savingType.value = true;
+  try {
+    const data = await http.put('demo_data/business-type', { business_type: businessType.value });
+    savedType.value = data.business_type || businessType.value;
+    message.success(tx('Business type saved: {type}.', { type: typeLabel(savedType.value) }));
+  } catch (e) {
+    message.error(e?.data?.message || e?.message || tx('Could not save'));
+  } finally {
+    savingType.value = false;
+  }
+}
 
 function selectAvailable() {
   selected.value = [...availableKeys.value];

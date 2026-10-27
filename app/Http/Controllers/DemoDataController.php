@@ -53,6 +53,19 @@ class DemoDataController extends Controller
         ]);
     }
 
+    /** The business type alone (2026-10-26: it was only saved when generating examples). */
+    public function saveBusinessType(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Setting::class);
+        $data = $request->validate([
+            'business_type' => ['required', 'string', 'in:'.implode(',', array_keys(\App\Support\BusinessTypes::LABELS))],
+        ]);
+        $companyId = (int) $this->resolveActingCompanyId($request);
+        \App\Support\BusinessTypes::set($companyId, $data['business_type']);
+
+        return response()->json(['success' => true, 'business_type' => \App\Support\BusinessTypes::of($companyId)]);
+    }
+
     public function generate(Request $request)
     {
         $this->authorizeForUser($request->user('api'), 'update', Setting::class);

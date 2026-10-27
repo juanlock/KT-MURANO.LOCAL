@@ -122,16 +122,22 @@ class DemoContext
             return false;
         }
         $q = DB::table($table);
-        $shared = false;
         if ($this->hasColumn($table, 'company_id')) {
             $q->where('company_id', $this->companyId);
         } elseif ($this->hasColumn($table, 'warehouse_id')) {
             // No company column (bookings...): the company's rows are those of its warehouses.
             $q->whereIn('warehouse_id', $this->warehouseIds ?: [0]);
         } else {
-            // A table shared by every company (accounting budgets, documents...):
-            // another company's demo examples are not this company's real data (2026-10-21).
-            $shared = true;
+            // A table shared by every company (commission programs, collections, coupons...):
+            // its rows can't be told to be THIS company's, so they never block it -- another
+            // company's real rows made Commissions / Store "real data" everywhere (2026-10-26).
+            return false;
+        }
+        // Rows the system creates by itself with the company (Store -> Pages defaults:
+        // About Us, Contact Us...) are not the company's data. (Their updated_at is no
+        // guide: updates / migrations touch them too.) Removing demo data never deletes them.
+        if ($table === 'store_pages') {
+            $q->whereNotIn('slug', \App\Services\StorePageDefaults::SLUGS);
         }
         if ($this->hasColumn($table, 'deleted_at')) {
             $q->whereNull('deleted_at');
@@ -141,9 +147,7 @@ class DemoContext
         if ($table === 'products') {
             $q->where(fn ($w) => $w->whereNull('code')->orWhere(fn ($x) => $x->where('code', 'not like', 'HMS-%')->where('code', '!=', 'BOOKING-SVC')));
         }
-        $demo = $shared
-            ? DB::table('demo_records')->where('record_type', $table)->pluck('record_id')->map(fn ($v) => (int) $v)->all()
-            : $this->demoIds($table);
+        $demo = $this->demoIds($table);
         if ($demo) {
             $q->whereNotIn('id', $demo);
         }

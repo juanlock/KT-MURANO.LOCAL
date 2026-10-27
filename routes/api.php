@@ -1884,6 +1884,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // Demo data generator (System Settings)
     Route::get('demo_data/status', 'DemoDataController@status');
     Route::post('demo_data/generate', 'DemoDataController@generate');
+    Route::put('demo_data/business-type', 'DemoDataController@saveBusinessType');
     Route::delete('demo_data', 'DemoDataController@reset');
     Route::post('demo_data/wipe', 'DemoDataController@wipe');
     // Dedicated Dark Mode endpoints (independent from other settings APIs)
