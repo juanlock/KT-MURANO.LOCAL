@@ -173,7 +173,7 @@ class MarketingController extends Controller
         $companyId = $this->resolveActingCompanyId($request);
 
         $campaign = MarketingCampaign::with(['segment', 'template'])->findOrFail($id);
-        abort_unless((int) $campaign->company_id === $companyId, 404);
+        abort_unless($this->canActOnCampaign($request, $campaign), 404);
 
         $recipientStats = MarketingCampaignRecipient::where('campaign_id', $id)
             ->select('status', DB::raw('count(*) as total'))
@@ -248,7 +248,7 @@ class MarketingController extends Controller
         $companyId = $this->resolveActingCompanyId($request);
 
         $campaign = MarketingCampaign::findOrFail($id);
-        abort_unless((int) $campaign->company_id === $companyId, 404);
+        abort_unless($this->canActOnCampaign($request, $campaign), 404);
 
         if (in_array($campaign->status, ['sending', 'sent'])) {
             return response()->json(['success' => false, 'message' => 'Sent campaigns cannot be edited.'], 422);
@@ -309,7 +309,7 @@ class MarketingController extends Controller
         $request->validate(['status' => 'required|in:draft,scheduled,sending,sent,failed,cancelled']);
 
         $campaign = MarketingCampaign::findOrFail($id);
-        abort_unless((int) $campaign->company_id === $companyId, 404);
+        abort_unless($this->canActOnCampaign($request, $campaign), 404);
         $campaign->update(['status' => $request->status]);
 
         $this->logActivity($request, 'campaign', $campaign->id, 'status_changed', 'Status set to '.$request->status);
@@ -326,7 +326,7 @@ class MarketingController extends Controller
         $companyId = $this->resolveActingCompanyId($request);
 
         $campaign = MarketingCampaign::findOrFail($id);
-        abort_unless((int) $campaign->company_id === $companyId, 404);
+        abort_unless($this->canActOnCampaign($request, $campaign), 404);
 
         if ($campaign->status === 'sending') {
             return response()->json(['success' => false, 'message' => 'Campaign is already sending.'], 422);
@@ -340,13 +340,25 @@ class MarketingController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * The list shows every company's campaigns to superadmin/AdminSystem
+     * (listCompanyId() = null), so opening / changing / deleting one follows the
+     * same scope; anyone else: their acting company only.
+     */
+    private function canActOnCampaign(Request $request, MarketingCampaign $campaign): bool
+    {
+        $list = $this->listCompanyId($request);
+
+        return $list === null || (int) $campaign->company_id === (int) $list;
+    }
+
     public function campaigns_destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', MarketingCampaign::class);
         $companyId = $this->resolveActingCompanyId($request);
 
         $campaign = MarketingCampaign::findOrFail($id);
-        abort_unless((int) $campaign->company_id === $companyId, 404);
+        abort_unless($this->canActOnCampaign($request, $campaign), 404);
         $campaign->delete();
 
         $this->logActivity($request, 'campaign', (int) $id, 'deleted', 'Campaign deleted');
@@ -361,8 +373,8 @@ class MarketingController extends Controller
 
         $selectedIds = $request->selectedIds;
         foreach ($selectedIds as $id) {
-            $campaign = MarketingCampaign::where('id', $id)->where('company_id', $companyId)->first();
-            if ($campaign) {
+            $campaign = MarketingCampaign::find($id);
+            if ($campaign && $this->canActOnCampaign($request, $campaign)) {
                 $campaign->delete();
             }
         }
