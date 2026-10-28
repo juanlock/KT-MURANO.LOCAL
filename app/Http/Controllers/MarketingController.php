@@ -415,7 +415,7 @@ class MarketingController extends Controller
         $request->validate(['name' => 'required|string|max:255']);
 
         $filters = $request->filters ?: [];
-        $count = (new SegmentResolver)->count($request->boolean('all_customers'), is_array($filters) ? $filters : []);
+        $count = (new SegmentResolver)->count($this->resolveActingCompanyId($request), $request->boolean('all_customers'), is_array($filters) ? $filters : []);
 
         $segment = MarketingSegment::create([
             'name'            => $request->name,
@@ -439,7 +439,7 @@ class MarketingController extends Controller
 
         $segment = MarketingSegment::findOrFail($id);
         $filters = $request->filters ?: [];
-        $count = (new SegmentResolver)->count($request->boolean('all_customers'), is_array($filters) ? $filters : []);
+        $count = (new SegmentResolver)->count($this->resolveActingCompanyId($request), $request->boolean('all_customers'), is_array($filters) ? $filters : []);
 
         $segment->update([
             'name'            => $request->name,
@@ -473,7 +473,7 @@ class MarketingController extends Controller
 
         $filters = $request->filters ?: [];
         $resolver = new SegmentResolver;
-        $clients = $resolver->resolve($request->boolean('all_customers'), is_array($filters) ? $filters : []);
+        $clients = $resolver->resolve($this->resolveActingCompanyId($request), $request->boolean('all_customers'), is_array($filters) ? $filters : []);
 
         return response()->json([
             'count'   => $clients->count(),

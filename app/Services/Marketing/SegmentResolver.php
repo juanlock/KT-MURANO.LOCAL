@@ -25,10 +25,13 @@ class SegmentResolver
 {
     /**
      * Build the base clients query joined with aggregated sales statistics.
+     * Always one company's customers (2026-10-27: without this a demo company's
+     * campaign emailed every customer of the install); no company = nobody.
      */
-    public function baseQuery()
+    public function baseQuery(?int $companyId)
     {
         $salesAgg = DB::table('sales')
+            ->where('company_id', (int) $companyId)
             ->select(
                 'client_id',
                 DB::raw('COUNT(*) as purchases_count'),
@@ -41,6 +44,7 @@ class SegmentResolver
 
         return DB::table('clients')
             ->leftJoinSub($salesAgg, 'sa', 'sa.client_id', '=', 'clients.id')
+            ->where('clients.company_id', (int) $companyId)
             ->whereNull('clients.deleted_at')
             ->select(
                 'clients.id',
@@ -92,9 +96,13 @@ class SegmentResolver
      *
      * @return \Illuminate\Support\Collection
      */
-    public function resolve(bool $allCustomers, array $filters = [])
+    public function resolve(?int $companyId, bool $allCustomers, array $filters = [])
     {
-        $query = $this->baseQuery();
+        if (! $companyId) {
+            return collect();
+        }
+
+        $query = $this->baseQuery($companyId);
 
         if (! $allCustomers) {
             $this->applyFilters($query, $filters);
@@ -108,16 +116,16 @@ class SegmentResolver
      *
      * @return \Illuminate\Support\Collection
      */
-    public function resolveSegment(MarketingSegment $segment)
+    public function resolveSegment(?int $companyId, MarketingSegment $segment)
     {
-        return $this->resolve((bool) $segment->all_customers, $segment->filters ?? []);
+        return $this->resolve($companyId, (bool) $segment->all_customers, $segment->filters ?? []);
     }
 
     /**
      * Count matching clients without fetching the full result set.
      */
-    public function count(bool $allCustomers, array $filters = []): int
+    public function count(?int $companyId, bool $allCustomers, array $filters = []): int
     {
-        return $this->resolve($allCustomers, $filters)->count();
+        return $this->resolve($companyId, $allCustomers, $filters)->count();
     }
 }

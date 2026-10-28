@@ -37,13 +37,15 @@ class MarketingDispatcher
         // Clear any previous recipient rows (e.g. a re-send).
         MarketingCampaignRecipient::where('campaign_id', $campaign->id)->delete();
 
+        // Only the campaign's own company's customers.
+        $companyId = (int) $campaign->company_id ?: null;
         if ($campaign->all_customers || ! $campaign->segment_id) {
-            $clients = $this->resolver->resolve(true, []);
+            $clients = $this->resolver->resolve($companyId, true, []);
         } else {
             $segment = $campaign->segment;
             $clients = $segment
-                ? $this->resolver->resolveSegment($segment)
-                : $this->resolver->resolve(true, []);
+                ? $this->resolver->resolveSegment($companyId, $segment)
+                : $this->resolver->resolve($companyId, true, []);
         }
 
         $now = Carbon::now();
