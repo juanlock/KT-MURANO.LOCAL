@@ -61,6 +61,14 @@ class FormSchema
             'text_color' => '#1f2328',
             'radius' => 8,
             'font' => 'system',                  // system | serif
+            // Header (2026-10-27): logo + title like the old forms.kcoltech.com forms.
+            'logo' => 'company',                 // company | custom | none
+            'logo_path' => '',                   // custom: files/company_{id}/form-logos/... (FormsController::uploadLogo)
+            'logo_height' => 48,                 // px
+            'header_background' => '',           // a band behind the logo ('' = none)
+            'align' => 'left',                   // left | center: logo, title and description
+            'header_in_embed' => false,          // the logo also inside an iframe on a website
+            'width' => 760,                      // the form's maximum width in px (0 = the whole width)
         ];
     }
 
@@ -80,6 +88,13 @@ class FormSchema
             $s[$c] = preg_match('/^#[0-9a-f]{3,8}$/i', (string) $s[$c]) ? $s[$c] : self::defaultSettings()[$c];
         }
         $s['font'] = in_array($s['font'], ['system', 'serif'], true) ? $s['font'] : 'system';
+        $s['logo'] = in_array($s['logo'], ['company', 'custom', 'none'], true) ? $s['logo'] : 'company';
+        $s['logo_path'] = preg_match('~^files/company_\d+/form-logos/[A-Za-z0-9/_.-]+$~', (string) $s['logo_path']) && ! str_contains((string) $s['logo_path'], '..') ? (string) $s['logo_path'] : '';
+        $s['logo_height'] = max(24, min(160, (int) $s['logo_height']));
+        $s['header_background'] = preg_match('/^#[0-9a-f]{3,8}$/i', (string) $s['header_background']) ? $s['header_background'] : '';
+        $s['align'] = $s['align'] === 'center' ? 'center' : 'left';
+        $s['header_in_embed'] = (bool) $s['header_in_embed'];
+        $s['width'] = (int) $s['width'] === 0 ? 0 : max(480, min(1200, (int) $s['width']));
         foreach (['title', 'submit_text', 'notify_subject', 'number_prefix', 'reply_to_field', 'confirm_field', 'confirm_subject', 'from_name'] as $k) {
             $s[$k] = mb_substr(strip_tags((string) $s[$k]), 0, 190);
         }

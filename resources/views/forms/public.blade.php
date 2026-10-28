@@ -4,6 +4,9 @@
     $err = $errors_bag ?? [];
     $val = fn ($k, $d = '') => $old[$k] ?? $d;
     $req = $es ? 'Obligatorio' : 'Required';
+    $showHeader = ($brand['logo'] || $brand['name']) && (! $embed || $s['header_in_embed']);
+    $band = $showHeader && $s['header_background'] !== '';
+    $center = $s['align'] === 'center';
 @endphp
 <!DOCTYPE html>
 <html lang="{{ $s['language'] }}">
@@ -11,15 +14,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>{{ $s['title'] ?: $form->name }}{{ $embed ? '' : ' - '.$brand['name'] }}</title>
+<title>{{ $s['title'] ?: $form->name }}{{ $embed || $brand['name'] === '' ? '' : ' - '.$brand['name'] }}</title>
 <style>
 :root {
     --fm-primary: {{ $s['primary_color'] }};
     --fm-bg: {{ $s['background'] }};
     --fm-radius: {{ $s['radius'] }}px;
     --fm-text: {{ $s['text_color'] }};
-    --fm-muted: #6b7280;
+    /* From the text color, so a dark form background keeps its descriptions readable. */
+    --fm-muted: color-mix(in srgb, var(--fm-text) 72%, transparent);
     --fm-border: #d0d7de;
+    --fm-line: color-mix(in srgb, var(--fm-text) 25%, transparent);
     --fm-error: #d93025;
 }
 * { box-sizing: border-box; }
@@ -28,13 +33,16 @@ body {
     font-family: {!! $s['font'] === 'serif' ? 'Georgia, "Times New Roman", serif' : 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif' !!};
     color: var(--fm-text); background: {{ $embed ? 'transparent' : $s['page_background'] }}; font-size: 15px; line-height: 1.45;
 }
-.fm-page { max-width: 760px; margin: 0 auto; padding: {{ $embed ? '4px' : '32px 16px' }}; }
-.fm-card { background: var(--fm-bg); border-radius: var(--fm-radius); padding: {{ $embed ? '12px 4px' : '28px' }}; {{ $embed ? '' : 'box-shadow: 0 2px 14px rgba(0,0,0,.07);' }} }
-.fm-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-.fm-brand img { max-height: 48px; max-width: 180px; object-fit: contain; }
+.fm-page { max-width: {{ $s['width'] ? $s['width'].'px' : 'none' }}; margin: 0 auto; padding: {{ $embed ? '4px' : '32px 16px' }}; }
+.fm-card { background: var(--fm-bg); border-radius: var(--fm-radius); padding: {{ $embed ? '12px 4px' : '28px' }}; {{ $embed ? '' : 'box-shadow: 0 2px 14px rgba(0,0,0,.07);' }} overflow: hidden; }
+.fm-brand { display: flex; align-items: center; justify-content: {{ $center ? 'center' : 'flex-start' }}; gap: 12px; margin-bottom: 18px; }
+.fm-brand img { max-height: {{ $s['logo_height'] }}px; max-width: 100%; object-fit: contain; }
 .fm-brand span { font-weight: 600; color: var(--fm-muted); }
-.fm-title { margin: 0 0 6px; font-size: 1.5em; }
-.fm-desc { margin: 0 0 18px; color: var(--fm-muted); white-space: pre-line; }
+/* A band behind the logo, edge to edge of the card (cancels the card's padding). */
+.fm-brand.band { background: {{ $s['header_background'] ?: 'transparent' }}; margin: {{ $embed ? '-12px -4px 18px' : '-28px -28px 22px' }}; padding: 12px {{ $embed ? '12px' : '28px' }}; }
+.fm-brand.band span { color: #fff; }
+.fm-title { margin: 0 0 6px; font-size: 1.5em; {{ $center ? 'text-align: center;' : '' }} }
+.fm-desc { margin: 0 0 18px; color: var(--fm-muted); white-space: pre-line; {{ $center ? 'text-align: center;' : '' }} }
 .fm-grid { display: flex; flex-wrap: wrap; margin: 0 -8px; }
 .fm-col { padding: 0 8px; margin-bottom: 14px; width: 100%; }
 .fm-col.half { width: 50%; }
@@ -44,8 +52,9 @@ body {
 .fm-label .fm-star { color: var(--fm-error); margin-left: 2px; }
 .fm-input, .fm-select, .fm-textarea {
     width: 100%; padding: 9px 11px; border: 1px solid var(--fm-border); border-radius: calc(var(--fm-radius) * .75);
-    font: inherit; color: inherit; background: #fff;
+    font: inherit; color: #1f2328; background: #fff;   /* the boxes stay white: never the form's text color */
 }
+.fm-input::placeholder, .fm-textarea::placeholder { color: #8b949e; }
 .fm-input:focus, .fm-select:focus, .fm-textarea:focus { outline: 2px solid color-mix(in srgb, var(--fm-primary) 35%, transparent); border-color: var(--fm-primary); }
 .fm-textarea { resize: vertical; }
 .fm-choice { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; font-weight: normal; }
@@ -53,9 +62,9 @@ body {
 .fm-help { color: var(--fm-muted); font-size: .88em; margin-top: 4px; }
 .fm-error { color: var(--fm-error); font-size: .88em; margin-top: 4px; }
 .fm-col.has-error .fm-input, .fm-col.has-error .fm-select, .fm-col.has-error .fm-textarea { border-color: var(--fm-error); }
-.fm-heading { margin: 10px 0 2px; }
-.fm-paragraph { margin: 0; color: var(--fm-muted); white-space: pre-line; }
-.fm-divider { border: 0; border-top: 1px solid var(--fm-border); margin: 6px 0; }
+.fm-heading { margin: 10px 0 2px; {{ $center ? 'text-align: center;' : '' }} }
+.fm-paragraph { margin: 0; color: var(--fm-muted); white-space: pre-line; {{ $center ? 'text-align: center;' : '' }} }
+.fm-divider { border: 0; border-top: 1px solid var(--fm-line); margin: 6px 0; }
 .fm-btn {
     background: var(--fm-primary); color: #fff; border: 0; border-radius: var(--fm-radius); padding: 11px 26px;
     font: inherit; font-weight: 600; cursor: pointer;
@@ -70,8 +79,8 @@ body {
 <body>
 <div class="fm-page">
 <div class="fm-card">
-    @if (! $embed && ($brand['logo'] || $brand['name']))
-        <div class="fm-brand">
+    @if ($showHeader)
+        <div class="fm-brand {{ $band ? 'band' : '' }}">
             @if ($brand['logo'])<img src="{{ $brand['logo'] }}" alt="{{ $brand['name'] }}">@endif
             @if (! $brand['logo'])<span>{{ $brand['name'] }}</span>@endif
         </div>
@@ -157,7 +166,7 @@ body {
             </div>
         @endforeach
         </div>
-        <button type="submit" class="fm-btn">{{ $s['submit_text'] ?: ($es ? 'Enviar' : 'Send') }}</button>
+        <div @if ($center) style="text-align: center" @endif><button type="submit" class="fm-btn">{{ $s['submit_text'] ?: ($es ? 'Enviar' : 'Send') }}</button></div>
     </form>
     @endif
 </div>

@@ -25,6 +25,7 @@ use Illuminate\Support\Str;
  *  POST   forms {name}                new form (a starter Name / Email / Message)
  *  GET    forms/{id}                  form + its embed codes
  *  PUT    forms/{id}                  name, fields, settings
+ *  POST   forms/{id}/logo             the form's own logo (header)
  *  POST   forms/{id}/duplicate
  *  DELETE forms/{id}                  (its submissions too)
  *  GET    forms/{id}/submissions      ?search &page &per_page &unread &all=1 (export)
@@ -349,7 +350,11 @@ class FormsController extends Controller
             $set['fields'] = json_encode(FormSchema::fields($v['fields']));
         }
         if (array_key_exists('settings', $v)) {
-            $set['settings'] = json_encode(FormSchema::settings($v['settings']));
+            $s = FormSchema::settings($v['settings']);
+            if ($s['logo_path'] !== '' && ! CompanyFiles::owns($s['logo_path'], (int) $f->company_id, 'form-logos')) {
+                $s['logo_path'] = '';
+            }
+            $set['settings'] = json_encode($s);
         }
         if (! empty($v['next_number'])) {
             // Never below a number already used.
@@ -359,6 +364,21 @@ class FormsController extends Controller
         DB::table('forms')->where('id', $f->id)->update($set);
 
         return response()->json(['form' => $this->out(DB::table('forms')->find($f->id), true)]);
+    }
+
+    /**
+     * POST forms/{id}/logo {image} -- the form's own logo (public folder
+     * files/company_{id}/form-logos/; the "forms" folder is private). Returns the
+     * path; the builder puts it in settings.logo_path and saves.
+     */
+    public function uploadLogo(Request $request, int $id)
+    {
+        $this->can($request, 'forms_manage');
+        $f = $this->form($request, $id);
+        $request->validate(['image' => 'required|file|mimes:png,jpg,jpeg,webp,gif|max:2048']);
+        $path = CompanyFiles::putUpload((int) $f->company_id, 'form-logos', $request->file('image'));
+
+        return response()->json(['path' => $path, 'url' => '/'.$path]);
     }
 
     /**

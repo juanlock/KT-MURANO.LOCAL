@@ -745,6 +745,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::put('/{id}', 'update')->whereNumber('id');
         Route::post('/{id}/duplicate', 'duplicate')->whereNumber('id');
         Route::post('/{id}/share-email', 'shareEmail')->whereNumber('id');
+        Route::post('/{id}/logo', 'uploadLogo')->whereNumber('id');
         Route::delete('/{id}', 'destroy')->whereNumber('id');
         Route::get('/{id}/submissions', 'submissions')->whereNumber('id');
     });

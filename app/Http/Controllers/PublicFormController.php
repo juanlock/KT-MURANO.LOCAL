@@ -39,8 +39,15 @@ class PublicFormController extends Controller
         return [$f, json_decode((string) $f->fields, true) ?: [], FormSchema::settings(json_decode((string) $f->settings, true))];
     }
 
-    private function brand(int $companyId): array
+    /** The header's logo / name: the company's, the form's own (settings.logo = custom) or none. */
+    private function brand(int $companyId, array $s): array
     {
+        if ($s['logo'] === 'none') {
+            return ['name' => '', 'logo' => null];
+        }
+        if ($s['logo'] === 'custom') {
+            return ['name' => '', 'logo' => CompanyFiles::owns($s['logo_path'], $companyId, 'form-logos') ? '/'.$s['logo_path'] : null];
+        }
         $name = (string) DB::table('companies')->where('id', $companyId)->value('name');
         $logo = (string) DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->value('logo');
         $url = null;
@@ -61,7 +68,7 @@ class PublicFormController extends Controller
         }
         $view = view('forms.public', [
             'form' => $f, 'fields' => $fields, 's' => $s, 'embed' => $embed, 'open' => $open,
-            'brand' => $this->brand((int) $f->company_id),
+            'brand' => $this->brand((int) $f->company_id, $s),
             'stamp' => encrypt(time()),
             'action' => url('/f/'.$f->public_key),
             'sent' => session('form_sent_'.$f->id),

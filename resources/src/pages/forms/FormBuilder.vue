@@ -245,6 +245,57 @@
                   <a-form-item :label="es ? 'Bordes redondeados' : 'Rounded corners'">
                     <a-slider v-model:value="s.radius" :min="0" :max="24" @change="dirty = true" />
                   </a-form-item>
+                  <a-form-item :label="es ? 'Ancho' : 'Width'" :extra="es ? 'Ancho máximo. Insertado en una web, nunca más que el espacio que le da la web.' : 'Maximum width. Embedded on a website, never more than the space the website gives it.'">
+                    <div class="fb-band">
+                      <a-checkbox :checked="s.width === 0" @change="e => { s.width = e.target.checked ? 0 : 760; dirty = true; }">{{ es ? 'Completo' : 'Full' }}</a-checkbox>
+                      <a-slider v-if="s.width !== 0" v-model:value="s.width" :min="480" :max="1200" :step="10" style="flex: 1" :tip-formatter="v => v + ' px'" @change="dirty = true" />
+                      <span v-if="s.width !== 0" class="fb-muted">{{ s.width }} px</span>
+                    </div>
+                  </a-form-item>
+
+                  <div class="fb-sec">{{ es ? 'Encabezado' : 'Header' }}</div>
+                  <a-form-item :label="es ? 'Logo' : 'Logo'">
+                    <a-radio-group v-model:value="s.logo" @change="dirty = true">
+                      <a-radio value="company">{{ es ? 'El de la empresa' : 'The company\'s' }}</a-radio>
+                      <a-radio value="custom">{{ es ? 'Uno propio' : 'Its own' }}</a-radio>
+                      <a-radio value="none">{{ es ? 'Ninguno' : 'None' }}</a-radio>
+                    </a-radio-group>
+                  </a-form-item>
+                  <a-form-item v-if="s.logo === 'custom'">
+                    <div class="fb-logo">
+                      <div class="fb-logo-box" :style="{ background: s.header_background || s.background }">
+                        <img v-if="s.logo_path" :src="'/' + s.logo_path" alt="">
+                        <span v-else class="fb-muted">{{ es ? 'Sin logo' : 'No logo' }}</span>
+                      </div>
+                      <a-upload :show-upload-list="false" accept=".png,.jpg,.jpeg,.webp,.gif" :before-upload="uploadLogo">
+                        <a-button :loading="logoBusy"><UploadOutlined /> {{ es ? 'Subir logo' : 'Upload logo' }}</a-button>
+                      </a-upload>
+                    </div>
+                  </a-form-item>
+                  <a-row v-if="s.logo !== 'none'" :gutter="12">
+                    <a-col :span="12">
+                      <a-form-item :label="es ? 'Franja detrás del logo' : 'Band behind the logo'">
+                        <div class="fb-band">
+                          <a-checkbox :checked="!!s.header_background" @change="e => { s.header_background = e.target.checked ? '#6b7280' : ''; dirty = true; }" />
+                          <input v-if="s.header_background" v-model="s.header_background" type="color" class="fb-color" @input="dirty = true">
+                        </div>
+                      </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                      <a-form-item :label="es ? 'Alto del logo' : 'Logo height'">
+                        <a-slider v-model:value="s.logo_height" :min="24" :max="160" @change="dirty = true" />
+                      </a-form-item>
+                    </a-col>
+                  </a-row>
+                  <a-form-item :label="es ? 'Alineación' : 'Alignment'" :extra="es ? 'Logo, título, descripción, títulos de sección y botón.' : 'Logo, title, description, section headings and button.'">
+                    <a-radio-group v-model:value="s.align" button-style="solid" @change="dirty = true">
+                      <a-radio-button value="left">{{ es ? 'Izquierda' : 'Left' }}</a-radio-button>
+                      <a-radio-button value="center">{{ es ? 'Centrado' : 'Centered' }}</a-radio-button>
+                    </a-radio-group>
+                  </a-form-item>
+                  <a-form-item v-if="s.logo !== 'none'">
+                    <a-checkbox v-model:checked="s.header_in_embed" @change="dirty = true">{{ es ? 'Mostrar el logo también insertado en una web' : 'Show the logo also when embedded on a website' }}</a-checkbox>
+                  </a-form-item>
                 </a-col>
               </a-row>
             </a-form>
@@ -259,8 +310,12 @@
           <!-- ============ PREVIEW ============ -->
           <a-tab-pane key="preview" :tab="es ? 'Vista previa' : 'Preview'">
             <a-alert v-if="dirty" type="info" show-icon style="margin-bottom: 12px" :message="es ? 'La vista previa muestra lo guardado: guarda para ver los cambios.' : 'The preview shows what is saved: save to see your changes.'" />
-            <div class="fb-preview" :style="{ background: s.page_background }">
-              <iframe v-if="tab === 'preview'" :key="previewKey" :src="form.links.embed + '?preview=' + previewKey" title="Preview" />
+            <a-radio-group v-model:value="previewMode" button-style="solid" size="small" style="margin-bottom: 10px">
+              <a-radio-button value="page">{{ es ? 'Su propia página' : 'Its own page' }}</a-radio-button>
+              <a-radio-button value="embed">{{ es ? 'Insertado en una web' : 'Embedded on a website' }}</a-radio-button>
+            </a-radio-group>
+            <div class="fb-preview" :style="{ background: previewMode === 'embed' ? '#ffffff' : s.page_background }">
+              <iframe v-if="tab === 'preview'" :key="previewKey + previewMode" :src="(previewMode === 'embed' ? form.links.embed : form.links.page) + '?preview=' + previewKey" title="Preview" />
             </div>
           </a-tab-pane>
         </a-tabs>
@@ -277,7 +332,7 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { message, Modal } from 'ant-design-vue';
 import {
   SaveOutlined, CodeOutlined, InboxOutlined, DeleteOutlined, CopyOutlined, ArrowUpOutlined, ArrowDownOutlined,
-  HolderOutlined, ExclamationCircleOutlined,
+  HolderOutlined, ExclamationCircleOutlined, UploadOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import EmbedCodeModal from './EmbedCodeModal.vue';
@@ -324,6 +379,8 @@ const tab = ref('fields');
 const selected = ref(null);
 const previewKey = ref(Date.now());
 const embedOpen = ref(false);
+const previewMode = ref('page');
+const logoBusy = ref(false);
 let uid = 0;
 
 const s = computed(() => form.value.settings);
@@ -432,6 +489,24 @@ async function save() {
   }
 }
 
+// The form's own logo: uploaded now, kept in settings.logo_path when the form is saved.
+async function uploadLogo(file) {
+  const fd = new FormData();
+  fd.append('image', file);
+  logoBusy.value = true;
+  try {
+    const r = await http.postForm(`forms/${form.value.id}/logo`, fd);
+    s.value.logo_path = r.path;
+    dirty.value = true;
+  } catch (e) {
+    const errs = e?.data?.errors;
+    message.error((errs && Object.values(errs)[0]?.[0]) || e?.data?.message || e.message);
+  } finally {
+    logoBusy.value = false;
+  }
+  return false;
+}
+
 function back() {
   goBack(router, '/forms');
 }
@@ -485,5 +560,10 @@ onMounted(load);
 .fb-sec { font-weight: 600; margin: 6px 0 10px; padding-bottom: 4px; border-bottom: 1px solid rgba(128, 128, 128, 0.2); }
 .fb-color { width: 100%; height: 32px; border: 1px solid rgba(128, 128, 128, 0.35); border-radius: 6px; padding: 2px; background: transparent; }
 .fb-preview { background: #f4f6f8; border-radius: 8px; padding: 16px; }
-.fb-preview iframe { width: 100%; max-width: 760px; height: 760px; border: 0; display: block; margin: 0 auto; background: transparent; }
+.fb-logo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.fb-logo-box { min-width: 160px; height: 64px; padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(128, 128, 128, 0.3); display: flex; align-items: center; justify-content: center; }
+.fb-logo-box img { max-height: 52px; max-width: 220px; object-fit: contain; }
+.fb-band { display: flex; align-items: center; gap: 10px; }
+.fb-band .fb-color { flex: 1; }
+.fb-preview iframe { width: 100%; height: 760px; border: 0; display: block; margin: 0 auto; background: transparent; }
 </style>
