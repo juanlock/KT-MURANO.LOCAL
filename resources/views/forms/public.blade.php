@@ -14,6 +14,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+@if (! empty($go))<meta http-equiv="refresh" content="{{ (int) $go[1] }};url={{ $go[0] }}">@endif
 <title>{{ $s['title'] ?: $form->name }}{{ $embed || $brand['name'] === '' ? '' : ' - '.$brand['name'] }}</title>
 <style>
 :root {
@@ -188,6 +189,14 @@ body {
     window.addEventListener('load', height);
     if (window.ResizeObserver) new ResizeObserver(height).observe(document.body); else setInterval(height, 500);
 
+    // To another address: on its own page directly; in a frame, the website's page --
+    // murano-forms.js moves it (postMessage), a bare <iframe> by moving the top window.
+    function go(url) {
+        if (window.parent === window) { location.href = url; return; }
+        window.parent.postMessage({ type: 'murano-form', key: key, redirect: url }, '*');
+        setTimeout(function () { try { window.top.location.href = url; } catch (e) {} }, 300);
+    }
+
     if (!form || !window.fetch || !window.FormData) return;
     var msg = document.getElementById('fm-msg'), err = document.getElementById('fm-err');
     // Dashboard funnel: "started" once, when the visitor begins typing / choosing.
@@ -217,12 +226,16 @@ body {
             .then(function (res) {
                 btn.disabled = false;
                 if (res.ok) {
-                    if (res.redirect) {
-                        if (window.parent !== window) window.parent.postMessage({ type: 'murano-form', key: key, redirect: res.redirect }, '*');
-                        else location.href = res.redirect;
-                        return;
-                    }
+                    if (res.redirect && !res.redirect_after) { go(res.redirect); return; }
                     msg.textContent = res.message; msg.hidden = false;
+                    if (res.redirect) {
+                        // Message first, then the address (with a link in case the browser blocks it).
+                        var a = document.createElement('a');
+                        a.href = res.redirect; a.target = '_top'; a.textContent = @json($es ? 'Continuar' : 'Continue');
+                        a.style.cssText = 'display:inline-block;margin-top:8px;color:inherit;font-weight:600';
+                        msg.appendChild(document.createElement('br')); msg.appendChild(a);
+                        setTimeout(function () { go(res.redirect); }, res.redirect_after * 1000);
+                    }
                     if (form.dataset.hide === '1') form.hidden = true; else form.reset();
                     window.scrollTo(0, 0);
                     if (window.parent !== window) window.parent.postMessage({ type: 'murano-form', key: key, submitted: true }, '*');

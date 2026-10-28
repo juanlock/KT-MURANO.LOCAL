@@ -34,7 +34,8 @@ class FormSchema
             'description' => '',
             'submit_text' => 'Send',
             'language' => 'en',                  // en | es: built-in messages (required, invalid...)
-            'confirmation' => 'message',         // message | redirect
+            'confirmation' => 'message',         // message | redirect | message_redirect (the message, then the address after redirect_seconds)
+            'redirect_seconds' => 5,
             'success_message' => 'Thank you! We received your message.',
             'redirect_url' => '',
             'hide_after_submit' => true,
@@ -80,7 +81,8 @@ class FormSchema
         }
         $s['allowed_domains'] = array_values(array_filter(array_map(fn ($d) => self::domain((string) $d), (array) $s['allowed_domains'])));
         $s['language'] = in_array($s['language'], ['en', 'es'], true) ? $s['language'] : 'en';
-        $s['confirmation'] = in_array($s['confirmation'], ['message', 'redirect'], true) ? $s['confirmation'] : 'message';
+        $s['confirmation'] = in_array($s['confirmation'], ['message', 'redirect', 'message_redirect'], true) ? $s['confirmation'] : 'message';
+        $s['redirect_seconds'] = max(1, min(60, (int) $s['redirect_seconds']));
         $s['redirect_url'] = preg_match('~^https?://~i', (string) $s['redirect_url']) ? mb_substr((string) $s['redirect_url'], 0, 500) : '';
         $s['min_seconds'] = max(0, min(60, (int) $s['min_seconds']));
         $s['radius'] = max(0, min(24, (int) $s['radius']));

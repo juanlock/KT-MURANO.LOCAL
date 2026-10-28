@@ -23,7 +23,20 @@ class PublicUrl
 
     public static function server(): string
     {
-        return rtrim((string) config('app.url'), '/');
+        return self::secure(rtrim((string) config('app.url'), '/'));
+    }
+
+    /**
+     * http:// -> https:// for a real server (2026-10-27): codes pasted on https
+     * websites are blocked by the browser as "mixed content" otherwise (Turismo's
+     * contact form). Dev hosts (localhost, *.local, *.test, IPs) keep http.
+     */
+    public static function secure(string $url): string
+    {
+        $host = (string) parse_url($url, PHP_URL_HOST);
+        $dev = $host === '' || $host === 'localhost' || preg_match('/\.(local|test|localhost)$/i', $host) || filter_var($host, FILTER_VALIDATE_IP);
+
+        return $dev ? $url : preg_replace('~^http://~i', 'https://', $url);
     }
 
     public static function base(int $companyId): string

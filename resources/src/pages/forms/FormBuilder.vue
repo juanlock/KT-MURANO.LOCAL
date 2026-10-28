@@ -165,12 +165,22 @@
                     <a-radio-group v-model:value="s.confirmation" @change="dirty = true">
                       <a-radio value="message">{{ es ? 'Mostrar un mensaje' : 'Show a message' }}</a-radio>
                       <a-radio value="redirect">{{ es ? 'Ir a otra página' : 'Go to another page' }}</a-radio>
+                      <a-radio value="message_redirect">{{ es ? 'Mensaje y luego otra página' : 'Message, then another page' }}</a-radio>
                     </a-radio-group>
                   </a-form-item>
-                  <a-form-item v-if="s.confirmation === 'message'" :label="es ? 'Mensaje' : 'Message'" :extra="es ? '{number} = número del envío' : '{number} = the submission number'">
+                  <a-form-item v-if="s.confirmation !== 'redirect'" :label="es ? 'Mensaje' : 'Message'" :extra="es ? '{number} = número del envío' : '{number} = the submission number'">
                     <a-textarea v-model:value="s.success_message" :auto-size="{ minRows: 2, maxRows: 6 }" />
                   </a-form-item>
-                  <a-form-item v-else :label="es ? 'Dirección' : 'Address'"><a-input v-model:value="s.redirect_url" placeholder="https://" /></a-form-item>
+                  <a-row v-if="s.confirmation !== 'message'" :gutter="12">
+                    <a-col :span="s.confirmation === 'message_redirect' ? 16 : 24">
+                      <a-form-item :label="es ? 'Dirección' : 'Address'"><a-input v-model:value="s.redirect_url" placeholder="https://" /></a-form-item>
+                    </a-col>
+                    <a-col v-if="s.confirmation === 'message_redirect'" :span="8">
+                      <a-form-item :label="es ? 'Después de (segundos)' : 'After (seconds)'">
+                        <a-input-number v-model:value="s.redirect_seconds" :min="1" :max="60" style="width: 100%" @change="dirty = true" />
+                      </a-form-item>
+                    </a-col>
+                  </a-row>
                   <a-form-item><a-checkbox v-model:checked="s.hide_after_submit" @change="dirty = true">{{ es ? 'Ocultar el formulario después de enviar' : 'Hide the form after sending' }}</a-checkbox></a-form-item>
 
                   <div class="fb-sec">{{ es ? 'Numeración' : 'Numbering' }}</div>

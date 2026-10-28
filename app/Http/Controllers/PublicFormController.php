@@ -72,6 +72,7 @@ class PublicFormController extends Controller
             'stamp' => encrypt(time()),
             'action' => url('/f/'.$f->public_key),
             'sent' => session('form_sent_'.$f->id),
+            'go' => session('form_go_'.$f->id),
             'errors_bag' => session('form_errors_'.$f->id, []),
             'old' => session('form_old_'.$f->id, []),
             'closedMsg' => FormSchema::msg($s['language'], 'closed'),
@@ -182,11 +183,16 @@ class PublicFormController extends Controller
 
         $ref = $s['number_prefix'].$sub->number;
         $message = str_replace('{number}', $ref, $s['success_message']);
-        $redirect = $s['confirmation'] === 'redirect' && $s['redirect_url'] ? $s['redirect_url'] : null;
+        $redirect = in_array($s['confirmation'], ['redirect', 'message_redirect'], true) && $s['redirect_url'] ? $s['redirect_url'] : null;
+        // message_redirect: the message stays on screen, then the address after N seconds.
+        $after = $redirect && $s['confirmation'] === 'message_redirect' ? $s['redirect_seconds'] : 0;
         if ($json) {
-            return response()->json(['ok' => true, 'message' => $message, 'number' => $ref, 'redirect' => $redirect]);
+            return response()->json(['ok' => true, 'message' => $message, 'number' => $ref, 'redirect' => $redirect, 'redirect_after' => $after]);
+        }
+        if ($redirect && ! $after) {
+            return redirect()->away($redirect);
         }
 
-        return $redirect ? redirect()->away($redirect) : back()->with('form_sent_'.$f->id, $message);
+        return back()->with('form_sent_'.$f->id, $message)->with('form_go_'.$f->id, $after ? [$redirect, $after] : null);
     }
 }
