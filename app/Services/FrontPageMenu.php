@@ -38,6 +38,9 @@ class FrontPageMenu
                 'id' => $i['id'] ?? null,
                 'label' => $i['label'],
                 'href' => $i['href'],
+                // Spanish pages (2026-11-01): their own label / link ('' = the label above / the -es twin page).
+                'label_es' => $i['label_es'] ?? '',
+                'href_es' => $i['href_es'] ?? '',
                 'children' => $public($i['children'] ?? []),
             ], $items);
         };
@@ -136,10 +139,20 @@ class FrontPageMenu
             // front page ("index.html#about") -- the section lives there.
             $isEntry = realpath($file) === realpath($entry);
             $depth = substr_count(str_replace('\\', '/', substr($file, strlen($dir) + 1)), '/');
-            $home = str_repeat('../', $depth).basename($entry);
-            $html = self::render($isEntry ? $items : self::pointSectionsHome($items, $home));
-
             $doc = file_get_contents($file);
+            // A Spanish page (name-es.html or <html lang="es">) gets the Spanish labels and the
+            // -es twin of each local page (2026-11-01: KcolTech's Spanish pages showed the English menu).
+            $es = self::isSpanish($file, $doc);
+            $entryName = basename($entry);
+            if ($es) {
+                $twin = self::esTwin($entryName, $dir);
+                $entryName = $twin ?: $entryName;
+                $isEntry = $isEntry || realpath($file) === realpath($dir.'/'.$entryName);
+            }
+            $home = str_repeat('../', $depth).$entryName;
+            $pageItems = $es ? self::spanish($items, $dir) : $items;
+            $html = self::render($isEntry ? $pageItems : self::pointSectionsHome($pageItems, $home));
+
             $new = preg_replace_callback('/'.preg_quote(self::START, '/').'.*?'.preg_quote(self::END, '/').'/s',
                 fn () => self::START.$html.self::END, $doc, -1, $n);
             if ($n) {
@@ -413,6 +426,8 @@ class FrontPageMenu
                 'label' => mb_substr(trim((string) ($i['label'] ?? '')), 0, 80),
                 // Empty = no href (e.g. an onclick-only link like KcolTech's "Spanish").
                 'href' => mb_substr(trim((string) ($i['href'] ?? '')), 0, 500),
+                'label_es' => mb_substr(trim((string) ($i['label_es'] ?? '')), 0, 80),
+                'href_es' => mb_substr(trim((string) ($i['href_es'] ?? '')), 0, 500),
                 'tpl' => array_intersect_key($tpl, array_flip(['li', 'a', 'inner', 'sub_open', 'sub_close'])),
                 'children' => $children,
             ];
@@ -422,6 +437,39 @@ class FrontPageMenu
             array_map(fn ($i) => $mk((array) $i, $topTpl, true, 'm'), array_slice($items, 0, 40)),
             fn ($i) => $i['label'] !== ''
         ));
+    }
+
+    private static function isSpanish(string $file, string $doc): bool
+    {
+        return (bool) preg_match('/-es\.html?$/i', basename($file))
+            || (bool) preg_match('/<html\b[^>]*\blang=["\']es/i', substr($doc, 0, 2000));
+    }
+
+    /** "about.html" -> "about-es.html" when that file exists in the site, else null. */
+    private static function esTwin(string $page, string $dir): ?string
+    {
+        if (! preg_match('/^(.+?)(\.html?)$/i', $page, $m) || preg_match('/-es$/i', $m[1])) {
+            return null;
+        }
+        $twin = $m[1].'-es'.$m[2];
+
+        return is_file($dir.'/'.$twin) ? $twin : null;
+    }
+
+    /** The items as shown on a Spanish page: label_es / href_es, else the -es twin of a local page. */
+    private static function spanish(array $items, string $dir): array
+    {
+        return array_map(function ($i) use ($dir) {
+            $i['label'] = trim((string) ($i['label_es'] ?? '')) ?: $i['label'];
+            if (trim((string) ($i['href_es'] ?? '')) !== '') {
+                $i['href'] = $i['href_es'];
+            } elseif (preg_match('~^([^:/?#][^:?#]*\.html?)(#.*)?$~i', (string) $i['href'], $m) && ($twin = self::esTwin($m[1], $dir))) {
+                $i['href'] = $twin.($m[2] ?? '');
+            }
+            $i['children'] = self::spanish($i['children'] ?? [], $dir);
+
+            return $i;
+        }, $items);
     }
 
     private static function pointSectionsHome(array $items, string $home): array

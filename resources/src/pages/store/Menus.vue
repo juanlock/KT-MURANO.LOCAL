@@ -38,10 +38,12 @@
           <div class="site-help">
             Rename, re-link, add, remove, reorder or nest the website's menu items. The site's own design is kept —
             new items copy the style of the existing ones. Links starting with <code>#</code> jump to a section of the front page.
+            <b>ES</b>: the label on the Spanish pages (<code>name-es.html</code> or <code>lang="es"</code>); their links go to the <code>-es</code> page by themselves when it exists.
           </div>
           <div v-for="(item, idx) in site.items" :key="'s' + idx" class="menu-item">
             <div class="site-row">
               <a-input v-model:value="item.label" size="small" placeholder="Label" style="flex: 1" />
+              <a-input v-model:value="item.label_es" size="small" :placeholder="'ES: ' + (item.label || 'Etiqueta')" style="flex: 1" />
               <a-auto-complete
                 v-model:value="item.href" size="small" style="flex: 1.4" placeholder="Link (#section, page, https://…)"
                 :options="linkOptions" :filter-option="false"
@@ -56,6 +58,7 @@
             <div v-for="(child, cidx) in item.children" :key="'s' + idx + '-' + cidx" class="site-row site-child">
               <span class="site-branch">↳</span>
               <a-input v-model:value="child.label" size="small" placeholder="Label" style="flex: 1" />
+              <a-input v-model:value="child.label_es" size="small" :placeholder="'ES: ' + (child.label || 'Etiqueta')" style="flex: 1" />
               <a-auto-complete
                 v-model:value="child.href" size="small" style="flex: 1.4" placeholder="Link"
                 :options="linkOptions" :filter-option="false"

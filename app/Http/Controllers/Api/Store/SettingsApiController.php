@@ -181,6 +181,10 @@ class SettingsApiController extends Controller
             'items.*.children' => 'nullable|array|max:40',
             'items.*.children.*.label' => 'required|string|max:80',
             'items.*.children.*.href' => 'nullable|string|max:500',
+            'items.*.label_es' => 'nullable|string|max:80',
+            'items.*.href_es' => 'nullable|string|max:500',
+            'items.*.children.*.label_es' => 'nullable|string|max:80',
+            'items.*.children.*.href_es' => 'nullable|string|max:500',
         ]);
         $companyId = (int) $this->resolveActingCompanyId($request);
         abort_unless(\App\Services\FrontPageMenu::get($companyId)['available'], 422, 'This company has no imported front page.');
