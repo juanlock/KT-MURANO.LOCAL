@@ -200,6 +200,36 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-10-27 / 2026-11-01 (Optimum)
+
+- **Marketing never emails another company's customers again.** A campaign
+  reaches only its own company's customers, through that company's own mail
+  server; a company with Marketing switched off never sends (demo companies
+  have it off); test addresses are skipped. SuperAdmin can delete any
+  company's campaign from AdminSystem.
+- **Roles, one group per company**: Admin Compañía, Helpdesk, Website,
+  Formularios (read only), Customer and Employee, plus the business's own
+  roles (hospital, school, manager / field roles). Old Owner / AdminRG /
+  AdminNE / Admin-ALL / Info roles are merged; New Era keeps a single admin.
+- **Forms**:
+  - The public form can have its own header (company or own logo, color band,
+    centered), width, button above or below, a message and then another page
+    after N seconds; fields without a label show no empty line and required
+    errors turn the field red. Form codes for websites are always https.
+  - Submissions open in a large window with Previous / Next, Print, PDF, Send
+    by email and **Attended** with a note; only Manage forms can delete.
+  - Dashboard: submissions per form, Read / Unread (clickable to the report)
+    and a table grouping a form's answers (e.g. complaints by type or agency).
+- **POS**: its settings are a section of Settings, and a new option chooses
+  which roles and users may open / close the register (the POS says who can).
+- **Menu**: the main dashboard is "Tablero Principal" in Spanish. Imported
+  websites get their menu in Spanish on their Spanish pages (KcolTech).
+- **Manual**: updated (new Forms entry), a **Your company** tab with the
+  advantages for the company's type, a PDF manual and a **2-page flyer** per
+  business type and language; SuperAdmin's **Company manuals** page shows them.
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-10-27 (Thundera)
 
 - **Login security, for every way in** (staff login, customer portal, mobile
@@ -370,50 +400,6 @@ Setup: `php artisan migrate`, `npm run build`.
 - **Document Archive and budgets / tax reports** are separated by company;
   Documents is on for every company and comes with every new one. Several
   common messages had wrong Spanish (fixed for everyone).
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-10-20 (Thundera)
-
-- **Production is the only real database.** Each morning dev is replaced by a
-  copy of production in about a minute; code and migrations go up, test data
-  never does. The work log now lives in production. New protocol **A Dormir**:
-  end of the day without touching production (local + production backup,
-  README, commit, push).
-- **Schools and hospitals work as their own type.**
-  - School and hospital data are separated by company (each one sees only its
-    own students, teachers, exams, fees… or patients, doctors, beds…).
-    Hospital invoices and payments post to Accounting.
-  - A school starts with only School, Intranet, Documents, Portfolio and
-    Website; a hospital without Sales, POS, Purchases or Suppliers. School,
-    hospital and real estate open on their own dashboard, with their module
-    first in the menu, no general Dashboard and POS off.
-  - A school gets the roles **Rector, Secretaria, Profesor, Padre de familia
-    and Alumno**.
-  - The School module is fully in Spanish when the app is in Spanish, and its
-    demo data is now a complete school (48 students, timetable, daily
-    attendance, a marked exam, fees) in the company's language.
-- **Company settings are trimmed.** Company admins keep company data, logo,
-  defaults, appearance, email templates, locations and security. Mail
-  settings, payment methods, SMS templates, PayPal, ZATCA, currencies and
-  integrations are the SuperAdmin's. Integrations and webhooks are off for
-  every company.
-- **One mail server for all.** Every company sends through AdminSystem's mail
-  server with the sender "Admin {company}"; new companies get it too, and
-  AdminSystem's Mail page has **Copy to every company**.
-- **SuperAdmin login chooser**: after signing in, go to the dashboard or enter
-  as a company's admin (and come back). Only a SuperAdmin can create or touch
-  a SuperAdmin user. The login page can have its own colour for Spanish.
-- **Websites**: one-page website templates by business type, and a library of
-  ready-made websites to import (also added to KcolTech's portfolio).
-- **Manage Menu** is in Spanish, shows the same names as the side menu, hides
-  groups left empty by a switched-off module, and has ↑ / ↓ / **Move to…**
-  (also to the top level) instead of only drag and drop. **Default order**
-  copies AdminSystem's menu to a company.
-- **System Settings** fully in Spanish; sections a company doesn't use
-  (Prefixes, Invoice PDF, Pharmacy, sales defaults) are hidden. The header
-  bell no longer links to pages you can't open. School / hospital dashboard
-  "outstanding fees" was always 0 — fixed.
 
 Setup: `php artisan migrate`, `npm run build`.
 
