@@ -389,7 +389,8 @@ export const MENU = [
     {
         key: 'dashboard',
         icon: 'bar-chart',
-        label: 'dashboard',
+        // Own key (2026-11-01): "Tablero Principal" / "Dashboard"; 'dashboard' stays "Panel" for the modules' dashboards.
+        label: 'Main_Dashboard',
         to: '/app/dashboard',
         // Roles without the dashboard (e.g. field roles whose home is Daily
         // Tasks) don't see it -- Home takes them to their role's home page.
