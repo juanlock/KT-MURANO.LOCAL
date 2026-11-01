@@ -266,6 +266,46 @@ class FormsController extends Controller
      * of every form the user may see (AdminSystem: all companies), newest first,
      * with its form, number, date, a summary and every field as "label: value".
      */
+    /**
+     * GET forms/{id}/group?field&from&to (dashboard, 2026-11-01): the form's submissions
+     * grouped by the answer of one choice field (e.g. the complaints book by complaint
+     * type or agency). Default field: the choice field with the most options.
+     */
+    public function group(Request $request, int $id)
+    {
+        $this->can($request, 'forms_view');
+        $f = $this->form($request, $id);
+        $choice = array_values(array_filter(FormSchema::inputs(json_decode((string) $f->fields, true) ?: []),
+            fn ($x) => in_array($x['type'], ['select', 'radio', 'checkbox'], true)));
+        $fields = array_map(fn ($x) => ['key' => $x['key'], 'label' => trim(rtrim($x['label'] ?: $x['key'], ':')), 'options' => count($x['options'] ?? [])], $choice);
+        // What the submission is about first (complaint / claim type, reason, "choose an option"), then the most options.
+        $about = fn ($f) => (int) preg_match('/queja|reclamo|motivo|asunto|opci[oó]n|complaint|reason|subject|option/iu', $f['label']);
+        usort($fields, fn ($a, $b) => [$about($b), $b['options']] <=> [$about($a), $a['options']]);
+        $key = collect($fields)->pluck('key')->contains($request->input('field')) ? $request->input('field') : ($fields[0]['key'] ?? null);
+
+        $q = DB::table('form_submissions')->where('form_id', $f->id)->whereNull('deleted_at');
+        if ($from = $request->input('from')) {
+            $q->whereDate('created_at', '>=', $from);
+        }
+        if ($to = $request->input('to')) {
+            $q->whereDate('created_at', '<=', $to);
+        }
+        $counts = [];
+        $total = 0;
+        foreach ($key ? $q->pluck('data') : [] as $raw) {
+            $total++;
+            $v = (json_decode((string) $raw, true) ?: [])[$key] ?? '';
+            foreach ((array) $v ?: [''] as $one) {
+                $one = trim((string) $one) ?: '—';
+                $counts[$one] = ($counts[$one] ?? 0) + 1;
+            }
+        }
+        arsort($counts);
+        $rows = collect($counts)->map(fn ($n, $v) => ['value' => (string) $v, 'count' => $n, 'percent' => $total ? round($n * 100 / $total, 1) : 0])->values()->all();
+
+        return response()->json(['fields' => $fields, 'field' => $key, 'total' => $total, 'rows' => $rows]);
+    }
+
     public function report(Request $request)
     {
         $this->can($request, 'forms_view');

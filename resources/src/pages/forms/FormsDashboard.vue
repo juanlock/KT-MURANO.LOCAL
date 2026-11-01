@@ -52,17 +52,23 @@
           />
         </a-col>
         <a-col :xs="24" :lg="10">
-          <a-card size="small" :title="es ? 'Páginas de origen de los envíos' : 'Where submissions come from'" class="fd-card">
-            <template #extra>
-              <a-tooltip :title="es ? 'Easy Forms mostraba un mapa de ubicaciones, pero nunca tuvo geolocalización activa (todas vacías). Aquí: la página del sitio donde se llenó.' : 'Easy Forms showed a locations map, but geolocation was never active there (all empty). Here: the site page where it was filled.'">
-                <InfoCircleOutlined class="fd-muted" />
-              </a-tooltip>
-            </template>
-            <a-empty v-if="!d.pages.length" />
-            <div v-for="p in d.pages" :key="p.page" class="fd-page">
-              <span class="fd-page-name" :title="p.page">{{ p.page }}</span>
-              <a-progress :percent="pct(p.submissions)" :format="() => p.submissions" size="small" style="flex: 0 0 150px; margin: 0" />
+          <!-- Grouped submissions (2026-11-01, in place of "Where submissions come from"):
+               one form's submissions by the answer of a choice field, e.g. the complaints
+               book by complaint type or agency; follows the dashboard dates. -->
+          <a-card size="small" :title="es ? 'Envíos agrupados' : 'Grouped submissions'" class="fd-card">
+            <div class="fd-group-filters">
+              <a-select v-model:value="groupForm" :options="groupFormOptions" size="small" style="flex: 1; min-width: 0" @change="groupField = undefined; loadGroup()" />
+              <a-select v-model:value="groupField" :options="groupFieldOptions" size="small" style="flex: 1; min-width: 0" :placeholder="es ? 'Agrupar por' : 'Group by'" @change="loadGroup" />
             </div>
+            <a-table :columns="groupColumns" :data-source="group.rows" row-key="value" size="small" :loading="groupLoading"
+              :pagination="{ pageSize: 8, hideOnSinglePage: true, size: 'small' }">
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'percent'">
+                  <a-progress :percent="record.percent" size="small" style="margin: 0; min-width: 90px" />
+                </template>
+              </template>
+            </a-table>
+            <div class="fd-muted fd-small">{{ group.total }} {{ es ? 'envíos en el período' : 'submissions in the period' }}</div>
           </a-card>
         </a-col>
       </a-row>
@@ -216,10 +222,38 @@ async function load() {
   loading.value = true;
   try {
     d.value = await http.get('forms/dashboard', { from: range.value?.[0], to: range.value?.[1] });
+    // Grouped submissions: the form with the most submissions unless one was picked.
+    if (!groupForm.value || !d.value.forms.some(f => f.id === groupForm.value)) groupForm.value = d.value.forms[0]?.id;
+    loadGroup();
   } catch (e) {
     message.error(e?.data?.message || e.message);
   } finally {
     loading.value = false;
+  }
+}
+
+// ---- grouped submissions
+const groupForm = ref(undefined);
+const groupField = ref(undefined);
+const groupLoading = ref(false);
+const group = ref({ fields: [], rows: [], total: 0 });
+const groupFormOptions = computed(() => (d.value.forms || []).map(f => ({ value: f.id, label: f.name })));
+const groupFieldOptions = computed(() => group.value.fields.map(f => ({ value: f.key, label: f.label })));
+const groupColumns = computed(() => [
+  { title: group.value.fields.find(f => f.key === groupField.value)?.label || (es.value ? 'Valor' : 'Value'), dataIndex: 'value', key: 'value', ellipsis: true },
+  { title: es.value ? 'Envíos' : 'Submissions', dataIndex: 'count', key: 'count', align: 'right', width: 80 },
+  { title: '%', key: 'percent', width: 130 },
+]);
+async function loadGroup() {
+  if (!groupForm.value) { group.value = { fields: [], rows: [], total: 0 }; return; }
+  groupLoading.value = true;
+  try {
+    group.value = await http.get(`forms/${groupForm.value}/group`, { field: groupField.value, from: range.value?.[0], to: range.value?.[1] });
+    groupField.value = group.value.field || undefined;
+  } catch (e) {
+    message.error(e?.data?.message || e.message);
+  } finally {
+    groupLoading.value = false;
   }
 }
 
@@ -245,6 +279,7 @@ load();
 .fd-icon { width: 40px; height: 40px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex: none; }
 .fd-strong { font-weight: 600; }
 .fd-card { margin-bottom: 16px; }
+.fd-group-filters { display: flex; gap: 8px; margin-bottom: 8px; }
 .fd-lists { margin-bottom: 0; }
 .fd-tag { margin-inline-start: 6px; }
 .fd-muted { opacity: 0.55; }

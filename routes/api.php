@@ -750,6 +750,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/{id}/logo', 'uploadLogo')->whereNumber('id');
         Route::delete('/{id}', 'destroy')->whereNumber('id');
         Route::get('/{id}/submissions', 'submissions')->whereNumber('id');
+        Route::get('/{id}/group', 'group')->whereNumber('id');
     });
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
     Route::get('employees/{id}/assets', 'hrm\EmployeesController@assets')->whereNumber('id');
