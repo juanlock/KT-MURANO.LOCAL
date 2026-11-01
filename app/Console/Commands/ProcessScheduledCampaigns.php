@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Jobs\SendMarketingCampaign;
 use App\Models\MarketingCampaign;
 use App\Models\MarketingSetting;
+use App\Support\ModuleFlags;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -32,6 +33,13 @@ class ProcessScheduledCampaigns extends Command
             ->get();
 
         foreach ($campaigns as $campaign) {
+            // Only companies that use Marketing (2026-11-01, after the demo campaigns of
+            // 2026-10-27 went out on their own): Business Modules switch "marketing" off = never sent.
+            if (! $campaign->company_id || ! ModuleFlags::enabled((int) $campaign->company_id, 'marketing')) {
+                $this->info('Skipped campaign #'.$campaign->id.': Marketing is off for its company.');
+
+                continue;
+            }
             SendMarketingCampaign::dispatch($campaign->id);
             $this->info('Queued campaign #'.$campaign->id.' ('.$campaign->title.').');
         }

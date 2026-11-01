@@ -7,12 +7,12 @@ use App\Models\MarketingCampaign;
 use App\Models\MarketingCampaignRecipient;
 use App\Models\MarketingSetting;
 use App\Models\Setting;
+use App\Support\CompanyMail;
+use App\Support\ModuleFlags;
 use Carbon\Carbon;
 use GuzzleHttp\Client as HttpClient;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Builds the recipient list for a campaign and delivers it across the
@@ -87,6 +87,16 @@ class MarketingDispatcher
      */
     public function dispatchCampaign(MarketingCampaign $campaign): void
     {
+        // Last check before anything leaves (a job queued earlier, a manual send):
+        // a campaign belongs to one company that has Marketing on.
+        $companyId = (int) $campaign->company_id;
+        if (! $companyId || ! ModuleFlags::enabled($companyId, 'marketing')) {
+            Log::warning('Marketing campaign '.$campaign->id.' not sent: Marketing is off for company '.$companyId.'.');
+            $campaign->update(['status' => 'draft']);
+
+            return;
+        }
+
         $campaign->update(['status' => 'sending']);
 
         // Build the recipient list when there is nothing left to send: either a
@@ -101,10 +111,6 @@ class MarketingDispatcher
         }
 
         $settings = MarketingSetting::current();
-
-        if ($campaign->type === 'email') {
-            $this->configureMail($settings);
-        }
 
         $sent = 0;
         $failed = 0;
@@ -148,6 +154,10 @@ class MarketingDispatcher
                 }
                 if (empty($recipient->email)) {
                     $this->markSkipped($recipient, 'No email address');
+                    return;
+                }
+                if (CompanyMail::reserved($recipient->email)) {
+                    $this->markSkipped($recipient, 'Test address (demo)');
                     return;
                 }
                 $this->sendEmail($campaign, $recipient, $message, $settings);
@@ -202,7 +212,10 @@ class MarketingDispatcher
             }
         }
 
-        Mail::to($recipient->email)->send(new MarketingCampaignEmail([
+        // The campaign company's own mail server and sender (CompanyMail), never the
+        // install's first servers row (another company's: Alo Mundo went out as KcolTech).
+        [$mailer] = CompanyMail::mailer((int) $campaign->company_id);
+        $mailer->to($recipient->email)->send(new MarketingCampaignEmail([
             'subject'      => $this->personalize($campaign->subject ?: $campaign->title, $recipient),
             'body'         => nl2br($message),
             'company_name' => $businessName,
@@ -301,43 +314,5 @@ class MarketingDispatcher
         $full = trim(($client->firstname ?? '').' '.($client->lastname ?? ''));
 
         return $full !== '' ? $full : ($client->name ?: '');
-    }
-
-    /**
-     * Apply the SMTP credentials stored in the servers table (same source the
-     * rest of Stocky uses for outgoing mail).
-     */
-    protected function configureMail(MarketingSetting $settings): void
-    {
-        $server = DB::table('servers')->where('deleted_at', '=', null)->first();
-        $appSettings = DB::table('settings')->where('deleted_at', '=', null)->first();
-
-        if (! $server || ! $appSettings) {
-            return;
-        }
-
-        $fromEmail = $settings->email_from_address
-            ?: (($server->sender_email ?? null) ?: $appSettings->email);
-        $fromName = $settings->email_from_name
-            ?: ($server->sender_name ?? config('app.name'));
-
-        Config::set('mail', [
-            'driver'     => $server->mail_mailer,
-            'host'       => $server->host,
-            'port'       => $server->port,
-            'from'       => ['address' => $fromEmail, 'name' => $fromName],
-            'encryption' => $server->encryption,
-            'username'   => $server->username,
-            'password'   => $server->password,
-            'sendmail'   => '/usr/sbin/sendmail -bs',
-            'pretend'    => false,
-            'stream'     => [
-                'ssl' => [
-                    'allow_self_signed' => true,
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
-                ],
-            ],
-        ]);
     }
 }
