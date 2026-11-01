@@ -30,6 +30,20 @@
           </div>
           <a-switch v-model:checked="requireOpenRegister" />
         </div>
+        <!-- 2026-11-01: who may open / close the register (besides roles with the
+             "Open / close register" permission); the POS message names them. -->
+        <div class="pos-rule pos-rule--block">
+          <div class="pos-rule__label">Who can open / close the register</div>
+          <div class="pos-rule__help">Roles and users allowed to open and close the cash register. Roles that already have the "Open / close register" permission (Roles) can too. Everyone else sells with their PIN on the open register.</div>
+          <a-row :gutter="12" style="margin-top: 8px">
+            <a-col :xs="24" :md="12">
+              <a-select v-model:value="openerRoles" mode="multiple" :options="roleOptions" placeholder="Roles" option-filter-prop="label" style="width: 100%" />
+            </a-col>
+            <a-col :xs="24" :md="12">
+              <a-select v-model:value="openerUsers" mode="multiple" :options="userOptions" placeholder="Users" option-filter-prop="label" style="width: 100%" />
+            </a-col>
+          </a-row>
+        </div>
         <div class="pos-rule">
           <div>
             <div class="pos-rule__label">Open register with PIN</div>
@@ -238,6 +252,10 @@ const closeRegisterEmail = ref(true);
 const bookingIntegration = ref(false);
 // Each POS sale confirmed with the PIN of who makes it (recorded under that user).
 const salePinRequired = ref(false);
+const openerRoles = ref([]);
+const openerUsers = ref([]);
+const roleOptions = ref([]);
+const userOptions = ref([]);
 import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
 import {
@@ -323,6 +341,7 @@ async function save() {
     pos_close_register_email: closeRegisterEmail.value ? 1 : 0,
     pos_booking_integration: bookingIntegration.value ? 1 : 0,
     pos_sale_pin_required: salePinRequired.value ? 1 : 0,
+    pos_register_openers: { roles: openerRoles.value, users: openerUsers.value },
   };
   ALL_FLAGS.forEach(k => {
     body[k] = k === 'cash_drawer_auto_open' ? (v[k] ? 1 : 0) : v[k];
@@ -353,6 +372,10 @@ onMounted(async () => {
     closeRegisterEmail.value = data.pos_close_register_email !== false;
     bookingIntegration.value = data.pos_booking_integration === true;
     salePinRequired.value = data.pos_sale_pin_required === true;
+    openerRoles.value = data.pos_register_openers?.roles || [];
+    openerUsers.value = data.pos_register_openers?.users || [];
+    roleOptions.value = data.register_role_options || [];
+    userOptions.value = data.register_user_options || [];
   } catch (e) {
     message.error(t('InvalidData'));
   } finally {
@@ -373,6 +396,7 @@ onMounted(async () => {
   padding: 10px 0;
   border-bottom: 1px solid rgba(128, 128, 128, 0.15);
 }
+.pos-rule--block { display: block; }
 .pos-rule:last-child {
   border-bottom: 0;
 }

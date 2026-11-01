@@ -740,6 +740,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/submissions/{id}', 'showSubmission')->whereNumber('id');
         Route::put('/submissions/{id}', 'updateSubmission')->whereNumber('id');
         Route::delete('/submissions/{id}', 'destroySubmission')->whereNumber('id');
+        Route::get('/submissions/{id}/pdf', 'submissionPdf')->whereNumber('id');
+        Route::post('/submissions/{id}/resend', 'resendSubmission')->whereNumber('id');
         Route::get('/submissions/{id}/file/{key}', 'file')->whereNumber('id')->where('key', '[a-z0-9_]+');
         Route::get('/{id}', 'show')->whereNumber('id');
         Route::put('/{id}', 'update')->whereNumber('id');

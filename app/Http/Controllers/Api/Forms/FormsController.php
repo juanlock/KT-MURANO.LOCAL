@@ -491,6 +491,8 @@ class FormsController extends Controller
             'id' => $s->id, 'form_id' => $s->form_id, 'number' => (int) $s->number, 'ref' => $prefix.$s->number,
             'data' => json_decode((string) $s->data, true) ?: [], 'is_read' => (bool) $s->is_read,
             'ip' => $s->ip, 'user_agent' => $s->user_agent, 'page_url' => $s->page_url, 'created_at' => $s->created_at,
+            'attended_at' => $s->attended_at ?? null, 'attended_note' => $s->attended_note ?? null,
+            'attended_by_name' => ! empty($s->attended_by) ? DB::table('users')->where('id', $s->attended_by)->value('username') : null,
         ];
     }
 
@@ -524,10 +526,57 @@ class FormsController extends Controller
     {
         $this->can($request, 'forms_view');
         [$s] = $this->submission($request, $id);
-        $v = $request->validate(['is_read' => 'required|boolean']);
-        DB::table('form_submissions')->where('id', $s->id)->update(['is_read' => $v['is_read'], 'updated_at' => now()]);
+        $v = $request->validate([
+            'is_read' => 'sometimes|boolean',
+            // Attended (2026-11-01): who and when are recorded; the note says what was done.
+            'attended' => 'sometimes|boolean',
+            'note' => 'nullable|string|max:5000',
+        ]);
+        $set = ['updated_at' => now()];
+        if (array_key_exists('is_read', $v)) {
+            $set['is_read'] = $v['is_read'];
+        }
+        if (array_key_exists('attended', $v)) {
+            $set += $v['attended']
+                ? ['attended_at' => now(), 'attended_by' => $request->user('api')->id, 'attended_note' => trim(strip_tags((string) ($v['note'] ?? ''))) ?: null, 'is_read' => true]
+                : ['attended_at' => null, 'attended_by' => null, 'attended_note' => null];
+        }
+        DB::table('form_submissions')->where('id', $s->id)->update($set);
+        [$s, $f] = $this->submission($request, $id);
+        $prefix = FormSchema::settings(json_decode((string) $f->settings, true))['number_prefix'];
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'submission' => $this->submissionOut($s, $prefix)]);
+    }
+
+    /** GET forms/submissions/{id}/pdf -- the submission as a PDF (also what Print shows). */
+    public function submissionPdf(Request $request, int $id)
+    {
+        $this->can($request, 'forms_view');
+        [$s, $f] = $this->submission($request, $id);
+        $set = FormSchema::settings(json_decode((string) $f->settings, true));
+        $rows = \App\Services\FormNotifier::summary($f, json_decode((string) $f->fields, true) ?: [], $set, $s);
+        $company = trim((string) DB::table('companies')->where('id', $f->company_id)->value('name'));
+        $html = '<html><head><meta charset="utf-8"><style>body{font-family:DejaVu Sans, sans-serif;font-size:11px;color:#222}'
+            .'h2{font-size:15px;margin:0 0 4px}.c{color:#666;margin-bottom:12px}table{border-collapse:collapse;width:100%}'
+            .'td{padding:5px 8px;border-bottom:1px solid #ddd;vertical-align:top}td.k{color:#555;width:32%}</style></head><body>'
+            .'<h2>'.e($f->name).'</h2><div class="c">'.e($company).'</div><table>'
+            .collect($rows)->map(fn ($v, $k) => '<tr><td class="k">'.e($k).'</td><td>'.nl2br(e($v)).'</td></tr>')->implode('')
+            .'</table></body></html>';
+        $name = preg_replace('/[^\w\- ]+/', '', $f->name) ?: 'form';
+
+        return \PDF::loadHTML($html, 'UTF-8')->download(trim($name).' '.$set['number_prefix'].$s->number.'.pdf');
+    }
+
+    /** POST forms/submissions/{id}/resend {to: [emails], message?} */
+    public function resendSubmission(Request $request, int $id)
+    {
+        $this->can($request, 'forms_view');
+        [$s, $f] = $this->submission($request, $id);
+        $v = $request->validate(['to' => 'required|array|min:1|max:20', 'to.*' => 'email:rfc|max:190', 'message' => 'nullable|string|max:5000']);
+        $set = FormSchema::settings(json_decode((string) $f->settings, true));
+        $sent = \App\Services\FormNotifier::resend($f, json_decode((string) $f->fields, true) ?: [], $set, $s, $v['to'], trim(strip_tags((string) ($v['message'] ?? ''))));
+
+        return response()->json(['sent' => $sent], $sent ? 200 : 422);
     }
 
     public function destroySubmission(Request $request, int $id)

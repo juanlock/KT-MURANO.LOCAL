@@ -297,6 +297,12 @@
                       </a-form-item>
                     </a-col>
                   </a-row>
+                  <a-form-item :label="es ? 'Botón de enviar' : 'Send button'">
+                    <a-radio-group v-model:value="s.button_position" button-style="solid" @change="dirty = true">
+                      <a-radio-button value="bottom">{{ es ? 'Debajo del formulario' : 'Below the form' }}</a-radio-button>
+                      <a-radio-button value="top">{{ es ? 'Arriba del formulario' : 'Above the form' }}</a-radio-button>
+                    </a-radio-group>
+                  </a-form-item>
                   <a-form-item :label="es ? 'Alineación' : 'Alignment'" :extra="es ? 'Logo, título, descripción, títulos de sección y botón.' : 'Logo, title, description, section headings and button.'">
                     <a-radio-group v-model:value="s.align" button-style="solid" @change="dirty = true">
                       <a-radio-button value="left">{{ es ? 'Izquierda' : 'Left' }}</a-radio-button>

@@ -64,7 +64,9 @@ class CompanyProvisioner
 
             // Roles: copy the template company's, permissions included.
             $roleMap = [];
-            $templateRoles = DB::table('roles')->where('company_id', Setting::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')->get();
+            // Only the standard set (2026-11-01, CompanyRoles); Supplier / Sales Agent / Online Store come on demand.
+            $templateRoles = DB::table('roles')->where('company_id', Setting::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')
+                ->whereIn('name', \App\Support\CompanyRoles::STANDARD)->get();
             foreach ($templateRoles as $tr) {
                 $newId = DB::table('roles')->insertGetId([
                     'company_id' => $cid, 'name' => $tr->name, 'label' => $tr->label,
@@ -127,8 +129,11 @@ class CompanyProvisioner
             ]);
 
             // The company's admin user.
-            $roleName = $admin['role'] ?? 'Admin-ALL';
-            $roleId = $roleMap[$roleName] ?? $roleMap['Admin-ALL'] ?? $roleMap['Admin'] ?? reset($roleMap);
+            foreach (\App\Support\CompanyRoles::STANDARD as $std) {
+                $roleMap[$std] ??= \App\Support\CompanyRoles::ensure($cid, $std);
+            }
+            $roleName = $admin['role'] ?? \App\Support\CompanyRoles::ADMIN;
+            $roleId = $roleMap[$roleName] ?? $roleMap[\App\Support\CompanyRoles::ADMIN];
             $firstname = trim($admin['firstname']);
             $lastname = trim($admin['lastname'] ?? '') ?: $company['name'];
             $user = User::create([

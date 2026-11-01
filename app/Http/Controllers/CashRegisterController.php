@@ -29,8 +29,16 @@ class CashRegisterController extends BaseController
     private function abortUnlessCanOpenClose(Request $request): void
     {
         $user = $request->user('api');
-        $ok = $user && ($user->type === 'SuperAdmin' || (bool) $user->roles()->first()?->permissions->contains('name', 'register_open_close'));
-        abort_unless($ok, 403, 'Only a manager can open or close the register. Sell with your PIN on the open register.');
+        abort_unless($user, 403);
+        if (\App\Support\PosRegisterOpeners::allows($user)) {
+            return;
+        }
+        // Say who can, and where an admin changes it (2026-11-01).
+        $who = \App\Support\PosRegisterOpeners::names((int) $user->company_id);
+        $es = str_starts_with((string) app()->getLocale(), 'es');
+        abort(403, $es
+            ? 'No puede abrir ni cerrar la caja. Pueden: '.($who ?: 'solo los administradores').'. Un administrador lo cambia en Configuración → POS → "Quién abre / cierra la caja". Mientras tanto venda con su PIN en la caja abierta.'
+            : 'You cannot open or close the register. Allowed: '.($who ?: 'administrators only').'. An admin changes this in Settings → POS → "Who can open / close the register". Meanwhile, sell with your PIN on the open register.');
     }
 
     public function openRegister(Request $request)

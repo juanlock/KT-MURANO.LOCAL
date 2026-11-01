@@ -54,8 +54,8 @@ class SchoolRoles
                 continue;
             }
             if ($perms === null) {
-                $adminRole = DB::table('roles')->where('company_id', $companyId)->whereIn('name', ['Admin-ALL', 'Owner'])
-                    ->whereNull('deleted_at')->orderByRaw("name = 'Admin-ALL' desc")->value('id');
+                $adminRole = DB::table('roles')->where('company_id', $companyId)->whereIn('name', [CompanyRoles::ADMIN, 'Admin-ALL', 'Owner'])
+                    ->whereNull('deleted_at')->orderByRaw('name = ? desc', [CompanyRoles::ADMIN])->value('id');
                 $perms = array_merge(self::SCHOOL_ALL, $adminRole
                     ? DB::table('permission_role')->join('permissions', 'permissions.id', '=', 'permission_role.permission_id')
                         ->where('role_id', $adminRole)->pluck('permissions.name')->all()

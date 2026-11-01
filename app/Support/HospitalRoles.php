@@ -19,8 +19,9 @@ use Illuminate\Support\Facades\DB;
 class HospitalRoles
 {
     // Helpdesk / Info: the standard access logins of every company (CompanyLogins, 2026-10-25).
-    private const KEEP = ['Admin-ALL' => 'Administrador', 'Customer' => 'Paciente (cliente)', 'Supplier' => 'Proveedor', 'Employee' => 'Personal sin rol',
-        'Helpdesk' => 'Helpdesk', 'Info' => 'Info'];
+    // + every company's standard roles (CompanyRoles, 2026-11-01).
+    private const KEEP = ['Admin Compañía' => 'Administrador', 'Customer' => 'Paciente (cliente)', 'Supplier' => 'Proveedor', 'Employee' => 'Personal sin rol',
+        'Helpdesk' => 'Helpdesk'];
 
     /** name => [label, description, home page, permissions] */
     public const ROLES = [
@@ -73,7 +74,8 @@ class HospitalRoles
 
         // 1. Remove the roles that are neither kept nor hospital roles (their users -> Employee).
         foreach ($roles as $r) {
-            if (isset(self::KEEP[$r->name]) || isset($set[$r->name])) {
+            if (isset(self::KEEP[$r->name]) || isset($set[$r->name])
+                || in_array($r->name, array_merge(CompanyRoles::STANDARD, CompanyRoles::AUTO), true)) {
                 continue;
             }
             if ($employeeRole) {

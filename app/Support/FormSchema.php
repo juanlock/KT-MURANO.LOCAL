@@ -70,6 +70,7 @@ class FormSchema
             'align' => 'left',                   // left | center: logo, title and description
             'header_in_embed' => false,          // the logo also inside an iframe on a website
             'width' => 760,                      // the form's maximum width in px (0 = the whole width)
+            'button_position' => 'bottom',       // bottom | top: the submit button below or above the fields
         ];
     }
 
@@ -96,6 +97,7 @@ class FormSchema
         $s['header_background'] = preg_match('/^#[0-9a-f]{3,8}$/i', (string) $s['header_background']) ? $s['header_background'] : '';
         $s['align'] = $s['align'] === 'center' ? 'center' : 'left';
         $s['header_in_embed'] = (bool) $s['header_in_embed'];
+        $s['button_position'] = $s['button_position'] === 'top' ? 'top' : 'bottom';
         $s['width'] = (int) $s['width'] === 0 ? 0 : max(480, min(1200, (int) $s['width']));
         foreach (['title', 'submit_text', 'notify_subject', 'number_prefix', 'reply_to_field', 'confirm_field', 'confirm_subject', 'from_name'] as $k) {
             $s[$k] = mb_substr(strip_tags((string) $s[$k]), 0, 190);

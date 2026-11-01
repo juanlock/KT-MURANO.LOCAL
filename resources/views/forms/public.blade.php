@@ -62,7 +62,7 @@ body {
 .fm-choice input { margin-top: 3px; accent-color: var(--fm-primary); }
 .fm-help { color: var(--fm-muted); font-size: .88em; margin-top: 4px; }
 .fm-error { color: var(--fm-error); font-size: .88em; margin-top: 4px; }
-.fm-col.has-error .fm-input, .fm-col.has-error .fm-select, .fm-col.has-error .fm-textarea { border-color: var(--fm-error); }
+.fm-col.has-error .fm-input, .fm-col.has-error .fm-select, .fm-col.has-error .fm-textarea { border-color: var(--fm-error); background: #fdecea; }
 .fm-heading { margin: 10px 0 2px; {{ $center ? 'text-align: center;' : '' }} }
 .fm-paragraph { margin: 0; color: var(--fm-muted); white-space: pre-line; {{ $center ? 'text-align: center;' : '' }} }
 .fm-divider { border: 0; border-top: 1px solid var(--fm-line); margin: 6px 0; }
@@ -100,6 +100,9 @@ body {
         @if ($s['honeypot'])
             <div class="fm-hp" aria-hidden="true"><label>Website <input type="text" name="_hp" tabindex="-1" autocomplete="off"></label></div>
         @endif
+        @if ($s['button_position'] === 'top')
+            <div style="margin-bottom: 14px; {{ $center ? 'text-align: center;' : '' }}"><button type="submit" class="fm-btn">{{ $s['submit_text'] ?: ($es ? 'Enviar' : 'Send') }}</button></div>
+        @endif
         <div class="fm-grid">
         @foreach ($fields as $f)
             @php $k = $f['key']; $id = 'fm_'.$k; $w = $f['width'] ?? 'full'; @endphp
@@ -119,7 +122,10 @@ body {
                     <hr class="fm-divider">
                     @break
                 @default
-                    @if (! in_array($f['type'], ['checkbox', 'radio'], true))
+                    {{-- No label (placeholder-only fields): no empty line and no *; a required one
+                         shows its error by the field's background. --}}
+                    @if (trim((string) $f['label']) === '')
+                    @elseif (! in_array($f['type'], ['checkbox', 'radio'], true))
                         <label class="fm-label" for="{{ $id }}">{{ $f['label'] }}@if ($f['required'])<span class="fm-star" title="{{ $req }}">*</span>@endif</label>
                     @else
                         <span class="fm-label">{{ $f['label'] }}@if ($f['required'])<span class="fm-star" title="{{ $req }}">*</span>@endif</span>
@@ -167,7 +173,9 @@ body {
             </div>
         @endforeach
         </div>
-        <div @if ($center) style="text-align: center" @endif><button type="submit" class="fm-btn">{{ $s['submit_text'] ?: ($es ? 'Enviar' : 'Send') }}</button></div>
+        @if ($s['button_position'] !== 'top')
+            <div @if ($center) style="text-align: center" @endif><button type="submit" class="fm-btn">{{ $s['submit_text'] ?: ($es ? 'Enviar' : 'Send') }}</button></div>
+        @endif
     </form>
     @endif
 </div>

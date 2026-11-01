@@ -79,6 +79,39 @@ class FormNotifier
         return $sent;
     }
 
+    /** [label => text] of a submission with its number and date first (PDF, print, resend). */
+    public static function summary(object $form, array $fields, array $s, object $sub): array
+    {
+        $es = $s['language'] === 'es';
+        $rows = [($es ? 'Formulario' : 'Form') => $form->name, ($es ? 'Número' : 'Number') => $s['number_prefix'].$sub->number,
+            ($es ? 'Fecha' : 'Date') => (string) $sub->created_at] + self::rows($fields, $sub);
+        if (! empty($sub->attended_at)) {
+            $rows[$es ? 'Atendido' : 'Attended'] = $sub->attended_at.(! empty($sub->attended_note) ? "\n".$sub->attended_note : '');
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Submissions -> "Send by email" (2026-11-01): the submission to the addresses
+     * staff type, through the company's mail server. @return array<string> sent to
+     */
+    public static function resend(object $form, array $fields, array $s, object $sub, array $to, string $message = ''): array
+    {
+        $cid = (int) $form->company_id;
+        $to = array_values(array_unique(array_filter($to, fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL) && ! self::reserved($e))));
+        if (! $to) {
+            return [];
+        }
+        $company = trim((string) DB::table('companies')->where('id', $cid)->value('name')) ?: 'Forms';
+        $rows = self::summary($form, $fields, $s, $sub);
+        $subject = $form->name.' - '.$s['number_prefix'].$sub->number;
+        $html = self::html($message, $rows, null, null, '#1677ff', $company);
+        $text = ($message !== '' ? $message."\n\n" : '').collect($rows)->map(fn ($v, $k) => "{$k}: {$v}")->implode("\n")."\n\n--\n{$company}";
+
+        return self::send($cid, $to, [], $s['from_name'] ?: $company, $subject, $html, $text, null, (int) $form->id);
+    }
+
     public static function submitted(object $form, array $fields, array $s, object $sub): array
     {
         $cid = (int) $form->company_id;

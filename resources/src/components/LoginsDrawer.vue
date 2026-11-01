@@ -161,10 +161,11 @@ async function openAs(r, enablePortal = false) {
 
 // What the login is for: its role's description, else a sentence by role / type.
 const FUNCTION_BY_ROLE = {
-  'Admin-ALL': ['Runs the whole company: every module, users and settings.', 'Administra toda la empresa: todos los módulos, usuarios y configuración.'],
-  Owner: ['Owner of the company: every module.', 'Dueño de la empresa: todos los módulos.'],
+  // Standard roles of every company (App\Support\CompanyRoles, 2026-11-01).
+  'Admin Compañía': ['Runs the whole company: every form and module, users and settings.', 'Administra toda la empresa: todos los formularios y módulos, usuarios y configuración.'],
   Helpdesk: ['Support: works the helpdesk tickets and reads the company mail.', 'Soporte: atiende los tickets de helpdesk y lee el correo de la empresa.'],
-  Info: ['The info@ mailbox: reads and answers the company email, registers customers.', 'Buzón info@: lee y responde el correo de la empresa, registra clientes.'],
+  Website: ['Website management and the portfolio.', 'Administración del sitio web y el portafolio.'],
+  Formularios: ['The company forms and their submissions, read only.', 'Los formularios de la empresa y sus envíos, solo lectura.'],
   Employee: ['Staff without a role yet: intranet and own employee file.', 'Personal sin rol todavía: intranet y su ficha de empleado.'],
   // Hospital roles (App\Support\HospitalRoles)
   Emergency: ['Emergency room: arrivals, triage, the ER board, its patients and their history.', 'Emergencias: llegadas, triaje, el tablero de emergencia, sus pacientes y su historia.'],

@@ -754,6 +754,13 @@ class SettingsController extends Controller
             'pos_close_register_email' => (bool) ($settings->pos_close_register_email ?? true),
             'pos_booking_integration' => (bool) ($settings->pos_booking_integration ?? false),
             'pos_sale_pin_required' => (bool) ($settings->pos_sale_pin_required ?? false),
+            // Who can open / close the register (2026-11-01) + the company's roles and staff logins to pick from.
+            'pos_register_openers' => \App\Support\PosRegisterOpeners::get((int) $this->resolveActingCompanyId($request)),
+            'register_role_options' => \Illuminate\Support\Facades\DB::table('roles')->where('company_id', $this->resolveActingCompanyId($request))->whereNull('deleted_at')
+                ->orderBy('name')->get(['id', 'name'])->map(fn ($r) => ['value' => (int) $r->id, 'label' => $r->name])->values(),
+            'register_user_options' => \Illuminate\Support\Facades\DB::table('users')->where('company_id', $this->resolveActingCompanyId($request))->whereNull('deleted_at')
+                ->where('statut', 1)->whereIn(\Illuminate\Support\Facades\DB::raw('lower(type)'), ['admin', 'employee'])
+                ->orderBy('username')->get(['id', 'username', 'email'])->map(fn ($u) => ['value' => (int) $u->id, 'label' => $u->username.' ('.$u->email.')'])->values(),
         ], 200);
 
     }
@@ -809,6 +816,14 @@ class SettingsController extends Controller
                 }
                 $settings->save();
             }
+        }
+
+        if ($request->has('pos_register_openers')) {
+            $cid = (int) $this->resolveActingCompanyId($request);
+            $o = (array) $request->input('pos_register_openers');
+            $clean = \App\Support\PosRegisterOpeners::clean($cid, (array) ($o['roles'] ?? []), (array) ($o['users'] ?? []));
+            \Illuminate\Support\Facades\DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')
+                ->update(['pos_register_openers' => json_encode($clean)]);
         }
 
         // Build a partial update array so that each page only updates

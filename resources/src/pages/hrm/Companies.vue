@@ -460,7 +460,7 @@ const emptyCreate = () => ({
     ? locale.value
     : (options.value.template_defaults?.default_language || 'en'),
   currency_id: options.value.template_defaults?.currency_id || options.value.currencies?.[0]?.id,
-  admin_firstname: '', admin_lastname: '', admin_email: '', admin_password: '', admin_role: 'Admin-ALL',
+  admin_firstname: '', admin_lastname: '', admin_email: '', admin_password: '', admin_role: 'Admin Compañía',
   with_helpdesk: true, helpdesk_firstname: 'Helpdesk', helpdesk_lastname: '', helpdesk_login_email: '', helpdesk_password: '',
   domains: '', website_mode: 'default', website_url: '',
   demo_data: false,
@@ -488,11 +488,8 @@ const cform = ref(emptyCreate());
 // cform exists: declared earlier, its getter failed and it never fired --
 // AquaExpress was created with every module off, 2026-10-19.)
 watch(() => cform.value.business_type, v => { if (v) tickTypeModules(); });
-const roleOptions = sortByLabel([
-  { value: 'Admin-ALL', label: 'Admin-ALL (full access)' },
-  { value: 'Admin', label: 'Admin (standard)' },
-  { value: 'Owner', label: 'Owner' },
-]);
+// Every company has one admin role now (App\Support\CompanyRoles, 2026-11-01).
+const roleOptions = [{ value: 'Admin Compañía', label: 'Admin Compañía' }];
 const createRules = computed(() => ({
   ...profileRules(),
   logo_data: [{ required: true, message: 'Upload the company logo' }],

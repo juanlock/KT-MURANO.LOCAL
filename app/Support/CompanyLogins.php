@@ -33,9 +33,10 @@ class CompanyLogins
 
     /** access => [role, permissions of the role when it has to be made (null = copy the template's)]. */
     public const ACCESS = [
-        'admin' => ['Admin-ALL', null],
+        // 2026-11-01 (CompanyRoles): Admin-ALL -> Admin Compañía, Info -> Formularios (read only).
+        'admin' => [CompanyRoles::ADMIN, null],
         'helpdesk' => ['Helpdesk', ['helpdesk_view', 'helpdesk_manage', 'intranet_view', 'email_office_view', 'Customers_view']],
-        'info' => ['Info', ['dashboard', 'email_office_view', 'email_office_manage', 'Customers_view', 'Customers_add', 'Customers_edit', 'helpdesk_view', 'intranet_view']],
+        'info' => [CompanyRoles::FORMS, ['forms_view']],
     ];
 
     /** The company's prefix for its logins: the one its admin login already uses, else its name. */
@@ -80,7 +81,8 @@ class CompanyLogins
     public static function role(int $companyId, string $access): int
     {
         [$name, $perms] = self::ACCESS[$access];
-        $id = DB::table('roles')->where('company_id', $companyId)->where('name', $name)->whereNull('deleted_at')->value('id');
+        $id = DB::table('roles')->where('company_id', $companyId)->where('name', $name)->whereNull('deleted_at')->value('id')
+            ?? CompanyRoles::ensure($companyId, $name);
         if ($id) {
             return (int) $id;
         }

@@ -939,7 +939,10 @@ const routes = [
             // Legacy route has no permission gate — keep it open the same way.
             { path: 'settings/custom-fields', name: 'custom-fields', component: CustomFields, meta: { title: 'Custom Fields' } },
             { path: 'settings/backup', name: 'backup', component: Backup, meta: { title: 'Backup', permission: 'backup', superAdminOnly: true, systemOnly: true } },
-            { path: 'settings/pos', name: 'pos-settings', component: PosSettings, meta: { title: 'POS Settings', permission: 'pos_settings' } },
+            // POS Settings is a section of Settings (2026-11-01); the page stays for a role
+            // with pos_settings but without System Settings.
+            { path: 'settings/pos', name: 'pos-settings', component: PosSettings, meta: { title: 'POS Settings', permission: 'pos_settings' },
+              beforeEnter: () => (useAuthStore().can('setting_system') ? { path: '/settings/system', query: { tab: 'pos' } } : true) },
             // Old standalone Appearance page -- it duplicated System Settings ->
             // Integrations -> Appearance (same component); kept only as a
             // redirect so old links/bookmarks land on that tab.

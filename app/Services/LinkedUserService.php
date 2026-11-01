@@ -35,8 +35,11 @@ class LinkedUserService
      */
     public static function provision(int $companyId, string $type, string $roleName, string $displayName, ?string $email = null, ?string $phone = null): int
     {
-        $roleId = Role::where('company_id', $companyId)->where('name', $roleName)->value('id')
-            ?? Role::where('company_id', $companyId)->where('name', 'Customer')->value('id');
+        // The type's role, created when the company doesn't have it yet (Supplier / Sales Agent /
+        // Online Store only exist where used, CompanyRoles 2026-11-01).
+        $roleId = Role::where('company_id', $companyId)->where('name', $roleName)->whereNull('deleted_at')->value('id')
+            ?? \App\Support\CompanyRoles::ensure($companyId, $roleName)
+            ?? Role::where('company_id', $companyId)->where('name', 'Customer')->whereNull('deleted_at')->value('id');
 
         $username = self::uniqueUsername($displayName ?: $type);
         $finalEmail = self::uniqueEmail($email, $username);
@@ -119,7 +122,8 @@ class LinkedUserService
         // Assign the type's own role first, independent of whether the
         // linked record below can actually be created -- a user shouldn't
         // end up stuck with the wrong role just because HR setup is missing.
-        $roleId = Role::where('company_id', $companyId)->where('name', $roleName)->value('id');
+        $roleId = Role::where('company_id', $companyId)->where('name', $roleName)->whereNull('deleted_at')->value('id')
+            ?? \App\Support\CompanyRoles::ensure($companyId, $roleName);
         if ($roleId) {
             $user->role_id = $roleId;
             $user->save();

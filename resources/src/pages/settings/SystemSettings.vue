@@ -52,8 +52,11 @@
               <a-menu-item key="demo"><ExperimentOutlined /> {{ ls('Demo Data') }}</a-menu-item>
               <a-menu-item key="calendar"><CalendarOutlined /> {{ ls('Calendar') }}</a-menu-item>
             </a-menu-item-group>
-            <!-- No POS group here: all POS settings (general, company rules,
-                 receipt, network printing) live on Settings -> POS Settings. -->
+            <!-- POS (2026-11-01): the POS Settings page as a section here
+                 (/settings/pos redirects to ?tab=pos). -->
+            <a-menu-item-group v-if="auth.moduleEnabled('pos') && auth.can('pos_settings')" title="POS">
+              <a-menu-item key="pos"><ShopOutlined /> {{ ls('POS Settings') }}</a-menu-item>
+            </a-menu-item-group>
             <a-menu-item-group :title="ls('Integrations')">
               <a-menu-item key="appearance"><SkinOutlined /> {{ ls('Appearance') }}</a-menu-item>
               <a-menu-item key="pwa"><MobileOutlined /> {{ ls('PWA') }}</a-menu-item>
@@ -1503,6 +1506,7 @@ const embeddedPages = {
   devices: lazySection(() => import('./LoginDevices.vue')),
   invoice_pdf: lazySection(() => import('./InvoicePdfSettings.vue')),
   demo: lazySection(() => import('./DemoDataGenerator.vue')),
+  pos: lazySection(() => import('./PosSettings.vue')),
 };
 
 // The embedded ZATCA page writes zatca_enabled / vat_number / company_name_ar
@@ -1555,6 +1559,7 @@ const currentSection = computed(() => ({
   custom_fields: { title: ls('Custom fields'), desc: ls('Extra fields on customers, suppliers and documents.') },
   backups: { title: ls('Backup archives'), desc: ls('Generate and download database backups.') },
   devices: { title: ls('Login devices'), desc: ls('Active sessions across devices and browsers.') },
+  pos: { title: ls('POS Settings'), desc: ls('Point of sale: company rules, cash register, receipt and printing.') },
 }[activeTab.value] || { title: '', desc: '' }));
 
 const setting = ref({});
