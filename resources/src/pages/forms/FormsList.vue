@@ -17,7 +17,8 @@
       <a-table :columns="columns" :data-source="rows" :loading="loading" row-key="id" size="middle" :pagination="{ pageSize: 20, hideOnSinglePage: true }">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'name'">
-            <router-link :to="`/forms/${record.id}/edit`" class="fl-name">{{ record.name }}</router-link>
+            <!-- Read-only roles (Formularios) open the submissions: the editor needs Manage forms. -->
+          <router-link :to="canManage ? `/forms/${record.id}/edit` : `/forms/${record.id}/submissions`" class="fl-name">{{ record.name }}</router-link>
             <a-tag v-if="record.legacy" color="default" class="fl-tag">{{ es ? 'Importado' : 'Imported' }}</a-tag>
           </template>
           <template v-else-if="column.key === 'status'">
