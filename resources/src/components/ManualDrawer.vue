@@ -59,7 +59,11 @@
         <a-select v-if="isSystemView" v-model:value="pickedType" :options="typeOptions" style="width: 100%; margin-bottom: 12px" />
         <h2 class="md-h2">{{ L('Murano for', 'Murano para') }} {{ adv.label[lang] }}</h2>
         <p class="md-intro"><strong>{{ adv.tagline[lang] }}</strong> {{ adv.intro[lang] }}</p>
-        <a-button type="primary" block :href="pdfUrl" target="_blank" style="margin-bottom: 14px">
+        <!-- The 2-page promotional flyer of the type (with its graphic) and the full manual. -->
+        <a-button type="primary" block :href="flyerUrl" target="_blank" style="margin-bottom: 8px">
+          <DownloadOutlined /> {{ L('Download the flyer (2 pages, PDF)', 'Descargar el flyer (2 páginas, PDF)') }}
+        </a-button>
+        <a-button block :href="pdfUrl" target="_blank" style="margin-bottom: 14px">
           <DownloadOutlined /> {{ L('Download the manual (PDF)', 'Descargar el manual (PDF)') }}
         </a-button>
         <div class="md-label">{{ L('What Murano does for you', 'Lo que Murano hace por usted') }}</div>
@@ -150,6 +154,7 @@ const adv = computed(() => {
   return pickedType.value ? a : { ...a, common: a.common.filter(c => !c.module || auth.moduleEnabled(c.module)) };
 });
 const pdfUrl = computed(() => `/manual/murano-${shownType.value}-${lang.value}.pdf`);
+const flyerUrl = computed(() => `/manual/flyer-${shownType.value}-${lang.value}.pdf`);
 
 // ---------------- what this user may see ----------------
 const anyPerm = list => !list || !list.length || list.some(p => auth.can(p));

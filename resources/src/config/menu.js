@@ -46,6 +46,7 @@ export const MIGRATED_ROUTES = {
     '/app/settings/paypal': '/settings/paypal',
     '/app/settings/system_health': '/settings/system-health',
     '/app/settings/kt_log': '/settings/kt-log',
+    '/app/settings/company_manuals': '/settings/company-manuals',
     '/app/settings/sms_templates': '/settings/sms-templates',
     '/app/settings/email_templates': '/settings/email-templates',
     '/app/settings/Backup': '/settings/backup',
@@ -1104,6 +1105,8 @@ export const MENU = [
             { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'], systemOnly: true },
             // KT-Log (2026-10-26): the kt_logs work history -- superadmin/AdminSystem only.
             { label: 'KT_Log', to: '/app/settings/kt_log', permissions: ['kt_logs_view'], superAdminOnly: true, systemOnly: true },
+            // Company manuals (2026-11-01): flyer + text manual per company / business type.
+            { label: 'Company_Manuals', to: '/app/settings/company_manuals', permissions: ['company_manuals_view'], superAdminOnly: true, systemOnly: true },
             { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true, systemOnly: true },
             // Company-level (not superAdminOnly): a role with network_security manages its own company.
             { label: 'Network_Security', to: '/app/settings/network_security', permissions: ['network_security'] },

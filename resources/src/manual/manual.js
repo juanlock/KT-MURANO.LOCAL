@@ -1245,6 +1245,14 @@ export const MANUAL = [
         },
       },
       {
+        id: 'company-manuals', perms: ['company_manuals_view'], paths: ['settings/company-manuals'],
+        title: { en: 'Company manuals (SuperAdmin on AdminSystem)', es: 'Manuales por empresa (SuperAdmin en AdminSystem)' },
+        steps: {
+          en: ['Every company with its business type (or every type): pick one and see its **2-page flyer** (graphic of the business flow and its advantages, to promote Murano) or its **text manual**, in Spanish or English, right on the page.', '**Open / download** gets the PDF. Each company\'s users download their own from the manual (book icon) › **Your company**.'],
+          es: ['Cada empresa con su tipo de negocio (o cada tipo): elija una y vea su **flyer de 2 páginas** (gráfico del flujo del negocio y sus ventajas, para promocionar Murano) o su **manual textual**, en español o inglés, en la misma página.', '**Abrir / descargar** baja el PDF. Los usuarios de cada empresa descargan el suyo desde el manual (ícono del libro) › **Su empresa**.'],
+        },
+      },
+      {
         id: 'kt-log', perms: ['kt_logs_view'], paths: ['settings/kt-log'],
         title: { en: 'KT-Log (SuperAdmin on AdminSystem)', es: 'KT-Log (SuperAdmin en AdminSystem)' },
         steps: {

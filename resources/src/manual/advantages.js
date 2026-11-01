@@ -256,6 +256,33 @@ export const TYPES = {
   },
 };
 
+/**
+ * The flyer's opening graphic per type (2026-11-01): an icon, the type's color and
+ * the business flow Murano covers, step by step (public/manual/flyer-{type}-{lang}.pdf).
+ */
+const F = (icon, en, es) => ({ icon, t: { en, es } });
+export const FLYER = {
+  general: { icon: '🏢', color: '#4f46e5', flow: [F('🧾', 'Quote', 'Cotiza'), F('🛒', 'Sell', 'Vende'), F('💳', 'Get paid', 'Cobra'), F('📊', 'Measure', 'Mide')] },
+  it_services: { icon: '💻', color: '#2563eb', flow: [F('📩', 'Request', 'Solicitud'), F('🗂️', 'Project', 'Proyecto'), F('🛠️', 'Service', 'Servicio'), F('🔁', 'Monthly billing', 'Cobro mensual')] },
+  landscaping: { icon: '🌿', color: '#16a34a', flow: [F('📅', 'Schedule', 'Programa'), F('🚚', 'Crew on route', 'Cuadrilla en ruta'), F('✅', 'Job done', 'Trabajo hecho'), F('💵', 'Invoice', 'Factura')] },
+  salon: { icon: '💇', color: '#db2777', flow: [F('📱', 'Online booking', 'Reserva en línea'), F('📸', 'Choose the style', 'Elige el estilo'), F('✂️', 'Service', 'Servicio'), F('💳', 'Pay with PIN', 'Cobro con PIN')] },
+  barber: { icon: '💈', color: '#0f766e', flow: [F('📱', 'Booking', 'Reserva'), F('📸', 'Pick the cut', 'Elige el corte'), F('✂️', 'Barber', 'Barbero'), F('💵', 'Commission', 'Comisión')] },
+  retail: { icon: '🛍️', color: '#ea580c', flow: [F('📦', 'Stock', 'Stock'), F('🏪', 'Store and online', 'Tienda y en línea'), F('💳', 'Sale', 'Venta'), F('📣', 'Campaign', 'Campaña')] },
+  restaurant: { icon: '🍽️', color: '#dc2626', flow: [F('📱', 'Tablet menu', 'Menú en tablet'), F('👨‍🍳', 'Kitchen', 'Cocina'), F('🍲', 'Served', 'Servido'), F('💳', 'Charge', 'Cobro')] },
+  professional: { icon: '💼', color: '#475569', flow: [F('📅', 'Consultation', 'Consulta'), F('🗂️', 'Engagement', 'Encargo'), F('⏱️', 'Hours', 'Horas'), F('🧾', 'Fees', 'Honorarios')] },
+  laundry: { icon: '🧺', color: '#0891b2', flow: [F('📅', 'Pick-up', 'Recojo'), F('🫧', 'Washing', 'Lavado'), F('📦', 'Delivery', 'Entrega'), F('💳', 'Charge', 'Cobro')] },
+  delivery: { icon: '🚚', color: '#ca8a04', flow: [F('📦', 'Order', 'Pedido'), F('🧭', 'Driver assigned', 'Chofer asignado'), F('✅', 'Delivered', 'Entregado'), F('🧾', 'Invoice', 'Factura')] },
+  catering: { icon: '🥘', color: '#b45309', flow: [F('📝', 'Quote the event', 'Cotiza el evento'), F('👨‍🍳', 'Kitchen', 'Cocina'), F('🚚', 'Delivery', 'Entrega'), F('🎉', 'Event served', 'Evento servido')] },
+  call_center: { icon: '🎧', color: '#7c3aed', flow: [F('📣', 'Campaign', 'Campaña'), F('☎️', 'Contact', 'Contacto'), F('🎫', 'Ticket', 'Ticket'), F('📊', 'Results', 'Resultados')] },
+  real_estate: { icon: '🏠', color: '#0d9488', flow: [F('🏷️', 'Listing', 'Propiedad'), F('🌐', 'Inquiry', 'Consulta'), F('🔑', 'Showing', 'Visita'), F('🤝', 'Closing', 'Cierre')] },
+  legal: { icon: '⚖️', color: '#1e3a8a', flow: [F('📅', 'Consultation', 'Consulta'), F('📁', 'Case', 'Caso'), F('⏱️', 'Hours', 'Horas'), F('🧾', 'Invoice', 'Factura')] },
+  hospital: { icon: '🏥', color: '#0284c7', flow: [F('🪪', 'Admission', 'Admisión'), F('🩺', 'Triage', 'Triaje'), F('🛏️', 'Bed and care', 'Cama y cuidados'), F('💳', 'Discharge and billing', 'Alta y cobro')] },
+  health_specialist: { icon: '🩺', color: '#0369a1', flow: [F('📅', 'Appointment', 'Cita'), F('🪪', 'Check-in', 'Llegada'), F('💉', 'Nursing', 'Enfermería'), F('📋', 'Consultation', 'Consulta')] },
+  factory: { icon: '🏭', color: '#57534e', flow: [F('📐', 'Bill of materials', 'Lista de materiales'), F('⚙️', 'Production', 'Producción'), F('🔍', 'Quality', 'Calidad'), F('🚚', 'Delivery', 'Entrega')] },
+  school: { icon: '🏫', color: '#9333ea', flow: [F('📝', 'Enrollment', 'Matrícula'), F('📚', 'Classes', 'Clases'), F('📝', 'Exams', 'Exámenes'), F('💳', 'Fees', 'Pensiones')] },
+  tourism: { icon: '🚌', color: '#7e22ce', flow: [F('🗺️', 'Tour', 'Tour'), F('📅', 'Reservation', 'Reserva'), F('🚌', 'Trip', 'Viaje'), F('📖', 'Complaints answered', 'Reclamos atendidos')] },
+};
+
 /** The type's own points + the common ones for the modules it starts with. */
 export function advantagesFor(type, modules = null) {
   const t = TYPES[type] || TYPES.general;

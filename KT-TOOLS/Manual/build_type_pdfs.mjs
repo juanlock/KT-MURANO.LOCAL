@@ -22,7 +22,7 @@ async function load(rel) {
   try { return await import(pathToFileURL(tmp).href); } finally { fs.unlinkSync(tmp); }
 }
 const { MANUAL, MANUAL_UPDATED } = await load('resources/src/manual/manual.js');
-const { TYPES, advantagesFor } = await load('resources/src/manual/advantages.js');
+const { TYPES, FLYER, advantagesFor } = await load('resources/src/manual/advantages.js');
 const types = JSON.parse(fs.readFileSync(path.join(here, 'business_types.json'), 'utf8'));
 const outDir = path.join(root, 'public', 'manual');
 fs.mkdirSync(outDir, { recursive: true });
@@ -80,6 +80,104 @@ function html(type, l) {
     </div></body></html>`;
 }
 
+// ---- The promotional flyer (user's request, 2026-11-01): two A4 pages per type and language,
+// opening with the type's graphic (icon + the business flow Murano covers), then its advantages;
+// page 2: what every company gets, the modules and how to ask for a demo.
+const FT = {
+  en: { for: 'Murano for', how: 'How it works in your business', all: 'All in Murano', adv: 'Advantages for you', plus: 'Also included', mods: 'Modules included', demo: 'Ask for a free demo', cloud: 'In the cloud · computer, tablet and phone · English and Spanish' },
+  es: { for: 'Murano para', how: 'Cómo funciona en su negocio', all: 'Todo en Murano', adv: 'Ventajas para usted', plus: 'Además, incluido', mods: 'Módulos incluidos', demo: 'Pida una demostración gratuita', cloud: 'En la nube · computadora, tablet y celular · español e inglés' },
+};
+// Module keys (config/modules.js) as people read them.
+const MOD = {
+  accounting: ['Accounting', 'Contabilidad'], assets: ['Assets', 'Activos'], documents: ['Documents', 'Documentos'], email_office: ['Email Office', 'Email Office'],
+  forms: ['Forms', 'Formularios'], gallery: ['Gallery', 'Galería'], helpdesk: ['Helpdesk', 'Helpdesk'], hrm: ['HR and payroll', 'RR. HH. y planillas'],
+  website: ['Website', 'Sitio web'], sales: ['Sales', 'Ventas'], pos: ['POS', 'Punto de venta'], purchases: ['Purchases', 'Compras'], suppliers: ['Suppliers', 'Proveedores'],
+  products: ['Products and stock', 'Productos y stock'], customers: ['Customers', 'Clientes'], bookings: ['Bookings', 'Reservas'], commissions: ['Commissions', 'Comisiones'],
+  portfolio: ['Portfolio', 'Portafolio'], promotions: ['Promotions', 'Promociones'], marketing: ['Marketing', 'Marketing'], meeting: ['Meetings', 'Reuniones'],
+  projects: ['Projects', 'Proyectos'], service: ['Service jobs', 'Trabajos de servicio'], fleet: ['Fleet', 'Flota'], kitchen: ['Kitchen', 'Cocina'],
+  EWallet: ['E-Wallet', 'Monedero'], Store: ['Online store', 'Tienda en línea'], recruit: ['Recruitment', 'Reclutamiento'], realestate: ['Real estate', 'Bienes raíces'],
+  hospital: ['Hospital management', 'Gestión hospitalaria'], manufacturing: ['Manufacturing (MRP)', 'Manufactura (MRP)'], school: ['School management', 'Gestión escolar'],
+  intranet: ['Intranet', 'Intranet'],
+};
+const modName = (m, l) => (MOD[m] ? MOD[m][l === 'es' ? 1 : 0] : m);
+
+function flyerHtml(type, l) {
+  const mods = types[type].modules;
+  const a = advantagesFor(type, mods);
+  const f = FLYER[type] || FLYER.general;
+  const c = f.color;
+  const css = `
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; color: #1f2328; font-size: 12px; line-height: 1.45; }
+    .page { width: 210mm; height: 297mm; padding: 0 0 12mm; position: relative; overflow: hidden; break-after: page; }
+    .page:last-child { break-after: auto; }
+    .hero { background: linear-gradient(135deg, ${c} 0%, #1e1b4b 100%); color: #fff; padding: 16mm 14mm 12mm; position: relative; }
+    .hero .brand { font-weight: 700; letter-spacing: 2px; font-size: 11px; opacity: .85; }
+    .hero h1 { font-size: 30px; margin: 6px 0 4px; line-height: 1.15; max-width: 140mm; }
+    .hero .tag { font-size: 16px; font-weight: 600; margin: 0 0 6px; max-width: 140mm; }
+    .hero .intro { opacity: .9; max-width: 135mm; margin: 0; }
+    .hero .big { position: absolute; right: 14mm; top: 14mm; width: 42mm; height: 42mm; border-radius: 50%; background: rgba(255,255,255,.15);
+      border: 3px solid rgba(255,255,255,.45); display: flex; align-items: center; justify-content: center; font-size: 72px; }
+    .wrap { padding: 0 14mm; }
+    h2 { color: ${c}; font-size: 17px; margin: 9mm 0 4mm; }
+    .flow { display: flex; align-items: flex-start; justify-content: space-between; position: relative; padding: 2mm 2mm 0; }
+    .flow::before { content: ''; position: absolute; left: 14mm; right: 14mm; top: 15mm; height: 4px; background: linear-gradient(90deg, ${c}, #a5b4fc); border-radius: 2px; }
+    .step { width: 38mm; text-align: center; position: relative; }
+    .step .dot { width: 26mm; height: 26mm; margin: 0 auto 3mm; border-radius: 50%; background: #fff; border: 4px solid ${c};
+      display: flex; align-items: center; justify-content: center; font-size: 36px; box-shadow: 0 3px 10px rgba(0,0,0,.12); }
+    .step .n { position: absolute; top: -1mm; left: 6mm; background: ${c}; color: #fff; border-radius: 50%; width: 7mm; height: 7mm; font-size: 11px;
+      font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .step b { font-size: 12.5px; }
+    .hub { margin: 4mm auto 0; width: 70mm; text-align: center; background: ${c}; color: #fff; border-radius: 20px; padding: 2mm 0; font-weight: 700; letter-spacing: .5px; }
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+    .card { border: 1px solid #e5e7eb; border-left: 5px solid ${c}; border-radius: 8px; padding: 3mm 4mm; background: #fafafa; }
+    .card b { display: block; font-size: 13px; color: #111827; margin-bottom: 1mm; }
+    .card.wide { grid-column: span 2; }
+    .cards3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3.5mm; }
+    .mini { border-radius: 8px; padding: 3mm; background: #f5f3ff; }
+    .mini b { display: block; color: #3b2f8f; margin-bottom: 1mm; }
+    .chips span { display: inline-block; background: #eef2ff; color: #3730a3; border-radius: 12px; padding: 1mm 3mm; margin: 0 2mm 2mm 0; font-size: 11px; }
+    .modband { position: absolute; left: 14mm; right: 14mm; bottom: 12mm; border: 2px solid ${c}; border-radius: 12px; padding: 5mm 6mm 3mm; background: #fff; }
+    .modband .mt { color: ${c}; font-weight: 700; font-size: 15px; margin-bottom: 3mm; }
+    .modband .chips span { font-size: 12px; padding: 1.2mm 3.5mm; }
+    .cta { position: absolute; left: 14mm; right: 14mm; bottom: 14mm; background: linear-gradient(135deg, ${c}, #1e1b4b); color: #fff; border-radius: 12px; padding: 7mm 8mm; }
+    .cta h3 { margin: 0 0 2mm; font-size: 20px; }
+    .cta .line { font-size: 13px; opacity: .95; }
+    .cta .small { font-size: 11px; opacity: .8; margin-top: 2mm; }
+    .p2head { padding: 12mm 14mm 0; display: flex; align-items: center; gap: 4mm; }
+    .p2head .ic { font-size: 34px; } .p2head .t { font-size: 18px; font-weight: 700; color: ${c}; }
+  `;
+  const steps = f.flow.map((s, i) => `<div class="step"><span class="n">${i + 1}</span><div class="dot">${s.icon}</div><b>${esc(s.t[l])}</b></div>`).join('');
+  const pts = a.points.map((p, i) => `<div class="card${i === a.points.length - 1 && a.points.length % 2 ? ' wide' : ''}"><b>${esc(p.t[l])}</b>${esc(p.d[l])}</div>`).join('');
+  return `<!doctype html><html lang="${l}"><head><meta charset="utf-8"><title>Murano - ${esc(a.label[l])}</title><style>${css}</style></head><body>
+    <div class="page">
+      <div class="hero"><div class="brand">MURANO · KCOLTECH</div><div class="big">${f.icon}</div>
+        <h1>${FT[l].for} ${esc(a.label[l])}</h1><p class="tag">${esc(a.tagline[l])}</p><p class="intro">${esc(a.intro[l])}</p></div>
+      <div class="wrap">
+        <h2>${FT[l].how}</h2><div class="flow">${steps}</div><div class="hub">${FT[l].all}</div>
+        <h2>${FT[l].adv}</h2><div class="cards">${pts}</div>
+      </div>
+      <div class="modband"><div class="mt">${FT[l].mods}</div><div class="chips">${mods.map(m => `<span>${esc(modName(m, l))}</span>`).join('')}</div></div>
+    </div>
+    <div class="page">
+      <div class="p2head"><span class="ic">${f.icon}</span><span class="t">Murano · ${esc(a.label[l])}</span></div>
+      <div class="wrap">
+        <h2>${FT[l].plus}</h2><div class="cards3">${a.common.map(p => `<div class="mini"><b>${esc(p.t[l])}</b>${esc(p.d[l])}</div>`).join('')}</div>
+      </div>
+      <div class="cta"><h3>${FT[l].demo}</h3>
+        <div class="line">KcolTech · +1 732-547-5393 · info@kcoltech.com</div>
+        <div class="line">kcoltech.com · murano.kcoltech.com</div>
+        <div class="small">${FT[l].cloud}</div></div>
+    </div></body></html>`;
+}
+
+// Preview: FLYER_HTML=<file> FLYER_TYPE=hospital FLYER_LANG=es writes one flyer's HTML and stops.
+if (process.env.FLYER_HTML) {
+  fs.writeFileSync(process.env.FLYER_HTML, flyerHtml(process.env.FLYER_TYPE || 'general', process.env.FLYER_LANG || 'es'));
+  process.exit(0);
+}
+
 const chrome = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'].find(p => fs.existsSync(p));
 let b;
 try { b = await chromium.launch({ channel: 'msedge' }); } catch (e) { b = await chromium.launch(chrome ? { executablePath: chrome } : {}); }
@@ -94,6 +192,10 @@ for (const type of Object.keys(types)) {
       headerTemplate: '<span></span>',
       footerTemplate: `<div style="font-size:8px;width:100%;text-align:center;color:#888">Murano · ${esc(TYPES[type].label[l])} · ${T[l].updated} ${MANUAL_UPDATED} · ${T[l].page} <span class="pageNumber"></span> ${T[l].of} <span class="totalPages"></span></div>`,
       margin: { top: '14mm', bottom: '16mm', left: '13mm', right: '13mm' } });
+    n++;
+    // The flyer: exactly two pages, no header / footer.
+    await pg.setContent(flyerHtml(type, l), { waitUntil: 'load' });
+    await pg.pdf({ path: path.join(outDir, `flyer-${type}-${l}.pdf`), format: 'A4', printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 } });
     n++;
   }
 }

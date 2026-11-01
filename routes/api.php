@@ -752,6 +752,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/{id}/submissions', 'submissions')->whereNumber('id');
         Route::get('/{id}/group', 'group')->whereNumber('id');
     });
+    // Settings -> Company manuals (superadmin/AdminSystem, 2026-11-01).
+    Route::get('company-manuals', [\App\Http\Controllers\CompanyManualsController::class, 'index']);
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
     Route::get('employees/{id}/assets', 'hrm\EmployeesController@assets')->whereNumber('id');
     Route::get('employees/{id}/print', 'hrm\EmployeesController@printProfile')->whereNumber('id');
