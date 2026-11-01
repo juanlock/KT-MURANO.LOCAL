@@ -31,7 +31,7 @@
 
       <!-- The 4 small cards: icon + value -->
       <div class="fd-grid4">
-        <div v-for="k in smallCards" :key="k.key" class="fd-card4 fd-small-card">
+        <div v-for="k in smallCards" :key="k.key" class="fd-card4 fd-small-card" :style="k.to ? 'cursor: pointer' : ''" @click="k.to && router.push(k.to)">
           <span class="fd-icon" :style="{ background: k.color }"><component :is="k.icon" /></span>
           <div>
             <div class="fd-strong">{{ k.value }}</div>
@@ -177,14 +177,19 @@ const bigCards = computed(() => {
     { key: 'abandons', label: es.value ? 'Abandonos' : 'Abandons', value: c.abandons, rateLabel: es.value ? 'Tasa de abandono' : 'Abandonment rate', rate: c.abandonment_rate || 0, color: '#ef4444', bad: true },
   ];
 });
+// Small cards (user's request, 2026-11-01): the submissions of each form in the
+// period (e.g. contacts, complaints -- up to two, most used first), then read / unread.
 const smallCards = computed(() => {
   const c = d.value.cards || {};
-  const f = es.value ? 'formularios' : 'forms';
+  const s = es.value ? 'envíos' : 'submissions';
+  const perForm = (d.value.forms || []).slice(0, 2).map(f => ({
+    key: 'form-' + f.id, icon: SendOutlined, color: '#1677ff', value: `${num(f.submissions)} ${s}`,
+    label: f.name, to: `/forms/${f.id}/submissions`,
+  }));
   return [
-    { key: 'viewed', icon: EyeOutlined, color: '#1677ff', value: `${num(c.viewed_forms)} ${f}`, label: es.value ? 'Vistos' : 'Viewed' },
-    { key: 'filled', icon: CheckSquareOutlined, color: '#1677ff', value: `${num(c.filled_forms)} ${f}`, label: es.value ? 'Llenados' : 'Filled' },
-    { key: 'submitted', icon: SendOutlined, color: '#10b981', value: `${num(c.submitted_forms)} ${f}`, label: es.value ? 'Enviados' : 'Submitted' },
-    { key: 'time', icon: ClockCircleOutlined, color: '#ef4444', value: duration(c.avg_fill_seconds), label: es.value ? 'Tiempo promedio de llenado' : 'Average filling time' },
+    ...perForm,
+    { key: 'read', icon: CheckSquareOutlined, color: '#10b981', value: num(c.period_read), label: es.value ? 'Leídos' : 'Read' },
+    { key: 'unread', icon: EyeOutlined, color: '#ef4444', value: num(c.period_unread), label: es.value ? 'Por leer' : 'Unread' },
   ];
 });
 const lists = computed(() => [

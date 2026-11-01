@@ -244,6 +244,9 @@ class FormsController extends Controller
                 'avg_fill_seconds' => (int) round($avgMs / 1000),
                 'views' => (int) ($t->v ?? 0),
                 'unread' => (int) array_sum($unreadByForm->all()),
+                // Read / unread submissions of the period (dashboard cards, 2026-11-01).
+                'period_read' => (clone $subs)->where('is_read', true)->count(),
+                'period_unread' => (clone $subs)->where('is_read', false)->count(),
                 'forms' => $forms->count(), 'published' => $forms->where('status', 1)->count(),
             ],
             'series' => $series,
