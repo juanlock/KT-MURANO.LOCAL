@@ -285,6 +285,10 @@ class FormsController extends Controller
         if ($s = trim((string) $request->input('search'))) {
             $q->where('data', 'like', '%'.str_replace(['%', '_'], ['\%', '\_'], $s).'%');
         }
+        // read=1 read only, read=0 unread only (dashboard cards, 2026-11-01).
+        if (in_array((string) $request->input('read'), ['0', '1'], true)) {
+            $q->where('is_read', (bool) $request->input('read'));
+        }
         $total = (clone $q)->count();
         $q->orderByDesc('created_at')->orderByDesc('id');
         if ($request->boolean('all')) {

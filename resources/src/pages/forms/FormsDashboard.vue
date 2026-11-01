@@ -177,6 +177,8 @@ const bigCards = computed(() => {
     { key: 'abandons', label: es.value ? 'Abandonos' : 'Abandons', value: c.abandons, rateLabel: es.value ? 'Tasa de abandono' : 'Abandonment rate', rate: c.abandonment_rate || 0, color: '#ef4444', bad: true },
   ];
 });
+// The submissions report filtered by read / unread, same dates as the dashboard.
+const reportLink = read => ({ path: '/forms/report', query: { read, from: range.value?.[0] || d.value.from, to: range.value?.[1] || d.value.to } });
 // Small cards (user's request, 2026-11-01): the submissions of each form in the
 // period (e.g. contacts, complaints -- up to two, most used first), then read / unread.
 const smallCards = computed(() => {
@@ -188,8 +190,8 @@ const smallCards = computed(() => {
   }));
   return [
     ...perForm,
-    { key: 'read', icon: CheckSquareOutlined, color: '#10b981', value: num(c.period_read), label: es.value ? 'Leídos' : 'Read' },
-    { key: 'unread', icon: EyeOutlined, color: '#ef4444', value: num(c.period_unread), label: es.value ? 'Por leer' : 'Unread' },
+    { key: 'read', icon: CheckSquareOutlined, color: '#10b981', value: num(c.period_read), label: es.value ? 'Leídos' : 'Read', to: reportLink('1') },
+    { key: 'unread', icon: EyeOutlined, color: '#ef4444', value: num(c.period_unread), label: es.value ? 'Por leer' : 'Unread', to: reportLink('0') },
   ];
 });
 const lists = computed(() => [

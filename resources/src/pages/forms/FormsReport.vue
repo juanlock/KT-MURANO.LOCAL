@@ -10,6 +10,7 @@
       <div class="fr-filters">
         <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" allow-all compact @change="reload" />
         <a-select v-model:value="formId" :options="formOptions" allow-clear show-search option-filter-prop="label" style="width: 280px" :placeholder="es ? 'Todos los formularios' : 'All forms'" @change="reload" />
+        <a-select v-model:value="readFilter" :options="readOptions" allow-clear style="width: 150px" :placeholder="es ? 'Leídos y por leer' : 'Read and unread'" @change="reload" />
         <a-input-search v-model:value="search" :placeholder="es ? 'Buscar en los datos' : 'Search the data'" allow-clear style="max-width: 260px" @search="reload" />
         <span class="fr-muted">{{ total }} {{ es ? 'envíos' : 'submissions' }}</span>
       </div>
@@ -42,6 +43,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { DownloadOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
@@ -66,7 +68,15 @@ const perPage = ref(20);
 const search = ref('');
 const formId = ref(undefined);
 const range = ref(null);
-useListState('forms-report', { page, perPage, search, formId, range });
+// Read / unread (the dashboard's cards link here with ?read=1|0&from&to).
+const readFilter = ref(undefined);
+const readOptions = computed(() => sortByLabel([{ value: '1', label: es.value ? 'Leídos' : 'Read' }, { value: '0', label: es.value ? 'Por leer' : 'Unread' }]));
+const route = useRoute();
+useListState('forms-report', { page, perPage, search, formId, range, readFilter });
+if (['0', '1'].includes(String(route.query.read))) {
+  readFilter.value = String(route.query.read);
+  if (route.query.from && route.query.to) range.value = [String(route.query.from), String(route.query.to)];
+}
 
 const fmt = d => (d ? dayjs(d).format('YYYY-MM-DD HH:mm') : '');
 const host = u => u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 50);
@@ -82,7 +92,7 @@ const columns = computed(() => [
 ]);
 
 function params(extra = {}) {
-  return { form_id: formId.value || undefined, search: search.value || undefined, from: range.value?.[0] || undefined, to: range.value?.[1] || undefined, ...extra };
+  return { form_id: formId.value || undefined, search: search.value || undefined, read: readFilter.value ?? undefined, from: range.value?.[0] || undefined, to: range.value?.[1] || undefined, ...extra };
 }
 
 async function load() {
