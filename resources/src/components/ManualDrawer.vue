@@ -18,7 +18,7 @@
       <a-segmented
         v-model:value="mode"
         block
-        :options="[{ value: 'page', label: L('This page', 'Esta página') }, { value: 'all', label: L('Whole manual', 'Manual completo') }]"
+        :options="[{ value: 'page', label: L('This page', 'Esta página') }, { value: 'all', label: L('Whole manual', 'Manual completo') }, { value: 'company', label: L('Your company', 'Su empresa') }]"
       />
       <a-input-search
         v-if="mode === 'all'"
@@ -52,6 +52,24 @@
         <a-empty v-else :description="L('There is no manual page for this screen yet.', 'Todavía no hay manual para esta pantalla.')">
           <a-button type="primary" @click="mode = 'all'">{{ L('Open the whole manual', 'Abrir el manual completo') }}</a-button>
         </a-empty>
+      </template>
+
+      <!-- ---------------- Your company (2026-11-01): advantages for its business type + the PDF manual ---------------- -->
+      <template v-else-if="mode === 'company'">
+        <a-select v-if="isSystemView" v-model:value="pickedType" :options="typeOptions" style="width: 100%; margin-bottom: 12px" />
+        <h2 class="md-h2">{{ L('Murano for', 'Murano para') }} {{ adv.label[lang] }}</h2>
+        <p class="md-intro"><strong>{{ adv.tagline[lang] }}</strong> {{ adv.intro[lang] }}</p>
+        <a-button type="primary" block :href="pdfUrl" target="_blank" style="margin-bottom: 14px">
+          <DownloadOutlined /> {{ L('Download the manual (PDF)', 'Descargar el manual (PDF)') }}
+        </a-button>
+        <div class="md-label">{{ L('What Murano does for you', 'Lo que Murano hace por usted') }}</div>
+        <ul class="md-adv">
+          <li v-for="(p, i) in adv.points" :key="'p' + i"><strong>{{ p.t[lang] }}.</strong> {{ p.d[lang] }}</li>
+        </ul>
+        <div class="md-label">{{ L('And every company gets', 'Y toda empresa tiene') }}</div>
+        <ul class="md-adv">
+          <li v-for="(p, i) in adv.common" :key="'c' + i"><strong>{{ p.t[lang] }}.</strong> {{ p.d[lang] }}</li>
+        </ul>
       </template>
 
       <!-- ---------------- Whole manual ---------------- -->
@@ -97,6 +115,7 @@ import {
 } from '@ant-design/icons-vue';
 import OpenBookIcon from './icons/OpenBookIcon.vue';
 import { MANUAL, MANUAL_UPDATED } from '../manual/manual';
+import { TYPES, advantagesFor } from '../manual/advantages';
 import { useAuthStore } from '../stores/auth';
 import { useUiStore } from '../stores/ui';
 
@@ -116,6 +135,21 @@ const L = (en, es) => (lang.value === 'es' ? es : en);
 
 const company = computed(() => auth.companyName || auth.user?.company || 'your company');
 const drawerWidth = computed(() => Math.min(560, window.innerWidth));
+
+// ---------------- your company: advantages + PDF per business type ----------------
+// The company's business type (UserController business_type); AdminSystem (SuperAdmin) picks any type.
+const companyType = computed(() => (TYPES[auth.user?.business_type] ? auth.user.business_type : 'general'));
+const isSystemView = computed(() => auth.user?.type === 'SuperAdmin');
+const pickedType = ref(null);
+const shownType = computed(() => pickedType.value || companyType.value);
+const typeOptions = computed(() => Object.entries(TYPES).map(([value, t]) => ({ value, label: t.label[lang.value] }))
+  .sort((a, b) => a.label.localeCompare(b.label)));
+const adv = computed(() => {
+  const a = advantagesFor(shownType.value);
+  // The company's own modules decide which common advantages show (the PDF uses the type's).
+  return pickedType.value ? a : { ...a, common: a.common.filter(c => !c.module || auth.moduleEnabled(c.module)) };
+});
+const pdfUrl = computed(() => `/manual/murano-${shownType.value}-${lang.value}.pdf`);
 
 // ---------------- what this user may see ----------------
 const anyPerm = list => !list || !list.length || list.some(p => auth.can(p));
@@ -235,6 +269,7 @@ const ManualSection = defineComponent({
 .md-body { padding: 16px 20px 24px; min-width: 0; }
 .md-h2 { margin: 0 0 6px; font-size: 20px; font-weight: 600; }
 .md-intro { margin: 0 0 14px; color: rgba(0, 0, 0, 0.6); }
+.md-adv { margin: 0 0 14px; padding-left: 18px; display: grid; gap: 7px; line-height: 1.5; }
 .md-label { margin: 18px 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6d28d9; }
 .md-panel-title { font-weight: 600; }
 .md-here { margin-left: 8px; }

@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-10-27';
+export const MANUAL_UPDATED = '2026-11-01';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -35,8 +35,8 @@ export const MANUAL = [
         id: 'signin', paths: ['dashboard'],
         title: { en: 'Sign in and your home page', es: 'Ingresar y su página de inicio' },
         steps: {
-          en: ['Sign in with your email and password.', 'If you used a **standard password** (the one given to new logins, e.g. Empleado2020), Murano asks you to choose your own before entering: at least 8 characters with letters and numbers, not a standard one, not your email, not one of your last 3.', 'If your company (or you, in Profile) turned on **two-step verification**, type the 6-digit code we email you — or the one in your authenticator app. Tick **Remember this computer** and it won\'t ask again for 30 days.', 'Murano opens your role\'s home page: the Dashboard, **Daily Tasks** (field crews) or the **Bookings calendar** (salon staff).', 'Use the left menu (☰ on a phone) to move around.', 'On a shared computer, always sign out from your name in the top bar.'],
-          es: ['Ingrese con su correo y contraseña.', 'Si usó una **contraseña estándar** (la que reciben los usuarios nuevos, p. ej. Empleado2020), Murano le pide elegir una propia antes de entrar: al menos 8 caracteres con letras y números, que no sea estándar, ni su correo, ni una de sus 3 últimas.', 'Si su empresa (o usted, en Perfil) activó la **verificación en dos pasos**, escriba el código de 6 dígitos que le enviamos por correo — o el de su app autenticadora. Marque **Recordar este equipo** y no se lo pedirá por 30 días.', 'Murano abre la página de inicio de su rol: el Panel, **Tareas diarias** (cuadrillas) o el **Calendario de reservas** (personal del salón).', 'Use el menú de la izquierda (☰ en el celular) para moverse.', 'En una computadora compartida, cierre siempre la sesión desde su nombre en la barra superior.'],
+          en: ['Sign in with your email and password.', 'If you used a **standard password** (the one given to new logins, e.g. Empleado2020), Murano asks you to choose your own before entering: at least 8 characters with letters and numbers, not a standard one, not your email, not one of your last 3.', 'If your company (or you, in Profile) turned on **two-step verification**, type the 6-digit code we email you — or the one in your authenticator app. Tick **Remember this computer** and it won\'t ask again for 30 days.', 'Murano opens your role\'s home page: the **Dashboard** (first item of the menu), **Daily Tasks** (field crews) or the **Bookings calendar** (salon staff).', 'Use the left menu (☰ on a phone) to move around.', 'On a shared computer, always sign out from your name in the top bar.'],
+          es: ['Ingrese con su correo y contraseña.', 'Si usó una **contraseña estándar** (la que reciben los usuarios nuevos, p. ej. Empleado2020), Murano le pide elegir una propia antes de entrar: al menos 8 caracteres con letras y números, que no sea estándar, ni su correo, ni una de sus 3 últimas.', 'Si su empresa (o usted, en Perfil) activó la **verificación en dos pasos**, escriba el código de 6 dígitos que le enviamos por correo — o el de su app autenticadora. Marque **Recordar este equipo** y no se lo pedirá por 30 días.', 'Murano abre la página de inicio de su rol: el **Tablero Principal** (primera opción del menú), **Tareas diarias** (cuadrillas) o el **Calendario de reservas** (personal del salón).', 'Use el menú de la izquierda (☰ en el celular) para moverse.', 'En una computadora compartida, cierre siempre la sesión desde su nombre en la barra superior.'],
         },
         note: {
           en: '5 wrong passwords in an hour lock your login for 1 hour (you and your administrators get an email). Reset your password by email or ask your administrator to unlock it. A sign-in from a new computer also sends you an email: if it wasn\'t you, change your password.',
@@ -155,11 +155,11 @@ export const MANUAL = [
     },
     sections: [
       {
-        id: 'pos-open', perms: ['register_open_close'], paths: ['pos'],
+        id: 'pos-open', paths: ['pos'],
         title: { en: 'Open the register', es: 'Abrir la caja' },
         steps: {
-          en: ['At the start of the day open **POS**.', 'Open the register with your PIN and the opening cash.'],
-          es: ['Al empezar el día abra el **POS**.', 'Abra la caja con su PIN y el efectivo inicial.'],
+          en: ['At the start of the day open **POS**.', 'Open the register with your PIN and the opening cash.', 'Who can open and close it: the roles and users chosen in **Settings › POS › Who can open / close the register**, plus the roles with the "Open / close register" permission. Anyone else sees who can and sells with their PIN on the open register.'],
+          es: ['Al empezar el día abra el **POS**.', 'Abra la caja con su PIN y el efectivo inicial.', 'Quién puede abrirla y cerrarla: los roles y usuarios elegidos en **Configuración › POS › Quién abre / cierra la caja**, más los roles con el permiso "Abrir / cerrar caja". Los demás ven quién puede y venden con su PIN en la caja abierta.'],
         },
       },
       {
@@ -524,6 +524,14 @@ export const MANUAL = [
     },
     sections: [
       {
+        id: 'web-menu-imported', paths: ['website/menus'],
+        title: { en: 'Menu of an imported website (English and Spanish)', es: 'Menú de un sitio importado (inglés y español)' },
+        steps: {
+          en: ['**Website › Menus › Imported website menu**: rename, re-link, add, reorder or nest the items, then **Save website menu** — it is rebuilt in every page of the site.', 'Each item has an **ES** label: the Spanish pages (name-es.html, or pages marked as Spanish) show it, and their links go to the Spanish version of each page (about-es.html…) by themselves. An empty ES label shows the English one.'],
+          es: ['**Sitio web › Menús › Menú del sitio importado**: renombre, cambie enlaces, agregue, reordene o anide opciones y luego **Guardar menú del sitio** — se reconstruye en todas las páginas del sitio.', 'Cada opción tiene una etiqueta **ES**: las páginas en español (nombre-es.html, o marcadas como español) la muestran, y sus enlaces van solos a la versión en español de cada página (about-es.html…). Si la etiqueta ES está vacía se muestra la de inglés.'],
+        },
+      },
+      {
         id: 'web-onepage', paths: ['website/front-page'],
         title: { en: 'One-page template', es: 'Plantilla de una página' },
         steps: {
@@ -823,6 +831,54 @@ export const MANUAL = [
     ],
   },
 
+  // ------------------------------------------------------------------ forms
+  {
+    key: 'forms', module: 'forms', perms: ['forms_view', 'forms_manage'], paths: ['forms'],
+    title: { en: 'Forms', es: 'Formularios' },
+    intro: {
+      en: 'Contact forms, complaints books, surveys: built here, published on your website or by link, and every submission kept with its number.',
+      es: 'Formularios de contacto, libros de reclamaciones, encuestas: se arman aquí, se publican en su sitio web o por enlace, y cada envío queda guardado con su número.',
+    },
+    sections: [
+      {
+        id: 'forms-dash', paths: ['forms/dashboard'],
+        title: { en: 'Forms dashboard', es: 'Panel de formularios' },
+        steps: {
+          en: ['**Forms › Dashboard**, with the date filter on top.', 'The cards show the submissions of each form (e.g. contacts, complaints) and how many are **Read** and **Unread**; click a card to open those submissions.', '**Grouped submissions**: pick a form and a field (e.g. complaint type or agency) to see how many submissions each answer has, with its %.'],
+          es: ['**Formularios › Panel**, con el filtro de fechas arriba.', 'Las tarjetas muestran los envíos de cada formulario (p. ej. contactos, reclamos) y cuántos están **Leídos** y **Por leer**; haga clic en una tarjeta para abrir esos envíos.', '**Envíos agrupados**: elija un formulario y un campo (p. ej. tipo de queja o agencia) para ver cuántos envíos tiene cada respuesta, con su %.'],
+        },
+      },
+      {
+        id: 'forms-subs', paths: ['forms'],
+        title: { en: 'Read and attend the submissions', es: 'Leer y atender los envíos' },
+        steps: {
+          en: ['**Forms › All forms**: click a form\'s name (or its inbox icon) to see its submissions; unread ones are in bold.', 'Click a row: the submission opens in a large window. **Previous / Next** go through the list.', '**Print**, **PDF** and **Send by email** (to any address, with an optional message) share it.', '**Mark attended** and write a note of what was done: the list shows who attended it and when.', '**Forms › Report**: every form together, with the filters Read / Unread, form, dates and search; **Export Excel (CSV)**.'],
+          es: ['**Formularios › Todos**: haga clic en el nombre del formulario (o su ícono de bandeja) para ver sus envíos; los no leídos van en negrita.', 'Haga clic en una fila: el envío se abre en una ventana grande. **Anterior / Siguiente** recorren la lista.', '**Imprimir**, **PDF** y **Enviar por correo** (a cualquier dirección, con un mensaje opcional) lo comparten.', '**Marcar atendido** y escriba una nota de lo que se hizo: la lista muestra quién lo atendió y cuándo.', '**Formularios › Reporte**: todos los formularios juntos, con los filtros Leídos / Por leer, formulario, fechas y búsqueda; **Exportar Excel (CSV)**.'],
+        },
+        note: {
+          en: 'The **Formularios** role reads only: it can see, print, send and attend submissions, but not create, edit or delete forms or submissions.',
+          es: 'El rol **Formularios** es de solo lectura: puede ver, imprimir, enviar y atender envíos, pero no crear, editar ni borrar formularios o envíos.',
+        },
+      },
+      {
+        id: 'forms-build', perms: ['forms_manage'], paths: ['forms'],
+        title: { en: 'Build a form', es: 'Armar un formulario' },
+        steps: {
+          en: ['**Forms › New form**, then add fields from the left (text, email, phone, date, dropdown, choices, file, heading, paragraph…). Drag them to reorder; set each one\'s width (full, half, third) and **Required**.', 'A field may have only a placeholder and no label: then it shows no empty line and no *; when it is required and left empty, its box turns red.', '**Settings › After sending**: show a message, go to another page, or **message, then another page** after the seconds you choose.', '**Settings › Look**: colors of the button, form, page and text, font, corners, **width** (480–1200 px or full) and the **send button above or below** the form.', '**Header**: the company\'s logo, its own logo or none; its height, a color band behind it, left or centered, and whether it also shows when the form is embedded on a website.', 'Emails: notice to the company on every submission and an optional receipt to the visitor with their number.'],
+          es: ['**Formularios › Nuevo formulario** y agregue campos desde la izquierda (texto, correo, teléfono, fecha, lista, opciones, archivo, título, párrafo…). Arrástrelos para ordenarlos; defina el ancho de cada uno (completo, mitad, tercio) y **Obligatorio**.', 'Un campo puede tener solo texto de ayuda (placeholder) y no etiqueta: entonces no ocupa una línea vacía ni lleva *; si es obligatorio y queda vacío, su recuadro se pone rojo.', '**Ajustes › Después de enviar**: mostrar un mensaje, ir a otra página, o **mensaje y luego otra página** tras los segundos que elija.', '**Ajustes › Apariencia**: colores del botón, formulario, página y texto, letra, bordes, **ancho** (480–1200 px o completo) y el **botón de enviar arriba o debajo** del formulario.', '**Encabezado**: el logo de la empresa, uno propio o ninguno; su alto, una franja de color detrás, a la izquierda o centrado, y si también se muestra insertado en una web.', 'Correos: aviso a la empresa en cada envío y una constancia opcional al visitante con su número.'],
+        },
+      },
+      {
+        id: 'forms-publish', perms: ['forms_manage'], paths: ['forms'],
+        title: { en: 'Publish it', es: 'Publicarlo' },
+        steps: {
+          en: ['**Publish**: the form\'s own link (and QR), or the code to put it on your website — an iframe or the script. The codes always start with https://.', 'Paste the code in your web page as it is; if your page is https and the code says http://, the browser blocks it and nothing shows.', '**Preview** shows the form on its own page or as embedded on a website.'],
+          es: ['**Publicar**: el enlace propio del formulario (y su QR), o el código para ponerlo en su sitio web — un iframe o el script. Los códigos siempre empiezan con https://.', 'Pegue el código en su página tal cual; si su página es https y el código dice http://, el navegador lo bloquea y no se ve nada.', '**Vista previa** muestra el formulario en su propia página o insertado en una web.'],
+        },
+      },
+    ],
+  },
+
   // ------------------------------------------------------------------ helpdesk
   {
     key: 'helpdesk', module: 'helpdesk', perms: [], paths: ['helpdesk'],
@@ -923,6 +979,10 @@ export const MANUAL = [
           en: ['**Customer Segments**: choose who receives it.', '**Templates**: the message for email, SMS or WhatsApp.', '**Campaigns › Create**: segment + template + date; results in **Reports**.'],
           es: ['**Segmentos de clientes**: elija quién la recibe.', '**Plantillas**: el mensaje para correo, SMS o WhatsApp.', '**Campañas › Crear**: segmento + plantilla + fecha; resultados en **Reportes**.'],
         },
+        note: {
+          en: 'A campaign only reaches the customers of its own company and goes out from that company\'s mail server. A company with Marketing turned off (Settings › Modules) never sends: scheduled campaigns go back to draft. Test addresses (example.com, the demo customers) are skipped.',
+          es: 'Una campaña solo llega a los clientes de su propia empresa y sale por el servidor de correo de esa empresa. Una empresa con Marketing apagado (Configuración › Módulos) nunca envía: las campañas programadas vuelven a borrador. Las direcciones de prueba (example.com, los clientes de las demos) se omiten.',
+        },
       },
     ],
   },
@@ -1011,6 +1071,18 @@ export const MANUAL = [
         steps: {
           en: ['**User Management › Group Permissions**: create or edit a role.', 'Tick what the role can do, module by module and, for employees, tab by tab (view / edit).', 'Choose the role\'s **Home page** (for example Daily Tasks or the Bookings calendar).', 'The **Users** column shows how many users have each role; click the number to open Users filtered by that role.'],
           es: ['**Usuarios › Permisos de grupo**: cree o edite un rol.', 'Marque lo que el rol puede hacer, módulo por módulo y, para empleados, pestaña por pestaña (ver / editar).', 'Elija la **Página de inicio** del rol (por ejemplo Tareas diarias o el Calendario de reservas).', 'La columna **Usuarios** muestra cuántos usuarios tienen cada rol; haga clic en el número para abrir Usuarios filtrado por ese rol.'],
+        },
+      },
+      {
+        id: 'roles-standard', perms: ['permissions_view', 'permissions_edit', 'users_view'], paths: ['permissions', 'users'],
+        title: { en: 'The standard roles of every company', es: 'Los roles estándar de cada empresa' },
+        steps: {
+          en: ['Each company has its own group of roles; no company sees another one\'s.', '**Admin Compañía**: every form and module of the company (one per company).', '**Helpdesk**: tickets and the company mail.', '**Website**: website management and the portfolio.', '**Formularios**: the forms and their submissions, read only — no new form, no delete.', '**Customer** and **Employee**: given automatically to customers\' and employees\' logins.', 'Supplier, Sales Agent and Online Store appear by themselves when the company creates that kind of login; a business\'s own roles (hospital, school, a manager or field role) are added as needed.'],
+          es: ['Cada empresa tiene su propio grupo de roles; ninguna ve los de otra.', '**Admin Compañía**: todos los formularios y módulos de la empresa (uno por empresa).', '**Helpdesk**: tickets y el correo de la empresa.', '**Website**: administración del sitio web y el portafolio.', '**Formularios**: los formularios y sus envíos, solo lectura — sin crear ni borrar.', '**Customer** y **Employee**: se asignan solos a los accesos de clientes y empleados.', 'Supplier, Sales Agent y Online Store aparecen solos cuando la empresa crea ese tipo de acceso; los roles propios del negocio (hospital, escuela, un gerente o un rol de campo) se agregan según se necesiten.'],
+        },
+        note: {
+          en: 'Only the SuperAdmin works across every company.',
+          es: 'Solo el SuperAdmin trabaja en todas las empresas.',
         },
       },
     ],
@@ -1133,11 +1205,11 @@ export const MANUAL = [
         },
       },
       {
-        id: 'set-pos', perms: ['pos_settings'], paths: ['settings/pos'],
+        id: 'set-pos', perms: ['pos_settings'], paths: ['settings/pos', 'settings/system'],
         title: { en: 'POS settings', es: 'Configuración del POS' },
         steps: {
-          en: ['Receipt, payment methods at the counter and whether the POS button shows in the header.'],
-          es: ['Recibo, medios de pago en el mostrador y si el botón POS aparece en el encabezado.'],
+          en: ['**Settings › POS** (a section of Settings): receipt, payment methods at the counter and whether the POS button shows in the header.', '**Require an open register**: the POS stays locked until a register is opened.', '**Who can open / close the register**: pick roles and users; roles with the "Open / close register" permission can too. The POS tells anyone else who can and where it is changed.'],
+          es: ['**Configuración › POS** (una sección de Configuración): recibo, medios de pago en el mostrador y si el botón POS aparece en el encabezado.', '**Exigir una caja abierta**: el POS queda bloqueado hasta que se abre una caja.', '**Quién abre / cierra la caja**: elija roles y usuarios; los roles con el permiso "Abrir / cerrar caja" también pueden. El POS le dice a los demás quién puede y dónde se cambia.'],
         },
       },
       {
