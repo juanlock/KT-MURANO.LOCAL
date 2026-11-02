@@ -758,6 +758,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     // Transport (2026-11-01): locations, routes, trips with their crew, active staff.
     Route::prefix('transport')->controller(\App\Http\Controllers\TransportController::class)->group(function () {
         Route::get('/meta', 'meta');
+        Route::get('/board', 'board');
         Route::get('/locations', 'locations');
         Route::post('/locations', 'saveLocation');
         Route::put('/locations/{id}', 'saveLocation')->whereNumber('id');

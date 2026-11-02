@@ -6,6 +6,7 @@ use App\Services\DemoData\DemoContext;
 use App\Services\DemoData\DemoModule;
 use App\Support\CompanyFiles;
 use App\Support\FormSchema;
+use App\Support\PlaceCoordinates;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -17,7 +18,8 @@ use Illuminate\Support\Facades\DB;
  * hostesses, never double-booked), maintenance in house and at workshops (suppliers),
  * and a complaints book with origin / destination / agency answers so the Forms
  * dashboard shows the locations and routes with most complaints.
- * Peru (or a Spanish company): southern Peru routes; else US East Coast.
+ * Peru (or a Spanish company): southern Peru routes; else US East Coast. A company that
+ * already has its terminals and routes keeps them (only buses, crew, trips, maintenance).
  * Pictures are drawn here (no other company's photos or brand).
  */
 class TransportModule extends DemoModule
@@ -77,7 +79,8 @@ class TransportModule extends DemoModule
 
     public function dataTables(): array
     {
-        return ['transport_trips', 'transport_locations'];
+        // Trips only: a company's own terminals / routes are its setup and the demo uses them.
+        return ['transport_trips'];
     }
 
     public function requiredTables(): array
@@ -100,17 +103,28 @@ class TransportModule extends DemoModule
         $locDefs = $peru ? self::PE_LOCATIONS : self::US_LOCATIONS;
         $routeDefs = $peru ? self::PE_ROUTES : self::US_ROUTES;
 
-        // Terminals, agencies, online channel.
-        $loc = [];
-        foreach ($locDefs as $i => [$name, $city, $kind, $address]) {
-            $image = $kind === 'terminal' ? $this->picture($ctx, 'terminal-'.($i + 1).'.svg', $this->terminalSvg($city ?: $name, $i)) : null;
-            $loc[$i] = $ctx->insert('transport_locations', ['name' => $name, 'city' => $city, 'kind' => $kind, 'address' => $address,
-                'phone' => $kind === 'online' ? null : $ctx->phone(), 'image' => $image, 'active' => 1]);
-        }
-        $routes = [];
-        foreach ($routeDefs as [$o, $d, $km, $min]) {
-            $routes[] = ['id' => $ctx->insert('transport_routes', ['origin_id' => $loc[$o], 'destination_id' => $loc[$d], 'distance_km' => $km, 'duration_min' => $min, 'active' => 1]),
-                'min' => $min, 'o' => $locDefs[$o][0], 'd' => $locDefs[$d][0]];
+        // A company that already has its terminals and routes (e.g. Turismo Cautivo) keeps
+        // them: the buses, crew and trips use those. Else the example ones are created.
+        $routes = $this->companyRoutes($ctx);
+        if ($routes) {
+            $locDefs = DB::table('transport_locations')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->where('active', 1)
+                ->orderBy('id')->get(['name', 'city', 'kind'])->map(fn ($l) => [$l->name, $l->city, $l->kind, null])->all();
+            $loc = []; // none created
+        } else {
+            $loc = [];
+            foreach ($locDefs as $i => [$name, $city, $kind, $address]) {
+                $image = $kind === 'terminal' ? $this->picture($ctx, 'terminal-'.($i + 1).'.svg', $this->terminalSvg($city ?: $name, $i)) : null;
+                $pos = $kind === 'online' ? null : PlaceCoordinates::find($name, $city);
+                // An agency belongs to the terminal of its city.
+                $hub = $kind === 'agency' ? collect($locDefs)->search(fn ($l) => $l[2] === 'terminal' && $l[1] === $city) : false;
+                $loc[$i] = $ctx->insert('transport_locations', ['name' => $name, 'city' => $city, 'kind' => $kind, 'address' => $address,
+                    'phone' => $kind === 'online' ? null : $ctx->phone(), 'image' => $image, 'active' => 1,
+                    'lat' => $pos[0] ?? null, 'lng' => $pos[1] ?? null, 'hub_id' => $hub !== false ? $loc[$hub] : null]);
+            }
+            foreach ($routeDefs as [$o, $d, $km, $min]) {
+                $routes[] = ['id' => $ctx->insert('transport_routes', ['origin_id' => $loc[$o], 'destination_id' => $loc[$d], 'distance_km' => $km, 'duration_min' => $min, 'active' => 1]),
+                    'min' => $min, 'o' => $locDefs[$o][0], 'd' => $locDefs[$d][0]];
+            }
         }
 
         // Buses with their picture.
@@ -160,26 +174,28 @@ class TransportModule extends DemoModule
             }
         }
 
-        // Trips: 2 a day (08:00 / 20:00), two weeks back, today and a week ahead.
-        // Crews of 2 pilots rotate so nobody (and no bus) is on two trips at once.
-        $crews = [[0, 1], [2, 3], [4, 5]];
+        // Trips: 2 a day (08:00 / 20:00), 30 days back, today and a week ahead.
+        // Pilots: morning crews [0,1] / [0,4] -- pilot 0 drives every morning, the
+        // dashboard's "record" over the safe hours --, night crews rotate among 2, 3 and 5.
+        // Nobody (and no bus) is ever on two trips at once (trips of up to 16 h).
+        $crews = [0 => [[0, 1], [0, 4]], 1 => [[2, 3], [3, 5], [5, 2]]];
         $trips = 0;
-        for ($day = -14; $day <= 7; $day++) {
+        for ($day = -30; $day <= 7; $day++) {
             foreach ([0, 1] as $slot) {
-                $n = ($day + 14) * 2 + $slot;
+                $n = ($day + 30) * 2 + $slot;
                 $route = $routes[$n % count($routes)];
                 $dep = now()->startOfDay()->addDays($day)->setTime($slot ? 20 : 8, 0);
                 $arr = $dep->copy()->addMinutes($route['min']);
                 $status = $arr->isPast() ? ($n % 17 === 5 ? 'cancelled' : 'completed') : ($dep->isPast() ? 'in_progress' : 'scheduled');
                 $trip = $ctx->insert('transport_trips', ['route_id' => $route['id'], 'vehicle_id' => $buses[$n % 4], 'departure_at' => $dep, 'arrival_at' => $arr,
                     'status' => $status, 'notes' => null, 'created_by' => $ctx->userId]);
-                foreach ($crews[$n % 3] as $p) {
+                foreach ($crews[$slot][($day + 30) % count($crews[$slot])] as $p) {
                     DB::table('transport_trip_crew')->insert(['trip_id' => $trip, 'employee_id' => $staff['pilot'][$p], 'role' => 'pilot', 'trip_rate' => $rates['pilot']]);
                 }
                 // Hostesses: morning trips the first pair, night trips the second (a long trip
                 // takes both of its pair, a short one one of them by day).
                 $pair = $slot ? [2, 3] : [0, 1];
-                foreach (($route['min'] > 480 ? $pair : [$pair[($day + 14) % 2]]) as $h) {
+                foreach (($route['min'] > 480 ? $pair : [$pair[($day + 30) % 2]]) as $h) {
                     DB::table('transport_trip_crew')->insert(['trip_id' => $trip, 'employee_id' => $staff['hostess'][$h], 'role' => 'hostess', 'trip_rate' => $rates['hostess']]);
                 }
                 $trips++;
@@ -210,6 +226,31 @@ class TransportModule extends DemoModule
             'Terminals and agencies' => count($loc), 'Routes' => count($routes), 'Buses' => count($buses),
             'Crew and staff' => array_sum(array_map('count', $staff)), 'Trips' => $trips, 'Maintenance' => count($maint), 'Complaints' => $complaints,
         ];
+    }
+
+    /**
+     * The company's own active routes between its terminals ([] when it has fewer than 2
+     * terminals or no route): [id, min, o, d]; a route without hours gets them from the
+     * map distance (+25 % road, 60 km/h), else 4 h.
+     */
+    private function companyRoutes(DemoContext $ctx): array
+    {
+        if (DB::table('transport_locations')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->where('kind', 'terminal')->count() < 2) {
+            return [];
+        }
+
+        return DB::table('transport_routes as r')->join('transport_locations as o', 'o.id', '=', 'r.origin_id')->join('transport_locations as d', 'd.id', '=', 'r.destination_id')
+            ->where('r.company_id', $ctx->companyId)->whereNull('r.deleted_at')->where('r.active', 1)->orderBy('r.id')
+            ->get(['r.id', 'r.duration_min', 'r.distance_km', 'o.name as o', 'd.name as d', 'o.lat as olat', 'o.lng as olng', 'd.lat as dlat', 'd.lng as dlng'])
+            ->map(function ($r) {
+                $min = (int) $r->duration_min;
+                if (! $min) {
+                    $km = $r->distance_km ?: ($r->olat !== null && $r->dlat !== null ? PlaceCoordinates::km((float) $r->olat, (float) $r->olng, (float) $r->dlat, (float) $r->dlng) * 1.25 : null);
+                    $min = $km ? (int) round($km) : 240;
+                }
+
+                return ['id' => (int) $r->id, 'min' => min($min, 960), 'o' => $r->o, 'd' => $r->d];
+            })->all();
     }
 
     /** A complaints book (unless the company has one) with answers by type, agency and route. */

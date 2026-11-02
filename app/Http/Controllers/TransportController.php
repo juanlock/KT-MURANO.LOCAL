@@ -21,6 +21,7 @@ use Illuminate\Validation\ValidationException;
  * Multicompany: lists follow listCompanyId() (AdminSystem = every company); writes the acting company.
  *
  *  GET  transport/meta                 locations, routes, vehicles, crew of the acting company
+ *  GET  transport/board?from&to        the dashboard's transport board (map, terminals, pilot hours)
  *  GET|POST transport/locations, PUT|DELETE transport/locations/{id}
  *  GET|POST transport/routes,    PUT|DELETE transport/routes/{id}
  *  GET|POST transport/trips,     PUT|DELETE transport/trips/{id}
@@ -97,7 +98,7 @@ class TransportController extends Controller
     {
         $q = $request ? $this->scoped('transport_locations', $request) : DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at');
 
-        return $q->orderBy('name')->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'image', 'kind', 'active'])
+        return $q->orderBy('name')->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'image', 'kind', 'active', 'lat', 'lng', 'hub_id'])
             ->map(function ($l) {
                 $l->image_url = $l->image ? asset($l->image) : null;
 
@@ -132,7 +133,20 @@ class TransportController extends Controller
             'name' => 'required|string|max:120', 'city' => 'nullable|string|max:120',
             'address' => 'nullable|string|max:190', 'phone' => 'nullable|string|max:60', 'description' => 'nullable|string|max:2000',
             'kind' => 'required|in:terminal,agency,online', 'active' => 'boolean',
+            'lat' => 'nullable|numeric|between:-90,90', 'lng' => 'nullable|numeric|between:-180,180', 'hub_id' => 'nullable|integer',
         ]);
+        $hub = null;
+        if ($v['kind'] === 'agency' && ! empty($v['hub_id'])) {
+            $hub = $this->own('transport_locations', (int) $v['hub_id'], $cid);
+            abort_unless($hub->kind === 'terminal' && (int) $hub->id !== (int) $id, 422, 'The location an agency belongs to must be a terminal.');
+        }
+        // No position typed: the city's / station's one when we know it.
+        $pos = isset($v['lat'], $v['lng']) ? [$v['lat'], $v['lng']] : ($v['kind'] === 'online' ? null : \App\Support\PlaceCoordinates::find($v['name'], $v['city'] ?? null));
+        // An agency with no terminal picked: the nearest one.
+        if ($v['kind'] === 'agency' && ! $hub && $pos) {
+            $hub = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'terminal')->whereNotNull('lat')->get()
+                ->sortBy(fn ($t) => \App\Support\PlaceCoordinates::km((float) $pos[0], (float) $pos[1], (float) $t->lat, (float) $t->lng))->first();
+        }
         $exists = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('name', $v['name'])
             ->when($id, fn ($q) => $q->where('id', '!=', $id))->exists();
         if ($exists) {
@@ -140,7 +154,8 @@ class TransportController extends Controller
         }
         $set = ['name' => strip_tags($v['name']), 'city' => $v['city'] ?? null, 'kind' => $v['kind'],
             'address' => isset($v['address']) ? strip_tags($v['address']) : null, 'phone' => isset($v['phone']) ? strip_tags($v['phone']) : null,
-            'description' => isset($v['description']) ? strip_tags($v['description']) : null, 'active' => (bool) ($v['active'] ?? true), 'updated_at' => now()];
+            'description' => isset($v['description']) ? strip_tags($v['description']) : null, 'active' => (bool) ($v['active'] ?? true),
+            'lat' => $pos[0] ?? null, 'lng' => $pos[1] ?? null, 'hub_id' => $hub ? $hub->id : null, 'updated_at' => now()];
         if ($id) {
             $this->own('transport_locations', $id, $cid);
             DB::table('transport_locations')->where('id', $id)->update($set);
@@ -340,6 +355,117 @@ class TransportController extends Controller
         DB::table('transport_trips')->where('id', $id)->update(['deleted_at' => now()]);
 
         return response()->json(['success' => true]);
+    }
+
+    // ------------------------------------------------------------------ board
+
+    /** Safe hours a pilot may drive in 30 days (8 h x 26 working days); the period's limit is in proportion. */
+    public const PILOT_HOURS_30_DAYS = 208;
+
+    /**
+     * GET transport/board?from&to -- the dashboard's transport board (2026-11-01) for the
+     * acting company: the map (terminals, their agencies, routes with km / hours and the
+     * trips on the road now), per terminal its agencies, the buses and crew that left from
+     * it and its departures, the totals, and the pilots' driving hours against the safe
+     * limit (the top one is the "record", red when over 90 %).
+     */
+    public function board(Request $request)
+    {
+        $this->can($request, 'transport_view');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        $from = $request->input('from') ?: now()->subDays(29)->toDateString();
+        $to = $request->input('to') ?: now()->toDateString();
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $locs = $this->locationRows($cid)->where('active', 1)->values();
+        $byId = $locs->keyBy('id');
+        $now = now();
+
+        $trips = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')
+            ->where('t.company_id', $cid)->whereNull('t.deleted_at')->where('t.status', '!=', 'cancelled')
+            ->whereBetween('t.departure_at', [$from.' 00:00:00', $to.' 23:59:59'])
+            ->get(['t.id', 't.route_id', 't.vehicle_id', 't.departure_at', 't.arrival_at', 't.status', 'r.origin_id', 'r.distance_km']);
+        $crew = DB::table('transport_trip_crew')->whereIn('trip_id', $trips->pluck('id'))->get(['trip_id', 'employee_id', 'role'])->groupBy('trip_id');
+
+        // Routes: one line per pair of terminals, km (typed, else estimated from the map), trips both ways.
+        $routes = [];
+        foreach ($this->routeRows($cid) as $r) {
+            if (! $r['active']) {
+                continue;
+            }
+            $a = min($r['origin_id'], $r['destination_id']);
+            $b = max($r['origin_id'], $r['destination_id']);
+            $key = "$a-$b";
+            $km = $r['distance_km'] !== null ? (float) $r['distance_km'] : null;
+            $estimated = false;
+            if ($km === null && isset($byId[$a], $byId[$b]) && $byId[$a]->lat !== null && $byId[$b]->lat !== null) {
+                // Roads are about 25 % longer than the straight line.
+                $km = round(\App\Support\PlaceCoordinates::km((float) $byId[$a]->lat, (float) $byId[$a]->lng, (float) $byId[$b]->lat, (float) $byId[$b]->lng) * 1.25);
+                $estimated = true;
+            }
+            $routes[$key] ??= ['a' => $a, 'b' => $b, 'km' => $km, 'estimated' => $estimated, 'minutes' => $r['duration_min'] ? (int) $r['duration_min'] : null, 'route_ids' => [], 'trips' => 0];
+            $routes[$key]['route_ids'][] = (int) $r['id'];
+            $routes[$key]['trips'] += $trips->where('route_id', $r['id'])->count();
+        }
+
+        // Trips on the road now: where along their line.
+        $live = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')->leftJoin('vehicles as v', 'v.id', '=', 't.vehicle_id')
+            ->where('t.company_id', $cid)->whereNull('t.deleted_at')->whereIn('t.status', ['scheduled', 'in_progress'])
+            ->where('t.departure_at', '<=', $now)->where('t.arrival_at', '>', $now)
+            ->get(['t.id', 't.departure_at', 't.arrival_at', 'r.origin_id', 'r.destination_id', 'v.name as vehicle'])
+            ->map(fn ($t) => ['id' => (int) $t->id, 'origin_id' => (int) $t->origin_id, 'destination_id' => (int) $t->destination_id, 'vehicle' => $t->vehicle,
+                'progress' => round(Carbon::parse($t->departure_at)->diffInSeconds($now) / max(1, Carbon::parse($t->departure_at)->diffInSeconds(Carbon::parse($t->arrival_at))), 3),
+                'arrival_at' => $t->arrival_at])->values();
+
+        // Per terminal: its agencies, buses and crew that left from it, departures.
+        $hubs = $locs->where('kind', 'terminal')->map(function ($t) use ($locs, $trips, $crew) {
+            $out = $trips->where('origin_id', $t->id);
+            $people = $out->flatMap(fn ($x) => ($crew[$x->id] ?? collect())->pluck('employee_id'))->unique();
+
+            return ['id' => (int) $t->id, 'name' => $t->name, 'city' => $t->city, 'image_url' => $t->image_url,
+                'agencies' => $locs->where('kind', 'agency')->where('hub_id', $t->id)->count(),
+                'buses' => $out->pluck('vehicle_id')->unique()->count(), 'crew' => $people->count(), 'departures' => $out->count()];
+        })->values();
+
+        // Pilots' driving hours in the period (trips done or under way).
+        $days = max(1, Carbon::parse($from)->diffInDays(Carbon::parse($to)) + 1);
+        $limit = (int) round(self::PILOT_HOURS_30_DAYS * $days / 30);
+        $hours = [];
+        foreach ($trips as $t) {
+            if (! in_array($t->status, ['completed', 'in_progress'], true)) {
+                continue;
+            }
+            $end = $t->arrival_at ? min(Carbon::parse($t->arrival_at), $now) : $now;
+            $h = max(0, Carbon::parse($t->departure_at)->diffInMinutes($end)) / 60;
+            foreach (($crew[$t->id] ?? collect())->where('role', 'pilot') as $c) {
+                $hours[$c->employee_id] = ($hours[$c->employee_id] ?? ['hours' => 0, 'trips' => 0]);
+                $hours[$c->employee_id]['hours'] += $h;
+                $hours[$c->employee_id]['trips']++;
+            }
+        }
+        $names = DB::table('employees')->whereIn('id', array_keys($hours))->get(['id', 'firstname', 'lastname'])->keyBy('id');
+        $pilots = collect($hours)->map(fn ($p, $id) => ['id' => (int) $id, 'name' => isset($names[$id]) ? trim($names[$id]->firstname.' '.$names[$id]->lastname) : '#'.$id,
+            'hours' => round($p['hours'], 1), 'trips' => $p['trips'], 'pct' => $limit ? round($p['hours'] / $limit * 100) : 0])
+            ->sortByDesc('hours')->values();
+
+        $staff = DB::table('employees')->where('company_id', $cid)->whereNull('deleted_at')
+            ->where(fn ($q) => $q->whereNull('leaving_date')->orWhere('leaving_date', '>=', now()->toDateString()))
+            ->whereNotNull('staff_type')->selectRaw('staff_type, count(*) n')->groupBy('staff_type')->pluck('n', 'staff_type');
+
+        return response()->json([
+            'enabled' => true, 'from' => $from, 'to' => $to, 'days' => $days,
+            'locations' => $locs->map(fn ($l) => ['id' => (int) $l->id, 'name' => $l->name, 'city' => $l->city, 'kind' => $l->kind,
+                'lat' => $l->lat !== null ? (float) $l->lat : null, 'lng' => $l->lng !== null ? (float) $l->lng : null, 'hub_id' => $l->hub_id ? (int) $l->hub_id : null])->values(),
+            'routes' => array_values($routes), 'live' => $live, 'hubs' => $hubs,
+            'totals' => [
+                'terminals' => $locs->where('kind', 'terminal')->count(), 'agencies' => $locs->where('kind', 'agency')->count(), 'online' => $locs->where('kind', 'online')->count(),
+                'buses' => DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')->count(),
+                'staff' => array_map('intval', $staff->all()), 'trips' => $trips->count(),
+                'km' => (int) round($trips->where('status', 'completed')->sum(fn ($t) => (float) $t->distance_km)),
+            ],
+            'pilot_limit' => $limit, 'pilots' => $pilots,
+        ]);
     }
 
     // ------------------------------------------------------------------ staff

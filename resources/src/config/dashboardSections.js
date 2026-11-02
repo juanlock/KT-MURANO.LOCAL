@@ -31,10 +31,14 @@ export const DASHBOARD_SECTIONS = [
   { id: 'table_stock_alert', label: 'Table: Stock alert' },
   { id: 'table_top_selling_products', label: 'Table: Top selling products' },
   { id: 'table_recent_sales', label: 'Table: Recent sales' },
+  // Transport module (2026-11-01): routes map, terminals, fleet, staff, pilots' hours.
+  { id: 'transport_board', label: 'Transport board (map, terminals, pilot hours)' },
 ];
 
 /** The dashboard's blocks (rows), default order; `sections` = what each one holds. */
 export const DASHBOARD_BLOCKS = [
+  // First: shown only to companies with the Transport module (TransportBoard hides itself otherwise).
+  { id: 'transport', label: 'Transport board', sections: ['transport_board'] },
   { id: 'cards', label: 'Summary cards', sections: ['card_sales', 'card_purchases', 'card_sales_returns', 'card_purchase_returns', 'card_sales_due', 'card_purchase_due', 'card_invoices', 'card_profit', 'card_unpaid_invoices'] },
   { id: 'aging', label: 'Unpaid invoices by age', sections: ['card_unpaid_0_30', 'card_unpaid_31_60', 'card_unpaid_61_90', 'card_unpaid_90_plus'] },
   { id: 'sales_charts', label: 'Sales charts', sections: ['chart_sales_purchases', 'chart_top_selling'] },

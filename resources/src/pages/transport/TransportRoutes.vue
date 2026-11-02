@@ -74,6 +74,17 @@
           <a-col :span="10"><a-form-item :label="es ? 'Teléfono' : 'Phone'"><a-input v-model:value="locationForm.phone" :maxlength="60" /></a-form-item></a-col>
         </a-row>
         <a-form-item :label="es ? 'Descripción' : 'Description'"><a-textarea v-model:value="locationForm.description" :rows="2" /></a-form-item>
+        <!-- Position on the dashboard map: empty = the city's, when known; an agency
+             without a terminal picked = the nearest one. -->
+        <a-row v-if="locationForm.kind !== 'online'" :gutter="12">
+          <a-col v-if="locationForm.kind === 'agency'" :span="10">
+            <a-form-item :label="es ? 'Terminal a la que pertenece' : 'Terminal it belongs to'">
+              <a-select v-model:value="locationForm.hub_id" :options="terminalOptions" allow-clear show-search option-filter-prop="label" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="locationForm.kind === 'agency' ? 7 : 12"><a-form-item :label="es ? 'Latitud' : 'Latitude'"><a-input-number v-model:value="locationForm.lat" :min="-90" :max="90" :step="0.0001" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="locationForm.kind === 'agency' ? 7 : 12"><a-form-item :label="es ? 'Longitud' : 'Longitude'"><a-input-number v-model:value="locationForm.lng" :min="-180" :max="180" :step="0.0001" style="width: 100%" /></a-form-item></a-col>
+        </a-row>
         <a-form-item :label="es ? 'Activo' : 'Active'" style="margin-bottom: 0"><a-switch v-model:checked="locationForm.active" /></a-form-item>
       </a-form>
     </a-modal>
@@ -113,6 +124,8 @@ const has = (s, t) => String(s || '').toLowerCase().includes(t);
 const filteredRoutes = computed(() => { const t = q.value.trim().toLowerCase(); return t ? routes.value.filter(r => has(r.label, t)) : routes.value; });
 const filteredLocations = computed(() => { const t = q.value.trim().toLowerCase(); return t ? locations.value.filter(l => has(l.name, t) || has(l.city, t)) : locations.value; });
 const locationOptions = computed(() => sortByLabel(locations.value.filter(l => l.active).map(l => ({ value: l.id, label: l.name }))));
+// The terminal an agency belongs to (dashboard map and counts).
+const terminalOptions = computed(() => sortByLabel(locations.value.filter(l => l.kind === 'terminal' && l.id !== locationForm.value.id).map(l => ({ value: l.id, label: l.name }))));
 
 const routeColumns = computed(() => [
   { title: es.value ? 'Ruta' : 'Route', key: 'route' },
@@ -157,8 +170,9 @@ function openRoute(r) {
 }
 function openLocation(l) {
   locationForm.value = l
-    ? { id: l.id, name: l.name, city: l.city, address: l.address, phone: l.phone, description: l.description, kind: l.kind, active: !!l.active }
-    : { name: '', city: '', address: '', phone: '', description: '', kind: 'agency', active: true };
+    ? { id: l.id, name: l.name, city: l.city, address: l.address, phone: l.phone, description: l.description, kind: l.kind, active: !!l.active,
+      lat: l.lat != null ? Number(l.lat) : null, lng: l.lng != null ? Number(l.lng) : null, hub_id: l.hub_id || undefined }
+    : { name: '', city: '', address: '', phone: '', description: '', kind: 'agency', active: true, lat: null, lng: null, hub_id: undefined };
   locationOpen.value = true;
 }
 async function send(url, body, id, close) {

@@ -95,6 +95,9 @@
 
     <!-- The blocks top to bottom in the company's order (System Settings -> Dashboard). -->
     <div v-else class="dash-blocks">
+      <!-- ================= Transport board (own data and date range) ========= -->
+      <TransportBoard v-if="transportBoard" :style="{ order: blockPos.transport }" />
+
       <!-- ================= Stat cards (legacy's two rows of four) ========= -->
       <!-- Cards share the row: as many as there are, max 6 per row (then wrap). -->
       <div v-if="statCards.length" class="card-grid" :style="{ order: blockPos.cards, '--cols': Math.min(statCards.length, 6) }">
@@ -332,6 +335,7 @@ import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
 import { blockOrder } from '../config/dashboardSections';
 import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
+import TransportBoard from '../components/TransportBoard.vue';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import { getUserPref, setUserPref } from '../lib/userPrefs';
@@ -351,6 +355,9 @@ const hiddenSections = computed(() => new Set(auth.user?.dashboard_hidden_sectio
 const blockPos = computed(() => Object.fromEntries(blockOrder(auth.user?.dashboard_section_order).map((id, i) => [id, i])));
 // (The old single 'stat_cards' switch, if saved, still hides every card.)
 const show = id => !hiddenSections.value.has(id) && !(id.startsWith('card_') && hiddenSections.value.has('stat_cards'));
+// Transport board: the company's module on and a role that sees Transport.
+const transportBoard = computed(() => show('transport_board') && auth.moduleEnabled('transport')
+  && (auth.can('transport_view') || auth.can('transport_manage')));
 
 const customStart = computed(() => auth.user?.start_page_mode === 'custom');
 // Admin-picked shortcut buttons, empty slots filled with the user's most used forms.

@@ -54,6 +54,7 @@ export const STAFF_TYPES = options([
     ['maintenance', 'Maintenance', 'Mantenimiento'],
     ['pilot', 'Pilot', 'Piloto'],
 ]);
+export const staffTypeLabel = labelIn(STAFF_TYPES);
 
 export const LEAVE_STATUSES = options([
     ['approved', 'Approved', 'Aprobado'],
