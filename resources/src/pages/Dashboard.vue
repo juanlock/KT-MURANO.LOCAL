@@ -66,27 +66,6 @@
       :description="$t('Demo_Data_Notice_Help')"
     />
 
-    <!-- Start page "customized by each user" (Defaults -> Users): the user's
-         6 most used pages as shortcuts, and what opens after login. -->
-    <a-card v-if="customStart" size="small" class="lu-card" style="margin-bottom: 16px">
-      <template #title>
-        <span><HistoryOutlined /> {{ tf('Shortcuts', 'Shortcuts') }}</span>
-      </template>
-      <template #extra>
-        <!-- Buttons + what opens after sign-in are set on the Home Buttons page. -->
-        <a-button size="small" @click="$router.push('/home-buttons')"><SettingOutlined /> {{ startPrefsLabel }}</a-button>
-      </template>
-      <div v-if="recentPages.length" class="lu-grid">
-        <button v-for="p in recentPages" :key="p.path" type="button" class="lu-tile" @click="$router.push(p.path)">
-          <span class="lu-icon"><component :is="p.icon" v-if="p.icon" :size="22" /><AppstoreOutlined v-else /></span>
-          <span class="lu-label">{{ pageLabel(p) }}</span>
-        </button>
-      </div>
-      <div v-else class="lu-empty">
-        No shortcuts yet: an admin can choose them in System Settings → Defaults → Users, and the forms you use most will fill the rest.
-      </div>
-    </a-card>
-
     <!-- Full-page loader; content mounts only when data is ready so charts
          never render (and self-mutate their DOM) with empty options. -->
     <div v-if="loading" style="display: flex; justify-content: center; padding: 96px 0">
@@ -314,6 +293,28 @@
         </a-table>
       </a-card>
     </div>
+
+    <!-- Start page "customized by each user" (Defaults -> Users): the user's
+         6 most used pages as shortcuts, and what opens after login. At the end
+         of the page (user's request, 2026-11-01). -->
+    <a-card v-if="customStart" size="small" class="lu-card" style="margin-top: 16px">
+      <template #title>
+        <span><HistoryOutlined /> {{ tf('Shortcuts', 'Shortcuts') }}</span>
+      </template>
+      <template #extra>
+        <!-- Buttons + what opens after sign-in are set on the Home Buttons page. -->
+        <a-button size="small" @click="$router.push('/home-buttons')"><SettingOutlined /> {{ startPrefsLabel }}</a-button>
+      </template>
+      <div v-if="recentPages.length" class="lu-grid">
+        <button v-for="p in recentPages" :key="p.path" type="button" class="lu-tile" @click="$router.push(p.path)">
+          <span class="lu-icon"><component :is="p.icon" v-if="p.icon" :size="22" /><AppstoreOutlined v-else /></span>
+          <span class="lu-label">{{ pageLabel(p) }}</span>
+        </button>
+      </div>
+      <div v-else class="lu-empty">
+        No shortcuts yet: an admin can choose them in System Settings → Defaults → Users, and the forms you use most will fill the rest.
+      </div>
+    </a-card>
   </div>
 </template>
 
