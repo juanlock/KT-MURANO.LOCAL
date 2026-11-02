@@ -30,11 +30,6 @@
               <image v-for="t in map.tiles" :key="t.key" :href="t.url" :x="t.x" :y="t.y" :width="t.size" :height="t.size" class="tb-tile" />
               <rect :width="W" :height="H" class="tb-veil" />
 
-              <!-- Agencies hang from their terminal -->
-              <g v-for="a in map.agencies" :key="'a' + a.id">
-                <line v-if="a.hub" :x1="a.x" :y1="a.y" :x2="a.hub.x" :y2="a.hub.y" class="tb-hubline" :stroke="a.hub.color" />
-              </g>
-
               <!-- Routes: one line per pair of terminals, km and hours at the middle -->
               <g v-for="r in map.routes" :key="'r' + r.key">
                 <path :d="r.d" class="tb-route-shadow" />
@@ -47,12 +42,6 @@
                 <text text-anchor="middle" y="4" class="tb-route-text">{{ r.label }}</text>
               </g>
 
-              <g v-for="a in map.agencies" :key="'d' + a.id">
-                <circle :cx="a.x" :cy="a.y" r="4" :fill="a.hub ? a.hub.color : '#64748b'" class="tb-agency">
-                  <title>{{ a.name }}{{ a.hub ? ' → ' + a.hub.name : '' }}{{ a.guessed ? ' (' + tf('Transport_No_Position', 'without a position on the map') + ')' : '' }}</title>
-                </circle>
-              </g>
-
               <!-- Buses on the road now -->
               <g v-for="b in map.live" :key="'b' + b.id" :transform="`translate(${b.x},${b.y})`" class="tb-bus">
                 <circle r="13" class="tb-bus-halo" />
@@ -61,18 +50,18 @@
                 <title>{{ b.title }}</title>
               </g>
 
-              <!-- Terminals -->
+              <!-- Terminals: the number = buses parked there now -->
               <g v-for="h in map.hubs" :key="'h' + h.id" :transform="`translate(${h.x},${h.y})`">
                 <circle :r="h.r + 5" :fill="h.color" opacity=".18" />
                 <circle :r="h.r" :fill="h.color" class="tb-hub" />
-                <text text-anchor="middle" y="5" class="tb-hub-count">{{ h.agencies }}</text>
-                <text :x="h.r + 8" y="-2" class="tb-hub-name">{{ h.name }}</text>
-                <text :x="h.r + 8" y="14" class="tb-hub-sub">{{ h.agencies }} {{ tf('Transport_Agencies', 'Agencies').toLowerCase() }}</text>
-                <title>{{ h.name }}: {{ h.agencies }} {{ tf('Transport_Agencies', 'Agencies').toLowerCase() }}</title>
+                <text text-anchor="middle" y="5" class="tb-hub-count">{{ h.parked }}</text>
+                <text :x="h.r + 8" y="5" class="tb-hub-name">{{ h.name }}</text>
+                <title>{{ h.name }}: {{ h.parked }} {{ tf('Transport_Buses_Here', 'Buses here now').toLowerCase() }}</title>
               </g>
               <text :x="W - 8" :y="H - 8" text-anchor="end" class="tb-attrib">© OpenStreetMap</text>
             </svg>
           </div>
+          <div class="tb-map-hint">{{ tf('Transport_Map_Hint', 'The number on each terminal = buses parked there now; the moving dots = buses on the road.') }}</div>
           <!-- Every route with its distance and time (the map labels only the long ones). -->
           <div class="tb-routes">
             <div v-for="r in routeList" :key="'rl' + r.key" class="tb-route-row">
@@ -81,15 +70,62 @@
               <span class="tb-route-trips">{{ r.trips }} {{ tf('Transport_Trips_Period', 'Trips').toLowerCase() }}</span>
             </div>
           </div>
-          <div v-if="data.live.length" class="tb-live">
-            <span class="tb-live-dot" /> {{ tf('Transport_On_Road', 'On the road now') }}:
-            <span v-for="b in map.live" :key="'t' + b.id" class="tb-live-item">{{ b.title }}</span>
+
+          <!-- One card per terminal -->
+          <div class="tb-hubs">
+            <div v-for="h in hubCards" :key="h.id" class="tb-hubcard" :style="{ borderTopColor: h.color }">
+              <div class="tb-hubcard-img" :style="h.image_url ? { backgroundImage: `url(${h.image_url})` } : { background: h.color }">
+                <span class="tb-hubcard-name">{{ h.name }}</span>
+              </div>
+              <div class="tb-hubcard-stats">
+                <div><b>{{ h.agencies }}</b><span>{{ tf('Transport_Agencies', 'Agencies') }}</span></div>
+                <div><b>{{ h.parked }}</b><span>{{ tf('Transport_Buses_Here', 'Buses here') }}</span></div>
+                <div><b>{{ h.crew }}</b><span>{{ tf('Transport_Crew', 'Crew') }}</span></div>
+                <div><b>{{ h.departures }}</b><span>{{ tf('Transport_Departures', 'Departures') }}</span></div>
+              </div>
+            </div>
           </div>
         </a-col>
 
-        <!-- Pilots' driving hours -->
         <a-col :xs="24" :lg="8">
-          <div class="tb-pilots">
+          <!-- Fleet now: where every bus is and the trips on the road -->
+          <div class="tb-box">
+            <div class="tb-sub-title">{{ tf('Transport_Fleet_Now', 'Fleet now') }}</div>
+            <div class="tb-states">
+              <div v-for="s in fleetStates" :key="s.key" class="tb-state" :class="'tb-state-' + s.key">
+                <b>{{ s.count }}</b><span>{{ s.label }}</span>
+              </div>
+            </div>
+
+            <div class="tb-mini-title">{{ tf('Transport_Current_Trips', 'Current trips') }}</div>
+            <div v-if="!data.live.length" class="tb-muted">{{ tf('Transport_No_Trips_Now', 'No trip on the road right now') }}</div>
+            <div v-for="t in data.live" :key="'ct' + t.id" class="tb-trip">
+              <div class="tb-trip-row">
+                <span class="tb-trip-route">{{ t.origin }} → {{ t.destination }}</span>
+                <span class="tb-trip-bus">{{ t.vehicle }}</span>
+              </div>
+              <a-progress :percent="Math.round(t.progress * 100)" size="small" stroke-color="#f59e0b" />
+              <div class="tb-trip-meta">
+                {{ dayjs(t.departure_at).format('HH:mm') }} → {{ tf('Transport_Arrives', 'arrives') }} {{ dayjs(t.arrival_at).format('DD/MM HH:mm') }}
+                <span v-if="t.pilots.length"> · {{ tf('Transport_Pilots', 'Pilots') }}: {{ t.pilots.join(', ') }}</span>
+                <span v-if="t.hostesses.length"> · {{ tf('Transport_Hostesses', 'Hostesses') }}: {{ t.hostesses.join(', ') }}</span>
+              </div>
+            </div>
+
+            <div class="tb-mini-title">{{ tf('Transport_Fleet', 'Fleet') }}</div>
+            <div v-for="v in data.fleet" :key="'v' + v.id" class="tb-bus-row">
+              <span class="tb-bus-state" :class="'tb-state-' + v.state" />
+              <span class="tb-bus-name">{{ v.name }}</span>
+              <span class="tb-bus-where">
+                <template v-if="v.state === 'transit'">{{ v.location }} · {{ tf('Transport_Arrives', 'arrives') }} {{ dayjs(v.detail).format('HH:mm') }}</template>
+                <template v-else-if="v.state === 'maintenance'">{{ [v.detail, v.location].filter(Boolean).join(' · ') || tf('Transport_In_Maintenance', 'In maintenance') }}</template>
+                <template v-else>{{ v.location || tf('Transport_No_Location', 'Location unknown') }}<span v-if="v.detail" class="tb-muted"> · {{ tf('Transport_Next_Departure', 'next departure') }} {{ dayjs(v.detail).format('DD/MM HH:mm') }}</span></template>
+              </span>
+            </div>
+          </div>
+
+          <!-- Pilots' driving hours -->
+          <div class="tb-pilots tb-box">
             <div class="tb-sub-title">{{ tf('Transport_Pilot_Hours', 'Pilot hours') }}</div>
             <div class="tb-limit">{{ tf('Transport_Hours_Limit', 'Safe limit') }}: <b>{{ data.pilot_limit }} h</b> / {{ data.days }} d</div>
             <template v-if="record">
@@ -117,21 +153,6 @@
           </div>
         </a-col>
       </a-row>
-
-      <!-- One card per terminal -->
-      <div class="tb-hubs">
-        <div v-for="h in hubCards" :key="h.id" class="tb-hubcard" :style="{ borderTopColor: h.color }">
-          <div class="tb-hubcard-img" :style="h.image_url ? { backgroundImage: `url(${h.image_url})` } : { background: h.color }">
-            <span class="tb-hubcard-name">{{ h.name }}</span>
-          </div>
-          <div class="tb-hubcard-stats">
-            <div><b>{{ h.agencies }}</b><span>{{ tf('Transport_Agencies', 'Agencies') }}</span></div>
-            <div><b>{{ h.buses }}</b><span>{{ tf('Transport_Buses', 'Buses') }}</span></div>
-            <div><b>{{ h.crew }}</b><span>{{ tf('Transport_Crew', 'Crew') }}</span></div>
-            <div><b>{{ h.departures }}</b><span>{{ tf('Transport_Departures', 'Departures') }}</span></div>
-          </div>
-        </div>
-      </div>
     </a-spin>
   </a-card>
 </template>
@@ -158,13 +179,13 @@ const COLORS = ['#0e7490', '#7c3aed', '#c2410c', '#15803d', '#be123c', '#1d4ed8'
 // Last 30 days: a month of driving hours whatever the day of the month.
 const range = ref([dayjs().subtract(29, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')]);
 const loading = ref(false);
-const data = ref({ enabled: false, locations: [], routes: [], live: [], hubs: [], pilots: [], totals: {}, pilot_limit: 0, days: 30 });
+const data = ref({ enabled: false, locations: [], routes: [], live: [], hubs: [], fleet: [], pilots: [], totals: {}, pilot_limit: 0, days: 30 });
 
 async function load() {
   loading.value = true;
   try {
     const res = await http.get('transport/board', { from: range.value?.[0], to: range.value?.[1] });
-    data.value = { ...data.value, ...res, locations: res.locations || [], routes: res.routes || [], live: res.live || [], hubs: res.hubs || [], pilots: res.pilots || [] };
+    data.value = { ...data.value, ...res, locations: res.locations || [], routes: res.routes || [], live: res.live || [], hubs: res.hubs || [], fleet: res.fleet || [], pilots: res.pilots || [] };
   } catch (e) {
     data.value = { ...data.value, enabled: false };
   } finally {
@@ -194,9 +215,10 @@ function project(lat, lng, z) {
 }
 
 const map = computed(() => {
-  const locs = data.value.locations.filter(l => l.kind !== 'online');
+  // Terminals only: the agencies are counted on the cards below, not drawn.
+  const locs = data.value.locations.filter(l => l.kind === 'terminal');
   const placed = locs.filter(l => l.lat != null && l.lng != null);
-  if (!placed.length) return { tiles: [], hubs: [], agencies: [], routes: [], live: [] };
+  if (!placed.length) return { tiles: [], hubs: [], routes: [], live: [] };
 
   // The (fractional) zoom that fits every located place; tiles of the zoom below, scaled.
   const w0 = placed.map(l => project(l.lat, l.lng, 0));
@@ -222,30 +244,19 @@ const map = computed(() => {
   }
 
   const hubInfo = Object.fromEntries(data.value.hubs.map(h => [h.id, h]));
-  const hubs = locs.filter(l => l.kind === 'terminal' && l.lat != null).map(l => {
+  const hubs = placed.map(l => {
     const [x, y] = at(l);
-    const agencies = hubInfo[l.id]?.agencies ?? 0;
-    return { id: l.id, name: l.name, x, y, color: hubColor.value[l.id], agencies, r: 12 + Math.min(10, agencies) };
+    const parked = hubInfo[l.id]?.parked ?? 0;
+    return { id: l.id, name: l.name, x, y, color: hubColor.value[l.id], parked, r: 14 + Math.min(8, parked * 3) };
   });
   const hubById = Object.fromEntries(hubs.map(h => [h.id, h]));
-
-  // Agencies without a position sit in a ring around their terminal.
-  const ring = {};
-  const agencies = locs.filter(l => l.kind === 'agency').map(l => {
-    const hub = l.hub_id ? hubById[l.hub_id] : null;
-    if (l.lat != null) { const [x, y] = at(l); return { id: l.id, name: l.name, x, y, hub }; }
-    if (!hub) return null;
-    const i = (ring[hub.id] = (ring[hub.id] || 0) + 1);
-    const ang = i * 0.9 + Math.PI / 4;
-    return { id: l.id, name: l.name, x: hub.x + Math.cos(ang) * (hub.r + 16), y: hub.y + Math.sin(ang) * (hub.r + 16), hub, guessed: true };
-  }).filter(Boolean);
 
   // Routes as gentle curves, so lines that share a terminal don't sit on top of each other.
   const maxTrips = Math.max(1, ...data.value.routes.map(r => r.trips));
   const curve = {};
   const routes = data.value.routes.map((r, i) => {
-    const a = hubById[r.a] || agencies.find(x => x.id === r.a);
-    const b = hubById[r.b] || agencies.find(x => x.id === r.b);
+    const a = hubById[r.a];
+    const b = hubById[r.b];
     if (!a || !b) return null;
     const dx = b.x - a.x;
     const dy = b.y - a.y;
@@ -281,7 +292,7 @@ const map = computed(() => {
     return { id: t.id, x, y, title: `${t.vehicle || ''} · ${from.name} → ${to.name} · ${dayjs(t.arrival_at).format('HH:mm')}` };
   }).filter(Boolean);
 
-  return { tiles, hubs, agencies, routes, live };
+  return { tiles, hubs, routes, live };
 });
 
 const totals = computed(() => {
@@ -300,6 +311,11 @@ const totals = computed(() => {
   ];
 });
 
+const fleetStates = computed(() => [
+  { key: 'terminal', label: tf('Transport_At_Terminal', 'At a terminal') },
+  { key: 'transit', label: tf('Transport_In_Transit', 'In transit') },
+  { key: 'maintenance', label: tf('Transport_In_Maintenance', 'In maintenance') },
+].map(s => ({ ...s, count: data.value.fleet.filter(v => v.state === s.key).length })));
 const routeList = computed(() => [...map.value.routes].sort((x, y) => x.names.localeCompare(y.names)));
 const record = computed(() => data.value.pilots[0] || null);
 const level = pct => (pct >= 90 ? 'danger' : pct >= 75 ? 'warn' : 'ok');
@@ -348,7 +364,30 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 .tb-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; display: inline-block; }
 .tb-live-item { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 999px; padding: 1px 10px; }
 
-.tb-pilots { border: 1px solid #eef0f3; border-radius: 12px; padding: 14px; height: 100%; background: #fff; }
+.tb-box { border: 1px solid #eef0f3; border-radius: 12px; padding: 14px; background: #fff; margin-bottom: 16px; }
+.tb-pilots { margin-bottom: 0; }
+.tb-map-hint { font-size: 12px; color: #64748b; margin-top: 6px; }
+.tb-states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 12px; }
+.tb-state { border-radius: 10px; padding: 8px 6px; text-align: center; }
+.tb-state b { display: block; font-size: 22px; line-height: 1.1; }
+.tb-state span { font-size: 11.5px; }
+.tb-state.tb-state-terminal { background: #f0fdf4; color: #15803d; }
+.tb-state.tb-state-transit { background: #fffbeb; color: #b45309; }
+.tb-state.tb-state-maintenance { background: #fef2f2; color: #b91c1c; }
+.tb-mini-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #475569; margin: 10px 0 6px; }
+.tb-muted { color: #94a3b8; font-size: 12.5px; }
+.tb-trip { border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; }
+.tb-trip-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.tb-trip-route { font-weight: 700; }
+.tb-trip-bus { color: #92400e; white-space: nowrap; }
+.tb-trip-meta { font-size: 11.5px; color: #64748b; }
+.tb-bus-row { display: flex; gap: 8px; align-items: center; font-size: 12.5px; padding: 3px 0; border-bottom: 1px dashed #eef0f3; }
+.tb-bus-state { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.tb-bus-state.tb-state-terminal { background: #16a34a; }
+.tb-bus-state.tb-state-transit { background: #f59e0b; }
+.tb-bus-state.tb-state-maintenance { background: #dc2626; }
+.tb-bus-name { font-weight: 600; white-space: nowrap; }
+.tb-bus-where { color: #334155; flex: 1; min-width: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tb-sub-title { font-weight: 700; font-size: 15px; }
 .tb-limit { font-size: 12px; color: #64748b; margin-bottom: 10px; }
 .tb-record { border-radius: 10px; padding: 12px; margin-bottom: 12px; }
@@ -371,11 +410,11 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 .tb-pilot-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tb-pilot-hours { font-weight: 600; flex: none; padding-left: 8px; }
 
-.tb-hubs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 16px; }
+.tb-hubs { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 14px; }
 .tb-hubcard { border: 1px solid #eef0f3; border-top: 4px solid; border-radius: 12px; overflow: hidden; background: #fff; }
 .tb-hubcard-img { height: 92px; background-size: cover; background-position: center; position: relative; }
 .tb-hubcard-name { position: absolute; left: 10px; bottom: 8px; color: #fff; font-weight: 800; font-size: 16px; text-shadow: 0 1px 4px rgba(0, 0, 0, .7); }
-.tb-hubcard-stats { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; padding: 10px 4px; }
+.tb-hubcard-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 0; text-align: center; padding: 10px 4px; }
 .tb-hubcard-stats b { display: block; font-size: 18px; }
 .tb-hubcard-stats span { font-size: 11px; color: #64748b; }
 </style>

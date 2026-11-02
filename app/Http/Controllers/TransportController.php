@@ -409,23 +409,64 @@ class TransportController extends Controller
             $routes[$key]['trips'] += $trips->where('route_id', $r['id'])->count();
         }
 
-        // Trips on the road now: where along their line.
+        // Trips on the road now: where along their line, the bus and its crew.
         $live = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')->leftJoin('vehicles as v', 'v.id', '=', 't.vehicle_id')
             ->where('t.company_id', $cid)->whereNull('t.deleted_at')->whereIn('t.status', ['scheduled', 'in_progress'])
             ->where('t.departure_at', '<=', $now)->where('t.arrival_at', '>', $now)
-            ->get(['t.id', 't.departure_at', 't.arrival_at', 'r.origin_id', 'r.destination_id', 'v.name as vehicle'])
-            ->map(fn ($t) => ['id' => (int) $t->id, 'origin_id' => (int) $t->origin_id, 'destination_id' => (int) $t->destination_id, 'vehicle' => $t->vehicle,
-                'progress' => round(Carbon::parse($t->departure_at)->diffInSeconds($now) / max(1, Carbon::parse($t->departure_at)->diffInSeconds(Carbon::parse($t->arrival_at))), 3),
-                'arrival_at' => $t->arrival_at])->values();
+            ->get(['t.id', 't.vehicle_id', 't.departure_at', 't.arrival_at', 'r.origin_id', 'r.destination_id', 'v.name as vehicle']);
+        $liveCrew = DB::table('transport_trip_crew as c')->join('employees as e', 'e.id', '=', 'c.employee_id')->whereIn('c.trip_id', $live->pluck('id'))
+            ->orderBy('c.role')->get(['c.trip_id', 'c.role', 'e.firstname', 'e.lastname'])->groupBy('trip_id');
+        $live = $live->map(fn ($t) => ['id' => (int) $t->id, 'vehicle_id' => (int) $t->vehicle_id, 'vehicle' => $t->vehicle,
+            'origin_id' => (int) $t->origin_id, 'destination_id' => (int) $t->destination_id,
+            'origin' => $byId[$t->origin_id]->name ?? '', 'destination' => $byId[$t->destination_id]->name ?? '',
+            'progress' => round(Carbon::parse($t->departure_at)->diffInSeconds($now) / max(1, Carbon::parse($t->departure_at)->diffInSeconds(Carbon::parse($t->arrival_at))), 3),
+            'departure_at' => $t->departure_at, 'arrival_at' => $t->arrival_at,
+            'pilots' => ($liveCrew[$t->id] ?? collect())->where('role', 'pilot')->map(fn ($c) => trim($c->firstname.' '.$c->lastname))->values(),
+            'hostesses' => ($liveCrew[$t->id] ?? collect())->where('role', 'hostess')->map(fn ($c) => trim($c->firstname.' '.$c->lastname))->values(),
+        ])->values();
 
-        // Per terminal: its agencies, buses and crew that left from it, departures.
-        $hubs = $locs->where('kind', 'terminal')->map(function ($t) use ($locs, $trips, $crew) {
+        // Where each bus is now: on a trip, in maintenance, or at the terminal its last trip
+        // arrived at (else the one its next trip leaves from).
+        $vehicles = DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')->whereNotIn('status', ['sold', 'inactive'])
+            ->orderBy('name')->get(['id', 'name', 'plate_number', 'status']);
+        $vids = $vehicles->pluck('id');
+        $shop = DB::table('vehicle_maintenances as m')->leftJoin('providers as p', 'p.id', '=', 'm.provider_id')
+            ->whereIn('m.vehicle_id', $vids)->whereNull('m.deleted_at')->where('m.status', 'in_progress')
+            ->get(['m.vehicle_id', 'm.title', 'm.performed_by', 'p.name as provider'])->keyBy('vehicle_id');
+        $lastAt = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')
+            ->whereIn('t.vehicle_id', $vids)->whereNull('t.deleted_at')->where('t.status', 'completed')->where('t.arrival_at', '<=', $now)
+            ->orderBy('t.arrival_at')->get(['t.vehicle_id', 'r.destination_id'])->keyBy('vehicle_id');
+        $nextFrom = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')
+            ->whereIn('t.vehicle_id', $vids)->whereNull('t.deleted_at')->where('t.status', 'scheduled')->where('t.departure_at', '>', $now)
+            ->orderByDesc('t.departure_at')->get(['t.vehicle_id', 't.departure_at', 'r.origin_id'])->keyBy('vehicle_id');
+        $liveByBus = $live->keyBy('vehicle_id');
+        $fleet = $vehicles->map(function ($v) use ($liveByBus, $shop, $lastAt, $nextFrom, $byId) {
+            $row = ['id' => (int) $v->id, 'name' => $v->name, 'plate' => $v->plate_number, 'state' => 'terminal', 'location_id' => null, 'location' => null, 'detail' => null];
+            if (isset($liveByBus[$v->id])) {
+                $t = $liveByBus[$v->id];
+
+                return ['state' => 'transit', 'location' => $t['origin'].' → '.$t['destination'], 'detail' => $t['arrival_at']] + $row;
+            }
+            if ($v->status === 'maintenance' || isset($shop[$v->id])) {
+                $m = $shop[$v->id] ?? null;
+
+                return ['state' => 'maintenance', 'location' => $m ? ($m->performed_by === 'workshop' && $m->provider ? $m->provider : null) : null, 'detail' => $m->title ?? null] + $row;
+            }
+            $at = $lastAt[$v->id]->destination_id ?? ($nextFrom[$v->id]->origin_id ?? null);
+
+            return ['location_id' => $at ? (int) $at : null, 'location' => $at ? ($byId[$at]->name ?? null) : null,
+                'detail' => $nextFrom[$v->id]->departure_at ?? null] + $row;
+        })->values();
+
+        // Per terminal: its agencies, the buses parked there now, crew that left from it, departures.
+        $hubs = $locs->where('kind', 'terminal')->map(function ($t) use ($locs, $trips, $crew, $fleet) {
             $out = $trips->where('origin_id', $t->id);
             $people = $out->flatMap(fn ($x) => ($crew[$x->id] ?? collect())->pluck('employee_id'))->unique();
 
             return ['id' => (int) $t->id, 'name' => $t->name, 'city' => $t->city, 'image_url' => $t->image_url,
                 'agencies' => $locs->where('kind', 'agency')->where('hub_id', $t->id)->count(),
-                'buses' => $out->pluck('vehicle_id')->unique()->count(), 'crew' => $people->count(), 'departures' => $out->count()];
+                'parked' => $fleet->where('state', 'terminal')->where('location_id', $t->id)->count(),
+                'crew' => $people->count(), 'departures' => $out->count()];
         })->values();
 
         // Pilots' driving hours in the period (trips done or under way).
@@ -457,7 +498,7 @@ class TransportController extends Controller
             'enabled' => true, 'from' => $from, 'to' => $to, 'days' => $days,
             'locations' => $locs->map(fn ($l) => ['id' => (int) $l->id, 'name' => $l->name, 'city' => $l->city, 'kind' => $l->kind,
                 'lat' => $l->lat !== null ? (float) $l->lat : null, 'lng' => $l->lng !== null ? (float) $l->lng : null, 'hub_id' => $l->hub_id ? (int) $l->hub_id : null])->values(),
-            'routes' => array_values($routes), 'live' => $live, 'hubs' => $hubs,
+            'routes' => array_values($routes), 'live' => $live, 'hubs' => $hubs, 'fleet' => $fleet,
             'totals' => [
                 'terminals' => $locs->where('kind', 'terminal')->count(), 'agencies' => $locs->where('kind', 'agency')->count(), 'online' => $locs->where('kind', 'online')->count(),
                 'buses' => DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')->count(),
