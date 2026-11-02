@@ -97,7 +97,12 @@ class TransportController extends Controller
     {
         $q = $request ? $this->scoped('transport_locations', $request) : DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at');
 
-        return $q->orderBy('name')->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'kind', 'active']);
+        return $q->orderBy('name')->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'image', 'kind', 'active'])
+            ->map(function ($l) {
+                $l->image_url = $l->image ? asset($l->image) : null;
+
+                return $l;
+            });
     }
 
     private function routeRows(?int $cid, ?Request $request = null)
@@ -144,6 +149,18 @@ class TransportController extends Controller
         }
 
         return response()->json(['id' => $id]);
+    }
+
+    /** POST transport/locations/{id}/image {image}: the location's picture (files/company_{id}/transport). */
+    public function locationImage(Request $request, int $id)
+    {
+        $cid = $this->writeCompany($request);
+        $this->own('transport_locations', $id, $cid);
+        $request->validate(['image' => 'required|file|mimes:jpg,jpeg,png,webp|max:5120']);
+        $path = \App\Support\CompanyFiles::putUpload($cid, 'transport', $request->file('image'));
+        DB::table('transport_locations')->where('id', $id)->update(['image' => $path, 'updated_at' => now()]);
+
+        return response()->json(['image' => $path, 'image_url' => asset($path)]);
     }
 
     public function deleteLocation(Request $request, int $id)

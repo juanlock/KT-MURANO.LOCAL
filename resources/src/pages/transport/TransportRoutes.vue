@@ -30,7 +30,13 @@
           <a-input-search v-model:value="q" allow-clear style="max-width: 260px; margin-bottom: 10px" :placeholder="es ? 'Buscar' : 'Search'" />
           <a-table :columns="locationColumns" :data-source="filteredLocations" row-key="id" size="middle" :loading="loading" :pagination="{ pageSize: 20, hideOnSinglePage: true }">
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'kind'"><a-tag :color="KIND_COLOR[record.kind]">{{ kindLabel(record.kind) }}</a-tag></template>
+              <template v-if="column.key === 'photo'">
+                <img v-if="record.image_url" :src="record.image_url" class="tr-thumb" alt="">
+                <a-upload v-else-if="canManage" :show-upload-list="false" accept=".jpg,.jpeg,.png,.webp" :before-upload="f => upload(record, f)">
+                  <a-button size="small" type="dashed">+ {{ es ? 'Foto' : 'Photo' }}</a-button>
+                </a-upload>
+              </template>
+              <template v-else-if="column.key === 'kind'"><a-tag :color="KIND_COLOR[record.kind]">{{ kindLabel(record.kind) }}</a-tag></template>
               <template v-else-if="column.key === 'active'"><a-tag :color="record.active ? 'green' : 'default'">{{ record.active ? (es ? 'Activo' : 'Active') : (es ? 'Inactivo' : 'Inactive') }}</a-tag></template>
               <template v-else-if="column.key === 'actions'">
                 <a-space v-if="canManage" :size="0">
@@ -116,6 +122,7 @@ const routeColumns = computed(() => [
   { title: '', key: 'actions', width: 90 },
 ]);
 const locationColumns = computed(() => [
+  { title: '', key: 'photo', width: 90 },
   { title: es.value ? 'Nombre' : 'Name', dataIndex: 'name', key: 'name' },
   { title: es.value ? 'Ciudad' : 'City', dataIndex: 'city', key: 'city' },
   { title: es.value ? 'Dirección' : 'Address', dataIndex: 'address', key: 'address' },
@@ -170,9 +177,25 @@ async function send(url, body, id, close) {
 }
 const saveRoute = () => send('transport/routes', routeForm.value, routeForm.value.id, () => { routeOpen.value = false; });
 const saveLocation = () => send('transport/locations', locationForm.value, locationForm.value.id, () => { locationOpen.value = false; });
+async function upload(r, file) {
+  const fd = new FormData();
+  fd.append('image', file);
+  try {
+    const res = await http.postForm(`transport/locations/${r.id}/image`, fd);
+    r.image_url = res.image_url;
+  } catch (e) {
+    message.error(e?.data?.message || e.message);
+  }
+  return false;
+}
+
 async function remove(kind, r) {
   try { await http.delete(`transport/${kind}/${r.id}`); load(); } catch (e) { message.error(e?.data?.message || e.message); }
 }
 
 onMounted(load);
 </script>
+
+<style scoped>
+.tr-thumb { width: 72px; height: 44px; object-fit: cover; border-radius: 6px; display: block; }
+</style>

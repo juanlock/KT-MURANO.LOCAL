@@ -762,6 +762,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/locations', 'saveLocation');
         Route::put('/locations/{id}', 'saveLocation')->whereNumber('id');
         Route::delete('/locations/{id}', 'deleteLocation')->whereNumber('id');
+        Route::post('/locations/{id}/image', 'locationImage')->whereNumber('id');
         Route::get('/routes', 'routes');
         Route::post('/routes', 'saveRoute');
         Route::put('/routes/{id}', 'saveRoute')->whereNumber('id');

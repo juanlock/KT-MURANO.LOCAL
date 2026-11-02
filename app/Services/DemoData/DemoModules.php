@@ -38,6 +38,8 @@ class DemoModules
         Modules\ManufacturingModule::class,
         Modules\AssetsModule::class,
         Modules\FleetModule::class,
+        // Terminals, routes, buses, crew paid per trip, trips, workshops, complaints book (2026-11-01).
+        Modules\TransportModule::class,
         Modules\HospitalModule::class,
         Modules\SchoolModule::class,
         // Listings for sale / rent and buyers' inquiries (2026-10-21).
