@@ -202,12 +202,22 @@
                   />
                 </a-form-item>
               </a-col>
-              <a-col v-if="employee.pay_type !== 'commission'" :xs="24" :md="6">
+              <a-col :xs="24" :md="6">
+                <a-form-item :label="tx('Staff type', 'Tipo de personal')" :extra="tx('Pilots and hostesses can be put on trips (Transport).', 'Pilotos y azafatas se asignan a viajes (Transporte).')">
+                  <a-select v-model:value="employee.staff_type" allow-clear :options="STAFF_TYPES" />
+                </a-form-item>
+              </a-col>
+              <a-col v-if="employee.pay_type === 'per_trip' || ['pilot', 'hostess'].includes(employee.staff_type)" :xs="24" :md="6">
+                <a-form-item :label="tx('Pay per trip', 'Pago por viaje')">
+                  <a-input-number v-model:value="employee.trip_rate" :min="0" :step="1" :prefix="auth.currency" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col v-if="employee.pay_type !== 'commission' && employee.pay_type !== 'per_trip'" :xs="24" :md="6">
                 <a-form-item :label="$t('Hourly_rate')">
                   <a-input-number v-model:value="employee.hourly_rate" :min="0" :step="0.5" :prefix="auth.currency" style="width: 100%" />
                 </a-form-item>
               </a-col>
-              <a-col v-else :xs="24" :md="6">
+              <a-col v-else-if="employee.pay_type === 'commission'" :xs="24" :md="6">
                 <a-form-item :label="tx('Commission %', 'Comisión %')">
                   <a-input-number v-model:value="employee.commission_rate" :min="0" :max="100" addon-after="%" style="width: 100%" />
                 </a-form-item>
@@ -602,7 +612,7 @@ import { sortByLabel } from '../../lib/filterOptions';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import { useUiStore } from '../../stores/ui';
-import { GENDERS, MARITAL_STATUSES, EMPLOYMENT_TYPES, PAY_TYPES } from './hrmVocab';
+import { GENDERS, MARITAL_STATUSES, EMPLOYMENT_TYPES, PAY_TYPES, STAFF_TYPES } from './hrmVocab';
 
 const { t } = useI18n();
 const ui = useUiStore();
@@ -688,6 +698,7 @@ const BASIC_KEYS = [
   'company_id', 'department_id', 'designation_id', 'office_shift_id', 'joining_date',
   'leaving_date', 'marital_status', 'employment_type', 'city', 'province', 'address',
   'zipcode', 'hourly_rate', 'basic_salary', 'total_leave', 'pay_type', 'commission_rate', 'pay_effective_from',
+  'staff_type', 'trip_rate',
   // Sent so the server's remaining-leave arithmetic has a base to work from.
   'remaining_leave',
 ];

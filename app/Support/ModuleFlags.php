@@ -16,7 +16,9 @@ class ModuleFlags
         // Integrations hub / webhooks and every integration (2026-10-20): their
         // settings are install-wide, so they're off unless a SuperAdmin turns one on.
         'integrations', 'woocommerce_settings', 'shopify', 'salla', 'jumia', 'prestashop',
-        'quickbooks', 'xero', 'google_sheets', 'mailchimp', 'slack', 'telegram'];
+        'quickbooks', 'xero', 'google_sheets', 'mailchimp', 'slack', 'telegram',
+        // Transport (2026-11-01): trips, routes and crew of a passenger transport / tour company.
+        'transport'];
 
     private static array $memo = [];
 

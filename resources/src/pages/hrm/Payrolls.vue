@@ -26,10 +26,12 @@
         <template v-else-if="column.key === 'pay_type'">
           <a-tag v-if="record.pay_type === 'hourly'" color="blue">Hours</a-tag>
           <a-tag v-else-if="record.pay_type === 'commission'" color="purple">Commission</a-tag>
+          <a-tag v-else-if="record.pay_type === 'per_trip'" color="cyan">Per trip</a-tag>
           <span v-else class="muted">Manual</span>
         </template>
         <template v-else-if="column.key === 'detail'">
           <span v-if="record.pay_type === 'hourly'">{{ Number(record.hours) }} h × {{ money(record.rate) }}</span>
+          <span v-else-if="record.pay_type === 'per_trip'">{{ record.notes }}</span>
           <span v-else-if="record.pay_type === 'commission'">{{ Number(record.commission_rate) }}% of {{ money(record.commission_base) }}</span>
           <span v-else class="muted">—</span>
         </template>
@@ -124,9 +126,10 @@
       <a-table :data-source="weekly.rows" :columns="weeklyColumns" :pagination="false" size="small" row-key="employee_id" :loading="weekly.loading"
         :locale="{ emptyText: 'Nobody is set to be paid by hours or commission (Employee -> Company tab -> Paid by).' }">
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'pay_type'">{{ record.pay_type === 'hourly' ? 'Hours' : 'Commission' }}</template>
+          <template v-if="column.key === 'pay_type'">{{ record.pay_type === 'hourly' ? 'Hours' : record.pay_type === 'per_trip' ? 'Per trip' : 'Commission' }}</template>
           <template v-else-if="column.key === 'basis'">
             <span v-if="record.pay_type === 'hourly'">{{ record.hours }} h on {{ record.jobs }} job(s) × {{ money(record.rate) }}</span>
+            <span v-else-if="record.pay_type === 'per_trip'">{{ record.trips }} trip(s) completed</span>
             <span v-else>{{ record.commission_rate }}% of {{ money(record.commission_base) }} ({{ record.sales }} sale(s))</span>
           </template>
           <template v-else-if="column.key === 'amount'"><strong>{{ money(record.amount) }}</strong></template>

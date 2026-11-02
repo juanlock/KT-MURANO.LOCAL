@@ -125,9 +125,11 @@ class FleetVehicleController extends Controller
                     'status' => $v->status,
                 ])->values(),
             'warehouses' => Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('name')->get(['id', 'name']),
-            'employees' => Employee::orderBy('firstname')->get(['id', 'firstname', 'lastname'])
-                ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->firstname . ' ' . $e->lastname)])
+            'employees' => Employee::where('company_id', $companyId)->orderBy('firstname')->get(['id', 'firstname', 'lastname', 'staff_type'])
+                ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->firstname . ' ' . $e->lastname), 'staff_type' => $e->staff_type])
                 ->values(),
+            // Workshops for maintenance done outside (2026-11-01): the company's suppliers.
+            'providers' => DB::table('providers')->where('company_id', $companyId)->whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
         ]);
     }
 

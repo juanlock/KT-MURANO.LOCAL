@@ -173,7 +173,8 @@ class BusinessTypes
         'school' => ['documents', 'intranet', 'portfolio', 'school'],
         // Tours and packages (2026-10-24, Turismo Cautivo): reservations (Bookings), agents' commissions,
         // campaigns, promotions and the tours' portfolio; complaints (Libro de Reclamos) via Helpdesk (base).
-        'tourism' => ['bookings', 'commissions', 'marketing', 'portfolio', 'promotions'],
+        // + Fleet and Transport (2026-11-01): buses, maintenance, trips with their crew.
+        'tourism' => ['bookings', 'commissions', 'fleet', 'marketing', 'portfolio', 'promotions', 'transport'],
     ];
 
     /** The modules a company of $type starts with (base + the type's own). */

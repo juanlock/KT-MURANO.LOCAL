@@ -15,6 +15,8 @@ class VehicleMaintenance extends Model
         'vehicle_id', 'type', 'title', 'service_date', 'odometer', 'cost',
         'vendor', 'status', 'next_service_date', 'next_service_odometer',
         'notes', 'created_by',
+        // 2026-11-01: in house (mechanic = an employee) or by a workshop (a supplier).
+        'performed_by', 'provider_id', 'mechanic_id',
     ];
 
     protected $casts = [

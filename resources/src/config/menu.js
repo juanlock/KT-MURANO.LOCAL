@@ -315,6 +315,9 @@ export const MIGRATED_ROUTES = {
     '/app/fleet/fuel-logs': '/fleet/fuel-logs',
     '/app/fleet/assignments': '/fleet/assignments',
     '/app/fleet/reports': '/fleet/reports',
+    '/app/transport/trips': '/transport/trips',
+    '/app/transport/routes': '/transport/routes',
+    '/app/transport/staff': '/transport/staff',
     '/app/hospital/dashboard': '/hospital/dashboard',
     '/app/hospital/patients': '/hospital/patients',
     '/app/hospital/doctors': '/hospital/doctors',
@@ -999,6 +1002,18 @@ export const MENU = [
             { label: 'Fuel Logs', to: '/app/fleet/fuel-logs', permissions: ['fleet_fuel'] },
             { label: 'Assignments', to: '/app/fleet/assignments', permissions: ['fleet_assignments'] },
             { label: 'Fleet Reports', to: '/app/fleet/reports', permissions: ['fleet_reports'] },
+        ],
+    },
+    {
+        // Transport (2026-11-01): trips with their vehicle and crew, routes between locations, active staff.
+        key: 'transport',
+        icon: 'bus',
+        label: 'Transport',
+        permissions: ['transport_view', 'transport_manage'],
+        children: [
+            { label: 'Transport_Trips', to: '/app/transport/trips', permissions: ['transport_view', 'transport_manage'] },
+            { label: 'Transport_Routes', to: '/app/transport/routes', permissions: ['transport_view', 'transport_manage'] },
+            { label: 'Transport_Staff', to: '/app/transport/staff', permissions: ['transport_view', 'transport_manage'] },
         ],
     },
     {

@@ -782,6 +782,10 @@ const routes = [
             { path: 'fleet/fuel-logs', name: 'fleet-fuel-logs', component: FleetFuelLogs, meta: { title: 'Fuel Logs', permission: 'fleet_fuel' } },
             { path: 'fleet/assignments', name: 'fleet-assignments', component: FleetAssignments, meta: { title: 'Vehicle Assignments', permission: 'fleet_assignments' } },
             { path: 'fleet/reports', name: 'fleet-reports', component: FleetReports, meta: { title: 'Fleet Reports', permission: 'fleet_reports' } },
+            // Transport (2026-11-01): trips with their crew, routes and locations, active staff.
+            { path: 'transport/trips', name: 'transport-trips', component: () => import('../pages/transport/TransportTrips.vue'), meta: { title: 'Trips', permission: ['transport_view', 'transport_manage'] } },
+            { path: 'transport/routes', name: 'transport-routes', component: () => import('../pages/transport/TransportRoutes.vue'), meta: { title: 'Routes and locations', permission: ['transport_view', 'transport_manage'] } },
+            { path: 'transport/staff', name: 'transport-staff', component: () => import('../pages/transport/TransportStaff.vue'), meta: { title: 'Active staff', permission: ['transport_view', 'transport_manage'] } },
             // Hospital Management. `create` is declared before the :id routes
             // so it is never read as a record id.
             { path: 'hospital/dashboard', name: 'hospital-dashboard', component: HospitalDashboard, meta: { title: 'Hospital Dashboard', permission: 'hms_dashboard' } },

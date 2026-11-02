@@ -306,6 +306,52 @@ class FormsController extends Controller
         return response()->json(['fields' => $fields, 'field' => $key, 'total' => $total, 'rows' => $rows]);
     }
 
+    /**
+     * GET forms/{id}/hotspots?from&to (dashboard, 2026-11-01): where the problems are --
+     * submissions by agency / location (a choice field labelled agency / local / sede /
+     * location) and by route (the origin + destination fields), top 10 each. Empty lists
+     * when the form has no such fields.
+     */
+    public function hotspots(Request $request, int $id)
+    {
+        $this->can($request, 'forms_view');
+        $f = $this->form($request, $id);
+        $fields = collect(FormSchema::inputs(json_decode((string) $f->fields, true) ?: []));
+        $find = fn ($re) => $fields->first(fn ($x) => in_array($x['type'], ['select', 'radio', 'text'], true) && preg_match($re, (string) $x['label']))['key'] ?? null;
+        $agency = $find('/agencia|local|sede|sucursal|agency|location|branch/iu');
+        $origin = $find('/origen|origin/iu');
+        $dest = $find('/destino|destination/iu');
+
+        $q = DB::table('form_submissions')->where('form_id', $f->id)->whereNull('deleted_at');
+        if ($from = $request->input('from')) {
+            $q->whereDate('created_at', '>=', $from);
+        }
+        if ($to = $request->input('to')) {
+            $q->whereDate('created_at', '<=', $to);
+        }
+        $byAgency = [];
+        $byRoute = [];
+        $total = 0;
+        foreach (($agency || ($origin && $dest)) ? $q->pluck('data') : [] as $raw) {
+            $total++;
+            $d = json_decode((string) $raw, true) ?: [];
+            if ($agency && ($a = trim((string) ($d[$agency] ?? ''))) !== '') {
+                $byAgency[$a] = ($byAgency[$a] ?? 0) + 1;
+            }
+            if ($origin && $dest && ($o = trim((string) ($d[$origin] ?? ''))) !== '' && ($t = trim((string) ($d[$dest] ?? ''))) !== '') {
+                $byRoute[$o.' → '.$t] = ($byRoute[$o.' → '.$t] ?? 0) + 1;
+            }
+        }
+        $top = function (array $c) use ($total) {
+            arsort($c);
+
+            return collect($c)->take(10)->map(fn ($n, $v) => ['value' => (string) $v, 'count' => $n, 'percent' => $total ? round($n * 100 / $total, 1) : 0])->values()->all();
+        };
+
+        return response()->json(['total' => $total, 'has_agency' => (bool) $agency, 'has_route' => (bool) ($origin && $dest),
+            'agencies' => $top($byAgency), 'routes' => $top($byRoute)]);
+    }
+
     public function report(Request $request)
     {
         $this->can($request, 'forms_view');

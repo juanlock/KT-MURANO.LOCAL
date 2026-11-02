@@ -20,7 +20,8 @@ class EmployeeTabs
     public const BASIC_FIELDS = ['firstname', 'lastname', 'gender', 'marital_status', 'birth_date', 'email', 'phone', 'country', 'city', 'province', 'zipcode', 'address'];
 
     /** Company tab fields. */
-    public const COMPANY_FIELDS = ['employment_type', 'joining_date', 'leaving_date', 'total_leave', 'company_id', 'department_id', 'designation_id', 'office_shift_id', 'hourly_rate', 'basic_salary', 'pay_type', 'commission_rate', 'pay_effective_from'];
+    public const COMPANY_FIELDS = ['employment_type', 'joining_date', 'leaving_date', 'total_leave', 'company_id', 'department_id', 'designation_id', 'office_shift_id', 'hourly_rate', 'basic_salary', 'pay_type', 'commission_rate', 'pay_effective_from',
+        'staff_type', 'trip_rate'];
 
     public static function can($user, string $tab, string $action): bool
     {

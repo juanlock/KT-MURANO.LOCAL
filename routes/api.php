@@ -751,9 +751,27 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::delete('/{id}', 'destroy')->whereNumber('id');
         Route::get('/{id}/submissions', 'submissions')->whereNumber('id');
         Route::get('/{id}/group', 'group')->whereNumber('id');
+        Route::get('/{id}/hotspots', 'hotspots')->whereNumber('id');
     });
     // Settings -> Company manuals (superadmin/AdminSystem, 2026-11-01).
     Route::get('company-manuals', [\App\Http\Controllers\CompanyManualsController::class, 'index']);
+    // Transport (2026-11-01): locations, routes, trips with their crew, active staff.
+    Route::prefix('transport')->controller(\App\Http\Controllers\TransportController::class)->group(function () {
+        Route::get('/meta', 'meta');
+        Route::get('/locations', 'locations');
+        Route::post('/locations', 'saveLocation');
+        Route::put('/locations/{id}', 'saveLocation')->whereNumber('id');
+        Route::delete('/locations/{id}', 'deleteLocation')->whereNumber('id');
+        Route::get('/routes', 'routes');
+        Route::post('/routes', 'saveRoute');
+        Route::put('/routes/{id}', 'saveRoute')->whereNumber('id');
+        Route::delete('/routes/{id}', 'deleteRoute')->whereNumber('id');
+        Route::get('/trips', 'trips');
+        Route::post('/trips', 'saveTrip');
+        Route::put('/trips/{id}', 'saveTrip')->whereNumber('id');
+        Route::delete('/trips/{id}', 'deleteTrip')->whereNumber('id');
+        Route::get('/staff', 'staff');
+    });
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
     Route::get('employees/{id}/assets', 'hrm\EmployeesController@assets')->whereNumber('id');
     Route::get('employees/{id}/print', 'hrm\EmployeesController@printProfile')->whereNumber('id');

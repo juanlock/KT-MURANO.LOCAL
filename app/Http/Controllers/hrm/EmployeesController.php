@@ -659,9 +659,12 @@ class EmployeesController extends Controller
             'basic_salary' => 'nullable|numeric',
             'hourly_rate' => 'nullable|numeric',
             // Payroll: hourly (hours on completed jobs x rate) or commission (% of their sales).
-            'pay_type' => 'nullable|in:hourly,commission',
+            'pay_type' => 'nullable|in:hourly,commission,per_trip',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
             'pay_effective_from' => 'nullable|date',
+            // Transport (2026-11-01): staff type and pay per trip (pilots / hostesses).
+            'staff_type' => 'nullable|in:administrative,maintenance,pilot,hostess',
+            'trip_rate' => 'nullable|numeric|min:0',
         ]);
 
         $employee = Employee::findOrFail($id);
@@ -676,7 +679,8 @@ class EmployeesController extends Controller
         }
         $fields = ['firstname', 'lastname', 'country', 'email', 'gender', 'phone', 'birth_date', 'company_id', 'department_id',
             'designation_id', 'office_shift_id', 'joining_date', 'role_users_id', 'leaving_date', 'marital_status', 'employment_type',
-            'city', 'province', 'zipcode', 'address', 'basic_salary', 'hourly_rate', 'pay_type', 'commission_rate', 'pay_effective_from'];
+            'city', 'province', 'zipcode', 'address', 'basic_salary', 'hourly_rate', 'pay_type', 'commission_rate', 'pay_effective_from',
+            'staff_type', 'trip_rate'];
         $data = [];
         foreach ($fields as $f) {
             if ($request->exists($f)) {

@@ -16,6 +16,7 @@ class Payroll extends Model
         'created_at', 'updated_at', 'deleted_at',
         // Weekly payroll run: period + how the amount was worked out.
         'company_id', 'period_start', 'period_end', 'pay_type', 'hours', 'rate', 'commission_base', 'commission_rate', 'notes',
+        'trips', // transport crew paid per trip (2026-11-01)
     ];
 
     protected $casts = [

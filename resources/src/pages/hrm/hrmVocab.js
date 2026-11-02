@@ -42,6 +42,17 @@ export const maritalStatusLabel = labelIn(MARITAL_STATUSES);
 export const PAY_TYPES = options([
     ['commission', 'Commission (% of sales)', 'Comisión (% de ventas)'],
     ['hourly', 'Hours (on service jobs)', 'Por horas (trabajos de servicio)'],
+    // Transport crew (2026-11-01): each completed trip x their trip rate.
+    ['per_trip', 'Per trip (transport crew)', 'Por viaje (tripulación)'],
+]);
+
+// Transport (2026-11-01): which staff an employee is -- normal schedule (administrative,
+// maintenance) or crew paid per trip (pilot, hostess).
+export const STAFF_TYPES = options([
+    ['administrative', 'Administrative', 'Administrativo'],
+    ['hostess', 'Hostess', 'Azafata'],
+    ['maintenance', 'Maintenance', 'Mantenimiento'],
+    ['pilot', 'Pilot', 'Piloto'],
 ]);
 
 export const LEAVE_STATUSES = options([

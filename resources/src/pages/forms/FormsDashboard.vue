@@ -73,6 +73,29 @@
         </a-col>
       </a-row>
 
+      <!-- Where the problems are (2026-11-01): the form's submissions by agency and by
+           route (origin → destination), when the form asks them (e.g. a complaints book). -->
+      <a-row v-if="hot.has_agency || hot.has_route" :gutter="16">
+        <a-col v-if="hot.has_agency" :xs="24" :lg="12">
+          <a-card size="small" class="fd-card" :title="(es ? 'Locales con más ' : 'Locations with most ') + groupFormName">
+            <a-empty v-if="!hot.agencies.length" :image="simple" :description="es ? 'Sin datos' : 'No data'" />
+            <div v-for="(r, i) in hot.agencies" :key="r.value" class="fd-hot">
+              <span class="fd-rank">{{ i + 1 }}</span><span class="fd-hot-name">{{ r.value }}</span>
+              <a-progress :percent="r.percent" :format="() => r.count" size="small" status="exception" style="flex: 0 0 45%; margin: 0" />
+            </div>
+          </a-card>
+        </a-col>
+        <a-col v-if="hot.has_route" :xs="24" :lg="12">
+          <a-card size="small" class="fd-card" :title="(es ? 'Rutas con más ' : 'Routes with most ') + groupFormName">
+            <a-empty v-if="!hot.routes.length" :image="simple" :description="es ? 'Sin datos todavía: el formulario ya pregunta origen y destino.' : 'No data yet: the form now asks origin and destination.'" />
+            <div v-for="(r, i) in hot.routes" :key="r.value" class="fd-hot">
+              <span class="fd-rank">{{ i + 1 }}</span><span class="fd-hot-name">{{ r.value }}</span>
+              <a-progress :percent="r.percent" :format="() => r.count" size="small" status="exception" style="flex: 0 0 45%; margin: 0" />
+            </div>
+          </a-card>
+        </a-col>
+      </a-row>
+
       <!-- Most visited / most started / most conversions / last updated -->
       <div class="fd-grid4 fd-lists">
         <a-card v-for="l in lists" :key="l.key" size="small" :title="l.title" class="fd-card">
@@ -244,7 +267,21 @@ const groupColumns = computed(() => [
   { title: es.value ? 'Envíos' : 'Submissions', dataIndex: 'count', key: 'count', align: 'right', width: 80 },
   { title: '%', key: 'percent', width: 130 },
 ]);
+// Hotspots of the selected form: by agency and by route.
+const hot = ref({ has_agency: false, has_route: false, agencies: [], routes: [] });
+const groupFormName = computed(() => {
+  const n = (d.value.forms || []).find(f => f.id === groupForm.value)?.name || '';
+  return /reclam|queja|complaint/i.test(n) ? (es.value ? 'reclamos' : 'complaints') : (es.value ? 'envíos' : 'submissions');
+});
+async function loadHot() {
+  if (!groupForm.value) return;
+  try {
+    hot.value = await http.get(`forms/${groupForm.value}/hotspots`, { from: range.value?.[0], to: range.value?.[1] });
+  } catch (e) { hot.value = { has_agency: false, has_route: false, agencies: [], routes: [] }; }
+}
+
 async function loadGroup() {
+  loadHot();
   if (!groupForm.value) { group.value = { fields: [], rows: [], total: 0 }; return; }
   groupLoading.value = true;
   try {
@@ -280,6 +317,9 @@ load();
 .fd-strong { font-weight: 600; }
 .fd-card { margin-bottom: 16px; }
 .fd-group-filters { display: flex; gap: 8px; margin-bottom: 8px; }
+.fd-hot { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.fd-rank { width: 22px; height: 22px; border-radius: 50%; background: rgba(239, 68, 68, 0.12); color: #dc2626; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.fd-hot-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fd-lists { margin-bottom: 0; }
 .fd-tag { margin-inline-start: 6px; }
 .fd-muted { opacity: 0.55; }

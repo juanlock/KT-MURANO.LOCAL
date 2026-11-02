@@ -37,10 +37,10 @@ class PayrollRun
     {
         $rows = [];
         $employees = DB::table('employees')->where('company_id', $companyId)->whereNull('deleted_at')
-            ->whereIn('pay_type', ['hourly', 'commission'])
+            ->whereIn('pay_type', ['hourly', 'commission', 'per_trip'])
             ->where(fn ($q) => $q->whereNull('pay_effective_from')->orWhere('pay_effective_from', '<=', $to))
             ->where(fn ($q) => $q->whereNull('leaving_date')->orWhere('leaving_date', '>=', $from))
-            ->orderBy('firstname')->get(['id', 'firstname', 'lastname', 'user_id', 'pay_type', 'hourly_rate', 'commission_rate']);
+            ->orderBy('firstname')->get(['id', 'firstname', 'lastname', 'user_id', 'pay_type', 'hourly_rate', 'commission_rate', 'trip_rate']);
 
         foreach ($employees as $e) {
             $row = [
@@ -48,10 +48,19 @@ class PayrollRun
                 'name' => trim($e->firstname.' '.$e->lastname),
                 'pay_type' => $e->pay_type,
                 'hours' => null, 'rate' => null, 'commission_base' => null, 'commission_rate' => null,
-                'jobs' => 0, 'sales' => 0, 'amount' => 0.0,
+                'jobs' => 0, 'sales' => 0, 'trips' => null, 'amount' => 0.0,
                 'existing' => DB::table('payrolls')->where('employee_id', $e->id)->whereNull('deleted_at')->where('period_start', $from)->value('Ref'),
             ];
-            if ($e->pay_type === 'hourly') {
+            if ($e->pay_type === 'per_trip') {
+                // Transport crew (2026-11-01): the trips they completed that week, each at the
+                // rate they had when put on the trip (else their current trip rate).
+                $trips = DB::table('transport_trip_crew as c')->join('transport_trips as t', 't.id', '=', 'c.trip_id')
+                    ->where('c.employee_id', $e->id)->where('t.company_id', $companyId)->whereNull('t.deleted_at')
+                    ->where('t.status', 'completed')->whereBetween(DB::raw('DATE(t.departure_at)'), [$from, $to]);
+                $row['trips'] = (clone $trips)->count();
+                $row['rate'] = (float) $e->trip_rate;
+                $row['amount'] = round((float) (clone $trips)->sum(DB::raw('COALESCE(c.trip_rate, '.(float) $e->trip_rate.')')), 2);
+            } elseif ($e->pay_type === 'hourly') {
                 $techIds = DB::table('service_technicians')->where('employee_id', $e->id)->pluck('id');
                 // Their own jobs, plus the company's "All operators" crew jobs (they're an operator).
                 $jobs = DB::table('service_jobs as j')->leftJoin('warehouses as w', 'w.id', '=', 'j.warehouse_id')->leftJoin('clients as c', 'c.id', '=', 'j.client_id')
@@ -120,6 +129,7 @@ class PayrollRun
                     'employee_id' => $row['employee_id'],
                     'pay_type' => $row['pay_type'],
                     'hours' => $row['hours'],
+                    'trips' => $row['trips'],
                     'rate' => $row['rate'],
                     'commission_base' => $row['commission_base'],
                     'commission_rate' => $row['commission_rate'],
@@ -127,9 +137,11 @@ class PayrollRun
                     'amount' => $row['amount'],
                     'payment_method_id' => $paymentMethodId,
                     'payment_status' => $paid ? 'paid' : 'unpaid',
-                    'notes' => $row['pay_type'] === 'hourly'
-                        ? "{$row['hours']} h on {$row['jobs']} job(s) x {$row['rate']}"
-                        : "{$row['commission_rate']}% of {$row['commission_base']} ({$row['sales']} sale(s))",
+                    'notes' => match ($row['pay_type']) {
+                        'hourly' => "{$row['hours']} h on {$row['jobs']} job(s) x {$row['rate']}",
+                        'per_trip' => "{$row['trips']} trip(s) completed",
+                        default => "{$row['commission_rate']}% of {$row['commission_base']} ({$row['sales']} sale(s))",
+                    },
                 ]);
                 if ($paid) {
                     if ($accountId) {

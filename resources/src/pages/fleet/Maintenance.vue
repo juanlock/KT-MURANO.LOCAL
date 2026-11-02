@@ -53,6 +53,10 @@
           {{ record.odometer ? number(record.odometer, 0) : '—' }}
         </template>
         <template v-else-if="column.key === 'cost'">{{ money(record.cost) }}</template>
+        <template v-else-if="column.key === 'done_by'">
+          <a-tag :color="record.performed_by === 'workshop' ? 'orange' : 'blue'">{{ record.performed_by === 'workshop' ? (es ? 'Taller' : 'Workshop') : (es ? 'En casa' : 'In house') }}</a-tag>
+          <div class="muted">{{ record.performed_by === 'workshop' ? record.provider_name : record.mechanic_name }}</div>
+        </template>
         <template v-else-if="column.key === 'next'">
           <div v-if="record.next_service_date || record.next_service_odometer" class="next">
             <span v-if="record.next_service_date">{{ date(record.next_service_date) }}</span>
@@ -125,6 +129,25 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
+            <a-form-item :label="es ? 'Hecho por' : 'Done by'">
+              <a-radio-group v-model:value="form.performed_by" button-style="solid" size="small">
+                <a-radio-button value="in_house">{{ es ? 'En casa' : 'In house' }}</a-radio-button>
+                <a-radio-button value="workshop">{{ es ? 'Taller' : 'Workshop' }}</a-radio-button>
+              </a-radio-group>
+            </a-form-item>
+          </a-col>
+          <a-col v-if="form.performed_by === 'workshop'" :xs="24" :md="12">
+            <a-form-item :label="es ? 'Taller (proveedor) *' : 'Workshop (supplier) *'" name="provider_id"
+              :extra="es ? 'Los talleres se registran en Proveedores.' : 'Workshops are added in Suppliers.'">
+              <a-select v-model:value="form.provider_id" show-search option-filter-prop="label" :options="providerOptions" allow-clear />
+            </a-form-item>
+          </a-col>
+          <a-col v-else :xs="24" :md="12">
+            <a-form-item :label="es ? 'Mecánico' : 'Mechanic'">
+              <a-select v-model:value="form.mechanic_id" show-search option-filter-prop="label" :options="mechanicOptions" allow-clear />
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="12">
             <a-form-item label="Vendor / garage">
               <a-input v-model:value="form.vendor" allow-clear />
             </a-form-item>
@@ -171,8 +194,11 @@ import { useFormat } from '../../composables/useFormat';
 import { MAINTENANCE_TYPES, MAINTENANCE_STATUSES, labelOf, optionOf } from './fleetOptions';
 import http from '../../lib/http';
 import { t } from '../../i18n';
+import { sortByLabel } from '../../lib/filterOptions';
+import { useUiStore } from '../../stores/ui';
 
 const route = useRoute();
+const es = computed(() => useUiStore().locale === 'es');
 const { money, number, date } = useFormat();
 
 const filters = reactive({
@@ -202,7 +228,7 @@ const columns = computed(() => [
   { title: 'Work', dataIndex: 'title', key: 'title' },
   { title: 'Type', key: 'type', dataIndex: 'type', sorter: true, width: 110 },
   { title: 'Odometer', key: 'odometer', dataIndex: 'odometer', sorter: true, width: 100 },
-  { title: 'Vendor', dataIndex: 'vendor', key: 'vendor', width: 140 },
+  { title: es.value ? 'Hecho por' : 'Done by', key: 'done_by', width: 150 },
   { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 120 },
   { title: 'Next due', key: 'next', width: 140 },
   { title: 'Cost', key: 'cost', dataIndex: 'cost', sorter: true, width: 110 },
@@ -213,6 +239,14 @@ const columns = computed(() => [
 
 const vehicles = ref([]);
 const vehicleOptions = computed(() => vehicles.value.map(v => ({ value: v.id, label: v.label })));
+// In house (a mechanic: maintenance staff first) or a workshop (a supplier), 2026-11-01.
+const providers = ref([]);
+const employees = ref([]);
+const providerOptions = computed(() => sortByLabel(providers.value.map(p => ({ value: p.id, label: p.name }))));
+const mechanicOptions = computed(() => {
+  const maint = employees.value.filter(e => e.staff_type === 'maintenance');
+  return sortByLabel((maint.length ? maint : employees.value).map(e => ({ value: e.id, label: e.name })));
+});
 
 const formRef = ref();
 const formOpen = ref(false);
@@ -224,7 +258,7 @@ function emptyForm() {
   return {
     vehicle_id: undefined, title: '', type: 'service', status: 'completed',
     service_date: new Date().toISOString().slice(0, 10),
-    odometer: null, cost: null, vendor: '',
+    odometer: null, cost: null, vendor: '', performed_by: 'in_house', provider_id: undefined, mechanic_id: undefined,
     next_service_date: null, next_service_odometer: null, notes: '',
   };
 }
@@ -236,6 +270,7 @@ const rules = computed(() => ({
   type: required(),
   status: required(),
   service_date: required(),
+  provider_id: form.value.performed_by === 'workshop' ? required() : [],
 }));
 
 function openForm(record) {
@@ -250,6 +285,9 @@ function openForm(record) {
         odometer: record.odometer,
         cost: record.cost,
         vendor: record.vendor || '',
+        performed_by: record.performed_by || 'in_house',
+        provider_id: record.provider_id || undefined,
+        mechanic_id: record.mechanic_id || undefined,
         next_service_date: record.next_service_date,
         next_service_odometer: record.next_service_odometer,
         notes: record.notes || '',
@@ -302,6 +340,8 @@ async function loadVehicles() {
   try {
     const data = await http.get('fleet/meta');
     vehicles.value = data?.vehicles || [];
+    providers.value = data?.providers || [];
+    employees.value = data?.employees || [];
   } catch (e) { /* the select stays empty */ }
 }
 
