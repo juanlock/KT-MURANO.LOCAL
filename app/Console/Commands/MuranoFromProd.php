@@ -6,6 +6,7 @@ use App\Services\ProdDump;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Schema;
 
 /*
  * Production -> this PC, the whole database (user's rule, 2026-10-20): production
@@ -64,7 +65,10 @@ class MuranoFromProd extends Command
         // carry UTC times in production and Eastern times in dev (4 h apart).
         $key = fn ($r) => $r->location.'|'.$r->summary;
         $inProd = DB::connection('prod')->table('kt_logs')->get(['location', 'summary'])->keyBy($key);
-        $missing = DB::table('kt_logs')->orderBy('id')->get()->reject(fn ($r) => $inProd->has($key($r)));
+        // An empty local database (an earlier copy cut halfway) has no kt_logs: nothing to send.
+        $missing = Schema::hasTable('kt_logs')
+            ? DB::table('kt_logs')->orderBy('id')->get()->reject(fn ($r) => $inProd->has($key($r)))
+            : collect();
         if ($missing->isNotEmpty()) {
             DB::connection('prod')->transaction(function () use ($missing) {
                 foreach ($missing as $r) {
