@@ -200,6 +200,28 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-01 (Optimum) -- not in production yet
+
+- **Transport module** (Turismo Cautivo and any transport / tour company):
+  agencies (one per city, e.g. LIMA, CHICLAYO, CHEPEN, TRUJILLO) and the
+  terminals of each agency, routes with km and hours, trips (one bus, 2 pilots,
+  1-2 hostesses, never double-booked), active staff by type, crew paid per
+  trip in payroll, fleet maintenance in house or at a workshop (supplier).
+- **Transport board** at the top of the main dashboard: agencies, terminals,
+  fleet, staff, trips and km; a map with the agencies, the routes and the
+  buses on the road; **Fleet now** (buses at an agency / in transit / in
+  maintenance, current trips with their crew); pilots' driving hours against
+  the safe limit, the record one in red; a card per agency.
+- **Transport demo** for any tourism company (uses the company's own agencies
+  and routes when it has them); applied to Turismo Cautivo on this PC only.
+- Main dashboard: the **Shortcuts** section is now at the end of the page.
+- Claude Code reminds the working conventions on every message (answer in
+  the user's language, kt_logs...).
+
+Setup: `php artisan migrate`, `npm run build`. Turismo's demo data is NOT in
+production (live company); after Wake-up on another PC it can be applied again
+in dev with the demo runner.
+
 ### 2026-10-27 / 2026-11-01 (Optimum)
 
 - **Marketing never emails another company's customers again.** A campaign
@@ -357,49 +379,6 @@ Setup: `php artisan migrate`, `npm install`, `npm run build`.
 - **After the deploy**: the hospital demo staff, beds and stays exist only in
   the developer database; regenerate the hospital demo of Vitalis in
   production (System Settings › Demo data, SuperAdmin) to have them there.
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-10-21 (Thundera)
-
-- **Hospital: Emergency Room and Pharmacy.**
-  - **Emergencias** (Hospital Management): the whole ER on one screen — new
-    arrival (registered or new patient), triage 1–5 with colours, vital
-    signs, doctor and ER bed; a board Waiting / In treatment / Observation
-    with the waiting time (red when it passes the triage's limit); the outcome
-    closes the case (home, admitted to a ward bed — the admission is created —,
-    transferred, left without being seen, deceased) and the visit goes to the
-    patient's record. ER beds are those of a ward of type "Emergency room".
-  - **Farmacia**: the medicines on hand with generic name, strength, form,
-    prescription (Rx), stock per warehouse, batches and next expiry, and cards
-    for low stock, out of stock and expiring.
-  - **Patients are customers and bills are sales**: every patient has its
-    customer (People › Customers), every hospital bill creates its sale
-    (with the company's sale number, medicines out of stock, payments as sale
-    payments, accounting from the sale). Hospitals now have Sales, Purchases
-    and Suppliers (no POS); the demo buys medicines from pharma suppliers.
-  - **Patients** opens on "In the hospital" (admitted or in the ER) with a
-    "No longer here" button beside the search.
-  - The whole Hospital module is in Spanish when the app is, and its demo data
-    comes in the company's language, with an ER ward, ER cases and medicines
-    with batches.
-- **School.** Marks out of 20 with letters (20 A+ … 11 E, 10 or less F) and
-  four bimestres. Each student has a **Libreta** (report card by bimestre,
-  weighted average, red / blue marks, Print and PDF); the Students list shows
-  it in a popup, a **Performance** column sorted from the best student, and
-  cards for the best student, grade, section, attendance… Attendance opens on
-  a whole-school overview. The demo asks the school year's dates and includes
-  absentees and low marks.
-- **superadmin/AdminSystem vs superadmin/<company>.** With AdminSystem picked,
-  every list and report shows all companies (Company column) and the global
-  screens appear in yellow; with a company picked, only that company (the
-  Companies list too) and the global screens are refused.
-- **Demo data**: offers only the modules the company has on; a SuperAdmin can
-  **delete a module's real (test) data** after a confirmation; fixed "has real
-  data" for shared tables and a duplicate patient number.
-- **Document Archive and budgets / tax reports** are separated by company;
-  Documents is on for every company and comes with every new one. Several
-  common messages had wrong Spanish (fixed for everyone).
 
 Setup: `php artisan migrate`, `npm run build`.
 
