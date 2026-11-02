@@ -125,10 +125,16 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
   email, phone, address and helpdesk email (`App\Support\CompanyProfile`,
   Companies → Add / Edit).
 - **SuperAdmin = the owner.**
-  - The SuperAdmin role has every module by default.
-  - `App\Support\SuperAdminAccess::sync()` runs after every `migrate`.
-  - Business Modules switches never hide anything from the SuperAdmin; they
-    apply to the company's own users.
+  - A SuperAdmin is the user type; its role, **SuperAdmin** (ex Owner), lives
+    only in AdminSystem and has every permission
+    (`App\Support\SuperAdminAccess::sync()` runs after every `migrate`).
+  - With a company picked, the SuperAdmin sees that company's modules and menu
+    as its admin does; with AdminSystem picked, every module.
+- **Roles of every company** (`App\Support\CompanyRoles`): Admin Compañía (the
+  company's IT person, `{company}-admin@`), Manager (runs the business, no
+  configuration), Info (forms, read only), Helpdesk, Website, Employee,
+  Customer, plus the business's own job roles. Admin / SuperAdmin logins are
+  never an employee, customer or supplier; every other login is.
 - **Business types** (`App\Support\BusinessTypes`): a new company's modules,
   accounts, expense categories and demo data follow its type; it starts from
   the AdminSystem company (999: menu, settings, roles, language, currency).
@@ -199,6 +205,35 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
+
+### 2026-11-02 (Home)
+
+- **Roles redone for every company.** New **Manager** role: the business's
+  main modules without settings, users, roles or HR setup (Ruba's
+  info@, New Era's info@ / admin@ / Monica / Silvia). **Info** (ex
+  "Formularios") only reads the forms. New Era: a single new company admin
+  login, its stylists on **Staff**; Ruba keeps Supervisor / Operator. The
+  SuperAdmin's role is now called **SuperAdmin** (ex Owner) and a new
+  SuperAdmin is always created in AdminSystem with it.
+- **Admins are only admins.** An admin or SuperAdmin login is never an
+  employee, customer or supplier: the 17 admin employee records were removed
+  and new companies no longer create one; giving a linked login the Admin
+  Compañía role asks first (remove the record, or keep it as it is).
+- **Settings › Roles by company** (SuperAdmin, AdminSystem): every company and
+  every role with its users.
+- **SuperAdmin sees a company as its admin does** (its modules and menu order)
+  when that company is picked; the login chooser offers only each company's
+  admin (Info, Helpdesk... are entered from Company logins).
+- **Manage Menu** saves by itself on every change (AdminSystem keeps Save with
+  its confirmation), drag only drops between rows, "Move to…" picks the place
+  and the position; the empty "Access Management" group is gone.
+- **Demos kept current every day** (Settings › Demo Data › "Update the demo
+  every day"): hospital roster and stays, school register up to yesterday,
+  transport trips a week ahead with buses on the road.
+- Vitalis's doctors now have their employee, login and Doctor role.
+- POS entries are hidden when a company's POS module is off.
+
+Setup: `php artisan migrate`, `npm run build`.
 
 ### 2026-11-01 (Optimum) -- not in production yet
 
@@ -335,52 +370,6 @@ Setup: `php artisan migrate`, `npm install`, `npm run build`.
   business type on its own, Commissions / Store no longer blocked by false "real
   data"; crop / resize for the System Settings logo.
 - Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-10-25 (Optimum)
-
-- **Hospital, the whole stay.**
-  - **Configuration**: shifts with their hours, floors, rooms and beds, and a
-    map per floor; a freed bed goes to cleaning first.
-  - **Admission window + Triage**: the window registers the patient, the
-    insurance or card (only its last 4 digits) and why they come; emergencies
-    wait for the **triage nurse** (new role and screen: call the patient,
-    vital signs, weight, height, level 1–5, send to an ER bed); critical
-    patients go to a bed first and are registered after; referred patients
-    (e.g. surgery) wait for a bed. Without insurance or a card an emergency
-    patient is not admitted to a ward.
-  - **Stay**: administrative file and account (insurer / patient split, DRG),
-    the clinical chart (Kardex with wristband scan, progress notes, vitals,
-    care orders, interconsultations, discharge plan, epicrisis), the
-    **Control tower** and **My round** (the doctor's / nurse's patients on the
-    floor plan with the route and a visit window).
-  - **Doses**: only today's can be recorded; unrecorded past ones become "not
-    given". **At discharge** a stay with insurance and / or a card is billed
-    and paid automatically.
-  - **Lab** critical values and image files; monthly / semester **shift
-    planning** with rotation; **patient portal** ("My hospital": status of the
-    day, diet, visit hours, discharge instructions, videos, appointments, 24 h
-    email reminders).
-  - Hospital demos stay alive every day (today's roster, patients assigned,
-    example stays); Vitalis has triage and inpatient examples.
-- **Logins.** Every company gets standard logins ({company}-admin / -helpdesk
-  / -info) and default passwords per type in new companies and demos.
-  **Company logins** (profile menu, the company's admin): every login with its
-  function, role and accesses, the password when still the standard one, and
-  **Enter** to work as that user (back with "Back to admin").
-- **Customer portal on by default** for every customer of every company.
-- **Dates** follow the company's country (Peru DD-MM-YYYY, USA MM-DD-YYYY) and
-  every date field can be typed.
-- **Tablet catalogs** (menu / models with photos), Business Modules reset by
-  business type, a copy of modules and menu from another company
-  (SuperAdmin), and the new login screen.
-- **Protocols**: Pa Llevar now deploys without asking and shuts the PC down
-  when everything went well; new **Restaura BD Dev** (restore this PC's dev
-  database from a backup).
-- **After the deploy**: the hospital demo staff, beds and stays exist only in
-  the developer database; regenerate the hospital demo of Vitalis in
-  production (System Settings › Demo data, SuperAdmin) to have them there.
-
-Setup: `php artisan migrate`, `npm run build`.
 
 ---
 

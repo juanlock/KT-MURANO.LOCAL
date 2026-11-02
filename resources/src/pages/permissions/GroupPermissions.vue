@@ -53,7 +53,7 @@
             </a-button>
             <!-- Duplicate: new role pre-filled with this one's permissions
                  (Owner can't be opened, so it can't be copied either). -->
-            <a-tooltip v-if="auth.can('permissions_add') && auth.can('permissions_edit') && record.name !== 'Owner'" :title="$t('Duplicate')">
+            <a-tooltip v-if="auth.can('permissions_add') && auth.can('permissions_edit') && !['Owner', 'SuperAdmin'].includes(record.name)" :title="$t('Duplicate')">
               <a-button size="small" @click="$router.push({ path: '/permissions/create', query: { copy: record.id } })">
                 <template #icon><CopyOutlined style="color: #722ed1" /></template>
               </a-button>

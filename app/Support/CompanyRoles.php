@@ -5,29 +5,71 @@ namespace App\Support;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The roles every company has (user's rule, 2026-11-01): each company its own
- * group, by default only
- *   Admin Compañía -- every form of that company (the old Admin-ALL);
+ * The roles every company has (user's rules, 2026-11-01 / 2026-11-02): each
+ * company its own group, by default only
+ *   Admin Compañía -- the company's IT person: every form of that company;
+ *   Manager        -- runs the business: the main modules, no configuration;
  *   Helpdesk;
  *   Website        -- Website management + Portfolio;
- *   Formularios    -- the forms, read only (no new form, no delete);
+ *   Info           -- the forms (contact forms), read only ("Formularios" 11-01..11-02);
  *   Customer, Employee.
  * Supplier / Sales Agent / Online Store are created when a login of that type is
- * (LinkedUserService), and a business's own roles (hospital, school, Ruba's
- * Supervisor / Operator...) stay. Owner, Admin, AdminRG, AdminNE, Admin-ALL and
- * Info are gone: their users moved to Admin Compañía (Info -> Formularios).
- * The SuperAdmin keeps its Owner role in AdminSystem (999), the only one with
- * every company.
+ * (LinkedUserService), and a business's own roles (hospital, school, clinic,
+ * restaurant, Ruba's Supervisor / Operator, New Era's Staff) stay. Owner, Admin,
+ * AdminRG, AdminNE, Admin-ALL are gone (users -> Admin Compañía); Manager RG /
+ * ManagerNE -> Manager. The SuperAdmin's role (SuperAdmin, ex Owner) lives only
+ * in AdminSystem (999).
  */
 class CompanyRoles
 {
     public const ADMIN = 'Admin Compañía';
 
-    public const FORMS = 'Formularios';
+    /** The {slug}-info login's role: the forms (contact forms) read only. "Formularios" until 2026-11-02. */
+    public const FORMS = 'Info';
+
+    /** Names the Info role has had (2026-11-01 "Formularios"). */
+    public const OLD_FORMS = ['Formularios'];
+
+    /**
+     * Manager (user's rule, 2026-11-02): runs the business but not the system --
+     * every main module of the company (its Admin Compañía's permissions) except
+     * configuration: settings, users and roles, HRM setup (company, departments,
+     * designations, shifts), integrations. Replaces each company's own manager
+     * roles (Ruba's "Manager RG", New Era's "ManagerNE").
+     */
+    public const MANAGER = 'Manager';
+
+    /** Company-made manager roles replaced by Manager (users moved, role removed). */
+    public const OLD_MANAGER = ['Manager RG', 'ManagerNE'];
+
+    /** What a Manager never gets: the configuration side of the Admin Compañía. */
+    public const MANAGER_EXCLUDED = [
+        'setting_system', 'appearance_settings', 'datatable_customize', 'notification_template', 'warehouse', 'warehouse_locations',
+        'network_security', 'login_security', 'login_device_management', 'company_logins_view', 'report_device_management',
+        'report_error_logs', 'customer_display_screen_setup', 'Store_settings_view', 'marketing_settings', 'hms_setup',
+        'kt_logs_view', 'company_manuals_view', 'roles_matrix_view',
+        'users_view', 'users_add', 'users_edit', 'users_delete', 'users_report',
+        'permissions_view', 'permissions_add', 'permissions_edit', 'permissions_delete',
+        'company', 'department', 'designation', 'office_shift',
+        'shopify_stores', 'shopify_sync', 'shopify_logs',
+    ];
+
+    /** A Manager also sees every employee's file and booking, and records its own attendance. */
+    public const MANAGER_EXTRA = ['employee_view_all', 'booking_other_staff', 'attendance_self'];
 
     public const WEBSITE = 'Website';
 
-    public const STANDARD = [self::ADMIN, 'Helpdesk', self::WEBSITE, self::FORMS, 'Customer', 'Employee'];
+    /**
+     * The SuperAdmin users' role, in AdminSystem (999) only: every permission
+     * (SuperAdminAccess::sync). Called "Owner" until 2026-11-02 (user's rule: the
+     * same name as the user type). Never offered to a company's users.
+     */
+    public const SUPERADMIN = 'SuperAdmin';
+
+    /** Names the SuperAdmin role has had: protected / never offered under either. */
+    public const SUPERADMIN_NAMES = [self::SUPERADMIN, 'Owner'];
+
+    public const STANDARD = [self::ADMIN, self::MANAGER, 'Helpdesk', self::WEBSITE, self::FORMS, 'Customer', 'Employee'];
 
     /** Created on demand when a login of that type is (LinkedUserService). */
     public const AUTO = ['Supplier', 'Sales Agent', 'Online Store'];
@@ -76,6 +118,36 @@ class CompanyRoles
         return (int) $id;
     }
 
+    /**
+     * The company's Manager role (made when missing) with its permissions: the
+     * company's Admin Compañía ones minus MANAGER_EXCLUDED and the SuperAdmin-only
+     * settings (SettingsAccess::RESTRICTED), plus MANAGER_EXTRA. Returns its id.
+     */
+    public static function syncManager(int $companyId): ?int
+    {
+        $adminId = DB::table('roles')->where('company_id', $companyId)->where('name', self::ADMIN)->whereNull('deleted_at')->value('id');
+        if (! $adminId) {
+            return null;
+        }
+        $id = DB::table('roles')->where('company_id', $companyId)->where('name', self::MANAGER)->whereNull('deleted_at')->value('id');
+        if (! $id) {
+            $id = DB::table('roles')->insertGetId([
+                'company_id' => $companyId, 'name' => self::MANAGER, 'label' => self::MANAGER,
+                'description' => 'Runs the business: every main module, no configuration (settings, users, roles, HRM setup, integrations).',
+                'status' => 1, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        $excluded = array_merge(self::MANAGER_EXCLUDED, array_keys(SettingsAccess::RESTRICTED));
+        $perms = DB::table('permission_role')->join('permissions', 'permissions.id', '=', 'permission_role.permission_id')
+            ->where('permission_role.role_id', $adminId)->whereNotIn('permissions.name', $excluded)->where('permissions.name', 'not like', 'menu\_hide:%')
+            ->pluck('permissions.id')
+            ->merge(DB::table('permissions')->whereIn('name', self::MANAGER_EXTRA)->pluck('id'))->unique();
+        DB::table('permission_role')->where('role_id', $id)->delete();
+        DB::table('permission_role')->insert($perms->map(fn ($p) => ['permission_id' => $p, 'role_id' => $id])->values()->all());
+
+        return (int) $id;
+    }
+
     /** Moves every user of role $from to role $to (role_user + users.role_id). */
     private static function moveUsers(int $from, int $to): int
     {
@@ -117,23 +189,39 @@ class CompanyRoles
 
         // 2. Old admin roles: users -> Admin Compañía, role removed (AdminSystem keeps the SuperAdmin's Owner).
         foreach ($roles() as $r) {
-            if (in_array($r->name, self::OLD_ADMIN, true) && (int) $r->id !== $adminId && ! ($isTemplate && $r->name === 'Owner')) {
+            if (in_array($r->name, self::OLD_ADMIN, true) && (int) $r->id !== $adminId && ! ($isTemplate && in_array($r->name, self::SUPERADMIN_NAMES, true))) {
                 $n = self::moveUsers((int) $r->id, $adminId);
                 self::drop((int) $r->id);
                 $log[] = "{$r->name} removed ($n users -> ".self::ADMIN.')';
             }
         }
 
-        // 3. Info -> Formularios (read only).
+        // 3. Info (read only): an old-named one (Formularios) is renamed, keeping its users.
+        if (! $roles()->firstWhere('name', self::FORMS) && ($old = $roles()->first(fn ($r) => in_array($r->name, self::OLD_FORMS, true)))) {
+            DB::table('roles')->where('id', $old->id)->update(['name' => self::FORMS, 'label' => self::FORMS, 'updated_at' => now()]);
+            $log[] = "{$old->name} -> ".self::FORMS;
+        }
         $formsId = self::ensure($companyId, self::FORMS);
         DB::table('roles')->where('id', $formsId)->update(['description' => self::DEFINED[self::FORMS][0], 'home_path' => self::DEFINED[self::FORMS][1]]);
         DB::table('permission_role')->where('role_id', $formsId)->delete();
         DB::table('permission_role')->insert(DB::table('permissions')->whereIn('name', self::DEFINED[self::FORMS][2])->pluck('id')
             ->map(fn ($p) => ['permission_id' => $p, 'role_id' => $formsId])->all());
-        if ($info = $roles()->firstWhere('name', 'Info')) {
-            $n = self::moveUsers((int) $info->id, $formsId);
-            self::drop((int) $info->id);
-            $log[] = "Info removed ($n users -> ".self::FORMS.')';
+        foreach ($roles() as $r) {
+            if (in_array($r->name, self::OLD_FORMS, true) && (int) $r->id !== $formsId) {
+                $n = self::moveUsers((int) $r->id, $formsId);
+                self::drop((int) $r->id);
+                $log[] = "{$r->name} removed ($n users -> ".self::FORMS.')';
+            }
+        }
+
+        // 3b. Manager: the main modules without configuration; the company's own manager roles merge into it.
+        $managerId = self::syncManager($companyId);
+        foreach ($roles() as $r) {
+            if ($managerId && in_array($r->name, self::OLD_MANAGER, true)) {
+                $n = self::moveUsers((int) $r->id, $managerId);
+                self::drop((int) $r->id);
+                $log[] = "{$r->name} removed ($n users -> ".self::MANAGER.')';
+            }
         }
 
         // 4. The rest of the standard set.

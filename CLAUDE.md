@@ -146,11 +146,16 @@ form pickers stay on the acting company. Numbers unique install-wide
   (AppServiceProvider, `MigrationsEnded`), so a new module's permission reaches
   it automatically. (Before this, the Owner role was missing
   `portfolio_manage` and the Portfolio menu was invisible to the SuperAdmin.)
-  **Business Modules switches never apply to the SuperAdmin (user's rule,
-  2026-10-19):** with any company chosen, the SuperAdmin sees and opens every
-  module (menu `ALL_MODULES_ON`, `auth.moduleEnabled`, `EnforceModuleFlags`
-  and `ModuleFlags::abortUnlessEnabled` skip it); the company's switches apply
-  to that company's users. Business logic tied to a switch (ZATCA reporting,
+  **Business Modules switches and the SuperAdmin (user's rule, 2026-11-02,
+  replacing 2026-10-19's "never apply"):** with a company picked, the
+  SuperAdmin's menu, header buttons and pages follow THAT company's modules and
+  menu order, as its admin sees them (`auth.superSeesAllModules` /
+  `auth.moduleEnabled`, `stores/menu.js`); with AdminSystem (999) or nothing
+  picked, every module (`ALL_MODULES_ON`). The server still lets the SuperAdmin
+  through (`EnforceModuleFlags`, `ModuleFlags::abortUnlessEnabled` skip it).
+  Only a SuperAdmin turns a company's modules on / off (Settings -> Modules,
+  that company only; with AdminSystem picked it changes only 999's, never the
+  companies'). Business logic tied to a switch (ZATCA reporting,
   PayPal) still follows `ModuleFlags::enabled()`. A new company's modules come
   from its business type (`BusinessTypes::modules()`, Companies -> Add ->
   Modules step).
@@ -349,6 +354,20 @@ the start of each session).
   Agents (the server refuses them in Users -> Add). Users is where any login is
   **edited** (role, locations, password, PIN) and **disabled** (Active /
   Disabled switch -- never your own account).
+- **Standard roles of every company (user's rules, 2026-11-01 / 2026-11-02,
+  `App\Support\CompanyRoles`):** **Admin Compañía** (the company's IT person:
+  users, roles, settings, menu order; `{slug}-admin@kcoltech.com`, type admin,
+  no employee behind it), **Manager** (runs the business: every main module,
+  no configuration -- `CompanyRoles::syncManager()` = the Admin Compañía's
+  permissions minus `MANAGER_EXCLUDED` and the SuperAdmin-only settings; e.g.
+  info@rubagardenlandscape.com, New Era's info@ / admin@ / Monica / Silvia),
+  **Info** (the forms -- contact forms -- read only; `{slug}-info@`; called
+  "Formularios" 11-01..11-02), **Helpdesk**, **Website**, **Employee**,
+  **Customer**; automatic Supplier / Sales Agent / Online Store. A business's
+  own job roles stay: hospital, school, clinic, restaurant, Ruba's SupervisorRG
+  (every job and assignment) / OperatorRG (its own jobs), New Era's **Staff**
+  (every stylist; ex StaffNE). New Era's only Admin Compañía is
+  neweraunisexsalon-admin@kcoltech.com.
 - **The role is mandatory.** A user can do only what their role allows
   (`role_user` -> permissions); no permission is granted by user type
   (SuperAdmin aside). Example: Email Office follows the role's
@@ -369,8 +388,15 @@ the start of each session).
   sale's sales agent linked to their user) x `commission_rate` %), from
   `pay_effective_from`. HRM -> Payroll -> "Generate weekly payroll"
   (`App\Services\PayrollRun`); paid payrolls post to accounting via
-  `PayrollExpenseSync` (Salaries and wages 7010 / Commissions 7040). Owners'
-  own employee records (admin login) stay off payroll. Job cost = labor (hours
+  `PayrollExpenseSync` (Salaries and wages 7010 / Commissions 7040).
+  **An admin / SuperAdmin login is never an employee, customer, supplier or
+  sales agent (user's rule, 2026-11-02, replacing "owners' employee records
+  stay off payroll"):** it only manages the system's access. Every other login
+  belongs to its record. A new company's admin gets no employee
+  (`CompanyProvisioner`); giving a login the role Admin Compañía in Users ->
+  Edit asks first when it belongs to a record ("remove it and make it an
+  admin" = `App\Support\AdminLogins::release()`: employee soft-deleted with a
+  leaving date, others unlinked, type -> admin; or keep it with its own role). Job cost = labor (hours
   x operator rate) + equipment used (`service_job_assets`, asset `hourly_cost`)
   -- `App\Support\ServiceJobCost`. Rates: Ruba manager $25 / operators $20,
   KcolTech $35, New Era 40% commission.

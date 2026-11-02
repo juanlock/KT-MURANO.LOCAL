@@ -213,7 +213,7 @@
             </template>
 
             <a-space style="margin-top: 8px">
-              <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
+              <a-button type="primary" :loading="submitting" @click="submit()">{{ $t('submit') }}</a-button>
               <a-button @click="$router.push('/users')">{{ $t('Cancel') }}</a-button>
             </a-space>
           </a-card>
@@ -233,7 +233,7 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { message } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   UploadOutlined, UserOutlined, IdcardOutlined, MailOutlined,
@@ -244,7 +244,7 @@ import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
 import { sortByLabel } from '../../lib/filterOptions';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
@@ -383,7 +383,32 @@ function buildFormData() {
   return fd;
 }
 
-async function submit() {
+// The role the login had when the form opened ("keep it as it is" puts it back).
+const originalRoleId = ref(null);
+
+/*
+ * Making a login the company admin (role Admin Compañía) while it belongs to an
+ * employee / customer / supplier (user's rule, 2026-11-02): an admin never is
+ * one. Ask: remove that record and make it an admin, or keep it with its own role.
+ */
+function askAdminRelease(linked) {
+  const es = locale.value === 'es';
+  const kinds = { employee: es ? 'empleado' : 'employee', customer: es ? 'cliente' : 'customer', supplier: es ? 'proveedor' : 'supplier', 'sales agent': es ? 'vendedor' : 'sales agent' };
+  const list = (linked || []).map(l => `${kinds[l.kind] || l.kind} "${l.name}"`).join(', ');
+  Modal.confirm({
+    title: es ? '¿Convertir este login en admin?' : 'Make this login an admin?',
+    content: es
+      ? `Este login es del ${list}. Un admin solo administra los accesos y no puede ser empleado, cliente ni proveedor. Para hacerlo admin se da de baja esa ficha (su historial se conserva). Si no, déjalo como está con su propio rol.`
+      : `This login belongs to the ${list}. An admin only manages the access and cannot be an employee, customer or supplier. To make it an admin that record is removed (its history is kept). Otherwise keep it as it is, with its own role.`,
+    okText: es ? 'Dar de baja y hacerlo admin' : 'Remove it and make it an admin',
+    okType: 'danger',
+    cancelText: es ? 'Dejarlo como está' : 'Keep it as it is',
+    onOk: () => submit({ makeAdmin: 'release' }),
+    onCancel: () => { form.value.role_id = originalRoleId.value; },
+  });
+}
+
+async function submit(opts = {}) {
   try {
     await formRef.value.validate();
   } catch (e) {
@@ -395,6 +420,7 @@ async function submit() {
     if (isEdit.value) {
       // Active / disabled login (the server ignores it for your own account).
       fd.append('statut', form.value.active ? 1 : 0);
+      if (opts.makeAdmin) fd.append('make_admin', opts.makeAdmin);
       fd.append('_method', 'put');
       await http.postForm(`users/${id.value}`, fd);
       message.success(t('Successfully_Updated'));
@@ -407,6 +433,10 @@ async function submit() {
     }
     router.push('/users');
   } catch (e) {
+    if (e?.data?.code === 'admin_linked') {
+      askAdminRelease(e.data.linked);
+      return;
+    }
     // Show the backend's own reason (e.g. "This Email already taken.")
     // instead of a generic "Invalid data" that hid why the save failed.
     const errs = e?.data?.errors;
@@ -436,6 +466,7 @@ async function bootstrap() {
         pin: data.pin || '',
         active: Number(u.statut) === 1,
       };
+      originalRoleId.value = u.role_id;
       // Show the current avatar in the profile panel (placeholder file aside);
       // picking a new file replaces this preview with a local object URL.
       if (u.avatar && u.avatar !== 'no_avatar.png') {

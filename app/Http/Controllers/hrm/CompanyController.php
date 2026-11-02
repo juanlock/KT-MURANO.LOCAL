@@ -100,8 +100,8 @@ class CompanyController extends Controller
 
     /**
      * Creates a ready-to-use company (SuperAdmin only): the company + its
-     * roles, settings, main warehouse, Walk-in Customer, HR basics, its admin
-     * user and that user's employee record (CompanyProvisioner). Optionally
+     * roles, settings, main warehouse, Walk-in Customer, HR basics and its admin
+     * user -- no employee record for it (2026-11-02; CompanyProvisioner). Optionally
      * fills it with demo data afterwards (tagged; removable any time).
      */
     public function store(Request $request)

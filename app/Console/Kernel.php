@@ -57,8 +57,10 @@ class Kernel extends ConsoleKernel
         $cmd('hospital:appointment-reminders')->everyFiveMinutes()->withoutOverlapping();
         // Hospital: yesterday's unrecorded doses -> missed (not given).
         $cmd('hospital:mark-missed-doses')->dailyAt('00:05')->withoutOverlapping();
-        // Hospital demos: today's roster, assignments and example stays.
-        $cmd('hospital:demo-day')->dailyAt('00:15')->withoutOverlapping();
+        // Demos kept current (companies with "Update the demo every day", 2026-11-02):
+        // hospital roster / stays, school register, transport trips and statuses.
+        // (hospital:demo-day / transport:demo-day remain for a manual run.)
+        $cmd('demo:daily')->hourly()->withoutOverlapping();
 
         $cmd('marketing:process-scheduled')->everyMinute()->withoutOverlapping();
 

@@ -34,6 +34,17 @@
         </div>
       </a-card>
 
+      <!-- "Update the demo every day" (2026-11-02): hospital, school, transport demos kept current. -->
+      <a-card size="small" style="margin-bottom: 16px">
+        <div class="ddg-type">
+          <div>
+            <div class="ddg-type__title">{{ tx('Update the demo every day') }}</div>
+            <div class="ddg-muted">{{ tx(DAILY_HELP) }}</div>
+          </div>
+          <a-switch :checked="demoDaily" :loading="savingDaily" @change="saveDaily" />
+        </div>
+      </a-card>
+
       <!-- HRM / Payroll history: how the staff are paid. -->
       <a-card v-if="needsPay" size="small" style="margin-bottom: 16px">
         <div class="ddg-type">
@@ -217,6 +228,24 @@ const thisYear = new Date().getFullYear();
 const schoolStart = ref(`${thisYear}-03-01`);
 const schoolEnd = ref(`${thisYear}-12-15`);
 
+// "Update the demo every day" (companies.demo_daily): demo:daily keeps the demo current.
+const DAILY_HELP = 'For presentations: the hospital, school and transport examples stay current -- today\'s roster and patients, the school register up to yesterday, a week of trips ahead with buses on the road now. Turning it on brings them up to date right away; real data is never touched.';
+const demoDaily = ref(false);
+const savingDaily = ref(false);
+async function saveDaily(on) {
+  savingDaily.value = true;
+  try {
+    const data = await http.put('demo_data/daily', { on });
+    demoDaily.value = !!data.demo_daily;
+    message.success(on ? tx('The demo is updated every day.') : tx('The demo is no longer updated.'));
+    if (on) loadStatus();
+  } catch (e) {
+    message.error(e?.data?.message || e?.message || tx('Could not save'));
+  } finally {
+    savingDaily.value = false;
+  }
+}
+
 // Save the business type without generating anything.
 const savingType = ref(false);
 async function saveType() {
@@ -256,6 +285,7 @@ async function loadStatus() {
     businessType.value = data.business_type || undefined;
     savedType.value = data.business_type || undefined;
     if (Array.isArray(data.type_modules)) TYPE_MODULES.value = data.type_modules;
+    demoDaily.value = !!data.demo_daily;
     selected.value = selected.value.filter(k => availableKeys.value.includes(k));
   } catch (e) {
     message.error(e?.data?.message || e?.message || tx('Could not load demo data status'));

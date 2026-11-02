@@ -1081,12 +1081,12 @@ class EmployeesController extends Controller
         ];
     }
 
-    /** Roles an employee can be given, per company (Owner excluded). */
+    /** Roles an employee can be given, per company (the SuperAdmin role excluded). */
     private function rolesFor(?int $companyId)
     {
         $actor = auth('api')->user();
 
-        return \App\Models\Role::whereNull('deleted_at')->where('name', '!=', 'Owner')
+        return \App\Models\Role::whereNull('deleted_at')->whereNotIn('name', \App\Support\CompanyRoles::SUPERADMIN_NAMES)
             ->when($actor && $actor->type !== 'SuperAdmin', fn ($q) => $q->where('company_id', $actor->company_id))
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->orderBy('name')->get(['id', 'name', 'label', 'company_id']); // label: the role's name in Spanish

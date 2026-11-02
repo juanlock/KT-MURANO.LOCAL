@@ -276,7 +276,7 @@ class PermissionsController extends BaseController
         // hardcoded id=1 check -- wrong once every company has its own
         // Owner row with a different id).
         $isSuperAdmin = optional($request->user('api'))->type === 'SuperAdmin';
-        abort_if($Role->name === 'Owner' && ! $isSuperAdmin, 401);
+        abort_if(in_array($Role->name, \App\Support\CompanyRoles::SUPERADMIN_NAMES, true) && ! $isSuperAdmin, 401);
         // A regular admin must never be able to open a different company's
         // role for editing by guessing/tampering with the id in the URL;
         // a SuperAdmin may open any company's.

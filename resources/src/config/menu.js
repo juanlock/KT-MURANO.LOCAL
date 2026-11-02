@@ -47,6 +47,7 @@ export const MIGRATED_ROUTES = {
     '/app/settings/system_health': '/settings/system-health',
     '/app/settings/kt_log': '/settings/kt-log',
     '/app/settings/company_manuals': '/settings/company-manuals',
+    '/app/settings/roles_matrix': '/settings/roles-matrix',
     '/app/settings/sms_templates': '/settings/sms-templates',
     '/app/settings/email_templates': '/settings/email-templates',
     '/app/settings/Backup': '/settings/backup',
@@ -577,16 +578,6 @@ export const MENU = [
         ],
     },
     {
-        key: 'User_Management',
-        icon: 'shield-check',
-        label: 'User_Management',
-        permissions: ['users_view', 'permissions_view'],
-        children: [
-            { label: 'Users', to: '/app/User_Management/Users', permissions: ['users_view'] },
-            { label: 'GroupPermissions', to: '/app/User_Management/permissions', permissions: ['permissions_view'] },
-        ],
-    },
-    {
         key: 'products',
         icon: 'library-big',
         label: 'Products',
@@ -1089,9 +1080,13 @@ export const MENU = [
         key: 'settings',
         icon: 'database-zap',
         label: 'Settings',
-        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'sms_templates', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'login_security', 'paypal_manage', 'kt_logs_view'],
+        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'sms_templates', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'login_security', 'paypal_manage', 'kt_logs_view', 'users_view', 'permissions_view'],
         children: [
             { label: 'SystemSettings', to: '/app/settings/System_settings', permissions: ['setting_system'] },
+            // Users / roles lived in their own "Access Management" group until 2026-11-02
+            // (user's rule: the empty group removed for every company); keys kept.
+            { label: 'Users', to: '/app/User_Management/Users', permissions: ['users_view'] },
+            { label: 'GroupPermissions', to: '/app/User_Management/permissions', permissions: ['permissions_view'] },
             // superAdminOnly: install-level admin tooling that must never be
             // delegable to a company-level Admin's role even if their role
             // has the permission below -- see isMenuEntryAllowed() and the
@@ -1122,6 +1117,7 @@ export const MENU = [
             { label: 'KT_Log', to: '/app/settings/kt_log', permissions: ['kt_logs_view'], superAdminOnly: true, systemOnly: true },
             // Company manuals (2026-11-01): flyer + text manual per company / business type.
             { label: 'Company_Manuals', to: '/app/settings/company_manuals', permissions: ['company_manuals_view'], superAdminOnly: true, systemOnly: true },
+            { label: 'Roles_Matrix', to: '/app/settings/roles_matrix', permissions: ['roles_matrix_view'], superAdminOnly: true, systemOnly: true },
             { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true, systemOnly: true },
             // Company-level (not superAdminOnly): a role with network_security manages its own company.
             { label: 'Network_Security', to: '/app/settings/network_security', permissions: ['network_security'] },

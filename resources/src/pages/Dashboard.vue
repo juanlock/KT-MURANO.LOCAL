@@ -335,6 +335,7 @@ import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
 import { blockOrder } from '../config/dashboardSections';
+import { moduleKeyForPath } from '../config/modules';
 import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
 import TransportBoard from '../components/TransportBoard.vue';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
@@ -537,8 +538,8 @@ const alertItems = computed(() =>
   })
 );
 
-// Quick actions — only those the user can perform (auth.can fail-opens in the
-// offline demo, so all show there).
+// Quick actions — only those the user can perform and whose module is on for
+// the company (auth.can fail-opens in the offline demo, so all show there).
 const quickActions = computed(() => [
   { label: t('Pos'), perm: 'Pos_view', to: '/pos', icon: CalculatorOutlined, color: '#6d28d9', tint: 'rgba(109,40,217,0.12)' },
   { label: t('New_Sale'), perm: 'Sales_add', to: '/sales/create', icon: ShoppingCartOutlined, color: '#1677ff', tint: 'rgba(22,119,255,0.12)' },
@@ -546,7 +547,7 @@ const quickActions = computed(() => [
   { label: t('Add_Product'), perm: 'products_add', to: '/products/create', icon: AppstoreOutlined, color: '#52c41a', tint: 'rgba(82,196,26,0.12)' },
   { label: t('Add_Customer'), perm: 'Customers_add', to: '/customers/create', icon: TeamOutlined, color: '#eb2f96', tint: 'rgba(235,47,150,0.12)' },
   { label: t('Reports'), perm: 'Reports_profit', to: '/reports/profit-and-loss', icon: RiseOutlined, color: '#13c2c2', tint: 'rgba(19,194,194,0.12)' },
-].filter(a => auth.can(a.perm)));
+].filter(a => auth.can(a.perm) && (!moduleKeyForPath(a.to) || auth.moduleEnabled(moduleKeyForPath(a.to)))));
 
 // Top products with a bar scaled to the highest amount.
 const topItems = computed(() => {

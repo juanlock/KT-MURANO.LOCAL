@@ -151,23 +151,11 @@ class CompanyProvisioner
                 'record_view' => 1,
             ]);
             role_user::create(['user_id' => $user->id, 'role_id' => $roleId]);
-
-            // ...and its employee record.
-            $employeeId = DB::table('employees')->insertGetId([
-                'company_id' => $cid,
-                'user_id' => $user->id,
-                'firstname' => $firstname,
-                'lastname' => $lastname,
-                'username' => $user->username,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'gender' => 'other',
-                'joining_date' => $now->toDateString(),
-                'department_id' => $departmentId,
-                'designation_id' => $designationId,
-                'office_shift_id' => $shiftId,
-                'created_at' => $now, 'updated_at' => $now,
-            ]);
+            // No employee record for the admin (user's rule, 2026-11-02): an admin /
+            // SuperAdmin login only manages the system's access, it is never an
+            // employee, customer or supplier. (The department / designation / shift
+            // above stay: the helpdesk agent below and the company's staff use them.)
+            $employeeId = null;
 
             // Helpdesk: settings row always; the agent user when asked for.
             \App\Models\HelpdeskSetting::forCompany($cid);

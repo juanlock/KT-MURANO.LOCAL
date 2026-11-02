@@ -755,6 +755,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     });
     // Settings -> Company manuals (superadmin/AdminSystem, 2026-11-01).
     Route::get('company-manuals', [\App\Http\Controllers\CompanyManualsController::class, 'index']);
+    Route::get('roles-matrix', [\App\Http\Controllers\RolesMatrixController::class, 'index']);
     // Transport (2026-11-01): locations, routes, trips with their crew, active staff.
     Route::prefix('transport')->controller(\App\Http\Controllers\TransportController::class)->group(function () {
         Route::get('/meta', 'meta');
@@ -1916,6 +1917,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('demo_data/status', 'DemoDataController@status');
     Route::post('demo_data/generate', 'DemoDataController@generate');
     Route::put('demo_data/business-type', 'DemoDataController@saveBusinessType');
+    Route::put('demo_data/daily', 'DemoDataController@saveDaily');
     Route::delete('demo_data', 'DemoDataController@reset');
     Route::post('demo_data/wipe', 'DemoDataController@wipe');
     // Dedicated Dark Mode endpoints (independent from other settings APIs)

@@ -70,8 +70,9 @@ export const useMenuStore = defineStore('menu', {
             // customerLoyaltyEnabled) -- the entry is dropped while it's off.
             // Also by the page an item opens (Hospital Reports under Reports,
             // or an item moved into another group): isEntryEnabled.
-            // The SuperAdmin sees every module of every company (2026-10-19).
-            const flags = auth.user && (auth.user.type === 'SuperAdmin' ? ALL_MODULES_ON : auth.user.module_flags);
+            // The SuperAdmin with a company picked: that company's modules, as its admin
+            // sees them (2026-11-02); with AdminSystem / nothing picked, every module.
+            const flags = auth.user && (auth.superSeesAllModules ? ALL_MODULES_ON : auth.user.module_flags);
             // A company whose type has its own dashboard (hospital, school, real
             // estate -- 2026-10-20): no general Dashboard item.
             const ownDashboard = !!(auth.user && auth.user.own_dashboard);

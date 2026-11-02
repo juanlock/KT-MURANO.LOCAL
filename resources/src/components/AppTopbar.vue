@@ -234,7 +234,8 @@
               <SettingOutlined class="acct-ic" />
               <span>{{ $t('Settings') }}</span>
             </button>
-            <button v-if="auth.can('Pos_view')" type="button" class="acct-item" @click="go('/pos')">
+            <!-- Same gate as the header POS button: with the POS module off the router answers "not found". -->
+            <button v-if="auth.can('Pos_view') && auth.moduleEnabled('pos')" type="button" class="acct-item" @click="go('/pos')">
               <DesktopOutlined class="acct-ic" />
               <span>Open POS</span>
             </button>
