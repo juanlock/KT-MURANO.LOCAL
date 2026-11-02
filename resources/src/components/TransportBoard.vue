@@ -1,6 +1,8 @@
 <template>
   <!-- Transport board on the dashboard (2026-11-01): the routes map, the totals, the
-       pilots' driving hours (the record one as a danger) and a card per terminal. -->
+       pilots' driving hours (the record one as a danger) and a card per agency.
+       An agency = a city's hub (Turismo: LIMA, CHICLAYO...); its terminals = the points
+       of sale / boarding that belong to it (user's rule, 2026-11-01). -->
   <a-card v-if="data.enabled && data.locations.length" class="tb" :bordered="false">
     <template #title>
       <span class="tb-title"><CarOutlined /> {{ tf('Transport_Board', 'Transport board') }}</span>
@@ -30,7 +32,7 @@
               <image v-for="t in map.tiles" :key="t.key" :href="t.url" :x="t.x" :y="t.y" :width="t.size" :height="t.size" class="tb-tile" />
               <rect :width="W" :height="H" class="tb-veil" />
 
-              <!-- Routes: one line per pair of terminals, km and hours at the middle -->
+              <!-- Routes: one line per pair of agencies, km and hours on the long ones -->
               <g v-for="r in map.routes" :key="'r' + r.key">
                 <path :d="r.d" class="tb-route-shadow" />
                 <path :d="r.d" class="tb-route" :stroke-width="r.width">
@@ -50,7 +52,7 @@
                 <title>{{ b.title }}</title>
               </g>
 
-              <!-- Terminals: the number = buses parked there now -->
+              <!-- Agencies: the number = buses parked there now -->
               <g v-for="h in map.hubs" :key="'h' + h.id" :transform="`translate(${h.x},${h.y})`">
                 <circle :r="h.r + 5" :fill="h.color" opacity=".18" />
                 <circle :r="h.r" :fill="h.color" class="tb-hub" />
@@ -61,7 +63,7 @@
               <text :x="W - 8" :y="H - 8" text-anchor="end" class="tb-attrib">© OpenStreetMap</text>
             </svg>
           </div>
-          <div class="tb-map-hint">{{ tf('Transport_Map_Hint', 'The number on each terminal = buses parked there now; the moving dots = buses on the road.') }}</div>
+          <div class="tb-map-hint">{{ tf('Transport_Map_Hint', 'The number on each agency = buses parked there now; the moving dots = buses on the road.') }}</div>
           <!-- Every route with its distance and time (the map labels only the long ones). -->
           <div class="tb-routes">
             <div v-for="r in routeList" :key="'rl' + r.key" class="tb-route-row">
@@ -71,14 +73,14 @@
             </div>
           </div>
 
-          <!-- One card per terminal -->
+          <!-- One card per agency -->
           <div class="tb-hubs">
             <div v-for="h in hubCards" :key="h.id" class="tb-hubcard" :style="{ borderTopColor: h.color }">
               <div class="tb-hubcard-img" :style="h.image_url ? { backgroundImage: `url(${h.image_url})` } : { background: h.color }">
                 <span class="tb-hubcard-name">{{ h.name }}</span>
               </div>
               <div class="tb-hubcard-stats">
-                <div><b>{{ h.agencies }}</b><span>{{ tf('Transport_Agencies', 'Agencies') }}</span></div>
+                <div><b>{{ h.terminals }}</b><span>{{ tf('Transport_Terminals', 'Terminals') }}</span></div>
                 <div><b>{{ h.parked }}</b><span>{{ tf('Transport_Buses_Here', 'Buses here') }}</span></div>
                 <div><b>{{ h.crew }}</b><span>{{ tf('Transport_Crew', 'Crew') }}</span></div>
                 <div><b>{{ h.departures }}</b><span>{{ tf('Transport_Departures', 'Departures') }}</span></div>
@@ -196,7 +198,7 @@ onMounted(load);
 
 const hubColor = computed(() => {
   const out = {};
-  data.value.locations.filter(l => l.kind === 'terminal').forEach((l, i) => { out[l.id] = COLORS[i % COLORS.length]; });
+  data.value.locations.filter(l => l.kind === 'agency').forEach((l, i) => { out[l.id] = COLORS[i % COLORS.length]; });
   return out;
 });
 
@@ -215,8 +217,8 @@ function project(lat, lng, z) {
 }
 
 const map = computed(() => {
-  // Terminals only: the agencies are counted on the cards below, not drawn.
-  const locs = data.value.locations.filter(l => l.kind === 'terminal');
+  // Agencies only: their terminals are counted on the cards, not drawn.
+  const locs = data.value.locations.filter(l => l.kind === 'agency');
   const placed = locs.filter(l => l.lat != null && l.lng != null);
   if (!placed.length) return { tiles: [], hubs: [], routes: [], live: [] };
 
@@ -251,7 +253,7 @@ const map = computed(() => {
   });
   const hubById = Object.fromEntries(hubs.map(h => [h.id, h]));
 
-  // Routes as gentle curves, so lines that share a terminal don't sit on top of each other.
+  // Routes as gentle curves, so lines that share an agency don't sit on top of each other.
   const maxTrips = Math.max(1, ...data.value.routes.map(r => r.trips));
   const curve = {};
   const routes = data.value.routes.map((r, i) => {
@@ -267,7 +269,7 @@ const map = computed(() => {
     const km = r.km != null ? `${r.estimated ? '≈' : ''}${Math.round(r.km)} km` : '';
     const label = [km, hours(r.minutes)].filter(Boolean).join(' · ');
     // Labels on long lines only (short ones are in the list under the map), staggered
-    // along the line so the ones leaving the same terminal don't stack.
+    // along the line so the ones leaving the same agency don't stack.
     const t = [0.5, 0.36, 0.64][i % 3];
     return {
       key: `${r.a}-${r.b}`, d: `M${a.x},${a.y} Q${c[0]},${c[1]} ${b.x},${b.y}`,
@@ -301,8 +303,8 @@ const totals = computed(() => {
   const people = Object.values(staff).reduce((s, n) => s + n, 0);
   const hint = Object.entries(staff).map(([k, n]) => `${staffTypeLabel(k)}: ${n}`).join(' · ');
   return [
-    { key: 'terminals', label: tf('Transport_Terminals', 'Terminals'), value: t.terminals ?? 0, icon: EnvironmentOutlined, tint: '#e0f2fe', color: '#0369a1' },
-    { key: 'agencies', label: tf('Transport_Agencies', 'Agencies'), value: t.agencies ?? 0, icon: ShopOutlined, tint: '#ede9fe', color: '#6d28d9' },
+    { key: 'agencies', label: tf('Transport_Agencies', 'Agencies'), value: t.agencies ?? 0, icon: EnvironmentOutlined, tint: '#e0f2fe', color: '#0369a1' },
+    { key: 'terminals', label: tf('Transport_Terminals', 'Terminals'), value: t.terminals ?? 0, icon: ShopOutlined, tint: '#ede9fe', color: '#6d28d9' },
     { key: 'online', label: tf('Transport_Online', 'Online channels'), value: t.online ?? 0, icon: GlobalOutlined, tint: '#fce7f3', color: '#be185d' },
     { key: 'fleet', label: tf('Transport_Fleet', 'Fleet'), value: t.buses ?? 0, icon: CarOutlined, tint: '#dcfce7', color: '#15803d' },
     { key: 'staff', label: tf('Transport_Staff_Count', 'Staff'), value: people, icon: TeamOutlined, tint: '#fef3c7', color: '#b45309', hint },
@@ -312,7 +314,7 @@ const totals = computed(() => {
 });
 
 const fleetStates = computed(() => [
-  { key: 'terminal', label: tf('Transport_At_Terminal', 'At a terminal') },
+  { key: 'agency', label: tf('Transport_At_Agency', 'At an agency') },
   { key: 'transit', label: tf('Transport_In_Transit', 'In transit') },
   { key: 'maintenance', label: tf('Transport_In_Maintenance', 'In maintenance') },
 ].map(s => ({ ...s, count: data.value.fleet.filter(v => v.state === s.key).length })));
@@ -342,7 +344,6 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 .tb-route { fill: none; stroke: #0f172a; stroke-linecap: round; opacity: .8; }
 .tb-route-label { fill: #0f172a; opacity: .86; }
 .tb-route-text { fill: #fff; font-size: 11.5px; font-weight: 600; }
-.tb-agency { stroke: #fff; stroke-width: 1.5; }
 .tb-hub { stroke: #fff; stroke-width: 3; }
 .tb-hub-count { fill: #fff; font-size: 13px; font-weight: 800; }
 .tb-hub-name, .tb-hub-sub { paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
@@ -371,7 +372,7 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 .tb-state { border-radius: 10px; padding: 8px 6px; text-align: center; }
 .tb-state b { display: block; font-size: 22px; line-height: 1.1; }
 .tb-state span { font-size: 11.5px; }
-.tb-state.tb-state-terminal { background: #f0fdf4; color: #15803d; }
+.tb-state.tb-state-agency { background: #f0fdf4; color: #15803d; }
 .tb-state.tb-state-transit { background: #fffbeb; color: #b45309; }
 .tb-state.tb-state-maintenance { background: #fef2f2; color: #b91c1c; }
 .tb-mini-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #475569; margin: 10px 0 6px; }
@@ -383,7 +384,7 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 .tb-trip-meta { font-size: 11.5px; color: #64748b; }
 .tb-bus-row { display: flex; gap: 8px; align-items: center; font-size: 12.5px; padding: 3px 0; border-bottom: 1px dashed #eef0f3; }
 .tb-bus-state { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.tb-bus-state.tb-state-terminal { background: #16a34a; }
+.tb-bus-state.tb-state-agency { background: #16a34a; }
 .tb-bus-state.tb-state-transit { background: #f59e0b; }
 .tb-bus-state.tb-state-maintenance { background: #dc2626; }
 .tb-bus-name { font-weight: 600; white-space: nowrap; }

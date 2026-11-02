@@ -5,8 +5,9 @@ use Illuminate\Support\Facades\DB;
 
 /*
  * Turismo Cautivo (user's request, 2026-11-01): Fleet, Transport, Suppliers and HRM on;
- * its locations -- the 4 terminals of turismocautivo.com's origin / destination lists
- * and the agencies of its complaints book --, the routes between the terminals, and the
+ * its locations -- the 4 agencies (cities) of turismocautivo.com's origin / destination
+ * lists and the terminals (points of sale) of its complaints book --, the routes between
+ * the agencies, and the
  * complaints book asks the trip's origin and destination (so the dashboard shows which
  * routes have complaints). Every company's Admin Compañía role gets the Transport
  * permissions (the module switch decides who sees it). By name, safe to run twice.
@@ -52,7 +53,8 @@ return new class extends Migration
             if ($name === '' || DB::table('transport_locations')->where('company_id', $cid)->where('name', $name)->whereNull('deleted_at')->exists()) {
                 continue;
             }
-            $kind = in_array($name, self::TERMINALS, true) ? 'terminal' : (in_array($name, self::ONLINE, true) ? 'online' : 'agency');
+            // The 4 cities are the agencies; the complaints book's points of sale, their terminals (user's rule, 2026-11-01).
+            $kind = in_array($name, self::TERMINALS, true) ? 'agency' : (in_array($name, self::ONLINE, true) ? 'online' : 'terminal');
             DB::table('transport_locations')->insert(['company_id' => $cid, 'name' => $name, 'city' => in_array($name, self::TERMINALS, true) ? ucfirst(mb_strtolower($name)) : null,
                 'kind' => $kind, 'active' => true, 'created_at' => $now, 'updated_at' => $now]);
         }

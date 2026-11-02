@@ -38,7 +38,7 @@ return new class extends Migration
                 $t->integer('company_id')->index();
                 $t->string('name', 120);
                 $t->string('city', 120)->nullable();
-                $t->string('kind', 20)->default('agency'); // terminal | agency | online
+                $t->string('kind', 20)->default('terminal'); // agency (a city's hub) | terminal (belongs to an agency) | online
                 $t->boolean('active')->default(true);
                 $t->timestamps();
                 $t->softDeletes();

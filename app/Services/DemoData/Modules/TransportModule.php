@@ -11,29 +11,32 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Transport examples (2026-11-01) for any passenger transport / tour company (tourism
- * type -- e.g. a competitor of Turismo Cautivo): terminals (with an illustrated
- * picture), agencies and an online channel, routes, 4 buses (illustrated picture),
- * the crew -- pilots and hostesses paid per trip --, mechanics and office staff, two
- * weeks of completed trips + today's + next week's (a vehicle, 2 pilots, 1-2
- * hostesses, never double-booked), maintenance in house and at workshops (suppliers),
- * and a complaints book with origin / destination / agency answers so the Forms
- * dashboard shows the locations and routes with most complaints.
+ * type -- e.g. a competitor of Turismo Cautivo): agencies -- one per city, with an
+ * illustrated picture --, the terminals of each agency and an online channel, routes
+ * between the agencies, 4 buses (illustrated picture), the crew -- pilots and
+ * hostesses paid per trip --, mechanics and office staff, 30 days of completed trips +
+ * today's + next week's (a vehicle, 2 pilots, 1-2 hostesses, never double-booked),
+ * maintenance in house and at workshops (suppliers), and a complaints book with
+ * origin / destination / terminal answers so the Forms dashboard shows the locations
+ * and routes with most complaints.
  * Peru (or a Spanish company): southern Peru routes; else US East Coast. A company that
- * already has its terminals and routes keeps them (only buses, crew, trips, maintenance).
+ * already has its agencies and routes keeps them (only buses, crew, trips, maintenance).
  * Pictures are drawn here (no other company's photos or brand).
  */
 class TransportModule extends DemoModule
 {
     // [name, city, kind, address]
     private const PE_LOCATIONS = [
-        ['Terminal Lima', 'Lima', 'terminal', 'Av. Javier Prado Este 1100, La Victoria'],
-        ['Terminal Ica', 'Ica', 'terminal', 'Av. Municipalidad 245'],
-        ['Terminal Nasca', 'Nasca', 'terminal', 'Av. Los Incas 140'],
-        ['Terminal Arequipa', 'Arequipa', 'terminal', 'Terrapuerto, Av. Andrés A. Cáceres s/n'],
-        ['Terminal Cusco', 'Cusco', 'terminal', 'Terminal Terrestre, Av. Velasco Astete'],
-        ['Terminal Puno', 'Puno', 'terminal', 'Jr. Primero de Mayo 703'],
-        ['Agencia Miraflores', 'Lima', 'agency', 'Av. José Pardo 520, Miraflores'],
-        ['Agencia Cercado Arequipa', 'Arequipa', 'agency', 'Calle San Juan de Dios 112'],
+        ['Agencia Lima', 'Lima', 'agency', 'Av. Javier Prado Este 1100, La Victoria'],
+        ['Agencia Ica', 'Ica', 'agency', 'Av. Municipalidad 245'],
+        ['Agencia Nasca', 'Nasca', 'agency', 'Av. Los Incas 140'],
+        ['Agencia Arequipa', 'Arequipa', 'agency', 'Terrapuerto, Av. Andrés A. Cáceres s/n'],
+        ['Agencia Cusco', 'Cusco', 'agency', 'Terminal Terrestre, Av. Velasco Astete'],
+        ['Agencia Puno', 'Puno', 'agency', 'Jr. Primero de Mayo 703'],
+        ['Terminal Miraflores', 'Lima', 'terminal', 'Av. José Pardo 520, Miraflores'],
+        ['Terminal Plaza Norte', 'Lima', 'terminal', 'Av. Tomás Valle s/n, Independencia'],
+        ['Terminal Cercado Arequipa', 'Arequipa', 'terminal', 'Calle San Juan de Dios 112'],
+        ['Terminal Wanchaq', 'Cusco', 'terminal', 'Av. Garcilaso 210, Wanchaq'],
         ['Venta web', null, 'online', null],
     ];
 
@@ -45,12 +48,13 @@ class TransportModule extends DemoModule
     ];
 
     private const US_LOCATIONS = [
-        ['New York Terminal', 'New York', 'terminal', '625 8th Ave'],
-        ['Philadelphia Terminal', 'Philadelphia', 'terminal', '1001 Filbert St'],
-        ['Washington Terminal', 'Washington', 'terminal', '50 Massachusetts Ave NE'],
-        ['Boston Terminal', 'Boston', 'terminal', '700 Atlantic Ave'],
-        ['Baltimore Terminal', 'Baltimore', 'terminal', '2110 Haines St'],
-        ['Midtown Agency', 'New York', 'agency', '350 5th Ave'],
+        ['New York Agency', 'New York', 'agency', '625 8th Ave'],
+        ['Philadelphia Agency', 'Philadelphia', 'agency', '1001 Filbert St'],
+        ['Washington Agency', 'Washington', 'agency', '50 Massachusetts Ave NE'],
+        ['Boston Agency', 'Boston', 'agency', '700 Atlantic Ave'],
+        ['Baltimore Agency', 'Baltimore', 'agency', '2110 Haines St'],
+        ['Midtown Terminal', 'New York', 'terminal', '350 5th Ave'],
+        ['Brooklyn Terminal', 'New York', 'terminal', '1 Flatbush Ave'],
         ['Online sales', null, 'online', null],
     ];
 
@@ -74,12 +78,12 @@ class TransportModule extends DemoModule
 
     public function label(): string
     {
-        return 'Transport (Terminals, Routes, Buses, Crew, Trips, Maintenance, Complaints book)';
+        return 'Transport (Agencies, Terminals, Routes, Buses, Crew, Trips, Maintenance, Complaints book)';
     }
 
     public function dataTables(): array
     {
-        // Trips only: a company's own terminals / routes are its setup and the demo uses them.
+        // Trips only: a company's own agencies / terminals / routes are its setup and the demo uses them.
         return ['transport_trips'];
     }
 
@@ -103,7 +107,7 @@ class TransportModule extends DemoModule
         $locDefs = $peru ? self::PE_LOCATIONS : self::US_LOCATIONS;
         $routeDefs = $peru ? self::PE_ROUTES : self::US_ROUTES;
 
-        // A company that already has its terminals and routes (e.g. Turismo Cautivo) keeps
+        // A company that already has its agencies and routes (e.g. Turismo Cautivo) keeps
         // them: the buses, crew and trips use those. Else the example ones are created.
         $routes = $this->companyRoutes($ctx);
         if ($routes) {
@@ -113,10 +117,10 @@ class TransportModule extends DemoModule
         } else {
             $loc = [];
             foreach ($locDefs as $i => [$name, $city, $kind, $address]) {
-                $image = $kind === 'terminal' ? $this->picture($ctx, 'terminal-'.($i + 1).'.svg', $this->terminalSvg($city ?: $name, $i)) : null;
+                $image = $kind === 'agency' ? $this->picture($ctx, 'agency-'.($i + 1).'.svg', $this->agencySvg($city ?: $name, $i, $L('AGENCY', 'AGENCIA'))) : null;
                 $pos = $kind === 'online' ? null : PlaceCoordinates::find($name, $city);
-                // An agency belongs to the terminal of its city.
-                $hub = $kind === 'agency' ? collect($locDefs)->search(fn ($l) => $l[2] === 'terminal' && $l[1] === $city) : false;
+                // A terminal belongs to the agency of its city.
+                $hub = $kind === 'terminal' ? collect($locDefs)->search(fn ($l) => $l[2] === 'agency' && $l[1] === $city) : false;
                 $loc[$i] = $ctx->insert('transport_locations', ['name' => $name, 'city' => $city, 'kind' => $kind, 'address' => $address,
                     'phone' => $kind === 'online' ? null : $ctx->phone(), 'image' => $image, 'active' => 1,
                     'lat' => $pos[0] ?? null, 'lng' => $pos[1] ?? null, 'hub_id' => $hub !== false ? $loc[$hub] : null]);
@@ -223,19 +227,19 @@ class TransportModule extends DemoModule
         $complaints = $this->complaintsBook($ctx, $locDefs, $routes);
 
         return [
-            'Terminals and agencies' => count($loc), 'Routes' => count($routes), 'Buses' => count($buses),
+            'Agencies and terminals' => count($loc), 'Routes' => count($routes), 'Buses' => count($buses),
             'Crew and staff' => array_sum(array_map('count', $staff)), 'Trips' => $trips, 'Maintenance' => count($maint), 'Complaints' => $complaints,
         ];
     }
 
     /**
-     * The company's own active routes between its terminals ([] when it has fewer than 2
-     * terminals or no route): [id, min, o, d]; a route without hours gets them from the
+     * The company's own active routes between its agencies ([] when it has fewer than 2
+     * agencies or no route): [id, min, o, d]; a route without hours gets them from the
      * map distance (+25 % road, 60 km/h), else 4 h.
      */
     private function companyRoutes(DemoContext $ctx): array
     {
-        if (DB::table('transport_locations')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->where('kind', 'terminal')->count() < 2) {
+        if (DB::table('transport_locations')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->where('kind', 'agency')->count() < 2) {
             return [];
         }
 
@@ -259,8 +263,9 @@ class TransportModule extends DemoModule
         if (DB::table('forms')->where('company_id', $ctx->companyId)->whereNull('deleted_at')->where('name', 'like', '%eclam%')->exists()) {
             return 0;
         }
-        $agencies = array_values(array_map(fn ($l) => $l[0], array_filter($locDefs, fn ($l) => $l[2] !== 'online')));
-        $terminals = array_values(array_map(fn ($l) => $l[0], array_filter($locDefs, fn ($l) => $l[2] === 'terminal')));
+        // Where the passenger bought / boarded: any agency or terminal; origin / destination: the agencies.
+        $points = array_values(array_map(fn ($l) => $l[0], array_filter($locDefs, fn ($l) => $l[2] !== 'online')));
+        $agencies = array_values(array_map(fn ($l) => $l[0], array_filter($locDefs, fn ($l) => $l[2] === 'agency')));
         $types = $ctx->es
             ? ['Atención en agencia', 'Demora en la salida', 'Pérdida de equipaje', 'Cambio de asiento sin autorización', 'Limpieza del bus', 'Venta por internet']
             : ['Service at the agency', 'Late departure', 'Lost luggage', 'Seat changed without consent', 'Bus cleanliness', 'Online sale'];
@@ -269,9 +274,9 @@ class TransportModule extends DemoModule
             ['key' => 'nombre', 'type' => 'text', 'label' => $ctx->es ? 'Nombre y apellido:' : 'Full name:', 'required' => true, 'width' => 'half'],
             ['key' => 'email', 'type' => 'email', 'label' => $ctx->es ? 'Correo electrónico:' : 'Email:', 'required' => true, 'width' => 'half'],
             ['key' => 'motivo', 'type' => 'select', 'label' => $ctx->es ? 'Seleccione una opción' : 'Choose an option', 'required' => true, 'options' => $types],
-            ['key' => 'agencia', 'type' => 'select', 'label' => $ctx->es ? 'Seleccione agencia:' : 'Agency:', 'width' => 'half', 'options' => $agencies],
-            ['key' => 'origen', 'type' => 'select', 'label' => $ctx->es ? 'Origen del viaje:' : 'Trip origin:', 'width' => 'half', 'options' => $terminals],
-            ['key' => 'destino', 'type' => 'select', 'label' => $ctx->es ? 'Destino del viaje:' : 'Trip destination:', 'width' => 'half', 'options' => $terminals],
+            ['key' => 'agencia', 'type' => 'select', 'label' => $ctx->es ? 'Agencia o terminal:' : 'Agency or terminal:', 'width' => 'half', 'options' => $points],
+            ['key' => 'origen', 'type' => 'select', 'label' => $ctx->es ? 'Origen del viaje:' : 'Trip origin:', 'width' => 'half', 'options' => $agencies],
+            ['key' => 'destino', 'type' => 'select', 'label' => $ctx->es ? 'Destino del viaje:' : 'Trip destination:', 'width' => 'half', 'options' => $agencies],
             ['key' => 'detalle', 'type' => 'textarea', 'label' => $ctx->es ? 'Detalle:' : 'Details:', 'required' => true],
         ]);
         $settings = FormSchema::settings(['language' => $ctx->es ? 'es' : 'en', 'submit_text' => $ctx->es ? 'Enviar' : 'Send', 'notify' => false,
@@ -285,7 +290,7 @@ class TransportModule extends DemoModule
             [$first, $last] = $ctx->personName();
             $data = ['tipo' => $i % 3 ? ($ctx->es ? 'Queja' : 'Complaint') : ($ctx->es ? 'Reclamo' : 'Claim'), 'nombre' => "$first $last",
                 'email' => strtolower(preg_replace('/[^a-z]/i', '', $first.$last)).'@example.com', 'motivo' => $types[$i % 4 === 0 ? 1 : random_int(0, count($types) - 1)],
-                'agencia' => $agencies[$i % 2 === 0 ? 0 : random_int(0, count($agencies) - 1)], 'origen' => $route['o'], 'destino' => $route['d'],
+                'agencia' => $points[$i % 2 === 0 ? 0 : random_int(0, count($points) - 1)], 'origen' => $route['o'], 'destino' => $route['d'],
                 'detalle' => $ctx->es ? 'Ejemplo de reclamo para la demostración.' : 'Example complaint for the demo.'];
             $at = now()->subDays(random_int(0, 45))->setTime(random_int(7, 21), random_int(0, 59));
             $ctx->insert('form_submissions', ['form_id' => $formId, 'number' => ++$n, 'data' => json_encode($data, JSON_UNESCAPED_UNICODE),
@@ -321,18 +326,18 @@ class TransportModule extends DemoModule
 SVG;
     }
 
-    /** A bus terminal front with the city's name. */
-    private function terminalSvg(string $city, int $i): string
+    /** An agency's bus station front with the city's name ("AGENCIA LIMA"). */
+    private function agencySvg(string $city, int $i, string $word): string
     {
         $c = ['#0e7490', '#7c3aed', '#b45309', '#15803d', '#be123c', '#1d4ed8'][$i % 6];
-        $t = htmlspecialchars(mb_strtoupper($city), ENT_XML1);
+        $t = htmlspecialchars($word.' '.mb_strtoupper($city), ENT_XML1);
 
         return <<<SVG
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360">
   <rect width="640" height="360" fill="#e0f2fe"/><circle cx="560" cy="70" r="34" fill="#fde68a"/><rect y="290" width="640" height="70" fill="#cbd5e1"/>
   <rect x="70" y="120" width="500" height="170" fill="#f8fafc" stroke="#94a3b8" stroke-width="3"/><path d="M50 124 L320 50 L590 124 Z" fill="{$c}"/>
   <rect x="90" y="150" width="460" height="34" fill="{$c}" opacity=".12"/>
-  <text x="320" y="176" text-anchor="middle" font-family="Segoe UI, Arial" font-size="24" font-weight="800" fill="{$c}">TERMINAL {$t}</text>
+  <text x="320" y="176" text-anchor="middle" font-family="Segoe UI, Arial" font-size="24" font-weight="800" fill="{$c}">{$t}</text>
   <g fill="#94a3b8" opacity=".55"><rect x="100" y="200" width="80" height="60"/><rect x="200" y="200" width="80" height="60"/><rect x="360" y="200" width="80" height="60"/><rect x="460" y="200" width="80" height="60"/></g>
   <rect x="295" y="200" width="50" height="90" fill="#334155"/><rect x="40" y="300" width="560" height="8" fill="#f8fafc"/>
 </svg>

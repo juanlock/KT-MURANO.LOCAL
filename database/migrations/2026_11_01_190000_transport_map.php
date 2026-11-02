@@ -10,19 +10,21 @@ use Illuminate\Support\Facades\Schema;
 /*
  * Transport board on the dashboard (user's request, 2026-11-01): locations get a
  * position (lat / lng, filled from App\Support\PlaceCoordinates when empty) and the
- * terminal an agency belongs to (hub_id: same city, else the nearest terminal).
- * Turismo Cautivo: its agencies' terminals and its routes' km / hours (only empty
+ * agency a terminal belongs to (hub_id: same city, else the nearest agency). An agency
+ * = a city's hub (Turismo: LIMA, CHICLAYO, CHEPEN, TRUJILLO); a terminal = a point of
+ * sale / boarding of an agency (user's rule, 2026-11-01).
+ * Turismo Cautivo: its terminals' agencies and its routes' km / hours (only empty
  * values). The board's texts. Safe to run twice.
  */
 return new class extends Migration
 {
-    // Turismo Cautivo: agency -> terminal (the ones the nearest-terminal rule can't place).
+    // Turismo Cautivo: agency -> terminals (the ones the nearest-agency rule can't place).
     private const TURISMO_HUBS = [
         'LIMA' => ['OFICINA GALVES', 'ILO'],
         'CHICLAYO' => ['JOSE GALVEZ', 'LA PAMPA'],
     ];
 
-    // Turismo Cautivo's routes by road: [terminal, terminal, km, minutes].
+    // Turismo Cautivo's routes by road: [agency, agency, km, minutes].
     private const TURISMO_ROUTES = [
         ['LIMA', 'CHICLAYO', 770, 720], ['LIMA', 'CHEPEN', 650, 630], ['LIMA', 'TRUJILLO', 560, 540],
         ['CHICLAYO', 'CHEPEN', 105, 105], ['CHICLAYO', 'TRUJILLO', 210, 210], ['CHEPEN', 'TRUJILLO', 125, 120],
@@ -32,7 +34,7 @@ return new class extends Migration
         'Transport_Board' => ['Transport board', 'Tablero de transporte'],
         'Transport_Map' => ['Routes map', 'Mapa de rutas'],
         'Transport_Terminals' => ['Terminals', 'Terminales'],
-        'Transport_Agencies' => ['Agencies', 'Locales'],
+        'Transport_Agencies' => ['Agencies', 'Agencias'],
         'Transport_Online' => ['Online channels', 'Canales online'],
         'Transport_Fleet' => ['Fleet', 'Flota'],
         'Transport_Staff_Count' => ['Staff', 'Personal'],
@@ -51,7 +53,7 @@ return new class extends Migration
         'Transport_No_Position' => ['without a position on the map', 'sin ubicación en el mapa'],
         'Transport_Latitude' => ['Latitude', 'Latitud'],
         'Transport_Longitude' => ['Longitude', 'Longitud'],
-        'Transport_Hub' => ['Terminal it belongs to', 'Terminal a la que pertenece'],
+        'Transport_Hub' => ['Agency it belongs to', 'Agencia a la que pertenece'],
     ];
 
     public function up(): void
@@ -64,7 +66,7 @@ return new class extends Migration
                 $t->decimal('lng', 9, 6)->nullable()->after('lat');
             }
             if (! Schema::hasColumn('transport_locations', 'hub_id')) {
-                $t->unsignedInteger('hub_id')->nullable()->after('lng'); // the terminal an agency belongs to
+                $t->unsignedInteger('hub_id')->nullable()->after('lng'); // the agency a terminal belongs to
             }
         });
 
@@ -77,7 +79,7 @@ return new class extends Migration
 
         $turismo = DB::table('companies')->where('name', 'Turismo Cautivo')->whereNull('deleted_at')->value('id');
         if ($turismo) {
-            $term = DB::table('transport_locations')->where('company_id', $turismo)->whereNull('deleted_at')->where('kind', 'terminal')->pluck('id', 'name');
+            $term = DB::table('transport_locations')->where('company_id', $turismo)->whereNull('deleted_at')->where('kind', 'agency')->pluck('id', 'name');
             foreach (self::TURISMO_HUBS as $hub => $names) {
                 if (isset($term[$hub])) {
                     DB::table('transport_locations')->where('company_id', $turismo)->whereNull('hub_id')->whereIn('name', $names)->update(['hub_id' => $term[$hub]]);
@@ -93,12 +95,12 @@ return new class extends Migration
             }
         }
 
-        // Every other agency: the terminal of its city, else the nearest one.
-        foreach (DB::table('transport_locations')->whereNull('deleted_at')->where('kind', 'agency')->whereNull('hub_id')->get() as $a) {
-            $terminals = DB::table('transport_locations')->where('company_id', $a->company_id)->whereNull('deleted_at')->where('kind', 'terminal')->get(['id', 'city', 'lat', 'lng']);
-            $hub = $a->city ? $terminals->first(fn ($t) => $t->city && mb_strtolower($t->city) === mb_strtolower($a->city)) : null;
+        // Every other terminal: the agency of its city, else the nearest one.
+        foreach (DB::table('transport_locations')->whereNull('deleted_at')->where('kind', 'terminal')->whereNull('hub_id')->get() as $a) {
+            $agencies = DB::table('transport_locations')->where('company_id', $a->company_id)->whereNull('deleted_at')->where('kind', 'agency')->get(['id', 'city', 'lat', 'lng']);
+            $hub = $a->city ? $agencies->first(fn ($t) => $t->city && mb_strtolower($t->city) === mb_strtolower($a->city)) : null;
             if (! $hub && $a->lat !== null) {
-                $hub = $terminals->filter(fn ($t) => $t->lat !== null)
+                $hub = $agencies->filter(fn ($t) => $t->lat !== null)
                     ->sortBy(fn ($t) => PlaceCoordinates::km((float) $a->lat, (float) $a->lng, (float) $t->lat, (float) $t->lng))->first();
             }
             if ($hub) {

@@ -26,7 +26,7 @@
             </template>
           </a-table>
         </a-tab-pane>
-        <a-tab-pane key="locations" :tab="(es ? 'Locales' : 'Locations') + ` (${locations.length})`">
+        <a-tab-pane key="locations" :tab="(es ? 'Agencias y terminales' : 'Agencies and terminals') + ` (${locations.length})`">
           <a-input-search v-model:value="q" allow-clear style="max-width: 260px; margin-bottom: 10px" :placeholder="es ? 'Buscar' : 'Search'" />
           <a-table :columns="locationColumns" :data-source="filteredLocations" row-key="id" size="middle" :loading="loading" :pagination="{ pageSize: 20, hideOnSinglePage: true }">
             <template #bodyCell="{ column, record }">
@@ -37,6 +37,7 @@
                 </a-upload>
               </template>
               <template v-else-if="column.key === 'kind'"><a-tag :color="KIND_COLOR[record.kind]">{{ kindLabel(record.kind) }}</a-tag></template>
+              <template v-else-if="column.key === 'hub'">{{ record.kind === 'terminal' ? (locationName[record.hub_id] || '—') : '' }}</template>
               <template v-else-if="column.key === 'active'"><a-tag :color="record.active ? 'green' : 'default'">{{ record.active ? (es ? 'Activo' : 'Active') : (es ? 'Inactivo' : 'Inactive') }}</a-tag></template>
               <template v-else-if="column.key === 'actions'">
                 <a-space v-if="canManage" :size="0">
@@ -74,16 +75,16 @@
           <a-col :span="10"><a-form-item :label="es ? 'Teléfono' : 'Phone'"><a-input v-model:value="locationForm.phone" :maxlength="60" /></a-form-item></a-col>
         </a-row>
         <a-form-item :label="es ? 'Descripción' : 'Description'"><a-textarea v-model:value="locationForm.description" :rows="2" /></a-form-item>
-        <!-- Position on the dashboard map: empty = the city's, when known; an agency
-             without a terminal picked = the nearest one. -->
+        <!-- An agency = a city's hub; a terminal belongs to an agency (empty = the
+             nearest one). Position on the dashboard map: empty = the city's, when known. -->
         <a-row v-if="locationForm.kind !== 'online'" :gutter="12">
-          <a-col v-if="locationForm.kind === 'agency'" :span="10">
-            <a-form-item :label="es ? 'Terminal a la que pertenece' : 'Terminal it belongs to'">
-              <a-select v-model:value="locationForm.hub_id" :options="terminalOptions" allow-clear show-search option-filter-prop="label" />
+          <a-col v-if="locationForm.kind === 'terminal'" :span="10">
+            <a-form-item :label="es ? 'Agencia a la que pertenece' : 'Agency it belongs to'">
+              <a-select v-model:value="locationForm.hub_id" :options="agencyOptions" allow-clear show-search option-filter-prop="label" />
             </a-form-item>
           </a-col>
-          <a-col :span="locationForm.kind === 'agency' ? 7 : 12"><a-form-item :label="es ? 'Latitud' : 'Latitude'"><a-input-number v-model:value="locationForm.lat" :min="-90" :max="90" :step="0.0001" style="width: 100%" /></a-form-item></a-col>
-          <a-col :span="locationForm.kind === 'agency' ? 7 : 12"><a-form-item :label="es ? 'Longitud' : 'Longitude'"><a-input-number v-model:value="locationForm.lng" :min="-180" :max="180" :step="0.0001" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="locationForm.kind === 'terminal' ? 7 : 12"><a-form-item :label="es ? 'Latitud' : 'Latitude'"><a-input-number v-model:value="locationForm.lat" :min="-90" :max="90" :step="0.0001" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="locationForm.kind === 'terminal' ? 7 : 12"><a-form-item :label="es ? 'Longitud' : 'Longitude'"><a-input-number v-model:value="locationForm.lng" :min="-180" :max="180" :step="0.0001" style="width: 100%" /></a-form-item></a-col>
         </a-row>
         <a-form-item :label="es ? 'Activo' : 'Active'" style="margin-bottom: 0"><a-switch v-model:checked="locationForm.active" /></a-form-item>
       </a-form>
@@ -109,8 +110,10 @@ const auth = useAuthStore();
 const es = computed(() => useUiStore().locale === 'es');
 const canManage = computed(() => auth.can('transport_manage'));
 
-const KINDS = [['terminal', 'Terminal', 'Terminal'], ['agency', 'Agency', 'Agencia'], ['online', 'Online', 'En línea']];
-const KIND_COLOR = { terminal: 'purple', agency: 'blue', online: 'cyan' };
+// An agency = a city's hub (Turismo: LIMA, CHICLAYO...); a terminal = a point of sale /
+// boarding that belongs to an agency (user's rule, 2026-11-01).
+const KINDS = [['agency', 'Agency', 'Agencia'], ['terminal', 'Terminal', 'Terminal'], ['online', 'Online', 'En línea']];
+const KIND_COLOR = { agency: 'purple', terminal: 'blue', online: 'cyan' };
 const kindLabel = k => { const x = KINDS.find(r => r[0] === k); return x ? (es.value ? x[2] : x[1]) : k; };
 const kindOptions = computed(() => KINDS.map(k => ({ value: k[0], label: es.value ? k[2] : k[1] })));
 const hm = m => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? (m % 60) + ' min' : ''}` : `${m} min`);
@@ -124,8 +127,9 @@ const has = (s, t) => String(s || '').toLowerCase().includes(t);
 const filteredRoutes = computed(() => { const t = q.value.trim().toLowerCase(); return t ? routes.value.filter(r => has(r.label, t)) : routes.value; });
 const filteredLocations = computed(() => { const t = q.value.trim().toLowerCase(); return t ? locations.value.filter(l => has(l.name, t) || has(l.city, t)) : locations.value; });
 const locationOptions = computed(() => sortByLabel(locations.value.filter(l => l.active).map(l => ({ value: l.id, label: l.name }))));
-// The terminal an agency belongs to (dashboard map and counts).
-const terminalOptions = computed(() => sortByLabel(locations.value.filter(l => l.kind === 'terminal' && l.id !== locationForm.value.id).map(l => ({ value: l.id, label: l.name }))));
+// The agency a terminal belongs to (dashboard counts).
+const agencyOptions = computed(() => sortByLabel(locations.value.filter(l => l.kind === 'agency' && l.id !== locationForm.value.id).map(l => ({ value: l.id, label: l.name }))));
+const locationName = computed(() => Object.fromEntries(locations.value.map(l => [l.id, l.name])));
 
 const routeColumns = computed(() => [
   { title: es.value ? 'Ruta' : 'Route', key: 'route' },
@@ -141,6 +145,7 @@ const locationColumns = computed(() => [
   { title: es.value ? 'Dirección' : 'Address', dataIndex: 'address', key: 'address' },
   { title: es.value ? 'Teléfono' : 'Phone', dataIndex: 'phone', key: 'phone' },
   { title: es.value ? 'Tipo' : 'Type', key: 'kind', width: 120 },
+  { title: es.value ? 'Agencia' : 'Agency', key: 'hub' },
   { title: es.value ? 'Estado' : 'Status', key: 'active', width: 110 },
   { title: '', key: 'actions', width: 90 },
 ]);
@@ -172,7 +177,7 @@ function openLocation(l) {
   locationForm.value = l
     ? { id: l.id, name: l.name, city: l.city, address: l.address, phone: l.phone, description: l.description, kind: l.kind, active: !!l.active,
       lat: l.lat != null ? Number(l.lat) : null, lng: l.lng != null ? Number(l.lng) : null, hub_id: l.hub_id || undefined }
-    : { name: '', city: '', address: '', phone: '', description: '', kind: 'agency', active: true, lat: null, lng: null, hub_id: undefined };
+    : { name: '', city: '', address: '', phone: '', description: '', kind: 'terminal', active: true, lat: null, lng: null, hub_id: undefined };
   locationOpen.value = true;
 }
 async function send(url, body, id, close) {
