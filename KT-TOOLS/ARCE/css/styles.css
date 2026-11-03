@@ -131,6 +131,7 @@ a { color: inherit; }
 .doctor figcaption { padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; }
 .doctor strong { font-family: var(--serif); font-size: 22px; }
 .med-text h3 { font-family: var(--serif); font-size: 30px; margin: 0 0 10px; color: var(--med-dark); }
+.med-text > p { margin: 0 0 12px; }
 .med-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
 
 /* Placeholders the client must fill in */
@@ -154,9 +155,12 @@ a { color: inherit; }
 .post h3 { font-family: var(--serif); font-size: 21px; margin: 0; color: #fff; line-height: 1.25; }
 .post-author { font-size: 14px; color: var(--mango); font-weight: 600; }
 .post p { margin: 0; font-size: 15px; color: #d6cfc4; }
+.post-origin { font-size: 13px !important; color: #a8a29e !important; word-break: break-all; }
+.post-origin a { color: #fcd34d; }
 .post-link { margin-top: auto; padding-top: 8px; color: var(--mango); font-weight: 600; text-decoration: none; font-size: 15px; }
 .post-link:hover { text-decoration: underline; }
 .post-fb iframe { width: 100%; border: 0; background: #fff; min-height: 480px; }
+.post-fb iframe.post-video { min-height: 0; aspect-ratio: 16 / 9; height: auto; background: #000; }
 .posts-empty { color: #a8a29e; }
 .posts-more { margin-top: 32px; text-align: center; }
 .btn-fb { background: #1877f2; color: #fff; }

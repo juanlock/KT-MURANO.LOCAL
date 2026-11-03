@@ -29,8 +29,9 @@
   // ----- Publicaciones -----
   var list = document.getElementById('posts');
   var empty = document.getElementById('posts-empty');
-  // In the order of js/publicaciones.js (the client decides it there).
-  var posts = (window.PUBLICACIONES || []).slice();
+  // In the order of js/publicaciones.js (the client decides it there). Every post
+  // shows its source link; one without a valid link is left out.
+  var posts = (window.PUBLICACIONES || []).filter(function (p) { return /^https?:\/\//i.test(p.enlace || ''); });
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -39,6 +40,15 @@
     return n;
   }
   function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : '#'; }
+  // "facebook.com/chulucanasnoticias", "encuentroalsur.com"...
+  function host(u) {
+    try {
+      var x = new URL(u);
+      var h = x.hostname.replace(/^www\./, '');
+      var first = x.pathname.split('/').filter(Boolean)[0];
+      return /facebook\.com$/.test(h) && first && !/\.php$/.test(first) && first !== 'plugins' ? h + '/' + first : h;
+    } catch (e) { return u; }
+  }
   function fecha(f) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f || '')) return f || '';
     var d = new Date(f + 'T12:00:00');
@@ -49,12 +59,16 @@
     var tipo = p.tipo === 'facebook' ? 'facebook' : 'web';
     var art = el('article', 'post' + (tipo === 'facebook' ? ' post-fb' : ''));
     art.dataset.tipo = tipo;
-    if (tipo === 'facebook' && /facebook\.com/i.test(p.enlace || '')) {
+    var embed = p.insertar || p.enlace;
+    if (tipo === 'facebook' && /facebook\.com/i.test(embed || '')) {
       var f = document.createElement('iframe');
-      f.src = 'https://www.facebook.com/plugins/post.php?width=500&show_text=true&href=' + encodeURIComponent(p.enlace);
+      f.src = p.video
+        ? 'https://www.facebook.com/plugins/video.php?width=560&show_text=false&href=' + encodeURIComponent(embed)
+        : 'https://www.facebook.com/plugins/post.php?width=500&show_text=true&href=' + encodeURIComponent(embed);
+      if (p.video) { f.className = 'post-video'; f.setAttribute('allowfullscreen', 'true'); f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share'); }
       f.loading = 'lazy';
       f.title = p.titulo || 'Publicación de Facebook';
-      f.setAttribute('allow', 'encrypted-media');
+      if (!p.video) f.setAttribute('allow', 'encrypted-media');
       art.appendChild(f);
     } else if (p.imagen) {
       var img = el('img', 'post-img');
@@ -70,7 +84,14 @@
     body.appendChild(el('h3', '', p.titulo || ''));
     if (p.autor) body.appendChild(el('span', 'post-author', p.autor));
     if (p.resumen) body.appendChild(el('p', '', p.resumen));
-    var a = el('a', 'post-link', 'Leer publicación →');
+    // The source, always visible: its site and the link to the original.
+    var origin = el('p', 'post-origin');
+    origin.appendChild(document.createTextNode('Origen: '));
+    var o = el('a', '', host(p.enlace));
+    o.href = safeUrl(p.enlace); o.target = '_blank'; o.rel = 'noopener'; o.title = p.enlace;
+    origin.appendChild(o);
+    body.appendChild(origin);
+    var a = el('a', 'post-link', 'Ver publicación original →');
     a.href = safeUrl(p.enlace); a.target = '_blank'; a.rel = 'noopener';
     body.appendChild(a);
     art.appendChild(body);

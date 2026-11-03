@@ -8,11 +8,15 @@
  *   fuente:  dónde se publicó (p. ej. "UDEP Hoy", "Facebook · Nombre de la página")
  *   fecha:   'AAAA-MM-DD' (opcional)
  *   resumen: dos o tres líneas
- *   enlace:  dirección de la publicación
+ *   enlace:  dirección ORIGINAL de la publicación -- OBLIGATORIO: cada publicación
+ *            muestra siempre su enlace de origen; sin enlace no se muestra.
  *   imagen:  'img/archivo.jpg' (opcional)
- * Para Facebook, el enlace es el de la publicación (botón "..." -> "Insertar" o
- * "Copiar enlace"): la página la muestra tal como se ve en Facebook. La
- * publicación tiene que ser PÚBLICA.
+ *   insertar: (solo Facebook, opcional) la dirección corta que Facebook acepta para
+ *            mostrar la publicación dentro de la página, cuando el enlace original
+ *            es largo: https://www.facebook.com/PAGINA/posts/NUMERO
+ *   video:   true cuando es un video de Facebook (se reproduce dentro de la página).
+ * Para Facebook, la página muestra la publicación tal como se ve en Facebook.
+ * La publicación tiene que ser PÚBLICA.
  */
 window.PUBLICACIONES = [
   {
@@ -22,7 +26,8 @@ window.PUBLICACIONES = [
     fuente: 'Facebook · David Arce (facebook.com/arcemartino)',
     fecha: '',
     resumen: '“Los que han venido después me han dicho que yo fui el primero. Han pasado hartísimos años desde entonces…”',
-    enlace: 'https://www.facebook.com/1097015400/posts/10232821895505168'
+    enlace: 'https://www.facebook.com/story.php?story_fbid=10232821895505168&id=1097015400',
+    insertar: 'https://www.facebook.com/1097015400/posts/10232821895505168'
   },
   {
     tipo: 'web',
@@ -33,6 +38,47 @@ window.PUBLICACIONES = [
     resumen: 'Cuando descubren oro bajo el pueblo, una minera compra casas y tierras entre presiones y muertes sospechosas; solo la abuela del narrador se niega a vender, y los muertos le piden que cuente la historia.',
     enlace: 'https://encuentroalsur.com/?p=15093',
     imagen: 'https://i0.wp.com/encuentroalsur.com/wp-content/uploads/2011/04/tambogrande2.jpg'
+  },
+  {
+    tipo: 'web',
+    titulo: 'El guardián de los retratos',
+    autor: 'Manuel David Arce Martino',
+    fuente: 'Encuentro al Sur',
+    fecha: '2009-10-02',
+    resumen: 'Un hombre sin trabajo acepta ser guardián nocturno de un viejo edificio junto a una iglesia, donde debe ordenar unos retratos; al final descubre que el último es el suyo, de ochenta años atrás.',
+    enlace: 'https://encuentroalsur.com/?p=5791',
+    imagen: 'https://i0.wp.com/encuentroalsur.com/files/2009/10/espiritus.jpg'
+  },
+  {
+    tipo: 'facebook',
+    titulo: 'David Arce Martino, en la antología “El microrrelato peruano”',
+    autor: 'Chulucanas Noticias',
+    fuente: 'Facebook · Chulucanas Noticias',
+    fecha: '',
+    resumen: 'El escritor y médico psiquiatra chulucanense fue incluido en “El microrrelato peruano. Antología general”, de Ricardo González Vigil (páginas 759 a 767).',
+    enlace: 'https://www.facebook.com/chulucanasnoticias/posts/el-escritor-y-m%C3%A9dico-psiquiatra-el-chulucanense-dr-david-arce-martino-fue-inclui/4963332487032778/',
+    insertar: 'https://www.facebook.com/chulucanasnoticias/posts/4963332487032778'
+  },
+  {
+    tipo: 'facebook',
+    video: true,
+    titulo: 'Cómo tratar la fobia escolar',
+    autor: 'Dr. David Arce Martino',
+    fuente: 'Facebook · Chulucanas Noticias (video)',
+    fecha: '',
+    resumen: 'La escuela puede causar miedo y ansiedad en algunos niños: el Dr. David Arce, médico psiquiatra especialista en niños y adolescentes, da consejos para el primer día de clases.',
+    enlace: 'https://www.facebook.com/watch/?v=626848174550043',
+    insertar: 'https://www.facebook.com/chulucanasnoticias/videos/626848174550043/'
+  },
+  {
+    tipo: 'web',
+    titulo: 'Niños y adolescentes muy distraídos, impulsivos e hiperactivos podrían tener TDAH',
+    autor: 'EsSalud · con el Dr. David Arce Martino',
+    fuente: 'gob.pe · EsSalud (nota de prensa)',
+    fecha: '2026-03-14',
+    resumen: 'El psiquiatra del Servicio de Psiquiatría de Niños y Adolescentes del Hospital Almenara explica cómo distinguir el TDAH de una distracción común, sus riesgos si no se trata y por qué el tratamiento debe empezar en la niñez.',
+    enlace: 'https://www.gob.pe/institucion/essalud/noticias/1365978-essalud-ninos-y-adolescentes-muy-distraidos-impulsivos-e-hiperactivos-podrian-tener-trastorno-por-deficit-de-atencion-e-hiperactividad',
+    imagen: 'https://cdn.www.gob.pe/uploads/document/file/9608172/standard_1365978-002.jpg'
   },
   {
     tipo: 'web',

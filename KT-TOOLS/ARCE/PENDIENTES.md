@@ -5,7 +5,7 @@ amarillo como **[POR CONFIRMAR]** se reemplaza con lo que nos envíe.
 
 ## 1. Sobre usted y su consulta
 
-- Su especialidad (o especialidades) y su número de colegiatura (CMP).
+- Su número de colegiatura (CMP) y de especialidad (RNE). Ya figura como médico psiquiatra y escritor: confirme si es así como quiere presentarse.
 - Una presentación breve: dónde estudió, años de experiencia y qué distingue su atención (3 a 5 líneas).
 - Una frase corta de bienvenida para el inicio de la sección.
 - ¿Qué es SanaMente Perú? ¿Es el nombre de su consulta o de un proyecto? Una línea para explicarlo.
