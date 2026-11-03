@@ -206,6 +206,28 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-02 (Optimum) -- not in production yet
+
+- **IT Admin**: the role "Admin Compañía" is now called **IT Admin** in every
+  company (same permissions and users).
+- **A fourth standard login per company**, `{company}-manager@kcoltech.com`
+  with the **Manager** role, in every company that had no manager yet (Turismo
+  Cautivo included; Ruba and New Era keep their own managers).
+- **Companies › Rename** (SuperAdmin): changes a company's name everywhere in
+  one step, with a preview; the website and store name and the helpdesk sender
+  are offered, the website address and the standard logins' emails are
+  optional.
+- The Spanish menu says **Usuarios** (was "Los usuarios").
+- **Database backups take seconds** (Copia BD / Wake-up / Pa Llevar / A Dormir):
+  about 12 seconds instead of 9 minutes; the files are built on the local disk
+  and only the finished zips go to Google Drive.
+- **Website for Dr. David Arce** (SanaMente Perú, Chulucanas) in
+  `KT-TOOLS/ARCE`: a one-page site with Conocer Chulucanas, his medical
+  services and his publications (stories, press notes, videos, each with its
+  source link); what the client still has to send is in its PENDIENTES list.
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-11-02 (Home)
 
 - **Roles redone for every company.** New **Manager** role: the business's
@@ -235,7 +257,7 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 
 Setup: `php artisan migrate`, `npm run build`.
 
-### 2026-11-01 (Optimum) -- not in production yet
+### 2026-11-01 (Optimum)
 
 - **Transport module** (Turismo Cautivo and any transport / tour company):
   agencies (one per city, e.g. LIMA, CHICLAYO, CHEPEN, TRUJILLO) and the
@@ -254,8 +276,7 @@ Setup: `php artisan migrate`, `npm run build`.
   the user's language, kt_logs...).
 
 Setup: `php artisan migrate`, `npm run build`. Turismo's demo data is NOT in
-production (live company); after Wake-up on another PC it can be applied again
-in dev with the demo runner.
+production (live company).
 
 ### 2026-10-27 / 2026-11-01 (Optimum)
 
@@ -326,50 +347,6 @@ Setup: `php artisan migrate`, `npm run build`.
   only from then on.
 
 Setup: `php artisan migrate`, `npm install`, `npm run build`.
-
-### 2026-10-26 (Thundera)
-
-- **Companies in production** (Companies -> Edit -> Website, AdminSystem only):
-  Ruba, New Era and Turismo Cautivo are marked; production owns their data.
-  Pa Llevar now also sends the day's dev data to production -- never anything
-  of those companies -- and a new row whose number production already used
-  goes up with a new one. New companies Turismo Cautivo and Centro de
-  Especialista Arce (with demo data) are in production.
-- **New company type: Health Specialist** (outpatient specialist clinic, on the
-  hospital data). Reception and schedule (doctor columns, drag & drop, check-in
-  with payment / insurance, late-doctor alert icon), nursing station (vitals,
-  "ready to go in" tells the doctor), the specialist's EMR (problem list, SOAP
-  with dictation, templates for general medicine, pediatrics with growth chart,
-  ophthalmology, cardiology, gynecology, psychology, psychiatry, prescriptions,
-  lab / imaging orders, referrals, follow-ups), 48 h email reminder with
-  Confirm / Can't come, NPS survey, clinic reports, and the patient portal
-  (book, pre-registration, prescriptions). Roles: Reception, Clinic Nurse,
-  Specialist, Billing.
-- **Arrival scans**: at the clinic check-in and the hospital admission window
-  the desk scans / photographs the insurance card and the ID (front and back);
-  private files, never a payment card.
-- **Removing a doctor** (HRM → Employees): off the schedule and the portal, their
-  upcoming appointments go to "To schedule" (patients emailed), inpatients
-  without attending doctor show in the Control tower, roster cleared.
-- **Multicompany documents**: invoices, purchases, quotations, returns, payments,
-  receipts, SMS / WhatsApp / emails and reference prefixes now use each
-  company's own name, logo, currency and footer (they used the first company's).
-  The currency symbol follows the company everywhere.
-- **Emails**: the subject replaces its {tags} too; {invoice_url} is now a
-  "View invoice" link to the public signed invoice (which works again, the QR
-  of the receipts too).
-- **HRM in the company's language**: every dropdown (employment type, gender,
-  marital status, pay, leaves), the employee tabs, form and printout; default
-  HR names created in the company's language. Company pickers only show other
-  companies to the SuperAdmin.
-- **KT-Log** (Settings, SuperAdmin on AdminSystem only): the work history with
-  our filters and the closing message of each request.
-- Header shows the company logo and name when the side menu is hidden; login
-  chooser cards fixed (and an expired page returns to a fresh chooser);
-  "How are we doing" only for roles with the profit report; demo data: save the
-  business type on its own, Commissions / Store no longer blocked by false "real
-  data"; crop / resize for the System Settings logo.
-- Setup: `php artisan migrate`, `npm run build`.
 
 ---
 
