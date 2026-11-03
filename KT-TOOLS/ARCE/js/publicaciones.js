@@ -21,6 +21,16 @@
 window.PUBLICACIONES = [
   {
     tipo: 'facebook',
+    titulo: 'Manuel David Arce Martino: biografía',
+    autor: 'Jueves de Poesía y Narrativa',
+    fuente: 'Facebook · Jueves de Poesía y Narrativa',
+    fecha: '',
+    resumen: 'Nacido en Chulucanas (1963), médico psiquiatra de niños y adolescentes en el Hospital Almenara, con estudios de posgrado en Lengua y Literatura y en Creación Literaria; autor de “Cuentos para Eva”, “Sopa de piedra” y “La casa de los cachorros”.',
+    enlace: 'https://www.facebook.com/100053946682217/posts/manuel-david-arce-martino-1963-natural-de-chulucanas-piura-estudi%C3%B3-primaria-y-se/227431255643984/',
+    insertar: 'https://www.facebook.com/100053946682217/posts/227431255643984'
+  },
+  {
+    tipo: 'facebook',
     titulo: 'El angelito',
     autor: 'David Arce',
     fuente: 'Facebook · David Arce (facebook.com/arcemartino)',
@@ -47,7 +57,7 @@ window.PUBLICACIONES = [
     fecha: '2009-10-02',
     resumen: 'Un hombre sin trabajo acepta ser guardián nocturno de un viejo edificio junto a una iglesia, donde debe ordenar unos retratos; al final descubre que el último es el suyo, de ochenta años atrás.',
     enlace: 'https://encuentroalsur.com/?p=5791',
-    imagen: 'https://i0.wp.com/encuentroalsur.com/files/2009/10/espiritus.jpg'
+    imagen: 'https://i0.wp.com/encuentroalsur.com/wp-content/uploads/2009/10/espiritus.jpg'
   },
   {
     tipo: 'facebook',

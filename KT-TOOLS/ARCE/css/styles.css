@@ -139,6 +139,12 @@ a { color: inherit; }
 .todo-block { display: block; padding: 10px 14px; margin: 0; }
 
 /* Publicaciones */
+.books { margin: -8px 0 32px; }
+.books-title { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .16em; color: var(--mango); font-weight: 600; }
+.books-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.book { position: relative; padding: 18px 18px 18px 26px; border-radius: 10px; background: linear-gradient(135deg, #3f2a1e, #241a14); border: 1px solid #5a4030; box-shadow: inset 6px 0 0 var(--clay); }
+.book-year { display: block; font-size: 12px; color: #d6cfc4; letter-spacing: .1em; }
+.book-name { display: block; font-family: var(--serif); font-size: 21px; color: #fff; line-height: 1.25; margin-top: 2px; }
 .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 26px; }
 .chip { background: transparent; color: #f5ede2; border: 1px solid #57534e; padding: 8px 18px; border-radius: 999px; font: 600 14px var(--sans); cursor: pointer; }
 .chip.is-active, .chip:hover { background: var(--mango); border-color: var(--mango); color: var(--ink); }

@@ -73,6 +73,7 @@
     } else if (p.imagen) {
       var img = el('img', 'post-img');
       img.src = p.imagen; img.alt = p.titulo || ''; img.loading = 'lazy';
+      img.onerror = function () { img.remove(); }; // a picture that no longer exists: no broken image
       art.appendChild(img);
     }
     var body = el('div', 'post-body');
