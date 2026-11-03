@@ -56,6 +56,11 @@
                 <template #icon><EditOutlined style="color: #52c41a" /></template>
               </a-button>
             </a-tooltip>
+            <a-tooltip v-if="isSuperAdmin" :title="L('Rename', 'Renombrar')">
+              <a-button type="text" size="small" @click="openRename(record)">
+                <template #icon><FontColorsOutlined style="color: #1677ff" /></template>
+              </a-button>
+            </a-tooltip>
             <a-tooltip v-if="isSystem" :title="$t('Del')">
               <a-button type="text" size="small" danger @click="crud.remove(record)">
                 <template #icon><DeleteOutlined /></template>
@@ -65,6 +70,49 @@
         </template>
       </template>
     </DataTable>
+
+    <!-- Rename (2026-11-02, SuperAdmin): the name everywhere it shows, in one step. -->
+    <a-modal
+      v-model:open="renameOpen" :title="L('Rename company', 'Renombrar compañía') + (renameRow ? ` · ${renameRow.name}` : '')"
+      :ok-text="L('Rename', 'Renombrar')" :ok-button-props="{ disabled: !canRename }" :confirm-loading="renaming" :width="620" @ok="submitRename"
+    >
+      <a-form layout="vertical">
+        <a-form-item :label="L('New name', 'Nombre nuevo')" required>
+          <a-input v-model:value="renameForm.name" :maxlength="190" @update:value="schedulePreview" />
+        </a-form-item>
+      </a-form>
+      <a-spin :spinning="previewLoading">
+        <template v-if="preview">
+          <p class="rn-always">
+            {{ L('Always changes: the company name in Murano and on invoices, documents and emails.', 'Siempre cambia: el nombre de la compañía en Murano y en facturas, documentos y correos.') }}
+          </p>
+          <div class="rn-opt">
+            <a-checkbox v-model:checked="renameForm.website">{{ L('Website and online store name', 'Nombre del sitio web y de la tienda en línea') }}</a-checkbox>
+            <div class="rn-from">{{ preview.website.from || '—' }} → <b>{{ renameForm.name }}</b></div>
+          </div>
+          <div class="rn-opt">
+            <a-checkbox v-model:checked="renameForm.helpdesk">{{ L('Helpdesk sender name', 'Nombre del remitente del helpdesk') }}</a-checkbox>
+            <div class="rn-from">{{ preview.helpdesk.from || '—' }} → <b>{{ renameForm.name }}</b></div>
+          </div>
+          <div class="rn-opt">
+            <a-checkbox v-model:checked="renameForm.path">{{ L('Website address', 'Dirección del sitio web') }}</a-checkbox>
+            <div class="rn-from">/{{ preview.path.from || '—' }} →
+              <a-input v-model:value="renameForm.pathValue" size="small" style="width: 240px" :disabled="!renameForm.path" addon-before="/" />
+            </div>
+            <div v-if="renameForm.path" class="rn-warn">{{ L('Links to the old address stop working (shared links, QR codes, Google).', 'Los enlaces a la dirección vieja dejan de funcionar (enlaces compartidos, códigos QR, Google).') }}</div>
+          </div>
+          <div class="rn-opt">
+            <a-checkbox v-model:checked="renameForm.logins" :disabled="!preview.logins.list.length || preview.logins.taken.length > 0">
+              {{ L('Standard logins (admin / helpdesk / info)', 'Logins estándar (admin / helpdesk / info)') }}
+            </a-checkbox>
+            <div v-for="l in preview.logins.list" :key="l.id" class="rn-from">{{ l.from }} → <b>{{ l.to }}</b></div>
+            <div v-if="!preview.logins.list.length" class="rn-from">{{ L('This company has no standard logins.', 'Esta compañía no tiene logins estándar.') }}</div>
+            <div v-if="preview.logins.taken.length" class="rn-warn">{{ L('Already used by other logins:', 'Ya los usan otros logins:') }} {{ preview.logins.taken.join(', ') }}</div>
+            <div v-else-if="renameForm.logins" class="rn-warn">{{ L('Whoever uses them signs in with the new email from now on (same password).', 'Quien los usa entra desde ahora con el correo nuevo (la misma contraseña).') }}</div>
+          </div>
+        </template>
+      </a-spin>
+    </a-modal>
 
     <!-- Edit: the company profile in steps (tabs), each with its legend. -->
     <a-modal
@@ -274,7 +322,7 @@
 import { ref, computed, watch, onMounted, createVNode } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, FontColorsOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import WebsiteChoice from '../../components/WebsiteChoice.vue';
@@ -554,6 +602,63 @@ async function submitCreate() {
   }
 }
 
+/* ---------------- rename (2026-11-02) ---------------- */
+const L = (en, es) => (locale.value.startsWith('es') ? es : en);
+const renameOpen = ref(false);
+const renameRow = ref(null);
+const renaming = ref(false);
+const preview = ref(null);
+const previewLoading = ref(false);
+const renameForm = ref({ name: '', website: true, helpdesk: true, path: false, pathValue: '', logins: false });
+let previewTimer = null;
+const canRename = computed(() => !!renameForm.value.name.trim() && renameForm.value.name.trim() !== (renameRow.value?.name || '') && !!preview.value);
+
+function openRename(record) {
+  renameRow.value = record;
+  renameForm.value = { name: record.name, website: true, helpdesk: true, path: false, pathValue: '', logins: false };
+  preview.value = null;
+  renameOpen.value = true;
+  loadPreview(true);
+}
+function schedulePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => loadPreview(false), 400);
+}
+async function loadPreview(first) {
+  if (!renameRow.value || !renameForm.value.name.trim()) return;
+  previewLoading.value = true;
+  try {
+    const res = await http.get(`company/${renameRow.value.id}/rename`, { name: renameForm.value.name.trim() });
+    preview.value = res;
+    if (first) {
+      renameForm.value.website = res.website.default;
+      renameForm.value.helpdesk = res.helpdesk.default;
+    }
+    renameForm.value.pathValue = res.path.to || '';
+    if (res.logins.taken.length) renameForm.value.logins = false;
+  } catch (e) {
+    message.error(errorText(e));
+  } finally {
+    previewLoading.value = false;
+  }
+}
+async function submitRename() {
+  renaming.value = true;
+  try {
+    const f = renameForm.value;
+    await http.post(`company/${renameRow.value.id}/rename`, {
+      name: f.name.trim(), website: f.website, helpdesk: f.helpdesk, logins: f.logins, path: f.path ? (f.pathValue || true) : null,
+    });
+    message.success(L('Company renamed.', 'Compañía renombrada.'));
+    renameOpen.value = false;
+    crud.fetchRows();
+  } catch (e) {
+    message.error(errorText(e));
+  } finally {
+    renaming.value = false;
+  }
+}
+
 /* ---------------- clear demo ---------------- */
 function clearDemo(record) {
   Modal.confirm({
@@ -607,6 +712,11 @@ onMounted(crud.fetchRows);
   background: rgba(22, 119, 255, 0.06); border-left: 3px solid #1677ff;
 }
 .muted { opacity: 0.6; font-weight: normal; }
+/* Rename window */
+.rn-always { font-size: 13px; background: rgba(22, 119, 255, 0.06); border-left: 3px solid #1677ff; padding: 8px 12px; border-radius: 6px; }
+.rn-opt { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+.rn-from { font-size: 12.5px; color: #64748b; margin: 4px 0 0 24px; word-break: break-all; }
+.rn-warn { font-size: 12.5px; color: #b45309; margin: 4px 0 0 24px; }
 .err { color: #ff4d4f; }
 .demo-summary { max-height: 260px; overflow: auto; font-size: 13px; }
 </style>

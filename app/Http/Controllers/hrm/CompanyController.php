@@ -438,6 +438,32 @@ class CompanyController extends Controller
      * POST company/{id}/clear-demo -- remove every demo row generated for this
      * company (SuperAdmin only). Real data is never touched.
      */
+    /**
+     * Companies -> Rename (2026-11-02, SuperAdmin): GET = what would change for ?name=,
+     * POST {name, website, helpdesk, path, logins} = rename in one transaction
+     * (App\Services\CompanyRename).
+     */
+    public function renamePreview(Request $request, $id)
+    {
+        abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can rename a company.');
+        abort_unless(Company::whereKey((int) $id)->exists(), 404);
+
+        return response()->json(\App\Services\CompanyRename::preview((int) $id, (string) $request->query('name', '')));
+    }
+
+    public function rename(Request $request, $id)
+    {
+        abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can rename a company.');
+        abort_unless(Company::whereKey((int) $id)->exists(), 404);
+        $v = $request->validate([
+            'name' => 'required|string|max:190', 'website' => 'boolean', 'helpdesk' => 'boolean',
+            'path' => 'nullable', 'logins' => 'boolean',
+        ]);
+        $done = \App\Services\CompanyRename::apply((int) $id, $v['name'], $v);
+
+        return response()->json(['success' => true, 'done' => $done]);
+    }
+
     public function clearDemo(Request $request, $id)
     {
         abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can clear a company\'s demo data.');

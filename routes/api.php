@@ -804,6 +804,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     Route::get('get_all_company', "hrm\CompanyController@Get_all_Company");
     Route::post('company/delete/by_selection', "hrm\CompanyController@delete_by_selection");
     Route::post('company/{id}/clear-demo', "hrm\CompanyController@clearDemo");
+    Route::get('company/{id}/rename', "hrm\CompanyController@renamePreview")->whereNumber('id');
+    Route::post('company/{id}/rename', "hrm\CompanyController@rename")->whereNumber('id');
     Route::post('company/{id}/website', "hrm\CompanyController@website");
 
     // ------------------------------- departments --------------------------\\
