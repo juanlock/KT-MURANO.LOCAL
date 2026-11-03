@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * The roles every company has (user's rules, 2026-11-01 / 2026-11-02): each
  * company its own group, by default only
- *   Admin Compañía -- the company's IT person: every form of that company;
+ *   IT Admin       -- the company's IT person: every form of that company
+ *                     ("Admin Compañía" 11-01..11-02);
  *   Manager        -- runs the business: the main modules, no configuration;
  *   Helpdesk;
  *   Website        -- Website management + Portfolio;
@@ -16,13 +17,17 @@ use Illuminate\Support\Facades\DB;
  * Supplier / Sales Agent / Online Store are created when a login of that type is
  * (LinkedUserService), and a business's own roles (hospital, school, clinic,
  * restaurant, Ruba's Supervisor / Operator, New Era's Staff) stay. Owner, Admin,
- * AdminRG, AdminNE, Admin-ALL are gone (users -> Admin Compañía); Manager RG /
+ * AdminRG, AdminNE, Admin-ALL are gone (users -> IT Admin); Manager RG /
  * ManagerNE -> Manager. The SuperAdmin's role (SuperAdmin, ex Owner) lives only
  * in AdminSystem (999).
  */
 class CompanyRoles
 {
-    public const ADMIN = 'Admin Compañía';
+    /** The company's IT admin (user's rule, 2026-11-02: "IT Admin"). */
+    public const ADMIN = 'IT Admin';
+
+    /** Names the IT Admin role has had: renamed to ADMIN wherever they are left. */
+    public const OLD_ADMIN_NAMES = ['Admin Compañía'];
 
     /** The {slug}-info login's role: the forms (contact forms) read only. "Formularios" until 2026-11-02. */
     public const FORMS = 'Info';
@@ -32,7 +37,7 @@ class CompanyRoles
 
     /**
      * Manager (user's rule, 2026-11-02): runs the business but not the system --
-     * every main module of the company (its Admin Compañía's permissions) except
+     * every main module of the company (its IT Admin's permissions) except
      * configuration: settings, users and roles, HRM setup (company, departments,
      * designations, shifts), integrations. Replaces each company's own manager
      * roles (Ruba's "Manager RG", New Era's "ManagerNE").
@@ -42,7 +47,7 @@ class CompanyRoles
     /** Company-made manager roles replaced by Manager (users moved, role removed). */
     public const OLD_MANAGER = ['Manager RG', 'ManagerNE'];
 
-    /** What a Manager never gets: the configuration side of the Admin Compañía. */
+    /** What a Manager never gets: the configuration side of the IT Admin. */
     public const MANAGER_EXCLUDED = [
         'setting_system', 'appearance_settings', 'datatable_customize', 'notification_template', 'warehouse', 'warehouse_locations',
         'network_security', 'login_security', 'login_device_management', 'company_logins_view', 'report_device_management',
@@ -74,7 +79,7 @@ class CompanyRoles
     /** Created on demand when a login of that type is (LinkedUserService). */
     public const AUTO = ['Supplier', 'Sales Agent', 'Online Store'];
 
-    /** Old admin roles: their users -> Admin Compañía. */
+    /** Old admin roles: their users -> IT Admin. */
     public const OLD_ADMIN = ['Owner', 'Admin', 'Admin-ALL', 'AdminRG', 'AdminNE'];
 
     /** name => [description, home page, permissions] for the roles defined here. */
@@ -94,8 +99,8 @@ class CompanyRoles
         $src = $companyId === $tpl ? null
             : DB::table('roles')->where('company_id', $tpl)->where('name', $name)->whereNull('deleted_at')->first();
         if (! $src && $name === self::ADMIN) {
-            // A company created before 2026-11-01 without the template's Admin Compañía yet.
-            $src = DB::table('roles')->where('company_id', $tpl)->whereIn('name', [self::ADMIN, 'Admin-ALL'])->whereNull('deleted_at')
+            // A template still under an older name (Admin Compañía, Admin-ALL).
+            $src = DB::table('roles')->where('company_id', $tpl)->whereIn('name', array_merge([self::ADMIN, 'Admin-ALL'], self::OLD_ADMIN_NAMES))->whereNull('deleted_at')
                 ->orderByRaw('name = ? desc', [self::ADMIN])->first();
         }
         $def = self::DEFINED[$name] ?? null;
@@ -120,7 +125,7 @@ class CompanyRoles
 
     /**
      * The company's Manager role (made when missing) with its permissions: the
-     * company's Admin Compañía ones minus MANAGER_EXCLUDED and the SuperAdmin-only
+     * company's IT Admin ones minus MANAGER_EXCLUDED and the SuperAdmin-only
      * settings (SettingsAccess::RESTRICTED), plus MANAGER_EXTRA. Returns its id.
      */
     public static function syncManager(int $companyId): ?int
@@ -178,18 +183,18 @@ class CompanyRoles
         $roles = fn () => DB::table('roles')->where('company_id', $companyId)->whereNull('deleted_at')->get(['id', 'name']);
         $log = [];
 
-        // 1. Admin Compañía = the company's Admin-ALL renamed (keeps its permissions and users).
+        // 1. IT Admin = the company's Admin Compañía / Admin-ALL renamed (keeps its permissions and users).
         $admin = $roles()->firstWhere('name', self::ADMIN);
-        if (! $admin && ($old = $roles()->firstWhere('name', 'Admin-ALL'))) {
+        if (! $admin && ($old = $roles()->first(fn ($r) => in_array($r->name, array_merge(self::OLD_ADMIN_NAMES, ['Admin-ALL']), true)))) {
             DB::table('roles')->where('id', $old->id)->update(['name' => self::ADMIN, 'label' => self::ADMIN,
                 'description' => 'Company administrator: every form and module of this company.', 'updated_at' => now()]);
-            $log[] = 'Admin-ALL -> '.self::ADMIN;
+            $log[] = $old->name.' -> '.self::ADMIN;
         }
         $adminId = self::ensure($companyId, self::ADMIN);
 
-        // 2. Old admin roles: users -> Admin Compañía, role removed (AdminSystem keeps the SuperAdmin's Owner).
+        // 2. Old admin roles: users -> IT Admin, role removed (AdminSystem keeps the SuperAdmin's Owner).
         foreach ($roles() as $r) {
-            if (in_array($r->name, self::OLD_ADMIN, true) && (int) $r->id !== $adminId && ! ($isTemplate && in_array($r->name, self::SUPERADMIN_NAMES, true))) {
+            if (in_array($r->name, array_merge(self::OLD_ADMIN, self::OLD_ADMIN_NAMES), true) && (int) $r->id !== $adminId && ! ($isTemplate && in_array($r->name, self::SUPERADMIN_NAMES, true))) {
                 $n = self::moveUsers((int) $r->id, $adminId);
                 self::drop((int) $r->id);
                 $log[] = "{$r->name} removed ($n users -> ".self::ADMIN.')';

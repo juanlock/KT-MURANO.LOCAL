@@ -116,7 +116,7 @@ class CompanyController extends Controller
             'admin_email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->whereNull('deleted_at')],
             // Empty = the standard password of new companies (CompanyLogins, 2026-10-25).
             'admin_password' => ['nullable', 'string', 'min:8'],
-            // Old names (Owner / Admin / Admin-ALL) are taken as Admin Compañía (2026-11-01, CompanyRoles).
+            // Old names (Owner / Admin / Admin-ALL / Admin Compañía) are taken as IT Admin (CompanyRoles).
             'admin_role' => ['nullable', 'string', 'max:60'],
             // Optional helpdesk agent (role "Helpdesk").
             'helpdesk_firstname' => ['nullable', 'string', 'max:100'],

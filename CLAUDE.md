@@ -331,10 +331,11 @@ the start of each session).
 - **Standard logins (user's rule, 2026-10-25):** every new company and every
   demo gets them (`App\Support\CompanyLogins`): default passwords per type
   employee `Empleado2020`, customer `Cliente2024`, supplier / sales agent /
-  store `C0ntr0l123`; and three access logins with their own roles,
-  `{slug}-admin` (Admin-ALL), `{slug}-helpdesk` (Helpdesk), `{slug}-info`
-  (Info) `@kcoltech.com`, password `C0ntr0l123$` (Companies -> Add: an empty
-  password field = these). A demo's people (staff, patients, students...)
+  store `C0ntr0l123`; and four access logins with their own roles,
+  `{slug}-admin` (IT Admin), `{slug}-manager` (Manager, 2026-11-02; not made
+  where the company already has a Manager), `{slug}-helpdesk` (Helpdesk),
+  `{slug}-info` (Info) `@kcoltech.com`, password `C0ntr0l123$` (Companies ->
+  Add: an empty password field = these). A demo's people (staff, patients, students...)
   get their type's password (`DemoRunner::standardLogins`). Vitalis has them
   (migration 2026_10_25_190000). **Company logins** (profile menu, the
   company's admin only: admin login + `company_logins_view`): every login, its
@@ -355,10 +356,11 @@ the start of each session).
   **edited** (role, locations, password, PIN) and **disabled** (Active /
   Disabled switch -- never your own account).
 - **Standard roles of every company (user's rules, 2026-11-01 / 2026-11-02,
-  `App\Support\CompanyRoles`):** **Admin Compañía** (the company's IT person:
-  users, roles, settings, menu order; `{slug}-admin@kcoltech.com`, type admin,
-  no employee behind it), **Manager** (runs the business: every main module,
-  no configuration -- `CompanyRoles::syncManager()` = the Admin Compañía's
+  `App\Support\CompanyRoles`):** **IT Admin** (the company's IT person -- called
+  "Admin Compañía" until 2026-11-02: users, roles, settings, menu order;
+  `{slug}-admin@kcoltech.com`, type admin, no employee behind it), **Manager**
+  (runs the business: every main module, no configuration; `{slug}-manager@`
+  -- `CompanyRoles::syncManager()` = the IT Admin's
   permissions minus `MANAGER_EXCLUDED` and the SuperAdmin-only settings; e.g.
   info@rubagardenlandscape.com, New Era's info@ / admin@ / Monica / Silvia),
   **Info** (the forms -- contact forms -- read only; `{slug}-info@`; called
@@ -366,7 +368,7 @@ the start of each session).
   **Customer**; automatic Supplier / Sales Agent / Online Store. A business's
   own job roles stay: hospital, school, clinic, restaurant, Ruba's SupervisorRG
   (every job and assignment) / OperatorRG (its own jobs), New Era's **Staff**
-  (every stylist; ex StaffNE). New Era's only Admin Compañía is
+  (every stylist; ex StaffNE). New Era's only IT Admin is
   neweraunisexsalon-admin@kcoltech.com.
 - **The role is mandatory.** A user can do only what their role allows
   (`role_user` -> permissions); no permission is granted by user type
@@ -393,7 +395,7 @@ the start of each session).
   sales agent (user's rule, 2026-11-02, replacing "owners' employee records
   stay off payroll"):** it only manages the system's access. Every other login
   belongs to its record. A new company's admin gets no employee
-  (`CompanyProvisioner`); giving a login the role Admin Compañía in Users ->
+  (`CompanyProvisioner`); giving a login the role IT Admin in Users ->
   Edit asks first when it belongs to a record ("remove it and make it an
   admin" = `App\Support\AdminLogins::release()`: employee soft-deleted with a
   leaving date, others unlinked, type -> admin; or keep it with its own role). Job cost = labor (hours

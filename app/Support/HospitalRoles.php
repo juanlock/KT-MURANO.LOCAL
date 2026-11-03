@@ -20,7 +20,7 @@ class HospitalRoles
 {
     // Helpdesk / Info: the standard access logins of every company (CompanyLogins, 2026-10-25).
     // + every company's standard roles (CompanyRoles, 2026-11-01).
-    private const KEEP = ['Admin Compañía' => 'Administrador', 'Customer' => 'Paciente (cliente)', 'Supplier' => 'Proveedor', 'Employee' => 'Personal sin rol',
+    private const KEEP = [CompanyRoles::ADMIN => 'IT Admin', 'Customer' => 'Paciente (cliente)', 'Supplier' => 'Proveedor', 'Employee' => 'Personal sin rol',
         'Helpdesk' => 'Helpdesk'];
 
     /** name => [label, description, home page, permissions] */

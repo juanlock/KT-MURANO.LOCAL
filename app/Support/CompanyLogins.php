@@ -10,8 +10,10 @@ use Illuminate\Support\Str;
 /**
  * Standard logins and passwords of a company (user's rule, 2026-10-25), for
  * new companies and for the demos (so every role can be tested):
- *  - three access logins, each with its own role: {slug}-admin (Admin-ALL),
- *    {slug}-helpdesk (Helpdesk), {slug}-info (Info) @kcoltech.com;
+ *  - four access logins, each with its own role: {slug}-admin (Admin Compañía),
+ *    {slug}-manager (Manager), {slug}-helpdesk (Helpdesk), {slug}-info (Info)
+ *    @kcoltech.com -- one is not made when the company already has someone
+ *    with that role (e.g. its own manager);
  *  - the company's default passwords per login type (Defaults -> Users):
  *    employee, customer, and the other types (supplier, sales agent, store).
  * The demos create their people (doctors, nurses, teachers, patients...)
@@ -37,6 +39,8 @@ class CompanyLogins
         'admin' => [CompanyRoles::ADMIN, null],
         'helpdesk' => ['Helpdesk', ['helpdesk_view', 'helpdesk_manage', 'intranet_view', 'email_office_view', 'Customers_view']],
         'info' => [CompanyRoles::FORMS, ['forms_view']],
+        // 2026-11-02: the company's manager (Admin Compañía minus configuration).
+        'manager' => [CompanyRoles::MANAGER, null],
     ];
 
     /** The company's prefix for its logins: the one its admin login already uses, else its name. */
@@ -110,50 +114,56 @@ class CompanyLogins
     public static function ensureAccess(int $companyId, bool $resetPasswords = false): array
     {
         $out = [];
-        $company = (string) DB::table('companies')->where('id', $companyId)->value('name');
         foreach (array_keys(self::ACCESS) as $access) {
-            $email = self::email($companyId, $access);
-            $user = DB::table('users')->where('email', $email)->whereNull('deleted_at')->first();
-            if ($user) {
-                abort_unless((int) $user->company_id === $companyId, 422, "The login {$email} belongs to another company.");
-                if ($resetPasswords) {
-                    DB::table('users')->where('id', $user->id)->update(['password' => Hash::make(self::ACCESS_PASSWORD), 'statut' => 1, 'updated_at' => now()]);
-                }
-                // Helpdesk / info always carry their own role (the admin keeps Owner / Admin-ALL...).
-                if ($access !== 'admin') {
-                    $roleId = self::role($companyId, $access);
-                    DB::table('role_user')->where('user_id', $user->id)->delete();
-                    DB::table('role_user')->insert(['user_id' => $user->id, 'role_id' => $roleId]);
-                    DB::table('users')->where('id', $user->id)->update(['role_id' => $roleId]);
-                }
-                $out[$access] = (int) $user->id;
-                continue;
-            }
-            $roleId = self::role($companyId, $access);
-            // The company already has this access under another email (e.g. the
-            // admin typed in Companies -> Add): no second one.
-            $holder = DB::table('role_user as ru')->join('users as u', 'u.id', '=', 'ru.user_id')
-                ->where('ru.role_id', $roleId)->where('u.company_id', $companyId)->whereNull('u.deleted_at')
-                ->whereIn('u.type', ['admin', 'employee'])->value('u.id');
-            if ($holder) {
-                $out[$access] = (int) $holder;
-                continue;
-            }
-            $username = self::slug($companyId).'-'.$access;
-            if (DB::table('users')->where('username', $username)->exists()) {
-                $username .= '-'.$companyId;
-            }
-            $id = DB::table('users')->insertGetId([
-                'company_id' => $companyId, 'firstname' => ucfirst($access), 'lastname' => $company,
-                'username' => $username, 'email' => $email, 'password' => Hash::make(self::ACCESS_PASSWORD),
-                'phone' => '', 'role_id' => $roleId, 'type' => 'admin', 'statut' => 1,
-                'is_all_warehouses' => 1, 'record_view' => 1, 'created_at' => now(), 'updated_at' => now(),
-            ]);
-            DB::table('role_user')->insert(['user_id' => $id, 'role_id' => $roleId]);
-            $out[$access] = $id;
+            $out[$access] = self::ensureOne($companyId, $access, $resetPasswords);
         }
 
         return $out;
+    }
+
+    /** One access login (see ensureAccess): its user id. */
+    public static function ensureOne(int $companyId, string $access, bool $resetPasswords = false): int
+    {
+        $company = (string) DB::table('companies')->where('id', $companyId)->value('name');
+        $email = self::email($companyId, $access);
+        $user = DB::table('users')->where('email', $email)->whereNull('deleted_at')->first();
+        if ($user) {
+            abort_unless((int) $user->company_id === $companyId, 422, "The login {$email} belongs to another company.");
+            if ($resetPasswords) {
+                DB::table('users')->where('id', $user->id)->update(['password' => Hash::make(self::ACCESS_PASSWORD), 'statut' => 1, 'updated_at' => now()]);
+            }
+            // Helpdesk / info / manager always carry their own role (the admin keeps its own).
+            if ($access !== 'admin') {
+                $roleId = self::role($companyId, $access);
+                DB::table('role_user')->where('user_id', $user->id)->delete();
+                DB::table('role_user')->insert(['user_id' => $user->id, 'role_id' => $roleId]);
+                DB::table('users')->where('id', $user->id)->update(['role_id' => $roleId]);
+            }
+
+            return (int) $user->id;
+        }
+        $roleId = self::role($companyId, $access);
+        // The company already has this access under another email (e.g. the
+        // admin typed in Companies -> Add, or its own manager): no second one.
+        $holder = DB::table('role_user as ru')->join('users as u', 'u.id', '=', 'ru.user_id')
+            ->where('ru.role_id', $roleId)->where('u.company_id', $companyId)->whereNull('u.deleted_at')
+            ->whereIn('u.type', ['admin', 'employee'])->value('u.id');
+        if ($holder) {
+            return (int) $holder;
+        }
+        $username = self::slug($companyId).'-'.$access;
+        if (DB::table('users')->where('username', $username)->exists()) {
+            $username .= '-'.$companyId;
+        }
+        $id = DB::table('users')->insertGetId([
+            'company_id' => $companyId, 'firstname' => ucfirst($access), 'lastname' => $company,
+            'username' => $username, 'email' => $email, 'password' => Hash::make(self::ACCESS_PASSWORD),
+            'phone' => '', 'role_id' => $roleId, 'type' => 'admin', 'statut' => 1,
+            'is_all_warehouses' => 1, 'record_view' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('role_user')->insert(['user_id' => $id, 'role_id' => $roleId]);
+
+        return (int) $id;
     }
 
     /**

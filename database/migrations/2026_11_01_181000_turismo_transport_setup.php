@@ -21,7 +21,7 @@ return new class extends Migration
     public function up(): void
     {
         $permIds = DB::table('permissions')->whereIn('name', ['transport_view', 'transport_manage'])->pluck('id');
-        foreach (DB::table('roles')->where('name', 'Admin Compañía')->whereNull('deleted_at')->pluck('id') as $rid) {
+        foreach (DB::table('roles')->whereIn('name', ['Admin Compañía', 'IT Admin'])->whereNull('deleted_at')->pluck('id') as $rid) {
             foreach ($permIds as $pid) {
                 if (! DB::table('permission_role')->where('role_id', $rid)->where('permission_id', $pid)->exists()) {
                     DB::table('permission_role')->insert(['role_id' => $rid, 'permission_id' => $pid]);

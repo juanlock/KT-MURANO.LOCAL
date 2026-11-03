@@ -77,7 +77,7 @@ const onlyUsed = ref(false);
 
 // Column groups (the order roles come from); a role not listed lands in "Own".
 const GROUPS = [
-  { key: 'g-std', en: 'Standard', es: 'Estándar', roles: ['Admin Compañía', 'Manager', 'Helpdesk', 'Website', 'Info', 'Employee', 'Customer'] },
+  { key: 'g-std', en: 'Standard', es: 'Estándar', roles: ['IT Admin', 'Manager', 'Helpdesk', 'Website', 'Info', 'Employee', 'Customer'] },
   { key: 'g-auto', en: 'Automatic', es: 'Automáticos', roles: ['Supplier', 'Sales Agent', 'Online Store'] },
   { key: 'g-sys', en: 'System', es: 'Sistema', roles: ['SuperAdmin'] },
   { key: 'g-hosp', en: 'Hospital', es: 'Hospital', roles: ['Admission', 'Triage', 'Emergency', 'Doctor', 'Nurse', 'Head Nurse', 'Pharmacy', 'Laboratory', 'Operating Room', 'Billing'] },
