@@ -20,7 +20,7 @@
   var WHATSAPP = '';
   if (WHATSAPP) {
     document.querySelectorAll('[data-whatsapp]').forEach(function (a) {
-      a.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Hola, quisiera información sobre Arce Servicios Médicos.');
+      a.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Hola Dr. David Arce, quisiera información sobre sus servicios médicos.');
       a.target = '_blank';
       a.rel = 'noopener';
     });
