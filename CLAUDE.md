@@ -44,9 +44,10 @@ Turismo Cautivo and Arce were created in production with a one-off script).
   a local backup tagged `pallevar`, README, commit, push, then **the code is
   deployed to production without asking** (user's rule, 2026-10-25: "pa
   llevar" is the yes), **then the dev data** (`protocol_prod_push.php`, never
-  the live companies; 2026-10-26) and, **when every step went well, the
-  PC shuts down** (`shutdown /s /t 120`, cancel with `shutdown /a`; nothing
-  failed or pending, push included). Not ready for production: A Dormir.
+  the live companies; 2026-10-26). **No protocol ever shuts the PC down**
+  (user's rule, 2026-11-03, replacing 2026-10-25's automatic shutdown): only
+  when the user asks for it at that moment (`shutdown /s /t 120`, cancel with
+  `shutdown /a`). Not ready for production: A Dormir.
 - **A Dormir** (`/a-dormir`, "Jarvis, a dormir", 2026-10-20) -- the end of the
   day WITHOUT touching production, for work not ready / not tested yet: local
   dev backup tagged `adormir` (PC folder + a copy in the root of
@@ -790,8 +791,8 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
 - **Pa Llevar** (`/pa-llevar`, "Jarvis, run protocolo pa llevar") — the end of
   the day: Wake-up's production code step (since 2026-10-25 deployed WITHOUT
   asking, after the commit / push; then the dev data, never the live
-  companies' (2026-10-26); then the PC shuts down
-  when every step went well), the user manual (only when asked; in-app EN + ES, overview HTML + PDF),
+  companies' (2026-10-26); the PC is never shut down by a protocol,
+  2026-11-03), the user manual (only when asked; in-app EN + ES, overview HTML + PDF),
   `npm run build`, Kelsy (no HTML daily report), a local backup tagged
   `pallevar` (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office
   emails 1/2/3.zip` for the external backup program), `README.md` (Latest
