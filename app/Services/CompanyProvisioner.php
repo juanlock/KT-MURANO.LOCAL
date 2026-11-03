@@ -64,9 +64,9 @@ class CompanyProvisioner
 
             // Roles: copy the template company's, permissions included.
             $roleMap = [];
-            // Only the standard set (2026-11-01, CompanyRoles); Supplier / Sales Agent / Online Store come on demand.
+            // The standard and automatic sets (CompanyRoles; automatic ones in every company since 2026-11-03).
             $templateRoles = DB::table('roles')->where('company_id', Setting::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')
-                ->whereIn('name', \App\Support\CompanyRoles::STANDARD)->get();
+                ->whereIn('name', array_merge(\App\Support\CompanyRoles::STANDARD, \App\Support\CompanyRoles::AUTO))->get();
             foreach ($templateRoles as $tr) {
                 $newId = DB::table('roles')->insertGetId([
                     'company_id' => $cid, 'name' => $tr->name, 'label' => $tr->label,

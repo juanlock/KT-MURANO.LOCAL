@@ -8,7 +8,7 @@
         <a-checkbox id="rm-used" v-model:checked="onlyUsed">{{ es ? 'Solo roles con usuarios' : 'Only roles with users' }}</a-checkbox>
         <div class="rm-legend">
           <span><b class="rm-n">3</b> {{ es ? 'usuarios con ese rol' : 'users with that role' }}</span>
-          <span><span class="rm-e">•</span> {{ es ? 'existe, sin usuarios' : 'exists, no users' }}</span>
+          <span><span class="rm-e">0</span> {{ es ? 'existe, sin usuarios' : 'exists, no users' }}</span>
           <span><a-tag color="orange" :bordered="false">{{ es ? 'En producción' : 'Live' }}</a-tag></span>
         </div>
       </div>
@@ -39,7 +39,7 @@
                 <template v-for="g in groups" :key="c.id + g.key">
                   <td v-for="r in g.roles" :key="r" :title="tip(c, r)">
                     <b v-if="c.roles[r] && c.roles[r].users" class="rm-n">{{ c.roles[r].users }}</b>
-                    <span v-else-if="c.roles[r]" class="rm-e">•</span>
+                    <span v-else-if="c.roles[r]" class="rm-e">0</span>
                   </td>
                 </template>
               </tr>

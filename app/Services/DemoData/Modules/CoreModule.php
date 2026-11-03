@@ -123,8 +123,9 @@ class CoreModule extends DemoModule
         // demo data" the flags were written moments ago in this same request.
         $flags = \App\Services\DemoData\DemoRunner::moduleFlags($ctx->companyId);
         $on = fn (string $k) => ($flags[$k] ?? true) !== false;
-        // No products / customers either when those modules are off (a school).
-        $products = $on('products');
+        // No products / customers either when those modules are off (a school). A bus / travel
+        // company sells tickets: the Transport demo makes them and their sales (2026-11-03).
+        $products = $on('products') && ($ctx->businessType ?? null) !== 'tourism';
         // A hospital's customers are its patients and its sales its hospital bills
         // (2026-10-21, HospitalModule): no generic demo customers / sales here.
         $hospital = in_array($ctx->businessType ?? null, ['hospital', 'health_specialist'], true);

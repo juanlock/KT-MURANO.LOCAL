@@ -77,6 +77,8 @@ class BusinessTypes
             'accounting', 'assets', 'email_office', 'gallery', 'helpdesk', 'hrm'],
         // No POS for real estate either (2026-10-20): it sells through listings and sales.
         'real_estate' => ['pos'],
+        // A bus / travel company (2026-11-03): no website of ours (nor its gallery); POS stays (ticket sales).
+        'tourism' => ['website', 'gallery'],
     ];
 
     /**
@@ -174,7 +176,9 @@ class BusinessTypes
         // Tours and packages (2026-10-24, Turismo Cautivo): reservations (Bookings), agents' commissions,
         // campaigns, promotions and the tours' portfolio; complaints (Libro de Reclamos) via Helpdesk (base).
         // + Fleet and Transport (2026-11-01): buses, maintenance, trips with their crew.
-        'tourism' => ['bookings', 'commissions', 'fleet', 'marketing', 'portfolio', 'promotions', 'transport'],
+        // 2026-11-03: no Portfolio / Website (its own website keeps the Murano forms
+        // embedded); each agency = a Location with its Terminal POS selling tickets (POS base).
+        'tourism' => ['bookings', 'commissions', 'fleet', 'marketing', 'promotions', 'transport'],
     ];
 
     /** The modules a company of $type starts with (base + the type's own). */

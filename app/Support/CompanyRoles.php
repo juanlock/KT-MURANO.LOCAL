@@ -14,8 +14,9 @@ use Illuminate\Support\Facades\DB;
  *   Website        -- Website management + Portfolio;
  *   Info           -- the forms (contact forms), read only ("Formularios" 11-01..11-02);
  *   Customer, Employee.
- * Supplier / Sales Agent / Online Store are created when a login of that type is
- * (LinkedUserService), and a business's own roles (hospital, school, clinic,
+ * Supplier / Sales Agent / Online Store (automatic: the login type's role) exist
+ * in every company too (2026-11-03), and every role has at least one user
+ * (CompanyDefaultPeople). A business's own roles (hospital, school, clinic,
  * restaurant, Ruba's Supervisor / Operator, New Era's Staff) stay. Owner, Admin,
  * AdminRG, AdminNE, Admin-ALL are gone (users -> IT Admin); Manager RG /
  * ManagerNE -> Manager. The SuperAdmin's role (SuperAdmin, ex Owner) lives only
@@ -76,7 +77,7 @@ class CompanyRoles
 
     public const STANDARD = [self::ADMIN, self::MANAGER, 'Helpdesk', self::WEBSITE, self::FORMS, 'Customer', 'Employee'];
 
-    /** Created on demand when a login of that type is (LinkedUserService). */
+    /** The login types' roles (LinkedUserService): in every company (2026-11-03). */
     public const AUTO = ['Supplier', 'Sales Agent', 'Online Store'];
 
     /** Old admin roles: their users -> IT Admin. */
@@ -234,15 +235,9 @@ class CompanyRoles
             self::ensure($companyId, $name);
         }
 
-        // 5. Automatic roles nobody uses (created again when a login of that type is). The template keeps them.
-        if (! $isTemplate) {
-            foreach ($roles() as $r) {
-                if (in_array($r->name, self::AUTO, true) && ! DB::table('role_user')->where('role_id', $r->id)->exists()
-                    && ! DB::table('users')->where('role_id', $r->id)->whereNull('deleted_at')->exists()) {
-                    self::drop((int) $r->id);
-                    $log[] = "{$r->name} removed (unused)";
-                }
-            }
+        // 5. The automatic roles exist in every company too, used or not (user's rule, 2026-11-03).
+        foreach (self::AUTO as $name) {
+            self::ensure($companyId, $name);
         }
 
         return $log;

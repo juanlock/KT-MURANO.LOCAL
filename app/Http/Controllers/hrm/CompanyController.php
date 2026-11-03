@@ -47,7 +47,7 @@ class CompanyController extends Controller
         $pageStart = \Request::get('page', 1);
         // Start displaying items from this number;
         $offSet = ($pageStart * $perPage) - $perPage;
-        $order = in_array($request->SortField, ['id', 'name', 'email', 'phone', 'country', 'created_at'], true) ? $request->SortField : 'id';
+        $order = in_array($request->SortField, ['id', 'name', 'business_type', 'email', 'phone', 'country', 'created_at'], true) ? $request->SortField : 'id';
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
         $companies = Company::where('deleted_at', '=', null)
@@ -189,9 +189,10 @@ class CompanyController extends Controller
             // Its mail server: AdminSystem's, sender "Admin {company}".
             \App\Models\Server::forCompany($cid);
             // Standard logins (2026-10-25): default passwords per type where none was typed,
-            // and the admin / helpdesk / info access logins with their roles.
+            // the access logins with their roles, and a demo customer / employee / supplier /
+            // sales agent / store login, so every role has a user (2026-11-03).
             \App\Support\CompanyLogins::applyDefaults($cid);
-            \App\Support\CompanyLogins::ensureAccess($cid);
+            \App\Support\CompanyDefaultPeople::ensure($cid);
         }));
         $this->storeLogo((int) $result['company']->id, $logoBytes);
 

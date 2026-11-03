@@ -206,7 +206,35 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
-### 2026-11-02 (Optimum) -- not in production yet
+### 2026-11-03 (Home)
+
+- **Every role of every company has a user.** The automatic roles (Supplier,
+  Sales Agent, Online Store) exist in every company, a fifth access login
+  `{company}-website@kcoltech.com` (Website role) is added, and each people
+  role nobody held gets a demo record with its login (Cliente Demo, Empleado
+  Demo, Proveedor Demo, Agente de Ventas Demo, Cliente Tienda Demo). Companies ›
+  Add does the same; Settings › Roles by company shows 0 for a role without
+  users.
+- **Companies › Rename** also renames the new logins (and their records'
+  emails), and older admin usernames such as "adminarce".
+- **Companies list**: new **Business type** column (sortable, exported).
+- **Ruba Garden's Contact Us form** now lives in Murano (Forms): name, email,
+  phone, subject, message, notices to info@; its website (home page and
+  Contact Us) shows it instead of the old external form.
+- **Transport agencies are Locations.** Each agency has its own sales, cash
+  registers and users; its ticket office sells on the POS with a **Terminal
+  POS** login assigned to that agency only. The Manager and the IT Admin see
+  every agency. The tourism business type now has POS and no Portfolio /
+  Website / Gallery.
+- **Turismo Cautivo presentation demo** (in production): buses, crew, trips,
+  route tickets (S/ 20-85), a cashier per agency, passengers and 30 days of
+  ticket sales, kept current every hour.
+- **Demo data fits the business**: a bus company no longer gets delivery vans,
+  IT portfolio works or generic shop pages.
+
+Setup: `php artisan migrate`, `npm run build`.
+
+### 2026-11-02 (Optimum) -- in production since 2026-11-03
 
 - **IT Admin**: the role "Admin Compañía" is now called **IT Admin** in every
   company (same permissions and users).
@@ -307,46 +335,6 @@ production (live company).
   business type and language; SuperAdmin's **Company manuals** page shows them.
 
 Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-10-27 (Thundera)
-
-- **Login security, for every way in** (staff login, customer portal, mobile
-  app):
-  - **Locked after 5 wrong passwords** in an hour, for 1 hour, from any
-    computer. The person and the company's admins get an email; an admin
-    unlocks it in Settings -> Login security or in Users ("Locked until").
-    Resetting the password by email unlocks it too.
-  - **Standard passwords must be changed** at the first sign-in (Empleado2020,
-    Cliente2024, C0ntr0l123...), except the demo logins.
-  - **Password rules:** at least 8 characters with letters and numbers, not a
-    standard password, not the email, not one of the last 3.
-  - **Two-step verification:** each company picks which user types need a code
-    after the password (Settings -> Login security); anyone can turn it on in
-    Profile. The code arrives by email, or comes from an authenticator app
-    (QR + recovery codes). "Remember this computer" skips it for 30 days.
-  - **Sign-in alerts:** an email when a login is used from a new computer.
-  - Settings -> Login security also shows the latest sign-in activity.
-- **Login devices** (AdminSystem): Company and Role columns, and the usual
-  filters (dates, company, role, type, search); the filters sit beside the
-  table's search (any list can now put its filters there).
-- **Production server**: a daily backup of the database on the server
-  (outside the website, 14 kept), a morning email to the SuperAdmin with the
-  previous day's errors, daily log files, and the scheduled tasks work on
-  Hostinger (it blocks starting processes; they now run inside the scheduler).
-  The 3,583 jobs stuck in the queue since September (integrations no company
-  uses) were removed and those integrations no longer queue anything.
-- **Each company's online store is its own**: settings, payments, warehouses
-  and emails of the store the visitor opened (they used the first company's).
-- **Mobile app**: the server is ready for the two-step code and the password
-  change in the app (the app needs its screens).
-- **Backups** live in Google Drive (`Versions\database`, one folder per PC,
-  production, HOSTINGER); only the latest copy stays in the repo.
-- **User manual** updated (sign-in, two-step, Login security, specialist
-  clinic, arrival scans, companies in production), in-app and the PDF.
-- Billing is turned off by hand on 2026-10-28: Ruba and New Era work in Murano
-  only from then on.
-
-Setup: `php artisan migrate`, `npm install`, `npm run build`.
 
 ---
 

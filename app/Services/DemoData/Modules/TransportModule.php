@@ -98,6 +98,11 @@ class TransportModule extends DemoModule
         if ($trips) {
             DB::table('transport_trip_crew')->whereIn('trip_id', $trips)->delete();
         }
+        // The ticket offices' cashiers: their agency (user_warehouse has no id to tag).
+        $users = DB::table('users')->whereIn('id', $ctx->demoIds('users'))->where('email', 'like', '%-pos-%@kcoltech.com')->pluck('id');
+        if ($users->isNotEmpty()) {
+            DB::table('user_warehouse')->whereIn('user_id', $users)->delete();
+        }
     }
 
     public function generate(DemoContext $ctx): array
@@ -226,10 +231,100 @@ class TransportModule extends DemoModule
 
         $complaints = $this->complaintsBook($ctx, $locDefs, $routes);
 
+        // Ticket offices (2026-11-03): each agency a Location with its Terminal POS selling tickets.
+        $office = $this->ticketOffice($ctx, $routes, $dept, $des['administrative'], (int) $shift);
+        if ($office) {
+            $office['Ticket sales'] = \App\Support\TransportDemoDay::tickets($ctx->companyId);
+        }
+
         return [
             'Agencies and terminals' => count($loc), 'Routes' => count($routes), 'Buses' => count($buses),
             'Crew and staff' => array_sum(array_map('count', $staff)), 'Trips' => $trips, 'Maintenance' => count($maint), 'Complaints' => $complaints,
-        ];
+        ] + $office;
+    }
+
+    /**
+     * The agencies' ticket offices (user's rule, 2026-11-03), when POS and Sales are on:
+     * every agency a Location (TransportAgencies::sync), a ticket per route sold at the
+     * agency of its origin (service product "Pasaje LIMA - TRUJILLO", price by distance),
+     * one cashier per agency (employee + login {slug}-pos-{agency}@kcoltech.com, role
+     * Terminal POS, only that agency, the standard employee password) and passengers.
+     * The sales themselves come from TransportDemoDay::tickets (30 days back, then every hour).
+     */
+    private function ticketOffice(DemoContext $ctx, array $routes, int $dept, int $designation, int $shift): array
+    {
+        $flags = \App\Services\DemoData\DemoRunner::moduleFlags($ctx->companyId);
+        if (($flags['pos'] ?? true) === false || ($flags['sales'] ?? true) === false || ! $routes) {
+            return [];
+        }
+        $warehouses = \App\Support\TransportAgencies::sync($ctx->companyId);
+        if (! $warehouses) {
+            return [];
+        }
+        $roleId = \App\Support\TransportAgencies::posRole($ctx->companyId);
+
+        $category = $ctx->insert('categories', ['code' => 'PAS'.random_int(100, 999), 'name' => $ctx->es ? 'Pasajes' : 'Tickets']);
+        $units = DB::table('units')->whereNull('deleted_at');
+        if ($ctx->hasColumn('units', 'company_id')) {
+            $units->where('company_id', $ctx->companyId);
+        }
+        $unit = (int) ($units->value('id') ?? $ctx->insert('units', ['name' => $ctx->es ? 'Pasaje' : 'Ticket', 'ShortName' => 'pas',
+            'base_unit' => null, 'operator' => '*', 'operator_value' => 1, 'is_active' => 1]));
+        $rows = DB::table('transport_routes as r')->join('transport_locations as o', 'o.id', '=', 'r.origin_id')->join('transport_locations as d', 'd.id', '=', 'r.destination_id')
+            ->whereIn('r.id', array_column($routes, 'id'))->get(['r.id', 'r.distance_km', 'o.name as o', 'd.name as d', 'o.warehouse_id as wid']);
+        foreach ($rows as $r) {
+            $price = max(20, round(((float) $r->distance_km * 0.11) / 5) * 5);
+            $product = $ctx->insert('products', [
+                'type' => 'is_service', 'code' => 'PAS-'.$r->id, 'Type_barcode' => 'CODE128',
+                'name' => ($ctx->es ? 'Pasaje ' : 'Ticket ').$r->o.' - '.$r->d, 'cost' => round($price * 0.55, 2), 'price' => $price,
+                'wholesale_price' => $price, 'min_price' => round($price * 0.8, 2), 'category_id' => $category,
+                'unit_id' => $unit, 'unit_sale_id' => $unit, 'unit_purchase_id' => $unit,
+                'tax_method' => '1', 'TaxNet' => 0, 'stock_alert' => 0, 'is_variant' => 0, 'is_imei' => 0, 'is_active' => 1,
+                'image' => 'no-image.png', 'note' => 'Demo data',
+            ]);
+            // On sale at the agency it leaves from (its POS lists only its own departures).
+            foreach ($r->wid ? [(int) $r->wid] : $warehouses as $wid) {
+                $ctx->insert('product_warehouse', ['product_id' => $product, 'warehouse_id' => $wid, 'qte' => 0, 'manage_stock' => 0]);
+            }
+        }
+
+        $slug = \App\Support\CompanyLogins::slug($ctx->companyId);
+        $cashiers = 0;
+        foreach ($warehouses as $agencyId => $wid) {
+            $agency = (string) DB::table('transport_locations')->where('id', $agencyId)->value('name');
+            [$first, $last] = $ctx->personName();
+            $email = $slug.'-pos-'.\Illuminate\Support\Str::slug($agency, '').'@kcoltech.com';
+            if (DB::table('users')->where('email', $email)->exists()) {
+                continue;
+            }
+            $employee = $ctx->insert('employees', [
+                'firstname' => $first, 'lastname' => $last, 'username' => "$first $last", 'email' => $email, 'phone' => $ctx->phone(),
+                'gender' => $ctx->isFemale($first) ? 'female' : 'male', 'department_id' => $dept, 'designation_id' => $designation, 'office_shift_id' => $shift,
+                'joining_date' => now()->subMonths(random_int(3, 30))->toDateString(), 'employment_type' => 'full_time', 'staff_type' => 'administrative',
+            ]);
+            $userId = (int) DB::table('employees')->where('id', $employee)->value('user_id');
+            if ($userId) {
+                DB::table('users')->where('id', $userId)->update(['role_id' => $roleId, 'email' => $email, 'statut' => 1, 'is_all_warehouses' => 0, 'record_view' => 0,
+                    'password' => \Illuminate\Support\Facades\Hash::make(\App\Support\CompanyLogins::PASSWORDS['employee'])]);
+                DB::table('role_user')->where('user_id', $userId)->delete();
+                DB::table('role_user')->insert(['user_id' => $userId, 'role_id' => $roleId]);
+                DB::table('user_warehouse')->where('user_id', $userId)->delete();
+                DB::table('user_warehouse')->insert(['user_id' => $userId, 'warehouse_id' => $wid]);
+                $cashiers++;
+            }
+        }
+
+        // Passengers (customers); the rest of the tickets go to the walk-in customer.
+        for ($i = 0; $i < 40; $i++) {
+            [$first, $last] = $ctx->personName();
+            $ctx->insert('clients', [
+                'code' => (int) DB::table('clients')->max('code') + 1, 'name' => "$first $last", 'firstname' => $first, 'lastname' => $last,
+                'email' => strtolower(\Illuminate\Support\Str::ascii("$first.$last")).'.demo'.random_int(1000, 9999).'@example.com',
+                'phone' => $ctx->phone(), 'country' => $ctx->country, 'city' => $ctx->city(),
+            ]);
+        }
+
+        return ['Agencies as locations' => count($warehouses), 'Tickets (routes)' => $rows->count(), 'Terminal POS cashiers' => $cashiers, 'Passengers' => 40];
     }
 
     /**

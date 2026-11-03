@@ -331,11 +331,19 @@ the start of each session).
 - **Standard logins (user's rule, 2026-10-25):** every new company and every
   demo gets them (`App\Support\CompanyLogins`): default passwords per type
   employee `Empleado2020`, customer `Cliente2024`, supplier / sales agent /
-  store `C0ntr0l123`; and four access logins with their own roles,
+  store `C0ntr0l123`; and five access logins with their own roles,
   `{slug}-admin` (IT Admin), `{slug}-manager` (Manager, 2026-11-02; not made
   where the company already has a Manager), `{slug}-helpdesk` (Helpdesk),
-  `{slug}-info` (Info) `@kcoltech.com`, password `C0ntr0l123$` (Companies ->
-  Add: an empty password field = these). A demo's people (staff, patients, students...)
+  `{slug}-info` (Info), `{slug}-website` (Website, 2026-11-03) `@kcoltech.com`,
+  password `C0ntr0l123$` (Companies -> Add: an empty password field = these).
+  **Every role has a user (user's rule, 2026-11-03):** the automatic roles
+  (Supplier, Sales Agent, Online Store) exist in every company, and a people
+  role nobody holds gets a demo record + login ("Cliente Demo" / "Demo
+  Customer", employee, supplier, sales agent, store customer;
+  `{slug}-customer|employee|supplier|salesagent|store@kcoltech.com`, the type's
+  password; not tagged as demo data) -- `App\Support\CompanyDefaultPeople`, run
+  by Companies -> Add and migration 2026_11_03_120000 (live companies
+  included). Settings -> Roles by company shows 0 for a role without users. A demo's people (staff, patients, students...)
   get their type's password (`DemoRunner::standardLogins`). Vitalis has them
   (migration 2026_10_25_190000). **Company logins** (profile menu, the
   company's admin only: admin login + `company_logins_view`): every login, its
@@ -572,6 +580,18 @@ the start of each session).
   shared out among doctors / nurses, and four example stays (treatment, doses,
   diet, vitals, progress, labs with a critical glucose, interconsultations).
   A doctor's My patients also lists the inpatients they attend.
+- **Transport agencies = Locations (user's rule, 2026-11-03):** each agency
+  (`transport_locations` kind agency) has its warehouse
+  (`transport_locations.warehouse_id`, `App\Support\TransportAgencies::sync`)
+  -- sales, cash registers and users per agency. Its ticket office sells on
+  the POS with a login of role **Terminal POS** (POS, own sales, customers,
+  its register; home `/pos`) assigned to that agency only; only logins with
+  every location (Manager, IT Admin) see all the agencies. The tourism type
+  has POS and no Portfolio / Website / Gallery (its own website embeds the
+  Murano forms). Demo: route tickets (`PAS-{route}` service products, sold at
+  the origin agency), a cashier per agency (`{slug}-pos-{agency}@kcoltech.com`),
+  passengers, and ticket sales filled up to the current hour by
+  `TransportDemoDay::tickets` (`demo:daily`).
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the

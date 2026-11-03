@@ -37,6 +37,12 @@ class FleetModule extends DemoModule
         return 'Fleet (Vehicles, Driver assignments, Fuel logs, Maintenance)';
     }
 
+    /** A transport company gets its buses from the Transport demo, not vans and a forklift. */
+    public function skipBusinessTypes(): array
+    {
+        return ['tourism'];
+    }
+
     public function dataTables(): array
     {
         // Only vehicles carry company_id; trips, fuel logs and maintenance

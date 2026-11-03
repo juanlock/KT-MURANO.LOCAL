@@ -10,9 +10,9 @@ use Illuminate\Support\Str;
 /**
  * Standard logins and passwords of a company (user's rule, 2026-10-25), for
  * new companies and for the demos (so every role can be tested):
- *  - four access logins, each with its own role: {slug}-admin (Admin Compañía),
- *    {slug}-manager (Manager), {slug}-helpdesk (Helpdesk), {slug}-info (Info)
- *    @kcoltech.com -- one is not made when the company already has someone
+ *  - five access logins, each with its own role: {slug}-admin (IT Admin),
+ *    {slug}-manager (Manager), {slug}-helpdesk (Helpdesk), {slug}-info (Info),
+ *    {slug}-website (Website, 2026-11-03) @kcoltech.com -- one is not made when the company already has someone
  *    with that role (e.g. its own manager);
  *  - the company's default passwords per login type (Defaults -> Users):
  *    employee, customer, and the other types (supplier, sales agent, store).
@@ -41,6 +41,8 @@ class CompanyLogins
         'info' => [CompanyRoles::FORMS, ['forms_view']],
         // 2026-11-02: the company's manager (Admin Compañía minus configuration).
         'manager' => [CompanyRoles::MANAGER, null],
+        // 2026-11-03: every role has a user (CompanyDefaultPeople) -- Website too.
+        'website' => [CompanyRoles::WEBSITE, null],
     ];
 
     /** The company's prefix for its logins: the one its admin login already uses, else its name. */

@@ -22,6 +22,7 @@
           <img v-if="record.logo_url" :src="record.logo_url" :alt="record.name" class="co-logo" loading="lazy" />
           <span v-else class="muted">—</span>
         </template>
+        <template v-else-if="column.key === 'business_type'">{{ typeLabel(record.business_type) }}</template>
         <template v-else-if="column.key === 'name'">
           {{ record.name }}
           <a-tooltip v-if="record.is_live" :title="liveText.hint">
@@ -351,6 +352,8 @@ const options = computed(() => crud.payload.value?.options || {});
 const columns = computed(() => [
   { title: 'Logo', key: 'logo', width: 90, align: 'center', exportValue: r => r.logo_url || '' },
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
+  { title: locale.value.startsWith('es') ? 'Tipo de compañía' : 'Business type', dataIndex: 'business_type', key: 'business_type', sorter: true,
+    exportValue: r => typeLabel(r.business_type) },
   { title: 'Setup', key: 'setup', width: 120, exportValue: r => ((r.profile_missing || []).length ? 'Missing: ' + r.profile_missing.join(', ') : 'Complete') },
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
   { title: t('Country'), dataIndex: 'country', key: 'country' },

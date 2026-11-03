@@ -30,7 +30,124 @@ class TransportDemoDay
         return [
             'days' => self::days($companyId), 'statuses' => self::statuses($companyId), 'trimmed' => self::trim($companyId),
             'maintenance' => self::maintenance($companyId), 'complaints' => self::complaints($companyId),
+            'tickets' => self::tickets($companyId),
         ];
+    }
+
+    /**
+     * Ticket sales at the agencies' Terminal POS (2026-11-03): from the last demo
+     * ticket sale (or 30 days back) up to this moment, every hour from 06:00 to
+     * 21:59, more at the rush hours (07-09, 17-19). Each sale: a ticket of a route
+     * leaving from that agency, 1-4 passengers, a demo passenger or the walk-in
+     * customer, cash or card, rung up by the agency's cashier on that day's cash
+     * register (past days' registers closed with their totals, today's open).
+     */
+    public static function tickets(int $cid): int
+    {
+        $tickets = DB::table('products')->whereIn('id', self::ids($cid, 'products'))->where('code', 'like', 'PAS-%')->whereNull('deleted_at')->get(['id', 'code', 'price']);
+        if ($tickets->isEmpty()) {
+            return 0;
+        }
+        $byWarehouse = [];
+        foreach ($tickets as $t) {
+            $wid = DB::table('transport_routes as r')->join('transport_locations as o', 'o.id', '=', 'r.origin_id')
+                ->where('r.id', (int) substr($t->code, 4))->value('o.warehouse_id');
+            if ($wid) {
+                $byWarehouse[(int) $wid][] = $t;
+            }
+        }
+        $roleId = DB::table('roles')->where('company_id', $cid)->where('name', TransportAgencies::POS_ROLE)->whereNull('deleted_at')->value('id');
+        $cashiers = DB::table('user_warehouse as uw')->join('users as u', 'u.id', '=', 'uw.user_id')
+            ->whereIn('u.id', self::ids($cid, 'users'))->where('u.role_id', $roleId)->whereNull('u.deleted_at')
+            ->pluck('u.id', 'uw.warehouse_id')->map(fn ($v) => (int) $v)->all();
+        $passengers = self::ids($cid, 'clients');
+        $walkIn = (int) DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->value('client_id');
+        $last = DB::table('sales')->whereIn('id', self::ids($cid, 'sales'))->max('created_at');
+        $start = $last ? \Carbon\Carbon::parse($last)->addMinute() : now()->subDays(30)->startOfDay();
+        $numbers = new \App\Http\Controllers\SalesController;
+        $made = 0;
+
+        for ($hour = $start->copy()->startOfHour(); $hour->lt(now()); $hour->addHour()) {
+            if ($hour->hour < 6 || $hour->hour > 21) {
+                continue;
+            }
+            $rush = in_array($hour->hour, [7, 8, 9, 17, 18, 19], true);
+            DB::transaction(function () use ($cid, $hour, $rush, $byWarehouse, $cashiers, $passengers, $walkIn, $start, $numbers, &$made) {
+                foreach ($byWarehouse as $wid => $routeTickets) {
+                    $cashier = $cashiers[$wid] ?? null;
+                    if (! $cashier) {
+                        continue;
+                    }
+                    for ($k = $rush ? random_int(1, 3) : random_int(0, 1); $k > 0; $k--) {
+                        $at = $hour->copy()->addMinutes(random_int(0, 59))->addSeconds(random_int(0, 59));
+                        if ($at->lt($start) || $at->gt(now())) {
+                            continue;
+                        }
+                        $t = $routeTickets[array_rand($routeTickets)];
+                        $roll = random_int(1, 10);
+                        $qty = $roll <= 6 ? 1 : ($roll <= 9 ? 2 : random_int(3, 4));
+                        $total = round($qty * (float) $t->price, 2);
+                        $register = self::register($cid, $cashier, $wid, $at);
+                        $sale = DB::table('sales')->insertGetId([
+                            'company_id' => $cid, 'user_id' => $cashier, 'date' => $at->toDateString(), 'time' => $at->format('H:i:s'),
+                            'Ref' => $numbers->getNumberOrder($wid, $cid), 'is_pos' => 1,
+                            'client_id' => $passengers && random_int(1, 100) <= 65 ? $passengers[array_rand($passengers)] : $walkIn,
+                            'warehouse_id' => $wid, 'tax_rate' => 0, 'TaxNet' => 0, 'discount' => 0, 'shipping' => 0,
+                            'GrandTotal' => $total, 'paid_amount' => $total, 'payment_statut' => 'paid', 'statut' => 'completed',
+                            'cash_register_id' => $register, 'created_at' => $at, 'updated_at' => $at,
+                        ]);
+                        self::tag($cid, 'sales', $sale);
+                        self::tag($cid, 'sale_details', DB::table('sale_details')->insertGetId([
+                            'date' => $at->toDateString(), 'sale_id' => $sale, 'product_id' => $t->id, 'quantity' => $qty, 'price' => $t->price, 'total' => $total,
+                            'TaxNet' => 0, 'discount' => 0, 'discount_method' => '2', 'tax_method' => '1', 'created_at' => $at, 'updated_at' => $at,
+                        ]));
+                        self::tag($cid, 'payment_sales', DB::table('payment_sales')->insertGetId([
+                            'user_id' => $cashier, 'date' => $at->toDateString(), 'Ref' => 'PS-'.$sale, 'sale_id' => $sale, 'montant' => $total, 'change' => 0,
+                            'payment_method_id' => random_int(1, 10) <= 6 ? 2 : 1, 'created_at' => $at, 'updated_at' => $at,
+                        ]));
+                        $made++;
+                    }
+                }
+            });
+        }
+        self::closeRegisters($cid);
+
+        return $made;
+    }
+
+    /** The cashier's register of that day at that agency (opened at 06:00 with S/ 200 change). */
+    private static function register(int $cid, int $userId, int $wid, $at): int
+    {
+        $id = DB::table('cash_registers')->whereIn('id', self::ids($cid, 'cash_registers'))->where('user_id', $userId)->where('warehouse_id', $wid)
+            ->whereDate('opened_at', $at->toDateString())->value('id');
+        if ($id) {
+            return (int) $id;
+        }
+        $opened = $at->copy()->setTime(6, 0);
+        $id = DB::table('cash_registers')->insertGetId([
+            'user_id' => $userId, 'warehouse_id' => $wid, 'opening_balance' => 200, 'closing_balance' => 0, 'total_sales' => 0,
+            'cash_in' => 0, 'cash_out' => 0, 'difference' => 0, 'status' => 'open', 'opened_at' => $opened, 'created_at' => $opened, 'updated_at' => $opened,
+        ]);
+        self::tag($cid, 'cash_registers', $id);
+
+        return (int) $id;
+    }
+
+    /** Past days' demo registers closed at 22:00 with their totals (cash counted right). */
+    private static function closeRegisters(int $cid): void
+    {
+        $open = DB::table('cash_registers')->whereIn('id', self::ids($cid, 'cash_registers'))->where('status', 'open')
+            ->where('opened_at', '<', now()->startOfDay())->get(['id', 'opening_balance', 'opened_at']);
+        foreach ($open as $r) {
+            $total = (float) DB::table('sales')->where('cash_register_id', $r->id)->sum('GrandTotal');
+            $cash = (float) DB::table('payment_sales')->join('sales', 'sales.id', '=', 'payment_sales.sale_id')
+                ->where('sales.cash_register_id', $r->id)->where('payment_sales.payment_method_id', 2)->sum('payment_sales.montant');
+            $closed = \Carbon\Carbon::parse($r->opened_at)->setTime(22, 0);
+            DB::table('cash_registers')->where('id', $r->id)->update([
+                'status' => 'closed', 'closed_at' => $closed, 'total_sales' => $total, 'closing_balance' => (float) $r->opening_balance + $cash,
+                'difference' => 0, 'updated_at' => $closed,
+            ]);
+        }
     }
 
     /** Companies with transport demo trips. */
