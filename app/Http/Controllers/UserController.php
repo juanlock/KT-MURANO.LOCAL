@@ -492,6 +492,7 @@ class UserController extends BaseController
                 ->where('uw.user_id', $user->id)->whereNull('w.deleted_at')->orderBy('w.name')->pluck('w.name')->all();
 
         return [
+            'username' => $user->username,
             'role' => $role ? ($role->label ?: $role->name) : null,
             'type' => $user->type,
             'department' => $emp->department ?? null,

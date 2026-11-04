@@ -220,10 +220,8 @@
                 <div class="acct-name acct-link" :title="$t('profil')" @click="go('/profile')">{{ auth.username || 'User' }}</div>
                 <div v-if="auth.user?.email" class="acct-email">{{ auth.user.email }}</div>
                 <div v-if="card" class="acct-info">
-                  <div v-if="card.role || card.type">
-                    <b>{{ card.role }}</b><span v-if="card.role" class="acct-dim"> ({{ isEs ? 'rol' : 'role' }})</span>
-                    <template v-if="typeLabel"> · {{ typeLabel }}<span class="acct-dim"> ({{ isEs ? 'tipo' : 'type' }})</span></template>
-                  </div>
+                  <div v-if="card.username" class="acct-dim">{{ card.username }}</div>
+                  <div v-if="card.role || typeLabel"><b>{{ card.role }}</b><template v-if="card.role && typeLabel"> - </template>{{ typeLabel }}</div>
                   <div v-if="card.department || card.job">{{ [card.department, card.job].filter(Boolean).join(' · ') }}</div>
                   <div class="acct-dim">
                     <EnvironmentOutlined /> {{ card.locations === null ? (isEs ? 'Todas las ubicaciones' : 'All locations') : (card.locations.join(', ') || (isEs ? 'Sin ubicación' : 'No location')) }}
