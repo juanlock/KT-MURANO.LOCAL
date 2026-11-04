@@ -201,12 +201,9 @@ class TransportModule extends DemoModule
                 foreach ($crews[$slot][($day + 30) % count($crews[$slot])] as $p) {
                     DB::table('transport_trip_crew')->insert(['trip_id' => $trip, 'employee_id' => $staff['pilot'][$p], 'role' => 'pilot', 'trip_rate' => $rates['pilot']]);
                 }
-                // Hostesses: morning trips the first pair, night trips the second (a long trip
-                // takes both of its pair, a short one one of them by day).
+                // Pilot, copilot and one hostess (2026-11-04): morning trips the first pair, night trips the second, by turns.
                 $pair = $slot ? [2, 3] : [0, 1];
-                foreach (($route['min'] > 480 ? $pair : [$pair[($day + 30) % 2]]) as $h) {
-                    DB::table('transport_trip_crew')->insert(['trip_id' => $trip, 'employee_id' => $staff['hostess'][$h], 'role' => 'hostess', 'trip_rate' => $rates['hostess']]);
-                }
+                DB::table('transport_trip_crew')->insert(['trip_id' => $trip, 'employee_id' => $staff['hostess'][$pair[($day + 30) % 2]], 'role' => 'hostess', 'trip_rate' => $rates['hostess']]);
                 $trips++;
             }
         }
@@ -235,6 +232,7 @@ class TransportModule extends DemoModule
         $office = $this->ticketOffice($ctx, $routes, $dept, $des['administrative'], (int) $shift);
         if ($office) {
             $office['Ticket sales'] = \App\Support\TransportDemoDay::tickets($ctx->companyId);
+            \App\Support\TransportDemoDay::profitData($ctx->companyId, true);
         }
 
         return [

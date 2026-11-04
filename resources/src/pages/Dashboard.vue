@@ -74,6 +74,9 @@
 
     <!-- The blocks top to bottom in the company's order (System Settings -> Dashboard). -->
     <div v-else class="dash-blocks">
+      <!-- ================= Was each route worth it? (own date filter) ========== -->
+      <TransportProfitPanel v-if="profitPanel" :style="{ order: blockPos.transport_profit }" />
+
       <!-- ================= The owner's figures (always today and this month) == -->
       <TransportOwnerPanel v-if="ownerPanel" :style="{ order: blockPos.transport_owner }" />
 
@@ -342,6 +345,7 @@ import { moduleKeyForPath } from '../config/modules';
 import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
 import TransportBoard from '../components/TransportBoard.vue';
 import TransportOwnerPanel from '../components/TransportOwnerPanel.vue';
+import TransportProfitPanel from '../components/TransportProfitPanel.vue';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import { getUserPref, setUserPref } from '../lib/userPrefs';
@@ -364,6 +368,7 @@ const show = id => !hiddenSections.value.has(id) && !(id.startsWith('card_') && 
 // Transport board: the company's module on and a role that sees Transport.
 const transportBoard = computed(() => show('transport_board') && auth.moduleEnabled('transport')
   && (auth.can('transport_view') || auth.can('transport_manage')));
+const profitPanel = computed(() => show('transport_profit') && auth.moduleEnabled('transport') && auth.can('transport_profit'));
 const ownerPanel = computed(() => show('transport_owner') && auth.can('dashboard') && auth.moduleEnabled('transport')
   && (auth.can('transport_view') || auth.can('transport_manage')));
 

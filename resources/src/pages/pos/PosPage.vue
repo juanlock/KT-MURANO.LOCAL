@@ -1160,11 +1160,27 @@
     <div style="display: grid; gap: 10px;">
       <div>
         <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Departure', 'Departure') }} *</label>
-        <select v-model="passengerForm.trip_id"
+        <select v-model="passengerForm.trip_id" @change="loadPassengerSeats"
                 style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 13px; background: #fff; color: #1f1f2c;">
-          <option v-for="t in passengerDepartures" :key="'dep-' + t.id" :value="t.id">{{ departureLabel(t) }}</option>
+          <option v-for="t in passengerDepartures" :key="'dep-' + t.id" :value="t.id" :disabled="t.full">{{ departureLabel(t) }}</option>
         </select>
         <div v-if="!passengerDepartures.length" style="font-size: 12px; color: #b45309; margin-top: 4px;">{{ tf('Transport_No_Departures', 'No scheduled departure for this route') }}</div>
+      </div>
+      <!-- The seat, per stretch: as on a plane (2026-11-04). VIP = gold; a regular ticket only gets one when no regular seat is left. -->
+      <div v-if="passengerSeats.length">
+        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Seat', 'Seat') }} *<b v-if="passengerForm.seat_number"> {{ passengerForm.seat_number }}</b></label>
+        <div v-for="floor in [1, 2]" :key="'floor-' + floor" style="margin-bottom: 6px;">
+          <div style="font-size: 11px; color: #7c7c92;">{{ tf('Transport_Floor', 'Floor') }} {{ floor }}</div>
+          <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px;">
+            <button v-for="s in passengerSeats.filter(x => x.floor === floor)" :key="'seat-' + s.number" type="button" :disabled="!seatAllowed(s)" @click="passengerForm.seat_number = s.number"
+                    :title="s.vip ? 'VIP' : ''"
+                    :style="{ height: '28px', fontSize: '11px', borderRadius: '5px', cursor: seatAllowed(s) ? 'pointer' : 'not-allowed', border: passengerForm.seat_number === s.number ? '2px solid #1d4ed8' : '1px solid #d4d4dc',
+                              background: seatTaken(s) ? '#e5e7eb' : (s.vip ? '#fde68a' : '#ffffff'), color: seatTaken(s) ? '#9ca3af' : '#1f1f2c', opacity: seatAllowed(s) || seatTaken(s) ? 1 : 0.45 }">{{ s.number }}</button>
+          </div>
+        </div>
+      </div>
+      <div v-if="passengerLoyalty && passengerLoyalty.free_now" style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 8px 10px; font-size: 12px;">
+        <label style="margin: 0; display: flex; gap: 6px; align-items: center;"><input type="checkbox" v-model="passengerForm.loyalty_free" /> {{ tf('Transport_Loyalty_Free', 'This trip is free: he has paid') }} {{ passengerLoyalty.paid }}. {{ tf('Transport_Loyalty_Discount', 'Apply the discount on the line.') }}</label>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div>
@@ -4095,6 +4111,7 @@ import PosReturnModal from "../../pos-compat/PosReturnModal.vue";
 import CustomFieldsForm from "../../pos-compat/CustomFieldsForm.vue";
 import SerialNumbersField from "../../pos-compat/SerialNumbersField.vue";
 import QrcodeScanner from "../../pos-compat/QrcodeScanner";
+import { printBoardingPasses } from "../../lib/transportPrint";
 import LucideIcon from "../../pos-compat/LucideIcon.vue";
 import { Fire } from "../../pos-compat/bv";
 import "../../pos-compat/bootstrap-subset.scss";
@@ -4126,6 +4143,9 @@ export default {
       ticketProducts: {},
       passengerForm: { doc_type: 'dni', dni: '', first_name: '', last_name: '', luggage: false, passenger_type: 'adult', label: '', trip_id: null },
       passengerDepartures: [],
+      passengerSeats: [],
+      passengerLoyalty: null,
+      passengerProductId: null,
       passengerDone: null,
       // ===== Mobile UI state (drives the phone layout) =====
       mobileActiveTab: 'home', // home | cart | hold | recent | more
@@ -4504,7 +4524,7 @@ export default {
     passengerValid() {
       const f = this.passengerForm;
       const docOk = { dni: /^\d{8}$/, ce: /^[A-Z0-9]{6,12}$/, passport: /^[A-Z0-9]{5,15}$/, ptp: /^[A-Z0-9]{6,15}$/ }[f.doc_type] || /^\d{8}$/;
-      return !!f.trip_id && docOk.test(f.dni || '') && !!(f.first_name || '').trim() && !!(f.last_name || '').trim();
+      return !!f.trip_id && docOk.test(f.dni || '') && !!(f.first_name || '').trim() && !!(f.last_name || '').trim() && (!this.passengerSeats.length || !!f.seat_number);
     },
     // currentUser / currentUserPermissions / show_language come from posCompatMixin.
 
@@ -6290,6 +6310,7 @@ export default {
               const afterCleanup = () => {
                 this.last_sale_id = saleId;
                 this.Invoice_POS(saleId);
+                if (Object.keys(this.ticketProducts || {}).length) this.printTransportTickets(saleId);
                 this.$bvModal.hide("Add_Payment");
                 this.Reset_Pos();
               };
@@ -6388,6 +6409,7 @@ export default {
               const afterCleanup = () => {
                 this.last_sale_id = saleId;
                 this.Invoice_POS(saleId);
+                if (Object.keys(this.ticketProducts || {}).length) this.printTransportTickets(saleId);
                 this.$bvModal.hide("Add_Payment");
                 this.Reset_Pos();
               };
@@ -7204,19 +7226,53 @@ export default {
       const d = new Date(String(t.departure_at).replace(' ', 'T'));
       const day = d.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: '2-digit' });
       const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      return day + ' ' + time + (t.vehicle ? ' · ' + t.vehicle : '') + ' · ' + t.sold + ' ' + (this.tf('Transport_Sold', 'sold'));
+      return day + ' ' + time + (t.vehicle ? ' · ' + t.vehicle : '') + ' · ' + t.sold + (t.seats ? '/' + t.seats : '') + ' ' + (this.tf('Transport_Sold', 'sold'));
     },
     // Opens the passenger window for a ticket product; done(passenger) runs on Add.
     askPassenger(productId, done) {
       const info = this.ticketProducts[productId];
       this.passengerForm = { doc_type: 'dni', dni: '', first_name: '', last_name: '', luggage: false, passenger_type: 'adult', label: info.label, trip_id: null };
       this.passengerDepartures = [];
+      this.passengerSeats = [];
+      this.passengerLoyalty = null;
+      this.passengerProductId = productId;
       this.passengerDone = done;
       axios.get('transport/departures', { params: { route_id: info.route_id } }).then(r => {
         this.passengerDepartures = (r.data && r.data.departures) || [];
-        if (this.passengerDepartures.length) this.passengerForm.trip_id = this.passengerDepartures[0].id;
+        const open = this.passengerDepartures.find(t => !t.full);
+        if (open) this.passengerForm.trip_id = open.id;
+        this.loadPassengerSeats();
       }).catch(() => {});
       this.$bvModal.show('pos_passenger_modal');
+    },
+    // The seat map for this ticket's stretch on the chosen bus.
+    loadPassengerSeats() {
+      this.passengerForm.seat_number = null;
+      this.passengerSeats = [];
+      const info = this.ticketProducts[this.passengerProductId];
+      if (!info || !this.passengerForm.trip_id) return;
+      axios.get('transport/seats', { params: { trip_id: this.passengerForm.trip_id, route_id: info.route_id } }).then(r => {
+        this.passengerSeats = (r.data && r.data.seats) || [];
+      }).catch(() => {});
+    },
+    // Taken on this stretch, or already in this cart.
+    seatTaken(s) {
+      if (s.taken) return true;
+      return (this.details || []).some(d => (d.passengers || []).some(p => p.trip_id === this.passengerForm.trip_id && p.seat_number === s.number));
+    },
+    seatAllowed(s) {
+      if (this.seatTaken(s)) return false;
+      const vipTicket = !!(this.ticketProducts[this.passengerProductId] || {}).vip;
+      if (vipTicket) return s.vip;
+      if (!s.vip) return true;
+      return !this.passengerSeats.some(x => !x.vip && !this.seatTaken(x));
+    },
+    // After the sale: the boarding passes with their QR.
+    printTransportTickets(saleId) {
+      axios.get('transport/tickets', { params: { sale_id: saleId } }).then(r => {
+        const tickets = (r.data && r.data.tickets) || [];
+        if (tickets.length) printBoardingPasses(tickets, String(this.$i18n?.locale || 'es').startsWith('es'));
+      }).catch(() => {});
     },
     passengerDniInput() {
       const f = this.passengerForm;
@@ -7225,6 +7281,7 @@ export default {
         : String(f.dni || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
       if (f.dni.length < (f.doc_type === 'dni' ? 8 : 5)) return;
       axios.get('transport/passenger', { params: { doc_type: f.doc_type, dni: f.dni } }).then(r => {
+        this.passengerLoyalty = (r.data && r.data.loyalty) || null;
         const p = r.data && r.data.passenger;
         if (p && !f.first_name && !f.last_name) {
           f.first_name = p.first_name;
@@ -7238,7 +7295,7 @@ export default {
       const f = this.passengerForm;
       const dep = this.passengerDepartures.find(t => t.id === f.trip_id);
       const p = { trip_id: f.trip_id, departure: dep ? this.departureLabel(dep).split(' · ')[0] : '', doc_type: f.doc_type, dni: f.dni,
-        first_name: f.first_name.trim(), last_name: f.last_name.trim(), luggage: !!f.luggage, passenger_type: f.passenger_type };
+        first_name: f.first_name.trim(), last_name: f.last_name.trim(), luggage: !!f.luggage, passenger_type: f.passenger_type, seat_number: f.seat_number || null, loyalty_free: !!f.loyalty_free };
       const done = this.passengerDone;
       this.passengerDone = null;
       this.$bvModal.hide('pos_passenger_modal');

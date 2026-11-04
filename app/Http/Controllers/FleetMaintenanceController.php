@@ -71,6 +71,9 @@ class FleetMaintenanceController extends Controller
         $mechanics = \Illuminate\Support\Facades\DB::table('employees')->whereIn('id', $rows->pluck('mechanic_id')->filter())
             ->get(['id', 'firstname', 'lastname'])->mapWithKeys(fn ($e) => [$e->id => trim($e->firstname.' '.$e->lastname)]);
 
+        $parts = \Illuminate\Support\Facades\DB::table('vehicle_part_moves as x')->join('vehicle_parts as p', 'p.id', '=', 'x.part_id')->whereIn('x.maintenance_id', $rows->pluck('id'))->where('x.kind', 'used')
+            ->get(['x.maintenance_id', 'x.part_id', 'p.name', 'x.unit_cost', \Illuminate\Support\Facades\DB::raw('-x.quantity as quantity')])->groupBy('maintenance_id');
+
         return response()->json([
             'totalRows' => $totalRows,
             'total_cost' => $totalCost,
@@ -83,6 +86,7 @@ class FleetMaintenanceController extends Controller
                 'service_date' => optional($m->service_date)->toDateString(),
                 'odometer' => $m->odometer === null ? null : (float) $m->odometer,
                 'cost' => (float) $m->cost,
+                'labor_cost' => $m->labor_cost === null ? (float) $m->cost : (float) $m->labor_cost,
                 'vendor' => $m->vendor,
                 'performed_by' => $m->performed_by ?: 'in_house',
                 'provider_id' => $m->provider_id,
@@ -93,6 +97,8 @@ class FleetMaintenanceController extends Controller
                 'next_service_date' => optional($m->next_service_date)->toDateString(),
                 'next_service_odometer' => $m->next_service_odometer === null ? null : (float) $m->next_service_odometer,
                 'notes' => $m->notes,
+                'plan_id' => $m->plan_id,
+                'parts' => $parts->get($m->id, collect())->values(),
             ])->values(),
         ]);
     }
@@ -104,11 +110,14 @@ class FleetMaintenanceController extends Controller
         $request->validate($this->rules());
         $this->checkCompany($request);
 
-        $maintenance = VehicleMaintenance::create($this->payload($request) + [
-            'created_by' => optional($request->user('api'))->id,
-        ]);
-
-        $this->syncVehicleOdometer($maintenance);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
+            $maintenance = VehicleMaintenance::create($this->payload($request) + [
+                'created_by' => optional($request->user('api'))->id,
+            ]);
+            $this->syncParts($request, $maintenance);
+            $this->syncVehicleOdometer($maintenance);
+            $this->closePlan($maintenance);
+        });
 
         return response()->json(['success' => true]);
     }
@@ -122,9 +131,12 @@ class FleetMaintenanceController extends Controller
 
         $maintenance = VehicleMaintenance::whereNull('deleted_at')->findOrFail($id);
         abort_unless($this->vehicleAllowed($request, (int) $maintenance->vehicle_id), 404);
-        $maintenance->update($this->payload($request));
-
-        $this->syncVehicleOdometer($maintenance);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($request, $maintenance) {
+            $maintenance->update($this->payload($request));
+            $this->syncParts($request, $maintenance);
+            $this->syncVehicleOdometer($maintenance);
+            $this->closePlan($maintenance);
+        });
 
         return response()->json(['success' => true]);
     }
@@ -135,7 +147,10 @@ class FleetMaintenanceController extends Controller
 
         $m = VehicleMaintenance::whereNull('deleted_at')->findOrFail($id);
         abort_unless($this->vehicleAllowed($request, (int) $m->vehicle_id), 404);
-        $m->delete();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($m) {
+            $this->returnParts($m);
+            $m->delete();
+        });
 
         return response()->json(['success' => true]);
     }
@@ -168,6 +183,10 @@ class FleetMaintenanceController extends Controller
             'performed_by' => 'nullable|in:in_house,workshop',
             'provider_id' => 'nullable|integer|required_if:performed_by,workshop',
             'mechanic_id' => 'nullable|integer',
+            'plan_id' => 'nullable|integer',
+            'parts' => 'nullable|array',
+            'parts.*.part_id' => 'required|integer',
+            'parts.*.quantity' => 'required|numeric|min:0.01',
         ];
     }
 
@@ -212,7 +231,53 @@ class FleetMaintenanceController extends Controller
             'next_service_date' => $request->next_service_date ?: null,
             'next_service_odometer' => $request->next_service_odometer ?: null,
             'notes' => $request->notes,
+            'plan_id' => $request->plan_id ?: null,
         ];
+    }
+
+    /** Puts the job's parts back on the shelf. */
+    private function returnParts(VehicleMaintenance $m): void
+    {
+        $db = \Illuminate\Support\Facades\DB::table('vehicle_part_moves')->where('maintenance_id', $m->id)->where('kind', 'used');
+        foreach ((clone $db)->get(['part_id', 'quantity']) as $move) {
+            \Illuminate\Support\Facades\DB::table('vehicle_parts')->where('id', $move->part_id)->increment('stock', abs((float) $move->quantity));
+        }
+        $db->delete();
+    }
+
+    /**
+     * The parts used on the job (2026-11-04): out of the stock, their cost added to the job's. The form's
+     * cost field is the labour; sent again = replaced. A job still scheduled takes nothing yet.
+     */
+    private function syncParts(Request $request, VehicleMaintenance $m): void
+    {
+        if (! $request->has('parts')) {
+            return;
+        }
+        $this->returnParts($m);
+        $total = 0.0;
+        if ($m->status !== 'scheduled') {
+            $cid = (int) Vehicle::where('id', $m->vehicle_id)->value('company_id');
+            foreach ((array) $request->input('parts') as $row) {
+                $part = \Illuminate\Support\Facades\DB::table('vehicle_parts')->where('id', $row['part_id'])->where('company_id', $cid)->whereNull('deleted_at')->lockForUpdate()->first();
+                abort_unless($part, 422, 'Choose parts of the company.');
+                $qty = (float) $row['quantity'];
+                abort_if((float) $part->stock < $qty, 422, "There are only {$part->stock} of {$part->name} in stock.");
+                \Illuminate\Support\Facades\DB::table('vehicle_parts')->where('id', $part->id)->decrement('stock', $qty);
+                \Illuminate\Support\Facades\DB::table('vehicle_part_moves')->insert(['part_id' => $part->id, 'kind' => 'used', 'quantity' => -$qty, 'unit_cost' => $part->unit_cost, 'maintenance_id' => $m->id,
+                    'user_id' => optional($request->user('api'))->id, 'created_at' => now(), 'updated_at' => now()]);
+                $total += $qty * (float) $part->unit_cost;
+            }
+        }
+        $m->update(['cost' => (float) $request->cost + $total, 'labor_cost' => (float) $request->cost]);
+    }
+
+    /** A finished job of the plan restarts its count. */
+    private function closePlan(VehicleMaintenance $m): void
+    {
+        if ($m->plan_id && $m->status === 'completed') {
+            \Illuminate\Support\Facades\DB::table('vehicle_maintenance_plans')->where('id', $m->plan_id)->update(['last_date' => $m->service_date, 'last_km' => $m->odometer ?: Vehicle::where('id', $m->vehicle_id)->value('odometer'), 'updated_at' => now()]);
+        }
     }
 
     /** Never moves a vehicle's odometer backwards. */

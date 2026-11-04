@@ -541,6 +541,10 @@ Route::middleware(['web', 'request.safety'])->prefix('book')->group(function () 
         ->middleware(['signed', 'throttle:10,1'])->whereNumber('booking')->name('booking.email.confirm.post');
 });
 
+// A parcel's public tracking (2026-11-04): the QR on its guide. No login; the token is the access.
+Route::get('/encomienda/{token}', [\App\Http\Controllers\TransportParcelTrackController::class, 'show'])
+    ->where('token', '[a-f0-9]{24}')->middleware('throttle:60,1');
+
 // PayPal module (2026-10-19): the customer's "Pay now" page of an invoice. The
 // page link is signed relative (built on the company's public address, see
 // PayPalInvoicePayment::payLink); PayPal comes back with ?token={order id}.

@@ -786,6 +786,12 @@ const routes = [
             { path: 'transport/trips', name: 'transport-trips', component: () => import('../pages/transport/TransportTrips.vue'), meta: { title: 'Trips', permission: ['transport_view', 'transport_manage'] } },
             { path: 'transport/routes', name: 'transport-routes', component: () => import('../pages/transport/TransportRoutes.vue'), meta: { title: 'Routes and locations', permission: ['transport_view', 'transport_manage'] } },
             { path: 'transport/staff', name: 'transport-staff', component: () => import('../pages/transport/TransportStaff.vue'), meta: { title: 'Active staff', permission: ['transport_view', 'transport_manage'] } },
+            { path: 'transport/today', name: 'transport-today', component: () => import('../pages/transport/TransportToday.vue'), meta: { title: 'Transport_Today', permission: 'transport_supervise' } },
+            { path: 'transport/parcels', name: 'transport-parcels', component: () => import('../pages/transport/TransportParcels.vue'), meta: { title: 'Transport_Parcels', permission: 'transport_parcels' } },
+            { path: 'transport/boarding', name: 'transport-boarding', component: () => import('../pages/transport/TransportBoarding.vue'), meta: { title: 'Transport_Boarding', permission: ['transport_boarding', 'transport_supervise'] } },
+            { path: 'fleet/parts', name: 'fleet-parts', component: () => import('../pages/fleet/Parts.vue'), meta: { title: 'Fleet_Parts', permission: 'fleet_parts' } },
+            { path: 'fleet/plan', name: 'fleet-plan', component: () => import('../pages/fleet/MaintenancePlan.vue'), meta: { title: 'Fleet_Plan', permission: 'fleet_plan' } },
+            { path: 'transport/tolls', name: 'transport-tolls', component: () => import('../pages/transport/TransportTolls.vue'), meta: { title: 'Transport_Tolls', permission: 'transport_tolls' } },
             // Hospital Management. `create` is declared before the :id routes
             // so it is never read as a record id.
             { path: 'hospital/dashboard', name: 'hospital-dashboard', component: HospitalDashboard, meta: { title: 'Hospital Dashboard', permission: 'hms_dashboard' } },

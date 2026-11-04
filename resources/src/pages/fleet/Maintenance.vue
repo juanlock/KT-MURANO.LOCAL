@@ -124,7 +124,7 @@
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Cost" name="cost">
+            <a-form-item :label="form.parts?.length ? (es ? 'Mano de obra' : 'Labour') : 'Cost'" name="cost" :extra="form.parts?.length ? `${es ? 'Repuestos' : 'Parts'}: ${money(partsCost)}` : ''">
               <a-input-number v-model:value="form.cost" :min="0" :step="1" style="width: 100%" />
             </a-form-item>
           </a-col>
@@ -160,6 +160,17 @@
           <a-col :xs="24" :md="12">
             <a-form-item label="Next service odometer">
               <a-input-number v-model:value="form.next_service_odometer" :min="0" style="width: 100%" />
+            </a-form-item>
+          </a-col>
+          <!-- The parts used (2026-11-04): out of the stock when the job isn't just scheduled; their cost adds to the job's. -->
+          <a-col v-if="parts.length" :span="24">
+            <a-form-item :label="es ? 'Repuestos usados' : 'Parts used'">
+              <a-row v-for="(p, i) in form.parts" :key="i" :gutter="8" style="margin-bottom: 6px">
+                <a-col :span="15"><a-select v-model:value="p.part_id" :options="partOptions" show-search option-filter-prop="label" style="width: 100%" /></a-col>
+                <a-col :span="6"><a-input-number v-model:value="p.quantity" :min="0.01" style="width: 100%" /></a-col>
+                <a-col :span="3"><a-button type="text" danger @click="form.parts.splice(i, 1)"><template #icon><DeleteOutlined /></template></a-button></a-col>
+              </a-row>
+              <a-button size="small" @click="form.parts.push({ part_id: undefined, quantity: 1 })">{{ es ? 'Agregar repuesto' : 'Add a part' }}</a-button>
             </a-form-item>
           </a-col>
           <a-col :span="24">
@@ -248,6 +259,23 @@ const mechanicOptions = computed(() => {
   return sortByLabel((maint.length ? maint : employees.value).map(e => ({ value: e.id, label: e.name })));
 });
 
+// The workshop's shelf (a role without it just doesn't see the section).
+const parts = ref([]);
+const partOptions = computed(() => sortByLabel(parts.value.map(p => ({ value: p.id, label: `${p.name} (${Number(p.stock)} ${p.unit})` }))));
+const partsCost = computed(() => (form.value.parts || []).reduce((sum, row) => sum + Number(row.quantity || 0) * Number(parts.value.find(p => p.id === row.part_id)?.unit_cost || 0), 0));
+async function loadParts() {
+  try { parts.value = (await http.get('fleet/parts')).parts; } catch (e) { parts.value = []; }
+}
+onMounted(async () => {
+  await loadParts();
+  // Coming from the maintenance plan: the job already filled in.
+  if (route.query.plan_id) {
+    openForm(null);
+    Object.assign(form.value, { plan_id: Number(route.query.plan_id), vehicle_id: Number(route.query.vehicle_id), title: String(route.query.title || ''), type: String(route.query.type || 'service') });
+    onVehicleChange(form.value.vehicle_id);
+  }
+});
+
 const formRef = ref();
 const formOpen = ref(false);
 const saving = ref(false);
@@ -259,7 +287,7 @@ function emptyForm() {
     vehicle_id: undefined, title: '', type: 'service', status: 'completed',
     service_date: new Date().toISOString().slice(0, 10),
     odometer: null, cost: null, vendor: '', performed_by: 'in_house', provider_id: undefined, mechanic_id: undefined,
-    next_service_date: null, next_service_odometer: null, notes: '',
+    next_service_date: null, next_service_odometer: null, notes: '', parts: [], plan_id: null,
   };
 }
 
@@ -283,7 +311,9 @@ function openForm(record) {
         status: record.status,
         service_date: record.service_date,
         odometer: record.odometer,
-        cost: record.cost,
+        cost: record.labor_cost,
+        parts: (record.parts || []).map(p => ({ part_id: p.part_id, quantity: Number(p.quantity) })),
+        plan_id: record.plan_id,
         vendor: record.vendor || '',
         performed_by: record.performed_by || 'in_house',
         provider_id: record.provider_id || undefined,

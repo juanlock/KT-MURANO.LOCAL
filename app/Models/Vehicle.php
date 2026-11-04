@@ -14,7 +14,7 @@ class Vehicle extends Model
     protected $fillable = [
         'company_id', 'name', 'plate_number', 'vin', 'make', 'model', 'year', 'color',
         'type', 'status', 'warehouse_id', 'employee_id', 'fuel_type',
-        'tank_capacity', 'odometer', 'purchase_date', 'purchase_price',
+        'tank_capacity', 'seats', 'seats_lower', 'vip_seats', 'cargo_volume_m3', 'cargo_weight_kg', 'odometer', 'purchase_date', 'purchase_price', 'useful_life_km', 'residual_value',
         'insurance_provider', 'insurance_policy', 'insurance_expiry',
         'registration_expiry', 'inspection_expiry', 'image', 'notes',
     ];

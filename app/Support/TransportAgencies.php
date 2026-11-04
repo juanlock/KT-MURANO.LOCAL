@@ -17,7 +17,12 @@ class TransportAgencies
     public const POS_ROLE = 'Terminal POS';
 
     /** What a ticket office does: the POS, its own sales, customers (passengers) and its cash register. */
-    public const POS_PERMISSIONS = ['Pos_view', 'Sales_view', 'Sales_add', 'Customers_view', 'Customers_add', 'register_open_close'];
+    public const POS_PERMISSIONS = ['Pos_view', 'Sales_view', 'Sales_add', 'Customers_view', 'Customers_add', 'register_open_close', 'transport_parcels'];
+
+    public const SUPERVISOR_ROLE = 'Supervisor';
+
+    /** The agency's supervisor (2026-11-04): decides the day's departures, registers parcels and tolls. */
+    public const SUPERVISOR_PERMISSIONS = ['transport_supervise', 'transport_parcels', 'transport_tolls'];
 
     /**
      * Each active agency gets its warehouse (the first one takes the company's
@@ -55,8 +60,59 @@ class TransportAgencies
         }
         self::ticketOffice($companyId, self::posRole($companyId), array_values($map));
         self::staffRoles($companyId);
+        self::supervisors($companyId, $map);
 
         return $map;
+    }
+
+    /**
+     * One supervisor per agency (user's request, 2026-11-04): an employee with the login
+     * {slug}-super-{agency}@kcoltech.com, role Supervisor, that agency only, home page "Today's
+     * departures", the standard employee password (changed at the first sign-in).
+     * Made once: a login already there is left as it is.
+     */
+    public static function supervisors(int $companyId, array $map): void
+    {
+        $role = DB::table('roles')->where('company_id', $companyId)->where('name', self::SUPERVISOR_ROLE)->whereNull('deleted_at')->value('id');
+        if (! $role) {
+            $role = DB::table('roles')->insertGetId(['company_id' => $companyId, 'name' => self::SUPERVISOR_ROLE, 'label' => self::SUPERVISOR_ROLE,
+                'description' => 'Supervisor of one agency: decides whether each departure runs, is cancelled or is rescheduled; registers parcels and tolls.',
+                'home_path' => '/transport/today', 'status' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        }
+        DB::table('permission_role')->where('role_id', $role)->delete();
+        DB::table('permission_role')->insert(DB::table('permissions')->whereIn('name', self::SUPERVISOR_PERMISSIONS)->pluck('id')
+            ->map(fn ($p) => ['permission_id' => $p, 'role_id' => $role])->all());
+
+        $dept = DB::table('departments')->where('company_id', $companyId)->whereNull('deleted_at')->orderBy('id')->value('id');
+        $shift = DB::table('office_shifts')->where('company_id', $companyId)->whereNull('deleted_at')->orderBy('id')->value('id');
+        if (! $dept || ! $shift) {
+            return; // no HR frame yet: the login comes with the next sync
+        }
+        $designation = DB::table('designations')->where('company_id', $companyId)->whereNull('deleted_at')->where('designation', 'Supervisor')->value('id')
+            ?: DB::table('designations')->insertGetId(['company_id' => $companyId, 'department_id' => $dept, 'designation' => 'Supervisor', 'created_at' => now(), 'updated_at' => now()]);
+        $slug = CompanyLogins::slug($companyId);
+        foreach ($map as $agencyId => $wid) {
+            $agency = (string) DB::table('transport_locations')->where('id', $agencyId)->value('name');
+            $email = $slug.'-super-'.\Illuminate\Support\Str::slug($agency, '').'@kcoltech.com';
+            if (DB::table('users')->where('email', $email)->exists()) {
+                continue;
+            }
+            $employee = \App\Models\Employee::create([
+                'company_id' => $companyId, 'firstname' => 'Supervisor', 'lastname' => $agency, 'username' => 'Supervisor '.$agency, 'email' => $email,
+                'gender' => 'other', 'avatar' => 'no_avatar.png', 'department_id' => $dept, 'designation_id' => $designation, 'office_shift_id' => $shift,
+                'joining_date' => now()->toDateString(), 'employment_type' => 'full_time', 'total_leave' => 0, 'remaining_leave' => 0, 'basic_salary' => 0,
+            ]);
+            $userId = (int) DB::table('employees')->where('id', $employee->id)->value('user_id');
+            if (! $userId) {
+                continue;
+            }
+            DB::table('users')->where('id', $userId)->update(['role_id' => $role, 'email' => $email, 'statut' => 1, 'is_all_warehouses' => 0, 'record_view' => 0,
+                'password' => \Illuminate\Support\Facades\Hash::make(CompanyLogins::PASSWORDS['employee']), 'updated_at' => now()]);
+            DB::table('role_user')->where('user_id', $userId)->delete();
+            DB::table('role_user')->insert(['user_id' => $userId, 'role_id' => $role]);
+            DB::table('user_warehouse')->where('user_id', $userId)->delete();
+            DB::table('user_warehouse')->insert(['user_id' => $userId, 'warehouse_id' => $wid]);
+        }
     }
 
     /**

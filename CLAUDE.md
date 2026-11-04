@@ -600,6 +600,38 @@ the start of each session).
   the origin agency), a cashier per agency (`{slug}-pos-{agency}@kcoltech.com`),
   passengers, and ticket sales filled up to the current hour by
   `TransportDemoDay::tickets` (`demo:daily`).
+  **Is each trip worth it? (user's rules, 2026-11-04):** the dashboard's "Profit by
+  route" block (`TransportProfitPanel.vue`, `App\Services\TransportProfit`, permission
+  `transport_profit`): profit = tickets (`transport_tickets.price`) + parcels - crew pay -
+  payroll (pilots', hostesses' and administrative staff's `employees.basic_salary` / 30, shared among each day's
+  trips) - fuel - maintenance - depreciation - tolls - agency (`transport_locations.daily_cost`,
+  S/ 50 a day at Turismo, shared among that day's departures; idle days in the totals). Maintenance and depreciation go by km (the
+  bus's cost per km x the route's km; depreciation = (price - residual) / useful life);
+  fuel = the trip's real `fuel_cost`, else the bus's cost per km, flagged estimated; tolls =
+  the trip's `transport_tolls`, else the route's `toll_cost`, flagged expected; missing
+  data is listed, never guessed. A scheduled trip is "pending", not a loss. Buses have
+  `seats` (POS blocks the seat over the limit; no seat map yet) and cargo limits;
+  **parcels** (`transport_parcels`, `/transport/parcels`) are registered with the box's
+  measures and refused when they don't fit; they do NOT go through Sales or the cash register
+  yet. **Supervisor** role, one login per agency (`{slug}-super-{agency}@kcoltech.com`,
+  `TransportAgencies::supervisors`, home `/transport/today`): runs, cancels or reschedules
+  its agency's departures (`transport_trip_decisions`); rescheduled passengers keep their
+  ticket, a cancellation lists who is affected, no refund and no email.
+  **Transport works like an airline (user's rule, 2026-11-04):** a trip has stops
+  (`transport_route_stops`, `App\Support\TransportLegs`): the Lima -> Chepén bus reaches Trujillo
+  and leaves 25 minutes later, selling the seats emptied, so a seat is taken PER STRETCH and a
+  short stretch is a ticket on a long trip (one set of costs; occupancy = passenger-km /
+  seat-km). A ticket product `PAS-{route}` is the passenger's stretch; `PAS-{route}-VIP` = 20 %
+  more, VIP seat (`vehicles.vip_seats`, the first N; `seats_lower` = first floor). A regular ticket
+  gets a VIP seat only when no regular one is left. Boarding pass with a QR
+  (`lib/transportPrint.js`), read at `/transport/boarding`. Parcels are sales of the agency
+  (`App\Services\TransportParcelSale`); who registers one gives date, destination and measures, the
+  system picks the first bus with room (`App\Services\TransportParcelAssign`, `transport:assign-parcels`) and the
+  customer gets an estimate of 1 to 3 days; with cargo type, guide and public tracking
+  (`/encomienda/{token}`, no names or prices). Every Nth trip free
+  (`settings.transport_loyalty_every`, a notice + the line discount by hand). The workshop:
+  `/fleet/parts`, `/fleet/plan` (due by km and date, alerts), parts used on each job.
+  Payroll type `monthly` = a week's share of `basic_salary` + trips.
   **The owner's figures (2026-11-04):** the dashboard's "Business summary" block
   (`TransportOwnerPanel.vue`, `transport/owner`, section `transport_owner`): income and
   tickets today / month by agency, today's trips, the month's fleet costs, best-selling

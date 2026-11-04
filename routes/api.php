@@ -764,6 +764,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/board', 'board');
         Route::get('/owner', 'owner');
         Route::get('/pos-tickets', 'posTickets');
+        Route::get('/seats', 'seats');
         Route::get('/passenger', 'passenger');
         Route::get('/departures', 'departures');
         Route::get('/locations', 'locations');
@@ -780,6 +781,26 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::put('/trips/{id}', 'saveTrip')->whereNumber('id');
         Route::delete('/trips/{id}', 'deleteTrip')->whereNumber('id');
         Route::get('/staff', 'staff');
+    });
+    // Transport's daily work (2026-11-04): departures, parcels, tolls, each trip's profit.
+    Route::prefix('transport')->controller(\App\Http\Controllers\TransportOperationsController::class)->group(function () {
+        Route::get('/today', 'today');
+        Route::post('/trips/{id}/decision', 'decision')->whereNumber('id');
+        Route::get('/trips/{id}/manifest', 'manifest')->whereNumber('id');
+        Route::get('/parcels/meta', 'parcelMeta');
+        Route::get('/parcels/{id}/print', 'parcelPrint')->whereNumber('id');
+        Route::get('/tickets', 'tickets');
+        Route::get('/boarding', 'boarding');
+        Route::post('/boarding', 'board');
+        Route::get('/parcels', 'parcels');
+        Route::post('/parcels', 'saveParcel');
+        Route::put('/parcels/{id}', 'saveParcel')->whereNumber('id');
+        Route::post('/parcels/{id}/status', 'parcelStatus')->whereNumber('id');
+        Route::get('/tolls/trips', 'tollTrips');
+        Route::get('/tolls', 'tolls');
+        Route::post('/tolls', 'saveToll');
+        Route::delete('/tolls/{id}', 'deleteToll')->whereNumber('id');
+        Route::get('/profit', 'profit');
     });
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
     Route::get('employees/{id}/assets', 'hrm\EmployeesController@assets')->whereNumber('id');
@@ -1054,6 +1075,17 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     Route::get('fleet/reports/drivers', 'FleetReportController@drivers');
 
     Route::post('fleet/maintenances/delete/by_selection', 'FleetMaintenanceController@deleteBySelection');
+    // The workshop (2026-11-04): spare parts and the maintenance plan.
+    Route::get('fleet/parts', 'FleetWorkshopController@parts');
+    Route::post('fleet/parts', 'FleetWorkshopController@savePart');
+    Route::put('fleet/parts/{id}', 'FleetWorkshopController@savePart')->whereNumber('id');
+    Route::delete('fleet/parts/{id}', 'FleetWorkshopController@deletePart')->whereNumber('id');
+    Route::post('fleet/parts/{id}/move', 'FleetWorkshopController@movePart')->whereNumber('id');
+    Route::get('fleet/parts/{id}/moves', 'FleetWorkshopController@partMoves')->whereNumber('id');
+    Route::get('fleet/plans', 'FleetWorkshopController@plans');
+    Route::post('fleet/plans', 'FleetWorkshopController@savePlan');
+    Route::put('fleet/plans/{id}', 'FleetWorkshopController@savePlan')->whereNumber('id');
+    Route::delete('fleet/plans/{id}', 'FleetWorkshopController@deletePlan')->whereNumber('id');
     Route::get('fleet/maintenances', 'FleetMaintenanceController@index');
     Route::post('fleet/maintenances', 'FleetMaintenanceController@store');
     Route::put('fleet/maintenances/{id}', 'FleetMaintenanceController@update');

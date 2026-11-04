@@ -1369,6 +1369,16 @@ export const PERMISSION_GROUPS = [
                 "v": "fleet_reports",
                 "l": "Reports",
                 "f": "Reports"
+            },
+            {
+                "v": "fleet_parts",
+                "l": "Fleet_Parts",
+                "f": "Spare parts"
+            },
+            {
+                "v": "fleet_plan",
+                "l": "Fleet_Plan",
+                "f": "Maintenance plan"
             }
         ]
     },

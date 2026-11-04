@@ -31,7 +31,265 @@ class TransportDemoDay
             'days' => self::days($companyId), 'statuses' => self::statuses($companyId), 'trimmed' => self::trim($companyId),
             'maintenance' => self::maintenance($companyId), 'complaints' => self::complaints($companyId),
             'tickets' => self::tickets($companyId),
+            'profit' => self::profitData($companyId),
         ];
+    }
+
+    /**
+     * What the demo's profit panel needs (2026-11-04), on demo rows only: seats, cargo and
+     * depreciation data on the demo buses, each ticket sale's passengers on a departure (each
+     * trip filling up to its own level, so some pay and some don't), expected tolls on the
+     * routes, real fuel on finished trips and a few parcels. $all = every demo sale, else the
+     * last 2 days'. Safe to run often.
+     */
+    public static function profitData(int $cid, bool $all = false): array
+    {
+        // Older migrations call this before the tables of the trips with stops exist: the last one does the work.
+        if (! \Illuminate\Support\Facades\Schema::hasTable('transport_route_stops') || ! \Illuminate\Support\Facades\Schema::hasColumn('transport_parcels', 'tracking_token')) {
+            return [];
+        }
+        $buses = self::ids($cid, 'vehicles');
+        DB::table('vehicles')->whereIn('id', $buses)->whereNull('seats')->update(['seats' => 40]);
+        // Filled in one by one: a bus whose seats are the company's own still gets the demo's other data.
+        DB::table('vehicles')->whereIn('id', $buses)->whereNull('cargo_volume_m3')->update(['cargo_volume_m3' => 12, 'cargo_weight_kg' => 2000]);
+        DB::table('vehicles')->whereIn('id', $buses)->whereNull('useful_life_km')->update(['useful_life_km' => 1000000,
+            'residual_value' => DB::raw('ROUND(COALESCE(purchase_price, 0) * 0.2, 2)')]);
+
+        $trips = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')->leftJoin('vehicles as v', 'v.id', '=', 't.vehicle_id')
+            ->whereIn('t.id', self::ids($cid, 'transport_trips'))->whereNull('t.deleted_at')->where('t.status', '!=', 'cancelled')->orderBy('t.departure_at')
+            ->get(['t.id', 't.route_id', 't.departure_at', 't.status', 't.fuel_cost', 'r.distance_km', 'v.seats', 'v.seats_lower', 'v.vip_seats']);
+
+        // Expected tolls on the routes these trips use (about one every 150 km).
+        foreach ($trips->unique('route_id') as $t) {
+            DB::table('transport_routes')->where('id', $t->route_id)->whereNull('toll_cost')->update(['toll_cost' => max(1, (int) round((float) $t->distance_km / 150)) * 45]);
+        }
+        $tickets = self::demoPassengers($cid, $trips, $all);
+        $fuel = 0;
+        foreach ($trips->where('status', 'completed')->whereNull('fuel_cost') as $t) {
+            // Diesel: about S/ 1,500 from Lima to Chepén, 698 km (user's data, 2026-11-04) = S/ 2.15 per km, a little different each trip.
+            DB::table('transport_trips')->where('id', $t->id)->update(['fuel_cost' => round((float) $t->distance_km * 2.15 * (0.9 + (crc32('fuel'.$t->id) % 21) / 100), 2)]);
+            $fuel++;
+        }
+        $topped = self::demoTopUp($cid, $trips);
+
+        return ['tickets' => $tickets, 'topped_up' => $topped, 'fuel' => $fuel, 'parcels' => self::demoParcels($cid, $trips)];
+    }
+
+    /** The share of seats a demo trip fills at its fullest: 30 % to 100 % (user's rule), always the same for that trip. */
+    private static function demoFill(int $tripId): float
+    {
+        return 0.30 + (crc32('fill'.$tripId) % 71) / 100;
+    }
+
+    /** The seats already taken on each demo trip, with their stretch and how many went as VIP. */
+    private static function seatState($trips): array
+    {
+        $state = [];
+        foreach ($trips as $t) {
+            $state[$t->id] = ['occ' => [], 'vip' => 0];
+        }
+        foreach (DB::table('transport_tickets')->whereIn('trip_id', $trips->pluck('id'))->whereNotNull('seat_number')->get(['trip_id', 'seat_number', 'from_location_id', 'to_location_id', 'is_vip']) as $x) {
+            $route = (int) $trips->firstWhere('id', $x->trip_id)->route_id;
+            [$a, $b] = TransportLegs::ticketStretch($route, $x);
+            $state[$x->trip_id]['occ'][] = [(int) $x->seat_number, $a, $b];
+            $state[$x->trip_id]['vip'] += $x->is_vip ? 1 : 0;
+        }
+
+        return $state;
+    }
+
+    /**
+     * A seat for the stretch [a, b) of a demo trip, like an airline (user's data, 2026-11-04): about 60 % of the
+     * 15 VIP seats are sold as VIP (20 % dearer); then the regular ones; when those run out, on 1 trip in 3
+     * a last-minute passenger gets an empty VIP seat at the regular price, else it stays empty.
+     * Returns [seat, sold as VIP] or null.
+     */
+    private static function takeSeat(array &$state, object $t, int $a, int $b): ?array
+    {
+        $map = TransportLegs::seatMap($t);
+        $taken = [];
+        foreach ($state[$t->id]['occ'] as [$seat, $x, $y]) {
+            if ($x < $b && $y > $a) {
+                $taken[$seat] = true;
+            }
+        }
+        if (count($taken) >= ceil(count($map) * self::demoFill((int) $t->id))) {
+            return null;
+        }
+        $free = fn (bool $vip) => collect($map)->first(fn ($s) => $s['vip'] === $vip && ! isset($taken[$s['number']]));
+        $quota = 7 + crc32('vip'.$t->id) % 5; // 7 to 11 of the 15
+        if ($state[$t->id]['vip'] < $quota && ($s = $free(true))) {
+            $state[$t->id]['vip']++;
+            $state[$t->id]['occ'][] = [$s['number'], $a, $b];
+
+            return [$s['number'], true];
+        }
+        $s = $free(false) ?: (crc32('late'.$t->id) % 3 === 0 ? $free(true) : null);
+        if (! $s) {
+            return null;
+        }
+        $state[$t->id]['occ'][] = [$s['number'], $a, $b];
+
+        return [$s['number'], false];
+    }
+
+    private static function insertDemoTicket(int $cid, object $t, object $line, array $seat, array $names, int $from, int $to, float $price, $at): void
+    {
+        self::tag($cid, 'transport_tickets', DB::table('transport_tickets')->insertGetId([
+            'company_id' => $cid, 'sale_id' => $line->sale_id, 'product_id' => $line->product_id, 'route_id' => $line->route_id, 'trip_id' => $t->id, 'warehouse_id' => $line->warehouse_id,
+            'seat_number' => $seat[0], 'is_vip' => $seat[1], 'from_location_id' => $from, 'to_location_id' => $to, 'code' => TransportLegs::ticketCode(), 'doc_type' => 'dni', 'passenger_type' => 'adult',
+            'dni' => (string) random_int(10000000, 79999999), 'first_name' => $names[0], 'last_name' => $names[1], 'luggage' => random_int(1, 10) <= 7,
+            'price' => round($seat[1] ? $price * 1.2 : $price, 2), 'created_at' => $at, 'updated_at' => $at,
+        ]));
+    }
+
+    /** A demo trip that ran below its share of seats gets one more sale, made 2 hours before it left. */
+    private static function demoTopUp(int $cid, $trips): int
+    {
+        $products = DB::table('products')->whereIn('id', self::ids($cid, 'products'))->where('code', 'like', 'PAS-%')->where('code', 'not like', '%-VIP')->whereNull('deleted_at')->get(['id', 'code', 'price'])
+            ->keyBy(fn ($p) => (int) substr($p->code, 4));
+        $routes = DB::table('transport_routes as r')->join('transport_locations as o', 'o.id', '=', 'r.origin_id')->whereIn('r.id', $trips->pluck('route_id')->unique())->get(['r.id', 'r.origin_id', 'r.destination_id', 'o.warehouse_id'])->keyBy('id');
+        $roleId = DB::table('roles')->where('company_id', $cid)->where('name', TransportAgencies::POS_ROLE)->whereNull('deleted_at')->value('id');
+        $cashiers = DB::table('user_warehouse as uw')->join('users as u', 'u.id', '=', 'uw.user_id')->whereIn('u.id', self::ids($cid, 'users'))->where('u.role_id', $roleId)->whereNull('u.deleted_at')
+            ->pluck('u.id', 'uw.warehouse_id');
+        $walkIn = (int) DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->value('client_id');
+        $numbers = new \App\Http\Controllers\SalesController;
+        $state = self::seatState($trips);
+        $made = 0;
+        foreach ($trips->whereIn('status', ['completed', 'in_progress']) as $t) {
+            $route = $routes[$t->route_id] ?? null;
+            $product = $products[$t->route_id] ?? null;
+            $wid = (int) ($route->warehouse_id ?? 0);
+            $cashier = $cashiers[$wid] ?? null;
+            if (! $route || ! $product || ! $cashier) {
+                continue;
+            }
+            $last = count(TransportLegs::path((int) $t->route_id)) - 1;
+            $seats = (int) $t->seats ?: 40;
+            // Seats free over the whole route, up to the trip's share.
+            $busy = collect($state[$t->id]['occ'])->pluck(0)->unique()->count();
+            $missing = (int) ceil($seats * self::demoFill((int) $t->id)) - $busy;
+            if ($missing <= 0) {
+                continue;
+            }
+            DB::transaction(function () use ($cid, $t, $route, $product, $wid, $cashier, $walkIn, $numbers, $missing, $last, &$state, &$made) {
+                $at = \Carbon\Carbon::parse($t->departure_at)->subHours(2);
+                $total = round($missing * (float) $product->price, 2);
+                $sale = DB::table('sales')->insertGetId(['company_id' => $cid, 'user_id' => $cashier, 'date' => $at->toDateString(), 'time' => $at->format('H:i:s'),
+                    'Ref' => $numbers->getNumberOrder($wid, $cid), 'is_pos' => 1, 'client_id' => $walkIn, 'warehouse_id' => $wid, 'tax_rate' => 0, 'TaxNet' => 0, 'discount' => 0, 'shipping' => 0,
+                    'GrandTotal' => $total, 'paid_amount' => $total, 'payment_statut' => 'paid', 'statut' => 'completed', 'created_at' => $at, 'updated_at' => $at]);
+                self::tag($cid, 'sales', $sale);
+                self::tag($cid, 'sale_details', DB::table('sale_details')->insertGetId(['date' => $at->toDateString(), 'sale_id' => $sale, 'product_id' => $product->id, 'quantity' => $missing,
+                    'price' => $product->price, 'total' => $total, 'TaxNet' => 0, 'discount' => 0, 'discount_method' => '2', 'tax_method' => '1', 'created_at' => $at, 'updated_at' => $at]));
+                self::tag($cid, 'payment_sales', DB::table('payment_sales')->insertGetId(['user_id' => $cashier, 'date' => $at->toDateString(), 'Ref' => 'PS-'.$sale, 'sale_id' => $sale, 'montant' => $total,
+                    'change' => 0, 'payment_method_id' => 2, 'created_at' => $at, 'updated_at' => $at]));
+                $line = (object) ['sale_id' => $sale, 'product_id' => $product->id, 'route_id' => $t->route_id, 'warehouse_id' => $wid];
+                for ($i = 0; $i < $missing; $i++) {
+                    if (! ($seat = self::takeSeat($state, $t, 0, $last))) {
+                        break;
+                    }
+                    self::insertDemoTicket($cid, $t, $line, $seat, ['Pasajero', 'Demo '.($i + 1)], (int) $route->origin_id, (int) $route->destination_id, (float) $product->price, $at);
+                    $made++;
+                }
+            });
+        }
+
+        return $made;
+    }
+
+    /** Demo ticket sales without passengers get them, on the next bus that goes from there to there with a seat free on that stretch. */
+    private static function demoPassengers(int $cid, $trips, bool $all): int
+    {
+        $state = self::seatState($trips);
+        $done = array_flip(DB::table('transport_tickets')->where('company_id', $cid)->distinct()->pluck('sale_id')->all());
+        $lines = DB::table('sales as s')->join('sale_details as d', 'd.sale_id', '=', 's.id')->join('products as p', 'p.id', '=', 'd.product_id')
+            ->leftJoin('clients as c', 'c.id', '=', 's.client_id')
+            ->whereIn('s.id', self::ids($cid, 'sales'))->where('p.code', 'like', 'PAS-%')
+            ->when(! $all, fn ($q) => $q->where('s.created_at', '>=', now()->subDays(2)))
+            ->orderBy('s.created_at')->get(['s.id as sale_id', 's.warehouse_id', 's.created_at', 'd.product_id', 'd.quantity', 'd.total', 'p.code', 'c.firstname', 'c.lastname']);
+        $routes = DB::table('transport_routes')->where('company_id', $cid)->get(['id', 'origin_id', 'destination_id'])->keyBy('id');
+        $firsts = ['Ana', 'Luis', 'María', 'Carlos', 'Rosa', 'Jorge', 'Elena', 'Pedro', 'Lucía', 'Miguel'];
+        $lasts = ['Quispe', 'Flores', 'Sánchez', 'García', 'Rojas', 'Díaz', 'Torres', 'Vargas', 'Ramos', 'Castillo'];
+        $made = 0;
+        foreach ($lines as $l) {
+            if (isset($done[$l->sale_id])) {
+                continue;
+            }
+            $route = $routes[(int) substr($l->code, 4)] ?? null;
+            if (! $route) {
+                continue;
+            }
+            $qty = max(1, (int) round((float) $l->quantity));
+            $price = (float) $l->total / $qty;
+            $line = (object) ['sale_id' => $l->sale_id, 'product_id' => $l->product_id, 'route_id' => $route->id, 'warehouse_id' => $l->warehouse_id];
+            $left = $qty;
+            foreach ($trips as $t) {
+                $stretch = TransportLegs::stretch((int) $t->route_id, (int) $route->origin_id, (int) $route->destination_id);
+                if (! $stretch) {
+                    continue;
+                }
+                $leaves = \Carbon\Carbon::parse($t->departure_at)->addMinutes(TransportLegs::path((int) $t->route_id)[$stretch[0]]['minutes']);
+                if ($leaves->lte(\Carbon\Carbon::parse($l->created_at))) {
+                    continue;
+                }
+                while ($left > 0 && ($seat = self::takeSeat($state, $t, $stretch[0], $stretch[1]))) {
+                    $names = $left === $qty && $l->firstname ? [$l->firstname, (string) $l->lastname] : [$firsts[array_rand($firsts)], $lasts[array_rand($lasts)]];
+                    self::insertDemoTicket($cid, $t, $line, $seat, $names, (int) $route->origin_id, (int) $route->destination_id, $price, $l->created_at);
+                    $left--;
+                    $made++;
+                }
+                if ($left === 0) {
+                    break;
+                }
+            }
+        }
+
+        return $made;
+    }
+
+    /**
+     * Demo parcels on each demo trip that has none yet, about 1.5 m³ a trip (Turismo's S/ 23,000 a month, 2026-11-04), one in ten
+     * fragile, at the route's price per m³.
+     */
+    private static function demoParcels(int $cid, $trips): int
+    {
+        $ids = $trips->pluck('id')->all();
+        $has = array_flip(DB::table('transport_parcels')->whereIn('trip_id', $ids)->distinct()->pluck('trip_id')->all());
+        $routes = DB::table('transport_routes as r')->join('transport_locations as o', 'o.id', '=', 'r.origin_id')->whereIn('r.id', $trips->pluck('route_id')->unique())
+            ->get(['r.id', 'r.origin_id', 'r.destination_id', 'r.parcel_rate_m3', 'o.warehouse_id'])->keyBy('id');
+        $number = (int) DB::table('transport_parcels')->where('company_id', $cid)->count();
+        $names = ['Ana Quispe', 'Luis Flores', 'Rosa García', 'Carlos Rojas', 'Elena Díaz', 'Jorge Torres', 'Lucía Vargas', 'Miguel Ramos'];
+        $what = ['Repuestos', 'Ropa', 'Documentos', 'Mercadería', 'Encargo familiar', 'Productos agrícolas'];
+        $made = 0;
+        foreach ($trips as $t) {
+            if (isset($has[$t->id]) || ! isset($routes[$t->route_id])) {
+                continue;
+            }
+            $route = $routes[$t->route_id];
+            $goal = 1.5 * (0.5 + (crc32('parcels'.$t->id) % 101) / 100); // 0.75 to 2.25 m³
+            $volume = 0.0;
+            while ($volume < $goal) {
+                [$l, $w, $h] = [random_int(30, 100), random_int(25, 70), random_int(15, 50)];
+                $m3 = round($l * $w * $h / 1000000, 4);
+                $volume += $m3;
+                $fragile = random_int(1, 10) === 1;
+                $number++;
+                $id = DB::table('transport_parcels')->insertGetId([
+                    'company_id' => $cid, 'number' => 'ENC-'.str_pad((string) $number, 6, '0', STR_PAD_LEFT), 'trip_id' => $t->id, 'warehouse_id' => $route->warehouse_id, 'received_on' => substr((string) $t->departure_at, 0, 10),
+                    'eta_from' => \Carbon\Carbon::parse($t->departure_at)->addDay()->toDateString(), 'eta_to' => \Carbon\Carbon::parse($t->departure_at)->addDays(3)->toDateString(),
+                    'from_location_id' => $route->origin_id, 'to_location_id' => $route->destination_id, 'cargo_type' => $fragile ? 'fragile' : 'general', 'tracking_token' => bin2hex(random_bytes(12)), 'payment' => 'paid',
+                    'sender_name' => $names[array_rand($names)], 'receiver_name' => $names[array_rand($names)], 'description' => $what[array_rand($what)], 'pieces' => 1,
+                    'length_cm' => $l, 'width_cm' => $w, 'height_cm' => $h, 'weight_kg' => random_int(3, 30), 'volume_m3' => $m3,
+                    'price' => max(10, round($m3 * (float) $route->parcel_rate_m3 * ($fragile ? 3.7 : 1), 2)), 'status' => $t->status === 'completed' ? 'delivered' : 'received',
+                    'delivered_to' => $t->status === 'completed' ? $names[array_rand($names)] : null, 'delivered_at' => $t->status === 'completed' ? $t->departure_at : null,
+                    'created_at' => $t->departure_at, 'updated_at' => $t->departure_at,
+                ]);
+                self::tag($cid, 'transport_parcels', $id);
+                $made++;
+            }
+        }
+
+        return $made;
     }
 
     /**
@@ -44,7 +302,7 @@ class TransportDemoDay
      */
     public static function tickets(int $cid): int
     {
-        $tickets = DB::table('products')->whereIn('id', self::ids($cid, 'products'))->where('code', 'like', 'PAS-%')->whereNull('deleted_at')->get(['id', 'code', 'price']);
+        $tickets = DB::table('products')->whereIn('id', self::ids($cid, 'products'))->where('code', 'like', 'PAS-%')->where('code', 'not like', '%-VIP')->whereNull('deleted_at')->get(['id', 'code', 'price']);
         if ($tickets->isEmpty()) {
             return 0;
         }

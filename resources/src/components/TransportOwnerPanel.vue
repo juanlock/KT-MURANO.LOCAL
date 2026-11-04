@@ -69,7 +69,7 @@
           <span class="op-dot" :class="a.days < 0 ? 'late' : 'soon'" />
           <span class="op-alert-body">
             <span class="op-alert-name">{{ a.vehicle_name }}</span>
-            <span class="op-muted">{{ alertLabel(a.kind) }} · {{ alertWhen(a.days) }}</span>
+            <span class="op-muted">{{ a.kind === 'plan' ? a.label : alertLabel(a.kind) }} · {{ alertWhen(a.days) }}</span>
           </span>
         </PermLink>
         <div v-if="!data.alerts.length" class="op-muted">{{ tf('Owner_No_Alerts', 'Nothing due in the next 30 days') }}</div>

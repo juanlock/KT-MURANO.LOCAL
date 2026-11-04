@@ -659,7 +659,7 @@ class EmployeesController extends Controller
             'basic_salary' => 'nullable|numeric',
             'hourly_rate' => 'nullable|numeric',
             // Payroll: hourly (hours on completed jobs x rate) or commission (% of their sales).
-            'pay_type' => 'nullable|in:hourly,commission,per_trip',
+            'pay_type' => 'nullable|in:hourly,commission,per_trip,monthly',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
             'pay_effective_from' => 'nullable|date',
             // Transport (2026-11-01): staff type and pay per trip (pilots / hostesses).

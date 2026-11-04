@@ -58,7 +58,20 @@
           <a-col :span="12"><a-form-item :label="es ? 'Destino *' : 'Destination *'"><a-select v-model:value="routeForm.destination_id" :options="locationOptions" show-search option-filter-prop="label" /></a-form-item></a-col>
           <a-col :span="8"><a-form-item :label="es ? 'Distancia (km)' : 'Distance (km)'"><a-input-number v-model:value="routeForm.distance_km" :min="0" style="width: 100%" /></a-form-item></a-col>
           <a-col :span="8"><a-form-item :label="es ? 'Duración (min)' : 'Duration (min)'"><a-input-number v-model:value="routeForm.duration_min" :min="0" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item :label="es ? 'Peajes esperados' : 'Expected tolls'" :extra="es ? 'Por viaje, hasta registrar los reales.' : 'Per trip, until the real ones are registered.'"><a-input-number v-model:value="routeForm.toll_cost" :min="0" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item :label="es ? 'Encomienda por m³' : 'Parcels per m³'" :extra="es ? 'Sugiere el precio al registrar una encomienda.' : 'Suggests the price when registering a parcel.'"><a-input-number v-model:value="routeForm.parcel_rate_m3" :min="0" style="width: 100%" /></a-form-item></a-col>
           <a-col :span="8"><a-form-item :label="es ? 'Activa' : 'Active'"><a-switch v-model:checked="routeForm.active" /></a-form-item></a-col>
+          <a-col :span="24">
+            <div class="tr-stops-title">{{ es ? 'Paradas' : 'Stops' }}<span class="tr-hint"> · {{ es ? 'el bus deja pasajeros y vende los asientos que quedan libres' : 'the bus lets passengers off and sells the seats emptied' }}</span></div>
+            <a-row v-for="(s, i) in routeForm.stops" :key="i" :gutter="8" class="tr-stop">
+              <a-col :span="9"><a-select v-model:value="s.location_id" :options="locationOptions" show-search option-filter-prop="label" style="width: 100%" :placeholder="es ? 'Agencia' : 'Agency'" /></a-col>
+              <a-col :span="5"><a-input-number v-model:value="s.km" :min="0" style="width: 100%" placeholder="km" /></a-col>
+              <a-col :span="5"><a-input-number v-model:value="s.minutes" :min="0" style="width: 100%" :placeholder="es ? 'llega (min)' : 'arrives (min)'" /></a-col>
+              <a-col :span="4"><a-input-number v-model:value="s.dwell_min" :min="0" style="width: 100%" :placeholder="es ? 'espera' : 'wait'" /></a-col>
+              <a-col :span="1"><a-button type="text" size="small" danger @click="routeForm.stops.splice(i, 1)"><DeleteOutlined /></a-button></a-col>
+            </a-row>
+            <a-button size="small" @click="routeForm.stops.push({ location_id: undefined, km: null, minutes: null, dwell_min: 25 })"><PlusOutlined /> {{ es ? 'Agregar parada' : 'Add stop' }}</a-button>
+          </a-col>
         </a-row>
       </a-form>
     </a-modal>
@@ -86,6 +99,9 @@
           <a-col :span="locationForm.kind === 'terminal' ? 7 : 12"><a-form-item :label="es ? 'Latitud' : 'Latitude'"><a-input-number v-model:value="locationForm.lat" :min="-90" :max="90" :step="0.0001" style="width: 100%" /></a-form-item></a-col>
           <a-col :span="locationForm.kind === 'terminal' ? 7 : 12"><a-form-item :label="es ? 'Longitud' : 'Longitude'"><a-input-number v-model:value="locationForm.lng" :min="-180" :max="180" :step="0.0001" style="width: 100%" /></a-form-item></a-col>
         </a-row>
+        <a-form-item v-if="locationForm.kind === 'agency'" :label="es ? 'Costo por día' : 'Cost per day'" :extra="es ? 'Se reparte entre los viajes que salen de la agencia ese día.' : 'Shared among the trips leaving from the agency that day.'">
+          <a-input-number v-model:value="locationForm.daily_cost" :min="0" style="width: 100%" />
+        </a-form-item>
         <a-form-item :label="es ? 'Activo' : 'Active'" style="margin-bottom: 0"><a-switch v-model:checked="locationForm.active" /></a-form-item>
       </a-form>
     </a-modal>
@@ -169,15 +185,16 @@ const routeForm = ref({});
 const locationOpen = ref(false);
 const locationForm = ref({});
 function openRoute(r) {
-  routeForm.value = r ? { id: r.id, origin_id: r.origin_id, destination_id: r.destination_id, distance_km: r.distance_km, duration_min: r.duration_min, active: !!r.active }
-    : { origin_id: undefined, destination_id: undefined, distance_km: null, duration_min: null, active: true };
+  routeForm.value = r ? { id: r.id, origin_id: r.origin_id, destination_id: r.destination_id, distance_km: r.distance_km, duration_min: r.duration_min, toll_cost: r.toll_cost != null ? Number(r.toll_cost) : null, parcel_rate_m3: r.parcel_rate_m3 != null ? Number(r.parcel_rate_m3) : null, active: !!r.active,
+      stops: (r.stops || []).map(s => ({ location_id: s.location_id, km: Number(s.km), minutes: s.minutes, dwell_min: s.dwell_min })) }
+    : { origin_id: undefined, destination_id: undefined, distance_km: null, duration_min: null, toll_cost: null, parcel_rate_m3: null, active: true, stops: [] };
   routeOpen.value = true;
 }
 function openLocation(l) {
   locationForm.value = l
     ? { id: l.id, name: l.name, city: l.city, address: l.address, phone: l.phone, description: l.description, kind: l.kind, active: !!l.active,
-      lat: l.lat != null ? Number(l.lat) : null, lng: l.lng != null ? Number(l.lng) : null, hub_id: l.hub_id || undefined }
-    : { name: '', city: '', address: '', phone: '', description: '', kind: 'terminal', active: true, lat: null, lng: null, hub_id: undefined };
+      lat: l.lat != null ? Number(l.lat) : null, lng: l.lng != null ? Number(l.lng) : null, hub_id: l.hub_id || undefined, daily_cost: l.daily_cost != null ? Number(l.daily_cost) : null }
+    : { name: '', city: '', address: '', phone: '', description: '', kind: 'terminal', active: true, lat: null, lng: null, hub_id: undefined, daily_cost: null };
   locationOpen.value = true;
 }
 async function send(url, body, id, close) {
@@ -216,5 +233,8 @@ onMounted(load);
 </script>
 
 <style scoped>
+.tr-stops-title { font-weight: 600; margin-bottom: 6px; }
+.tr-hint { font-weight: 400; font-size: 12px; color: #64748b; }
+.tr-stop { margin-bottom: 6px; }
 .tr-thumb { width: 72px; height: 44px; object-fit: cover; border-radius: 6px; display: block; }
 </style>

@@ -82,6 +82,9 @@ class Kernel extends ConsoleKernel
         // Recurring expenses (rent, internet...): the ones whose date has come.
         $cmd('expenses:recurring')->dailyAt('06:10')->withoutOverlapping();
 
+        // Parcels waiting for a bus with room (2026-11-04); it sends nothing.
+        $cmd('transport:assign-parcels')->everyTenMinutes()->withoutOverlapping()->when($uses('transport'));
+
         $cmd('meetings:send-reminders')->everyMinute()->withoutOverlapping();
         // Bookings: reminder emails before appointments (Settings -> Booking -> Reminders).
         $cmd('bookings:send-reminders')->everyFiveMinutes()->withoutOverlapping();

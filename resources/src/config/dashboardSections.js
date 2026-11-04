@@ -32,6 +32,7 @@ export const DASHBOARD_SECTIONS = [
   { id: 'table_top_selling_products', label: 'Table: Top selling products' },
   { id: 'table_recent_sales', label: 'Table: Recent sales' },
   // Transport module (2026-11-01): routes map, terminals, fleet, staff, pilots' hours.
+  { id: 'transport_profit', label: 'Profit of each route and trip' },
   { id: 'transport_owner', label: 'Business summary (income, tickets, trips, fleet costs)' },
   { id: 'transport_board', label: 'Transport board (map, terminals, pilot hours)' },
 ];
@@ -39,6 +40,7 @@ export const DASHBOARD_SECTIONS = [
 /** The dashboard's blocks (rows), default order; `sections` = what each one holds. */
 export const DASHBOARD_BLOCKS = [
   // First: shown only to companies with the Transport module (TransportBoard hides itself otherwise).
+  { id: 'transport_profit', label: 'Profit by route', sections: ['transport_profit'] },
   { id: 'transport_owner', label: 'Business summary', sections: ['transport_owner'] },
   { id: 'transport', label: 'Transport board', sections: ['transport_board'] },
   { id: 'cards', label: 'Summary cards', sections: ['card_sales', 'card_purchases', 'card_sales_returns', 'card_purchase_returns', 'card_sales_due', 'card_purchase_due', 'card_invoices', 'card_profit', 'card_unpaid_invoices'] },

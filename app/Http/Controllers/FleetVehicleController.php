@@ -162,6 +162,9 @@ class FleetVehicleController extends Controller
         $data['insurance_provider'] = $vehicle->insurance_provider;
         $data['insurance_policy'] = $vehicle->insurance_policy;
         $data['tank_capacity'] = $vehicle->tank_capacity === null ? null : (float) $vehicle->tank_capacity;
+        foreach (['seats', 'seats_lower', 'vip_seats', 'cargo_volume_m3', 'cargo_weight_kg', 'useful_life_km', 'residual_value'] as $field) {
+            $data[$field] = $vehicle->{$field} === null ? null : (float) $vehicle->{$field};
+        }
         $data['stats'] = $this->vehicleStats($vehicle);
 
         return response()->json(['vehicle' => $data]);
@@ -354,6 +357,18 @@ class FleetVehicleController extends Controller
                 ];
             });
 
+        // The maintenance plan (2026-11-04): by km and by date.
+        $plans = \Illuminate\Support\Facades\DB::table('vehicle_maintenance_plans as p')->join('vehicles as v', 'v.id', '=', 'p.vehicle_id')->whereNull('p.deleted_at')->where('p.active', 1)->whereIn('p.vehicle_id', $visibleVehicleIds)
+            ->get(['p.*', 'v.name as vehicle', 'v.odometer']);
+        foreach (FleetWorkshopController::due($plans) as $p) {
+            if ($p['state'] === 'ok') {
+                continue;
+            }
+            $days = $p['days_left'] ?? ($p['km_left'] <= 0 ? -1 : 0);
+            $alerts[] = ['kind' => 'plan', 'label' => $p['title'].($p['km_left'] !== null ? ' ('.number_format($p['km_left']).' km)' : ''), 'vehicle_id' => $p['vehicle_id'], 'vehicle_name' => $p['vehicle'],
+                'date' => $p['next_date'] ?? $today->toDateString(), 'days' => $p['state'] === 'overdue' ? min(-1, $days) : max(0, $days)];
+        }
+
         usort($alerts, fn ($a, $b) => $a['days'] <=> $b['days']);
 
         return array_slice($alerts, 0, 25);
@@ -460,6 +475,13 @@ class FleetVehicleController extends Controller
             'year' => 'nullable|integer|min:1900|max:2200',
             'odometer' => 'nullable|numeric|min:0',
             'tank_capacity' => 'nullable|numeric|min:0',
+            'seats' => 'nullable|integer|min:1|max:200',
+            'seats_lower' => 'nullable|integer|min:0|max:200',
+            'vip_seats' => 'nullable|integer|min:0|max:200',
+            'cargo_volume_m3' => 'nullable|numeric|min:0',
+            'cargo_weight_kg' => 'nullable|numeric|min:0',
+            'useful_life_km' => 'nullable|integer|min:1',
+            'residual_value' => 'nullable|numeric|min:0',
             'purchase_price' => 'nullable|numeric|min:0',
             'warehouse_id' => 'nullable|exists:warehouses,id',
             'employee_id' => 'nullable|exists:employees,id',
@@ -496,6 +518,13 @@ class FleetVehicleController extends Controller
             'employee_id' => $request->employee_id ?: null,
             'fuel_type' => $request->fuel_type,
             'tank_capacity' => $request->tank_capacity ?: null,
+            'seats' => $request->seats ?: null,
+            'seats_lower' => $request->seats_lower ?: null,
+            'vip_seats' => $request->vip_seats ?: null,
+            'cargo_volume_m3' => $request->cargo_volume_m3 ?: null,
+            'cargo_weight_kg' => $request->cargo_weight_kg ?: null,
+            'useful_life_km' => $request->useful_life_km ?: null,
+            'residual_value' => $request->residual_value ?: null,
             'odometer' => $request->odometer ?: 0,
             'purchase_date' => $request->purchase_date ?: null,
             'purchase_price' => $request->purchase_price ?: null,

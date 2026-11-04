@@ -78,6 +78,32 @@
                   <a-input-number v-model:value="form.tank_capacity" :min="0" :step="1" style="width: 100%" />
                 </a-form-item>
               </a-col>
+              <!-- Passengers and cargo (2026-11-04): tickets and parcels stop at these limits. -->
+              <a-col :xs="12" :md="6">
+                <a-form-item :label="t('Vehicle_Seats', 'Seats')" name="seats">
+                  <a-input-number v-model:value="form.seats" :min="1" :max="200" :precision="0" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="12" :md="6">
+                <a-form-item :label="t('Vehicle_Seats_Lower', 'Seats on the first floor')" name="seats_lower">
+                  <a-input-number v-model:value="form.seats_lower" :min="0" :max="200" :precision="0" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="12" :md="6">
+                <a-form-item :label="t('Vehicle_Vip_Seats', 'VIP seats (the first ones)')" name="vip_seats">
+                  <a-input-number v-model:value="form.vip_seats" :min="0" :max="200" :precision="0" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="12" :md="6">
+                <a-form-item :label="t('Vehicle_Cargo_Volume', 'Cargo hold (m³)')" name="cargo_volume_m3">
+                  <a-input-number v-model:value="form.cargo_volume_m3" :min="0" :step="0.5" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="12" :md="6">
+                <a-form-item :label="t('Vehicle_Cargo_Weight', 'Cargo limit (kg)')" name="cargo_weight_kg">
+                  <a-input-number v-model:value="form.cargo_weight_kg" :min="0" :step="50" style="width: 100%" />
+                </a-form-item>
+              </a-col>
             </a-row>
           </a-card>
 
@@ -109,6 +135,17 @@
               <a-col :xs="24" :md="12">
                 <a-form-item label="Purchase price" name="purchase_price">
                   <a-input-number v-model:value="form.purchase_price" :min="0" :step="1" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <!-- Depreciation per km = (price - residual value) / useful life. -->
+              <a-col :xs="24" :md="12">
+                <a-form-item :label="t('Vehicle_Useful_Life', 'Useful life (km)')" name="useful_life_km">
+                  <a-input-number v-model:value="form.useful_life_km" :min="1" :precision="0" :step="50000" style="width: 100%" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :md="12">
+                <a-form-item :label="t('Vehicle_Residual_Value', 'Residual value')" name="residual_value">
+                  <a-input-number v-model:value="form.residual_value" :min="0" :step="1" style="width: 100%" />
                 </a-form-item>
               </a-col>
             </a-row>
@@ -216,8 +253,8 @@ const form = ref({
   name: '', plate_number: '', vin: '', make: '', model: '', year: null, color: '',
   type: 'car', status: 'active', fuel_type: 'petrol',
   warehouse_id: undefined, employee_id: undefined,
-  tank_capacity: null, odometer: 0,
-  purchase_date: null, purchase_price: null,
+  tank_capacity: null, odometer: 0, seats: null, seats_lower: null, vip_seats: null, cargo_volume_m3: null, cargo_weight_kg: null,
+  purchase_date: null, purchase_price: null, useful_life_km: null, residual_value: null,
   insurance_provider: '', insurance_policy: '',
   insurance_expiry: null, registration_expiry: null, inspection_expiry: null,
   notes: '',
@@ -274,6 +311,8 @@ async function load() {
         employee_id: v.employee_id || undefined,
         odometer: Number(v.odometer || 0),
         tank_capacity: v.tank_capacity === null ? null : Number(v.tank_capacity),
+        seats: v.seats ?? null, seats_lower: v.seats_lower ?? null, vip_seats: v.vip_seats ?? null, cargo_volume_m3: v.cargo_volume_m3 ?? null, cargo_weight_kg: v.cargo_weight_kg ?? null,
+        useful_life_km: v.useful_life_km ?? null, residual_value: v.residual_value ?? null,
         purchase_price: v.purchase_price === null ? null : Number(v.purchase_price),
       };
       previewUrl.value = v.image_url || '';

@@ -212,7 +212,7 @@
                   <a-input-number v-model:value="employee.trip_rate" :min="0" :step="1" :prefix="auth.currency" style="width: 100%" />
                 </a-form-item>
               </a-col>
-              <a-col v-if="employee.pay_type !== 'commission' && employee.pay_type !== 'per_trip'" :xs="24" :md="6">
+              <a-col v-if="!['commission', 'per_trip', 'monthly'].includes(employee.pay_type)" :xs="24" :md="6">
                 <a-form-item :label="$t('Hourly_rate')">
                   <a-input-number v-model:value="employee.hourly_rate" :min="0" :step="0.5" :prefix="auth.currency" style="width: 100%" />
                 </a-form-item>

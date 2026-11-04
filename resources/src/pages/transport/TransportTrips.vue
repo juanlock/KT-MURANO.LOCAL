@@ -58,7 +58,7 @@
             <a-form-item :label="es ? 'Estado' : 'Status'"><a-select v-model:value="form.status" :options="statusOptions" /></a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item :label="es ? 'Pilotos (2) *' : 'Pilots (2) *'" :extra="!pilotOptions.length ? (es ? 'Marque a los pilotos en RR. HH. › Empleados › Tipo de personal.' : 'Mark the pilots in HRM › Employees › Staff type.') : ''">
+            <a-form-item :label="es ? 'Piloto y copiloto *' : 'Pilot and copilot *'" :extra="!pilotOptions.length ? (es ? 'Marque a los pilotos en RR. HH. › Empleados › Tipo de personal.' : 'Mark the pilots in HRM › Employees › Staff type.') : ''">
               <a-select v-model:value="form.pilots" mode="multiple" :max-count="2" :options="pilotOptions" option-filter-prop="label" />
             </a-form-item>
           </a-col>
@@ -67,7 +67,12 @@
               <a-select v-model:value="form.hostesses" mode="multiple" :max-count="2" :options="hostessOptions" option-filter-prop="label" />
             </a-form-item>
           </a-col>
-          <a-col :span="24">
+          <a-col :xs="24" :md="8">
+            <a-form-item :label="es ? 'Combustible real' : 'Actual fuel'" :extra="es ? 'Vacío = se estima con el costo por km del bus.' : 'Empty = estimated from the bus\'s cost per km.'">
+              <a-input-number v-model:value="form.fuel_cost" :min="0" style="width: 100%" />
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="16">
             <a-form-item :label="es ? 'Nota' : 'Note'" style="margin-bottom: 0"><a-textarea v-model:value="form.notes" :rows="2" /></a-form-item>
           </a-col>
         </a-row>
@@ -147,12 +152,12 @@ function onTable(p) { page.value = p.current; perPage.value = p.pageSize; load()
 const formOpen = ref(false);
 const saving = ref(false);
 const editing = ref(null);
-const empty = () => ({ route_id: undefined, vehicle_id: undefined, departure_at: dayjs().add(1, 'hour').startOf('hour').format('YYYY-MM-DD HH:mm:ss'), arrival_at: null, status: 'scheduled', pilots: [], hostesses: [], notes: '' });
+const empty = () => ({ route_id: undefined, vehicle_id: undefined, departure_at: dayjs().add(1, 'hour').startOf('hour').format('YYYY-MM-DD HH:mm:ss'), arrival_at: null, status: 'scheduled', pilots: [], hostesses: [], notes: '', fuel_cost: null });
 const form = ref(empty());
 function openForm(r) {
   editing.value = r;
   form.value = r
-    ? { route_id: r.route_id, vehicle_id: r.vehicle_id, departure_at: r.departure_at, arrival_at: r.arrival_at, status: r.status, notes: r.notes || '',
+    ? { route_id: r.route_id, vehicle_id: r.vehicle_id, departure_at: r.departure_at, arrival_at: r.arrival_at, status: r.status, notes: r.notes || '', fuel_cost: r.fuel_cost,
         pilots: r.crew.filter(c => c.role === 'pilot').map(c => c.employee_id), hostesses: r.crew.filter(c => c.role === 'hostess').map(c => c.employee_id) }
     : empty();
   formOpen.value = true;

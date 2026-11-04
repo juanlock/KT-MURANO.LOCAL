@@ -101,7 +101,7 @@ class TransportController extends Controller
     {
         $q = $request ? $this->scoped('transport_locations', $request) : DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at');
 
-        return $q->orderBy('name')->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'image', 'kind', 'active', 'lat', 'lng', 'hub_id'])
+        return $q->orderBy('name')->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'image', 'kind', 'active', 'lat', 'lng', 'hub_id', 'daily_cost'])
             ->map(function ($l) {
                 $l->image_url = $l->image ? asset($l->image) : null;
 
@@ -116,8 +116,9 @@ class TransportController extends Controller
             ->join('transport_locations as d', 'd.id', '=', 'transport_routes.destination_id');
 
         return $q->orderBy('o.name')->orderBy('d.name')->get(['transport_routes.id', 'transport_routes.company_id', 'transport_routes.origin_id', 'transport_routes.destination_id',
-            'transport_routes.distance_km', 'transport_routes.duration_min', 'transport_routes.active', 'o.name as origin', 'd.name as destination'])
-            ->map(fn ($r) => (array) $r + ['label' => $r->origin.' → '.$r->destination]);
+            'transport_routes.distance_km', 'transport_routes.duration_min', 'transport_routes.toll_cost', 'transport_routes.parcel_rate_m3', 'transport_routes.active', 'o.name as origin', 'd.name as destination'])
+            ->map(fn ($r) => (array) $r + ['label' => $r->origin.' → '.$r->destination,
+                'stops' => DB::table('transport_route_stops')->where('route_id', $r->id)->orderBy('seq')->get(['location_id', 'km', 'minutes', 'dwell_min'])]);
     }
 
     // ------------------------------------------------------------------ locations
@@ -137,6 +138,7 @@ class TransportController extends Controller
             'address' => 'nullable|string|max:190', 'phone' => 'nullable|string|max:60', 'description' => 'nullable|string|max:2000',
             'kind' => 'required|in:terminal,agency,online', 'active' => 'boolean',
             'lat' => 'nullable|numeric|between:-90,90', 'lng' => 'nullable|numeric|between:-180,180', 'hub_id' => 'nullable|integer',
+            'daily_cost' => 'nullable|numeric|min:0|max:1000000',
         ]);
         // An agency = a city's hub; a terminal belongs to one agency (hub_id).
         $hub = null;
@@ -159,7 +161,7 @@ class TransportController extends Controller
         $set = ['name' => strip_tags($v['name']), 'city' => $v['city'] ?? null, 'kind' => $v['kind'],
             'address' => isset($v['address']) ? strip_tags($v['address']) : null, 'phone' => isset($v['phone']) ? strip_tags($v['phone']) : null,
             'description' => isset($v['description']) ? strip_tags($v['description']) : null, 'active' => (bool) ($v['active'] ?? true),
-            'lat' => $pos[0] ?? null, 'lng' => $pos[1] ?? null, 'hub_id' => $hub ? $hub->id : null, 'updated_at' => now()];
+            'lat' => $pos[0] ?? null, 'lng' => $pos[1] ?? null, 'hub_id' => $hub ? $hub->id : null, 'daily_cost' => $v['daily_cost'] ?? null, 'updated_at' => now()];
         if ($id) {
             $this->own('transport_locations', $id, $cid);
             DB::table('transport_locations')->where('id', $id)->update($set);
@@ -208,6 +210,9 @@ class TransportController extends Controller
         $v = $request->validate([
             'origin_id' => 'required|integer', 'destination_id' => 'required|integer|different:origin_id',
             'distance_km' => 'nullable|numeric|min:0|max:99999', 'duration_min' => 'nullable|integer|min:0|max:10000', 'active' => 'boolean',
+            'toll_cost' => 'nullable|numeric|min:0|max:1000000',
+            'parcel_rate_m3' => 'nullable|numeric|min:0|max:1000000',
+            'stops' => 'nullable|array', 'stops.*.location_id' => 'required|integer', 'stops.*.km' => 'required|numeric|min:0', 'stops.*.minutes' => 'required|integer|min:0', 'stops.*.dwell_min' => 'nullable|integer|min:0|max:600',
         ]);
         $this->own('transport_locations', (int) $v['origin_id'], $cid);
         $this->own('transport_locations', (int) $v['destination_id'], $cid);
@@ -217,12 +222,24 @@ class TransportController extends Controller
             throw ValidationException::withMessages(['destination_id' => 'This route already exists.']);
         }
         $set = ['origin_id' => $v['origin_id'], 'destination_id' => $v['destination_id'], 'distance_km' => $v['distance_km'] ?? null,
-            'duration_min' => $v['duration_min'] ?? null, 'active' => (bool) ($v['active'] ?? true), 'updated_at' => now()];
+            'duration_min' => $v['duration_min'] ?? null, 'toll_cost' => $v['toll_cost'] ?? null, 'parcel_rate_m3' => $v['parcel_rate_m3'] ?? null, 'active' => (bool) ($v['active'] ?? true), 'updated_at' => now()];
         if ($id) {
             $this->own('transport_routes', $id, $cid);
             DB::table('transport_routes')->where('id', $id)->update($set);
         } else {
             $id = DB::table('transport_routes')->insertGetId($set + ['company_id' => $cid, 'created_at' => now()]);
+        }
+        // The route's stops, in the order of their km (a bus stops there and sells the seats emptied).
+        if (array_key_exists('stops', $v)) {
+            $stops = collect($v['stops'] ?? [])->sortBy('km')->values();
+            foreach ($stops as $s) {
+                $this->own('transport_locations', (int) $s['location_id'], $cid);
+                abort_if(in_array((int) $s['location_id'], [(int) $v['origin_id'], (int) $v['destination_id']], true), 422, 'A stop is a place between the origin and the destination.');
+            }
+            DB::table('transport_route_stops')->where('route_id', $id)->delete();
+            DB::table('transport_route_stops')->insert($stops->map(fn ($s, $i) => ['company_id' => $cid, 'route_id' => $id, 'location_id' => $s['location_id'], 'seq' => $i + 1, 'km' => $s['km'], 'minutes' => $s['minutes'],
+                'dwell_min' => $s['dwell_min'] ?? 25, 'created_at' => now(), 'updated_at' => now()])->all());
+            \App\Support\TransportLegs::forget();
         }
 
         return response()->json(['id' => $id]);
@@ -280,6 +297,7 @@ class TransportController extends Controller
             'id' => (int) $t->id, 'company_id' => (int) $t->company_id, 'route_id' => (int) $t->route_id, 'route' => $t->origin.' → '.$t->destination,
             'vehicle_id' => (int) $t->vehicle_id, 'vehicle' => trim(($t->vehicle_name ?? '').' '.($t->plate_number ? '('.$t->plate_number.')' : '')),
             'departure_at' => $t->departure_at, 'arrival_at' => $t->arrival_at, 'status' => $t->status, 'notes' => $t->notes,
+            'fuel_cost' => $t->fuel_cost !== null ? (float) $t->fuel_cost : null,
             'crew' => collect($crew[$t->id] ?? [])->map(fn ($c) => ['employee_id' => (int) $c->employee_id, 'role' => $c->role, 'name' => trim($c->firstname.' '.$c->lastname), 'trip_rate' => (float) $c->trip_rate])->values(),
         ])->all();
 
@@ -293,6 +311,7 @@ class TransportController extends Controller
             'route_id' => 'required|integer', 'vehicle_id' => 'required|integer',
             'departure_at' => 'required|date', 'arrival_at' => 'nullable|date|after:departure_at',
             'status' => 'required|in:'.implode(',', self::TRIP_STATUSES), 'notes' => 'nullable|string|max:2000',
+            'fuel_cost' => 'nullable|numeric|min:0|max:1000000',
             'pilots' => 'required|array|size:2', 'pilots.*' => 'integer|distinct',
             'hostesses' => 'required|array|min:1|max:2', 'hostesses.*' => 'integer|distinct',
         ], [
@@ -333,9 +352,15 @@ class TransportController extends Controller
             }
         }
 
-        $id = DB::transaction(function () use ($v, $cid, $id, $request, $people) {
+        $wasStatus = $id ? DB::table('transport_trips')->where('id', $id)->value('status') : null;
+        $id = DB::transaction(function () use ($v, $cid, $id, $request, $people, $route, $wasStatus) {
+            // A finished trip's km go on the bus's odometer: the maintenance plan runs on it.
+            if ($v['status'] === 'completed' && $wasStatus !== 'completed' && (float) $route->distance_km > 0) {
+                DB::table('vehicles')->where('id', $v['vehicle_id'])->increment('odometer', (float) $route->distance_km);
+            }
             $set = ['route_id' => $v['route_id'], 'vehicle_id' => $v['vehicle_id'], 'departure_at' => $v['departure_at'],
-                'arrival_at' => $v['arrival_at'] ?? null, 'status' => $v['status'], 'notes' => isset($v['notes']) ? strip_tags($v['notes']) : null, 'updated_at' => now()];
+                'arrival_at' => $v['arrival_at'] ?? null, 'status' => $v['status'], 'notes' => isset($v['notes']) ? strip_tags($v['notes']) : null,
+                'fuel_cost' => $v['fuel_cost'] ?? null, 'updated_at' => now()];
             if ($id) {
                 $this->own('transport_trips', $id, $cid);
                 DB::table('transport_trips')->where('id', $id)->update($set);
@@ -393,10 +418,20 @@ class TransportController extends Controller
         abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
         $type = isset(\App\Support\TransportTickets::DOCS[$request->query('doc_type')]) ? $request->query('doc_type') : 'dni';
         $dni = \App\Support\TransportTickets::docNumber($type, (string) $request->query('dni'));
-        $p = preg_match(\App\Support\TransportTickets::DOCS[$type], $dni) ? DB::table('transport_tickets')->where('company_id', (int) $this->resolveActingCompanyId($request))
+        $valid = preg_match(\App\Support\TransportTickets::DOCS[$type], $dni);
+        $cid = (int) $this->resolveActingCompanyId($request);
+        $p = $valid ? DB::table('transport_tickets')->where('company_id', $cid)
             ->where('doc_type', $type)->where('dni', $dni)->orderByDesc('id')->first(['first_name', 'last_name', 'passenger_type']) : null;
 
-        return response()->json(['passenger' => $p]);
+        return response()->json(['passenger' => $p, 'loyalty' => $valid ? \App\Support\TransportTickets::loyalty($cid, $type, $dni) : null]);
+    }
+
+    /** GET transport/seats?trip_id=&route_id= : the seat map for the passenger's stretch on that trip. */
+    public function seats(Request $request)
+    {
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
+
+        return response()->json(['seats' => \App\Support\TransportTickets::seats((int) $this->resolveActingCompanyId($request), (int) $request->query('trip_id'), (int) $request->query('route_id'))]);
     }
 
     // ------------------------------------------------------------------ board
@@ -597,8 +632,8 @@ class TransportController extends Controller
         if ($others) {
             $rows->push($row(null, $others));
         }
-        $routes = $lines->groupBy('product_id')->map(fn ($g, $pid) => [
-            'route' => $products[$pid]['label'] ?? '#'.$pid, 'tickets' => (int) $g->sum('qty'), 'income' => round((float) $g->sum('total'), 2),
+        $routes = $lines->groupBy(fn ($l) => $products[$l->product_id]['route_id'] ?? 0)->map(fn ($g) => [
+            'route' => str_replace(' VIP', '', $products[$g->first()->product_id]['label'] ?? ''), 'tickets' => (int) $g->sum('qty'), 'income' => round((float) $g->sum('total'), 2),
         ])->sortByDesc('tickets')->values();
 
         $trips = DB::table('transport_trips')->where('company_id', $cid)->whereNull('deleted_at')->whereDate('departure_at', $today)
