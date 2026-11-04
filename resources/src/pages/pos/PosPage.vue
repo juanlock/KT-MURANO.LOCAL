@@ -472,6 +472,12 @@
                 <!-- SKU subtitle -->
                 <div v-if="item.code" style="font-size: 10px; color: #8d8da0; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">SKU · {{ item.code }}</div>
 
+                <!-- Transport ticket: its passengers (departure, DNI, name, luggage) -->
+                <div v-for="(p, pi) in (item.passengers || [])" :key="'pax-' + item.detail_id + '-' + pi"
+                     style="font-size: 11px; color: #3b3b52; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  🧍 {{ p.first_name }} {{ p.last_name }} · {{ p.dni }} · {{ p.departure }}{{ p.luggage ? ' · 🧳' : '' }}
+                </div>
+
                 <!-- Controls row: qty stepper + unit price + price-type -->
                 <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
                   <!-- qty stepper -->
@@ -1145,6 +1151,51 @@
 
   <!-- Vehicle Fitment: pick the customer's vehicle; the grid then only shows
        compatible (or universal) parts and incompatible ones cannot be added. -->
+  <!-- Transport (2026-11-03): each ticket asks its passenger. -->
+  <b-modal id="pos_passenger_modal" hide-footer no-close-on-backdrop
+           :title="tf('Transport_Passenger', 'Passenger') + (passengerForm.label ? ' · ' + passengerForm.label : '')"
+           @shown="$refs.paxDni && $refs.paxDni.focus()" @hidden="passengerCancel">
+    <div style="display: grid; gap: 10px;">
+      <div>
+        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Departure', 'Departure') }} *</label>
+        <select v-model="passengerForm.trip_id"
+                style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 13px; background: #fff; color: #1f1f2c;">
+          <option v-for="t in passengerDepartures" :key="'dep-' + t.id" :value="t.id">{{ departureLabel(t) }}</option>
+        </select>
+        <div v-if="!passengerDepartures.length" style="font-size: 12px; color: #b45309; margin-top: 4px;">{{ tf('Transport_No_Departures', 'No scheduled departure for this route') }}</div>
+      </div>
+      <div>
+        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_DNI', 'DNI') }} *</label>
+        <input ref="paxDni" v-model="passengerForm.dni" type="text" inputmode="numeric" maxlength="8" placeholder="12345678"
+               @input="passengerDniInput" @keyup.enter="passengerSave"
+               style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 14px; letter-spacing: 1px;" />
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+          <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_First_Names', 'First names') }} *</label>
+          <input v-model="passengerForm.first_name" type="text" maxlength="100" @keyup.enter="passengerSave"
+                 style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 13px;" />
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Last_Names', 'Last names') }} *</label>
+          <input v-model="passengerForm.last_name" type="text" maxlength="100" @keyup.enter="passengerSave"
+                 style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 13px;" />
+        </div>
+      </div>
+      <div>
+        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Luggage', 'Luggage') }}</label>
+        <div style="display: flex; gap: 8px;">
+          <b-button :variant="passengerForm.luggage ? 'primary' : 'outline-secondary'" @click="passengerForm.luggage = true">{{ tf('Transport_With_Luggage', 'With luggage') }}</b-button>
+          <b-button :variant="!passengerForm.luggage ? 'primary' : 'outline-secondary'" @click="passengerForm.luggage = false">{{ tf('Transport_No_Luggage', 'No luggage') }}</b-button>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
+        <b-button variant="outline-secondary" @click="$bvModal.hide('pos_passenger_modal')">{{ $t('Cancel') }}</b-button>
+        <b-button variant="primary" :disabled="!passengerValid" @click="passengerSave">{{ $t('Add') || 'Add' }}</b-button>
+      </div>
+    </div>
+  </b-modal>
+
   <b-modal id="pos_vehicle_modal" hide-footer :title="tf('SelectYourVehicle', 'Select Your Vehicle')">
     <div style="display: grid; gap: 10px;">
       <div>
@@ -4046,6 +4097,11 @@ export default {
   },
   data() {
     return {
+      // Transport tickets (2026-11-03): product id => route; the passenger window.
+      ticketProducts: {},
+      passengerForm: { dni: '', first_name: '', last_name: '', luggage: false, label: '', trip_id: null },
+      passengerDepartures: [],
+      passengerDone: null,
       // ===== Mobile UI state (drives the phone layout) =====
       mobileActiveTab: 'home', // home | cart | hold | recent | more
 
@@ -4419,6 +4475,11 @@ export default {
     };
   },
   computed: {
+    // Transport ticket passenger window: departure, 8-digit DNI and both names.
+    passengerValid() {
+      const f = this.passengerForm;
+      return !!f.trip_id && /^\d{8}$/.test(f.dni || '') && !!(f.first_name || '').trim() && !!(f.last_name || '').trim();
+    },
     // currentUser / currentUserPermissions / show_language come from posCompatMixin.
 
     // Monetary precision (2 or 3) driven by the "Enable 3 Decimal Pricing" setting.
@@ -6718,6 +6779,17 @@ export default {
           this.product.quantity = (!this.isOversellingAllowed && this.product.current < 1) ? this.product.current : 1;
         }
 
+        // A ticket: the passenger and the departure first, then the line.
+        if (this.isTicket(data.id)) {
+          this.askPassenger(data.id, p => {
+            this.product.passengers = [p];
+            this.product.quantity = 1;
+            this.add_product(data.code);
+            this.product.passengers = undefined;
+            this.CalculTotal();
+          });
+          return;
+        }
         this.add_product(data.code);
         this.CalculTotal();
       };
@@ -6932,6 +7004,15 @@ export default {
 
       if (existingIndex !== -1) {
         const row = this.details[existingIndex];
+        // A ticket line: the new passenger joins it (quantity = its passengers).
+        if (Array.isArray(this.product.passengers) && this.isTicket(row.product_id)) {
+          row.passengers = (row.passengers || []).concat(this.product.passengers);
+          row.quantity = row.passengers.length;
+          this.CalculTotal();
+          this.$forceUpdate();
+          setTimeout(() => { this.load_product = true; }, 300);
+          return;
+        }
         const addQty = (typeof this.product.quantity === 'number' && this.product.quantity > 0) ? this.product.quantity : 1;
         if (row.product_type !== 'is_service') {
           const desiredQty = row.quantity + addQty;
@@ -7072,9 +7153,68 @@ export default {
       }, 300);
     },
 
+    // ---- Transport tickets (2026-11-03): one passenger and departure per ticket ----
+    isTicket(productId) {
+      return !!(this.ticketProducts && this.ticketProducts[productId]);
+    },
+    departureLabel(t) {
+      const d = new Date(String(t.departure_at).replace(' ', 'T'));
+      const day = d.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: '2-digit' });
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return day + ' ' + time + (t.vehicle ? ' · ' + t.vehicle : '') + ' · ' + t.sold + ' ' + (this.tf('Transport_Sold', 'sold'));
+    },
+    // Opens the passenger window for a ticket product; done(passenger) runs on Add.
+    askPassenger(productId, done) {
+      const info = this.ticketProducts[productId];
+      this.passengerForm = { dni: '', first_name: '', last_name: '', luggage: false, label: info.label, trip_id: null };
+      this.passengerDepartures = [];
+      this.passengerDone = done;
+      axios.get('transport/departures', { params: { route_id: info.route_id } }).then(r => {
+        this.passengerDepartures = (r.data && r.data.departures) || [];
+        if (this.passengerDepartures.length) this.passengerForm.trip_id = this.passengerDepartures[0].id;
+      }).catch(() => {});
+      this.$bvModal.show('pos_passenger_modal');
+    },
+    passengerDniInput() {
+      this.passengerForm.dni = String(this.passengerForm.dni || '').replace(/\D/g, '').slice(0, 8);
+      if (this.passengerForm.dni.length !== 8) return;
+      axios.get('transport/passenger', { params: { dni: this.passengerForm.dni } }).then(r => {
+        const p = r.data && r.data.passenger;
+        if (p && !this.passengerForm.first_name && !this.passengerForm.last_name) {
+          this.passengerForm.first_name = p.first_name;
+          this.passengerForm.last_name = p.last_name;
+        }
+      }).catch(() => {});
+    },
+    passengerSave() {
+      if (!this.passengerValid) return;
+      const f = this.passengerForm;
+      const dep = this.passengerDepartures.find(t => t.id === f.trip_id);
+      const p = { trip_id: f.trip_id, departure: dep ? this.departureLabel(dep).split(' · ')[0] : '', dni: f.dni,
+        first_name: f.first_name.trim(), last_name: f.last_name.trim(), luggage: !!f.luggage };
+      const done = this.passengerDone;
+      this.passengerDone = null;
+      this.$bvModal.hide('pos_passenger_modal');
+      if (done) done(p);
+    },
+    passengerCancel() {
+      this.passengerDone = null;
+    },
+
     increment(id) {
       for (var i = 0; i < this.details.length; i++) {
         if (this.details[i].detail_id == id) {
+          // A ticket: one more ticket = one more passenger.
+          if (this.isTicket(this.details[i].product_id)) {
+            const row = this.details[i];
+            this.askPassenger(row.product_id, p => {
+              row.passengers = (row.passengers || []).concat([p]);
+              row.quantity = row.passengers.length;
+              this.CalculTotal();
+              this.$forceUpdate();
+            });
+            return;
+          }
           if (!this.isOversellingAllowed && this.details[i].product_type !== 'is_service' && (this.details[i].quantity + 1) * (Number(this.details[i].pack_multiplier) || 1) > this.details[i].current) {
             this.makeToast("warning", this.$t("LowStock"), this.$t("Warning"));
           } else {
@@ -7104,6 +7244,12 @@ export default {
     decrement(detail, id) {
       for (var i = 0; i < this.details.length; i++) {
         if (this.details[i].detail_id == id) {
+          // A ticket: one ticket less = the last passenger out.
+          if (this.isTicket(this.details[i].product_id) && Array.isArray(this.details[i].passengers)) {
+            this.details[i].passengers.pop();
+            this.details[i].quantity = this.details[i].passengers.length;
+            continue;
+          }
           // Prevent quantity from going negative, but allow zero and fractional quantities
           if (detail.quantity - 1 < 0) {
             this.makeToast("warning", this.$t("MinimumQuantity"), this.$t("Warning"));
@@ -7119,6 +7265,11 @@ export default {
     Verified_Qty(detail, id) {
       for (var i = 0; i < this.details.length; i++) {
         if (this.details[i].detail_id === id) {
+          // A ticket's quantity is its passengers (use + / - to add or remove one).
+          if (this.isTicket(this.details[i].product_id) && Array.isArray(this.details[i].passengers)) {
+            this.details[i].quantity = this.details[i].passengers.length;
+            continue;
+          }
           const qty = parseFloat(detail.quantity);
 
           // If empty or not a number, fall back to 1 without warning
@@ -10511,6 +10662,8 @@ export default {
 
     // ==================== DATA INITIALIZATION ====================
     GetElementsPos() {
+      // Transport: which products are tickets (asks passenger + departure).
+      axios.get('transport/pos-tickets').then(r => { this.ticketProducts = (r.data && r.data.tickets) || {}; }).catch(() => { this.ticketProducts = {}; });
       axios
         .get("pos/data_create_pos")
         .then(response => {

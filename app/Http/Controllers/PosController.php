@@ -847,6 +847,9 @@ class PosController extends BaseController
                     }
                 }
 
+                // Transport (2026-11-03): each ticket's passenger (DNI, names, luggage), same transaction.
+                \App\Support\TransportTickets::record($order, (array) $request->input('details', []));
+
                 return $order;
 
             }, 10);

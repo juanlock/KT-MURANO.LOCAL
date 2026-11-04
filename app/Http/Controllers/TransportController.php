@@ -359,6 +359,36 @@ class TransportController extends Controller
         return response()->json(['success' => true]);
     }
 
+    // ------------------------------------------------------------------ POS tickets (2026-11-03)
+
+    /** GET transport/pos-tickets: the acting company's ticket products (product id => route) -- the POS asks the passenger for them. */
+    public function posTickets(Request $request)
+    {
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
+        $cid = (int) $this->resolveActingCompanyId($request);
+
+        return response()->json(['tickets' => ModuleFlags::enabled($cid, 'transport') ? (object) \App\Support\TransportTickets::products($cid) : (object) []]);
+    }
+
+    /** GET transport/departures?route_id= : the route's scheduled departures (next 14 days) for the POS. */
+    public function departures(Request $request)
+    {
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
+
+        return response()->json(['departures' => \App\Support\TransportTickets::departures((int) $this->resolveActingCompanyId($request), (int) $request->query('route_id'))]);
+    }
+
+    /** GET transport/passenger?dni= : the names of the last ticket with that DNI in the company (auto-fill). */
+    public function passenger(Request $request)
+    {
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
+        $dni = preg_replace('/\D/', '', (string) $request->query('dni'));
+        $p = strlen($dni) === 8 ? DB::table('transport_tickets')->where('company_id', (int) $this->resolveActingCompanyId($request))
+            ->where('dni', $dni)->orderByDesc('id')->first(['first_name', 'last_name']) : null;
+
+        return response()->json(['passenger' => $p]);
+    }
+
     // ------------------------------------------------------------------ board
 
     /** Safe hours a pilot may drive in 30 days (8 h x 26 working days); the period's limit is in proportion. */
