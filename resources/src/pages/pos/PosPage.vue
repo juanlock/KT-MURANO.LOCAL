@@ -13,9 +13,10 @@
         </div>
         <h2 class="pos-register-lock__title">{{ $t('Open Register') || 'Open register' }}</h2>
         <p class="pos-register-lock__text">
-          The POS is locked until you open a cash register for
+          {{ esL('The POS is locked until you open a cash register for', 'El POS está bloqueado hasta que abras una caja para') }}
           <strong>{{ selectedWarehouseLabel }}</strong>.
-          Opening records who opens it, the location, the opening cash in the drawer, the date and time, and an optional note.
+          {{ esL('Opening records who opens it, the location, the opening cash in the drawer, the date and time, and an optional note.',
+                 'Al abrirla se registra quién la abre, la ubicación, el efectivo inicial en el cajón, la fecha y hora, y una nota opcional.') }}
         </p>
         <div class="pos-register-lock__actions">
           <button type="button" class="pos-register-lock__btn pos-register-lock__btn--primary" @click="openRegisterFromLock">
@@ -24,7 +25,7 @@
           <button type="button" class="pos-register-lock__btn" @click="whDrawerOpen = true">
             {{ $t('Select_Warehouse') || 'Change location' }}
           </button>
-          <router-link to="/dashboard" class="pos-register-lock__btn">{{ $t('dashboard') || 'Dashboard' }}</router-link>
+          <router-link v-if="leaveTarget" :to="leaveTarget.path" class="pos-register-lock__btn">{{ leaveTarget.label }}</router-link>
         </div>
       </div>
     </div>
@@ -4071,6 +4072,7 @@
  * vuex → posCompatMixin facade. Payment modal, product-return modal and
  * custom fields are stubs until their batches.
  */
+import { useAuthStore } from "../../stores/auth";
 import NProgress from "../../pos-compat/nprogress";
 import axios from "../../pos-compat/axios";
 import Util from "../../pos-compat/util";
@@ -4782,6 +4784,17 @@ export default {
       const list = this.brands || [];
       if (!q) return list;
       return list.filter(b => (b.name || '').toLowerCase().includes(q));
+    },
+
+    // Where "Dashboard" / "Exit POS" go (2026-11-03): the dashboard, unless the role's
+    // home page is the POS itself (Terminal POS) -- the dashboard sent it straight back
+    // here --, then its sales list; nothing when the role has no other page.
+    leaveTarget() {
+      const auth = useAuthStore();
+      const home = auth.user && auth.user.role_home;
+      if (home !== '/pos' && auth.can('dashboard')) return { path: '/dashboard', label: this.$t('dashboard') || 'Dashboard' };
+      if (auth.can('Sales_view')) return { path: '/sales', label: this.esL('Sales', 'Ventas') };
+      return null;
     },
 
     // Label shown on the warehouse trigger
@@ -5558,7 +5571,7 @@ export default {
     },
     leavePos() {
       this.exitModal.open = false;
-      this.$router.push('/dashboard');
+      this.$router.push(this.leaveTarget ? this.leaveTarget.path : '/dashboard');
     },
     fmtRegisterTime(v) {
       if (!v) return '';
