@@ -122,7 +122,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Set the default guard to 'store' for all 'store/*' routes
         $this->app['router']->matched(function (\Illuminate\Routing\Events\RouteMatched $event) {
-            if ($event->route->action['middleware'] === 'auth.store') {
+            if (($event->route->action['middleware'] ?? null) === 'auth.store') {
                 Auth::shouldUse('store');
             }
         });
