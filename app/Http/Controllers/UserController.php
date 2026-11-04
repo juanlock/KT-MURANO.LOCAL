@@ -279,6 +279,8 @@ class UserController extends BaseController
             // Else the company's business-type start page (hospital -> Hospital dashboard, 2026-10-20).
             'role_home' => $user->type === 'SuperAdmin' ? $typeHome
                 : ($user->roles()->first()?->home_path ?: $typeHome),
+            // The account menu's card (2026-11-03): role, department / job and locations.
+            'account_card' => self::accountCard($user),
         ];
 
         // Exactly the role's permissions (the role is mandatory, Admins included).
@@ -476,6 +478,26 @@ class UserController extends BaseController
         }, 10);
 
         return response()->json(['success' => true, 'warning' => $warning]);
+    }
+
+    /** Role, user type, department / job of the linked employee and the locations, for the account menu. */
+    private static function accountCard($user): array
+    {
+        $role = $user->roles()->first();
+        $emp = \Illuminate\Support\Facades\DB::table('employees as e')->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
+            ->leftJoin('designations as g', 'g.id', '=', 'e.designation_id')
+            ->where('e.user_id', $user->id)->whereNull('e.deleted_at')->first(['d.department', 'g.designation']);
+        $locations = (int) $user->is_all_warehouses === 1 ? null
+            : \Illuminate\Support\Facades\DB::table('user_warehouse as uw')->join('warehouses as w', 'w.id', '=', 'uw.warehouse_id')
+                ->where('uw.user_id', $user->id)->whereNull('w.deleted_at')->orderBy('w.name')->pluck('w.name')->all();
+
+        return [
+            'role' => $role ? ($role->label ?: $role->name) : null,
+            'type' => $user->type,
+            'department' => $emp->department ?? null,
+            'job' => $emp->designation ?? null,
+            'locations' => $locations,   // null = every location
+        ];
     }
 
     // ------------ Start page (own account only) -----------\\
