@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 
 /*
- * The server's own daily database backup (2026-10-27; scheduled 03:15 in Console\Kernel):
+ * The server's own daily database backup (2026-10-27; scheduled 03:20 in Console\Kernel):
  * mysqldump --single-transaction | gzip into ~/murano_backups/ (outside the website
  * folder, never reachable by URL), the newest KEEP kept. The password goes through
  * MYSQL_PWD, never on the command line. Replaces Stocky's database:backup in the
@@ -63,7 +63,9 @@ class MuranoServerBackup extends Command
                 @unlink($sql);
             } catch (\Throwable $e) {
                 @unlink($file);
+                @unlink($sql ?? '');
                 $this->error('Backup FAILED: '.$e->getMessage());
+                $this->notifyFailure($e->getMessage());
 
                 return self::FAILURE;
             }
@@ -78,5 +80,24 @@ class MuranoServerBackup extends Command
         $this->info('Backup: '.$file.' ('.round(filesize($file) / 1048576, 1).' MB), '.min(count($all), (int) $this->option('keep')).' kept');
 
         return self::SUCCESS;
+    }
+
+    /** A failed backup emails the active SuperAdmin(s), like murano:error-digest. A mail problem never hides the failure. */
+    private function notifyFailure(string $message): void
+    {
+        try {
+            $site = (string) config('app.url');
+            $to = \Illuminate\Support\Facades\DB::table('users')->whereNull('deleted_at')->where('type', 'SuperAdmin')->where('statut', 1)->pluck('email')
+                ->filter(fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL) && ! \App\Support\CompanyMail::reserved($e))->unique()->values();
+            [$mailer] = \App\Support\CompanyMail::mailer(\App\Models\Setting::TEMPLATE_COMPANY_ID);
+            $html = '<div style="font-family:Arial,sans-serif;color:#0f2747"><h2 style="color:#b91c1c">Murano: la copia del servidor falló</h2>'
+                .'<p>'.e($site).' · '.now()->format('Y-m-d H:i').'</p><p style="font-family:monospace;font-size:12px">'.e(mb_substr($message, 0, 1000)).'</p>'
+                .'<p style="color:#94a3b8;font-size:12px">murano:server-backup · storage/logs/scheduler</p></div>';
+            foreach ($to as $email) {
+                $mailer->html($html, fn ($m) => $m->to($email)->subject("Murano: la copia del servidor falló ($site)"));
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }

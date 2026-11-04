@@ -464,17 +464,24 @@ the start of each session).
   `login_token` + step; `mobile/login/verify | resend | password`); the Flutter
   app itself (not in this workspace) still needs those screens.
 - **Production server tasks (2026-10-27):** the Laravel scheduler needs the
-  hPanel cron `* * * * * /usr/bin/php <PROD_PATH>/artisan schedule:run`
-  (Hostinger has no `crontab` command). **Production's PHP disables
+  hPanel cron `/usr/bin/php <PROD_PATH>/artisan schedule:run` (Hostinger has no
+  `crontab` command). **It runs every 10 minutes for now (user's choice,
+  2026-11-04):** a task with a fixed time must be on a multiple of 10 minutes
+  or it never runs. **Marketing's `scheduling_enabled` stays 0 and no campaign
+  is scheduled (2026-10-27, demo campaigns reached real customers when the cron
+  first ran): never turn it on or run a demo with campaigns without asking. **Production's PHP disables
   `proc_open`, `exec`, `popen`, `shell_exec`**: without `proc_open` the
   scheduler runs each task in-process (`Console\Kernel` `$cmd` ->
   `schedule->call(Artisan::call(...))`), and nothing on the server may rely on
   Laravel's `Process` / `exec`. It runs the queue (`queue:work --once`),
-  reminders, Email Office / Helpdesk mail, `murano:server-backup` (03:15: a
+  reminders, Email Office / Helpdesk mail, `murano:server-backup` (03:20: a
   gzipped dump -- mysqldump when exec exists, else pure PHP -- into
   `~/murano_backups/`, outside the website, 14 kept) and
   `murano:error-digest` (07:00: yesterday's log errors emailed to the
-  SuperAdmin). Logs rotate daily (`LOG_CHANNEL=daily`). Install-wide
+  SuperAdmin). Logs rotate daily (`LOG_CHANNEL=daily`). Every task's result goes to
+  `storage/logs/scheduler-YYYY-MM-DD.log` (`Console\Kernel::runLogged`, 2026-11-04:
+  `Artisan::call` hid failures and the backups stopped unnoticed), failures also to the
+  main log; a failed `murano:server-backup` emails the SuperAdmin. Install-wide
   integrations (WooCommerce, Google Sheets, QuickBooks, ZATCA, Google Calendar,
   webhooks, customer-display broadcast) neither schedule tasks nor queue jobs
   unless some company uses them (`ModuleFlags::anyCompany`, `enabled()` per
@@ -593,6 +600,14 @@ the start of each session).
   the origin agency), a cashier per agency (`{slug}-pos-{agency}@kcoltech.com`),
   passengers, and ticket sales filled up to the current hour by
   `TransportDemoDay::tickets` (`demo:daily`).
+  **The owner's figures (2026-11-04):** the dashboard's "Business summary" block
+  (`TransportOwnerPanel.vue`, `transport/owner`, section `transport_owner`): income and
+  tickets today / month by agency, today's trips, the month's fleet costs, best-selling
+  routes, what falls due on the buses; needs the `dashboard` permission (a pilot's
+  `transport_view` never shows money). **Turismo Cautivo's menu has six groups**
+  (migration 2026_11_04_121000): Pasajeros, Encomiendas (only the sales' shipments
+  until that module exists), Flota y Logística, Back Office, Módulos adicionales,
+  Configuración.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the

@@ -74,6 +74,9 @@
 
     <!-- The blocks top to bottom in the company's order (System Settings -> Dashboard). -->
     <div v-else class="dash-blocks">
+      <!-- ================= The owner's figures (always today and this month) == -->
+      <TransportOwnerPanel v-if="ownerPanel" :style="{ order: blockPos.transport_owner }" />
+
       <!-- ================= Transport board (own data and date range) ========= -->
       <TransportBoard v-if="transportBoard" :style="{ order: blockPos.transport }" />
 
@@ -338,6 +341,7 @@ import { blockOrder } from '../config/dashboardSections';
 import { moduleKeyForPath } from '../config/modules';
 import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
 import TransportBoard from '../components/TransportBoard.vue';
+import TransportOwnerPanel from '../components/TransportOwnerPanel.vue';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import { getUserPref, setUserPref } from '../lib/userPrefs';
@@ -359,6 +363,8 @@ const blockPos = computed(() => Object.fromEntries(blockOrder(auth.user?.dashboa
 const show = id => !hiddenSections.value.has(id) && !(id.startsWith('card_') && hiddenSections.value.has('stat_cards'));
 // Transport board: the company's module on and a role that sees Transport.
 const transportBoard = computed(() => show('transport_board') && auth.moduleEnabled('transport')
+  && (auth.can('transport_view') || auth.can('transport_manage')));
+const ownerPanel = computed(() => show('transport_owner') && auth.can('dashboard') && auth.moduleEnabled('transport')
   && (auth.can('transport_view') || auth.can('transport_manage')));
 
 const customStart = computed(() => auth.user?.start_page_mode === 'custom');

@@ -762,6 +762,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     Route::prefix('transport')->controller(\App\Http\Controllers\TransportController::class)->group(function () {
         Route::get('/meta', 'meta');
         Route::get('/board', 'board');
+        Route::get('/owner', 'owner');
         Route::get('/pos-tickets', 'posTickets');
         Route::get('/passenger', 'passenger');
         Route::get('/departures', 'departures');

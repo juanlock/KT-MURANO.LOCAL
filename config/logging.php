@@ -54,6 +54,15 @@ return [
             'days' => 14,
         ],
 
+        // Every scheduled task's result (Console\Kernel::runLogged, 2026-11-04):
+        // storage/logs/scheduler-YYYY-MM-DD.log. Failures also go to the main log.
+        'scheduler' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/scheduler.log'),
+            'level' => 'info',
+            'days' => 14,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

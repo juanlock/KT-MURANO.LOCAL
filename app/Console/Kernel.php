@@ -23,6 +23,34 @@ class Kernel extends ConsoleKernel
     ];
 
     /**
+     * Runs a scheduled task in-process and records its result in the scheduler log
+     * (exit code, time, output). A failure also reaches the main log, so the
+     * morning's murano:error-digest reports it; an exception is rethrown for
+     * schedule:run, which reports it there.
+     */
+    public static function runLogged(string $command): int
+    {
+        $log = \Illuminate\Support\Facades\Log::channel('scheduler');
+        $start = microtime(true);
+        try {
+            $code = \Illuminate\Support\Facades\Artisan::call($command);
+        } catch (\Throwable $e) {
+            $log->error($command, ['exception' => $e->getMessage(), 'ms' => (int) ((microtime(true) - $start) * 1000)]);
+
+            throw $e;
+        }
+        $context = ['exit' => $code, 'ms' => (int) ((microtime(true) - $start) * 1000), 'output' => mb_substr(trim(\Illuminate\Support\Facades\Artisan::output()), 0, 1000)];
+        if ($code !== 0) {
+            $log->error($command, $context);
+            \Illuminate\Support\Facades\Log::error("Scheduled task failed: $command", $context);
+        } else {
+            $log->info($command, $context);
+        }
+
+        return $code;
+    }
+
+    /**
      * Define the application's command schedule.
      *
      * @return void
@@ -32,13 +60,17 @@ class Kernel extends ConsoleKernel
         // Hostinger's PHP has no proc_open / exec (2026-10-27): `schedule:run` couldn't start a single
         // command (they showed DONE in 1 ms and never ran). Without proc_open each task runs
         // inside schedule:run itself (Artisan::call); withoutOverlapping still guards them.
+        // Artisan::call keeps a task's output to itself, so a failed task left no trace
+        // (2026-11-04: the server backups stopped and nothing said so): runLogged records it.
         $cmd = fn (string $command) => function_exists('proc_open')
-            ? $schedule->command($command)
-            : $schedule->call(fn () => \Illuminate\Support\Facades\Artisan::call($command))->name($command);
+            ? $schedule->command($command)->appendOutputTo(storage_path('logs/scheduler.log'))
+            : $schedule->call(fn () => self::runLogged($command))->name($command);
 
         // Server backup (2026-10-27): once a day, gzipped, outside the website folder, 14 kept
         // (MuranoServerBackup). database:backup (Stocky's) had no frequency = every minute.
-        $cmd('murano:server-backup')->dailyAt('03:15')->withoutOverlapping(60);
+        // Fixed times on a multiple of 10 minutes: production's cron runs every 10 for now
+        // (2026-11-04), so 03:15 would never come up.
+        $cmd('murano:server-backup')->dailyAt('03:20')->withoutOverlapping(60);
         // Yesterday's errors in the log -> email to the SuperAdmin (only when there are any).
         $cmd('murano:error-digest')->dailyAt('07:00')->withoutOverlapping();
         // Install-wide integrations only while some company uses them (ModuleFlags::anyCompany).
@@ -56,7 +88,7 @@ class Kernel extends ConsoleKernel
         // Hospital: appointment reminders to patients, 24 h before.
         $cmd('hospital:appointment-reminders')->everyFiveMinutes()->withoutOverlapping();
         // Hospital: yesterday's unrecorded doses -> missed (not given).
-        $cmd('hospital:mark-missed-doses')->dailyAt('00:05')->withoutOverlapping();
+        $cmd('hospital:mark-missed-doses')->dailyAt('00:10')->withoutOverlapping();
         // Demos kept current (companies with "Update the demo every day", 2026-11-02):
         // hospital roster / stays, school register, transport trips and statuses.
         // (hospital:demo-day / transport:demo-day remain for a manual run.)

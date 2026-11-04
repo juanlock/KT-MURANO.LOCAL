@@ -24,7 +24,7 @@
 /storage/framework/sessions
 /storage/framework/views
 /storage/framework/cache
-/storage/logs/laravel.log
+/storage/logs/*.log
 
 /KT-TOOLS/apps
 /KT-TOOLS/documentation

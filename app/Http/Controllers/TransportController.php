@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Services\Helpdesk\HelpdeskAccess;
 use App\Support\CompanyNames;
 use App\Support\ModuleFlags;
+use App\Traits\ScopesWarehouseAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ use Illuminate\Validation\ValidationException;
  *
  *  GET  transport/meta                 locations, routes, vehicles, crew of the acting company
  *  GET  transport/board?from&to        the dashboard's transport board (map, agencies, fleet now, pilot hours)
+ *  GET  transport/owner                the dashboard's business figures (income, tickets, trips, fleet costs, alerts)
  *  GET|POST transport/locations, PUT|DELETE transport/locations/{id}
  *  GET|POST transport/routes,    PUT|DELETE transport/routes/{id}
  *  GET|POST transport/trips,     PUT|DELETE transport/trips/{id}
@@ -30,7 +32,7 @@ use Illuminate\Validation\ValidationException;
  */
 class TransportController extends Controller
 {
-    use ScopesToCompany;
+    use ScopesToCompany, ScopesWarehouseAccess;
 
     public const STAFF_TYPES = ['administrative', 'maintenance', 'pilot', 'hostess'];
 
@@ -546,6 +548,80 @@ class TransportController extends Controller
                 'km' => (int) round($trips->where('status', 'completed')->sum(fn ($t) => (float) $t->distance_km)),
             ],
             'pilot_limit' => $limit, 'pilots' => $pilots,
+        ]);
+    }
+
+    // ------------------------------------------------------------------ owner's panel
+
+    /**
+     * GET transport/owner -- the business figures on top of the dashboard (2026-11-04): income and
+     * tickets today / this month by agency, today's trips, the month's fleet costs, the
+     * best-selling routes and what falls due on the buses. Money: needs the dashboard
+     * permission too, so a pilot's transport_view never shows it. Only the locations the
+     * user may see.
+     */
+    public function owner(Request $request)
+    {
+        $this->can($request, 'transport_view');
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'dashboard'), 403);
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $scope = $this->warehouseScopeIds();
+        $today = now()->toDateString();
+        $month = now()->startOfMonth()->toDateString();
+        $sales = fn () => DB::table('sales as s')->where('s.company_id', $cid)->whereNull('s.deleted_at')->where('s.statut', 'completed')
+            ->when($scope !== null, fn ($q) => $q->whereIn('s.warehouse_id', $scope))
+            ->whereDate('s.date', '>=', $month)->whereDate('s.date', '<=', $today);
+
+        $income = $sales()->selectRaw('s.warehouse_id, SUM(s.GrandTotal) month_total, SUM(CASE WHEN DATE(s.date) = ? THEN s.GrandTotal ELSE 0 END) today_total', [$today])
+            ->groupBy('s.warehouse_id')->get()->keyBy('warehouse_id');
+        $products = \App\Support\TransportTickets::products($cid);
+        $lines = $sales()->join('sale_details as d', 'd.sale_id', '=', 's.id')->whereIn('d.product_id', array_keys($products))
+            ->selectRaw('s.warehouse_id, d.product_id, SUM(d.quantity) qty, SUM(d.total) total, SUM(CASE WHEN DATE(s.date) = ? THEN d.quantity ELSE 0 END) qty_today', [$today])
+            ->groupBy('s.warehouse_id', 'd.product_id')->get();
+
+        // One row per agency; sales of a location that is no agency go together at the end.
+        $agencies = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'agency')->where('active', 1)
+            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope))->orderBy('name')->get(['name', 'warehouse_id']);
+        $row = fn (?string $name, $wids) => [
+            'name' => $name,
+            'today' => round((float) $income->whereIn('warehouse_id', $wids)->sum('today_total'), 2),
+            'month' => round((float) $income->whereIn('warehouse_id', $wids)->sum('month_total'), 2),
+            'tickets_today' => (int) $lines->whereIn('warehouse_id', $wids)->sum('qty_today'),
+            'tickets_month' => (int) $lines->whereIn('warehouse_id', $wids)->sum('qty'),
+        ];
+        $rows = $agencies->map(fn ($a) => $row($a->name, [$a->warehouse_id]))->values();
+        $others = $income->keys()->diff($agencies->pluck('warehouse_id'))->values()->all();
+        if ($others) {
+            $rows->push($row(null, $others));
+        }
+        $routes = $lines->groupBy('product_id')->map(fn ($g, $pid) => [
+            'route' => $products[$pid]['label'] ?? '#'.$pid, 'tickets' => (int) $g->sum('qty'), 'income' => round((float) $g->sum('total'), 2),
+        ])->sortByDesc('tickets')->values();
+
+        $trips = DB::table('transport_trips')->where('company_id', $cid)->whereNull('deleted_at')->whereDate('departure_at', $today)
+            ->selectRaw('status, COUNT(*) n')->groupBy('status')->pluck('n', 'status');
+
+        // The buses: spend so far this month (a job still scheduled or cancelled cost nothing yet).
+        $buses = DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')
+            ->when($scope !== null, fn ($q) => $q->where(fn ($x) => $x->whereNull('warehouse_id')->orWhereIn('warehouse_id', $scope)))->pluck('id')->all();
+        $fuel = (float) DB::table('vehicle_fuel_logs')->whereNull('deleted_at')->whereIn('vehicle_id', $buses)
+            ->whereDate('log_date', '>=', $month)->whereDate('log_date', '<=', $today)->sum('total_cost');
+        $maintenance = (float) DB::table('vehicle_maintenances')->whereNull('deleted_at')->whereIn('vehicle_id', $buses)
+            ->whereNotIn('status', ['scheduled', 'cancelled'])
+            ->whereDate('service_date', '>=', $month)->whereDate('service_date', '<=', $today)->sum('cost');
+        $alerts = app(FleetVehicleController::class)->alerts(Carbon::today(), Carbon::today()->addDays(30), $buses);
+
+        return response()->json([
+            'enabled' => true,
+            'income' => ['today' => round((float) $income->sum('today_total'), 2), 'month' => round((float) $income->sum('month_total'), 2)],
+            'tickets' => ['today' => (int) $lines->sum('qty_today'), 'month' => (int) $lines->sum('qty')],
+            'trips' => ['total' => (int) $trips->sum(), 'scheduled' => (int) ($trips['scheduled'] ?? 0), 'in_progress' => (int) ($trips['in_progress'] ?? 0),
+                'completed' => (int) ($trips['completed'] ?? 0), 'cancelled' => (int) ($trips['cancelled'] ?? 0)],
+            'costs' => ['fuel' => round($fuel, 2), 'maintenance' => round($maintenance, 2), 'total' => round($fuel + $maintenance, 2)],
+            'agencies' => $rows, 'routes' => $routes->take(5)->values(), 'alerts' => array_slice($alerts, 0, 6), 'alerts_total' => count($alerts),
         ]);
     }
 

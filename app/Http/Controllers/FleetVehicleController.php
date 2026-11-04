@@ -301,7 +301,7 @@ class FleetVehicleController extends Controller
      * Renewals and services that are due or overdue, newest deadline first.
      * `days` is negative when the date has already passed.
      */
-    private function alerts(Carbon $today, Carbon $soon, array $visibleVehicleIds)
+    public function alerts(Carbon $today, Carbon $soon, array $visibleVehicleIds)
     {
         $alerts = [];
 
