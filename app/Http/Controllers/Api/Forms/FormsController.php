@@ -613,6 +613,10 @@ class FormsController extends Controller
         return response()->json([
             'submission' => $this->submissionOut($s, $prefix) + ['reply_to' => \App\Services\FormNotifier::senderEmail($fields, $set, $s)],
             'fields' => FormSchema::inputs($fields),
+            // The window repeats the form's layout (2026-11-03): its inputs and section headings, in order, with their width.
+            'layout' => array_values(array_filter(array_map(fn ($x) => ($x['type'] ?? '') === 'heading'
+                ? (trim((string) ($x['text'] ?? '')) !== '' ? ['heading' => trim((string) $x['text'])] : null)
+                : (in_array($x['type'] ?? '', FormSchema::INPUT_TYPES, true) && ($x['type'] ?? '') !== 'hidden' ? ['key' => $x['key'], 'width' => $x['width'] ?? 'full'] : null), $fields))),
             'form' => $this->out($f),
         ]);
     }

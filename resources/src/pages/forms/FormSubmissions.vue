@@ -47,17 +47,20 @@
           <a-tag v-if="openSub.attended_at" color="green" style="margin-left: 8px">{{ es ? 'Atendido' : 'Attended' }} {{ fmt(openSub.attended_at) }}<span v-if="openSub.attended_by_name"> · {{ openSub.attended_by_name }}</span></a-tag>
         </div>
         <a-alert v-if="openSub.attended_note" type="success" :message="openSub.attended_note" style="margin-bottom: 12px; white-space: pre-wrap" />
-        <a-descriptions :column="descColumns" bordered size="small">
-          <a-descriptions-item v-for="f in viewFields" :key="f.key" :label="f.label || f.key">
-            <template v-if="f.type === 'file' && isFile(openSub.data[f.key])">
-              <a @click="downloadFile(openSub, f.key)"><PaperClipOutlined /> {{ openSub.data[f.key].name }}</a>
-            </template>
-            <span v-else class="fs-value">{{ text(openSub.data[f.key]) || '—' }}</span>
-          </a-descriptions-item>
-          <a-descriptions-item v-for="k in extraKeys" :key="k" :label="k">
+        <div class="fs-grid" :class="{ 'fs-grid-1': descColumns === 1 }">
+          <template v-for="(x, i) in viewItems" :key="x.key || 'h' + i">
+            <div v-if="x.heading" class="fs-section">{{ x.heading }}</div>
+            <div v-else class="fs-cell" :class="{ 'fs-full': x.width !== 'half' }">
+              <div class="fs-label">{{ (byKey[x.key].label || x.key).replace(/:$/, '') }}</div>
+              <a v-if="byKey[x.key].type === 'file' && isFile(openSub.data[x.key])" @click="downloadFile(openSub, x.key)"><PaperClipOutlined /> {{ openSub.data[x.key].name }}</a>
+              <span v-else class="fs-value">{{ text(openSub.data[x.key]) || '—' }}</span>
+            </div>
+          </template>
+          <div v-for="k in extraKeys" :key="k" class="fs-cell fs-full">
+            <div class="fs-label">{{ k }}</div>
             <span class="fs-value">{{ text(openSub.data[k]) || '—' }}</span>
-          </a-descriptions-item>
-        </a-descriptions>
+          </div>
+        </div>
         <div class="fs-muted fs-small">IP {{ openSub.ip || '—' }}<span v-if="openSub.user_agent"> · {{ openSub.user_agent }}</span></div>
         <a-space wrap style="margin-top: 16px">
           <a-button v-if="!openSub.attended_at" type="primary" @click="attendOpen = true"><CheckOutlined /> {{ es ? 'Marcar atendido' : 'Mark attended' }}</a-button>
@@ -169,23 +172,12 @@ const columns = computed(() => {
 const DOC_SHORT = { 'documento nacional de identidad': 'DNI', 'documento de identidad': 'DNI', 'carnet de extranjeria': 'CE', 'carnet de extranjería': 'CE', 'registro unico de contribuyente': 'RUC', 'registro único de contribuyente': 'RUC' };
 const cell = v => { const t = short(v); return DOC_SHORT[t.trim().toLowerCase()] || t; };
 
-// The window shows the person's data first, then the receipt, the complaint and the
-// trip (2026-11-03, the complaints book); fields that fit no group keep their place last.
-const FIELD_GROUPS = [
-  /comprobante|serie|monto|amount|producto|product/i,
-  /nombre|apellido|name|doc|identidad|n[uú]mero|domicilio|direcci|address|tel[eé]fono|celular|phone|correo|e-?mail|padre|madre/i,
-  /tipo|queja|reclamo|detalle|pedido|mensaje|message|opci[oó]n|fecha|date/i,
-  /agenc|origen|destin/i,
-];
-const GROUP_ORDER = [1, 0, 2, 3];   // person, receipt, complaint, trip
-const viewFields = computed(() => {
-  const rank = f => {
-    const t = `${f.label || ''} ${f.key}`;
-    const g = FIELD_GROUPS.findIndex(re => re.test(t));
-    return g < 0 ? 99 : GROUP_ORDER.indexOf(g);
-  };
-  return fields.value.map((f, i) => ({ f, i, r: rank(f) })).sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.f);
-});
+// The window repeats the form's layout (2026-11-03): its order, section headings and
+// full / half widths (`layout` from the submission endpoint).
+const layout = ref([]);
+const byKey = computed(() => Object.fromEntries(fields.value.map(f => [f.key, f])));
+const viewItems = computed(() => (layout.value.length ? layout.value : fields.value.map(f => ({ key: f.key, width: 'full' })))
+  .filter(x => x.heading || byKey.value[x.key]));
 
 function params(extra = {}) {
   return {
@@ -230,6 +222,7 @@ async function openRow(r) {
   try {
     const res = await http.get(`forms/submissions/${r.id}`);
     openSub.value = res.submission;
+    layout.value = res.layout || [];
     drawerOpen.value = true;
     r.is_read = true;
   } catch (e) {
@@ -424,6 +417,12 @@ onMounted(async () => {
 .fs-meta { margin-bottom: 12px; }
 .fs-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .fs-value { white-space: pre-wrap; }
+.fs-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
+.fs-grid-1 { grid-template-columns: 1fr; }
+.fs-section { grid-column: 1 / -1; padding: 8px 12px; background: #e6f4ff; font-weight: 600; border-bottom: 1px solid #f0f0f0; }
+.fs-cell { padding: 6px 12px; border-bottom: 1px solid #f0f0f0; min-width: 0; }
+.fs-full { grid-column: 1 / -1; }
+.fs-label { font-size: 12px; color: #888; }
 :deep(.fs-unread) td { font-weight: 600; }
 :deep(.ant-table-row) { cursor: pointer; }
 </style>
