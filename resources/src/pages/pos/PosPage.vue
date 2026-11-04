@@ -489,7 +489,8 @@
                   <!-- × unit price (darker + larger so the per-unit math reads at a glance) -->
                   <span style="font-size: 12px; color: #54546a; font-weight: 500; font-family: 'JetBrains Mono', monospace; white-space: nowrap;">× {{ formatPriceWithCurrentCurrency(item.Total_price, 2) }}</span>
                   <!-- Price type (sized to match qty stepper, dark text instead of muted) -->
-                  <select v-model="item.price_type" @change="onChangePriceType(item)" style="height: 24px; padding: 0 6px; font-size: 11px; font-weight: 500; border: 1px solid #d8d8e0; border-radius: 5px; background: #ffffff; color: #1f1f2c; outline: none; cursor: pointer; flex-shrink: 0;">
+                  <!-- Not on a transport ticket: one price, discounts only by promo code. -->
+                  <select v-if="!isTicket(item.product_id)" v-model="item.price_type" @change="onChangePriceType(item)" style="height: 24px; padding: 0 6px; font-size: 11px; font-weight: 500; border: 1px solid #d8d8e0; border-radius: 5px; background: #ffffff; color: #1f1f2c; outline: none; cursor: pointer; flex-shrink: 0;">
                     <option value="retail">{{ $t('Retail Price') }}</option>
                     <option value="wholesale">{{ $t('Wholesale Price') }}</option>
                   </select>
@@ -2360,6 +2361,7 @@
                     class="mr-2"
                   ></b-form-input>
                   <select
+                    v-if="!isTicket(detail.product_id)"
                     class="form-control pos-price-select"
                     v-model="detail.price_type"
                     @change="onChangePriceType(detail)"
