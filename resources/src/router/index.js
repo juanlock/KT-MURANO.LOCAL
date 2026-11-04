@@ -1013,6 +1013,8 @@ router.beforeEach(async to => {
         const roleHome = auth.user?.role_home;
         if (roleHome && roleHome !== '/dashboard') return roleHome;
         if (!auth.can('dashboard')) {
+            // Staff without a home page (role Employee): the intranet, not their own file (2026-11-03).
+            if (auth.can('intranet_view') && auth.moduleEnabled('intranet')) return '/intranet';
             const first = pageOptions(auth)[0];
             if (first) return first.path;
         }

@@ -218,7 +218,6 @@
               <a-avatar :size="44" :src="auth.avatarUrl" />
               <div class="acct-id">
                 <div class="acct-name">{{ card?.name || auth.username || 'User' }}</div>
-                <div v-if="auth.user?.email" class="acct-email" :title="auth.user.email">{{ auth.user.email }}</div>
               </div>
               <RightOutlined class="acct-go" />
             </div>
@@ -226,6 +225,9 @@
             <div v-if="card" class="acct-card">
               <div v-if="card.username" class="acct-row">
                 <UserOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Usuario' : 'Username' }}</span><span class="acct-ell">{{ card.username }}</span>
+              </div>
+              <div v-if="card.email" class="acct-row" :title="card.email">
+                <MailOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Correo' : 'Email' }}</span><span class="acct-ell">{{ card.email }}</span>
               </div>
               <div v-if="card.role" class="acct-row">
                 <SafetyCertificateOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Rol' : 'Role' }}</span><a-tag color="blue">{{ card.role }}</a-tag>
@@ -337,7 +339,7 @@ import { useRouter } from 'vue-router';
 import {
   MenuFoldOutlined, MenuUnfoldOutlined, CalculatorOutlined, TabletOutlined,
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
-  BellOutlined, DownOutlined, PieChartOutlined, EnvironmentOutlined, SettingOutlined, SafetyCertificateOutlined, UserOutlined, IdcardOutlined, ApartmentOutlined,
+  BellOutlined, DownOutlined, PieChartOutlined, EnvironmentOutlined, SettingOutlined, SafetyCertificateOutlined, UserOutlined, IdcardOutlined, MailOutlined, ApartmentOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
   DownloadOutlined, RollbackOutlined,
 } from '@ant-design/icons-vue';

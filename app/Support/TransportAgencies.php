@@ -53,9 +53,34 @@ class TransportAgencies
             }
             $map[(int) $a->id] = $wid;
         }
-        self::posRole($companyId);
+        self::ticketOffice($companyId, self::posRole($companyId), array_values($map));
 
         return $map;
+    }
+
+    /**
+     * Ticket office staff (designation Boletería / Ticket office, 2026-11-03) work on the
+     * POS: a login still on the generic Employee role gets Terminal POS and, when it has
+     * no location, one agency (shared out in turn) -- so it opens the POS, not its file.
+     */
+    public static function ticketOffice(int $companyId, int $posRole, array $warehouses): void
+    {
+        $employeeRole = DB::table('roles')->where('company_id', $companyId)->where('name', 'Employee')->whereNull('deleted_at')->value('id');
+        if (! $employeeRole || ! $warehouses) {
+            return;
+        }
+        $users = DB::table('employees as e')->join('designations as d', 'd.id', '=', 'e.designation_id')
+            ->join('role_user as ru', 'ru.user_id', '=', 'e.user_id')
+            ->where('e.company_id', $companyId)->whereNull('e.deleted_at')->whereNotNull('e.user_id')
+            ->whereIn('d.designation', ['Boletería', 'Boleteria', 'Ticket office'])->where('ru.role_id', $employeeRole)
+            ->orderBy('e.id')->pluck('e.user_id');
+        foreach ($users->values() as $i => $uid) {
+            DB::table('role_user')->where('user_id', $uid)->update(['role_id' => $posRole]);
+            DB::table('users')->where('id', $uid)->update(['role_id' => $posRole, 'is_all_warehouses' => 0, 'updated_at' => now()]);
+            if (! DB::table('user_warehouse')->where('user_id', $uid)->exists()) {
+                DB::table('user_warehouse')->insert(['user_id' => $uid, 'warehouse_id' => $warehouses[$i % count($warehouses)]]);
+            }
+        }
     }
 
     /** The company's Terminal POS role (made when missing; its permissions always the ticket office's). */

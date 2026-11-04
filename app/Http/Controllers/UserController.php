@@ -494,6 +494,7 @@ class UserController extends BaseController
         return [
             'name' => trim($user->firstname.' '.$user->lastname),
             'username' => $user->username,
+            'email' => $user->email,
             'role' => $role ? ($role->label ?: $role->name) : null,
             'type' => $user->type,
             'department' => $emp->department ?? null,
