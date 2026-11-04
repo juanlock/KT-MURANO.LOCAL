@@ -206,6 +206,30 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-03 (Optimum)
+
+- **POS ticket sales (transport)**: selling a route ticket asks for each
+  passenger: departure (the route's scheduled trips), identity document type
+  and number (DNI, CE, passport...), adult / minor / infant, names and luggage;
+  a known document fills the names. The price list selector is hidden for
+  tickets; the POS buttons and close-out speak the company's language. Buses
+  have their photos on the ticket products.
+- **Forms submissions**: a **Reply** button emails the sender (their message
+  quoted below) and marks it attended; the list adds Agency, Destination and
+  Email columns (DNI instead of the long document name); the window repeats
+  the form's layout (sections, half / full widths) compactly.
+- **Company logins**: a **Change** button sets a login's password from the
+  table (standard / generated / copy, ask to change at next sign-in).
+- **Account menu** (top right): the person's card -- name, email, username,
+  role, user type, department / job and locations; picture or name open Profile.
+- **Each role opens its own screen**: ticket office -> Terminal POS (POS),
+  pilot / hostess -> their own trips, mechanic -> fleet maintenance, Info ->
+  forms; a role without a home page opens the intranet. On the POS lock, the
+  "Dashboard" button of a POS-only role goes to its sales.
+- **Faster local backups** and production migrations run on the server.
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-11-03 (Home)
 
 - **Every role of every company has a user.** The automatic roles (Supplier,
@@ -305,36 +329,6 @@ Setup: `php artisan migrate`, `npm run build`.
 
 Setup: `php artisan migrate`, `npm run build`. Turismo's demo data is NOT in
 production (live company).
-
-### 2026-10-27 / 2026-11-01 (Optimum)
-
-- **Marketing never emails another company's customers again.** A campaign
-  reaches only its own company's customers, through that company's own mail
-  server; a company with Marketing switched off never sends (demo companies
-  have it off); test addresses are skipped. SuperAdmin can delete any
-  company's campaign from AdminSystem.
-- **Roles, one group per company**: Admin Compañía, Helpdesk, Website,
-  Formularios (read only), Customer and Employee, plus the business's own
-  roles (hospital, school, manager / field roles). Old Owner / AdminRG /
-  AdminNE / Admin-ALL / Info roles are merged; New Era keeps a single admin.
-- **Forms**:
-  - The public form can have its own header (company or own logo, color band,
-    centered), width, button above or below, a message and then another page
-    after N seconds; fields without a label show no empty line and required
-    errors turn the field red. Form codes for websites are always https.
-  - Submissions open in a large window with Previous / Next, Print, PDF, Send
-    by email and **Attended** with a note; only Manage forms can delete.
-  - Dashboard: submissions per form, Read / Unread (clickable to the report)
-    and a table grouping a form's answers (e.g. complaints by type or agency).
-- **POS**: its settings are a section of Settings, and a new option chooses
-  which roles and users may open / close the register (the POS says who can).
-- **Menu**: the main dashboard is "Tablero Principal" in Spanish. Imported
-  websites get their menu in Spanish on their Spanish pages (KcolTech).
-- **Manual**: updated (new Forms entry), a **Your company** tab with the
-  advantages for the company's type, a PDF manual and a **2-page flyer** per
-  business type and language; SuperAdmin's **Company manuals** page shows them.
-
-Setup: `php artisan migrate`, `npm run build`.
 
 ---
 
