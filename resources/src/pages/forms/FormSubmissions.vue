@@ -38,19 +38,18 @@
       <template v-if="openSub">
         <div class="fs-nav">
           <a-button :disabled="!hasPrev" @click="step(-1)"><LeftOutlined /> {{ es ? 'Anterior' : 'Previous' }}</a-button>
-          <span class="fs-muted">{{ position }}</span>
+          <span class="fs-meta">
+            <span class="fs-muted">{{ position }}</span> · <span>{{ fmt(openSub.created_at) }}</span>
+            <span v-if="openSub.page_url" class="fs-muted"> · <a :href="openSub.page_url" target="_blank" rel="noopener">{{ shortUrl(openSub.page_url) }}</a></span>
+            <a-tag v-if="openSub.attended_at" color="green" style="margin-left: 8px">{{ es ? 'Atendido' : 'Attended' }} {{ fmt(openSub.attended_at) }}<span v-if="openSub.attended_by_name"> · {{ openSub.attended_by_name }}</span></a-tag>
+          </span>
           <a-button :disabled="!hasNext" @click="step(1)">{{ es ? 'Siguiente' : 'Next' }} <RightOutlined /></a-button>
         </div>
-        <div class="fs-meta">
-          <span>{{ fmt(openSub.created_at) }}</span>
-          <span v-if="openSub.page_url" class="fs-muted">· <a :href="openSub.page_url" target="_blank" rel="noopener">{{ shortUrl(openSub.page_url) }}</a></span>
-          <a-tag v-if="openSub.attended_at" color="green" style="margin-left: 8px">{{ es ? 'Atendido' : 'Attended' }} {{ fmt(openSub.attended_at) }}<span v-if="openSub.attended_by_name"> · {{ openSub.attended_by_name }}</span></a-tag>
-        </div>
-        <a-alert v-if="openSub.attended_note" type="success" :message="openSub.attended_note" style="margin-bottom: 12px; white-space: pre-wrap" />
+        <a-alert v-if="openSub.attended_note" type="success" :message="openSub.attended_note" style="margin-bottom: 6px; padding: 4px 10px; white-space: pre-wrap" />
         <div class="fs-grid" :class="{ 'fs-grid-1': descColumns === 1 }">
           <template v-for="(x, i) in viewItems" :key="x.key || 'h' + i">
             <div v-if="x.heading" class="fs-section">{{ x.heading }}</div>
-            <div v-else class="fs-cell" :class="{ 'fs-full': x.width !== 'half' }">
+            <div v-else class="fs-cell" :style="{ gridColumn: 'span ' + cellSpan(x) }">
               <div class="fs-label">{{ (byKey[x.key].label || x.key).replace(/:$/, '') }}</div>
               <a v-if="byKey[x.key].type === 'file' && isFile(openSub.data[x.key])" @click="downloadFile(openSub, x.key)"><PaperClipOutlined /> {{ openSub.data[x.key].name }}</a>
               <span v-else class="fs-value">{{ text(openSub.data[x.key]) || '—' }}</span>
@@ -62,7 +61,7 @@
           </div>
         </div>
         <div class="fs-muted fs-small">IP {{ openSub.ip || '—' }}<span v-if="openSub.user_agent"> · {{ openSub.user_agent }}</span></div>
-        <a-space wrap style="margin-top: 16px">
+        <a-space wrap style="margin-top: 8px">
           <a-button v-if="!openSub.attended_at" type="primary" @click="attendOpen = true"><CheckOutlined /> {{ es ? 'Marcar atendido' : 'Mark attended' }}</a-button>
           <a-button v-else @click="setAttended(false)">{{ es ? 'Quitar atendido' : 'Not attended' }}</a-button>
           <a-tooltip :title="openSub.reply_to ? openSub.reply_to : (es ? 'El envío no tiene un correo válido' : 'The submission has no valid email')">
@@ -178,6 +177,13 @@ const layout = ref([]);
 const byKey = computed(() => Object.fromEntries(fields.value.map(f => [f.key, f])));
 const viewItems = computed(() => (layout.value.length ? layout.value : fields.value.map(f => ({ key: f.key, width: 'full' })))
   .filter(x => x.heading || byKey.value[x.key]));
+// Compact (2026-11-03, no scrolling): a 4-column grid -- long texts the whole row, a
+// full-width text field half of it, everything else (selects, dates, numbers) one column.
+function cellSpan(x) {
+  const t = byKey.value[x.key].type;
+  const span = t === 'textarea' || t === 'file' ? 4 : x.width !== 'half' && ['text', 'email', 'phone', 'url'].includes(t) ? 2 : 1;
+  return descColumns.value === 1 ? Math.min(span, 2) : span;
+}
 
 function params(extra = {}) {
   return {
@@ -414,15 +420,15 @@ onMounted(async () => {
 .fs-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
 .fs-muted { opacity: 0.6; }
 .fs-small { font-size: 12px; margin-top: 10px; word-break: break-all; }
-.fs-meta { margin-bottom: 12px; }
-.fs-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.fs-meta { flex: 1; text-align: center; font-size: 13px; }
+.fs-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .fs-value { white-space: pre-wrap; }
-.fs-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
-.fs-grid-1 { grid-template-columns: 1fr; }
-.fs-section { grid-column: 1 / -1; padding: 8px 12px; background: #e6f4ff; font-weight: 600; border-bottom: 1px solid #f0f0f0; }
-.fs-cell { padding: 6px 12px; border-bottom: 1px solid #f0f0f0; min-width: 0; }
+.fs-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden; margin-bottom: 6px; line-height: 1.35; }
+.fs-grid-1 { grid-template-columns: 1fr 1fr; }
+.fs-section { grid-column: 1 / -1; padding: 3px 10px; background: #e6f4ff; font-weight: 600; font-size: 13px; }
+.fs-cell { padding: 3px 10px; border-bottom: 1px solid #f0f0f0; border-right: 1px solid #f0f0f0; min-width: 0; overflow-wrap: anywhere; }
 .fs-full { grid-column: 1 / -1; }
-.fs-label { font-size: 12px; color: #888; }
+.fs-label { font-size: 11px; color: #888; }
 :deep(.fs-unread) td { font-weight: 600; }
 :deep(.ant-table-row) { cursor: pointer; }
 </style>
