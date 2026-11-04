@@ -143,6 +143,15 @@ return new class extends Migration
                 $t->string('tracking_token', 32)->nullable()->index()->after('payment');
             }
         });
+        // The system picks a parcel's bus: it can wait without a trip, with its date and estimate (the next migrations' demo needs them).
+        DB::statement('ALTER TABLE transport_parcels MODIFY trip_id INT UNSIGNED NULL');
+        Schema::table('transport_parcels', function (Blueprint $t) {
+            if (! Schema::hasColumn('transport_parcels', 'received_on')) {
+                $t->date('received_on')->nullable()->after('warehouse_id');
+                $t->date('eta_from')->nullable()->after('received_on');
+                $t->date('eta_to')->nullable()->after('eta_from');
+            }
+        });
         if (! Schema::hasTable('transport_parcel_events')) {
             Schema::create('transport_parcel_events', function (Blueprint $t) {
                 $t->increments('id');
