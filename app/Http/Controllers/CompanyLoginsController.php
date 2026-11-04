@@ -57,10 +57,43 @@ class CompanyLoginsController extends Controller
                     'role_id' => $role->id ?? null, 'role' => $role->name ?? null, 'role_description' => $role->description ?? null,
                     'role_label' => $role->label ?? null, 'job' => $jobs[$u->id] ?? null,
                     'password' => $standard,
+                    'standard_password' => reset($candidates) ?: null,
                 ];
             })->values(),
             'role_permissions' => $perms,
         ]);
+    }
+
+    /**
+     * POST company-logins/{id}/password (2026-11-03): the company's admin sets a new
+     * password for a login of the company, from the same table (a custom one can't be
+     * shown). Never a SuperAdmin nor the admin's own login (that's Profile). Like any
+     * password an admin sets for someone else it isn't checked against the rules; by
+     * default the person must choose their own at the next sign-in. Unlocks the login.
+     */
+    public function setPassword(Request $request, $id)
+    {
+        $user = $request->user('api');
+        abort_unless($this->allowed($user), 403, 'Your role cannot change the company logins.');
+        $cid = \App\Support\CompanyFiles::actingCompanyId($request);
+        $data = $request->validate(['password' => 'required|string|min:6|max:100', 'must_change' => 'boolean']);
+        $target = DB::table('users')->where('id', (int) $id)->where('company_id', $cid)->whereNull('deleted_at')->first();
+        abort_unless($target, 404);
+        abort_if((int) $target->id === (int) $user->id, 422, 'That is your own login: change it in Profile.');
+        abort_if(strtolower((string) $target->type) === 'superadmin', 403);
+
+        DB::transaction(function () use ($target, $data) {
+            DB::table('users')->where('id', $target->id)->update([
+                'password' => Hash::make($data['password']),
+                'must_change_password' => (bool) ($data['must_change'] ?? true),
+                'failed_logins' => 0, 'last_failed_at' => null, 'locked_until' => null,
+                'updated_at' => now(),
+            ]);
+        });
+        \App\Support\LoginSecurity::event($target, $target->email, 'web', 'password_set', $request,
+            'by '.trim($user->firstname.' '.$user->lastname).' (Company logins)');
+
+        return response()->json(['ok' => true]);
     }
 
     /**

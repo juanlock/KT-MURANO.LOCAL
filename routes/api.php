@@ -413,6 +413,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('pending-work', [\App\Http\Controllers\Api\PendingWorkController::class, 'index']);
 // Header "Logins" list: the company's logins, roles and standard passwords (admins, 2026-10-25).
 Route::get('company-logins', [\App\Http\Controllers\CompanyLoginsController::class, 'index']);
+Route::post('company-logins/{id}/password', [\App\Http\Controllers\CompanyLoginsController::class, 'setPassword'])->whereNumber('id')->middleware('throttle:30,1');
 Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class, 'whoami']);
 
     // Product Q&A ("Ask About This Item") — admin answers
