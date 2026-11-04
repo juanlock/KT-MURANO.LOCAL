@@ -257,6 +257,13 @@ class TransportController extends Controller
         if ($request->filled('to')) {
             $q->whereDate('transport_trips.departure_at', '<=', $request->input('to'));
         }
+        // A crew member who can only view (pilot / hostess, 2026-11-03) sees their own trips.
+        $user = $request->user('api');
+        $ownEmployee = HelpdeskAccess::can($user, 'transport_manage') ? null
+            : DB::table('employees')->where('user_id', $user->id)->whereNull('deleted_at')->value('id');
+        if ($ownEmployee && DB::table('transport_trip_crew')->where('employee_id', $ownEmployee)->exists()) {
+            $request->merge(['employee_id' => $ownEmployee]);
+        }
         if ($request->filled('employee_id')) {
             $q->whereExists(fn ($x) => $x->from('transport_trip_crew as c')->whereColumn('c.trip_id', 'transport_trips.id')->where('c.employee_id', $request->input('employee_id')));
         }

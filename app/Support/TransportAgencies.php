@@ -54,8 +54,48 @@ class TransportAgencies
             $map[(int) $a->id] = $wid;
         }
         self::ticketOffice($companyId, self::posRole($companyId), array_values($map));
+        self::staffRoles($companyId);
 
         return $map;
+    }
+
+    /**
+     * The field staff's roles (2026-11-03): each opens its own work screen, not its HR file.
+     * designation names => [role, description, home page, permissions].
+     */
+    public const STAFF_ROLES = [
+        'pilot' => [['Piloto', 'Pilot'], 'Piloto', 'Pilot: their trips (route, time, bus, crew) and the buses.', '/transport/trips', ['transport_view', 'fleet_vehicles_view']],
+        'hostess' => [['Azafata', 'Hostess'], 'Tripulación', 'Crew: their trips (route, time, bus, crew).', '/transport/trips', ['transport_view']],
+        'mechanic' => [['Mecánico', 'Mecanico', 'Mechanic'], 'Mecánico', 'Mechanic: the buses and their maintenance.', '/fleet/maintenance', ['fleet_vehicles_view', 'fleet_maintenance']],
+    ];
+
+    /** Pilots, hostesses and mechanics still on the generic Employee role get their own role (made when missing). */
+    public static function staffRoles(int $companyId): void
+    {
+        $employeeRole = DB::table('roles')->where('company_id', $companyId)->where('name', 'Employee')->whereNull('deleted_at')->value('id');
+        if (! $employeeRole) {
+            return;
+        }
+        foreach (self::STAFF_ROLES as [$designations, $name, $description, $home, $perms]) {
+            $users = DB::table('employees as e')->join('designations as d', 'd.id', '=', 'e.designation_id')
+                ->join('role_user as ru', 'ru.user_id', '=', 'e.user_id')
+                ->where('e.company_id', $companyId)->whereNull('e.deleted_at')->whereNotNull('e.user_id')
+                ->whereIn('d.designation', $designations)->where('ru.role_id', $employeeRole)->pluck('e.user_id');
+            $roleId = DB::table('roles')->where('company_id', $companyId)->where('name', $name)->whereNull('deleted_at')->value('id');
+            if (! $roleId && $users->isEmpty()) {
+                continue;
+            }
+            if (! $roleId) {
+                $roleId = DB::table('roles')->insertGetId(['company_id' => $companyId, 'name' => $name, 'label' => $name, 'description' => $description,
+                    'home_path' => $home, 'status' => 1, 'created_at' => now(), 'updated_at' => now()]);
+                DB::table('permission_role')->insert(DB::table('permissions')->whereIn('name', $perms)->pluck('id')
+                    ->map(fn ($p) => ['permission_id' => $p, 'role_id' => $roleId])->all());
+            }
+            foreach ($users as $uid) {
+                DB::table('role_user')->where('user_id', $uid)->update(['role_id' => $roleId]);
+                DB::table('users')->where('id', $uid)->update(['role_id' => $roleId, 'updated_at' => now()]);
+            }
+        }
     }
 
     /**
