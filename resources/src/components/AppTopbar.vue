@@ -218,28 +218,28 @@
               <a-avatar :size="44" :src="auth.avatarUrl" />
               <div class="acct-id">
                 <div class="acct-name">{{ card?.name || auth.username || 'User' }}</div>
-                <div v-if="card?.username && card.username !== card.name" class="acct-email">@{{ card.username }}</div>
+                <div v-if="auth.user?.email" class="acct-email" :title="auth.user.email">{{ auth.user.email }}</div>
               </div>
               <RightOutlined class="acct-go" />
             </div>
+            <!-- Each line says what it is (2026-11-03). -->
             <div v-if="card" class="acct-card">
-              <div v-if="card.role || typeLabel" class="acct-row">
-                <SafetyCertificateOutlined class="acct-row-ic" />
-                <span class="acct-tags">
-                  <a-tag v-if="card.role" color="blue" :title="isEs ? 'Rol' : 'Role'">{{ card.role }}</a-tag>
-                  <a-tag v-if="typeLabel" :title="isEs ? 'Tipo de usuario' : 'User type'">{{ typeLabel }}</a-tag>
-                </span>
+              <div v-if="card.username" class="acct-row">
+                <UserOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Usuario' : 'Username' }}</span><span class="acct-ell">{{ card.username }}</span>
               </div>
-              <div v-if="auth.user?.email" class="acct-row" :title="auth.user.email">
-                <MailOutlined class="acct-row-ic" /><span class="acct-ell">{{ auth.user.email }}</span>
+              <div v-if="card.role" class="acct-row">
+                <SafetyCertificateOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Rol' : 'Role' }}</span><a-tag color="blue">{{ card.role }}</a-tag>
+              </div>
+              <div v-if="typeLabel" class="acct-row">
+                <IdcardOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Tipo' : 'Type' }}</span><span>{{ typeLabel }}</span>
               </div>
               <div v-if="card.department || card.job" class="acct-row">
-                <ApartmentOutlined class="acct-row-ic" />
+                <ApartmentOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Área' : 'Department' }}</span>
                 <span>{{ card.department }}<span v-if="card.department && card.job" class="acct-dim"> · </span>{{ card.job }}</span>
               </div>
               <div class="acct-row">
-                <EnvironmentOutlined class="acct-row-ic" />
-                <span>{{ card.locations === null ? (isEs ? 'Todas las ubicaciones' : 'All locations') : (card.locations.join(', ') || (isEs ? 'Sin ubicación' : 'No location')) }}</span>
+                <EnvironmentOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Ubicación' : 'Location' }}</span>
+                <span>{{ card.locations === null ? (isEs ? 'Todas' : 'All') : (card.locations.join(', ') || (isEs ? 'Ninguna' : 'None')) }}</span>
               </div>
             </div>
 
@@ -337,7 +337,7 @@ import { useRouter } from 'vue-router';
 import {
   MenuFoldOutlined, MenuUnfoldOutlined, CalculatorOutlined, TabletOutlined,
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
-  BellOutlined, DownOutlined, PieChartOutlined, EnvironmentOutlined, SettingOutlined, SafetyCertificateOutlined, MailOutlined, ApartmentOutlined,
+  BellOutlined, DownOutlined, PieChartOutlined, EnvironmentOutlined, SettingOutlined, SafetyCertificateOutlined, UserOutlined, IdcardOutlined, ApartmentOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
   DownloadOutlined, RollbackOutlined,
 } from '@ant-design/icons-vue';
@@ -770,7 +770,8 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
 .account-menu--dark .acct-card { background: rgba(255, 255, 255, 0.06); }
 .acct-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; min-width: 0; }
 .acct-row-ic { color: #1677ff; opacity: 0.75; flex: none; }
-.acct-tags :deep(.ant-tag) { margin-inline-end: 4px; }
+.acct-k { flex: none; width: 74px; opacity: 0.55; }
+.acct-row :deep(.ant-tag) { margin: 0; }
 .acct-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acct-dim { opacity: 0.6; }
 .acct-header {
