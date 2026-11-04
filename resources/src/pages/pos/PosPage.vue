@@ -475,7 +475,7 @@
                 <!-- Transport ticket: its passengers (departure, DNI, name, luggage) -->
                 <div v-for="(p, pi) in (item.passengers || [])" :key="'pax-' + item.detail_id + '-' + pi"
                      style="font-size: 11px; color: #3b3b52; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                  🧍 {{ p.first_name }} {{ p.last_name }} · {{ p.dni }} · {{ p.departure }}{{ p.luggage ? ' · 🧳' : '' }}
+                  {{ p.passenger_type === 'infant' ? '👶' : (p.passenger_type === 'minor' ? '🧒' : '🧍') }} {{ p.first_name }} {{ p.last_name }} · {{ (p.doc_type || 'dni').toUpperCase() }} {{ p.dni }} · {{ p.departure }}{{ p.luggage ? ' · 🧳' : '' }}
                 </div>
 
                 <!-- Controls row: qty stepper + unit price + price-type -->
@@ -1165,11 +1165,32 @@
         </select>
         <div v-if="!passengerDepartures.length" style="font-size: 12px; color: #b45309; margin-top: 4px;">{{ tf('Transport_No_Departures', 'No scheduled departure for this route') }}</div>
       </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+          <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Document', 'Identity document') }} *</label>
+          <select v-model="passengerForm.doc_type" @change="passengerDniInput"
+                  style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 13px; background: #fff; color: #1f1f2c;">
+            <option value="dni">{{ tf('Transport_Doc_DNI', 'DNI') }}</option>
+            <option value="ce">{{ tf('Transport_Doc_CE', "Foreigner's card") }}</option>
+            <option value="passport">{{ tf('Transport_Doc_Passport', 'Passport') }}</option>
+            <option value="ptp">{{ tf('Transport_Doc_PTP', 'PTP / CPP') }}</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Document_Number', 'Document number') }} *</label>
+          <input ref="paxDni" v-model="passengerForm.dni" type="text" :inputmode="passengerForm.doc_type === 'dni' ? 'numeric' : 'text'"
+                 :maxlength="passengerForm.doc_type === 'dni' ? 8 : 15" :placeholder="passengerForm.doc_type === 'dni' ? '12345678' : ''"
+                 @input="passengerDniInput" @keyup.enter="passengerSave"
+                 style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 14px; letter-spacing: 1px;" />
+        </div>
+      </div>
       <div>
-        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_DNI', 'DNI') }} *</label>
-        <input ref="paxDni" v-model="passengerForm.dni" type="text" inputmode="numeric" maxlength="8" placeholder="12345678"
-               @input="passengerDniInput" @keyup.enter="passengerSave"
-               style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 14px; letter-spacing: 1px;" />
+        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Passenger_Type', 'Passenger') }}</label>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <b-button v-for="pt in [['adult', 'Transport_Adult', 'Adult'], ['minor', 'Transport_Minor', 'Minor (under 16)'], ['infant', 'Transport_Infant', 'Infant']]"
+                    :key="'pt-' + pt[0]" :variant="passengerForm.passenger_type === pt[0] ? 'primary' : 'outline-secondary'"
+                    @click="passengerForm.passenger_type = pt[0]">{{ tf(pt[1], pt[2]) }}</b-button>
+        </div>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div>
@@ -4101,7 +4122,7 @@ export default {
     return {
       // Transport tickets (2026-11-03): product id => route; the passenger window.
       ticketProducts: {},
-      passengerForm: { dni: '', first_name: '', last_name: '', luggage: false, label: '', trip_id: null },
+      passengerForm: { doc_type: 'dni', dni: '', first_name: '', last_name: '', luggage: false, passenger_type: 'adult', label: '', trip_id: null },
       passengerDepartures: [],
       passengerDone: null,
       // ===== Mobile UI state (drives the phone layout) =====
@@ -4480,7 +4501,8 @@ export default {
     // Transport ticket passenger window: departure, 8-digit DNI and both names.
     passengerValid() {
       const f = this.passengerForm;
-      return !!f.trip_id && /^\d{8}$/.test(f.dni || '') && !!(f.first_name || '').trim() && !!(f.last_name || '').trim();
+      const docOk = { dni: /^\d{8}$/, ce: /^[A-Z0-9]{6,12}$/, passport: /^[A-Z0-9]{5,15}$/, ptp: /^[A-Z0-9]{6,15}$/ }[f.doc_type] || /^\d{8}$/;
+      return !!f.trip_id && docOk.test(f.dni || '') && !!(f.first_name || '').trim() && !!(f.last_name || '').trim();
     },
     // currentUser / currentUserPermissions / show_language come from posCompatMixin.
 
@@ -7168,7 +7190,7 @@ export default {
     // Opens the passenger window for a ticket product; done(passenger) runs on Add.
     askPassenger(productId, done) {
       const info = this.ticketProducts[productId];
-      this.passengerForm = { dni: '', first_name: '', last_name: '', luggage: false, label: info.label, trip_id: null };
+      this.passengerForm = { doc_type: 'dni', dni: '', first_name: '', last_name: '', luggage: false, passenger_type: 'adult', label: info.label, trip_id: null };
       this.passengerDepartures = [];
       this.passengerDone = done;
       axios.get('transport/departures', { params: { route_id: info.route_id } }).then(r => {
@@ -7178,13 +7200,17 @@ export default {
       this.$bvModal.show('pos_passenger_modal');
     },
     passengerDniInput() {
-      this.passengerForm.dni = String(this.passengerForm.dni || '').replace(/\D/g, '').slice(0, 8);
-      if (this.passengerForm.dni.length !== 8) return;
-      axios.get('transport/passenger', { params: { dni: this.passengerForm.dni } }).then(r => {
+      const f = this.passengerForm;
+      f.dni = f.doc_type === 'dni'
+        ? String(f.dni || '').replace(/\D/g, '').slice(0, 8)
+        : String(f.dni || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+      if (f.dni.length < (f.doc_type === 'dni' ? 8 : 5)) return;
+      axios.get('transport/passenger', { params: { doc_type: f.doc_type, dni: f.dni } }).then(r => {
         const p = r.data && r.data.passenger;
-        if (p && !this.passengerForm.first_name && !this.passengerForm.last_name) {
-          this.passengerForm.first_name = p.first_name;
-          this.passengerForm.last_name = p.last_name;
+        if (p && !f.first_name && !f.last_name) {
+          f.first_name = p.first_name;
+          f.last_name = p.last_name;
+          if (p.passenger_type) f.passenger_type = p.passenger_type;
         }
       }).catch(() => {});
     },
@@ -7192,8 +7218,8 @@ export default {
       if (!this.passengerValid) return;
       const f = this.passengerForm;
       const dep = this.passengerDepartures.find(t => t.id === f.trip_id);
-      const p = { trip_id: f.trip_id, departure: dep ? this.departureLabel(dep).split(' · ')[0] : '', dni: f.dni,
-        first_name: f.first_name.trim(), last_name: f.last_name.trim(), luggage: !!f.luggage };
+      const p = { trip_id: f.trip_id, departure: dep ? this.departureLabel(dep).split(' · ')[0] : '', doc_type: f.doc_type, dni: f.dni,
+        first_name: f.first_name.trim(), last_name: f.last_name.trim(), luggage: !!f.luggage, passenger_type: f.passenger_type };
       const done = this.passengerDone;
       this.passengerDone = null;
       this.$bvModal.hide('pos_passenger_modal');

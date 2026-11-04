@@ -382,9 +382,10 @@ class TransportController extends Controller
     public function passenger(Request $request)
     {
         abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
-        $dni = preg_replace('/\D/', '', (string) $request->query('dni'));
-        $p = strlen($dni) === 8 ? DB::table('transport_tickets')->where('company_id', (int) $this->resolveActingCompanyId($request))
-            ->where('dni', $dni)->orderByDesc('id')->first(['first_name', 'last_name']) : null;
+        $type = isset(\App\Support\TransportTickets::DOCS[$request->query('doc_type')]) ? $request->query('doc_type') : 'dni';
+        $dni = \App\Support\TransportTickets::docNumber($type, (string) $request->query('dni'));
+        $p = preg_match(\App\Support\TransportTickets::DOCS[$type], $dni) ? DB::table('transport_tickets')->where('company_id', (int) $this->resolveActingCompanyId($request))
+            ->where('doc_type', $type)->where('dni', $dni)->orderByDesc('id')->first(['first_name', 'last_name', 'passenger_type']) : null;
 
         return response()->json(['passenger' => $p]);
     }

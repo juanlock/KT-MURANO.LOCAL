@@ -14,6 +14,17 @@ use Illuminate\Validation\ValidationException;
  */
 class TransportTickets
 {
+    /** Identity documents: type => the number's pattern. */
+    public const DOCS = ['dni' => '/^\d{8}$/', 'ce' => '/^[A-Z0-9]{6,12}$/', 'passport' => '/^[A-Z0-9]{5,15}$/', 'ptp' => '/^[A-Z0-9]{6,15}$/'];
+
+    public const PASSENGER_TYPES = ['adult', 'minor', 'infant'];
+
+    /** The document number as stored: digits only for a DNI, uppercase letters / digits otherwise. */
+    public static function docNumber(string $type, string $number): string
+    {
+        return $type === 'dni' ? preg_replace('/\D/', '', $number) : strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $number));
+    }
+
     /** product id => [route_id, label] of the company's ticket products. */
     public static function products(int $companyId): array
     {
@@ -62,11 +73,13 @@ class TransportTickets
                 throw ValidationException::withMessages(['details' => 'Each ticket needs its passenger (DNI, names, luggage).']);
             }
             foreach ($passengers as $p) {
-                $dni = preg_replace('/\D/', '', (string) ($p['dni'] ?? ''));
+                $docType = isset(self::DOCS[$p['doc_type'] ?? '']) ? $p['doc_type'] : 'dni';
+                $dni = self::docNumber($docType, (string) ($p['dni'] ?? ''));
                 $first = trim(strip_tags((string) ($p['first_name'] ?? '')));
                 $last = trim(strip_tags((string) ($p['last_name'] ?? '')));
-                if (strlen($dni) !== 8 || $first === '' || $last === '') {
-                    throw ValidationException::withMessages(['details' => 'Passenger: DNI of 8 digits, first names and last names are required.']);
+                $type = in_array($p['passenger_type'] ?? '', self::PASSENGER_TYPES, true) ? $p['passenger_type'] : 'adult';
+                if (! preg_match(self::DOCS[$docType], $dni) || $first === '' || $last === '') {
+                    throw ValidationException::withMessages(['details' => 'Passenger: a valid document number (DNI = 8 digits), first names and last names are required.']);
                 }
                 // The departure: a scheduled trip of this ticket's route, not gone yet.
                 $tripId = (int) ($p['trip_id'] ?? 0);
@@ -79,7 +92,7 @@ class TransportTickets
                 $rows[] = [
                     'company_id' => $sale->company_id, 'sale_id' => $sale->id, 'product_id' => $pid,
                     'route_id' => $tickets[$pid]['route_id'], 'trip_id' => $tripId, 'warehouse_id' => $sale->warehouse_id,
-                    'dni' => $dni, 'first_name' => mb_substr($first, 0, 100), 'last_name' => mb_substr($last, 0, 100),
+                    'doc_type' => $docType, 'passenger_type' => $type, 'dni' => $dni, 'first_name' => mb_substr($first, 0, 100), 'last_name' => mb_substr($last, 0, 100),
                     'luggage' => ! empty($p['luggage']), 'created_at' => now(), 'updated_at' => now(),
                 ];
             }
