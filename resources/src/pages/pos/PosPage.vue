@@ -36,14 +36,14 @@
 
       <!-- Exit POS: back to the system. With an open register it first shows
            the close-out (expected cash, sales, payments) -> close + email admins. -->
-      <button type="button" class="pos-exit-btn" :title="'Exit POS'" @click="openExitPos('exit')">
+      <button type="button" class="pos-exit-btn" :title="esL('Exit POS', 'Salir del POS')" @click="openExitPos('exit')">
         <lucide-icon name="log-out" style="font-size: 17px; transform: scaleX(-1);" />
-        <span>Exit POS</span>
+        <span>{{ esL('Exit POS', 'Salir del POS') }}</span>
       </button>
       <!-- Exit system: sign out (with an open register: close it first, or keep it open). -->
-      <button type="button" class="pos-exit-btn" :title="'Exit system'" @click="openExitPos('logout')">
+      <button type="button" class="pos-exit-btn" :title="esL('Exit system', 'Salir del sistema')" @click="openExitPos('logout')">
         <lucide-icon name="power" style="font-size: 17px;" />
-        <span>Exit system</span>
+        <span>{{ esL('Exit system', 'Salir del sistema') }}</span>
       </button>
 
       <!-- Brand block (28x28 logo only on mobile; register info follows as a sibling) -->
@@ -3212,12 +3212,12 @@
       <div class="pos-exit-card">
         <div class="pos-exit-head">
           <div>
-            <div class="pos-exit-title">{{ exitModal.mode === 'logout' ? 'Exit system' : (exitModal.mode === 'exit' ? 'Exit POS' : 'Close register') }}</div>
+            <div class="pos-exit-title">{{ exitModal.mode === 'logout' ? esL('Exit system', 'Salir del sistema') : (exitModal.mode === 'exit' ? esL('Exit POS', 'Salir del POS') : esL('Close register', 'Cerrar caja')) }}</div>
             <div class="pos-exit-sub" v-if="exitModal.summary">
-              Register #{{ exitModal.summary.register_id }} · {{ exitModal.summary.cashier }} · {{ exitModal.summary.warehouse }}
+              {{ esL('Register', 'Caja') }} #{{ exitModal.summary.register_id }} · {{ exitModal.summary.cashier }} · {{ exitModal.summary.warehouse }}
             </div>
-            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'exit'">No register is open. Leave the POS and go back to the system?</div>
-            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'logout'">No register is open. Sign out of the system?</div>
+            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'exit'">{{ esL('No register is open. Leave the POS and go back to the system?', 'No hay caja abierta. ¿Salir del POS y volver al sistema?') }}</div>
+            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'logout'">{{ esL('No register is open. Sign out of the system?', 'No hay caja abierta. ¿Cerrar sesión en el sistema?') }}</div>
           </div>
           <button type="button" class="pos-exit-x" :disabled="exitModal.busy" @click="exitModal.open = false"><lucide-icon name="x" /></button>
         </div>
@@ -3226,42 +3226,42 @@
 
         <template v-else-if="exitModal.summary">
           <div class="pos-exit-expected">
-            <div class="pos-exit-expected__label">Cash that should be in the register</div>
+            <div class="pos-exit-expected__label">{{ esL('Cash that should be in the register', 'Efectivo que debería haber en caja') }}</div>
             <div class="pos-exit-expected__value">{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.expected_cash, 2) }}</div>
             <div class="pos-exit-expected__hint">
-              Opening {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.opening_balance, 2) }}
-              + cash sales {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_sales, 2) }}
+              {{ esL('Opening', 'Apertura') }} {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.opening_balance, 2) }}
+              + {{ esL('cash sales', 'ventas en efectivo') }} {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_sales, 2) }}
               <span v-if="exitModal.summary.cash_in || exitModal.summary.cash_out">
-                + in {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_in, 2) }}
-                − out {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_out, 2) }}
+                + {{ esL('in', 'ingresos') }} {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_in, 2) }}
+                − {{ esL('out', 'egresos') }} {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_out, 2) }}
               </span>
             </div>
           </div>
 
           <div class="pos-exit-grid">
-            <div><span>Opened</span><strong>{{ fmtRegisterTime(exitModal.summary.opened_at) }}</strong></div>
-            <div><span>Time open</span><strong>{{ registerDuration(exitModal.summary.opened_at, exitModal.summary.until) }}</strong></div>
-            <div><span>Sales</span><strong>{{ exitModal.summary.sales_count }} · {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.total_sales, 2) }}</strong></div>
-            <div><span>Services</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.services_total, 2) }} ({{ Number(exitModal.summary.services_qty) }})</strong></div>
-            <div><span>Products</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.products_total, 2) }} ({{ Number(exitModal.summary.products_qty) }})</strong></div>
+            <div><span>{{ esL('Opened', 'Abierta') }}</span><strong>{{ fmtRegisterTime(exitModal.summary.opened_at) }}</strong></div>
+            <div><span>{{ esL('Time open', 'Tiempo abierta') }}</span><strong>{{ registerDuration(exitModal.summary.opened_at, exitModal.summary.until) }}</strong></div>
+            <div><span>{{ esL('Sales', 'Ventas') }}</span><strong>{{ exitModal.summary.sales_count }} · {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.total_sales, 2) }}</strong></div>
+            <div><span>{{ esL('Services', 'Servicios') }}</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.services_total, 2) }} ({{ Number(exitModal.summary.services_qty) }})</strong></div>
+            <div><span>{{ esL('Products', 'Productos') }}</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.products_total, 2) }} ({{ Number(exitModal.summary.products_qty) }})</strong></div>
             <div v-for="p in exitModal.summary.payments" :key="p.method"><span>{{ p.method }} ({{ p.count }})</span><strong>{{ formatPriceWithSymbol(currentUser.currency, p.amount, 2) }}</strong></div>
           </div>
           <!-- Sales per user: includes sales other users confirmed with their PIN. -->
           <div v-if="(exitModal.summary.by_user || []).length" class="pos-exit-grid" style="margin-top: 8px">
             <div v-for="u in exitModal.summary.by_user" :key="u.user_id">
-              <span>{{ u.name }} · {{ u.count }} {{ u.count === 1 ? 'sale' : 'sales' }}</span>
+              <span>{{ u.name }} · {{ u.count }} {{ u.count === 1 ? esL('sale', 'venta') : esL('sales', 'ventas') }}</span>
               <strong>{{ formatPriceWithSymbol(currentUser.currency, u.total, 2) }}</strong>
             </div>
           </div>
 
           <div class="pos-exit-fields">
-            <label>Counted cash
+            <label>{{ esL('Counted cash', 'Efectivo contado') }}
               <input type="number" min="0" step="0.01" class="form-control" v-model.number="exitModal.counted_cash" />
             </label>
             <div class="pos-exit-diff" :class="{ 'is-off': Math.abs(exitDifference) >= 0.005 }">
-              Difference: {{ formatPriceWithSymbol(currentUser.currency, exitDifference, 2) }}
+              {{ esL('Difference', 'Diferencia') }}: {{ formatPriceWithSymbol(currentUser.currency, exitDifference, 2) }}
             </div>
-            <label>Notes
+            <label>{{ esL('Notes', 'Notas') }}
               <textarea class="form-control" rows="2" v-model="exitModal.notes"></textarea>
             </label>
           </div>
@@ -3269,12 +3269,12 @@
 
         <div class="pos-exit-actions">
           <button type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="exitModal.open = false">{{ $t('Cancel') }}</button>
-          <button v-if="exitModal.mode === 'exit' && exitModal.summary" type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="leavePos">Exit, keep register open</button>
+          <button v-if="exitModal.mode === 'exit' && exitModal.summary" type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="leavePos">{{ esL('Exit, keep register open', 'Salir, dejar la caja abierta') }}</button>
           <button v-if="exitModal.summary" type="button" class="pos-exit-action pos-exit-action--danger" :disabled="exitModal.busy" @click="confirmCloseRegister()">
-            {{ exitModal.busy ? 'Closing…' : (exitModal.mode === 'logout' ? 'Close register & sign out' : (exitModal.mode === 'exit' ? 'Close register & exit' : 'Close register')) }}
+            {{ exitModal.busy ? esL('Closing…', 'Cerrando…') : (exitModal.mode === 'logout' ? esL('Close register & sign out', 'Cerrar caja y salir del sistema') : (exitModal.mode === 'exit' ? esL('Close register & exit', 'Cerrar caja y salir') : esL('Close register', 'Cerrar caja'))) }}
           </button>
-          <button v-else-if="!exitModal.loading && exitModal.mode === 'exit'" type="button" class="pos-exit-action pos-exit-action--danger" @click="leavePos">Exit POS</button>
-          <button v-else-if="!exitModal.loading && exitModal.mode === 'logout'" type="button" class="pos-exit-action pos-exit-action--danger" @click="logout">Sign out</button>
+          <button v-else-if="!exitModal.loading && exitModal.mode === 'exit'" type="button" class="pos-exit-action pos-exit-action--danger" @click="leavePos">{{ esL('Exit POS', 'Salir del POS') }}</button>
+          <button v-else-if="!exitModal.loading && exitModal.mode === 'logout'" type="button" class="pos-exit-action pos-exit-action--danger" @click="logout">{{ esL('Sign out', 'Cerrar sesión') }}</button>
         </div>
       </div>
     </div>
@@ -7175,6 +7175,12 @@ export default {
       setTimeout(() => {
         this.load_product = true;
       }, 300);
+    },
+
+    // English / Spanish by the app's language (texts that had no translation key).
+    esL(en, es) {
+      const loc = String((this.$i18n && this.$i18n.locale) || '');
+      return loc.startsWith('es') ? es : en;
     },
 
     // ---- Transport tickets (2026-11-03): one passenger and departure per ticket ----
