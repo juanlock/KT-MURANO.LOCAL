@@ -85,6 +85,9 @@ backup also tidies `KT-TOOLS/database/` (a stray backup goes to its PC's folder 
 and leaves a **copy of the latest backup in its root**
 (`dbmurano_<date>_<PC>_<time>_<tag>...zip`, only the latest one;
 `protocol_backup_tidy.php`; user's rule, 2026-10-19).
+**KT-TOOLS outside git goes through Google Drive (user's rule, 2026-11-04):** photos and material for a company
+(e.g. `KT-TOOLS/turismo`) don't depend on one PC: `database/scripts/protocol_tools_sync.php` syncs them both ways with
+`<archive>\..\KT-TOOLS` (newest wins, nothing deleted; backups, Temp and `.env` left out). Wake-up, Pa Llevar and A Dormir run it.
 **No HTML reports from the protocols (user's rule, 2026-10-19, to save
 resources):** Wake-up and Pa Llevar report in the chat only. `KT-TOOLS/Report/`
 keeps the reports already made (never deleted); a report file is written only

@@ -41,6 +41,8 @@
 /KT-TOOLS/VERSION/
 /KT-TOOLS/prod/
 /KT-TOOLS/sources/
+# Photos and material for a company: they travel through Google Drive (protocol_tools_sync.php).
+/KT-TOOLS/turismo/
 /KT-TOOLS/app.zip
 /KT-TOOLS/invoicesKT.csv
 /KT-TOOLS/Sale-POS-InvoiceNumber_DateTime.pdf

@@ -18,6 +18,8 @@ Needs on this PC (per machine, git-ignored -- never ask for passwords, never pri
    - Report what came in: `git log --oneline <old>..HEAD`, `git diff --stat <old> HEAD` (or "already up to date").
    - `composer.lock` changed -> `composer install`. `package-lock.json` changed, or no `node_modules/vite/bin/vite.js` -> `npm ci` (EPERM on a `.node` file = a stale `vite build --watch` / `npm run dev` holds it: say which node process, stop it, retry).
 
+1b. **KT-TOOLS from Google Drive** -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): what the other PCs keep in KT-TOOLS outside git (photos and material for a company) comes down; this PC's goes up. Newest wins, nothing is deleted. Report the counts; without Drive it says so and goes on.
+
 2. **Copy production to this PC** -- `php artisan murano:from-prod` (`app/Console/Commands/MuranoFromProd.php`, ~1 minute; long timeout):
    - this PC's `kt_logs` rows production lacks go up first (insert-only, matched by location + summary);
    - `mysqldump | gzip` on the server, downloaded over SFTP (fallback: remote MySQL, ~7 min); if the dump fails the local database is untouched;
