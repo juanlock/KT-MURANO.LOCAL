@@ -606,11 +606,13 @@ class FormsController extends Controller
             DB::table('form_submissions')->where('id', $s->id)->update(['is_read' => true]);
             $s->is_read = 1;
         }
-        $prefix = FormSchema::settings(json_decode((string) $f->settings, true))['number_prefix'];
+        $set = FormSchema::settings(json_decode((string) $f->settings, true));
+        $prefix = $set['number_prefix'];
+        $fields = json_decode((string) $f->fields, true) ?: [];
 
         return response()->json([
-            'submission' => $this->submissionOut($s, $prefix),
-            'fields' => FormSchema::inputs(json_decode((string) $f->fields, true) ?: []),
+            'submission' => $this->submissionOut($s, $prefix) + ['reply_to' => \App\Services\FormNotifier::senderEmail($fields, $set, $s)],
+            'fields' => FormSchema::inputs($fields),
             'form' => $this->out($f),
         ]);
     }
@@ -670,6 +672,34 @@ class FormsController extends Controller
         $sent = \App\Services\FormNotifier::resend($f, json_decode((string) $f->fields, true) ?: [], $set, $s, $v['to'], trim(strip_tags((string) ($v['message'] ?? ''))));
 
         return response()->json(['sent' => $sent], $sent ? 200 : 422);
+    }
+
+    /**
+     * POST forms/submissions/{id}/reply {subject, message}: an email to the person who sent
+     * it (2026-11-03). The submission is marked attended and the reply goes to its note.
+     */
+    public function replySubmission(Request $request, int $id)
+    {
+        $this->can($request, 'forms_view');
+        [$s, $f] = $this->submission($request, $id);
+        $v = $request->validate(['subject' => 'required|string|max:190', 'message' => 'required|string|max:10000']);
+        $set = FormSchema::settings(json_decode((string) $f->settings, true));
+        $fields = json_decode((string) $f->fields, true) ?: [];
+        $user = $request->user('api');
+        $message = trim(strip_tags($v['message']));
+        $sent = \App\Services\FormNotifier::reply($f, $fields, $set, $s, trim(strip_tags($v['subject'])), $message,
+            filter_var($user->email ?? '', FILTER_VALIDATE_EMAIL) ? $user->email : null);
+        if (! $sent) {
+            return response()->json(['message' => 'No email could be sent: the submission has no valid sender email, or the mail server failed.'], 422);
+        }
+        $es = $set['language'] === 'es';
+        $line = ($es ? 'Respondido por correo' : 'Replied by email').' '.now()->format('Y-m-d H:i').' ('.trim(($user->firstname ?? '').' '.($user->lastname ?? '')).'): '.mb_substr($message, 0, 300);
+        DB::table('form_submissions')->where('id', $s->id)->update([
+            'attended_at' => $s->attended_at ?: now(), 'attended_by' => $s->attended_by ?: $user->id,
+            'attended_note' => trim(($s->attended_note ? $s->attended_note."\n" : '').$line), 'is_read' => 1, 'updated_at' => now(),
+        ]);
+
+        return response()->json(['sent' => $sent]);
     }
 
     public function destroySubmission(Request $request, int $id)

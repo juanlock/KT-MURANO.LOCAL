@@ -112,6 +112,50 @@ class FormNotifier
         return self::send($cid, $to, [], $s['from_name'] ?: $company, $subject, $html, $text, null, (int) $form->id);
     }
 
+    /** The submitter's email: the form's reply-to field, else its first email field with a valid value. */
+    public static function senderEmail(array $fields, array $s, object $sub): ?string
+    {
+        $data = json_decode((string) $sub->data, true) ?: [];
+        $keys = array_merge($s['reply_to_field'] ? [$s['reply_to_field']] : [],
+            array_column(array_filter(FormSchema::inputs($fields), fn ($f) => $f['type'] === 'email'), 'key'));
+        foreach ($keys as $k) {
+            $e = trim((string) ($data[$k] ?? ''));
+            if (filter_var($e, FILTER_VALIDATE_EMAIL) && ! self::reserved($e)) {
+                return $e;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Submissions -> "Reply" (2026-11-03): staff write to the person who sent the form,
+     * from the company's mail server; their message is quoted below. Reply-To = the
+     * user who answers. @return array<string> sent to
+     */
+    public static function reply(object $form, array $fields, array $s, object $sub, string $subject, string $message, ?string $replyTo): array
+    {
+        $to = self::senderEmail($fields, $s, $sub);
+        if (! $to) {
+            return [];
+        }
+        $cid = (int) $form->company_id;
+        $company = trim((string) DB::table('companies')->where('id', $cid)->value('name')) ?: 'Forms';
+        $es = $s['language'] === 'es';
+        $rows = self::rows($fields, $sub);
+        $quote = '<div style="margin-top:20px;padding-top:10px;border-top:1px solid #ddd;color:#666;font-size:13px">'
+            .e(($es ? 'Su mensaje del ' : 'Your message of ').$sub->created_at).':'
+            .'<table style="border-collapse:collapse;margin:8px 0">'
+            .collect($rows)->map(fn ($v, $k) => '<tr><td style="padding:2px 12px 2px 0;vertical-align:top">'.e($k).'</td><td style="padding:2px 0">'.nl2br(e($v)).'</td></tr>')->implode('')
+            .'</table></div>';
+        $html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#222;max-width:600px"><p>'.nl2br(e($message)).'</p>'
+            .$quote.'<p style="color:#888;font-size:12px;margin-top:24px">'.e($company).'</p></div>';
+        $text = $message."\n\n-- ".($es ? 'Su mensaje del ' : 'Your message of ').$sub->created_at.":\n"
+            .collect($rows)->map(fn ($v, $k) => "{$k}: {$v}")->implode("\n")."\n\n--\n{$company}";
+
+        return self::send($cid, [$to], [], $s['from_name'] ?: $company, $subject, $html, $text, $replyTo, (int) $form->id);
+    }
+
     public static function submitted(object $form, array $fields, array $s, object $sub): array
     {
         $cid = (int) $form->company_id;

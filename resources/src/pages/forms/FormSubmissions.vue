@@ -27,7 +27,7 @@
           <template v-if="column.key === 'ref'"><b>{{ record.ref }}</b></template>
           <template v-else-if="column.key === 'date'">{{ fmt(record.created_at) }}</template>
           <template v-else-if="column.key === 'attended'"><a-tag v-if="record.attended_at" color="green">{{ es ? 'Sí' : 'Yes' }}</a-tag></template>
-          <template v-else-if="column.key.startsWith('f:')">{{ short(record.data[column.key.slice(2)]) }}</template>
+          <template v-else-if="column.key.startsWith('f:')">{{ cell(record.data[column.key.slice(2)]) }}</template>
         </template>
       </a-table>
     </a-card>
@@ -48,7 +48,7 @@
         </div>
         <a-alert v-if="openSub.attended_note" type="success" :message="openSub.attended_note" style="margin-bottom: 12px; white-space: pre-wrap" />
         <a-descriptions :column="descColumns" bordered size="small">
-          <a-descriptions-item v-for="f in fields" :key="f.key" :label="f.label || f.key">
+          <a-descriptions-item v-for="f in viewFields" :key="f.key" :label="f.label || f.key">
             <template v-if="f.type === 'file' && isFile(openSub.data[f.key])">
               <a @click="downloadFile(openSub, f.key)"><PaperClipOutlined /> {{ openSub.data[f.key].name }}</a>
             </template>
@@ -62,6 +62,9 @@
         <a-space wrap style="margin-top: 16px">
           <a-button v-if="!openSub.attended_at" type="primary" @click="attendOpen = true"><CheckOutlined /> {{ es ? 'Marcar atendido' : 'Mark attended' }}</a-button>
           <a-button v-else @click="setAttended(false)">{{ es ? 'Quitar atendido' : 'Not attended' }}</a-button>
+          <a-tooltip :title="openSub.reply_to ? openSub.reply_to : (es ? 'El envío no tiene un correo válido' : 'The submission has no valid email')">
+            <a-button :disabled="!openSub.reply_to" @click="openReply"><SendOutlined /> {{ es ? 'Responder' : 'Reply' }}</a-button>
+          </a-tooltip>
           <a-button @click="printSub"><PrinterOutlined /> {{ es ? 'Imprimir' : 'Print' }}</a-button>
           <a-button :loading="pdfBusy" @click="pdfSub"><FilePdfOutlined /> PDF</a-button>
           <a-button @click="sendOpen = true"><MailOutlined /> {{ es ? 'Enviar por correo' : 'Send by email' }}</a-button>
@@ -73,6 +76,19 @@
 
     <a-modal v-model:open="attendOpen" :title="es ? 'Marcar atendido' : 'Mark attended'" :ok-text="es ? 'Guardar' : 'Save'" :confirm-loading="attendBusy" @ok="setAttended(true)">
       <a-textarea v-model:value="attendNote" :auto-size="{ minRows: 3, maxRows: 8 }" :placeholder="es ? 'Nota: qué se hizo (opcional)' : 'Note: what was done (optional)'" />
+    </a-modal>
+
+    <!-- Reply (2026-11-03): an email to the person who sent the form; marks it attended. -->
+    <a-modal v-model:open="replyOpen" :title="es ? 'Responder al remitente' : 'Reply to the sender'" :ok-text="es ? 'Enviar' : 'Send'"
+             :confirm-loading="replyBusy" :width="620" @ok="sendReply">
+      <a-form layout="vertical">
+        <a-form-item :label="es ? 'Para' : 'To'"><a-input :value="openSub && openSub.reply_to" disabled /></a-form-item>
+        <a-form-item :label="es ? 'Asunto' : 'Subject'" required><a-input v-model:value="replySubject" :maxlength="190" /></a-form-item>
+        <a-form-item :label="es ? 'Mensaje' : 'Message'" required>
+          <a-textarea v-model:value="replyMsg" :auto-size="{ minRows: 6, maxRows: 14 }" :maxlength="10000" />
+        </a-form-item>
+        <div style="font-size: 12px; color: #888">{{ es ? 'Su mensaje original va citado debajo. El envío queda marcado como atendido.' : 'Their original message is quoted below. The submission is marked attended.' }}</div>
+      </a-form>
     </a-modal>
 
     <a-modal v-model:open="sendOpen" :title="es ? 'Enviar el envío por correo' : 'Send the submission by email'" :ok-text="es ? 'Enviar' : 'Send'" :confirm-loading="sendBusy" @ok="resend">
@@ -94,7 +110,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { message, Modal } from 'ant-design-vue';
 import {
   EditOutlined, DownloadOutlined, DeleteOutlined, PaperClipOutlined, ExclamationCircleOutlined,
-  LeftOutlined, RightOutlined, CheckOutlined, PrinterOutlined, FilePdfOutlined, MailOutlined,
+  LeftOutlined, RightOutlined, CheckOutlined, PrinterOutlined, FilePdfOutlined, MailOutlined, SendOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
@@ -134,14 +150,42 @@ const shortUrl = u => u.replace(/^https?:\/\//, '').slice(0, 60);
 const modalWidth = computed(() => (window.innerWidth < 700 ? '100%' : Math.min(1000, window.innerWidth - 80)));
 const descColumns = computed(() => (window.innerWidth < 900 ? 1 : 2));
 
-// The first columns of the form (no files / hidden), then the date.
-const columns = computed(() => [
-  { title: '#', key: 'ref', width: 90, fixed: 'left' },
-  { title: es.value ? 'Fecha' : 'Date', key: 'date', width: 150 },
-  { title: es.value ? 'Atendido' : 'Attended', key: 'attended', width: 100 },
-  ...fields.value.filter(f => !['file', 'hidden', 'textarea'].includes(f.type)).slice(0, 5)
-    .map(f => ({ title: (f.label || f.key).replace(/:$/, ''), key: 'f:' + f.key, ellipsis: true })),
-]);
+// The first columns of the form (no files / hidden), then the date; plus (2026-11-03)
+// the agency, the destination and the email fields wherever they are in the form.
+const isExtraCol = f => f.type === 'email' || /agenc|destin/i.test(`${f.key} ${f.label}`);
+const columns = computed(() => {
+  const plain = fields.value.filter(f => !['file', 'hidden', 'textarea'].includes(f.type));
+  const first = plain.slice(0, 5);
+  const extra = plain.filter(f => isExtraCol(f) && !first.includes(f))
+    .sort((a, b) => (a.type === 'email') - (b.type === 'email'));
+  return [
+    { title: '#', key: 'ref', width: 90, fixed: 'left' },
+    { title: es.value ? 'Fecha' : 'Date', key: 'date', width: 150 },
+    { title: es.value ? 'Atendido' : 'Attended', key: 'attended', width: 100 },
+    ...[...first, ...extra].map(f => ({ title: (f.label || f.key).replace(/:$/, '').replace(/^Seleccione\s+/i, ''), key: 'f:' + f.key, ellipsis: true })),
+  ];
+});
+// Long document types shortened in the list (2026-11-03).
+const DOC_SHORT = { 'documento nacional de identidad': 'DNI', 'documento de identidad': 'DNI', 'carnet de extranjeria': 'CE', 'carnet de extranjería': 'CE', 'registro unico de contribuyente': 'RUC', 'registro único de contribuyente': 'RUC' };
+const cell = v => { const t = short(v); return DOC_SHORT[t.trim().toLowerCase()] || t; };
+
+// The window shows the person's data first, then the receipt, the complaint and the
+// trip (2026-11-03, the complaints book); fields that fit no group keep their place last.
+const FIELD_GROUPS = [
+  /comprobante|serie|monto|amount|producto|product/i,
+  /nombre|apellido|name|doc|identidad|n[uú]mero|domicilio|direcci|address|tel[eé]fono|celular|phone|correo|e-?mail|padre|madre/i,
+  /tipo|queja|reclamo|detalle|pedido|mensaje|message|opci[oó]n|fecha|date/i,
+  /agenc|origen|destin/i,
+];
+const GROUP_ORDER = [1, 0, 2, 3];   // person, receipt, complaint, trip
+const viewFields = computed(() => {
+  const rank = f => {
+    const t = `${f.label || ''} ${f.key}`;
+    const g = FIELD_GROUPS.findIndex(re => re.test(t));
+    return g < 0 ? 99 : GROUP_ORDER.indexOf(g);
+  };
+  return fields.value.map((f, i) => ({ f, i, r: rank(f) })).sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.f);
+});
 
 function params(extra = {}) {
   return {
@@ -259,6 +303,32 @@ async function printSub() {
 }
 
 // Send by email
+// Reply to the sender (2026-11-03)
+const replyOpen = ref(false);
+const replyBusy = ref(false);
+const replySubject = ref('');
+const replyMsg = ref('');
+function openReply() {
+  replySubject.value = 'Re: ' + formName.value + ' - ' + openSub.value.ref;
+  replyMsg.value = '';
+  replyOpen.value = true;
+}
+async function sendReply() {
+  if (!replySubject.value.trim() || !replyMsg.value.trim()) return message.warning(es.value ? 'Escribe el asunto y el mensaje.' : 'Write the subject and the message.');
+  replyBusy.value = true;
+  try {
+    await http.post(`forms/submissions/${openSub.value.id}/reply`, { subject: replySubject.value, message: replyMsg.value });
+    message.success(es.value ? 'Respuesta enviada a ' + openSub.value.reply_to : 'Reply sent to ' + openSub.value.reply_to);
+    replyOpen.value = false;
+    const res = await http.get(`forms/submissions/${openSub.value.id}`);
+    keepRow(res.submission);
+  } catch (e) {
+    message.error(e?.data?.message || (es.value ? 'No se pudo enviar.' : 'Could not send it.'));
+  } finally {
+    replyBusy.value = false;
+  }
+}
+
 const sendOpen = ref(false);
 const sendBusy = ref(false);
 const sendTo = ref([]);
