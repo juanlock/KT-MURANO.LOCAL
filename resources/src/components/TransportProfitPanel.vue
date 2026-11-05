@@ -2,9 +2,6 @@
   <!-- Was each route worth it? (2026-11-04): income minus costs by route and, opening a route,
        by trip. A trip still to leave is "pending", not a loss, and stays out of the totals. -->
   <a-card v-if="data.enabled" class="pp" :bordered="false">
-    <template #title>
-      <span class="pp-title"><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</span>
-    </template>
     <a-spin :spinning="loading">
       <a-alert v-if="missingLines.length" type="warning" show-icon class="pp-alert" :message="es ? 'Faltan datos: estas cifras no están completas' : 'Data is missing: these figures are incomplete'">
         <template #description><div v-for="m in missingLines" :key="m">{{ m }}</div></template>
@@ -85,7 +82,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
-import { LineChartOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { useFormat } from '../composables/useFormat';
 import { useUiStore } from '../stores/ui';
@@ -158,7 +154,6 @@ const tripColumns = computed(() => [
 
 <style scoped>
 .pp { margin-bottom: 16px; }
-.pp-title { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
 .pp-alert { margin-bottom: 14px; }
 .pp-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .pp-card { padding: 12px 14px; border: 1px solid #eef0f3; border-radius: 10px; background: #fff; min-width: 0; }

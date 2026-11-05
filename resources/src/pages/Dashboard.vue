@@ -81,9 +81,18 @@
         :tab-bar-style="transportTabs.length < 2 ? { display: 'none' } : undefined"
         :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? 0)) }"
       >
-        <a-tab-pane v-if="profitPanel" key="transport_profit" :tab="es ? 'Rentabilidad por ruta' : 'Profit by route'"><TransportProfitPanel :range="rangeFields" /></a-tab-pane>
-        <a-tab-pane v-if="ownerPanel" key="transport_owner" :tab="es ? 'Resumen del negocio' : 'Business summary'"><TransportOwnerPanel /></a-tab-pane>
-        <a-tab-pane v-if="transportBoard" key="transport" :tab="es ? 'Tablero de transporte' : 'Transport board'"><TransportBoard /></a-tab-pane>
+        <a-tab-pane v-if="profitPanel" key="transport_profit">
+          <template #tab><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</template>
+          <TransportProfitPanel :range="rangeFields" />
+        </a-tab-pane>
+        <a-tab-pane v-if="ownerPanel" key="transport_owner">
+          <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
+          <TransportOwnerPanel />
+        </a-tab-pane>
+        <a-tab-pane v-if="transportBoard" key="transport">
+          <template #tab><CarOutlined /> {{ es ? 'Tablero de transporte' : 'Transport board' }}</template>
+          <TransportBoard />
+        </a-tab-pane>
       </a-tabs>
 
       <!-- ================= Stat cards (legacy's two rows of four) ========= -->
@@ -337,6 +346,7 @@ import {
   TagOutlined, AppstoreOutlined, InfoCircleOutlined,
   CreditCardOutlined, BankOutlined, WarningOutlined, ShopOutlined,
   CalculatorOutlined, TeamOutlined, ExclamationCircleOutlined, ClockCircleOutlined,
+  LineChartOutlined, FundOutlined, CarOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import { useI18n } from 'vue-i18n';
@@ -825,6 +835,9 @@ onMounted(load);
 
 <style scoped>
 /* The blocks in the company's order (CSS order), 16px apart. */
+/* The tab names the panel: little chrome, the content in front. */
+.transport-tabs :deep(.ant-tabs-nav) { margin-bottom: 8px; }
+.transport-tabs :deep(.ant-card-body) { padding: 12px; }
 .dash-blocks {
   display: flex;
   flex-direction: column;

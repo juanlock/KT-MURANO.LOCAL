@@ -3,13 +3,7 @@
        trips and the month's fleet costs, then by agency, best-selling routes and what falls
        due on the buses. No date filter: always today and the month in progress. -->
   <a-card v-if="data.enabled" class="op" :bordered="false" :loading="loading">
-    <template #title>
-      <span class="op-title"><FundOutlined /> {{ tf('Owner_Panel', 'Business summary') }}</span>
-    </template>
-    <template #extra>
-      <span class="op-period">{{ tf('Owner_Panel_Period', 'Today and the month in progress') }}</span>
-    </template>
-
+    <div class="op-period">{{ tf('Owner_Panel_Period', 'Today and the month in progress') }}</div>
     <div class="op-cards">
       <div v-for="c in cards" :key="c.key" class="op-card">
         <span class="op-card-icon" :style="{ background: c.tint, color: c.color }"><component :is="c.icon" /></span>
@@ -127,8 +121,7 @@ const alertWhen = days => (days < 0
 
 <style scoped>
 .op { margin-bottom: 16px; }
-.op-title { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
-.op-period { font-size: 12px; color: #64748b; }
+.op-period { font-size: 12px; color: #64748b; text-align: right; margin-bottom: 8px; }
 .op-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .op-card { display: flex; gap: 12px; padding: 12px 14px; border: 1px solid #eef0f3; border-radius: 10px; background: #fff; min-width: 0; }
 .op-card-icon { width: 38px; height: 38px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; flex: none; }

@@ -4,12 +4,8 @@
        An agency = a city's hub (Turismo: LIMA, CHICLAYO...); its terminals = the points
        of sale / boarding that belong to it (user's rule, 2026-11-01). -->
   <a-card v-if="data.enabled && data.locations.length" class="tb" :bordered="false">
-    <template #title>
-      <span class="tb-title"><CarOutlined /> {{ tf('Transport_Board', 'Transport board') }}</span>
-    </template>
-    <template #extra>
-      <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" compact @change="load" />
-    </template>
+    <!-- Its own range: 30 days of driving hours, whatever the dashboard's filter says. -->
+    <div class="tb-filter"><PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" compact @change="load" /></div>
 
     <a-spin :spinning="loading">
       <!-- Totals -->
@@ -327,7 +323,7 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 
 <style scoped>
 .tb { margin-bottom: 16px; }
-.tb-title { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
+.tb-filter { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 .tb-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .tb-total { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid #eef0f3; border-radius: 10px; background: #fff; }
 .tb-total-icon { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 17px; flex: none; }
