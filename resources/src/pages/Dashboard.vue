@@ -91,7 +91,7 @@
         </a-tab-pane>
         <a-tab-pane v-if="transportBoard" key="transport">
           <template #tab><CarOutlined /> {{ es ? 'Tablero de transporte' : 'Transport board' }}</template>
-          <TransportBoard />
+          <TransportBoard :range="rangeFields" />
         </a-tab-pane>
       </a-tabs>
 

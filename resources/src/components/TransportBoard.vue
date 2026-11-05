@@ -4,9 +4,6 @@
        An agency = a city's hub (Turismo: LIMA, CHICLAYO...); its terminals = the points
        of sale / boarding that belong to it (user's rule, 2026-11-01). -->
   <a-card v-if="data.enabled && data.locations.length" class="tb" :bordered="false">
-    <!-- Its own range: 30 days of driving hours, whatever the dashboard's filter says. -->
-    <div class="tb-filter"><PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" compact @change="load" /></div>
-
     <a-spin :spinning="loading">
       <!-- Totals -->
       <div class="tb-totals">
@@ -163,7 +160,6 @@ import {
   CarOutlined, EnvironmentOutlined, ShopOutlined, GlobalOutlined, TeamOutlined, SwapOutlined, DashboardOutlined,
   WarningFilled, TrophyOutlined,
 } from '@ant-design/icons-vue';
-import PresetRangeFilter from './PresetRangeFilter.vue';
 import http from '../lib/http';
 import { t as tf } from '../i18n';
 import { staffTypeLabel } from '../pages/hrm/hrmVocab';
@@ -174,15 +170,16 @@ const H = 620;
 const PAD = 56;
 const COLORS = ['#0e7490', '#7c3aed', '#c2410c', '#15803d', '#be123c', '#1d4ed8', '#a16207', '#0f766e'];
 
-// Last 30 days: a month of driving hours whatever the day of the month.
-const range = ref([dayjs().subtract(29, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')]);
+// The dashboard's date filter (2026-11-04): [from, to]; without one the server takes the last 30 days.
+// The pilots' safe limit is scaled to the days chosen (TransportController::board).
+const props = defineProps({ range: { type: Array, default: null } });
 const loading = ref(false);
 const data = ref({ enabled: false, locations: [], routes: [], live: [], hubs: [], fleet: [], pilots: [], totals: {}, pilot_limit: 0, days: 30 });
 
 async function load() {
   loading.value = true;
   try {
-    const res = await http.get('transport/board', { from: range.value?.[0], to: range.value?.[1] });
+    const res = await http.get('transport/board', { from: props.range?.[0], to: props.range?.[1] });
     data.value = { ...data.value, ...res, locations: res.locations || [], routes: res.routes || [], live: res.live || [], hubs: res.hubs || [], fleet: res.fleet || [], pilots: res.pilots || [] };
   } catch (e) {
     data.value = { ...data.value, enabled: false };
@@ -323,7 +320,6 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 
 <style scoped>
 .tb { margin-bottom: 16px; }
-.tb-filter { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 .tb-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .tb-total { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid #eef0f3; border-radius: 10px; background: #fff; }
 .tb-total-icon { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 17px; flex: none; }
