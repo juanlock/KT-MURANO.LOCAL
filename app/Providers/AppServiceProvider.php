@@ -20,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->app->bind('db.connector.mysql', \App\Support\RetryingMySqlConnector::class);
+
         // tdb() / locale_dir(), used by the guest Blade pages (login, password
         // reset). It is listed in composer.json's autoload.files too, but an
         // install that receives this file through an app update has not run

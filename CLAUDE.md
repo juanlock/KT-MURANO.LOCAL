@@ -466,6 +466,10 @@ the start of each session).
   The mobile app's steps are API-ready (`mobile/login` answers 403 with
   `login_token` + step; `mobile/login/verify | resend | password`); the Flutter
   app itself (not in this workspace) still needs those screens.
+- **Hostinger allows 20 new MySQL connections per second (its support, 2026-11-04):** over it = `[2002] Operation
+  not permitted`. The log showed web requests (no `artisan` trace, no failed scheduled task): each request opens a
+  connection, so one user's page with many API calls can exceed it. `App\Support\RetryingMySqlConnector` waits and
+  retries, leaving a warning in the log. The cron stays: it runs the backups, reminders and mail.
 - **Production server tasks (2026-10-27):** the Laravel scheduler needs the
   hPanel cron `/usr/bin/php <PROD_PATH>/artisan schedule:run` (Hostinger has no
   `crontab` command). **It runs every 10 minutes for now (user's choice,
