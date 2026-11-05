@@ -1,36 +1,13 @@
 <template>
   <!-- Was each route worth it? (2026-11-04): income minus costs by route and, opening a route,
        by trip. A trip still to leave is "pending", not a loss, and stays out of the totals. -->
-  <a-card v-if="data.enabled" class="pp" :bordered="false">
+  <div ref="root">
+  <a-card v-if="data.enabled" class="pp" :bordered="false" :body-style="{ padding: '8px' }">
     <a-spin :spinning="loading">
-      <a-alert v-if="missingLines.length" type="warning" show-icon class="pp-alert" :message="es ? 'Faltan datos: estas cifras no están completas' : 'Data is missing: these figures are incomplete'">
-        <template #description><div v-for="m in missingLines" :key="m">{{ m }}</div></template>
-      </a-alert>
-
-      <div class="pp-cards">
-        <div class="pp-card" :class="totals.profit >= 0 ? 'good' : 'bad'">
-          <div class="pp-label">{{ es ? 'Ganancia' : 'Profit' }}</div>
-          <div class="pp-value">{{ money(totals.profit) }}</div>
-          <div class="pp-sub">{{ totals.trips_run || 0 }} {{ es ? 'viajes realizados' : 'trips run' }}<template v-if="totals.trips_pending"> · {{ totals.trips_pending }} {{ es ? 'por salir' : 'to leave' }}</template></div>
-        </div>
-        <div class="pp-card">
-          <div class="pp-label">{{ es ? 'Ingresos' : 'Income' }}</div>
-          <div class="pp-value">{{ money(totals.income) }}</div>
-          <div class="pp-sub">{{ es ? 'Pasajes' : 'Tickets' }} {{ money(totals.tickets_income) }} · {{ es ? 'Encomiendas' : 'Parcels' }} {{ money(totals.parcels_income) }}</div>
-        </div>
-        <div class="pp-card">
-          <div class="pp-label">{{ es ? 'Gastos' : 'Costs' }}</div>
-          <div class="pp-value">{{ money(totals.costs) }}</div>
-          <div class="pp-sub">{{ es ? 'Por viaje' : 'Per trip' }} {{ money(totals.staff) }} · {{ es ? 'Planilla' : 'Payroll' }} {{ money(totals.payroll) }} ·{{ es ? 'Combustible' : 'Fuel' }} {{ money(totals.fuel) }} · {{ es ? 'Mant.' : 'Maint.' }} {{ money(totals.maintenance) }} · {{ es ? 'Deprec.' : 'Deprec.' }} {{ money(totals.depreciation) }} · {{ es ? 'Peajes' : 'Tolls' }} {{ money(totals.tolls) }} · {{ es ? 'Agencias' : 'Agencies' }} {{ money(totals.agency) }} · {{ es ? 'Snack y bebida' : 'Snack and drink' }} {{ money(totals.meals) }}</div>
-        </div>
-        <div class="pp-card">
-          <div class="pp-label">{{ es ? 'Viajes con ganancia / pérdida' : 'Trips with profit / loss' }}</div>
-          <div class="pp-value"><span class="pos">{{ totals.gain_trips || 0 }}</span> / <span class="neg">{{ totals.loss_trips || 0 }}</span></div>
-          <div class="pp-sub">{{ es ? 'Ocupación' : 'Occupancy' }}: {{ totals.occupancy != null ? totals.occupancy + ' %' : '—' }} · {{ totals.tickets || 0 }} {{ es ? 'boletos' : 'tickets' }} · {{ totals.vip || 0 }} VIP</div>
-        </div>
-      </div>
-
-      <a-table :columns="columns" :data-source="data.routes" row-key="route_id" size="small" :pagination="false" :scroll="{ x: 'max-content' }">
+      <TransportStrip :items="tiles" :toggle="false" />
+      <div class="pp-grid">
+      <div class="pp-main">
+      <a-table :columns="columns" :data-source="data.routes" row-key="route_id" size="small" :pagination="false" :scroll="tableScroll">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'route'"><b>{{ record.route }}</b></template>
           <template v-else-if="column.key === 'trips'">
@@ -68,26 +45,36 @@
         </template>
       </a-table>
 
+      </div>
       <!-- What each stretch brings in: the short ones ride on the long trips. -->
-      <template v-if="data.legs?.length">
+      <div v-if="data.legs?.length" class="pp-side" :style="sideHeight ? { maxHeight: sideHeight + 'px' } : null">
         <div class="pp-sub-title">{{ es ? 'Ingresos por tramo' : 'Income by stretch' }}</div>
         <div class="pp-legs">
-          <div v-for="l in data.legs" :key="l.leg" class="pp-leg"><span>{{ l.leg }}</span><b>{{ money(l.income) }}</b><span class="pp-muted">{{ l.tickets }} {{ es ? 'boletos' : 'tickets' }}</span></div>
+          <div v-for="l in data.legs" :key="l.leg" class="pp-leg" :title="`${l.tickets} ${es ? 'boletos' : 'tickets'}`"><span class="pp-leg-name">{{ l.leg }}</span><b>{{ money(l.income) }}</b></div>
         </div>
-      </template>
+      </div>
+      </div>
     </a-spin>
   </a-card>
+  </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import http from '../lib/http';
 import { useFormat } from '../composables/useFormat';
 import { useUiStore } from '../stores/ui';
+import { useFitHeight } from '../lib/transportCharts';
+import TransportStrip from './TransportStrip.vue';
 
 // The dashboard's own date filter (2026-11-04): [from, to], null = its "All" before it has dates.
 const props = defineProps({ range: { type: Array, default: null } });
+const root = ref(null);
+const { fit, measure } = useFitHeight(root);
+// One screen: what doesn't fit (a route opened to its trips) scrolls inside the table.
+const sideHeight = computed(() => (fit.value ? fit.value - 16 - 58 : null));
+const tableScroll = computed(() => (fit.value ? { x: 'max-content', y: fit.value - 16 - 58 - 40 } : { x: 'max-content' }));
 
 const { money } = useFormat();
 const es = computed(() => useUiStore().locale === 'es');
@@ -111,6 +98,7 @@ async function load() {
     data.value = { enabled: false, routes: [], totals: {}, missing: {} };
   } finally {
     loading.value = false;
+    nextTick(measure);
   }
 }
 onMounted(load);
@@ -127,9 +115,24 @@ const missingLines = computed(() => {
   ].filter(Boolean);
 });
 
+const tiles = computed(() => {
+  const t = totals.value;
+  const out = [
+    { label: es.value ? 'Ganancia' : 'Profit', value: money(t.profit), level: t.profit < 0 ? 'bad' : 'ok', help: `${t.trips_run || 0} ${es.value ? 'viajes realizados' : 'trips run'}${t.trips_pending ? ` · ${t.trips_pending} ${es.value ? 'por salir' : 'to leave'}` : ''}` },
+    { label: es.value ? 'Ingresos' : 'Income', value: money(t.income), help: `${es.value ? 'Pasajes' : 'Tickets'} ${money(t.tickets_income)} · ${es.value ? 'Encomiendas' : 'Parcels'} ${money(t.parcels_income)}` },
+    { label: es.value ? 'Gastos' : 'Costs', value: money(t.costs), help: `${es.value ? 'Por viaje' : 'Per trip'} ${money(t.staff)} · ${es.value ? 'Planilla' : 'Payroll'} ${money(t.payroll)} · ${es.value ? 'Combustible' : 'Fuel'} ${money(t.fuel)} · ${es.value ? 'Mant.' : 'Maint.'} ${money(t.maintenance)} · Deprec. ${money(t.depreciation)} · ${es.value ? 'Peajes' : 'Tolls'} ${money(t.tolls)} · ${es.value ? 'Agencias' : 'Agencies'} ${money(t.agency)} · ${es.value ? 'Snack y bebida' : 'Snack and drink'} ${money(t.meals)}` },
+    { label: es.value ? 'Viajes +/-' : 'Trips +/-', value: `${t.gain_trips || 0} / ${t.loss_trips || 0}`, help: es.value ? 'Con ganancia / con pérdida.' : 'With profit / with loss.' },
+    { label: es.value ? 'Ocupación' : 'Occupancy', value: t.occupancy != null ? `${t.occupancy} %` : '—', help: `${t.tickets || 0} ${es.value ? 'boletos' : 'tickets'} · ${t.vip || 0} VIP` },
+  ];
+  if (missingLines.value.length) {
+    out.push({ label: es.value ? 'Faltan datos' : 'Data missing', value: missingLines.value.length, level: 'warn', warn: true, help: missingLines.value.join(' · ') });
+  }
+  return out;
+});
+
 const columns = computed(() => [
   { title: es.value ? 'Ruta' : 'Route', key: 'route' },
-  { title: es.value ? 'Viajes con ganancia / pérdida' : 'Trips with profit / loss', key: 'trips' },
+  { title: es.value ? 'Viajes +/-' : 'Trips +/-', key: 'trips' },
   { title: es.value ? 'Ocupación' : 'Occupancy', key: 'occupancy', align: 'right' },
   { title: es.value ? 'Ingresos' : 'Income', key: 'income', align: 'right' },
   { title: es.value ? 'Gastos' : 'Costs', key: 'costs', align: 'right' },
@@ -153,20 +156,20 @@ const tripColumns = computed(() => [
 </script>
 
 <style scoped>
-.pp { margin-bottom: 16px; }
-.pp-alert { margin-bottom: 14px; }
-.pp-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.pp-card { padding: 12px 14px; border: 1px solid #eef0f3; border-radius: 10px; background: #fff; min-width: 0; }
-.pp-card.good { background: #f0fdf4; border-color: #bbf7d0; }
-.pp-card.bad { background: #fef2f2; border-color: #fecaca; }
-.pp-label { font-size: 12px; color: #64748b; }
-.pp-value { font-size: 22px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
-.pp-sub { font-size: 11.5px; color: #64748b; }
-.pp-sub-title { font-weight: 700; margin: 16px 0 8px; }
-.pp-legs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 16px; font-size: 13px; }
-.pp-leg { display: flex; align-items: baseline; gap: 8px; border-bottom: 1px dashed #eef0f3; padding: 3px 0; }
-.pp-leg span:first-child { flex: 1; min-width: 0; }
-.pp-muted { font-size: 11.5px; color: #64748b; font-weight: 400; }
+.pp { margin-bottom: 0; }
+.pp-grid { display: grid; gap: 8px; grid-template-columns: 1fr; }
+.pp-main, .pp-side { min-width: 0; }
+.pp-main :deep(.ant-table-thead > tr > th) { padding: 3px 6px !important; white-space: nowrap; font-size: 11.5px; }
+.pp-main :deep(.ant-table-tbody > tr > td) { padding: 2px 6px !important; font-size: 12px; }
+.pp-side { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; padding: 6px 8px; overflow-y: auto; }
+.pp-sub-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.pp-legs { font-size: 11.5px; }
+.pp-leg { display: flex; align-items: baseline; gap: 6px; border-top: 1px solid rgba(128, 128, 128, 0.15); padding: 2px 0; }
+.pp-leg-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-muted { font-size: 11.5px; opacity: 0.68; font-weight: 400; }
 .pos { color: #15803d; }
 .neg { color: #b91c1c; }
+@media (min-width: 900px) {
+  .pp-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); }
+}
 </style>

@@ -1,13 +1,14 @@
 <template>
-  <div class="page">
+  <div class="page" :class="{ 'board-mode': boardMode }">
     <!-- ================= Header ================= -->
     <div class="page-header">
-      <div>
-        <a-typography-title :level="3" style="margin: 0; font-size: 22px">{{ greeting }}</a-typography-title>
+      <!-- A transport company's dashboard is a board: one screen, so no greeting and the filters in one row. -->
+      <div v-if="!boardMode || demoMode">
+        <a-typography-title v-if="!boardMode" :level="3" style="margin: 0; font-size: 22px">{{ greeting }}</a-typography-title>
         <a-typography-text v-if="demoMode" type="secondary">{{ t('Dashboard_Demo_Subtitle') }}</a-typography-text>
       </div>
 
-      <a-space wrap :size="12" class="dash-filters">
+      <a-space wrap :size="boardMode ? 8 : 12" class="dash-filters">
         <!-- Same date presets + editable Start date / to as Sales -> List Sales. -->
         <DateRangeFields :value="rangeFields" :disabled="loading" @change="onRangeEdit" />
         <!-- Double-click any filter choice = your default when the Dashboard
@@ -19,7 +20,7 @@
           <!-- The date default is the user's ONE default for every page with
                these buttons (lib/datePresetDefault.js). -->
           <div class="preset-buttons" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(period)">
-            <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" @change="load()">
+            <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" :size="boardMode ? 'small' : undefined" @change="load()">
               <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">
                 {{ $t(p.labelKey) }}<StarFilled v-if="savedDatePreset === p.value" class="def-star" />
               </a-radio-button>
@@ -41,6 +42,7 @@
           <a-select
             v-model:value="warehouseId"
             class="wh-select"
+            :size="boardMode ? 'small' : undefined"
             :options="warehouseOptions"
             @change="load()"
           />
@@ -49,9 +51,9 @@
         <div v-if="currencyVisible" :title="DEFAULT_HINT" @dblclick="toggleDefault('currency_id', currentCurrencyId, currencyLabel(currentCurrencyId))">
           <ViewCurrencySelect class="wh-select" />
         </div>
-        <a-button type="primary" :loading="loading" @click="load()">
+        <a-button type="primary" :loading="loading" :size="boardMode ? 'small' : undefined" :title="$t('Refresh')" @click="load()">
           <template #icon><ReloadOutlined /></template>
-          {{ $t('Refresh') }}
+          <template v-if="!boardMode">{{ $t('Refresh') }}</template>
         </a-button>
       </a-space>
     </div>
@@ -73,17 +75,34 @@
     </div>
 
     <!-- The blocks top to bottom in the company's order (System Settings -> Dashboard). -->
-    <div v-else class="dash-blocks">
+    <div v-else class="dash-blocks" :class="{ 'only-tabs': boardMode && transportTab !== 'transport_general' }">
       <!-- ================= Transport: one tab per panel, the board by default (2026-11-04).
            A tab loads its panel the first time it opens. No bar with only one panel. ========= -->
       <a-tabs
-        v-if="transportTabs.length" v-model:active-key="transportTab" class="transport-tabs" size="large"
+        v-if="transportTabs.length" v-model:active-key="transportTab" class="transport-tabs" size="middle"
         :tab-bar-style="transportTabs.length < 2 ? { display: 'none' } : undefined"
-        :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? 0)) }"
+        :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? Infinity)) }"
       >
+        <a-tab-pane v-if="departuresPanel" key="transport_departures">
+          <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
+          <TransportDeparturesPanel :range="rangeFields" />
+        </a-tab-pane>
         <a-tab-pane v-if="profitPanel" key="transport_profit">
           <template #tab><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</template>
           <TransportProfitPanel :range="rangeFields" />
+        </a-tab-pane>
+        <!-- Goes with "Profit by route": same permission and same on / off switch in System Settings -> Dashboard. -->
+        <a-tab-pane v-if="profitPanel" key="transport_indicators">
+          <template #tab><BarChartOutlined /> {{ es ? 'Indicadores' : 'Indicators' }}</template>
+          <TransportIndicatorsPanel :range="rangeFields" view="profit" />
+        </a-tab-pane>
+        <a-tab-pane v-if="profitPanel" key="transport_risks">
+          <template #tab><WarningOutlined /> {{ es ? 'Riesgos' : 'Risks' }}</template>
+          <TransportIndicatorsPanel :range="rangeFields" view="risks" />
+        </a-tab-pane>
+        <a-tab-pane v-if="claimsPanel" key="transport_claims">
+          <template #tab><AuditOutlined /> {{ es ? 'Reclamos' : 'Complaints' }}</template>
+          <TransportClaimsPanel :range="period === 'all' ? null : rangeFields" />
         </a-tab-pane>
         <a-tab-pane v-if="ownerPanel" key="transport_owner">
           <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
@@ -92,6 +111,10 @@
         <a-tab-pane v-if="transportBoard" key="transport">
           <template #tab><CarOutlined /> {{ es ? 'Tablero de transporte' : 'Transport board' }}</template>
           <TransportBoard :range="rangeFields" />
+        </a-tab-pane>
+        <!-- The rest of the dashboard (sales, stock...) has its own tab, so the panels above fit one screen. -->
+        <a-tab-pane key="transport_general">
+          <template #tab><AppstoreOutlined /> General</template>
         </a-tab-pane>
       </a-tabs>
 
@@ -315,7 +338,7 @@
     <!-- Start page "customized by each user" (Defaults -> Users): the user's
          6 most used pages as shortcuts, and what opens after login. At the end
          of the page (user's request, 2026-11-01). -->
-    <a-card v-if="customStart" size="small" class="lu-card" style="margin-top: 16px">
+    <a-card v-if="customStart" v-show="!boardMode || transportTab === 'transport_general'" size="small" class="lu-card" style="margin-top: 16px">
       <template #title>
         <span><HistoryOutlined /> {{ tf('Shortcuts', 'Shortcuts') }}</span>
       </template>
@@ -337,7 +360,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { DATE_PRESETS, presetDates, presetOf } from '../lib/datePresets';
 import DateRangeFields from '../components/DateRangeFields.vue';
 import {
@@ -346,7 +369,7 @@ import {
   TagOutlined, AppstoreOutlined, InfoCircleOutlined,
   CreditCardOutlined, BankOutlined, WarningOutlined, ShopOutlined,
   CalculatorOutlined, TeamOutlined, ExclamationCircleOutlined, ClockCircleOutlined,
-  LineChartOutlined, FundOutlined, CarOutlined,
+  LineChartOutlined, FundOutlined, CarOutlined, BarChartOutlined, AuditOutlined, ScheduleOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import { useI18n } from 'vue-i18n';
@@ -357,6 +380,9 @@ import { blockOrder } from '../config/dashboardSections';
 import { moduleKeyForPath } from '../config/modules';
 import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
 import TransportBoard from '../components/TransportBoard.vue';
+import TransportClaimsPanel from '../components/TransportClaimsPanel.vue';
+import TransportDeparturesPanel from '../components/TransportDeparturesPanel.vue';
+import TransportIndicatorsPanel from '../components/TransportIndicatorsPanel.vue';
 import TransportOwnerPanel from '../components/TransportOwnerPanel.vue';
 import TransportProfitPanel from '../components/TransportProfitPanel.vue';
 import { useUiStore } from '../stores/ui';
@@ -383,16 +409,23 @@ const show = id => !hiddenSections.value.has(id) && !(id.startsWith('card_') && 
 const transportBoard = computed(() => show('transport_board') && auth.moduleEnabled('transport')
   && (auth.can('transport_view') || auth.can('transport_manage')));
 const profitPanel = computed(() => show('transport_profit') && auth.moduleEnabled('transport') && auth.can('transport_profit'));
+const departuresPanel = computed(() => show('transport_departures') && auth.moduleEnabled('transport') && auth.can('transport_profit'));
+const claimsPanel = computed(() => show('transport_claims') && auth.moduleEnabled('transport') && auth.moduleEnabled('forms')
+  && (auth.can('forms_view') || auth.can('forms_manage')));
 const ownerPanel = computed(() => show('transport_owner') && auth.can('dashboard') && auth.moduleEnabled('transport')
   && (auth.can('transport_view') || auth.can('transport_manage')));
 const es = computed(() => useUiStore().locale === 'es');
-const transportTabs = computed(() => [profitPanel.value && 'transport_profit', ownerPanel.value && 'transport_owner', transportBoard.value && 'transport'].filter(Boolean));
+const transportPanels = computed(() => [departuresPanel.value && 'transport_departures', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', claimsPanel.value && 'transport_claims', ownerPanel.value && 'transport_owner', transportBoard.value && 'transport'].filter(Boolean));
+const boardMode = computed(() => transportPanels.value.length > 0);
+const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value, 'transport_general'] : []));
 const transportPick = ref(null);
 const transportTab = computed({
   get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value
     : (transportTabs.value.includes('transport') ? 'transport' : transportTabs.value[0])),
   set: v => { transportPick.value = v; },
 });
+// The General tab's charts were drawn hidden: they need their width back when it opens.
+watch(transportTab, () => nextTick(() => window.dispatchEvent(new Event('resize'))));
 
 const customStart = computed(() => auth.user?.start_page_mode === 'custom');
 // Admin-picked shortcut buttons, empty slots filled with the user's most used forms.
@@ -833,6 +866,18 @@ onMounted(load);
 /* The blocks in the company's order (CSS order), 16px apart. */
 /* The tab names the panel: little chrome, the content in front. */
 .transport-tabs :deep(.ant-tabs-nav) { margin-bottom: 8px; }
+.board-mode .page-header { margin-bottom: 4px; gap: 8px; }
+.board-mode .dash-blocks.only-tabs > :not(.transport-tabs) { display: none !important; }
+.board-mode .transport-tabs :deep(.ant-tabs-nav) { margin-bottom: 6px; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab) { padding: 5px 0; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 16px; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab) { font-size: 13px; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab .anticon) { margin-right: 4px; }
+.board-mode .dash-filters :deep(.drf-label) { display: none; }
+.board-mode .dash-filters :deep(.drf-date) { width: 100px; }
+.board-mode .dash-filters :deep(.drf) { padding: 0 2px; }
+.board-mode .wh-select { width: 150px; }
+.board-mode .dash-filters :deep(.ant-radio-button-wrapper) { padding: 0 6px; }
 .transport-tabs :deep(.ant-card-body) { padding: 12px; }
 .dash-blocks {
   display: flex;

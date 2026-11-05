@@ -801,6 +801,9 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/tolls', 'saveToll');
         Route::delete('/tolls/{id}', 'deleteToll')->whereNumber('id');
         Route::get('/profit', 'profit');
+        Route::get('/indicators', 'indicators');
+        Route::get('/claims', 'claims');
+        Route::get('/departures', 'departures');
     });
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
     Route::get('employees/{id}/assets', 'hrm\EmployeesController@assets')->whereNumber('id');

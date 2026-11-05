@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Services\Helpdesk\HelpdeskAccess;
+use App\Services\TransportClaims;
+use App\Services\TransportDepartures;
+use App\Services\TransportIndicators;
 use App\Services\TransportParcelAssign;
 use App\Services\TransportParcelSale;
 use App\Services\TransportProfit;
@@ -30,6 +33,9 @@ use Illuminate\Validation\ValidationException;
  *  GET  transport/parcels/meta                 agencies, prices per m³, estimate: the system picks the bus
  *  GET|POST transport/tolls, DELETE transport/tolls/{id}
  *  GET  transport/profit?from&to               TransportProfit
+ *  GET  transport/indicators?from&to           TransportIndicators: profitability and risks, for charts
+ *  GET  transport/departures?date&agency_id      TransportDepartures: the client's daily report, per agency
+ *  GET  transport/claims?from&to               TransportClaims: the complaints book, counts only (needs Forms)
  */
 class TransportOperationsController extends Controller
 {
@@ -579,5 +585,40 @@ class TransportOperationsController extends Controller
         $to = $request->input('to') ?: now()->toDateString();
 
         return response()->json(TransportProfit::compute($cid, $from, $to, $this->warehouseScopeIds()));
+    }
+
+    public function indicators(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $from = $request->input('from') ?: now()->startOfMonth()->toDateString();
+        $to = $request->input('to') ?: now()->toDateString();
+
+        return response()->json(TransportIndicators::compute($cid, $from, $to, $this->warehouseScopeIds()));
+    }
+
+    public function departures(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+
+        return response()->json(TransportDepartures::compute($cid, $request->input('date') ?: now()->toDateString(), $request->filled('agency_id') ? (int) $request->input('agency_id') : null, $this->warehouseScopeIds()));
+    }
+
+    public function claims(Request $request)
+    {
+        $this->allow($request, 'forms_view', 'forms_manage');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport') || ! ModuleFlags::enabled($cid, 'forms')) {
+            return response()->json(['enabled' => false]);
+        }
+
+        return response()->json(TransportClaims::compute($cid, $request->input('from') ?: null, $request->input('to') ?: null));
     }
 }

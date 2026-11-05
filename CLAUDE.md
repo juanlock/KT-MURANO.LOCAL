@@ -612,7 +612,7 @@ the start of each session).
   `transport_profit`): profit = tickets (`transport_tickets.price`) + parcels - crew pay -
   payroll (pilots', hostesses' and administrative staff's `employees.basic_salary` / 30, shared among each day's
   trips) - fuel - maintenance - depreciation - tolls - agency (`transport_locations.daily_cost`,
-  S/ 50 a day at Turismo, shared among that day's departures; idle days in the totals) - meals (`settings.transport_meal_cost` per ticket sold: snack and drink, S/ 10 at Turismo). Maintenance and depreciation go by km (the
+  S/ 50 a day at Turismo, shared among that day's departures; idle days in the totals) - meals (`settings.transport_meal_cost` per DELUXE (VIP) ticket sold, none for regular seats: snack and drink, S/ 10 at Turismo; user's rule, 2026-11-05). Maintenance and depreciation go by km (the
   bus's cost per km x the route's km; depreciation = (price - residual) / useful life);
   fuel = the trip's real `fuel_cost`, else the bus's cost per km, flagged estimated; tolls =
   the trip's `transport_tolls`, else the route's `toll_cost`, flagged expected; missing
@@ -639,6 +639,15 @@ the start of each session).
   (`settings.transport_loyalty_every`, a notice + the line discount by hand). The workshop:
   `/fleet/parts`, `/fleet/plan` (due by km and date, alerts), parts used on each job.
   Payroll type `monthly` = a week's share of `basic_salary` + trips.
+  **Charts on the dashboard (2026-11-05):** tabs "Indicators" and "Risks" (`TransportIndicatorsPanel.vue`, `App\Services\TransportIndicators`, permission
+  `transport_profit`, same figures as Profit by route; the thresholds in `RISK` are ours, not the owner's) and tab "Complaints" (`TransportClaimsPanel.vue`,
+  `App\Services\TransportClaims`, `forms_view`, section `transport_claims`): counts from the company's complaints-book form, never who complained or what they wrote.
+  **337 of Turismo's complaints imported from the old forms system have their answers one field off** (the Agency field holds the reason...): `TransportClaims` reads them
+  through `LEGACY_KEYS`; the rows stay as they are. Shared: `lib/transportCharts.js` (`useFitHeight`), `TransportChartBlock.vue`, `TransportStrip.vue`.
+  **Departures report (2026-11-05):** tab "Reporte de salidas" (`TransportDeparturesPanel.vue`, `App\Services\TransportDepartures`): the content of Turismo's own Excel report per agency, designed as a board, not a copy of the sheet (user's rule): key figures, one row per bus with its boarding points in the client's codes (`transport_trip_boardings.label`), occupancy bar, small charts; a day with only demo trips or none shows the client's latest report;
+  boarding points with their time per trip (`transport_trip_boardings`), the day's price (`transport_day_prices`, no screen yet). A trip from the client's report has
+  `reported_passengers` / `reported_income` instead of tickets (none are made up); `TransportProfit` counts them. To confirm with the client: a report's destination, its
+  codes (P.N., CV, T.Olivos), whether toll and fuel are round trip, 15 deluxe seats on every bus.
   **The owner's figures (2026-11-04):** the dashboard's "Business summary" block
   (`TransportOwnerPanel.vue`, `transport/owner`, section `transport_owner`): income and
   tickets today / month by agency, today's trips, the month's fleet costs, best-selling
@@ -743,6 +752,11 @@ the start of each session).
 
 (Reloaded by Wake-up, like the Development Standards.)
 
+- **A dashboard fits one screen (user's rule, 2026-11-05).** Almost never a vertical or horizontal
+  scroll: compact it, or move the rest to another tab. The critical information holds the center. No
+  explanatory text on the board: it goes in an (i) popup (`a-tooltip`) or is cut down. Only a super critical
+  message goes in the center, in ONE line on a red background; anything informational is a helper.
+  Check it at 1440x900 and 1366x768 (`useFitHeight`, `lib/transportCharts.js`). A phone stacks the blocks.
 - **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
   sorted alphabetically by its displayed label, using the shared
