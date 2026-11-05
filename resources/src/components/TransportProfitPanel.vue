@@ -27,7 +27,7 @@
         <div class="pp-card">
           <div class="pp-label">{{ es ? 'Gastos' : 'Costs' }}</div>
           <div class="pp-value">{{ money(totals.costs) }}</div>
-          <div class="pp-sub">{{ es ? 'Por viaje' : 'Per trip' }} {{ money(totals.staff) }} · {{ es ? 'Planilla' : 'Payroll' }} {{ money(totals.payroll) }} ·{{ es ? 'Combustible' : 'Fuel' }} {{ money(totals.fuel) }} · {{ es ? 'Mant.' : 'Maint.' }} {{ money(totals.maintenance) }} · {{ es ? 'Deprec.' : 'Deprec.' }} {{ money(totals.depreciation) }} · {{ es ? 'Peajes' : 'Tolls' }} {{ money(totals.tolls) }} · {{ es ? 'Agencias' : 'Agencies' }} {{ money(totals.agency) }}</div>
+          <div class="pp-sub">{{ es ? 'Por viaje' : 'Per trip' }} {{ money(totals.staff) }} · {{ es ? 'Planilla' : 'Payroll' }} {{ money(totals.payroll) }} ·{{ es ? 'Combustible' : 'Fuel' }} {{ money(totals.fuel) }} · {{ es ? 'Mant.' : 'Maint.' }} {{ money(totals.maintenance) }} · {{ es ? 'Deprec.' : 'Deprec.' }} {{ money(totals.depreciation) }} · {{ es ? 'Peajes' : 'Tolls' }} {{ money(totals.tolls) }} · {{ es ? 'Agencias' : 'Agencies' }} {{ money(totals.agency) }} · {{ es ? 'Snack y bebida' : 'Snack and drink' }} {{ money(totals.meals) }}</div>
         </div>
         <div class="pp-card">
           <div class="pp-label">{{ es ? 'Viajes con ganancia / pérdida' : 'Trips with profit / loss' }}</div>
@@ -66,6 +66,7 @@
               <template v-else-if="column.key === 'depreciation'">{{ money(t.costs.depreciation) }}</template>
               <template v-else-if="column.key === 'tolls'">{{ money(t.costs.tolls) }}<div v-if="t.estimated.includes('tolls')" class="pp-muted">{{ es ? 'esperado' : 'expected' }}</div></template>
               <template v-else-if="column.key === 'agency'">{{ money(t.costs.agency) }}</template>
+              <template v-else-if="column.key === 'meals'">{{ money(t.costs.meals) }}</template>
               <template v-else-if="column.key === 'profit'"><b :class="t.result === 'pending' ? '' : (t.profit >= 0 ? 'pos' : 'neg')">{{ money(t.profit) }}</b></template>
               <template v-else-if="column.key === 'result'"><a-tag :color="RESULT[t.result].color">{{ es ? RESULT[t.result].es : RESULT[t.result].en }}</a-tag></template>
             </template>
@@ -151,6 +152,7 @@ const tripColumns = computed(() => [
   { title: es.value ? 'Depreciación' : 'Depreciation', key: 'depreciation', align: 'right' },
   { title: es.value ? 'Peajes' : 'Tolls', key: 'tolls', align: 'right' },
   { title: es.value ? 'Agencia' : 'Agency', key: 'agency', align: 'right' },
+  { title: es.value ? 'Snack y bebida' : 'Snack and drink', key: 'meals', align: 'right' },
   { title: es.value ? 'Ganancia' : 'Profit', key: 'profit', align: 'right' },
   { title: '', key: 'result' },
 ]);

@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Was each trip worth it? (Turismo Cautivo's owner, 2026-11-04.)
- *   profit = tickets + parcels - crew pay - payroll - fuel - maintenance - depreciation - tolls - agency
+ *   profit = tickets + parcels - crew pay - payroll - fuel - maintenance - depreciation - tolls - agency - meals
+ * Meals = the snack and drink of every ticket sold (settings.transport_meal_cost; Turismo S/ 10, 2026-11-04).
  * Payroll = the monthly salaries of the pilots, hostesses and administrative staff (employees.basic_salary) / 30, shared
  * among each day's trips; a day with no trip counts in the totals only ("payroll_idle").
  * Agency = its cost per day (transport_locations.daily_cost) shared among the trips leaving from it
@@ -62,6 +63,8 @@ class TransportProfit
         $tripsOfDay = DB::table('transport_trips')->where('company_id', $companyId)->whereNull('deleted_at')->where('status', '!=', 'cancelled')
             ->whereBetween('departure_at', [$from.' 00:00:00', $to.' 23:59:59'])->selectRaw('DATE(departure_at) d, COUNT(*) n')->groupBy('d')->pluck('n', 'd');
 
+        $mealCost = (float) DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->value('transport_meal_cost');
+
         $missing = ['seats' => [], 'depreciation' => [], 'fuel' => [], 'tolls' => [], 'distance' => []];
         $rows = [];
         foreach ($trips as $t) {
@@ -109,7 +112,7 @@ class TransportProfit
             $seatKm = $t->seats && $km ? (int) $t->seats * $km : 0.0;
             $income = ['tickets' => $ticketIncome, 'parcels' => (float) ($parcels[$t->id]->income ?? 0)];
             $costs = ['staff' => (float) ($crew[$t->id] ?? 0), 'payroll' => $dailyPayroll / max(1, (int) ($tripsOfDay[substr((string) $t->departure_at, 0, 10)] ?? 1)), 'fuel' => (float) $fuel, 'maintenance' => $maintenance, 'depreciation' => (float) $depreciation, 'tolls' => (float) $toll,
-                'agency' => (float) $t->daily_cost / max(1, $perDay[$t->origin_id.'|'.substr((string) $t->departure_at, 0, 10)] ?? 1)];
+                'agency' => (float) $t->daily_cost / max(1, $perDay[$t->origin_id.'|'.substr((string) $t->departure_at, 0, 10)] ?? 1), 'meals' => $sold * $mealCost];
             $totalIncome = array_sum($income);
             $totalCost = array_sum($costs);
             $fare = $sold ? $income['tickets'] / $sold : ($fares[$t->route_id] ?? null);
@@ -118,8 +121,8 @@ class TransportProfit
                 'id' => (int) $t->id, 'route_id' => (int) $t->route_id, 'route' => $route, 'departure_at' => $t->departure_at, 'status' => $t->status,
                 'vehicle' => $bus, 'km' => $km ? round($km) : null, 'seats' => $t->seats ? (int) $t->seats : null, 'sold' => $sold,
                 'occupancy' => $seatKm > 0 ? (int) round($paxKm / $seatKm * 100) : null, 'pax_km' => round($paxKm), 'seat_km' => round($seatKm), 'vip' => $vip, 'legs' => array_values($legs),
-                // Seats it takes to cover the costs, parcels counted.
-                'break_even_seats' => $fare ? (int) ceil(max(0, $totalCost - $income['parcels']) / $fare) : null,
+                // Seats it takes to cover the costs, parcels counted; each seat also brings its own meal.
+                'break_even_seats' => $fare && $fare > $mealCost ? (int) ceil(max(0, $totalCost - $costs['meals'] - $income['parcels']) / ($fare - $mealCost)) : null,
                 'parcels' => (int) ($parcels[$t->id]->n ?? 0),
                 'income' => array_map(fn ($v) => round($v, 2), $income) + ['total' => round($totalIncome, 2)],
                 'costs' => array_map(fn ($v) => round($v, 2), $costs) + ['total' => round($totalCost, 2)],
@@ -156,7 +159,7 @@ class TransportProfit
                 'costs' => round($sumOf('costs', 'total') + $idle + $payrollIdle, 2), 'staff' => $sumOf('costs', 'staff'),
                 'payroll' => round($sumOf('costs', 'payroll') + $payrollIdle, 2), 'payroll_idle' => $payrollIdle, 'fuel' => $sumOf('costs', 'fuel'),
                 'maintenance' => $sumOf('costs', 'maintenance'), 'depreciation' => $sumOf('costs', 'depreciation'), 'tolls' => $sumOf('costs', 'tolls'),
-                'agency' => round($sumOf('costs', 'agency') + $idle, 2), 'agency_idle' => $idle,
+                'agency' => round($sumOf('costs', 'agency') + $idle, 2), 'agency_idle' => $idle, 'meals' => $sumOf('costs', 'meals'),
                 'profit' => round($done->sum('profit') - $idle - $payrollIdle, 2),
                 'trips_run' => $done->count(), 'trips_pending' => count($rows) - $done->count(),
                 'gain_trips' => $done->where('result', 'gain')->count(), 'loss_trips' => $done->where('result', 'loss')->count(),

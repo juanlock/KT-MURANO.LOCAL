@@ -608,7 +608,7 @@ the start of each session).
   `transport_profit`): profit = tickets (`transport_tickets.price`) + parcels - crew pay -
   payroll (pilots', hostesses' and administrative staff's `employees.basic_salary` / 30, shared among each day's
   trips) - fuel - maintenance - depreciation - tolls - agency (`transport_locations.daily_cost`,
-  S/ 50 a day at Turismo, shared among that day's departures; idle days in the totals). Maintenance and depreciation go by km (the
+  S/ 50 a day at Turismo, shared among that day's departures; idle days in the totals) - meals (`settings.transport_meal_cost` per ticket sold: snack and drink, S/ 10 at Turismo). Maintenance and depreciation go by km (the
   bus's cost per km x the route's km; depreciation = (price - residual) / useful life);
   fuel = the trip's real `fuel_cost`, else the bus's cost per km, flagged estimated; tolls =
   the trip's `transport_tolls`, else the route's `toll_cost`, flagged expected; missing
