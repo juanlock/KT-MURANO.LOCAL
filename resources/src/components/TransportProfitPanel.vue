@@ -6,9 +6,6 @@
       <span class="pp-title"><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</span>
     </template>
     <a-spin :spinning="loading">
-      <!-- The buttons in sight: today, this month, last month are one click away. -->
-      <div class="pp-filter"><PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" :allow-all="false" :apply-default="false" @change="load" /></div>
-
       <a-alert v-if="missingLines.length" type="warning" show-icon class="pp-alert" :message="es ? 'Faltan datos: estas cifras no están completas' : 'Data is missing: these figures are incomplete'">
         <template #description><div v-for="m in missingLines" :key="m">{{ m }}</div></template>
       </a-alert>
@@ -89,10 +86,12 @@
 import { computed, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import { LineChartOutlined } from '@ant-design/icons-vue';
-import PresetRangeFilter from './PresetRangeFilter.vue';
 import http from '../lib/http';
 import { useFormat } from '../composables/useFormat';
 import { useUiStore } from '../stores/ui';
+
+// The dashboard's own date filter (2026-11-04): [from, to], null = its "All" before it has dates.
+const props = defineProps({ range: { type: Array, default: null } });
 
 const { money } = useFormat();
 const es = computed(() => useUiStore().locale === 'es');
@@ -103,7 +102,6 @@ const RESULT = {
 };
 const fmt = d => (d ? dayjs(d).format('DD/MM HH:mm') : '');
 
-const range = ref([dayjs().startOf('month').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')]);
 const loading = ref(false);
 const data = ref({ enabled: false, routes: [], totals: {}, missing: {} });
 const totals = computed(() => data.value.totals || {});
@@ -111,7 +109,7 @@ const totals = computed(() => data.value.totals || {});
 async function load() {
   loading.value = true;
   try {
-    const res = await http.get('transport/profit', { from: range.value?.[0], to: range.value?.[1] });
+    const res = await http.get('transport/profit', { from: props.range?.[0], to: props.range?.[1] });
     data.value = { routes: [], totals: {}, missing: {}, ...res };
   } catch (e) {
     data.value = { enabled: false, routes: [], totals: {}, missing: {} };
@@ -161,7 +159,6 @@ const tripColumns = computed(() => [
 <style scoped>
 .pp { margin-bottom: 16px; }
 .pp-title { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
-.pp-filter { margin-bottom: 14px; }
 .pp-alert { margin-bottom: 14px; }
 .pp-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .pp-card { padding: 12px 14px; border: 1px solid #eef0f3; border-radius: 10px; background: #fff; min-width: 0; }

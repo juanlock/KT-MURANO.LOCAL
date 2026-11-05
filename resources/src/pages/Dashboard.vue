@@ -81,7 +81,7 @@
         :tab-bar-style="transportTabs.length < 2 ? { display: 'none' } : undefined"
         :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? 0)) }"
       >
-        <a-tab-pane v-if="profitPanel" key="transport_profit" :tab="es ? 'Rentabilidad por ruta' : 'Profit by route'"><TransportProfitPanel /></a-tab-pane>
+        <a-tab-pane v-if="profitPanel" key="transport_profit" :tab="es ? 'Rentabilidad por ruta' : 'Profit by route'"><TransportProfitPanel :range="rangeFields" /></a-tab-pane>
         <a-tab-pane v-if="ownerPanel" key="transport_owner" :tab="es ? 'Resumen del negocio' : 'Business summary'"><TransportOwnerPanel /></a-tab-pane>
         <a-tab-pane v-if="transportBoard" key="transport" :tab="es ? 'Tablero de transporte' : 'Transport board'"><TransportBoard /></a-tab-pane>
       </a-tabs>
