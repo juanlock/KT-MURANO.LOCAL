@@ -4,7 +4,7 @@
     <div class="page-header">
       <div>
         <a-typography-title :level="3" style="margin: 0; font-size: 22px">{{ greeting }}</a-typography-title>
-        <a-typography-text type="secondary">{{ subtitle }}</a-typography-text>
+        <a-typography-text v-if="demoMode" type="secondary">{{ t('Dashboard_Demo_Subtitle') }}</a-typography-text>
       </div>
 
       <a-space wrap :size="12" class="dash-filters">
@@ -468,10 +468,6 @@ const greeting = computed(() => {
   const part = h < 12 ? t('Good_Morning') : h < 18 ? t('Good_Afternoon') : t('Good_Evening');
   return auth.username ? `${part}, ${auth.username}` : part;
 });
-
-const subtitle = computed(() =>
-  demoMode.value ? t('Dashboard_Demo_Subtitle') : t('Dashboard_Live_Subtitle')
-);
 
 const warehouseOptions = computed(() => [
   { value: '', label: starred('warehouse_id', '', t('All_Warehouses')) },
