@@ -9,6 +9,8 @@
         <a-button :disabled="!tripId" @click="printAll"><PrinterOutlined /> {{ es ? 'Imprimir boletos' : 'Print passes' }}</a-button>
       </div>
 
+      <a-empty v-if="loaded && !trips.length" :description="es ? 'No hay viajes en esta fecha desde sus agencias.' : 'No trips on this date from your agencies.'" />
+
       <div v-if="tripId" class="tb-scan">
         <a-input ref="scanInput" v-model:value="code" size="large" :placeholder="es ? 'Lea el QR del boleto o escriba el código' : 'Read the pass QR or type the code'" allow-clear @press-enter="scan" />
         <a-button size="large" type="primary" :loading="saving" @click="scan">{{ es ? 'Abordar' : 'Board' }}</a-button>
@@ -60,6 +62,7 @@ const errorOf = e => { const errs = e?.data?.errors; return (errs && Object.valu
 
 const date = ref(dayjs().format('YYYY-MM-DD'));
 const trips = ref([]);
+const loaded = ref(false);
 const tripId = ref(undefined);
 const rows = ref([]);
 const loading = ref(false);
@@ -80,10 +83,14 @@ const columns = computed(() => [
 async function loadTrips() {
   try {
     const res = await http.get('transport/boarding', { date: date.value });
-    trips.value = res.trips.map(t => ({ value: t.id, label: t.label }));
-    tripId.value = undefined;
+    trips.value = res.trips.map(t => ({ value: t.id, label: t.label, status: t.status }));
     rows.value = [];
     last.value = null;
+    // Opens on the trip at hand (2026-11-04): the next to leave, else the one on its way, else the day's last.
+    const pick = trips.value.find(t => t.status === 'scheduled') || trips.value.find(t => t.status === 'in_progress') || trips.value[trips.value.length - 1];
+    tripId.value = pick?.value;
+    loaded.value = true;
+    await loadPassengers();
   } catch (e) {
     message.error(errorOf(e));
   }

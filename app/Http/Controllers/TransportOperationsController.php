@@ -473,7 +473,7 @@ class TransportOperationsController extends Controller
         $date = $request->input('date') ?: now()->toDateString();
         $trips = $this->tripQuery($cid)->where('t.status', '!=', 'cancelled')->whereDate('t.departure_at', $date)->orderBy('t.departure_at')->get(self::TRIP_COLUMNS);
 
-        return response()->json(['trips' => $trips->map(fn ($t) => ['id' => (int) $t->id, 'label' => substr((string) $t->departure_at, 11, 5).' · '.$t->origin.' → '.$t->destination.($t->vehicle ? ' · '.$t->vehicle : '')])->values()]);
+        return response()->json(['trips' => $trips->map(fn ($t) => ['id' => (int) $t->id, 'status' => $t->status, 'label' => substr((string) $t->departure_at, 11, 5).' · '.$t->origin.' → '.$t->destination.($t->vehicle ? ' · '.$t->vehicle : '')])->values()]);
     }
 
     /** POST transport/boarding {trip_id, code}: the QR of the boarding pass, read at the door. */

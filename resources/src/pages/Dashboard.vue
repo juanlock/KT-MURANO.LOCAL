@@ -74,14 +74,17 @@
 
     <!-- The blocks top to bottom in the company's order (System Settings -> Dashboard). -->
     <div v-else class="dash-blocks">
-      <!-- ================= Was each route worth it? (own date filter) ========== -->
-      <TransportProfitPanel v-if="profitPanel" :style="{ order: blockPos.transport_profit }" />
-
-      <!-- ================= The owner's figures (always today and this month) == -->
-      <TransportOwnerPanel v-if="ownerPanel" :style="{ order: blockPos.transport_owner }" />
-
-      <!-- ================= Transport board (own data and date range) ========= -->
-      <TransportBoard v-if="transportBoard" :style="{ order: blockPos.transport }" />
+      <!-- ================= Transport: one tab per panel, the board by default (2026-11-04).
+           A tab loads its panel the first time it opens. No bar with only one panel. ========= -->
+      <a-tabs
+        v-if="transportTabs.length" v-model:active-key="transportTab" class="transport-tabs" size="large"
+        :tab-bar-style="transportTabs.length < 2 ? { display: 'none' } : undefined"
+        :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? 0)) }"
+      >
+        <a-tab-pane v-if="profitPanel" key="transport_profit" :tab="es ? 'Rentabilidad por ruta' : 'Profit by route'"><TransportProfitPanel /></a-tab-pane>
+        <a-tab-pane v-if="ownerPanel" key="transport_owner" :tab="es ? 'Resumen del negocio' : 'Business summary'"><TransportOwnerPanel /></a-tab-pane>
+        <a-tab-pane v-if="transportBoard" key="transport" :tab="es ? 'Tablero de transporte' : 'Transport board'"><TransportBoard /></a-tab-pane>
+      </a-tabs>
 
       <!-- ================= Stat cards (legacy's two rows of four) ========= -->
       <!-- Cards share the row: as many as there are, max 6 per row (then wrap). -->
@@ -346,6 +349,7 @@ import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
 import TransportBoard from '../components/TransportBoard.vue';
 import TransportOwnerPanel from '../components/TransportOwnerPanel.vue';
 import TransportProfitPanel from '../components/TransportProfitPanel.vue';
+import { useUiStore } from '../stores/ui';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import { getUserPref, setUserPref } from '../lib/userPrefs';
@@ -371,6 +375,14 @@ const transportBoard = computed(() => show('transport_board') && auth.moduleEnab
 const profitPanel = computed(() => show('transport_profit') && auth.moduleEnabled('transport') && auth.can('transport_profit'));
 const ownerPanel = computed(() => show('transport_owner') && auth.can('dashboard') && auth.moduleEnabled('transport')
   && (auth.can('transport_view') || auth.can('transport_manage')));
+const es = computed(() => useUiStore().locale === 'es');
+const transportTabs = computed(() => [profitPanel.value && 'transport_profit', ownerPanel.value && 'transport_owner', transportBoard.value && 'transport'].filter(Boolean));
+const transportPick = ref(null);
+const transportTab = computed({
+  get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value
+    : (transportTabs.value.includes('transport') ? 'transport' : transportTabs.value[0])),
+  set: v => { transportPick.value = v; },
+});
 
 const customStart = computed(() => auth.user?.start_page_mode === 'custom');
 // Admin-picked shortcut buttons, empty slots filled with the user's most used forms.
