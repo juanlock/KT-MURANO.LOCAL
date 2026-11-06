@@ -41,12 +41,12 @@ class Transfer extends Model
 
     public function from_warehouse()
     {
-        return $this->belongsTo('App\Models\Warehouse', 'from_warehouse_id');
+        return $this->belongsTo('App\Models\Warehouse', 'from_warehouse_id')->withoutGlobalScope('company');
     }
 
     public function to_warehouse()
     {
-        return $this->belongsTo('App\Models\Warehouse', 'to_warehouse_id');
+        return $this->belongsTo('App\Models\Warehouse', 'to_warehouse_id')->withoutGlobalScope('company');
     }
 
     /**

@@ -19,6 +19,6 @@ class UserWarehouse extends Model
 
     public function assignedWarehouses()
     {
-        return $this->hasMany('App\Models\Warehouse', 'id', 'warehouse_id');
+        return $this->hasMany('App\Models\Warehouse', 'id', 'warehouse_id')->withoutGlobalScope('company');
     }
 }

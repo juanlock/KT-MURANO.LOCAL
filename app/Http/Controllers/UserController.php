@@ -122,7 +122,7 @@ class UserController extends BaseController
         // Create User form could offer choices across companies) -- everyone
         // else only ever sees their own company's warehouses.
         $warehouses = $user->type === 'SuperAdmin'
-            ? Warehouse::where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
+            ? Warehouse::withoutGlobalScope('company')->where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
             : Warehouse::where('deleted_at', '=', null)->where('company_id', $user->company_id)->get(['id', 'name', 'company_id']);
 
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
@@ -460,7 +460,7 @@ class UserController extends BaseController
                 // Only warehouses belonging to this user's own company can be
                 // assigned, regardless of what ids the request sent.
                 $requestedWarehouseIds = array_map('intval', $request['assigned_to'] ?? []);
-                $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->all();
+                $allowedWarehouseIds = Warehouse::withoutGlobalScope('company')->whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->all();
                 $requestedWarehouseIds = array_values(array_intersect($requestedWarehouseIds, $allowedWarehouseIds));
                 $User->assignedWarehouses()->sync($requestedWarehouseIds);
                 // Staff saved with no Location picked: company default Location
@@ -624,7 +624,7 @@ class UserController extends BaseController
         $this->guardSuperAdminTarget($actingUser, (int) $id);
 
         $assigned_warehouses = UserWarehouse::where('user_id', $id)->pluck('warehouse_id')->toArray();
-        $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $assigned_warehouses)->pluck('id')->toArray();
+        $warehouses = Warehouse::withoutGlobalScope('company')->where('deleted_at', '=', null)->whereIn('id', $assigned_warehouses)->pluck('id')->toArray();
         // Only the edited user's own company's roles (roles are per-company
         // copies; unscoped, each showed up once per company).
         $roles = Role::where('deleted_at', null)->where('company_id', $user->company_id)->orderBy('name')->get(['id', 'name']);
@@ -633,7 +633,7 @@ class UserController extends BaseController
         // company's warehouses; everyone else only gets their own company's.
         $unrestrictedWarehouses = $actingUser->type === 'SuperAdmin' || $user->type === 'SuperAdmin';
         $all_warehouses = $unrestrictedWarehouses
-            ? Warehouse::where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
+            ? Warehouse::withoutGlobalScope('company')->where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
             : Warehouse::where('deleted_at', '=', null)->where('company_id', $user->company_id)->get(['id', 'name', 'company_id']);
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
@@ -847,7 +847,7 @@ class UserController extends BaseController
             // Only warehouses belonging to this user's (now-locked-in)
             // company can be assigned, regardless of what ids the request sent.
             $requestedWarehouseIds = array_map('intval', $request['assigned_to'] ?? []);
-            $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->where('company_id', $targetCompanyId)->pluck('id')->all();
+            $allowedWarehouseIds = Warehouse::withoutGlobalScope('company')->whereNull('deleted_at')->where('company_id', $targetCompanyId)->pluck('id')->all();
             $requestedWarehouseIds = array_values(array_intersect($requestedWarehouseIds, $allowedWarehouseIds));
             $user_saved->assignedWarehouses()->sync($requestedWarehouseIds);
 

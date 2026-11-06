@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\AssetValidationDueNotification;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 class CheckAssetValidationDue extends Command
 {
@@ -70,6 +71,15 @@ class CheckAssetValidationDue extends Command
             return 0;
         }
 
+        // Demo assets have no real tool behind them: nobody is told about them.
+        $demo = DB::table('demo_records')->where('record_type', 'assets')->pluck('record_id')->map(fn ($id) => (int) $id)->flip();
+        $assets = $assets->reject(fn (Asset $asset) => isset($demo[(int) $asset->id]));
+        if ($assets->isEmpty()) {
+            $this->info('No real assets due for validation within the next 5 working days.');
+
+            return 0;
+        }
+
         $permission = Permission::where('name', 'assets')->first();
         if (! $permission) {
             $this->warn('Permission "assets" not found. No notifications sent.');
@@ -84,31 +94,38 @@ class CheckAssetValidationDue extends Command
             return 0;
         }
 
-        $users = User::whereNull('deleted_at')
-            ->whereHas('roles', function ($q) use ($roleIds) {
-                $q->whereIn('roles.id', $roleIds);
-            })
-            ->get()
-            ->unique('id');
-
-        if ($users->isEmpty()) {
-            $this->warn('No users with assets permission found. No notifications sent.');
-
-            return 0;
-        }
-
+        // Only the asset's own company, active logins, once per asset and validation date: this runs every
+        // day, and an overdue asset must not mail everyone daily. Multicompany: never another company's users.
+        $sent = 0;
         foreach ($assets as $asset) {
+            $companyId = optional($asset->warehouse)->company_id;
+            if (! $companyId) {
+                continue;
+            }
+            $date = $asset->next_validation->format('Y-m-d');
+            $users = User::whereNull('deleted_at')
+                ->where('statut', 1)
+                ->where('company_id', $companyId)
+                ->whereHas('roles', function ($q) use ($roleIds) {
+                    $q->whereIn('roles.id', $roleIds);
+                })
+                ->get()
+                ->unique('id');
+
             foreach ($users as $user) {
-                $user->notify(new AssetValidationDueNotification($asset));
+                $told = $user->notifications()
+                    ->where('type', AssetValidationDueNotification::class)
+                    ->where('data->asset_id', (int) $asset->id)
+                    ->where('data->next_validation', $date)
+                    ->exists();
+                if (! $told) {
+                    $user->notify(new AssetValidationDueNotification($asset));
+                    $sent++;
+                }
             }
         }
 
-        $this->info(sprintf(
-            'Sent %d notification(s) to %d user(s) for %d asset(s) due for validation.',
-            $assets->count() * $users->count(),
-            $users->count(),
-            $assets->count()
-        ));
+        $this->info(sprintf('Sent %d notification(s) for %d asset(s) due for validation.', $sent, $assets->count()));
 
         return 0;
     }

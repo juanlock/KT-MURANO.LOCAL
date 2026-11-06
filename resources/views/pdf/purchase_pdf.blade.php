@@ -94,14 +94,14 @@
                                 $statusKey = strtolower($purchase['statut']);
                                 $statusStyle = $statusColors[$statusKey] ?? ['bg' => '#e5e7eb', 'color' => '#374151'];
                             @endphp
-                            <span style="background: {{$statusStyle['bg']}}; color: {{$statusStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{$purchase['statut']}}</span>
+                            <span style="background: {{$statusStyle['bg']}}; color: {{$statusStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{ \Illuminate\Support\Facades\Lang::has('pdf.st_'.strtolower($purchase['statut'])) ? __('pdf.st_'.strtolower($purchase['statut'])) : $purchase['statut'] }}</span>
                         </td>
                     </tr>
                     <tr style="{{ $pdfT['show_status'] ? '' : 'display:none;' }}">
                         <td style="text-align: right; color: #6b7280; font-weight: 600;">{{ __('pdf.payment') }}{{ $isRtl ? '' : ':' }}</td>
                         <td style="text-align: right;">
                             @php $paymentKey = strtolower($purchase['payment_status']); $paymentStyle = $statusColors[$paymentKey] ?? ['bg' => '#e5e7eb', 'color' => '#374151']; @endphp
-                            <span style="background: {{$paymentStyle['bg']}}; color: {{$paymentStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{$purchase['payment_status']}}</span>
+                            <span style="background: {{$paymentStyle['bg']}}; color: {{$paymentStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{ \Illuminate\Support\Facades\Lang::has('pdf.st_'.strtolower($purchase['payment_status'])) ? __('pdf.st_'.strtolower($purchase['payment_status'])) : $purchase['payment_status'] }}</span>
                         </td>
                     </tr>
                 </table>

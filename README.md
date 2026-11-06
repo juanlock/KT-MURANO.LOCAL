@@ -206,20 +206,28 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
-### 2026-11-05 (Home) (not in production yet)
+### 2026-11-05 / 06 (Home)
 
+- **Each company sees only its own warehouses** on every signed-in screen
+  (transfers and adjustments listed all of them); a SuperAdmin follows the
+  company picked, AdminSystem sees all.
+- **Invoices and other printed documents speak the company's language** (they
+  could never come out in Spanish); email and SMS templates have their Spanish
+  for the companies working in Spanish.
+- **Asset validation notices** go only to the asset's own company, once per
+  date and never for demo assets; the wrong notices were removed. Meeting and
+  asset emails now reach their recipient.
+- **Turismo Cautivo**: terminal Puente Nuevo for its departures report.
 - **Turismo Cautivo's dashboard opens on the departures report**, and the
   pilots' red line is gone from the transport board (their hour bars stay).
 - **Screens in the company's language**: about 870 texts that were written by
   hand in English now have their Spanish (fleet, email office, contracts,
   imports, products, customers, payroll, POS and detail screens). English
-  companies keep reading English. Email and SMS templates, server messages and
-  PDFs are still to review.
+  companies keep reading English. Store and meeting messages and the customer
+  portal are still to review.
 - **Turismo's invoices** no longer carry another company's US note (late fee,
   phone numbers); terms and the ticket's closing line are in Spanish, and its
   walk-in customer is now "Cliente de mostrador".
-- **Product forms offer only the company's own warehouses** (they listed every
-  company's). The same pattern is still to fix in other modules.
 
 Setup: `php artisan migrate`, `npm run build`.
 

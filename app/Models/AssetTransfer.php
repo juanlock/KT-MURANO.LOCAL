@@ -40,11 +40,11 @@ class AssetTransfer extends Model
 
     public function fromWarehouse()
     {
-        return $this->belongsTo(Warehouse::class, 'from_warehouse_id');
+        return $this->belongsTo(Warehouse::class, 'from_warehouse_id')->withoutGlobalScope('company');
     }
 
     public function toWarehouse()
     {
-        return $this->belongsTo(Warehouse::class, 'to_warehouse_id');
+        return $this->belongsTo(Warehouse::class, 'to_warehouse_id')->withoutGlobalScope('company');
     }
 }

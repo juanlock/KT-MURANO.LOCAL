@@ -102,7 +102,7 @@
                                 $statusKey = strtolower($return_sale['statut']);
                                 $statusStyle = $statusColors[$statusKey] ?? ['bg' => '#e5e7eb', 'color' => '#374151'];
                             @endphp
-                            <span style="background: {{$statusStyle['bg']}}; color: {{$statusStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{$return_sale['statut']}}</span>
+                            <span style="background: {{$statusStyle['bg']}}; color: {{$statusStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{ \Illuminate\Support\Facades\Lang::has('pdf.st_'.strtolower($return_sale['statut'])) ? __('pdf.st_'.strtolower($return_sale['statut'])) : $return_sale['statut'] }}</span>
                         </td>
                     </tr>
                     <tr>
@@ -112,7 +112,7 @@
                                 $paymentKey = strtolower($return_sale['payment_status']);
                                 $paymentStyle = $statusColors[$paymentKey] ?? ['bg' => '#e5e7eb', 'color' => '#374151'];
                             @endphp
-                            <span style="background: {{$paymentStyle['bg']}}; color: {{$paymentStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{$return_sale['payment_status']}}</span>
+                            <span style="background: {{$paymentStyle['bg']}}; color: {{$paymentStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{ \Illuminate\Support\Facades\Lang::has('pdf.st_'.strtolower($return_sale['payment_status'])) ? __('pdf.st_'.strtolower($return_sale['payment_status'])) : $return_sale['payment_status'] }}</span>
                         </td>
                     </tr>
                 </table>

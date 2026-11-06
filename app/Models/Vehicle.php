@@ -35,7 +35,7 @@ class Vehicle extends Model
 
     public function warehouse()
     {
-        return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
+        return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id')->withoutGlobalScope('company');
     }
 
     public function driver()

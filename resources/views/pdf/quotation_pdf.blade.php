@@ -96,7 +96,7 @@
                                 $statusKey = strtolower($quote['statut']);
                                 $statusStyle = $statusColors[$statusKey] ?? ['bg' => '#dbeafe', 'color' => '#1e40af'];
                             @endphp
-                            <span style="background: {{$statusStyle['bg']}}; color: {{$statusStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{$quote['statut']}}</span>
+                            <span style="background: {{$statusStyle['bg']}}; color: {{$statusStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{ \Illuminate\Support\Facades\Lang::has('pdf.st_'.strtolower($quote['statut'])) ? __('pdf.st_'.strtolower($quote['statut'])) : $quote['statut'] }}</span>
                         </td>
                     </tr>
                 </table>

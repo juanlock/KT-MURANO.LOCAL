@@ -168,7 +168,7 @@
                         $paymentKey = strtolower($purchase['payment_status']);
                         $paymentStyle = $paymentColors[$paymentKey] ?? ['bg' => '#e5e7eb', 'color' => '#374151'];
                     @endphp
-                    <span style="background: {{$paymentStyle['bg']}}; color: {{$paymentStyle['color']}}; padding: 3px 6px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{$purchase['payment_status']}}</span>
+                    <span style="background: {{$paymentStyle['bg']}}; color: {{$paymentStyle['color']}}; padding: 3px 6px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{ \Illuminate\Support\Facades\Lang::has('pdf.st_'.strtolower($purchase['payment_status'])) ? __('pdf.st_'.strtolower($purchase['payment_status'])) : $purchase['payment_status'] }}</span>
                 </td>
             </tr>
             @php $rowIndex++; @endphp

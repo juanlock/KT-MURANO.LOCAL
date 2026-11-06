@@ -87,7 +87,7 @@
                                 $statusKey = strtolower($transfer['statut']);
                                 $statusStyle = $statusColors[$statusKey] ?? ['bg' => '#e5e7eb', 'color' => '#374151'];
                             @endphp
-                            <span style="background: {{$statusStyle['bg']}}; color: {{$statusStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{$transfer['statut']}}</span>
+                            <span style="background: {{$statusStyle['bg']}}; color: {{$statusStyle['color']}}; padding: 3px 8px; border-radius: 3px; font-size: 7pt; font-weight: bold; text-transform: uppercase;">{{ \Illuminate\Support\Facades\Lang::has('pdf.st_'.strtolower($transfer['statut'])) ? __('pdf.st_'.strtolower($transfer['statut'])) : $transfer['statut'] }}</span>
                         </td>
                     </tr>
                 </table>

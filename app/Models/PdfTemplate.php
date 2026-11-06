@@ -79,7 +79,8 @@ class PdfTemplate extends Model
             // Table not migrated yet — render with defaults.
         }
         $merged = array_replace(self::DEFAULTS, $saved);
-        $merged['labels'] = array_replace(self::DEFAULTS['labels'], (array) ($saved['labels'] ?? []));
+        // The saved texts are one set for the whole install, typed in English: another language uses its own (2026-11-05).
+        $merged['labels'] = app()->getLocale() === 'en' ? array_replace(self::DEFAULTS['labels'], (array) ($saved['labels'] ?? [])) : self::DEFAULTS['labels'];
 
         return $cache[$type] = $merged;
     }

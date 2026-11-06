@@ -38,7 +38,7 @@ class AssetValidationDueNotification extends Notification implements ShouldQueue
      */
     public function via($notifiable)
     {
-        return ['database', 'mail'];
+        return $notifiable->email ? ['database', 'mail'] : ['database'];
     }
 
     /**
@@ -100,7 +100,7 @@ class AssetValidationDueNotification extends Notification implements ShouldQueue
             'company_name' => $tags['{business_name}'],
         ];
 
-        return (new CustomEmail($email));
+        return (new CustomEmail($email))->to($notifiable->email);
     }
 
     /**

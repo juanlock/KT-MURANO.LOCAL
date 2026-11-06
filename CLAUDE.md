@@ -194,6 +194,25 @@ something invented ad hoc. Since `now()`/`Carbon` write literal (timezone-naive
 *new* rows going forward — existing historical timestamps were written under
 the old `UTC` setting and were not retroactively converted.
 
+## Open with the user (2026-11-06, KT-HOGWARTS switched off for some weeks)
+
+**Turismo Cautivo's presentation is on 2026-11-15:** everything that company sees must be in Spanish. Before it, check that
+Reporte de salidas opens on real data. Only Reporte de salidas and Reclamos hold real data; the other transport tabs are demo.
+
+Waiting for the user's answer -- bring these up, don't decide them alone (remove each one once settled):
+1. **The US note on invoices** (`sale_pdf_company_note`: "We accept credit card... (973) 841-3779", $35 late fee) is in 18
+   companies, apparently copied at creation (not confirmed). Whose phone is it? Keep it for that company, clear the others.
+2. **A screen to enter each day's departures for Turismo** (bus, boarding points, times, passengers, amount, toll, fuel; not
+   started). The user's requirement: the report can go to PDF or email and every day stays stored as history. Recommended before the 15th.
+3. **337 complaints imported with their answers one field off:** the dashboard reads them through `LEGACY_KEYS`, but the
+   admin who opens one to reply sees them wrong. Recommended: correct them with a migration, production backup first.
+4. **The client's data:** which 4 buses have deluxe seats (all 17 say 15; our guess 103, 104, 370, 380); name, plate and seats of
+   the 2 missing buses; where each report's buses go; what CV is; Chiclayo's toll and fuel.
+5. **2026-11-16:** the user reviews the Risks thresholds.
+
+Not reviewed yet: PDFs other than the invoice, about 60 store / meeting messages without Spanish, the customer portal, a real
+send of the meeting and asset emails, whether production's `.env` sets `QUEUE_FAILED_DRIVER`.
+
 ## Base Product & Documentation
 
 Murano is built on **Stocky** (a commercial CodeCanyon Laravel product,
@@ -647,8 +666,9 @@ the start of each session).
   through `LEGACY_KEYS`; the rows stay as they are. Shared: `lib/transportCharts.js` (`useFitHeight`), `TransportChartBlock.vue`, `TransportStrip.vue`.
   **Departures report (2026-11-05):** tab "Reporte de salidas" (`TransportDeparturesPanel.vue`, `App\Services\TransportDepartures`): the content of Turismo's own Excel report per agency, designed as a board, not a copy of the sheet (user's rule): key figures, one row per bus with its boarding points in the client's codes (`transport_trip_boardings.label`), occupancy bar, small charts; a day with only demo trips or none shows the client's latest report;
   boarding points with their time per trip (`transport_trip_boardings`), the day's price (`transport_day_prices`, no screen yet). A trip from the client's report has
-  `reported_passengers` / `reported_income` instead of tickets (none are made up); `TransportProfit` counts them. To confirm with the client: a report's destination, its
-  codes (P.N., CV, T.Olivos), whether toll and fuel are round trip, 15 deluxe seats on every bus.
+  `reported_passengers` / `reported_income` instead of tickets (none are made up); `TransportProfit` counts them. The client's answers (user, 2026-11-05): P.N. = terminal Puente Nuevo, T.Olivos = Terminal Los Olivos,
+  toll and fuel are per stretch (they say: by distance and diesel cost), only 4 buses have deluxe seats, the fleet is 19 vehicles. Still open: where a report's buses go
+  (Lima -> Chiclayo and back is our assumption), what CV is (stored under Cavassa, a guess), which 4 buses are deluxe (all still say 15), the 2 buses missing (17 loaded), Chiclayo's toll and fuel. The Risks thresholds are reviewed on 2026-11-16.
   **The owner's figures (2026-11-04):** the dashboard's "Business summary" block
   (`TransportOwnerPanel.vue`, `transport/owner`, section `transport_owner`): income and
   tickets today / month by agency, today's trips, the month's fleet costs, best-selling
@@ -753,6 +773,11 @@ the start of each session).
 
 (Reloaded by Wake-up, like the Development Standards.)
 
+- **Warehouses are scoped by the model (2026-11-05).** `Warehouse` has a global scope `company` on routes behind `auth:api` (like `Account`): an Admin sees their
+  company's, a SuperAdmin the picked company's, AdminSystem all. Relations to a warehouse use `->withoutGlobalScope('company')`: old `product_warehouse` rows (1,305) point to other
+  companies' warehouses and must not come back null. A new relation to Warehouse does the same.
+- **Documents speak the company's language (2026-11-05).** `SetPdfLocale`: company's `default_language` on PDFs and printed documents (`resources/lang/{locale}/pdf.php`). Email and SMS
+  templates: pool 999 per locale, Spanish rows now in Spanish. Bare `__('text')` keys: `resources/lang/es.json`.
 - **A dashboard fits one screen (user's rule, 2026-11-05).** Almost never a vertical or horizontal
   scroll: compact it, or move the rest to another tab. The critical information holds the center. No
   explanatory text on the board: it goes in an (i) popup (`a-tooltip`) or is cut down. Only a super critical
