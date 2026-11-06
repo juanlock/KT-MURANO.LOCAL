@@ -200,15 +200,13 @@ the old `UTC` setting and were not retroactively converted.
 Reporte de salidas opens on real data. Only Reporte de salidas and Reclamos hold real data; the other transport tabs are demo.
 
 Waiting for the user's answer -- bring these up, don't decide them alone (remove each one once settled):
-1. **The US note on invoices** (`sale_pdf_company_note`: "We accept credit card... (973) 841-3779", $35 late fee) is in 18
-   companies, apparently copied at creation (not confirmed). Whose phone is it? Keep it for that company, clear the others.
-2. **A screen to enter each day's departures for Turismo** (bus, boarding points, times, passengers, amount, toll, fuel; not
+1. **A screen to enter each day's departures for Turismo** (bus, boarding points, times, passengers, amount, toll, fuel; not
    started). The user's requirement: the report can go to PDF or email and every day stays stored as history. Recommended before the 15th.
-3. **337 complaints imported with their answers one field off:** the dashboard reads them through `LEGACY_KEYS`, but the
+2. **337 complaints imported with their answers one field off:** the dashboard reads them through `LEGACY_KEYS`, but the
    admin who opens one to reply sees them wrong. Recommended: correct them with a migration, production backup first.
-4. **The client's data:** which 4 buses have deluxe seats (all 17 say 15; our guess 103, 104, 370, 380); name, plate and seats of
+3. **The client's data:** which 4 buses have deluxe seats (all 17 say 15; our guess 103, 104, 370, 380); name, plate and seats of
    the 2 missing buses; where each report's buses go; what CV is; Chiclayo's toll and fuel.
-5. **2026-11-16:** the user reviews the Risks thresholds.
+4. **2026-11-16:** the user reviews the Risks thresholds.
 
 Not reviewed yet: PDFs other than the invoice, about 60 store / meeting messages without Spanish, the customer portal, a real
 send of the meeting and asset emails, whether production's `.env` sets `QUEUE_FAILED_DRIVER`.
@@ -442,6 +440,8 @@ the start of each session).
   note, history kept, assets to collect reported). **Disabling a login** =
   `App\Support\UserAccess::disable()` (statut 0 + every token / session revoked);
   `Is_Active` refuses a disabled login before the request runs.
+- **The invoice note and terms with the card fee, late fee and (973) phones are Ruba's only (user's rule, 2026-11-06):** every other
+  company and the template 999 (new companies are cloned from it) keep `sale_pdf_company_note` / `sale_pdf_terms_conditions` empty.
 - **Sale numbers are per company** (2026-10-07): `SalesController::getNumberOrder($warehouseId, $companyId)`
   = the company's own `settings.sale_prefix` + that company's highest number + 1,
   keeping its separator (Ruba INV_3604, KcolTech PP-…). Every place that creates a
