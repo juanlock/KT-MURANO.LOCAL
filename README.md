@@ -221,15 +221,7 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 - **Product forms offer only the company's own warehouses** (they listed every
   company's). The same pattern is still to fix in other modules.
 
-Setup:    ERROR  Command "migrate" is not defined. Did you mean one of these?  
-
-  ⇂ migrate  
-  ⇂ migrate:fresh  
-  ⇂ migrate:install  
-  ⇂ migrate:refresh  
-  ⇂ migrate:reset  
-  ⇂ migrate:rollback  
-  ⇂ migrate:status  , .
+Setup: `php artisan migrate`, `npm run build`.
 
 ### 2026-11-03 (Optimum)
 
