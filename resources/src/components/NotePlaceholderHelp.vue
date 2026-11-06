@@ -4,7 +4,7 @@
        Placeholders are filled per invoice by the server
        (SalesContractBilling::renderNote) -- keep this list in sync with
        SalesContractBilling::NOTE_TOKENS. -->
-  <a-popover trigger="click" placement="bottomRight" title="Note placeholders">
+  <a-popover trigger="click" placement="bottomRight" :title="$t('tx_Note_placeholders_00d5c')">
     <template #content>
       <div class="nph">
         <div class="nph__hint">{{ hint }}</div>
@@ -16,17 +16,18 @@
           </div>
         </template>
         <a-divider style="margin: 8px 0" />
-        <div class="nph__hint">Examples (click to use):</div>
+        <div class="nph__hint">{{ $t('tx_Examples_click_to_use_f1551') }}</div>
         <div v-for="ex in NOTE_EXAMPLES" :key="ex" class="nph__example" @click="emit('use', ex)">{{ ex }}</div>
       </div>
     </template>
     <slot>
-      <a-tooltip title="Placeholders and examples"><QuestionCircleOutlined style="cursor: pointer" /></a-tooltip>
+      <a-tooltip :title="$t('tx_Placeholders_and_examples_617f7')"><QuestionCircleOutlined style="cursor: pointer" /></a-tooltip>
     </slot>
   </a-popover>
 </template>
 
 <script setup>
+import { t as tEs } from '../i18n/index.js';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
 
 const emit = defineEmits(['insert', 'use']);
@@ -37,7 +38,7 @@ defineProps({
 
 const NOTE_GROUPS = [
   {
-    title: 'Period billed',
+    title: tEs('tx_Period_billed_7007a', 'Period billed'),
     tokens: [
       { token: '{{month}}', help: 'Month name -- May' },
       { token: '{{month_short}}', help: 'Short month -- May / Jun' },
@@ -50,7 +51,7 @@ const NOTE_GROUPS = [
     ],
   },
   {
-    title: 'Invoice date',
+    title: tEs('tx_Invoice_date_402ab', 'Invoice date'),
     tokens: [
       { token: '{{invoice_date}}', help: 'Invoice date -- May 31, 2026' },
       { token: '{{day}}', help: 'Day of the month -- 31' },
@@ -60,7 +61,7 @@ const NOTE_GROUPS = [
     ],
   },
   {
-    title: 'Series',
+    title: tEs('tx_Series_9d948', 'Series'),
     tokens: [
       { token: '{{occurrence}}', help: 'This invoice\'s number in the series -- 3' },
       { token: '{{number}}', help: 'Same as occurrence -- 3' },

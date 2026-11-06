@@ -58,7 +58,7 @@
                 {{ $t('Pack') }}: {{ record.pack_name }} (×{{ record.pack_multiplier }})
               </a-tag>
               <a-tooltip v-if="record.is_batch_tracked" :title="tf('Auto_Batch_Mirror_Hint', 'Original sale batches will be auto-credited proportionally when this return is received.')">
-                <a-tag color="purple">{{ tf('Batches', 'Batches') }} · Auto</a-tag>
+                <a-tag color="purple">{{ tf('Batches', 'Batches') }} {{ $t('tx_Auto_42474') }}</a-tag>
               </a-tooltip>
             </template>
             <template v-else-if="column.key === 'Net_price'">{{ money(record.Net_price) }}</template>

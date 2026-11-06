@@ -129,6 +129,7 @@
 </template>
 
 <script setup>
+import { looseTranslation } from '../../i18n';
 /**
  * Seller report — full parity with legacy seller_report.vue:
  * date+TIME range, warehouse filter, PDF/Excel/Print, four KPI tiles, the
@@ -192,7 +193,7 @@ const columns = computed(() => [
   { title: t('Seller'), dataIndex: 'username', key: 'username', sorter: true },
   { title: t('TotalSales'), dataIndex: 'total_sales', key: 'total_sales', sorter: true, align: 'right', exportValue: r => money(parse(r.total_sales)) },
   ...paymentMethods.value.map(m => ({
-    title: m, dataIndex: m, key: m, sorter: true, align: 'right', exportValue: r => money(parse(r[m])),
+    title: looseTranslation(m) || m, dataIndex: m, key: m, sorter: true, align: 'right', exportValue: r => money(parse(r[m])),
   })),
 ]);
 

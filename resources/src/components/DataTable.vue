@@ -68,7 +68,7 @@
 
         <!-- Fit to width: no horizontal scroll bar -- the columns share the
              screen and long text wraps. Remembered per table, per user. -->
-        <a-tooltip v-if="!isPhone" :title="fitWidth ? 'Fit to width: on (click for full-width columns)' : 'Fit to width (no horizontal scroll bar)'">
+        <a-tooltip v-if="!isPhone" :title="fitWidth ? $t('tx_Fit_to_width_on_click_for_full_width_columns_a5c54') : $t('tx_Fit_to_width_no_horizontal_scroll_bar_cd234')">
           <a-button :type="fitWidth ? 'primary' : 'default'" @click="toggleFitWidth">
             <template #icon><ShrinkOutlined /></template>
           </a-button>
@@ -145,12 +145,12 @@
       :confirm-loading="customizeSaving"
       @ok="saveCustomize"
     >
-      <div class="cc-hint">Rename, resize, hide or reorder this table's columns for everyone in the company. Leave a name or width empty to keep the default.</div>
+      <div class="cc-hint">{{ $t('tx_Rename_resize_hide_or_reorder_this_table_s_columns_for_every_33617') }}</div>
       <div class="cc-head">
         <span class="cc-move"></span>
-        <span class="cc-vis">Show</span>
-        <span class="cc-title">Column name</span>
-        <span class="cc-width">Width (px)</span>
+        <span class="cc-vis">{{ $t('tx_Show_498f7') }}</span>
+        <span class="cc-title">{{ $t('tx_Column_name_710b8') }}</span>
+        <span class="cc-width">{{ $t('tx_Width_px_ee8d8') }}</span>
       </div>
       <div v-for="(row, i) in customizeRows" :key="row.key" class="cc-row">
         <span class="cc-move">
@@ -171,6 +171,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../i18n/index.js';
 /**
  * Thin wrapper binding an a-table to a useCrudTable() instance: server-side
  * pagination, sorting, search and bulk delete wired once. Pages supply columns
@@ -388,7 +389,7 @@ async function persistCustomize(columns) {
     const res = await http.put('datatable_columns', { table_key: tableKeyResolved.value, columns });
     if (auth.user) auth.user.datatable_columns = res?.datatable_columns || {};
     customizeOpen.value = false;
-    message.success('Saved');
+    message.success(tEs('Saved', 'Saved'));
   } catch (e) {
     message.error(e?.data?.message || 'Could not save');
   } finally {

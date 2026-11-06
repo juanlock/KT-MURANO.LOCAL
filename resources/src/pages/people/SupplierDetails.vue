@@ -147,7 +147,7 @@
       </a-tab-pane>
 
       <!-- Supplier info: contact details, address, contact person. -->
-      <a-tab-pane key="info" tab="Supplier info">
+      <a-tab-pane key="info" :tab="$t('Supplier_Info')">
         <a-card size="small" :loading="!info">
           <template #extra>
             <a-button v-if="auth.can('Suppliers_edit')" size="small" @click="$router.push(`/suppliers/${id}/edit`)">
@@ -157,7 +157,7 @@
           </template>
           <a-descriptions v-if="info" :column="{ xs: 1, md: 2 }" size="small" bordered>
             <a-descriptions-item :label="$t('SupplierName')">{{ info.name }}</a-descriptions-item>
-            <a-descriptions-item label="Code">{{ info.code || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('Code')">{{ info.code || '—' }}</a-descriptions-item>
             <a-descriptions-item :label="$t('Email')">
               <a v-if="info.email" :href="`mailto:${info.email}`">{{ info.email }}</a><span v-else>—</span>
               <div v-if="(info.additional_emails || []).length" class="muted">{{ info.additional_emails.join(', ') }}</div>
@@ -166,13 +166,13 @@
             <a-descriptions-item :label="$t('Adress')" :span="2">{{ addressLine || '—' }}</a-descriptions-item>
             <a-descriptions-item :label="$t('Tax_Number')">{{ info.tax_number || '—' }}</a-descriptions-item>
             <a-descriptions-item :label="$t('Credit_Limit')">{{ Number(info.credit_limit) > 0 ? money(info.credit_limit) : $t('No_limit') }}</a-descriptions-item>
-            <a-descriptions-item label="Contact person" :span="2">
+            <a-descriptions-item :label="$t('tx_Contact_person_25754')" :span="2">
               <template v-if="info.contact_name || info.contact_email || info.contact_phone">
                 <b>{{ info.contact_name || '—' }}</b>
                 <span v-if="info.contact_email"> · <a :href="`mailto:${info.contact_email}`">{{ info.contact_email }}</a></span>
                 <span v-if="info.contact_phone"> · {{ info.contact_phone }}</span>
               </template>
-              <span v-else class="muted">Not set — add it with Edit.</span>
+              <span v-else class="muted">{{ $t('tx_Not_set_add_it_with_Edit_3dced') }}</span>
             </a-descriptions-item>
           </a-descriptions>
         </a-card>
@@ -187,7 +187,7 @@
           <template #expandedRowRender="{ record }">
             <div class="thread-list">
               <div v-for="m in record.messages" :key="m.id" class="thread-msg" @click="openEmail(m, record.messages)">
-                <a-tag :color="m.direction === 'in' ? 'green' : 'blue'" style="margin: 0">{{ m.direction === 'in' ? 'From supplier' : 'To supplier' }}</a-tag>
+                <a-tag :color="m.direction === 'in' ? 'green' : 'blue'" style="margin: 0">{{ m.direction === 'in' ? $t('tx_From_supplier_54d71') : $t('tx_To_supplier_cd893') }}</a-tag>
                 <span class="thread-date">{{ dateTime(m.sent_at) }}</span>
                 <span class="thread-text"><b>{{ m.from_name || m.from_email }}</b> — {{ m.snippet }}</span>
               </div>
@@ -196,12 +196,12 @@
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'email_date'">{{ dateTime(record.sent_at) }}</template>
             <template v-else-if="column.key === 'email_direction'">
-              <a-tag :color="record.direction === 'in' ? 'green' : 'blue'">{{ record.direction === 'in' ? 'From supplier' : 'To supplier' }}</a-tag>
+              <a-tag :color="record.direction === 'in' ? 'green' : 'blue'">{{ record.direction === 'in' ? $t('tx_From_supplier_54d71') : $t('tx_To_supplier_cd893') }}</a-tag>
             </template>
             <template v-else-if="column.key === 'email_subject'">
               <a @click="openEmail(record, record.messages || [])">{{ record.thread_count > 1 ? record.thread_subject : record.subject }}</a>
               <a-tag v-if="record.thread_count > 1" color="purple" style="margin-left: 6px">{{ record.thread_count }}</a-tag>
-              <div class="muted email-snippet">{{ record.thread_count > 1 ? 'Latest: ' : '' }}{{ record.snippet }}</div>
+              <div class="muted email-snippet">{{ record.thread_count > 1 ? $t('tx_Latest_244f9') : '' }}{{ record.snippet }}</div>
             </template>
             <template v-else-if="column.key === 'email_category'">{{ emailCategoryLabel(record.category) }}</template>
             <template v-else-if="column.key === 'email_linked'">
@@ -231,6 +231,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Supplier details — a People-scoped view of a single supplier (gated by
  * Suppliers_view, not a reports permission). Same summary + tabs as the reports
@@ -291,12 +292,12 @@ const showEmails = computed(() => auth.moduleEnabled('email_office') && auth.can
 if (showEmails.value) loadEmailFolders(); // names of the company's own email folders
 const emailsCrud = useCrudTable('email-office/party', { rowsKey: 'emails', limit: 10, params: () => ({ type: 'provider', id, threads: 1 }) });
 const emailColumns = [
-  { title: 'Date', dataIndex: 'sent_at', key: 'email_date', width: 170 },
+  { title: tEs('date', 'Date'), dataIndex: 'sent_at', key: 'email_date', width: 170 },
   { title: '', dataIndex: 'direction', key: 'email_direction', width: 120 },
   // A default width: the preview below the subject wraps inside it (2 lines).
-  { title: 'Subject', dataIndex: 'subject', key: 'email_subject', width: 480 },
-  { title: 'Type', dataIndex: 'category', key: 'email_category', width: 100 },
-  { title: 'Recorded in Murano', key: 'email_linked', width: 160 },
+  { title: tEs('Subject', 'Subject'), dataIndex: 'subject', key: 'email_subject', width: 480 },
+  { title: tEs('type', 'Type'), dataIndex: 'category', key: 'email_category', width: 100 },
+  { title: tEs('tx_Recorded_in_Murano_52c13', 'Recorded in Murano'), key: 'email_linked', width: 160 },
 ];
 const emailOpen = ref(false);
 const emailId = ref(null);

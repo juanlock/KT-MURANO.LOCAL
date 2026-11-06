@@ -13,18 +13,17 @@
          from the sender; values found in the email are one click away. -->
     <a-card v-if="!loadingRecord && fromEmail" size="small" class="sf-from">
       <div class="sf-from__title">
-        <MailOutlined /> From the email “{{ fromEmail.subject }}” — {{ fromEmail.from_name || fromEmail.from_email }}
+        <MailOutlined /> {{ $t('tx_From_the_email_ac6f1') }}{{ fromEmail.subject }}” — {{ fromEmail.from_name || fromEmail.from_email }}
       </div>
       <div class="sf-muted">
-        Name and email are taken from the sender<span v-if="senderAddresses > 1">. This sender writes from {{ senderAddresses }} different addresses, so the email is left empty — its emails are matched by the name</span>.
-        When you save, its emails are linked to the new supplier.
+        {{ $t('tx_Name_and_email_are_taken_from_the_sender_7c309') }}<span v-if="senderAddresses > 1">{{ $t('tx_This_sender_writes_from_88068') }} {{ senderAddresses }} {{ $t('tx_different_addresses_so_the_email_is_left_empty_its_emails_ar_b1f6a') }}</span>{{ $t('tx_When_you_save_its_emails_are_linked_to_the_new_supplier_64677') }}
       </div>
       <div v-if="phonesFound.length" class="sf-pick">
-        <span class="sf-muted">Phones in the email:</span>
+        <span class="sf-muted">{{ $t('tx_Phones_in_the_email_c6bdc') }}</span>
         <a-tag v-for="p in phonesFound" :key="p" class="sf-chip" :color="form.phone === p ? 'purple' : undefined" @click="form.phone = p">{{ p }}</a-tag>
       </div>
       <div v-if="sitesFound.length" class="sf-pick">
-        <span class="sf-muted">Addresses in the email:</span>
+        <span class="sf-muted">{{ $t('tx_Addresses_in_the_email_8966d') }}</span>
         <a-tag v-for="a in sitesFound" :key="a" class="sf-chip" :color="form.email === a ? 'purple' : undefined" @click="form.email = a">{{ a }}</a-tag>
       </div>
     </a-card>
@@ -51,11 +50,11 @@
           <!-- Extra purchase-email recipients -- also filled from the Purchases
                list Send Email modal when a new address is typed. -->
           <a-col :xs="24" :md="12">
-            <a-form-item label="Additional Emails" name="additional_emails">
+            <a-form-item :label="$t('tx_Additional_Emails_42784')" name="additional_emails">
               <a-select
                 v-model:value="form.additional_emails"
                 mode="tags" :open="false" :token-separators="[',', ' ', ';']"
-                placeholder="Type an email and press Enter"
+                :placeholder="$t('tx_Type_an_email_and_press_Enter_98c3f')"
               />
             </a-form-item>
           </a-col>
@@ -75,7 +74,7 @@
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="State" name="state">
+            <a-form-item :label="$t('State')" name="state">
               <a-input v-model:value="form.state" />
             </a-form-item>
           </a-col>
@@ -90,19 +89,19 @@
             </a-form-item>
           </a-col>
           <!-- Contact person: who to talk to at this supplier (account manager…). -->
-          <a-col :span="24"><div class="sf-section">Contact person</div></a-col>
+          <a-col :span="24"><div class="sf-section">{{ $t('tx_Contact_person_25754') }}</div></a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Name" name="contact_name">
+            <a-form-item :label="$t('Name')" name="contact_name">
               <a-input v-model:value="form.contact_name" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Email" name="contact_email">
+            <a-form-item :label="$t('Email')" name="contact_email">
               <a-input v-model:value="form.contact_email" type="email" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Phone" name="contact_phone">
+            <a-form-item :label="$t('Phone')" name="contact_phone">
               <a-input v-model:value="form.contact_phone" />
             </a-form-item>
           </a-col>
@@ -128,6 +127,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Mirror of CustomerForm: POST providers | GET|PUT providers/{id};
  * phone probe uses type=provider.
@@ -280,9 +280,9 @@ async function linkEmails(providerId) {
   } catch (err) { /* fall back to this one email */ }
   const all = count > 1 && await new Promise(resolve => Modal.confirm({
     title: `I found ${count} emails from ${senderName(e) || e.from_email}`,
-    content: 'Link all of them to the new supplier? Its next emails will match it by themselves.',
+    content: tEs('tx_Link_all_of_them_to_the_new_supplier_Its_next_emails_will_ma_3ff75', 'Link all of them to the new supplier? Its next emails will match it by themselves.'),
     okText: `Yes, link all ${count}`,
-    cancelText: 'Only this one',
+    cancelText: tEs('tx_Only_this_one_835ca', 'Only this one'),
     onOk: () => resolve(true),
     onCancel: () => resolve(false),
   }));
@@ -294,7 +294,7 @@ async function linkEmails(providerId) {
       await http.put(`email-office/emails/${e.id}`, { party_type: 'provider', party_id: providerId });
     }
   } catch (err) {
-    message.warning('Supplier saved, but the email could not be linked — link it from Email Office.');
+    message.warning(tEs('tx_Supplier_saved_but_the_email_could_not_be_linked_link_it_fro_679ff', 'Supplier saved, but the email could not be linked — link it from Email Office.'));
   }
   router.push('/email-office/received');
 }

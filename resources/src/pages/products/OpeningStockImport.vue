@@ -18,20 +18,20 @@
       <div style="max-width: 760px; margin: 0 auto">
           <a-alert
             type="info" show-icon style="margin-bottom: 16px"
-            message="Opening stock"
-            description="Adds initial quantities for existing products in the chosen location. Codes must match products already in the system."
+            :message="$t('OpeningStock')"
+            :description="$t('tx_Adds_initial_quantities_for_existing_products_in_the_chosen__f99a1')"
           />
 
           <a-form-item
             :label="$t('warehouse') + ' *'" layout="vertical"
             :validate-status="warehouseTouched && !warehouseId ? 'error' : undefined"
-            :help="warehouseTouched && !warehouseId ? 'Please choose a location.' : 'Stock will be added to this location.'"
+            :help="warehouseTouched && !warehouseId ? $t('tx_Please_choose_a_location_2c8b4') : $t('tx_Stock_will_be_added_to_this_location_94f67')"
           >
             <a-select
               v-model:value="warehouseId"
               style="width: 100%"
               :options="warehouseOptions"
-              :placeholder="'Choose a location...'"
+              :placeholder="$t('tx_Choose_a_location_a87d7')"
               show-search
               option-filter-prop="label"
               allow-clear
@@ -42,15 +42,15 @@
             ref="dz"
             :file="file"
             :accept="accept"
-            title="Click or drop your Excel file here"
-            hint="Allowed formats: XLSX, XLS · Max size: 20MB"
+            :title="$t('tx_Click_or_drop_your_Excel_file_here_83bed')"
+            :hint="$t('tx_Allowed_formats_XLSX_XLS_Max_size_20MB_2c859')"
             :disabled="uploading"
             @file="loadFile"
             @clear="clearFile()"
           />
 
           <a-alert v-if="errorMessages.length" type="error" style="margin-top: 16px" show-icon>
-            <template #message>Import failed. Fix the issues below:</template>
+            <template #message>{{ $t('Import_Failed_Fix_Below') }}</template>
             <template #description>
               <ul style="margin: 0; padding-left: 18px">
                 <li v-for="(err, idx) in errorMessages" :key="'err-' + idx">{{ err }}</li>
@@ -59,7 +59,7 @@
           </a-alert>
 
           <a-alert v-if="warningMessages.length" type="warning" style="margin-top: 16px" show-icon>
-            <template #message>Warnings</template>
+            <template #message>{{ $t('Warnings') }}</template>
             <template #description>
               <ul style="margin: 0; padding-left: 18px">
                 <li v-for="(w, idx) in warningMessages" :key="'warn-' + idx">{{ w }}</li>
@@ -71,20 +71,20 @@
 
           <div style="display: flex; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap">
             <a-button type="primary" :disabled="uploading" :loading="uploading" @click="submit">
-              Import now
+              {{ $t('tx_Import_now_23453') }}
             </a-button>
             <a-button :href="exampleHref" target="_blank" rel="noopener">
-              <DownloadOutlined /> Download example
+              <DownloadOutlined /> {{ $t('Download_exemple') }}
             </a-button>
-            <a-button :disabled="uploading" @click="resetAll">Reset</a-button>
+            <a-button :disabled="uploading" @click="resetAll">{{ $t('Reset') }}</a-button>
           </div>
       </div>
     </a-card>
 
     <!-- Expected file format -->
-    <a-card size="small" :title="'Expected file format'">
+    <a-card size="small" :title="$t('tx_Expected_file_format_682f9')">
       <template #extra>
-        <span style="font-size: 12px; color: #8c8c8c">All columns required</span>
+        <span style="font-size: 12px; color: #8c8c8c">{{ $t('tx_All_columns_required_1f378') }}</span>
       </template>
       <a-table
         :columns="activeExample.columns" :data-source="activeExample.rows"
@@ -95,6 +95,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Opening Stock import — GET opening-stock/import/meta for warehouses,
  * POST opening-stock/import/{single|variants} with warehouse_id + products.
@@ -119,8 +120,8 @@ const variantEndpoint = 'opening-stock/import/variants';
 
 const importType = ref('single');
 const typeOptions = [
-  { label: 'Single Products', value: 'single' },
-  { label: 'Variant Products', value: 'variant' },
+  { label: tEs('tx_Single_Products_5687e', 'Single Products'), value: 'single' },
+  { label: tEs('tx_Variant_Products_65bd9', 'Variant Products'), value: 'variant' },
 ];
 const warehouseId = ref(null);
 const warehouseTouched = ref(false);

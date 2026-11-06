@@ -7,7 +7,7 @@
     </div>
 
     <template v-else>
-      <a-modal v-model:open="scanOpen" :title="'Barcode Scanner'" :footer="null" destroy-on-close>
+      <a-modal v-model:open="scanOpen" :title="$t('Mobile_Scanner')" :footer="null" destroy-on-close>
         <QrcodeScanner :qrbox="250" :fps="10" style="width: 100%" @result="onScan" />
       </a-modal>
 
@@ -44,27 +44,27 @@
           </a-col>
 
           <a-col :span="24" v-if="paper_size === 'customstyle' || (paper_size && paper_size.startsWith('sticker_'))">
-            <a-form-item :label="paper_size === 'customstyle' ? 'Custom Sticker Dimensions' : 'Sticker Dimensions'" layout="vertical">
+            <a-form-item :label="paper_size === 'customstyle' ? $t('tx_Custom_Sticker_Dimensions_398fd') : $t('tx_Sticker_Dimensions_e8723')" layout="vertical">
               <a-row :gutter="12">
                 <a-col :span="12">
                   <a-input-number
                     v-model:value="custom_sticker_width" :min="1" style="width: 100%"
-                    placeholder="Width" :disabled="paper_size !== 'customstyle'"
+                    :placeholder="$t('Width')" :disabled="paper_size !== 'customstyle'"
                     @change="updateCustomStickerLabel"
                   />
-                  <small style="color: #8c8c8c">Width (mm)</small>
+                  <small style="color: #8c8c8c">{{ $t('tx_Width_mm_5a919') }}</small>
                 </a-col>
                 <a-col :span="12">
                   <a-input-number
                     v-model:value="custom_sticker_height" :min="1" style="width: 100%"
-                    placeholder="Height" :disabled="paper_size !== 'customstyle'"
+                    :placeholder="$t('Height')" :disabled="paper_size !== 'customstyle'"
                     @change="updateCustomStickerLabel"
                   />
-                  <small style="color: #8c8c8c">Height (mm)</small>
+                  <small style="color: #8c8c8c">{{ $t('tx_Height_mm_07841') }}</small>
                 </a-col>
               </a-row>
               <small v-if="paper_size !== 'customstyle'" style="color: #8c8c8c; display: block; margin-top: 6px">
-                Dimensions are preset. Select "Stickers - Custom" to enter custom dimensions.
+                {{ $t('tx_Dimensions_are_preset_Select_Stickers_Custom_to_enter_custom_689e7') }}
               </small>
             </a-form-item>
           </a-col>
@@ -333,6 +333,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 import { productSearchLabel } from '../../lib/productDisplayName';
 /**
  * Print Barcode page — logic ported VERBATIM from legacy barcode.vue:
@@ -420,7 +421,7 @@ const FONT_FAMILIES = [
   { label: 'Garamond', value: 'Garamond, serif' },
   { label: 'Courier New', value: "'Courier New', Courier, monospace" },
   { label: 'Lucida Console', value: "'Lucida Console', Monaco, monospace" },
-  { label: 'Impact', value: 'Impact, Charcoal, sans-serif' },
+  { label: tEs('tx_Impact_21f59', 'Impact'), value: 'Impact, Charcoal, sans-serif' },
 ];
 
 // Built-in label templates. Selecting one applies its preset to the custom
@@ -537,25 +538,25 @@ function getPaperSizeOptions() {
     { label: '10 per sheet (4 * 2)', value: 'style10' },
   ];
   const stickerOptions = [
-    { label: 'Stickers - 50mm x 25mm', value: 'sticker_50x25', width: 50, height: 25 },
-    { label: 'Stickers - 50mm x 30mm', value: 'sticker_50x30', width: 50, height: 30 },
-    { label: 'Stickers - 53mm x 32mm (Avery 22806)', value: 'sticker_53x32', width: 53, height: 32 },
-    { label: 'Stickers - 57mm x 32mm', value: 'sticker_57x32', width: 57, height: 32 },
-    { label: 'Stickers - 63mm x 29mm', value: 'sticker_63x29', width: 63, height: 29 },
-    { label: 'Stickers - 63mm x 38mm', value: 'sticker_63x38', width: 63, height: 38 },
-    { label: 'Stickers - 70mm x 36mm', value: 'sticker_70x36', width: 70, height: 36 },
-    { label: 'Stickers - 70mm x 37mm', value: 'sticker_70x37', width: 70, height: 37 },
-    { label: 'Stickers - 74mm x 52mm', value: 'sticker_74x52', width: 74, height: 52 },
-    { label: 'Stickers - 80mm x 50mm', value: 'sticker_80x50', width: 80, height: 50 },
-    { label: 'Stickers - 100mm x 50mm', value: 'sticker_100x50', width: 100, height: 50 },
-    { label: 'Stickers - 100mm x 70mm', value: 'sticker_100x70', width: 100, height: 70 },
-    { label: 'Stickers - 105mm x 37mm', value: 'sticker_105x37', width: 105, height: 37 },
-    { label: 'Stickers - 105mm x 48mm', value: 'sticker_105x48', width: 105, height: 48 },
-    { label: 'Stickers - 105mm x 74mm', value: 'sticker_105x74', width: 105, height: 74 },
-    { label: 'Stickers - 148mm x 105mm (A5)', value: 'sticker_148x105', width: 148, height: 105 },
+    { label: tEs('tx_Stickers_50mm_x_25mm_9ef76', 'Stickers - 50mm x 25mm'), value: 'sticker_50x25', width: 50, height: 25 },
+    { label: tEs('tx_Stickers_50mm_x_30mm_2fde9', 'Stickers - 50mm x 30mm'), value: 'sticker_50x30', width: 50, height: 30 },
+    { label: tEs('tx_Stickers_53mm_x_32mm_Avery_22806_a2e61', 'Stickers - 53mm x 32mm (Avery 22806)'), value: 'sticker_53x32', width: 53, height: 32 },
+    { label: tEs('tx_Stickers_57mm_x_32mm_3ace0', 'Stickers - 57mm x 32mm'), value: 'sticker_57x32', width: 57, height: 32 },
+    { label: tEs('tx_Stickers_63mm_x_29mm_7830e', 'Stickers - 63mm x 29mm'), value: 'sticker_63x29', width: 63, height: 29 },
+    { label: tEs('tx_Stickers_63mm_x_38mm_b0029', 'Stickers - 63mm x 38mm'), value: 'sticker_63x38', width: 63, height: 38 },
+    { label: tEs('tx_Stickers_70mm_x_36mm_33fc6', 'Stickers - 70mm x 36mm'), value: 'sticker_70x36', width: 70, height: 36 },
+    { label: tEs('tx_Stickers_70mm_x_37mm_790df', 'Stickers - 70mm x 37mm'), value: 'sticker_70x37', width: 70, height: 37 },
+    { label: tEs('tx_Stickers_74mm_x_52mm_dbb51', 'Stickers - 74mm x 52mm'), value: 'sticker_74x52', width: 74, height: 52 },
+    { label: tEs('tx_Stickers_80mm_x_50mm_ce150', 'Stickers - 80mm x 50mm'), value: 'sticker_80x50', width: 80, height: 50 },
+    { label: tEs('tx_Stickers_100mm_x_50mm_cbf5d', 'Stickers - 100mm x 50mm'), value: 'sticker_100x50', width: 100, height: 50 },
+    { label: tEs('tx_Stickers_100mm_x_70mm_870a7', 'Stickers - 100mm x 70mm'), value: 'sticker_100x70', width: 100, height: 70 },
+    { label: tEs('tx_Stickers_105mm_x_37mm_0fb04', 'Stickers - 105mm x 37mm'), value: 'sticker_105x37', width: 105, height: 37 },
+    { label: tEs('tx_Stickers_105mm_x_48mm_16432', 'Stickers - 105mm x 48mm'), value: 'sticker_105x48', width: 105, height: 48 },
+    { label: tEs('tx_Stickers_105mm_x_74mm_4be5f', 'Stickers - 105mm x 74mm'), value: 'sticker_105x74', width: 105, height: 74 },
+    { label: tEs('tx_Stickers_148mm_x_105mm_A5_c2b2b', 'Stickers - 148mm x 105mm (A5)'), value: 'sticker_148x105', width: 148, height: 105 },
   ];
   const out = baseOptions.concat(stickerOptions.map((o) => ({ ...o })));
-  out.push({ label: 'Stickers - Custom Value', value: 'customstyle' });
+  out.push({ label: tEs('tx_Stickers_Custom_Value_f06c6', 'Stickers - Custom Value'), value: 'customstyle' });
   return out;
 }
 

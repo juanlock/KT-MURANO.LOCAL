@@ -1387,6 +1387,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * System settings hub. The legacy page fused ~23 tabs; domains that already
  * have dedicated migrated pages (appearance, PWA, mail, SMS, payment
@@ -1586,11 +1587,11 @@ const savedProductCode = ref({ prefix: '', digits: 4, next: '' });
 // Defaults -> Booking: optional Booking Create/Edit form fields (settings columns, default on).
 // Defaults -> Users: default password per auto-created user type.
 const DEFAULT_PASSWORD_TYPES = [
-  { key: 'employee', label: 'Employees', help: 'New employees (their login starts enabled when this is set).' },
-  { key: 'customer', label: 'Customers', help: 'Customers created in the app, by import or by confirmed bookings.' },
-  { key: 'online_store', label: 'Web store customers', help: 'Customers approved from the online store.' },
-  { key: 'supplier', label: 'Suppliers', help: 'New suppliers.' },
-  { key: 'sales_agent', label: 'Sales agents', help: 'New sales agents (Commissions).' },
+  { key: 'employee', label: tEs('Employees', 'Employees'), help: 'New employees (their login starts enabled when this is set).' },
+  { key: 'customer', label: tEs('Customers', 'Customers'), help: 'Customers created in the app, by import or by confirmed bookings.' },
+  { key: 'online_store', label: tEs('tx_Web_store_customers_0a509', 'Web store customers'), help: 'Customers approved from the online store.' },
+  { key: 'supplier', label: tEs('Suppliers', 'Suppliers'), help: 'New suppliers.' },
+  { key: 'sales_agent', label: tEs('Sales_Agents', 'Sales agents'), help: 'New sales agents (Commissions).' },
 ];
 const pwNew = ref({});
 const pwClear = ref({});
@@ -1613,7 +1614,7 @@ function toggleDashboardSection(id, on) {
 const BOOKING_FIELD_TOGGLES = [
   { key: 'booking_delivery_date_enabled', label: 'Delivery_Date', help: 'Show the Delivery Date field on the Booking Create/Edit form.' },
   { key: 'booking_delivery_time_enabled', label: 'Delivery_Time', help: 'Show the Delivery Time field on the Booking Create/Edit form.' },
-  { key: 'booking_status_enabled', label: 'Status', help: 'Show the Status field on the Booking Create/Edit form. Off: new bookings are saved as Pending and editing keeps the current status (it can still be changed from the Booking List).' },
+  { key: 'booking_status_enabled', label: tEs('Serial_Status', 'Status'), help: 'Show the Status field on the Booking Create/Edit form. Off: new bookings are saved as Pending and editing keeps the current status (it can still be changed from the Booking List).' },
   { key: 'booking_delivery_address_enabled', label: 'Delivery_Address', help: 'Show the Delivery Address field on the Booking Create/Edit form.' },
   { key: 'booking_decimals_enabled', label: 'Use_Decimals', help: 'Price and Amount take decimals (e.g. 45.50). Off: whole numbers only -- the form accepts no decimals, saved values are rounded and the Booking List shows them without decimals.' },
 ];
@@ -1632,8 +1633,8 @@ const productCodePreviewHelp = computed(() => (productCodeChanged.value
   : 'Highest code already using this prefix + 1.'));
 
 const fontFamilyOptions = [
-  { label: 'System default', value: '' },
-  { label: 'Inherit', value: 'inherit' },
+  { label: tEs('tx_System_default_c0896', 'System default'), value: '' },
+  { label: tEs('tx_Inherit_c4948', 'Inherit'), value: 'inherit' },
   { label: 'Arial', value: 'Arial, sans-serif' },
   { label: 'Georgia', value: 'Georgia, serif' },
   { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
@@ -1659,11 +1660,11 @@ function syncExportForm() {
 
 /* ------------------------------------------------------------- prefixes */
 const prefixFields = [
-  { field: 'sale_prefix', label: 'Sales', example: 'SL' },
-  { field: 'purchase_prefix', label: 'Purchases', example: 'PR' },
-  { field: 'quotation_prefix', label: 'Quotations', example: 'QT' },
-  { field: 'adjustment_prefix', label: 'Adjustment', example: 'AD' },
-  { field: 'transfer_prefix', label: 'Transfer', example: 'TR' },
+  { field: 'sale_prefix', label: tEs('Sales', 'Sales'), example: 'SL' },
+  { field: 'purchase_prefix', label: tEs('Purchases', 'Purchases'), example: 'PR' },
+  { field: 'quotation_prefix', label: tEs('Quotations', 'Quotations'), example: 'QT' },
+  { field: 'adjustment_prefix', label: tEs('Adjustment', 'Adjustment'), example: 'AD' },
+  { field: 'transfer_prefix', label: tEs('StockTransfers', 'Transfer'), example: 'TR' },
   { field: 'sale_return_prefix', label: 'SalesReturn', example: 'RS' },
   { field: 'purchase_return_prefix', label: 'PurchasesReturn', example: 'RP' },
 ];

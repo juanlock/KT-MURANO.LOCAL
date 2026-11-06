@@ -39,7 +39,7 @@
       <a-row :gutter="[16, 16]">
         <a-col :span="24">
           <a-card size="small" :title="$t('Sales_by_Month_and_Warehouse')">
-            <template #extra><a-tag color="purple">3D · drag to rotate</a-tag></template>
+            <template #extra><a-tag color="purple">{{ $t('tx_3D_drag_to_rotate_cca22') }}</a-tag></template>
             <div ref="chartSalesMatrix" class="echart-3d echart-3d--lg"></div>
           </a-card>
         </a-col>
@@ -51,13 +51,13 @@
         </a-col>
         <a-col :xs="24" :xl="12">
           <a-card size="small" :title="$t('Product_Quantity_vs_Price_vs_Revenue')">
-            <template #extra><a-tag color="cyan">3D · auto-rotate</a-tag></template>
+            <template #extra><a-tag color="cyan">{{ $t('tx_3D_auto_rotate_9188e') }}</a-tag></template>
             <div ref="chartScatter" class="echart-3d"></div>
           </a-card>
         </a-col>
         <a-col :xs="24" :xl="12">
           <a-card size="small" :title="$t('Payment_Methods')">
-            <template #extra><a-tag color="pink">Pie</a-tag></template>
+            <template #extra><a-tag color="pink">{{ $t('tx_Pie_99658') }}</a-tag></template>
             <div ref="chartPayments" class="echart-3d echart-3d--md"></div>
           </a-card>
         </a-col>
@@ -69,7 +69,7 @@
         </a-col>
         <a-col :span="24">
           <a-card size="small" :title="$t('Top_customers')">
-            <template #extra><a-tag color="purple">Bar</a-tag></template>
+            <template #extra><a-tag color="purple">{{ $t('tx_Bar_ddc35') }}</a-tag></template>
             <div ref="chartClients" class="echart-3d echart-3d--md"></div>
           </a-card>
         </a-col>

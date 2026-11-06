@@ -31,19 +31,19 @@
         </template>
         <template v-else-if="column.key === 'setup'">
           <!-- Required company information still missing (CompanyProfile::REQUIRED). -->
-          <a-tooltip v-if="(record.profile_missing || []).length" :title="'Missing: ' + record.profile_missing.join(', ')">
+          <a-tooltip v-if="(record.profile_missing || []).length" :title="$t('tx_Missing_b88a5') + record.profile_missing.join(', ')">
             <a-tag color="orange" style="cursor: pointer" @click="openEdit(record)">{{ record.profile_missing.length }} missing</a-tag>
           </a-tooltip>
-          <a-tag v-else color="green">Complete</a-tag>
+          <a-tag v-else color="green">{{ $t('tx_Complete_ae94f') }}</a-tag>
         </template>
         <template v-else-if="column.key === 'website_mode'">
           <a-tag :color="record.website_mode === 'import' ? 'purple' : 'blue'">
-            {{ record.website_mode === 'import' ? 'Imported website' : 'Default store' }}
+            {{ record.website_mode === 'import' ? $t('tx_Imported_website_a79c1') : $t('tx_Default_store_43d18') }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'demo_count'">
           <template v-if="record.demo_count">
-            <a-tag color="purple">{{ record.demo_count }} demo rows</a-tag>
+            <a-tag color="purple">{{ record.demo_count }} {{ $t('tx_demo_rows_bb67f') }}</a-tag>
             <a-button v-if="isSuperAdmin" size="small" type="link" danger :loading="clearing === record.id" @click="clearDemo(record)">
               {{ $t('Clear') === 'Clear' ? 'Clear' : $t('Clear') }}
             </a-button>
@@ -125,25 +125,25 @@
       <a-form v-else ref="editFormRef" :model="form" :rules="companyRules" layout="vertical" style="margin-top: 4px">
         <a-alert
           v-if="editMissing.length" type="warning" show-icon style="margin-bottom: 8px"
-          :message="'This company is missing required information: ' + editMissing.join(', ') + '.'"
+          :message="$t('tx_This_company_is_missing_required_information_299a3') + editMissing.join(', ') + '.'"
         />
         <a-tabs v-model:activeKey="editTab" class="step-tabs">
           <a-tab-pane v-for="(st, i) in editSteps" :key="st.key" force-render>
             <template #tab>
               <span class="step-tab" :class="{ 'step-tab--err': editErrTabs.includes(st.key) }">
-                <span class="step-n">Step {{ i + 1 }}</span>
+                <span class="step-n">{{ $t('tx_Step_48c7c') }} {{ i + 1 }}</span>
                 <span class="step-name">{{ st.title }}</span>
               </span>
             </template>
             <div class="step-legend">{{ st.legend }}</div>
             <CompanyProfileFields v-if="st.profile" :form="form" :options="options" :section="st.key" />
-            <a-form-item v-if="st.key === 'company'" label="Logo" name="logo_data" extra="Optional — choose a new image to replace the logo (crop / resize before saving).">
+            <a-form-item v-if="st.key === 'company'" :label="$t('Logo')" name="logo_data" :extra="$t('tx_Optional_choose_a_new_image_to_replace_the_logo_crop_resize__cfed1')">
               <LogoCropper v-model="form.logo_data" :current="form.logo_url" />
             </a-form-item>
             <template v-if="st.key === 'website'">
               <a-form-item
-                label="Website domain(s)"
-                extra="The company's own website address, e.g. kcoltech.com (www. optional; separate several with commas)."
+                :label="$t('tx_Website_domain_s_efc74')"
+                :extra="$t('tx_The_company_s_own_website_address_e_g_kcoltech_com_www_optio_b911d')"
               >
                 <a-input v-model:value="form.domains" placeholder="example.com" />
               </a-form-item>
@@ -176,32 +176,32 @@
           <a-tab-pane v-for="(st, i) in createSteps" :key="st.key" force-render>
             <template #tab>
               <span class="step-tab" :class="{ 'step-tab--err': createErrTabs.includes(st.key) }">
-                <span class="step-n">Step {{ i + 1 }}</span>
+                <span class="step-n">{{ $t('tx_Step_48c7c') }} {{ i + 1 }}</span>
                 <span class="step-name">{{ st.title }}</span>
               </span>
             </template>
             <div class="step-legend">{{ st.legend }}</div>
 
             <CompanyProfileFields v-if="st.profile" :form="cform" :options="options" :section="st.key" />
-            <a-form-item v-if="st.key === 'company'" label="Logo" name="logo_data" extra="Required — on invoices, the menu, the customer portal and the website. Crop / resize it after choosing.">
+            <a-form-item v-if="st.key === 'company'" :label="$t('Logo')" name="logo_data" :extra="$t('tx_Required_on_invoices_the_menu_the_customer_portal_and_the_we_ed5e7')">
               <LogoCropper v-model="cform.logo_data" />
             </a-form-item>
 
             <!-- Helpdesk step: + the optional helpdesk agent login -->
             <template v-if="st.key === 'helpdesk'">
               <div class="section-title">
-                <a-checkbox v-model:checked="cform.with_helpdesk">Helpdesk user</a-checkbox>
-                <span class="muted">(role "Helpdesk": answers the company's tickets; also created as an employee)</span>
+                <a-checkbox v-model:checked="cform.with_helpdesk">{{ $t('tx_Helpdesk_user_5220b') }}</a-checkbox>
+                <span class="muted">{{ $t('tx_role_Helpdesk_answers_the_company_s_tickets_also_created_as__4a225') }}</span>
               </div>
               <a-row v-if="cform.with_helpdesk" :gutter="16">
                 <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('Firstname')" name="helpdesk_firstname"><a-input v-model:value="cform.helpdesk_firstname" placeholder="Helpdesk" /></a-form-item>
+                  <a-form-item :label="$t('Firstname')" name="helpdesk_firstname"><a-input v-model:value="cform.helpdesk_firstname" :placeholder="$t('Helpdesk')" /></a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
                   <a-form-item :label="$t('lastname')" name="helpdesk_lastname"><a-input v-model:value="cform.helpdesk_lastname" /></a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item :label="$t('Email') + ' (login)'" name="helpdesk_login_email" extra="This agent's own login (can be the same as the helpdesk email above).">
+                  <a-form-item :label="$t('Email') + ' (login)'" name="helpdesk_login_email" :extra="$t('tx_This_agent_s_own_login_can_be_the_same_as_the_helpdesk_email_5640f')">
                     <a-input v-model:value="cform.helpdesk_login_email" type="email" autocomplete="off" />
                   </a-form-item>
                 </a-col>
@@ -217,13 +217,13 @@
             <template v-else-if="st.key === 'modules'">
               <a-alert
                 type="info" show-icon style="margin-bottom: 12px"
-                :message="cform.business_type ? `Ticked: what a ${typeLabel(cform.business_type)} company uses. Add or remove any module.` : 'Choose the business type (step Company) to tick its modules.'"
-                description="Always on (not switchable): sales, POS, purchases, products, customers, suppliers, reports and settings. Unticked modules stay hidden for this company until turned on in System Settings → Business Modules."
+                :message="cform.business_type ? `Ticked: what a ${typeLabel(cform.business_type)} company uses. Add or remove any module.` : $t('tx_Choose_the_business_type_step_Company_to_tick_its_modules_4c2b2')"
+                :description="$t('tx_Always_on_not_switchable_sales_POS_purchases_products_custom_cdbad')"
               />
               <div class="mod-tools">
                 <a-space>
-                  <a-button size="small" :disabled="!cform.business_type" @click="tickTypeModules">Modules of the business type</a-button>
-                  <a-button size="small" @click="cform.modules = []">Clear</a-button>
+                  <a-button size="small" :disabled="!cform.business_type" @click="tickTypeModules">{{ $t('tx_Modules_of_the_business_type_b9b4e') }}</a-button>
+                  <a-button size="small" @click="cform.modules = []">{{ $t('clear') }}</a-button>
                 </a-space>
                 <span class="muted">{{ cform.modules.length }} of {{ moduleChoices.length }} selected</span>
               </div>
@@ -263,19 +263,19 @@
 
             <template v-else-if="st.key === 'website'">
               <a-form-item
-                label="Website domain(s)"
-                extra="Optional — the company's own website address, e.g. newcompany.com (www. optional; separate several with commas)."
+                :label="$t('tx_Website_domain_s_efc74')"
+                :extra="$t('tx_Optional_the_company_s_own_website_address_e_g_newcompany_co_b3646')"
               >
                 <a-input v-model:value="cform.domains" placeholder="example.com" />
               </a-form-item>
               <WebsiteChoice v-model:mode="cform.website_mode" v-model:url="cform.website_url" />
 
-              <div class="section-title" style="margin-top: 12px">Demo data</div>
-              <a-checkbox v-model:checked="cform.demo_data">Fill this company with demo (example) data</a-checkbox>
+              <div class="section-title" style="margin-top: 12px">{{ $t('tx_Demo_data_bc42f') }}</div>
+              <a-checkbox v-model:checked="cform.demo_data">{{ $t('tx_Fill_this_company_with_demo_example_data_f861b') }}</a-checkbox>
               <a-alert
                 v-if="cform.demo_data" type="warning" show-icon style="margin-top: 8px"
-                message="Example records, not real data"
-                description="Adds sample products, customers, suppliers, sales, purchases and examples in every enabled module, so the company can be explored right away. All of it is tagged as DEMO and can be removed at any time with Clear (in this list) or System Settings → Demo Data — real data is never touched."
+                :message="$t('tx_Example_records_not_real_data_4bf4f')"
+                :description="$t('tx_Adds_sample_products_customers_suppliers_sales_purchases_and_d0245')"
               />
             </template>
           </a-tab-pane>
@@ -290,13 +290,13 @@
     </a-modal>
 
     <!-- Result of a create -->
-    <a-modal v-model:open="resultOpen" title="Company created" :footer="null" :width="560">
+    <a-modal v-model:open="resultOpen" :title="$t('tx_Company_created_48423')" :footer="null" :width="560">
       <template v-if="result">
         <a-result status="success" :title="result.name" style="padding: 8px 0">
           <template #subTitle>
-            Admin login: <strong>{{ result.admin_email }}</strong> (username {{ result.admin_username }})
+            {{ $t('tx_Admin_login_73a2c') }} <strong>{{ result.admin_email }}</strong> {{ $t('tx_username_40432') }} {{ result.admin_username }})
             <div v-if="result.helpdesk_email">
-              Helpdesk login: <strong>{{ result.helpdesk_email }}</strong> (username {{ result.helpdesk_username }})
+              {{ $t('tx_Helpdesk_login_d34c4') }} <strong>{{ result.helpdesk_email }}</strong> {{ $t('tx_username_40432') }} {{ result.helpdesk_username }})
             </div>
           </template>
         </a-result>
@@ -306,12 +306,12 @@
           :message="websiteText(result.website)"
         />
         <div v-if="result.demo" class="demo-summary">
-          <div class="section-title">Demo data</div>
+          <div class="section-title">{{ $t('tx_Demo_data_bc42f') }}</div>
           <div v-for="r in result.demo" :key="r.key">
             <strong>{{ r.key }}:</strong>
             <span v-if="r.status === 'created'"> {{ r.summary || 'nothing' }}</span>
-            <span v-else-if="r.status === 'skipped'" class="muted"> skipped — {{ r.reason }}</span>
-            <span v-else class="err"> failed — {{ r.reason }}</span>
+            <span v-else-if="r.status === 'skipped'" class="muted"> {{ $t('tx_skipped_65cf5') }} {{ r.reason }}</span>
+            <span v-else class="err"> {{ $t('tx_failed_17f00') }} {{ r.reason }}</span>
           </div>
         </div>
       </template>
@@ -320,6 +320,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 import { ref, computed, watch, onMounted, createVNode } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
@@ -350,17 +351,17 @@ const crud = useCrudTable('company', { rowsKey: 'companies' });
 const options = computed(() => crud.payload.value?.options || {});
 
 const columns = computed(() => [
-  { title: 'Logo', key: 'logo', width: 90, align: 'center', exportValue: r => r.logo_url || '' },
+  { title: tEs('Logo', 'Logo'), key: 'logo', width: 90, align: 'center', exportValue: r => r.logo_url || '' },
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
   { title: locale.value.startsWith('es') ? 'Tipo de compañía' : 'Business type', dataIndex: 'business_type', key: 'business_type', sorter: true,
     exportValue: r => typeLabel(r.business_type) },
-  { title: 'Setup', key: 'setup', width: 120, exportValue: r => ((r.profile_missing || []).length ? 'Missing: ' + r.profile_missing.join(', ') : 'Complete') },
+  { title: tEs('Service_Setup', 'Setup'), key: 'setup', width: 120, exportValue: r => ((r.profile_missing || []).length ? 'Missing: ' + r.profile_missing.join(', ') : 'Complete') },
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
   { title: t('Country'), dataIndex: 'country', key: 'country' },
   { title: t('Email'), dataIndex: 'email', key: 'email' },
-  { title: 'Domain', dataIndex: 'domains', key: 'domains' },
-  { title: 'Website', dataIndex: 'website_mode', key: 'website_mode', exportValue: r => (r.website_mode === 'import' ? 'Imported website' : 'Default store') },
-  { title: 'Demo data', key: 'demo_count', dataIndex: 'demo_count', width: 190, exportValue: r => String(r.demo_count || 0) },
+  { title: tEs('tx_Domain_eae63', 'Domain'), dataIndex: 'domains', key: 'domains' },
+  { title: tEs('tx_Website_15bbb', 'Website'), dataIndex: 'website_mode', key: 'website_mode', exportValue: r => (r.website_mode === 'import' ? 'Imported website' : 'Default store') },
+  { title: tEs('tx_Demo_data_bc42f', 'Demo data'), key: 'demo_count', dataIndex: 'demo_count', width: 190, exportValue: r => String(r.demo_count || 0) },
   { title: t('Action'), key: 'actions', width: 110, align: 'center' },
 ]);
 
@@ -370,12 +371,12 @@ const clearing = ref(null);
 /* ---------------- steps (tabs) ---------------- */
 // Each step: key, title, legend (what it is for), profile = CompanyProfileFields section.
 const STEP = {
-  company: { key: 'company', title: 'Company', profile: true, legend: 'Who the company is: name, business type, owner and how to reach it. Printed on invoices and quotes.' },
-  helpdesk: { key: 'helpdesk', title: 'Helpdesk', profile: true, legend: 'Customer support: the mailbox tickets are answered from' },
-  modules: { key: 'modules', title: 'Modules', legend: 'What the company uses: its business type ticks the usual modules; tick any other it needs. Can be changed later in System Settings → Business Modules.' },
-  defaults: { key: 'defaults', title: 'Defaults', profile: true, legend: 'How the company works by default: currency, language, invoice numbers and the starting passwords for new logins.' },
-  admin: { key: 'admin', title: 'Admin user', legend: 'The company\'s first login: it manages everything else (also created as an employee).' },
-  website: { key: 'website', title: 'Website', legend: 'The company\'s own domain and website: import the existing site or use the default online store.' },
+  company: { key: 'company', title: tEs('Company', 'Company'), profile: true, legend: 'Who the company is: name, business type, owner and how to reach it. Printed on invoices and quotes.' },
+  helpdesk: { key: 'helpdesk', title: tEs('Helpdesk', 'Helpdesk'), profile: true, legend: 'Customer support: the mailbox tickets are answered from' },
+  modules: { key: 'modules', title: tEs('Mobile_Modules', 'Modules'), legend: 'What the company uses: its business type ticks the usual modules; tick any other it needs. Can be changed later in System Settings → Business Modules.' },
+  defaults: { key: 'defaults', title: tEs('Defaults', 'Defaults'), profile: true, legend: 'How the company works by default: currency, language, invoice numbers and the starting passwords for new logins.' },
+  admin: { key: 'admin', title: tEs('tx_Admin_user_2825b', 'Admin user'), legend: 'The company\'s first login: it manages everything else (also created as an employee).' },
+  website: { key: 'website', title: tEs('tx_Website_15bbb', 'Website'), legend: 'The company\'s own domain and website: import the existing site or use the default online store.' },
 };
 const editSteps = computed(() => [STEP.company, { ...STEP.helpdesk, legend: STEP.helpdesk.legend + '.' }, STEP.defaults, ...(isSuperAdmin.value ? [STEP.website] : [])]);
 const createSteps = computed(() => [
@@ -384,7 +385,7 @@ const createSteps = computed(() => [
   { ...STEP.helpdesk, legend: STEP.helpdesk.legend + ', and optionally a helpdesk agent login.' },
   STEP.defaults,
   STEP.admin,
-  { ...STEP.website, title: 'Website & demo', legend: STEP.website.legend + ' Optionally fill it with demo data to explore it.' },
+  { ...STEP.website, title: tEs('tx_Website_demo_546fb', 'Website & demo'), legend: STEP.website.legend + ' Optionally fill it with demo data to explore it.' },
 ]);
 // Field -> step, to open the step with the first error and mark the steps that have one.
 const FIELD_STEP = {
@@ -430,7 +431,7 @@ const emptyForm = () => ({
 // "In production" (2026-10-26): production owns its data; the dev -> production push never sends it.
 const liveText = computed(() => (locale.value.startsWith('es')
   ? { tag: 'En producción', label: 'Compañía en producción', hint: 'Sus datos viven en producción: lo que se haga en una PC de desarrollo nunca se sube para esta compañía.' }
-  : { tag: 'In production', label: 'Company in production', hint: 'Its data lives in production: nothing done on a development PC is ever sent up for this company.' }));
+  : { tag: 'In production', label: tEs('tx_Company_in_production_5d4f3', 'Company in production'), hint: tEs('tx_Its_data_lives_in_production_nothing_done_on_a_development_P_4e2dc', 'Its data lives in production: nothing done on a development PC is ever sent up for this company.') }));
 const form = ref(emptyForm());
 const loadingEdit = ref(false);
 const editMissing = ref([]);
@@ -481,7 +482,7 @@ async function submitEdit() {
     // Website: re-import when a URL is given, or switch mode when changed.
     if (isSuperAdmin.value && ((website_mode === 'import' && website_url) || website_mode !== current_website_mode)) {
       if (website_mode === 'import' && !website_url) {
-        message.warning('Enter the website address to import.');
+        message.warning(tEs('tx_Enter_the_website_address_to_import_1d074', 'Enter the website address to import.'));
         return;
       }
       const res = await http.post(`company/${id}/website`, { mode: website_mode, url: website_url || null });
@@ -572,7 +573,7 @@ async function submitCreate() {
   if (!cform.value.modules.length) {
     createErrTabs.value = ['modules'];
     createTab.value = 'modules';
-    message.warning('Tick the modules this company uses (or "Modules of the business type").');
+    message.warning(tEs('tx_Tick_the_modules_this_company_uses_or_Modules_of_the_busines_8b751', 'Tick the modules this company uses (or "Modules of the business type").'));
     return;
   }
   submitting.value = true;
@@ -668,7 +669,7 @@ function clearDemo(record) {
     title: `Clear demo data of ${record.name}?`,
     icon: createVNode(ExclamationCircleOutlined),
     content: `Deletes the ${record.demo_count} demo rows generated for this company. Real data is not affected.`,
-    okText: 'Clear',
+    okText: tEs('clear', 'Clear'),
     okType: 'danger',
     async onOk() {
       clearing.value = record.id;

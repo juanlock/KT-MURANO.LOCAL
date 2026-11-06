@@ -19,7 +19,7 @@
                so the double-click saves the current choice. -->
           <!-- The date default is the user's ONE default for every page with
                these buttons (lib/datePresetDefault.js). -->
-          <div class="preset-buttons" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(period)">
+          <div class="preset-buttons" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
             <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" :size="boardMode ? 'small' : undefined" @change="load()">
               <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">
                 {{ $t(p.labelKey) }}<StarFilled v-if="savedDatePreset === p.value" class="def-star" />
@@ -29,9 +29,9 @@
           <!-- Phones: the 8 preset buttons don't fit in a row (they overlapped
                the other filters), so the same choice is a dropdown. Kept in
                the presets' own order (All -> Last Year), not alphabetical. -->
-          <div class="preset-select" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(period)">
+          <div class="preset-select" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
             <a-select
-              :value="period ?? undefined" style="width: 100%" :disabled="loading" placeholder="Custom range"
+              :value="period ?? undefined" style="width: 100%" :disabled="loading" :placeholder="$t('CustomRange')"
               @update:value="v => (period = v)"
               :options="DATE_PRESETS.map(p => ({ value: p.value, label: savedDatePreset === p.value ? `${$t(p.labelKey)} ★` : $t(p.labelKey) }))"
               @change="load()"
@@ -138,7 +138,7 @@
 
       <!-- ================= Unpaid invoices by age (every open one, to today) ================= -->
       <div v-if="agingCards.length" :style="{ order: blockPos.aging }">
-        <div class="aging-title">Unpaid invoices by age <span>(all dates, days since the invoice)</span></div>
+        <div class="aging-title">{{ $t('tx_Unpaid_invoices_by_age_e3a15') }} <span>{{ $t('tx_all_dates_days_since_the_invoice_f66da') }}</span></div>
         <div class="card-grid" :style="{ '--cols': Math.min(agingCards.length, 6) }">
           <div v-for="card in agingCards" :key="card.id">
             <a-card :hoverable="true" class="stat-card" @click="$router.push(card.link)">
@@ -353,13 +353,14 @@
         </button>
       </div>
       <div v-else class="lu-empty">
-        No shortcuts yet: an admin can choose them in System Settings → Defaults → Users, and the forms you use most will fill the rest.
+        {{ $t('tx_No_shortcuts_yet_an_admin_can_choose_them_in_System_Settings_0ec2b') }}
       </div>
     </a-card>
   </div>
 </template>
 
 <script setup>
+import { t as tEs } from '../i18n/index.js';
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { DATE_PRESETS, presetDates, presetOf } from '../lib/datePresets';
 import DateRangeFields from '../components/DateRangeFields.vue';
@@ -389,7 +390,7 @@ import { useUiStore } from '../stores/ui';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import { getUserPref, setUserPref } from '../lib/userPrefs';
-import { DATE_DEFAULT_KEY, DATE_DEFAULT_HINT, savedDatePreset, startPreset, toggleDatePreset } from '../lib/datePresetDefault';
+import { DATE_DEFAULT_KEY, savedDatePreset, startPreset, toggleDatePreset } from '../lib/datePresetDefault';
 import { viewCurrencies, viewCurrencyId, viewBaseCurrencyId } from '../lib/viewCurrencyState';
 import { shortcuts, pageLabel, pageFullLabel, pageOptions } from '../lib/startPage';
 import { sortByLabel } from '../lib/filterOptions';
@@ -421,7 +422,7 @@ const transportTabs = computed(() => (boardMode.value ? [...transportPanels.valu
 const transportPick = ref(null);
 const transportTab = computed({
   get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value
-    : (transportTabs.value.includes('transport') ? 'transport' : transportTabs.value[0])),
+    : (['transport_departures', 'transport'].find(k => transportTabs.value.includes(k)) || transportTabs.value[0])),
   set: v => { transportPick.value = v; },
 });
 // The General tab's charts were drawn hidden: they need their width back when it opens.
@@ -451,7 +452,7 @@ const demoMode = ref(false);
 // (users.ui_preferences via lib/userPrefs); the date preset is the user's
 // default for every page (lib/datePresetDefault.js).
 const DEFAULTS_KEY = 'dashboard_filter_defaults';
-const DEFAULT_HINT = 'Double-click to make this your default (again to clear)';
+const DEFAULT_HINT = t('tx_Double_click_to_make_this_your_default_again_to_clear_2d3cd');
 const defaults = ref({ ...(getUserPref(DEFAULTS_KEY) || {}) });
 // A Dashboard-only date default saved before it became global: promote it.
 if (defaults.value.period) {
@@ -560,11 +561,11 @@ const agingCards = computed(() => {
   const day = n => dayjs().subtract(n, 'day').format('YYYY-MM-DD');
   const link = (from, to) => `/sales?payment_statut=unpaid&date_from=${from}&date_to=${to}`;
   return [
-    { id: 'card_unpaid_0_30', key: '0_30', label: '0-30 days', from: day(30), to: day(0), tint: 'rgba(250,173,20,0.14)', color: '#d48806' },
-    { id: 'card_unpaid_31_60', key: '31_60', label: '31-60 days', from: day(60), to: day(31), tint: 'rgba(250,140,22,0.14)', color: '#d46b08' },
-    { id: 'card_unpaid_61_90', key: '61_90', label: '61-90 days', from: day(90), to: day(61), tint: 'rgba(245,34,45,0.12)', color: '#cf1322' },
+    { id: 'card_unpaid_0_30', key: '0_30', label: tEs('tx_0_30_days_8fd12', '0-30 days'), from: day(30), to: day(0), tint: 'rgba(250,173,20,0.14)', color: '#d48806' },
+    { id: 'card_unpaid_31_60', key: '31_60', label: tEs('tx_31_60_days_566c3', '31-60 days'), from: day(60), to: day(31), tint: 'rgba(250,140,22,0.14)', color: '#d46b08' },
+    { id: 'card_unpaid_61_90', key: '61_90', label: tEs('tx_61_90_days_3f910', '61-90 days'), from: day(90), to: day(61), tint: 'rgba(245,34,45,0.12)', color: '#cf1322' },
     // Over 90 days: from the first day there is (2000) to 91 days ago.
-    { id: 'card_unpaid_90_plus', key: '90_plus', label: 'Over 90 days', from: '2000-01-01', to: day(91), tint: 'rgba(168,7,26,0.16)', color: '#a8071a' },
+    { id: 'card_unpaid_90_plus', key: '90_plus', label: tEs('tx_Over_90_days_41a4a', 'Over 90 days'), from: '2000-01-01', to: day(91), tint: 'rgba(168,7,26,0.16)', color: '#a8071a' },
   ].filter(c => show(c.id)).map(c => ({
     ...c,
     count: Number(r[`unpaid_age_${c.key}`]) || 0,

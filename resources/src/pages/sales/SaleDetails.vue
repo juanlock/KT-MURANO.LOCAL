@@ -101,7 +101,7 @@
             <div v-if="sale.client_phone">{{ $t('Phone') }}: {{ sale.client_phone }}</div>
             <div v-if="sale.client_email">{{ $t('Email') }}: {{ sale.client_email }}</div>
             <div v-if="sale.client_adr">{{ $t('Adress') }}: {{ sale.client_adr }}</div>
-            <div v-if="sale.client_tax">Tax #: {{ sale.client_tax }}</div>
+            <div v-if="sale.client_tax">{{ $t('tx_Tax_1ef09') }} {{ sale.client_tax }}</div>
           </div>
         </a-col>
         <a-col :xs="24" :md="12">
@@ -126,7 +126,7 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'product'">
             <div style="font-weight: 500">{{ record.name }}</div>
-            <div v-if="record.note" style="font-size: 10pt; color: #0252f3; white-space: pre-wrap; text-align: left">Note: {{ record.note }}</div>
+            <div v-if="record.note" style="font-size: 10pt; color: #0252f3; white-space: pre-wrap; text-align: left">{{ $t('tx_Note_fc9d3') }} {{ record.note }}</div>
             <div v-if="record.is_imei && record.imei_number" class="muted">SN: {{ record.imei_number }}</div>
             <div v-if="record.is_batch_tracked && (record.batches || []).length">
               <a-tag v-for="(b, i) in record.batches" :key="i" style="margin-top: 2px">
@@ -156,15 +156,15 @@
         <table>
           <tr><td>Subtotal:</td><td>{{ docMoney(netSubtotal) }}</td></tr>
           <tr v-if="itemTax > 0">
-            <td>Item Tax<template v-if="itemTaxRate"> ({{ itemTaxRate }}%)</template>:</td>
+            <td>{{ $t('tx_Item_Tax_c04d9') }}<template v-if="itemTaxRate"> ({{ itemTaxRate }}%)</template>:</td>
             <td>{{ docMoney(itemTax) }}</td>
           </tr>
           <tr v-if="Number(sale.TaxNet) > 0 || itemTax <= 0">
-            <td>Order Tax<template v-if="Number(sale.tax_rate) > 0 && String(sale.tax_Method || '1') === '1'"> ({{ Number(sale.tax_rate) }}%)</template>:</td>
+            <td>{{ $t('OrderTax') }}<template v-if="Number(sale.tax_rate) > 0 && String(sale.tax_Method || '1') === '1'"> ({{ Number(sale.tax_rate) }}%)</template>:</td>
             <td>{{ docMoney(sale.TaxNet) }}</td>
           </tr>
           <tr v-if="Number(sale.discount) > 0">
-            <td>Discount:</td>
+            <td>{{ $t('tx_Discount_a1e73') }}</td>
             <td class="neg">
               <template v-if="String(sale.discount_Method || '2') === '1'">
                 - {{ num(sale.discount) }}% ({{ docMoney(discountAmount) }})
@@ -173,11 +173,11 @@
             </td>
           </tr>
           <tr v-if="Number(sale.discount_from_points) > 0">
-            <td>Discount from Points:</td>
+            <td>{{ $t('tx_Discount_from_Points_87462') }}</td>
             <td class="neg">- {{ docMoney(sale.discount_from_points) }}</td>
           </tr>
           <!-- Only when the company uses shipping (Defaults -> Sales), or this sale has some. -->
-          <tr v-if="Number(sale.shipping) > 0 || shippingEnabled"><td>Shipping:</td><td>{{ docMoney(sale.shipping) }}</td></tr>
+          <tr v-if="Number(sale.shipping) > 0 || shippingEnabled"><td>{{ $t('tx_Shipping_66f51') }}</td><td>{{ docMoney(sale.shipping) }}</td></tr>
           <tr class="grand"><td>{{ $t('Total') }}:</td><td>{{ docMoney(sale.GrandTotal) }}</td></tr>
           <tr><td>{{ $t('Paid') }}:</td><td style="color: #52c41a">{{ docMoney(sale.paid_amount) }}</td></tr>
           <tr><td>{{ $t('Due') }}:</td><td style="color: #ff4d4f">{{ docMoney(sale.due) }}</td></tr>
@@ -204,16 +204,16 @@
         <a-tab-pane key="service_jobs" :tab="`${$t('Service_Jobs')} (${serviceJobs.jobs.length})`">
           <div class="related-help">
             <template v-if="serviceJobs.context === 'contract'">
-              Visits of contract
+              {{ $t('tx_Visits_of_contract_1f675') }}
               <router-link :to="`/sales-contracts/${serviceJobs.contract.id}`">{{ serviceJobs.contract.number }}</router-link>
               billed by this invoice ({{ date(serviceJobs.contract.period_start) }} – {{ date(serviceJobs.contract.period_end) }}).
             </template>
             <template v-else-if="serviceJobs.context === 'sale'">
-              Service jobs created with this sale.
+              {{ $t('tx_Service_jobs_created_with_this_sale_b1090') }}
             </template>
             <template v-else>
-              This customer's latest service jobs.
-              <router-link :to="{ path: `/customers/${serviceJobs.client_id}/details`, query: { tab: 'service_jobs' } }">See all</router-link>
+              {{ $t('tx_This_customer_s_latest_service_jobs_95fac') }}
+              <router-link :to="{ path: `/customers/${serviceJobs.client_id}/details`, query: { tab: 'service_jobs' } }">{{ $t('tx_See_all_453d1') }}</router-link>
             </template>
           </div>
           <a-table :data-source="serviceJobs.jobs" :columns="jobColumns" :pagination="{ pageSize: 10, hideOnSinglePage: true }" size="small" row-key="id">
@@ -235,9 +235,9 @@
     <!-- Email history: every invoice / reminder / receipt emailed for this sale (sale_email_logs). -->
     <a-card v-if="!loading" size="small" class="no-print" style="margin-top: 16px">
       <template #title>
-        Email history
+        {{ $t('tx_Email_history_33765') }}
         <span v-if="emailSummary" class="em-sum">
-          <template v-if="emailSummary.emailed_at">· invoice sent {{ date(emailSummary.emailed_at) }}</template>
+          <template v-if="emailSummary.emailed_at">{{ $t('tx_invoice_sent_6140f') }} {{ date(emailSummary.emailed_at) }}</template>
           <template v-if="emailSummary.reminders"> · {{ emailSummary.reminders }} reminder{{ emailSummary.reminders > 1 ? 's' : '' }}, last {{ date(emailSummary.last_reminder_at) }}</template>
         </span>
       </template>
@@ -248,18 +248,19 @@
             <a-tag :color="{ invoice: 'blue', reminder: 'orange', receipt: 'green' }[record.kind]">{{ { invoice: 'Invoice', reminder: 'Reminder', receipt: 'POS receipt' }[record.kind] }}</a-tag>
           </template>
           <template v-else-if="column.key === 'status'">
-            <a-tooltip v-if="record.status === 'failed'" :title="record.error"><a-tag color="red">Failed</a-tag></a-tooltip>
-            <a-tag v-else-if="record.status === 'ok'" color="green">Sent</a-tag>
-            <a-tag v-else>Sending…</a-tag>
+            <a-tooltip v-if="record.status === 'failed'" :title="record.error"><a-tag color="red">{{ $t('Failed') }}</a-tag></a-tooltip>
+            <a-tag v-else-if="record.status === 'ok'" color="green">{{ $t('Sent') }}</a-tag>
+            <a-tag v-else>{{ $t('tx_Sending_4d01e') }}</a-tag>
           </template>
         </template>
       </a-table>
-      <div v-else class="em-none">Not emailed yet — use Email above, or Send Reminder in the Sales list.</div>
+      <div v-else class="em-none">{{ $t('tx_Not_emailed_yet_use_Email_above_or_Send_Reminder_in_the_Sale_7303d') }}</div>
     </a-card>
   </div>
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * GET sales/{id} → {sale, details, company}. Invoice-style page; discount math
  * mirrors legacy: subtotal = Σ line totals, percent discounts (discount_Method
@@ -303,7 +304,7 @@ const serviceJobs = ref(null);
 const relatedTab = ref('service_jobs');
 const jobColumns = computed(() => [
   { title: t('Ref'), key: 'ref' },
-  { title: 'Scheduled', key: 'scheduled_date' },
+  { title: tEs('Scheduled', 'Scheduled'), key: 'scheduled_date' },
   { title: t('Service_Item'), dataIndex: 'title', key: 'title', ellipsis: true },
   { title: t('Technician'), dataIndex: 'technician', key: 'technician' },
   { title: t('Status'), key: 'status' },
@@ -378,11 +379,11 @@ async function sendEmail() {
 const emailLog = ref([]);
 const emailSummary = ref(null);
 const emailColumns = [
-  { title: 'Date', key: 'sent_at', width: 170 },
-  { title: 'Type', key: 'kind', width: 110 },
-  { title: 'To', dataIndex: 'recipients', key: 'recipients' },
-  { title: 'Sent by', dataIndex: 'sent_by', key: 'sent_by', width: 120 },
-  { title: 'Status', key: 'status', width: 90 },
+  { title: tEs('date', 'Date'), key: 'sent_at', width: 170 },
+  { title: tEs('type', 'Type'), key: 'kind', width: 110 },
+  { title: tEs('to', 'To'), dataIndex: 'recipients', key: 'recipients' },
+  { title: tEs('tx_Sent_by_9a44e', 'Sent by'), dataIndex: 'sent_by', key: 'sent_by', width: 120 },
+  { title: tEs('Serial_Status', 'Status'), key: 'status', width: 90 },
 ];
 async function loadEmailLog() {
   try {

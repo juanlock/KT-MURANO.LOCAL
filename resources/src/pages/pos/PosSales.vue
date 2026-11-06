@@ -36,7 +36,7 @@
             :placeholder="$t('All')" :options="warehouseOptions" @change="crud.reload()" />
         </a-col>
         <a-col :xs="24" :sm="12" :md="6">
-          <div class="filter-label">Cashier</div>
+          <div class="filter-label">{{ $t('Cashier') }}</div>
           <a-select v-model:value="filters.cashier_id" style="width: 100%" allow-clear show-search option-filter-prop="label"
             :placeholder="$t('All')" :options="cashierOptions" @change="crud.reload()" />
         </a-col>
@@ -60,7 +60,7 @@
             <a-tooltip :title="$t('SaleDetail') || 'Details'">
               <a-button type="text" size="small" @click="$router.push(`/sales/${record.id}`)"><EyeOutlined /></a-button>
             </a-tooltip>
-            <a-tooltip title="Reprint receipt">
+            <a-tooltip :title="$t('tx_Reprint_receipt_6ebf2')">
               <a-button type="text" size="small" @click="reprint(record)"><PrinterOutlined /></a-button>
             </a-tooltip>
             <a-tooltip title="PDF">
@@ -73,7 +73,7 @@
           <a @click="$router.push(`/sales/${record.id}`)">{{ record.Ref }}</a>
         </template>
         <template v-else-if="column.key === 'payment_methods'">
-          <a-tag v-for="m in String(record.payment_methods || '').split(', ').filter(Boolean)" :key="m">{{ m }}</a-tag>
+          <a-tag v-for="m in String(record.payment_methods || '').split(', ').filter(Boolean)" :key="m">{{ looseTranslation(m) || m }}</a-tag>
         </template>
         <template v-else-if="column.key === 'GrandTotal'"><b>{{ money(record.GrandTotal) }}</b></template>
         <template v-else-if="column.key === 'paid_amount'">{{ money(record.paid_amount) }}</template>
@@ -89,6 +89,8 @@
 </template>
 
 <script setup>
+import { looseTranslation } from '../../i18n';
+import { t as tEs } from '../../i18n/index.js';
 import DatePresetButtons from '../../components/DatePresetButtons.vue';
 import DateRangeFields from '../../components/DateRangeFields.vue';
 import { startPreset } from '../../lib/datePresetDefault';
@@ -183,7 +185,7 @@ const warehouseOptions = computed(() => sortByLabel((payload.value.warehouses ||
 const cashierOptions = computed(() => sortByLabel((payload.value.cashiers || []).map(u => ({
   value: u.id, label: [u.firstname, u.lastname].filter(Boolean).join(' ') || u.username,
 }))));
-const methodOptions = computed(() => sortByLabel((payload.value.payment_methods || []).map(m => ({ value: m.id, label: m.name }))));
+const methodOptions = computed(() => sortByLabel((payload.value.payment_methods || []).map(m => ({ value: m.id, label: looseTranslation(m.name) || m.name }))));
 const customerOptions = computed(() => sortByLabel((payload.value.customers || []).map(c => ({ value: c.id, label: c.name }))));
 
 // ---- table ----
@@ -193,7 +195,7 @@ const columns = computed(() => [
   { title: t('Reference'), dataIndex: 'Ref', key: 'Ref', sorter: true },
   // superadmin/AdminSystem: every company (2026-10-21) -- whose record it is.
   ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
-  { title: 'Cashier', dataIndex: 'created_by', key: 'created_by' },
+  { title: tEs('Cashier', 'Cashier'), dataIndex: 'created_by', key: 'created_by' },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name', sorter: true },
   { title: t('Name'), dataIndex: 'product_names', key: 'product_names', width: 240, ellipsis: { showTitle: true } },
   { title: t('Payment_Method') || 'Payment method', dataIndex: 'payment_methods', key: 'payment_methods', exportValue: r => r.payment_methods || '' },

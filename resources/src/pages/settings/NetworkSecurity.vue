@@ -2,7 +2,7 @@
   <div class="page">
     <PageHeader
       :title="$t('Network_Security')"
-      subtitle="Staff can use the admin panel only from the company's networks or from computers you approved. The store, websites, portfolio, online booking and the portals are never affected."
+      :subtitle="$t('tx_Staff_can_use_the_admin_panel_only_from_the_company_s_networ_78f45')"
       :breadcrumb="[$t('Settings'), $t('Network_Security')]"
     />
 
@@ -10,35 +10,35 @@
 
     <template v-else>
       <!-- ---------------- company switch + networks ---------------- -->
-      <a-card size="small" title="Company setting" style="margin-bottom: 16px">
+      <a-card size="small" :title="$t('tx_Company_setting_3552e')" style="margin-bottom: 16px">
         <div class="ns-row">
           <div>
-            <div class="ns-label">Restrict access by network</div>
-            <div class="ns-help">On: restricted users must be on one of the networks below, or on a computer approved here. The SuperAdmin is never blocked.</div>
+            <div class="ns-label">{{ $t('tx_Restrict_access_by_network_e1595') }}</div>
+            <div class="ns-help">{{ $t('tx_On_restricted_users_must_be_on_one_of_the_networks_below_or__9184f') }}</div>
           </div>
           <a-switch v-model:checked="form.enabled" />
         </div>
         <div class="ns-row">
           <div>
-            <div class="ns-label">Users follow, unless set one by one below</div>
-            <div class="ns-help">"Restricted" is the safe default; "Anywhere" lets everyone in except the users you mark as restricted.</div>
+            <div class="ns-label">{{ $t('tx_Users_follow_unless_set_one_by_one_below_52f45') }}</div>
+            <div class="ns-help">{{ $t('tx_Restricted_is_the_safe_default_Anywhere_lets_everyone_in_exc_7e5aa') }}</div>
           </div>
           <a-radio-group v-model:value="form.default_restricted" button-style="solid">
-            <a-radio-button :value="true">Restricted</a-radio-button>
-            <a-radio-button :value="false">Anywhere</a-radio-button>
+            <a-radio-button :value="true">{{ $t('tx_Restricted_ecdee') }}</a-radio-button>
+            <a-radio-button :value="false">{{ $t('tx_Anywhere_2fba3') }}</a-radio-button>
           </a-radio-group>
         </div>
 
-        <div class="ns-label" style="margin: 14px 0 6px">Company networks</div>
-        <div class="ns-help" style="margin-bottom: 8px">An office's public IP (e.g. 203.0.113.10) or a range (e.g. 203.0.113.0/24). Your current IP: <b>{{ data.current_ip }}</b>
-          <a-button type="link" size="small" :disabled="hasCurrentIp" @click="addCurrentIp">{{ hasCurrentIp ? 'already in the list' : 'Add it' }}</a-button>
+        <div class="ns-label" style="margin: 14px 0 6px">{{ $t('tx_Company_networks_ed4c0') }}</div>
+        <div class="ns-help" style="margin-bottom: 8px">{{ $t('tx_An_office_s_public_IP_e_g_203_0_113_10_or_a_range_e_g_203_0__265f2') }} <b>{{ data.current_ip }}</b>
+          <a-button type="link" size="small" :disabled="hasCurrentIp" @click="addCurrentIp">{{ hasCurrentIp ? $t('tx_already_in_the_list_14bbf') : $t('tx_Add_it_75904') }}</a-button>
         </div>
         <div v-for="(row, i) in form.allowed" :key="i" class="ns-net">
-          <a-input v-model:value="row.ip" placeholder="IP or range" class="ns-ip" />
-          <a-input v-model:value="row.label" placeholder="Name (e.g. Main office)" class="ns-name" />
+          <a-input v-model:value="row.ip" :placeholder="$t('tx_IP_or_range_ad8cb')" class="ns-ip" />
+          <a-input v-model:value="row.label" :placeholder="$t('tx_Name_e_g_Main_office_2a67b')" class="ns-name" />
           <a-button danger type="text" aria-label="Remove network" @click="form.allowed.splice(i, 1)"><template #icon><DeleteOutlined /></template></a-button>
         </div>
-        <a-button size="small" @click="form.allowed.push({ ip: '', label: '' })"><template #icon><PlusOutlined /></template>Add network</a-button>
+        <a-button size="small" @click="form.allowed.push({ ip: '', label: '' })"><template #icon><PlusOutlined /></template>{{ $t('tx_Add_network_a2df5') }}</a-button>
 
         <div style="margin-top: 16px">
           <a-button type="primary" :loading="saving" @click="save()">{{ $t('submit') }}</a-button>
@@ -46,34 +46,34 @@
       </a-card>
 
       <!-- ---------------- computers ---------------- -->
-      <a-card size="small" title="Computers" style="margin-bottom: 16px">
-        <div class="ns-help" style="margin-bottom: 8px">A restricted user who signs in from outside the company's networks sends that computer here. Approve it once and it works from anywhere until you remove it (lost laptop, someone who left). Clearing the browser's data needs a new approval.</div>
+      <a-card size="small" :title="$t('tx_Computers_45888')" style="margin-bottom: 16px">
+        <div class="ns-help" style="margin-bottom: 8px">{{ $t('tx_A_restricted_user_who_signs_in_from_outside_the_company_s_ne_db583') }}</div>
         <a-table :data-source="data.devices" :columns="deviceColumns" row-key="id" size="small" :pagination="false" :scroll="{ x: 720 }">
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'status'">
-              <a-tag :color="record.status === 'approved' ? 'green' : 'orange'">{{ record.status === 'approved' ? 'Approved' : 'Waiting' }}</a-tag>
+              <a-tag :color="record.status === 'approved' ? 'green' : 'orange'">{{ record.status === 'approved' ? $t('tx_Approved_6f806') : $t('tx_Waiting_5706d') }}</a-tag>
             </template>
             <template v-else-if="column.key === 'last'">
               {{ record.last_used_at ? dayjs(record.last_used_at).format('YYYY-MM-DD HH:mm') : '-' }} <span class="ns-muted">{{ record.last_ip }}</span>
             </template>
             <template v-else-if="column.key === 'actions'">
               <a-space>
-                <a-button v-if="record.status !== 'approved'" type="primary" size="small" @click="approve(record)">Approve</a-button>
-                <a-button danger size="small" @click="remove(record)">{{ record.status === 'approved' ? 'Remove' : 'Refuse' }}</a-button>
+                <a-button v-if="record.status !== 'approved'" type="primary" size="small" @click="approve(record)">{{ $t('Approve') }}</a-button>
+                <a-button danger size="small" @click="remove(record)">{{ record.status === 'approved' ? $t('Remove') : $t('tx_Refuse_dc717') }}</a-button>
               </a-space>
             </template>
           </template>
-          <template #emptyText>No computers yet.</template>
+          <template #emptyText>{{ $t('tx_No_computers_yet_93760') }}</template>
         </a-table>
       </a-card>
 
       <!-- ---------------- people ---------------- -->
-      <a-card size="small" title="People">
-        <div class="ns-help" style="margin-bottom: 8px">Each staff login: the company setting, or its own choice. Customers and suppliers never need this.</div>
+      <a-card size="small" :title="$t('People')">
+        <div class="ns-help" style="margin-bottom: 8px">{{ $t('tx_Each_staff_login_the_company_setting_or_its_own_choice_Custo_4efd4') }}</div>
         <a-table :data-source="data.users" :columns="userColumns" row-key="id" size="small" :pagination="{ pageSize: 20 }" :scroll="{ x: 640 }">
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'name'">
-              {{ record.name }} <a-tag v-if="!record.active">Disabled</a-tag>
+              {{ record.name }} <a-tag v-if="!record.active">{{ $t('Disabled') }}</a-tag>
               <div class="ns-muted">{{ record.email }}</div>
             </template>
             <template v-else-if="column.key === 'access'">
@@ -88,6 +88,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Settings -> Network security (2026-10-16), permission network_security, for
  * the acting company. API: network_security (NetworkSecurityController);
@@ -108,22 +109,22 @@ const form = ref({ enabled: false, default_restricted: true, allowed: [] });
 const hasCurrentIp = computed(() => form.value.allowed.some(r => r.ip.trim() === data.value.current_ip));
 const accessOptions = computed(() => [
   { value: '', label: `Company setting (${form.value.default_restricted ? 'restricted' : 'anywhere'})` },
-  { value: 'restricted', label: 'Restricted' },
-  { value: 'anywhere', label: 'Can sign in from anywhere' },
+  { value: 'restricted', label: tEs('tx_Restricted_ecdee', 'Restricted') },
+  { value: 'anywhere', label: tEs('tx_Can_sign_in_from_anywhere_52685', 'Can sign in from anywhere') },
 ]);
 
 const deviceColumns = [
-  { title: 'Person', dataIndex: 'user_name', key: 'user' },
-  { title: 'Computer', dataIndex: 'name', key: 'name' },
-  { title: 'Asked from', dataIndex: 'requested_ip', key: 'ip' },
-  { title: 'Last used', key: 'last' },
-  { title: 'Status', key: 'status', width: 100 },
+  { title: tEs('Person', 'Person'), dataIndex: 'user_name', key: 'user' },
+  { title: tEs('tx_Computer_18190', 'Computer'), dataIndex: 'name', key: 'name' },
+  { title: tEs('tx_Asked_from_10b2d', 'Asked from'), dataIndex: 'requested_ip', key: 'ip' },
+  { title: tEs('tx_Last_used_135da', 'Last used'), key: 'last' },
+  { title: tEs('Serial_Status', 'Status'), key: 'status', width: 100 },
   { title: '', key: 'actions', width: 170 },
 ];
 const userColumns = [
-  { title: 'Person', key: 'name' },
-  { title: 'Type', dataIndex: 'type', key: 'type', width: 110 },
-  { title: 'Network access', key: 'access', width: 260 },
+  { title: tEs('Person', 'Person'), key: 'name' },
+  { title: tEs('type', 'Type'), dataIndex: 'type', key: 'type', width: 110 },
+  { title: tEs('tx_Network_access_7a7bc', 'Network access'), key: 'access', width: 260 },
 ];
 
 function apply(d) {
@@ -143,7 +144,7 @@ async function load() {
 }
 
 function addCurrentIp() {
-  form.value.allowed.push({ ip: data.value.current_ip, label: 'Added from this computer' });
+  form.value.allowed.push({ ip: data.value.current_ip, label: tEs('tx_Added_from_this_computer_d4613', 'Added from this computer') });
 }
 
 async function save(confirmLockout = false) {
@@ -151,16 +152,16 @@ async function save(confirmLockout = false) {
   try {
     const allowed = form.value.allowed.filter(r => r.ip.trim());
     apply(await http.put('network_security', { ...form.value, allowed, confirm_lockout: confirmLockout ? 1 : 0 }));
-    message.success('Network security saved.');
+    message.success(tEs('tx_Network_security_saved_7ec5f', 'Network security saved.'));
   } catch (e) {
     if (e?.status === 409 && e?.data?.code === 'self_lockout') {
       Modal.confirm({
-        title: 'This would block you',
+        title: tEs('tx_This_would_block_you_dbaae', 'This would block you'),
         icon: createVNode(ExclamationCircleOutlined),
         content: `${e.data.message} Add your current IP, or save anyway (you'll need another admin or the SuperAdmin to let you back in).`,
-        okText: 'Save anyway',
+        okText: tEs('tx_Save_anyway_9c3da', 'Save anyway'),
         okType: 'danger',
-        cancelText: 'Cancel',
+        cancelText: tEs('Cancel', 'Cancel'),
         onOk: () => save(true),
       });
     } else {

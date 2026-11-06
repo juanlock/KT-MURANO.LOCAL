@@ -88,13 +88,14 @@
         <strong>{{ money(record.montant) }}</strong>
       </template>
       <template v-else-if="column.key === 'payment_method'">
-        <a-tag>{{ record.payment_method }}</a-tag>
+        <a-tag>{{ looseTranslation(record.payment_method) || record.payment_method }}</a-tag>
       </template>
     </template>
   </ReportPage>
 </template>
 
 <script setup>
+import { looseTranslation } from '../../i18n';
 import DatePresetButtons from '../../components/DatePresetButtons.vue';
 import { startPreset } from '../../lib/datePresetDefault';
 /**
@@ -279,7 +280,7 @@ const donutOptions = computed(() => ({
 
 // Filter dropdowns come from the report payload itself (same as legacy).
 const partyOptions = computed(() =>
-  (crud.payload.value?.[kind.partyListKey] || []).map(x => ({ value: x.id, label: x.name }))
+  (crud.payload.value?.[kind.partyListKey] || []).map(x => ({ value: x.id, label: looseTranslation(x.name) || x.name }))
 );
 const docOptions = computed(() =>
   (crud.payload.value?.[kind.docListKey] || []).map(x => ({ value: x.id, label: x.Ref }))

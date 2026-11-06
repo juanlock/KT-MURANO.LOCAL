@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <PageHeader title="Sales Contracts" :breadcrumb="[$t('Sales'), 'Sales Contracts']">
+    <PageHeader :title="$t('Sales_Contracts')" :breadcrumb="[$t('Sales'), 'Sales Contracts']">
       <template #actions>
         <a-button v-if="can('sales_contracts_add')" type="primary" @click="$router.push('/sales-contracts/create')">
           <template #icon><PlusOutlined /></template>
@@ -21,9 +21,9 @@
     <!-- Filters -->
     <a-card size="small" style="margin-bottom: 12px">
       <div class="sc-filters">
-        <a-select v-model:value="status" allow-clear placeholder="Status" style="flex: 0 1 160px" :options="statusOptions" @change="crud.reload()" />
+        <a-select v-model:value="status" allow-clear :placeholder="$t('Serial_Status')" style="flex: 0 1 160px" :options="statusOptions" @change="crud.reload()" />
         <a-select v-model:value="clientId" allow-clear show-search option-filter-prop="label" :placeholder="$t('Customer')" style="flex: 1 1 220px" :options="clientOptions" @change="crud.reload()" />
-        <a-select v-model:value="billing" allow-clear placeholder="Billing" style="flex: 0 1 180px" :options="BILLING_OPTIONS" @change="crud.reload()" />
+        <a-select v-model:value="billing" allow-clear :placeholder="$t('Billing')" style="flex: 0 1 180px" :options="BILLING_OPTIONS" @change="crud.reload()" />
       </div>
     </a-card>
 
@@ -54,21 +54,22 @@
         </template>
         <template v-else-if="column.key === 'billing'">
           <span v-if="record.billing_enabled"><SyncOutlined style="color: #6d28d9" /> {{ billingLabel(record) }}</span>
-          <span v-else style="opacity: 0.45">One-off</span>
+          <span v-else style="opacity: 0.45">{{ $t('tx_One_off_dd426') }}</span>
         </template>
         <template v-else-if="column.key === 'next_invoice_date'">
-          <a-tag v-if="record.next_invoice_date && record.next_invoice_date <= today" color="orange">{{ date(record.next_invoice_date) }} · due</a-tag>
+          <a-tag v-if="record.next_invoice_date && record.next_invoice_date <= today" color="orange">{{ date(record.next_invoice_date) }} {{ $t('tx_due_9a1ee') }}</a-tag>
           <span v-else-if="record.next_invoice_date">{{ date(record.next_invoice_date) }}</span>
           <span v-else style="opacity: 0.45">—</span>
         </template>
         <template v-else-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
-        <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : 'Open-ended' }}</template>
+        <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : $t('tx_Open_ended_6102b') }}</template>
       </template>
     </DataTable>
   </div>
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Sales > Sales Contracts: customer contracts with recurring invoices
  * (API: sales_contracts, SalesContractController). Employee contracts are
@@ -97,8 +98,8 @@ const status = ref(undefined);
 const clientId = ref(undefined);
 const billing = ref(undefined);
 const BILLING_OPTIONS = [
-  { value: 'recurring', label: 'Recurring invoices' },
-  { value: 'oneoff', label: 'One-off' },
+  { value: 'recurring', label: tEs('tx_Recurring_invoices_3f486', 'Recurring invoices') },
+  { value: 'oneoff', label: tEs('tx_One_off_dd426', 'One-off') },
 ];
 
 const crud = useCrudTable('sales_contracts', {
@@ -115,27 +116,27 @@ crud.fetchRows();
 
 const stats = computed(() => crud.payload.value?.stats || {});
 const tiles = computed(() => [
-  { label: 'Active', value: stats.value.active || 0, style: { color: '#16a34a' } },
-  { label: 'Recurring', value: stats.value.recurring || 0, style: { color: '#6d28d9' } },
-  { label: 'Invoices due', value: stats.value.due || 0, style: { color: '#f97316' } },
-  { label: 'Ending in 30 days', value: stats.value.expiring || 0, style: { color: '#ef4444' } },
+  { label: tEs('Actif', 'Active'), value: stats.value.active || 0, style: { color: '#16a34a' } },
+  { label: tEs('tx_Recurring_582ff', 'Recurring'), value: stats.value.recurring || 0, style: { color: '#6d28d9' } },
+  { label: tEs('tx_Invoices_due_61984', 'Invoices due'), value: stats.value.due || 0, style: { color: '#f97316' } },
+  { label: tEs('tx_Ending_in_30_days_f779d', 'Ending in 30 days'), value: stats.value.expiring || 0, style: { color: '#ef4444' } },
 ]);
 const statusOptions = STATUS_OPTIONS;
 const clientOptions = computed(() => sortByLabel((crud.payload.value?.clients || []).map(c => ({ value: c.id, label: c.name }))));
 
 const columns = computed(() => [
-  { title: 'Action', key: 'actions', width: 110, align: 'center' },
+  { title: tEs('Action', 'Action'), key: 'actions', width: 110, align: 'center' },
   { title: '#', dataIndex: 'contract_number', key: 'contract_number', sorter: true },
-  { title: 'Subject', dataIndex: 'subject', key: 'subject', sorter: true },
+  { title: tEs('Subject', 'Subject'), dataIndex: 'subject', key: 'subject', sorter: true },
   // superadmin/AdminSystem: every company (2026-10-21) -- whose record it is.
-  ...(isSystem.value ? [{ title: 'Company', key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
-  { title: 'Customer', dataIndex: 'client_name', key: 'client_name' },
-  { title: 'Value', key: 'value', dataIndex: 'value', align: 'right', sorter: true, exportValue: r => money(r.value) },
-  { title: 'Billing', key: 'billing', exportValue: r => (r.billing_enabled ? billingLabel(r) : 'One-off') },
-  { title: 'Next invoice', key: 'next_invoice_date', dataIndex: 'next_invoice_date', sorter: true },
-  { title: 'Start', key: 'start_date', dataIndex: 'start_date', sorter: true },
-  { title: 'End', key: 'end_date', dataIndex: 'end_date', sorter: true },
-  { title: 'Status', key: 'status', dataIndex: 'status', exportValue: r => statusLabel(r.status) },
+  ...(isSystem.value ? [{ title: tEs('Company', 'Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
+  { title: tEs('Customer', 'Customer'), dataIndex: 'client_name', key: 'client_name' },
+  { title: tEs('Value', 'Value'), key: 'value', dataIndex: 'value', align: 'right', sorter: true, exportValue: r => money(r.value) },
+  { title: tEs('Billing', 'Billing'), key: 'billing', exportValue: r => (r.billing_enabled ? billingLabel(r) : 'One-off') },
+  { title: tEs('tx_Next_invoice_421a0', 'Next invoice'), key: 'next_invoice_date', dataIndex: 'next_invoice_date', sorter: true },
+  { title: tEs('tx_Start_a6122', 'Start'), key: 'start_date', dataIndex: 'start_date', sorter: true },
+  { title: tEs('tx_End_87557', 'End'), key: 'end_date', dataIndex: 'end_date', sorter: true },
+  { title: tEs('Serial_Status', 'Status'), key: 'status', dataIndex: 'status', exportValue: r => statusLabel(r.status) },
 ]);
 </script>
 

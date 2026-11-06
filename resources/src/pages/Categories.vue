@@ -60,6 +60,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../i18n/index.js';
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
@@ -87,7 +88,7 @@ const columns = computed(() => [
 // Same curated Bootstrap Icons list as the legacy page; the stored value is the
 // full class name (e.g. "bi bi-bag"), rendered by bootstrap-icons CSS.
 const iconOptions = computed(() => [
-  { value: '', label: 'None' },
+  { value: '', label: tEs('None', 'None') },
   ...BOOTSTRAP_ICONS.map(n => ({ value: `bi bi-${n}`, label: n.replace(/-/g, ' ') })),
 ]);
 

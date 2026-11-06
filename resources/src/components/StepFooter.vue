@@ -3,11 +3,11 @@
        Submit is always there (Edit can save from any step); it is the main
        button on the last step, Next is on the others. -->
   <div class="step-footer">
-    <span class="step-count">Step {{ index + 1 }} of {{ steps.length }}</span>
+    <span class="step-count">{{ $t('tx_Step_48c7c') }} {{ index + 1 }} of {{ steps.length }}</span>
     <a-space>
-      <a-button @click="$emit('cancel')">Cancel</a-button>
-      <a-button v-if="index > 0" @click="go(-1)"><LeftOutlined /> Back</a-button>
-      <a-button v-if="index < steps.length - 1" type="primary" ghost @click="go(1)">Next <RightOutlined /></a-button>
+      <a-button @click="$emit('cancel')">{{ $t('Cancel') }}</a-button>
+      <a-button v-if="index > 0" @click="go(-1)"><LeftOutlined /> {{ $t('Back') }}</a-button>
+      <a-button v-if="index < steps.length - 1" type="primary" ghost @click="go(1)">{{ $t('Next') }} <RightOutlined /></a-button>
       <a-button
         :type="index === steps.length - 1 ? 'primary' : 'default'"
         :loading="busy" :disabled="disabled" @click="$emit('submit')"

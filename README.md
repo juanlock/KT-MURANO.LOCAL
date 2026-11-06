@@ -206,6 +206,31 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-05 (Home) (not in production yet)
+
+- **Turismo Cautivo's dashboard opens on the departures report**, and the
+  pilots' red line is gone from the transport board (their hour bars stay).
+- **Screens in the company's language**: about 870 texts that were written by
+  hand in English now have their Spanish (fleet, email office, contracts,
+  imports, products, customers, payroll, POS and detail screens). English
+  companies keep reading English. Email and SMS templates, server messages and
+  PDFs are still to review.
+- **Turismo's invoices** no longer carry another company's US note (late fee,
+  phone numbers); terms and the ticket's closing line are in Spanish, and its
+  walk-in customer is now "Cliente de mostrador".
+- **Product forms offer only the company's own warehouses** (they listed every
+  company's). The same pattern is still to fix in other modules.
+
+Setup:    ERROR  Command "migrate" is not defined. Did you mean one of these?  
+
+  ⇂ migrate  
+  ⇂ migrate:fresh  
+  ⇂ migrate:install  
+  ⇂ migrate:refresh  
+  ⇂ migrate:reset  
+  ⇂ migrate:rollback  
+  ⇂ migrate:status  , .
+
 ### 2026-11-03 (Optimum)
 
 - **POS ticket sales (transport)**: selling a route ticket asks for each
@@ -308,27 +333,6 @@ Setup: `php artisan migrate`, `npm run build`.
 - POS entries are hidden when a company's POS module is off.
 
 Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-01 (Optimum)
-
-- **Transport module** (Turismo Cautivo and any transport / tour company):
-  agencies (one per city, e.g. LIMA, CHICLAYO, CHEPEN, TRUJILLO) and the
-  terminals of each agency, routes with km and hours, trips (one bus, 2 pilots,
-  1-2 hostesses, never double-booked), active staff by type, crew paid per
-  trip in payroll, fleet maintenance in house or at a workshop (supplier).
-- **Transport board** at the top of the main dashboard: agencies, terminals,
-  fleet, staff, trips and km; a map with the agencies, the routes and the
-  buses on the road; **Fleet now** (buses at an agency / in transit / in
-  maintenance, current trips with their crew); pilots' driving hours against
-  the safe limit, the record one in red; a card per agency.
-- **Transport demo** for any tourism company (uses the company's own agencies
-  and routes when it has them); applied to Turismo Cautivo on this PC only.
-- Main dashboard: the **Shortcuts** section is now at the end of the page.
-- Claude Code reminds the working conventions on every message (answer in
-  the user's language, kt_logs...).
-
-Setup: `php artisan migrate`, `npm run build`. Turismo's demo data is NOT in
-production (live company).
 
 ---
 

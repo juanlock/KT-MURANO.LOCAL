@@ -16,13 +16,14 @@
     <template #notFoundContent>
       <div class="ucp-empty">
         <a-spin v-if="loading" size="small" />
-        <span v-else>{{ term ? 'No city matches that.' : 'Type a city name.' }}</span>
+        <span v-else>{{ term ? $t('tx_No_city_matches_that_8eb45') : $t('tx_Type_a_city_name_d2a6b') }}</span>
       </div>
     </template>
   </a-select>
 </template>
 
 <script setup>
+import { i18n } from '../i18n';
 /**
  * US city selector, backed by the uscities reference table (31k+ rows --
  * see App\Console\Commands\ImportGeoData). Always searched server-side
@@ -39,7 +40,7 @@ const props = defineProps({
   modelValue: { type: [Number, String], default: undefined },
   // { id, city, state_id, state_name } for the already-selected city, when editing.
   initialOption: { type: Object, default: null },
-  placeholder: { type: String, default: 'Search city' },
+  placeholder: { type: String, default: () => (i18n.global.locale.value === 'es' ? 'Buscar ciudad' : 'Search city') },
   allowClear: { type: Boolean, default: true },
   disabled: { type: Boolean, default: false },
 });

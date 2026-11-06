@@ -14,39 +14,39 @@
       <a-form-item :label="groupLabel" :name="groupField" required>
         <a-auto-complete
           :value="group" :options="groupOptions" allow-clear
-          :placeholder="`Type or pick a ${groupLabel.toLowerCase()}`"
+          :placeholder="es ? `Escriba o elija ${groupLabel.toLowerCase()}` : `Type or pick a ${groupLabel.toLowerCase()}`"
           :filter-option="(input, opt) => String(opt.value).toLowerCase().includes(String(input).toLowerCase())"
           @update:value="v => { touched = true; emit('update:group', v || ''); }"
         />
         <div class="pnp-tags">
-          <a-tag v-if="groupTrim && isNewGroup" color="green">New {{ groupLabel.toLowerCase() }}</a-tag>
-          <a-tag v-else-if="groupTrim" color="blue">Existing · {{ groupItems.length }} {{ nameLabel.toLowerCase() }}{{ groupItems.length === 1 ? '' : 's' }}</a-tag>
+          <a-tag v-if="groupTrim && isNewGroup" color="green">{{ $t('New') }} {{ groupLabel.toLowerCase() }}</a-tag>
+          <a-tag v-else-if="groupTrim" color="blue">{{ $t('tx_Existing_4ee0d') }} {{ groupItems.length }} {{ nameLabel.toLowerCase() }}{{ groupItems.length === 1 ? '' : 's' }}</a-tag>
         </div>
       </a-form-item>
     </a-col>
 
     <a-col :span="24">
-      <a-form-item label="What are you adding?">
+      <a-form-item :label="$t('tx_What_are_you_adding_6ae6d')">
         <a-radio-group :value="mode" button-style="solid" @update:value="setMode">
           <a-radio-button value="main">{{ groupLabel }} only</a-radio-button>
-          <a-radio-button value="sub">New {{ nameLabel.toLowerCase() }} under it</a-radio-button>
-          <a-radio-button v-if="allowCustom" value="custom">Other name</a-radio-button>
+          <a-radio-button value="sub">{{ $t('New') }} {{ nameLabel.toLowerCase() }} {{ $t('tx_under_it_673ab') }}</a-radio-button>
+          <a-radio-button v-if="allowCustom" value="custom">{{ $t('tx_Other_name_c3107') }}</a-radio-button>
         </a-radio-group>
       </a-form-item>
     </a-col>
 
     <a-col v-if="mode === 'sub'" :span="24">
-      <a-form-item :label="`${nameLabel} name`" :extra="`e.g. Partial, Monthly, Large — it goes under the ${groupLabel.toLowerCase()}.`">
+      <a-form-item :label="es ? nameLabel : `${nameLabel} name`" :extra="es ? `p. ej. Parcial, Mensual, Grande: va debajo de ${groupLabel.toLowerCase()}.` : `e.g. Partial, Monthly, Large — it goes under the ${groupLabel.toLowerCase()}.`">
         <a-auto-complete
           :value="sub" :options="subOptions" allow-clear
-          :placeholder="`Type the new ${nameLabel.toLowerCase()}`"
+          :placeholder="es ? `Escriba ${nameLabel.toLowerCase()} nuevo` : `Type the new ${nameLabel.toLowerCase()}`"
           :filter-option="(input, opt) => String(opt.value).toLowerCase().includes(String(input).toLowerCase())"
           @update:value="v => { touched = true; sub = v || ''; emitName(); }"
         />
       </a-form-item>
     </a-col>
     <a-col v-else-if="mode === 'custom'" :span="24">
-      <a-form-item label="Name">
+      <a-form-item :label="$t('Name')">
         <a-input :value="custom" @update:value="v => { touched = true; custom = v || ''; emitName(); }" />
       </a-form-item>
     </a-col>
@@ -56,15 +56,15 @@
       <a-form-item :name="nameField" class="pnp-preview-item">
         <div class="pnp-preview" :class="{ 'pnp-preview--warn': exists }">
           <div>
-            Will be saved as:
+            {{ $t('tx_Will_be_saved_as_a9877') }}
             <strong v-if="name">{{ name }}</strong>
-            <span v-else class="pnp-muted">{{ groupTrim ? `type the ${nameLabel.toLowerCase()} name` : `choose the ${groupLabel.toLowerCase()} first` }}</span>
+            <span v-else class="pnp-muted">{{ es ? (groupTrim ? `escriba ${nameLabel.toLowerCase()}` : `primero elija ${groupLabel.toLowerCase()}`) : (groupTrim ? `type the ${nameLabel.toLowerCase()} name` : `choose the ${groupLabel.toLowerCase()} first`) }}</span>
           </div>
           <div v-if="exists" class="pnp-warn">
-            {{ mode === 'main' ? `This ${groupLabel.toLowerCase()} already has its main item` : 'This name already exists in the group' }} — pick it from the product search instead, or change the name.
+            {{ mode === 'main' ? `This ${groupLabel.toLowerCase()} already has its main item` : 'This name already exists in the group' }} {{ $t('tx_pick_it_from_the_product_search_instead_or_change_the_name_6b36a') }}
           </div>
           <div v-if="groupItems.length" class="pnp-items">
-            <span class="pnp-muted">Already in this {{ groupLabel.toLowerCase() }}:</span>
+            <span class="pnp-muted">{{ $t('tx_Already_in_this_4e959') }} {{ groupLabel.toLowerCase() }}:</span>
             <a-tag v-for="it in groupItems.slice(0, 14)" :key="it.id" class="pnp-chip">{{ it.label }}</a-tag>
             <span v-if="groupItems.length > 14" class="pnp-muted">+{{ groupItems.length - 14 }} more</span>
           </div>
@@ -75,9 +75,12 @@
 </template>
 
 <script setup>
+import { computed as esComputed } from 'vue';
+import { i18n } from '../i18n';
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { sortByLabel } from '../lib/filterOptions';
+const es = esComputed(() => i18n.global.locale.value === 'es');
 
 const props = defineProps({
   group: { type: String, default: '' },

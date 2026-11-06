@@ -7,9 +7,6 @@
     <a-card v-if="data.enabled && data.locations.length" class="tb" :bordered="false" :body-style="{ padding: '8px' }">
       <a-spin :spinning="loading">
         <TransportStrip :items="totals" :toggle="false" />
-        <!-- Super critical only: a pilot over the safe hours. One line. -->
-        <div v-if="record && level(record.pct) === 'danger'" class="tb-critical" :title="criticalText"><WarningFilled /> <span>{{ criticalText }}</span></div>
-
         <div class="tb-grid" :style="gridHeight ? { height: gridHeight + 'px' } : null">
           <div class="tb-col">
             <div class="tb-box">
@@ -144,7 +141,7 @@ import dayjs from 'dayjs';
 import { Empty } from 'ant-design-vue';
 import {
   CarOutlined, EnvironmentOutlined, ShopOutlined, GlobalOutlined, TeamOutlined, SwapOutlined, DashboardOutlined,
-  WarningFilled, InfoCircleOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { t as tf } from '../i18n';
@@ -314,11 +311,10 @@ const routeList = computed(() => [...map.value.routes].sort((x, y) => x.names.lo
 const record = computed(() => data.value.pilots[0] || null);
 const level = pct => (pct >= 90 ? 'danger' : pct >= 75 ? 'warn' : 'ok');
 const barColor = pct => ({ danger: '#dc2626', warn: '#f59e0b', ok: '#16a34a' })[level(pct)];
-const criticalText = computed(() => (record.value ? `${record.value.name}: ${record.value.hours} h / ${data.value.pilot_limit} h (${record.value.pct} %). ${tf('Transport_Hours_Danger', 'Danger: over the safe limit, check the rest days')}` : ''));
 // The room left for the three columns: card padding + the strip + the red line, when there is one.
 const gridHeight = computed(() => {
   if (!fit.value) return null;
-  return fit.value - 16 - 58 - (record.value && level(record.value.pct) === 'danger' ? 34 : 0);
+  return fit.value - 16 - 58;
 });
 const tripHelp = t => [
   `${t.vehicle || ''} · ${dayjs(t.departure_at).format('HH:mm')} → ${tf('Transport_Arrives', 'arrives')} ${dayjs(t.arrival_at).format('DD/MM HH:mm')}`,
@@ -336,8 +332,6 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 
 <style scoped>
 .tb { margin-bottom: 0; }
-.tb-critical { display: flex; align-items: center; gap: 6px; height: 26px; margin-bottom: 8px; padding: 0 10px; border-radius: 6px; background: #d03b3b; color: #fff; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; }
-.tb-critical span { overflow: hidden; text-overflow: ellipsis; }
 
 .tb-grid { display: grid; gap: 8px; grid-template-columns: 1fr; }
 .tb-col { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }

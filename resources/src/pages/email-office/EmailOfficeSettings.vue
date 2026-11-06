@@ -6,17 +6,16 @@
 
     <a-row v-else :gutter="16">
       <a-col :xs="24" :lg="16">
-        <a-card size="small" title="Mailbox connection">
+        <a-card size="small" :title="$t('tx_Mailbox_connection_a209e')">
           <a-alert type="info" show-icon style="margin-bottom: 16px">
-            <template #message>Connect the email account where the company receives its bills and messages.</template>
+            <template #message>{{ $t('tx_Connect_the_email_account_where_the_company_receives_its_bil_67b75') }}</template>
             <template #description>
-              Murano reads it every few minutes and copies new emails here (it never deletes or moves anything in your mailbox).
-              Pick your provider to fill the server details, then type the email and its password.
+              {{ $t('tx_Murano_reads_it_every_few_minutes_and_copies_new_emails_here_98ecb') }}
             </template>
           </a-alert>
 
           <div class="eo-presets">
-            <span class="eo-muted">Provider:</span>
+            <span class="eo-muted">{{ $t('tx_Provider_6105e') }}</span>
             <a-button v-for="p in PRESETS" :key="p.key" size="small" @click="applyPreset(p)">{{ p.label }}</a-button>
           </div>
           <a-alert v-if="presetNote" type="warning" show-icon :message="presetNote" style="margin-bottom: 12px" />
@@ -24,84 +23,84 @@
           <a-form layout="vertical">
             <a-row :gutter="12">
               <a-col :xs="24" :md="8">
-                <a-form-item label="Connection type" extra="IMAP (recommended) also reads the Sent folder. POP3 reads the Inbox only.">
+                <a-form-item :label="$t('tx_Connection_type_d0afe')" :extra="$t('tx_IMAP_recommended_also_reads_the_Sent_folder_POP3_reads_the_I_d4c38')">
                   <a-select v-model:value="form.protocol" :options="[{ value: 'imap', label: 'IMAP (default)' }, { value: 'pop3', label: 'POP3', disabled: !pop3Available }]" @change="defaultPort" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="10">
-                <a-form-item label="Server" :extra="form.protocol === 'pop3' ? 'e.g. pop.gmail.com' : 'e.g. imap.gmail.com'">
+                <a-form-item :label="$t('tx_Server_9aa1b')" :extra="form.protocol === 'pop3' ? 'e.g. pop.gmail.com' : 'e.g. imap.gmail.com'">
                   <a-input v-model:value="form.host" placeholder="imap.yourprovider.com" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="3">
-                <a-form-item label="Port">
+                <a-form-item :label="$t('tx_Port_60aaf')">
                   <a-input-number v-model:value="form.port" :min="1" :max="65535" style="width: 100%" :placeholder="String(suggestedPort)" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="3">
-                <a-form-item label="Security">
+                <a-form-item :label="$t('Security')">
                   <a-select v-model:value="form.encryption" :options="[{ value: 'ssl', label: 'SSL' }, { value: 'tls', label: 'TLS' }, { value: 'none', label: 'None' }]" @change="defaultPort" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-form-item label="Email / username" extra="Usually the full email address.">
+                <a-form-item :label="$t('tx_Email_username_bf430')" :extra="$t('tx_Usually_the_full_email_address_9b02a')">
                   <a-input v-model:value="form.username" placeholder="bills@yourcompany.com" autocomplete="off" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-form-item label="Password" :extra="hasPassword ? 'Saved — leave empty to keep it.' : 'Gmail / Outlook with 2-step login need an App password.'">
+                <a-form-item :label="$t('password')" :extra="hasPassword ? $t('tx_Saved_leave_empty_to_keep_it_fda25') : $t('tx_Gmail_Outlook_with_2_step_login_need_an_App_password_eea59')">
                   <a-input-password v-model:value="form.password" :placeholder="hasPassword ? '••••••••' : ''" autocomplete="new-password" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item label="Folder to read" extra="Where the emails arrive.">
+                <a-form-item :label="$t('tx_Folder_to_read_cd273')" :extra="$t('tx_Where_the_emails_arrive_0baae')">
                   <a-auto-complete v-model:value="form.folder" :options="folders.map(f => ({ value: f }))" placeholder="INBOX" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="Check every" extra="How often Murano looks for new emails.">
+                <a-form-item :label="$t('tx_Check_every_3523d')" :extra="$t('tx_How_often_Murano_looks_for_new_emails_1f257')">
                   <a-select v-model:value="form.check_every_minutes" :options="EVERY" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="First import: last" extra="Days of old email copied the first time.">
+                <a-form-item :label="$t('tx_First_import_last_e9b49')" :extra="$t('tx_Days_of_old_email_copied_the_first_time_88538')">
                   <a-input-number v-model:value="form.days_back" :min="1" :max="365" addon-after="days" style="width: 100%" />
                 </a-form-item>
               </a-col>
               <a-col :span="24">
                 <a-space direction="vertical">
-                  <a-checkbox v-model:checked="form.import_sent" :disabled="form.protocol === 'pop3'">Also import the Sent folder (emails written from webmail or a phone)</a-checkbox>
-                  <a-checkbox v-model:checked="form.enabled"><b>Import automatically</b> (every {{ everyLabel }})</a-checkbox>
+                  <a-checkbox v-model:checked="form.import_sent" :disabled="form.protocol === 'pop3'">{{ $t('tx_Also_import_the_Sent_folder_emails_written_from_webmail_or_a_7041e') }}</a-checkbox>
+                  <a-checkbox v-model:checked="form.enabled"><b>{{ $t('tx_Import_automatically_af4ce') }}</b> {{ $t('tx_every_71ade') }} {{ everyLabel }})</a-checkbox>
                 </a-space>
               </a-col>
             </a-row>
 
             <a-collapse ghost style="margin-top: 12px">
-              <a-collapse-panel key="smtp" header="Sending (optional) — for “New email” in Email sent">
+              <a-collapse-panel key="smtp" :header="$t('tx_Sending_optional_for_New_email_in_Email_sent_32013')">
                 <div class="eo-muted" style="margin-bottom: 8px">Empty = emails go out through the company mail server (Settings → Mail). Fill it to send from this mailbox instead (same login as above).</div>
                 <a-row :gutter="12">
-                  <a-col :xs="24" :md="10"><a-form-item label="SMTP server"><a-input v-model:value="form.smtp_host" placeholder="smtp.yourprovider.com" /></a-form-item></a-col>
-                  <a-col :xs="12" :md="5"><a-form-item label="Port"><a-input-number v-model:value="form.smtp_port" :min="1" :max="65535" style="width: 100%" placeholder="587" /></a-form-item></a-col>
-                  <a-col :xs="12" :md="5"><a-form-item label="Security"><a-select v-model:value="form.smtp_encryption" allow-clear :options="[{ value: 'tls', label: 'TLS' }, { value: 'ssl', label: 'SSL' }, { value: 'none', label: 'None' }]" /></a-form-item></a-col>
-                  <a-col :xs="24" :md="12"><a-form-item label="From name"><a-input v-model:value="form.from_name" placeholder="Accounts — KcolTech" /></a-form-item></a-col>
-                  <a-col :xs="24" :md="12"><a-form-item label="From email"><a-input v-model:value="form.from_email" placeholder="(the username)" /></a-form-item></a-col>
+                  <a-col :xs="24" :md="10"><a-form-item :label="$t('tx_SMTP_server_bdd48')"><a-input v-model:value="form.smtp_host" placeholder="smtp.yourprovider.com" /></a-form-item></a-col>
+                  <a-col :xs="12" :md="5"><a-form-item :label="$t('tx_Port_60aaf')"><a-input-number v-model:value="form.smtp_port" :min="1" :max="65535" style="width: 100%" placeholder="587" /></a-form-item></a-col>
+                  <a-col :xs="12" :md="5"><a-form-item :label="$t('Security')"><a-select v-model:value="form.smtp_encryption" allow-clear :options="[{ value: 'tls', label: 'TLS' }, { value: 'ssl', label: 'SSL' }, { value: 'none', label: 'None' }]" /></a-form-item></a-col>
+                  <a-col :xs="24" :md="12"><a-form-item :label="$t('From_Name')"><a-input v-model:value="form.from_name" placeholder="Accounts — KcolTech" /></a-form-item></a-col>
+                  <a-col :xs="24" :md="12"><a-form-item :label="$t('From_Email')"><a-input v-model:value="form.from_email" :placeholder="$t('tx_the_username_e3bef')" /></a-form-item></a-col>
                 </a-row>
               </a-collapse-panel>
             </a-collapse>
 
             <a-space wrap style="margin-top: 12px">
               <a-button type="primary" :loading="saving" @click="save">{{ $t('Save') }}</a-button>
-              <a-button :loading="testing" @click="test">Test connection</a-button>
-              <a-button :loading="fetching" :disabled="!hasPassword && !form.password" @click="fetchNow">Check mailbox now</a-button>
+              <a-button :loading="testing" @click="test">{{ $t('Test_Connection') }}</a-button>
+              <a-button :loading="fetching" :disabled="!hasPassword && !form.password" @click="fetchNow">{{ $t('tx_Check_mailbox_now_24346') }}</a-button>
             </a-space>
 
             <!-- The last test / check result, kept on screen (a toast disappears). -->
             <a-alert v-if="result" :type="result.ok ? 'success' : 'error'" show-icon style="margin-top: 12px" :message="result.message">
               <template v-if="result.suggest" #description>
                 <div style="margin-top: 4px">
-                  Suggested for {{ result.suggest.provider }}: <b>{{ result.suggest.host }}</b> (receiving) and <b>{{ result.suggest.smtp_host }}</b> (sending).
+                  {{ $t('tx_Suggested_for_1e3f7') }} {{ result.suggest.provider }}: <b>{{ result.suggest.host }}</b> {{ $t('tx_receiving_and_aa0c1') }} <b>{{ result.suggest.smtp_host }}</b> {{ $t('tx_sending_cc0da') }}
                 </div>
-                <a-button type="primary" size="small" style="margin-top: 8px" :loading="testing" @click="useSuggestion">Use these servers and test again</a-button>
+                <a-button type="primary" size="small" style="margin-top: 8px" :loading="testing" @click="useSuggestion">{{ $t('tx_Use_these_servers_and_test_again_303c7') }}</a-button>
               </template>
             </a-alert>
           </a-form>
@@ -110,27 +109,26 @@
 
       <a-col :xs="24" :lg="8">
         <!-- First time: bring in the WHOLE mailbox, in batches, with progress. -->
-        <a-card size="small" title="Import all emails (first time)" style="margin-bottom: 16px">
+        <a-card size="small" :title="$t('tx_Import_all_emails_first_time_97ade')" style="margin-bottom: 16px">
           <div class="eo-muted" style="margin-bottom: 10px">
-            Brings in every email of the mailbox — Inbox{{ form.import_sent ? ' and Sent' : '' }}, oldest first, 50 at a time.
-            Emails already in Murano are skipped, so it's safe to run again. After it, the automatic import only reads the new ones.
+            {{ $t('tx_Brings_in_every_email_of_the_mailbox_Inbox_4dd89') }}{{ form.import_sent ? ' and Sent' : '' }}{{ $t('tx_oldest_first_50_at_a_time_Emails_already_in_Murano_are_skipp_7a304') }}
           </div>
 
           <template v-if="fi && ['running', 'paused'].includes(fi.status)">
             <a-progress :percent="fiPercent" :status="fi.status === 'paused' ? 'normal' : 'active'" />
             <div class="eo-fi-line">
-              <b>{{ fi.read }}</b> of <b>{{ fi.total }}</b> read · <b>{{ fi.imported }}</b> new · {{ fi.skipped }} already there
+              <b>{{ fi.read }}</b> of <b>{{ fi.total }}</b> {{ $t('tx_read_1db5e') }} <b>{{ fi.imported }}</b> {{ $t('tx_new_a2bb3') }} {{ fi.skipped }} {{ $t('tx_already_there_95953') }}
               <span v-if="fiEta" class="eo-muted"> · {{ fiEta }}</span>
             </div>
             <div class="eo-muted">
-              {{ fi.status === 'paused' ? 'Paused.' : 'Importing… keep this page open, or leave it: the scheduler continues it in the background (when it runs on this server).' }}
+              {{ fi.status === 'paused' ? $t('tx_Paused_a7d7e') : $t('tx_Importing_keep_this_page_open_or_leave_it_the_scheduler_cont_8464b') }}
             </div>
-            <a-alert v-if="fi.error" type="warning" show-icon :message="fi.error" description="It retries the same batch." style="margin-top: 8px" />
+            <a-alert v-if="fi.error" type="warning" show-icon :message="fi.error" :description="$t('tx_It_retries_the_same_batch_1bf0f')" style="margin-top: 8px" />
             <a-space style="margin-top: 10px">
-              <a-button v-if="fi.status === 'running'" @click="fiAction('pause')">Pause</a-button>
-              <a-button v-else type="primary" @click="fiAction('resume')">Resume</a-button>
-              <a-popconfirm title="Stop the import? Emails already imported stay." @confirm="fiAction('cancel')">
-                <a-button danger>Cancel</a-button>
+              <a-button v-if="fi.status === 'running'" @click="fiAction('pause')">{{ $t('Pause') }}</a-button>
+              <a-button v-else type="primary" @click="fiAction('resume')">{{ $t('Resume') }}</a-button>
+              <a-popconfirm :title="$t('tx_Stop_the_import_Emails_already_imported_stay_2e64d')" @confirm="fiAction('cancel')">
+                <a-button danger>{{ $t('Cancel') }}</a-button>
               </a-popconfirm>
             </a-space>
           </template>
@@ -146,36 +144,36 @@
             />
             <a-popconfirm
               :title="`Import every email of ${form.username || 'the mailbox'}? It takes about 1 minute per 90 emails (5,000 emails ≈ 1 hour).`"
-              ok-text="Import all" @confirm="fiStart"
+              :ok-text="$t('tx_Import_all_31491')" @confirm="fiStart"
             >
               <a-button type="primary" block :loading="fiStarting" :disabled="!hasPassword || !form.host">
-                {{ fi && fi.status === 'done' ? 'Import all again' : 'Import all emails' }}
+                {{ fi && fi.status === 'done' ? $t('tx_Import_all_again_4a789') : $t('tx_Import_all_emails_8c682') }}
               </a-button>
             </a-popconfirm>
-            <div v-if="!hasPassword || !form.host" class="eo-muted" style="margin-top: 6px">Save the connection (and test it) first.</div>
+            <div v-if="!hasPassword || !form.host" class="eo-muted" style="margin-top: 6px">{{ $t('tx_Save_the_connection_and_test_it_first_caa9c') }}</div>
           </template>
         </a-card>
 
-        <a-card size="small" title="Status" style="margin-bottom: 16px">
+        <a-card size="small" :title="$t('Serial_Status')" style="margin-bottom: 16px">
           <a-descriptions :column="1" size="small">
-            <a-descriptions-item label="Automatic import">
+            <a-descriptions-item :label="$t('tx_Automatic_import_f4c02')">
               <a-tag :color="saved.enabled ? 'green' : 'default'">{{ saved.enabled ? `On — every ${everyLabel}` : 'Off' }}</a-tag>
             </a-descriptions-item>
-            <a-descriptions-item label="Last check">{{ saved.last_polled_at ? dateTime(saved.last_polled_at) : 'Never' }}</a-descriptions-item>
-            <a-descriptions-item v-if="saved.last_stats" label="Last result">
+            <a-descriptions-item :label="$t('tx_Last_check_3b1f4')">{{ saved.last_polled_at ? dateTime(saved.last_polled_at) : $t('tx_Never_6e7b3') }}</a-descriptions-item>
+            <a-descriptions-item v-if="saved.last_stats" :label="$t('tx_Last_result_380fb')">
               {{ saved.last_stats.received || 0 }} received, {{ saved.last_stats.sent || 0 }} sent
             </a-descriptions-item>
-            <a-descriptions-item label="In Murano">{{ counts.received }} received · {{ counts.sent }} sent</a-descriptions-item>
+            <a-descriptions-item :label="$t('tx_In_Murano_3916b')">{{ counts.received }} received · {{ counts.sent }} sent</a-descriptions-item>
           </a-descriptions>
           <a-alert v-if="saved.last_error" type="error" show-icon :message="saved.last_error" style="margin-top: 8px" />
         </a-card>
 
-        <a-card size="small" title="What Email Office does">
+        <a-card size="small" :title="$t('tx_What_Email_Office_does_2883b')">
           <ul class="eo-list">
-            <li><b>Bills</b> (invoices, receipts, statements) are marked so you can create the <b>expense</b> or link the <b>purchase</b> from the email.</li>
-            <li><b>Claims</b> (complaints, refunds, “not working”) can become a <b>helpdesk ticket</b> in one click.</li>
-            <li><b>Email sent</b> lists every email Murano sends — invoices, quotations, <b>reminders</b>… — so you can count them.</li>
-            <li>Emails from / to a customer appear in the customer's <b>Email conversation</b> tab.</li>
+            <li><b>{{ $t('tx_Bills_f1324') }}</b> {{ $t('tx_invoices_receipts_statements_are_marked_so_you_can_create_th_7a164') }} <b>expense</b> {{ $t('tx_or_link_the_0709e') }} <b>purchase</b> {{ $t('tx_from_the_email_97468') }}</li>
+            <li><b>{{ $t('tx_Claims_64c4a') }}</b> {{ $t('tx_complaints_refunds_not_working_can_become_a_2f768') }} <b>{{ $t('tx_helpdesk_ticket_fb071') }}</b> {{ $t('tx_in_one_click_31ce8') }}</li>
+            <li><b>{{ $t('Email_Sent') }}</b> {{ $t('tx_lists_every_email_Murano_sends_invoices_quotations_12ba6') }} <b>reminders</b>{{ $t('tx_so_you_can_count_them_c7e2a') }}</li>
+            <li>{{ $t('tx_Emails_from_to_a_customer_appear_in_the_customer_s_15a68') }} <b>{{ $t('Email_Conversation') }}</b> {{ $t('tx_tab_d675b') }}</li>
           </ul>
         </a-card>
       </a-col>
@@ -184,6 +182,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Email Office -> Settings (email_office_manage): the company mailbox --
  * GET/PUT email-office/settings, POST .../test (log in, list folders),
@@ -203,14 +202,14 @@ const PRESETS = [
   { key: 'outlook', label: 'Outlook / Microsoft 365', host: 'outlook.office365.com', port: 993, encryption: 'ssl', smtp: ['smtp.office365.com', 587, 'tls'], note: 'Microsoft 365: IMAP must be allowed for the mailbox; with 2-step login use an App password.' },
   // Hostinger sells two mail services: Titan (MX *.titan.email) and its classic one.
   { key: 'titan', label: 'Titan (Hostinger email)', host: 'imap.titan.email', port: 993, encryption: 'ssl', smtp: ['smtp.titan.email', 465, 'ssl'], note: 'Titan: use the full email address and its email password.' },
-  { key: 'hostinger', label: 'Hostinger (classic)', host: 'imap.hostinger.com', port: 993, encryption: 'ssl', smtp: ['smtp.hostinger.com', 465, 'ssl'] },
+  { key: 'hostinger', label: tEs('tx_Hostinger_classic_076e4', 'Hostinger (classic)'), host: 'imap.hostinger.com', port: 993, encryption: 'ssl', smtp: ['smtp.hostinger.com', 465, 'ssl'] },
   { key: 'godaddy', label: 'GoDaddy', host: 'imap.secureserver.net', port: 993, encryption: 'ssl', smtp: ['smtpout.secureserver.net', 465, 'ssl'] },
   { key: 'yahoo', label: 'Yahoo', host: 'imap.mail.yahoo.com', port: 993, encryption: 'ssl', smtp: ['smtp.mail.yahoo.com', 465, 'ssl'], note: 'Yahoo needs an App password.' },
   { key: 'zoho', label: 'Zoho', host: 'imap.zoho.com', port: 993, encryption: 'ssl', smtp: ['smtp.zoho.com', 465, 'ssl'] },
 ];
 const EVERY = [
-  { value: 5, label: '5 minutes' }, { value: 15, label: '15 minutes' }, { value: 30, label: '30 minutes' },
-  { value: 60, label: '1 hour' }, { value: 180, label: '3 hours' }, { value: 720, label: '12 hours' }, { value: 1440, label: 'Once a day' },
+  { value: 5, label: tEs('tx_5_minutes_4adcc', '5 minutes') }, { value: 15, label: tEs('tx_15_minutes_2a7bb', '15 minutes') }, { value: 30, label: tEs('tx_30_minutes_0d714', '30 minutes') },
+  { value: 60, label: tEs('tx_1_hour_72ab9', '1 hour') }, { value: 180, label: tEs('tx_3_hours_6e946', '3 hours') }, { value: 720, label: tEs('tx_12_hours_a32d6', '12 hours') }, { value: 1440, label: tEs('tx_Once_a_day_522a9', 'Once a day') },
 ];
 
 const loading = ref(true);
@@ -327,7 +326,7 @@ async function save() {
   saving.value = true;
   try {
     await http.put('email-office/settings', { ...form.value, smtp_encryption: form.value.smtp_encryption || null });
-    message.success('Saved.');
+    message.success(tEs('tx_Saved_2bcf4', 'Saved.'));
     await load();
   } catch (e) {
     message.error(e?.data?.message || 'Could not save.');

@@ -12,7 +12,7 @@
     <a-form v-else layout="vertical">
       <!-- A customer's request from Email Office (?email=ID). -->
       <FromEmailCard :email="fromEmail">
-        The customer is taken from the email; add what they asked for below. The email is marked as recorded when you save.
+        {{ $t('tx_The_customer_is_taken_from_the_email_add_what_they_asked_for_a4f16') }}
       </FromEmailCard>
       <a-card size="small" style="margin-bottom: 16px">
         <a-row :gutter="16">
@@ -106,7 +106,7 @@
             <template v-if="column.key === 'product'">
               <div style="font-weight: 500">{{ productDisplayName(record.name) }}</div>
               <div class="muted">{{ record.code }}</div>
-              <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">Batch</a-tag>
+              <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">{{ $t('tx_Batch_51ffe') }}</a-tag>
               <a-select
                 v-if="showPriceTypeDropdown"
                 :value="record.price_type"
@@ -301,6 +301,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Quotation create/edit. Contracts:
  * - bootstrap GET quotations/create → {clients, warehouses,
@@ -441,7 +442,7 @@ const browseProductOptions = computed(() => {
   const isMain = o => String(o.label).trim().toLowerCase() === 'main';
   const mainEntry = mapped.find(isMain);
   const rest = sortByLabel(mapped.filter(o => !isMain(o)));
-  return mainEntry ? [{ ...mainEntry, label: 'Main (use group name only)' }, ...rest] : rest;
+  return mainEntry ? [{ ...mainEntry, label: tEs('tx_Main_use_group_name_only_d20c4', 'Main (use group name only)') }, ...rest] : rest;
 });
 // A product's own name often already carries its group as a "Group (Item)"
 // prefix -- once the group is the one just picked in the dropdown above,

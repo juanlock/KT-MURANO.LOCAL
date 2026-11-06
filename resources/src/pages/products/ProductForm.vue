@@ -559,7 +559,7 @@
           </a-card>
 
           <!-- Pharmacy (only when batch/expiry tracking is enabled in the right column) -->
-          <a-card v-if="product.is_batch_tracked" size="small" :title="'Pharmacy'" style="margin-bottom: 16px">
+          <a-card v-if="product.is_batch_tracked" size="small" :title="$t('Pharmacy')" style="margin-bottom: 16px">
             <a-alert type="info" show-icon :message="$t('Pharmacy_Batch_Expiry_Note')" style="margin-bottom: 16px" />
             <a-row :gutter="16">
               <a-col :xs="24" :md="8">
@@ -770,6 +770,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Product create/edit — FULL parity with legacy Add_product.vue (4,718 lines)
  * and Edit_product.vue (4,211 lines); only the presentation is new.
@@ -1090,7 +1091,7 @@ function onBaseUnitChange(value) {
 /* variants */
 function addVariant() {
   const tag = (variantTag.value || '').trim();
-  if (!tag) { message.warning('Please enter the variant'); return; }
+  if (!tag) { message.warning(tEs('tx_Please_enter_the_variant_03f22', 'Please enter the variant')); return; }
   if (variants.value.some(v => v.text === tag)) { message.warning(t('VariantDuplicate')); return; }
   const row = {
     var_id: variants.value.length + 1, text: tag,
@@ -1128,7 +1129,7 @@ function addMateriel(code) {
   const found = comboProducts.value.find(p => p.code === code);
   if (!found) return;
   if (materiels.value.some(m => m.code === found.code)) {
-    message.warning('Product already added');
+    message.warning(tEs('tx_Product_already_added_29b10', 'Product already added'));
     return;
   }
   materiels.value.push({

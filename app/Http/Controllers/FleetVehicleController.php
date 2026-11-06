@@ -383,7 +383,7 @@ class FleetVehicleController extends Controller
             $next = $month->copy()->addMonth();
 
             $months[] = [
-                'month' => $month->format('M Y'),
+                'month' => $month->copy()->locale(app()->getLocale())->translatedFormat('M Y'),
                 'fuel' => (float) VehicleFuelLog::whereNull('deleted_at')
                     ->whereIn('vehicle_id', $visibleVehicleIds)
                     ->whereDate('log_date', '>=', $month->toDateString())

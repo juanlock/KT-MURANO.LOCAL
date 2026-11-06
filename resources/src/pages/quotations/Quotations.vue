@@ -91,7 +91,7 @@
                 </a-menu-item>
                 <a-menu-item v-else key="edit-locked" disabled>
                   <LockOutlined /> {{ $t('EditQuote') }}
-                  <div class="ref-link__why">No permission to edit quotations</div>
+                  <div class="ref-link__why">{{ $t('tx_No_permission_to_edit_quotations_9ddd9') }}</div>
                 </a-menu-item>
               </a-menu>
             </template>
@@ -144,7 +144,7 @@
                   <EditOutlined /> {{ $t('EditQuote') }}
                 </a-menu-item>
                 <a-menu-item key="whatsapp">
-                  <WhatsAppOutlined /> WhatsApp Notification
+                  <WhatsAppOutlined /> {{ $t('tx_WhatsApp_Notification_6eed3') }}
                 </a-menu-item>
                 <a-menu-item key="sms">
                   <MessageOutlined /> {{ $t('sms_notification') }}

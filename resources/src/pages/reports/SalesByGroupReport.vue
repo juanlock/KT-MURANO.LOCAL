@@ -88,6 +88,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n';
 /**
  * One component for sales-by-category and sales-by-brand — identical contracts
  * with a different grouping column. `meta.kind` picks it; router-view is keyed
@@ -122,7 +123,7 @@ const KINDS = {
     titleKey: 'Sales_by_Category',
     nameKey: 'category_name',
     nameLabel: 'Categorie',
-    activeFallback: 'Categories with sales',
+    activeFallback: tEs('tx_categories_with_sales', 'Categories with sales'),
     topFallback: 'Top category',
     shareTitleKey: 'Share_by_Category',
     shareTitleFallback: 'Share by category',

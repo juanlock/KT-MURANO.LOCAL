@@ -103,7 +103,7 @@
                    company; blank = no PIN. -->
               <a-col :xs="24" :md="12">
                 <a-form-item
-                  label="Cashier PIN" name="pin"
+                  :label="$t('tx_Cashier_PIN_848f4')" name="pin"
                   extra="4 to 8 digits, unique within the company. Used on the POS to open and close the register. Blank = no PIN."
                 >
                   <a-input
@@ -133,17 +133,17 @@
               <a-col v-if="!isEdit" :span="24">
                 <a-alert
                   type="info" show-icon style="margin-bottom: 16px"
-                  message="Here you add Admin / SuperAdmin logins. An employee's login is created automatically in HRM → Employees (customers, suppliers and sales agents likewise in their own module); edit or disable any login here."
+                  :message="$t('tx_Here_you_add_Admin_SuperAdmin_logins_An_employee_s_login_is__8867e')"
                 />
               </a-col>
               <!-- Active = can sign in; off disables the login (nothing is deleted). Not for your own account. -->
               <a-col v-if="isEdit" :xs="24" :md="12">
-                <a-form-item label="Login">
+                <a-form-item :label="$t('tx_Login_99dea')">
                   <div class="switch-row">
                     <a-switch v-model:checked="form.active" :disabled="isSelf" />
-                    <span class="switch-label">{{ form.active ? 'Active — can sign in' : 'Disabled — cannot sign in' }}</span>
+                    <span class="switch-label">{{ form.active ? $t('tx_Active_can_sign_in_7ee5e') : $t('tx_Disabled_cannot_sign_in_744f3') }}</span>
                   </div>
-                  <a-typography-text v-if="isSelf" type="secondary" style="display: block; font-size: 12px">You can't disable your own login.</a-typography-text>
+                  <a-typography-text v-if="isSelf" type="secondary" style="display: block; font-size: 12px">{{ $t('tx_You_can_t_disable_your_own_login_6a71c') }}</a-typography-text>
                 </a-form-item>
               </a-col>
             </a-row>
@@ -192,23 +192,23 @@
               <div class="section-title emp-title">
                 <span><TeamOutlined /> {{ $t('Employee') }}</span>
                 <PermLink :to="`/hrm/employees/${employee.id}/details`" permission="view_employee" class="emp-open">
-                  Open in HRM → Employees
+                  {{ $t('tx_Open_in_HRM_Employees_0af88') }}
                 </PermLink>
               </div>
               <a-descriptions size="small" bordered :column="{ xs: 1, sm: 2, lg: 3 }" style="margin-bottom: 16px">
-                <a-descriptions-item label="Name">{{ [employee.firstname, employee.lastname].filter(Boolean).join(' ') || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Status">
-                  <a-tag :color="employee.status === 'left' ? 'red' : 'green'">{{ employee.status === 'left' ? 'Left' : 'Active' }}</a-tag>
+                <a-descriptions-item :label="$t('Name')">{{ [employee.firstname, employee.lastname].filter(Boolean).join(' ') || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Serial_Status')">
+                  <a-tag :color="employee.status === 'left' ? 'red' : 'green'">{{ employee.status === 'left' ? $t('tx_Left_945d5') : $t('Actif') }}</a-tag>
                 </a-descriptions-item>
-                <a-descriptions-item label="Department">{{ employee.department || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Position">{{ employee.designation || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Office shift">{{ employee.office_shift || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Employment type">{{ humanize(employee.employment_type) }}</a-descriptions-item>
-                <a-descriptions-item label="Email">{{ employee.email || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Phone">{{ employee.phone || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Joining date">{{ employee.joining_date || '—' }}</a-descriptions-item>
-                <a-descriptions-item v-if="employee.leaving_date" label="Leaving date">{{ employee.leaving_date }}</a-descriptions-item>
-                <a-descriptions-item label="Pay">{{ payText }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('department')">{{ employee.department || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Position')">{{ employee.designation || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Office_Shift')">{{ employee.office_shift || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Employment_type')">{{ humanize(employee.employment_type) }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Email')">{{ employee.email || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Phone')">{{ employee.phone || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('joining_date')">{{ employee.joining_date || '—' }}</a-descriptions-item>
+                <a-descriptions-item v-if="employee.leaving_date" :label="$t('Leaving_Date')">{{ employee.leaving_date }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Pay')">{{ payText }}</a-descriptions-item>
               </a-descriptions>
             </template>
 

@@ -1,16 +1,16 @@
 <template>
   <div class="pm">
     <div class="pm__head">
-      <div class="pm__col-item">Menu item</div>
+      <div class="pm__col-item">{{ $t('tx_Menu_item_eeaab') }}</div>
       <div class="pm__col-menu">
-        Menu access
-        <a-tooltip title="Shows or hides this item in the role's sidebar menu.">
+        {{ $t('tx_Menu_access_b9c14') }}
+        <a-tooltip :title="$t('tx_Shows_or_hides_this_item_in_the_role_s_sidebar_menu_d296c')">
           <QuestionCircleOutlined class="pm__help" />
         </a-tooltip>
       </div>
       <div class="pm__col-perms">
-        Form permissions
-        <a-tooltip title="What the role may do inside the page: view, add, edit, delete and special actions. Click a pill to turn it on/off.">
+        {{ $t('tx_Form_permissions_f0387') }}
+        <a-tooltip :title="$t('tx_What_the_role_may_do_inside_the_page_view_add_edit_delete_an_481d0')">
           <QuestionCircleOutlined class="pm__help" />
         </a-tooltip>
       </div>
@@ -34,7 +34,7 @@
       <!-- Menu access -->
       <div class="pm__col-menu">
         <template v-if="node.isContainer">
-          <a-tooltip title="Select / clear everything inside this group (menu access + form permissions)">
+          <a-tooltip :title="$t('tx_Select_clear_everything_inside_this_group_menu_access_form_p_4393d')">
             <span class="pm__group-all">
               <a-checkbox
                 :checked="groupCount(node) === node.allPerms.length && node.allPerms.length > 0"
@@ -56,7 +56,7 @@
               />
               <span :class="menuOn(node) ? 'pm__on' : 'pm__off'">
                 <EyeOutlined v-if="menuOn(node)" /><EyeInvisibleOutlined v-else />
-                {{ menuOn(node) ? 'Visible' : 'Hidden' }}
+                {{ menuOn(node) ? 'Visible' : $t('Hidden') }}
               </span>
               <LinkOutlined v-if="shared(node) > 0" class="pm__shared" />
             </span>
@@ -65,7 +65,7 @@
         <!-- No permission gates this item: only a SuperAdmin working as
              AdminSystem decides, for EVERY company, whether it's shown. -->
         <template v-else-if="!node.plain && canForceVisibility">
-          <a-tooltip title="This item needs no permission. As AdminSystem you decide for every company: shown to everyone or hidden for everyone." v-bind="TIP">
+          <a-tooltip :title="$t('tx_This_item_needs_no_permission_As_AdminSystem_you_decide_for__f6cc4')" v-bind="TIP">
             <span class="pm__switch">
               <a-switch
                 size="small"
@@ -74,7 +74,7 @@
                 @change="on => $emit('force-visibility', node, !on)"
               />
               <span :class="!node.hidden ? 'pm__forced' : 'pm__off'">
-                {{ !node.hidden ? 'Everyone' : 'Hidden for all' }}
+                {{ !node.hidden ? $t('tx_Everyone_f9ae5') : $t('tx_Hidden_for_all_d849b') }}
               </span>
             </span>
           </a-tooltip>

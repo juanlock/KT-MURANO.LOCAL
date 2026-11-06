@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <PageHeader
-      title="Import Customers"
+      :title="$t('Import_Customers')"
       :breadcrumb="[$t('People'), $t('Customers'), 'Import']"
     >
       <template #extra>
@@ -16,15 +16,15 @@
             ref="dz"
             :file="file"
             :accept="accept"
-            title="Click or drop your Excel file here"
-            hint="Allowed formats: XLSX, XLS · Max size: 20MB"
+            :title="$t('tx_Click_or_drop_your_Excel_file_here_83bed')"
+            :hint="$t('tx_Allowed_formats_XLSX_XLS_Max_size_20MB_2c859')"
             :disabled="uploading"
             @file="loadFile"
             @clear="clearFile()"
           />
 
           <a-alert v-if="errorMessages.length" type="error" style="margin-top: 16px" show-icon>
-            <template #message>Import failed. Fix the issues below:</template>
+            <template #message>{{ $t('Import_Failed_Fix_Below') }}</template>
             <template #description>
               <ul style="margin: 0; padding-left: 18px">
                 <li v-for="(err, idx) in errorMessages" :key="'err-' + idx">{{ err }}</li>
@@ -33,7 +33,7 @@
           </a-alert>
 
           <a-alert v-if="warningMessages.length" type="warning" style="margin-top: 16px" show-icon>
-            <template #message>Warnings</template>
+            <template #message>{{ $t('Warnings') }}</template>
             <template #description>
               <ul style="margin: 0; padding-left: 18px">
                 <li v-for="(w, idx) in warningMessages" :key="'warn-' + idx">{{ w }}</li>
@@ -45,22 +45,22 @@
 
           <div style="display: flex; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap">
             <a-button type="primary" :disabled="!canSubmit || uploading" :loading="uploading" @click="submit">
-              Import now
+              {{ $t('tx_Import_now_23453') }}
             </a-button>
             <a-button href="/import/exemples/customers.xlsx" target="_blank" rel="noopener">
-              <DownloadOutlined /> Download example
+              <DownloadOutlined /> {{ $t('Download_exemple') }}
             </a-button>
-            <a-button :disabled="!file || uploading" @click="clearFile()">Reset</a-button>
+            <a-button :disabled="!file || uploading" @click="clearFile()">{{ $t('Reset') }}</a-button>
           </div>
       </div>
     </a-card>
 
     <!-- Expected file format -->
-    <a-card size="small" :title="'Expected file format'">
+    <a-card size="small" :title="$t('tx_Expected_file_format_682f9')">
       <template #extra>
         <span style="font-size: 12px; color: #8c8c8c">
-          One row per customer ·
-          <a-tag color="green" style="margin: 0">green *</a-tag> = required
+          {{ $t('tx_One_row_per_customer_c3cfd') }}
+          <a-tag color="green" style="margin: 0">{{ $t('tx_green_b64c1') }}</a-tag> = required
         </span>
       </template>
       <a-space wrap style="margin-bottom: 12px">
@@ -74,9 +74,9 @@
       />
       <ul style="padding-left: 18px; margin: 12px 0 0 0; font-size: 12px">
         <li><strong>code</strong> must be an integer and unique (the database column is INT).</li>
-        <li><strong>Username</strong> is required (column name in file: <strong>name</strong>).</li>
+        <li><strong>{{ $t('username') }}</strong> is required (column name in file: <strong>name</strong>).</li>
         <li><strong>firstname</strong> and <strong>lastname</strong> are optional.</li>
-        <li><strong>Address</strong> is the address field name expected by the backend.</li>
+        <li><strong>{{ $t('Address') }}</strong> is the address field name expected by the backend.</li>
         <li v-if="auth.customerOpeningBalanceEnabled"><strong>opening_balance</strong> is optional; if present it must be numeric and represents previous dues for this customer.</li>
         <li><strong>email</strong> should be valid if provided; include the country code in <strong>phone</strong> when possible.</li>
       </ul>
@@ -85,6 +85,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Import Customers wizard — POST customers/import (multipart, key `customers`).
  * All file checks, error-collection rules and messages are copied VERBATIM
@@ -120,10 +121,10 @@ const maxSize = 20 * 1024 * 1024; // 20MB
 const accept = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,.xlsx,.xls';
 
 const columnsGuide = computed(() => withOpeningBalance([
-  { key: 'name', label: 'Username', required: true },
+  { key: 'name', label: tEs('username', 'Username'), required: true },
   { key: 'firstname', label: 'firstname', required: false },
   { key: 'lastname', label: 'lastname', required: false },
-  { key: 'code', label: 'code (integer)', required: true },
+  { key: 'code', label: tEs('tx_code_integer_eab8b', 'code (integer)'), required: true },
   { key: 'email', label: 'email', required: false },
   { key: 'phone', label: 'phone', required: false },
   { key: 'tax_number', label: 'tax_number', required: false },
@@ -136,11 +137,11 @@ const columnsGuide = computed(() => withOpeningBalance([
 const canSubmit = computed(() => !!file.value && errorMessages.value.length === 0);
 
 const exampleColumns = computed(() => withOpeningBalance([
-  { title: 'Username *', dataIndex: 'name' }, { title: 'firstname', dataIndex: 'firstname' },
-  { title: 'lastname', dataIndex: 'lastname' }, { title: 'code (integer) *', dataIndex: 'code' },
+  { title: tEs('tx_Username_9fb9f', 'Username *'), dataIndex: 'name' }, { title: 'firstname', dataIndex: 'firstname' },
+  { title: 'lastname', dataIndex: 'lastname' }, { title: tEs('tx_code_integer_efaa2', 'code (integer) *'), dataIndex: 'code' },
   { title: 'email', dataIndex: 'email' }, { title: 'phone', dataIndex: 'phone' },
   { title: 'tax_number', dataIndex: 'tax_number' }, { title: 'country', dataIndex: 'country' },
-  { title: 'city', dataIndex: 'city' }, { title: 'Address', dataIndex: 'adresse' },
+  { title: 'city', dataIndex: 'city' }, { title: tEs('Address', 'Address'), dataIndex: 'adresse' },
   { title: 'opening_balance', dataIndex: 'opening_balance' },
 ]));
 const exampleRows = [

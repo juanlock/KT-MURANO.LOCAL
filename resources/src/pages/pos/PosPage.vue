@@ -687,12 +687,12 @@
 
           <!-- Promo code input -->
           <div style="margin-top: 6px;">
-            <div style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: #8d8da0; margin-bottom: 4px; text-transform: uppercase;">Promo code</div>
+            <div style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: #8d8da0; margin-bottom: 4px; text-transform: uppercase;">{{ $t('tx_Promo_code_0ab60') }}</div>
             <div style="display: flex; gap: 6px; align-items: center;">
               <input
                 v-model="promotionCode"
                 type="text"
-                placeholder="Enter code"
+                :placeholder="$t('tx_Enter_code_73364')"
                 @keyup.enter="Apply_Promotion_Code"
                 style="flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid #e6e6ec; border-radius: 6px; background: #ffffff; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #1f1f2c; outline: none;"
               />
@@ -1522,7 +1522,7 @@
                     <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                   </div>
                   <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                    <div class="receipt-qr-title">Invoice QR</div>
+                    <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                     <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                   </div>
                 </div>
@@ -1737,7 +1737,7 @@
                     <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                   </div>
                   <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                    <div class="receipt-qr-title">Invoice QR</div>
+                    <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                     <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                   </div>
                 </div>
@@ -1934,7 +1934,7 @@
                     <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                   </div>
                   <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                    <div class="receipt-qr-title">Invoice QR</div>
+                    <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                     <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                   </div>
                 </div>
@@ -1963,27 +1963,27 @@
 
               <div class="bl4-meta">
                 <div v-if="invoice_pos.sale && invoice_pos.sale.Ref && pos_settings.show_reference !== 0" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Invoice No</span>
+                  <span class="bl4-meta-en">{{ $t('pdf.invoice_no') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.Ref}}</span>
                   <span class="bl4-meta-ar">رقم الفاتورة</span>
                 </div>
                 <div v-show="pos_settings.show_date !== 0" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Date</span>
+                  <span class="bl4-meta-en">{{ $t('date') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.date}}</span>
                   <span class="bl4-meta-ar">التاريخ</span>
                 </div>
                 <div v-show="pos_settings.show_seller !== 0" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Seller</span>
+                  <span class="bl4-meta-en">{{ $t('Seller') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.seller_name}}</span>
                   <span class="bl4-meta-ar">البائع</span>
                 </div>
                 <div v-show="pos_settings.show_customer" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Customer</span>
+                  <span class="bl4-meta-en">{{ $t('Customer') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.client_name}}</span>
                   <span class="bl4-meta-ar">العميل</span>
                 </div>
                 <div v-show="pos_settings.show_Warehouse" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Location</span>
+                  <span class="bl4-meta-en">{{ $t('Location') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.warehouse_name}}</span>
                   <span class="bl4-meta-ar">المستودع</span>
                 </div>
@@ -1993,10 +1993,10 @@
                 <colgroup><col style="width:44%"><col style="width:14%"><col style="width:20%"><col style="width:22%"></colgroup>
                 <thead>
                   <tr>
-                    <th class="bl4-th-left">Product<br>المنتج</th>
-                    <th class="bl4-th-center">Qty<br>الكمية</th>
-                    <th class="bl4-th-right">Rate<br>السعر</th>
-                    <th class="bl4-th-right">Amount<br>الإجمالي</th>
+                    <th class="bl4-th-left">{{ $t('Product_Only') }}<br>المنتج</th>
+                    <th class="bl4-th-center">{{ $t('Qty') }}<br>الكمية</th>
+                    <th class="bl4-th-right">{{ $t('Rate') }}<br>السعر</th>
+                    <th class="bl4-th-right">{{ $t('Amount') }}<br>الإجمالي</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2019,17 +2019,17 @@
                 <colgroup><col style="width:32%"><col style="width:36%"><col style="width:32%"></colgroup>
                 <tbody>
                   <tr>
-                    <td class="bl4-t-en">Sub Total</td>
+                    <td class="bl4-t-en">{{ $t('Sub_Total') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, pos_settings.show_items_tax != 0 ? (invoiceSubtotal - invoiceDetailsTaxTotal) : invoiceSubtotal, 2) }}</td>
                     <td class="bl4-t-ar">المجموع الفرعي</td>
                   </tr>
                   <tr v-show="pos_settings.show_items_tax != 0 && Number(invoiceDetailsTaxTotal) > 0">
-                    <td class="bl4-t-en">Total Items Tax</td>
+                    <td class="bl4-t-en">{{ $t('TotalItemsTax') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoiceDetailsTaxTotal, 2) }}</td>
                     <td class="bl4-t-ar">إجمالي ضريبة الأصناف</td>
                   </tr>
                   <tr v-show="pos_settings.show_discount">
-                    <td class="bl4-t-en">Discount</td>
+                    <td class="bl4-t-en">{{ $t('Discount') }}</td>
                     <td class="bl4-t-val">
                       <template v-if="String(invoice_pos.sale.discount_Method || '2') === '1'">
                         {{ formatNumber(invoice_pos.sale.discount, 2) }}% ({{ formatPriceWithSymbol(invoice_pos.symbol, calculatedManualDiscountAmount ,2) }})
@@ -2041,19 +2041,19 @@
                     <td class="bl4-t-ar">الخصم</td>
                   </tr>
                   <tr v-show="pos_settings.show_discount && invoice_pos.sale.discount_from_points && Number(invoice_pos.sale.discount_from_points) > 0">
-                    <td class="bl4-t-en">Discount from Points</td>
+                    <td class="bl4-t-en">{{ $t('Discount_from_Points') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.discount_from_points ,2) }}</td>
                     <td class="bl4-t-ar">خصم من النقاط</td>
                   </tr>
                   <template v-if="invoicePromotions.length > 0">
                     <tr v-for="(promo, idx) in invoicePromotions" :key="'promo-d-' + idx + '-' + promo.id">
-                      <td class="bl4-t-en">Promotion — {{ promo.name }}<span v-if="promo.code"> ({{ promo.code }})</span></td>
+                      <td class="bl4-t-en">{{ $t('tx_Promotion_9979b') }} {{ promo.name }}<span v-if="promo.code"> ({{ promo.code }})</span></td>
                       <td class="bl4-t-val">−{{ formatPriceWithSymbol(invoice_pos.symbol, promo.amount, 2) }}</td>
                       <td class="bl4-t-ar">العروض</td>
                     </tr>
                   </template>
                   <tr v-else-if="Number(invoice_pos.sale.promotion_discount || 0) > 0">
-                    <td class="bl4-t-en">Promotion<span v-if="invoice_pos.sale.promotion_code"> ({{ invoice_pos.sale.promotion_code }})</span></td>
+                    <td class="bl4-t-en">{{ $t('tx_Promotion_626a5') }}<span v-if="invoice_pos.sale.promotion_code"> ({{ invoice_pos.sale.promotion_code }})</span></td>
                     <td class="bl4-t-val">−{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.promotion_discount, 2) }}</td>
                     <td class="bl4-t-ar">العروض</td>
                   </tr>
@@ -2063,7 +2063,7 @@
                     <td class="bl4-t-ar">ضريبة القيمة المضافة</td>
                   </tr>
                   <tr v-show="pos_settings.show_shipping">
-                    <td class="bl4-t-en">Shipping</td>
+                    <td class="bl4-t-en">{{ $t('Shipping') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.shipping ,2) }}</td>
                     <td class="bl4-t-ar">الشحن</td>
                   </tr>
@@ -2074,7 +2074,7 @@
                 <colgroup><col style="width:32%"><col style="width:36%"><col style="width:32%"></colgroup>
                 <tbody>
                   <tr>
-                    <td class="bl4-t-en">Grand Total</td>
+                    <td class="bl4-t-en">{{ $t('Grand_Total') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.GrandTotal ,2) }}</td>
                     <td class="bl4-t-ar">المبلغ الإجمالي</td>
                   </tr>
@@ -2085,22 +2085,22 @@
                 <colgroup><col style="width:32%"><col style="width:36%"><col style="width:32%"></colgroup>
                 <tbody>
                   <tr v-show="pos_settings.show_paid !== 0">
-                    <td class="bl4-t-en">Paid Amount</td>
+                    <td class="bl4-t-en">{{ $t('Paid_Amount') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.paid_amount ,2) }}</td>
                     <td class="bl4-t-ar">المبلغ المدفوع</td>
                   </tr>
                   <tr v-show="pos_settings.show_due !== 0">
-                    <td class="bl4-t-en">Balance Due</td>
+                    <td class="bl4-t-en">{{ $t('Balance_Due') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, (invoice_pos.sale.GrandTotal - invoice_pos.sale.paid_amount), 2) }}</td>
                     <td class="bl4-t-ar">المبلغ المتبقي</td>
                   </tr>
                   <tr v-if="showPreviousDuesRow">
-                    <td class="bl4-t-en">Previous Dues</td>
+                    <td class="bl4-t-en">{{ $t('Previous_Dues') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoicePreviousDues, 2) }}</td>
                     <td class="bl4-t-ar">المستحقات السابقة</td>
                   </tr>
                   <tr v-if="showNetBalanceRow">
-                    <td class="bl4-t-en">Net Balance</td>
+                    <td class="bl4-t-en">{{ $t('Net_Balance') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoiceNetBalance, 2) }}</td>
                     <td class="bl4-t-ar">الرصيد الصافي</td>
                   </tr>
@@ -2110,9 +2110,9 @@
               <table class="bl4-payments" v-show="pos_settings.show_payments !== 0 && invoice_pos.sale.paid_amount > 0">
                 <thead>
                   <tr>
-                    <th class="bl4-th-left">Paid By<br>طريقة الدفع</th>
-                    <th class="bl4-th-center">Amount<br>المبلغ</th>
-                    <th class="bl4-th-right">Change<br>الباقي</th>
+                    <th class="bl4-th-left">{{ $t('ModePaiement') }}<br>طريقة الدفع</th>
+                    <th class="bl4-th-center">{{ $t('Amount') }}<br>المبلغ</th>
+                    <th class="bl4-th-right">{{ $t('Change') }}<br>الباقي</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2137,7 +2137,7 @@
                 </div>
                 <div class="bl4-thanks">
                   <div class="bl4-thanks-ar">شكراً لتسوقكم معنا</div>
-                  <div class="bl4-thanks-en">Thank You For Shopping With Us!</div>
+                  <div class="bl4-thanks-en">{{ $t('tx_Thank_You_For_Shopping_With_Us_d4198') }}</div>
                 </div>
                 <div v-show="pos_settings.show_note && pos_settings.note_customer" class="bl4-policy">{{pos_settings.note_customer}}</div>
                 <div class="bl4-footer-contact" v-if="invoice_pos.setting.CompanyPhone || invoice_pos.setting.email">
@@ -2152,7 +2152,7 @@
                     <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                   </div>
                   <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                    <div class="receipt-qr-title">Invoice QR</div>
+                    <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                     <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                   </div>
                 </div>
@@ -2308,7 +2308,7 @@
                   <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                 </div>
                 <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                  <div class="receipt-qr-title">Invoice QR</div>
+                  <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                   <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                 </div>
               </div>
@@ -2392,7 +2392,7 @@
               <b-form-group :label="$t('ProductPrice') + ' ' + '*'" id="Price-input">
                 <div class="d-flex align-items-center">
                   <b-form-input
-                    label="Product Price"
+                    :label="$t('tx_Product_Price_e4cc5')"
                     v-model="detail.Unit_price"
                     :state="getValidationState(validationContext)"
                     aria-describedby="Price-feedback"
@@ -2438,7 +2438,7 @@
             >
               <b-form-group :label="$t('Tax') + ' ' + '*'"><b-input-group append="%">
                   <b-form-input
-                    label="Tax"
+                    :label="$t('Tax')"
                     v-model="detail.tax_percent"
                     :state="getValidationState(validationContext)"
                     aria-describedby="Tax-feedback"
@@ -2479,7 +2479,7 @@
               v-slot="validationContext"
             >
               <b-form-group :label="$t('Discount') + ' ' + '*'"><b-form-input
-                  label="Discount"
+                  :label="$t('Discount')"
                   v-model="detail.discount"
                   :state="getValidationState(validationContext)"
                   aria-describedby="Discount-feedback"
@@ -3307,11 +3307,11 @@
             <rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
           </svg>
         </div>
-        <div class="pos-pin-title">{{ pinPad.purpose === 'close' ? 'Confirm with your PIN' : (pinPad.purpose === 'sale' ? 'Who is making this sale?' : 'Who is opening the register?') }}</div>
+        <div class="pos-pin-title">{{ pinPad.purpose === 'close' ? $t('tx_Confirm_with_your_PIN_b0fb7') : (pinPad.purpose === 'sale' ? $t('tx_Who_is_making_this_sale_64e6c') : $t('tx_Who_is_opening_the_register_96155')) }}</div>
         <div class="pos-pin-sub">
-          {{ pinPad.purpose === 'close' ? 'Type your PIN to close the register.'
-            : (pinPad.purpose === 'sale' ? 'Type your PIN — this sale is recorded under your user. The POS stays with ' + (currentUser.username || 'the register\'s cashier') + '.'
-            : 'Type your PIN — the POS will work under your user.') }}
+          {{ pinPad.purpose === 'close' ? $t('tx_Type_your_PIN_to_close_the_register_89dce')
+            : (pinPad.purpose === 'sale' ? $t('tx_Type_your_PIN_this_sale_is_recorded_under_your_user_The_POS__45387') + (currentUser.username || 'the register\'s cashier') + '.'
+            : $t('tx_Type_your_PIN_the_POS_will_work_under_your_user_bc472')) }}
         </div>
         <div class="pos-pin-dots" :class="{ 'is-error': pinPad.error }">
           <span v-for="i in Math.max(4, pinPad.value.length)" :key="i" class="pos-pin-dot" :class="{ 'is-filled': i <= pinPad.value.length }"></span>

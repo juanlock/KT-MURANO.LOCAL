@@ -4,7 +4,7 @@
        `value` object in place: billing_frequency, billing_interval,
        billing_day_mode, billing_day, billing_count, next_invoice_date. -->
   <div>
-    <a-form-item label="Every">
+    <a-form-item :label="$t('tx_Every_ffcf7')">
       <a-input-group compact>
         <a-input-number v-model:value="value.billing_interval" :min="1" :max="24" style="width: 30%" />
         <a-select v-model:value="value.billing_frequency" :options="FREQUENCY_OPTIONS" style="width: 70%" />
@@ -19,12 +19,12 @@
         />
         <a-input-number
           v-if="dayChoice === 'day' && !isWeekly"
-          v-model:value="value.billing_day" :min="1" :max="31" placeholder="Day" style="width: 30%"
+          v-model:value="value.billing_day" :min="1" :max="31" :placeholder="$t('Day')" style="width: 30%"
         />
       </a-input-group>
     </a-form-item>
     <a-form-item :label="`How many ${noun}s`" :extra="value.billing_count ? '' : (endDate ? 'Empty = until the end date.' : 'Empty = no limit (open-ended).')">
-      <a-input-number v-model:value="value.billing_count" :min="1" :max="999" style="width: 100%" placeholder="No limit" />
+      <a-input-number v-model:value="value.billing_count" :min="1" :max="999" style="width: 100%" :placeholder="$t('No_limit')" />
     </a-form-item>
     <a-form-item :label="firstDateLabel" :extra="firstDateHelp">
       <a-date-picker v-model:value="value.next_invoice_date" value-format="YYYY-MM-DD" style="width: 100%" />
@@ -46,13 +46,14 @@
         <div v-if="inv.invoice_note" class="rs-note"><b>{{ noteLabel }}:</b> {{ inv.invoice_note }}</div>
         <div v-for="(n, i) in inv.notes.filter(Boolean)" :key="i" class="rs-note">{{ n }}</div>
       </div>
-      <div v-if="openEnded" class="rs-more">… and so on (no limit / end date)</div>
+      <div v-if="openEnded" class="rs-more">{{ $t('tx_and_so_on_no_limit_end_date_502fa') }}</div>
     </div>
-    <div v-else-if="!loading" style="opacity: 0.6; font-size: 13px">No {{ noun }}s with these dates.</div>
+    <div v-else-if="!loading" style="opacity: 0.6; font-size: 13px">No {{ noun }}{{ $t('tx_s_with_these_dates_8bf86') }}</div>
   </div>
 </template>
 
 <script setup>
+import { t as tEs } from '../i18n/index.js';
 /**
  * Preview: POST sales_contracts/schedule (SalesContractController
  * schedulePreview) on every change, debounced. Exposes `rows` so the parent
@@ -97,9 +98,9 @@ const dayOptions = computed(() => (isWeekly.value
   ? [{ value: 'same', label: `Same weekday as the first ${props.noun}` }, ...WEEKDAYS.map((d, i) => ({ value: `w${i + 1}`, label: `Every ${d}` }))]
   : [
     { value: 'same', label: `Same day as the first ${props.noun}` },
-    { value: 'first', label: 'First day of the month' },
-    { value: 'last', label: 'Last day of the month' },
-    { value: 'day', label: 'Specific day of the month' },
+    { value: 'first', label: tEs('tx_First_day_of_the_month_a9206', 'First day of the month') },
+    { value: 'last', label: tEs('tx_Last_day_of_the_month_a7de8', 'Last day of the month') },
+    { value: 'day', label: tEs('tx_Specific_day_of_the_month_386f4', 'Specific day of the month') },
   ]));
 const dayChoice = computed({
   get() {

@@ -86,7 +86,7 @@
               <template #icon><ThunderboltOutlined /></template>
             </a-avatar>
             <div class="tile__text">
-              <div class="tile__label">Driver</div>
+              <div class="tile__label">{{ $t('Driver') }}</div>
               <div class="tile__value">{{ metrics.queue?.driver || '—' }}</div>
             </div>
           </a-card>
@@ -124,6 +124,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * GET system_health → {success, data: {php_version, laravel_version,
  * environment, database{size_human|size_bytes|connection|error}, storage
@@ -161,12 +162,12 @@ const health = computed(() => {
   const critical = !!m.database?.error || !!m.queue?.error;
   const warning = failedCount.value > 0 || !m.last_backup?.date;
   if (critical) {
-    return { level: 'critical', color: '#ff4d4f', icon: CloseCircleFilled, label: 'Critical', summary: 'A service reported an error — action required.' };
+    return { level: 'critical', color: '#ff4d4f', icon: CloseCircleFilled, label: tEs('Critical', 'Critical'), summary: 'A service reported an error — action required.' };
   }
   if (warning) {
-    return { level: 'warning', color: '#faad14', icon: WarningFilled, label: 'Needs attention', summary: 'Some checks need attention (failed jobs or no recent backup).' };
+    return { level: 'warning', color: '#faad14', icon: WarningFilled, label: tEs('tx_Needs_attention_d6f57', 'Needs attention'), summary: 'Some checks need attention (failed jobs or no recent backup).' };
   }
-  return { level: 'healthy', color: '#52c41a', icon: CheckCircleFilled, label: 'Healthy', summary: 'All systems operational.' };
+  return { level: 'healthy', color: '#52c41a', icon: CheckCircleFilled, label: tEs('Healthy', 'Healthy'), summary: 'All systems operational.' };
 });
 
 const envTiles = computed(() => {

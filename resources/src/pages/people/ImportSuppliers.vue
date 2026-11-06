@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <PageHeader
-      title="Import Suppliers"
+      :title="$t('Import_Suppliers')"
       :breadcrumb="[$t('People'), $t('Suppliers'), 'Import']"
     >
       <template #extra>
@@ -16,15 +16,15 @@
             ref="dz"
             :file="file"
             :accept="accept"
-            title="Click or drop your Excel file here"
-            hint="Allowed formats: XLSX, XLS · Max size: 20MB"
+            :title="$t('tx_Click_or_drop_your_Excel_file_here_83bed')"
+            :hint="$t('tx_Allowed_formats_XLSX_XLS_Max_size_20MB_2c859')"
             :disabled="uploading"
             @file="loadFile"
             @clear="clearFile()"
           />
 
           <a-alert v-if="errorMessages.length" type="error" style="margin-top: 16px" show-icon>
-            <template #message>Import failed. Fix the issues below:</template>
+            <template #message>{{ $t('Import_Failed_Fix_Below') }}</template>
             <template #description>
               <ul style="margin: 0; padding-left: 18px">
                 <li v-for="(err, idx) in errorMessages" :key="'err-' + idx">{{ err }}</li>
@@ -33,7 +33,7 @@
           </a-alert>
 
           <a-alert v-if="warningMessages.length" type="warning" style="margin-top: 16px" show-icon>
-            <template #message>Warnings</template>
+            <template #message>{{ $t('Warnings') }}</template>
             <template #description>
               <ul style="margin: 0; padding-left: 18px">
                 <li v-for="(w, idx) in warningMessages" :key="'warn-' + idx">{{ w }}</li>
@@ -45,22 +45,22 @@
 
           <div style="display: flex; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap">
             <a-button type="primary" :disabled="!canSubmit || uploading" :loading="uploading" @click="submit">
-              Import now
+              {{ $t('tx_Import_now_23453') }}
             </a-button>
             <a-button href="/import/exemples/suppliers.xlsx" target="_blank" rel="noopener">
-              <DownloadOutlined /> Download example
+              <DownloadOutlined /> {{ $t('Download_exemple') }}
             </a-button>
-            <a-button :disabled="!file || uploading" @click="clearFile()">Reset</a-button>
+            <a-button :disabled="!file || uploading" @click="clearFile()">{{ $t('Reset') }}</a-button>
           </div>
       </div>
     </a-card>
 
     <!-- Expected file format -->
-    <a-card size="small" :title="'Expected file format'">
+    <a-card size="small" :title="$t('tx_Expected_file_format_682f9')">
       <template #extra>
         <span style="font-size: 12px; color: #8c8c8c">
-          One row per supplier ·
-          <a-tag color="green" style="margin: 0">green *</a-tag> = required
+          {{ $t('tx_One_row_per_supplier_c208b') }}
+          <a-tag color="green" style="margin: 0">{{ $t('tx_green_b64c1') }}</a-tag> = required
         </span>
       </template>
       <a-space wrap style="margin-bottom: 12px">
@@ -73,15 +73,16 @@
         size="small" :pagination="false" :scroll="{ x: 'max-content' }" row-key="code"
       />
       <ul style="padding-left: 18px; margin: 12px 0 0 0; font-size: 12px">
-        <li><strong>code</strong> must be an integer and unique (DB column is INT).</li>
-        <li><strong>name</strong> is required.</li>
-        <li><strong>Address</strong> is the address field expected by the backend.</li>
+        <li><strong>code</strong> {{ $t('tx_must_be_an_integer_and_unique_DB_column_is_INT_3959e') }}</li>
+        <li><strong>name</strong> {{ $t('tx_is_required_ee66f') }}</li>
+        <li><strong>{{ $t('Address') }}</strong> {{ $t('tx_is_the_address_field_expected_by_the_backend_7a5c7') }}</li>
       </ul>
     </a-card>
   </div>
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Import Suppliers wizard — POST suppliers/import (multipart, key `suppliers`).
  * File checks / error rules copied VERBATIM from legacy ImportSuppliers.vue.
@@ -110,7 +111,7 @@ const accept = 'application/vnd.openxmlformats-officedocument.spreadsheetml.shee
 
 const columnsGuide = [
   { key: 'name', label: 'name', required: true },
-  { key: 'code', label: 'code (integer)', required: true },
+  { key: 'code', label: tEs('tx_code_integer_eab8b', 'code (integer)'), required: true },
   { key: 'email', label: 'email', required: false },
   { key: 'phone', label: 'phone', required: false },
   { key: 'tax_number', label: 'tax_number', required: false },
@@ -122,10 +123,10 @@ const columnsGuide = [
 const canSubmit = computed(() => !!file.value && errorMessages.value.length === 0);
 
 const exampleColumns = [
-  { title: 'name *', dataIndex: 'name' }, { title: 'code (integer) *', dataIndex: 'code' },
+  { title: tEs('tx_name_4871e', 'name *'), dataIndex: 'name' }, { title: tEs('tx_code_integer_efaa2', 'code (integer) *'), dataIndex: 'code' },
   { title: 'email', dataIndex: 'email' }, { title: 'phone', dataIndex: 'phone' },
   { title: 'tax_number', dataIndex: 'tax_number' }, { title: 'country', dataIndex: 'country' },
-  { title: 'city', dataIndex: 'city' }, { title: 'Address', dataIndex: 'adresse' },
+  { title: 'city', dataIndex: 'city' }, { title: tEs('Address', 'Address'), dataIndex: 'adresse' },
 ];
 const exampleRows = [
   { name: 'ACME Supplies', code: '2001', email: 'contact@acmesupplies.com', phone: '+1 555 0100', tax_number: 'VAT-4455', country: 'USA', city: 'New York', adresse: '5th Ave' },
@@ -209,7 +210,7 @@ async function submit() {
         errs = ['Please fix the highlighted errors in your file and try again.'];
       }
       errorMessages.value = errs;
-      toast('Check the error list and fix your file.', 'Import failed', 'danger');
+      toast(tEs('tx_Check_the_error_list_and_fix_your_file_3a05d', 'Check the error list and fix your file.'), 'Import failed', 'danger');
       return;
     }
 
@@ -222,7 +223,7 @@ async function submit() {
   } catch (e) {
     const msg = e && e.message ? String(e.message) : 'Network error. Please try again.';
     errorMessages.value = [msg];
-    toast('Upload failed due to a network error.', 'Error', 'danger');
+    toast(tEs('tx_Upload_failed_due_to_a_network_error_37d38', 'Upload failed due to a network error.'), 'Error', 'danger');
   } finally {
     doneProgress();
     uploading.value = false;

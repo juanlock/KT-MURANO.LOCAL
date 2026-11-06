@@ -1,13 +1,12 @@
 <template>
-  <a-drawer :open="open" title="Email rules" :width="760" destroy-on-close @close="$emit('update:open', false)">
+  <a-drawer :open="open" :title="$t('tx_Email_rules_89f40')" :width="760" destroy-on-close @close="$emit('update:open', false)">
     <div class="er-help">
-      Your own sorting: when an email arrives, every active rule it matches is applied — after the automatic
-      sorting, so a rule always wins. Example: <b>From contains</b> tiktok <b>or</b> facebook → move to <b>Social</b>.
+      {{ $t('tx_Your_own_sorting_when_an_email_arrives_every_active_rule_it__bc21d') }} <b>{{ $t('tx_From_contains_5f5e2') }}</b> tiktok <b>or</b> {{ $t('tx_facebook_move_to_772b9') }} <b>Social</b>.
     </div>
 
     <!-- Your own folders (created with "+ New folder" in a rule). -->
     <div v-if="EMAIL_FOLDERS.length" class="er-folders">
-      <b>Your folders:</b>
+      <b>{{ $t('tx_Your_folders_ccf52') }}</b>
       <a-tag v-for="f in EMAIL_FOLDERS" :key="f.key" color="purple" style="margin: 0">
         {{ f.name }}
         <a-popconfirm :title="`Delete the folder &quot;${f.name}&quot;? Its emails go back to General.`" @confirm="removeFolder(f)">
@@ -18,99 +17,97 @@
 
     <!-- Your rules first: edit / switch off / apply / delete any of them. -->
     <div class="er-head">
-      <b>Your rules ({{ rules.length }})</b>
+      <b>{{ $t('tx_Your_rules_7a2d8') }}{{ rules.length }})</b>
       <a-space>
-        <a-tooltip title="Apply every active rule again, in order, to the emails already here (after editing rules)">
-          <a-button size="small" :disabled="!rules.length" :loading="running === 'all'" @click="runAll">Re-apply all rules</a-button>
+        <a-tooltip :title="$t('tx_Apply_every_active_rule_again_in_order_to_the_emails_already_e0f72')">
+          <a-button size="small" :disabled="!rules.length" :loading="running === 'all'" @click="runAll">{{ $t('tx_Re_apply_all_rules_c1159') }}</a-button>
         </a-tooltip>
-        <a-button type="primary" size="small" @click="edit(null)">+ New rule</a-button>
+        <a-button type="primary" size="small" @click="edit(null)">{{ $t('tx_New_rule_16eba') }}</a-button>
       </a-space>
     </div>
     <a-spin :spinning="loading">
-      <a-empty v-if="!rules.length && !loading" description="No rules yet" />
+      <a-empty v-if="!rules.length && !loading" :description="$t('tx_No_rules_yet_9fe71')" />
       <div v-for="r in rules" :key="r.id" class="er-rule" :class="{ 'er-rule--off': !r.active, 'er-rule--editing': editing && editing.id === r.id }">
         <a-switch size="small" :checked="!!r.active" @change="v => toggle(r, v)" />
         <div class="er-rule__main">
-          <div class="er-rule__name">{{ r.name }}<a-tag v-if="matchesEmail(r)" color="purple" style="margin-left: 6px">matches this email</a-tag></div>
+          <div class="er-rule__name">{{ r.name }}<a-tag v-if="matchesEmail(r)" color="purple" style="margin-left: 6px">{{ $t('tx_matches_this_email_80ebb') }}</a-tag></div>
           <div class="er-muted">{{ describe(r) }}</div>
-          <div class="er-muted">Applied {{ r.applied_count || 0 }} time{{ r.applied_count === 1 ? '' : 's' }}</div>
+          <div class="er-muted">{{ $t('tx_Applied_733d4') }} {{ r.applied_count || 0 }} time{{ r.applied_count === 1 ? '' : 's' }}</div>
         </div>
         <a-space>
-          <a-tooltip title="Apply it now to the emails already here (not to ones you typed by hand or recorded)">
-            <a-button size="small" :loading="running === r.id" @click="run(r)">Apply to existing</a-button>
+          <a-tooltip :title="$t('tx_Apply_it_now_to_the_emails_already_here_not_to_ones_you_type_23a4e')">
+            <a-button size="small" :loading="running === r.id" @click="run(r)">{{ $t('tx_Apply_to_existing_85ffe') }}</a-button>
           </a-tooltip>
-          <a-button size="small" :type="editing && editing.id === r.id ? 'primary' : 'default'" @click="edit(r)">Edit</a-button>
-          <a-popconfirm title="Delete this rule? (emails already moved stay where they are)" @confirm="remove(r)">
-            <a-button size="small" danger>Delete</a-button>
+          <a-button size="small" :type="editing && editing.id === r.id ? 'primary' : 'default'" @click="edit(r)">{{ $t('Edit') }}</a-button>
+          <a-popconfirm :title="$t('tx_Delete_this_rule_emails_already_moved_stay_where_they_are_826ac')" @confirm="remove(r)">
+            <a-button size="small" danger>{{ $t('Del') }}</a-button>
           </a-popconfirm>
         </a-space>
       </div>
     </a-spin>
 
     <!-- Editor (new / edit), below the list -->
-    <a-card v-if="editing" ref="editorRef" size="small" :title="editing.id ? `Edit rule: ${editing.name}` : 'New rule'" class="er-edit">
+    <a-card v-if="editing" ref="editorRef" size="small" :title="editing.id ? `Edit rule: ${editing.name}` : $t('tx_New_rule_39567')" class="er-edit">
       <a-form layout="vertical">
-        <a-form-item label="Name" required>
-          <a-input v-model:value="editing.name" placeholder="e.g. Social networks" />
+        <a-form-item :label="$t('Name')" required>
+          <a-input v-model:value="editing.name" :placeholder="$t('tx_e_g_Social_networks_36c58')" />
         </a-form-item>
 
-        <div class="er-label">When an email matches
+        <div class="er-label">{{ $t('tx_When_an_email_matches_4251b') }}
           <a-radio-group v-model:value="editing.match" size="small" button-style="solid" style="margin: 0 6px">
             <a-radio-button value="any">any</a-radio-button>
             <a-radio-button value="all">all</a-radio-button>
           </a-radio-group>
-          of these conditions:
+          {{ $t('tx_of_these_conditions_8f934') }}
         </div>
         <div v-for="(c, i) in editing.conditions" :key="i" class="er-cond">
           <a-select v-model:value="c.field" :options="FIELD_OPTIONS" style="width: 150px" />
           <a-select v-model:value="c.op" :options="OP_OPTIONS" style="width: 120px" />
-          <a-input v-model:value="c.value" placeholder="e.g. tiktok" style="flex: 1" />
+          <a-input v-model:value="c.value" :placeholder="$t('tx_e_g_tiktok_f7960')" style="flex: 1" />
           <a-button type="text" danger :disabled="editing.conditions.length === 1" @click="editing.conditions.splice(i, 1)">✕</a-button>
         </div>
-        <a-button size="small" style="margin-bottom: 12px" @click="editing.conditions.push({ field: 'from', op: 'contains', value: '' })">+ Add condition</a-button>
+        <a-button size="small" style="margin-bottom: 12px" @click="editing.conditions.push({ field: 'from', op: 'contains', value: '' })">{{ $t('tx_Add_condition_74eda') }}</a-button>
 
-        <div class="er-label">Then:</div>
+        <div class="er-label">{{ $t('tx_Then_92a9c') }}</div>
         <div class="er-cond">
-          <span style="width: 150px">Move to type / folder</span>
-          <a-select v-model:value="editing.set_category" allow-clear show-search option-filter-prop="label" placeholder="(don't change)" :options="EMAIL_CATEGORY_OPTIONS" style="width: 220px" />
-          <a-checkbox v-model:checked="editing.mark_read">Mark as read</a-checkbox>
+          <span style="width: 150px">{{ $t('tx_Move_to_type_folder_19ca3') }}</span>
+          <a-select v-model:value="editing.set_category" allow-clear show-search option-filter-prop="label" :placeholder="$t('tx_don_t_change_65754')" :options="EMAIL_CATEGORY_OPTIONS" style="width: 220px" />
+          <a-checkbox v-model:checked="editing.mark_read">{{ $t('tx_Mark_as_read_58111') }}</a-checkbox>
         </div>
         <!-- A new folder of your own (e.g. Newsletters, Banks), picked right away. -->
         <div class="er-cond">
           <span style="width: 150px"></span>
           <template v-if="newFolder !== null">
-            <a-input v-model:value="newFolder" size="small" placeholder="New folder name, e.g. Newsletters" style="width: 220px" @press-enter="addFolder" />
-            <a-button size="small" type="primary" :loading="addingFolder" @click="addFolder">Create</a-button>
-            <a-button size="small" @click="newFolder = null">Cancel</a-button>
+            <a-input v-model:value="newFolder" size="small" :placeholder="$t('tx_New_folder_name_e_g_Newsletters_7d484')" style="width: 220px" @press-enter="addFolder" />
+            <a-button size="small" type="primary" :loading="addingFolder" @click="addFolder">{{ $t('Add') }}</a-button>
+            <a-button size="small" @click="newFolder = null">{{ $t('Cancel') }}</a-button>
           </template>
-          <a v-else @click="newFolder = ''">+ New folder</a>
+          <a v-else @click="newFolder = ''">{{ $t('tx_New_folder_5d44e') }}</a>
         </div>
         <!-- Zelle emails: a deposit ("We deposited your payment") -> a paid sale; a payment
              sent ("Confirmed: Your payment to ...") -> an expense. Both wait for Confirm. -->
         <div class="er-cond">
-          <span style="width: 150px">Also prepare</span>
+          <span style="width: 150px">{{ $t('tx_Also_prepare_a1935') }}</span>
           <a-select v-model:value="editing.prep_kind" :options="PREP_OPTIONS" style="width: 300px" />
         </div>
         <div v-if="editing.prep_kind === 'zelle_out'" class="er-muted" style="margin: -4px 0 8px 158px">
-          Each matching email waits in the list with a <b>Confirm expense</b> button: the first time a payee appears you say who
-          it is (employee paid as a 1099 contractor, or just an expense category) and Murano remembers it. Paid with Zelle from the
-          account ending in the email's last 4 digits, on the email's date.
+          {{ $t('tx_Each_matching_email_waits_in_the_list_with_a_95af3') }} <b>{{ $t('tx_Confirm_expense_074fb') }}</b> {{ $t('tx_button_the_first_time_a_payee_appears_you_say_who_it_is_empl_a1d38') }}
         </div>
         <div v-if="editing.prep_kind === 'zelle_in'" class="er-cond">
           <span style="width: 150px"></span>
-          <a-select v-model:value="editing.sale_product_id" show-search option-filter-prop="label" placeholder="Service" :options="serviceOptions" style="width: 220px" />
-          <a-select v-model:value="editing.sale_agent_id" allow-clear show-search option-filter-prop="label" placeholder="Sales agent" :options="agentOptions" style="width: 200px" />
+          <a-select v-model:value="editing.sale_product_id" show-search option-filter-prop="label" :placeholder="$t('Service')" :options="serviceOptions" style="width: 220px" />
+          <a-select v-model:value="editing.sale_agent_id" allow-clear show-search option-filter-prop="label" :placeholder="$t('Sales_Agent')" :options="agentOptions" style="width: 200px" />
         </div>
         <div v-if="editing.prep_kind === 'zelle_in'" class="er-muted" style="margin: -4px 0 8px 158px">
-          Each matching email waits in the list with a <b>Confirm sale</b> button: customer = the payer (created if new),
+          {{ $t('tx_Each_matching_email_waits_in_the_list_with_a_95af3') }} <b>{{ $t('tx_Confirm_sale_bce59') }}</b> button: customer = the payer (created if new),
           date / time of the email, paid with Zelle into the account ending in the email's last 4 digits.
         </div>
-        <a-checkbox v-model:checked="editing.active" style="margin-top: 8px">Active</a-checkbox>
+        <a-checkbox v-model:checked="editing.active" style="margin-top: 8px">{{ $t('Actif') }}</a-checkbox>
 
         <a-space style="margin-top: 12px; display: flex">
-          <a-button type="primary" :loading="saving" @click="save(false)">Save</a-button>
-          <a-button :loading="saving" @click="save(true)">{{ editing.id ? 'Save & re-apply to existing emails' : 'Save & apply to existing emails' }}</a-button>
-          <a-button @click="editing = null">Cancel</a-button>
+          <a-button type="primary" :loading="saving" @click="save(false)">{{ $t('Save') }}</a-button>
+          <a-button :loading="saving" @click="save(true)">{{ editing.id ? $t('tx_Save_re_apply_to_existing_emails_41514') : $t('tx_Save_apply_to_existing_emails_15ec1') }}</a-button>
+          <a-button @click="editing = null">{{ $t('Cancel') }}</a-button>
         </a-space>
       </a-form>
     </a-card>
@@ -118,6 +115,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../i18n/index.js';
 /**
  * Email Office rules (email-office/rules): the company's own sorting, e.g.
  * From contains tiktok / facebook -> Social. prefill = a rule to start from
@@ -149,9 +147,9 @@ const running = ref(null);
 
 const blank = () => ({ id: null, name: '', match: 'any', conditions: [{ field: 'from', op: 'contains', value: '' }], set_category: undefined, mark_read: false, active: true, prep_kind: '', sale_product_id: undefined, sale_agent_id: undefined });
 const PREP_OPTIONS = [
-  { value: '', label: 'Nothing' },
-  { value: 'zelle_in', label: 'A paid sale (Zelle deposit received)' },
-  { value: 'zelle_out', label: 'An expense (Zelle payment sent)' },
+  { value: '', label: tEs('tx_Nothing_f80a4', 'Nothing') },
+  { value: 'zelle_in', label: tEs('tx_A_paid_sale_Zelle_deposit_received_ae194', 'A paid sale (Zelle deposit received)') },
+  { value: 'zelle_out', label: tEs('tx_An_expense_Zelle_payment_sent_aa272', 'An expense (Zelle payment sent)') },
 ];
 // What a saved rule prepares (an old rule without "kind" = a paid sale).
 const kindOf = p => (p ? p.kind || 'zelle_in' : '');
@@ -249,19 +247,19 @@ async function save(andRun) {
   const r = editing.value;
   r.conditions = r.conditions.filter(c => String(c.value || '').trim());
   if (!r.name.trim() || !r.conditions.length) {
-    message.error('Give it a name and at least one condition with a value.');
+    message.error(tEs('tx_Give_it_a_name_and_at_least_one_condition_with_a_value_568b8', 'Give it a name and at least one condition with a value.'));
     if (!r.conditions.length) r.conditions.push({ field: 'from', op: 'contains', value: '' });
     return;
   }
   if (r.prep_kind === 'zelle_in' && !r.sale_product_id) {
-    message.error('Pick the service of the sale.');
+    message.error(tEs('tx_Pick_the_service_of_the_sale_9e539', 'Pick the service of the sale.'));
     return;
   }
   saving.value = true;
   try {
     const body = { name: r.name, match: r.match, conditions: r.conditions, set_category: r.set_category || null, mark_read: r.mark_read, active: r.active, prepare_sale: prepareSaleBody(r) };
     const res = r.id ? await http.put(`email-office/rules/${r.id}`, body) : await http.post('email-office/rules', body);
-    message.success('Rule saved — it applies to new emails from now on.');
+    message.success(tEs('tx_Rule_saved_it_applies_to_new_emails_from_now_on_de97b', 'Rule saved — it applies to new emails from now on.'));
     editing.value = null;
     await load();
     if (andRun) await run({ id: res.id || r.id });

@@ -12,7 +12,7 @@
     <!-- SuperAdmin as AdminSystem: every company's roles, filterable by company. -->
     <a-card v-if="allCompanies" size="small" style="margin-bottom: 12px">
       <a-space wrap>
-        <span style="opacity: 0.7">Roles of every company. Company:</span>
+        <span style="opacity: 0.7">{{ $t('tx_Roles_of_every_company_Company_18445') }}</span>
         <a-select
           v-model:value="roleCompanyId" allow-clear show-search option-filter-prop="label"
           style="width: 260px" :placeholder="$t('All')" :options="companyOptions" @change="crud.reload()"

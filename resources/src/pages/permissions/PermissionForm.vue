@@ -36,8 +36,8 @@
             </a-col>
             <!-- Where Home / the dashboard takes this role's users (empty = normal start page). -->
             <a-col :xs="24" :md="12">
-              <a-form-item label="Home page" extra="Where Home takes the users of this role. Empty = the company's normal start page." style="margin: 12px 0 0">
-                <a-select v-model:value="role.home_path" allow-clear show-search option-filter-prop="label" placeholder="Company start page (dashboard)" :options="homeOptions" />
+              <a-form-item :label="$t('tx_Home_page_7b19b')" extra="Where Home takes the users of this role. Empty = the company's normal start page." style="margin: 12px 0 0">
+                <a-select v-model:value="role.home_path" allow-clear show-search option-filter-prop="label" :placeholder="$t('tx_Company_start_page_dashboard_f01e1')" :options="homeOptions" />
               </a-form-item>
             </a-col>
           </a-row>
@@ -55,14 +55,14 @@
           <div class="stat">
             <div class="stat__icon stat__icon--menu"><AppstoreOutlined /></div>
             <div>
-              <div class="stat__label">Menu items visible</div>
+              <div class="stat__label">{{ $t('tx_Menu_items_visible_b6afb') }}</div>
               <div class="stat__value">{{ menuStats.on }} <small>/ {{ menuStats.total }}</small></div>
             </div>
           </div>
           <div class="stat">
             <div class="stat__icon stat__icon--form"><SafetyCertificateOutlined /></div>
             <div>
-              <div class="stat__label">Form permissions granted</div>
+              <div class="stat__label">{{ $t('tx_Form_permissions_granted_1408e') }}</div>
               <div class="stat__value">{{ formStats.on }} <small>/ {{ formStats.total }}</small></div>
             </div>
           </div>
@@ -77,14 +77,14 @@
           </a-space>
         </div>
         <div class="legend">
-          <span class="legend__title">How to read it:</span>
-          <span><a-switch size="small" :checked="true" /> <b>Menu access</b> -- shows the item in the sidebar</span>
-          <span class="legend__pill legend__pill--view"><EyeOutlined /> View</span>
-          <span class="legend__pill legend__pill--add"><PlusOutlined /> Add</span>
-          <span class="legend__pill legend__pill--edit"><EditOutlined /> Edit</span>
-          <span class="legend__pill legend__pill--delete"><DeleteOutlined /> Delete</span>
-          <span class="legend__pill legend__pill--other"><KeyOutlined /> Special</span>
-          <span><b>Form permissions</b> -- filled = granted, outlined = not granted</span>
+          <span class="legend__title">{{ $t('tx_How_to_read_it_f940a') }}</span>
+          <span><a-switch size="small" :checked="true" /> <b>{{ $t('tx_Menu_access_b9c14') }}</b> -- shows the item in the sidebar</span>
+          <span class="legend__pill legend__pill--view"><EyeOutlined /> {{ $t('View') }}</span>
+          <span class="legend__pill legend__pill--add"><PlusOutlined /> {{ $t('Add_Serial') }}</span>
+          <span class="legend__pill legend__pill--edit"><EditOutlined /> {{ $t('Edit') }}</span>
+          <span class="legend__pill legend__pill--delete"><DeleteOutlined /> {{ $t('Del') }}</span>
+          <span class="legend__pill legend__pill--other"><KeyOutlined /> {{ $t('tx_Special_b4c2b') }}</span>
+          <span><b>{{ $t('tx_Form_permissions_f0387') }}</b> -- filled = granted, outlined = not granted</span>
           <span><LinkOutlined style="color: #1677ff" /> shared with other menu items</span>
         </div>
       </a-card>
@@ -92,10 +92,10 @@
       <div class="panes">
         <!-- Left: the company's menu sections, in its own order -->
         <a-card size="small" class="nav" :body-style="{ padding: '6px' }">
-          <div class="nav__hint">Menu order of this company</div>
+          <div class="nav__hint">{{ $t('tx_Menu_order_of_this_company_bfcdb') }}</div>
           <template v-for="(sec, i) in navSections" :key="sec.id">
-            <div v-if="sec.off && !(navSections[i - 1] || {}).off" class="nav__divider">Modules turned off</div>
-            <div v-if="sec.id === '__other'" class="nav__divider">Not in the menu</div>
+            <div v-if="sec.off && !(navSections[i - 1] || {}).off" class="nav__divider">{{ $t('tx_Modules_turned_off_1d078') }}</div>
+            <div v-if="sec.id === '__other'" class="nav__divider">{{ $t('tx_Not_in_the_menu_aa6e1') }}</div>
             <button
               type="button"
               class="nav__item"
@@ -129,15 +129,15 @@
               <a-space wrap>
                 <a-button v-if="sectionMenuPerms(sec).length" size="small" @click="showWholeSection(sec)">
                   <template #icon><EyeOutlined /></template>
-                  Show all in menu
+                  {{ $t('tx_Show_all_in_menu_84ed1') }}
                 </a-button>
                 <a-button size="small" type="primary" ghost @click="toggleMany(sec.allPerms, true)">
                   <template #icon><CheckOutlined /></template>
-                  Grant all
+                  {{ $t('tx_Grant_all_d4208') }}
                 </a-button>
                 <a-button size="small" danger @click="toggleMany(sec.allPerms, false)">
                   <template #icon><CloseOutlined /></template>
-                  Clear
+                  {{ $t('clear') }}
                 </a-button>
               </a-space>
             </div>
@@ -162,6 +162,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Role create/edit — replaces legacy Create_permission.vue and
  * Edit_permission.vue (~4,100 lines each of hand-written checkboxes) with the
@@ -308,7 +309,7 @@ const otherSection = computed(() => {
     allPerms: o.items.map(it => it.v),
   }));
   return {
-    id: '__other', label: 'Other permissions', raw: true, isContainer: true, off: false,
+    id: '__other', label: tEs('tx_Other_permissions_9f698', 'Other permissions'), raw: true, isContainer: true, off: false,
     menuPerms: [], special: [], children, allPerms: children.flatMap(c => c.allPerms),
   };
 });
@@ -425,8 +426,8 @@ function forceVisibility(node, hidden) {
   Modal.confirm({
     title: hidden ? 'Hide for every company?' : 'Show to every company?',
     content: `"${nodeLabel(node)}" will be ${hidden ? 'hidden in' : 'shown in'} the menu of ALL companies, including those that changed it in their own menu. Continue?`,
-    okText: 'Yes, all companies',
-    cancelText: 'Cancel',
+    okText: tEs('tx_Yes_all_companies_5d8f2', 'Yes, all companies'),
+    cancelText: tEs('Cancel', 'Cancel'),
     okType: 'danger',
     onOk: () => doForceVisibility(node, key, hidden),
   });
@@ -494,7 +495,7 @@ onMounted(async () => {
       const src = data.role || {};
       role.value = { name: `${src.name || ''} (copy)`.trim(), description: src.description || '', home_path: src.home_path || null };
       permissions.value = Array.isArray(data.permissions) ? [...data.permissions] : [];
-      message.info('Copy of the role loaded -- rename it and adjust permissions, then Submit to create it.', 6);
+      message.info(tEs('tx_Copy_of_the_role_loaded_rename_it_and_adjust_permissions_the_31057', 'Copy of the role loaded -- rename it and adjust permissions, then Submit to create it.'), 6);
     } catch (e) {
       message.error(e?.data?.message || t('InvalidData'));
     } finally {

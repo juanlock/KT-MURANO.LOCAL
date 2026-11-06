@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <PageHeader
-      :title="vehicle ? vehicle.name : 'Vehicle'"
+      :title="vehicle ? vehicle.name : $t('Vehicle')"
       :subtitle="vehicle ? [vehicle.make, vehicle.model, vehicle.year].filter(Boolean).join(' · ') : ''"
       :breadcrumb="['Fleet Management', 'Vehicles', vehicle ? vehicle.plate_number : '']"
     >
@@ -39,18 +39,18 @@
               </div>
 
               <a-descriptions :column="1" size="small" class="hero-desc">
-                <a-descriptions-item label="Type">
+                <a-descriptions-item :label="$t('type')">
                   <span class="desc-type">
                     <component :is="typeIcon(vehicle.type)" :size="15" :stroke-width="1.7" />
                     {{ labelOf(VEHICLE_TYPES, vehicle.type) }}
                   </span>
                 </a-descriptions-item>
-                <a-descriptions-item label="Fuel">{{ labelOf(FUEL_TYPES, vehicle.fuel_type) }}</a-descriptions-item>
-                <a-descriptions-item label="Odometer">{{ number(vehicle.odometer, 0) }}</a-descriptions-item>
-                <a-descriptions-item label="Driver">{{ vehicle.driver_name || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Fuel')">{{ labelOf(FUEL_TYPES, vehicle.fuel_type) }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('tx_Odometer_5c059')">{{ number(vehicle.odometer, 0) }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Driver')">{{ vehicle.driver_name || '—' }}</a-descriptions-item>
                 <a-descriptions-item :label="$t('Warehouse')">{{ vehicle.warehouse_name || '—' }}</a-descriptions-item>
                 <a-descriptions-item label="VIN">{{ vehicle.vin || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Purchased">
+                <a-descriptions-item :label="$t('Purchased')">
                   {{ vehicle.purchase_date ? date(vehicle.purchase_date) : '—' }}
                   <template v-if="vehicle.purchase_price"> · {{ money(vehicle.purchase_price) }}</template>
                 </a-descriptions-item>
@@ -60,11 +60,11 @@
             </div>
           </a-card>
 
-          <a-card size="small" title="Compliance">
+          <a-card size="small" :title="$t('tx_Compliance_9c040')">
             <div class="renewals">
               <div v-for="r in renewals" :key="r.key" class="renewal">
                 <span class="renewal-label">{{ r.label }}</span>
-                <span class="renewal-date">{{ r.date ? date(r.date) : 'Not set' }}</span>
+                <span class="renewal-date">{{ r.date ? date(r.date) : $t('Not_Set') }}</span>
                 <a-tag v-if="r.tone" :color="r.tone.color">{{ r.tone.text }}</a-tag>
                 <a-tag v-else-if="r.date" color="success">OK</a-tag>
                 <a-tag v-else color="default">—</a-tag>
@@ -80,22 +80,22 @@
         <a-col :xs="24" :lg="16">
           <div class="stats">
             <div class="stat">
-              <span class="stat-label">Total cost</span>
+              <span class="stat-label">{{ $t('TotalCost') }}</span>
               <span class="stat-value">{{ money(stats.total_cost || 0) }}</span>
               <span class="stat-note">fuel + maintenance</span>
             </div>
             <div class="stat">
-              <span class="stat-label">Distance logged</span>
+              <span class="stat-label">{{ $t('tx_Distance_logged_60d62') }}</span>
               <span class="stat-value">{{ number(stats.distance || 0, 0) }}</span>
               <span class="stat-note">from fuel readings</span>
             </div>
             <div class="stat">
-              <span class="stat-label">Cost / distance</span>
+              <span class="stat-label">{{ $t('Cost_per_distance') }}</span>
               <span class="stat-value">{{ stats.cost_per_distance !== null ? money(stats.cost_per_distance) : '—' }}</span>
               <span class="stat-note">per unit driven</span>
             </div>
             <div class="stat">
-              <span class="stat-label">Efficiency</span>
+              <span class="stat-label">{{ $t('Efficiency') }}</span>
               <span class="stat-value">{{ stats.efficiency !== null ? number(stats.efficiency, 2) : '—' }}</span>
               <span class="stat-note">distance per unit of fuel</span>
             </div>
@@ -105,7 +105,7 @@
             <a-tabs v-model:activeKey="tab" @change="onTabChange">
               <a-tab-pane key="maintenance">
                 <template #tab>
-                  Maintenance <a-badge :count="stats.maintenance_count || 0" :number-style="badgeStyle" />
+                  {{ $t('Maintenance') }} <a-badge :count="stats.maintenance_count || 0" :number-style="badgeStyle" />
                 </template>
                 <a-table
                   :columns="maintenanceColumns" :data-source="maintenance" :loading="tabLoading"
@@ -129,14 +129,14 @@
                     </template>
                   </template>
                   <template #emptyText>
-                    <a-empty :image="simpleEmptyImage" description="No maintenance recorded" />
+                    <a-empty :image="simpleEmptyImage" :description="$t('tx_No_maintenance_recorded_d5452')" />
                   </template>
                 </a-table>
               </a-tab-pane>
 
               <a-tab-pane key="fuel">
                 <template #tab>
-                  Fuel <a-badge :count="stats.fuel_count || 0" :number-style="badgeStyle" />
+                  {{ $t('Fuel') }} <a-badge :count="stats.fuel_count || 0" :number-style="badgeStyle" />
                 </template>
                 <a-table
                   :columns="fuelColumns" :data-source="fuelLogs" :loading="tabLoading"
@@ -150,19 +150,19 @@
                     <template v-else-if="column.key === 'total_cost'">{{ money(record.total_cost) }}</template>
                     <template v-else-if="column.key === 'full_tank'">
                       <a-tag :color="record.full_tank ? 'success' : 'default'">
-                        {{ record.full_tank ? 'Full' : 'Partial' }}
+                        {{ record.full_tank ? $t('tx_Full_bbd47') : $t('partial') }}
                       </a-tag>
                     </template>
                   </template>
                   <template #emptyText>
-                    <a-empty :image="simpleEmptyImage" description="No fuel logged" />
+                    <a-empty :image="simpleEmptyImage" :description="$t('tx_No_fuel_logged_6253e')" />
                   </template>
                 </a-table>
               </a-tab-pane>
 
               <a-tab-pane key="assignments">
                 <template #tab>
-                  Assignments <a-badge :count="stats.trip_count || 0" :number-style="badgeStyle" />
+                  {{ $t('Assignments') }} <a-badge :count="stats.trip_count || 0" :number-style="badgeStyle" />
                 </template>
                 <a-table
                   :columns="assignmentColumns" :data-source="assignments" :loading="tabLoading"
@@ -183,7 +183,7 @@
                     </template>
                   </template>
                   <template #emptyText>
-                    <a-empty :image="simpleEmptyImage" description="No assignments recorded" />
+                    <a-empty :image="simpleEmptyImage" :description="$t('tx_No_assignments_recorded_a3892')" />
                   </template>
                 </a-table>
               </a-tab-pane>
@@ -193,11 +193,12 @@
       </a-row>
     </template>
 
-    <a-empty v-else description="Vehicle not found" style="padding: 64px 0" />
+    <a-empty v-else :description="$t('tx_Vehicle_not_found_7c581')" style="padding: 64px 0" />
   </div>
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * One vehicle: identity, compliance, lifetime numbers and its three logs.
  *
@@ -244,39 +245,39 @@ const renewals = computed(() => {
   const v = vehicle.value;
   if (!v) return [];
   return [
-    { key: 'insurance', label: 'Insurance', date: v.insurance_expiry, days: v.days_to_insurance },
-    { key: 'registration', label: 'Registration', date: v.registration_expiry, days: v.days_to_registration },
-    { key: 'inspection', label: 'Inspection', date: v.inspection_expiry, days: v.days_to_inspection },
+    { key: 'insurance', label: tEs('Insurance', 'Insurance'), date: v.insurance_expiry, days: v.days_to_insurance },
+    { key: 'registration', label: tEs('Owner_Alert_Registration', 'Registration'), date: v.registration_expiry, days: v.days_to_registration },
+    { key: 'inspection', label: tEs('Owner_Alert_Inspection', 'Inspection'), date: v.inspection_expiry, days: v.days_to_inspection },
   ].map(r => ({ ...r, tone: expiryTone(r.days) }));
 });
 
 const maintenanceColumns = [
-  { title: 'Date', key: 'service_date', dataIndex: 'service_date', width: 110 },
-  { title: 'Work', dataIndex: 'title', key: 'title' },
-  { title: 'Type', key: 'type', dataIndex: 'type', width: 110 },
-  { title: 'Odometer', key: 'odometer', dataIndex: 'odometer', width: 100 },
-  { title: 'Vendor', dataIndex: 'vendor', key: 'vendor', width: 140 },
-  { title: 'Status', key: 'status', dataIndex: 'status', width: 120 },
-  { title: 'Cost', key: 'cost', dataIndex: 'cost', width: 110 },
+  { title: tEs('date', 'Date'), key: 'service_date', dataIndex: 'service_date', width: 110 },
+  { title: tEs('tx_Work_0f926', 'Work'), dataIndex: 'title', key: 'title' },
+  { title: tEs('type', 'Type'), key: 'type', dataIndex: 'type', width: 110 },
+  { title: tEs('tx_Odometer_5c059', 'Odometer'), key: 'odometer', dataIndex: 'odometer', width: 100 },
+  { title: tEs('tx_Vendor_ec9ce', 'Vendor'), dataIndex: 'vendor', key: 'vendor', width: 140 },
+  { title: tEs('Serial_Status', 'Status'), key: 'status', dataIndex: 'status', width: 120 },
+  { title: tEs('Cost', 'Cost'), key: 'cost', dataIndex: 'cost', width: 110 },
 ];
 
 const fuelColumns = [
-  { title: 'Date', key: 'log_date', dataIndex: 'log_date', width: 110 },
-  { title: 'Odometer', key: 'odometer', dataIndex: 'odometer', width: 100 },
-  { title: 'Quantity', key: 'quantity', dataIndex: 'quantity', width: 100 },
-  { title: 'Unit price', key: 'unit_price', dataIndex: 'unit_price', width: 110 },
+  { title: tEs('date', 'Date'), key: 'log_date', dataIndex: 'log_date', width: 110 },
+  { title: tEs('tx_Odometer_5c059', 'Odometer'), key: 'odometer', dataIndex: 'odometer', width: 100 },
+  { title: tEs('Quantity', 'Quantity'), key: 'quantity', dataIndex: 'quantity', width: 100 },
+  { title: tEs('UnitPrice', 'Unit price'), key: 'unit_price', dataIndex: 'unit_price', width: 110 },
   { title: 'Total', key: 'total_cost', dataIndex: 'total_cost', width: 110 },
-  { title: 'Station', dataIndex: 'station', key: 'station' },
-  { title: 'Tank', key: 'full_tank', width: 90 },
+  { title: tEs('Tray', 'Station'), dataIndex: 'station', key: 'station' },
+  { title: tEs('tx_Tank_e4419', 'Tank'), key: 'full_tank', width: 90 },
 ];
 
 const assignmentColumns = [
-  { title: 'Driver', dataIndex: 'driver_name', key: 'driver_name' },
-  { title: 'From', key: 'start_date', dataIndex: 'start_date', width: 150 },
-  { title: 'To', key: 'end_date', dataIndex: 'end_date', width: 150 },
-  { title: 'Distance', key: 'distance', dataIndex: 'distance', width: 100 },
-  { title: 'Purpose', dataIndex: 'purpose', key: 'purpose' },
-  { title: 'Status', key: 'status', dataIndex: 'status', width: 110 },
+  { title: tEs('Driver', 'Driver'), dataIndex: 'driver_name', key: 'driver_name' },
+  { title: tEs('From', 'From'), key: 'start_date', dataIndex: 'start_date', width: 150 },
+  { title: tEs('to', 'To'), key: 'end_date', dataIndex: 'end_date', width: 150 },
+  { title: tEs('Distance', 'Distance'), key: 'distance', dataIndex: 'distance', width: 100 },
+  { title: tEs('Purpose', 'Purpose'), dataIndex: 'purpose', key: 'purpose' },
+  { title: tEs('Serial_Status', 'Status'), key: 'status', dataIndex: 'status', width: 110 },
 ];
 
 async function load() {

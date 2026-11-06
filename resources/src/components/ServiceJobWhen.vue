@@ -6,28 +6,28 @@
        Jobs list. -->
   <div class="sjw">
     <a-radio-group v-model:value="value.mode" size="small" button-style="solid" style="margin-bottom: 8px">
-      <a-radio-button value="day">One day</a-radio-button>
-      <a-radio-button value="range">Several days</a-radio-button>
-      <a-radio-button v-if="allowDates" value="dates">Specific dates</a-radio-button>
-      <a-radio-button v-if="allowDates" value="repeat">Repeat</a-radio-button>
+      <a-radio-button value="day">{{ $t('tx_One_day_20faf') }}</a-radio-button>
+      <a-radio-button value="range">{{ $t('tx_Several_days_4b6be') }}</a-radio-button>
+      <a-radio-button v-if="allowDates" value="dates">{{ $t('tx_Specific_dates_d5de5') }}</a-radio-button>
+      <a-radio-button v-if="allowDates" value="repeat">{{ $t('tx_Repeat_70204') }}</a-radio-button>
     </a-radio-group>
 
     <a-row :gutter="8">
       <template v-if="value.mode === 'day'">
         <a-col :xs="24" :md="10">
-          <a-form-item label="Date" style="margin-bottom: 8px">
+          <a-form-item :label="$t('date')" style="margin-bottom: 8px">
             <a-date-picker v-model:value="value.date" value-format="YYYY-MM-DD" style="width: 100%" />
           </a-form-item>
         </a-col>
       </template>
       <template v-else-if="value.mode === 'range'">
         <a-col :xs="12" :md="8">
-          <a-form-item label="From" style="margin-bottom: 8px">
+          <a-form-item :label="$t('From')" style="margin-bottom: 8px">
             <a-date-picker v-model:value="value.date" value-format="YYYY-MM-DD" style="width: 100%" />
           </a-form-item>
         </a-col>
         <a-col :xs="12" :md="8">
-          <a-form-item label="To" style="margin-bottom: 8px">
+          <a-form-item :label="$t('to')" style="margin-bottom: 8px">
             <a-date-picker v-model:value="value.end_date" value-format="YYYY-MM-DD" :disabled-date="d => value.date && d.format('YYYY-MM-DD') < value.date" style="width: 100%" />
           </a-form-item>
         </a-col>
@@ -35,12 +35,12 @@
       <!-- Repeat: every N weeks / months from the first date, N times or until a date. -->
       <template v-else-if="value.mode === 'repeat'">
         <a-col :xs="12" :md="6">
-          <a-form-item label="First date" style="margin-bottom: 8px">
+          <a-form-item :label="$t('tx_First_date_f810e')" style="margin-bottom: 8px">
             <a-date-picker v-model:value="value.date" value-format="YYYY-MM-DD" style="width: 100%" />
           </a-form-item>
         </a-col>
         <a-col :xs="12" :md="6">
-          <a-form-item label="Every" style="margin-bottom: 8px">
+          <a-form-item :label="$t('tx_Every_ffcf7')" style="margin-bottom: 8px">
             <a-input-group compact>
               <a-input-number v-model:value="value.repeat_every" :min="1" :max="12" style="width: 40%" />
               <a-select v-model:value="value.repeat_unit" style="width: 60%" :options="[{ value: 'week', label: 'week(s)' }, { value: 'month', label: 'month(s)' }]" />
@@ -48,12 +48,12 @@
           </a-form-item>
         </a-col>
         <a-col :xs="12" :md="6">
-          <a-form-item label="How many times" style="margin-bottom: 8px">
+          <a-form-item :label="$t('tx_How_many_times_7bf34')" style="margin-bottom: 8px">
             <a-input-number v-model:value="value.repeat_count" :min="1" :max="60" placeholder="e.g. 4" style="width: 100%" />
           </a-form-item>
         </a-col>
         <a-col :xs="12" :md="6">
-          <a-form-item label="Or until" style="margin-bottom: 8px">
+          <a-form-item :label="$t('tx_Or_until_74a3c')" style="margin-bottom: 8px">
             <a-date-picker v-model:value="value.repeat_until" value-format="YYYY-MM-DD" :disabled-date="d => value.date && d.format('YYYY-MM-DD') < value.date" style="width: 100%" />
           </a-form-item>
         </a-col>
@@ -62,38 +62,38 @@
             <template v-if="repeatDates.length">
               <b>{{ repeatDates.length }} job{{ repeatDates.length === 1 ? '' : 's' }}:</b>
               <a-tag v-for="d in repeatDates.slice(0, 12)" :key="d" style="margin: 2px">{{ date(d) }}</a-tag>
-              <span v-if="repeatDates.length > 12">… until {{ date(repeatDates[repeatDates.length - 1]) }}</span>
+              <span v-if="repeatDates.length > 12">{{ $t('tx_until_62e1b') }} {{ date(repeatDates[repeatDates.length - 1]) }}</span>
             </template>
-            <span v-else>Pick the first date and how many times (or until when).</span>
+            <span v-else>{{ $t('tx_Pick_the_first_date_and_how_many_times_or_until_when_c97ea') }}</span>
           </div>
         </a-col>
       </template>
       <template v-else>
         <a-col :span="24">
-          <a-form-item label="Dates (one job each)" style="margin-bottom: 8px">
+          <a-form-item :label="$t('tx_Dates_one_job_each_6d178')" style="margin-bottom: 8px">
             <a-space wrap>
               <a-tag v-for="d in sortedDates" :key="d" closable @close.prevent="removeDate(d)">{{ date(d) }}</a-tag>
-              <a-date-picker :value="null" value-format="YYYY-MM-DD" placeholder="Add a date" size="small" @change="addDate" />
+              <a-date-picker :value="null" value-format="YYYY-MM-DD" :placeholder="$t('tx_Add_a_date_4f9d3')" size="small" @change="addDate" />
             </a-space>
           </a-form-item>
         </a-col>
       </template>
 
       <a-col :xs="12" :md="['dates', 'repeat'].includes(value.mode) ? 6 : (value.mode === 'range' ? 4 : 7)">
-        <a-form-item label="From time" style="margin-bottom: 8px">
-          <a-time-picker v-model:value="value.time" value-format="HH:mm" format="HH:mm" :minute-step="15" placeholder="All day" style="width: 100%" />
+        <a-form-item :label="$t('tx_From_time_a1ff8')" style="margin-bottom: 8px">
+          <a-time-picker v-model:value="value.time" value-format="HH:mm" format="HH:mm" :minute-step="15" :placeholder="$t('Intranet_All_Day')" style="width: 100%" />
         </a-form-item>
       </a-col>
       <a-col :xs="12" :md="['dates', 'repeat'].includes(value.mode) ? 6 : (value.mode === 'range' ? 4 : 7)">
-        <a-form-item label="To time" style="margin-bottom: 8px">
-          <a-time-picker v-model:value="value.end_time" value-format="HH:mm" format="HH:mm" :minute-step="15" :disabled="!value.time" placeholder="Optional" style="width: 100%" />
+        <a-form-item :label="$t('tx_To_time_23bf8')" style="margin-bottom: 8px">
+          <a-time-picker v-model:value="value.end_time" value-format="HH:mm" format="HH:mm" :minute-step="15" :disabled="!value.time" :placeholder="$t('Optional')" style="width: 100%" />
         </a-form-item>
       </a-col>
     </a-row>
     <div class="sjw-help">
-      <template v-if="!value.time">No time: an <b>all-day task</b> on {{ value.mode === 'range' ? 'each of those days' : (['dates', 'repeat'].includes(value.mode) ? 'each date' : 'that day') }} -- it shows in that day's list of jobs.</template>
-      <template v-else-if="value.mode === 'range'">Starts {{ value.time }} on the first day{{ value.end_time ? `, ends ${value.end_time} on the last` : '' }}.</template>
-      <template v-else>At {{ value.time }}{{ value.end_time ? ` – ${value.end_time}` : '' }}.</template>
+      <template v-if="!value.time">{{ $t('tx_No_time_an_ca177') }} <b>all-day task</b> on {{ value.mode === 'range' ? 'each of those days' : (['dates', 'repeat'].includes(value.mode) ? 'each date' : 'that day') }} {{ $t('tx_it_shows_in_that_day_s_list_of_jobs_b5171') }}</template>
+      <template v-else-if="value.mode === 'range'">{{ $t('Starts') }} {{ value.time }} on the first day{{ value.end_time ? `, ends ${value.end_time} on the last` : '' }}.</template>
+      <template v-else>{{ $t('tx_At_dc5f4') }} {{ value.time }}{{ value.end_time ? ` – ${value.end_time}` : '' }}.</template>
     </div>
   </div>
 </template>

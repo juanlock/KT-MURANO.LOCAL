@@ -757,6 +757,12 @@ the start of each session).
   explanatory text on the board: it goes in an (i) popup (`a-tooltip`) or is cut down. Only a super critical
   message goes in the center, in ONE line on a red background; anything informational is a helper.
   Check it at 1440x900 and 1366x768 (`useFitHeight`, `lib/transportCharts.js`). A phone stacks the blocks.
+- **No text written by hand in one language (user's rule, 2026-11-05: "todo debe ser español para esa empresa").**
+  A screen's text goes through a translation key with its Spanish (a migration adds the row; `$t('key')`, or `t` from
+  `i18n/index.js` in a script) or `tr('English', 'Español')`. Keys `tx_*` came from a sweep of the screens the companies use
+  (migrations 2026_11_05_130000 / 130100); install-wide SuperAdmin screens (Update, Mail, SMS, Backup, Pay gateways) were
+  left out. A stored name the code compares (`payment_methods.name`) stays as it is: only what is shown is translated
+  (`looseTranslation`).
 - **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
   sorted alphabetically by its displayed label, using the shared
