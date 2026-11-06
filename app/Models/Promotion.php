@@ -50,7 +50,7 @@ class Promotion extends Model
             'promotion_warehouse',
             'promotion_id',
             'warehouse_id'
-        )->withTimestamps();
+        )->withTimestamps()->withoutGlobalScope('company');
     }
 
     public function products()

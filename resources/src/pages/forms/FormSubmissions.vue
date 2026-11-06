@@ -27,7 +27,7 @@
           <template v-if="column.key === 'ref'"><b>{{ record.ref }}</b></template>
           <template v-else-if="column.key === 'date'">{{ fmt(record.created_at) }}</template>
           <template v-else-if="column.key === 'attended'"><a-tag v-if="record.attended_at" color="green">{{ es ? 'Sí' : 'Yes' }}</a-tag></template>
-          <template v-else-if="column.key.startsWith('f:')">{{ short(record.data[column.key.slice(2)]) }}</template>
+          <template v-else-if="column.key.startsWith('f:')">{{ cell(record.data[column.key.slice(2)]) }}</template>
         </template>
       </a-table>
     </a-card>
@@ -38,30 +38,35 @@
       <template v-if="openSub">
         <div class="fs-nav">
           <a-button :disabled="!hasPrev" @click="step(-1)"><LeftOutlined /> {{ es ? 'Anterior' : 'Previous' }}</a-button>
-          <span class="fs-muted">{{ position }}</span>
+          <span class="fs-meta">
+            <span class="fs-muted">{{ position }}</span> · <span>{{ fmt(openSub.created_at) }}</span>
+            <span v-if="openSub.page_url" class="fs-muted"> · <a :href="openSub.page_url" target="_blank" rel="noopener">{{ shortUrl(openSub.page_url) }}</a></span>
+            <a-tag v-if="openSub.attended_at" color="green" style="margin-left: 8px">{{ es ? 'Atendido' : 'Attended' }} {{ fmt(openSub.attended_at) }}<span v-if="openSub.attended_by_name"> · {{ openSub.attended_by_name }}</span></a-tag>
+          </span>
           <a-button :disabled="!hasNext" @click="step(1)">{{ es ? 'Siguiente' : 'Next' }} <RightOutlined /></a-button>
         </div>
-        <div class="fs-meta">
-          <span>{{ fmt(openSub.created_at) }}</span>
-          <span v-if="openSub.page_url" class="fs-muted">· <a :href="openSub.page_url" target="_blank" rel="noopener">{{ shortUrl(openSub.page_url) }}</a></span>
-          <a-tag v-if="openSub.attended_at" color="green" style="margin-left: 8px">{{ es ? 'Atendido' : 'Attended' }} {{ fmt(openSub.attended_at) }}<span v-if="openSub.attended_by_name"> · {{ openSub.attended_by_name }}</span></a-tag>
-        </div>
-        <a-alert v-if="openSub.attended_note" type="success" :message="openSub.attended_note" style="margin-bottom: 12px; white-space: pre-wrap" />
-        <a-descriptions :column="descColumns" bordered size="small">
-          <a-descriptions-item v-for="f in fields" :key="f.key" :label="f.label || f.key">
-            <template v-if="f.type === 'file' && isFile(openSub.data[f.key])">
-              <a @click="downloadFile(openSub, f.key)"><PaperClipOutlined /> {{ openSub.data[f.key].name }}</a>
-            </template>
-            <span v-else class="fs-value">{{ text(openSub.data[f.key]) || '—' }}</span>
-          </a-descriptions-item>
-          <a-descriptions-item v-for="k in extraKeys" :key="k" :label="k">
+        <a-alert v-if="openSub.attended_note" type="success" :message="openSub.attended_note" style="margin-bottom: 6px; padding: 4px 10px; white-space: pre-wrap" />
+        <div class="fs-grid" :class="{ 'fs-grid-1': descColumns === 1 }">
+          <template v-for="(x, i) in viewItems" :key="x.key || 'h' + i">
+            <div v-if="x.heading" class="fs-section">{{ x.heading }}</div>
+            <div v-else class="fs-cell" :style="{ gridColumn: 'span ' + cellSpan(x) }">
+              <div class="fs-label">{{ (byKey[x.key].label || x.key).replace(/:$/, '') }}</div>
+              <a v-if="byKey[x.key].type === 'file' && isFile(openSub.data[x.key])" @click="downloadFile(openSub, x.key)"><PaperClipOutlined /> {{ openSub.data[x.key].name }}</a>
+              <span v-else class="fs-value">{{ text(openSub.data[x.key]) || '—' }}</span>
+            </div>
+          </template>
+          <div v-for="k in extraKeys" :key="k" class="fs-cell fs-full">
+            <div class="fs-label">{{ k }}</div>
             <span class="fs-value">{{ text(openSub.data[k]) || '—' }}</span>
-          </a-descriptions-item>
-        </a-descriptions>
+          </div>
+        </div>
         <div class="fs-muted fs-small">IP {{ openSub.ip || '—' }}<span v-if="openSub.user_agent"> · {{ openSub.user_agent }}</span></div>
-        <a-space wrap style="margin-top: 16px">
+        <a-space wrap style="margin-top: 8px">
           <a-button v-if="!openSub.attended_at" type="primary" @click="attendOpen = true"><CheckOutlined /> {{ es ? 'Marcar atendido' : 'Mark attended' }}</a-button>
           <a-button v-else @click="setAttended(false)">{{ es ? 'Quitar atendido' : 'Not attended' }}</a-button>
+          <a-tooltip :title="openSub.reply_to ? openSub.reply_to : (es ? 'El envío no tiene un correo válido' : 'The submission has no valid email')">
+            <a-button :disabled="!openSub.reply_to" @click="openReply"><SendOutlined /> {{ es ? 'Responder' : 'Reply' }}</a-button>
+          </a-tooltip>
           <a-button @click="printSub"><PrinterOutlined /> {{ es ? 'Imprimir' : 'Print' }}</a-button>
           <a-button :loading="pdfBusy" @click="pdfSub"><FilePdfOutlined /> PDF</a-button>
           <a-button @click="sendOpen = true"><MailOutlined /> {{ es ? 'Enviar por correo' : 'Send by email' }}</a-button>
@@ -73,6 +78,19 @@
 
     <a-modal v-model:open="attendOpen" :title="es ? 'Marcar atendido' : 'Mark attended'" :ok-text="es ? 'Guardar' : 'Save'" :confirm-loading="attendBusy" @ok="setAttended(true)">
       <a-textarea v-model:value="attendNote" :auto-size="{ minRows: 3, maxRows: 8 }" :placeholder="es ? 'Nota: qué se hizo (opcional)' : 'Note: what was done (optional)'" />
+    </a-modal>
+
+    <!-- Reply (2026-11-03): an email to the person who sent the form; marks it attended. -->
+    <a-modal v-model:open="replyOpen" :title="es ? 'Responder al remitente' : 'Reply to the sender'" :ok-text="es ? 'Enviar' : 'Send'"
+             :confirm-loading="replyBusy" :width="620" @ok="sendReply">
+      <a-form layout="vertical">
+        <a-form-item :label="es ? 'Para' : 'To'"><a-input :value="openSub && openSub.reply_to" disabled /></a-form-item>
+        <a-form-item :label="es ? 'Asunto' : 'Subject'" required><a-input v-model:value="replySubject" :maxlength="190" /></a-form-item>
+        <a-form-item :label="es ? 'Mensaje' : 'Message'" required>
+          <a-textarea v-model:value="replyMsg" :auto-size="{ minRows: 6, maxRows: 14 }" :maxlength="10000" />
+        </a-form-item>
+        <div style="font-size: 12px; color: #888">{{ es ? 'Su mensaje original va citado debajo. El envío queda marcado como atendido.' : 'Their original message is quoted below. The submission is marked attended.' }}</div>
+      </a-form>
     </a-modal>
 
     <a-modal v-model:open="sendOpen" :title="es ? 'Enviar el envío por correo' : 'Send the submission by email'" :ok-text="es ? 'Enviar' : 'Send'" :confirm-loading="sendBusy" @ok="resend">
@@ -94,7 +112,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { message, Modal } from 'ant-design-vue';
 import {
   EditOutlined, DownloadOutlined, DeleteOutlined, PaperClipOutlined, ExclamationCircleOutlined,
-  LeftOutlined, RightOutlined, CheckOutlined, PrinterOutlined, FilePdfOutlined, MailOutlined,
+  LeftOutlined, RightOutlined, CheckOutlined, PrinterOutlined, FilePdfOutlined, MailOutlined, SendOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
@@ -134,14 +152,38 @@ const shortUrl = u => u.replace(/^https?:\/\//, '').slice(0, 60);
 const modalWidth = computed(() => (window.innerWidth < 700 ? '100%' : Math.min(1000, window.innerWidth - 80)));
 const descColumns = computed(() => (window.innerWidth < 900 ? 1 : 2));
 
-// The first columns of the form (no files / hidden), then the date.
-const columns = computed(() => [
-  { title: '#', key: 'ref', width: 90, fixed: 'left' },
-  { title: es.value ? 'Fecha' : 'Date', key: 'date', width: 150 },
-  { title: es.value ? 'Atendido' : 'Attended', key: 'attended', width: 100 },
-  ...fields.value.filter(f => !['file', 'hidden', 'textarea'].includes(f.type)).slice(0, 5)
-    .map(f => ({ title: (f.label || f.key).replace(/:$/, ''), key: 'f:' + f.key, ellipsis: true })),
-]);
+// The first columns of the form (no files / hidden), then the date; plus (2026-11-03)
+// the agency, the destination and the email fields wherever they are in the form.
+const isExtraCol = f => f.type === 'email' || /agenc|destin/i.test(`${f.key} ${f.label}`);
+const columns = computed(() => {
+  const plain = fields.value.filter(f => !['file', 'hidden', 'textarea'].includes(f.type));
+  const first = plain.slice(0, 5);
+  const extra = plain.filter(f => isExtraCol(f) && !first.includes(f))
+    .sort((a, b) => (a.type === 'email') - (b.type === 'email'));
+  return [
+    { title: '#', key: 'ref', width: 90, fixed: 'left' },
+    { title: es.value ? 'Fecha' : 'Date', key: 'date', width: 150 },
+    { title: es.value ? 'Atendido' : 'Attended', key: 'attended', width: 100 },
+    ...[...first, ...extra].map(f => ({ title: (f.label || f.key).replace(/:$/, '').replace(/^Seleccione\s+/i, ''), key: 'f:' + f.key, ellipsis: true })),
+  ];
+});
+// Long document types shortened in the list (2026-11-03).
+const DOC_SHORT = { 'documento nacional de identidad': 'DNI', 'documento de identidad': 'DNI', 'carnet de extranjeria': 'CE', 'carnet de extranjería': 'CE', 'registro unico de contribuyente': 'RUC', 'registro único de contribuyente': 'RUC' };
+const cell = v => { const t = short(v); return DOC_SHORT[t.trim().toLowerCase()] || t; };
+
+// The window repeats the form's layout (2026-11-03): its order, section headings and
+// full / half widths (`layout` from the submission endpoint).
+const layout = ref([]);
+const byKey = computed(() => Object.fromEntries(fields.value.map(f => [f.key, f])));
+const viewItems = computed(() => (layout.value.length ? layout.value : fields.value.map(f => ({ key: f.key, width: 'full' })))
+  .filter(x => x.heading || byKey.value[x.key]));
+// Compact (2026-11-03, no scrolling): a 4-column grid -- long texts the whole row, a
+// full-width text field half of it, everything else (selects, dates, numbers) one column.
+function cellSpan(x) {
+  const t = byKey.value[x.key].type;
+  const span = t === 'textarea' || t === 'file' ? 4 : x.width !== 'half' && ['text', 'email', 'phone', 'url'].includes(t) ? 2 : 1;
+  return descColumns.value === 1 ? Math.min(span, 2) : span;
+}
 
 function params(extra = {}) {
   return {
@@ -186,6 +228,7 @@ async function openRow(r) {
   try {
     const res = await http.get(`forms/submissions/${r.id}`);
     openSub.value = res.submission;
+    layout.value = res.layout || [];
     drawerOpen.value = true;
     r.is_read = true;
   } catch (e) {
@@ -259,6 +302,32 @@ async function printSub() {
 }
 
 // Send by email
+// Reply to the sender (2026-11-03)
+const replyOpen = ref(false);
+const replyBusy = ref(false);
+const replySubject = ref('');
+const replyMsg = ref('');
+function openReply() {
+  replySubject.value = 'Re: ' + formName.value + ' - ' + openSub.value.ref;
+  replyMsg.value = '';
+  replyOpen.value = true;
+}
+async function sendReply() {
+  if (!replySubject.value.trim() || !replyMsg.value.trim()) return message.warning(es.value ? 'Escribe el asunto y el mensaje.' : 'Write the subject and the message.');
+  replyBusy.value = true;
+  try {
+    await http.post(`forms/submissions/${openSub.value.id}/reply`, { subject: replySubject.value, message: replyMsg.value });
+    message.success(es.value ? 'Respuesta enviada a ' + openSub.value.reply_to : 'Reply sent to ' + openSub.value.reply_to);
+    replyOpen.value = false;
+    const res = await http.get(`forms/submissions/${openSub.value.id}`);
+    keepRow(res.submission);
+  } catch (e) {
+    message.error(e?.data?.message || (es.value ? 'No se pudo enviar.' : 'Could not send it.'));
+  } finally {
+    replyBusy.value = false;
+  }
+}
+
 const sendOpen = ref(false);
 const sendBusy = ref(false);
 const sendTo = ref([]);
@@ -351,9 +420,15 @@ onMounted(async () => {
 .fs-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
 .fs-muted { opacity: 0.6; }
 .fs-small { font-size: 12px; margin-top: 10px; word-break: break-all; }
-.fs-meta { margin-bottom: 12px; }
-.fs-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.fs-meta { flex: 1; text-align: center; font-size: 13px; }
+.fs-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .fs-value { white-space: pre-wrap; }
+.fs-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden; margin-bottom: 6px; line-height: 1.35; }
+.fs-grid-1 { grid-template-columns: 1fr 1fr; }
+.fs-section { grid-column: 1 / -1; padding: 3px 10px; background: #e6f4ff; font-weight: 600; font-size: 13px; }
+.fs-cell { padding: 3px 10px; border-bottom: 1px solid #f0f0f0; border-right: 1px solid #f0f0f0; min-width: 0; overflow-wrap: anywhere; }
+.fs-full { grid-column: 1 / -1; }
+.fs-label { font-size: 11px; color: #888; }
 :deep(.fs-unread) td { font-weight: 600; }
 :deep(.ant-table-row) { cursor: pointer; }
 </style>

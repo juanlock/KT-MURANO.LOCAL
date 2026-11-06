@@ -44,12 +44,12 @@ class KitchenOrder extends Model
 
     public function warehouse()
     {
-        return $this->belongsTo(Warehouse::class);
+        return $this->belongsTo(Warehouse::class)->withoutGlobalScope('company');
     }
 
     public function dispatchedWarehouse()
     {
-        return $this->belongsTo(Warehouse::class, 'dispatched_warehouse_id');
+        return $this->belongsTo(Warehouse::class, 'dispatched_warehouse_id')->withoutGlobalScope('company');
     }
 
     public function assignedUser()

@@ -227,8 +227,10 @@ try {
     $sftp->exec('rm -f '.$q($work.'/js.zip'));
     // 3) composer
     if ($composer) echo $sh('composer install --no-interaction --optimize-autoloader | tail -3'), PHP_EOL;
-    // 4) migrations (production DB backup first)
+    // 4) migrations (production DB backup first), run on the server so the files a
+    //    migration writes land on the server's disk (2026-11-03).
     $apply = true;
+    $migrateOnServer = fn () => $sh('php artisan migrate --force --no-interaction 2>&1 | tail -60; echo "__EXIT:${PIPESTATUS[0]}"');
     ob_start();
     require __DIR__.'/protocol_prod_migrate.php';
     $mig = (string) ob_get_clean();

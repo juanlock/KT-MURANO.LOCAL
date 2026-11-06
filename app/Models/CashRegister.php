@@ -44,6 +44,6 @@ class CashRegister extends Model
 
     public function warehouse()
     {
-        return $this->belongsTo(Warehouse::class);
+        return $this->belongsTo(Warehouse::class)->withoutGlobalScope('company');
     }
 }

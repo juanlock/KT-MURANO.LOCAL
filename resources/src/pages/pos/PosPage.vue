@@ -13,9 +13,10 @@
         </div>
         <h2 class="pos-register-lock__title">{{ $t('Open Register') || 'Open register' }}</h2>
         <p class="pos-register-lock__text">
-          The POS is locked until you open a cash register for
+          {{ esL('The POS is locked until you open a cash register for', 'El POS está bloqueado hasta que abras una caja para') }}
           <strong>{{ selectedWarehouseLabel }}</strong>.
-          Opening records who opens it, the location, the opening cash in the drawer, the date and time, and an optional note.
+          {{ esL('Opening records who opens it, the location, the opening cash in the drawer, the date and time, and an optional note.',
+                 'Al abrirla se registra quién la abre, la ubicación, el efectivo inicial en el cajón, la fecha y hora, y una nota opcional.') }}
         </p>
         <div class="pos-register-lock__actions">
           <button type="button" class="pos-register-lock__btn pos-register-lock__btn--primary" @click="openRegisterFromLock">
@@ -24,7 +25,7 @@
           <button type="button" class="pos-register-lock__btn" @click="whDrawerOpen = true">
             {{ $t('Select_Warehouse') || 'Change location' }}
           </button>
-          <router-link to="/dashboard" class="pos-register-lock__btn">{{ $t('dashboard') || 'Dashboard' }}</router-link>
+          <router-link v-if="leaveTarget" :to="leaveTarget.path" class="pos-register-lock__btn">{{ leaveTarget.label }}</router-link>
         </div>
       </div>
     </div>
@@ -36,14 +37,14 @@
 
       <!-- Exit POS: back to the system. With an open register it first shows
            the close-out (expected cash, sales, payments) -> close + email admins. -->
-      <button type="button" class="pos-exit-btn" :title="'Exit POS'" @click="openExitPos('exit')">
+      <button type="button" class="pos-exit-btn" :title="esL('Exit POS', 'Salir del POS')" @click="openExitPos('exit')">
         <lucide-icon name="log-out" style="font-size: 17px; transform: scaleX(-1);" />
-        <span>Exit POS</span>
+        <span>{{ esL('Exit POS', 'Salir del POS') }}</span>
       </button>
       <!-- Exit system: sign out (with an open register: close it first, or keep it open). -->
-      <button type="button" class="pos-exit-btn" :title="'Exit system'" @click="openExitPos('logout')">
+      <button type="button" class="pos-exit-btn" :title="esL('Exit system', 'Salir del sistema')" @click="openExitPos('logout')">
         <lucide-icon name="power" style="font-size: 17px;" />
-        <span>Exit system</span>
+        <span>{{ esL('Exit system', 'Salir del sistema') }}</span>
       </button>
 
       <!-- Brand block (28x28 logo only on mobile; register info follows as a sibling) -->
@@ -472,6 +473,12 @@
                 <!-- SKU subtitle -->
                 <div v-if="item.code" style="font-size: 10px; color: #8d8da0; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">SKU · {{ item.code }}</div>
 
+                <!-- Transport ticket: its passengers (departure, DNI, name, luggage) -->
+                <div v-for="(p, pi) in (item.passengers || [])" :key="'pax-' + item.detail_id + '-' + pi"
+                     style="font-size: 11px; color: #3b3b52; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  {{ p.passenger_type === 'infant' ? '👶' : (p.passenger_type === 'minor' ? '🧒' : '🧍') }} {{ p.first_name }} {{ p.last_name }} · {{ (p.doc_type || 'dni').toUpperCase() }} {{ p.dni }} · {{ p.departure }}{{ p.luggage ? ' · 🧳' : '' }}
+                </div>
+
                 <!-- Controls row: qty stepper + unit price + price-type -->
                 <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
                   <!-- qty stepper -->
@@ -483,7 +490,8 @@
                   <!-- × unit price (darker + larger so the per-unit math reads at a glance) -->
                   <span style="font-size: 12px; color: #54546a; font-weight: 500; font-family: 'JetBrains Mono', monospace; white-space: nowrap;">× {{ formatPriceWithCurrentCurrency(item.Total_price, 2) }}</span>
                   <!-- Price type (sized to match qty stepper, dark text instead of muted) -->
-                  <select v-model="item.price_type" @change="onChangePriceType(item)" style="height: 24px; padding: 0 6px; font-size: 11px; font-weight: 500; border: 1px solid #d8d8e0; border-radius: 5px; background: #ffffff; color: #1f1f2c; outline: none; cursor: pointer; flex-shrink: 0;">
+                  <!-- Not on a transport ticket: one price, discounts only by promo code. -->
+                  <select v-if="!isTicket(item.product_id)" v-model="item.price_type" @change="onChangePriceType(item)" style="height: 24px; padding: 0 6px; font-size: 11px; font-weight: 500; border: 1px solid #d8d8e0; border-radius: 5px; background: #ffffff; color: #1f1f2c; outline: none; cursor: pointer; flex-shrink: 0;">
                     <option value="retail">{{ $t('Retail Price') }}</option>
                     <option value="wholesale">{{ $t('Wholesale Price') }}</option>
                   </select>
@@ -679,12 +687,12 @@
 
           <!-- Promo code input -->
           <div style="margin-top: 6px;">
-            <div style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: #8d8da0; margin-bottom: 4px; text-transform: uppercase;">Promo code</div>
+            <div style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: #8d8da0; margin-bottom: 4px; text-transform: uppercase;">{{ $t('tx_Promo_code_0ab60') }}</div>
             <div style="display: flex; gap: 6px; align-items: center;">
               <input
                 v-model="promotionCode"
                 type="text"
-                placeholder="Enter code"
+                :placeholder="$t('tx_Enter_code_73364')"
                 @keyup.enter="Apply_Promotion_Code"
                 style="flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid #e6e6ec; border-radius: 6px; background: #ffffff; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #1f1f2c; outline: none;"
               />
@@ -1145,6 +1153,88 @@
 
   <!-- Vehicle Fitment: pick the customer's vehicle; the grid then only shows
        compatible (or universal) parts and incompatible ones cannot be added. -->
+  <!-- Transport (2026-11-03): each ticket asks its passenger. -->
+  <b-modal id="pos_passenger_modal" hide-footer no-close-on-backdrop
+           :title="tf('Transport_Passenger', 'Passenger') + (passengerForm.label ? ' · ' + passengerForm.label : '')"
+           @shown="$refs.paxDni && $refs.paxDni.focus()" @hidden="passengerCancel">
+    <div style="display: grid; gap: 10px;">
+      <div>
+        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Departure', 'Departure') }} *</label>
+        <select v-model="passengerForm.trip_id" @change="loadPassengerSeats"
+                style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 13px; background: #fff; color: #1f1f2c;">
+          <option v-for="t in passengerDepartures" :key="'dep-' + t.id" :value="t.id" :disabled="t.full">{{ departureLabel(t) }}</option>
+        </select>
+        <div v-if="!passengerDepartures.length" style="font-size: 12px; color: #b45309; margin-top: 4px;">{{ tf('Transport_No_Departures', 'No scheduled departure for this route') }}</div>
+      </div>
+      <!-- The seat, per stretch: as on a plane (2026-11-04). VIP = gold; a regular ticket only gets one when no regular seat is left. -->
+      <div v-if="passengerSeats.length">
+        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Seat', 'Seat') }} *<b v-if="passengerForm.seat_number"> {{ passengerForm.seat_number }}</b></label>
+        <div v-for="floor in [1, 2]" :key="'floor-' + floor" style="margin-bottom: 6px;">
+          <div style="font-size: 11px; color: #7c7c92;">{{ tf('Transport_Floor', 'Floor') }} {{ floor }}</div>
+          <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px;">
+            <button v-for="s in passengerSeats.filter(x => x.floor === floor)" :key="'seat-' + s.number" type="button" :disabled="!seatAllowed(s)" @click="passengerForm.seat_number = s.number"
+                    :title="s.vip ? 'VIP' : ''"
+                    :style="{ height: '28px', fontSize: '11px', borderRadius: '5px', cursor: seatAllowed(s) ? 'pointer' : 'not-allowed', border: passengerForm.seat_number === s.number ? '2px solid #1d4ed8' : '1px solid #d4d4dc',
+                              background: seatTaken(s) ? '#e5e7eb' : (s.vip ? '#fde68a' : '#ffffff'), color: seatTaken(s) ? '#9ca3af' : '#1f1f2c', opacity: seatAllowed(s) || seatTaken(s) ? 1 : 0.45 }">{{ s.number }}</button>
+          </div>
+        </div>
+      </div>
+      <div v-if="passengerLoyalty && passengerLoyalty.free_now" style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 8px 10px; font-size: 12px;">
+        <label style="margin: 0; display: flex; gap: 6px; align-items: center;"><input type="checkbox" v-model="passengerForm.loyalty_free" /> {{ tf('Transport_Loyalty_Free', 'This trip is free: he has paid') }} {{ passengerLoyalty.paid }}. {{ tf('Transport_Loyalty_Discount', 'Apply the discount on the line.') }}</label>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+          <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Document', 'Identity document') }} *</label>
+          <select v-model="passengerForm.doc_type" @change="passengerDniInput"
+                  style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 13px; background: #fff; color: #1f1f2c;">
+            <option value="dni">{{ tf('Transport_Doc_DNI', 'DNI') }}</option>
+            <option value="ce">{{ tf('Transport_Doc_CE', "Foreigner's card") }}</option>
+            <option value="passport">{{ tf('Transport_Doc_Passport', 'Passport') }}</option>
+            <option value="ptp">{{ tf('Transport_Doc_PTP', 'PTP / CPP') }}</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Document_Number', 'Document number') }} *</label>
+          <input ref="paxDni" v-model="passengerForm.dni" type="text" :inputmode="passengerForm.doc_type === 'dni' ? 'numeric' : 'text'"
+                 :maxlength="passengerForm.doc_type === 'dni' ? 8 : 15" :placeholder="passengerForm.doc_type === 'dni' ? '12345678' : ''"
+                 @input="passengerDniInput" @keyup.enter="passengerSave"
+                 style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 14px; letter-spacing: 1px;" />
+        </div>
+      </div>
+      <div>
+        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Passenger_Type', 'Passenger') }}</label>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <b-button v-for="pt in [['adult', 'Transport_Adult', 'Adult'], ['minor', 'Transport_Minor', 'Minor (under 16)'], ['infant', 'Transport_Infant', 'Infant']]"
+                    :key="'pt-' + pt[0]" :variant="passengerForm.passenger_type === pt[0] ? 'primary' : 'outline-secondary'"
+                    @click="passengerForm.passenger_type = pt[0]">{{ tf(pt[1], pt[2]) }}</b-button>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+          <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_First_Names', 'First names') }} *</label>
+          <input v-model="passengerForm.first_name" type="text" maxlength="100" @keyup.enter="passengerSave"
+                 style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 13px;" />
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Last_Names', 'Last names') }} *</label>
+          <input v-model="passengerForm.last_name" type="text" maxlength="100" @keyup.enter="passengerSave"
+                 style="width: 100%; height: 36px; border: 1px solid #e6e6ec; border-radius: 8px; padding: 0 10px; font-size: 13px;" />
+        </div>
+      </div>
+      <div>
+        <label style="display: block; font-size: 12px; color: #54546a; margin-bottom: 4px;">{{ tf('Transport_Luggage', 'Luggage') }}</label>
+        <div style="display: flex; gap: 8px;">
+          <b-button :variant="passengerForm.luggage ? 'primary' : 'outline-secondary'" @click="passengerForm.luggage = true">{{ tf('Transport_With_Luggage', 'With luggage') }}</b-button>
+          <b-button :variant="!passengerForm.luggage ? 'primary' : 'outline-secondary'" @click="passengerForm.luggage = false">{{ tf('Transport_No_Luggage', 'No luggage') }}</b-button>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
+        <b-button variant="outline-secondary" @click="$bvModal.hide('pos_passenger_modal')">{{ $t('Cancel') }}</b-button>
+        <b-button variant="primary" :disabled="!passengerValid" @click="passengerSave">{{ $t('Add') || 'Add' }}</b-button>
+      </div>
+    </div>
+  </b-modal>
+
   <b-modal id="pos_vehicle_modal" hide-footer :title="tf('SelectYourVehicle', 'Select Your Vehicle')">
     <div style="display: grid; gap: 10px;">
       <div>
@@ -1432,7 +1522,7 @@
                     <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                   </div>
                   <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                    <div class="receipt-qr-title">Invoice QR</div>
+                    <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                     <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                   </div>
                 </div>
@@ -1647,7 +1737,7 @@
                     <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                   </div>
                   <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                    <div class="receipt-qr-title">Invoice QR</div>
+                    <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                     <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                   </div>
                 </div>
@@ -1844,7 +1934,7 @@
                     <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                   </div>
                   <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                    <div class="receipt-qr-title">Invoice QR</div>
+                    <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                     <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                   </div>
                 </div>
@@ -1873,27 +1963,27 @@
 
               <div class="bl4-meta">
                 <div v-if="invoice_pos.sale && invoice_pos.sale.Ref && pos_settings.show_reference !== 0" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Invoice No</span>
+                  <span class="bl4-meta-en">{{ $t('pdf.invoice_no') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.Ref}}</span>
                   <span class="bl4-meta-ar">رقم الفاتورة</span>
                 </div>
                 <div v-show="pos_settings.show_date !== 0" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Date</span>
+                  <span class="bl4-meta-en">{{ $t('date') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.date}}</span>
                   <span class="bl4-meta-ar">التاريخ</span>
                 </div>
                 <div v-show="pos_settings.show_seller !== 0" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Seller</span>
+                  <span class="bl4-meta-en">{{ $t('Seller') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.seller_name}}</span>
                   <span class="bl4-meta-ar">البائع</span>
                 </div>
                 <div v-show="pos_settings.show_customer" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Customer</span>
+                  <span class="bl4-meta-en">{{ $t('Customer') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.client_name}}</span>
                   <span class="bl4-meta-ar">العميل</span>
                 </div>
                 <div v-show="pos_settings.show_Warehouse" class="bl4-meta-row">
-                  <span class="bl4-meta-en">Location</span>
+                  <span class="bl4-meta-en">{{ $t('Location') }}</span>
                   <span class="bl4-meta-val">{{invoice_pos.sale.warehouse_name}}</span>
                   <span class="bl4-meta-ar">المستودع</span>
                 </div>
@@ -1903,10 +1993,10 @@
                 <colgroup><col style="width:44%"><col style="width:14%"><col style="width:20%"><col style="width:22%"></colgroup>
                 <thead>
                   <tr>
-                    <th class="bl4-th-left">Product<br>المنتج</th>
-                    <th class="bl4-th-center">Qty<br>الكمية</th>
-                    <th class="bl4-th-right">Rate<br>السعر</th>
-                    <th class="bl4-th-right">Amount<br>الإجمالي</th>
+                    <th class="bl4-th-left">{{ $t('Product_Only') }}<br>المنتج</th>
+                    <th class="bl4-th-center">{{ $t('Qty') }}<br>الكمية</th>
+                    <th class="bl4-th-right">{{ $t('Rate') }}<br>السعر</th>
+                    <th class="bl4-th-right">{{ $t('Amount') }}<br>الإجمالي</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1929,17 +2019,17 @@
                 <colgroup><col style="width:32%"><col style="width:36%"><col style="width:32%"></colgroup>
                 <tbody>
                   <tr>
-                    <td class="bl4-t-en">Sub Total</td>
+                    <td class="bl4-t-en">{{ $t('Sub_Total') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, pos_settings.show_items_tax != 0 ? (invoiceSubtotal - invoiceDetailsTaxTotal) : invoiceSubtotal, 2) }}</td>
                     <td class="bl4-t-ar">المجموع الفرعي</td>
                   </tr>
                   <tr v-show="pos_settings.show_items_tax != 0 && Number(invoiceDetailsTaxTotal) > 0">
-                    <td class="bl4-t-en">Total Items Tax</td>
+                    <td class="bl4-t-en">{{ $t('TotalItemsTax') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoiceDetailsTaxTotal, 2) }}</td>
                     <td class="bl4-t-ar">إجمالي ضريبة الأصناف</td>
                   </tr>
                   <tr v-show="pos_settings.show_discount">
-                    <td class="bl4-t-en">Discount</td>
+                    <td class="bl4-t-en">{{ $t('Discount') }}</td>
                     <td class="bl4-t-val">
                       <template v-if="String(invoice_pos.sale.discount_Method || '2') === '1'">
                         {{ formatNumber(invoice_pos.sale.discount, 2) }}% ({{ formatPriceWithSymbol(invoice_pos.symbol, calculatedManualDiscountAmount ,2) }})
@@ -1951,19 +2041,19 @@
                     <td class="bl4-t-ar">الخصم</td>
                   </tr>
                   <tr v-show="pos_settings.show_discount && invoice_pos.sale.discount_from_points && Number(invoice_pos.sale.discount_from_points) > 0">
-                    <td class="bl4-t-en">Discount from Points</td>
+                    <td class="bl4-t-en">{{ $t('Discount_from_Points') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.discount_from_points ,2) }}</td>
                     <td class="bl4-t-ar">خصم من النقاط</td>
                   </tr>
                   <template v-if="invoicePromotions.length > 0">
                     <tr v-for="(promo, idx) in invoicePromotions" :key="'promo-d-' + idx + '-' + promo.id">
-                      <td class="bl4-t-en">Promotion — {{ promo.name }}<span v-if="promo.code"> ({{ promo.code }})</span></td>
+                      <td class="bl4-t-en">{{ $t('tx_Promotion_9979b') }} {{ promo.name }}<span v-if="promo.code"> ({{ promo.code }})</span></td>
                       <td class="bl4-t-val">−{{ formatPriceWithSymbol(invoice_pos.symbol, promo.amount, 2) }}</td>
                       <td class="bl4-t-ar">العروض</td>
                     </tr>
                   </template>
                   <tr v-else-if="Number(invoice_pos.sale.promotion_discount || 0) > 0">
-                    <td class="bl4-t-en">Promotion<span v-if="invoice_pos.sale.promotion_code"> ({{ invoice_pos.sale.promotion_code }})</span></td>
+                    <td class="bl4-t-en">{{ $t('tx_Promotion_626a5') }}<span v-if="invoice_pos.sale.promotion_code"> ({{ invoice_pos.sale.promotion_code }})</span></td>
                     <td class="bl4-t-val">−{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.promotion_discount, 2) }}</td>
                     <td class="bl4-t-ar">العروض</td>
                   </tr>
@@ -1973,7 +2063,7 @@
                     <td class="bl4-t-ar">ضريبة القيمة المضافة</td>
                   </tr>
                   <tr v-show="pos_settings.show_shipping">
-                    <td class="bl4-t-en">Shipping</td>
+                    <td class="bl4-t-en">{{ $t('Shipping') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.shipping ,2) }}</td>
                     <td class="bl4-t-ar">الشحن</td>
                   </tr>
@@ -1984,7 +2074,7 @@
                 <colgroup><col style="width:32%"><col style="width:36%"><col style="width:32%"></colgroup>
                 <tbody>
                   <tr>
-                    <td class="bl4-t-en">Grand Total</td>
+                    <td class="bl4-t-en">{{ $t('Grand_Total') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.GrandTotal ,2) }}</td>
                     <td class="bl4-t-ar">المبلغ الإجمالي</td>
                   </tr>
@@ -1995,22 +2085,22 @@
                 <colgroup><col style="width:32%"><col style="width:36%"><col style="width:32%"></colgroup>
                 <tbody>
                   <tr v-show="pos_settings.show_paid !== 0">
-                    <td class="bl4-t-en">Paid Amount</td>
+                    <td class="bl4-t-en">{{ $t('Paid_Amount') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoice_pos.sale.paid_amount ,2) }}</td>
                     <td class="bl4-t-ar">المبلغ المدفوع</td>
                   </tr>
                   <tr v-show="pos_settings.show_due !== 0">
-                    <td class="bl4-t-en">Balance Due</td>
+                    <td class="bl4-t-en">{{ $t('Balance_Due') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, (invoice_pos.sale.GrandTotal - invoice_pos.sale.paid_amount), 2) }}</td>
                     <td class="bl4-t-ar">المبلغ المتبقي</td>
                   </tr>
                   <tr v-if="showPreviousDuesRow">
-                    <td class="bl4-t-en">Previous Dues</td>
+                    <td class="bl4-t-en">{{ $t('Previous_Dues') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoicePreviousDues, 2) }}</td>
                     <td class="bl4-t-ar">المستحقات السابقة</td>
                   </tr>
                   <tr v-if="showNetBalanceRow">
-                    <td class="bl4-t-en">Net Balance</td>
+                    <td class="bl4-t-en">{{ $t('Net_Balance') }}</td>
                     <td class="bl4-t-val">{{ formatPriceWithSymbol(invoice_pos.symbol, invoiceNetBalance, 2) }}</td>
                     <td class="bl4-t-ar">الرصيد الصافي</td>
                   </tr>
@@ -2020,9 +2110,9 @@
               <table class="bl4-payments" v-show="pos_settings.show_payments !== 0 && invoice_pos.sale.paid_amount > 0">
                 <thead>
                   <tr>
-                    <th class="bl4-th-left">Paid By<br>طريقة الدفع</th>
-                    <th class="bl4-th-center">Amount<br>المبلغ</th>
-                    <th class="bl4-th-right">Change<br>الباقي</th>
+                    <th class="bl4-th-left">{{ $t('ModePaiement') }}<br>طريقة الدفع</th>
+                    <th class="bl4-th-center">{{ $t('Amount') }}<br>المبلغ</th>
+                    <th class="bl4-th-right">{{ $t('Change') }}<br>الباقي</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2047,7 +2137,7 @@
                 </div>
                 <div class="bl4-thanks">
                   <div class="bl4-thanks-ar">شكراً لتسوقكم معنا</div>
-                  <div class="bl4-thanks-en">Thank You For Shopping With Us!</div>
+                  <div class="bl4-thanks-en">{{ $t('tx_Thank_You_For_Shopping_With_Us_d4198') }}</div>
                 </div>
                 <div v-show="pos_settings.show_note && pos_settings.note_customer" class="bl4-policy">{{pos_settings.note_customer}}</div>
                 <div class="bl4-footer-contact" v-if="invoice_pos.setting.CompanyPhone || invoice_pos.setting.email">
@@ -2062,7 +2152,7 @@
                     <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                   </div>
                   <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                    <div class="receipt-qr-title">Invoice QR</div>
+                    <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                     <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                   </div>
                 </div>
@@ -2218,7 +2308,7 @@
                   <div class="receipt-qr-canvas" ref="zatcaQrcodePos"></div>
                 </div>
                 <div v-if="pos_settings.show_barcode !== 0 && invoice_pos.sale && invoice_pos.sale.Ref" class="receipt-qr-block">
-                  <div class="receipt-qr-title">Invoice QR</div>
+                  <div class="receipt-qr-title">{{ $t('tx_Invoice_QR_07d13') }}</div>
                   <div class="receipt-qr-canvas" ref="invoiceUrlQr"></div>
                 </div>
               </div>
@@ -2302,13 +2392,14 @@
               <b-form-group :label="$t('ProductPrice') + ' ' + '*'" id="Price-input">
                 <div class="d-flex align-items-center">
                   <b-form-input
-                    label="Product Price"
+                    :label="$t('tx_Product_Price_e4cc5')"
                     v-model="detail.Unit_price"
                     :state="getValidationState(validationContext)"
                     aria-describedby="Price-feedback"
                     class="mr-2"
                   ></b-form-input>
                   <select
+                    v-if="!isTicket(detail.product_id)"
                     class="form-control pos-price-select"
                     v-model="detail.price_type"
                     @change="onChangePriceType(detail)"
@@ -2347,7 +2438,7 @@
             >
               <b-form-group :label="$t('Tax') + ' ' + '*'"><b-input-group append="%">
                   <b-form-input
-                    label="Tax"
+                    :label="$t('Tax')"
                     v-model="detail.tax_percent"
                     :state="getValidationState(validationContext)"
                     aria-describedby="Tax-feedback"
@@ -2388,7 +2479,7 @@
               v-slot="validationContext"
             >
               <b-form-group :label="$t('Discount') + ' ' + '*'"><b-form-input
-                  label="Discount"
+                  :label="$t('Discount')"
                   v-model="detail.discount"
                   :state="getValidationState(validationContext)"
                   aria-describedby="Discount-feedback"
@@ -3138,12 +3229,12 @@
       <div class="pos-exit-card">
         <div class="pos-exit-head">
           <div>
-            <div class="pos-exit-title">{{ exitModal.mode === 'logout' ? 'Exit system' : (exitModal.mode === 'exit' ? 'Exit POS' : 'Close register') }}</div>
+            <div class="pos-exit-title">{{ exitModal.mode === 'logout' ? esL('Exit system', 'Salir del sistema') : (exitModal.mode === 'exit' ? esL('Exit POS', 'Salir del POS') : esL('Close register', 'Cerrar caja')) }}</div>
             <div class="pos-exit-sub" v-if="exitModal.summary">
-              Register #{{ exitModal.summary.register_id }} · {{ exitModal.summary.cashier }} · {{ exitModal.summary.warehouse }}
+              {{ esL('Register', 'Caja') }} #{{ exitModal.summary.register_id }} · {{ exitModal.summary.cashier }} · {{ exitModal.summary.warehouse }}
             </div>
-            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'exit'">No register is open. Leave the POS and go back to the system?</div>
-            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'logout'">No register is open. Sign out of the system?</div>
+            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'exit'">{{ esL('No register is open. Leave the POS and go back to the system?', 'No hay caja abierta. ¿Salir del POS y volver al sistema?') }}</div>
+            <div class="pos-exit-sub" v-else-if="!exitModal.loading && exitModal.mode === 'logout'">{{ esL('No register is open. Sign out of the system?', 'No hay caja abierta. ¿Cerrar sesión en el sistema?') }}</div>
           </div>
           <button type="button" class="pos-exit-x" :disabled="exitModal.busy" @click="exitModal.open = false"><lucide-icon name="x" /></button>
         </div>
@@ -3152,42 +3243,42 @@
 
         <template v-else-if="exitModal.summary">
           <div class="pos-exit-expected">
-            <div class="pos-exit-expected__label">Cash that should be in the register</div>
+            <div class="pos-exit-expected__label">{{ esL('Cash that should be in the register', 'Efectivo que debería haber en caja') }}</div>
             <div class="pos-exit-expected__value">{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.expected_cash, 2) }}</div>
             <div class="pos-exit-expected__hint">
-              Opening {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.opening_balance, 2) }}
-              + cash sales {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_sales, 2) }}
+              {{ esL('Opening', 'Apertura') }} {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.opening_balance, 2) }}
+              + {{ esL('cash sales', 'ventas en efectivo') }} {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_sales, 2) }}
               <span v-if="exitModal.summary.cash_in || exitModal.summary.cash_out">
-                + in {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_in, 2) }}
-                − out {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_out, 2) }}
+                + {{ esL('in', 'ingresos') }} {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_in, 2) }}
+                − {{ esL('out', 'egresos') }} {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.cash_out, 2) }}
               </span>
             </div>
           </div>
 
           <div class="pos-exit-grid">
-            <div><span>Opened</span><strong>{{ fmtRegisterTime(exitModal.summary.opened_at) }}</strong></div>
-            <div><span>Time open</span><strong>{{ registerDuration(exitModal.summary.opened_at, exitModal.summary.until) }}</strong></div>
-            <div><span>Sales</span><strong>{{ exitModal.summary.sales_count }} · {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.total_sales, 2) }}</strong></div>
-            <div><span>Services</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.services_total, 2) }} ({{ Number(exitModal.summary.services_qty) }})</strong></div>
-            <div><span>Products</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.products_total, 2) }} ({{ Number(exitModal.summary.products_qty) }})</strong></div>
+            <div><span>{{ esL('Opened', 'Abierta') }}</span><strong>{{ fmtRegisterTime(exitModal.summary.opened_at) }}</strong></div>
+            <div><span>{{ esL('Time open', 'Tiempo abierta') }}</span><strong>{{ registerDuration(exitModal.summary.opened_at, exitModal.summary.until) }}</strong></div>
+            <div><span>{{ esL('Sales', 'Ventas') }}</span><strong>{{ exitModal.summary.sales_count }} · {{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.total_sales, 2) }}</strong></div>
+            <div><span>{{ esL('Services', 'Servicios') }}</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.services_total, 2) }} ({{ Number(exitModal.summary.services_qty) }})</strong></div>
+            <div><span>{{ esL('Products', 'Productos') }}</span><strong>{{ formatPriceWithSymbol(currentUser.currency, exitModal.summary.products_total, 2) }} ({{ Number(exitModal.summary.products_qty) }})</strong></div>
             <div v-for="p in exitModal.summary.payments" :key="p.method"><span>{{ p.method }} ({{ p.count }})</span><strong>{{ formatPriceWithSymbol(currentUser.currency, p.amount, 2) }}</strong></div>
           </div>
           <!-- Sales per user: includes sales other users confirmed with their PIN. -->
           <div v-if="(exitModal.summary.by_user || []).length" class="pos-exit-grid" style="margin-top: 8px">
             <div v-for="u in exitModal.summary.by_user" :key="u.user_id">
-              <span>{{ u.name }} · {{ u.count }} {{ u.count === 1 ? 'sale' : 'sales' }}</span>
+              <span>{{ u.name }} · {{ u.count }} {{ u.count === 1 ? esL('sale', 'venta') : esL('sales', 'ventas') }}</span>
               <strong>{{ formatPriceWithSymbol(currentUser.currency, u.total, 2) }}</strong>
             </div>
           </div>
 
           <div class="pos-exit-fields">
-            <label>Counted cash
+            <label>{{ esL('Counted cash', 'Efectivo contado') }}
               <input type="number" min="0" step="0.01" class="form-control" v-model.number="exitModal.counted_cash" />
             </label>
             <div class="pos-exit-diff" :class="{ 'is-off': Math.abs(exitDifference) >= 0.005 }">
-              Difference: {{ formatPriceWithSymbol(currentUser.currency, exitDifference, 2) }}
+              {{ esL('Difference', 'Diferencia') }}: {{ formatPriceWithSymbol(currentUser.currency, exitDifference, 2) }}
             </div>
-            <label>Notes
+            <label>{{ esL('Notes', 'Notas') }}
               <textarea class="form-control" rows="2" v-model="exitModal.notes"></textarea>
             </label>
           </div>
@@ -3195,12 +3286,12 @@
 
         <div class="pos-exit-actions">
           <button type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="exitModal.open = false">{{ $t('Cancel') }}</button>
-          <button v-if="exitModal.mode === 'exit' && exitModal.summary" type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="leavePos">Exit, keep register open</button>
+          <button v-if="exitModal.mode === 'exit' && exitModal.summary" type="button" class="pos-exit-action" :disabled="exitModal.busy" @click="leavePos">{{ esL('Exit, keep register open', 'Salir, dejar la caja abierta') }}</button>
           <button v-if="exitModal.summary" type="button" class="pos-exit-action pos-exit-action--danger" :disabled="exitModal.busy" @click="confirmCloseRegister()">
-            {{ exitModal.busy ? 'Closing…' : (exitModal.mode === 'logout' ? 'Close register & sign out' : (exitModal.mode === 'exit' ? 'Close register & exit' : 'Close register')) }}
+            {{ exitModal.busy ? esL('Closing…', 'Cerrando…') : (exitModal.mode === 'logout' ? esL('Close register & sign out', 'Cerrar caja y salir del sistema') : (exitModal.mode === 'exit' ? esL('Close register & exit', 'Cerrar caja y salir') : esL('Close register', 'Cerrar caja'))) }}
           </button>
-          <button v-else-if="!exitModal.loading && exitModal.mode === 'exit'" type="button" class="pos-exit-action pos-exit-action--danger" @click="leavePos">Exit POS</button>
-          <button v-else-if="!exitModal.loading && exitModal.mode === 'logout'" type="button" class="pos-exit-action pos-exit-action--danger" @click="logout">Sign out</button>
+          <button v-else-if="!exitModal.loading && exitModal.mode === 'exit'" type="button" class="pos-exit-action pos-exit-action--danger" @click="leavePos">{{ esL('Exit POS', 'Salir del POS') }}</button>
+          <button v-else-if="!exitModal.loading && exitModal.mode === 'logout'" type="button" class="pos-exit-action pos-exit-action--danger" @click="logout">{{ esL('Sign out', 'Cerrar sesión') }}</button>
         </div>
       </div>
     </div>
@@ -3216,11 +3307,11 @@
             <rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
           </svg>
         </div>
-        <div class="pos-pin-title">{{ pinPad.purpose === 'close' ? 'Confirm with your PIN' : (pinPad.purpose === 'sale' ? 'Who is making this sale?' : 'Who is opening the register?') }}</div>
+        <div class="pos-pin-title">{{ pinPad.purpose === 'close' ? $t('tx_Confirm_with_your_PIN_b0fb7') : (pinPad.purpose === 'sale' ? $t('tx_Who_is_making_this_sale_64e6c') : $t('tx_Who_is_opening_the_register_96155')) }}</div>
         <div class="pos-pin-sub">
-          {{ pinPad.purpose === 'close' ? 'Type your PIN to close the register.'
-            : (pinPad.purpose === 'sale' ? 'Type your PIN — this sale is recorded under your user. The POS stays with ' + (currentUser.username || 'the register\'s cashier') + '.'
-            : 'Type your PIN — the POS will work under your user.') }}
+          {{ pinPad.purpose === 'close' ? $t('tx_Type_your_PIN_to_close_the_register_89dce')
+            : (pinPad.purpose === 'sale' ? $t('tx_Type_your_PIN_this_sale_is_recorded_under_your_user_The_POS__45387') + (currentUser.username || 'the register\'s cashier') + '.'
+            : $t('tx_Type_your_PIN_the_POS_will_work_under_your_user_bc472')) }}
         </div>
         <div class="pos-pin-dots" :class="{ 'is-error': pinPad.error }">
           <span v-for="i in Math.max(4, pinPad.value.length)" :key="i" class="pos-pin-dot" :class="{ 'is-filled': i <= pinPad.value.length }"></span>
@@ -3997,6 +4088,7 @@
  * vuex → posCompatMixin facade. Payment modal, product-return modal and
  * custom fields are stubs until their batches.
  */
+import { useAuthStore } from "../../stores/auth";
 import NProgress from "../../pos-compat/nprogress";
 import axios from "../../pos-compat/axios";
 import Util from "../../pos-compat/util";
@@ -4019,6 +4111,7 @@ import PosReturnModal from "../../pos-compat/PosReturnModal.vue";
 import CustomFieldsForm from "../../pos-compat/CustomFieldsForm.vue";
 import SerialNumbersField from "../../pos-compat/SerialNumbersField.vue";
 import QrcodeScanner from "../../pos-compat/QrcodeScanner";
+import { printBoardingPasses } from "../../lib/transportPrint";
 import LucideIcon from "../../pos-compat/LucideIcon.vue";
 import { Fire } from "../../pos-compat/bv";
 import "../../pos-compat/bootstrap-subset.scss";
@@ -4046,6 +4139,14 @@ export default {
   },
   data() {
     return {
+      // Transport tickets (2026-11-03): product id => route; the passenger window.
+      ticketProducts: {},
+      passengerForm: { doc_type: 'dni', dni: '', first_name: '', last_name: '', luggage: false, passenger_type: 'adult', label: '', trip_id: null },
+      passengerDepartures: [],
+      passengerSeats: [],
+      passengerLoyalty: null,
+      passengerProductId: null,
+      passengerDone: null,
       // ===== Mobile UI state (drives the phone layout) =====
       mobileActiveTab: 'home', // home | cart | hold | recent | more
 
@@ -4419,6 +4520,12 @@ export default {
     };
   },
   computed: {
+    // Transport ticket passenger window: departure, 8-digit DNI and both names.
+    passengerValid() {
+      const f = this.passengerForm;
+      const docOk = { dni: /^\d{8}$/, ce: /^[A-Z0-9]{6,12}$/, passport: /^[A-Z0-9]{5,15}$/, ptp: /^[A-Z0-9]{6,15}$/ }[f.doc_type] || /^\d{8}$/;
+      return !!f.trip_id && docOk.test(f.dni || '') && !!(f.first_name || '').trim() && !!(f.last_name || '').trim() && (!this.passengerSeats.length || !!f.seat_number);
+    },
     // currentUser / currentUserPermissions / show_language come from posCompatMixin.
 
     // Monetary precision (2 or 3) driven by the "Enable 3 Decimal Pricing" setting.
@@ -4697,6 +4804,17 @@ export default {
       const list = this.brands || [];
       if (!q) return list;
       return list.filter(b => (b.name || '').toLowerCase().includes(q));
+    },
+
+    // Where "Dashboard" / "Exit POS" go (2026-11-03): the dashboard, unless the role's
+    // home page is the POS itself (Terminal POS) -- the dashboard sent it straight back
+    // here --, then its sales list; nothing when the role has no other page.
+    leaveTarget() {
+      const auth = useAuthStore();
+      const home = auth.user && auth.user.role_home;
+      if (home !== '/pos' && auth.can('dashboard')) return { path: '/dashboard', label: this.$t('dashboard') || 'Dashboard' };
+      if (auth.can('Sales_view')) return { path: '/sales', label: this.esL('Sales', 'Ventas') };
+      return null;
     },
 
     // Label shown on the warehouse trigger
@@ -5473,7 +5591,7 @@ export default {
     },
     leavePos() {
       this.exitModal.open = false;
-      this.$router.push('/dashboard');
+      this.$router.push(this.leaveTarget ? this.leaveTarget.path : '/dashboard');
     },
     fmtRegisterTime(v) {
       if (!v) return '';
@@ -6192,6 +6310,7 @@ export default {
               const afterCleanup = () => {
                 this.last_sale_id = saleId;
                 this.Invoice_POS(saleId);
+                if (Object.keys(this.ticketProducts || {}).length) this.printTransportTickets(saleId);
                 this.$bvModal.hide("Add_Payment");
                 this.Reset_Pos();
               };
@@ -6290,6 +6409,7 @@ export default {
               const afterCleanup = () => {
                 this.last_sale_id = saleId;
                 this.Invoice_POS(saleId);
+                if (Object.keys(this.ticketProducts || {}).length) this.printTransportTickets(saleId);
                 this.$bvModal.hide("Add_Payment");
                 this.Reset_Pos();
               };
@@ -6718,6 +6838,17 @@ export default {
           this.product.quantity = (!this.isOversellingAllowed && this.product.current < 1) ? this.product.current : 1;
         }
 
+        // A ticket: the passenger and the departure first, then the line.
+        if (this.isTicket(data.id)) {
+          this.askPassenger(data.id, p => {
+            this.product.passengers = [p];
+            this.product.quantity = 1;
+            this.add_product(data.code);
+            this.product.passengers = undefined;
+            this.CalculTotal();
+          });
+          return;
+        }
         this.add_product(data.code);
         this.CalculTotal();
       };
@@ -6932,6 +7063,15 @@ export default {
 
       if (existingIndex !== -1) {
         const row = this.details[existingIndex];
+        // A ticket line: the new passenger joins it (quantity = its passengers).
+        if (Array.isArray(this.product.passengers) && this.isTicket(row.product_id)) {
+          row.passengers = (row.passengers || []).concat(this.product.passengers);
+          row.quantity = row.passengers.length;
+          this.CalculTotal();
+          this.$forceUpdate();
+          setTimeout(() => { this.load_product = true; }, 300);
+          return;
+        }
         const addQty = (typeof this.product.quantity === 'number' && this.product.quantity > 0) ? this.product.quantity : 1;
         if (row.product_type !== 'is_service') {
           const desiredQty = row.quantity + addQty;
@@ -7072,9 +7212,113 @@ export default {
       }, 300);
     },
 
+    // English / Spanish by the app's language (texts that had no translation key).
+    esL(en, es) {
+      const loc = String((this.$i18n && this.$i18n.locale) || '');
+      return loc.startsWith('es') ? es : en;
+    },
+
+    // ---- Transport tickets (2026-11-03): one passenger and departure per ticket ----
+    isTicket(productId) {
+      return !!(this.ticketProducts && this.ticketProducts[productId]);
+    },
+    departureLabel(t) {
+      const d = new Date(String(t.departure_at).replace(' ', 'T'));
+      const day = d.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: '2-digit' });
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return day + ' ' + time + (t.vehicle ? ' · ' + t.vehicle : '') + ' · ' + t.sold + (t.seats ? '/' + t.seats : '') + ' ' + (this.tf('Transport_Sold', 'sold'));
+    },
+    // Opens the passenger window for a ticket product; done(passenger) runs on Add.
+    askPassenger(productId, done) {
+      const info = this.ticketProducts[productId];
+      this.passengerForm = { doc_type: 'dni', dni: '', first_name: '', last_name: '', luggage: false, passenger_type: 'adult', label: info.label, trip_id: null };
+      this.passengerDepartures = [];
+      this.passengerSeats = [];
+      this.passengerLoyalty = null;
+      this.passengerProductId = productId;
+      this.passengerDone = done;
+      axios.get('transport/departures', { params: { route_id: info.route_id } }).then(r => {
+        this.passengerDepartures = (r.data && r.data.departures) || [];
+        const open = this.passengerDepartures.find(t => !t.full);
+        if (open) this.passengerForm.trip_id = open.id;
+        this.loadPassengerSeats();
+      }).catch(() => {});
+      this.$bvModal.show('pos_passenger_modal');
+    },
+    // The seat map for this ticket's stretch on the chosen bus.
+    loadPassengerSeats() {
+      this.passengerForm.seat_number = null;
+      this.passengerSeats = [];
+      const info = this.ticketProducts[this.passengerProductId];
+      if (!info || !this.passengerForm.trip_id) return;
+      axios.get('transport/seats', { params: { trip_id: this.passengerForm.trip_id, route_id: info.route_id } }).then(r => {
+        this.passengerSeats = (r.data && r.data.seats) || [];
+      }).catch(() => {});
+    },
+    // Taken on this stretch, or already in this cart.
+    seatTaken(s) {
+      if (s.taken) return true;
+      return (this.details || []).some(d => (d.passengers || []).some(p => p.trip_id === this.passengerForm.trip_id && p.seat_number === s.number));
+    },
+    seatAllowed(s) {
+      if (this.seatTaken(s)) return false;
+      const vipTicket = !!(this.ticketProducts[this.passengerProductId] || {}).vip;
+      if (vipTicket) return s.vip;
+      if (!s.vip) return true;
+      return !this.passengerSeats.some(x => !x.vip && !this.seatTaken(x));
+    },
+    // After the sale: the boarding passes with their QR.
+    printTransportTickets(saleId) {
+      axios.get('transport/tickets', { params: { sale_id: saleId } }).then(r => {
+        const tickets = (r.data && r.data.tickets) || [];
+        if (tickets.length) printBoardingPasses(tickets, String(this.$i18n?.locale || 'es').startsWith('es'));
+      }).catch(() => {});
+    },
+    passengerDniInput() {
+      const f = this.passengerForm;
+      f.dni = f.doc_type === 'dni'
+        ? String(f.dni || '').replace(/\D/g, '').slice(0, 8)
+        : String(f.dni || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+      if (f.dni.length < (f.doc_type === 'dni' ? 8 : 5)) return;
+      axios.get('transport/passenger', { params: { doc_type: f.doc_type, dni: f.dni } }).then(r => {
+        this.passengerLoyalty = (r.data && r.data.loyalty) || null;
+        const p = r.data && r.data.passenger;
+        if (p && !f.first_name && !f.last_name) {
+          f.first_name = p.first_name;
+          f.last_name = p.last_name;
+          if (p.passenger_type) f.passenger_type = p.passenger_type;
+        }
+      }).catch(() => {});
+    },
+    passengerSave() {
+      if (!this.passengerValid) return;
+      const f = this.passengerForm;
+      const dep = this.passengerDepartures.find(t => t.id === f.trip_id);
+      const p = { trip_id: f.trip_id, departure: dep ? this.departureLabel(dep).split(' · ')[0] : '', doc_type: f.doc_type, dni: f.dni,
+        first_name: f.first_name.trim(), last_name: f.last_name.trim(), luggage: !!f.luggage, passenger_type: f.passenger_type, seat_number: f.seat_number || null, loyalty_free: !!f.loyalty_free };
+      const done = this.passengerDone;
+      this.passengerDone = null;
+      this.$bvModal.hide('pos_passenger_modal');
+      if (done) done(p);
+    },
+    passengerCancel() {
+      this.passengerDone = null;
+    },
+
     increment(id) {
       for (var i = 0; i < this.details.length; i++) {
         if (this.details[i].detail_id == id) {
+          // A ticket: one more ticket = one more passenger.
+          if (this.isTicket(this.details[i].product_id)) {
+            const row = this.details[i];
+            this.askPassenger(row.product_id, p => {
+              row.passengers = (row.passengers || []).concat([p]);
+              row.quantity = row.passengers.length;
+              this.CalculTotal();
+              this.$forceUpdate();
+            });
+            return;
+          }
           if (!this.isOversellingAllowed && this.details[i].product_type !== 'is_service' && (this.details[i].quantity + 1) * (Number(this.details[i].pack_multiplier) || 1) > this.details[i].current) {
             this.makeToast("warning", this.$t("LowStock"), this.$t("Warning"));
           } else {
@@ -7104,6 +7348,12 @@ export default {
     decrement(detail, id) {
       for (var i = 0; i < this.details.length; i++) {
         if (this.details[i].detail_id == id) {
+          // A ticket: one ticket less = the last passenger out.
+          if (this.isTicket(this.details[i].product_id) && Array.isArray(this.details[i].passengers)) {
+            this.details[i].passengers.pop();
+            this.details[i].quantity = this.details[i].passengers.length;
+            continue;
+          }
           // Prevent quantity from going negative, but allow zero and fractional quantities
           if (detail.quantity - 1 < 0) {
             this.makeToast("warning", this.$t("MinimumQuantity"), this.$t("Warning"));
@@ -7119,6 +7369,11 @@ export default {
     Verified_Qty(detail, id) {
       for (var i = 0; i < this.details.length; i++) {
         if (this.details[i].detail_id === id) {
+          // A ticket's quantity is its passengers (use + / - to add or remove one).
+          if (this.isTicket(this.details[i].product_id) && Array.isArray(this.details[i].passengers)) {
+            this.details[i].quantity = this.details[i].passengers.length;
+            continue;
+          }
           const qty = parseFloat(detail.quantity);
 
           // If empty or not a number, fall back to 1 without warning
@@ -10511,6 +10766,8 @@ export default {
 
     // ==================== DATA INITIALIZATION ====================
     GetElementsPos() {
+      // Transport: which products are tickets (asks passenger + departure).
+      axios.get('transport/pos-tickets').then(r => { this.ticketProducts = (r.data && r.data.tickets) || {}; }).catch(() => { this.ticketProducts = {}; });
       axios
         .get("pos/data_create_pos")
         .then(response => {

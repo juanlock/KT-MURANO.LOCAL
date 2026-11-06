@@ -5,15 +5,15 @@
         <a-space>
           <a-button type="primary" @click="newEmail">
             <template #icon><EditOutlined /></template>
-            New email
+            {{ $t('tx_New_email_4f303') }}
           </a-button>
           <a-button v-if="auth.can('email_office_manage')" @click="openRules(null)">
             <template #icon><FilterOutlined /></template>
-            Rules
+            {{ $t('Rules') }}
           </a-button>
           <a-button v-if="auth.can('email_office_manage')" @click="$router.push('/email-office/settings')">
             <template #icon><SettingOutlined /></template>
-            Settings
+            {{ $t('Settings') }}
           </a-button>
         </a-space>
       </template>
@@ -26,18 +26,18 @@
       <template v-if="mailbox.enabled">
         <SyncOutlined :spin="checking" />
         <span>
-          Mailbox checked automatically every {{ mailbox.every }} min
-          <template v-if="mailbox.last_polled_at"> · last check {{ dateTime(mailbox.last_polled_at) }}</template>
-          <template v-if="mailbox.next_at && !checking"> · next ≈ {{ dayjs(mailbox.next_at).format('h:mm A') }}</template>
+          {{ $t('tx_Mailbox_checked_automatically_every_1d8db') }} {{ mailbox.every }} min
+          <template v-if="mailbox.last_polled_at"> {{ $t('tx_last_check_ac808') }} {{ dateTime(mailbox.last_polled_at) }}</template>
+          <template v-if="mailbox.next_at && !checking"> {{ $t('tx_next_1d52a') }} {{ dayjs(mailbox.next_at).format('h:mm A') }}</template>
         </span>
-        <a-tag v-if="mailbox.error" color="red" :title="mailbox.error">Last check failed</a-tag>
+        <a-tag v-if="mailbox.error" color="red" :title="mailbox.error">{{ $t('tx_Last_check_failed_c30b8') }}</a-tag>
       </template>
       <template v-else>
         <ExclamationCircleOutlined style="color: #d46b08" />
-        <span>Automatic mailbox check is <b>off</b> for this company — new emails only arrive with “Check now”.</span>
-        <a v-if="auth.can('email_office_manage')" @click="$router.push('/email-office/settings')">Turn it on in Settings</a>
+        <span>{{ $t('tx_Automatic_mailbox_check_is_929f2') }} <b>off</b> {{ $t('tx_for_this_company_new_emails_only_arrive_with_Check_now_8425c') }}</span>
+        <a v-if="auth.can('email_office_manage')" @click="$router.push('/email-office/settings')">{{ $t('tx_Turn_it_on_in_Settings_729d4') }}</a>
       </template>
-      <a-button v-if="auth.can('email_office_manage')" size="small" :loading="checking" @click="checkNow">Check now</a-button>
+      <a-button v-if="auth.can('email_office_manage')" size="small" :loading="checking" @click="checkNow">{{ $t('tx_Check_now_2c872') }}</a-button>
     </div>
 
     <!-- Cards: click one to show only those emails. One row, sharing the width
@@ -60,7 +60,7 @@
           <!-- Received: emails already recorded in Murano hidden by default (remembered per browser). -->
           <label v-if="incoming" class="eo-hide-done">
             <a-switch v-model:checked="hideRecorded" size="small" @change="onHideRecorded" />
-            Hide recorded
+            {{ $t('tx_Hide_recorded_0b19f') }}
           </label>
         </a-col>
         <!-- The filters: one row (From and Subject a bit wider). -->
@@ -70,7 +70,7 @@
                  of its repeating subjects. To (sent): one address. -->
             <a-select
               v-model:value="filters.address" allow-clear show-search :filter-option="false" class="eo-filter eo-filter--wide"
-              :placeholder="incoming ? 'From (sender name, address or subject)' : 'To (recipient)'" :options="addressOptions" :loading="addressLoading"
+              :placeholder="incoming ? $t('tx_From_sender_name_address_or_subject_47763') : $t('tx_To_recipient_4bb2c')" :options="addressOptions" :loading="addressLoading"
               :dropdown-match-select-width="incoming ? 420 : true"
               @search="searchAddresses" @focus="searchAddresses('')" @change="crud.reload()"
             />
@@ -78,16 +78,16 @@
                  count as one), most emails first, within the From / To picked. -->
             <a-select
               v-model:value="filters.subject" allow-clear show-search :filter-option="false" class="eo-filter eo-filter--wide"
-              placeholder="Subject" :options="subjectOptions" :loading="subjectLoading" :dropdown-match-select-width="420"
+              :placeholder="$t('Subject')" :options="subjectOptions" :loading="subjectLoading" :dropdown-match-select-width="420"
               @search="searchSubjects" @focus="searchSubjects('')" @change="crud.reload()"
             />
-            <a-select v-model:value="filters.category" allow-clear placeholder="Type" class="eo-filter" :options="CATEGORY_OPTIONS" @change="crud.reload()" />
-            <a-select v-model:value="filters.party_type" allow-clear placeholder="From / to" class="eo-filter" :options="PARTY_OPTIONS" @change="crud.reload()" />
+            <a-select v-model:value="filters.category" allow-clear :placeholder="$t('type')" class="eo-filter" :options="CATEGORY_OPTIONS" @change="crud.reload()" />
+            <a-select v-model:value="filters.party_type" allow-clear :placeholder="$t('tx_From_to_d8608')" class="eo-filter" :options="PARTY_OPTIONS" @change="crud.reload()" />
             <a-select
-              v-if="incoming" v-model:value="filters.linked" allow-clear placeholder="Linked?" class="eo-filter"
+              v-if="incoming" v-model:value="filters.linked" allow-clear :placeholder="$t('tx_Linked_0ef98')" class="eo-filter"
               :options="[{ value: 0, label: 'Not linked yet' }, { value: 1, label: 'Linked' }]" @change="crud.reload()"
             />
-            <a-select v-else v-model:value="filters.source" allow-clear placeholder="Sent by" class="eo-filter" :options="SOURCE_OPTIONS" @change="crud.reload()" />
+            <a-select v-else v-model:value="filters.source" allow-clear :placeholder="$t('tx_Sent_by_9a44e')" class="eo-filter" :options="SOURCE_OPTIONS" @change="crud.reload()" />
           </div>
         </a-col>
       </a-row>
@@ -95,23 +95,23 @@
 
     <a-alert
       v-if="!crud.loading.value && stats.total === 0 && !anyFilter" type="info" show-icon style="margin-bottom: 12px"
-      :message="incoming ? 'No emails yet.' : 'No sent emails yet.'"
-      :description="incoming ? 'Connect the company mailbox in Email Office → Settings; new emails are imported automatically.' : 'Every email Murano sends from now on (invoices, quotations, reminders…) appears here, plus the Sent folder of the connected mailbox.'"
+      :message="incoming ? $t('tx_No_emails_yet_b148e') : $t('tx_No_sent_emails_yet_edabc')"
+      :description="incoming ? $t('tx_Connect_the_company_mailbox_in_Email_Office_Settings_new_ema_7128f') : $t('tx_Every_email_Murano_sends_from_now_on_invoices_quotations_rem_310b3')"
     />
 
     <DataTable :crud="crud" :columns="columns" :table-key="`email-office|${direction}`" bulk-select>
       <!-- Selected rows: set their type / read state at once (no bulk delete). -->
       <template #bulk="{ ids }">
         <a-dropdown :trigger="['click']">
-          <a-button size="small" :loading="bulkBusy">Set type <DownOutlined /></a-button>
+          <a-button size="small" :loading="bulkBusy">{{ $t('tx_Set_type_bc1be') }} <DownOutlined /></a-button>
           <template #overlay>
             <a-menu @click="({ key }) => bulkUpdate(ids, { category: key })">
               <a-menu-item v-for="o in CATEGORY_OPTIONS" :key="o.value">{{ o.label }}</a-menu-item>
             </a-menu>
           </template>
         </a-dropdown>
-        <a-button size="small" :disabled="bulkBusy" @click="bulkUpdate(ids, { is_read: true })">Mark read</a-button>
-        <a-button size="small" :disabled="bulkBusy" @click="bulkUpdate(ids, { is_read: false })">Mark unread</a-button>
+        <a-button size="small" :disabled="bulkBusy" @click="bulkUpdate(ids, { is_read: true })">{{ $t('tx_Mark_read_d4bb1') }}</a-button>
+        <a-button size="small" :disabled="bulkBusy" @click="bulkUpdate(ids, { is_read: false })">{{ $t('tx_Mark_unread_f951e') }}</a-button>
       </template>
       <!-- Help on the header: what "Recorded in Murano" means. -->
       <template #headerCell="{ column, title }">
@@ -119,13 +119,13 @@
           {{ title }}
           <a-tooltip>
             <template #title>
-              Is this email already entered in Murano?<br>
-              <b>Purchase / Expense + number</b> — yes, the bill was recorded (Create expense or Link).<br>
-              <b>Ticket + number</b> — the claim became a helpdesk ticket.<br>
-              <b>On customer</b> — a customer's email: it's kept on that customer (Email conversation tab).<br>
-              <b>To record</b> — a bill not entered yet.<br>
-              Click any of them (or <b>+ Add</b>) to open the window that adds the email to Murano.<br>
-              <b>—</b> — nothing to record.
+              {{ $t('tx_Is_this_email_already_entered_in_Murano_fed7c') }}<br>
+              <b>{{ $t('tx_Purchase_Expense_number_792e1') }}</b> {{ $t('tx_yes_the_bill_was_recorded_Create_expense_or_Link_9dfea') }}<br>
+              <b>{{ $t('tx_Ticket_number_d1ccf') }}</b> {{ $t('tx_the_claim_became_a_helpdesk_ticket_22bc5') }}<br>
+              <b>{{ $t('tx_On_customer_f52cb') }}</b> {{ $t('tx_a_customer_s_email_it_s_kept_on_that_customer_Email_conversa_47e6f') }}<br>
+              <b>{{ $t('tx_To_record_cab22') }}</b> {{ $t('tx_a_bill_not_entered_yet_6db7a') }}<br>
+              {{ $t('tx_Click_any_of_them_or_a48df') }} <b>{{ $t('tx_Add_111e7') }}</b>{{ $t('tx_to_open_the_window_that_adds_the_email_to_Murano_182d8') }}<br>
+              <b>—</b> {{ $t('tx_nothing_to_record_039ed') }}
             </template>
             <QuestionCircleOutlined style="margin-inline-start: 4px; opacity: 0.6; cursor: help" />
           </a-tooltip>
@@ -137,30 +137,30 @@
           <div class="eo-actions">
             <!-- Download the attachments (one: straight away; several: pick). -->
             <a-dropdown v-if="record.attachments_count > 1" :trigger="['click']">
-              <a-tooltip title="Download attachments"><a-button size="small" type="text"><template #icon><DownloadOutlined /></template></a-button></a-tooltip>
+              <a-tooltip :title="$t('tx_Download_attachments_20261')"><a-button size="small" type="text"><template #icon><DownloadOutlined /></template></a-button></a-tooltip>
               <template #overlay>
                 <a-menu>
                   <a-menu-item v-for="a in record.attachment_names" :key="a.index" :disabled="!a.downloadable" @click="downloadAttachment(record, a)">{{ a.name }}</a-menu-item>
                 </a-menu>
               </template>
             </a-dropdown>
-            <a-tooltip v-else :title="record.attachments_count ? `Download ${record.attachment_names?.[0]?.name}` : 'No attachments'">
+            <a-tooltip v-else :title="record.attachments_count ? `Download ${record.attachment_names?.[0]?.name}` : $t('tx_No_attachments_c4f38')">
               <a-button size="small" type="text" :disabled="!record.attachments_count" @click="downloadAttachment(record, record.attachment_names?.[0])">
                 <template #icon><DownloadOutlined /></template>
               </a-button>
             </a-tooltip>
-            <a-tooltip title="Save the email as PDF">
+            <a-tooltip :title="$t('tx_Save_the_email_as_PDF_b7b48')">
               <a-button size="small" type="text" @click="emailPdf(record)"><template #icon><FilePdfOutlined /></template></a-button>
             </a-tooltip>
-            <a-tooltip :title="incoming ? 'Reply' : 'Write again'">
+            <a-tooltip :title="incoming ? $t('tx_Reply_25d8d') : $t('tx_Write_again_ab53d')">
               <a-button size="small" type="text" @click="reply(record)"><template #icon><RollbackOutlined /></template></a-button>
             </a-tooltip>
             <!-- A sorting rule from this email's sender. -->
-            <a-tooltip v-if="incoming && auth.can('email_office_manage')" title="Create a rule from this sender (e.g. always move to Social)">
+            <a-tooltip v-if="incoming && auth.can('email_office_manage')" :title="$t('tx_Create_a_rule_from_this_sender_e_g_always_move_to_Social_8a7dd')">
               <a-button size="small" type="text" @click="ruleFromEmail(record)"><template #icon><ThunderboltOutlined /></template></a-button>
             </a-tooltip>
             <!-- Archive (put away) / back out of the Archive or Spam folder. -->
-            <a-tooltip :title="['archive', 'spam'].includes(record.category) ? 'Move back to the list (General)' : 'Archive'">
+            <a-tooltip :title="['archive', 'spam'].includes(record.category) ? $t('tx_Move_back_to_the_list_General_89978') : $t('tx_Archive_e727b')">
               <a-button size="small" type="text" @click="changeType(record, ['archive', 'spam'].includes(record.category) ? 'general' : 'archive', true)">
                 <template #icon><InboxOutlined v-if="!['archive', 'spam'].includes(record.category)" /><UndoOutlined v-else /></template>
               </a-button>
@@ -172,7 +172,7 @@
         </template>
         <template v-else-if="column.key === 'who'">
           <!-- Click: the email and its history (read-only). The filter icon lists every email with them. -->
-          <a-tooltip title="Open the email and its history">
+          <a-tooltip :title="$t('tx_Open_the_email_and_its_history_31b56')">
             <a :class="{ 'eo-unread': !record.is_read }" @click="openEmail(record)">{{ incoming ? (record.from_name || record.from_email) : record.to_emails }}</a>
           </a-tooltip>
           <a-tooltip :title="incoming ? `Every email from ${senderOf(record)}` : `Only emails with ${addressOf(record)}`">
@@ -195,7 +195,7 @@
           <a-dropdown v-model:open="typeMenu[record.id]" :trigger="['click']">
             <a-tag
               :color="CATEGORY_COLOR[record.category]" class="eo-type"
-              :title="record.category !== 'general' ? 'Click to change · double-click: General' : 'Click to change'"
+              :title="record.category !== 'general' ? $t('tx_Click_to_change_double_click_General_02be5') : $t('tx_Click_to_change_5eed7')"
               @click.stop @dblclick.stop="typeMenu[record.id] = false; changeType(record, 'general')"
             >
               {{ CATEGORY_LABEL[record.category] }} <DownOutlined style="font-size: 9px" />
@@ -228,23 +228,23 @@
           </a-tooltip>
           <!-- A Zelle deposit a rule prepared: a paid sale waiting for Confirm. -->
           <a-tooltip v-else-if="record.sale_draft" :title="`Zelle deposit from ${record.sale_draft.payer} — click to review and create the paid sale`">
-            <a-tag color="gold" class="eo-rec" @click.stop="openSaleDraft(record)">Confirm sale ${{ Number(record.sale_draft.amount).toFixed(2) }}</a-tag>
+            <a-tag color="gold" class="eo-rec" @click.stop="openSaleDraft(record)">{{ $t('tx_Confirm_sale_54ff1') }}{{ Number(record.sale_draft.amount).toFixed(2) }}</a-tag>
           </a-tooltip>
           <!-- A Zelle payment sent a rule prepared: an expense waiting for Confirm. -->
           <a-tooltip v-else-if="record.payment_draft" :title="`Zelle payment to ${record.payment_draft.payee} — click to review and record the expense`">
-            <a-tag color="volcano" class="eo-rec" @click.stop="openPaymentDraft(record)">Confirm expense ${{ Number(record.payment_draft.amount).toFixed(2) }}</a-tag>
+            <a-tag color="volcano" class="eo-rec" @click.stop="openPaymentDraft(record)">{{ $t('tx_Confirm_expense_c596e') }}{{ Number(record.payment_draft.amount).toFixed(2) }}</a-tag>
           </a-tooltip>
           <!-- A customer's email is recorded on the customer (their Email conversation tab). -->
           <a-tooltip v-else-if="record.party_type === 'client' && record.party_name" :title="`Recorded on the customer ${record.party_name} — click to see their Email conversation tab`">
-            <a-tag color="green" class="eo-rec" @click.stop="openRecordWindow(record)">On customer</a-tag>
+            <a-tag color="green" class="eo-rec" @click.stop="openRecordWindow(record)">{{ $t('tx_On_customer_f52cb') }}</a-tag>
           </a-tooltip>
           <!-- This column opens the window to add the email to Murano (contact, expense,
                purchase, quotation, work order, type). -->
-          <a-tooltip v-else-if="record.category === 'bill' && incoming" title="A bill not entered yet — click to record it (expense, purchase…)">
-            <a-tag color="orange" class="eo-rec" @click.stop="openRecordWindow(record)">To record</a-tag>
+          <a-tooltip v-else-if="record.category === 'bill' && incoming" :title="$t('tx_A_bill_not_entered_yet_click_to_record_it_expense_purchase_0b06b')">
+            <a-tag color="orange" class="eo-rec" @click.stop="openRecordWindow(record)">{{ $t('tx_To_record_cab22') }}</a-tag>
           </a-tooltip>
-          <a-tooltip v-else title="Add this email to Murano (customer / supplier, expense, purchase, quotation…)">
-            <a class="eo-add" @click.stop="openRecordWindow(record)">+ Add</a>
+          <a-tooltip v-else :title="$t('tx_Add_this_email_to_Murano_customer_supplier_expense_purchase__68a37')">
+            <a class="eo-add" @click.stop="openRecordWindow(record)">{{ $t('tx_Add_111e7') }}</a>
           </a-tooltip>
         </template>
         <template v-else-if="column.key === 'source'">{{ SOURCE_LABEL[record.source] || record.source }}</template>
@@ -260,51 +260,51 @@
     <EmailRulesDrawer v-model:open="rulesOpen" :prefill="rulesPrefill" @changed="crud.fetchRows()" />
 
     <!-- Zelle deposit -> paid sale (prepared by a rule), confirmed here. -->
-    <a-modal v-model:open="saleDraftOpen" title="Confirm sale (Zelle deposit)" :confirm-loading="saleDraftSaving" ok-text="Create paid sale" :ok-button-props="{ disabled: !saleDraft || !saleDraft.ready }" @ok="confirmSaleDraft">
+    <a-modal v-model:open="saleDraftOpen" :title="$t('tx_Confirm_sale_Zelle_deposit_0e36b')" :confirm-loading="saleDraftSaving" :ok-text="$t('tx_Create_paid_sale_fb53f')" :ok-button-props="{ disabled: !saleDraft || !saleDraft.ready }" @ok="confirmSaleDraft">
       <a-spin :spinning="saleDraftLoading">
         <template v-if="saleDraft">
           <a-alert v-if="saleDraft.existing_sale" type="info" show-icon style="margin-bottom: 12px"
             :message="`Already in Murano as sale ${saleDraft.existing_sale.Ref} — it will be linked, not created again.`" />
           <a-alert v-else-if="!saleDraft.ready" type="warning" show-icon style="margin-bottom: 12px"
-            message="The rule has no service: edit the rule (Rules → Prepare a paid sale) and pick one." />
+            :message="$t('tx_The_rule_has_no_service_edit_the_rule_Rules_Prepare_a_paid_s_0b491')" />
           <a-descriptions :column="1" size="small" bordered>
-            <a-descriptions-item label="Customer">
-              {{ saleDraft.client_name }} <a-tag v-if="saleDraft.client_new" color="green" style="margin-left: 6px">new customer</a-tag>
+            <a-descriptions-item :label="$t('Customer')">
+              {{ saleDraft.client_name }} <a-tag v-if="saleDraft.client_new" color="green" style="margin-left: 6px">{{ $t('New_Customer') }}</a-tag>
             </a-descriptions-item>
-            <a-descriptions-item label="Amount">${{ Number(saleDraft.amount).toFixed(2) }}</a-descriptions-item>
-            <a-descriptions-item label="Date / time">{{ saleDraft.date }} {{ saleDraft.time }}</a-descriptions-item>
-            <a-descriptions-item label="Service">{{ saleDraft.product || '—' }}</a-descriptions-item>
-            <a-descriptions-item label="Sales agent">{{ saleDraft.sales_agent || '—' }}</a-descriptions-item>
-            <a-descriptions-item label="Paid with">Zelle → {{ saleDraft.account || `account ending ${saleDraft.last4 || '?'} (not found — no account)` }}</a-descriptions-item>
-            <a-descriptions-item label="Confirmation #">{{ saleDraft.confirmation }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('Amount')">${{ Number(saleDraft.amount).toFixed(2) }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('tx_Date_time_34bb8')">{{ saleDraft.date }} {{ saleDraft.time }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('Service')">{{ saleDraft.product || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('Sales_Agent')">{{ saleDraft.sales_agent || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('tx_Paid_with_33ad1')">Zelle → {{ saleDraft.account || `account ending ${saleDraft.last4 || '?'} (not found — no account)` }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('tx_Confirmation_13a92')">{{ saleDraft.confirmation }}</a-descriptions-item>
           </a-descriptions>
         </template>
       </a-spin>
     </a-modal>
 
     <!-- Zelle payment sent -> expense (prepared by a rule), confirmed here. -->
-    <a-modal v-model:open="payDraftOpen" title="Confirm expense (Zelle payment sent)" :confirm-loading="payDraftSaving" ok-text="Record expense" :ok-button-props="{ disabled: !payDraft || !payForm.expense_category_id }" @ok="confirmPaymentDraft">
+    <a-modal v-model:open="payDraftOpen" :title="$t('tx_Confirm_expense_Zelle_payment_sent_657d1')" :confirm-loading="payDraftSaving" :ok-text="$t('tx_Record_expense_9e24e')" :ok-button-props="{ disabled: !payDraft || !payForm.expense_category_id }" @ok="confirmPaymentDraft">
       <a-spin :spinning="payDraftLoading">
         <template v-if="payDraft">
           <a-alert v-if="payDraft.existing_expense" type="info" show-icon style="margin-bottom: 12px"
             :message="`Already in Murano as expense ${payDraft.existing_expense.Ref} — it will be linked, not recorded again.`" />
           <a-descriptions :column="1" size="small" bordered style="margin-bottom: 12px">
-            <a-descriptions-item label="Paid to">{{ payDraft.payee }}</a-descriptions-item>
-            <a-descriptions-item label="Amount">${{ Number(payDraft.amount).toFixed(2) }}</a-descriptions-item>
-            <a-descriptions-item label="Date">{{ payDraft.date }} {{ payDraft.time }}</a-descriptions-item>
-            <a-descriptions-item label="Paid with">Zelle ← {{ payDraft.account || `account ending ${payDraft.last4 || '?'} (not found — no account)` }}</a-descriptions-item>
-            <a-descriptions-item label="Confirmation #">{{ payDraft.confirmation || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('tx_Paid_to_9823e')">{{ payDraft.payee }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('Amount')">${{ Number(payDraft.amount).toFixed(2) }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('date')">{{ payDraft.date }} {{ payDraft.time }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('tx_Paid_with_33ad1')">Zelle ← {{ payDraft.account || `account ending ${payDraft.last4 || '?'} (not found — no account)` }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('tx_Confirmation_13a92')">{{ payDraft.confirmation || '—' }}</a-descriptions-item>
           </a-descriptions>
           <div class="eo-muted" style="margin-bottom: 8px">
-            <template v-if="payDraft.mapped">Saved for "{{ payDraft.payee }}" — change it here if needed (it's remembered for the next ones).</template>
-            <template v-else>First payment to "{{ payDraft.payee }}": who is it? Murano remembers it for the next ones.</template>
+            <template v-if="payDraft.mapped">{{ $t('tx_Saved_for_c0ed1') }}{{ payDraft.payee }}{{ $t('tx_change_it_here_if_needed_it_s_remembered_for_the_next_ones_a5e6c') }}</template>
+            <template v-else>{{ $t('tx_First_payment_to_1f371') }}{{ payDraft.payee }}{{ $t('tx_who_is_it_Murano_remembers_it_for_the_next_ones_9e61e') }}</template>
           </div>
           <a-form layout="vertical">
-            <a-form-item label="Employee (1099 contractor)" extra="Leave empty when it isn't a team member (a supplier, a service…).">
-              <a-select v-model:value="payForm.employee_id" allow-clear show-search option-filter-prop="label" placeholder="Not an employee" :options="payEmployeeOptions" />
+            <a-form-item :label="$t('tx_Employee_1099_contractor_6f9bb')" :extra="$t('tx_Leave_empty_when_it_isn_t_a_team_member_a_supplier_a_service_09169')">
+              <a-select v-model:value="payForm.employee_id" allow-clear show-search option-filter-prop="label" :placeholder="$t('tx_Not_an_employee_f7edf')" :options="payEmployeeOptions" />
             </a-form-item>
-            <a-form-item label="Expense category" required>
-              <a-select v-model:value="payForm.expense_category_id" show-search option-filter-prop="label" placeholder="Pick a category" :options="payCategoryOptions" />
+            <a-form-item :label="$t('Expense_Category')" required>
+              <a-select v-model:value="payForm.expense_category_id" show-search option-filter-prop="label" :placeholder="$t('tx_Pick_a_category_2adff')" :options="payCategoryOptions" />
             </a-form-item>
           </a-form>
         </template>
@@ -312,28 +312,29 @@
     </a-modal>
 
     <!-- New email -->
-    <a-modal v-model:open="composeOpen" :title="compose.subject && compose.replying ? 'Reply' : 'New email'" :confirm-loading="sending" ok-text="Send" width="680px" @ok="send">
+    <a-modal v-model:open="composeOpen" :title="compose.subject && compose.replying ? $t('tx_Reply_25d8d') : $t('tx_New_email_4f303')" :confirm-loading="sending" :ok-text="$t('tx_Send_94966')" width="680px" @ok="send">
       <a-form layout="vertical">
-        <a-form-item label="Customer (optional)" extra="Pick a customer to fill in their email.">
+        <a-form-item :label="$t('tx_Customer_optional_8c857')" :extra="$t('tx_Pick_a_customer_to_fill_in_their_email_2c268')">
           <a-select
-            v-model:value="compose.client_id" show-search allow-clear :filter-option="false" placeholder="Search a customer…"
+            v-model:value="compose.client_id" show-search allow-clear :filter-option="false" :placeholder="$t('tx_Search_a_customer_f179c')"
             :options="clientOptions" @search="searchClients" @focus="searchClients('')" @change="pickClient"
           />
         </a-form-item>
-        <a-form-item label="To" required>
+        <a-form-item :label="$t('to')" required>
           <a-select v-model:value="compose.to" mode="tags" :token-separators="[',', ';', ' ']" placeholder="name@example.com" />
         </a-form-item>
         <a-form-item label="Cc">
           <a-select v-model:value="compose.cc" mode="tags" :token-separators="[',', ';', ' ']" />
         </a-form-item>
-        <a-form-item label="Subject" required><a-input v-model:value="compose.subject" /></a-form-item>
-        <a-form-item label="Message" required><a-textarea v-model:value="compose.body" :rows="8" /></a-form-item>
+        <a-form-item :label="$t('Subject')" required><a-input v-model:value="compose.subject" /></a-form-item>
+        <a-form-item :label="$t('Message')" required><a-textarea v-model:value="compose.body" :rows="8" /></a-form-item>
       </a-form>
     </a-modal>
   </div>
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Email Office -> Email received (direction in) / Email sent (out):
  * GET email-office/emails -> {emails, totalRows, stats}. Cards filter by
@@ -388,11 +389,11 @@ async function changeType(record, category) {
   }
 }
 const PARTY_LABEL = { client: 'Customer', provider: 'Supplier', employee: 'Employee' };
-const PARTY_OPTIONS = sortByLabel([...Object.entries(PARTY_LABEL).map(([value, label]) => ({ value, label })), { value: 'none', label: 'Unknown sender' }]);
+const PARTY_OPTIONS = sortByLabel([...Object.entries(PARTY_LABEL).map(([value, label]) => ({ value, label })), { value: 'none', label: tEs('tx_Unknown_sender_3dd1e', 'Unknown sender') }]);
 const LINKED_LABEL = { sale: 'Sale', purchase: 'Purchase', expense: 'Expense', helpdesk_ticket: 'Ticket', quotation: 'Quotation', service_job: 'Work order' };
 const SOURCE_LABEL = { system: 'Murano', compose: 'Email Office', mailbox: 'Mailbox' };
 const SOURCE_OPTIONS = sortByLabel([
-  { value: 'system', label: 'Murano (invoices, reminders…)' }, { value: 'compose', label: 'Email Office (New email)' }, { value: 'mailbox', label: 'Mailbox (webmail / phone)' },
+  { value: 'system', label: tEs('tx_Murano_invoices_reminders_9ab71', 'Murano (invoices, reminders…)') }, { value: 'compose', label: tEs('tx_Email_Office_New_email_7c516', 'Email Office (New email)') }, { value: 'mailbox', label: tEs('tx_Mailbox_webmail_phone_a2247', 'Mailbox (webmail / phone)') },
 ]);
 
 const filters = ref({ from: '', to: '', category: undefined, party_type: undefined, linked: undefined, source: undefined, unread: undefined, address: route.query.address ? String(route.query.address) : undefined, subject: undefined });
@@ -444,47 +445,47 @@ const cards = computed(() => {
 const allCards = computed(() => {
   const s = stats.value;
   const f = filters.value;
-  const all = { key: 'all', label: incoming.value ? 'Received' : 'Sent', value: s.total ?? 0, hint: 'all emails', color: '#1f1f2c', active: !f.category && f.linked === undefined && !f.unread, click: () => { f.category = undefined; f.linked = undefined; f.unread = undefined; crud.reload(); } };
+  const all = { key: 'all', label: incoming.value ? tEs('Received', 'Received') : tEs('tx_sent_mail', 'Sent'), value: s.total ?? 0, hint: tEs('tx_all_emails_5d490', 'all emails'), color: '#1f1f2c', active: !f.category && f.linked === undefined && !f.unread, click: () => { f.category = undefined; f.linked = undefined; f.unread = undefined; crud.reload(); } };
   if (incoming.value) {
     return [
       all,
-      { key: 'unlinked', label: 'Bills to record', value: s.unlinked_bills ?? 0, hint: 'not linked to a purchase / expense', color: '#d46b08', active: f.category === 'bill' && f.linked === 0, click: () => setFilter({ category: 'bill', linked: 0 }) },
-      { key: 'bill', label: 'Bills', value: s.bill ?? 0, hint: 'invoices, receipts', color: '#fa8c16', active: f.category === 'bill' && f.linked === undefined, click: () => setFilter({ category: 'bill', linked: undefined }) },
-      { key: 'claim', label: 'Claims', value: s.claim ?? 0, hint: 'complaints, refunds', color: '#cf1322', active: f.category === 'claim', click: () => setFilter({ category: 'claim', linked: undefined }) },
-      { key: 'supplier', label: 'Supplier', value: s.supplier ?? 0, hint: 'orders, quotes, deliveries', color: '#08979c', active: f.category === 'supplier', click: () => setFilter({ category: 'supplier', linked: undefined }) },
-      { key: 'general', label: 'General', value: s.general ?? 0, hint: 'everything else', color: '#595959', active: f.category === 'general', click: () => setFilter({ category: 'general', linked: undefined }) },
-      { key: 'unread', label: 'Unread', value: s.unread ?? 0, hint: 'not opened here yet', color: '#1677ff', active: f.unread === 1, click: () => setFilter({ unread: 1 }) },
+      { key: 'unlinked', label: tEs('tx_Bills_to_record_97ac4', 'Bills to record'), value: s.unlinked_bills ?? 0, hint: tEs('tx_not_linked_to_a_purchase_expense_badf9', 'not linked to a purchase / expense'), color: '#d46b08', active: f.category === 'bill' && f.linked === 0, click: () => setFilter({ category: 'bill', linked: 0 }) },
+      { key: 'bill', label: tEs('tx_Bills_f1324', 'Bills'), value: s.bill ?? 0, hint: tEs('tx_invoices_receipts_4fd9e', 'invoices, receipts'), color: '#fa8c16', active: f.category === 'bill' && f.linked === undefined, click: () => setFilter({ category: 'bill', linked: undefined }) },
+      { key: 'claim', label: tEs('tx_Claims_64c4a', 'Claims'), value: s.claim ?? 0, hint: tEs('tx_complaints_refunds_158e6', 'complaints, refunds'), color: '#cf1322', active: f.category === 'claim', click: () => setFilter({ category: 'claim', linked: undefined }) },
+      { key: 'supplier', label: tEs('Supplier', 'Supplier'), value: s.supplier ?? 0, hint: tEs('tx_orders_quotes_deliveries_30ddb', 'orders, quotes, deliveries'), color: '#08979c', active: f.category === 'supplier', click: () => setFilter({ category: 'supplier', linked: undefined }) },
+      { key: 'general', label: 'General', value: s.general ?? 0, hint: tEs('tx_everything_else_72de9', 'everything else'), color: '#595959', active: f.category === 'general', click: () => setFilter({ category: 'general', linked: undefined }) },
+      { key: 'unread', label: tEs('Unread', 'Unread'), value: s.unread ?? 0, hint: tEs('tx_not_opened_here_yet_d4580', 'not opened here yet'), color: '#1677ff', active: f.unread === 1, click: () => setFilter({ unread: 1 }) },
       // Folders: out of the normal list, opened from here.
-      { key: 'social', label: 'Social', value: s.social ?? 0, hint: 'social networks', color: '#c41d7f', active: f.category === 'social', click: () => setFilter({ category: 'social', linked: undefined }) },
+      { key: 'social', label: 'Social', value: s.social ?? 0, hint: tEs('tx_social_networks_77dc7', 'social networks'), color: '#c41d7f', active: f.category === 'social', click: () => setFilter({ category: 'social', linked: undefined }) },
       // The company's own folders (from the rules' "+ New folder").
       ...EMAIL_FOLDERS.map(fd => ({
-        key: fd.key, label: fd.name, value: s.by_category?.[fd.key] ?? 0, hint: 'your folder', color: '#722ed1',
+        key: fd.key, label: fd.name, value: s.by_category?.[fd.key] ?? 0, hint: tEs('tx_your_folder_ae938', 'your folder'), color: '#722ed1',
         active: f.category === fd.key, click: () => setFilter({ category: fd.key, linked: undefined }),
       })),
-      { key: 'archive', label: 'Archive', value: s.archive ?? 0, hint: 'put away', color: '#8c8c8c', active: f.category === 'archive', click: () => setFilter({ category: 'archive', linked: undefined }) },
-      { key: 'spam', label: 'Spam', value: s.spam ?? 0, hint: 'junk / unwanted', color: '#d4380d', active: f.category === 'spam', click: () => setFilter({ category: 'spam', linked: undefined }) },
+      { key: 'archive', label: tEs('tx_Archive_e727b', 'Archive'), value: s.archive ?? 0, hint: tEs('tx_put_away_f6aeb', 'put away'), color: '#8c8c8c', active: f.category === 'archive', click: () => setFilter({ category: 'archive', linked: undefined }) },
+      { key: 'spam', label: 'Spam', value: s.spam ?? 0, hint: tEs('tx_junk_unwanted_e0714', 'junk / unwanted'), color: '#d4380d', active: f.category === 'spam', click: () => setFilter({ category: 'spam', linked: undefined }) },
     ];
   }
   return [
     all,
-    { key: 'reminder', label: 'Reminders sent', value: s.reminder ?? 0, hint: 'payment / appointment reminders', color: '#1677ff', active: f.category === 'reminder', click: () => setFilter({ category: 'reminder' }) },
-    { key: 'bill', label: 'Bills', value: s.bill ?? 0, hint: 'about invoices / bills', color: '#fa8c16', active: f.category === 'bill', click: () => setFilter({ category: 'bill' }) },
-    { key: 'claim', label: 'Claims', value: s.claim ?? 0, hint: 'helpdesk / support', color: '#cf1322', active: f.category === 'claim', click: () => setFilter({ category: 'claim' }) },
-    { key: 'general', label: 'General', value: s.general ?? 0, hint: 'everything else', color: '#595959', active: f.category === 'general', click: () => setFilter({ category: 'general' }) },
-    { key: 'archive', label: 'Archive', value: s.archive ?? 0, hint: 'put away', color: '#8c8c8c', active: f.category === 'archive', click: () => setFilter({ category: 'archive' }) },
+    { key: 'reminder', label: tEs('tx_Reminders_sent_a5ce3', 'Reminders sent'), value: s.reminder ?? 0, hint: tEs('tx_payment_appointment_reminders_25598', 'payment / appointment reminders'), color: '#1677ff', active: f.category === 'reminder', click: () => setFilter({ category: 'reminder' }) },
+    { key: 'bill', label: tEs('tx_Bills_f1324', 'Bills'), value: s.bill ?? 0, hint: tEs('tx_about_invoices_bills_7ec3f', 'about invoices / bills'), color: '#fa8c16', active: f.category === 'bill', click: () => setFilter({ category: 'bill' }) },
+    { key: 'claim', label: tEs('tx_Claims_64c4a', 'Claims'), value: s.claim ?? 0, hint: tEs('tx_helpdesk_support_38e8b', 'helpdesk / support'), color: '#cf1322', active: f.category === 'claim', click: () => setFilter({ category: 'claim' }) },
+    { key: 'general', label: 'General', value: s.general ?? 0, hint: tEs('tx_everything_else_72de9', 'everything else'), color: '#595959', active: f.category === 'general', click: () => setFilter({ category: 'general' }) },
+    { key: 'archive', label: tEs('tx_Archive_e727b', 'Archive'), value: s.archive ?? 0, hint: tEs('tx_put_away_f6aeb', 'put away'), color: '#8c8c8c', active: f.category === 'archive', click: () => setFilter({ category: 'archive' }) },
   ];
 });
 
 const columns = computed(() => [
   // Quick actions on the left: attachments, the email as PDF, reply.
   { title: '', key: 'actions', width: 160, align: 'center' },
-  { title: 'Date', dataIndex: 'sent_at', key: 'sent_at', sorter: true, width: 150 },
-  { title: incoming.value ? 'From' : 'To', key: 'who', width: 220 },
+  { title: tEs('date', 'Date'), dataIndex: 'sent_at', key: 'sent_at', sorter: true, width: 150 },
+  { title: incoming.value ? tEs('tx_mail_from', 'From') : tEs('tx_mail_to', 'To'), key: 'who', width: 220 },
   // A default width (changeable in Customize columns): the preview wraps inside it.
-  { title: 'Subject', dataIndex: 'subject', key: 'subject', sorter: true, width: 420 },
-  { title: 'Type', dataIndex: 'category', key: 'category', sorter: true, width: 100 },
-  { title: 'Customer / supplier', key: 'party', width: 170 },
-  ...(incoming.value ? [{ title: 'Recorded in Murano', key: 'linked', width: 170 }] : [{ title: 'Sent by', key: 'source', width: 120 }]),
+  { title: tEs('Subject', 'Subject'), dataIndex: 'subject', key: 'subject', sorter: true, width: 420 },
+  { title: tEs('type', 'Type'), dataIndex: 'category', key: 'category', sorter: true, width: 100 },
+  { title: tEs('tx_Customer_supplier_0221f', 'Customer / supplier'), key: 'party', width: 170 },
+  ...(incoming.value ? [{ title: tEs('tx_Recorded_in_Murano_52c13', 'Recorded in Murano'), key: 'linked', width: 170 }] : [{ title: tEs('tx_Sent_by_9a44e', 'Sent by'), key: 'source', width: 120 }]),
 ]);
 
 // ---- From / To address filter ----
@@ -791,7 +792,7 @@ async function downloadAttachment(r, a) {
   try {
     await http.download(`email-office/emails/${r.id}/attachments/${a.index}`, a.name);
   } catch (e) {
-    message.error('Could not download the attachment.');
+    message.error(tEs('tx_Could_not_download_the_attachment_e1000', 'Could not download the attachment.'));
   }
 }
 // The email as a PDF.
@@ -799,7 +800,7 @@ async function emailPdf(r) {
   try {
     await http.download(`email-office/emails/${r.id}/pdf`, `${String(r.subject || 'email').replace(/[^\w\- ]+/g, '').slice(0, 60) || 'email'}.pdf`);
   } catch (e) {
-    message.error('Could not create the PDF.');
+    message.error(tEs('tx_Could_not_create_the_PDF_c7214', 'Could not create the PDF.'));
   }
 }
 const clientOptions = ref([]);
@@ -821,13 +822,13 @@ function pickClient(id) {
 async function send() {
   const c = compose.value;
   if (!c.to.length || !c.subject.trim() || !c.body.trim()) {
-    message.error('To, subject and message are required.');
+    message.error(tEs('tx_To_subject_and_message_are_required_5f88c', 'To, subject and message are required.'));
     return;
   }
   sending.value = true;
   try {
     await http.post('email-office/compose', { to: c.to, cc: c.cc, subject: c.subject, body: c.body });
-    message.success('Sent.');
+    message.success(tEs('tx_Sent_a87d3', 'Sent.'));
     composeOpen.value = false;
     compose.value = emptyCompose();
     crud.fetchRows();

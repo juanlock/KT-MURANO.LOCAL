@@ -786,6 +786,12 @@ const routes = [
             { path: 'transport/trips', name: 'transport-trips', component: () => import('../pages/transport/TransportTrips.vue'), meta: { title: 'Trips', permission: ['transport_view', 'transport_manage'] } },
             { path: 'transport/routes', name: 'transport-routes', component: () => import('../pages/transport/TransportRoutes.vue'), meta: { title: 'Routes and locations', permission: ['transport_view', 'transport_manage'] } },
             { path: 'transport/staff', name: 'transport-staff', component: () => import('../pages/transport/TransportStaff.vue'), meta: { title: 'Active staff', permission: ['transport_view', 'transport_manage'] } },
+            { path: 'transport/today', name: 'transport-today', component: () => import('../pages/transport/TransportToday.vue'), meta: { title: 'Transport_Today', permission: 'transport_supervise' } },
+            { path: 'transport/parcels', name: 'transport-parcels', component: () => import('../pages/transport/TransportParcels.vue'), meta: { title: 'Transport_Parcels', permission: 'transport_parcels' } },
+            { path: 'transport/boarding', name: 'transport-boarding', component: () => import('../pages/transport/TransportBoarding.vue'), meta: { title: 'Transport_Boarding', permission: ['transport_boarding', 'transport_supervise'] } },
+            { path: 'fleet/parts', name: 'fleet-parts', component: () => import('../pages/fleet/Parts.vue'), meta: { title: 'Fleet_Parts', permission: 'fleet_parts' } },
+            { path: 'fleet/plan', name: 'fleet-plan', component: () => import('../pages/fleet/MaintenancePlan.vue'), meta: { title: 'Fleet_Plan', permission: 'fleet_plan' } },
+            { path: 'transport/tolls', name: 'transport-tolls', component: () => import('../pages/transport/TransportTolls.vue'), meta: { title: 'Transport_Tolls', permission: 'transport_tolls' } },
             // Hospital Management. `create` is declared before the :id routes
             // so it is never read as a record id.
             { path: 'hospital/dashboard', name: 'hospital-dashboard', component: HospitalDashboard, meta: { title: 'Hospital Dashboard', permission: 'hms_dashboard' } },
@@ -939,6 +945,7 @@ const routes = [
             { path: 'settings/system-health', name: 'system-health', component: SystemHealth, meta: { title: 'System Health', permission: 'system_health_view', systemOnly: true } },
             // Company manuals (2026-11-01): each company's flyer and text manual -- superadmin/AdminSystem only.
             { path: 'settings/company-manuals', name: 'company-manuals', component: () => import('../pages/settings/CompanyManuals.vue'), meta: { title: 'Company manuals', permission: 'company_manuals_view', superAdminOnly: true, systemOnly: true } },
+            { path: 'settings/roles-matrix', name: 'roles-matrix', component: () => import('../pages/settings/RolesMatrix.vue'), meta: { title: 'Roles by company', permission: 'roles_matrix_view', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/kt-log', name: 'kt-log', component: () => import('../pages/settings/KtLog.vue'), meta: { title: 'KT-Log', permission: 'kt_logs_view', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/sms-templates', name: 'sms-templates', component: SmsTemplates, meta: { title: 'SMS Templates', permission: 'sms_templates' } },
             { path: 'settings/email-templates', name: 'email-templates', component: EmailTemplates, meta: { title: 'Email Templates', permission: 'notification_template' } },
@@ -1012,6 +1019,8 @@ router.beforeEach(async to => {
         const roleHome = auth.user?.role_home;
         if (roleHome && roleHome !== '/dashboard') return roleHome;
         if (!auth.can('dashboard')) {
+            // Staff without a home page (role Employee): the intranet, not their own file (2026-11-03).
+            if (auth.can('intranet_view') && auth.moduleEnabled('intranet')) return '/intranet';
             const first = pageOptions(auth)[0];
             if (first) return first.path;
         }

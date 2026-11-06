@@ -33,6 +33,12 @@ class WebsiteModule extends DemoModule
         return 'Website pages (about, services, contact... for the business type)';
     }
 
+    /** No page set for a travel / bus company yet (it got the IT pages). */
+    public function skipBusinessTypes(): array
+    {
+        return ['tourism'];
+    }
+
     public function dataTables(): array
     {
         return [];

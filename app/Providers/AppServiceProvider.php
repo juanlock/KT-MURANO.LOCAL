@@ -20,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->app->bind('db.connector.mysql', \App\Support\RetryingMySqlConnector::class);
+
         // tdb() / locale_dir(), used by the guest Blade pages (login, password
         // reset). It is listed in composer.json's autoload.files too, but an
         // install that receives this file through an app update has not run
@@ -122,7 +124,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Set the default guard to 'store' for all 'store/*' routes
         $this->app['router']->matched(function (\Illuminate\Routing\Events\RouteMatched $event) {
-            if ($event->route->action['middleware'] === 'auth.store') {
+            if (($event->route->action['middleware'] ?? null) === 'auth.store') {
                 Auth::shouldUse('store');
             }
         });

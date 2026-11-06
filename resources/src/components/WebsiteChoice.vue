@@ -4,27 +4,24 @@
   <div class="website-choice">
     <a-radio-group :value="mode" style="width: 100%" @update:value="v => emit('update:mode', v)">
       <a-radio value="default" class="wc-option">
-        <strong>Use the default online store</strong>
+        <strong>{{ $t('tx_Use_the_default_online_store_35168') }}</strong>
         <div class="wc-help">
-          The company's domain opens the online store, with standard pages (About Us, Contact Us,
-          Shipping &amp; Returns, Privacy Policy, FAQ) filled with its name and contact details — all editable in
-          Store → Pages.
+          {{ $t('tx_The_company_s_domain_opens_the_online_store_with_standard_pa_db2fe') }}
         </div>
       </a-radio>
       <a-radio value="import" class="wc-option">
-        <strong>Import the existing website</strong>
+        <strong>{{ $t('tx_Import_the_existing_website_a8a2c') }}</strong>
         <div class="wc-help">
-          Copies the company's current website (its pages, design and images) and shows it as the Home page
-          exactly as it looks today. If it can't be read, the default online store is used instead.
+          {{ $t('tx_Copies_the_company_s_current_website_its_pages_design_and_im_2386e') }}
         </div>
       </a-radio>
     </a-radio-group>
-    <a-form-item v-if="mode === 'import'" label="Current website address" style="margin-top: 8px">
+    <a-form-item v-if="mode === 'import'" :label="$t('tx_Current_website_address_cf56b')" style="margin-top: 8px">
       <a-input :value="url" placeholder="https://www.example.com" @update:value="v => emit('update:url', v)" />
-      <div v-if="current === 'import'" class="wc-help">Already imported — enter the address again to refresh the copy.</div>
+      <div v-if="current === 'import'" class="wc-help">{{ $t('tx_Already_imported_enter_the_address_again_to_refresh_the_copy_08c3c') }}</div>
     </a-form-item>
     <div v-else-if="current === 'import'" class="wc-help wc-warn">
-      Saving switches this company from its imported website to the default online store (the imported copy is kept and can be switched back in Store → Pages).
+      {{ $t('tx_Saving_switches_this_company_from_its_imported_website_to_th_6499f') }}
     </div>
   </div>
 </template>

@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <PageHeader title="Employee Contracts" :breadcrumb="[$t('hrm'), 'Employee Contracts']">
+    <PageHeader :title="$t('Employee_Contracts')" :breadcrumb="[$t('hrm'), 'Employee Contracts']">
       <template #actions>
         <a-button type="primary" @click="$router.push('/contracts/create')">
           <template #icon><PlusOutlined /></template>
@@ -39,7 +39,7 @@
         <template v-else-if="column.key === 'actions'">
           <a-space>
             
-            <a-tooltip title="View">
+            <a-tooltip :title="$t('View')">
               <a-button type="text" size="small" @click="$router.push(`/contracts/${record.id}`)">
                 <template #icon><EyeOutlined style="color: #1677ff" /></template>
               </a-button>

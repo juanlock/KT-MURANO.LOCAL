@@ -11,10 +11,10 @@ export default {
     'Yes, apply to all companies': 'Sí, aplicar a todas las empresas',
     'Save': 'Guardar',
     'Arrange the menu': 'Ordene el menú',
-    'Use the arrows to move an item up or down, "Move to…" to put it in another module, group or at the top level, or drag and drop it. The pencil renames, + adds a submenu item, the eye hides or shows, the trash removes a custom item. Modules turned off for this company are not listed; they keep their place for when they are turned back on.':
-        'Use las flechas para subir o bajar un elemento, "Mover a…" para ponerlo en otro módulo, grupo o en el nivel principal, o arrástrelo. El lápiz cambia el nombre, + agrega un elemento dentro, el ojo oculta o muestra, la papelera quita un elemento propio. Los módulos apagados para esta empresa no se listan; conservan su lugar para cuando se vuelvan a encender.',
-    'Use the arrows to move an item up or down, "Move to…" to put it in another module, group or at the top level, or drag and drop it. The eye hides or shows an item. Only a SuperAdmin can add, remove or rename menu items. Modules turned off for your company are not listed.':
-        'Use las flechas para subir o bajar un elemento, "Mover a…" para ponerlo en otro módulo, grupo o en el nivel principal, o arrástrelo. El ojo oculta o muestra un elemento. Solo un SuperAdmin puede agregar, quitar o renombrar elementos. Los módulos apagados para su empresa no se listan.',
+    'Drag an item by its handle and drop it between two rows (to put it inside a menu, open the menu first), use the arrows to move it up or down, or "Move to…" to pick the place and position from a list. The pencil renames, + adds a submenu item, the eye hides or shows, the trash removes a custom item. Every change is saved automatically (AdminSystem: press Save). Modules turned off for this company are not listed; they keep their place for when they are turned back on.':
+        'Arrastre un elemento por su asa y suéltelo entre dos filas (para ponerlo dentro de un menú, abra primero el menú), use las flechas para subirlo o bajarlo, o "Mover a…" para elegir el lugar y la posición de una lista. El lápiz cambia el nombre, + agrega un elemento dentro, el ojo oculta o muestra, la papelera quita un elemento propio. Cada cambio se guarda solo (AdminSystem: presione Guardar). Los módulos apagados para esta empresa no se listan; conservan su lugar para cuando se vuelvan a encender.',
+    'Drag an item by its handle and drop it between two rows (to put it inside a menu, open the menu first), use the arrows to move it up or down, or "Move to…" to pick the place and position from a list. The eye hides or shows an item. Every change is saved automatically. Only a SuperAdmin can add, remove or rename menu items. Modules turned off for your company are not listed.':
+        'Arrastre un elemento por su asa y suéltelo entre dos filas (para ponerlo dentro de un menú, abra primero el menú), use las flechas para subirlo o bajarlo, o "Mover a…" para elegir el lugar y la posición de una lista. El ojo oculta o muestra un elemento. Cada cambio se guarda solo. Solo un SuperAdmin puede agregar, quitar o renombrar elementos. Los módulos apagados para su empresa no se listan.',
     'Working as AdminSystem: Save and Reset apply to EVERY company (replacing each company\'s own menu order).':
         'Trabajando como AdminSystem: Guardar y Restablecer se aplican a TODAS las empresas (reemplazan el orden propio de cada una).',
     'Save and Reset apply only to {name}.': 'Guardar y Restablecer se aplican solo a {name}.',
@@ -73,4 +73,15 @@ export default {
     'You have unsaved changes -- press Save.': 'Tiene cambios sin guardar — presione Guardar.',
     'not in your menu': 'no está en su menú',
     'Other roles of the company see it; yours has no permission for it.': 'Otros roles de la empresa lo ven; el suyo no tiene permiso para verlo.',
+    // Autosave, drag handle and "Move to…" position (2026-11-02).
+    'Saving…': 'Guardando…',
+    'Not saved -- try again': 'No se guardó — reintentar',
+    'All changes saved': 'Todos los cambios guardados',
+    'Changes are saved automatically': 'Los cambios se guardan solos',
+    'Drag to move': 'Arrastre para mover',
+    'Place': 'Lugar',
+    'Position': 'Posición',
+    'At the beginning': 'Al principio',
+    'At the end': 'Al final',
+    'After "{name}"': 'Después de "{name}"',
 };

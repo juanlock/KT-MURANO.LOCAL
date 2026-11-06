@@ -375,6 +375,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * WAVE C REFERENCE LIST — customers core: server table, pay-due / pay-return-
  * due modals, full-page create/edit routes, delete + bulk delete.
@@ -458,7 +459,7 @@ const columns = computed(() => [
   { title: t('Phone'), dataIndex: 'phone', key: 'phone' },
   { title: t('Email'), dataIndex: 'email', key: 'email', exportValue: r => [r.email, ...(r.additional_emails || [])].filter(Boolean).join(', ') },
   // Email Office emails from / to the customer; opens their Email conversation tab.
-  ...(auth.moduleEnabled?.('email_office') && auth.can('email_office_view') ? [{ title: 'Emails', key: 'emails_count', dataIndex: 'emails_count', align: 'center', width: 90, exportValue: r => String(r.emails_count || 0) }] : []),
+  ...(auth.moduleEnabled?.('email_office') && auth.can('email_office_view') ? [{ title: tEs('tx_Emails_9790b', 'Emails'), key: 'emails_count', dataIndex: 'emails_count', align: 'center', width: 90, exportValue: r => String(r.emails_count || 0) }] : []),
   // Columns also drive the exports, so a disabled feature drops out of both.
   ...(auth.customerCreditLimitEnabled
     ? [{ title: t('Credit_Limit'), key: 'credit_limit', dataIndex: 'credit_limit', align: 'right', exportValue: r => money(r.credit_limit) }]
@@ -469,7 +470,7 @@ const columns = computed(() => [
   { title: t('Total_Sales'), key: 'total_amount', dataIndex: 'total_amount', align: 'right', exportValue: r => money(r.total_amount) },
   { title: '# ' + t('Sales'), key: 'sales_count', dataIndex: 'sales_count', align: 'center', width: 90, exportValue: r => String(r.sales_count || 0) },
   // Sales Contracts of the customer (all, not date-filtered); opens their Contracts tab.
-  { title: 'Contracts', key: 'contracts_count', dataIndex: 'contracts_count', align: 'center', width: 100, exportValue: r => String(r.contracts_count || 0) },
+  { title: tEs('Contracts', 'Contracts'), key: 'contracts_count', dataIndex: 'contracts_count', align: 'center', width: 100, exportValue: r => String(r.contracts_count || 0) },
   { title: t('Due'), key: 'due', dataIndex: 'due', sorter: true, align: 'right', exportValue: r => money(r.due) },
   { title: t('Service_Due'), key: 'service_due', dataIndex: 'service_due', align: 'right', exportValue: r => money(r.service_due) },
   { title: t('Total_Sell_Return_Due'), key: 'return_Due', dataIndex: 'return_Due', align: 'right', exportValue: r => money(r.return_Due) },

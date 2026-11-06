@@ -91,7 +91,7 @@
             <div v-if="quote.client_phone">{{ $t('Phone') }}: {{ quote.client_phone }}</div>
             <div v-if="quote.client_email">{{ $t('Email') }}: {{ quote.client_email }}</div>
             <div v-if="quote.client_adr">{{ $t('Adress') }}: {{ quote.client_adr }}</div>
-            <div v-if="quote.client_tax">Tax #: {{ quote.client_tax }}</div>
+            <div v-if="quote.client_tax">{{ $t('tx_Tax_1ef09') }} {{ quote.client_tax }}</div>
           </div>
         </a-col>
         <a-col :xs="24" :md="12">
@@ -134,12 +134,12 @@
         <!-- Summary labels hardcoded English in legacy's invoice too. -->
         <table>
           <tr><td>Subtotal:</td><td>{{ docMoney(subtotal) }}</td></tr>
-          <tr><td>Order Tax:</td><td>{{ docMoney(quote.TaxNet) }}</td></tr>
+          <tr><td>{{ $t('tx_Order_Tax_fc6d7') }}</td><td>{{ docMoney(quote.TaxNet) }}</td></tr>
           <tr v-if="Number(quote.discount) > 0">
-            <td>Discount:</td>
+            <td>{{ $t('tx_Discount_a1e73') }}</td>
             <td class="neg">- {{ docMoney(quote.discount) }}</td>
           </tr>
-          <tr><td>Shipping:</td><td>{{ docMoney(quote.shipping) }}</td></tr>
+          <tr><td>{{ $t('tx_Shipping_66f51') }}</td><td>{{ docMoney(quote.shipping) }}</td></tr>
           <tr class="grand"><td>{{ $t('Total') }}:</td><td>{{ docMoney(quote.GrandTotal) }}</td></tr>
         </table>
       </div>

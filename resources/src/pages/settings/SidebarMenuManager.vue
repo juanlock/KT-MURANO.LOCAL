@@ -12,10 +12,19 @@
             <template #icon><UndoOutlined /></template>
             {{ s('Reset to default') }}
           </a-button>
-          <a-button type="primary" :disabled="!dirty" :loading="saving" @click="save">
+          <!-- A company's menu saves itself on every change (2026-11-02); AdminSystem
+               keeps Save, which asks before replacing every company's menu. -->
+          <a-button v-if="appliesToAll" type="primary" :disabled="!dirty" :loading="saving" @click="save">
             <template #icon><SaveOutlined /></template>
             {{ s('Save') }}
           </a-button>
+          <span v-else class="smm-autosave" :class="{ 'smm-autosave-error': saveError }">
+            <template v-if="saving"><LoadingOutlined /> {{ s('Saving…') }}</template>
+            <a-button v-else-if="saveError" size="small" danger @click="autoSave"><WarningOutlined /> {{ s('Not saved -- try again') }}</a-button>
+            <template v-else-if="dirty"><LoadingOutlined /> {{ s('Saving…') }}</template>
+            <template v-else-if="savedOnce"><CheckCircleOutlined /> {{ s('All changes saved') }}</template>
+            <template v-else>{{ s('Changes are saved automatically') }}</template>
+          </span>
         </a-space>
       </template>
     </PageHeader>
@@ -45,7 +54,7 @@
           : undefined"
         style="margin-bottom: 16px"
       />
-      <a-alert v-if="dirty" type="warning" show-icon :message="s('You have unsaved changes -- press Save.')" style="margin-bottom: 12px" />
+      <a-alert v-if="dirty && appliesToAll" type="warning" show-icon :message="s('You have unsaved changes -- press Save.')" style="margin-bottom: 12px" />
 
       <div class="smm-toolbar">
         <a-space>
@@ -56,6 +65,7 @@
       </div>
 
       <div class="smm-header-row">
+      <span></span>
       <span class="smm-col-icon"></span>
       <span class="smm-col-label">{{ s('Item') }}</span>
       <span class="smm-col-actions">{{ s('Actions') }}</span>
@@ -75,6 +85,7 @@
     >
       <template #title="{ dataRef }">
         <span class="smm-node" :class="`smm-${dataRef.type}`">
+          <HolderOutlined class="smm-handle" :title="s('Drag to move')" />
           <span class="smm-col-icon">
             <component :is="dataRef.iconCmp" v-if="dataRef.iconCmp" :size="15" class="smm-icon" />
           </span>
@@ -141,11 +152,16 @@
       :ok-button-props="{ disabled: moveTarget === undefined }"
       @ok="confirmMove"
     >
+      <div class="smm-move-label">{{ s('Place') }}</div>
       <a-select
         v-model:value="moveTarget" show-search style="width: 100%"
         :options="moveOptions" :filter-option="(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())"
+        @change="moveAfter = '__end__'"
       />
-      <div class="smm-type-hint">{{ s('It goes at the end of the chosen place; then use the arrows to put it exactly where you want.') }}</div>
+      <template v-if="moveTarget !== undefined">
+        <div class="smm-move-label">{{ s('Position') }}</div>
+        <a-select v-model:value="moveAfter" style="width: 100%" :options="movePositionOptions" />
+      </template>
     </a-modal>
 
     <a-modal
@@ -276,13 +292,14 @@
  * not something to expose here; menu_positions.location was never meant for
  * the online store's own navigation menu either -- that's Store -> Menus).
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   SaveOutlined, UndoOutlined, EyeOutlined, EyeInvisibleOutlined, DeleteOutlined,
   PlusOutlined, EditOutlined, LinkOutlined, FolderOutlined, OrderedListOutlined,
   ArrowUpOutlined, ArrowDownOutlined, DragOutlined,
+  HolderOutlined, LoadingOutlined, CheckCircleOutlined, WarningOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { looseTranslation } from '../../i18n';
@@ -305,8 +322,8 @@ const auth = useAuthStore();
 const menuStore = useMenuStore();
 // This page's texts in the active language (2026-10-20).
 const { s } = useLocalText(SMM_ES);
-const SUPER_HELP = 'Use the arrows to move an item up or down, "Move to…" to put it in another module, group or at the top level, or drag and drop it. The pencil renames, + adds a submenu item, the eye hides or shows, the trash removes a custom item. Modules turned off for this company are not listed; they keep their place for when they are turned back on.';
-const ADMIN_HELP = 'Use the arrows to move an item up or down, "Move to…" to put it in another module, group or at the top level, or drag and drop it. The eye hides or shows an item. Only a SuperAdmin can add, remove or rename menu items. Modules turned off for your company are not listed.';
+const SUPER_HELP = 'Drag an item by its handle and drop it between two rows (to put it inside a menu, open the menu first), use the arrows to move it up or down, or "Move to…" to pick the place and position from a list. The pencil renames, + adds a submenu item, the eye hides or shows, the trash removes a custom item. Every change is saved automatically (AdminSystem: press Save). Modules turned off for this company are not listed; they keep their place for when they are turned back on.';
+const ADMIN_HELP = 'Drag an item by its handle and drop it between two rows (to put it inside a menu, open the menu first), use the arrows to move it up or down, or "Move to…" to pick the place and position from a list. The eye hides or shows an item. Every change is saved automatically. Only a SuperAdmin can add, remove or rename menu items. Modules turned off for your company are not listed.';
 const MOVE_TITLE = 'Move "{name}" to';
 const GROUP_UNDER = 'It becomes a group under "{name}".';
 const DEEP_HINT = '"{name}" is already {n} level(s) deep, so a new menu here would have nowhere for its own items to go -- only a link/route item is allowed.';
@@ -537,8 +554,12 @@ function allowDrop({ dragNode, dropNode, dropPosition }) {
   if (!drag) return true;
   const over = dataOf(dropNode);
   if (over.key === drag.key) return false;
-  // dropPosition 0 = inside dropNode; ±1 = the gap around it.
-  if (dropPosition === 0) return isValidParent(drag, over);
+  // dropPosition 0 = inside dropNode; ±1 = the gap around it. Inside a CLOSED
+  // menu is refused (2026-11-02: passing over a module swallowed the item into
+  // it): dragging only places between rows -- into a menu = between its open
+  // items or right under its open header (Ant's "inside" of an expanded node,
+  // drawn as an indented line); "Move to…" does the rest.
+  if (dropPosition === 0) return isExpandedContainer(over) && isValidParent(drag, over);
   // The gap after an expanded container doubles as its first-child slot.
   if (dropPosition === 1 && isExpandedContainer(over) && isValidParent(drag, over)) return true;
   return isValidParent(drag, parentByKey.value.get(over.key));
@@ -558,8 +579,10 @@ function onDrop(info) {
   // Where the drag node ends up: as first child of a container (dropped onto
   // it, or into the gap right below its expanded header — where Ant draws the
   // indented indicator), or as a sibling of dropNode. null parent = root.
-  const asFirstChild = !info.dropToGap
-    || (relPos === 1 && isExpandedContainer(dropNode) && isValidParent(dragNode, dropNode));
+  // Onto a closed row never nests (allowDrop refuses it); onto an open menu =
+  // its first item.
+  if (!info.dropToGap && !isExpandedContainer(dropNode)) return;
+  const asFirstChild = (!info.dropToGap || relPos === 1) && isExpandedContainer(dropNode) && isValidParent(dragNode, dropNode);
   const targetParent = asFirstChild ? dropNode : parentByKey.value.get(dropKey);
   if (!isValidParent(dragNode, targetParent)) {
     const tooDeep = targetParent
@@ -617,7 +640,7 @@ function onDrop(info) {
   }
 
   treeData.value = data;
-  dirty.value = true;
+  changed();
 }
 
 const TOO_DEEP = 'This would nest too deep -- "{name}" has its own items {n} level(s) down, and menus only support {max} levels total.';
@@ -656,7 +679,7 @@ function step(node, dir) {
   const b = list.findIndex(n => n.key === other.key);
   [list[a], list[b]] = [list[b], list[a]];
   treeData.value = [...treeData.value];
-  dirty.value = true;
+  changed();
 }
 
 const moveModalVisible = ref(false);
@@ -681,36 +704,55 @@ const moveOptions = computed(() => {
   return opts;
 });
 
+// Where inside the chosen place (2026-11-02): first, after a given item, or last.
+const moveAfter = ref('__end__');
+
+function findByKey(list, key) {
+  for (const n of list) {
+    if (n.key === key) return n;
+    const hit = n.children && findByKey(n.children, key);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** The visible items of the chosen place, as "first / after X / last". */
+const movePositionOptions = computed(() => {
+  if (moveTarget.value === undefined || !moveNode.value) return [];
+  const list = moveTarget.value === '__root__'
+    ? treeData.value
+    : (findByKey(treeData.value, moveTarget.value)?.children || []);
+  const opts = [{ value: '__start__', label: s('At the beginning') }];
+  list.filter(n => !n.moduleOff && n.key !== moveNode.value.key)
+    .forEach(n => opts.push({ value: n.key, label: s('After "{name}"', { name: labelOf(n.entry) }) }));
+  opts.push({ value: '__end__', label: s('At the end') });
+  return opts;
+});
+
 function openMoveModal(node) {
   moveNode.value = node;
   moveTarget.value = undefined;
+  moveAfter.value = '__end__';
   moveModalVisible.value = true;
 }
 
 function confirmMove() {
   const node = moveNode.value;
   if (!node || moveTarget.value === undefined) return;
-  const findByKey = (list, key) => {
-    for (const n of list) {
-      if (n.key === key) return n;
-      const hit = n.children && findByKey(n.children, key);
-      if (hit) return hit;
-    }
-    return null;
-  };
   const parent = moveTarget.value === '__root__' ? null : findByKey(treeData.value, moveTarget.value);
   const from = siblingsOf(node);
   from.splice(from.findIndex(n => n.key === node.key), 1);
   retype(node, parent);
-  if (parent) {
-    parent.children = parent.children || [];
-    parent.children.push(node);
-    if (!expandedKeys.value.includes(parent.key)) expandedKeys.value = [...expandedKeys.value, parent.key];
-  } else {
-    treeData.value.push(node);
-  }
+  if (parent) parent.children = parent.children || [];
+  const to = parent ? parent.children : treeData.value;
+  const after = moveAfter.value;
+  const at = after === '__start__' ? 0
+    : after === '__end__' ? to.length
+      : to.findIndex(n => n.key === after) + 1 || to.length;
+  to.splice(at, 0, node);
+  if (parent && !expandedKeys.value.includes(parent.key)) expandedKeys.value = [...expandedKeys.value, parent.key];
   treeData.value = [...treeData.value];
-  dirty.value = true;
+  changed();
   moveModalVisible.value = false;
 }
 
@@ -718,7 +760,7 @@ function confirmMove() {
 
 function toggleHidden(node) {
   node.hidden = !node.hidden;
-  dirty.value = true;
+  changed();
 }
 
 /** Every key currently in the tree, at any depth -- for new-key uniqueness. */
@@ -736,7 +778,7 @@ function removeItem(node) {
   } else {
     treeData.value = treeData.value.filter(n => n.key !== node.key);
   }
-  dirty.value = true;
+  changed();
 }
 
 function openRenameModal(node) {
@@ -753,7 +795,7 @@ function confirmRename() {
   }
   const node = renameTarget.value;
   node.entry = { ...node.entry, label: value, raw: true };
-  dirty.value = true;
+  changed();
   renameModalVisible.value = false;
 }
 
@@ -816,7 +858,7 @@ function confirmAddItem() {
     if (!expandedKeys.value.includes(target.key)) expandedKeys.value = [...expandedKeys.value, target.key];
   }
 
-  dirty.value = true;
+  changed();
   addModalVisible.value = false;
   resetAddForm();
 }
@@ -872,8 +914,37 @@ function save() {
   });
 }
 
-async function doSave() {
+/*
+ * Autosave (user's rule, 2026-11-02): a company's menu is saved a moment after
+ * every change -- no Save button. AdminSystem keeps Save + its confirmation,
+ * since a save there replaces every company's menu. A change made while a save
+ * is running is saved right after it; leaving the page saves what's pending.
+ */
+const saveError = ref(false);
+const savedOnce = ref(false);
+let changeSeq = 0;
+let autoTimer = null;
+let saveAgain = false;
+function changed() {
+  changeSeq++;
+  dirty.value = true;
+  if (appliesToAll.value) return;
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(autoSave, 600);
+}
+async function autoSave() {
+  autoTimer = null;
+  if (saving.value) { saveAgain = true; return; }
+  await doSave(true);
+  if (saveAgain) { saveAgain = false; autoSave(); }
+}
+onBeforeUnmount(() => {
+  if (autoTimer) { clearTimeout(autoTimer); autoSave(); }
+});
+
+async function doSave(auto = false) {
   saving.value = true;
+  const seq = changeSeq;
   try {
     const order = serialize(treeData.value);
     // sidebar_menu_order: the acting company's legacy top-level order
@@ -893,9 +964,12 @@ async function doSave() {
     // editor (permissions follow the menu order) pick up the new structure
     // without a page reload.
     menuStore.loadPositions();
-    dirty.value = false;
-    message.success(res?.message || t('Successfully_Updated'));
+    dirty.value = seq !== changeSeq;
+    saveError.value = false;
+    savedOnce.value = true;
+    if (!auto) message.success(res?.message || t('Successfully_Updated'));
   } catch (e) {
+    saveError.value = true;
     message.error(e?.data?.message || e?.message || t('InvalidData'));
   } finally {
     saving.value = false;
@@ -914,6 +988,7 @@ function confirmDefaultOrder() {
   });
 }
 async function copyDefaultOrder() {
+  clearTimeout(autoTimer); autoTimer = null; // a pending autosave must not overwrite it
   copyingDefault.value = true;
   try {
     const res = await http.post('menu-positions/default', {});
@@ -943,6 +1018,7 @@ function confirmReset() {
 }
 
 async function reset() {
+  clearTimeout(autoTimer); autoTimer = null; // a pending autosave must not overwrite it
   resetting.value = true;
   try {
     await http.delete('sidebar_menu_order');
@@ -968,6 +1044,23 @@ async function reset() {
 </script>
 
 <style scoped>
+.smm-handle {
+  cursor: grab;
+  color: #8c8c8c;
+}
+.smm-autosave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #52c41a;
+  font-size: 13px;
+}
+.smm-autosave-error { color: #ff4d4f; }
+.smm-move-label {
+  margin: 10px 0 4px;
+  font-weight: 500;
+}
+.smm-move-label:first-child { margin-top: 0; }
 .smm-toolbar {
   display: flex;
   align-items: center;
@@ -991,7 +1084,8 @@ async function reset() {
 .smm-header-row,
 .smm-node {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 236px;
+  /* handle | icon | label | actions (2026-11-02: the drag handle has its own column) */
+  grid-template-columns: 16px 22px minmax(0, 1fr) 236px;
   align-items: center;
   gap: 8px;
   width: 100%;

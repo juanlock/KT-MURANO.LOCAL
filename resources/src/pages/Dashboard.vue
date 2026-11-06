@@ -1,13 +1,14 @@
 <template>
-  <div class="page">
+  <div class="page" :class="{ 'board-mode': boardMode }">
     <!-- ================= Header ================= -->
     <div class="page-header">
-      <div>
-        <a-typography-title :level="3" style="margin: 0; font-size: 22px">{{ greeting }}</a-typography-title>
-        <a-typography-text type="secondary">{{ subtitle }}</a-typography-text>
+      <!-- A transport company's dashboard is a board: one screen, so no greeting and the filters in one row. -->
+      <div v-if="!boardMode || demoMode">
+        <a-typography-title v-if="!boardMode" :level="3" style="margin: 0; font-size: 22px">{{ greeting }}</a-typography-title>
+        <a-typography-text v-if="demoMode" type="secondary">{{ t('Dashboard_Demo_Subtitle') }}</a-typography-text>
       </div>
 
-      <a-space wrap :size="12" class="dash-filters">
+      <a-space wrap :size="boardMode ? 8 : 12" class="dash-filters">
         <!-- Same date presets + editable Start date / to as Sales -> List Sales. -->
         <DateRangeFields :value="rangeFields" :disabled="loading" @change="onRangeEdit" />
         <!-- Double-click any filter choice = your default when the Dashboard
@@ -18,8 +19,8 @@
                so the double-click saves the current choice. -->
           <!-- The date default is the user's ONE default for every page with
                these buttons (lib/datePresetDefault.js). -->
-          <div class="preset-buttons" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(period)">
-            <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" @change="load()">
+          <div class="preset-buttons" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
+            <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" :size="boardMode ? 'small' : undefined" @change="load()">
               <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">
                 {{ $t(p.labelKey) }}<StarFilled v-if="savedDatePreset === p.value" class="def-star" />
               </a-radio-button>
@@ -28,9 +29,9 @@
           <!-- Phones: the 8 preset buttons don't fit in a row (they overlapped
                the other filters), so the same choice is a dropdown. Kept in
                the presets' own order (All -> Last Year), not alphabetical. -->
-          <div class="preset-select" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(period)">
+          <div class="preset-select" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
             <a-select
-              :value="period ?? undefined" style="width: 100%" :disabled="loading" placeholder="Custom range"
+              :value="period ?? undefined" style="width: 100%" :disabled="loading" :placeholder="$t('CustomRange')"
               @update:value="v => (period = v)"
               :options="DATE_PRESETS.map(p => ({ value: p.value, label: savedDatePreset === p.value ? `${$t(p.labelKey)} ★` : $t(p.labelKey) }))"
               @change="load()"
@@ -41,6 +42,7 @@
           <a-select
             v-model:value="warehouseId"
             class="wh-select"
+            :size="boardMode ? 'small' : undefined"
             :options="warehouseOptions"
             @change="load()"
           />
@@ -49,9 +51,9 @@
         <div v-if="currencyVisible" :title="DEFAULT_HINT" @dblclick="toggleDefault('currency_id', currentCurrencyId, currencyLabel(currentCurrencyId))">
           <ViewCurrencySelect class="wh-select" />
         </div>
-        <a-button type="primary" :loading="loading" @click="load()">
+        <a-button type="primary" :loading="loading" :size="boardMode ? 'small' : undefined" :title="$t('Refresh')" @click="load()">
           <template #icon><ReloadOutlined /></template>
-          {{ $t('Refresh') }}
+          <template v-if="!boardMode">{{ $t('Refresh') }}</template>
         </a-button>
       </a-space>
     </div>
@@ -73,9 +75,48 @@
     </div>
 
     <!-- The blocks top to bottom in the company's order (System Settings -> Dashboard). -->
-    <div v-else class="dash-blocks">
-      <!-- ================= Transport board (own data and date range) ========= -->
-      <TransportBoard v-if="transportBoard" :style="{ order: blockPos.transport }" />
+    <div v-else class="dash-blocks" :class="{ 'only-tabs': boardMode && transportTab !== 'transport_general' }">
+      <!-- ================= Transport: one tab per panel, the board by default (2026-11-04).
+           A tab loads its panel the first time it opens. No bar with only one panel. ========= -->
+      <a-tabs
+        v-if="transportTabs.length" v-model:active-key="transportTab" class="transport-tabs" size="middle"
+        :tab-bar-style="transportTabs.length < 2 ? { display: 'none' } : undefined"
+        :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? Infinity)) }"
+      >
+        <a-tab-pane v-if="departuresPanel" key="transport_departures">
+          <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
+          <TransportDeparturesPanel :range="rangeFields" />
+        </a-tab-pane>
+        <a-tab-pane v-if="profitPanel" key="transport_profit">
+          <template #tab><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</template>
+          <TransportProfitPanel :range="rangeFields" />
+        </a-tab-pane>
+        <!-- Goes with "Profit by route": same permission and same on / off switch in System Settings -> Dashboard. -->
+        <a-tab-pane v-if="profitPanel" key="transport_indicators">
+          <template #tab><BarChartOutlined /> {{ es ? 'Indicadores' : 'Indicators' }}</template>
+          <TransportIndicatorsPanel :range="rangeFields" view="profit" />
+        </a-tab-pane>
+        <a-tab-pane v-if="profitPanel" key="transport_risks">
+          <template #tab><WarningOutlined /> {{ es ? 'Riesgos' : 'Risks' }}</template>
+          <TransportIndicatorsPanel :range="rangeFields" view="risks" />
+        </a-tab-pane>
+        <a-tab-pane v-if="claimsPanel" key="transport_claims">
+          <template #tab><AuditOutlined /> {{ es ? 'Reclamos' : 'Complaints' }}</template>
+          <TransportClaimsPanel :range="period === 'all' ? null : rangeFields" />
+        </a-tab-pane>
+        <a-tab-pane v-if="ownerPanel" key="transport_owner">
+          <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
+          <TransportOwnerPanel />
+        </a-tab-pane>
+        <a-tab-pane v-if="transportBoard" key="transport">
+          <template #tab><CarOutlined /> {{ es ? 'Tablero de transporte' : 'Transport board' }}</template>
+          <TransportBoard :range="rangeFields" />
+        </a-tab-pane>
+        <!-- The rest of the dashboard (sales, stock...) has its own tab, so the panels above fit one screen. -->
+        <a-tab-pane key="transport_general">
+          <template #tab><AppstoreOutlined /> General</template>
+        </a-tab-pane>
+      </a-tabs>
 
       <!-- ================= Stat cards (legacy's two rows of four) ========= -->
       <!-- Cards share the row: as many as there are, max 6 per row (then wrap). -->
@@ -97,7 +138,7 @@
 
       <!-- ================= Unpaid invoices by age (every open one, to today) ================= -->
       <div v-if="agingCards.length" :style="{ order: blockPos.aging }">
-        <div class="aging-title">Unpaid invoices by age <span>(all dates, days since the invoice)</span></div>
+        <div class="aging-title">{{ $t('tx_Unpaid_invoices_by_age_e3a15') }} <span>{{ $t('tx_all_dates_days_since_the_invoice_f66da') }}</span></div>
         <div class="card-grid" :style="{ '--cols': Math.min(agingCards.length, 6) }">
           <div v-for="card in agingCards" :key="card.id">
             <a-card :hoverable="true" class="stat-card" @click="$router.push(card.link)">
@@ -297,7 +338,7 @@
     <!-- Start page "customized by each user" (Defaults -> Users): the user's
          6 most used pages as shortcuts, and what opens after login. At the end
          of the page (user's request, 2026-11-01). -->
-    <a-card v-if="customStart" size="small" class="lu-card" style="margin-top: 16px">
+    <a-card v-if="customStart" v-show="!boardMode || transportTab === 'transport_general'" size="small" class="lu-card" style="margin-top: 16px">
       <template #title>
         <span><HistoryOutlined /> {{ tf('Shortcuts', 'Shortcuts') }}</span>
       </template>
@@ -312,14 +353,15 @@
         </button>
       </div>
       <div v-else class="lu-empty">
-        No shortcuts yet: an admin can choose them in System Settings → Defaults → Users, and the forms you use most will fill the rest.
+        {{ $t('tx_No_shortcuts_yet_an_admin_can_choose_them_in_System_Settings_0ec2b') }}
       </div>
     </a-card>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { t as tEs } from '../i18n/index.js';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { DATE_PRESETS, presetDates, presetOf } from '../lib/datePresets';
 import DateRangeFields from '../components/DateRangeFields.vue';
 import {
@@ -328,6 +370,7 @@ import {
   TagOutlined, AppstoreOutlined, InfoCircleOutlined,
   CreditCardOutlined, BankOutlined, WarningOutlined, ShopOutlined,
   CalculatorOutlined, TeamOutlined, ExclamationCircleOutlined, ClockCircleOutlined,
+  LineChartOutlined, FundOutlined, CarOutlined, BarChartOutlined, AuditOutlined, ScheduleOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import { useI18n } from 'vue-i18n';
@@ -335,12 +378,19 @@ import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
 import { blockOrder } from '../config/dashboardSections';
+import { moduleKeyForPath } from '../config/modules';
 import ViewCurrencySelect from '../components/ViewCurrencySelect.vue';
 import TransportBoard from '../components/TransportBoard.vue';
+import TransportClaimsPanel from '../components/TransportClaimsPanel.vue';
+import TransportDeparturesPanel from '../components/TransportDeparturesPanel.vue';
+import TransportIndicatorsPanel from '../components/TransportIndicatorsPanel.vue';
+import TransportOwnerPanel from '../components/TransportOwnerPanel.vue';
+import TransportProfitPanel from '../components/TransportProfitPanel.vue';
+import { useUiStore } from '../stores/ui';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import { getUserPref, setUserPref } from '../lib/userPrefs';
-import { DATE_DEFAULT_KEY, DATE_DEFAULT_HINT, savedDatePreset, startPreset, toggleDatePreset } from '../lib/datePresetDefault';
+import { DATE_DEFAULT_KEY, savedDatePreset, startPreset, toggleDatePreset } from '../lib/datePresetDefault';
 import { viewCurrencies, viewCurrencyId, viewBaseCurrencyId } from '../lib/viewCurrencyState';
 import { shortcuts, pageLabel, pageFullLabel, pageOptions } from '../lib/startPage';
 import { sortByLabel } from '../lib/filterOptions';
@@ -359,6 +409,24 @@ const show = id => !hiddenSections.value.has(id) && !(id.startsWith('card_') && 
 // Transport board: the company's module on and a role that sees Transport.
 const transportBoard = computed(() => show('transport_board') && auth.moduleEnabled('transport')
   && (auth.can('transport_view') || auth.can('transport_manage')));
+const profitPanel = computed(() => show('transport_profit') && auth.moduleEnabled('transport') && auth.can('transport_profit'));
+const departuresPanel = computed(() => show('transport_departures') && auth.moduleEnabled('transport') && auth.can('transport_profit'));
+const claimsPanel = computed(() => show('transport_claims') && auth.moduleEnabled('transport') && auth.moduleEnabled('forms')
+  && (auth.can('forms_view') || auth.can('forms_manage')));
+const ownerPanel = computed(() => show('transport_owner') && auth.can('dashboard') && auth.moduleEnabled('transport')
+  && (auth.can('transport_view') || auth.can('transport_manage')));
+const es = computed(() => useUiStore().locale === 'es');
+const transportPanels = computed(() => [departuresPanel.value && 'transport_departures', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', claimsPanel.value && 'transport_claims', ownerPanel.value && 'transport_owner', transportBoard.value && 'transport'].filter(Boolean));
+const boardMode = computed(() => transportPanels.value.length > 0);
+const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value, 'transport_general'] : []));
+const transportPick = ref(null);
+const transportTab = computed({
+  get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value
+    : (['transport_departures', 'transport'].find(k => transportTabs.value.includes(k)) || transportTabs.value[0])),
+  set: v => { transportPick.value = v; },
+});
+// The General tab's charts were drawn hidden: they need their width back when it opens.
+watch(transportTab, () => nextTick(() => window.dispatchEvent(new Event('resize'))));
 
 const customStart = computed(() => auth.user?.start_page_mode === 'custom');
 // Admin-picked shortcut buttons, empty slots filled with the user's most used forms.
@@ -384,7 +452,7 @@ const demoMode = ref(false);
 // (users.ui_preferences via lib/userPrefs); the date preset is the user's
 // default for every page (lib/datePresetDefault.js).
 const DEFAULTS_KEY = 'dashboard_filter_defaults';
-const DEFAULT_HINT = 'Double-click to make this your default (again to clear)';
+const DEFAULT_HINT = t('tx_Double_click_to_make_this_your_default_again_to_clear_2d3cd');
 const defaults = ref({ ...(getUserPref(DEFAULTS_KEY) || {}) });
 // A Dashboard-only date default saved before it became global: promote it.
 if (defaults.value.period) {
@@ -434,10 +502,6 @@ const greeting = computed(() => {
   const part = h < 12 ? t('Good_Morning') : h < 18 ? t('Good_Afternoon') : t('Good_Evening');
   return auth.username ? `${part}, ${auth.username}` : part;
 });
-
-const subtitle = computed(() =>
-  demoMode.value ? t('Dashboard_Demo_Subtitle') : t('Dashboard_Live_Subtitle')
-);
 
 const warehouseOptions = computed(() => [
   { value: '', label: starred('warehouse_id', '', t('All_Warehouses')) },
@@ -497,11 +561,11 @@ const agingCards = computed(() => {
   const day = n => dayjs().subtract(n, 'day').format('YYYY-MM-DD');
   const link = (from, to) => `/sales?payment_statut=unpaid&date_from=${from}&date_to=${to}`;
   return [
-    { id: 'card_unpaid_0_30', key: '0_30', label: '0-30 days', from: day(30), to: day(0), tint: 'rgba(250,173,20,0.14)', color: '#d48806' },
-    { id: 'card_unpaid_31_60', key: '31_60', label: '31-60 days', from: day(60), to: day(31), tint: 'rgba(250,140,22,0.14)', color: '#d46b08' },
-    { id: 'card_unpaid_61_90', key: '61_90', label: '61-90 days', from: day(90), to: day(61), tint: 'rgba(245,34,45,0.12)', color: '#cf1322' },
+    { id: 'card_unpaid_0_30', key: '0_30', label: tEs('tx_0_30_days_8fd12', '0-30 days'), from: day(30), to: day(0), tint: 'rgba(250,173,20,0.14)', color: '#d48806' },
+    { id: 'card_unpaid_31_60', key: '31_60', label: tEs('tx_31_60_days_566c3', '31-60 days'), from: day(60), to: day(31), tint: 'rgba(250,140,22,0.14)', color: '#d46b08' },
+    { id: 'card_unpaid_61_90', key: '61_90', label: tEs('tx_61_90_days_3f910', '61-90 days'), from: day(90), to: day(61), tint: 'rgba(245,34,45,0.12)', color: '#cf1322' },
     // Over 90 days: from the first day there is (2000) to 91 days ago.
-    { id: 'card_unpaid_90_plus', key: '90_plus', label: 'Over 90 days', from: '2000-01-01', to: day(91), tint: 'rgba(168,7,26,0.16)', color: '#a8071a' },
+    { id: 'card_unpaid_90_plus', key: '90_plus', label: tEs('tx_Over_90_days_41a4a', 'Over 90 days'), from: '2000-01-01', to: day(91), tint: 'rgba(168,7,26,0.16)', color: '#a8071a' },
   ].filter(c => show(c.id)).map(c => ({
     ...c,
     count: Number(r[`unpaid_age_${c.key}`]) || 0,
@@ -537,8 +601,8 @@ const alertItems = computed(() =>
   })
 );
 
-// Quick actions — only those the user can perform (auth.can fail-opens in the
-// offline demo, so all show there).
+// Quick actions — only those the user can perform and whose module is on for
+// the company (auth.can fail-opens in the offline demo, so all show there).
 const quickActions = computed(() => [
   { label: t('Pos'), perm: 'Pos_view', to: '/pos', icon: CalculatorOutlined, color: '#6d28d9', tint: 'rgba(109,40,217,0.12)' },
   { label: t('New_Sale'), perm: 'Sales_add', to: '/sales/create', icon: ShoppingCartOutlined, color: '#1677ff', tint: 'rgba(22,119,255,0.12)' },
@@ -546,7 +610,7 @@ const quickActions = computed(() => [
   { label: t('Add_Product'), perm: 'products_add', to: '/products/create', icon: AppstoreOutlined, color: '#52c41a', tint: 'rgba(82,196,26,0.12)' },
   { label: t('Add_Customer'), perm: 'Customers_add', to: '/customers/create', icon: TeamOutlined, color: '#eb2f96', tint: 'rgba(235,47,150,0.12)' },
   { label: t('Reports'), perm: 'Reports_profit', to: '/reports/profit-and-loss', icon: RiseOutlined, color: '#13c2c2', tint: 'rgba(19,194,194,0.12)' },
-].filter(a => auth.can(a.perm)));
+].filter(a => auth.can(a.perm) && (!moduleKeyForPath(a.to) || auth.moduleEnabled(moduleKeyForPath(a.to)))));
 
 // Top products with a bar scaled to the highest amount.
 const topItems = computed(() => {
@@ -801,6 +865,21 @@ onMounted(load);
 
 <style scoped>
 /* The blocks in the company's order (CSS order), 16px apart. */
+/* The tab names the panel: little chrome, the content in front. */
+.transport-tabs :deep(.ant-tabs-nav) { margin-bottom: 8px; }
+.board-mode .page-header { margin-bottom: 4px; gap: 8px; }
+.board-mode .dash-blocks.only-tabs > :not(.transport-tabs) { display: none !important; }
+.board-mode .transport-tabs :deep(.ant-tabs-nav) { margin-bottom: 6px; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab) { padding: 5px 0; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 16px; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab) { font-size: 13px; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab .anticon) { margin-right: 4px; }
+.board-mode .dash-filters :deep(.drf-label) { display: none; }
+.board-mode .dash-filters :deep(.drf-date) { width: 100px; }
+.board-mode .dash-filters :deep(.drf) { padding: 0 2px; }
+.board-mode .wh-select { width: 150px; }
+.board-mode .dash-filters :deep(.ant-radio-button-wrapper) { padding: 0 6px; }
+.transport-tabs :deep(.ant-card-body) { padding: 12px; }
 .dash-blocks {
   display: flex;
   flex-direction: column;

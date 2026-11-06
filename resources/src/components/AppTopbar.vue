@@ -213,20 +213,39 @@
         </a-button>
         <template #overlay>
           <div class="account-menu" :class="{ 'account-menu--dark': ui.dark }">
-            <div class="acct-header">
-              <a-avatar :size="40" :src="auth.avatarUrl" />
+            <!-- The person's card (2026-11-03): picture / name open Profile. -->
+            <div class="acct-header acct-link" :title="$t('profil')" @click="go('/profile')">
+              <a-avatar :size="44" :src="auth.avatarUrl" />
               <div class="acct-id">
-                <div class="acct-name">{{ auth.username || 'User' }}</div>
-                <div v-if="maskedEmail" class="acct-email">{{ maskedEmail }}</div>
+                <div class="acct-name">{{ card?.name || auth.username || 'User' }}</div>
+              </div>
+              <RightOutlined class="acct-go" />
+            </div>
+            <!-- Each line says what it is (2026-11-03). -->
+            <div v-if="card" class="acct-card">
+              <div v-if="card.username" class="acct-row">
+                <UserOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Usuario' : 'Username' }}</span><span class="acct-ell">{{ card.username }}</span>
+              </div>
+              <div v-if="card.email" class="acct-row" :title="card.email">
+                <MailOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Correo' : 'Email' }}</span><span class="acct-ell">{{ card.email }}</span>
+              </div>
+              <div v-if="card.role" class="acct-row">
+                <SafetyCertificateOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Rol' : 'Role' }}</span><a-tag color="blue">{{ card.role }}</a-tag>
+              </div>
+              <div v-if="typeLabel" class="acct-row">
+                <IdcardOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Tipo' : 'Type' }}</span><span>{{ typeLabel }}</span>
+              </div>
+              <div v-if="card.department || card.job" class="acct-row">
+                <ApartmentOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Área' : 'Department' }}</span>
+                <span>{{ card.department }}<span v-if="card.department && card.job" class="acct-dim"> · </span>{{ card.job }}</span>
+              </div>
+              <div class="acct-row">
+                <EnvironmentOutlined class="acct-row-ic" /><span class="acct-k">{{ isEs ? 'Ubicación' : 'Location' }}</span>
+                <span>{{ card.locations === null ? (isEs ? 'Todas' : 'All') : (card.locations.join(', ') || (isEs ? 'Ninguna' : 'None')) }}</span>
               </div>
             </div>
 
             <div class="acct-sep" role="separator"></div>
-
-            <button type="button" class="acct-item" @click="go('/profile')">
-              <UserOutlined class="acct-ic" />
-              <span>{{ $t('profil') }}</span>
-            </button>
             <button
               v-if="auth.can('setting_system')" type="button" class="acct-item"
               @click="go('/settings/system')"
@@ -234,7 +253,8 @@
               <SettingOutlined class="acct-ic" />
               <span>{{ $t('Settings') }}</span>
             </button>
-            <button v-if="auth.can('Pos_view')" type="button" class="acct-item" @click="go('/pos')">
+            <!-- Same gate as the header POS button: with the POS module off the router answers "not found". -->
+            <button v-if="auth.can('Pos_view') && auth.moduleEnabled('pos')" type="button" class="acct-item" @click="go('/pos')">
               <DesktopOutlined class="acct-ic" />
               <span>Open POS</span>
             </button>
@@ -319,7 +339,7 @@ import { useRouter } from 'vue-router';
 import {
   MenuFoldOutlined, MenuUnfoldOutlined, CalculatorOutlined, TabletOutlined,
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
-  BellOutlined, DownOutlined, PieChartOutlined, UserOutlined, SettingOutlined,
+  BellOutlined, DownOutlined, PieChartOutlined, EnvironmentOutlined, SettingOutlined, SafetyCertificateOutlined, UserOutlined, IdcardOutlined, MailOutlined, ApartmentOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
   DownloadOutlined, RollbackOutlined,
 } from '@ant-design/icons-vue';
@@ -490,12 +510,16 @@ async function backToAdmin() {
 
 const userMenuOpen = ref(false);
 
-// "a••••@gmail.com" — enough to recognise the account without exposing it.
-const maskedEmail = computed(() => {
-  const email = auth.user?.email || '';
-  const at = email.indexOf('@');
-  if (at <= 0) return email;
-  return `${email[0]}••••${email.slice(at)}`;
+// The person's card (2026-11-03): full email, role, user type, department / job, locations.
+const card = computed(() => auth.user?.account_card || null);
+const USER_TYPES = {
+  superadmin: ['SuperAdmin', 'SuperAdmin'], admin: ['Administrator', 'Administrador'], employee: ['Employee', 'Empleado'],
+  customer: ['Customer', 'Cliente'], supplier: ['Supplier', 'Proveedor'], sales_agent: ['Sales agent', 'Vendedor'], online_store: ['Store customer', 'Cliente de la tienda'],
+};
+const typeLabel = computed(() => {
+  const t = String(card.value?.type || '');
+  const pair = USER_TYPES[t.toLowerCase()];
+  return pair ? pair[isEs.value ? 1 : 0] : t;
 });
 
 function go(path) {
@@ -740,6 +764,18 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   font-size: 14px;
   color: rgba(0, 0, 0, 0.88);
 }
+.acct-link { cursor: pointer; border-radius: 10px; transition: background 0.15s; }
+.acct-link:hover { background: rgba(22, 119, 255, 0.06); }
+.acct-link:hover .acct-name { color: #1677ff; }
+.acct-go { margin-left: auto; opacity: 0.35; font-size: 12px; }
+.acct-card { margin: 2px 4px 6px; padding: 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.03); font-size: 12.5px; }
+.account-menu--dark .acct-card { background: rgba(255, 255, 255, 0.06); }
+.acct-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; min-width: 0; }
+.acct-row-ic { color: #1677ff; opacity: 0.75; flex: none; }
+.acct-k { flex: none; width: 74px; opacity: 0.55; }
+.acct-row :deep(.ant-tag) { margin: 0; }
+.acct-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-dim { opacity: 0.6; }
 .acct-header {
   display: flex;
   align-items: center;

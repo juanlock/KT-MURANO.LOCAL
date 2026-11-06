@@ -25,7 +25,7 @@ class MeetingInvitationNotification extends Notification implements ShouldQueue
 
     public function via($notifiable)
     {
-        return ['database', 'mail'];
+        return $notifiable->email ? ['database', 'mail'] : ['database'];
     }
 
     protected function whenText(): string
@@ -56,7 +56,7 @@ class MeetingInvitationNotification extends Notification implements ShouldQueue
             'subject'      => $subject,
             'body'         => $body,
             'company_name' => $businessName,
-        ]));
+        ]))->to($notifiable->email);
     }
 
     public function toArray($notifiable)

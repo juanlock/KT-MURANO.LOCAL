@@ -1,20 +1,20 @@
 <template>
   <div class="page">
-    <PageHeader title="Home Buttons" :breadcrumb="['Home Buttons']" />
+    <PageHeader :title="$t('Home_Buttons')" :breadcrumb="['Home Buttons']" />
 
     <a-alert
       v-if="auth.user?.start_page_mode !== 'custom'"
       type="info" show-icon style="margin-bottom: 16px"
-      message="Your company shows the regular dashboard after sign-in."
-      description="These buttons appear on your dashboard once an admin selects “Customized by each user” in System Settings → Defaults → Users. You can set them up now."
+      :message="$t('tx_Your_company_shows_the_regular_dashboard_after_sign_in_32134')"
+      :description="$t('tx_These_buttons_appear_on_your_dashboard_once_an_admin_selects_88bd7')"
     />
 
     <a-row :gutter="[16, 16]">
       <a-col :xs="24" :xl="14">
         <!-- The 8 buttons: company default / my most used form / a form I choose. -->
-        <a-card size="small" title="My buttons">
+        <a-card size="small" :title="$t('tx_My_buttons_7b88b')">
           <template #extra>
-            <a-button size="small" @click="slots = Array(8).fill(DEFAULT)">Use company defaults</a-button>
+            <a-button size="small" @click="slots = Array(8).fill(DEFAULT)">{{ $t('tx_Use_company_defaults_71fcf') }}</a-button>
           </template>
           <div class="hb-slots">
             <div v-for="(slot, i) in slots" :key="i" class="hb-slot">
@@ -28,14 +28,14 @@
         </a-card>
 
         <!-- What opens right after signing in. -->
-        <a-card size="small" title="After I sign in" style="margin-top: 16px">
+        <a-card size="small" :title="$t('tx_After_I_sign_in_c297f')" style="margin-top: 16px">
           <a-radio-group v-model:value="mode" style="display: flex; flex-direction: column; gap: 6px">
-            <a-radio value="recent">Show my home page with these buttons</a-radio>
-            <a-radio value="form">Open a form automatically</a-radio>
+            <a-radio value="recent">{{ $t('tx_Show_my_home_page_with_these_buttons_5dda8') }}</a-radio>
+            <a-radio value="form">{{ $t('tx_Open_a_form_automatically_8e2f5') }}</a-radio>
           </a-radio-group>
           <a-select
             v-if="mode === 'form'" v-model:value="form" show-search option-filter-prop="label"
-            :options="formOptions" placeholder="Choose a form" style="width: 100%; max-width: 420px; margin-top: 10px"
+            :options="formOptions" :placeholder="$t('tx_Choose_a_form_055dc')" style="width: 100%; max-width: 420px; margin-top: 10px"
           />
         </a-card>
 
@@ -46,7 +46,7 @@
 
       <!-- Live preview of the buttons as they'll show on the dashboard. -->
       <a-col :xs="24" :xl="10">
-        <a-card size="small" title="Preview">
+        <a-card size="small" :title="$t('PWA_Preview')">
           <div v-if="preview.length" class="hb-grid">
             <div v-for="p in preview" :key="p.path" class="hb-tile">
               <span class="hb-icon"><component :is="p.icon" v-if="p.icon" :size="22" /><AppstoreOutlined v-else /></span>
@@ -54,7 +54,7 @@
             </div>
           </div>
           <div v-else style="opacity: 0.55; font-size: 13px">
-            Nothing to show yet: pick forms, or use the system for a while and your most used forms will fill the buttons.
+            {{ $t('tx_Nothing_to_show_yet_pick_forms_or_use_the_system_for_a_while_43290') }}
           </div>
         </a-card>
       </a-col>
@@ -63,6 +63,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../i18n/index.js';
 /**
  * Each user's own Home Buttons (users.start_preferences.slots, PUT
  * user_start_page): 8 shortcut buttons on top of the dashboard, each one the
@@ -100,7 +101,7 @@ function slotOptions(i) {
   const adminPage = admin && byPath.value.get(admin);
   return [
     { value: DEFAULT, label: `Company default: ${adminPage ? pageFullLabel(adminPage) : 'my most used form'}` },
-    { value: MOST_USED, label: 'My most used form' },
+    { value: MOST_USED, label: tEs('tx_My_most_used_form_94731', 'My most used form') },
     ...formOptions.value,
   ];
 }

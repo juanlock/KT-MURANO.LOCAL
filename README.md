@@ -125,10 +125,16 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
   email, phone, address and helpdesk email (`App\Support\CompanyProfile`,
   Companies → Add / Edit).
 - **SuperAdmin = the owner.**
-  - The SuperAdmin role has every module by default.
-  - `App\Support\SuperAdminAccess::sync()` runs after every `migrate`.
-  - Business Modules switches never hide anything from the SuperAdmin; they
-    apply to the company's own users.
+  - A SuperAdmin is the user type; its role, **SuperAdmin** (ex Owner), lives
+    only in AdminSystem and has every permission
+    (`App\Support\SuperAdminAccess::sync()` runs after every `migrate`).
+  - With a company picked, the SuperAdmin sees that company's modules and menu
+    as its admin does; with AdminSystem picked, every module.
+- **Roles of every company** (`App\Support\CompanyRoles`): Admin Compañía (the
+  company's IT person, `{company}-admin@`), Manager (runs the business, no
+  configuration), Info (forms, read only), Helpdesk, Website, Employee,
+  Customer, plus the business's own job roles. Admin / SuperAdmin logins are
+  never an employee, customer or supplier; every other login is.
 - **Business types** (`App\Support\BusinessTypes`): a new company's modules,
   accounts, expense categories and demo data follow its type; it starts from
   the AdminSystem company (999: menu, settings, roles, language, currency).
@@ -200,185 +206,131 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
-### 2026-11-01 (Optimum) -- not in production yet
+### 2026-11-05 / 06 (Home)
 
-- **Transport module** (Turismo Cautivo and any transport / tour company):
-  agencies (one per city, e.g. LIMA, CHICLAYO, CHEPEN, TRUJILLO) and the
-  terminals of each agency, routes with km and hours, trips (one bus, 2 pilots,
-  1-2 hostesses, never double-booked), active staff by type, crew paid per
-  trip in payroll, fleet maintenance in house or at a workshop (supplier).
-- **Transport board** at the top of the main dashboard: agencies, terminals,
-  fleet, staff, trips and km; a map with the agencies, the routes and the
-  buses on the road; **Fleet now** (buses at an agency / in transit / in
-  maintenance, current trips with their crew); pilots' driving hours against
-  the safe limit, the record one in red; a card per agency.
-- **Transport demo** for any tourism company (uses the company's own agencies
-  and routes when it has them); applied to Turismo Cautivo on this PC only.
-- Main dashboard: the **Shortcuts** section is now at the end of the page.
-- Claude Code reminds the working conventions on every message (answer in
-  the user's language, kt_logs...).
-
-Setup: `php artisan migrate`, `npm run build`. Turismo's demo data is NOT in
-production (live company); after Wake-up on another PC it can be applied again
-in dev with the demo runner.
-
-### 2026-10-27 / 2026-11-01 (Optimum)
-
-- **Marketing never emails another company's customers again.** A campaign
-  reaches only its own company's customers, through that company's own mail
-  server; a company with Marketing switched off never sends (demo companies
-  have it off); test addresses are skipped. SuperAdmin can delete any
-  company's campaign from AdminSystem.
-- **Roles, one group per company**: Admin Compañía, Helpdesk, Website,
-  Formularios (read only), Customer and Employee, plus the business's own
-  roles (hospital, school, manager / field roles). Old Owner / AdminRG /
-  AdminNE / Admin-ALL / Info roles are merged; New Era keeps a single admin.
-- **Forms**:
-  - The public form can have its own header (company or own logo, color band,
-    centered), width, button above or below, a message and then another page
-    after N seconds; fields without a label show no empty line and required
-    errors turn the field red. Form codes for websites are always https.
-  - Submissions open in a large window with Previous / Next, Print, PDF, Send
-    by email and **Attended** with a note; only Manage forms can delete.
-  - Dashboard: submissions per form, Read / Unread (clickable to the report)
-    and a table grouping a form's answers (e.g. complaints by type or agency).
-- **POS**: its settings are a section of Settings, and a new option chooses
-  which roles and users may open / close the register (the POS says who can).
-- **Menu**: the main dashboard is "Tablero Principal" in Spanish. Imported
-  websites get their menu in Spanish on their Spanish pages (KcolTech).
-- **Manual**: updated (new Forms entry), a **Your company** tab with the
-  advantages for the company's type, a PDF manual and a **2-page flyer** per
-  business type and language; SuperAdmin's **Company manuals** page shows them.
+- **Each company sees only its own warehouses** on every signed-in screen
+  (transfers and adjustments listed all of them); a SuperAdmin follows the
+  company picked, AdminSystem sees all.
+- **Invoices and other printed documents speak the company's language** (they
+  could never come out in Spanish); email and SMS templates have their Spanish
+  for the companies working in Spanish.
+- **Asset validation notices** go only to the asset's own company, once per
+  date and never for demo assets; the wrong notices were removed. Meeting and
+  asset emails now reach their recipient.
+- **Turismo Cautivo**: terminal Puente Nuevo for its departures report.
+- **Turismo Cautivo's dashboard opens on the departures report**, and the
+  pilots' red line is gone from the transport board (their hour bars stay).
+- **Screens in the company's language**: about 870 texts that were written by
+  hand in English now have their Spanish (fleet, email office, contracts,
+  imports, products, customers, payroll, POS and detail screens). English
+  companies keep reading English. Store and meeting messages and the customer
+  portal are still to review.
+- **Turismo's invoices** no longer carry another company's US note (late fee,
+  phone numbers); terms and the ticket's closing line are in Spanish, and its
+  walk-in customer is now "Cliente de mostrador".
 
 Setup: `php artisan migrate`, `npm run build`.
 
-### 2026-10-27 (Thundera)
+### 2026-11-03 (Optimum)
 
-- **Login security, for every way in** (staff login, customer portal, mobile
-  app):
-  - **Locked after 5 wrong passwords** in an hour, for 1 hour, from any
-    computer. The person and the company's admins get an email; an admin
-    unlocks it in Settings -> Login security or in Users ("Locked until").
-    Resetting the password by email unlocks it too.
-  - **Standard passwords must be changed** at the first sign-in (Empleado2020,
-    Cliente2024, C0ntr0l123...), except the demo logins.
-  - **Password rules:** at least 8 characters with letters and numbers, not a
-    standard password, not the email, not one of the last 3.
-  - **Two-step verification:** each company picks which user types need a code
-    after the password (Settings -> Login security); anyone can turn it on in
-    Profile. The code arrives by email, or comes from an authenticator app
-    (QR + recovery codes). "Remember this computer" skips it for 30 days.
-  - **Sign-in alerts:** an email when a login is used from a new computer.
-  - Settings -> Login security also shows the latest sign-in activity.
-- **Login devices** (AdminSystem): Company and Role columns, and the usual
-  filters (dates, company, role, type, search); the filters sit beside the
-  table's search (any list can now put its filters there).
-- **Production server**: a daily backup of the database on the server
-  (outside the website, 14 kept), a morning email to the SuperAdmin with the
-  previous day's errors, daily log files, and the scheduled tasks work on
-  Hostinger (it blocks starting processes; they now run inside the scheduler).
-  The 3,583 jobs stuck in the queue since September (integrations no company
-  uses) were removed and those integrations no longer queue anything.
-- **Each company's online store is its own**: settings, payments, warehouses
-  and emails of the store the visitor opened (they used the first company's).
-- **Mobile app**: the server is ready for the two-step code and the password
-  change in the app (the app needs its screens).
-- **Backups** live in Google Drive (`Versions\database`, one folder per PC,
-  production, HOSTINGER); only the latest copy stays in the repo.
-- **User manual** updated (sign-in, two-step, Login security, specialist
-  clinic, arrival scans, companies in production), in-app and the PDF.
-- Billing is turned off by hand on 2026-10-28: Ruba and New Era work in Murano
-  only from then on.
+- **POS ticket sales (transport)**: selling a route ticket asks for each
+  passenger: departure (the route's scheduled trips), identity document type
+  and number (DNI, CE, passport...), adult / minor / infant, names and luggage;
+  a known document fills the names. The price list selector is hidden for
+  tickets; the POS buttons and close-out speak the company's language. Buses
+  have their photos on the ticket products.
+- **Forms submissions**: a **Reply** button emails the sender (their message
+  quoted below) and marks it attended; the list adds Agency, Destination and
+  Email columns (DNI instead of the long document name); the window repeats
+  the form's layout (sections, half / full widths) compactly.
+- **Company logins**: a **Change** button sets a login's password from the
+  table (standard / generated / copy, ask to change at next sign-in).
+- **Account menu** (top right): the person's card -- name, email, username,
+  role, user type, department / job and locations; picture or name open Profile.
+- **Each role opens its own screen**: ticket office -> Terminal POS (POS),
+  pilot / hostess -> their own trips, mechanic -> fleet maintenance, Info ->
+  forms; a role without a home page opens the intranet. On the POS lock, the
+  "Dashboard" button of a POS-only role goes to its sales.
+- **Faster local backups** and production migrations run on the server.
 
-Setup: `php artisan migrate`, `npm install`, `npm run build`.
+Setup: `php artisan migrate`, `npm run build`.
 
-### 2026-10-26 (Thundera)
+### 2026-11-03 (Home)
 
-- **Companies in production** (Companies -> Edit -> Website, AdminSystem only):
-  Ruba, New Era and Turismo Cautivo are marked; production owns their data.
-  Pa Llevar now also sends the day's dev data to production -- never anything
-  of those companies -- and a new row whose number production already used
-  goes up with a new one. New companies Turismo Cautivo and Centro de
-  Especialista Arce (with demo data) are in production.
-- **New company type: Health Specialist** (outpatient specialist clinic, on the
-  hospital data). Reception and schedule (doctor columns, drag & drop, check-in
-  with payment / insurance, late-doctor alert icon), nursing station (vitals,
-  "ready to go in" tells the doctor), the specialist's EMR (problem list, SOAP
-  with dictation, templates for general medicine, pediatrics with growth chart,
-  ophthalmology, cardiology, gynecology, psychology, psychiatry, prescriptions,
-  lab / imaging orders, referrals, follow-ups), 48 h email reminder with
-  Confirm / Can't come, NPS survey, clinic reports, and the patient portal
-  (book, pre-registration, prescriptions). Roles: Reception, Clinic Nurse,
-  Specialist, Billing.
-- **Arrival scans**: at the clinic check-in and the hospital admission window
-  the desk scans / photographs the insurance card and the ID (front and back);
-  private files, never a payment card.
-- **Removing a doctor** (HRM → Employees): off the schedule and the portal, their
-  upcoming appointments go to "To schedule" (patients emailed), inpatients
-  without attending doctor show in the Control tower, roster cleared.
-- **Multicompany documents**: invoices, purchases, quotations, returns, payments,
-  receipts, SMS / WhatsApp / emails and reference prefixes now use each
-  company's own name, logo, currency and footer (they used the first company's).
-  The currency symbol follows the company everywhere.
-- **Emails**: the subject replaces its {tags} too; {invoice_url} is now a
-  "View invoice" link to the public signed invoice (which works again, the QR
-  of the receipts too).
-- **HRM in the company's language**: every dropdown (employment type, gender,
-  marital status, pay, leaves), the employee tabs, form and printout; default
-  HR names created in the company's language. Company pickers only show other
-  companies to the SuperAdmin.
-- **KT-Log** (Settings, SuperAdmin on AdminSystem only): the work history with
-  our filters and the closing message of each request.
-- Header shows the company logo and name when the side menu is hidden; login
-  chooser cards fixed (and an expired page returns to a fresh chooser);
-  "How are we doing" only for roles with the profit report; demo data: save the
-  business type on its own, Commissions / Store no longer blocked by false "real
-  data"; crop / resize for the System Settings logo.
-- Setup: `php artisan migrate`, `npm run build`.
+- **Every role of every company has a user.** The automatic roles (Supplier,
+  Sales Agent, Online Store) exist in every company, a fifth access login
+  `{company}-website@kcoltech.com` (Website role) is added, and each people
+  role nobody held gets a demo record with its login (Cliente Demo, Empleado
+  Demo, Proveedor Demo, Agente de Ventas Demo, Cliente Tienda Demo). Companies ›
+  Add does the same; Settings › Roles by company shows 0 for a role without
+  users.
+- **Companies › Rename** also renames the new logins (and their records'
+  emails), and older admin usernames such as "adminarce".
+- **Companies list**: new **Business type** column (sortable, exported).
+- **Ruba Garden's Contact Us form** now lives in Murano (Forms): name, email,
+  phone, subject, message, notices to info@; its website (home page and
+  Contact Us) shows it instead of the old external form.
+- **Transport agencies are Locations.** Each agency has its own sales, cash
+  registers and users; its ticket office sells on the POS with a **Terminal
+  POS** login assigned to that agency only. The Manager and the IT Admin see
+  every agency. The tourism business type now has POS and no Portfolio /
+  Website / Gallery.
+- **Turismo Cautivo presentation demo** (in production): buses, crew, trips,
+  route tickets (S/ 20-85), a cashier per agency, passengers and 30 days of
+  ticket sales, kept current every hour.
+- **Demo data fits the business**: a bus company no longer gets delivery vans,
+  IT portfolio works or generic shop pages.
 
-### 2026-10-25 (Optimum)
+Setup: `php artisan migrate`, `npm run build`.
 
-- **Hospital, the whole stay.**
-  - **Configuration**: shifts with their hours, floors, rooms and beds, and a
-    map per floor; a freed bed goes to cleaning first.
-  - **Admission window + Triage**: the window registers the patient, the
-    insurance or card (only its last 4 digits) and why they come; emergencies
-    wait for the **triage nurse** (new role and screen: call the patient,
-    vital signs, weight, height, level 1–5, send to an ER bed); critical
-    patients go to a bed first and are registered after; referred patients
-    (e.g. surgery) wait for a bed. Without insurance or a card an emergency
-    patient is not admitted to a ward.
-  - **Stay**: administrative file and account (insurer / patient split, DRG),
-    the clinical chart (Kardex with wristband scan, progress notes, vitals,
-    care orders, interconsultations, discharge plan, epicrisis), the
-    **Control tower** and **My round** (the doctor's / nurse's patients on the
-    floor plan with the route and a visit window).
-  - **Doses**: only today's can be recorded; unrecorded past ones become "not
-    given". **At discharge** a stay with insurance and / or a card is billed
-    and paid automatically.
-  - **Lab** critical values and image files; monthly / semester **shift
-    planning** with rotation; **patient portal** ("My hospital": status of the
-    day, diet, visit hours, discharge instructions, videos, appointments, 24 h
-    email reminders).
-  - Hospital demos stay alive every day (today's roster, patients assigned,
-    example stays); Vitalis has triage and inpatient examples.
-- **Logins.** Every company gets standard logins ({company}-admin / -helpdesk
-  / -info) and default passwords per type in new companies and demos.
-  **Company logins** (profile menu, the company's admin): every login with its
-  function, role and accesses, the password when still the standard one, and
-  **Enter** to work as that user (back with "Back to admin").
-- **Customer portal on by default** for every customer of every company.
-- **Dates** follow the company's country (Peru DD-MM-YYYY, USA MM-DD-YYYY) and
-  every date field can be typed.
-- **Tablet catalogs** (menu / models with photos), Business Modules reset by
-  business type, a copy of modules and menu from another company
-  (SuperAdmin), and the new login screen.
-- **Protocols**: Pa Llevar now deploys without asking and shuts the PC down
-  when everything went well; new **Restaura BD Dev** (restore this PC's dev
-  database from a backup).
-- **After the deploy**: the hospital demo staff, beds and stays exist only in
-  the developer database; regenerate the hospital demo of Vitalis in
-  production (System Settings › Demo data, SuperAdmin) to have them there.
+### 2026-11-02 (Optimum) -- in production since 2026-11-03
+
+- **IT Admin**: the role "Admin Compañía" is now called **IT Admin** in every
+  company (same permissions and users).
+- **A fourth standard login per company**, `{company}-manager@kcoltech.com`
+  with the **Manager** role, in every company that had no manager yet (Turismo
+  Cautivo included; Ruba and New Era keep their own managers).
+- **Companies › Rename** (SuperAdmin): changes a company's name everywhere in
+  one step, with a preview; the website and store name and the helpdesk sender
+  are offered, the website address and the standard logins' emails are
+  optional.
+- The Spanish menu says **Usuarios** (was "Los usuarios").
+- **Database backups take seconds** (Copia BD / Wake-up / Pa Llevar / A Dormir):
+  about 12 seconds instead of 9 minutes; the files are built on the local disk
+  and only the finished zips go to Google Drive.
+- **Website for Dr. David Arce** (SanaMente Perú, Chulucanas) in
+  `KT-TOOLS/ARCE`: a one-page site with Conocer Chulucanas, his medical
+  services and his publications (stories, press notes, videos, each with its
+  source link); what the client still has to send is in its PENDIENTES list.
+
+Setup: `php artisan migrate`, `npm run build`.
+
+### 2026-11-02 (Home)
+
+- **Roles redone for every company.** New **Manager** role: the business's
+  main modules without settings, users, roles or HR setup (Ruba's
+  info@, New Era's info@ / admin@ / Monica / Silvia). **Info** (ex
+  "Formularios") only reads the forms. New Era: a single new company admin
+  login, its stylists on **Staff**; Ruba keeps Supervisor / Operator. The
+  SuperAdmin's role is now called **SuperAdmin** (ex Owner) and a new
+  SuperAdmin is always created in AdminSystem with it.
+- **Admins are only admins.** An admin or SuperAdmin login is never an
+  employee, customer or supplier: the 17 admin employee records were removed
+  and new companies no longer create one; giving a linked login the Admin
+  Compañía role asks first (remove the record, or keep it as it is).
+- **Settings › Roles by company** (SuperAdmin, AdminSystem): every company and
+  every role with its users.
+- **SuperAdmin sees a company as its admin does** (its modules and menu order)
+  when that company is picked; the login chooser offers only each company's
+  admin (Info, Helpdesk... are entered from Company logins).
+- **Manage Menu** saves by itself on every change (AdminSystem keeps Save with
+  its confirmation), drag only drops between rows, "Move to…" picks the place
+  and the position; the empty "Access Management" group is gone.
+- **Demos kept current every day** (Settings › Demo Data › "Update the demo
+  every day"): hospital roster and stays, school register up to yesterday,
+  transport trips a week ahead with buses on the road.
+- Vitalis's doctors now have their employee, login and Doctor role.
+- POS entries are hidden when a company's POS module is off.
 
 Setup: `php artisan migrate`, `npm run build`.
 
@@ -391,7 +343,7 @@ These are run from Claude Code. The definitions are in `.claude/commands/`.
 | Protocol | What it does |
 |----------|--------------|
 | **Wake-up** | Start of the day on any PC. Updates the PC from GitHub (installs only when needed), replaces the local database with a copy of production (`php artisan murano:from-prod`, about a minute, then the local migrations), builds, offers to deploy this PC's newer code (your OK), reloads the rules and the history, and sums up in the chat with the last 5 changes. |
-| **Pa Llevar** | End of the day. Build, logs, a local backup (`…_pallevar.zip`, also copied to `KT-TOOLS/SQL/` for the external backup program), this README, commit, push, then the code deploy to production **without asking** (production is backed up first) and the dev data, never the companies in production, and, when every step went well, the PC shuts down (2 minutes, `shutdown /a` cancels). The user manual only when asked. |
+| **Pa Llevar** | End of the day. Build, logs, a local backup (`…_pallevar.zip`, also copied to `KT-TOOLS/SQL/` for the external backup program), this README, commit, push, then the code deploy to production **without asking** (production is backed up first) and the dev data, never the companies in production. The PC is never shut down by a protocol (only when asked at that moment). The user manual only when asked. |
 | **A Dormir** | End of the day without touching production (work not ready yet): local backup, a production backup into `<archive>/HOSTINGER/` (not in git), logs, README, commit and push. |
 | **Copia BD** | A copy of the local database on demand (`<archive>/<PC>/…_copiabd.zip`): a main zip plus 3 Email Office zips. Every backup (dev and production) is compressed and imports as-is in phpMyAdmin. |
 | **Restaura BD Dev** | Restores THIS PC's dev database from a backup: shows the latest one and asks first; the current database is backed up before (`…_prerestore.zip`). Never production. The usual way to align a PC is still Wake-up. |

@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ScopesToCompany;
 use App\Services\Helpdesk\HelpdeskAccess;
 use App\Support\CompanyNames;
 use App\Support\ModuleFlags;
+use App\Traits\ScopesWarehouseAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ use Illuminate\Validation\ValidationException;
  *
  *  GET  transport/meta                 locations, routes, vehicles, crew of the acting company
  *  GET  transport/board?from&to        the dashboard's transport board (map, agencies, fleet now, pilot hours)
+ *  GET  transport/owner                the dashboard's business figures (income, tickets, trips, fleet costs, alerts)
  *  GET|POST transport/locations, PUT|DELETE transport/locations/{id}
  *  GET|POST transport/routes,    PUT|DELETE transport/routes/{id}
  *  GET|POST transport/trips,     PUT|DELETE transport/trips/{id}
@@ -30,7 +32,7 @@ use Illuminate\Validation\ValidationException;
  */
 class TransportController extends Controller
 {
-    use ScopesToCompany;
+    use ScopesToCompany, ScopesWarehouseAccess;
 
     public const STAFF_TYPES = ['administrative', 'maintenance', 'pilot', 'hostess'];
 
@@ -99,7 +101,7 @@ class TransportController extends Controller
     {
         $q = $request ? $this->scoped('transport_locations', $request) : DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at');
 
-        return $q->orderBy('name')->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'image', 'kind', 'active', 'lat', 'lng', 'hub_id'])
+        return $q->orderBy('name')->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'image', 'kind', 'active', 'lat', 'lng', 'hub_id', 'daily_cost'])
             ->map(function ($l) {
                 $l->image_url = $l->image ? asset($l->image) : null;
 
@@ -114,8 +116,9 @@ class TransportController extends Controller
             ->join('transport_locations as d', 'd.id', '=', 'transport_routes.destination_id');
 
         return $q->orderBy('o.name')->orderBy('d.name')->get(['transport_routes.id', 'transport_routes.company_id', 'transport_routes.origin_id', 'transport_routes.destination_id',
-            'transport_routes.distance_km', 'transport_routes.duration_min', 'transport_routes.active', 'o.name as origin', 'd.name as destination'])
-            ->map(fn ($r) => (array) $r + ['label' => $r->origin.' → '.$r->destination]);
+            'transport_routes.distance_km', 'transport_routes.duration_min', 'transport_routes.toll_cost', 'transport_routes.parcel_rate_m3', 'transport_routes.active', 'o.name as origin', 'd.name as destination'])
+            ->map(fn ($r) => (array) $r + ['label' => $r->origin.' → '.$r->destination,
+                'stops' => DB::table('transport_route_stops')->where('route_id', $r->id)->orderBy('seq')->get(['location_id', 'km', 'minutes', 'dwell_min'])]);
     }
 
     // ------------------------------------------------------------------ locations
@@ -135,6 +138,7 @@ class TransportController extends Controller
             'address' => 'nullable|string|max:190', 'phone' => 'nullable|string|max:60', 'description' => 'nullable|string|max:2000',
             'kind' => 'required|in:terminal,agency,online', 'active' => 'boolean',
             'lat' => 'nullable|numeric|between:-90,90', 'lng' => 'nullable|numeric|between:-180,180', 'hub_id' => 'nullable|integer',
+            'daily_cost' => 'nullable|numeric|min:0|max:1000000',
         ]);
         // An agency = a city's hub; a terminal belongs to one agency (hub_id).
         $hub = null;
@@ -157,7 +161,7 @@ class TransportController extends Controller
         $set = ['name' => strip_tags($v['name']), 'city' => $v['city'] ?? null, 'kind' => $v['kind'],
             'address' => isset($v['address']) ? strip_tags($v['address']) : null, 'phone' => isset($v['phone']) ? strip_tags($v['phone']) : null,
             'description' => isset($v['description']) ? strip_tags($v['description']) : null, 'active' => (bool) ($v['active'] ?? true),
-            'lat' => $pos[0] ?? null, 'lng' => $pos[1] ?? null, 'hub_id' => $hub ? $hub->id : null, 'updated_at' => now()];
+            'lat' => $pos[0] ?? null, 'lng' => $pos[1] ?? null, 'hub_id' => $hub ? $hub->id : null, 'daily_cost' => $v['daily_cost'] ?? null, 'updated_at' => now()];
         if ($id) {
             $this->own('transport_locations', $id, $cid);
             DB::table('transport_locations')->where('id', $id)->update($set);
@@ -206,6 +210,9 @@ class TransportController extends Controller
         $v = $request->validate([
             'origin_id' => 'required|integer', 'destination_id' => 'required|integer|different:origin_id',
             'distance_km' => 'nullable|numeric|min:0|max:99999', 'duration_min' => 'nullable|integer|min:0|max:10000', 'active' => 'boolean',
+            'toll_cost' => 'nullable|numeric|min:0|max:1000000',
+            'parcel_rate_m3' => 'nullable|numeric|min:0|max:1000000',
+            'stops' => 'nullable|array', 'stops.*.location_id' => 'required|integer', 'stops.*.km' => 'required|numeric|min:0', 'stops.*.minutes' => 'required|integer|min:0', 'stops.*.dwell_min' => 'nullable|integer|min:0|max:600',
         ]);
         $this->own('transport_locations', (int) $v['origin_id'], $cid);
         $this->own('transport_locations', (int) $v['destination_id'], $cid);
@@ -215,12 +222,24 @@ class TransportController extends Controller
             throw ValidationException::withMessages(['destination_id' => 'This route already exists.']);
         }
         $set = ['origin_id' => $v['origin_id'], 'destination_id' => $v['destination_id'], 'distance_km' => $v['distance_km'] ?? null,
-            'duration_min' => $v['duration_min'] ?? null, 'active' => (bool) ($v['active'] ?? true), 'updated_at' => now()];
+            'duration_min' => $v['duration_min'] ?? null, 'toll_cost' => $v['toll_cost'] ?? null, 'parcel_rate_m3' => $v['parcel_rate_m3'] ?? null, 'active' => (bool) ($v['active'] ?? true), 'updated_at' => now()];
         if ($id) {
             $this->own('transport_routes', $id, $cid);
             DB::table('transport_routes')->where('id', $id)->update($set);
         } else {
             $id = DB::table('transport_routes')->insertGetId($set + ['company_id' => $cid, 'created_at' => now()]);
+        }
+        // The route's stops, in the order of their km (a bus stops there and sells the seats emptied).
+        if (array_key_exists('stops', $v)) {
+            $stops = collect($v['stops'] ?? [])->sortBy('km')->values();
+            foreach ($stops as $s) {
+                $this->own('transport_locations', (int) $s['location_id'], $cid);
+                abort_if(in_array((int) $s['location_id'], [(int) $v['origin_id'], (int) $v['destination_id']], true), 422, 'A stop is a place between the origin and the destination.');
+            }
+            DB::table('transport_route_stops')->where('route_id', $id)->delete();
+            DB::table('transport_route_stops')->insert($stops->map(fn ($s, $i) => ['company_id' => $cid, 'route_id' => $id, 'location_id' => $s['location_id'], 'seq' => $i + 1, 'km' => $s['km'], 'minutes' => $s['minutes'],
+                'dwell_min' => $s['dwell_min'] ?? 25, 'created_at' => now(), 'updated_at' => now()])->all());
+            \App\Support\TransportLegs::forget();
         }
 
         return response()->json(['id' => $id]);
@@ -257,6 +276,13 @@ class TransportController extends Controller
         if ($request->filled('to')) {
             $q->whereDate('transport_trips.departure_at', '<=', $request->input('to'));
         }
+        // A crew member who can only view (pilot / hostess, 2026-11-03) sees their own trips.
+        $user = $request->user('api');
+        $ownEmployee = HelpdeskAccess::can($user, 'transport_manage') ? null
+            : DB::table('employees')->where('user_id', $user->id)->whereNull('deleted_at')->value('id');
+        if ($ownEmployee && DB::table('transport_trip_crew')->where('employee_id', $ownEmployee)->exists()) {
+            $request->merge(['employee_id' => $ownEmployee]);
+        }
         if ($request->filled('employee_id')) {
             $q->whereExists(fn ($x) => $x->from('transport_trip_crew as c')->whereColumn('c.trip_id', 'transport_trips.id')->where('c.employee_id', $request->input('employee_id')));
         }
@@ -271,6 +297,7 @@ class TransportController extends Controller
             'id' => (int) $t->id, 'company_id' => (int) $t->company_id, 'route_id' => (int) $t->route_id, 'route' => $t->origin.' → '.$t->destination,
             'vehicle_id' => (int) $t->vehicle_id, 'vehicle' => trim(($t->vehicle_name ?? '').' '.($t->plate_number ? '('.$t->plate_number.')' : '')),
             'departure_at' => $t->departure_at, 'arrival_at' => $t->arrival_at, 'status' => $t->status, 'notes' => $t->notes,
+            'fuel_cost' => $t->fuel_cost !== null ? (float) $t->fuel_cost : null,
             'crew' => collect($crew[$t->id] ?? [])->map(fn ($c) => ['employee_id' => (int) $c->employee_id, 'role' => $c->role, 'name' => trim($c->firstname.' '.$c->lastname), 'trip_rate' => (float) $c->trip_rate])->values(),
         ])->all();
 
@@ -284,6 +311,7 @@ class TransportController extends Controller
             'route_id' => 'required|integer', 'vehicle_id' => 'required|integer',
             'departure_at' => 'required|date', 'arrival_at' => 'nullable|date|after:departure_at',
             'status' => 'required|in:'.implode(',', self::TRIP_STATUSES), 'notes' => 'nullable|string|max:2000',
+            'fuel_cost' => 'nullable|numeric|min:0|max:1000000',
             'pilots' => 'required|array|size:2', 'pilots.*' => 'integer|distinct',
             'hostesses' => 'required|array|min:1|max:2', 'hostesses.*' => 'integer|distinct',
         ], [
@@ -324,9 +352,15 @@ class TransportController extends Controller
             }
         }
 
-        $id = DB::transaction(function () use ($v, $cid, $id, $request, $people) {
+        $wasStatus = $id ? DB::table('transport_trips')->where('id', $id)->value('status') : null;
+        $id = DB::transaction(function () use ($v, $cid, $id, $request, $people, $route, $wasStatus) {
+            // A finished trip's km go on the bus's odometer: the maintenance plan runs on it.
+            if ($v['status'] === 'completed' && $wasStatus !== 'completed' && (float) $route->distance_km > 0) {
+                DB::table('vehicles')->where('id', $v['vehicle_id'])->increment('odometer', (float) $route->distance_km);
+            }
             $set = ['route_id' => $v['route_id'], 'vehicle_id' => $v['vehicle_id'], 'departure_at' => $v['departure_at'],
-                'arrival_at' => $v['arrival_at'] ?? null, 'status' => $v['status'], 'notes' => isset($v['notes']) ? strip_tags($v['notes']) : null, 'updated_at' => now()];
+                'arrival_at' => $v['arrival_at'] ?? null, 'status' => $v['status'], 'notes' => isset($v['notes']) ? strip_tags($v['notes']) : null,
+                'fuel_cost' => $v['fuel_cost'] ?? null, 'updated_at' => now()];
             if ($id) {
                 $this->own('transport_trips', $id, $cid);
                 DB::table('transport_trips')->where('id', $id)->update($set);
@@ -357,6 +391,47 @@ class TransportController extends Controller
         DB::table('transport_trips')->where('id', $id)->update(['deleted_at' => now()]);
 
         return response()->json(['success' => true]);
+    }
+
+    // ------------------------------------------------------------------ POS tickets (2026-11-03)
+
+    /** GET transport/pos-tickets: the acting company's ticket products (product id => route) -- the POS asks the passenger for them. */
+    public function posTickets(Request $request)
+    {
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
+        $cid = (int) $this->resolveActingCompanyId($request);
+
+        return response()->json(['tickets' => ModuleFlags::enabled($cid, 'transport') ? (object) \App\Support\TransportTickets::products($cid) : (object) []]);
+    }
+
+    /** GET transport/departures?route_id= : the route's scheduled departures (next 14 days) for the POS. */
+    public function departures(Request $request)
+    {
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
+
+        return response()->json(['departures' => \App\Support\TransportTickets::departures((int) $this->resolveActingCompanyId($request), (int) $request->query('route_id'))]);
+    }
+
+    /** GET transport/passenger?dni= : the names of the last ticket with that DNI in the company (auto-fill). */
+    public function passenger(Request $request)
+    {
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
+        $type = isset(\App\Support\TransportTickets::DOCS[$request->query('doc_type')]) ? $request->query('doc_type') : 'dni';
+        $dni = \App\Support\TransportTickets::docNumber($type, (string) $request->query('dni'));
+        $valid = preg_match(\App\Support\TransportTickets::DOCS[$type], $dni);
+        $cid = (int) $this->resolveActingCompanyId($request);
+        $p = $valid ? DB::table('transport_tickets')->where('company_id', $cid)
+            ->where('doc_type', $type)->where('dni', $dni)->orderByDesc('id')->first(['first_name', 'last_name', 'passenger_type']) : null;
+
+        return response()->json(['passenger' => $p, 'loyalty' => $valid ? \App\Support\TransportTickets::loyalty($cid, $type, $dni) : null]);
+    }
+
+    /** GET transport/seats?trip_id=&route_id= : the seat map for the passenger's stretch on that trip. */
+    public function seats(Request $request)
+    {
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'Pos_view'), 403);
+
+        return response()->json(['seats' => \App\Support\TransportTickets::seats((int) $this->resolveActingCompanyId($request), (int) $request->query('trip_id'), (int) $request->query('route_id'))]);
     }
 
     // ------------------------------------------------------------------ board
@@ -508,6 +583,80 @@ class TransportController extends Controller
                 'km' => (int) round($trips->where('status', 'completed')->sum(fn ($t) => (float) $t->distance_km)),
             ],
             'pilot_limit' => $limit, 'pilots' => $pilots,
+        ]);
+    }
+
+    // ------------------------------------------------------------------ owner's panel
+
+    /**
+     * GET transport/owner -- the business figures on top of the dashboard (2026-11-04): income and
+     * tickets today / this month by agency, today's trips, the month's fleet costs, the
+     * best-selling routes and what falls due on the buses. Money: needs the dashboard
+     * permission too, so a pilot's transport_view never shows it. Only the locations the
+     * user may see.
+     */
+    public function owner(Request $request)
+    {
+        $this->can($request, 'transport_view');
+        abort_unless(HelpdeskAccess::can($request->user('api'), 'dashboard'), 403);
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $scope = $this->warehouseScopeIds();
+        $today = now()->toDateString();
+        $month = now()->startOfMonth()->toDateString();
+        $sales = fn () => DB::table('sales as s')->where('s.company_id', $cid)->whereNull('s.deleted_at')->where('s.statut', 'completed')
+            ->when($scope !== null, fn ($q) => $q->whereIn('s.warehouse_id', $scope))
+            ->whereDate('s.date', '>=', $month)->whereDate('s.date', '<=', $today);
+
+        $income = $sales()->selectRaw('s.warehouse_id, SUM(s.GrandTotal) month_total, SUM(CASE WHEN DATE(s.date) = ? THEN s.GrandTotal ELSE 0 END) today_total', [$today])
+            ->groupBy('s.warehouse_id')->get()->keyBy('warehouse_id');
+        $products = \App\Support\TransportTickets::products($cid);
+        $lines = $sales()->join('sale_details as d', 'd.sale_id', '=', 's.id')->whereIn('d.product_id', array_keys($products))
+            ->selectRaw('s.warehouse_id, d.product_id, SUM(d.quantity) qty, SUM(d.total) total, SUM(CASE WHEN DATE(s.date) = ? THEN d.quantity ELSE 0 END) qty_today', [$today])
+            ->groupBy('s.warehouse_id', 'd.product_id')->get();
+
+        // One row per agency; sales of a location that is no agency go together at the end.
+        $agencies = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'agency')->where('active', 1)
+            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope))->orderBy('name')->get(['name', 'warehouse_id']);
+        $row = fn (?string $name, $wids) => [
+            'name' => $name,
+            'today' => round((float) $income->whereIn('warehouse_id', $wids)->sum('today_total'), 2),
+            'month' => round((float) $income->whereIn('warehouse_id', $wids)->sum('month_total'), 2),
+            'tickets_today' => (int) $lines->whereIn('warehouse_id', $wids)->sum('qty_today'),
+            'tickets_month' => (int) $lines->whereIn('warehouse_id', $wids)->sum('qty'),
+        ];
+        $rows = $agencies->map(fn ($a) => $row($a->name, [$a->warehouse_id]))->values();
+        $others = $income->keys()->diff($agencies->pluck('warehouse_id'))->values()->all();
+        if ($others) {
+            $rows->push($row(null, $others));
+        }
+        $routes = $lines->groupBy(fn ($l) => $products[$l->product_id]['route_id'] ?? 0)->map(fn ($g) => [
+            'route' => str_replace(' VIP', '', $products[$g->first()->product_id]['label'] ?? ''), 'tickets' => (int) $g->sum('qty'), 'income' => round((float) $g->sum('total'), 2),
+        ])->sortByDesc('tickets')->values();
+
+        $trips = DB::table('transport_trips')->where('company_id', $cid)->whereNull('deleted_at')->whereDate('departure_at', $today)
+            ->selectRaw('status, COUNT(*) n')->groupBy('status')->pluck('n', 'status');
+
+        // The buses: spend so far this month (a job still scheduled or cancelled cost nothing yet).
+        $buses = DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')
+            ->when($scope !== null, fn ($q) => $q->where(fn ($x) => $x->whereNull('warehouse_id')->orWhereIn('warehouse_id', $scope)))->pluck('id')->all();
+        $fuel = (float) DB::table('vehicle_fuel_logs')->whereNull('deleted_at')->whereIn('vehicle_id', $buses)
+            ->whereDate('log_date', '>=', $month)->whereDate('log_date', '<=', $today)->sum('total_cost');
+        $maintenance = (float) DB::table('vehicle_maintenances')->whereNull('deleted_at')->whereIn('vehicle_id', $buses)
+            ->whereNotIn('status', ['scheduled', 'cancelled'])
+            ->whereDate('service_date', '>=', $month)->whereDate('service_date', '<=', $today)->sum('cost');
+        $alerts = app(FleetVehicleController::class)->alerts(Carbon::today(), Carbon::today()->addDays(30), $buses);
+
+        return response()->json([
+            'enabled' => true,
+            'income' => ['today' => round((float) $income->sum('today_total'), 2), 'month' => round((float) $income->sum('month_total'), 2)],
+            'tickets' => ['today' => (int) $lines->sum('qty_today'), 'month' => (int) $lines->sum('qty')],
+            'trips' => ['total' => (int) $trips->sum(), 'scheduled' => (int) ($trips['scheduled'] ?? 0), 'in_progress' => (int) ($trips['in_progress'] ?? 0),
+                'completed' => (int) ($trips['completed'] ?? 0), 'cancelled' => (int) ($trips['cancelled'] ?? 0)],
+            'costs' => ['fuel' => round($fuel, 2), 'maintenance' => round($maintenance, 2), 'total' => round($fuel + $maintenance, 2)],
+            'agencies' => $rows, 'routes' => $routes->take(5)->values(), 'alerts' => array_slice($alerts, 0, 6), 'alerts_total' => count($alerts),
         ]);
     }
 

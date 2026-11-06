@@ -122,7 +122,7 @@ class UserController extends BaseController
         // Create User form could offer choices across companies) -- everyone
         // else only ever sees their own company's warehouses.
         $warehouses = $user->type === 'SuperAdmin'
-            ? Warehouse::where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
+            ? Warehouse::withoutGlobalScope('company')->where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
             : Warehouse::where('deleted_at', '=', null)->where('company_id', $user->company_id)->get(['id', 'name', 'company_id']);
 
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
@@ -279,6 +279,8 @@ class UserController extends BaseController
             // Else the company's business-type start page (hospital -> Hospital dashboard, 2026-10-20).
             'role_home' => $user->type === 'SuperAdmin' ? $typeHome
                 : ($user->roles()->first()?->home_path ?: $typeHome),
+            // The account menu's card (2026-11-03): role, department / job and locations.
+            'account_card' => self::accountCard($user),
         ];
 
         // Exactly the role's permissions (the role is mandatory, Admins included).
@@ -372,6 +374,21 @@ class UserController extends BaseController
             ? (Role::where('company_id', $companyId)->where('name', $autoRoleNames[$type])->value('id') ?? $request['role'])
             : $request['role'];
 
+        // A SuperAdmin lives in AdminSystem (999) with the SuperAdmin role, whatever
+        // company the switcher is on (2026-11-02): SuperAdminAccess::sync gives a
+        // SuperAdmin's role every permission, so a company's role (e.g. its Admin
+        // Compañía) must never be the one it gets. And that role is never given to
+        // anyone who is not a SuperAdmin.
+        if ($type === 'SuperAdmin') {
+            $companyId = \App\Models\Setting::TEMPLATE_COMPANY_ID;
+            $roleId = \App\Support\CompanyRoles::ensure($companyId, \App\Support\CompanyRoles::SUPERADMIN);
+        } elseif (in_array(Role::whereKey($roleId)->value('name'), \App\Support\CompanyRoles::SUPERADMIN_NAMES, true)) {
+            return response()->json([
+                'message' => 'The SuperAdmin role is only for SuperAdmin users.',
+                'errors' => ['role' => ['The SuperAdmin role is only for SuperAdmin users.']],
+            ], 422);
+        }
+
         // Roles are per-company copies: the picked role must be the new
         // user's own company's (the dropdown only offers those now).
         if (! Role::where('id', $roleId)->where('company_id', $companyId)->whereNull('deleted_at')->exists()) {
@@ -443,7 +460,7 @@ class UserController extends BaseController
                 // Only warehouses belonging to this user's own company can be
                 // assigned, regardless of what ids the request sent.
                 $requestedWarehouseIds = array_map('intval', $request['assigned_to'] ?? []);
-                $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->all();
+                $allowedWarehouseIds = Warehouse::withoutGlobalScope('company')->whereNull('deleted_at')->where('company_id', $companyId)->pluck('id')->all();
                 $requestedWarehouseIds = array_values(array_intersect($requestedWarehouseIds, $allowedWarehouseIds));
                 $User->assignedWarehouses()->sync($requestedWarehouseIds);
                 // Staff saved with no Location picked: company default Location
@@ -461,6 +478,29 @@ class UserController extends BaseController
         }, 10);
 
         return response()->json(['success' => true, 'warning' => $warning]);
+    }
+
+    /** Role, user type, department / job of the linked employee and the locations, for the account menu. */
+    private static function accountCard($user): array
+    {
+        $role = $user->roles()->first();
+        $emp = \Illuminate\Support\Facades\DB::table('employees as e')->leftJoin('departments as d', 'd.id', '=', 'e.department_id')
+            ->leftJoin('designations as g', 'g.id', '=', 'e.designation_id')
+            ->where('e.user_id', $user->id)->whereNull('e.deleted_at')->first(['d.department', 'g.designation']);
+        $locations = (int) $user->is_all_warehouses === 1 ? null
+            : \Illuminate\Support\Facades\DB::table('user_warehouse as uw')->join('warehouses as w', 'w.id', '=', 'uw.warehouse_id')
+                ->where('uw.user_id', $user->id)->whereNull('w.deleted_at')->orderBy('w.name')->pluck('w.name')->all();
+
+        return [
+            'name' => trim($user->firstname.' '.$user->lastname),
+            'username' => $user->username,
+            'email' => $user->email,
+            'role' => $role ? ($role->label ?: $role->name) : null,
+            'type' => $user->type,
+            'department' => $emp->department ?? null,
+            'job' => $emp->designation ?? null,
+            'locations' => $locations,   // null = every location
+        ];
     }
 
     // ------------ Start page (own account only) -----------\\
@@ -584,7 +624,7 @@ class UserController extends BaseController
         $this->guardSuperAdminTarget($actingUser, (int) $id);
 
         $assigned_warehouses = UserWarehouse::where('user_id', $id)->pluck('warehouse_id')->toArray();
-        $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $assigned_warehouses)->pluck('id')->toArray();
+        $warehouses = Warehouse::withoutGlobalScope('company')->where('deleted_at', '=', null)->whereIn('id', $assigned_warehouses)->pluck('id')->toArray();
         // Only the edited user's own company's roles (roles are per-company
         // copies; unscoped, each showed up once per company).
         $roles = Role::where('deleted_at', null)->where('company_id', $user->company_id)->orderBy('name')->get(['id', 'name']);
@@ -593,7 +633,7 @@ class UserController extends BaseController
         // company's warehouses; everyone else only gets their own company's.
         $unrestrictedWarehouses = $actingUser->type === 'SuperAdmin' || $user->type === 'SuperAdmin';
         $all_warehouses = $unrestrictedWarehouses
-            ? Warehouse::where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
+            ? Warehouse::withoutGlobalScope('company')->where('deleted_at', '=', null)->get(['id', 'name', 'company_id'])
             : Warehouse::where('deleted_at', '=', null)->where('company_id', $user->company_id)->get(['id', 'name', 'company_id']);
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
@@ -676,8 +716,36 @@ class UserController extends BaseController
                 'errors' => ['pin' => ['This PIN is already used by another user of this company.']],
             ], 422);
         }
+        // The SuperAdmin role and SuperAdmin users go together (see store()).
+        $superRole = in_array(Role::whereKey($request['role'])->value('name'), \App\Support\CompanyRoles::SUPERADMIN_NAMES, true);
+        if ($superRole !== (User::whereKey($id)->value('type') === 'SuperAdmin')) {
+            $msg = $superRole ? 'The SuperAdmin role is only for SuperAdmin users.' : 'A SuperAdmin user keeps the SuperAdmin role.';
 
-        \DB::transaction(function () use ($id, $request, $targetCompanyId) {
+            return response()->json(['message' => $msg, 'errors' => ['role' => [$msg]]], 422);
+        }
+        // Becoming the company admin (role Admin Compañía) turns the login into an
+        // admin, which is never an employee / customer / supplier (user's rule,
+        // 2026-11-02): when it belongs to one, nothing is saved until the user
+        // confirms removing that record (make_admin=release); else it stays as it is
+        // and the user picks another role.
+        $targetType = (string) User::whereKey($id)->value('type');
+        $toAdmin = Role::whereKey($request['role'])->value('name') === \App\Support\CompanyRoles::ADMIN
+            && ! in_array(strtolower($targetType), ['admin', 'superadmin'], true);
+        if ($toAdmin) {
+            $linked = \App\Support\AdminLogins::linked((int) $id);
+            if ($linked && $request->input('make_admin') !== 'release') {
+                return response()->json([
+                    'message' => 'This login belongs to a record: an admin login cannot. Remove that record to make it an admin, or keep it with its own role.',
+                    'code' => 'admin_linked', 'linked' => $linked,
+                ], 409);
+            }
+        }
+
+        \DB::transaction(function () use ($id, $request, $targetCompanyId, $toAdmin) {
+            if ($toAdmin) {
+                \App\Support\AdminLogins::release((int) $id);
+                User::whereKey($id)->update(['type' => 'admin', 'portal_enabled' => 0]);
+            }
             $user = User::findOrFail($id);
             $current = $user->password;
 
@@ -779,7 +847,7 @@ class UserController extends BaseController
             // Only warehouses belonging to this user's (now-locked-in)
             // company can be assigned, regardless of what ids the request sent.
             $requestedWarehouseIds = array_map('intval', $request['assigned_to'] ?? []);
-            $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->where('company_id', $targetCompanyId)->pluck('id')->all();
+            $allowedWarehouseIds = Warehouse::withoutGlobalScope('company')->whereNull('deleted_at')->where('company_id', $targetCompanyId)->pluck('id')->all();
             $requestedWarehouseIds = array_values(array_intersect($requestedWarehouseIds, $allowedWarehouseIds));
             $user_saved->assignedWarehouses()->sync($requestedWarehouseIds);
 

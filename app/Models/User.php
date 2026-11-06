@@ -106,7 +106,7 @@ class User extends Authenticatable
 
     public function assignedWarehouses()
     {
-        return $this->belongsToMany('App\Models\Warehouse');
+        return $this->belongsToMany('App\Models\Warehouse')->withoutGlobalScope('company');
     }
 
     /**

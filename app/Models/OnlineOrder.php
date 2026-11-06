@@ -90,7 +90,7 @@ class OnlineOrder extends Model
 
     public function warehouse(): BelongsTo
     {
-        return $this->belongsTo(Warehouse::class);
+        return $this->belongsTo(Warehouse::class)->withoutGlobalScope('company');
     }
 
     public function shippingMethod(): BelongsTo
@@ -100,7 +100,7 @@ class OnlineOrder extends Model
 
     public function pickupBranch(): BelongsTo
     {
-        return $this->belongsTo(Warehouse::class, 'pickup_branch_id');
+        return $this->belongsTo(Warehouse::class, 'pickup_branch_id')->withoutGlobalScope('company');
     }
 
     public function paymentProofs(): HasMany

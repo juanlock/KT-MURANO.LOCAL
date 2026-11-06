@@ -27,7 +27,7 @@
           <span class="uf-label">{{ $t('Status') }}</span>
           <a-select v-model:value="statusFilter" style="width: 140px" :options="statusOptions" @change="crud.reload()" />
         </span>
-        <a-button v-if="typeFilter || roleFilter || statusFilter" @click="clearFilters">Clear filters</a-button>
+        <a-button v-if="typeFilter || roleFilter || statusFilter" @click="clearFilters">{{ $t('Clear_Filters') }}</a-button>
       </a-space>
     </a-card>
 
@@ -48,7 +48,7 @@
         <template v-else-if="column.key === 'statut'">
           <!-- Activate/deactivate toggle, like the legacy switch. The logged-in
                user cannot deactivate their own account. -->
-          <a-tooltip :title="isSelf(record) ? 'You cannot deactivate your own account' : ''">
+          <a-tooltip :title="isSelf(record) ? $t('tx_You_cannot_deactivate_your_own_account_c1542') : ''">
             <a-switch
               :checked="!!Number(record.statut)"
               :loading="switching === record.id"
@@ -59,7 +59,7 @@
           <!-- Login security (2026-10-27): locked after 5 wrong passwords. -->
           <div v-if="isLocked(record)" class="locked">
             <a-tag color="red">{{ lockedText(record) }}</a-tag>
-            <a v-if="auth.can('login_security')" @click="unlock(record)">{{ ui.locale === 'es' ? 'Desbloquear' : 'Unlock' }}</a>
+            <a v-if="auth.can('login_security')" @click="unlock(record)">{{ ui.locale === 'es' ? 'Desbloquear' : $t('tx_Unlock_7e712') }}</a>
           </div>
         </template>
         <template v-else-if="column.key === 'actions'">
@@ -83,6 +83,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Users list: GET users → { users, totalRows, roles, warehouses }.
  * Status toggle: PUT users_switch_activated/{id} { statut, id } (legacy
@@ -153,12 +154,12 @@ const roleOptions = computed(() => {
   if (linkedRole && !list.some(o => o.value === linkedRole.value)) list.push(linkedRole);
   return withAllOption([
   ...sortByLabel(list),
-  { value: 'none', label: 'No role' },
+  { value: 'none', label: tEs('tx_No_role_f2981', 'No role') },
   ]);
 });
 const statusOptions = computed(() => withAllOption([
-  { value: '1', label: 'Active' },
-  { value: '0', label: 'Disabled' },
+  { value: '1', label: tEs('Actif', 'Active') },
+  { value: '0', label: tEs('Disabled', 'Disabled') },
 ]));
 
 const { isSystem } = useSystemContext();

@@ -108,7 +108,7 @@
                     </a-form-item>
                     <a-row v-if="current.type === 'number'" :gutter="8">
                       <a-col :span="12"><a-form-item label="Min"><a-input-number v-model:value="current.min" style="width: 100%" @change="dirty = true" /></a-form-item></a-col>
-                      <a-col :span="12"><a-form-item label="Max"><a-input-number v-model:value="current.max" style="width: 100%" @change="dirty = true" /></a-form-item></a-col>
+                      <a-col :span="12"><a-form-item :label="$t('Max')"><a-input-number v-model:value="current.max" style="width: 100%" @change="dirty = true" /></a-form-item></a-col>
                     </a-row>
                     <a-form-item v-if="['text', 'textarea'].includes(current.type)" :label="es ? 'Máximo de caracteres' : 'Max characters'">
                       <a-input-number v-model:value="current.max" :min="1" :max="20000" style="width: 100%" @change="dirty = true" />
@@ -331,7 +331,7 @@
               <a-radio-button value="embed">{{ es ? 'Insertado en una web' : 'Embedded on a website' }}</a-radio-button>
             </a-radio-group>
             <div class="fb-preview" :style="{ background: previewMode === 'embed' ? '#ffffff' : s.page_background }">
-              <iframe v-if="tab === 'preview'" :key="previewKey + previewMode" :src="(previewMode === 'embed' ? form.links.embed : form.links.page) + '?preview=' + previewKey" title="Preview" />
+              <iframe v-if="tab === 'preview'" :key="previewKey + previewMode" :src="(previewMode === 'embed' ? form.links.embed : form.links.page) + '?preview=' + previewKey" :title="$t('PWA_Preview')" />
             </div>
           </a-tab-pane>
         </a-tabs>
@@ -343,6 +343,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 import { ref, computed, onMounted, createVNode } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { message, Modal } from 'ant-design-vue';
@@ -404,7 +405,7 @@ const current = computed(() => form.value?.fields.find(f => f._uid === selected.
 const inputCount = computed(() => (form.value?.fields || []).filter(f => !['heading', 'paragraph', 'divider'].includes(f.type)).length);
 const hasPlaceholder = computed(() => current.value && ['text', 'textarea', 'email', 'phone', 'number', 'url', 'select'].includes(current.value.type));
 const emailFieldOptions = computed(() => sortByLabel((form.value?.fields || []).filter(f => f.type === 'email').map(f => ({ value: f.key, label: f.label || f.key }))));
-const languageOptions = sortByLabel([{ value: 'en', label: 'English' }, { value: 'es', label: 'Español' }]);
+const languageOptions = sortByLabel([{ value: 'en', label: tEs('tx_English_78463', 'English') }, { value: 'es', label: 'Español' }]);
 const fontOptions = computed(() => sortByLabel([{ value: 'system', label: es.value ? 'Moderna' : 'Modern' }, { value: 'serif', label: es.value ? 'Clásica' : 'Classic' }]));
 
 function withUid(f) {

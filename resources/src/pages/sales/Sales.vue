@@ -49,7 +49,7 @@
     <!-- Phones: the filters fold behind one button so the sales come first. -->
     <a-button v-if="isPhone" block style="margin-bottom: 12px" @click="filtersOpen = !filtersOpen">
       <template #icon><FilterOutlined /></template>
-      {{ filtersOpen ? 'Hide filters' : 'Filters' }}{{ activeFilterCount ? ` (${activeFilterCount})` : '' }}
+      {{ filtersOpen ? $t('tx_Hide_filters_32a92') : $t('Filters') }}{{ activeFilterCount ? ` (${activeFilterCount})` : '' }}
     </a-button>
     <a-card v-show="!isPhone || filtersOpen" size="small" style="margin-bottom: 16px">
       <!-- Filters + the Customize Filters button share one row (flex: the
@@ -85,10 +85,10 @@
           </template>
           <!-- Emailed: invoice / reminder emails sent (sale_email_logs). -->
           <template v-else-if="key === 'emailed'">
-            <div class="filter-label">Emailed</div>
+            <div class="filter-label">{{ $t('tx_Emailed_93208') }}</div>
             <a-select
               v-model:value="filters.emailed" style="width: 100%" allow-clear
-              placeholder="Emailed" :options="EMAILED_OPTIONS" @change="onOtherFilterChange"
+              :placeholder="$t('tx_Emailed_93208')" :options="EMAILED_OPTIONS" @change="onOtherFilterChange"
             />
           </template>
           <template v-else-if="key === 'shipping_status'">
@@ -124,7 +124,7 @@
           </template>
         </div>
         <ResetFiltersButton :dirty="filtersDirty" @reset="resetFilters" />
-        <a-tooltip v-if="auth.canCustomizeColumns" title="Customize filters">
+        <a-tooltip v-if="auth.canCustomizeColumns" :title="$t('tx_Customize_filters_d68b2')">
           <a-button @click="openCustomize">
             <template #icon><FilterOutlined /></template>
           </a-button>
@@ -189,7 +189,7 @@
             {{ statusKey(SALE_STATUSES, record.statut) ? $t(statusKey(SALE_STATUSES, record.statut)) : record.statut }}
           </a-tag>
           <!-- Draft: saved for review (Save as draft / recurring invoice); finalize from Edit. -->
-          <a-tag v-if="record.is_draft" color="purple" style="cursor: pointer" @click="$router.push(`/sales/${record.id}/edit`)">Draft</a-tag>
+          <a-tag v-if="record.is_draft" color="purple" style="cursor: pointer" @click="$router.push(`/sales/${record.id}/edit`)">{{ $t('Draft') }}</a-tag>
         </template>
         <template v-else-if="column.key === 'currency_code'">
           <a-tag v-if="record.currency_code" color="blue">{{ record.currency_code }}</a-tag>
@@ -208,12 +208,12 @@
                    sent (invoice + reminders) with their dates. -->
               <div class="od-box">
                 <div style="font-weight: 500; margin-bottom: 6px">
-                  {{ record.client_name }} — other due invoices
+                  {{ record.client_name }} {{ $t('tx_other_due_invoices_20e75') }}
                   <span class="od-sum">{{ record.other_due_count }} · {{ money(record.other_due_sales.reduce((s, i) => s + Number(i.due || 0), 0)) }}</span>
                 </div>
                 <table class="od-table">
                   <thead>
-                    <tr><th>Invoice</th><th>Date</th><th>Days</th><th class="r">Total</th><th class="r">Due</th><th>Emails sent</th></tr>
+                    <tr><th>{{ $t('Invoice') }}</th><th>{{ $t('date') }}</th><th>{{ $t('Days') }}</th><th class="r">Total</th><th class="r">{{ $t('Due') }}</th><th>{{ $t('tx_Emails_sent_36a27') }}</th></tr>
                   </thead>
                   <tbody>
                     <tr v-for="item in record.other_due_sales" :key="item.id">
@@ -226,12 +226,12 @@
                         <template v-if="item.emails?.length">
                           <b>{{ item.emails.length }}</b>
                           <span class="od-mails">
-                            <span v-for="(m, i) in item.emails" :key="i" :class="['od-mail', m.kind === 'reminder' ? 'od-mail--rem' : '']" :title="m.kind === 'reminder' ? 'Payment reminder' : 'Invoice email'">
+                            <span v-for="(m, i) in item.emails" :key="i" :class="['od-mail', m.kind === 'reminder' ? 'od-mail--rem' : '']" :title="m.kind === 'reminder' ? $t('tx_Payment_Reminder_4d69d') : $t('tx_Invoice_email_dd981')">
                               <BellOutlined v-if="m.kind === 'reminder'" /><MailOutlined v-else /> {{ odDate(m.at) }}
                             </span>
                           </span>
                         </template>
-                        <span v-else class="od-none">None</span>
+                        <span v-else class="od-none">{{ $t('None') }}</span>
                       </td>
                     </tr>
                   </tbody>
@@ -287,7 +287,7 @@
             </a-tooltip>
             <!-- Only while a balance remains -- a paid/cancelled invoice has
                  nothing to remind the customer about. -->
-            <a-tooltip v-if="isUnpaid(record)" title="Send payment reminder">
+            <a-tooltip v-if="isUnpaid(record)" :title="$t('tx_Send_payment_reminder_7faed')">
               <a-button type="text" size="small" class="row-act row-act--remind" @click="openEmailModal(record, 'reminder')">
                 <template #icon><BellOutlined /></template>
               </a-button>
@@ -342,10 +342,10 @@
                   </a-menu-item>
                   <!-- PayPal module: copy the invoice's public "Pay now" link. -->
                   <a-menu-item v-if="auth.moduleEnabled('paypal') && record.statut !== 'cancelled' && record.payment_statut !== 'paid'" key="paypal-link">
-                    <LinkOutlined /> PayPal pay link
+                    <LinkOutlined /> {{ $t('tx_PayPal_pay_link_a7efc') }}
                   </a-menu-item>
                   <a-menu-item v-if="whatsappEnabled" key="whatsapp">
-                    <WhatsAppOutlined /> WhatsApp Notification
+                    <WhatsAppOutlined /> {{ $t('tx_WhatsApp_Notification_6eed3') }}
                   </a-menu-item>
                   <a-menu-item v-if="smsEnabled" key="sms">
                     <MessageOutlined /> {{ $t('sms_notification') }}
@@ -512,8 +512,8 @@
     <a-modal v-model:open="documentsOpen" :title="`${$t('Attach_Documents')} — ${activeSale?.Ref || ''}`" :footer="null" width="640px">
       <a-alert
         type="info" show-icon style="margin-bottom: 12px"
-        message="Documents, images, videos, and .zip/.rar archives only — max 25 MB per file."
-        description="Executables and scripts (.exe, .js, .bat, .sh, .msi, .dll, .vbs, .ps1, .jar, etc.) are not allowed."
+        :message="$t('tx_Documents_images_videos_and_zip_rar_archives_only_max_25_MB__580bf')"
+        :description="$t('tx_Executables_and_scripts_exe_js_bat_sh_msi_dll_vbs_ps1_jar_et_0dbad')"
       />
       <a-upload
         :file-list="docFiles"
@@ -557,6 +557,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 import DatePresetButtons from '../../components/DatePresetButtons.vue';
 import DateRangeFields from '../../components/DateRangeFields.vue';
 import { startPreset } from '../../lib/datePresetDefault';
@@ -636,9 +637,9 @@ const filters = ref({
 // Emailed filter. "Needs a reminder" = still owes, no reminder in 15 days --
 // searched over ALL dates (old unpaid invoices are exactly the ones wanted).
 const EMAILED_OPTIONS = sortByLabel([
-  { value: 'needs_reminder', label: 'Owes, no reminder in 15 days' },
-  { value: 'never_emailed', label: 'Never emailed' },
-  { value: 'reminded', label: 'Reminder sent' },
+  { value: 'needs_reminder', label: tEs('tx_Owes_no_reminder_in_15_days_9de13', 'Owes, no reminder in 15 days') },
+  { value: 'never_emailed', label: tEs('tx_Never_emailed_4329d', 'Never emailed') },
+  { value: 'reminded', label: tEs('tx_Reminder_sent_16950', 'Reminder sent') },
 ]);
 
 // Reset: every filter back to its default, date range back to the user's
@@ -666,13 +667,13 @@ const {
   visibleFilterKeys, customizeOpen, customizeSaving, customizeRows,
   openCustomize, moveRow, saveCustomize, resetCustomize,
 } = useCustomizableFilters('sales_filters', [
-  { key: 'date', label: 'Date' },
-  { key: 'client_id', label: 'Customer' },
-  { key: 'statut', label: 'Status' },
-  { key: 'payment_statut', label: 'Payment Status' },
-  { key: 'emailed', label: 'Emailed' },
-  { key: 'shipping_status', label: 'Shipping Status' },
-  { key: 'warehouse_id', label: 'Location' },
+  { key: 'date', label: tEs('date', 'Date') },
+  { key: 'client_id', label: tEs('Customer', 'Customer') },
+  { key: 'statut', label: tEs('Serial_Status', 'Status') },
+  { key: 'payment_statut', label: tEs('Ord_Guide_Payment_Title', 'Payment Status') },
+  { key: 'emailed', label: tEs('tx_Emailed_93208', 'Emailed') },
+  { key: 'shipping_status', label: tEs('Shipping_status', 'Shipping Status') },
+  { key: 'warehouse_id', label: tEs('Location', 'Location') },
   // The company's own names for Group Name / Name (Defaults -> Products).
   { key: 'product_group_id', label: t('Group_Name') },
   { key: 'product_id', label: t('Name_product') },
@@ -881,7 +882,7 @@ const accountOptions = computed(() =>
 // + "Draft": the drafts (Pending sales saved for review), via ?draft=1.
 const statusOptions = computed(() => withAllOption(sortByLabel([
   ...SALE_STATUSES.map(s => ({ value: s.value, label: t(s.key) })),
-  { value: '__draft', label: 'Draft' },
+  { value: '__draft', label: tEs('Draft', 'Draft') },
 ])));
 // Built from the REAL distinct payment_statut values for this company (not
 // the full static vocab) -- a company with no legacy 'pending' rows, for
@@ -922,10 +923,10 @@ const columns = computed(() => [
   // Other invoices for this same customer still carrying a due balance --
   // blank cell when there are none, per the design ask ("if not exist,
   // don't show nothing"). exportValue mirrors that: '' not '0'.
-  { title: 'Other Due', dataIndex: 'other_due_count', key: 'other_due', align: 'center', width: 100, exportValue: r => (r.other_due_count > 0 ? String(r.other_due_count) : '') },
+  { title: tEs('tx_Other_Due_a6652', 'Other Due'), dataIndex: 'other_due_count', key: 'other_due', align: 'center', width: 100, exportValue: r => (r.other_due_count > 0 ? String(r.other_due_count) : '') },
   { title: t('PaymentStatus'), dataIndex: 'payment_status', key: 'payment_status', exportValue: r => r.payment_status },
   // Invoice / reminder emails sent (sale_email_logs).
-  { title: 'Emailed', key: 'emailed', width: 150, exportValue: r => emailedText(r) },
+  { title: tEs('tx_Emailed_93208', 'Emailed'), key: 'emailed', width: 150, exportValue: r => emailedText(r) },
   { title: t('Shipping_status'), dataIndex: 'shipping_status', key: 'shipping_status', exportValue: r => r.shipping_status || '' },
   { title: t('warehouse'), dataIndex: 'warehouse_name', key: 'warehouse_name', sorter: true },
 ]);

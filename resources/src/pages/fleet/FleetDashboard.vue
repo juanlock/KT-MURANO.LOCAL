@@ -1,18 +1,18 @@
 <template>
   <div class="page">
     <PageHeader
-      title="Fleet Dashboard"
-      subtitle="Vehicles, running costs and everything falling due."
+      :title="$t('tx_Fleet_Dashboard_8d2f3')"
+      :subtitle="$t('tx_Vehicles_running_costs_and_everything_falling_due_76c6e')"
       :breadcrumb="['Fleet Management', 'Dashboard']"
     >
       <template #actions>
         <a-button @click="$router.push('/fleet/vehicles')">
           <template #icon><UnorderedListOutlined /></template>
-          All vehicles
+          {{ $t('tx_All_vehicles_e54db') }}
         </a-button>
         <a-button v-if="canAdd" type="primary" @click="$router.push('/fleet/vehicles/create')">
           <template #icon><PlusOutlined /></template>
-          Add vehicle
+          {{ $t('Add_Fitment_Row') }}
         </a-button>
       </template>
     </PageHeader>
@@ -24,42 +24,42 @@
           <span class="kpi-ic kpi-ic--brand"><CarOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ data.total || 0 }}</span>
-            <span class="kpi-label">Vehicles</span>
+            <span class="kpi-label">{{ $t('Vehicles') }}</span>
           </span>
         </button>
         <button type="button" class="kpi" @click="$router.push('/fleet/vehicles?status=active')">
           <span class="kpi-ic kpi-ic--ok"><CheckCircleOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ data.active || 0 }}</span>
-            <span class="kpi-label">Active</span>
+            <span class="kpi-label">{{ $t('Actif') }}</span>
           </span>
         </button>
         <button type="button" class="kpi" @click="$router.push('/fleet/vehicles?status=maintenance')">
           <span class="kpi-ic kpi-ic--warn"><ToolOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ data.in_maintenance || 0 }}</span>
-            <span class="kpi-label">In maintenance</span>
+            <span class="kpi-label">{{ $t('Transport_In_Maintenance') }}</span>
           </span>
         </button>
         <button type="button" class="kpi" @click="$router.push('/fleet/assignments?status=active')">
           <span class="kpi-ic kpi-ic--info"><UserOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ data.assigned || 0 }}</span>
-            <span class="kpi-label">Out with drivers</span>
+            <span class="kpi-label">{{ $t('tx_Out_with_drivers_17f4d') }}</span>
           </span>
         </button>
         <div class="kpi kpi--static">
           <span class="kpi-ic kpi-ic--fuel"><FireOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ money(data.fuel_cost_month || 0) }}</span>
-            <span class="kpi-label">Fuel this month</span>
+            <span class="kpi-label">{{ $t('tx_Fuel_this_month_b006f') }}</span>
           </span>
         </div>
         <div class="kpi kpi--static">
           <span class="kpi-ic kpi-ic--cost"><DollarOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ money(data.maintenance_cost_month || 0) }}</span>
-            <span class="kpi-label">Maintenance this month</span>
+            <span class="kpi-label">{{ $t('tx_Maintenance_this_month_99c81') }}</span>
           </span>
         </div>
       </div>
@@ -69,17 +69,17 @@
           <ReportChart
             :data="data.cost_trend || []"
             :fields="[
-              { key: 'fuel', label: 'Fuel' },
-              { key: 'maintenance', label: 'Maintenance' },
+              { key: 'fuel', label: $t('tx_Fuel_94fc5') },
+              { key: 'maintenance', label: $t('tx_Maintenance_10d0d') },
             ]"
-            title="Running costs — last 6 months"
+            :title="$t('tx_Running_costs_last_6_months_db0f0')"
             type="bar"
             x-key="month"
             :height="300"
             :format="money"
           />
 
-          <a-card size="small" title="Fleet composition" style="margin-bottom: 16px">
+          <a-card size="small" :title="$t('tx_Fleet_composition_b0a2f')" style="margin-bottom: 16px">
             <div v-if="composition.length" class="breakdown">
               <div v-for="row in composition" :key="row.type" class="breakdown-row">
                 <span class="breakdown-label">{{ labelOf(VEHICLE_TYPES, row.type) }}</span>
@@ -90,7 +90,7 @@
                 <span class="breakdown-count">{{ row.count }}</span>
               </div>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="No vehicles yet" />
+            <a-empty v-else :image="simpleEmptyImage" :description="$t('tx_No_vehicles_yet_3e2b2')" />
           </a-card>
         </a-col>
 
@@ -100,11 +100,11 @@
             <template #title>
               <span class="alert-title">
                 <WarningOutlined :style="{ color: alerts.length ? '#d97706' : undefined }" />
-                Needs attention
+                {{ $t('tx_Needs_attention_d6f57') }}
               </span>
             </template>
             <template #extra>
-              <a-tag v-if="overdueCount" color="error">{{ overdueCount }} overdue</a-tag>
+              <a-tag v-if="overdueCount" color="error">{{ overdueCount }} {{ $t('tx_overdue_fleet') }}</a-tag>
             </template>
 
             <div v-if="alerts.length" class="alert-list">
@@ -119,20 +119,20 @@
                   <span class="alert-meta">{{ alert.label }} · {{ date(alert.date) }}</span>
                 </span>
                 <a-tag :color="alert.days < 0 ? 'error' : 'warning'">
-                  {{ alert.days < 0 ? `${Math.abs(alert.days)}d overdue` : `${alert.days}d` }}
+                  {{ alert.days < 0 ? `${Math.abs(alert.days)}d ${$t('tx_overdue_fleet')}` : `${alert.days}d` }}
                 </a-tag>
               </button>
             </div>
             <a-empty
               v-else :image="simpleEmptyImage"
-              description="Nothing due in the next 30 days"
+              :description="$t('Owner_No_Alerts')"
               style="padding: 20px 0"
             />
           </a-card>
 
-          <a-card size="small" title="Recent maintenance">
+          <a-card size="small" :title="$t('tx_Recent_maintenance_78d04')">
             <template #extra>
-              <a-button type="link" size="small" @click="$router.push('/fleet/maintenance')">View all</a-button>
+              <a-button type="link" size="small" @click="$router.push('/fleet/maintenance')">{{ $t('View_all') }}</a-button>
             </template>
             <a-list :data-source="data.recent_maintenance || []" size="small">
               <template #renderItem="{ item }">
@@ -151,7 +151,7 @@
                 </a-list-item>
               </template>
               <template #empty>
-                <a-empty :image="simpleEmptyImage" description="No maintenance recorded" />
+                <a-empty :image="simpleEmptyImage" :description="$t('tx_No_maintenance_recorded_d5452')" />
               </template>
             </a-list>
           </a-card>

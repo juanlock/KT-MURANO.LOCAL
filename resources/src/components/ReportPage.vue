@@ -55,6 +55,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../i18n/index.js';
 /**
  * Shell for report pages: header + export buttons + filter bar + table.
  * A report page supplies columns, filters and a bodyCell slot — nothing else.
@@ -152,7 +153,7 @@ async function doExport(kind) {
 async function doPrint() {
   const win = window.open('', '_blank');
   if (!win) {
-    message.warning('Please allow popups to print');
+    message.warning(tEs('tx_Please_allow_popups_to_print_e243c', 'Please allow popups to print'));
     return;
   }
   win.document.write('<p style="font-family:sans-serif;padding:16px;color:#666">…</p>');

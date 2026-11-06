@@ -55,7 +55,7 @@ class ProductSerial extends Model
 
     public function warehouse()
     {
-        return $this->belongsTo(Warehouse::class, 'warehouse_id');
+        return $this->belongsTo(Warehouse::class, 'warehouse_id')->withoutGlobalScope('company');
     }
 
     public function provider()

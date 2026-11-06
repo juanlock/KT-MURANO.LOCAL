@@ -60,8 +60,9 @@ class DemoRunner
 
         $reason = ! $installed ? 'Module tables not installed'
             : (! $enabled ? 'Module is switched off'
+            : (in_array($ctx->businessType, $module->skipBusinessTypes(), true) ? 'Its examples do not fit this business type'
             : ($demoCount > 0 ? 'Examples already generated'
-            : ($realData ? 'Company already has real data here' : null)));
+            : ($realData ? 'Company already has real data here' : null))));
 
         return [
             'key' => $key,

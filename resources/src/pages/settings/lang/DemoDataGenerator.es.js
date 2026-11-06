@@ -125,4 +125,10 @@ export default {
   'Fuel logs': 'Cargas de combustible', 'Driver assignments': 'Asignaciones de chofer', 'Maintenance records': 'Mantenimientos',
   'Asset categories': 'Categorías de activos', 'Assignments': 'Asignaciones', 'Service jobs': 'Órdenes de servicio', 'Technicians': 'Técnicos',
   'Job payments': 'Pagos de órdenes', 'Pages': 'Páginas', 'Photos': 'Fotos', 'Works': 'Trabajos', 'Messages': 'Mensajes',
+  // "Update the demo every day" (2026-11-02).
+  'Update the demo every day': 'Actualizar la demo cada día',
+  'For presentations: the hospital, school and transport examples stay current -- today\'s roster and patients, the school register up to yesterday, a week of trips ahead with buses on the road now. Turning it on brings them up to date right away; real data is never touched.':
+    'Para presentaciones: los ejemplos de hospital, colegio y transporte se mantienen al día -- el turno y los pacientes de hoy, la asistencia del colegio hasta ayer, una semana de viajes por delante con buses en ruta ahora mismo. Al encenderlo se ponen al día en el momento; los datos reales nunca se tocan.',
+  'The demo is updated every day.': 'La demo se actualizará cada día.',
+  'The demo is no longer updated.': 'La demo ya no se actualizará.',
 };

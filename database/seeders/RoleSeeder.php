@@ -18,10 +18,11 @@ class RoleSeeder extends Seeder
         DB::table('roles')->insert(
             [[
                 'id' => 1,
-                'name' => 'Owner',
-                'label' => 'Owner',
+                // The SuperAdmin users' role ("Owner" until 2026-11-02).
+                'name' => 'SuperAdmin',
+                'label' => 'SuperAdmin',
                 'status' => 1,
-                'description' => 'Owner',
+                'description' => 'SuperAdmin: every permission, every company.',
             ]]
         );
     }

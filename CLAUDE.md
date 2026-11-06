@@ -19,7 +19,8 @@ data a feature needs go as migrations. `kt_logs` lives in production
 **Dev data goes up, except the companies in production (user's rule,
 2026-10-26, replacing "dev data never goes up"):** `companies.is_live`
 (Companies -> Edit -> Website, superadmin/AdminSystem only; today **Ruba**
-(sales), **New Era** (appointments), **Turismo Cautivo** (forms)) = production
+(sales), **New Era** (appointments), **Turismo Cautivo** (forms), **KcolTech** and **ChulucanasPe**
+(website, 2026-11-05)) = production
 owns that company's data and nothing of it is ever sent from dev. Everything
 else created / changed in dev since the morning's copy (`last_sync.json`,
 written by `murano:from-prod`) goes up with `protocol_prod_push.php` (Pa
@@ -44,9 +45,10 @@ Turismo Cautivo and Arce were created in production with a one-off script).
   a local backup tagged `pallevar`, README, commit, push, then **the code is
   deployed to production without asking** (user's rule, 2026-10-25: "pa
   llevar" is the yes), **then the dev data** (`protocol_prod_push.php`, never
-  the live companies; 2026-10-26) and, **when every step went well, the
-  PC shuts down** (`shutdown /s /t 120`, cancel with `shutdown /a`; nothing
-  failed or pending, push included). Not ready for production: A Dormir.
+  the live companies; 2026-10-26). **No protocol ever shuts the PC down**
+  (user's rule, 2026-11-03, replacing 2026-10-25's automatic shutdown): only
+  when the user asks for it at that moment (`shutdown /s /t 120`, cancel with
+  `shutdown /a`). Not ready for production: A Dormir.
 - **A Dormir** (`/a-dormir`, "Jarvis, a dormir", 2026-10-20) -- the end of the
   day WITHOUT touching production, for work not ready / not tested yet: local
   dev backup tagged `adormir` (PC folder + a copy in the root of
@@ -84,6 +86,9 @@ backup also tidies `KT-TOOLS/database/` (a stray backup goes to its PC's folder 
 and leaves a **copy of the latest backup in its root**
 (`dbmurano_<date>_<PC>_<time>_<tag>...zip`, only the latest one;
 `protocol_backup_tidy.php`; user's rule, 2026-10-19).
+**KT-TOOLS outside git goes through Google Drive (user's rule, 2026-11-04):** photos and material for a company
+(e.g. `KT-TOOLS/turismo`) don't depend on one PC: `database/scripts/protocol_tools_sync.php` syncs them both ways with
+`<archive>\..\KT-TOOLS` (newest wins, nothing deleted; backups, Temp and `.env` left out). Wake-up, Pa Llevar and A Dormir run it.
 **No HTML reports from the protocols (user's rule, 2026-10-19, to save
 resources):** Wake-up and Pa Llevar report in the chat only. `KT-TOOLS/Report/`
 keeps the reports already made (never deleted); a report file is written only
@@ -146,11 +151,16 @@ form pickers stay on the acting company. Numbers unique install-wide
   (AppServiceProvider, `MigrationsEnded`), so a new module's permission reaches
   it automatically. (Before this, the Owner role was missing
   `portfolio_manage` and the Portfolio menu was invisible to the SuperAdmin.)
-  **Business Modules switches never apply to the SuperAdmin (user's rule,
-  2026-10-19):** with any company chosen, the SuperAdmin sees and opens every
-  module (menu `ALL_MODULES_ON`, `auth.moduleEnabled`, `EnforceModuleFlags`
-  and `ModuleFlags::abortUnlessEnabled` skip it); the company's switches apply
-  to that company's users. Business logic tied to a switch (ZATCA reporting,
+  **Business Modules switches and the SuperAdmin (user's rule, 2026-11-02,
+  replacing 2026-10-19's "never apply"):** with a company picked, the
+  SuperAdmin's menu, header buttons and pages follow THAT company's modules and
+  menu order, as its admin sees them (`auth.superSeesAllModules` /
+  `auth.moduleEnabled`, `stores/menu.js`); with AdminSystem (999) or nothing
+  picked, every module (`ALL_MODULES_ON`). The server still lets the SuperAdmin
+  through (`EnforceModuleFlags`, `ModuleFlags::abortUnlessEnabled` skip it).
+  Only a SuperAdmin turns a company's modules on / off (Settings -> Modules,
+  that company only; with AdminSystem picked it changes only 999's, never the
+  companies'). Business logic tied to a switch (ZATCA reporting,
   PayPal) still follows `ModuleFlags::enabled()`. A new company's modules come
   from its business type (`BusinessTypes::modules()`, Companies -> Add ->
   Modules step).
@@ -183,6 +193,25 @@ something invented ad hoc. Since `now()`/`Carbon` write literal (timezone-naive
 `DATETIME`) values to the DB, changing this shifts what gets stored for
 *new* rows going forward — existing historical timestamps were written under
 the old `UTC` setting and were not retroactively converted.
+
+## Open with the user (2026-11-06, KT-HOGWARTS switched off for some weeks)
+
+**Turismo Cautivo's presentation is on 2026-11-15:** everything that company sees must be in Spanish. Before it, check that
+Reporte de salidas opens on real data. Only Reporte de salidas and Reclamos hold real data; the other transport tabs are demo.
+
+Waiting for the user's answer -- bring these up, don't decide them alone (remove each one once settled):
+1. **The US note on invoices** (`sale_pdf_company_note`: "We accept credit card... (973) 841-3779", $35 late fee) is in 18
+   companies, apparently copied at creation (not confirmed). Whose phone is it? Keep it for that company, clear the others.
+2. **A screen to enter each day's departures for Turismo** (bus, boarding points, times, passengers, amount, toll, fuel; not
+   started). The user's requirement: the report can go to PDF or email and every day stays stored as history. Recommended before the 15th.
+3. **337 complaints imported with their answers one field off:** the dashboard reads them through `LEGACY_KEYS`, but the
+   admin who opens one to reply sees them wrong. Recommended: correct them with a migration, production backup first.
+4. **The client's data:** which 4 buses have deluxe seats (all 17 say 15; our guess 103, 104, 370, 380); name, plate and seats of
+   the 2 missing buses; where each report's buses go; what CV is; Chiclayo's toll and fuel.
+5. **2026-11-16:** the user reviews the Risks thresholds.
+
+Not reviewed yet: PDFs other than the invoice, about 60 store / meeting messages without Spanish, the customer portal, a real
+send of the meeting and asset emails, whether production's `.env` sets `QUEUE_FAILED_DRIVER`.
 
 ## Base Product & Documentation
 
@@ -326,10 +355,19 @@ the start of each session).
 - **Standard logins (user's rule, 2026-10-25):** every new company and every
   demo gets them (`App\Support\CompanyLogins`): default passwords per type
   employee `Empleado2020`, customer `Cliente2024`, supplier / sales agent /
-  store `C0ntr0l123`; and three access logins with their own roles,
-  `{slug}-admin` (Admin-ALL), `{slug}-helpdesk` (Helpdesk), `{slug}-info`
-  (Info) `@kcoltech.com`, password `C0ntr0l123$` (Companies -> Add: an empty
-  password field = these). A demo's people (staff, patients, students...)
+  store `C0ntr0l123`; and five access logins with their own roles,
+  `{slug}-admin` (IT Admin), `{slug}-manager` (Manager, 2026-11-02; not made
+  where the company already has a Manager), `{slug}-helpdesk` (Helpdesk),
+  `{slug}-info` (Info), `{slug}-website` (Website, 2026-11-03) `@kcoltech.com`,
+  password `C0ntr0l123$` (Companies -> Add: an empty password field = these).
+  **Every role has a user (user's rule, 2026-11-03):** the automatic roles
+  (Supplier, Sales Agent, Online Store) exist in every company, and a people
+  role nobody holds gets a demo record + login ("Cliente Demo" / "Demo
+  Customer", employee, supplier, sales agent, store customer;
+  `{slug}-customer|employee|supplier|salesagent|store@kcoltech.com`, the type's
+  password; not tagged as demo data) -- `App\Support\CompanyDefaultPeople`, run
+  by Companies -> Add and migration 2026_11_03_120000 (live companies
+  included). Settings -> Roles by company shows 0 for a role without users. A demo's people (staff, patients, students...)
   get their type's password (`DemoRunner::standardLogins`). Vitalis has them
   (migration 2026_10_25_190000). **Company logins** (profile menu, the
   company's admin only: admin login + `company_logins_view`): every login, its
@@ -349,6 +387,21 @@ the start of each session).
   Agents (the server refuses them in Users -> Add). Users is where any login is
   **edited** (role, locations, password, PIN) and **disabled** (Active /
   Disabled switch -- never your own account).
+- **Standard roles of every company (user's rules, 2026-11-01 / 2026-11-02,
+  `App\Support\CompanyRoles`):** **IT Admin** (the company's IT person -- called
+  "Admin Compañía" until 2026-11-02: users, roles, settings, menu order;
+  `{slug}-admin@kcoltech.com`, type admin, no employee behind it), **Manager**
+  (runs the business: every main module, no configuration; `{slug}-manager@`
+  -- `CompanyRoles::syncManager()` = the IT Admin's
+  permissions minus `MANAGER_EXCLUDED` and the SuperAdmin-only settings; e.g.
+  info@rubagardenlandscape.com, New Era's info@ / admin@ / Monica / Silvia),
+  **Info** (the forms -- contact forms -- read only; `{slug}-info@`; called
+  "Formularios" 11-01..11-02), **Helpdesk**, **Website**, **Employee**,
+  **Customer**; automatic Supplier / Sales Agent / Online Store. A business's
+  own job roles stay: hospital, school, clinic, restaurant, Ruba's SupervisorRG
+  (every job and assignment) / OperatorRG (its own jobs), New Era's **Staff**
+  (every stylist; ex StaffNE). New Era's only IT Admin is
+  neweraunisexsalon-admin@kcoltech.com.
 - **The role is mandatory.** A user can do only what their role allows
   (`role_user` -> permissions); no permission is granted by user type
   (SuperAdmin aside). Example: Email Office follows the role's
@@ -369,8 +422,15 @@ the start of each session).
   sale's sales agent linked to their user) x `commission_rate` %), from
   `pay_effective_from`. HRM -> Payroll -> "Generate weekly payroll"
   (`App\Services\PayrollRun`); paid payrolls post to accounting via
-  `PayrollExpenseSync` (Salaries and wages 7010 / Commissions 7040). Owners'
-  own employee records (admin login) stay off payroll. Job cost = labor (hours
+  `PayrollExpenseSync` (Salaries and wages 7010 / Commissions 7040).
+  **An admin / SuperAdmin login is never an employee, customer, supplier or
+  sales agent (user's rule, 2026-11-02, replacing "owners' employee records
+  stay off payroll"):** it only manages the system's access. Every other login
+  belongs to its record. A new company's admin gets no employee
+  (`CompanyProvisioner`); giving a login the role IT Admin in Users ->
+  Edit asks first when it belongs to a record ("remove it and make it an
+  admin" = `App\Support\AdminLogins::release()`: employee soft-deleted with a
+  leaving date, others unlinked, type -> admin; or keep it with its own role). Job cost = labor (hours
   x operator rate) + equipment used (`service_job_assets`, asset `hourly_cost`)
   -- `App\Support\ServiceJobCost`. Rates: Ruba manager $25 / operators $20,
   KcolTech $35, New Era 40% commission.
@@ -426,18 +486,29 @@ the start of each session).
   The mobile app's steps are API-ready (`mobile/login` answers 403 with
   `login_token` + step; `mobile/login/verify | resend | password`); the Flutter
   app itself (not in this workspace) still needs those screens.
+- **Hostinger allows 20 new MySQL connections per second (its support, 2026-11-04):** over it = `[2002] Operation
+  not permitted`. The log showed web requests (no `artisan` trace, no failed scheduled task): each request opens a
+  connection, so one user's page with many API calls can exceed it. `App\Support\RetryingMySqlConnector` waits and
+  retries, leaving a warning in the log. The cron stays: it runs the backups, reminders and mail.
 - **Production server tasks (2026-10-27):** the Laravel scheduler needs the
-  hPanel cron `* * * * * /usr/bin/php <PROD_PATH>/artisan schedule:run`
-  (Hostinger has no `crontab` command). **Production's PHP disables
+  hPanel cron `/usr/bin/php <PROD_PATH>/artisan schedule:run` (Hostinger has no
+  `crontab` command). **It runs every 10 minutes for now (user's choice,
+  2026-11-04):** a task with a fixed time must be on a multiple of 10 minutes
+  or it never runs. **Marketing's `scheduling_enabled` stays 0 and no campaign
+  is scheduled (2026-10-27, demo campaigns reached real customers when the cron
+  first ran): never turn it on or run a demo with campaigns without asking. **Production's PHP disables
   `proc_open`, `exec`, `popen`, `shell_exec`**: without `proc_open` the
   scheduler runs each task in-process (`Console\Kernel` `$cmd` ->
   `schedule->call(Artisan::call(...))`), and nothing on the server may rely on
   Laravel's `Process` / `exec`. It runs the queue (`queue:work --once`),
-  reminders, Email Office / Helpdesk mail, `murano:server-backup` (03:15: a
+  reminders, Email Office / Helpdesk mail, `murano:server-backup` (03:20: a
   gzipped dump -- mysqldump when exec exists, else pure PHP -- into
   `~/murano_backups/`, outside the website, 14 kept) and
   `murano:error-digest` (07:00: yesterday's log errors emailed to the
-  SuperAdmin). Logs rotate daily (`LOG_CHANNEL=daily`). Install-wide
+  SuperAdmin). Logs rotate daily (`LOG_CHANNEL=daily`). Every task's result goes to
+  `storage/logs/scheduler-YYYY-MM-DD.log` (`Console\Kernel::runLogged`, 2026-11-04:
+  `Artisan::call` hid failures and the backups stopped unnoticed), failures also to the
+  main log; a failed `murano:server-backup` emails the SuperAdmin. Install-wide
   integrations (WooCommerce, Google Sheets, QuickBooks, ZATCA, Google Calendar,
   webhooks, customer-display broadcast) neither schedule tasks nor queue jobs
   unless some company uses them (`ModuleFlags::anyCompany`, `enabled()` per
@@ -544,6 +615,68 @@ the start of each session).
   shared out among doctors / nurses, and four example stays (treatment, doses,
   diet, vitals, progress, labs with a critical glucose, interconsultations).
   A doctor's My patients also lists the inpatients they attend.
+- **Transport agencies = Locations (user's rule, 2026-11-03):** each agency
+  (`transport_locations` kind agency) has its warehouse
+  (`transport_locations.warehouse_id`, `App\Support\TransportAgencies::sync`)
+  -- sales, cash registers and users per agency. Its ticket office sells on
+  the POS with a login of role **Terminal POS** (POS, own sales, customers,
+  its register; home `/pos`) assigned to that agency only; only logins with
+  every location (Manager, IT Admin) see all the agencies. The tourism type
+  has POS and no Portfolio / Website / Gallery (its own website embeds the
+  Murano forms). Demo: route tickets (`PAS-{route}` service products, sold at
+  the origin agency), a cashier per agency (`{slug}-pos-{agency}@kcoltech.com`),
+  passengers, and ticket sales filled up to the current hour by
+  `TransportDemoDay::tickets` (`demo:daily`).
+  **Is each trip worth it? (user's rules, 2026-11-04):** the dashboard's "Profit by
+  route" block (`TransportProfitPanel.vue`, `App\Services\TransportProfit`, permission
+  `transport_profit`): profit = tickets (`transport_tickets.price`) + parcels - crew pay -
+  payroll (pilots', hostesses' and administrative staff's `employees.basic_salary` / 30, shared among each day's
+  trips) - fuel - maintenance - depreciation - tolls - agency (`transport_locations.daily_cost`,
+  S/ 50 a day at Turismo, shared among that day's departures; idle days in the totals) - meals (`settings.transport_meal_cost` per DELUXE (VIP) ticket sold, none for regular seats: snack and drink, S/ 10 at Turismo; user's rule, 2026-11-05). Maintenance and depreciation go by km (the
+  bus's cost per km x the route's km; depreciation = (price - residual) / useful life);
+  fuel = the trip's real `fuel_cost`, else the bus's cost per km, flagged estimated; tolls =
+  the trip's `transport_tolls`, else the route's `toll_cost`, flagged expected; missing
+  data is listed, never guessed. A scheduled trip is "pending", not a loss. Buses have
+  `seats` (POS blocks the seat over the limit; no seat map yet) and cargo limits;
+  **parcels** (`transport_parcels`, `/transport/parcels`) are registered with the box's
+  measures and refused when they don't fit; they do NOT go through Sales or the cash register
+  yet. **Supervisor** role, one login per agency (`{slug}-super-{agency}@kcoltech.com`,
+  `TransportAgencies::supervisors`, home `/transport/today`): runs, cancels or reschedules
+  its agency's departures (`transport_trip_decisions`); rescheduled passengers keep their
+  ticket, a cancellation lists who is affected, no refund and no email.
+  **Transport works like an airline (user's rule, 2026-11-04):** a trip has stops
+  (`transport_route_stops`, `App\Support\TransportLegs`): the Lima -> Chepén bus reaches Trujillo
+  and leaves 25 minutes later, selling the seats emptied, so a seat is taken PER STRETCH and a
+  short stretch is a ticket on a long trip (one set of costs; occupancy = passenger-km /
+  seat-km). A ticket product `PAS-{route}` is the passenger's stretch; `PAS-{route}-VIP` = 20 %
+  more, VIP seat (`vehicles.vip_seats`, the first N; `seats_lower` = first floor). A regular ticket
+  gets a VIP seat only when no regular one is left. Boarding pass with a QR
+  (`lib/transportPrint.js`), read at `/transport/boarding`. Parcels are sales of the agency
+  (`App\Services\TransportParcelSale`); who registers one gives date, destination and measures, the
+  system picks the first bus with room (`App\Services\TransportParcelAssign`, `transport:assign-parcels`) and the
+  customer gets an estimate of 1 to 3 days; with cargo type, guide and public tracking
+  (`/encomienda/{token}`, no names or prices). Every Nth trip free
+  (`settings.transport_loyalty_every`, a notice + the line discount by hand). The workshop:
+  `/fleet/parts`, `/fleet/plan` (due by km and date, alerts), parts used on each job.
+  Payroll type `monthly` = a week's share of `basic_salary` + trips.
+  **Charts on the dashboard (2026-11-05):** tabs "Indicators" and "Risks" (`TransportIndicatorsPanel.vue`, `App\Services\TransportIndicators`, permission
+  `transport_profit`, same figures as Profit by route; the thresholds in `RISK` are ours, not the owner's) and tab "Complaints" (`TransportClaimsPanel.vue`,
+  `App\Services\TransportClaims`, `forms_view`, section `transport_claims`): counts from the company's complaints-book form, never who complained or what they wrote.
+  **337 of Turismo's complaints imported from the old forms system have their answers one field off** (the Agency field holds the reason...): `TransportClaims` reads them
+  through `LEGACY_KEYS`; the rows stay as they are. Shared: `lib/transportCharts.js` (`useFitHeight`), `TransportChartBlock.vue`, `TransportStrip.vue`.
+  **Departures report (2026-11-05):** tab "Reporte de salidas" (`TransportDeparturesPanel.vue`, `App\Services\TransportDepartures`): the content of Turismo's own Excel report per agency, designed as a board, not a copy of the sheet (user's rule): key figures, one row per bus with its boarding points in the client's codes (`transport_trip_boardings.label`), occupancy bar, small charts; a day with only demo trips or none shows the client's latest report;
+  boarding points with their time per trip (`transport_trip_boardings`), the day's price (`transport_day_prices`, no screen yet). A trip from the client's report has
+  `reported_passengers` / `reported_income` instead of tickets (none are made up); `TransportProfit` counts them. The client's answers (user, 2026-11-05): P.N. = terminal Puente Nuevo, T.Olivos = Terminal Los Olivos,
+  toll and fuel are per stretch (they say: by distance and diesel cost), only 4 buses have deluxe seats, the fleet is 19 vehicles. Still open: where a report's buses go
+  (Lima -> Chiclayo and back is our assumption), what CV is (stored under Cavassa, a guess), which 4 buses are deluxe (all still say 15), the 2 buses missing (17 loaded), Chiclayo's toll and fuel. The Risks thresholds are reviewed on 2026-11-16.
+  **The owner's figures (2026-11-04):** the dashboard's "Business summary" block
+  (`TransportOwnerPanel.vue`, `transport/owner`, section `transport_owner`): income and
+  tickets today / month by agency, today's trips, the month's fleet costs, best-selling
+  routes, what falls due on the buses; needs the `dashboard` permission (a pilot's
+  `transport_view` never shows money). **Turismo Cautivo's menu has six groups**
+  (migration 2026_11_04_121000): Pasajeros, Encomiendas (only the sales' shipments
+  until that module exists), Flota y Logística, Back Office, Módulos adicionales,
+  Configuración.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
@@ -640,6 +773,22 @@ the start of each session).
 
 (Reloaded by Wake-up, like the Development Standards.)
 
+- **Warehouses are scoped by the model (2026-11-05).** `Warehouse` has a global scope `company` on routes behind `auth:api` (like `Account`): an Admin sees their
+  company's, a SuperAdmin the picked company's, AdminSystem all. Relations to a warehouse use `->withoutGlobalScope('company')`: old `product_warehouse` rows (1,305) point to other
+  companies' warehouses and must not come back null. A new relation to Warehouse does the same.
+- **Documents speak the company's language (2026-11-05).** `SetPdfLocale`: company's `default_language` on PDFs and printed documents (`resources/lang/{locale}/pdf.php`). Email and SMS
+  templates: pool 999 per locale, Spanish rows now in Spanish. Bare `__('text')` keys: `resources/lang/es.json`.
+- **A dashboard fits one screen (user's rule, 2026-11-05).** Almost never a vertical or horizontal
+  scroll: compact it, or move the rest to another tab. The critical information holds the center. No
+  explanatory text on the board: it goes in an (i) popup (`a-tooltip`) or is cut down. Only a super critical
+  message goes in the center, in ONE line on a red background; anything informational is a helper.
+  Check it at 1440x900 and 1366x768 (`useFitHeight`, `lib/transportCharts.js`). A phone stacks the blocks.
+- **No text written by hand in one language (user's rule, 2026-11-05: "todo debe ser español para esa empresa").**
+  A screen's text goes through a translation key with its Spanish (a migration adds the row; `$t('key')`, or `t` from
+  `i18n/index.js` in a script) or `tr('English', 'Español')`. Keys `tx_*` came from a sweep of the screens the companies use
+  (migrations 2026_11_05_130000 / 130100); install-wide SuperAdmin screens (Update, Mail, SMS, Backup, Pay gateways) were
+  left out. A stored name the code compares (`payment_methods.name`) stays as it is: only what is shown is translated
+  (`looseTranslation`).
 - **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
   sorted alphabetically by its displayed label, using the shared
@@ -742,8 +891,8 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
 - **Pa Llevar** (`/pa-llevar`, "Jarvis, run protocolo pa llevar") — the end of
   the day: Wake-up's production code step (since 2026-10-25 deployed WITHOUT
   asking, after the commit / push; then the dev data, never the live
-  companies' (2026-10-26); then the PC shuts down
-  when every step went well), the user manual (only when asked; in-app EN + ES, overview HTML + PDF),
+  companies' (2026-10-26); the PC is never shut down by a protocol,
+  2026-11-03), the user manual (only when asked; in-app EN + ES, overview HTML + PDF),
   `npm run build`, Kelsy (no HTML daily report), a local backup tagged
   `pallevar` (+ copies to `KT-TOOLS/SQL/backup db.zip` and `backup db office
   emails 1/2/3.zip` for the external backup program), `README.md` (Latest

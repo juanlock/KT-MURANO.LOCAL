@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\DB;
  *                the operator = service_technicians.employee_id) x hourly_rate;
  *  - commission: their sales that week (the stylist on the sale's booking --
  *                bookings.sales_person_id = their user; else the sale's sales
- *                agent linked to their user) x commission_rate %.
+ *                agent linked to their user) x commission_rate %;
+ *  - per_trip:   the transport trips they completed x their rate;
+ *  - monthly:    a week's share of basic_salary (x 12 / 52), plus any trips.
  * Only employees whose pay starts on / before the week's end; a week that
  * already has a payroll for the employee is skipped. Paid payrolls post to
  * accounting (PayrollExpenseSync: Salaries and wages 7010 / Commissions 7040).
@@ -37,10 +39,10 @@ class PayrollRun
     {
         $rows = [];
         $employees = DB::table('employees')->where('company_id', $companyId)->whereNull('deleted_at')
-            ->whereIn('pay_type', ['hourly', 'commission', 'per_trip'])
+            ->whereIn('pay_type', ['hourly', 'commission', 'per_trip', 'monthly'])
             ->where(fn ($q) => $q->whereNull('pay_effective_from')->orWhere('pay_effective_from', '<=', $to))
             ->where(fn ($q) => $q->whereNull('leaving_date')->orWhere('leaving_date', '>=', $from))
-            ->orderBy('firstname')->get(['id', 'firstname', 'lastname', 'user_id', 'pay_type', 'hourly_rate', 'commission_rate', 'trip_rate']);
+            ->orderBy('firstname')->get(['id', 'firstname', 'lastname', 'user_id', 'pay_type', 'hourly_rate', 'commission_rate', 'trip_rate', 'basic_salary']);
 
         foreach ($employees as $e) {
             $row = [
@@ -51,7 +53,15 @@ class PayrollRun
                 'jobs' => 0, 'sales' => 0, 'trips' => null, 'amount' => 0.0,
                 'existing' => DB::table('payrolls')->where('employee_id', $e->id)->whereNull('deleted_at')->where('period_start', $from)->value('Ref'),
             ];
-            if ($e->pay_type === 'per_trip') {
+            if ($e->pay_type === 'monthly') {
+                // On the payroll (2026-11-04): the week's share of the monthly salary, plus the trips they completed.
+                $trips = DB::table('transport_trip_crew as c')->join('transport_trips as t', 't.id', '=', 'c.trip_id')
+                    ->where('c.employee_id', $e->id)->where('t.company_id', $companyId)->whereNull('t.deleted_at')
+                    ->where('t.status', 'completed')->whereBetween(DB::raw('DATE(t.departure_at)'), [$from, $to]);
+                $row['trips'] = (clone $trips)->count();
+                $row['rate'] = (float) $e->basic_salary;
+                $row['amount'] = round((float) $e->basic_salary * 12 / 52 + (float) (clone $trips)->sum(DB::raw('COALESCE(c.trip_rate, '.(float) $e->trip_rate.')')), 2);
+            } elseif ($e->pay_type === 'per_trip') {
                 // Transport crew (2026-11-01): the trips they completed that week, each at the
                 // rate they had when put on the trip (else their current trip rate).
                 $trips = DB::table('transport_trip_crew as c')->join('transport_trips as t', 't.id', '=', 'c.trip_id')
@@ -140,6 +150,7 @@ class PayrollRun
                     'notes' => match ($row['pay_type']) {
                         'hourly' => "{$row['hours']} h on {$row['jobs']} job(s) x {$row['rate']}",
                         'per_trip' => "{$row['trips']} trip(s) completed",
+                        'monthly' => "Salary {$row['rate']} a month (a week's share) + {$row['trips']} trip(s)",
                         default => "{$row['commission_rate']}% of {$row['commission_base']} ({$row['sales']} sale(s))",
                     },
                 ]);

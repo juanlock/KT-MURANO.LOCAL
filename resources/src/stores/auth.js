@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import http from '../lib/http';
 import { isModuleEnabled } from '../config/modules';
+import { getActingCompanyId } from '../lib/actingCompany';
 import { loadLocale, setProductLabels, browserLocale } from '../i18n';
 import { useUiStore } from './ui';
 import { resolveImageUrl } from '../lib/imagePath';
@@ -76,8 +77,15 @@ export const useAuthStore = defineStore('auth', {
         ktLogVersion: s => (s.user && s.user.kt_log_version) || '',
         // Admin module toggles (System Settings → Modules). Null map or a
         // missing key = module enabled, so fresh installs show everything.
-        // The SuperAdmin: every module, whatever the company's switches (2026-10-19).
-        moduleEnabled: s => key => (s.user && s.user.type === 'SuperAdmin') || isModuleEnabled(s.user && s.user.module_flags, key),
+        // The SuperAdmin with a company picked sees that company's modules, like its
+        // admin (user's rule, 2026-11-02, replacing 2026-10-19's "every module
+        // whatever the switches"); with AdminSystem (999) or nothing picked, every
+        // module. module_flags already are the acting company's (get_user_auth).
+        superSeesAllModules: s => !!(s.user && s.user.type === 'SuperAdmin')
+            && [null, undefined, '', 999, '999'].includes(getActingCompanyId()),
+        moduleEnabled(s) {
+            return key => this.superSeesAllModules || isModuleEnabled(s.user && s.user.module_flags, key);
+        },
         // System Settings → Defaults → Customers. Missing flag = on, so older
         // cached payloads keep showing everything.
         customerLoyaltyEnabled: s => !s.user || s.user.customer_loyalty_enabled !== false,

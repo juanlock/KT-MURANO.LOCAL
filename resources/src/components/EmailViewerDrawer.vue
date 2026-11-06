@@ -3,20 +3,20 @@
     <a-spin :spinning="loading">
       <template v-if="email">
         <div ref="headRef" class="ev-head">
-          <div><span class="ev-label">From</span> <b>{{ email.from_name || email.from_email }}</b> <span v-if="email.from_name" class="ev-muted">&lt;{{ email.from_email }}&gt;</span></div>
-          <div><span class="ev-label">To</span> {{ email.to_emails || '—' }}</div>
+          <div><span class="ev-label">{{ $t('From') }}</span> <b>{{ email.from_name || email.from_email }}</b> <span v-if="email.from_name" class="ev-muted">&lt;{{ email.from_email }}&gt;</span></div>
+          <div><span class="ev-label">{{ $t('to') }}</span> {{ email.to_emails || '—' }}</div>
           <div v-if="email.cc_emails"><span class="ev-label">Cc</span> {{ email.cc_emails }}</div>
-          <div><span class="ev-label">Date</span> {{ dateTime(email.sent_at) }}
-            <a-tag style="margin-inline-start: 8px">{{ email.direction === 'in' ? 'Received' : SOURCE[email.source] || 'Sent' }}</a-tag>
+          <div><span class="ev-label">{{ $t('date') }}</span> {{ dateTime(email.sent_at) }}
+            <a-tag style="margin-inline-start: 8px">{{ email.direction === 'in' ? $t('Received') : SOURCE[email.source] || $t('tx_sent_mail') }}</a-tag>
           </div>
           <div v-if="contactAddress && !readOnly" style="margin-top: 4px">
             <a-button size="small" @click="showSameAddress">
               <template #icon><FilterOutlined /></template>
-              Show all emails with {{ contactAddress }}
+              {{ $t('tx_Show_all_emails_with_53386') }} {{ contactAddress }}
             </a-button>
             <!-- A rule for this sender (e.g. -> Social), opened in the Rules window. -->
             <a-button v-if="email.direction === 'in' && auth.can('email_office_manage')" size="small" style="margin-left: 6px" @click="createRule">
-              Create rule from this sender
+              {{ $t('tx_Create_rule_from_this_sender_e91d6') }}
             </a-button>
           </div>
         </div>
@@ -25,13 +25,13 @@
         <template v-if="!readOnly">
         <!-- 1. Who: the customer / supplier this email belongs to -->
         <a-card size="small" class="ev-box">
-          <div class="ev-step">1. Customer / supplier</div>
+          <div class="ev-step">{{ $t('tx_1_Customer_supplier_9d05f') }}</div>
           <div v-if="email.party_name" class="ev-row">
             <a-tag color="blue">{{ PARTY[email.party_type] }}</a-tag>
             <router-link v-if="partyLink" :to="partyLink">{{ email.party_name }}</router-link><span v-else>{{ email.party_name }}</span>
-            <a-button size="small" type="link" @click="partyEditing = !partyEditing">{{ partyEditing ? 'Cancel' : 'Change' }}</a-button>
+            <a-button size="small" type="link" @click="partyEditing = !partyEditing">{{ partyEditing ? $t('Cancel') : $t('Change') }}</a-button>
           </div>
-          <div v-else class="ev-muted">Not matched to anyone yet{{ contactAddress ? ` (${contactAddress} is not on any customer or supplier)` : '' }}.</div>
+          <div v-else class="ev-muted">{{ $t('tx_Not_matched_to_anyone_yet_e27cd') }}{{ contactAddress ? ` (${contactAddress} is not on any customer or supplier)` : '' }}.</div>
           <div v-if="!email.party_name || partyEditing" class="ev-row" style="margin-top: 6px">
             <a-select v-model:value="partyType" size="small" style="width: 120px" :options="[{ value: 'client', label: 'Customer' }, { value: 'provider', label: 'Supplier' }]" />
             <a-select
@@ -39,92 +39,92 @@
               :placeholder="`Find the ${partyType === 'client' ? 'customer' : 'supplier'}…`" :options="partyOptions" :loading="partyLoading"
               @search="searchParties" @focus="searchParties('')"
             />
-            <a-button type="primary" size="small" :disabled="!partyId" :loading="assigning" @click="assignParty">Assign</a-button>
+            <a-button type="primary" size="small" :disabled="!partyId" :loading="assigning" @click="assignParty">{{ $t('tx_Assign_185b7') }}</a-button>
             <!-- Not in Murano yet: add the sender as a customer or supplier (quick window). -->
             <a-button v-if="email.direction === 'in'" size="small" @click="openNewContact">
               <template #icon><PlusOutlined /></template>
-              New customer / supplier
+              {{ $t('tx_New_customer_supplier_e5226') }}
             </a-button>
             <div v-if="contactAddress" class="ev-sub">
-              <div class="ev-muted">Every email with {{ contactAddress }} — received from it and sent to it — goes to the same {{ partyType === 'client' ? 'customer' : 'supplier' }}.</div>
-              <a-checkbox v-model:checked="rememberAddress">Save this address on the {{ partyType === 'client' ? 'customer' : 'supplier' }} (future emails match by themselves)</a-checkbox>
+              <div class="ev-muted">{{ $t('tx_Every_email_with_1fce4') }} {{ contactAddress }} — received from it and sent to it — goes to the same {{ partyType === 'client' ? 'customer' : 'supplier' }}.</div>
+              <a-checkbox v-model:checked="rememberAddress">{{ $t('tx_Save_this_address_on_the_5fd6e') }} {{ partyType === 'client' ? 'customer' : 'supplier' }} {{ $t('tx_future_emails_match_by_themselves_4c087') }}</a-checkbox>
             </div>
           </div>
         </a-card>
 
         <!-- 2. What: the sale / purchase / expense / claim it's about -->
         <a-card size="small" class="ev-box">
-          <div class="ev-step">2. Record it in Murano</div>
+          <div class="ev-step">{{ $t('tx_2_Record_it_in_Murano_c42e1') }}</div>
           <div v-if="email.linked_type" class="ev-row">
             <a-tag color="purple">{{ LINKED[email.linked_type] }} {{ email.linked_label }}</a-tag>
-            <router-link v-if="linkedRoute" :to="linkedRoute">Open</router-link>
-            <a-button size="small" type="link" danger @click="patch({ linked_type: null })">Unlink</a-button>
+            <router-link v-if="linkedRoute" :to="linkedRoute">{{ $t('Open') }}</router-link>
+            <a-button size="small" type="link" danger @click="patch({ linked_type: null })">{{ $t('tx_Unlink_c1a39') }}</a-button>
           </div>
           <!-- One tab per kind of record; the email's own kind opens first
                (a customer's email -> Customer, anything else -> Expenses). -->
           <a-tabs v-else v-model:activeKey="recordTab" size="small" class="ev-tabs">
             <!-- Expenses: bills and supplies the company pays. -->
             <a-tab-pane key="expenses">
-              <template #tab><DollarOutlined /> Expenses</template>
+              <template #tab><DollarOutlined /> {{ $t('Expenses') }}</template>
               <div class="ev-muted" style="margin-bottom: 6px">{{ HINT[email.category] || 'A bill or supplies the company pays: record it as an expense or a purchase.' }}</div>
               <div class="ev-row">
-                <span class="ev-label" style="min-width: auto">New expense —</span>
+                <span class="ev-label" style="min-width: auto">{{ $t('tx_New_expense_24b38') }}</span>
                 <a-select
                   v-model:value="expenseCategory" size="small" show-search option-filter-prop="label" style="width: 300px"
-                  placeholder="Expense category" :options="categoryOptions" :loading="categoriesLoading"
+                  :placeholder="$t('Expense_Category')" :options="categoryOptions" :loading="categoriesLoading"
                 />
-                <a-button type="primary" size="small" @click="createExpense">Create expense</a-button>
+                <a-button type="primary" size="small" @click="createExpense">{{ $t('Create_Expense') }}</a-button>
               </div>
               <div v-if="suggestedCategory" class="ev-muted" style="margin-top: 2px">
-                Suggested from the sender / subject: <b>{{ suggestedCategory.label }}</b> — change it if needed.
+                {{ $t('tx_Suggested_from_the_sender_subject_3426f') }} <b>{{ suggestedCategory.label }}</b> {{ $t('tx_change_it_if_needed_27992') }}
               </div>
               <!-- Supplies / goods bought: a purchase (products + stock), not an expense. -->
               <div class="ev-row" style="margin-top: 6px">
-                <span class="ev-label" style="min-width: auto">New purchase —</span>
+                <span class="ev-label" style="min-width: auto">{{ $t('tx_New_purchase_0a17a') }}</span>
                 <a-button size="small" @click="createPurchase">
                   <template #icon><PlusOutlined /></template>
-                  Create purchase
+                  {{ $t('AddPurchase') }}
                 </a-button>
-                <span class="ev-muted">supplies / products bought (adds the items, and stock once received)</span>
+                <span class="ev-muted">{{ $t('tx_supplies_products_bought_adds_the_items_and_stock_once_recei_5cacf') }}</span>
               </div>
             </a-tab-pane>
 
             <!-- Customer: what a customer asks for. -->
             <a-tab-pane key="customer">
-              <template #tab><UserOutlined /> Customer</template>
+              <template #tab><UserOutlined /> {{ $t('Customer') }}</template>
               <div class="ev-muted" style="margin-bottom: 6px">
-                <template v-if="fromCustomer">From the customer <b>{{ email.party_name }}</b>: record what they ask for.</template>
-                <template v-else>Assign the email to a customer first (1. Customer / supplier) to create their quotation or work order.</template>
+                <template v-if="fromCustomer">{{ $t('tx_From_the_customer_0b81c') }} <b>{{ email.party_name }}</b>{{ $t('tx_record_what_they_ask_for_dbe58') }}</template>
+                <template v-else>{{ $t('tx_Assign_the_email_to_a_customer_first_1_Customer_supplier_to__18db9') }}</template>
               </div>
               <div class="ev-row">
                 <a-button v-if="auth.can('Quotations_add')" type="primary" size="small" :disabled="!fromCustomer" @click="createFor('/quotations/create')">
                   <template #icon><PlusOutlined /></template>
-                  Create quotation
+                  {{ $t('AddQuote') }}
                 </a-button>
                 <a-button v-if="canWorkOrder" size="small" :disabled="!fromCustomer" @click="createFor('/service/jobs/create')">
                   <template #icon><PlusOutlined /></template>
-                  Create work order
+                  {{ $t('tx_Create_work_order_81a2f') }}
                 </a-button>
-                <a-button size="small" :loading="ticketing" @click="openTicket">Open helpdesk ticket</a-button>
+                <a-button size="small" :loading="ticketing" @click="openTicket">{{ $t('tx_Open_helpdesk_ticket_1fc49') }}</a-button>
               </div>
               <div class="ev-muted" style="margin-top: 4px">
-                <b>Quotation</b>: they ask for a price / estimate. <b>Work order</b>: they ask for a job or a visit (service job).
-                <b>Ticket</b>: a problem or complaint to follow up. Customer and notes come from the email.
+                <b>{{ $t('Quotation') }}</b>{{ $t('tx_they_ask_for_a_price_estimate_17baf') }} <b>{{ $t('tx_Work_order_d2ca4') }}</b>{{ $t('tx_they_ask_for_a_job_or_a_visit_service_job_09785') }}
+                <b>Ticket</b>{{ $t('tx_a_problem_or_complaint_to_follow_up_Customer_and_notes_come__d80c2') }}
               </div>
             </a-tab-pane>
 
             <!-- Sales: the email is about an invoice already in Murano. -->
             <a-tab-pane key="sales">
-              <template #tab><ShoppingOutlined /> Sales</template>
+              <template #tab><ShoppingOutlined /> {{ $t('Sales') }}</template>
               <div class="ev-muted" style="margin-bottom: 6px">
-                About an invoice already in Murano (a payment, a question about a charge…): link it to that sale below.
+                {{ $t('tx_About_an_invoice_already_in_Murano_a_payment_a_question_abou_1b572') }}
               </div>
             </a-tab-pane>
           </a-tabs>
 
           <!-- Link to an existing document of the open tab's kind. -->
           <div v-if="!email.linked_type" class="ev-row ev-link">
-            <span class="ev-muted">Link it to an existing</span>
+            <span class="ev-muted">{{ $t('tx_Link_it_to_an_existing_1b0fd') }}</span>
             <a-select v-model:value="linkType" size="small" style="width: 130px" :options="linkTypeOptions" />
             <a-select
               v-model:value="linkId" size="small" show-search :filter-option="false" style="width: 300px"
@@ -132,22 +132,22 @@
               :not-found-content="linkLoading ? 'Searching…' : `No ${LINKED[linkType].toLowerCase()}s found`"
               @search="searchLinks" @focus="searchLinks('')"
             />
-            <a-button size="small" :disabled="!linkId" @click="patch({ linked_type: linkType, linked_id: linkId })">Link</a-button>
+            <a-button size="small" :disabled="!linkId" @click="patch({ linked_type: linkType, linked_id: linkId })">{{ $t('Link') }}</a-button>
           </div>
         </a-card>
 
         <!-- 3. Type -->
         <a-card size="small" class="ev-box">
           <div class="ev-row">
-            <span class="ev-step" style="margin: 0">3. Type</span>
+            <span class="ev-step" style="margin: 0">{{ $t('tx_3_Type_0161a') }}</span>
             <a-select :value="email.category" size="small" style="width: 140px" :options="CATEGORY_OPTIONS" @change="v => patch({ category: v })" />
-            <span class="ev-muted">Sorted automatically — change it if it's wrong.</span>
+            <span class="ev-muted">{{ $t('tx_Sorted_automatically_change_it_if_it_s_wrong_9cfbb') }}</span>
           </div>
         </a-card>
         </template>
 
         <div v-if="email.attachments?.length" class="ev-attach">
-          <span class="ev-label">Attachments</span>
+          <span class="ev-label">{{ $t('Attachments') }}</span>
           <a-space wrap>
             <a-button v-for="a in email.attachments" :key="a.index" size="small" :disabled="!a.downloadable" @click="download(a)">
               <template #icon><PaperClipOutlined /></template>
@@ -163,83 +163,84 @@
 
         <!-- History, below the email: the other emails of this conversation (when the page passes them). -->
         <div v-if="thread.length > 1" class="ev-thread">
-          <div class="ev-step">Conversation history ({{ thread.length }})</div>
+          <div class="ev-step">{{ $t('tx_Conversation_history_a7371') }}{{ thread.length }})</div>
           <div
             v-for="m in thread" :key="m.id" class="ev-thread-msg" :class="{ current: String(m.id) === String(currentId) }"
             @click="showFromHistory(m)"
           >
-            <a-tag :color="m.direction === 'in' ? 'green' : 'blue'" style="margin: 0">{{ m.direction === 'in' ? 'Received' : 'Sent' }}</a-tag>
+            <a-tag :color="m.direction === 'in' ? 'green' : 'blue'" style="margin: 0">{{ m.direction === 'in' ? $t('Received') : $t('Sent') }}</a-tag>
             <span class="ev-muted" style="flex: none; width: 130px">{{ dateTime(m.sent_at) }}</span>
             <span class="ev-thread-text"><b>{{ m.from_name || m.from_email }}</b> — {{ m.snippet }}</span>
-            <span v-if="String(m.id) === String(currentId)" class="ev-muted" style="flex: none">(showing)</span>
+            <span v-if="String(m.id) === String(currentId)" class="ev-muted" style="flex: none">{{ $t('tx_showing_7bacb') }}</span>
           </div>
         </div>
       </template>
     </a-spin>
     <!-- New customer / supplier from this email's sender. -->
     <a-modal
-      v-model:open="contactOpen" title="Add the sender to Murano" :ok-text="`Create ${contact.type === 'provider' ? 'supplier' : 'customer'}`"
+      v-model:open="contactOpen" :title="$t('tx_Add_the_sender_to_Murano_25065')" :ok-text="`Create ${contact.type === 'provider' ? 'supplier' : 'customer'}`"
       :confirm-loading="contactSaving" :width="560" @ok="saveContact"
     >
       <a-form layout="vertical" style="margin-top: 8px">
-        <a-form-item label="Add as">
+        <a-form-item :label="$t('tx_Add_as_c327e')">
           <a-radio-group v-model:value="contact.type" button-style="solid">
-            <a-radio-button value="provider">Supplier</a-radio-button>
-            <a-radio-button value="client">Customer</a-radio-button>
+            <a-radio-button value="provider">{{ $t('Supplier') }}</a-radio-button>
+            <a-radio-button value="client">{{ $t('Customer') }}</a-radio-button>
           </a-radio-group>
           <div class="ev-muted" style="margin-top: 4px">
-            {{ contact.type === 'provider' ? 'A company you buy from or pay bills to (phone, internet, rent…).' : 'Someone you sell to.' }}
+            {{ contact.type === 'provider' ? $t('tx_A_company_you_buy_from_or_pay_bills_to_phone_internet_rent_74dc3') : $t('tx_Someone_you_sell_to_46fc5') }}
           </div>
         </a-form-item>
-        <a-form-item label="Name" required>
+        <a-form-item :label="$t('Name')" required>
           <a-input v-model:value="contact.name" />
         </a-form-item>
-        <a-form-item label="Email" :extra="senderAddrCount > 1 ? `This sender writes from ${senderAddrCount} different addresses${contact.type === 'provider' ? ' — its emails are matched by the name' : ''}.` : undefined">
-          <a-input v-model:value="contact.email" placeholder="(optional)" />
+        <a-form-item :label="$t('Email')" :extra="senderAddrCount > 1 ? `This sender writes from ${senderAddrCount} different addresses${contact.type === 'provider' ? $t('tx_its_emails_are_matched_by_the_name_01941') : ''}.` : undefined">
+          <a-input v-model:value="contact.email" :placeholder="$t('tx_optional_f53d1')" />
         </a-form-item>
-        <a-form-item label="Phone">
-          <a-input v-model:value="contact.phone" placeholder="(optional)" />
+        <a-form-item :label="$t('Phone')">
+          <a-input v-model:value="contact.phone" :placeholder="$t('tx_optional_f53d1')" />
           <div v-if="phonesFound.length" style="margin-top: 4px">
-            <span class="ev-muted">In the email: </span>
+            <span class="ev-muted">{{ $t('tx_In_the_email_5dc41') }} </span>
             <a-tag v-for="p in phonesFound" :key="p" style="cursor: pointer" :color="contact.phone === p ? 'purple' : undefined" @click="contact.phone = p">{{ p }}</a-tag>
           </div>
         </a-form-item>
 
         <!-- Address -->
-        <div class="ev-step" style="margin-top: 4px">Address</div>
+        <div class="ev-step" style="margin-top: 4px">{{ $t('Address') }}</div>
         <div v-if="addressesFound.length" style="margin-bottom: 6px">
-          <span class="ev-muted">In the email: </span>
+          <span class="ev-muted">{{ $t('tx_In_the_email_5dc41') }} </span>
           <a-tag v-for="a in addressesFound" :key="a.label" style="cursor: pointer; white-space: normal" @click="useAddress(a)">{{ a.label }}</a-tag>
         </div>
-        <a-form-item label="Street" style="margin-bottom: 8px">
-          <a-input v-model:value="contact.adresse" placeholder="(optional)" />
+        <a-form-item :label="$t('tx_Street_d61eb')" style="margin-bottom: 8px">
+          <a-input v-model:value="contact.adresse" :placeholder="$t('tx_optional_f53d1')" />
         </a-form-item>
         <a-row :gutter="8">
-          <a-col :span="10"><a-form-item label="City" style="margin-bottom: 8px"><a-input v-model:value="contact.city" /></a-form-item></a-col>
-          <a-col :span="5"><a-form-item label="State" style="margin-bottom: 8px"><a-input v-model:value="contact.state" /></a-form-item></a-col>
+          <a-col :span="10"><a-form-item :label="$t('City')" style="margin-bottom: 8px"><a-input v-model:value="contact.city" /></a-form-item></a-col>
+          <a-col :span="5"><a-form-item :label="$t('State')" style="margin-bottom: 8px"><a-input v-model:value="contact.state" /></a-form-item></a-col>
           <a-col :span="9"><a-form-item label="ZIP" style="margin-bottom: 8px"><a-input v-model:value="contact.zip" /></a-form-item></a-col>
         </a-row>
-        <a-form-item label="Country">
+        <a-form-item :label="$t('Country')">
           <a-input v-model:value="contact.country" />
         </a-form-item>
 
         <!-- Contact person -->
-        <div class="ev-step">Contact person</div>
+        <div class="ev-step">{{ $t('tx_Contact_person_25754') }}</div>
         <a-row :gutter="8">
-          <a-col :span="24"><a-form-item label="Name" style="margin-bottom: 8px"><a-input v-model:value="contact.contact_name" placeholder="(optional)" /></a-form-item></a-col>
-          <a-col :span="14"><a-form-item label="Email" style="margin-bottom: 8px"><a-input v-model:value="contact.contact_email" /></a-form-item></a-col>
-          <a-col :span="10"><a-form-item label="Phone" style="margin-bottom: 8px"><a-input v-model:value="contact.contact_phone" /></a-form-item></a-col>
+          <a-col :span="24"><a-form-item :label="$t('Name')" style="margin-bottom: 8px"><a-input v-model:value="contact.contact_name" :placeholder="$t('tx_optional_f53d1')" /></a-form-item></a-col>
+          <a-col :span="14"><a-form-item :label="$t('Email')" style="margin-bottom: 8px"><a-input v-model:value="contact.contact_email" /></a-form-item></a-col>
+          <a-col :span="10"><a-form-item :label="$t('Phone')" style="margin-bottom: 8px"><a-input v-model:value="contact.contact_phone" /></a-form-item></a-col>
         </a-row>
         <a-checkbox v-if="senderCount > 1" v-model:checked="contact.linkAll">
-          Link all {{ senderCount }} emails from {{ senderName }} to it
+          {{ $t('tx_Link_all_c285c') }} {{ senderCount }} emails from {{ senderName }} {{ $t('tx_to_it_6a94c') }}
         </a-checkbox>
-        <div v-else class="ev-muted">This email is linked to it.</div>
+        <div v-else class="ev-muted">{{ $t('tx_This_email_is_linked_to_it_93bfe') }}</div>
       </a-form>
     </a-modal>
   </a-drawer>
 </template>
 
 <script setup>
+import { t as tEs } from '../i18n/index.js';
 /**
  * One Email Office email (GET email-office/emails/{id}; opening marks it
  * read). 1) assign it to a customer / supplier (optionally every email of
@@ -288,9 +289,9 @@ const PARTY = { client: 'Customer', provider: 'Supplier', employee: 'Employee' }
 const LINKED = { sale: 'Sale', purchase: 'Purchase', expense: 'Expense', helpdesk_ticket: 'Ticket', quotation: 'Quotation', service_job: 'Work order' };
 // 2. Record it in Murano: what each tab can link to.
 const TAB_LINK_TYPES = {
-  expenses: [{ value: 'expense', label: 'Expense' }, { value: 'purchase', label: 'Purchase' }],
-  customer: [{ value: 'quotation', label: 'Quotation' }, { value: 'service_job', label: 'Work order' }],
-  sales: [{ value: 'sale', label: 'Sale' }],
+  expenses: [{ value: 'expense', label: tEs('Expense', 'Expense') }, { value: 'purchase', label: tEs('Purchase', 'Purchase') }],
+  customer: [{ value: 'quotation', label: tEs('Quotation', 'Quotation') }, { value: 'service_job', label: tEs('tx_Work_order_d2ca4', 'Work order') }],
+  sales: [{ value: 'sale', label: tEs('Sale', 'Sale') }],
 };
 const recordTab = ref('expenses');
 const HINT = {
@@ -464,7 +465,7 @@ async function assignParty() {
       message.success(`Assigned ${r.updated} email(s) with ${contactAddress.value}${r.remembered ? ' — address saved on the contact' : ''}.`);
     } else {
       await http.put(`email-office/emails/${email.value.id}`, { party_type: partyType.value, party_id: partyId.value });
-      message.success('Assigned.');
+      message.success(tEs('tx_Assigned_a1ed8', 'Assigned.'));
     }
     await load();
     emit('changed');
@@ -562,7 +563,7 @@ async function openNewContact() {
 async function saveContact() {
   const c = contact.value;
   if (!c.name.trim()) {
-    message.error('Type the name.');
+    message.error(tEs('tx_Type_the_name_7c423', 'Type the name.'));
     return;
   }
   contactSaving.value = true;

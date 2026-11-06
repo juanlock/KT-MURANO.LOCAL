@@ -41,11 +41,11 @@
           <!-- Extra invoice/reminder recipients -- also filled from the Sales
                list Send Email / Reminder modal when a new address is typed. -->
           <a-col :xs="24" :md="12">
-            <a-form-item label="Additional Emails" name="additional_emails">
+            <a-form-item :label="$t('tx_Additional_Emails_42784')" name="additional_emails">
               <a-select
                 v-model:value="form.additional_emails"
                 mode="tags" :open="false" :token-separators="[',', ' ', ';']"
-                placeholder="Type an email and press Enter"
+                :placeholder="$t('tx_Type_an_email_and_press_Enter_98c3f')"
               />
             </a-form-item>
           </a-col>
@@ -94,19 +94,19 @@
             </a-form-item>
           </a-col>
           <!-- Contact person: who to talk to at this customer (e.g. a business's office manager). -->
-          <a-col :span="24"><div class="cf-section">Contact person</div></a-col>
+          <a-col :span="24"><div class="cf-section">{{ $t('tx_Contact_person_25754') }}</div></a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Name" name="contact_name">
+            <a-form-item :label="$t('Name')" name="contact_name">
               <a-input v-model:value="form.contact_name" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Email" name="contact_email" :rules="[{ type: 'email', message: $t('InvalidData') }]">
+            <a-form-item :label="$t('Email')" name="contact_email" :rules="[{ type: 'email', message: $t('InvalidData') }]">
               <a-input v-model:value="form.contact_email" type="email" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Phone" name="contact_phone">
+            <a-form-item :label="$t('Phone')" name="contact_phone">
               <a-input v-model:value="form.contact_phone" />
             </a-form-item>
           </a-col>

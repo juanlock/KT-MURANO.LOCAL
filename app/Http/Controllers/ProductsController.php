@@ -77,7 +77,7 @@ class ProductsController extends BaseController
           // âœ… assigned warehouses (user scope)
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->get(['id', 'name']);
             $allowedWarehouseIds = $warehouses->pluck('id')->toArray();
         } else {
             $allowedWarehouseIds = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
@@ -356,7 +356,7 @@ class ProductsController extends BaseController
         // warehouses for user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouses_id)->get(['id', 'name']);
@@ -386,7 +386,7 @@ class ProductsController extends BaseController
 
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $allowedWarehouseIds = Warehouse::whereNull('deleted_at')->pluck('id')->toArray();
+            $allowedWarehouseIds = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->pluck('id')->toArray();
         } else {
             $allowedWarehouseIds = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
         }
@@ -1804,7 +1804,7 @@ class ProductsController extends BaseController
                 if (is_array($payloadLoc)) {
                     $user_auth = auth()->user();
                     if ($user_auth->is_all_warehouses) {
-                        $warehouseIds = Warehouse::whereNull('deleted_at')->pluck('id')->toArray();
+                        $warehouseIds = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->pluck('id')->toArray();
                     } else {
                         $warehouseIds = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
                     }
@@ -1960,7 +1960,7 @@ class ProductsController extends BaseController
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
@@ -2806,7 +2806,7 @@ class ProductsController extends BaseController
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
@@ -2842,7 +2842,7 @@ class ProductsController extends BaseController
         $user_auth = auth()->user();
 
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->get(['id', 'name']);
             $allowedWarehouseIds = $warehouses->pluck('id')->toArray();
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
@@ -2917,7 +2917,7 @@ class ProductsController extends BaseController
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
@@ -3319,7 +3319,7 @@ class ProductsController extends BaseController
         // Warehouses assigned to user (for default location selection UI)
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->get(['id', 'name']);
             $allowedWarehouseIds = $warehouses->pluck('id')->toArray();
         } else {
             $allowedWarehouseIds = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
@@ -4344,7 +4344,7 @@ class ProductsController extends BaseController
         // get warehouses assigned to user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::where('deleted_at', '=', null)->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
             $warehouses = Warehouse::where('deleted_at', '=', null)->whereIn('id', $warehouses_id)->get(['id', 'name']);
@@ -4521,7 +4521,7 @@ class ProductsController extends BaseController
         // warehouses for user
         $user_auth = auth()->user();
         if ($user_auth->is_all_warehouses) {
-            $warehouses = Warehouse::whereNull('deleted_at')->get(['id', 'name']);
+            $warehouses = $this->scopeListToCompany(Warehouse::whereNull('deleted_at'), request())->get(['id', 'name']);
         } else {
             $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
             $warehouses = Warehouse::whereNull('deleted_at')->whereIn('id', $warehouses_id)->get(['id', 'name']);

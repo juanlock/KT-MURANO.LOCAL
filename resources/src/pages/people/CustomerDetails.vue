@@ -76,7 +76,7 @@
             <template v-if="pane.key === 'emails'" #expandedRowRender="{ record }">
               <div class="thread-list">
                 <div v-for="m in record.messages" :key="m.id" class="thread-msg" :class="{ unread: m.direction === 'in' && !m.is_read }" @click="openEmail(m, record.messages)">
-                  <a-tag :color="m.direction === 'in' ? 'green' : 'blue'" style="margin: 0">{{ m.direction === 'in' ? 'From customer' : 'To customer' }}</a-tag>
+                  <a-tag :color="m.direction === 'in' ? 'green' : 'blue'" style="margin: 0">{{ m.direction === 'in' ? $t('tx_From_customer_c7d2d') : $t('tx_To_customer_488e0') }}</a-tag>
                   <span class="thread-date">{{ dateTime(m.sent_at) }}</span>
                   <span class="thread-text"><b>{{ m.from_name || m.from_email }}</b> — {{ m.snippet }}</span>
                   <PaperClipOutlined v-if="m.attachments_count" />
@@ -86,7 +86,7 @@
             <template v-if="pane.key === 'contracts' && can('sales_contracts_add')" #toolbar>
               <a-button type="primary" @click="$router.push({ path: '/sales-contracts/create', query: { client_id: id } })">
                 <template #icon><PlusOutlined /></template>
-                New contract
+                {{ $t('tx_New_contract_e9840') }}
               </a-button>
             </template>
             <template #bodyCell="{ column, record }">
@@ -134,7 +134,7 @@
               </template>
               <template v-else-if="column.key === 'billing'">
                 <span v-if="record.billing_enabled"><SyncOutlined style="color: #6d28d9" /> {{ billingLabel(record) }}</span>
-                <span v-else class="muted">One-off</span>
+                <span v-else class="muted">{{ $t('tx_One_off_dd426') }}</span>
               </template>
               <template v-else-if="column.key === 'next_invoice_date'">
                 <span v-if="record.next_invoice_date">{{ date(record.next_invoice_date) }}</span>
@@ -143,19 +143,19 @@
               <!-- Email conversation tab -->
               <template v-else-if="column.key === 'email_date'">{{ dateTime(record.sent_at) }}</template>
               <template v-else-if="column.key === 'email_direction'">
-                <a-tag :color="record.direction === 'in' ? 'green' : 'blue'">{{ record.direction === 'in' ? 'From customer' : 'To customer' }}</a-tag>
+                <a-tag :color="record.direction === 'in' ? 'green' : 'blue'">{{ record.direction === 'in' ? $t('tx_From_customer_c7d2d') : $t('tx_To_customer_488e0') }}</a-tag>
               </template>
               <template v-else-if="column.key === 'email_subject'">
                 <a @click="openEmail(record, record.messages || [])">{{ record.thread_count > 1 ? record.thread_subject : record.subject }}</a>
-                <a-tooltip v-if="record.thread_count > 1" title="Emails in this conversation (expand the row to see them all)">
+                <a-tooltip v-if="record.thread_count > 1" :title="$t('tx_Emails_in_this_conversation_expand_the_row_to_see_them_all_bf7d7')">
                   <a-tag color="purple" style="margin-left: 6px">{{ record.thread_count }}</a-tag>
                 </a-tooltip>
                 <a-tag v-if="record.thread_unread" color="red">{{ record.thread_unread }} unread</a-tag>
-                <div class="muted email-snippet">{{ record.thread_count > 1 ? 'Latest: ' : '' }}{{ record.snippet }}</div>
+                <div class="muted email-snippet">{{ record.thread_count > 1 ? $t('tx_Latest_244f9') : '' }}{{ record.snippet }}</div>
               </template>
               <template v-else-if="column.key === 'email_category'">{{ emailCategoryLabel(record.category) }}</template>
               <template v-else-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
-              <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : 'Open-ended' }}</template>
+              <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : $t('tx_Open_ended_6102b') }}</template>
             </template>
           </DataTable>
         </a-tab-pane>
@@ -189,6 +189,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Customer details -- the one customer page (the former Customer Ledger,
  * /customers/:id/ledger, was merged in here and removed; its route now
@@ -372,7 +373,7 @@ const moneyCol = (label, key) => col(label, key, { align: 'right', sum: 'money' 
 
 const panes = computed(() => [
   {
-    key: 'sales', label: 'Sales', crud: cruds.sales, link: r => `/sales/${r.id}`,
+    key: 'sales', label: tEs('Sales', 'Sales'), crud: cruds.sales, link: r => `/sales/${r.id}`,
     columns: [
       col('Ref', 'Ref'), col('date', 'date'), col('warehouse', 'warehouse_name'), col('Status', 'statut'),
       moneyCol('Grand_Total', 'GrandTotal'), moneyCol('Paid', 'paid_amount'), moneyCol('Due', 'due'),
@@ -383,28 +384,28 @@ const panes = computed(() => [
   ...(auth.moduleEnabled('service') && can('service_jobs') ? [{
     key: 'service_jobs', label: 'Service_Jobs', crud: cruds.service_jobs, link: r => `/service/jobs/details/${r.id}`,
     columns: [
-      col('Ref', 'Ref'), { title: 'Scheduled', dataIndex: 'scheduled_date', key: 'scheduled_date' }, col('date', 'date'),
-      col('Service_Item', 'service_item'), col('Technician', 'technician_name'), { title: 'Contract', key: 'job_contract' },
+      col('Ref', 'Ref'), { title: tEs('Scheduled', 'Scheduled'), dataIndex: 'scheduled_date', key: 'scheduled_date' }, col('date', 'date'),
+      col('Service_Item', 'service_item'), col('Technician', 'technician_name'), { title: tEs('Contract', 'Contract'), key: 'job_contract' },
       moneyCol('Grand_Total', 'GrandTotal'), moneyCol('Paid', 'paid_amount'), moneyCol('Due', 'due'),
       col('Payment_Status', 'payment_status'), col('Status', 'statut'),
     ],
   }] : []),
   {
-    key: 'payments', label: 'Payments', crud: cruds.payments, rowKey: 'Ref',
+    key: 'payments', label: tEs('Payments', 'Payments'), crud: cruds.payments, rowKey: 'Ref',
     columns: [
       col('Ref', 'Ref'), col('date', 'date'), col('Type', 'payment_type'), col('Document_Ref', 'Sale_Ref'),
       col('Payment_Method', 'payment_method'), moneyCol('Amount', 'montant'),
     ],
   },
   {
-    key: 'quotations', label: 'Quotations', crud: cruds.quotations, link: r => `/quotations/${r.id}`,
+    key: 'quotations', label: tEs('Quotations', 'Quotations'), crud: cruds.quotations, link: r => `/quotations/${r.id}`,
     columns: [
       col('Ref', 'Ref'), col('date', 'date'), col('warehouse', 'warehouse_name'), col('Status', 'statut'),
       moneyCol('Grand_Total', 'GrandTotal'),
     ],
   },
   {
-    key: 'returns', label: 'Returns', crud: cruds.returns, link: r => `/sale-returns/${r.id}`,
+    key: 'returns', label: tEs('tx_Returns_4762f', 'Returns'), crud: cruds.returns, link: r => `/sale-returns/${r.id}`,
     columns: [
       col('Ref', 'Ref'), col('date', 'date'), col('Sale_Ref', 'sale_ref'), col('warehouse', 'warehouse_name'),
       moneyCol('Grand_Total', 'GrandTotal'), moneyCol('Paid', 'paid_amount'), moneyCol('Due', 'due'),
@@ -420,27 +421,27 @@ const panes = computed(() => [
   },
   // Sales > Sales Contracts of this customer (employee contracts are HRM's).
   ...(can('sales_contracts_view') ? [{
-    key: 'contracts', label: 'Contracts', title: 'Contracts', crud: cruds.contracts,
+    key: 'contracts', label: tEs('Contracts', 'Contracts'), title: tEs('Contracts', 'Contracts'), crud: cruds.contracts,
     columns: [
       { title: '#', dataIndex: 'contract_number', key: 'contract_number' },
-      { title: 'Subject', dataIndex: 'subject', key: 'subject' },
-      { title: 'Value', dataIndex: 'value', key: 'value', align: 'right', sum: 'money' },
-      { title: 'Billing', key: 'billing' },
-      { title: 'Next invoice', dataIndex: 'next_invoice_date', key: 'next_invoice_date' },
-      { title: 'Start', dataIndex: 'start_date', key: 'start_date' },
-      { title: 'End', dataIndex: 'end_date', key: 'end_date' },
-      { title: 'Status', dataIndex: 'status', key: 'status' },
+      { title: tEs('Subject', 'Subject'), dataIndex: 'subject', key: 'subject' },
+      { title: tEs('Value', 'Value'), dataIndex: 'value', key: 'value', align: 'right', sum: 'money' },
+      { title: tEs('Billing', 'Billing'), key: 'billing' },
+      { title: tEs('tx_Next_invoice_421a0', 'Next invoice'), dataIndex: 'next_invoice_date', key: 'next_invoice_date' },
+      { title: tEs('tx_Start_a6122', 'Start'), dataIndex: 'start_date', key: 'start_date' },
+      { title: tEs('tx_End_87557', 'End'), dataIndex: 'end_date', key: 'end_date' },
+      { title: tEs('Serial_Status', 'Status'), dataIndex: 'status', key: 'status' },
     ],
   }] : []),
   // Email Office: every email from / to this customer (their address or matched to them).
   ...(auth.moduleEnabled('email_office') && can('email_office_view') ? [{
-    key: 'emails', label: 'Email_Conversation', title: 'Email conversation', crud: cruds.emails,
+    key: 'emails', label: 'Email_Conversation', title: tEs('Email_Conversation', 'Email conversation'), crud: cruds.emails,
     columns: [
-      { title: 'Date', dataIndex: 'sent_at', key: 'email_date', width: 160 },
+      { title: tEs('date', 'Date'), dataIndex: 'sent_at', key: 'email_date', width: 160 },
       { title: '', dataIndex: 'direction', key: 'email_direction', width: 120 },
       // A default width: the preview below the subject wraps inside it (2 lines).
-      { title: 'Subject', dataIndex: 'subject', key: 'email_subject', width: 480 },
-      { title: 'Type', dataIndex: 'category', key: 'email_category', width: 100 },
+      { title: tEs('Subject', 'Subject'), dataIndex: 'subject', key: 'email_subject', width: 480 },
+      { title: tEs('type', 'Type'), dataIndex: 'category', key: 'email_category', width: 100 },
     ],
   }] : []),
 ]);

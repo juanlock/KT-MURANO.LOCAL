@@ -8,7 +8,7 @@
         <!-- The whole profile on paper / PDF: every tab this role may see, with the photo. -->
         <a-button v-if="!loading && TAB_ORDER.some(canView)" :loading="printing" @click="printProfile">
           <template #icon><PrinterOutlined /></template>
-          Print profile
+          {{ $t('tx_Print_profile_68047') }}
         </a-button>
         <a-button @click="$goBack('/hrm/employees')">
           <template #icon><LeftOutlined /></template>
@@ -212,7 +212,7 @@
                   <a-input-number v-model:value="employee.trip_rate" :min="0" :step="1" :prefix="auth.currency" style="width: 100%" />
                 </a-form-item>
               </a-col>
-              <a-col v-if="employee.pay_type !== 'commission' && employee.pay_type !== 'per_trip'" :xs="24" :md="6">
+              <a-col v-if="!['commission', 'per_trip', 'monthly'].includes(employee.pay_type)" :xs="24" :md="6">
                 <a-form-item :label="$t('Hourly_rate')">
                   <a-input-number v-model:value="employee.hourly_rate" :min="0" :step="0.5" :prefix="auth.currency" style="width: 100%" />
                 </a-form-item>
@@ -582,6 +582,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Employee detail — legacy employee_details.vue. Despite the name it is an
  * EDIT page: two forms (basic info, social links) plus CRUD tables for work
@@ -927,7 +928,7 @@ const initials = (f, l) => ((String(f || '').trim()[0] || '') + (String(l || '')
 /** a-upload before-upload: send it ourselves, never let the component upload. */
 function uploadPhoto(target, file) {
   if (file.size > 5 * 1024 * 1024) {
-    message.error('The image is larger than 5 MB.');
+    message.error(tEs('tx_The_image_is_larger_than_5_MB_08fad', 'The image is larger than 5 MB.'));
     return false;
   }
   const fd = new FormData();
@@ -949,7 +950,7 @@ async function removePhoto(target) {
     await http.delete(`employees/${id}/photo`, { for: target });
     if (target === 'user') linkedUser.value = { ...linkedUser.value, avatar: null };
     else employee.value = { ...employee.value, avatar: null };
-    message.success('Removed.');
+    message.success(tEs('tx_Removed_69c20', 'Removed.'));
   } catch (e) {
     message.error(e?.data?.message || 'Could not remove it.');
   } finally {

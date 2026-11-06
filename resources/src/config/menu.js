@@ -47,6 +47,7 @@ export const MIGRATED_ROUTES = {
     '/app/settings/system_health': '/settings/system-health',
     '/app/settings/kt_log': '/settings/kt-log',
     '/app/settings/company_manuals': '/settings/company-manuals',
+    '/app/settings/roles_matrix': '/settings/roles-matrix',
     '/app/settings/sms_templates': '/settings/sms-templates',
     '/app/settings/email_templates': '/settings/email-templates',
     '/app/settings/Backup': '/settings/backup',
@@ -318,6 +319,12 @@ export const MIGRATED_ROUTES = {
     '/app/transport/trips': '/transport/trips',
     '/app/transport/routes': '/transport/routes',
     '/app/transport/staff': '/transport/staff',
+    '/app/transport/today': '/transport/today',
+    '/app/transport/parcels': '/transport/parcels',
+    '/app/transport/tolls': '/transport/tolls',
+    '/app/transport/boarding': '/transport/boarding',
+    '/app/fleet/parts': '/fleet/parts',
+    '/app/fleet/plan': '/fleet/plan',
     '/app/hospital/dashboard': '/hospital/dashboard',
     '/app/hospital/patients': '/hospital/patients',
     '/app/hospital/doctors': '/hospital/doctors',
@@ -574,16 +581,6 @@ export const MENU = [
             { label: 'Suppliers', to: '/app/People/Suppliers', permissions: ['Suppliers_view'] },
             { label: 'Add', labelKeys: ['Add', 'Supplier'], to: '/app/People/Suppliers/create', permissions: ['Suppliers_add'] },
             { label: 'Import_Suppliers', to: '/app/People/Suppliers_import', permissions: ['Suppliers_import'] },
-        ],
-    },
-    {
-        key: 'User_Management',
-        icon: 'shield-check',
-        label: 'User_Management',
-        permissions: ['users_view', 'permissions_view'],
-        children: [
-            { label: 'Users', to: '/app/User_Management/Users', permissions: ['users_view'] },
-            { label: 'GroupPermissions', to: '/app/User_Management/permissions', permissions: ['permissions_view'] },
         ],
     },
     {
@@ -994,11 +991,13 @@ export const MENU = [
         key: 'fleet',
         icon: 'truck',
         label: 'Fleet Management',
-        permissions: ['fleet_vehicles_view', 'fleet_maintenance', 'fleet_fuel', 'fleet_assignments', 'fleet_reports'],
+        permissions: ['fleet_vehicles_view', 'fleet_maintenance', 'fleet_fuel', 'fleet_assignments', 'fleet_reports', 'fleet_parts', 'fleet_plan'],
         children: [
             { label: 'Dashboard', to: '/app/fleet/dashboard', permissions: ['fleet_vehicles_view'] },
             { label: 'Vehicles', to: '/app/fleet/vehicles', permissions: ['fleet_vehicles_view'] },
             { label: 'Maintenance', to: '/app/fleet/maintenance', permissions: ['fleet_maintenance'] },
+            { label: 'Fleet_Plan', to: '/app/fleet/plan', permissions: ['fleet_plan'] },
+            { label: 'Fleet_Parts', to: '/app/fleet/parts', permissions: ['fleet_parts'] },
             { label: 'Fuel Logs', to: '/app/fleet/fuel-logs', permissions: ['fleet_fuel'] },
             { label: 'Assignments', to: '/app/fleet/assignments', permissions: ['fleet_assignments'] },
             { label: 'Fleet Reports', to: '/app/fleet/reports', permissions: ['fleet_reports'] },
@@ -1009,8 +1008,12 @@ export const MENU = [
         key: 'transport',
         icon: 'bus',
         label: 'Transport',
-        permissions: ['transport_view', 'transport_manage'],
+        permissions: ['transport_view', 'transport_manage', 'transport_supervise', 'transport_parcels', 'transport_tolls', 'transport_boarding'],
         children: [
+            { label: 'Transport_Today', to: '/app/transport/today', permissions: ['transport_supervise'] },
+            { label: 'Transport_Boarding', to: '/app/transport/boarding', permissions: ['transport_boarding'] },
+            { label: 'Transport_Parcels', to: '/app/transport/parcels', permissions: ['transport_parcels'] },
+            { label: 'Transport_Tolls', to: '/app/transport/tolls', permissions: ['transport_tolls'] },
             { label: 'Transport_Trips', to: '/app/transport/trips', permissions: ['transport_view', 'transport_manage'] },
             { label: 'Transport_Routes', to: '/app/transport/routes', permissions: ['transport_view', 'transport_manage'] },
             { label: 'Transport_Staff', to: '/app/transport/staff', permissions: ['transport_view', 'transport_manage'] },
@@ -1089,9 +1092,13 @@ export const MENU = [
         key: 'settings',
         icon: 'database-zap',
         label: 'Settings',
-        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'sms_templates', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'login_security', 'paypal_manage', 'kt_logs_view'],
+        permissions: ['setting_system', 'business_modules', 'update_settings', 'sms_settings', 'zatca_settings', 'notification_template', 'sms_templates', 'pos_settings', 'appearance_settings', 'translations_settings', 'payment_gateway', 'mail_settings', 'warehouse', 'warehouse_locations', 'backup', 'payment_methods', 'currency', 'login_device_management', 'system_health_view', 'network_security', 'login_security', 'paypal_manage', 'kt_logs_view', 'users_view', 'permissions_view'],
         children: [
             { label: 'SystemSettings', to: '/app/settings/System_settings', permissions: ['setting_system'] },
+            // Users / roles lived in their own "Access Management" group until 2026-11-02
+            // (user's rule: the empty group removed for every company); keys kept.
+            { label: 'Users', to: '/app/User_Management/Users', permissions: ['users_view'] },
+            { label: 'GroupPermissions', to: '/app/User_Management/permissions', permissions: ['permissions_view'] },
             // superAdminOnly: install-level admin tooling that must never be
             // delegable to a company-level Admin's role even if their role
             // has the permission below -- see isMenuEntryAllowed() and the
@@ -1122,6 +1129,7 @@ export const MENU = [
             { label: 'KT_Log', to: '/app/settings/kt_log', permissions: ['kt_logs_view'], superAdminOnly: true, systemOnly: true },
             // Company manuals (2026-11-01): flyer + text manual per company / business type.
             { label: 'Company_Manuals', to: '/app/settings/company_manuals', permissions: ['company_manuals_view'], superAdminOnly: true, systemOnly: true },
+            { label: 'Roles_Matrix', to: '/app/settings/roles_matrix', permissions: ['roles_matrix_view'], superAdminOnly: true, systemOnly: true },
             { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true, systemOnly: true },
             // Company-level (not superAdminOnly): a role with network_security manages its own company.
             { label: 'Network_Security', to: '/app/settings/network_security', permissions: ['network_security'] },

@@ -5,7 +5,7 @@
         <a-space wrap>
           <a-button type="primary" @click="openWeekly">
             <template #icon><CalendarOutlined /></template>
-            Generate weekly payroll
+            {{ $t('tx_Generate_weekly_payroll_d166d') }}
           </a-button>
           <a-button @click="openCreate">
             <template #icon><PlusOutlined /></template>
@@ -24,14 +24,15 @@
           <span v-else class="muted">—</span>
         </template>
         <template v-else-if="column.key === 'pay_type'">
-          <a-tag v-if="record.pay_type === 'hourly'" color="blue">Hours</a-tag>
-          <a-tag v-else-if="record.pay_type === 'commission'" color="purple">Commission</a-tag>
-          <a-tag v-else-if="record.pay_type === 'per_trip'" color="cyan">Per trip</a-tag>
+          <a-tag v-if="record.pay_type === 'hourly'" color="blue">{{ $t('Hours') }}</a-tag>
+          <a-tag v-else-if="record.pay_type === 'commission'" color="purple">{{ $t('Commission') }}</a-tag>
+          <a-tag v-else-if="record.pay_type === 'per_trip'" color="cyan">{{ $t('tx_Per_trip_3f532') }}</a-tag>
+          <a-tag v-else-if="record.pay_type === 'monthly'" color="green">{{ $t('tx_Salary_b083a') }}</a-tag>
           <span v-else class="muted">Manual</span>
         </template>
         <template v-else-if="column.key === 'detail'">
           <span v-if="record.pay_type === 'hourly'">{{ Number(record.hours) }} h × {{ money(record.rate) }}</span>
-          <span v-else-if="record.pay_type === 'per_trip'">{{ record.notes }}</span>
+          <span v-else-if="record.pay_type === 'per_trip' || record.pay_type === 'monthly'">{{ record.notes }}</span>
           <span v-else-if="record.pay_type === 'commission'">{{ Number(record.commission_rate) }}% of {{ money(record.commission_base) }}</span>
           <span v-else class="muted">—</span>
         </template>
@@ -100,11 +101,11 @@
     </a-modal>
 
     <!-- Weekly run: pick a week, review, create (paid -> posted to accounting). -->
-    <a-modal v-model:open="weekly.open" title="Generate weekly payroll" width="860px" :confirm-loading="weekly.saving"
-      ok-text="Create payrolls" :ok-button-props="{ disabled: !weeklyNew.length }" @ok="createWeekly">
+    <a-modal v-model:open="weekly.open" :title="$t('tx_Generate_weekly_payroll_d166d')" width="860px" :confirm-loading="weekly.saving"
+      :ok-text="$t('tx_Create_payrolls_ef2d5')" :ok-button-props="{ disabled: !weeklyNew.length }" @ok="createWeekly">
       <a-row :gutter="12" align="bottom">
         <a-col :xs="24" :md="8">
-          <a-form-item label="Week (Monday – Sunday)" style="margin-bottom: 8px">
+          <a-form-item :label="$t('tx_Week_Monday_Sunday_860d9')" style="margin-bottom: 8px">
             <a-date-picker v-model:value="weekly.date" picker="week" value-format="YYYY-MM-DD" style="width: 100%" @change="loadWeekly" />
           </a-form-item>
         </a-col>
@@ -115,7 +116,7 @@
         </a-col>
         <a-col :xs="24" :md="8">
           <a-form-item :label="$t('Account')" style="margin-bottom: 8px">
-            <a-select v-model:value="weekly.account_id" allow-clear :options="accountOptions" placeholder="Cash" />
+            <a-select v-model:value="weekly.account_id" allow-clear :options="accountOptions" :placeholder="$t('tx_Cash_069b3')" />
           </a-form-item>
         </a-col>
       </a-row>
@@ -126,26 +127,28 @@
       <a-table :data-source="weekly.rows" :columns="weeklyColumns" :pagination="false" size="small" row-key="employee_id" :loading="weekly.loading"
         :locale="{ emptyText: 'Nobody is set to be paid by hours or commission (Employee -> Company tab -> Paid by).' }">
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'pay_type'">{{ record.pay_type === 'hourly' ? 'Hours' : record.pay_type === 'per_trip' ? 'Per trip' : 'Commission' }}</template>
+          <template v-if="column.key === 'pay_type'">{{ record.pay_type === 'hourly' ? $t('Hours') : record.pay_type === 'per_trip' ? $t('tx_Per_trip_3f532') : $t('Commission') }}</template>
           <template v-else-if="column.key === 'basis'">
             <span v-if="record.pay_type === 'hourly'">{{ record.hours }} h on {{ record.jobs }} job(s) × {{ money(record.rate) }}</span>
-            <span v-else-if="record.pay_type === 'per_trip'">{{ record.trips }} trip(s) completed</span>
-            <span v-else>{{ record.commission_rate }}% of {{ money(record.commission_base) }} ({{ record.sales }} sale(s))</span>
+            <span v-else-if="record.pay_type === 'per_trip'">{{ record.trips }} {{ $t('tx_trip_s_completed_90c3b') }}</span>
+            <span v-else-if="record.pay_type === 'monthly'">{{ money(record.rate) }} / {{ record.trips }} {{ $t('tx_trip_s_5a27e') }}</span>
+            <span v-else>{{ record.commission_rate }}% of {{ money(record.commission_base) }} ({{ record.sales }} {{ $t('tx_sale_s_c1dd1') }}</span>
           </template>
           <template v-else-if="column.key === 'amount'"><strong>{{ money(record.amount) }}</strong></template>
           <template v-else-if="column.key === 'state'">
-            <a-tag v-if="record.existing" color="default">Already paid ({{ record.existing }})</a-tag>
-            <a-tag v-else-if="record.amount <= 0" color="default">Nothing to pay</a-tag>
-            <a-tag v-else color="green">Will be created</a-tag>
+            <a-tag v-if="record.existing" color="default">{{ $t('tx_Already_paid_1533c') }}{{ record.existing }})</a-tag>
+            <a-tag v-else-if="record.amount <= 0" color="default">{{ $t('tx_Nothing_to_pay_329db') }}</a-tag>
+            <a-tag v-else color="green">{{ $t('tx_Will_be_created_ee5be') }}</a-tag>
           </template>
         </template>
       </a-table>
-      <div style="text-align: right; margin-top: 8px">Total to create: <strong>{{ money(weeklyNew.reduce((s, r) => s + r.amount, 0)) }}</strong></div>
+      <div style="text-align: right; margin-top: 8px">{{ $t('tx_Total_to_create_28967') }} <strong>{{ money(weeklyNew.reduce((s, r) => s + r.amount, 0)) }}</strong></div>
     </a-modal>
   </div>
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * GET payroll → {payrolls, totalRows, accounts, employees, payment_methods}
  * — the form's selects ship in the list payload, no bootstrap endpoint.
@@ -179,9 +182,9 @@ const columns = computed(() => [
   { title: t('Employee'), dataIndex: 'employee_name', key: 'employee_name' },
   // superadmin/AdminSystem: every company (2026-10-21)
   ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
-  { title: 'Week', key: 'period', exportValue: r => (r.period_start ? `${r.period_start} - ${r.period_end}` : '') },
-  { title: 'Type', key: 'pay_type', exportValue: r => r.pay_type || 'manual' },
-  { title: 'Detail', key: 'detail', exportValue: r => r.notes || '' },
+  { title: tEs('tx_Week_d2ce0', 'Week'), key: 'period', exportValue: r => (r.period_start ? `${r.period_start} - ${r.period_end}` : '') },
+  { title: tEs('type', 'Type'), key: 'pay_type', exportValue: r => r.pay_type || 'manual' },
+  { title: tEs('tx_Detail_a254c', 'Detail'), key: 'detail', exportValue: r => r.notes || '' },
   { title: t('Account'), dataIndex: 'account_name', key: 'account_name' },
   { title: t('Amount'), dataIndex: 'amount', key: 'amount', align: 'right', sorter: true, exportValue: r => money(r.amount) },
   { title: t('ModePaiement'), dataIndex: 'payment_method', key: 'payment_method' },
@@ -218,8 +221,8 @@ const weekly = ref({ open: false, date: dayjs().subtract(7, 'day').format('YYYY-
 const weeklyNew = computed(() => weekly.value.rows.filter(r => !r.existing && r.amount > 0));
 const weeklyColumns = [
   { title: t('Employee'), dataIndex: 'name', key: 'name' },
-  { title: 'Paid by', key: 'pay_type' },
-  { title: 'How', key: 'basis' },
+  { title: tEs('ModePaiement', 'Paid by'), key: 'pay_type' },
+  { title: tEs('tx_How_13257', 'How'), key: 'basis' },
   { title: t('Amount'), key: 'amount', align: 'right' },
   { title: '', key: 'state' },
 ];

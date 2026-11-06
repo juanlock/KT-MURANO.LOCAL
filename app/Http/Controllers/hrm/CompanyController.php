@@ -47,7 +47,7 @@ class CompanyController extends Controller
         $pageStart = \Request::get('page', 1);
         // Start displaying items from this number;
         $offSet = ($pageStart * $perPage) - $perPage;
-        $order = in_array($request->SortField, ['id', 'name', 'email', 'phone', 'country', 'created_at'], true) ? $request->SortField : 'id';
+        $order = in_array($request->SortField, ['id', 'name', 'business_type', 'email', 'phone', 'country', 'created_at'], true) ? $request->SortField : 'id';
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
         $companies = Company::where('deleted_at', '=', null)
@@ -100,8 +100,8 @@ class CompanyController extends Controller
 
     /**
      * Creates a ready-to-use company (SuperAdmin only): the company + its
-     * roles, settings, main warehouse, Walk-in Customer, HR basics, its admin
-     * user and that user's employee record (CompanyProvisioner). Optionally
+     * roles, settings, main warehouse, Walk-in Customer, HR basics and its admin
+     * user -- no employee record for it (2026-11-02; CompanyProvisioner). Optionally
      * fills it with demo data afterwards (tagged; removable any time).
      */
     public function store(Request $request)
@@ -116,7 +116,7 @@ class CompanyController extends Controller
             'admin_email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->whereNull('deleted_at')],
             // Empty = the standard password of new companies (CompanyLogins, 2026-10-25).
             'admin_password' => ['nullable', 'string', 'min:8'],
-            // Old names (Owner / Admin / Admin-ALL) are taken as Admin Compañía (2026-11-01, CompanyRoles).
+            // Old names (Owner / Admin / Admin-ALL / Admin Compañía) are taken as IT Admin (CompanyRoles).
             'admin_role' => ['nullable', 'string', 'max:60'],
             // Optional helpdesk agent (role "Helpdesk").
             'helpdesk_firstname' => ['nullable', 'string', 'max:100'],
@@ -189,9 +189,10 @@ class CompanyController extends Controller
             // Its mail server: AdminSystem's, sender "Admin {company}".
             \App\Models\Server::forCompany($cid);
             // Standard logins (2026-10-25): default passwords per type where none was typed,
-            // and the admin / helpdesk / info access logins with their roles.
+            // the access logins with their roles, and a demo customer / employee / supplier /
+            // sales agent / store login, so every role has a user (2026-11-03).
             \App\Support\CompanyLogins::applyDefaults($cid);
-            \App\Support\CompanyLogins::ensureAccess($cid);
+            \App\Support\CompanyDefaultPeople::ensure($cid);
         }));
         $this->storeLogo((int) $result['company']->id, $logoBytes);
 
@@ -438,6 +439,32 @@ class CompanyController extends Controller
      * POST company/{id}/clear-demo -- remove every demo row generated for this
      * company (SuperAdmin only). Real data is never touched.
      */
+    /**
+     * Companies -> Rename (2026-11-02, SuperAdmin): GET = what would change for ?name=,
+     * POST {name, website, helpdesk, path, logins} = rename in one transaction
+     * (App\Services\CompanyRename).
+     */
+    public function renamePreview(Request $request, $id)
+    {
+        abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can rename a company.');
+        abort_unless(Company::whereKey((int) $id)->exists(), 404);
+
+        return response()->json(\App\Services\CompanyRename::preview((int) $id, (string) $request->query('name', '')));
+    }
+
+    public function rename(Request $request, $id)
+    {
+        abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can rename a company.');
+        abort_unless(Company::whereKey((int) $id)->exists(), 404);
+        $v = $request->validate([
+            'name' => 'required|string|max:190', 'website' => 'boolean', 'helpdesk' => 'boolean',
+            'path' => 'nullable', 'logins' => 'boolean',
+        ]);
+        $done = \App\Services\CompanyRename::apply((int) $id, $v['name'], $v);
+
+        return response()->json(['success' => true, 'done' => $done]);
+    }
+
     public function clearDemo(Request $request, $id)
     {
         abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can clear a company\'s demo data.');

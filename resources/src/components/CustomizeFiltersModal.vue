@@ -1,16 +1,16 @@
 <template>
   <a-modal
     :open="open" @update:open="v => emit('update:open', v)"
-    title="Customize filters"
+    :title="$t('tx_Customize_filters_d68b2')"
     :width="480"
     :confirm-loading="saving"
     @ok="emit('save')"
   >
-    <div class="cf-hint">Show, hide or reorder this list's filters for everyone in the company.</div>
+    <div class="cf-hint">{{ $t('tx_Show_hide_or_reorder_this_list_s_filters_for_everyone_in_the_2e0db') }}</div>
     <div class="cf-head">
       <span class="cf-move"></span>
-      <span class="cf-vis">Show</span>
-      <span class="cf-label">Filter</span>
+      <span class="cf-vis">{{ $t('tx_Show_498f7') }}</span>
+      <span class="cf-label">{{ $t('Filter') }}</span>
     </div>
     <div v-for="(row, i) in rows" :key="row.key" class="cf-row">
       <span class="cf-move">

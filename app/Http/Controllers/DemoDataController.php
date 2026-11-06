@@ -50,7 +50,26 @@ class DemoDataController extends Controller
             'business_type' => \App\Support\BusinessTypes::of($companyId),
             'business_types' => collect(\App\Support\BusinessTypes::LABELS)->map(fn ($label, $value) => compact('value', 'label'))->values(),
             'type_modules' => self::TYPE_MODULES,
+            // "Update the demo every day" (2026-11-02, App\Support\DemoDaily).
+            'demo_daily' => (bool) DB::table('companies')->where('id', $companyId)->value('demo_daily'),
+            'daily_modules' => array_keys(\App\Support\DemoDaily::REFRESHERS),
         ]);
+    }
+
+    /**
+     * "Update the demo every day" on / off for the acting company (2026-11-02):
+     * demo:daily (hourly) keeps its hospital / school / transport demo current.
+     * Turning it on brings it up to date right away.
+     */
+    public function saveDaily(Request $request)
+    {
+        $this->authorizeForUser($request->user('api'), 'update', Setting::class);
+        $on = (bool) $request->validate(['on' => ['required', 'boolean']])['on'];
+        $companyId = (int) $this->resolveActingCompanyId($request);
+        abort_if(! $companyId || $companyId === Setting::TEMPLATE_COMPANY_ID, 422, 'Choose a company in the switcher first.');
+        DB::table('companies')->where('id', $companyId)->update(['demo_daily' => $on]);
+
+        return response()->json(['success' => true, 'demo_daily' => $on, 'updated' => $on ? \App\Support\DemoDaily::run($companyId) : []]);
     }
 
     /** The business type alone (2026-10-26: it was only saved when generating examples). */

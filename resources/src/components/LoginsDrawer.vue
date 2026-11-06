@@ -57,6 +57,7 @@
             <a-button type="text" size="small" @click="copy(record.password)"><template #icon><CopyOutlined /></template></a-button>
           </span>
           <span v-else class="muted">{{ tx('Custom (not visible)', 'Personalizada (no visible)') }}</span>
+          <a-button v-if="canSetPw(record)" type="link" size="small" @click="pwOpen(record)"><template #icon><KeyOutlined /></template>{{ tx('Change', 'Cambiar') }}</a-button>
         </template>
         <template v-else-if="column.key === 'open'">
           <a-tooltip v-if="canOpen(record)" :title="tx('Work as this login (Back to admin in the header)', 'Entrar como este login (Volver a admin en el encabezado)')">
@@ -65,13 +66,29 @@
         </template>
       </template>
     </a-table>
+    <!-- Change a login's password from the table (2026-11-03): a custom one can't be shown. -->
+    <a-modal v-model:open="pw.open" :title="tx('Change password', 'Cambiar contraseña') + (pw.row ? ' · ' + (pw.row.name || pw.row.email) : '')"
+             :ok-text="tx('Save', 'Guardar')" :cancel-text="tx('Cancel', 'Cancelar')" :confirm-loading="pw.busy" @ok="pwSave">
+      <div class="muted" style="margin-bottom: 6px">{{ pw.row && pw.row.email }}</div>
+      <a-input-password v-model:value="pw.value" :placeholder="tx('New password (6+ characters)', 'Nueva contraseña (6+ caracteres)')" autocomplete="new-password" />
+      <a-space wrap style="margin-top: 8px">
+        <a-button v-if="pw.row && pw.row.standard_password" size="small" @click="pw.value = pw.row.standard_password">
+          {{ tx('Use the standard one', 'Usar la estándar') }} ({{ pw.row.standard_password }})
+        </a-button>
+        <a-button size="small" @click="pw.value = randomPw()">{{ tx('Generate', 'Generar') }}</a-button>
+        <a-button v-if="pw.value" size="small" @click="copy(pw.value)"><template #icon><CopyOutlined /></template>{{ tx('Copy', 'Copiar') }}</a-button>
+      </a-space>
+      <div style="margin-top: 10px">
+        <a-checkbox v-model:checked="pw.mustChange">{{ tx('Ask them to choose their own at the next sign-in', 'Pedirle que elija la suya al entrar') }}</a-checkbox>
+      </div>
+    </a-modal>
   </a-drawer>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue';
-import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, LoginOutlined } from '@ant-design/icons-vue';
+import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, LoginOutlined, KeyOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
 import { sortByLabel } from '../lib/filterOptions';
@@ -162,7 +179,9 @@ async function openAs(r, enablePortal = false) {
 // What the login is for: its role's description, else a sentence by role / type.
 const FUNCTION_BY_ROLE = {
   // Standard roles of every company (App\Support\CompanyRoles, 2026-11-01).
-  'Admin Compañía': ['Runs the whole company: every form and module, users and settings.', 'Administra toda la empresa: todos los formularios y módulos, usuarios y configuración.'],
+  'IT Admin': ['Runs the whole company: every form and module, users and settings.', 'Administra toda la empresa: todos los formularios y módulos, usuarios y configuración.'],
+  Manager: ['Runs the business: every main module, without the configuration.', 'Dirige el negocio: todos los módulos principales, sin la configuración.'],
+  Info: ['The company forms and their submissions, read only.', 'Los formularios de la empresa y sus envíos, solo lectura.'],
   Helpdesk: ['Support: works the helpdesk tickets and reads the company mail.', 'Soporte: atiende los tickets de helpdesk y lee el correo de la empresa.'],
   Website: ['Website management and the portfolio.', 'Administración del sitio web y el portafolio.'],
   Formularios: ['The company forms and their submissions, read only.', 'Los formularios de la empresa y sus envíos, solo lectura.'],
@@ -221,6 +240,32 @@ async function load() {
     message.error(e?.data?.message || tx('Could not load', 'No se pudo cargar'));
   } finally {
     loading.value = false;
+  }
+}
+// Change a login's password (2026-11-03): any login of the company but my own.
+const pw = ref({ open: false, row: null, value: '', mustChange: true, busy: false });
+const canSetPw = r => r.id !== auth.user?.id;
+function pwOpen(r) {
+  pw.value = { open: true, row: r, value: '', mustChange: true, busy: false };
+}
+function randomPw() {
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const n = new Uint32Array(10);
+  crypto.getRandomValues(n);
+  return Array.from(n, x => a[x % a.length]).join('') + '7';
+}
+async function pwSave() {
+  if ((pw.value.value || '').length < 6) return message.warning(tx('At least 6 characters.', 'Mínimo 6 caracteres.'));
+  pw.value.busy = true;
+  try {
+    await http.post(`company-logins/${pw.value.row.id}/password`, { password: pw.value.value, must_change: pw.value.mustChange });
+    message.success(tx('Password changed', 'Contraseña cambiada'));
+    pw.value.open = false;
+    load();
+  } catch (e) {
+    message.error(e?.data?.message || tx('Could not change it', 'No se pudo cambiar'));
+  } finally {
+    pw.value.busy = false;
   }
 }
 async function copy(v) {

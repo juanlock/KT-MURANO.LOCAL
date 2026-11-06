@@ -92,7 +92,7 @@
             </span>
           </template>
         </a-segmented>
-        <a-tooltip v-if="auth.canCustomizeColumns" title="Customize filters">
+        <a-tooltip v-if="auth.canCustomizeColumns" :title="$t('tx_Customize_filters_d68b2')">
           <a-button @click="openCustomize">
             <template #icon><FilterOutlined /></template>
           </a-button>
@@ -284,6 +284,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /** products.image is a filename under /images/products or a pasted absolute URL. */
 function productImg(v) {
   const f = String(v || '').trim();
@@ -347,14 +348,14 @@ const {
   visibleFilterKeys, customizeOpen, customizeSaving, customizeRows,
   openCustomize, moveRow, saveCustomize, resetCustomize,
 } = useCustomizableFilters('products_filters', [
-  { key: 'kind', label: 'Type Product' },
+  { key: 'kind', label: tEs('Type_Product', 'Type Product') },
   // The company's own names for Group Name / Name (Defaults -> Products).
   { key: 'product_group_id', label: t('GroupName') },
   { key: 'name', label: t('Name_product') },
-  { key: 'code', label: 'Code' },
-  { key: 'category_id', label: 'Category' },
-  { key: 'brand_id', label: 'Brand' },
-  { key: 'warehouse_id', label: 'Location' },
+  { key: 'code', label: tEs('Code', 'Code') },
+  { key: 'category_id', label: tEs('Categorie', 'Category') },
+  { key: 'brand_id', label: tEs('Brand', 'Brand') },
+  { key: 'warehouse_id', label: tEs('Location', 'Location') },
 ]);
 
 const filterParams = () => ({

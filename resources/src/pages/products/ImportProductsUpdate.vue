@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <PageHeader
-      title="Import Products & Services (Update Only)"
+      :title="$t('tx_Import_Products_Services_Update_Only_5fd0d')"
       :breadcrumb="[$t('Products'), 'Import (Update Only)']"
     >
       <template #extra>
@@ -14,16 +14,16 @@
       <div style="max-width: 760px; margin: 0 auto">
           <a-alert
             type="info" show-icon style="margin-bottom: 16px"
-            message="Update only"
-            description="This import updates cost and retail price of EXISTING products by code. It never creates products."
+            :message="$t('tx_Update_only_9c625')"
+            :description="$t('tx_This_import_updates_cost_and_retail_price_of_EXISTING_produc_00685')"
           />
 
           <ImportDropzone
             ref="dz"
             :file="file"
             :accept="accept"
-            title="Click or drop your file here"
-            hint="Allowed formats: CSV, XLSX, XLS · Max size: 20MB"
+            :title="$t('tx_Click_or_drop_your_file_here_0ecda')"
+            :hint="$t('tx_Allowed_formats_CSV_XLSX_XLS_Max_size_20MB_b3f70')"
             :disabled="uploading"
             @file="loadFile"
             @clear="clearFile()"
@@ -33,19 +33,19 @@
             <template #message>{{ successMessage }}</template>
             <template #description>
               <div v-if="importResults" style="font-size: 12px">
-                <div>Updated: {{ importResults.updated }} product(s)</div>
+                <div>{{ $t('tx_Updated_bb898') }} {{ importResults.updated }} product(s)</div>
                 <div v-if="importResults.not_found > 0" style="color: #d48806">
-                  Not found: {{ importResults.not_found }} code(s)
+                  {{ $t('tx_Not_found_d0e58') }} {{ importResults.not_found }} code(s)
                 </div>
                 <div v-if="importResults.errors > 0" style="color: #cf1322">
-                  Errors: {{ importResults.errors }}
+                  {{ $t('tx_Errors_c48c4') }} {{ importResults.errors }}
                 </div>
               </div>
             </template>
           </a-alert>
 
           <a-alert v-if="errorMessages.length" type="error" style="margin-top: 16px" show-icon>
-            <template #message>Import failed. Fix the issues below:</template>
+            <template #message>{{ $t('Import_Failed_Fix_Below') }}</template>
             <template #description>
               <ul style="margin: 0; padding-left: 18px">
                 <li v-for="(err, idx) in errorMessages" :key="'err-' + idx">{{ err }}</li>
@@ -57,27 +57,27 @@
 
           <div style="display: flex; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap">
             <a-button type="primary" :disabled="!canSubmit || uploading" :loading="uploading" @click="submit">
-              Import now
+              {{ $t('tx_Import_now_23453') }}
             </a-button>
             <a-button href="/import/exemples/update_products.csv" target="_blank" rel="noopener">
-              <DownloadOutlined /> Download example
+              <DownloadOutlined /> {{ $t('Download_exemple') }}
             </a-button>
-            <a-button :disabled="!file || uploading" @click="clearFile()">Reset</a-button>
+            <a-button :disabled="!file || uploading" @click="clearFile()">{{ $t('Reset') }}</a-button>
           </div>
       </div>
     </a-card>
 
     <!-- Expected file format -->
-    <a-card size="small" :title="'Expected file format'">
+    <a-card size="small" :title="$t('tx_Expected_file_format_682f9')">
       <template #extra>
-        <span style="font-size: 12px; color: #8c8c8c">One row per product · all columns required</span>
+        <span style="font-size: 12px; color: #8c8c8c">{{ $t('tx_One_row_per_product_all_columns_required_58ab9') }}</span>
       </template>
       <a-table
         :columns="exampleColumns" :data-source="exampleRows"
         size="small" :pagination="false" row-key="code"
       />
       <ul style="padding-left: 18px; margin: 12px 0 0 0; font-size: 12px">
-        <li>Only products with matching codes will be updated. Other fields are ignored.</li>
+        <li>{{ $t('tx_Only_products_with_matching_codes_will_be_updated_Other_fiel_651b9') }}</li>
       </ul>
     </a-card>
   </div>

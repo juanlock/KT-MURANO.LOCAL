@@ -101,7 +101,25 @@ if (! is_dir($outDir)) {
 $date = now()->format('Y-m-d');
 $time = now()->format('h-i-s-A');
 // e.g. KT-TOOLS/database/KT-THUNDERA/dbmurano_2026-10-19_08-15-02-AM_wakeup.zip
-$stem = $outDir.DIRECTORY_SEPARATOR."dbmurano_{$date}_{$time}_{$backupTag}";
+// The .sql and its .zip are built on the local disk (the system temp folder) and
+// only the finished .zip goes to $outDir (user's request, 2026-11-02): writing the
+// dump line by line straight into Google Drive (G:) took ~10 minutes.
+$workDir = rtrim(sys_get_temp_dir(), '\\/').DIRECTORY_SEPARATOR.'murano-backup-'.bin2hex(random_bytes(4));
+mkdir($workDir, 0777, true);
+$stem = $workDir.DIRECTORY_SEPARATOR."dbmurano_{$date}_{$time}_{$backupTag}";
+// The finished file's place in the archive.
+$finalOf = fn (string $file) => $outDir.DIRECTORY_SEPARATOR.basename($file);
+$moveOut = function (string $file) use ($finalOf): string {
+    $dest = $finalOf($file);
+    if (! @rename($file, $dest)) { // another drive: copy, then remove the local one
+        if (! copy($file, $dest)) {
+            throw new RuntimeException("Could not move {$file} to {$dest}");
+        }
+        @unlink($file);
+    }
+
+    return $dest;
+};
 
 // Two backups (user's rule, 2026-10-05): the Email Office tables alone are
 // >130 MB (imported mailboxes), so they go to their own file and the main
@@ -235,15 +253,24 @@ foreach ($parts as $outFile => $part) {
             if ($type !== \Symfony\Component\Process\Process::OUT) {
                 return;
             }
-            // Chunks don't end on line breaks: clean complete lines only.
+            // Chunks don't end on line breaks: clean complete lines only. The whole
+            // chunk is split at once (cutting the buffer line by line copied it once
+            // per line -- 9 minutes for 140 MB; user's report, 2026-11-02).
             $buffer .= $chunk;
-            while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = $clean(substr($buffer, 0, $pos + 1));
-                $buffer = substr($buffer, $pos + 1);
+            $last = strrpos($buffer, "\n");
+            if ($last === false) {
+                return;
+            }
+            $lines = explode("\n", substr($buffer, 0, $last));
+            $buffer = substr($buffer, $last + 1);
+            $out = '';
+            foreach ($lines as $l) {
+                $line = $clean($l."\n");
                 if ($line !== null) {
-                    fwrite($fh, $line);
+                    $out .= $line;
                 }
             }
+            fwrite($fh, $out);
         });
         if ($buffer !== '' && ($line = $clean($buffer)) !== null) {
             fwrite($fh, $line);
@@ -260,6 +287,7 @@ foreach ($parts as $outFile => $part) {
         foreach ($written as $f) {
             @unlink($f);
         }
+        @rmdir($workDir);
         echo "ERROR: mysqldump failed.\n".$result->errorOutput()."\n";
         return;
     }
@@ -273,16 +301,19 @@ foreach ($parts as $outFile => $part) {
     if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true
         || ! $zip->addFile($outFile, basename($outFile))
         || ! $zip->close()) {
+        $final = $moveOut($outFile);
         echo "WARNING: could not zip the backup, kept the plain .sql.\n";
-        echo "Backup written to: {$outFile} ({$sizeMb} MB)\n";
-        $written[] = $outFile;
+        echo "Backup written to: {$final} ({$sizeMb} MB)\n";
+        $written[] = $final;
         continue;
     }
     @unlink($outFile);
-    $written[] = $zipFile;
     $zipMb = round(filesize($zipFile) / 1024 / 1024, 2);
-    echo "Backup written to: {$zipFile} ({$zipMb} MB zip of a {$sizeMb} MB .sql)\n";
+    $final = $moveOut($zipFile);
+    $written[] = $final;
+    echo "Backup written to: {$final} ({$zipMb} MB zip of a {$sizeMb} MB .sql)\n";
 }
+@rmdir($workDir);
 
 // KT-TOOLS/database/ kept tidy (stray backups to their PC folder) and the latest
 // backup copied to its root (user's rule, 2026-10-19). Only for the normal PC

@@ -78,7 +78,13 @@ $refTable = function (string $t, string $col) use ($devTables) {
     if ($col === 'parent_id') return $t;
     if ($col === 'id' || ! str_ends_with($col, '_id')) return null;
     $rt = \Illuminate\Support\Str::plural(substr($col, 0, -3));
-    return in_array($rt, $devTables, true) ? $rt : null;
+    // Also with the table's own prefix (2026-11-03): acc_journal_entry_lines.journal_entry_id ->
+    // acc_journal_entries -- without it a live company's journal lines went up on their own.
+    $cands = [$rt];
+    $parts = explode('_', $t);
+    for ($i = 1; $i < count($parts); $i++) $cands[] = implode('_', array_slice($parts, 0, $i)).'_'.$rt;
+    foreach ($cands as $c) if (in_array($c, $devTables, true)) return $c;
+    return null;
 };
 $liveSkipped = [];
 // Drops the rows of a live company: own company_id, the company row itself, or a parent row (dev) of a live company.

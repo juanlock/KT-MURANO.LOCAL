@@ -32,9 +32,7 @@ class LoginChooseController extends Controller
         }
 
         $companies = DB::table('companies')->whereNull('deleted_at')->where('id', '!=', 999)->orderBy('name')->get(['id', 'name', 'logo', 'business_type']);
-        $admins = User::whereIn('company_id', $companies->pluck('id'))->where('type', 'admin')
-            ->whereNull('deleted_at')->where('statut', 1)->orderBy('id')
-            ->get(['id', 'company_id', 'username', 'firstname', 'lastname', 'email'])->groupBy('company_id');
+        $admins = $this->companyAdmins($companies->pluck('id')->all());
         $list = $companies->map(fn ($c) => (object) [
             'id' => $c->id,
             'name' => $c->name,
@@ -65,7 +63,8 @@ class LoginChooseController extends Controller
 
         $admin = User::whereKey((int) $target)->where('type', 'admin')->whereNull('deleted_at')->where('statut', 1)->first();
         abort_unless($admin && $admin->company_id && (int) $admin->company_id !== 999
-            && DB::table('companies')->where('id', $admin->company_id)->whereNull('deleted_at')->exists(), 404);
+            && DB::table('companies')->where('id', $admin->company_id)->whereNull('deleted_at')->exists()
+            && ($this->companyAdmins([(int) $admin->company_id])[$admin->company_id] ?? collect())->contains('id', $admin->id), 404);
 
         $this->switchTo($request, $admin);
         SuperAdminSwitch::start($super, $admin);
@@ -78,6 +77,29 @@ class LoginChooseController extends Controller
         $request->session()->forget('url.intended');
 
         return redirect('/');
+    }
+
+    /**
+     * The logins offered per company (user's rule, 2026-11-02): only its company
+     * admins (role Admin Compañía) -- Info, Helpdesk and every other login are
+     * reached from inside, with Company logins -> Enter. A company without an
+     * Admin Compañía login still shows its admin-type logins, so it is never
+     * out of reach. company_id => collection of users.
+     */
+    private function companyAdmins(array $companyIds): \Illuminate\Support\Collection
+    {
+        $all = User::whereIn('company_id', $companyIds)->where('type', 'admin')
+            ->whereNull('deleted_at')->where('statut', 1)->orderBy('id')
+            ->get(['id', 'company_id', 'username', 'firstname', 'lastname', 'email'])->groupBy('company_id');
+        $withAdminRole = DB::table('role_user')->join('roles', 'roles.id', '=', 'role_user.role_id')
+            ->where('roles.name', \App\Support\CompanyRoles::ADMIN)->whereNull('roles.deleted_at')
+            ->whereIn('role_user.user_id', $all->flatten()->pluck('id'))->pluck('role_user.user_id')->map(fn ($v) => (int) $v)->all();
+
+        return $all->map(function ($users) use ($withAdminRole) {
+            $admins = $users->filter(fn ($u) => in_array((int) $u->id, $withAdminRole, true))->values();
+
+            return $admins->isNotEmpty() ? $admins : $users;
+        });
     }
 
     public function back(Request $request)

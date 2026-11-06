@@ -134,6 +134,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Per-item day report — the classic POS "DAY REPORT" receipt: every product
  * sold in the range, grouped by category with SUB TOTAL lines and a GRAND
@@ -292,7 +293,7 @@ async function doExport(kind) {
 function printReceipt() {
   const w = window.open('', '_blank', 'width=420,height=640');
   if (!w) {
-    message.error('Please allow popups to print');
+    message.error(tEs('tx_Please_allow_popups_to_print_e243c', 'Please allow popups to print'));
     return;
   }
 

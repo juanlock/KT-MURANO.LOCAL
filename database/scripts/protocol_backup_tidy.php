@@ -60,6 +60,7 @@ foreach (array_unique(array_merge(glob($archive.DIRECTORY_SEPARATOR.'*', GLOB_ON
 }
 
 // 2. the latest backup copied to the root, with the PC in its name
+if (! is_dir($root)) mkdir($root, 0777, true);   // a PC without the folder: copy() would fail in silence
 $copies = [];
 foreach ($written as $f) {
     if (! preg_match('/^dbmurano_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2}-[AP]M)_(.+)$/', basename($f), $m)) continue;

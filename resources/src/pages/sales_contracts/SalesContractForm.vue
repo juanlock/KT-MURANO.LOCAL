@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <PageHeader :title="isEdit ? 'Edit Sales Contract' : 'New Sales Contract'" :breadcrumb="[$t('Sales'), 'Sales Contracts', isEdit ? $t('Edit') : $t('Add')]" />
+    <PageHeader :title="isEdit ? $t('tx_Edit_Sales_Contract_929a7') : $t('tx_New_Sales_Contract_bdb00')" :breadcrumb="[$t('Sales'), 'Sales Contracts', isEdit ? $t('Edit') : $t('Add')]" />
 
     <div v-if="loading" style="display: flex; justify-content: center; padding: 96px 0"><a-spin size="large" /></div>
 
@@ -8,7 +8,7 @@
       <a-row :gutter="16">
         <a-col :xs="24" :xl="16">
           <!-- Contract -->
-          <a-card size="small" title="Contract" style="margin-bottom: 16px">
+          <a-card size="small" :title="$t('Contract')" style="margin-bottom: 16px">
             <a-row :gutter="12">
               <a-col :xs="24" :md="8">
                 <a-form-item label="#" name="contract_number">
@@ -16,23 +16,23 @@
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="16">
-                <a-form-item label="Subject" name="subject">
+                <a-form-item :label="$t('Subject')" name="subject">
                   <a-input v-model:value="form.subject" placeholder="e.g. Monthly garden maintenance" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
                 <a-form-item :label="$t('Customer')" name="client_id">
-                  <a-select v-model:value="form.client_id" show-search option-filter-prop="label" :options="clientOptions" placeholder="Choose a customer" />
+                  <a-select v-model:value="form.client_id" show-search option-filter-prop="label" :options="clientOptions" :placeholder="$t('tx_Choose_a_customer_a2cdd')" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-form-item label="Location" name="warehouse_id" extra="Where its invoices are recorded (empty = company default).">
-                  <a-select v-model:value="form.warehouse_id" allow-clear :options="warehouseOptions" placeholder="Company default" />
+                <a-form-item :label="$t('Location')" name="warehouse_id" extra="Where its invoices are recorded (empty = company default).">
+                  <a-select v-model:value="form.warehouse_id" allow-clear :options="warehouseOptions" :placeholder="$t('tx_Company_default_85038')" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item label="Type" name="type">
-                  <a-select v-model:value="form.type" allow-clear :options="TYPE_OPTIONS" placeholder="Choose" />
+                <a-form-item :label="$t('type')" name="type">
+                  <a-select v-model:value="form.type" allow-clear :options="TYPE_OPTIONS" :placeholder="$t('tx_Choose_961f2')" />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
@@ -41,7 +41,7 @@
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
-                <a-form-item label="End date" name="end_date" extra="Empty = open-ended.">
+                <a-form-item :label="$t('tx_End_date_b7de7')" name="end_date" extra="Empty = open-ended.">
                   <a-date-picker v-model:value="form.end_date" value-format="YYYY-MM-DD" style="width: 100%" />
                 </a-form-item>
               </a-col>
@@ -52,7 +52,7 @@
               </a-col>
               <a-col :xs="24" :md="16">
                 <a-form-item label=" ">
-                  <a-checkbox v-model:checked="form.hide_from_customer">Hide from the customer's portal</a-checkbox>
+                  <a-checkbox v-model:checked="form.hide_from_customer">{{ $t('tx_Hide_from_the_customer_s_portal_02eb8') }}</a-checkbox>
                 </a-form-item>
               </a-col>
               <a-col :span="24">
@@ -64,18 +64,18 @@
           </a-card>
 
           <!-- Lines -->
-          <a-card size="small" title="Products / services billed" style="margin-bottom: 16px">
+          <a-card size="small" :title="$t('tx_Products_services_billed_41188')" style="margin-bottom: 16px">
             <template #extra>
               <a-space>
                 <!-- A product/service that doesn't exist yet: create it here
                      (same Quick Add as the sale form) and bill it on a new line. -->
-                <a-button size="small" @click="quickProductOpen = true"><template #icon><PlusOutlined /></template>New product / service</a-button>
+                <a-button size="small" @click="quickProductOpen = true"><template #icon><PlusOutlined /></template>{{ $t('tx_New_product_service_e5f74') }}</a-button>
                 <!-- Recurring visits (service jobs) open in a modal; "Edit" once switched on. -->
                 <a-button v-if="serviceEnabled" size="small" @click="jobsModalOpen = true">
                   <template #icon><component :is="form.jobs_enabled ? EditOutlined : PlusOutlined" /></template>
-                  {{ form.jobs_enabled ? 'Edit Service Job' : 'Add Service Job' }}
+                  {{ form.jobs_enabled ? $t('Edit_Service_Job') : $t('tx_Add_Service_Job_90a45') }}
                 </a-button>
-                <a-button size="small" @click="addLine()"><template #icon><PlusOutlined /></template>Add line</a-button>
+                <a-button size="small" @click="addLine()"><template #icon><PlusOutlined /></template>{{ $t('Add_Line') }}</a-button>
               </a-space>
             </template>
             <a-table :data-source="form.items" :columns="lineColumns" :pagination="false" size="small" row-key="_k">
@@ -83,9 +83,9 @@
                 <template v-if="column.key === 'product'">
                   <a-select
                     v-model:value="record.product_id" show-search allow-clear option-filter-prop="label" style="width: 100%"
-                    :options="productOptions" placeholder="Product / service (optional)" @change="v => onProduct(record, v)"
+                    :options="productOptions" :placeholder="$t('tx_Product_service_optional_94276')" @change="v => onProduct(record, v)"
                   />
-                  <a-input v-model:value="record.name" placeholder="Description on the invoice" style="margin-top: 4px" />
+                  <a-input v-model:value="record.name" :placeholder="$t('tx_Description_on_the_invoice_44906')" style="margin-top: 4px" />
                   <!-- The line's note on each invoice: static text, or with
                        placeholders filled per invoice ({{month}}, {{number}}...). -->
                   <a-input
@@ -97,7 +97,7 @@
                     </template>
                   </a-input>
                   <div v-if="record.note && scheduleRef?.firstNote(index)" class="note-preview">
-                    1st invoice: <i>{{ scheduleRef.firstNote(index) }}</i>
+                    {{ $t('tx_1st_invoice_62445') }} <i>{{ scheduleRef.firstNote(index) }}</i>
                   </div>
                 </template>
                 <template v-else-if="column.key === 'quantity'">
@@ -119,11 +119,11 @@
                  contract starts with the company's Default Tax. -->
             <div class="sc-total">
               <span class="sc-tax">
-                Order tax
+                {{ $t('OrderTax') }}
                 <a-input-number v-model:value="form.order_tax_rate" :min="0" :max="100" :step="0.001" addon-after="%" size="small" style="width: 130px" />
               </span>
-              <span>Lines {{ money(linesTotal) }}</span>
-              <span v-if="orderTax > 0">+ tax {{ money(orderTax) }}</span>
+              <span>{{ $t('Lines') }} {{ money(linesTotal) }}</span>
+              <span v-if="orderTax > 0">{{ $t('tx_tax_904fd') }} {{ money(orderTax) }}</span>
               <span>= per invoice <b>{{ money(contractTotal) }}</b></span>
             </div>
           </a-card>
@@ -132,25 +132,25 @@
 
         <a-col :xs="24" :xl="8">
           <!-- Recurring invoices -->
-          <a-card size="small" title="Recurring invoices" style="margin-bottom: 16px">
+          <a-card size="small" :title="$t('tx_Recurring_invoices_3f486')" style="margin-bottom: 16px">
             <a-form-item style="margin-bottom: 8px">
-              <a-switch v-model:checked="form.billing_enabled" /> <span style="margin-left: 8px">Invoice this contract automatically</span>
+              <a-switch v-model:checked="form.billing_enabled" /> <span style="margin-left: 8px">{{ $t('tx_Invoice_this_contract_automatically_3cfae') }}</span>
             </a-form-item>
             <!-- Each invoice created as a Draft (Pending) to review and finalize
                  -- no stock out until it's completed. -->
-            <a-form-item v-if="form.billing_enabled" style="margin-bottom: 8px" extra="Each invoice is created as a Draft (Pending, no stock out) for you to review and finalize. Off: created final (Completed, unpaid).">
-              <a-switch v-model:checked="form.invoice_as_draft" size="small" /> <span style="margin-left: 8px">Create invoices as drafts (review first)</span>
+            <a-form-item v-if="form.billing_enabled" style="margin-bottom: 8px" :extra="$t('tx_Each_invoice_is_created_as_a_Draft_Pending_no_stock_out_for__4128e')">
+              <a-switch v-model:checked="form.invoice_as_draft" size="small" /> <span style="margin-left: 8px">{{ $t('tx_Create_invoices_as_drafts_review_first_66cce') }}</span>
             </a-form-item>
             <!-- The note on each invoice: fixed text or placeholders filled
                  per invoice (empty = the automatic contract text). -->
-            <a-form-item v-if="form.billing_enabled" label="Invoice note" style="margin-bottom: 12px">
+            <a-form-item v-if="form.billing_enabled" :label="$t('tx_Invoice_note_93f39')" style="margin-bottom: 12px">
               <a-input v-model:value="form.invoice_note" allow-clear placeholder="e.g. Service made on {{month}}">
                 <template #addonAfter>
                   <NotePlaceholderHelp @insert="tk => (form.invoice_note = appendToken(form.invoice_note, tk))" @use="ex => (form.invoice_note = ex)" />
                 </template>
               </a-input>
               <div v-if="form.invoice_note && scheduleRef?.firstInvoiceNote()" class="note-preview">
-                1st invoice: <i>{{ scheduleRef.firstInvoiceNote() }}</i>
+                {{ $t('tx_1st_invoice_62445') }} <i>{{ scheduleRef.firstInvoiceNote() }}</i>
               </div>
             </a-form-item>
             <RecurringSchedule
@@ -166,7 +166,7 @@
               </template>
             </RecurringSchedule>
             <div v-else style="opacity: 0.6; font-size: 13px">
-              Off: invoices are created only with "Generate invoice" on the contract.
+              {{ $t('tx_Off_invoices_are_created_only_with_Generate_invoice_on_the_c_6b28b') }}
             </div>
           </a-card>
 
@@ -175,14 +175,14 @@
                invoices above bill the work). Needs the Service module. -->
           <a-modal v-if="serviceEnabled" v-model:open="jobsModalOpen" width="720px" :title="$t('Contract_Service_Jobs')">
             <template #footer>
-              <span style="opacity: 0.6; margin-right: 12px">Saved together with the contract.</span>
-              <a-button type="primary" @click="jobsModalOpen = false">Done</a-button>
+              <span style="opacity: 0.6; margin-right: 12px">{{ $t('tx_Saved_together_with_the_contract_2d7c4') }}</span>
+              <a-button type="primary" @click="jobsModalOpen = false">{{ $t('Done') }}</a-button>
             </template>
             <a-form-item style="margin-bottom: 8px">
               <a-switch v-model:checked="form.jobs_enabled" /> <span style="margin-left: 8px">{{ $t('Contract_Jobs_Switch') }}</span>
             </a-form-item>
             <template v-if="form.jobs_enabled">
-              <a-form-item label="Visit title" name="jobs_service_item" style="margin-bottom: 12px">
+              <a-form-item :label="$t('tx_Visit_title_78f3b')" name="jobs_service_item" style="margin-bottom: 12px">
                 <a-input v-model:value="form.jobs_service_item" allow-clear placeholder="e.g. Lawn mowing - {{weekday}} {{date}}">
                   <template #addonAfter>
                     <NotePlaceholderHelp @insert="tk => (form.jobs_service_item = appendToken(form.jobs_service_item, tk))" @use="ex => (form.jobs_service_item = ex)" />
@@ -192,22 +192,22 @@
               </a-form-item>
               <a-row :gutter="8">
                 <a-col :span="12">
-                  <a-form-item label="Operator / crew lead">
-                    <a-select v-model:value="form.jobs_technician_id" allow-clear :options="technicianOptions" placeholder="Assign later" />
+                  <a-form-item :label="$t('tx_Operator_crew_lead_330ce')">
+                    <a-select v-model:value="form.jobs_technician_id" allow-clear :options="technicianOptions" :placeholder="$t('tx_Assign_later_c40c6')" />
                   </a-form-item>
                 </a-col>
                 <a-col :span="12">
-                  <a-form-item label="Job type">
-                    <a-input v-model:value="form.jobs_job_type" placeholder="e.g. Maintenance" />
+                  <a-form-item :label="$t('Job_Type')">
+                    <a-input v-model:value="form.jobs_job_type" :placeholder="$t('tx_e_g_Maintenance_b212b')" />
                   </a-form-item>
                 </a-col>
                 <a-col :span="12">
-                  <a-form-item label="Visit time" extra="Empty = all-day task on the visit day.">
-                    <a-time-picker v-model:value="form.jobs_time" value-format="HH:mm" format="HH:mm" :minute-step="15" placeholder="All day" style="width: 100%" />
+                  <a-form-item :label="$t('tx_Visit_time_4b44d')" extra="Empty = all-day task on the visit day.">
+                    <a-time-picker v-model:value="form.jobs_time" value-format="HH:mm" format="HH:mm" :minute-step="15" :placeholder="$t('Intranet_All_Day')" style="width: 100%" />
                   </a-form-item>
                 </a-col>
                 <a-col :span="12">
-                  <a-form-item label="Create ahead" extra="Days before each visit.">
+                  <a-form-item :label="$t('tx_Create_ahead_e0597')" :extra="$t('tx_Days_before_each_visit_35366')">
                     <a-input-number v-model:value="form.jobs_lead_days" :min="0" :max="60" addon-after="days" style="width: 100%" />
                   </a-form-item>
                 </a-col>
@@ -221,13 +221,13 @@
                 <template #summary>
                   <a-alert
                     type="info" show-icon style="margin-bottom: 12px"
-                    message="Each visit is created as a Service Job (status Pending) for this customer, so it shows up in Service Jobs. No price on the job: the invoices bill the work. Only while the contract is Active."
+                    :message="$t('tx_Each_visit_is_created_as_a_Service_Job_status_Pending_for_th_7bd84')"
                   />
                 </template>
               </RecurringSchedule>
             </template>
             <div v-else style="opacity: 0.6; font-size: 13px">
-              Off: no service jobs are created from this contract.
+              {{ $t('tx_Off_no_service_jobs_are_created_from_this_contract_78729') }}
             </div>
           </a-modal>
 
@@ -242,6 +242,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Sales Contract create / edit (sales_contracts/create | /{id}/edit, POST /
  * PUT sales_contracts). Lines: optional product/service (fills name, price,
@@ -271,8 +272,8 @@ const id = computed(() => route.params.id);
 const isEdit = computed(() => !!id.value);
 
 const TYPE_OPTIONS = sortByLabel([
-  { value: 'service', label: 'Service' }, { value: 'maintenance', label: 'Maintenance' }, { value: 'subscription', label: 'Subscription' },
-  { value: 'lease', label: 'Lease / rental' }, { value: 'supply', label: 'Supply' }, { value: 'other', label: 'Other' },
+  { value: 'service', label: tEs('Service', 'Service') }, { value: 'maintenance', label: tEs('Maintenance', 'Maintenance') }, { value: 'subscription', label: tEs('Subscription', 'Subscription') },
+  { value: 'lease', label: tEs('tx_Lease_rental_b2ca6', 'Lease / rental') }, { value: 'supply', label: tEs('tx_Supply_4288e', 'Supply') }, { value: 'other', label: tEs('Other', 'Other') },
 ]);
 
 const loading = ref(true);
@@ -352,10 +353,10 @@ const orderTax = computed(() => roundMoney(linesTotal.value * (Number(form.value
 const contractTotal = computed(() => roundMoney(linesTotal.value + orderTax.value));
 
 const lineColumns = [
-  { title: 'Product / description', key: 'product' },
-  { title: 'Qty', key: 'quantity', width: 90 },
-  { title: 'Price', key: 'price', width: 120 },
-  { title: 'Tax', key: 'tax', width: 110 },
+  { title: tEs('tx_Product_description_78b07', 'Product / description'), key: 'product' },
+  { title: tEs('Qty', 'Qty'), key: 'quantity', width: 90 },
+  { title: tEs('Price', 'Price'), key: 'price', width: 120 },
+  { title: tEs('Tax', 'Tax'), key: 'tax', width: 110 },
   { title: 'Total', key: 'total', width: 110, align: 'right' },
   { title: '', key: 'del', width: 44 },
 ];
@@ -374,7 +375,7 @@ async function submit() {
     note: (l.note || '').trim() || null,
     quantity: Number(l.quantity) || 1, price: Number(l.price) || 0, tax_percent: Number(l.tax_percent) || 0, tax_method: String(l.tax_method || '1'),
   }));
-  if (form.value.billing_enabled && !items.length) { message.warning('Add at least one line to invoice.'); return; }
+  if (form.value.billing_enabled && !items.length) { message.warning(tEs('tx_Add_at_least_one_line_to_invoice_fe564', 'Add at least one line to invoice.')); return; }
   saving.value = true;
   const js = jobSchedule.value;
   const payload = {

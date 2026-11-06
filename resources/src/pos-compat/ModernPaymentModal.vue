@@ -179,7 +179,7 @@
                               <div class="method-icon-wrapper">
                                 <lucide-icon :name="m.icon" />
                               </div>
-                              <span class="method-label">{{ m.name }}</span>
+                              <span class="method-label">{{ methodName(m.name) }}</span>
                             </div>
                             <div v-if="String(p.paymentMethodId) === String(m.id)" class="selected-indicator">
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -313,6 +313,7 @@
 </template>
 
 <script>
+import { looseTranslation } from '../i18n';
 const loadStripe = () => Promise.resolve(null); // Stripe removed upstream
 import axios from "./axios";
 import { bvToast } from "./bv";
@@ -489,6 +490,7 @@ export default {
     }
   },
   methods: {
+    methodName(name) { return looseTranslation(name) || name; },
     // Get current date in configured timezone (YYYY-MM-DD format)
     getCurrentDateInTimezone() {
       try {

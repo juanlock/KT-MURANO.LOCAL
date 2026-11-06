@@ -8,16 +8,16 @@
        with these buttons (★, lib/datePresetDefault.js). `compact`: the
        presets as a dropdown on every screen, for narrow filter columns. -->
   <div class="prf" :class="{ 'prf--compact': compact }">
-    <div class="prf-buttons" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(active)">
+    <div class="prf-buttons" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(active)">
       <a-radio-group :value="active" button-style="solid" @change="e => pick(e.target.value)">
         <a-radio-button v-for="p in presets" :key="p.value" :value="p.value">
           {{ $t(p.labelKey) }}<StarFilled v-if="savedDatePreset === p.value" class="prf-star" />
         </a-radio-button>
       </a-radio-group>
     </div>
-    <div class="prf-select" :title="DATE_DEFAULT_HINT" @dblclick="toggleDatePreset(active)">
+    <div class="prf-select" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(active)">
       <a-select
-        :value="active ?? undefined" style="width: 100%" placeholder="Custom range"
+        :value="active ?? undefined" style="width: 100%" :placeholder="$t('CustomRange')"
         :options="presets.map(p => ({ value: p.value, label: savedDatePreset === p.value ? `${$t(p.labelKey)} ★` : $t(p.labelKey) }))"
         @change="pick"
       />
@@ -53,7 +53,7 @@ import { computed, onMounted, useAttrs } from 'vue';
 import { StarFilled } from '@ant-design/icons-vue';
 import DateRangeFields from './DateRangeFields.vue';
 import { DATE_PRESETS, presetDates } from '../lib/datePresets';
-import { DATE_DEFAULT_HINT, savedDatePreset, startPreset, toggleDatePreset } from '../lib/datePresetDefault';
+import { savedDatePreset, startPreset, toggleDatePreset } from '../lib/datePresetDefault';
 
 defineOptions({ inheritAttrs: false });
 

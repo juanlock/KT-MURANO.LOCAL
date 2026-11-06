@@ -129,12 +129,12 @@
         <!-- Summary labels hardcoded English in legacy's invoice too. -->
         <table>
           <tr><td>Subtotal:</td><td>{{ docMoney(subtotal) }}</td></tr>
-          <tr><td>Order Tax:</td><td>{{ docMoney(ret.TaxNet) }}</td></tr>
+          <tr><td>{{ $t('tx_Order_Tax_fc6d7') }}</td><td>{{ docMoney(ret.TaxNet) }}</td></tr>
           <tr v-if="Number(ret.discount) > 0">
-            <td>Discount:</td>
+            <td>{{ $t('tx_Discount_a1e73') }}</td>
             <td class="neg">- {{ docMoney(ret.discount) }}</td>
           </tr>
-          <tr v-if="Number(ret.shipping) > 0"><td>Shipping:</td><td>{{ docMoney(ret.shipping) }}</td></tr>
+          <tr v-if="Number(ret.shipping) > 0"><td>{{ $t('tx_Shipping_66f51') }}</td><td>{{ docMoney(ret.shipping) }}</td></tr>
           <tr class="grand"><td>{{ $t('Total') }}:</td><td>{{ docMoney(ret.GrandTotal) }}</td></tr>
           <tr><td>{{ $t('Paid') }}:</td><td style="color: #52c41a">{{ docMoney(ret.paid_amount) }}</td></tr>
           <tr><td>{{ $t('Due') }}:</td><td style="color: #ff4d4f">{{ docMoney(ret.due) }}</td></tr>

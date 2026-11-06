@@ -1,3 +1,4 @@
+import { t as tEs } from '../i18n/index.js';
 import { t as tf } from '../i18n';
 
 /**
@@ -22,40 +23,40 @@ const tag = (color, key) => ({ color, label: tf(key, key) });
 
 export function saleStatusTag(statut) {
     if (statut === 'completed') return tag('success', 'complete');
-    if (statut === 'pending') return tag('processing', 'Pending');
-    return tag('warning', 'Ordered');
+    if (statut === 'pending') return tag('processing', tEs('EnAttendant', 'Pending'));
+    return tag('warning', tEs('Ordered', 'Ordered'));
 }
 
 export function purchaseStatusTag(statut) {
-    if (statut === 'received') return tag('success', 'Received');
-    if (statut === 'pending') return tag('processing', 'Pending');
-    return tag('warning', 'Ordered');
+    if (statut === 'received') return tag('success', tEs('Received', 'Received'));
+    if (statut === 'pending') return tag('processing', tEs('EnAttendant', 'Pending'));
+    return tag('warning', tEs('Ordered', 'Ordered'));
 }
 
 /** Customer-side returns: received or pending, nothing else. */
 export function saleReturnStatusTag(statut) {
-    return statut === 'received' ? tag('success', 'Received') : tag('processing', 'Pending');
+    return statut === 'received' ? tag('success', tEs('Received', 'Received')) : tag('processing', tEs('EnAttendant', 'Pending'));
 }
 
 /** Supplier-side returns: completed or pending. */
 export function purchaseReturnStatusTag(statut) {
-    return statut === 'completed' ? tag('success', 'complete') : tag('processing', 'Pending');
+    return statut === 'completed' ? tag('success', 'complete') : tag('processing', tEs('EnAttendant', 'Pending'));
 }
 
 export function quotationStatusTag(statut) {
-    return statut === 'sent' ? tag('success', 'Sent') : tag('processing', 'Pending');
+    return statut === 'sent' ? tag('success', tEs('Sent', 'Sent')) : tag('processing', tEs('EnAttendant', 'Pending'));
 }
 
 export function transferStatusTag(statut) {
     if (statut === 'completed') return tag('success', 'complete');
-    if (statut === 'sent') return tag('warning', 'Sent');
-    return tag('error', 'Pending');
+    if (statut === 'sent') return tag('warning', tEs('Sent', 'Sent'));
+    return tag('error', tEs('EnAttendant', 'Pending'));
 }
 
 export function paymentStatusTag(status) {
-    if (status === 'paid') return tag('success', 'Paid');
+    if (status === 'paid') return tag('success', tEs('Paid', 'Paid'));
     if (status === 'partial') return tag('blue', 'partial');
-    return tag('warning', 'Unpaid');
+    return tag('warning', tEs('Unpaid', 'Unpaid'));
 }
 
 const SHIPPING = {

@@ -1,3 +1,4 @@
+import { t as tEs } from '../i18n/index.js';
 /**
  * The user's default date preset -- ONE choice for every page with the
  * shared date buttons (lib/datePresets.js): Dashboard, Sales, Purchases, POS
@@ -37,7 +38,7 @@ export function startPreset(fallback, allowed = null) {
 /** Double-click handler: make `preset` the default, or clear it if it already is. */
 export function toggleDatePreset(preset) {
   if (!isPreset(preset)) {
-    message.info('Pick one of the date buttons first, then double-click it.');
+    message.info(tEs('tx_Pick_one_of_the_date_buttons_first_then_double_click_it_7ecf4', 'Pick one of the date buttons first, then double-click it.'));
     return;
   }
   const label = t(DATE_PRESETS.find(p => p.value === preset).labelKey);

@@ -52,7 +52,7 @@ class Purchase extends Model
 
     public function warehouse()
     {
-        return $this->belongsTo('App\Models\Warehouse');
+        return $this->belongsTo('App\Models\Warehouse')->withoutGlobalScope('company');
     }
 
     public function user()

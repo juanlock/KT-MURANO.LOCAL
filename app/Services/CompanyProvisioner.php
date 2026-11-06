@@ -64,9 +64,9 @@ class CompanyProvisioner
 
             // Roles: copy the template company's, permissions included.
             $roleMap = [];
-            // Only the standard set (2026-11-01, CompanyRoles); Supplier / Sales Agent / Online Store come on demand.
+            // The standard and automatic sets (CompanyRoles; automatic ones in every company since 2026-11-03).
             $templateRoles = DB::table('roles')->where('company_id', Setting::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')
-                ->whereIn('name', \App\Support\CompanyRoles::STANDARD)->get();
+                ->whereIn('name', array_merge(\App\Support\CompanyRoles::STANDARD, \App\Support\CompanyRoles::AUTO))->get();
             foreach ($templateRoles as $tr) {
                 $newId = DB::table('roles')->insertGetId([
                     'company_id' => $cid, 'name' => $tr->name, 'label' => $tr->label,
@@ -151,23 +151,11 @@ class CompanyProvisioner
                 'record_view' => 1,
             ]);
             role_user::create(['user_id' => $user->id, 'role_id' => $roleId]);
-
-            // ...and its employee record.
-            $employeeId = DB::table('employees')->insertGetId([
-                'company_id' => $cid,
-                'user_id' => $user->id,
-                'firstname' => $firstname,
-                'lastname' => $lastname,
-                'username' => $user->username,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'gender' => 'other',
-                'joining_date' => $now->toDateString(),
-                'department_id' => $departmentId,
-                'designation_id' => $designationId,
-                'office_shift_id' => $shiftId,
-                'created_at' => $now, 'updated_at' => $now,
-            ]);
+            // No employee record for the admin (user's rule, 2026-11-02): an admin /
+            // SuperAdmin login only manages the system's access, it is never an
+            // employee, customer or supplier. (The department / designation / shift
+            // above stay: the helpdesk agent below and the company's staff use them.)
+            $employeeId = null;
 
             // Helpdesk: settings row always; the agent user when asked for.
             \App\Models\HelpdeskSetting::forCompany($cid);

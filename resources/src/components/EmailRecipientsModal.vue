@@ -2,7 +2,7 @@
   <a-modal
     :open="open"
     :title="title"
-    ok-text="Send"
+    :ok-text="$t('tx_Send_94966')"
     :confirm-loading="sending"
     :ok-button-props="{ disabled: !emails.length || invalid.length > 0 }"
     @ok="onOk"
@@ -13,7 +13,7 @@
     </p>
     <a-form layout="vertical">
       <a-form-item
-        label="Send to"
+        :label="$t('tx_Send_to_c973c')"
         :validate-status="invalid.length ? 'error' : undefined"
         :help="invalid.length ? `Invalid: ${invalid.join(', ')}` : undefined"
         :extra="added.length ? `Will be added to this ${contactNoun}: ${added.join(', ')}` : undefined"
@@ -23,7 +23,7 @@
           mode="tags"
           :options="known.map(e => ({ value: e, label: e }))"
           :token-separators="[',', ' ', ';']"
-          placeholder="Type another email and press Enter"
+          :placeholder="$t('tx_Type_another_email_and_press_Enter_36fd2')"
           style="width: 100%"
         />
       </a-form-item>

@@ -51,7 +51,7 @@ class MrpBom extends Model
 
     public function warehouse()
     {
-        return $this->belongsTo(Warehouse::class, 'warehouse_id');
+        return $this->belongsTo(Warehouse::class, 'warehouse_id')->withoutGlobalScope('company');
     }
 
     /** The BOM to use for a product when none was named explicitly. */

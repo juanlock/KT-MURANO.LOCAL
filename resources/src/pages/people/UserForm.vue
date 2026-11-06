@@ -103,7 +103,7 @@
                    company; blank = no PIN. -->
               <a-col :xs="24" :md="12">
                 <a-form-item
-                  label="Cashier PIN" name="pin"
+                  :label="$t('tx_Cashier_PIN_848f4')" name="pin"
                   extra="4 to 8 digits, unique within the company. Used on the POS to open and close the register. Blank = no PIN."
                 >
                   <a-input
@@ -133,17 +133,17 @@
               <a-col v-if="!isEdit" :span="24">
                 <a-alert
                   type="info" show-icon style="margin-bottom: 16px"
-                  message="Here you add Admin / SuperAdmin logins. An employee's login is created automatically in HRM → Employees (customers, suppliers and sales agents likewise in their own module); edit or disable any login here."
+                  :message="$t('tx_Here_you_add_Admin_SuperAdmin_logins_An_employee_s_login_is__8867e')"
                 />
               </a-col>
               <!-- Active = can sign in; off disables the login (nothing is deleted). Not for your own account. -->
               <a-col v-if="isEdit" :xs="24" :md="12">
-                <a-form-item label="Login">
+                <a-form-item :label="$t('tx_Login_99dea')">
                   <div class="switch-row">
                     <a-switch v-model:checked="form.active" :disabled="isSelf" />
-                    <span class="switch-label">{{ form.active ? 'Active — can sign in' : 'Disabled — cannot sign in' }}</span>
+                    <span class="switch-label">{{ form.active ? $t('tx_Active_can_sign_in_7ee5e') : $t('tx_Disabled_cannot_sign_in_744f3') }}</span>
                   </div>
-                  <a-typography-text v-if="isSelf" type="secondary" style="display: block; font-size: 12px">You can't disable your own login.</a-typography-text>
+                  <a-typography-text v-if="isSelf" type="secondary" style="display: block; font-size: 12px">{{ $t('tx_You_can_t_disable_your_own_login_6a71c') }}</a-typography-text>
                 </a-form-item>
               </a-col>
             </a-row>
@@ -192,28 +192,28 @@
               <div class="section-title emp-title">
                 <span><TeamOutlined /> {{ $t('Employee') }}</span>
                 <PermLink :to="`/hrm/employees/${employee.id}/details`" permission="view_employee" class="emp-open">
-                  Open in HRM → Employees
+                  {{ $t('tx_Open_in_HRM_Employees_0af88') }}
                 </PermLink>
               </div>
               <a-descriptions size="small" bordered :column="{ xs: 1, sm: 2, lg: 3 }" style="margin-bottom: 16px">
-                <a-descriptions-item label="Name">{{ [employee.firstname, employee.lastname].filter(Boolean).join(' ') || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Status">
-                  <a-tag :color="employee.status === 'left' ? 'red' : 'green'">{{ employee.status === 'left' ? 'Left' : 'Active' }}</a-tag>
+                <a-descriptions-item :label="$t('Name')">{{ [employee.firstname, employee.lastname].filter(Boolean).join(' ') || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Serial_Status')">
+                  <a-tag :color="employee.status === 'left' ? 'red' : 'green'">{{ employee.status === 'left' ? $t('tx_Left_945d5') : $t('Actif') }}</a-tag>
                 </a-descriptions-item>
-                <a-descriptions-item label="Department">{{ employee.department || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Position">{{ employee.designation || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Office shift">{{ employee.office_shift || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Employment type">{{ humanize(employee.employment_type) }}</a-descriptions-item>
-                <a-descriptions-item label="Email">{{ employee.email || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Phone">{{ employee.phone || '—' }}</a-descriptions-item>
-                <a-descriptions-item label="Joining date">{{ employee.joining_date || '—' }}</a-descriptions-item>
-                <a-descriptions-item v-if="employee.leaving_date" label="Leaving date">{{ employee.leaving_date }}</a-descriptions-item>
-                <a-descriptions-item label="Pay">{{ payText }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('department')">{{ employee.department || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Position')">{{ employee.designation || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Office_Shift')">{{ employee.office_shift || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Employment_type')">{{ humanize(employee.employment_type) }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Email')">{{ employee.email || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Phone')">{{ employee.phone || '—' }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('joining_date')">{{ employee.joining_date || '—' }}</a-descriptions-item>
+                <a-descriptions-item v-if="employee.leaving_date" :label="$t('Leaving_Date')">{{ employee.leaving_date }}</a-descriptions-item>
+                <a-descriptions-item :label="$t('Pay')">{{ payText }}</a-descriptions-item>
               </a-descriptions>
             </template>
 
             <a-space style="margin-top: 8px">
-              <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
+              <a-button type="primary" :loading="submitting" @click="submit()">{{ $t('submit') }}</a-button>
               <a-button @click="$router.push('/users')">{{ $t('Cancel') }}</a-button>
             </a-space>
           </a-card>
@@ -233,7 +233,7 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { message } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   UploadOutlined, UserOutlined, IdcardOutlined, MailOutlined,
@@ -244,7 +244,7 @@ import http from '../../lib/http';
 import { useAuthStore } from '../../stores/auth';
 import { sortByLabel } from '../../lib/filterOptions';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
@@ -383,7 +383,32 @@ function buildFormData() {
   return fd;
 }
 
-async function submit() {
+// The role the login had when the form opened ("keep it as it is" puts it back).
+const originalRoleId = ref(null);
+
+/*
+ * Making a login the company admin (role Admin Compañía) while it belongs to an
+ * employee / customer / supplier (user's rule, 2026-11-02): an admin never is
+ * one. Ask: remove that record and make it an admin, or keep it with its own role.
+ */
+function askAdminRelease(linked) {
+  const es = locale.value === 'es';
+  const kinds = { employee: es ? 'empleado' : 'employee', customer: es ? 'cliente' : 'customer', supplier: es ? 'proveedor' : 'supplier', 'sales agent': es ? 'vendedor' : 'sales agent' };
+  const list = (linked || []).map(l => `${kinds[l.kind] || l.kind} "${l.name}"`).join(', ');
+  Modal.confirm({
+    title: es ? '¿Convertir este login en admin?' : 'Make this login an admin?',
+    content: es
+      ? `Este login es del ${list}. Un admin solo administra los accesos y no puede ser empleado, cliente ni proveedor. Para hacerlo admin se da de baja esa ficha (su historial se conserva). Si no, déjalo como está con su propio rol.`
+      : `This login belongs to the ${list}. An admin only manages the access and cannot be an employee, customer or supplier. To make it an admin that record is removed (its history is kept). Otherwise keep it as it is, with its own role.`,
+    okText: es ? 'Dar de baja y hacerlo admin' : 'Remove it and make it an admin',
+    okType: 'danger',
+    cancelText: es ? 'Dejarlo como está' : 'Keep it as it is',
+    onOk: () => submit({ makeAdmin: 'release' }),
+    onCancel: () => { form.value.role_id = originalRoleId.value; },
+  });
+}
+
+async function submit(opts = {}) {
   try {
     await formRef.value.validate();
   } catch (e) {
@@ -395,6 +420,7 @@ async function submit() {
     if (isEdit.value) {
       // Active / disabled login (the server ignores it for your own account).
       fd.append('statut', form.value.active ? 1 : 0);
+      if (opts.makeAdmin) fd.append('make_admin', opts.makeAdmin);
       fd.append('_method', 'put');
       await http.postForm(`users/${id.value}`, fd);
       message.success(t('Successfully_Updated'));
@@ -407,6 +433,10 @@ async function submit() {
     }
     router.push('/users');
   } catch (e) {
+    if (e?.data?.code === 'admin_linked') {
+      askAdminRelease(e.data.linked);
+      return;
+    }
     // Show the backend's own reason (e.g. "This Email already taken.")
     // instead of a generic "Invalid data" that hid why the save failed.
     const errs = e?.data?.errors;
@@ -436,6 +466,7 @@ async function bootstrap() {
         pin: data.pin || '',
         active: Number(u.statut) === 1,
       };
+      originalRoleId.value = u.role_id;
       // Show the current avatar in the profile panel (placeholder file aside);
       // picking a new file replaces this preview with a local object URL.
       if (u.avatar && u.avatar !== 'no_avatar.png') {

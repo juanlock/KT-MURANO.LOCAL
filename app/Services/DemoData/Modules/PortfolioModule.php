@@ -34,6 +34,12 @@ class PortfolioModule extends DemoModule
         return 'Portfolio (works with photos for the business type)';
     }
 
+    /** No photo set for a travel / bus company yet (it got the IT works). */
+    public function skipBusinessTypes(): array
+    {
+        return ['tourism'];
+    }
+
     public function dataTables(): array
     {
         return ['portfolio_projects'];

@@ -52,6 +52,18 @@ abstract class DemoModule
     }
 
     /**
+     * Business types (BusinessTypes) whose companies get none of this module's
+     * examples because they would not fit (2026-11-03: a bus company got
+     * delivery vans and IT works).
+     *
+     * @return string[]
+     */
+    public function skipBusinessTypes(): array
+    {
+        return [];
+    }
+
+    /**
      * SuperAdmin "Delete real data" (2026-10-21, for test companies): what to
      * delete for ONE company, children first. Each step is one of
      *   ['table' => t]                          rows of t with that company_id

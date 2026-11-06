@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <PageHeader title="Fuel Logs" :breadcrumb="['Fleet Management', 'Fuel Logs']">
+    <PageHeader :title="$t('Fuel Logs')" :breadcrumb="['Fleet Management', 'Fuel Logs']">
       <template #actions>
         <a-button type="primary" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
@@ -12,17 +12,17 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search station or vehicle…"
+          v-model:value="crud.search.value" :placeholder="$t('tx_Search_station_or_vehicle_8793f')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.vehicle_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All vehicles"
+          option-filter-prop="label" :placeholder="$t('tx_All_vehicles_e54db')"
           :options="vehicleOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.employee_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All drivers"
+          option-filter-prop="label" :placeholder="$t('tx_All_drivers_a0462')"
           :options="employeeOptions" @change="crud.reload"
         />
         <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
@@ -49,7 +49,7 @@
         </template>
         <template v-else-if="column.key === 'full_tank'">
           <a-tag :color="record.full_tank ? 'success' : 'default'">
-            {{ record.full_tank ? 'Full' : 'Partial' }}
+            {{ record.full_tank ? $t('tx_Full_bbd47') : $t('partial') }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'actions'">
@@ -70,61 +70,61 @@
     </DataTable>
 
     <a-modal
-      :open="formOpen" :title="editing ? 'Edit fuel entry' : 'Record fuel'" :width="620"
+      :open="formOpen" :title="editing ? $t('tx_Edit_fuel_entry_adc0e') : $t('tx_Record_fuel_2c306')" :width="620"
       :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
       @ok="submit" @cancel="formOpen = false"
     >
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Vehicle *" name="vehicle_id">
+            <a-form-item :label="$t('tx_Vehicle_8bcbd')" name="vehicle_id">
               <a-select
                 v-model:value="form.vehicle_id" show-search option-filter-prop="label"
-                :options="vehicleOptions" placeholder="Select a vehicle" @change="onVehicleChange"
+                :options="vehicleOptions" :placeholder="$t('tx_Select_a_vehicle_97294')" @change="onVehicleChange"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Driver">
+            <a-form-item :label="$t('Driver')">
               <a-select
                 v-model:value="form.employee_id" allow-clear show-search option-filter-prop="label"
-                :options="employeeOptions" placeholder="Not recorded"
+                :options="employeeOptions" :placeholder="$t('tx_Not_recorded_683ff')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Date *" name="log_date">
+            <a-form-item :label="$t('tx_Date_3c56d')" name="log_date">
               <a-date-picker v-model:value="form.log_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Odometer *" name="odometer">
+            <a-form-item :label="$t('tx_Odometer_a2b97')" name="odometer">
               <a-input-number v-model:value="form.odometer" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="4">
-            <a-form-item label="Quantity *" name="quantity">
+            <a-form-item :label="$t('tx_Quantity_afca0')" name="quantity">
               <a-input-number v-model:value="form.quantity" :min="0" :step="0.01" style="width: 100%" @change="recalcTotal" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="4">
-            <a-form-item label="Unit price">
+            <a-form-item :label="$t('UnitPrice')">
               <a-input-number v-model:value="form.unit_price" :min="0" :step="0.01" style="width: 100%" @change="recalcTotal" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="4">
-            <a-form-item label="Total" extra="Auto">
+            <a-form-item label="Total" :extra="$t('tx_Auto_06b92')">
               <a-input-number v-model:value="form.total_cost" :min="0" :step="0.01" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Station">
+            <a-form-item :label="$t('Tray')">
               <a-input v-model:value="form.station" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Tank" extra="Consumption maths only works between full tanks">
-              <a-switch v-model:checked="form.full_tank" checked-children="Full" un-checked-children="Partial" />
+            <a-form-item :label="$t('tx_Tank_e4419')" :extra="$t('tx_Consumption_maths_only_works_between_full_tanks_cbaa1')">
+              <a-switch v-model:checked="form.full_tank" :checked-children="$t('tx_Full_bbd47')" :un-checked-children="$t('partial')" />
             </a-form-item>
           </a-col>
           <a-col :span="24">
@@ -139,6 +139,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Fuel log. Quantity x unit price keeps the total in step as you type, but the
@@ -179,15 +180,15 @@ const crud = useCrudTable('fleet/fuel-logs', {
 const totals = computed(() => crud.payload.value?.totals || {});
 
 const columns = computed(() => [
-  { title: 'Date', key: 'log_date', dataIndex: 'log_date', sorter: true, width: 110 },
-  { title: 'Vehicle', key: 'vehicle', dataIndex: 'vehicle_name', width: 200 },
-  { title: 'Odometer', key: 'odometer', dataIndex: 'odometer', sorter: true, width: 110 },
-  { title: 'Quantity', key: 'quantity', dataIndex: 'quantity', sorter: true, width: 110 },
-  { title: 'Unit price', key: 'unit_price', dataIndex: 'unit_price', sorter: true, width: 120 },
+  { title: tEs('date', 'Date'), key: 'log_date', dataIndex: 'log_date', sorter: true, width: 110 },
+  { title: tEs('Vehicle', 'Vehicle'), key: 'vehicle', dataIndex: 'vehicle_name', width: 200 },
+  { title: tEs('tx_Odometer_5c059', 'Odometer'), key: 'odometer', dataIndex: 'odometer', sorter: true, width: 110 },
+  { title: tEs('Quantity', 'Quantity'), key: 'quantity', dataIndex: 'quantity', sorter: true, width: 110 },
+  { title: tEs('UnitPrice', 'Unit price'), key: 'unit_price', dataIndex: 'unit_price', sorter: true, width: 120 },
   { title: 'Total', key: 'total_cost', dataIndex: 'total_cost', sorter: true, width: 120 },
-  { title: 'Driver', key: 'driver', dataIndex: 'driver_name', width: 150 },
-  { title: 'Station', dataIndex: 'station', key: 'station' },
-  { title: 'Tank', key: 'full_tank', width: 100 },
+  { title: tEs('Driver', 'Driver'), key: 'driver', dataIndex: 'driver_name', width: 150 },
+  { title: tEs('Tray', 'Station'), dataIndex: 'station', key: 'station' },
+  { title: tEs('tx_Tank_e4419', 'Tank'), key: 'full_tank', width: 100 },
   { title: '', key: 'actions', width: 90 },
 ]);
 

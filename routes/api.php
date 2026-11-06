@@ -413,6 +413,7 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
     Route::get('pending-work', [\App\Http\Controllers\Api\PendingWorkController::class, 'index']);
 // Header "Logins" list: the company's logins, roles and standard passwords (admins, 2026-10-25).
 Route::get('company-logins', [\App\Http\Controllers\CompanyLoginsController::class, 'index']);
+Route::post('company-logins/{id}/password', [\App\Http\Controllers\CompanyLoginsController::class, 'setPassword'])->whereNumber('id')->middleware('throttle:30,1');
 Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class, 'whoami']);
 
     // Product Q&A ("Ask About This Item") — admin answers
@@ -742,6 +743,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::delete('/submissions/{id}', 'destroySubmission')->whereNumber('id');
         Route::get('/submissions/{id}/pdf', 'submissionPdf')->whereNumber('id');
         Route::post('/submissions/{id}/resend', 'resendSubmission')->whereNumber('id');
+        Route::post('/submissions/{id}/reply', 'replySubmission')->whereNumber('id');
         Route::get('/submissions/{id}/file/{key}', 'file')->whereNumber('id')->where('key', '[a-z0-9_]+');
         Route::get('/{id}', 'show')->whereNumber('id');
         Route::put('/{id}', 'update')->whereNumber('id');
@@ -755,10 +757,16 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     });
     // Settings -> Company manuals (superadmin/AdminSystem, 2026-11-01).
     Route::get('company-manuals', [\App\Http\Controllers\CompanyManualsController::class, 'index']);
+    Route::get('roles-matrix', [\App\Http\Controllers\RolesMatrixController::class, 'index']);
     // Transport (2026-11-01): locations, routes, trips with their crew, active staff.
     Route::prefix('transport')->controller(\App\Http\Controllers\TransportController::class)->group(function () {
         Route::get('/meta', 'meta');
         Route::get('/board', 'board');
+        Route::get('/owner', 'owner');
+        Route::get('/pos-tickets', 'posTickets');
+        Route::get('/seats', 'seats');
+        Route::get('/passenger', 'passenger');
+        Route::get('/departures', 'departures');
         Route::get('/locations', 'locations');
         Route::post('/locations', 'saveLocation');
         Route::put('/locations/{id}', 'saveLocation')->whereNumber('id');
@@ -773,6 +781,29 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::put('/trips/{id}', 'saveTrip')->whereNumber('id');
         Route::delete('/trips/{id}', 'deleteTrip')->whereNumber('id');
         Route::get('/staff', 'staff');
+    });
+    // Transport's daily work (2026-11-04): departures, parcels, tolls, each trip's profit.
+    Route::prefix('transport')->controller(\App\Http\Controllers\TransportOperationsController::class)->group(function () {
+        Route::get('/today', 'today');
+        Route::post('/trips/{id}/decision', 'decision')->whereNumber('id');
+        Route::get('/trips/{id}/manifest', 'manifest')->whereNumber('id');
+        Route::get('/parcels/meta', 'parcelMeta');
+        Route::get('/parcels/{id}/print', 'parcelPrint')->whereNumber('id');
+        Route::get('/tickets', 'tickets');
+        Route::get('/boarding', 'boarding');
+        Route::post('/boarding', 'board');
+        Route::get('/parcels', 'parcels');
+        Route::post('/parcels', 'saveParcel');
+        Route::put('/parcels/{id}', 'saveParcel')->whereNumber('id');
+        Route::post('/parcels/{id}/status', 'parcelStatus')->whereNumber('id');
+        Route::get('/tolls/trips', 'tollTrips');
+        Route::get('/tolls', 'tolls');
+        Route::post('/tolls', 'saveToll');
+        Route::delete('/tolls/{id}', 'deleteToll')->whereNumber('id');
+        Route::get('/profit', 'profit');
+        Route::get('/indicators', 'indicators');
+        Route::get('/claims', 'claims');
+        Route::get('/departures', 'departures');
     });
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
     Route::get('employees/{id}/assets', 'hrm\EmployeesController@assets')->whereNumber('id');
@@ -803,6 +834,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     Route::get('get_all_company', "hrm\CompanyController@Get_all_Company");
     Route::post('company/delete/by_selection', "hrm\CompanyController@delete_by_selection");
     Route::post('company/{id}/clear-demo', "hrm\CompanyController@clearDemo");
+    Route::get('company/{id}/rename', "hrm\CompanyController@renamePreview")->whereNumber('id');
+    Route::post('company/{id}/rename', "hrm\CompanyController@rename")->whereNumber('id');
     Route::post('company/{id}/website', "hrm\CompanyController@website");
 
     // ------------------------------- departments --------------------------\\
@@ -1045,6 +1078,17 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     Route::get('fleet/reports/drivers', 'FleetReportController@drivers');
 
     Route::post('fleet/maintenances/delete/by_selection', 'FleetMaintenanceController@deleteBySelection');
+    // The workshop (2026-11-04): spare parts and the maintenance plan.
+    Route::get('fleet/parts', 'FleetWorkshopController@parts');
+    Route::post('fleet/parts', 'FleetWorkshopController@savePart');
+    Route::put('fleet/parts/{id}', 'FleetWorkshopController@savePart')->whereNumber('id');
+    Route::delete('fleet/parts/{id}', 'FleetWorkshopController@deletePart')->whereNumber('id');
+    Route::post('fleet/parts/{id}/move', 'FleetWorkshopController@movePart')->whereNumber('id');
+    Route::get('fleet/parts/{id}/moves', 'FleetWorkshopController@partMoves')->whereNumber('id');
+    Route::get('fleet/plans', 'FleetWorkshopController@plans');
+    Route::post('fleet/plans', 'FleetWorkshopController@savePlan');
+    Route::put('fleet/plans/{id}', 'FleetWorkshopController@savePlan')->whereNumber('id');
+    Route::delete('fleet/plans/{id}', 'FleetWorkshopController@deletePlan')->whereNumber('id');
     Route::get('fleet/maintenances', 'FleetMaintenanceController@index');
     Route::post('fleet/maintenances', 'FleetMaintenanceController@store');
     Route::put('fleet/maintenances/{id}', 'FleetMaintenanceController@update');
@@ -1916,6 +1960,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('demo_data/status', 'DemoDataController@status');
     Route::post('demo_data/generate', 'DemoDataController@generate');
     Route::put('demo_data/business-type', 'DemoDataController@saveBusinessType');
+    Route::put('demo_data/daily', 'DemoDataController@saveDaily');
     Route::delete('demo_data', 'DemoDataController@reset');
     Route::post('demo_data/wipe', 'DemoDataController@wipe');
     // Dedicated Dark Mode endpoints (independent from other settings APIs)

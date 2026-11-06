@@ -46,7 +46,18 @@ if (! (require __DIR__.'/protocol_prod_backup.php')) {
     return;
 }
 
-// 2) migrate production
-$code = Artisan::call('migrate', ['--database' => 'prod', '--force' => true]);
-echo Artisan::output();
-echo $code === 0 ? 'Production migrated.' : 'migrate returned '.$code, PHP_EOL;
+// 2) migrate production. From a deploy ($migrateOnServer, set by protocol_prod_deploy.php)
+// the migrations run ON THE SERVER over SSH (2026-11-03): a migration that writes files
+// (a website page, downloaded pictures) writes them on the server's disk. Run from this
+// PC against the production DB, those files stayed on the deploying PC (Ruba's form,
+// Turismo's pictures). Standalone, it still runs here with --database=prod.
+if (isset($migrateOnServer) && is_callable($migrateOnServer)) {
+    $out = (string) $migrateOnServer();
+    $code = preg_match('/__EXIT:(\d+)/', $out, $mm) ? (int) $mm[1] : 1;
+    echo trim(preg_replace('/__EXIT:\d+/', '', $out)), PHP_EOL;
+    echo $code === 0 ? 'Production migrated (on the server).' : 'migrate on the server returned '.$code, PHP_EOL;
+} else {
+    $code = Artisan::call('migrate', ['--database' => 'prod', '--force' => true]);
+    echo Artisan::output();
+    echo $code === 0 ? 'Production migrated.' : 'migrate returned '.$code, PHP_EOL;
+}

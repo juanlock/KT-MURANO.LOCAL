@@ -1,10 +1,10 @@
 <template>
   <div class="page">
-    <PageHeader title="Vehicles" :breadcrumb="['Fleet Management', 'Vehicles']">
+    <PageHeader :title="$t('Vehicles')" :breadcrumb="['Fleet Management', 'Vehicles']">
       <template #actions>
         <a-button @click="$router.push('/fleet/dashboard')">
           <template #icon><DashboardOutlined /></template>
-          Dashboard
+          {{ $t('dashboard') }}
         </a-button>
         <a-button v-if="canAdd" type="primary" @click="$router.push('/fleet/vehicles/create')">
           <template #icon><PlusOutlined /></template>
@@ -17,25 +17,25 @@
       <div class="toolbar">
         <a-input-search
           v-model:value="crud.search.value"
-          placeholder="Search name, plate, VIN or model…"
+          :placeholder="$t('tx_Search_name_plate_VIN_or_model_55862')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.status" class="tb-item" allow-clear
-          placeholder="All statuses" :options="VEHICLE_STATUSES" @change="crud.reload"
+          :placeholder="$t('All_Status')" :options="VEHICLE_STATUSES" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.type" class="tb-item" allow-clear
-          placeholder="All types" :options="VEHICLE_TYPES" @change="crud.reload"
+          :placeholder="$t('All_types')" :options="VEHICLE_TYPES" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.warehouse_id" class="tb-item" allow-clear show-search
           option-filter-prop="label" :placeholder="$t('Warehouse')"
           :options="warehouseOptions" @change="crud.reload"
         />
-        <a-tooltip title="Insurance, registration or inspection due within 30 days">
+        <a-tooltip :title="$t('tx_Insurance_registration_or_inspection_due_within_30_days_c0ec3')">
           <a-checkbox v-model:checked="filters.expiring" class="tb-check" @change="crud.reload">
-            Needs attention
+            {{ $t('tx_Needs_attention_d6f57') }}
           </a-checkbox>
         </a-tooltip>
         <a-segmented v-model:value="view" :options="VIEW_OPTIONS" class="tb-view">
@@ -83,11 +83,11 @@
 
               <dl class="vcard-facts">
                 <div>
-                  <dt>Odometer</dt>
+                  <dt>{{ $t('tx_Odometer_5c059') }}</dt>
                   <dd>{{ number(v.odometer, 0) }}</dd>
                 </div>
                 <div>
-                  <dt>Driver</dt>
+                  <dt>{{ $t('Driver') }}</dt>
                   <dd :title="v.driver_name || ''">{{ v.driver_name || '—' }}</dd>
                 </div>
                 <div>
@@ -112,12 +112,12 @@
         </div>
 
         <a-card v-else>
-          <a-empty :description="hasFilters ? 'No vehicles match these filters.' : 'No vehicles yet.'">
+          <a-empty :description="hasFilters ? $t('tx_No_vehicles_match_these_filters_bc974') : $t('tx_No_vehicles_yet_4899f')">
             <a-button v-if="canAdd && !hasFilters" type="primary" @click="$router.push('/fleet/vehicles/create')">
               <template #icon><PlusOutlined /></template>
-              Add your first vehicle
+              {{ $t('tx_Add_your_first_vehicle_f65ba') }}
             </a-button>
-            <a-button v-else-if="hasFilters" @click="clearFilters">Clear filters</a-button>
+            <a-button v-else-if="hasFilters" @click="clearFilters">{{ $t('Clear_Filters') }}</a-button>
           </a-empty>
         </a-card>
       </a-spin>
@@ -179,7 +179,7 @@
 
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
-            <a-tooltip title="Open">
+            <a-tooltip :title="$t('Open')">
               <a-button type="text" size="small" @click="open(record)">
                 <template #icon><EyeOutlined /></template>
               </a-button>
@@ -202,6 +202,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Vehicle register. Two views over the SAME useCrudTable instance: photo cards
  * (how people recognise a vehicle) and a table (how people scan a fleet).
@@ -235,8 +236,8 @@ const canDelete = computed(() => auth.can('fleet_vehicles_delete'));
 
 const view = ref('grid');
 const VIEW_OPTIONS = [
-  { value: 'grid', label: 'Cards' },
-  { value: 'list', label: 'Table' },
+  { value: 'grid', label: tEs('Grid_View', 'Cards') },
+  { value: 'list', label: tEs('Table_View', 'Table') },
 ];
 
 const filters = reactive({
@@ -285,24 +286,24 @@ const warehouseOptions = computed(() => warehouses.value.map(w => ({ value: w.id
 
 const { isSystem } = useSystemContext();
 const columns = computed(() => [
-  { title: 'Vehicle', key: 'name', dataIndex: 'name', sorter: true },
-  { title: 'Type', key: 'type', dataIndex: 'type', sorter: true, width: 110 },
-  { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 130 },
-  { title: 'Odometer', key: 'odometer', dataIndex: 'odometer', sorter: true, width: 110 },
-  { title: 'Driver', key: 'driver', width: 160 },
-  { title: 'Branch', dataIndex: 'warehouse_name', key: 'warehouse', width: 140 },
-  { title: 'Renewals', key: 'renewals', width: 220 },
+  { title: tEs('Vehicle', 'Vehicle'), key: 'name', dataIndex: 'name', sorter: true },
+  { title: tEs('type', 'Type'), key: 'type', dataIndex: 'type', sorter: true, width: 110 },
+  { title: tEs('Serial_Status', 'Status'), key: 'status', dataIndex: 'status', sorter: true, width: 130 },
+  { title: tEs('tx_Odometer_5c059', 'Odometer'), key: 'odometer', dataIndex: 'odometer', sorter: true, width: 110 },
+  { title: tEs('Driver', 'Driver'), key: 'driver', width: 160 },
+  { title: tEs('Branch', 'Branch'), dataIndex: 'warehouse_name', key: 'warehouse', width: 140 },
+  { title: tEs('tx_Renewals_61583', 'Renewals'), key: 'renewals', width: 220 },
   // superadmin/AdminSystem: every company (2026-10-21) -- whose is each row.
-  ...(isSystem.value ? [{ title: 'Company', key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
+  ...(isSystem.value ? [{ title: tEs('Company', 'Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
   { title: '', key: 'actions', width: 120 },
 ]);
 
 /** Renewal dates that are due or overdue, as {label, date, tone}. */
 function renewals(v) {
   return [
-    { key: 'insurance', label: 'Insurance', days: v.days_to_insurance, date: v.insurance_expiry },
-    { key: 'registration', label: 'Registration', days: v.days_to_registration, date: v.registration_expiry },
-    { key: 'inspection', label: 'Inspection', days: v.days_to_inspection, date: v.inspection_expiry },
+    { key: 'insurance', label: tEs('Insurance', 'Insurance'), days: v.days_to_insurance, date: v.insurance_expiry },
+    { key: 'registration', label: tEs('Owner_Alert_Registration', 'Registration'), days: v.days_to_registration, date: v.registration_expiry },
+    { key: 'inspection', label: tEs('Owner_Alert_Inspection', 'Inspection'), days: v.days_to_inspection, date: v.inspection_expiry },
   ]
     .map(r => ({ ...r, tone: expiryTone(r.days) }))
     .filter(r => r.tone);

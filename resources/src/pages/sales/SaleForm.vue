@@ -9,10 +9,10 @@
       :breadcrumb="[$t('Sales'), isEdit ? $t('EditSale') : $t('AddSale')]"
     >
       <template v-if="isEdit && docInfo.ref" #actions>
-        <a-tag v-if="isDraft" color="purple">Draft</a-tag>
+        <a-tag v-if="isDraft" color="purple">{{ $t('Draft') }}</a-tag>
         <a-tag v-else :color="docStatusColor(docInfo.statut)">{{ docInfo.statut }}</a-tag>
         <a-tag :color="payStatusColor(docInfo.payment)">{{ docInfo.payment }}</a-tag>
-        <a-button v-if="auth.can('Sales_view')" size="small" @click="$router.push(`/sales/${id}`)">View invoice</a-button>
+        <a-button v-if="auth.can('Sales_view')" size="small" @click="$router.push(`/sales/${id}`)">{{ $t('tx_View_invoice_a6ecf') }}</a-button>
       </template>
     </PageHeader>
 
@@ -68,7 +68,7 @@
                 <!-- Service jobs open in a modal (saves space); "Edit" once the sale has / will have one. -->
                 <a-button v-if="serviceJobAvailable" @click="serviceJobModalOpen = true">
                   <template #icon><component :is="hasServiceJob ? EditOutlined : PlusOutlined" /></template>
-                  {{ hasServiceJob ? 'Edit Service Job' : 'Add Service Job' }}{{ serviceJobCount ? ` (${serviceJobCount})` : '' }}
+                  {{ hasServiceJob ? $t('Edit_Service_Job') : $t('tx_Add_Service_Job_90a45') }}{{ serviceJobCount ? ` (${serviceJobCount})` : '' }}
                 </a-button>
                 <!-- Contract sale (recurring invoices). New sale: turns Recurring on and
                      opens its settings; Edit Sale: opens the sale's contract, or a new
@@ -148,8 +148,8 @@
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'product'">
               <div style="font-weight: 500">{{ productDisplayName(record.name) }}</div>
-              <div v-if="record.note" style="font-size: 10pt; color: #0252f3; white-space: pre-wrap; text-align: left">Note: {{ record.note }}</div>
-              <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">Batch</a-tag>
+              <div v-if="record.note" style="font-size: 10pt; color: #0252f3; white-space: pre-wrap; text-align: left">{{ $t('tx_Note_fc9d3') }} {{ record.note }}</div>
+              <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">{{ $t('tx_Batch_51ffe') }}</a-tag>
               <a-select
                 v-if="showPriceTypeDropdown"
                 :value="record.price_type"
@@ -219,20 +219,20 @@
       <a-row :gutter="16">
         <a-col :xs="24" :lg="14">
           <!-- Recurring: the schedule (same settings + preview as Sales Contracts). -->
-          <a-modal v-if="canRecurring" v-model:open="contractModalOpen" width="760px" title="Contract sale -- recurring invoices">
+          <a-modal v-if="canRecurring" v-model:open="contractModalOpen" width="760px" :title="$t('tx_Contract_sale_recurring_invoices_55e65')">
             <template #footer>
-              <a-button danger style="float: left" @click="invoiceMode = 'single'; contractModalOpen = false">Remove contract (only 1 invoice)</a-button>
-              <span class="muted" style="margin-right: 12px">Created when you save the sale.</span>
-              <a-button type="primary" @click="contractModalOpen = false">Done</a-button>
+              <a-button danger style="float: left" @click="invoiceMode = 'single'; contractModalOpen = false">{{ $t('tx_Remove_contract_only_1_invoice_570c2') }}</a-button>
+              <span class="muted" style="margin-right: 12px">{{ $t('tx_Created_when_you_save_the_sale_dc3a5') }}</span>
+              <a-button type="primary" @click="contractModalOpen = false">{{ $t('Done') }}</a-button>
             </template>
             <a-row :gutter="12">
               <a-col :xs="24" :md="16">
-                <a-form-item label="Subject" required extra="Name of the recurring billing (Sales Contract).">
+                <a-form-item :label="$t('Subject')" required :extra="$t('tx_Name_of_the_recurring_billing_Sales_Contract_63075')">
                   <a-input v-model:value="recurring.subject" :placeholder="recurringSubjectDefault" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
-                <a-form-item label="End date" extra="Optional.">
+                <a-form-item :label="$t('tx_End_date_b7de7')" :extra="$t('tx_Optional_b3281')">
                   <a-date-picker v-model:value="recurring.end_date" value-format="YYYY-MM-DD" style="width: 100%" />
                 </a-form-item>
               </a-col>
@@ -241,12 +241,11 @@
                  invoice ({{month}}, {{weekday}}, {{occurrence}}...). The
                  invoice note goes on each invoice; a line note on that line. -->
             <div class="rec-notes">
-              <div class="rec-notes__title">Notes on each invoice</div>
+              <div class="rec-notes__title">{{ $t('tx_Notes_on_each_invoice_c8d9d') }}</div>
               <div class="rec-notes__help">
-                Fixed text, or placeholders that change on every invoice: month, day, weekday, invoice date,
-                occurrence number… Click <QuestionCircleOutlined /> to add them; the list below shows each invoice's result.
+                {{ $t('tx_Fixed_text_or_placeholders_that_change_on_every_invoice_mont_384d0') }} <QuestionCircleOutlined /> {{ $t('tx_to_add_them_the_list_below_shows_each_invoice_s_result_fb46f') }}
               </div>
-              <a-form-item label="Invoice note" style="margin-bottom: 8px">
+              <a-form-item :label="$t('tx_Invoice_note_93f39')" style="margin-bottom: 8px">
                 <a-input
                   v-model:value="recurring.invoice_note" allow-clear
                   placeholder="e.g. Service made on {{month}} — empty = automatic text"
@@ -259,10 +258,10 @@
                   </template>
                 </a-input>
                 <div v-if="recurring.invoice_note && scheduleRef?.firstInvoiceNote()" class="rec-notes__preview">
-                  1st invoice: <i>{{ scheduleRef.firstInvoiceNote() }}</i>
+                  {{ $t('tx_1st_invoice_62445') }} <i>{{ scheduleRef.firstInvoiceNote() }}</i>
                 </div>
               </a-form-item>
-              <div v-if="!lines.length" class="rec-notes__empty">Add products to write a note per line.</div>
+              <div v-if="!lines.length" class="rec-notes__empty">{{ $t('tx_Add_products_to_write_a_note_per_line_b2d8d') }}</div>
               <a-form-item v-for="(l, i) in lines" :key="l.detail_id" :label="`Line note — ${productDisplayName(l.name)}`" style="margin-bottom: 8px">
                 <a-input v-model:value="l.note" allow-clear placeholder="e.g. Note: {{month}} installment services">
                   <template #addonAfter>
@@ -270,7 +269,7 @@
                   </template>
                 </a-input>
                 <div v-if="l.note && scheduleRef?.firstNote(i)" class="rec-notes__preview">
-                  1st invoice: <i>{{ scheduleRef.firstNote(i) }}</i>
+                  {{ $t('tx_1st_invoice_62445') }} <i>{{ scheduleRef.firstNote(i) }}</i>
                 </div>
               </a-form-item>
             </div>
@@ -285,7 +284,7 @@
               <template #summary>
                 <a-alert
                   type="info" show-icon style="margin-bottom: 12px"
-                  message="Each invoice repeats these lines (their prices, discounts and taxes) and the order tax %, and is created unpaid. Invoices dated today or earlier are created now; later ones are created automatically on their date."
+                  :message="$t('tx_Each_invoice_repeats_these_lines_their_prices_discounts_and__5d934')"
                 />
               </template>
             </RecurringSchedule>
@@ -298,8 +297,8 @@
             :title="isRecurring ? $t('Contract_Service_Jobs') : $t('Service_Jobs')"
           >
             <template #footer>
-              <span class="muted" style="margin-right: 12px">Saved together with the sale.</span>
-              <a-button type="primary" @click="serviceJobModalOpen = false">Done</a-button>
+              <span class="muted" style="margin-right: 12px">{{ $t('tx_Saved_together_with_the_sale_2b8b7') }}</span>
+              <a-button type="primary" @click="serviceJobModalOpen = false">{{ $t('Done') }}</a-button>
             </template>
             <!-- Edit: the jobs already made with this sale. -->
             <div v-if="saleServiceJobs.length" class="sale-jobs">
@@ -317,16 +316,16 @@
                 </div>
                 <template v-if="jobEdits[j.id]">
                   <div v-if="j.notes" class="sale-jobs__notes muted">{{ j.notes }}</div>
-                  <a-input v-model:value="jobEdits[j.id].note" size="small" allow-clear placeholder="Add a note to this job (saved with the sale)" />
+                  <a-input v-model:value="jobEdits[j.id].note" size="small" allow-clear :placeholder="$t('tx_Add_a_note_to_this_job_saved_with_the_sale_62ff8')" />
                 </template>
               </div>
             </div>
             <!-- The customer's existing jobs this invoice bills (service_job_sales). -->
-            <a-form-item v-if="!isRecurring && sale.client_id" label="Link existing service jobs" style="margin-bottom: 8px">
+            <a-form-item v-if="!isRecurring && sale.client_id" :label="$t('tx_Link_existing_service_jobs_99df4')" style="margin-bottom: 8px">
               <a-select
                 v-model:value="linkedJobIds" mode="multiple" allow-clear show-search option-filter-prop="label"
                 :options="linkJobOptions" :loading="clientJobsLoading"
-                :placeholder="linkJobOptions.length ? 'Choose this customer\'s jobs' : 'This customer has no service jobs'"
+                :placeholder="linkJobOptions.length ? 'Choose this customer\'s jobs' : $t('tx_This_customer_has_no_service_jobs_938ca')"
                 @select="onLinkJobSelect"
               />
             </a-form-item>
@@ -348,22 +347,22 @@
                   :message="`Already on invoice ${j.other_invoices.join(', ')} -- linking it here too can bill the same work twice.`"
                 />
                 <div v-if="j.notes" class="sale-jobs__notes muted">{{ j.notes }}</div>
-                <a-input v-if="jobEdits[j.id]" v-model:value="jobEdits[j.id].note" size="small" allow-clear placeholder="Add a note to this job (saved with the sale)" />
+                <a-input v-if="jobEdits[j.id]" v-model:value="jobEdits[j.id].note" size="small" allow-clear :placeholder="$t('tx_Add_a_note_to_this_job_saved_with_the_sale_62ff8')" />
               </div>
             </div>
             <a-form-item style="margin-bottom: 8px">
               <a-switch v-model:checked="serviceJob.enabled" />
-              <span style="margin-left: 8px">{{ isRecurring ? 'Create a service job for each visit' : (saleServiceJobs.length ? 'Add another service job' : 'Create a service job for this sale') }}</span>
+              <span style="margin-left: 8px">{{ isRecurring ? $t('tx_Create_a_service_job_for_each_visit_c4406') : (saleServiceJobs.length ? $t('tx_Add_another_service_job_25a70') : $t('tx_Create_a_service_job_for_this_sale_be859')) }}</span>
             </a-form-item>
             <template v-if="serviceJob.enabled">
               <a-row :gutter="12">
                 <a-col :xs="24" :md="isRecurring ? 24 : 12">
-                  <a-form-item :label="isRecurring ? 'Visit title' : 'Job title'">
+                  <a-form-item :label="isRecurring ? $t('tx_Visit_title_78f3b') : $t('Job_Title')">
                     <a-input v-model:value="serviceJob.title" allow-clear :placeholder="isRecurring ? 'e.g. Lawn mowing - {{weekday}} {{date}}' : `${serviceJobTitleDefault} -- or e.g. Visit {{number}} of {{count}} - {{weekday}}`">
                       <!-- Placeholders filled per job: its own date, its number in the series. -->
                       <template #addonAfter>
                         <NotePlaceholderHelp
-                          :hint="isRecurring ? 'Click to add. Each visit fills them in with its own date.' : 'Click to add. Each job fills them in with its own date ({{number}} / {{count}} with Repeat or Specific dates).'"
+                          :hint="isRecurring ? $t('tx_Click_to_add_Each_visit_fills_them_in_with_its_own_date_f9db6') : 'Click to add. Each job fills them in with its own date ({{number}} / {{count}} with Repeat or Specific dates).'"
                           @insert="tk => (serviceJob.title = appendToken(serviceJob.title, tk))" @use="ex => (serviceJob.title = ex)"
                         />
                       </template>
@@ -371,13 +370,13 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="isRecurring ? 12 : 12">
-                  <a-form-item label="Operator / crew lead">
-                    <a-select v-model:value="serviceJob.technician_id" allow-clear :options="technicianOptions" placeholder="Assign later" />
+                  <a-form-item :label="$t('tx_Operator_crew_lead_330ce')">
+                    <a-select v-model:value="serviceJob.technician_id" allow-clear :options="technicianOptions" :placeholder="$t('tx_Assign_later_c40c6')" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">
-                  <a-form-item label="Job type">
-                    <a-input v-model:value="serviceJob.job_type" placeholder="e.g. Maintenance" />
+                  <a-form-item :label="$t('Job_Type')">
+                    <a-input v-model:value="serviceJob.job_type" :placeholder="$t('tx_e_g_Maintenance_b212b')" />
                   </a-form-item>
                 </a-col>
                 <!-- One invoice: when -- one day, several days, or specific
@@ -388,12 +387,12 @@
                 <!-- Recurring: visit time + how early each job is created. -->
                 <template v-else>
                   <a-col :xs="12">
-                    <a-form-item label="Visit time" extra="Empty = all-day task on the visit day.">
-                      <a-time-picker v-model:value="serviceJob.time" value-format="HH:mm" format="HH:mm" :minute-step="15" placeholder="All day" style="width: 100%" />
+                    <a-form-item :label="$t('tx_Visit_time_4b44d')" extra="Empty = all-day task on the visit day.">
+                      <a-time-picker v-model:value="serviceJob.time" value-format="HH:mm" format="HH:mm" :minute-step="15" :placeholder="$t('Intranet_All_Day')" style="width: 100%" />
                     </a-form-item>
                   </a-col>
                   <a-col :xs="12">
-                    <a-form-item label="Create ahead" extra="Days before each visit.">
+                    <a-form-item :label="$t('tx_Create_ahead_e0597')" :extra="$t('tx_Days_before_each_visit_35366')">
                       <a-input-number v-model:value="serviceJob.lead_days" :min="0" :max="60" addon-after="days" style="width: 100%" />
                     </a-form-item>
                   </a-col>
@@ -407,10 +406,10 @@
                 first-date-label="First visit date" first-date-help="Empty = the sale date, moved to the first matching visit day."
               >
                 <template #summary>
-                  <a-alert type="info" show-icon style="margin-bottom: 12px" message="Each visit becomes a Service Job (Pending, no price: the invoices bill the work), on its own schedule -- e.g. weekly visits, monthly invoices." />
+                  <a-alert type="info" show-icon style="margin-bottom: 12px" :message="$t('tx_Each_visit_becomes_a_Service_Job_Pending_no_price_the_invoic_50a8d')" />
                 </template>
               </RecurringSchedule>
-              <a-alert v-else type="info" show-icon message="The job is created for this customer and location when the sale is saved (status Pending, no price: the sale bills the work), and shows on the sale under Service Jobs." />
+              <a-alert v-else type="info" show-icon :message="$t('tx_The_job_is_created_for_this_customer_and_location_when_the_s_164fb')" />
             </template>
           </a-modal>
 
@@ -493,7 +492,7 @@
                    being royalty-eligible AND the tax/discount edit permission. -->
               <!-- Also hidden when the company switched loyalty off (Settings -> customer_loyalty_enabled). -->
               <a-col v-if="!isRecurring && auth.customerLoyaltyEnabled && loyaltyPointsEnabled && clientIsEligible && auth.can('edit_tax_discount_shipping_sale')" :span="24">
-                <a-form-item label="Points to convert">
+                <a-form-item :label="$t('tx_Points_to_convert_08a34')">
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
                     <a-input-number
                       :value="points_to_convert"
@@ -510,15 +509,15 @@
                       :disabled="!pointsConverted && (selectedClientPoints === 0 || !pointsInputValid)"
                       @click="convertPointsToDiscount"
                     >
-                      {{ pointsConverted ? 'Unconverted' : 'Convert' }}
+                      {{ pointsConverted ? $t('Unconverted') : $t('Convert') }}
                     </a-button>
-                    <span class="muted">Total available: <strong>{{ selectedClientPoints }}</strong> pts</span>
+                    <span class="muted">{{ $t('tx_Total_available_397a3') }} <strong>{{ selectedClientPoints }}</strong> pts</span>
                   </div>
                   <div v-if="!pointsConverted && points_to_convert && !pointsInputValid" class="form-warn">
-                    Enter a value from 1 to your available points.
+                    {{ $t('tx_Enter_a_value_from_1_to_your_available_points_2c907') }}
                   </div>
                   <div v-if="pointsState.discount_from_points > 0" style="margin-top: 4px; color: #52c41a">
-                    Discount of <strong>{{ docMoney(pointsState.discount_from_points) }}</strong> will be applied
+                    {{ $t('tx_Discount_of_937c7') }} <strong>{{ docMoney(pointsState.discount_from_points) }}</strong> {{ $t('pos.will_be_applied') }}
                   </div>
                 </a-form-item>
               </a-col>
@@ -528,12 +527,12 @@
                 <a-form-item :label="isRecurring ? 'Contract description (internal, not printed on the invoices)' : $t('Note')">
                   <!-- One invoice: placeholders are filled with the sale's own date when saved. -->
                   <template v-if="!isRecurring" #extra>
-                    <span>Variables like <code v-text="'{{month}}'" /> or <code v-text="'{{invoice_date}}'" /> are filled with this sale's date when you save.</span>
+                    <span>{{ $t('tx_Variables_like_08a88') }} <code v-text="'{{month}}'" /> or <code v-text="'{{invoice_date}}'" /> {{ $t('tx_are_filled_with_this_sale_s_date_when_you_save_7b8f8') }}</span>
                     <NotePlaceholderHelp
-                      hint="Click to add. Filled with this sale's date when you save."
+                      :hint="$t('tx_Click_to_add_Filled_with_this_sale_s_date_when_you_save_e8bb9')"
                       @insert="tk => (sale.notes = appendToken(sale.notes, tk))" @use="ex => (sale.notes = ex)"
                     >
-                      <a-button type="link" size="small">Variables &amp; examples</a-button>
+                      <a-button type="link" size="small">{{ $t('tx_Variables_and_examples_a50b4') }}</a-button>
                     </NotePlaceholderHelp>
                   </template>
                   <a-textarea v-model:value="sale.notes" :rows="2" :placeholder="$t('Afewwords')" />
@@ -641,7 +640,7 @@
             block style="margin-top: 8px" :loading="submitting" @click="submit(true)"
           >
             <template #icon><FileTextOutlined /></template>
-            {{ isDraft ? 'Save draft' : 'Save as draft' }}
+            {{ isDraft ? $t('tx_Save_draft_48ca5') : $t('tx_Save_as_draft_b2642') }}
           </a-button>
           <div v-if="!isEdit && hasMinPriceViolation" class="form-warn">{{ $t('Price_below_min_not_allowed') }}</div>
           <div v-else-if="sale.statut === 'completed' && hasBatchValidationErrors" class="form-warn">
@@ -714,14 +713,14 @@
               <!-- Placeholders: filled per invoice (Recurring) or with this
                    sale's date when saved (one invoice). -->
               <template #extra>
-                <span v-if="isRecurring">Recurring: use placeholders that change per invoice, e.g. <code v-text="'Note: {{month}} installment services'" />.</span>
-                <span v-else>Variables like <code v-text="'{{month}}'" /> are filled with this sale's date when you save, e.g. <code v-text="'Service made on {{month}}'" />.</span>
+                <span v-if="isRecurring">{{ $t('tx_Recurring_use_placeholders_that_change_per_invoice_e_g_8d7ed') }} <code v-text="'Note: {{month}} installment services'" />.</span>
+                <span v-else>{{ $t('tx_Variables_like_08a88') }} <code v-text="'{{month}}'" /> {{ $t('tx_are_filled_with_this_sale_s_date_when_you_save_e_g_a1d65') }} <code v-text="'Service made on {{month}}'" />.</span>
                 <NotePlaceholderHelp
                   :hint="isRecurring ? undefined : 'Click to add. Filled with this sale\'s date when you save.'"
                   @insert="tk => (lineDraft.note = appendToken(lineDraft.note, tk))"
                   @use="ex => (lineDraft.note = ex)"
                 >
-                  <a-button type="link" size="small">Placeholders &amp; examples</a-button>
+                  <a-button type="link" size="small">{{ $t('tx_Placeholders_and_examples_eb961') }}</a-button>
                 </NotePlaceholderHelp>
               </template>
               <a-textarea v-model:value="lineDraft.note" :rows="3" />
@@ -746,6 +745,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 /**
  * Sale create/edit — v1 of the multi-line document form.
  * Contracts (all verified against SalesController + legacy form):
@@ -882,9 +882,9 @@ const contractModalOpen = ref(false);
 const saleContract = ref(null);
 const contractButton = computed(() => {
   const isSA = auth.user?.type === 'SuperAdmin';
-  if (!isEdit.value) return canRecurring.value ? { label: isRecurring.value ? 'Edit Contract Sale' : 'Add Contract Sale', edit: isRecurring.value } : null;
+  if (!isEdit.value) return canRecurring.value ? { label: isRecurring.value ? tEs('tx_edit_contract_sale', 'Edit Contract Sale') : tEs('tx_add_contract_sale', 'Add Contract Sale'), edit: isRecurring.value } : null;
   if (saleContract.value) return isSA || auth.can('sales_contracts_edit') ? { label: `Edit Contract Sale (${saleContract.value.number || '#' + saleContract.value.id})`, edit: true } : null;
-  return isSA || auth.can('sales_contracts_add') ? { label: 'Add Contract Sale', edit: false } : null;
+  return isSA || auth.can('sales_contracts_add') ? { label: tEs('tx_Add_Contract_Sale_2cd45', 'Add Contract Sale'), edit: false } : null;
 });
 function onContractButton() {
   if (!isEdit.value) {
@@ -967,14 +967,14 @@ async function loadClientJobs() {
 const JOB_EDITABLE = ['pending', 'intake', 'approved', 'in_progress', 'completed'];
 // Each status its own icon + color (picker, its options and the tags).
 const JOB_STATUS_META = {
-  pending: { label: 'Pending', icon: ClockCircleOutlined, color: '#fa8c16', tag: 'orange' },
-  intake: { label: 'Intake', icon: InboxOutlined, color: '#8c8c8c', tag: 'default' },
-  approved: { label: 'Approved', icon: LikeOutlined, color: '#13c2c2', tag: 'cyan' },
-  in_progress: { label: 'In progress', icon: SyncOutlined, color: '#1677ff', tag: 'blue' },
-  completed: { label: 'Completed', icon: CheckCircleOutlined, color: '#52c41a', tag: 'green' },
-  delivered: { label: 'Delivered', icon: CarOutlined, color: '#389e0d', tag: 'green' },
-  cancelled: { label: 'Cancelled', icon: StopOutlined, color: '#f5222d', tag: 'red' },
-  declined: { label: 'Declined', icon: CloseCircleOutlined, color: '#f5222d', tag: 'red' },
+  pending: { label: tEs('EnAttendant', 'Pending'), icon: ClockCircleOutlined, color: '#fa8c16', tag: 'orange' },
+  intake: { label: tEs('Intake', 'Intake'), icon: InboxOutlined, color: '#8c8c8c', tag: 'default' },
+  approved: { label: tEs('tx_Approved_6f806', 'Approved'), icon: LikeOutlined, color: '#13c2c2', tag: 'cyan' },
+  in_progress: { label: tEs('In_Progress', 'In progress'), icon: SyncOutlined, color: '#1677ff', tag: 'blue' },
+  completed: { label: tEs('Completed', 'Completed'), icon: CheckCircleOutlined, color: '#52c41a', tag: 'green' },
+  delivered: { label: tEs('Delivered', 'Delivered'), icon: CarOutlined, color: '#389e0d', tag: 'green' },
+  cancelled: { label: tEs('Cancelled', 'Cancelled'), icon: StopOutlined, color: '#f5222d', tag: 'red' },
+  declined: { label: tEs('Declined', 'Declined'), icon: CloseCircleOutlined, color: '#f5222d', tag: 'red' },
 };
 const jobStatusMeta = s => JOB_STATUS_META[s] || { label: s, icon: QuestionCircleOutlined, color: '#8c8c8c', tag: 'default' };
 const jobStatusLabel = s => {
@@ -1444,7 +1444,7 @@ const browseProductOptions = computed(() => {
   const isMain = o => String(o.label).trim().toLowerCase() === 'main';
   const mainEntry = mapped.find(isMain);
   const rest = sortByLabel(mapped.filter(o => !isMain(o)));
-  return mainEntry ? [{ ...mainEntry, label: 'Main (use group name only)' }, ...rest] : rest;
+  return mainEntry ? [{ ...mainEntry, label: tEs('tx_Main_use_group_name_only_d20c4', 'Main (use group name only)') }, ...rest] : rest;
 });
 // A product's own name often already carries its group as a "Group (Item)"
 // prefix (e.g. "ProductKT-01 (productktsubname01)") -- once the group is
@@ -1979,7 +1979,7 @@ async function submitRecurring() {
     message.warning('A fixed-amount order tax can\'t repeat on recurring invoices: use a percentage (Tax Method) or line taxes.');
     return;
   }
-  if (!dcIsBase.value) { message.warning('Recurring invoices are in the base currency: switch the currency back first.'); return; }
+  if (!dcIsBase.value) { message.warning(tEs('tx_Recurring_invoices_are_in_the_base_currency_switch_the_curre_336c9', 'Recurring invoices are in the base currency: switch the currency back first.')); return; }
   const unsupported = lines.value.find(l => l.product_variant_id || l.is_imei || l.is_batch_tracked);
   if (unsupported) {
     message.warning(`${productDisplayName(unsupported.name)}: products with variants, serial numbers or batches can't be invoiced automatically.`);

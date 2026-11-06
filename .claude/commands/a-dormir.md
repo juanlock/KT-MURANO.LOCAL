@@ -19,6 +19,8 @@ Run Protocol A Dormir (user's rule, 2026-10-20). In this order. Stop and report 
    - `HOSTINGER/` is **git-ignored** (real customer data): each PC keeps its own copies, they are never committed.
    Without production access on this PC: skip it, say so in the report.
 
+2b. **KT-TOOLS to Google Drive** -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): what is in KT-TOOLS outside git, both ways; newest wins, nothing is deleted. Report the counts.
+
 3. **Kelsy catch-up** -- every request of this conversation not yet in `kt_logs` gets its row (`.claude/commands/kelsy.md`, written to production by `protocol_kt_log.php`).
 
 4. **README** -- `README.md`, from the `kt_logs` rows being committed: the "Latest changes" block `### <YYYY-MM-DD> (<location>)` at the top (extend today's if it exists), one bullet per change the user would notice, the user's language, no file names; `Setup:` lines when needed (`php artisan migrate`, `npm run build`, `composer install`). Mark the block **"(not in production yet)"** -- these changes were not deployed. Keep the last 5 blocks. Never secrets or customer data.

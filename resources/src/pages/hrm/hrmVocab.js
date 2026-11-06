@@ -44,6 +44,8 @@ export const PAY_TYPES = options([
     ['hourly', 'Hours (on service jobs)', 'Por horas (trabajos de servicio)'],
     // Transport crew (2026-11-01): each completed trip x their trip rate.
     ['per_trip', 'Per trip (transport crew)', 'Por viaje (tripulación)'],
+    // On the payroll (2026-11-04): a week's share of the monthly salary, plus any trips.
+    ['monthly', 'Monthly salary (payroll)', 'Sueldo mensual (planilla)'],
 ]);
 
 // Transport (2026-11-01): which staff an employee is -- normal schedule (administrative,

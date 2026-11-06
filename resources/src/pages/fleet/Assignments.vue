@@ -1,10 +1,10 @@
 <template>
   <div class="page">
-    <PageHeader title="Assignments" :breadcrumb="['Fleet Management', 'Assignments']">
+    <PageHeader :title="$t('Assignments')" :breadcrumb="['Fleet Management', 'Assignments']">
       <template #actions>
         <a-button type="primary" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
-          Assign vehicle
+          {{ $t('tx_Assign_vehicle_e43d4') }}
         </a-button>
       </template>
     </PageHeader>
@@ -12,22 +12,22 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search purpose or destination…"
+          v-model:value="crud.search.value" :placeholder="$t('tx_Search_purpose_or_destination_81d48')"
           allow-clear class="tb-search" @search="crud.reload"
         />
         <a-select
           v-model:value="filters.vehicle_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All vehicles"
+          option-filter-prop="label" :placeholder="$t('tx_All_vehicles_e54db')"
           :options="vehicleOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.employee_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All drivers"
+          option-filter-prop="label" :placeholder="$t('tx_All_drivers_a0462')"
           :options="employeeOptions" @change="crud.reload"
         />
         <a-select
           v-model:value="filters.status" class="tb-item" allow-clear
-          placeholder="All statuses" :options="ASSIGNMENT_STATUSES" @change="crud.reload"
+          :placeholder="$t('All_Status')" :options="ASSIGNMENT_STATUSES" @change="crud.reload"
         />
         <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
       </div>
@@ -41,7 +41,7 @@
         <template v-else-if="column.key === 'start_date'">{{ dateTime(record.start_date) }}</template>
         <template v-else-if="column.key === 'end_date'">
           <span v-if="record.end_date">{{ dateTime(record.end_date) }}</span>
-          <span v-else class="muted">Still out</span>
+          <span v-else class="muted">{{ $t('tx_Still_out_090fa') }}</span>
         </template>
         <template v-else-if="column.key === 'distance'">
           {{ record.distance !== null ? number(record.distance, 0) : '—' }}
@@ -53,7 +53,7 @@
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space :size="0">
-            <a-tooltip v-if="record.status === 'active'" title="Return vehicle">
+            <a-tooltip v-if="record.status === 'active'" :title="$t('tx_Return_vehicle_f3bd1')">
               <a-button type="text" size="small" @click="openClose(record)">
                 <template #icon><RollbackOutlined /></template>
               </a-button>
@@ -75,30 +75,30 @@
 
     <!-- Create / edit -->
     <a-modal
-      :open="formOpen" :title="editing ? 'Edit assignment' : 'Assign vehicle'" :width="620"
+      :open="formOpen" :title="editing ? $t('tx_Edit_assignment_32de1') : $t('tx_Assign_vehicle_e43d4')" :width="620"
       :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
       @ok="submit" @cancel="formOpen = false"
     >
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
         <a-row :gutter="16">
           <a-col :xs="24" :md="12">
-            <a-form-item label="Vehicle *" name="vehicle_id">
+            <a-form-item :label="$t('tx_Vehicle_8bcbd')" name="vehicle_id">
               <a-select
                 v-model:value="form.vehicle_id" show-search option-filter-prop="label"
-                :options="vehicleOptions" placeholder="Select a vehicle" @change="onVehicleChange"
+                :options="vehicleOptions" :placeholder="$t('tx_Select_a_vehicle_97294')" @change="onVehicleChange"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Driver *" name="employee_id">
+            <a-form-item :label="$t('tx_Driver_c9978')" name="employee_id">
               <a-select
                 v-model:value="form.employee_id" show-search option-filter-prop="label"
-                :options="employeeOptions" placeholder="Select a driver"
+                :options="employeeOptions" :placeholder="$t('tx_Select_a_driver_df156')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Out from *" name="start_date">
+            <a-form-item :label="$t('tx_Out_from_df542')" name="start_date">
               <a-date-picker
                 v-model:value="form.start_date" show-time style="width: 100%"
                 value-format="YYYY-MM-DD HH:mm:ss"
@@ -106,7 +106,7 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Back on" name="end_date">
+            <a-form-item :label="$t('tx_Back_on_1119a')" name="end_date">
               <a-date-picker
                 v-model:value="form.end_date" show-time style="width: 100%"
                 value-format="YYYY-MM-DD HH:mm:ss"
@@ -114,27 +114,27 @@
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Start odometer">
+            <a-form-item :label="$t('tx_Start_odometer_4262c')">
               <a-input-number v-model:value="form.start_odometer" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="End odometer">
+            <a-form-item :label="$t('tx_End_odometer_de190')">
               <a-input-number v-model:value="form.end_odometer" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Status *" name="status">
+            <a-form-item :label="$t('tx_Status_f553a')" name="status">
               <a-select v-model:value="form.status" :options="ASSIGNMENT_STATUSES" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Purpose">
-              <a-input v-model:value="form.purpose" placeholder="e.g. Customer delivery" allow-clear />
+            <a-form-item :label="$t('Purpose')">
+              <a-input v-model:value="form.purpose" :placeholder="$t('tx_e_g_Customer_delivery_44430')" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Destination">
+            <a-form-item :label="$t('tx_Destination_12007')">
               <a-input v-model:value="form.destination" allow-clear />
             </a-form-item>
           </a-col>
@@ -149,18 +149,18 @@
 
     <!-- Return the vehicle -->
     <a-modal
-      :open="closeOpen" title="Return vehicle" :width="420"
-      :confirm-loading="closing" ok-text="Return" :cancel-text="$t('Cancel')"
+      :open="closeOpen" :title="$t('tx_Return_vehicle_f3bd1')" :width="420"
+      :confirm-loading="closing" :ok-text="$t('Retournee')" :cancel-text="$t('Cancel')"
       @ok="submitClose" @cancel="closeOpen = false"
     >
       <a-form layout="vertical">
-        <a-form-item label="Returned on">
+        <a-form-item :label="$t('tx_Returned_on_e1151')">
           <a-date-picker
             v-model:value="closeForm.end_date" show-time style="width: 100%"
             value-format="YYYY-MM-DD HH:mm:ss"
           />
         </a-form-item>
-        <a-form-item label="End odometer" extra="Pushes the vehicle's reading forward">
+        <a-form-item :label="$t('tx_End_odometer_de190')" :extra="$t('tx_Pushes_the_vehicle_s_reading_forward_d8d6d')">
           <a-input-number v-model:value="closeForm.end_odometer" :min="0" style="width: 100%" />
         </a-form-item>
       </a-form>
@@ -169,6 +169,7 @@
 </template>
 
 <script setup>
+import { t as tEs } from '../../i18n/index.js';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 /**
  * Driver assignments. The backend refuses a second open assignment for the same
@@ -210,14 +211,14 @@ const crud = useCrudTable('fleet/assignments', {
 });
 
 const columns = computed(() => [
-  { title: 'Vehicle', key: 'vehicle', dataIndex: 'vehicle_name', width: 200 },
-  { title: 'Driver', dataIndex: 'driver_name', key: 'driver_name', width: 170 },
-  { title: 'Out from', key: 'start_date', dataIndex: 'start_date', sorter: true, width: 160 },
-  { title: 'Back on', key: 'end_date', dataIndex: 'end_date', sorter: true, width: 160 },
-  { title: 'Distance', key: 'distance', dataIndex: 'distance', width: 100 },
-  { title: 'Purpose', dataIndex: 'purpose', key: 'purpose' },
-  { title: 'Destination', dataIndex: 'destination', key: 'destination', width: 150 },
-  { title: 'Status', key: 'status', dataIndex: 'status', sorter: true, width: 120 },
+  { title: tEs('Vehicle', 'Vehicle'), key: 'vehicle', dataIndex: 'vehicle_name', width: 200 },
+  { title: tEs('Driver', 'Driver'), dataIndex: 'driver_name', key: 'driver_name', width: 170 },
+  { title: tEs('tx_Out_from_60cf2', 'Out from'), key: 'start_date', dataIndex: 'start_date', sorter: true, width: 160 },
+  { title: tEs('tx_Back_on_1119a', 'Back on'), key: 'end_date', dataIndex: 'end_date', sorter: true, width: 160 },
+  { title: tEs('Distance', 'Distance'), key: 'distance', dataIndex: 'distance', width: 100 },
+  { title: tEs('Purpose', 'Purpose'), dataIndex: 'purpose', key: 'purpose' },
+  { title: tEs('tx_Destination_12007', 'Destination'), dataIndex: 'destination', key: 'destination', width: 150 },
+  { title: tEs('Serial_Status', 'Status'), key: 'status', dataIndex: 'status', sorter: true, width: 120 },
   { title: '', key: 'actions', width: 120 },
 ]);
 
@@ -336,7 +337,7 @@ async function submitClose() {
   closing.value = true;
   try {
     await http.post(`fleet/assignments/${closingRecord.value.id}/close`, closeForm.value);
-    message.success('Vehicle returned.');
+    message.success(tEs('tx_Vehicle_returned_fea01', 'Vehicle returned.'));
     closeOpen.value = false;
     crud.fetchRows();
     loadMeta();
