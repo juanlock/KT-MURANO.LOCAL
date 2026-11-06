@@ -206,6 +206,17 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-06 (Thundera)
+
+- **The invoice note and terms are Ruba's only.** The card fee, late fee and
+  US phones were on the invoices of almost every company: every other company,
+  and the template new companies start from, now has both empty. Each company
+  can write its own in Settings › Invoice PDF.
+- **The morning copy of production** no longer stops when a PC's local
+  database is empty.
+
+Setup: `php artisan migrate`.
+
 ### 2026-11-05 / 06 (Home)
 
 - **Each company sees only its own warehouses** on every signed-in screen
@@ -302,35 +313,6 @@ Setup: `php artisan migrate`, `npm run build`.
   `KT-TOOLS/ARCE`: a one-page site with Conocer Chulucanas, his medical
   services and his publications (stories, press notes, videos, each with its
   source link); what the client still has to send is in its PENDIENTES list.
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-02 (Home)
-
-- **Roles redone for every company.** New **Manager** role: the business's
-  main modules without settings, users, roles or HR setup (Ruba's
-  info@, New Era's info@ / admin@ / Monica / Silvia). **Info** (ex
-  "Formularios") only reads the forms. New Era: a single new company admin
-  login, its stylists on **Staff**; Ruba keeps Supervisor / Operator. The
-  SuperAdmin's role is now called **SuperAdmin** (ex Owner) and a new
-  SuperAdmin is always created in AdminSystem with it.
-- **Admins are only admins.** An admin or SuperAdmin login is never an
-  employee, customer or supplier: the 17 admin employee records were removed
-  and new companies no longer create one; giving a linked login the Admin
-  Compañía role asks first (remove the record, or keep it as it is).
-- **Settings › Roles by company** (SuperAdmin, AdminSystem): every company and
-  every role with its users.
-- **SuperAdmin sees a company as its admin does** (its modules and menu order)
-  when that company is picked; the login chooser offers only each company's
-  admin (Info, Helpdesk... are entered from Company logins).
-- **Manage Menu** saves by itself on every change (AdminSystem keeps Save with
-  its confirmation), drag only drops between rows, "Move to…" picks the place
-  and the position; the empty "Access Management" group is gone.
-- **Demos kept current every day** (Settings › Demo Data › "Update the demo
-  every day"): hospital roster and stays, school register up to yesterday,
-  transport trips a week ahead with buses on the road.
-- Vitalis's doctors now have their employee, login and Doctor role.
-- POS entries are hidden when a company's POS module is off.
 
 Setup: `php artisan migrate`, `npm run build`.
 
