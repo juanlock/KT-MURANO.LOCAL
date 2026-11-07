@@ -120,8 +120,8 @@ class TransportAgencies
      * designation names => [role, description, home page, permissions].
      */
     public const STAFF_ROLES = [
-        'pilot' => [['Piloto', 'Pilot'], 'Piloto', 'Pilot: their trips (route, time, bus, crew) and the buses.', '/transport/trips', ['transport_view', 'fleet_vehicles_view']],
-        'hostess' => [['Azafata', 'Hostess'], 'Tripulación', 'Crew: their trips (route, time, bus, crew).', '/transport/trips', ['transport_view']],
+        'pilot' => [['Piloto', 'Pilot'], 'Piloto', 'Pilot: their trips (route, time, bus, crew), reports from the phone and the buses.', '/transport/my-trip', ['transport_view', 'transport_report', 'fleet_vehicles_view']],
+        'hostess' => [['Azafata', 'Hostess'], 'Tripulación', 'Crew: their trips (route, time, bus, crew) and reports from the phone.', '/transport/my-trip', ['transport_view', 'transport_report']],
         'mechanic' => [['Mecánico', 'Mecanico', 'Mechanic'], 'Mecánico', 'Mechanic: the buses and their maintenance.', '/fleet/maintenance', ['fleet_vehicles_view', 'fleet_maintenance']],
     ];
 

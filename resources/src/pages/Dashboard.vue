@@ -87,6 +87,11 @@
           <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
           <TransportDeparturesPanel :range="rangeFields" />
         </a-tab-pane>
+        <!-- Live: refreshes itself only while it is open. -->
+        <a-tab-pane v-if="monitorPanel" key="transport_monitor" destroy-inactive-tab-pane>
+          <template #tab><EnvironmentOutlined /> {{ es ? 'Tablero de control' : 'Control board' }}</template>
+          <TransportLiveBoard />
+        </a-tab-pane>
         <a-tab-pane v-if="profitPanel" key="transport_profit">
           <template #tab><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</template>
           <TransportProfitPanel :range="rangeFields" />
@@ -384,6 +389,7 @@ import TransportBoard from '../components/TransportBoard.vue';
 import TransportClaimsPanel from '../components/TransportClaimsPanel.vue';
 import TransportDeparturesPanel from '../components/TransportDeparturesPanel.vue';
 import TransportIndicatorsPanel from '../components/TransportIndicatorsPanel.vue';
+import TransportLiveBoard from '../components/TransportLiveBoard.vue';
 import TransportOwnerPanel from '../components/TransportOwnerPanel.vue';
 import TransportProfitPanel from '../components/TransportProfitPanel.vue';
 import { useUiStore } from '../stores/ui';
@@ -411,12 +417,13 @@ const transportBoard = computed(() => show('transport_board') && auth.moduleEnab
   && (auth.can('transport_view') || auth.can('transport_manage')));
 const profitPanel = computed(() => show('transport_profit') && auth.moduleEnabled('transport') && auth.can('transport_profit'));
 const departuresPanel = computed(() => show('transport_departures') && auth.moduleEnabled('transport') && auth.can('transport_profit'));
+const monitorPanel = computed(() => show('transport_monitor') && auth.moduleEnabled('transport') && auth.can('transport_monitor'));
 const claimsPanel = computed(() => show('transport_claims') && auth.moduleEnabled('transport') && auth.moduleEnabled('forms')
   && (auth.can('forms_view') || auth.can('forms_manage')));
 const ownerPanel = computed(() => show('transport_owner') && auth.can('dashboard') && auth.moduleEnabled('transport')
   && (auth.can('transport_view') || auth.can('transport_manage')));
 const es = computed(() => useUiStore().locale === 'es');
-const transportPanels = computed(() => [departuresPanel.value && 'transport_departures', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', claimsPanel.value && 'transport_claims', ownerPanel.value && 'transport_owner', transportBoard.value && 'transport'].filter(Boolean));
+const transportPanels = computed(() => [departuresPanel.value && 'transport_departures', monitorPanel.value && 'transport_monitor', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', claimsPanel.value && 'transport_claims', ownerPanel.value && 'transport_owner', transportBoard.value && 'transport'].filter(Boolean));
 const boardMode = computed(() => transportPanels.value.length > 0);
 const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value, 'transport_general'] : []));
 const transportPick = ref(null);

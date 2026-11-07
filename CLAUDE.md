@@ -207,6 +207,12 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
 3. **The client's data:** which 4 buses have deluxe seats (all 17 say 15; our guess 103, 104, 370, 380); name, plate and seats of
    the 2 missing buses; where each report's buses go; what CV is; Chiclayo's toll and fuel.
 4. **2026-11-16:** the user reviews the Risks thresholds.
+5. **Vehicle monitoring:** do the buses already have GPS, from which provider, and does it give access to its data? What the client considers late (10 min is ours)? A photo at every arrival, or only at the destination (every arrival is ours)? Keep the GPS trail 30 days (ours)?
+6. **Terminals, the user asks the client (2026-11-06; nothing is built until answered):** the user describes a terminal as a small premises that stores the parcels for the next route, where passengers get on and off. Today terminals have no warehouse, staff or parcels. Does each have its own staff with a login, or is it run from the city's agency? Does it sell tickets and take money, or only board passengers and receive parcels? Is a parcel received at a terminal and picked up there by the bus (terminal -> bus -> terminal, with a history of where it is)? Do all 39 work like that, or are some only sales or stops: Móvil PNorte, Móvil Chiclayo, Oficina Galves?
+   Also to check on the list: "Lambayeqye 2" (misspelt?), Ilo under Lima, Chimbote and Virú under Trujillo; coordinates missing for Ilo, Oficina Galves, Puente Nuevo, José Gálvez, La Pampa; most others are approximate.
+7. **Not checked:** the other 7 transport permissions are not on the Roles screen (`config/permissions.js`), and saving a role replaces its permissions, so they might be lost.
+
+Next, once the monitoring is settled: item 1, the daily departures screen. The monitoring has been tested with simulated GPS only: try it on a real phone with a real trip before the 15th.
 
 Not reviewed yet: PDFs other than the invoice, about 60 store / meeting messages without Spanish, the customer portal, a real
 send of the meeting and asset emails, whether production's `.env` sets `QUEUE_FAILED_DRIVER`.
@@ -669,6 +675,17 @@ the start of each session).
   `reported_passengers` / `reported_income` instead of tickets (none are made up); `TransportProfit` counts them. The client's answers (user, 2026-11-05): P.N. = terminal Puente Nuevo, T.Olivos = Terminal Los Olivos,
   toll and fuel are per stretch (they say: by distance and diesel cost), only 4 buses have deluxe seats, the fleet is 19 vehicles. Still open: where a report's buses go
   (Lima -> Chiclayo and back is our assumption), what CV is (stored under Cavassa, a guess), which 4 buses are deluxe (all still say 15), the 2 buses missing (17 loaded), Chiclayo's toll and fuel. The Risks thresholds are reviewed on 2026-11-16.
+  **Vehicle monitoring (user's rules, 2026-11-06):** a trip's control points = its boarding points (else the route's origin), its stops and destination
+  (`App\Services\TransportControl`, `TransportControlController`). **My trip** (`/transport/my-trip`, `transport_report`, pilots' and hostesses' home, made for the phone): "I left",
+  "I arrived" **with a photo, always** (taken with the phone's camera, private, `files/company_{id}/transport/`), incidents. **A pilot never reports with the bus moving:** the screen is
+  covered and the server refuses it (`drivingBlock`: no location, speed over 5 km/h, or moved since the last position); the hostess can. The phone's GPS (only during a trip, page open:
+  the browser stops with the screen locked; needs HTTPS) sends every 45 s (`transport_vehicle_positions`, kept 30 days, `transport:prune-positions`), detects arrivals (stopped within
+  600 m twice; the photo is then asked for) and departures. **Control board** (`components/TransportLiveBoard.vue`, `transport_monitor`; dashboard tab and `/transport/monitor`, one screen): the buses on
+  the map with destination and delay, a list with the expected arrival and last report, photos, incidents; a hollow marker = no live position, the last terminal reported; a red line only for a
+  breakdown or accident. `/transport/monitor` also has punctuality by route / bus / pilot. The first departure puts a trip on the road, the last arrival completes it; planned times are never changed. Late = over 10 minutes (ours, not the client's). Terminal coordinates are
+  approximate and 8 places have none: until corrected, GPS detection misses or is off. A bus's own GPS (`source` = device) is not connected yet.
+  **Emulated, on a developer PC only (2026-11-06):** `php artisan transport:monitor-demo` (`--loop` keeps the buses moving, `--clear` removes it; refuses any database but `dbmurano`; a Wake-up wipes it, run it again). My trip shows a GPS
+  simulator on `.local` / `.test` / `127.*` / `localhost`, since the browser gives no location without HTTPS. **Open:** today a terminal has no warehouse, staff or parcels: tickets, parcels and logins are per agency; the user describes a terminal as a small premises that stores the parcels for the next route, where passengers get on and off.
   **The owner's figures (2026-11-04):** the dashboard's "Business summary" block
   (`TransportOwnerPanel.vue`, `transport/owner`, section `transport_owner`): income and
   tickets today / month by agency, today's trips, the month's fleet costs, best-selling

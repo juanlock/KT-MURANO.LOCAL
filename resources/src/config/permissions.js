@@ -1383,6 +1383,22 @@ export const PERMISSION_GROUPS = [
         ]
     },
     {
+        "label": "Transport",
+        "raw": true,
+        "items": [
+            {
+                "v": "transport_monitor",
+                "l": "Transport_Monitor",
+                "f": "Vehicle monitoring"
+            },
+            {
+                "v": "transport_report",
+                "l": "Transport_MyTrip",
+                "f": "My trip"
+            }
+        ]
+    },
+    {
         "label": "Document Archive",
         "raw": true,
         "items": [

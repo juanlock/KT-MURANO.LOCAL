@@ -805,6 +805,20 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/claims', 'claims');
         Route::get('/departures', 'departures');
     });
+    // Vehicle monitoring (2026-11-06): the crew's reports from the phone, the bus's position, punctuality.
+    Route::prefix('transport/control')->controller(\App\Http\Controllers\TransportControlController::class)->group(function () {
+        Route::get('/mine', 'mine');
+        Route::get('/monitor', 'monitor');
+        Route::get('/punctuality', 'punctuality');
+        Route::get('/trips/{id}', 'show')->whereNumber('id');
+        Route::post('/trips/{id}/position', 'position')->whereNumber('id');
+        Route::post('/trips/{id}/arrive', 'arrive')->whereNumber('id');
+        Route::post('/trips/{id}/depart', 'depart')->whereNumber('id');
+        Route::post('/trips/{id}/skip', 'skip')->whereNumber('id');
+        Route::post('/trips/{id}/photo', 'addPhoto')->whereNumber('id');
+        Route::post('/trips/{id}/report', 'report')->whereNumber('id');
+        Route::get('/photo/{kind}/{id}', 'photoFile')->whereIn('kind', ['checkpoint', 'report'])->whereNumber('id');
+    });
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');
     Route::get('employees/{id}/assets', 'hrm\EmployeesController@assets')->whereNumber('id');
     Route::get('employees/{id}/print', 'hrm\EmployeesController@printProfile')->whereNumber('id');

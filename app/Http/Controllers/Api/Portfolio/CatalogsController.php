@@ -311,31 +311,7 @@ class CatalogsController extends Controller
      */
     private function storePhoto(int $companyId, string $bytes, string $name): ?string
     {
-        $info = @getimagesizefromstring($bytes);
-        $img = $info ? @imagecreatefromstring($bytes) : false;
-        if (! $img) {
-            return null;
-        }
-        if (($info[2] ?? 0) === IMAGETYPE_JPEG && function_exists('exif_read_data')) {
-            $exif = @exif_read_data('data://image/jpeg;base64,'.base64_encode($bytes));
-            $turn = [3 => 180, 6 => -90, 8 => 90][(int) ($exif['Orientation'] ?? 1)] ?? 0;
-            if ($turn) {
-                $img = imagerotate($img, $turn, 0);
-            }
-        }
-        $w = imagesx($img);
-        $h = imagesy($img);
-        $k = min(1, 1600 / max($w, $h));
-        if ($k < 1) {
-            $small = imagecreatetruecolor((int) round($w * $k), (int) round($h * $k));
-            imagecopyresampled($small, $img, 0, 0, 0, 0, imagesx($small), imagesy($small), $w, $h);
-            $img = $small;
-        }
-        ob_start();
-        imagejpeg($img, null, 85);
-        $out = (string) ob_get_clean();
-
-        return CompanyFiles::putBytes($companyId, 'portfolio', (Str::slug(pathinfo($name, PATHINFO_FILENAME)) ?: 'photo').'.jpg', $out);
+        return CompanyFiles::putPhoto($companyId, 'portfolio', $bytes, $name);
     }
 
     private function addPhotos(object $i, object $c, array $paths): void

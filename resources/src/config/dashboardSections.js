@@ -32,6 +32,7 @@ export const DASHBOARD_SECTIONS = [
   { id: 'table_top_selling_products', label: 'Table: Top selling products' },
   { id: 'table_recent_sales', label: 'Table: Recent sales' },
   // Transport module (2026-11-01): routes map, terminals, fleet, staff, pilots' hours.
+  { id: 'transport_monitor', label: 'Control board: buses on the map, delay and destination' },
   { id: 'transport_departures', label: 'Departures report, per agency' },
   { id: 'transport_profit', label: 'Profit of each route and trip' },
   { id: 'transport_claims', label: 'Complaints: indicators from the complaints book' },
@@ -42,6 +43,7 @@ export const DASHBOARD_SECTIONS = [
 /** The dashboard's blocks (rows), default order; `sections` = what each one holds. */
 export const DASHBOARD_BLOCKS = [
   // First: shown only to companies with the Transport module (TransportBoard hides itself otherwise).
+  { id: 'transport_monitor', label: 'Control board', sections: ['transport_monitor'] },
   { id: 'transport_departures', label: 'Departures report', sections: ['transport_departures'] },
   { id: 'transport_profit', label: 'Profit by route', sections: ['transport_profit'] },
   { id: 'transport_claims', label: 'Complaints', sections: ['transport_claims'] },
