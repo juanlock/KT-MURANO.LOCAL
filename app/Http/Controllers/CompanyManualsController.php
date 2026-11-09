@@ -28,4 +28,37 @@ class CompanyManualsController extends Controller
 
         return response()->json(['companies' => $rows, 'types' => $types]);
     }
+
+    /**
+     * A company's own manual (2026-11-09, Turismo Cautivo's guide for its meeting): a PDF in
+     * files/company_{id}/manual/manual-{es|en}.pdf (private folder, not the type's generic one).
+     * The book icon's "Download the manual" opens it instead of the type's PDF. It may hold the
+     * company's figures, so only roles with the dashboard permission get it.
+     */
+    public static function ownPath(int $companyId, string $lang = 'es'): ?string
+    {
+        foreach (array_unique([$lang === 'en' ? 'en' : 'es', 'es', 'en']) as $l) {
+            $rel = 'files/company_'.$companyId.'/manual/manual-'.$l.'.pdf';
+            if (is_file(public_path($rel))) {
+                return $rel;
+            }
+        }
+
+        return null;
+    }
+
+    public function mine(Request $request)
+    {
+        $user = $request->user('api');
+        abort_unless($user, 401);
+        abort_unless($user->type === 'SuperAdmin' || $user->roles()->first()?->permissions->contains('name', 'dashboard'), 403);
+        $companyId = \App\Support\CompanyFiles::actingCompanyId($request);
+        $rel = self::ownPath($companyId, (string) $request->input('lang', 'es'));
+        abort_unless($rel && \App\Support\CompanyFiles::owns($rel, $companyId, 'manual'), 404);
+
+        return response()->file(public_path($rel), [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.basename($rel).'"',
+        ]);
+    }
 }

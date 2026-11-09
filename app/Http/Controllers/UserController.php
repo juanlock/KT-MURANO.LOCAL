@@ -276,6 +276,9 @@ class UserController extends BaseController
                 $user->type === 'SuperAdmin' ? (int) $this->resolveActingCompanyId($request) : (int) $user->company_id)),
             // The acting company's business type (hospital: side menu hidden by default + button bar, 2026-10-25).
             'business_type' => $businessType,
+            // The company has its own manual PDF (files/company_{id}/manual/, 2026-11-09).
+            'company_manual' => \App\Http\Controllers\CompanyManualsController::ownPath(
+                $user->type === 'SuperAdmin' ? (int) $this->resolveActingCompanyId($request) : (int) $user->company_id) !== null,
             // Else the company's business-type start page (hospital -> Hospital dashboard, 2026-10-20).
             'role_home' => $user->type === 'SuperAdmin' ? $typeHome
                 : ($user->roles()->first()?->home_path ?: $typeHome),

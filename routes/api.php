@@ -757,6 +757,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     });
     // Settings -> Company manuals (superadmin/AdminSystem, 2026-11-01).
     Route::get('company-manuals', [\App\Http\Controllers\CompanyManualsController::class, 'index']);
+    // The acting company's own manual PDF, when it has one (book icon, 2026-11-09).
+    Route::get('company-manual', [\App\Http\Controllers\CompanyManualsController::class, 'mine']);
     Route::get('roles-matrix', [\App\Http\Controllers\RolesMatrixController::class, 'index']);
     // Transport (2026-11-01): locations, routes, trips with their crew, active staff.
     Route::prefix('transport')->controller(\App\Http\Controllers\TransportController::class)->group(function () {

@@ -60,7 +60,11 @@
         <h2 class="md-h2">{{ L('Murano for', 'Murano para') }} {{ adv.label[lang] }}</h2>
         <p class="md-intro"><strong>{{ adv.tagline[lang] }}</strong> {{ adv.intro[lang] }}</p>
         <!-- The 2-page promotional flyer of the type (with its graphic) and the full manual. -->
-        <a-button type="primary" block :href="flyerUrl" target="_blank" style="margin-bottom: 8px">
+        <!-- The company's own manual (files/company_{id}/manual/, e.g. Turismo Cautivo's guide), when it has one. -->
+        <a-button v-if="hasOwnManual" type="primary" block :loading="ownLoading" style="margin-bottom: 8px" @click="openOwnManual">
+          <DownloadOutlined /> {{ L(`${company}'s manual (PDF)`, `Manual de ${company} (PDF)`) }}
+        </a-button>
+        <a-button :type="hasOwnManual ? 'default' : 'primary'" block :href="flyerUrl" target="_blank" style="margin-bottom: 8px">
           <DownloadOutlined /> {{ L('Download the flyer (2 pages, PDF)', 'Descargar el flyer (2 páginas, PDF)') }}
         </a-button>
         <a-button block :href="pdfUrl" target="_blank" style="margin-bottom: 14px">
@@ -122,6 +126,9 @@ import { MANUAL, MANUAL_UPDATED } from '../manual/manual';
 import { TYPES, advantagesFor } from '../manual/advantages';
 import { useAuthStore } from '../stores/auth';
 import { useUiStore } from '../stores/ui';
+import { message } from 'ant-design-vue';
+import http from '../lib/http';
+import { getActingCompanyId } from '../lib/actingCompany';
 
 const props = defineProps({ open: { type: Boolean, default: false } });
 defineEmits(['close']);
@@ -155,6 +162,22 @@ const adv = computed(() => {
 });
 const pdfUrl = computed(() => `/manual/murano-${shownType.value}-${lang.value}.pdf`);
 const flyerUrl = computed(() => `/manual/flyer-${shownType.value}-${lang.value}.pdf`);
+// The company's own manual (private file, dashboard permission; not when AdminSystem browses another type).
+const hasOwnManual = computed(() => !!auth.user?.company_manual && !pickedType.value
+  && (auth.user?.type === 'SuperAdmin' || auth.can('dashboard')));
+const ownLoading = ref(false);
+async function openOwnManual() {
+  ownLoading.value = true;
+  try {
+    const cid = getActingCompanyId();
+    const b = await http.blob(`company-manual?lang=${lang.value}${cid ? `&company_id=${cid}` : ''}`);
+    window.open(URL.createObjectURL(b), '_blank');
+  } catch (e) {
+    message.error(L('The manual could not be opened.', 'No se pudo abrir el manual.'));
+  } finally {
+    ownLoading.value = false;
+  }
+}
 
 // ---------------- what this user may see ----------------
 const anyPerm = list => !list || !list.length || list.some(p => auth.can(p));

@@ -206,6 +206,23 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-09 (Thundera) -- not in production yet
+
+- **Turismo Cautivo's guide for its meeting** (9 pages, Spanish, with its fleet's
+  photos and charts from its own data) is kept outside git, with the client's material.
+- **A company's own manual in the book icon:** the company tab shows a
+  "Manual de {company} (PDF)" button when that company has its own manual
+  (today Turismo Cautivo). It is a private file, and only roles with the
+  dashboard permission can open it. The PDF has to be copied to production by
+  hand, because Turismo's files never travel with Pa Llevar.
+- **The in-app manual** has new entries for passenger transport (tickets,
+  boarding, parcels, supervisor, My trip, monitoring, setup, dashboard) and
+  for fleet and workshop. Role names are updated to IT Admin, Manager and Info.
+- **The overview manual by company** has its tourism section rewritten with its
+  7 roles and a transport guide.
+
+Setup: `npm run build`.
+
 ### 2026-11-06 (Thundera)
 
 - **The invoice note and terms are Ruba's only.** The card fee, late fee and
@@ -291,28 +308,6 @@ Setup: `php artisan migrate`, `npm run build`.
   ticket sales, kept current every hour.
 - **Demo data fits the business**: a bus company no longer gets delivery vans,
   IT portfolio works or generic shop pages.
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-02 (Optimum) -- in production since 2026-11-03
-
-- **IT Admin**: the role "Admin Compañía" is now called **IT Admin** in every
-  company (same permissions and users).
-- **A fourth standard login per company**, `{company}-manager@kcoltech.com`
-  with the **Manager** role, in every company that had no manager yet (Turismo
-  Cautivo included; Ruba and New Era keep their own managers).
-- **Companies › Rename** (SuperAdmin): changes a company's name everywhere in
-  one step, with a preview; the website and store name and the helpdesk sender
-  are offered, the website address and the standard logins' emails are
-  optional.
-- The Spanish menu says **Usuarios** (was "Los usuarios").
-- **Database backups take seconds** (Copia BD / Wake-up / Pa Llevar / A Dormir):
-  about 12 seconds instead of 9 minutes; the files are built on the local disk
-  and only the finished zips go to Google Drive.
-- **Website for Dr. David Arce** (SanaMente Perú, Chulucanas) in
-  `KT-TOOLS/ARCE`: a one-page site with Conocer Chulucanas, his medical
-  services and his publications (stories, press notes, videos, each with its
-  source link); what the client still has to send is in its PENDIENTES list.
 
 Setup: `php artisan migrate`, `npm run build`.
 

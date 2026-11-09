@@ -179,7 +179,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
       <div class="meta">
         <span>Address: <code>https://murano.kcoltech.com</code></span>
         <span>Languages: English · Spanish (follows your computer; switch with EN / ES or the globe)</span>
-        <span>Updated: October 27, 2026</span>
+        <span>Updated: November 9, 2026</span>
       </div>
       <form class="finder" id="finder" aria-label="Find your role">
         <div class="finder-row">
@@ -191,7 +191,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
               <option value="school">Colegio Bicentenario (school)</option>
               <option value="hospital">Vitalis (hospital)</option>
               <option value="clinic">Centro de Especialista Arce (specialist clinic)</option>
-              <option value="tourism">Turismo Cautivo (website and forms)</option>
+              <option value="tourism">Turismo Cautivo (passenger transport)</option>
               <option value="system">System owner (SuperAdmin)</option>
             </select>
           </label>
@@ -547,16 +547,50 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
 
     <!-- ============================== TOURISM ============================== -->
     <section id="tourism">
-      <span class="eyebrow">Tourism · Spanish · in production</span>
+      <span class="eyebrow">Passenger transport · Spanish · in production</span>
       <div class="company-head">
         <h2>Turismo Cautivo</h2>
-        <p class="lead">A travel agency that uses Murano for its website (imported, at <code>/turismo-cautivo</code>) and its <b>Forms</b>: the complaints book and the contact form embedded in turismocautivo.com, with every submission. Its data lives in production.</p>
+        <p class="lead">An intercity bus company (Lima, Chiclayo, Chepén, Trujillo): 4 agencies, each a location with its own sales, cash register and staff; 39 terminals; 17 buses loaded (the fleet is 19). Tickets at each agency's POS, boarding with a QR, parcels, the crew's phone during the trip, vehicle monitoring and the figures of each route. The complaints book and contact form of turismocautivo.com are Murano <b>Forms</b>. Real data today: fleet, network, the departures report of 04-11-2026 and the complaints; sales and profit figures are demo. A Spanish guide with photos and charts for the client: <code>KT-TOOLS/turismo/manual/</code> (outside git).</p>
       </div>
       <div class="roles">
         <article class="role" id="role-tourism-admin">
-          <div class="role-top"><h3>Admin-ALL</h3><span class="who">Company administrator</span></div>
-          <ul><li>Website, Forms (submissions, notification emails, embed codes), Email Office, Gallery, Portfolio, users and Login security.</li></ul>
-          <div class="guides-links"><a href="#g-website">Website</a><a href="#g-login-security">Login security</a></div>
+          <div class="role-top"><h3>IT Admin</h3><span class="who">Company IT person</span></div>
+          <ul><li>Users, roles, settings, menu order and Login security. No employee record behind it.</li></ul>
+          <div class="guides-links"><a href="#g-login-security">Login security</a></div>
+        </article>
+        <article class="role" id="role-tourism-manager">
+          <div class="role-top"><h3>Manager</h3><span class="who">Management</span></div>
+          <ul><li>Every main module without configuration: the transport dashboard (departures report, control board, profit by route, indicators, risks, complaints, business summary), sales, accounting, HR.</li></ul>
+          <div class="guides-links"><a href="#g-transport">Transport</a></div>
+        </article>
+        <article class="role" id="role-tourism-pos">
+          <div class="role-top"><h3>Terminal POS</h3><span class="who">Ticket office, one per agency</span></div>
+          <p class="home">Home page: <b>POS</b></p>
+          <ul><li>Sells tickets per stretch with the passenger's document and type, its own sales and cash register, parcels.</li></ul>
+          <div class="guides-links"><a href="#g-transport">Transport</a></div>
+        </article>
+        <article class="role" id="role-tourism-supervisor">
+          <div class="role-top"><h3>Supervisor</h3><span class="who">One per agency</span></div>
+          <p class="home">Home page: <b>Today's departures</b></p>
+          <ul><li>Confirms, reschedules or cancels its agency's departures; boarding.</li></ul>
+          <div class="guides-links"><a href="#g-transport">Transport</a></div>
+        </article>
+        <article class="role" id="role-tourism-crew">
+          <div class="role-top"><h3>Piloto · Tripulación</h3><span class="who">Pilots and hostesses</span></div>
+          <p class="home">Home page: <b>My trip</b> (phone)</p>
+          <ul><li>"I left" / "I arrived" with a photo, incidents; the phone's GPS while the trip is on. A pilot can't report with the bus moving.</li></ul>
+          <div class="guides-links"><a href="#g-transport">Transport</a></div>
+        </article>
+        <article class="role" id="role-tourism-mechanic">
+          <div class="role-top"><h3>Mecánico</h3><span class="who">Workshop</span></div>
+          <p class="home">Home page: <b>Fleet maintenance</b></p>
+          <ul><li>Maintenance jobs with spare parts, the maintenance plan by km and date, fuel logs.</li></ul>
+          <div class="guides-links"><a href="#g-transport">Transport</a></div>
+        </article>
+        <article class="role" id="role-tourism-info">
+          <div class="role-top"><h3>Info</h3><span class="who">Complaints book</span></div>
+          <p class="home">Home page: <b>Forms</b></p>
+          <ul><li>Reads the complaints book and contact form submissions; can answer the sender. No new form, no delete.</li></ul>
         </article>
       </div>
     </section>
@@ -828,6 +862,21 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
           <a class="top-link" href="#top">Back to top</a>
         </article>
 
+        <article class="guide" id="g-transport">
+          <h3>Passenger transport</h3>
+          <p class="for">For: Turismo Cautivo (ticket office, supervisors, crew, mechanics, management)</p>
+          <ol>
+            <li><b>Sell a ticket</b> at the agency's POS: the route's ticket (VIP = 20 % more), the departure, the passenger (DNI, CE, passport or PTP/CPP; adult, under 16 or infant). Seats are sold per stretch; the ticket carries a QR.</li>
+            <li><span class="menu">Boarding</span>: read the QR or type the code, <b>Board</b>.</li>
+            <li><span class="menu">Parcels › Register parcel</span>: destination, the box's measures and weight; the system picks the first bus with room and prints a guide with public tracking (no names or prices).</li>
+            <li><span class="menu">Today's departures</span> (supervisor): <b>Confirm</b>, <b>Reschedule</b> (tickets kept) or <b>Cancel</b> (affected passengers listed).</li>
+            <li><span class="menu">My trip</span> on the crew's phone: <b>I left</b> / <b>I arrived</b> with a photo, incidents; GPS every 45 s while the page is open.</li>
+            <li><span class="menu">Dashboard</span> tabs: Departures report, Control board, Profit by route, Indicators, Risks, Complaints, Business summary, General. <span class="menu">Vehicle monitoring</span> adds punctuality by route, bus and pilot (late = over 10 minutes).</li>
+            <li>Workshop: <span class="menu">Fleet › Maintenance</span>, <b>Maintenance plan</b>, <b>Spare parts</b>, <b>Fuel logs</b>.</li>
+          </ol>
+          <a class="top-link" href="#top">Back to top</a>
+        </article>
+
         <article class="guide" id="g-users">
           <h3>Users and roles</h3>
           <p class="for">For: administrators (Manager RG can edit, not add)</p>
@@ -964,7 +1013,7 @@ footer { max-width: 1180px; margin: 64px auto 0; padding-top: 20px; border-top: 
     school: [['role-school-rector', 'Rector'], ['role-school-secretary', 'Secretaria'], ['role-school-teacher', 'Profesor'], ['role-school-parent', 'Padre de familia / Alumno']],
     hospital: [['role-hospital-admin', 'Admin-ALL']],
     clinic: [['role-clinic-admin', 'Admin-ALL'], ['role-clinic-reception', 'Reception'], ['role-clinic-nurse', 'Clinic Nurse'], ['role-clinic-specialist', 'Specialist'], ['role-clinic-billing', 'Billing'], ['role-customer', 'Customer (patient)']],
-    tourism: [['role-tourism-admin', 'Admin-ALL']],
+    tourism: [['role-tourism-admin', 'IT Admin'], ['role-tourism-manager', 'Manager'], ['role-tourism-pos', 'Terminal POS'], ['role-tourism-supervisor', 'Supervisor'], ['role-tourism-crew', 'Piloto · Tripulación'], ['role-tourism-mechanic', 'Mecánico'], ['role-tourism-info', 'Info']],
     system: [['role-system-owner', 'Owner (SuperAdmin)']]
   };
   var company = document.getElementById('f-company');

@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-11-01';
+export const MANUAL_UPDATED = '2026-11-09';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -856,8 +856,8 @@ export const MANUAL = [
           es: ['**Formularios › Todos**: haga clic en el nombre del formulario (o su ícono de bandeja) para ver sus envíos; los no leídos van en negrita.', 'Haga clic en una fila: el envío se abre en una ventana grande. **Anterior / Siguiente** recorren la lista.', '**Imprimir**, **PDF** y **Enviar por correo** (a cualquier dirección, con un mensaje opcional) lo comparten.', '**Marcar atendido** y escriba una nota de lo que se hizo: la lista muestra quién lo atendió y cuándo.', '**Formularios › Reporte**: todos los formularios juntos, con los filtros Leídos / Por leer, formulario, fechas y búsqueda; **Exportar Excel (CSV)**.'],
         },
         note: {
-          en: 'The **Formularios** role reads only: it can see, print, send and attend submissions, but not create, edit or delete forms or submissions.',
-          es: 'El rol **Formularios** es de solo lectura: puede ver, imprimir, enviar y atender envíos, pero no crear, editar ni borrar formularios o envíos.',
+          en: 'The **Info** role reads only: it can see, print, send and attend submissions, but not create, edit or delete forms or submissions.',
+          es: 'El rol **Info** es de solo lectura: puede ver, imprimir, enviar y atender envíos, pero no crear, editar ni borrar formularios o envíos.',
         },
       },
       {
@@ -874,6 +874,116 @@ export const MANUAL = [
         steps: {
           en: ['**Publish**: the form\'s own link (and QR), or the code to put it on your website — an iframe or the script. The codes always start with https://.', 'Paste the code in your web page as it is; if your page is https and the code says http://, the browser blocks it and nothing shows.', '**Preview** shows the form on its own page or as embedded on a website.'],
           es: ['**Publicar**: el enlace propio del formulario (y su QR), o el código para ponerlo en su sitio web — un iframe o el script. Los códigos siempre empiezan con https://.', 'Pegue el código en su página tal cual; si su página es https y el código dice http://, el navegador lo bloquea y no se ve nada.', '**Vista previa** muestra el formulario en su propia página o insertado en una web.'],
+        },
+      },
+    ],
+  },
+
+  // ------------------------------------------------------------------ transport
+  {
+    key: 'transport', module: 'transport',
+    perms: ['transport_view', 'transport_manage', 'transport_supervise', 'transport_monitor', 'transport_report', 'transport_parcels', 'transport_boarding', 'transport_tolls', 'transport_profit', 'Pos_view'],
+    paths: ['transport', 'pos', 'dashboard'],
+    title: { en: 'Passenger transport', es: 'Transporte de pasajeros' },
+    intro: {
+      en: 'Tickets sold at each agency\'s POS, boarding with a QR, parcels, the crew\'s phone during the trip, the buses on a map and the figures of each route. Each agency is a location with its own sales, cash register and staff.',
+      es: 'Pasajes vendidos en el POS de cada agencia, abordaje con QR, encomiendas, el celular de la tripulación durante el viaje, los buses en un mapa y las cifras de cada ruta. Cada agencia es una sede con sus propias ventas, caja y personal.',
+    },
+    sections: [
+      {
+        id: 'tr-ticket', perms: ['Pos_view'], paths: ['pos'],
+        title: { en: 'Sell a ticket (ticket office)', es: 'Vender un pasaje (boletería)' },
+        steps: {
+          en: ['The **Terminal POS** role opens the POS of its agency. Open the cash register with the starting cash.', 'Pick the route\'s ticket (or the VIP ticket, 20 % more) and the bus **departure**.', 'Enter the passenger: document type (DNI of 8 digits, CE, passport or PTP/CPP), first and last names and type (adult, under 16 or infant).', 'A seat is sold per stretch: a passenger who gets off half-way frees the seat for the next stretch. The POS refuses a seat when the bus is full on that stretch.', 'Charge and print the ticket: it carries the QR read at boarding.'],
+          es: ['El rol **Terminal POS** abre el POS de su agencia. Abra la caja con el efectivo inicial.', 'Elija el pasaje de la ruta (o el pasaje VIP, 20 % más) y la **salida** del bus.', 'Ingrese al pasajero: tipo de documento (DNI de 8 dígitos, CE, pasaporte o PTP/CPP), nombres, apellidos y tipo (adulto, menor de 16 o infante).', 'El asiento se vende por tramo: quien baja a mitad de camino libera el asiento para el tramo siguiente. El POS no vende un asiento si el bus está lleno en ese tramo.', 'Cobre e imprima el boleto: lleva el QR que se lee en el abordaje.'],
+        },
+      },
+      {
+        id: 'tr-boarding', perms: ['transport_boarding', 'transport_supervise'], paths: ['transport/boarding'],
+        title: { en: 'Boarding', es: 'Abordaje' },
+        steps: {
+          en: ['**Boarding** opens the trip that is due.', 'Read the ticket\'s QR or type its code and press **Board**: the seat and the passenger show.'],
+          es: ['**Abordaje** abre el viaje que toca.', 'Lea el QR del boleto o escriba su código y pulse **Abordar**: se ven el asiento y el pasajero.'],
+        },
+      },
+      {
+        id: 'tr-parcels', perms: ['transport_parcels'], paths: ['transport/parcels'],
+        title: { en: 'Parcels', es: 'Encomiendas' },
+        steps: {
+          en: ['**Register parcel**: date, destination, sender and receiver with their phones.', 'The box\'s length, width and height in cm and its weight. **Fragile or valuable** costs more per m³.', 'The system picks the first bus with room in the hold and tells you what to say to the customer ("arrives between …"). A parcel that fits no bus is refused.', '**Print guide**: the customer follows the parcel with the guide\'s link, which shows no names or prices.'],
+          es: ['**Registrar encomienda**: fecha, destino, remitente y destinatario con sus teléfonos.', 'Largo, ancho y alto de la caja en cm y su peso. **Frágil o de valor** cuesta más por m³.', 'El sistema elige el primer bus con espacio en la bodega y le dice qué responder al cliente ("llega entre …"). Una encomienda que no cabe en ningún bus se rechaza.', '**Imprimir guía**: el cliente sigue la encomienda con el enlace de la guía, que no muestra nombres ni precios.'],
+        },
+      },
+      {
+        id: 'tr-today', perms: ['transport_supervise'], paths: ['transport/today'],
+        title: { en: 'Today\'s departures (agency supervisor)', es: 'Salidas de hoy (supervisor de agencia)' },
+        steps: {
+          en: ['The supervisor\'s home lists the departures of their agency with seats, passengers and parcels.', '**Confirm** a departure, **Reschedule** it (passengers keep their ticket) or **Cancel** it: the window lists the affected passengers so they can be told. No refund and no email are made by the system.'],
+          es: ['La pantalla de inicio del supervisor lista las salidas de su agencia con asientos, pasajeros y encomiendas.', '**Confirmar** una salida, **Reprogramarla** (los pasajeros conservan su boleto) o **Cancelarla**: la ventana lista a los pasajeros afectados para avisarles. El sistema no hace devoluciones ni envía correos.'],
+        },
+      },
+      {
+        id: 'tr-mytrip', perms: ['transport_report', 'transport_monitor'], paths: ['transport/my-trip'],
+        title: { en: 'My trip (crew\'s phone)', es: 'Mi viaje (celular de la tripulación)' },
+        steps: {
+          en: ['Pilots and hostesses open **My trip** on their phone: the next trip and its control points. It is enabled 30 minutes before departure.', 'At each point: **I left** when leaving and **I arrived** when arriving, always with a photo taken with the phone\'s camera.', '**Report an incident**: traffic, breakdown, accident, road closed or blocked, passenger or other, with details and an optional photo.', 'While the trip is on, the phone shares its location every 45 seconds and detects arrivals and departures. Keep the page open: with the screen locked the browser stops the location.'],
+          es: ['Pilotos y azafatas abren **Mi viaje** en su celular: el próximo viaje y sus puntos de control. Se habilita 30 minutos antes de la salida.', 'En cada punto: **Salí** al partir y **Llegué** al llegar, siempre con una foto tomada con la cámara del celular.', '**Reportar una incidencia**: tráfico, avería, accidente, vía cerrada o bloqueada, pasajero u otro, con detalle y una foto opcional.', 'Durante el viaje el celular comparte su ubicación cada 45 segundos y detecta llegadas y salidas. Mantenga la página abierta: con la pantalla bloqueada el navegador detiene la ubicación.'],
+        },
+        note: {
+          en: 'A pilot never reports with the bus moving: the screen is covered and the server refuses it until the bus stops. The hostess can.',
+          es: 'El piloto nunca reporta con el bus en movimiento: la pantalla se cubre y el servidor lo rechaza hasta que el bus se detiene. La azafata sí puede.',
+        },
+      },
+      {
+        id: 'tr-monitor', perms: ['transport_monitor'], paths: ['transport/monitor', 'dashboard'],
+        title: { en: 'Vehicle monitoring', es: 'Monitoreo de vehículos' },
+        steps: {
+          en: ['**Dashboard › Control board** and **Transport › Vehicle monitoring**: the buses on the map with destination and delay, a list with the expected arrival and the last report, arrival photos and incidents.', 'Late = more than 10 minutes after the planned time. A hollow marker means no live position: the bus is shown at the last point it reported.', 'A red line appears only for a breakdown or an accident.', '**Vehicle monitoring** adds punctuality by route, by bus and by pilot.'],
+          es: ['**Panel › Tablero de control** y **Transporte › Monitoreo de vehículos**: los buses en el mapa con su destino y retraso, una lista con la llegada prevista y el último reporte, las fotos de llegada y las incidencias.', 'Tarde = más de 10 minutos después de la hora prevista. Un marcador hueco indica que no hay posición en vivo: el bus se muestra en el último punto que reportó.', 'Una línea roja aparece solo por una avería o un accidente.', '**Monitoreo de vehículos** agrega la puntualidad por ruta, por bus y por piloto.'],
+        },
+      },
+      {
+        id: 'tr-setup', perms: ['transport_view', 'transport_manage', 'transport_tolls'], paths: ['transport/trips', 'transport/routes', 'transport/staff', 'transport/tolls'],
+        title: { en: 'Trips, routes and tolls', es: 'Viajes, rutas y peajes' },
+        steps: {
+          en: ['**Routes and locations**: agencies (with their location), terminals and the routes with distance, duration, toll and stops.', '**Trips**: each departure with its bus, pilots and hostesses; **Active staff** shows who is on duty.', '**Tolls**: the tolls actually paid on a trip; without them the route\'s toll is used, flagged as expected.'],
+          es: ['**Rutas y ubicaciones**: agencias (con su sede), terminales y las rutas con distancia, duración, peaje y paradas.', '**Viajes**: cada salida con su bus, pilotos y azafatas; **Personal activo** muestra quién está de turno.', '**Peajes**: los peajes pagados de verdad en un viaje; sin ellos se usa el peaje de la ruta, marcado como previsto.'],
+        },
+      },
+      {
+        id: 'tr-dashboard', perms: ['transport_profit', 'transport_monitor', 'forms_view'], paths: ['dashboard'],
+        title: { en: 'The transport dashboard', es: 'El panel de transporte' },
+        steps: {
+          en: ['**Departures report**: the day\'s departures per agency as in the agency\'s own Excel: boarding points, times, passengers, income and occupancy of each bus.', '**Profit by route**: per trip, tickets and parcels minus crew, payroll, fuel, maintenance, depreciation, tolls, agency and the VIP snack. Missing data is listed, never guessed; a scheduled trip is "pending", not a loss.', '**Indicators** and **Risks**: the same figures as charts, and the alerts when a route or a bus crosses a limit.', '**Complaints**: how many complaints arrive, never who complained or what they wrote.', '**Business summary**: income and tickets today and this month by agency, best-selling routes and what falls due on the buses.', '**General**: the rest of the dashboard. Everything uses the date filter on top.'],
+          es: ['**Reporte de salidas**: las salidas del día por agencia como en el Excel de la propia agencia: embarques, horas, pasajeros, ingresos y ocupación de cada bus.', '**Rentabilidad por ruta**: por viaje, pasajes y encomiendas menos tripulación, planilla, combustible, mantenimiento, depreciación, peajes, agencia y el refrigerio VIP. Los datos que faltan se listan, nunca se inventan; un viaje programado está "pendiente", no es una pérdida.', '**Indicadores** y **Riesgos**: las mismas cifras en gráficos, y las alertas cuando una ruta o un bus cruza un límite.', '**Reclamos**: cuántos reclamos llegan, nunca quién reclamó ni qué escribió.', '**Resumen del negocio**: ingresos y pasajes de hoy y del mes por agencia, rutas más vendidas y lo que vence en los buses.', '**General**: el resto del panel. Todo usa el filtro de fechas de arriba.'],
+        },
+      },
+    ],
+  },
+
+  // ------------------------------------------------------------------ fleet
+  {
+    key: 'fleet', module: 'fleet', perms: ['fleet_vehicles_view', 'fleet_maintenance', 'fleet_fuel', 'fleet_parts', 'fleet_plan'], paths: ['fleet'],
+    title: { en: 'Fleet and workshop', es: 'Flota y taller' },
+    intro: {
+      en: 'Each vehicle with its plate, seats (VIP and first floor), cargo hold, cost per km and documents, and the workshop that keeps it running.',
+      es: 'Cada vehículo con su placa, asientos (VIP y primer piso), bodega, costo por km y documentos, y el taller que lo mantiene en marcha.',
+    },
+    sections: [
+      {
+        id: 'fleet-vehicles', paths: ['fleet/vehicles', 'fleet/dashboard'],
+        title: { en: 'Vehicles', es: 'Vehículos' },
+        steps: {
+          en: ['**Fleet › Vehicles**: plate, make, model, year, photo, seats, VIP seats and first-floor seats, the hold\'s volume and weight.', 'Purchase price, residual value and useful life in km give the depreciation per km used by Profit by route.', 'Insurance, registration and inspection expiry dates feed the alerts.'],
+          es: ['**Flota › Vehículos**: placa, marca, modelo, año, foto, asientos, asientos VIP y del primer piso, volumen y peso de la bodega.', 'Precio de compra, valor residual y vida útil en km dan la depreciación por km que usa Rentabilidad por ruta.', 'Los vencimientos del seguro, la tarjeta de propiedad y la revisión técnica alimentan las alertas.'],
+        },
+      },
+      {
+        id: 'fleet-workshop', perms: ['fleet_maintenance', 'fleet_plan', 'fleet_parts', 'fleet_fuel'], paths: ['fleet/maintenance', 'fleet/plan', 'fleet/parts', 'fleet/fuel-logs'],
+        title: { en: 'Workshop', es: 'Taller' },
+        steps: {
+          en: ['**Maintenance**: each job on a vehicle, with the spare parts used (the **Mechanic** role opens here).', '**Maintenance plan**: what falls due by km or by date, with alerts before it is due.', '**Spare parts**: the stock of parts; **Fuel logs**: each fill-up.'],
+          es: ['**Mantenimiento**: cada trabajo en un vehículo, con los repuestos usados (el rol **Mecánico** abre aquí).', '**Plan de mantenimiento**: lo que vence por km o por fecha, con alertas antes de que venza.', '**Repuestos**: el stock de repuestos; **Registros de combustible**: cada carga.'],
         },
       },
     ],
@@ -1077,8 +1187,8 @@ export const MANUAL = [
         id: 'roles-standard', perms: ['permissions_view', 'permissions_edit', 'users_view'], paths: ['permissions', 'users'],
         title: { en: 'The standard roles of every company', es: 'Los roles estándar de cada empresa' },
         steps: {
-          en: ['Each company has its own group of roles; no company sees another one\'s.', '**Admin Compañía**: every form and module of the company (one per company).', '**Helpdesk**: tickets and the company mail.', '**Website**: website management and the portfolio.', '**Formularios**: the forms and their submissions, read only — no new form, no delete.', '**Customer** and **Employee**: given automatically to customers\' and employees\' logins.', 'Supplier, Sales Agent and Online Store appear by themselves when the company creates that kind of login; a business\'s own roles (hospital, school, a manager or field role) are added as needed.'],
-          es: ['Cada empresa tiene su propio grupo de roles; ninguna ve los de otra.', '**Admin Compañía**: todos los formularios y módulos de la empresa (uno por empresa).', '**Helpdesk**: tickets y el correo de la empresa.', '**Website**: administración del sitio web y el portafolio.', '**Formularios**: los formularios y sus envíos, solo lectura — sin crear ni borrar.', '**Customer** y **Employee**: se asignan solos a los accesos de clientes y empleados.', 'Supplier, Sales Agent y Online Store aparecen solos cuando la empresa crea ese tipo de acceso; los roles propios del negocio (hospital, escuela, un gerente o un rol de campo) se agregan según se necesiten.'],
+          en: ['Each company has its own group of roles; no company sees another one\'s.', '**IT Admin**: the company\'s IT person: users, roles, settings and menu order (one per company).', '**Manager**: runs the business: every main module, without configuration.', '**Helpdesk**: tickets and the company mail.', '**Website**: website management and the portfolio.', '**Info**: the forms and their submissions, read only — no new form, no delete.', '**Customer** and **Employee**: given automatically to customers\' and employees\' logins.', 'Supplier, Sales Agent and Online Store appear by themselves when the company creates that kind of login; a business\'s own roles (hospital, school, a manager or field role) are added as needed.'],
+          es: ['Cada empresa tiene su propio grupo de roles; ninguna ve los de otra.', '**IT Admin**: la persona de sistemas de la empresa: usuarios, roles, configuración y orden del menú (uno por empresa).', '**Manager**: dirige el negocio: todos los módulos principales, sin configuración.', '**Helpdesk**: tickets y el correo de la empresa.', '**Website**: administración del sitio web y el portafolio.', '**Info**: los formularios y sus envíos, solo lectura — sin crear ni borrar.', '**Customer** y **Employee**: se asignan solos a los accesos de clientes y empleados.', 'Supplier, Sales Agent y Online Store aparecen solos cuando la empresa crea ese tipo de acceso; los roles propios del negocio (hospital, escuela, un gerente o un rol de campo) se agregan según se necesiten.'],
         },
         note: {
           en: 'Only the SuperAdmin works across every company.',
