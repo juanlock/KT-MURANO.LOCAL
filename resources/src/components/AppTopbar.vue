@@ -10,12 +10,16 @@
 
     <!-- The company's logo and name next to the toggle while the side menu (and
          its brand) is hidden or collapsed, so the header is never left empty. -->
-    <div v-if="showBrand" class="tb-brand" @click="$router.push('/')">
+    <div v-if="showBrand" class="tb-brand" :class="{ 'tb-brand--nav': topNav }" @click="$router.push('/')">
       <img v-if="auth.logoUrl" :src="auth.logoUrl" alt="" class="tb-brand-logo" />
       <span v-else class="tb-brand-initial">{{ auth.brandInitial }}</span>
-      <!-- The name always (auth.companyName follows the sidebar's own "show name" switch). -->
-      <span v-if="auth.user?.company" class="tb-brand-name">{{ auth.user.company }}</span>
+      <!-- The name always (auth.companyName follows the sidebar's own "show name" switch);
+           with the menu in the bar, only the logo, to leave the room to the groups. -->
+      <span v-if="auth.user?.company && !topNav" class="tb-brand-name">{{ auth.user.company }}</span>
     </div>
+
+    <!-- Side menu collapsed (user's rule, 2026-11-10): its groups as buttons here, items in a popup. -->
+    <SidebarMenu v-if="topNav" horizontal :theme="ui.dark ? 'dark' : 'light'" />
 
     <!-- Right: actions (icons placed by the user's order, Profile -> Header icons) -->
     <div class="tb-actions">
@@ -345,6 +349,7 @@ import {
 } from '@ant-design/icons-vue';
 import TodaySummary from './TodaySummary.vue';
 import ManualDrawer from './ManualDrawer.vue';
+import SidebarMenu from './SidebarMenu.vue';
 import LoginsDrawer from './LoginsDrawer.vue';
 import { KeyOutlined } from '@ant-design/icons-vue';
 import OpenBookIcon from './icons/OpenBookIcon.vue';
@@ -361,6 +366,8 @@ import { message } from 'ant-design-vue';
 defineProps({
   collapsed: { type: Boolean, default: false },
   showBrand: { type: Boolean, default: false },
+  // The side menu is collapsed: its groups go in this bar (SidebarMenu horizontal).
+  topNav: { type: Boolean, default: false },
 });
 const emit = defineEmits(['toggle-sidebar', 'logout']);
 
@@ -671,6 +678,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   display: flex; align-items: center; gap: 10px; min-width: 0;
   margin: 0 auto 0 8px; padding-right: 12px; cursor: pointer;
 }
+.tb-brand--nav { margin-right: 0; padding-right: 4px; }
 .tb-brand-logo { height: 34px; max-width: 120px; width: auto; object-fit: contain; flex: none; }
 .tb-brand-initial {
   width: 34px; height: 34px; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center;
@@ -704,6 +712,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: none;
 }
 .tb-slot {
   display: inline-flex;

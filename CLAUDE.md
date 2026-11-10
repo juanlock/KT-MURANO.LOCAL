@@ -804,7 +804,7 @@ the start of each session).
   (migrations 2026_11_05_130000 / 130100); install-wide SuperAdmin screens (Update, Mail, SMS, Backup, Pay gateways) were
   left out. A stored name the code compares (`payment_methods.name`) stays as it is: only what is shown is translated
   (`looseTranslation`).
-- **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
+- **Collapsing the side menu = the menu goes to the top bar (user's rule, 2026-11-10).** On a computer (not a phone, not a hospital, which has its own button bar) the`n  collapse button hides the side menu completely and its groups become buttons next to that button; a click opens the group's items in a popup there (nested`n  groups as submenus), what doesn't fit goes under "Más". Same tree, permissions and order as the side menu: `SidebarMenu` with `horizontal` (`AppTopbar` `topNav`,`n  `AdminLayout` `topNav`).`n- **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
   sorted alphabetically by its displayed label, using the shared
   `sortByLabel()` helper (`resources/src/lib/filterOptions.js`) -- wrap the

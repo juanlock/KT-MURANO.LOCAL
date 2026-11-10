@@ -9,7 +9,7 @@
     <div v-if="isMobile && mobileOpen" class="sidebar-backdrop" @click="mobileOpen = false"></div>
 
     <a-layout-sider
-      v-show="!menuHidden"
+      v-show="!menuHidden && !topNav"
       :collapsed="effectiveCollapsed"
       collapsible
       :trigger="null"
@@ -67,6 +67,7 @@
         <AppTopbar
           :collapsed="collapsed"
           :show-brand="menuHidden || effectiveCollapsed || (isMobile && !mobileOpen)"
+          :top-nav="topNav"
           @toggle-sidebar="onToggleSidebar"
           @logout="logout"
         />
@@ -159,6 +160,11 @@ const isHospital = computed(() => ['hospital', 'health_specialist'].includes(aut
 const HOSP_MENU_KEY = 'hospital_menu_shown';
 const hospitalMenuShown = ref((() => { try { return sessionStorage.getItem(HOSP_MENU_KEY) === '1'; } catch (e) { return false; } })());
 const menuHidden = computed(() => isHospital.value && !isMobile.value && !hospitalMenuShown.value);
+
+// Collapsing the side menu means "I want room" (user's rule, 2026-11-10): it disappears and its
+// groups become buttons in the top bar, each opening its items right there. Not on phones (the
+// off-canvas menu) nor in a hospital (its own button bar, HospitalQuickNav).
+const topNav = computed(() => !isMobile.value && !isHospital.value && collapsed.value);
 
 function onToggleSidebar() {
   if (isMobile.value) mobileOpen.value = !mobileOpen.value;

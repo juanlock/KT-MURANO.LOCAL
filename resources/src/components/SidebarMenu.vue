@@ -1,5 +1,22 @@
 <template>
+  <!-- Side menu collapsed (user's rule, 2026-11-10): the same groups as buttons in the top bar,
+       each one opening its items in a popup right there; what doesn't fit goes under "...". -->
   <a-menu
+    v-if="horizontal"
+    :key="'top-' + menuVersion"
+    :selected-keys="selectedKeys"
+    class="topbar-menu"
+    mode="horizontal"
+    trigger-sub-menu-action="click"
+    :theme="theme"
+    :items="items"
+    :style="{ '--sb-primary': ui.primaryColor }"
+    @click="onClick"
+  >
+    <template #overflowedIndicator><span class="topbar-more">{{ String(locale).startsWith('es') ? 'Más' : 'More' }} <DownOutlined /></span></template>
+  </a-menu>
+  <a-menu
+    v-else
     :key="menuVersion"
     v-model:selectedKeys="selectedKeys"
     v-model:openKeys="openKeys"
@@ -26,6 +43,7 @@
 import { computed, onMounted, ref, watch, watchEffect, h } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { DownOutlined } from '@ant-design/icons-vue';
 import { looseTranslation } from '../i18n';
 import { resolveTarget } from '../config/menu';
 import { MENU_ICONS, fallbackIcon } from '../config/menuIcons';
@@ -42,6 +60,8 @@ const props = defineProps({
   theme: { type: String, default: 'light' },
   // Compact icon-rail mode; Ant switches the menu to icons + flyout popups.
   collapsed: { type: Boolean, default: false },
+  // The top bar's version (side menu collapsed): groups as buttons, items in click popups.
+  horizontal: { type: Boolean, default: false },
 });
 
 const { t, te, locale } = useI18n();
@@ -119,7 +139,8 @@ function allowed(entry) {
 // Sidebar "filter menus" search box (below the logo, AdminLayout.vue).
 // Empty query = every existing allowed()/hasVisibleDescendant() check below
 // behaves exactly as it always did (matchesSearch is a no-op then).
-const searchQuery = computed(() => (ui.menuSearchQuery || '').trim().toLowerCase());
+// The top bar has no search box: it always shows the whole menu.
+const searchQuery = computed(() => (props.horizontal ? '' : (ui.menuSearchQuery || '').trim().toLowerCase()));
 function matchesSearch(entry) {
   if (!searchQuery.value) return true;
   return label(entry).toLowerCase().includes(searchQuery.value);
@@ -590,6 +611,35 @@ watch(openKeys, (nv, ov) => {
   text-transform: uppercase;
   line-height: 16px;
   pointer-events: none;
+}
+
+/* The top bar's menu (side menu collapsed): takes the room between the logo and the icons;
+   Ant folds what doesn't fit into "...". Group buttons compact, the current page's group marked. */
+.topbar-menu {
+  flex: 1;
+  min-width: 0;
+  background: transparent !important;
+  border-bottom: none !important;
+  line-height: 40px;
+}
+.topbar-menu :deep(> .ant-menu-submenu),
+.topbar-menu :deep(> .ant-menu-item) {
+  padding-inline: 8px !important;
+}
+.topbar-menu :deep(> .ant-menu-submenu .ant-menu-submenu-title),
+.topbar-menu :deep(> .ant-menu-item) {
+  font-size: 13px;
+  font-weight: 500;
+}
+.topbar-more { font-size: 13px; font-weight: 500; }
+.topbar-more :deep(.anticon) { font-size: 10px; }
+.topbar-menu :deep(> .ant-menu-submenu .anticon),
+.topbar-menu :deep(> .ant-menu-item .anticon) {
+  margin-inline-end: 4px;
+}
+.topbar-menu :deep(.ant-menu-submenu-selected > .ant-menu-submenu-title) {
+  color: var(--sb-primary, #6d28d9);
+  font-weight: 600;
 }
 
 /* Takes the leftover height in the sider's flex column and scrolls on its own,
