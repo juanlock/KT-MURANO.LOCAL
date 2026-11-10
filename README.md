@@ -203,7 +203,31 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
-### 2026-11-09 (Thundera) -- not in production yet
+### 2026-11-10 (Thundera)
+
+- **Daily departures** (transport): each agency's day replaces the client's
+  Excel; the day is copied from an earlier one, passengers and amounts come
+  from the POS tickets, and **Close day** keeps the totals, makes a PDF and
+  emails it. A closed day can only be reopened by IT Admin / Manager.
+- **Collapsing the side menu moves it to the top bar**: its groups become
+  buttons with their items in a popup, the bar takes the company's colour and
+  the company logo replaces the person's picture.
+- **No language button in the top bar** (it repeated Settings / Profile), and
+  **the alerts bell is each company's choice**, off by default: System
+  Settings › General › Show alerts, then which alerts.
+- **POS "Open register"** answers at once on a developer PC (it waited 16 s
+  for the notice email).
+- **Forms dashboard in tabs**: Summary, Analysis (the complaints book grouped,
+  by agency and route), Submissions and Forms; each fits one screen.
+- **Murano is KcolTech's**: the old base's name is gone from every screen and
+  file, the updater no longer asks the old vendor's server, the footer shows
+  Murano's version, and the manual has a **License** entry.
+- **The unused phone app support was removed** (its API, its settings page
+  and its push notices); phones use the web app.
+- **Developer PCs never email real people**: everything goes to one address.
+
+Setup: `php artisan migrate`, `npm run build`.
+### 2026-11-09 (Thundera)
 
 - **Turismo Cautivo's guide for its meeting** (9 pages, Spanish, with its fleet's
   photos and charts from its own data) is kept outside git, with the client's material.
@@ -220,7 +244,7 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 
 Setup: `npm run build`.
 
-### 2026-11-09 (Optimum) -- not in production yet
+### 2026-11-09 (Optimum)
 
 - **Turismo Cautivo, dashboard › Complaints:** the reasons are grouped in a
   few groups (tickets and refunds, the bus and its condition, staff, luggage
@@ -270,30 +294,6 @@ Setup: `php artisan migrate`.
 - **Turismo's invoices** no longer carry another company's US note (late fee,
   phone numbers); terms and the ticket's closing line are in Spanish, and its
   walk-in customer is now "Cliente de mostrador".
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-03 (Optimum)
-
-- **POS ticket sales (transport)**: selling a route ticket asks for each
-  passenger: departure (the route's scheduled trips), identity document type
-  and number (DNI, CE, passport...), adult / minor / infant, names and luggage;
-  a known document fills the names. The price list selector is hidden for
-  tickets; the POS buttons and close-out speak the company's language. Buses
-  have their photos on the ticket products.
-- **Forms submissions**: a **Reply** button emails the sender (their message
-  quoted below) and marks it attended; the list adds Agency, Destination and
-  Email columns (DNI instead of the long document name); the window repeats
-  the form's layout (sections, half / full widths) compactly.
-- **Company logins**: a **Change** button sets a login's password from the
-  table (standard / generated / copy, ask to change at next sign-in).
-- **Account menu** (top right): the person's card -- name, email, username,
-  role, user type, department / job and locations; picture or name open Profile.
-- **Each role opens its own screen**: ticket office -> Terminal POS (POS),
-  pilot / hostess -> their own trips, mechanic -> fleet maintenance, Info ->
-  forms; a role without a home page opens the intranet. On the POS lock, the
-  "Dashboard" button of a POS-only role goes to its sales.
-- **Faster local backups** and production migrations run on the server.
 
 Setup: `php artisan migrate`, `npm run build`.
 
