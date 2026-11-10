@@ -11,151 +11,166 @@
       </template>
     </PageHeader>
 
-    <div class="fd-filter">
-      <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" apply-default @change="load" />
-    </div>
-
+    <!-- Tabs (user's request, 2026-11-10): one screen per subject instead of one long page. -->
     <a-spin :spinning="loading">
-      <!-- The 4 big cards: number + its rate + bar -->
-      <div class="fd-grid4">
-        <div v-for="k in bigCards" :key="k.key" class="fd-card4">
-          <div class="fd-sub">{{ k.label }}</div>
-          <div class="fd-big">{{ num(k.value) }}</div>
-          <div class="fd-rate">
-            <span>{{ k.rateLabel }}</span>
-            <span :class="['fd-rate-v', k.bad ? 'bad' : 'good']">{{ k.rate }}% <RiseOutlined v-if="!k.bad" /></span>
-          </div>
-          <a-progress :percent="k.rate" :show-info="false" size="small" :stroke-color="k.color" />
-        </div>
-      </div>
+      <a-tabs v-model:activeKey="tab" class="fd-tabs" @change="saveTab">
+        <template #rightExtra>
+          <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" apply-default compact @change="load" />
+        </template>
 
-      <!-- The 4 small cards: icon + value -->
-      <div class="fd-grid4">
-        <div v-for="k in smallCards" :key="k.key" class="fd-card4 fd-small-card" :style="k.to ? 'cursor: pointer' : ''" @click="k.to && router.push(k.to)">
-          <span class="fd-icon" :style="{ background: k.color }"><component :is="k.icon" /></span>
-          <div>
-            <div class="fd-strong">{{ k.value }}</div>
-            <div class="fd-muted">{{ k.label }}</div>
+        <!-- Summary: the figures and the trend -->
+        <a-tab-pane key="summary" :tab="es ? 'Resumen' : 'Summary'">
+          <div class="fd-grid4">
+            <div v-for="k in bigCards" :key="k.key" class="fd-card4">
+              <div class="fd-sub">{{ k.label }}</div>
+              <div class="fd-big">{{ num(k.value) }}</div>
+              <div class="fd-rate">
+                <span>{{ k.rateLabel }}</span>
+                <span :class="['fd-rate-v', k.bad ? 'bad' : 'good']">{{ k.rate }}% <RiseOutlined v-if="!k.bad" /></span>
+              </div>
+              <a-progress :percent="k.rate" :show-info="false" size="small" :stroke-color="k.color" />
+            </div>
           </div>
-        </div>
-      </div>
-
-      <a-row :gutter="16">
-        <a-col :xs="24" :lg="14">
+          <div class="fd-grid4">
+            <div v-for="k in smallCards" :key="k.key" class="fd-card4 fd-small-card" :style="k.to ? 'cursor: pointer' : ''" @click="k.to && router.push(k.to)">
+              <span class="fd-icon" :style="{ background: k.color }"><component :is="k.icon" /></span>
+              <div class="fd-row-main">
+                <div class="fd-strong">{{ k.value }}</div>
+                <div class="fd-muted fd-ellipsis">{{ k.label }}</div>
+              </div>
+            </div>
+          </div>
           <ReportChart
-            :data="d.series" type="area" :height="300" :title="es ? 'Resumen de rendimiento' : 'Performance summary'"
+            :data="d.series" type="area" :height="190" :title="es ? 'Resumen de rendimiento' : 'Performance summary'"
             :fields="[
               { key: 'users', label: es ? 'Visitantes' : 'Users' },
               { key: 'starts', label: es ? 'Iniciados' : 'Starters' },
               { key: 'submissions', label: es ? 'Conversiones' : 'Conversions' },
             ]"
           />
-        </a-col>
-        <a-col :xs="24" :lg="10">
-          <!-- Grouped submissions (2026-11-01, in place of "Where submissions come from"):
-               one form's submissions by the answer of a choice field, e.g. the complaints
-               book by complaint type or agency; follows the dashboard dates. -->
-          <a-card size="small" :title="es ? 'Envíos agrupados' : 'Grouped submissions'" class="fd-card">
-            <div class="fd-group-filters">
-              <a-select v-model:value="groupForm" :options="groupFormOptions" size="small" style="flex: 1; min-width: 0" @change="groupField = undefined; loadGroup()" />
-              <a-select v-model:value="groupField" :options="groupFieldOptions" size="small" style="flex: 1; min-width: 0" :placeholder="es ? 'Agrupar por' : 'Group by'" @change="loadGroup" />
-            </div>
-            <a-table :columns="groupColumns" :data-source="group.rows" row-key="value" size="small" :loading="groupLoading"
-              :pagination="{ pageSize: 8, hideOnSinglePage: true, size: 'small' }">
+        </a-tab-pane>
+
+        <!-- Analysis: one form's submissions grouped by an answer, and where they come from
+             (agency, route) when the form asks it (e.g. the complaints book). -->
+        <a-tab-pane key="analysis" :tab="es ? 'Análisis' : 'Analysis'">
+          <div class="fd-group-filters">
+            <a-select v-model:value="groupForm" :options="groupFormOptions" style="width: 300px; max-width: 100%" @change="groupField = undefined; loadGroup()" />
+            <a-select v-model:value="groupField" :options="groupFieldOptions" style="width: 260px; max-width: 100%" :placeholder="es ? 'Agrupar por' : 'Group by'" @change="loadGroup" />
+            <span class="fd-muted">{{ num(group.total) }} {{ es ? 'envíos en el período' : 'submissions in the period' }}</span>
+          </div>
+          <a-row :gutter="16">
+            <a-col :xs="24" :lg="hot.has_agency || hot.has_route ? 10 : 24">
+              <a-card size="small" :title="es ? 'Envíos agrupados' : 'Grouped submissions'" class="fd-card">
+                <a-empty v-if="!groupLoading && !group.fields.length" :image="simple"
+                  :description="es ? 'Este formulario no tiene preguntas de opciones para agrupar.' : 'This form has no choice questions to group by.'" />
+                <a-table v-else :columns="groupColumns" :data-source="group.rows" row-key="value" size="small" :loading="groupLoading"
+                  :pagination="{ pageSize: groupPageSize, hideOnSinglePage: true, size: 'small' }">
+                  <template #bodyCell="{ column, record }">
+                    <template v-if="column.key === 'percent'">
+                      <a-progress :percent="record.percent" size="small" style="margin: 0; min-width: 90px" />
+                    </template>
+                  </template>
+                </a-table>
+              </a-card>
+            </a-col>
+            <a-col v-if="hot.has_agency" :xs="24" :lg="hot.has_route ? 7 : 14">
+              <a-card size="small" class="fd-card" :title="(es ? 'Locales con más ' : 'Locations with most ') + groupFormName">
+                <div class="fd-scroll">
+                  <a-empty v-if="!hot.agencies.length" :image="simple" :description="es ? 'Sin datos' : 'No data'" />
+                  <div v-for="(r, i) in hot.agencies" :key="r.value" class="fd-hot">
+                    <span class="fd-rank">{{ i + 1 }}</span><span class="fd-hot-name">{{ r.value }}</span>
+                    <a-progress :percent="r.percent" :format="() => r.count" size="small" status="exception" style="flex: 0 0 45%; margin: 0" />
+                  </div>
+                </div>
+              </a-card>
+            </a-col>
+            <a-col v-if="hot.has_route" :xs="24" :lg="hot.has_agency ? 7 : 14">
+              <a-card size="small" class="fd-card" :title="(es ? 'Rutas con más ' : 'Routes with most ') + groupFormName">
+                <div class="fd-scroll">
+                  <a-empty v-if="!hot.routes.length" :image="simple" :description="es ? 'Sin datos todavía: el formulario ya pregunta origen y destino.' : 'No data yet: the form now asks origin and destination.'" />
+                  <div v-for="(r, i) in hot.routes" :key="r.value" class="fd-hot">
+                    <span class="fd-rank">{{ i + 1 }}</span><span class="fd-hot-name">{{ r.value }}</span>
+                    <a-progress :percent="r.percent" :format="() => r.count" size="small" status="exception" style="flex: 0 0 45%; margin: 0" />
+                  </div>
+                </div>
+              </a-card>
+            </a-col>
+          </a-row>
+        </a-tab-pane>
+
+        <!-- Submissions: the new ones and the latest -->
+        <a-tab-pane key="submissions">
+          <template #tab>
+            {{ es ? 'Envíos' : 'Submissions' }}
+            <a-badge v-if="unreadTotal" :count="unreadTotal" :overflow-count="999" :number-style="{ backgroundColor: '#1677ff' }" class="fd-tab-badge" />
+          </template>
+          <a-row :gutter="16">
+            <a-col :xs="24" :lg="12">
+              <a-card size="small" :title="es ? 'Nuevos envíos' : 'New submissions'" class="fd-card">
+                <div class="fd-scroll">
+                  <a-empty v-if="!d.unread.length" :image="simple" :description="es ? 'No hay envíos nuevos.' : 'No new submissions.'" />
+                  <div v-for="s in d.unread" :key="s.id" class="fd-row" @click="openSub(s)">
+                    <span class="fd-dot" />
+                    <div class="fd-row-main">
+                      <div class="fd-ellipsis"><b>{{ s.ref }}</b> · {{ s.summary || '—' }}</div>
+                      <div class="fd-muted fd-small">{{ s.form }}<span v-if="isSystem"> · {{ s.company_name }}</span> · {{ fmt(s.created_at) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </a-card>
+            </a-col>
+            <a-col :xs="24" :lg="12">
+              <a-card size="small" :title="es ? 'Últimos envíos' : 'Latest submissions'" class="fd-card">
+                <div class="fd-scroll">
+                  <a-empty v-if="!d.latest.length" :image="simple" :description="es ? 'Sin datos' : 'No data'" />
+                  <div v-for="s in d.latest" :key="s.id" class="fd-row" @click="openSub(s)">
+                    <span class="fd-dot" :class="{ read: s.is_read }" />
+                    <div class="fd-row-main">
+                      <div class="fd-ellipsis"><b>{{ s.ref }}</b> · {{ s.summary || '—' }}</div>
+                      <div class="fd-muted fd-small">{{ s.form }}<span v-if="isSystem"> · {{ s.company_name }}</span> · {{ fmt(s.created_at) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </a-card>
+            </a-col>
+          </a-row>
+        </a-tab-pane>
+
+        <!-- Forms: rankings and the performance of each one -->
+        <a-tab-pane key="forms" :tab="es ? 'Formularios' : 'Forms'">
+          <div class="fd-grid4">
+            <a-card v-for="l in lists" :key="l.key" size="small" :title="l.title" class="fd-card fd-list-card">
+              <a-empty v-if="!d[l.key].length" :image="simple" :description="es ? 'Sin datos' : 'No data'" />
+              <div v-for="f in d[l.key]" :key="f.id" class="fd-row" @click="$router.push(`/forms/${f.id}/submissions`)">
+                <div class="fd-row-main">
+                  <div class="fd-ellipsis">{{ f.name }}</div>
+                  <div v-if="isSystem" class="fd-muted fd-small">{{ f.company_name }}</div>
+                </div>
+                <b v-if="l.value">{{ num(f[l.value]) }}</b>
+                <span v-else class="fd-muted fd-small">{{ ago(f.updated_at) }}</span>
+              </div>
+            </a-card>
+          </div>
+          <a-card size="small" :title="es ? 'Rendimiento por formulario' : 'Performance per form'" class="fd-card">
+            <a-table :columns="formColumns" :data-source="d.forms" row-key="id" size="small" :pagination="{ pageSize: 6, hideOnSinglePage: true, size: 'small' }" :scroll="{ x: 'max-content' }">
               <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'percent'">
-                  <a-progress :percent="record.percent" size="small" style="margin: 0; min-width: 90px" />
+                <template v-if="column.key === 'name'">
+                  <router-link :to="`/forms/${record.id}/submissions`">{{ record.name }}</router-link>
+                  <a-tag v-if="!record.status" class="fd-tag">{{ es ? 'Borrador' : 'Draft' }}</a-tag>
+                </template>
+                <template v-else-if="column.key === 'conversion'">
+                  <a-progress v-if="record.conversion !== null" :percent="record.conversion" size="small" stroke-color="#10b981" style="width: 120px; margin: 0" />
+                  <span v-else class="fd-muted">—</span>
+                </template>
+                <template v-else-if="column.key === 'unread'">
+                  <a-badge v-if="record.unread" :count="record.unread" :number-style="{ backgroundColor: '#1677ff' }" />
+                  <span v-else class="fd-muted">0</span>
                 </template>
               </template>
             </a-table>
-            <div class="fd-muted fd-small">{{ group.total }} {{ es ? 'envíos en el período' : 'submissions in the period' }}</div>
           </a-card>
-        </a-col>
-      </a-row>
-
-      <!-- Where the problems are (2026-11-01): the form's submissions by agency and by
-           route (origin → destination), when the form asks them (e.g. a complaints book). -->
-      <a-row v-if="hot.has_agency || hot.has_route" :gutter="16">
-        <a-col v-if="hot.has_agency" :xs="24" :lg="12">
-          <a-card size="small" class="fd-card" :title="(es ? 'Locales con más ' : 'Locations with most ') + groupFormName">
-            <a-empty v-if="!hot.agencies.length" :image="simple" :description="es ? 'Sin datos' : 'No data'" />
-            <div v-for="(r, i) in hot.agencies" :key="r.value" class="fd-hot">
-              <span class="fd-rank">{{ i + 1 }}</span><span class="fd-hot-name">{{ r.value }}</span>
-              <a-progress :percent="r.percent" :format="() => r.count" size="small" status="exception" style="flex: 0 0 45%; margin: 0" />
-            </div>
-          </a-card>
-        </a-col>
-        <a-col v-if="hot.has_route" :xs="24" :lg="12">
-          <a-card size="small" class="fd-card" :title="(es ? 'Rutas con más ' : 'Routes with most ') + groupFormName">
-            <a-empty v-if="!hot.routes.length" :image="simple" :description="es ? 'Sin datos todavía: el formulario ya pregunta origen y destino.' : 'No data yet: the form now asks origin and destination.'" />
-            <div v-for="(r, i) in hot.routes" :key="r.value" class="fd-hot">
-              <span class="fd-rank">{{ i + 1 }}</span><span class="fd-hot-name">{{ r.value }}</span>
-              <a-progress :percent="r.percent" :format="() => r.count" size="small" status="exception" style="flex: 0 0 45%; margin: 0" />
-            </div>
-          </a-card>
-        </a-col>
-      </a-row>
-
-      <!-- Most visited / most started / most conversions / last updated -->
-      <div class="fd-grid4 fd-lists">
-        <a-card v-for="l in lists" :key="l.key" size="small" :title="l.title" class="fd-card">
-          <a-empty v-if="!d[l.key].length" :image="simple" :description="es ? 'Sin datos' : 'No data'" />
-          <div v-for="f in d[l.key]" :key="f.id" class="fd-row" @click="$router.push(`/forms/${f.id}/submissions`)">
-            <div class="fd-row-main">
-              <div class="fd-ellipsis">{{ f.name }}</div>
-              <div v-if="isSystem" class="fd-muted fd-small">{{ f.company_name }}</div>
-            </div>
-            <b v-if="l.value">{{ num(f[l.value]) }}</b>
-            <span v-else class="fd-muted fd-small">{{ ago(f.updated_at) }}</span>
-          </div>
-        </a-card>
-      </div>
-
-      <a-row :gutter="16">
-        <a-col :xs="24" :lg="12">
-          <a-card size="small" :title="es ? 'Nuevos envíos' : 'New submissions'" class="fd-card">
-            <a-empty v-if="!d.unread.length" :image="simple" :description="es ? 'No hay envíos nuevos.' : 'No new submissions.'" />
-            <div v-for="s in d.unread" :key="s.id" class="fd-row" @click="openSub(s)">
-              <span class="fd-dot" />
-              <div class="fd-row-main">
-                <div class="fd-ellipsis"><b>{{ s.ref }}</b> · {{ s.summary || '—' }}</div>
-                <div class="fd-muted fd-small">{{ s.form }}<span v-if="isSystem"> · {{ s.company_name }}</span> · {{ fmt(s.created_at) }}</div>
-              </div>
-            </div>
-          </a-card>
-        </a-col>
-        <a-col :xs="24" :lg="12">
-          <a-card size="small" :title="es ? 'Últimos envíos' : 'Latest submissions'" class="fd-card">
-            <a-empty v-if="!d.latest.length" :image="simple" />
-            <div v-for="s in d.latest" :key="s.id" class="fd-row" @click="openSub(s)">
-              <span class="fd-dot" :class="{ read: s.is_read }" />
-              <div class="fd-row-main">
-                <div class="fd-ellipsis"><b>{{ s.ref }}</b> · {{ s.summary || '—' }}</div>
-                <div class="fd-muted fd-small">{{ s.form }}<span v-if="isSystem"> · {{ s.company_name }}</span> · {{ fmt(s.created_at) }}</div>
-              </div>
-            </div>
-          </a-card>
-        </a-col>
-      </a-row>
-
-      <a-card size="small" :title="es ? 'Rendimiento por formulario' : 'Performance per form'" class="fd-card">
-        <a-table :columns="formColumns" :data-source="d.forms" row-key="id" size="small" :pagination="{ pageSize: 10, hideOnSinglePage: true }" :scroll="{ x: 'max-content' }">
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'name'">
-              <router-link :to="`/forms/${record.id}/submissions`">{{ record.name }}</router-link>
-              <a-tag v-if="!record.status" class="fd-tag">{{ es ? 'Borrador' : 'Draft' }}</a-tag>
-            </template>
-            <template v-else-if="column.key === 'conversion'">
-              <a-progress v-if="record.conversion !== null" :percent="record.conversion" size="small" stroke-color="#10b981" style="width: 120px; margin: 0" />
-              <span v-else class="fd-muted">—</span>
-            </template>
-            <template v-else-if="column.key === 'unread'">
-              <a-badge v-if="record.unread" :count="record.unread" :number-style="{ backgroundColor: '#1677ff' }" />
-              <span v-else class="fd-muted">0</span>
-            </template>
-          </template>
-        </a-table>
-      </a-card>
+        </a-tab-pane>
+      </a-tabs>
     </a-spin>
   </div>
 </template>
@@ -182,6 +197,11 @@ const ui = useUiStore();
 const es = computed(() => ui.locale === 'es');
 const { isSystem } = useSystemContext();
 const simple = Empty.PRESENTED_IMAGE_SIMPLE;
+
+// The tab this person left open (only a convenience: a blocked storage just opens Summary).
+const TAB_KEY = 'forms-dashboard-tab';
+const tab = ref((() => { try { return localStorage.getItem(TAB_KEY) || 'summary'; } catch (e) { return 'summary'; } })());
+function saveTab(k) { try { localStorage.setItem(TAB_KEY, k); } catch (e) { /* ignore */ } }
 
 const range = ref([dayjs().subtract(29, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')]);
 const loading = ref(false);
@@ -223,6 +243,10 @@ const smallCards = computed(() => {
     { key: 'unread', icon: EyeOutlined, color: '#ef4444', value: num(c.period_unread), label: es.value ? 'Por leer' : 'Unread', to: reportLink('0') },
   ];
 });
+// As many grouped rows as fit on this screen (about 47 px each), so the tab has no page scroll.
+const groupPageSize = Math.max(5, Math.floor((window.innerHeight - 440) / 47));
+// Every unread submission of every form (the "New submissions" list shows only the latest).
+const unreadTotal = computed(() => (d.value.forms || []).reduce((t, f) => t + Number(f.unread || 0), 0));
 const lists = computed(() => [
   { key: 'most_visited', title: es.value ? 'Más visitados' : 'Most visited forms', value: 'users' },
   { key: 'most_started', title: es.value ? 'Más iniciados' : 'Most starts', value: 'starts' },
@@ -245,8 +269,11 @@ async function load() {
   loading.value = true;
   try {
     d.value = await http.get('forms/dashboard', { from: range.value?.[0], to: range.value?.[1] });
-    // Grouped submissions: the form with the most submissions unless one was picked.
-    if (!groupForm.value || !d.value.forms.some(f => f.id === groupForm.value)) groupForm.value = d.value.forms[0]?.id;
+    // Analysis: the complaints book when there is one (it has answers to group by), else the
+    // form with the most submissions -- unless one was picked.
+    if (!groupForm.value || !d.value.forms.some(f => f.id === groupForm.value)) {
+      groupForm.value = (d.value.forms.find(f => /reclam|queja|complaint/i.test(f.name)) || d.value.forms[0])?.id;
+    }
     loadGroup();
   } catch (e) {
     message.error(e?.data?.message || e.message);
@@ -302,21 +329,26 @@ load();
 </script>
 
 <style scoped>
-.fd-filter { margin-bottom: 16px; }
-.fd-grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.fd-tabs :deep(.ant-tabs-nav) { margin-bottom: 12px; }
+.fd-tab-badge { margin-inline-start: 6px; }
+.fd-tab-badge :deep(.ant-badge-count) { box-shadow: none; }
+/* Long lists scroll inside their card: the page itself stays on one screen. */
+.fd-scroll { max-height: calc(100vh - 330px); min-height: 160px; overflow-y: auto; }
+.fd-list-card :deep(.ant-card-body) { max-height: 230px; overflow-y: auto; }
+.fd-grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 @media (max-width: 1100px) { .fd-grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .fd-grid4 { grid-template-columns: 1fr; } }
-.fd-card4 { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 10px; padding: 16px; background: rgba(128, 128, 128, 0.03); }
+.fd-card4 { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 10px; padding: 12px 16px; background: rgba(128, 128, 128, 0.03); min-width: 0; }
 .fd-sub { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.6; font-weight: 600; }
-.fd-big { font-size: 30px; font-weight: 700; line-height: 1.25; margin: 6px 0 10px; }
+.fd-big { font-size: 26px; font-weight: 700; line-height: 1.2; margin: 4px 0 6px; }
 .fd-rate { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 2px; }
 .fd-rate-v.good { color: #10b981; font-weight: 600; }
 .fd-rate-v.bad { color: #ef4444; font-weight: 600; }
-.fd-small-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.fd-small-card { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
 .fd-icon { width: 40px; height: 40px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex: none; }
 .fd-strong { font-weight: 600; }
-.fd-card { margin-bottom: 16px; }
-.fd-group-filters { display: flex; gap: 8px; margin-bottom: 8px; }
+.fd-card { margin-bottom: 12px; }
+.fd-group-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .fd-hot { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .fd-rank { width: 22px; height: 22px; border-radius: 50%; background: rgba(239, 68, 68, 0.12); color: #dc2626; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .fd-hot-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

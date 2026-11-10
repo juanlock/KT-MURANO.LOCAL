@@ -65,6 +65,9 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // A developer PC (database dbmurano) never emails real people: everything to one address.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Mail\Events\MessageSending::class, [\App\Support\DevMailGuard::class, 'handle']);
+
         View::composer('*', function ($view) {
             $firstSegment = Request::segment(1); // Get the first segment of the URL
 
