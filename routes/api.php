@@ -808,6 +808,20 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/parcels/board', 'parcelsBoard');
         Route::get('/departures', 'departures');
     });
+    // Daily departures (2026-11-10): the agency's day planned, completed and closed (PDF + email + history).
+    Route::prefix('transport/daily')->controller(\App\Http\Controllers\TransportDailyController::class)->group(function () {
+        Route::get('/', 'show');
+        Route::post('/trips', 'save');
+        Route::put('/trips/{id}', 'save')->whereNumber('id');
+        Route::delete('/trips/{id}', 'destroy')->whereNumber('id');
+        Route::post('/copy', 'copy');
+        Route::post('/price', 'price');
+        Route::post('/emails', 'emails');
+        Route::post('/close', 'close');
+        Route::post('/reopen', 'reopen');
+        Route::get('/history', 'history');
+        Route::get('/pdf/{id}', 'pdf')->whereNumber('id');
+    });
     // Vehicle monitoring (2026-11-06): the crew's reports from the phone, the bus's position, punctuality.
     Route::prefix('transport/control')->controller(\App\Http\Controllers\TransportControlController::class)->group(function () {
         Route::get('/mine', 'mine');

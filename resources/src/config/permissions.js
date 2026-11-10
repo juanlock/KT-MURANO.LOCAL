@@ -1387,6 +1387,56 @@ export const PERMISSION_GROUPS = [
         "raw": true,
         "items": [
             {
+                "v": "transport_view",
+                "l": "Perm_Transport_View",
+                "f": "See trips, routes and crew"
+            },
+            {
+                "v": "transport_manage",
+                "l": "Perm_Transport_Manage",
+                "f": "Plan trips, routes and locations"
+            },
+            {
+                "v": "transport_supervise",
+                "l": "Perm_Transport_Supervise",
+                "f": "Decide today's departures"
+            },
+            {
+                "v": "transport_departures_view",
+                "l": "Perm_Transport_Daily_View",
+                "f": "Daily departures: see"
+            },
+            {
+                "v": "transport_departures_manage",
+                "l": "Perm_Transport_Daily_Manage",
+                "f": "Daily departures: plan and close"
+            },
+            {
+                "v": "transport_departures_reopen",
+                "l": "Perm_Transport_Daily_Reopen",
+                "f": "Daily departures: reopen a day"
+            },
+            {
+                "v": "transport_boarding",
+                "l": "Perm_Transport_Boarding",
+                "f": "Board passengers"
+            },
+            {
+                "v": "transport_parcels",
+                "l": "Perm_Transport_Parcels",
+                "f": "Register parcels"
+            },
+            {
+                "v": "transport_tolls",
+                "l": "Perm_Transport_Tolls",
+                "f": "Register tolls"
+            },
+            {
+                "v": "transport_profit",
+                "l": "Perm_Transport_Profit",
+                "f": "See each trip's profit"
+            },
+            {
                 "v": "transport_monitor",
                 "l": "Transport_Monitor",
                 "f": "Vehicle monitoring"

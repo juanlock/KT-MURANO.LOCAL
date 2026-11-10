@@ -200,8 +200,7 @@ the old `UTC` setting and were not retroactively converted.
 Reporte de salidas opens on real data. Only Reporte de salidas and Reclamos hold real data; the other transport tabs are demo.
 
 Waiting for the user's answer -- bring these up, don't decide them alone (remove each one once settled):
-1. **A screen to enter each day's departures for Turismo** (bus, boarding points, times, passengers, amount, toll, fuel; not
-   started). The user's requirement: the report can go to PDF or email and every day stays stored as history. Recommended before the 15th.
+1. **Daily departures screen: built 2026-11-10** (see Transport below). To ask the client at the meeting: who fills the report in each agency and when it is closed, whether every agency will sell on the POS, when toll and fuel are known, who gets the daily PDF.
 2. **337 complaints imported with their answers one field off:** the dashboard reads them through `LEGACY_KEYS`, but the
    admin who opens one to reply sees them wrong. Recommended: correct them with a migration, production backup first.
 3. **The client's data:** which 4 buses have deluxe seats (all 17 say 15; our guess 103, 104, 370, 380); name, plate and seats of
@@ -210,9 +209,8 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
 5. **Vehicle monitoring:** do the buses already have GPS, from which provider, and does it give access to its data? What the client considers late (10 min is ours)? A photo at every arrival, or only at the destination (every arrival is ours)? Keep the GPS trail 30 days (ours)?
 6. **Terminals, the user asks the client (2026-11-06; nothing is built until answered):** the user describes a terminal as a small premises that stores the parcels for the next route, where passengers get on and off. Today terminals have no warehouse, staff or parcels. Does each have its own staff with a login, or is it run from the city's agency? Does it sell tickets and take money, or only board passengers and receive parcels? Is a parcel received at a terminal and picked up there by the bus (terminal -> bus -> terminal, with a history of where it is)? Do all 39 work like that, or are some only sales or stops: Móvil PNorte, Móvil Chiclayo, Oficina Galves?
    Also to check on the list: "Lambayeqye 2" (misspelt?), Ilo under Lima, Chimbote and Virú under Trujillo; coordinates missing for Ilo, Oficina Galves, Puente Nuevo, José Gálvez, La Pampa; most others are approximate.
-7. **Not checked:** the other 7 transport permissions are not on the Roles screen (`config/permissions.js`), and saving a role replaces its permissions, so they might be lost.
 
-Next, once the monitoring is settled: item 1, the daily departures screen. The monitoring has been tested with simulated GPS only: try it on a real phone with a real trip before the 15th.
+The monitoring has been tested with simulated GPS only: try it on a real phone with a real trip before the 15th.
 
 Not reviewed yet: PDFs other than the invoice, about 60 store / meeting messages without Spanish, the customer portal, a real
 send of the meeting and asset emails, whether production's `.env` sets `QUEUE_FAILED_DRIVER`.
@@ -686,7 +684,7 @@ the start of each session).
   approximate and 8 places have none: until corrected, GPS detection misses or is off. A bus's own GPS (`source` = device) is not connected yet.
   **Emulated, on a developer PC only (2026-11-06):** `php artisan transport:monitor-demo` (`--loop` keeps the buses moving, `--clear` removes it; refuses any database but `dbmurano`; a Wake-up wipes it, run it again). My trip shows a GPS
   simulator on `.local` / `.test` / `127.*` / `localhost`, since the browser gives no location without HTTPS. **Open:** today a terminal has no warehouse, staff or parcels: tickets, parcels and logins are per agency; the user describes a terminal as a small premises that stores the parcels for the next route, where passengers get on and off.
-  **The owner's figures (2026-11-04):** the dashboard's "Business summary" block
+  **Daily departures (user's yes, 2026-11-10):** `/transport/daily` (`TransportDaily.vue`, `TransportDailyController`, permissions `transport_departures_view` /`n  `_manage` (Supervisor, IT Admin, Manager) / `_reopen` (IT Admin, Manager)): the agency's day replaces the client's Excel. No schedule table: the day is copied from an earlier one`n  (times, routes, buses, boarding points); passengers / amount come from the POS tickets unless typed (`reported_*`); toll = one `transport_tolls` row "Reporte diario"`n  (other toll rows count, never lower); fuel = `fuel_cost`. **Close day** = one transaction: trips confirmed, the day's rows and totals kept in `transport_day_closures`,`n  then the private PDF (`files/company_{id}/transport/daily/`, `pdf.transport_daily`, landscape) and the email to `settings.transport_daily_emails`; a closed day is locked`n  (423) until reopened with a reason. A day with tickets / parcels on a trip: that trip is cancelled from Today's departures, not removed here.`n  **The owner's figures (2026-11-04):** the dashboard's "Business summary" block
   (`TransportOwnerPanel.vue`, `transport/owner`, section `transport_owner`): income and
   tickets today / month by agency, today's trips, the month's fleet costs, best-selling
   routes, what falls due on the buses; needs the `dashboard` permission (a pilot's

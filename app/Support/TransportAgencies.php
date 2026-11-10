@@ -22,7 +22,7 @@ class TransportAgencies
     public const SUPERVISOR_ROLE = 'Supervisor';
 
     /** The agency's supervisor (2026-11-04): decides the day's departures, registers parcels and tolls. */
-    public const SUPERVISOR_PERMISSIONS = ['transport_supervise', 'transport_parcels', 'transport_tolls'];
+    public const SUPERVISOR_PERMISSIONS = ['transport_supervise', 'transport_parcels', 'transport_tolls', 'transport_departures_view', 'transport_departures_manage'];
 
     /**
      * Each active agency gets its warehouse (the first one takes the company's
