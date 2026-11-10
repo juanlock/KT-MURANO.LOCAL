@@ -25,6 +25,7 @@ import http from '../lib/http';
 import { BLUE, GRAY, ORANGE, useFitHeight, useTransportCharts } from '../lib/transportCharts';
 import TransportChartBlock from './TransportChartBlock.vue';
 import TransportStrip from './TransportStrip.vue';
+import { CLAIM_GROUPS, claimDetailName } from '../lib/transportClaimTopics';
 
 // The dashboard's own date filter: [from, to], null = its "All" (all the history here).
 const props = defineProps({ range: { type: Array, default: null } });
@@ -87,6 +88,31 @@ function ranked(key, rows, title, help, height, labelWidth) {
   };
 }
 
+// The reasons in a few groups (2026-11-09: the list was too long, and "Otros reclamos" said nothing). The server sorts
+// each "Otros reclamos" into a topic by the words of its detail; the text itself never reaches the screen.
+const GROUPS = CLAIM_GROUPS;
+const detailName = n => claimDetailName(n, tr);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function grouped(groups, height) {
+  const total = data.value.total;
+  const names = groups.map(g => (GROUPS[g.key] ? tr(...GROUPS[g.key]) : g.key));
+  const options = hbar(names, [{ data: groups.map(g => g.n) }], { colors: [BLUE], labels: v => v, tooltip: v => v, offset: 16, labelWidth: 170, height });
+  options.tooltip = { ...options.tooltip, custom: ({ dataPointIndex }) => {
+    const g = groups[dataPointIndex];
+    const rows = g.details.map(x => `<div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(detailName(x.name))}</span><b>${x.n}</b></div>`).join('');
+    return `<div style="padding:6px 8px;max-width:340px;font-size:11px"><div style="font-weight:600;margin-bottom:4px">${esc(names[dataPointIndex])}: ${g.n}</div>${rows}</div>`;
+  } };
+  return {
+    key: 'reasons', type: 'bar', height,
+    title: tr('Why they complain', 'Por qué reclaman'),
+    help: tr('The reasons in groups; hover a bar for its detail. "Other complaints" are sorted by the words of what the customer wrote.', 'Los motivos agrupados; pasa el mouse por una barra para ver su detalle. Los "Otros reclamos" se clasifican por las palabras de lo que escribió el cliente.'),
+    series: [{ name: tr('Complaints', 'Reclamos'), data: groups.map(g => g.n) }],
+    options,
+    table: { cols: [tr('Group', 'Grupo'), tr('Reason', 'Motivo'), tr('Number', 'Cantidad'), '%'],
+      rows: groups.flatMap((g, i) => g.details.map((x, j) => [j ? '' : `${names[i]} (${g.n})`, detailName(x.name), x.n, `${Math.round((x.n / total) * 100)} %`])) },
+  };
+}
+
 const charts = computed(() => {
   const d = data.value;
   const out = [];
@@ -112,7 +138,8 @@ const charts = computed(() => {
     });
   }
   if (d.products?.length) out.push(ranked('products', d.products, tr('About which service', 'Sobre qué servicio'), tr('Tickets, parcels or not specified.', 'Pasajes, encomiendas o sin especificar.'), serviceHeight.value, 110));
-  if (d.reasons?.length) out.push(ranked('reasons', d.reasons, tr('Why they complain', 'Por qué reclaman'), tr('The reason the customer picked.', 'El motivo que eligió el cliente.'), tall.value, 190));
+  if (d.groups?.length) out.push(grouped(d.groups, tall.value));
+  else if (d.reasons?.length) out.push(ranked('reasons', d.reasons, tr('Why they complain', 'Por qué reclaman'), tr('The reason the customer picked.', 'El motivo que eligió el cliente.'), tall.value, 190));
   if (d.agencies?.length) out.push(ranked('agencies', d.agencies, tr('In which agency', 'En qué agencia'), tr('The agency the customer picked.', 'La agencia que eligió el cliente.'), tall.value, 110));
   return out;
 });

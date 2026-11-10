@@ -803,6 +803,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/profit', 'profit');
         Route::get('/indicators', 'indicators');
         Route::get('/claims', 'claims');
+        Route::get('/parcels/board', 'parcelsBoard');
         Route::get('/departures', 'departures');
     });
     // Vehicle monitoring (2026-11-06): the crew's reports from the phone, the bus's position, punctuality.
