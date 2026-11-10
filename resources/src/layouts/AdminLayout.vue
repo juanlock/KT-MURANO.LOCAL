@@ -63,7 +63,8 @@
 
     <a-layout>
       <!-- ================= Header ================= -->
-      <a-layout-header class="topbar" :class="{ 'topbar--dark': ui.dark }">
+      <!-- Menu in the bar: the bar takes the company's colour, so it reads as the menu now (user's rule, 2026-11-10). -->
+      <a-layout-header class="topbar" :class="{ 'topbar--dark': ui.dark && !topNav, 'topbar--nav': topNav }" :style="topNav ? { background: ui.primaryColor } : null">
         <AppTopbar
           :collapsed="collapsed"
           :show-brand="menuHidden || effectiveCollapsed || (isMobile && !mobileOpen)"
@@ -440,6 +441,12 @@ async function logout() {
 .topbar--dark {
   background: #141414;
   border-bottom-color: rgba(253, 253, 253, 0.12);
+}
+/* Menu in the bar: the company's colour, its text colour picked for contrast (--sb-text, SidebarMenu). */
+.topbar--nav {
+  border-bottom-color: transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  color: var(--sb-text);
 }
 .content {
   position: relative;

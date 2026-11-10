@@ -150,11 +150,8 @@ class SettingsController extends Controller
             $quotation_with_stock = 0;
         }
 
-        if ($request['show_language'] == '1' || $request['show_language'] == 'true') {
-            $show_language = 1;
-        } else {
-            $show_language = 0;
-        }
+        // No language button in the top bar any more (user's rule, 2026-11-10): whatever a form sends, it stays off.
+        $show_language = 0;
 
         // Dark Mode and RTL settings
         $dark_mode = ($request['dark_mode'] == '1' || $request['dark_mode'] == 'true' || $request['dark_mode'] === 1 || $request['dark_mode'] === true) ? 1 : 0;

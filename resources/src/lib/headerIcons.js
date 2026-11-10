@@ -13,8 +13,8 @@ export const HEADER_ICONS = [
   { key: 'summary', label: 'Como Vamos! (today\'s summary)' },
   { key: 'fullscreen', label: 'Full screen' },
   { key: 'manual', label: 'User manual', help: 'This page or the whole manual, only the modules and parts the user\'s role allows.' },
-  { key: 'language', label: 'Language (translate)' },
-  { key: 'notifications', label: 'Notifications' },
+  // No language button (user's rule, 2026-11-10): the language is chosen in Settings / Profile.
+  { key: 'notifications', label: 'Notifications', help: 'Only when the company turned alerts on (System Settings -> General).' },
   { key: 'clock', label: 'Clock in / out', help: 'Also needs the role\'s Clock in / out permission.' },
   { key: 'logout', label: 'Log out', help: 'Logging out stays in the user menu.' },
 ];

@@ -156,6 +156,18 @@
               </div>
               <a-switch :checked="!asBool(setting.hide_site_name)" @change="v => (setting.hide_site_name = !v)" />
             </div>
+            <!-- Alerts (user's rule, 2026-11-10): the bell is off until the company turns it on and picks which alerts. -->
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">{{ $t('Alerts_Show') }}</div>
+                <div class="setting-help">{{ $t('Alerts_Help') }}</div>
+              </div>
+              <a-switch v-model:checked="alerts.enabled" />
+            </div>
+            <div v-if="alerts.enabled" class="alerts-pick">
+              <a-checkbox-group v-model:value="alerts.picked" :options="alertOptions" />
+              <div v-if="!alerts.picked.length" class="setting-help alerts-warn">{{ $t('Alerts_Pick') }}</div>
+            </div>
           </template>
 
           <!-- ============================ Localization ============================ -->
@@ -222,13 +234,6 @@
               </a-row>
             </a-form>
             <a-divider style="margin: 8px 0 0" />
-            <div class="setting-row">
-              <div>
-                <div class="setting-label">{{ $t('Show_Languages') }}</div>
-                <div class="setting-help">{{ ls('Show the language switcher in the top bar.') }}</div>
-              </div>
-              <a-switch :checked="asBool(setting.show_language)" @change="v => (setting.show_language = v ? 1 : 0)" />
-            </div>
             <div class="setting-row">
               <div>
                 <div class="setting-label">{{ $t('DarkMode') }}</div>
@@ -1421,6 +1426,7 @@ import PageHeader from '../../components/PageHeader.vue';
 import LogoCropper from '../../components/LogoCropper.vue';
 import { useUiStore } from '../../stores/ui';
 import { useAuthStore } from '../../stores/auth';
+import { usePendingWorkStore } from '../../stores/pendingWork';
 import { getActingCompanyId } from '../../lib/actingCompany';
 import { useLocalText } from '../../lib/useLocalText';
 import SETTINGS_ES from './lang/SystemSettings.es.js';
@@ -1781,7 +1787,24 @@ function toggleEoCard(key, on) {
   eoHidden.value = on ? eoHidden.value.filter(k => k !== key) : [...new Set([...eoHidden.value, key])];
 }
 
+// ---------------- Alerts (the bell), the company's choice ----------------
+const alerts = ref({ enabled: false, picked: [], types: [], loaded: false });
+const alertOptions = computed(() => sortByLabel(alerts.value.types.map(a => ({ value: a.key, label: capFirst(t(a.label_key)) }))));
+// The bell writes these after a number ("3 computers to approve"); as an option they start with a capital.
+function capFirst(s) { const v = String(s || ''); return v.charAt(0).toUpperCase() + v.slice(1); }
+async function loadAlerts() {
+  try {
+    const res = await http.get('pending-work/types');
+    alerts.value = { enabled: !!res.enabled, picked: res.picked || [], types: res.types || [], loaded: true };
+  } catch (e) { /* no permission: the block stays off */ }
+}
+onMounted(loadAlerts);
+
 async function save() {
+  if (alerts.value.enabled && !alerts.value.picked.length) {
+    message.error(t('Alerts_Pick'));
+    return;
+  }
   saving.value = true;
   const s = setting.value;
   const fd = new FormData();
@@ -1931,6 +1954,10 @@ async function save() {
     if (resp.status >= 400) {
       const msg = resp.data?.message || resp.data?.error || t('InvalidData');
       throw new Error(msg);
+    }
+    if (alerts.value.loaded) {
+      await http.post('pending-work/settings', { enabled: alerts.value.enabled, types: alerts.value.enabled ? alerts.value.picked : [] });
+      usePendingWorkStore().fetch(true);
     }
     message.success(t('Successfully_Updated'));
     // Default passwords saved: reflect "Set / Not set" and empty the inputs.
@@ -2098,6 +2125,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.alerts-pick { padding: 4px 0 12px 4px; }
+.alerts-pick :deep(.ant-checkbox-group) { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 12px; }
+.alerts-warn { color: #b45309; margin-top: 6px; }
 /* System Settings -> Dashboard: the blocks top to bottom, each with its items. */
 .dash-blocks-cfg {
   display: flex;

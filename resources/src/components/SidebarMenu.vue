@@ -796,3 +796,38 @@ watch(openKeys, (nv, ov) => {
   inset-inline-start: -2px;
 }
 </style>
+
+<style>
+/* Not scoped: Vue drops whatever follows :global(...) in a scoped rule. */
+/* On the coloured bar (AdminLayout .topbar--nav): the group buttons in the contrast colour, a light
+   layer on hover / open, and the current page's group underlined in that colour. Popups stay light. */
+.topbar--nav .topbar-menu > .ant-menu-submenu .ant-menu-submenu-title,
+.topbar--nav .topbar-menu > .ant-menu-item,
+.topbar--nav .topbar-menu > .ant-menu-submenu .anticon,
+.topbar--nav .topbar-menu > .ant-menu-item .anticon,
+.topbar--nav .topbar-more {
+  color: var(--sb-text) !important;
+}
+.topbar--nav .topbar-menu > .ant-menu-submenu,
+.topbar--nav .topbar-menu > .ant-menu-item {
+  border-radius: 8px;
+  margin: 0 2px;
+}
+.topbar--nav .topbar-menu > .ant-menu-submenu:hover,
+.topbar--nav .topbar-menu > .ant-menu-submenu-open,
+.topbar--nav .topbar-menu > .ant-menu-item:hover {
+  background: var(--sb-overlay);
+}
+.topbar--nav .topbar-menu > .ant-menu-submenu::after,
+.topbar--nav .topbar-menu > .ant-menu-item::after {
+  border-bottom-color: transparent !important;
+}
+.topbar--nav .topbar-menu > .ant-menu-submenu-selected,
+.topbar--nav .topbar-menu > .ant-menu-item-selected {
+  background: var(--sb-overlay-strong);
+}
+.topbar--nav .topbar-menu > .ant-menu-submenu-selected .ant-menu-submenu-title,
+.topbar--nav .topbar-menu > .ant-menu-item-selected {
+  font-weight: 700;
+}
+</style>

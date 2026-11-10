@@ -110,26 +110,10 @@
         </a-tooltip>
       </span>
 
-      <!-- Language -->
-      <span v-if="auth.headerIcon('language')" class="tb-slot" :style="{ order: auth.headerOrder('language') }">
-        <a-dropdown placement="bottomRight">
-          <a-button type="text" class="icon-btn lang-btn"><template #icon><GlobalOutlined /></template></a-button>
-          <template #overlay>
-            <a-menu :selected-keys="[ui.locale]" class="lang-menu" @click="({ key }) => ui.setLocale(key, auth.user?.id)">
-              <a-menu-item v-for="l in languages" :key="l.value">
-                <span class="lang-row">
-                  <img v-if="l.image" :src="l.image" :alt="l.label" class="flag" />
-                  <span v-else>{{ l.flag }}</span>
-                  <span>{{ l.label }}</span>
-                </span>
-              </a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
-      </span>
+      <!-- No language button here (user's rule, 2026-11-10): it repeats the language in Settings / Profile. -->
 
-      <!-- Notifications -->
-      <span v-if="auth.headerIcon('notifications')" class="tb-slot" :style="{ order: auth.headerOrder('notifications') }">
+      <!-- Notifications: only when the company turned alerts on and picked which (System Settings -> General). -->
+      <span v-if="pending.enabled && auth.headerIcon('notifications')" class="tb-slot" :style="{ order: auth.headerOrder('notifications') }">
         <a-dropdown v-model:open="notifOpen" placement="bottomRight" :trigger="['click']">
           <!-- Badge wraps the icon as button CONTENT, not via the #icon slot:
                Ant sizes that slot for a bare icon and clips the count bubble.
@@ -1159,5 +1143,26 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   .icon-btn {
     padding: 4px 6px;
   }
+}
+</style>
+
+<style>
+/* Not scoped: Vue drops whatever follows :global(...) in a scoped rule. */
+/* Coloured bar (menu in the bar): the toggle, the name and the caret in the contrast colour. */
+.topbar--nav .topbar-inner > .icon-btn,
+.topbar--nav .user-name,
+.topbar--nav .user-caret {
+  color: var(--sb-text) !important;
+}
+/* The icon buttons keep their colours on a white chip, so they read on any company colour. */
+.topbar--nav .tb-actions .icon-btn {
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+.topbar--nav .tb-actions .icon-btn:hover {
+  background: #fff !important;
+}
+.topbar--nav .user-btn:hover,
+.topbar--nav .topbar-inner > .icon-btn:hover {
+  background: var(--sb-overlay) !important;
 }
 </style>

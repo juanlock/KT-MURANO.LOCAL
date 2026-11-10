@@ -804,7 +804,20 @@ the start of each session).
   (migrations 2026_11_05_130000 / 130100); install-wide SuperAdmin screens (Update, Mail, SMS, Backup, Pay gateways) were
   left out. A stored name the code compares (`payment_methods.name`) stays as it is: only what is shown is translated
   (`looseTranslation`).
-- **Collapsing the side menu = the menu goes to the top bar (user's rule, 2026-11-10).** On a computer (not a phone, not a hospital, which has its own button bar) the`n  collapse button hides the side menu completely and its groups become buttons next to that button; a click opens the group's items in a popup there (nested`n  groups as submenus), what doesn't fit goes under "Más". The company's logo then replaces the person's picture on the account chip (a white logo on a plate of the primary colour,`n  `lib/logoTone.js`) and leaves the left of the bar to the groups. Same tree, permissions and order as the side menu: `SidebarMenu` with `horizontal` (`AppTopbar` `topNav`,`n  `AdminLayout` `topNav`).`n- **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
+- **Collapsing the side menu = the menu goes to the top bar (user's rule, 2026-11-10).** On a computer (not a phone, not a hospital, which has its own button bar) the
+  collapse button hides the side menu completely and its groups become buttons next to that button; a click opens the group's items in a popup there (nested
+  groups as submenus), what doesn't fit goes under "Más". The company's logo then replaces the person's picture on the account chip (a white logo on a plate of the primary colour,
+  `lib/logoTone.js`) and leaves the left of the bar to the groups. Same tree, permissions and order as the side menu: `SidebarMenu` with `horizontal` (`AppTopbar` `topNav`,
+  `AdminLayout` `topNav`). **The whole bar then takes the company's primary colour** (2026-11-10: it shows that the bar is now the
+  menu): white text, the icon buttons on white chips. Rules that reach inside the bar go in an UNSCOPED `<style>` block (a scoped
+  `:global(.a) .b` drops everything after `:global`).
+- **No language button in the top bar, anywhere (user's rule, 2026-11-10).** It repeated the language of Settings / Profile:
+  `show_language` is 0 in every company and the switch and the header-icon key are gone. Don't bring it back.
+- **The alerts bell is each company's choice, off by default (user's rule, 2026-11-10).** System Settings -> General -> "Mostrar
+  alertas" (`settings.alerts_enabled`, SuperAdmin or `setting_system`) and, when on, WHICH alerts (`settings.alerts_types`; at least
+  one, only those of the company's modules: `PendingWorkController::types()` / `saveTypes()` / `config()`). Off or nothing picked =
+  no bell (`pendingWork.enabled`). A new alert type joins that catalog; it is never shown to a company that didn't pick it.
+- **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
   sorted alphabetically by its displayed label, using the shared
   `sortByLabel()` helper (`resources/src/lib/filterOptions.js`) -- wrap the

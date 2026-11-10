@@ -13,6 +13,8 @@ export const usePendingWorkStore = defineStore('pendingWork', {
     state: () => ({
         items: [],
         total: 0,
+        // The company turned the bell on (System Settings -> General -> Alerts, off by default).
+        enabled: false,
         loading: false,
         loadedAt: 0,
     }),
@@ -36,6 +38,7 @@ export const usePendingWorkStore = defineStore('pendingWork', {
                 const data = await http.get('pending-work');
                 this.items = Array.isArray(data?.items) ? data.items : [];
                 this.total = Number(data?.total) || 0;
+                this.enabled = !!data?.enabled;
                 this.loadedAt = Date.now();
             } catch (e) {
                 // A failed poll must never break the shell — keep the last counts.
@@ -47,6 +50,7 @@ export const usePendingWorkStore = defineStore('pendingWork', {
         reset() {
             this.items = [];
             this.total = 0;
+            this.enabled = false;
             this.loadedAt = 0;
         },
     },

@@ -35,8 +35,16 @@ class PendingWorkController extends Controller
 
         $items = [];
         $companyId = $this->resolveActingCompanyId($request);
+        // The bell is the company's choice (user's rule, 2026-11-10): off by default; on, only the alerts picked.
+        [$enabled, $picked] = self::config((int) $companyId);
+        if (! $enabled) {
+            return response()->json(['enabled' => false, 'items' => [], 'total' => 0]);
+        }
 
         foreach ($this->sources() as $key => $source) {
+            if (! in_array($key, $picked, true)) {
+                continue;
+            }
             // Skip anything this user may not see, and anything whose table is
             // not present (modules differ between installs / upgrade states).
             if (! empty($source['table']) && ! Schema::hasTable($source['table'])) {
@@ -74,9 +82,60 @@ class PendingWorkController extends Controller
         }
 
         return response()->json([
+            'enabled' => true,
             'items' => $items,
             'total' => array_sum(array_column($items, 'count')),
         ]);
+    }
+
+    /** [enabled, picked keys] of the company's alerts (System Settings -> General -> Alerts). */
+    public static function config(int $companyId): array
+    {
+        $s = \Illuminate\Support\Facades\DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['alerts_enabled', 'alerts_types']);
+
+        return [(bool) ($s->alerts_enabled ?? false), json_decode((string) ($s->alerts_types ?? '[]'), true) ?: []];
+    }
+
+    private function settingsAdmin(Request $request): int
+    {
+        $user = $request->user('api');
+        abort_unless($user && ($user->type === 'SuperAdmin' || $this->allows($user, ['permission' => 'setting_system'])), 403);
+
+        return (int) $this->resolveActingCompanyId($request);
+    }
+
+    /** The alerts this company can pick (its modules on; tables present), and what is picked. */
+    public function types(Request $request)
+    {
+        $cid = $this->settingsAdmin($request);
+        [$enabled, $picked] = self::config($cid);
+        $out = [];
+        foreach ($this->sources() as $key => $source) {
+            if (! empty($source['table']) && ! Schema::hasTable($source['table'])) {
+                continue;
+            }
+            if (! empty($source['module']) && $cid !== 999 && ! \App\Support\ModuleFlags::enabled($cid, $source['module'])) {
+                continue;
+            }
+            $out[] = ['key' => $key, 'label_key' => $source['label'], 'route' => $source['route'], 'severity' => $source['severity'] ?? 'info'];
+        }
+
+        return response()->json(['enabled' => $enabled, 'picked' => array_values(array_intersect($picked, array_column($out, 'key'))), 'types' => $out]);
+    }
+
+    public function saveTypes(Request $request)
+    {
+        $cid = $this->settingsAdmin($request);
+        $keys = array_keys($this->sources());
+        $v = $request->validate(['enabled' => 'required|boolean', 'types' => 'array', 'types.*' => 'string|in:'.implode(',', $keys)]);
+        $types = array_values(array_unique($v['types'] ?? []));
+        if ($v['enabled'] && ! $types) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['types' => 'Pick the alerts to show.']);
+        }
+        \Illuminate\Support\Facades\DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')
+            ->update(['alerts_enabled' => $v['enabled'] ? 1 : 0, 'alerts_types' => json_encode($types), 'updated_at' => now()]);
+
+        return response()->json(['success' => true]);
     }
 
     /**

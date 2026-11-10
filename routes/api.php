@@ -411,6 +411,9 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
 
     // Everything awaiting staff action: the bell list + sidebar badges.
     Route::get('pending-work', [\App\Http\Controllers\Api\PendingWorkController::class, 'index']);
+    // The company's alerts (System Settings -> General, 2026-11-10): which ones the bell shows.
+    Route::get('pending-work/types', [\App\Http\Controllers\Api\PendingWorkController::class, 'types']);
+    Route::post('pending-work/settings', [\App\Http\Controllers\Api\PendingWorkController::class, 'saveTypes']);
 // Header "Logins" list: the company's logins, roles and standard passwords (admins, 2026-10-25).
 Route::get('company-logins', [\App\Http\Controllers\CompanyLoginsController::class, 'index']);
 Route::post('company-logins/{id}/password', [\App\Http\Controllers\CompanyLoginsController::class, 'setPassword'])->whereNumber('id')->middleware('throttle:30,1');
