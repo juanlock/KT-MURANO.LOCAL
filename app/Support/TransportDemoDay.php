@@ -248,13 +248,17 @@ class TransportDemoDay
     }
 
     /**
-     * Demo parcels on each demo trip that has none yet, about 1.5 m³ a trip (Turismo's S/ 23,000 a month, 2026-11-04), one in ten
-     * fragile, at the route's price per m³.
+     * Demo parcels on each demo trip, one in ten fragile, at the route's price per m³. A trip carries 8.5 to 11.5 m³ (user's yes,
+     * 2026-11-10: the demo near the client's S/ 250,000 a month, `settings.transport_parcel_month_ref`; was 0.75-2.25 m³ = about
+     * 14 %), never over the bus's hold (12 m³ / 2,000 kg on the demo buses). A trip that already has parcels is topped up to its goal.
      */
     private static function demoParcels(int $cid, $trips): int
     {
         $ids = $trips->pluck('id')->all();
-        $has = array_flip(DB::table('transport_parcels')->whereIn('trip_id', $ids)->distinct()->pluck('trip_id')->all());
+        $loaded = DB::table('transport_parcels')->whereIn('trip_id', $ids)->whereNull('deleted_at')->groupBy('trip_id')
+            ->selectRaw('trip_id, SUM(volume_m3) m3, SUM(weight_kg) kg')->get()->keyBy('trip_id');
+        $hold = DB::table('transport_trips as t')->leftJoin('vehicles as v', 'v.id', '=', 't.vehicle_id')->whereIn('t.id', $ids)
+            ->selectRaw('t.id, COALESCE(v.cargo_volume_m3, 12) m3, COALESCE(v.cargo_weight_kg, 2000) kg')->get()->keyBy('id');
         $routes = DB::table('transport_routes as r')->join('transport_locations as o', 'o.id', '=', 'r.origin_id')->whereIn('r.id', $trips->pluck('route_id')->unique())
             ->get(['r.id', 'r.origin_id', 'r.destination_id', 'r.parcel_rate_m3', 'o.warehouse_id'])->keyBy('id');
         $number = (int) DB::table('transport_parcels')->where('company_id', $cid)->count();
@@ -262,16 +266,24 @@ class TransportDemoDay
         $what = ['Repuestos', 'Ropa', 'Documentos', 'Mercadería', 'Encargo familiar', 'Productos agrícolas'];
         $made = 0;
         foreach ($trips as $t) {
-            if (isset($has[$t->id]) || ! isset($routes[$t->route_id])) {
+            if (! isset($routes[$t->route_id])) {
                 continue;
             }
             $route = $routes[$t->route_id];
-            $goal = 1.5 * (0.5 + (crc32('parcels'.$t->id) % 101) / 100); // 0.75 to 2.25 m³
-            $volume = 0.0;
+            $maxKg = (float) ($hold[$t->id]->kg ?? 2000);
+            $holdM3 = (float) ($hold[$t->id]->m3 ?? 12);
+            $goal = min($holdM3 * 0.96, 8.5 + (crc32('parcels'.$t->id) % 301) / 100); // 8.5 to 11.5 m³
+            $volume = (float) ($loaded[$t->id]->m3 ?? 0);
+            $weight = (float) ($loaded[$t->id]->kg ?? 0);
             while ($volume < $goal) {
                 [$l, $w, $h] = [random_int(30, 100), random_int(25, 70), random_int(15, 50)];
                 $m3 = round($l * $w * $h / 1000000, 4);
+                $kg = random_int(2, 25);
+                if ($volume + $m3 > $holdM3 ||$weight + $kg > $maxKg) {
+                    break;
+                }
                 $volume += $m3;
+                $weight += $kg;
                 $fragile = random_int(1, 10) === 1;
                 $number++;
                 $id = DB::table('transport_parcels')->insertGetId([
@@ -279,7 +291,7 @@ class TransportDemoDay
                     'eta_from' => \Carbon\Carbon::parse($t->departure_at)->addDay()->toDateString(), 'eta_to' => \Carbon\Carbon::parse($t->departure_at)->addDays(3)->toDateString(),
                     'from_location_id' => $route->origin_id, 'to_location_id' => $route->destination_id, 'cargo_type' => $fragile ? 'fragile' : 'general', 'tracking_token' => bin2hex(random_bytes(12)), 'payment' => 'paid',
                     'sender_name' => $names[array_rand($names)], 'receiver_name' => $names[array_rand($names)], 'description' => $what[array_rand($what)], 'pieces' => 1,
-                    'length_cm' => $l, 'width_cm' => $w, 'height_cm' => $h, 'weight_kg' => random_int(3, 30), 'volume_m3' => $m3,
+                    'length_cm' => $l, 'width_cm' => $w, 'height_cm' => $h, 'weight_kg' => $kg, 'volume_m3' => $m3,
                     'price' => max(10, round($m3 * (float) $route->parcel_rate_m3 * ($fragile ? 3.7 : 1), 2)), 'status' => $t->status === 'completed' ? 'delivered' : 'received',
                     'delivered_to' => $t->status === 'completed' ? $names[array_rand($names)] : null, 'delivered_at' => $t->status === 'completed' ? $t->departure_at : null,
                     'created_at' => $t->departure_at, 'updated_at' => $t->departure_at,
