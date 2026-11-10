@@ -223,6 +223,23 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 
 Setup: `npm run build`.
 
+### 2026-11-09 (Optimum) -- not in production yet
+
+- **Turismo Cautivo, dashboard › Complaints:** the reasons are grouped in a
+  few groups (tickets and refunds, the bus and its condition, staff, luggage
+  and parcels, boarding, times, safety). The "Otros reclamos" (44 % of all)
+  are sorted by the words of what the customer wrote (broken seat, bugs on the
+  seats, a different bus from the one bought, date change...); hovering a bar
+  shows its detail. The customer's text is never shown.
+- **New dashboard tab › Parcels:** one button per agency; cards with
+  received, attended, pending today (and late), income against the previous
+  period and against the client's figure (S/ 250,000 a month), average parcel,
+  income per kg and complaints; charts by route, by agency, pending by
+  destination, income by day, parcels by size (by weight) and by type, and the
+  complaints about parcels.
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-11-06 (Thundera)
 
 - **The invoice note and terms are Ruba's only.** The card fee, late fee and
@@ -280,34 +297,6 @@ Setup: `php artisan migrate`, `npm run build`.
   forms; a role without a home page opens the intranet. On the POS lock, the
   "Dashboard" button of a POS-only role goes to its sales.
 - **Faster local backups** and production migrations run on the server.
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-03 (Home)
-
-- **Every role of every company has a user.** The automatic roles (Supplier,
-  Sales Agent, Online Store) exist in every company, a fifth access login
-  `{company}-website@kcoltech.com` (Website role) is added, and each people
-  role nobody held gets a demo record with its login (Cliente Demo, Empleado
-  Demo, Proveedor Demo, Agente de Ventas Demo, Cliente Tienda Demo). Companies ›
-  Add does the same; Settings › Roles by company shows 0 for a role without
-  users.
-- **Companies › Rename** also renames the new logins (and their records'
-  emails), and older admin usernames such as "adminarce".
-- **Companies list**: new **Business type** column (sortable, exported).
-- **Ruba Garden's Contact Us form** now lives in Murano (Forms): name, email,
-  phone, subject, message, notices to info@; its website (home page and
-  Contact Us) shows it instead of the old external form.
-- **Transport agencies are Locations.** Each agency has its own sales, cash
-  registers and users; its ticket office sells on the POS with a **Terminal
-  POS** login assigned to that agency only. The Manager and the IT Admin see
-  every agency. The tourism business type now has POS and no Portfolio /
-  Website / Gallery.
-- **Turismo Cautivo presentation demo** (in production): buses, crew, trips,
-  route tickets (S/ 20-85), a cashier per agency, passengers and 30 days of
-  ticket sales, kept current every hour.
-- **Demo data fits the business**: a bus company no longer gets delivery vans,
-  IT portfolio works or generic shop pages.
 
 Setup: `php artisan migrate`, `npm run build`.
 

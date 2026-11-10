@@ -611,6 +611,21 @@ class TransportOperationsController extends Controller
         return response()->json(TransportDepartures::compute($cid, $request->input('date') ?: now()->toDateString(), $request->filled('agency_id') ? (int) $request->input('agency_id') : null, $this->warehouseScopeIds()));
     }
 
+    /** The dashboard's Parcels tab (2026-11-09): attended / pending, per agency and route, what they are worth. */
+    public function parcelsBoard(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $from = $request->input('from') ?: now()->startOfMonth()->toDateString();
+        // Never past today: "This month" would count parcels not received yet.
+        $to = min($request->input('to') ?: now()->toDateString(), now()->toDateString());
+
+        return response()->json(\App\Services\TransportParcelsBoard::compute($cid, $from, $to, $this->warehouseScopeIds(), $request->integer('agency') ?: null));
+    }
+
     public function claims(Request $request)
     {
         $this->allow($request, 'forms_view', 'forms_manage');
