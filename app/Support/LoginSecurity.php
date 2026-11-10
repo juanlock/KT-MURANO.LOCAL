@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 
 /**
  * Login security (user's rules, 2026-10-27), for every door into Murano -- the staff
- * login (/login), the customer portal, the mobile app and the old api/getAccessToken:
+ * login (/login), the customer portal and the old api/getAccessToken (the phone app's door was removed, 2026-11-10):
  *
  *  - LOCKOUT: 5 wrong passwords in an hour lock that login for 1 hour, from any IP
  *    (the per-IP throttle stays too). The user and the company's admins get an email;

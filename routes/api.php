@@ -2023,9 +2023,6 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
 
     // ------------------------------- PWA Settings ------------------------\\
 
-    Route::get('get_mobile_settings', 'SettingsController@get_mobile_settings');
-    Route::post('update_mobile_settings', 'SettingsController@update_mobile_settings');
-
     Route::get('get_pwa_settings', 'SettingsController@get_pwa_settings');
     Route::post('update_pwa_settings', 'SettingsController@update_pwa_settings');
 
@@ -2608,30 +2605,6 @@ Route::middleware(['auth:api', 'Is_Active'])->prefix('realestate')->group(functi
 // and no CSRF token. The request proves itself with an HMAC signature over the
 // raw body, verified in ShopifyWebhookController against the store's secret.
 Route::post('shopify/webhook', 'ShopifyWebhookController@handle');
-
-// ---------------- Mobile admin app (Flutter) ----------------
-// The app authenticates with a Passport personal access token issued by
-// mobile/login and sent as a Bearer header — no cookies involved. ping and
-// login are public: ping validates a server URL typed into the app before
-// any credentials exist, and login is throttled per IP.
-Route::prefix('mobile')->group(function () {
-    Route::get('ping', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'ping']);
-    Route::post('login', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'login'])
-        ->middleware('throttle:10,1');
-    // Login security steps (2026-10-27): two-step code / new password with the login_token.
-    Route::post('login/verify', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'loginVerify'])->middleware('throttle:10,1');
-    Route::post('login/resend', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'loginResend'])->middleware('throttle:3,1');
-    Route::post('login/password', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'loginPassword'])->middleware('throttle:10,1');
-
-    Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])->group(function () {
-        Route::get('me', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'me']);
-        Route::post('logout', [\App\Http\Controllers\Api\Mobile\MobileAuthController::class, 'logout']);
-
-        Route::post('device-token', [\App\Http\Controllers\Api\Mobile\MobileDeviceTokenController::class, 'store']);
-        Route::delete('device-token', [\App\Http\Controllers\Api\Mobile\MobileDeviceTokenController::class, 'destroy']);
-        Route::post('device-token/test', [\App\Http\Controllers\Api\Mobile\MobileDeviceTokenController::class, 'test']);
-    });
-});
 
 // Settings -> Network security (2026-10-16): allowed networks, approved computers,
 // who is restricted -- permission network_security, acting company.

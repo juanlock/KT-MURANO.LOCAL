@@ -225,8 +225,9 @@ POS / inventory base and has been rebuilt by KcolTech; that base's name appears 
 comments, screens, docs, translations or package names (a new mention is a bug). The in-app updater never asks the
 old vendor's server (`App\Support\UpdateSource`, `.env` `MURANO_UPDATE_URL`, empty = no remote updates; releases go
 out with the deploy protocol). The footer shows only KcolTech's version (`kt_logs`). The manual has a **License**
-entry (KcolTech, EN + ES). The mobile ping answers `'server' => 'murano'` (2026-11-10; no one used the app): the Flutter app
-(not in this repo -- Murano holds only its API, `api/mobile/*`, and Settings -> Mobile App) must expect that. The historical reports in `KT-TOOLS/Report/` are never edited.
+entry (KcolTech, EN + ES). **No phone app (user's decision, 2026-11-10):** the old app's API (`api/mobile/*`),
+Settings -> Mobile App, its push notifications (FCM) and its table / settings columns were removed (migration
+2026_11_10_150000; nobody had used it). Phones use the web app (PWA, "Install app"). The historical reports in `KT-TOOLS/Report/` are never edited.
 
 **The ~294 Models and the Hospital / School / MRP / Fleet / ... modules** come with that base: a module nobody asked for
 may still be its original version, so read it before trusting it.
@@ -459,8 +460,8 @@ the start of each session).
   `App\Support\PasswordPolicy`) -- every door obeys it: staff `/login`
   (`LoginController` + `LoginStepsController`, Blade steps `/login/verify` and
   `/login/password`, `WebLogin::complete`), the customer portal
-  (`PortalAuthController` + steps in `portal/views/Login.vue`), the mobile app and
-  the old `api/getAccessToken` (both refuse while a step is pending). A new door
+  (`PortalAuthController` + steps in `portal/views/Login.vue`) and
+  the old `api/getAccessToken` (it refuses while a step is pending). A new door
   must use it too.
   **Lockout:** 5 wrong passwords in an hour lock that login for **1 hour**, from
   any IP (the per-IP throttle stays); the person and the company's admins get an
@@ -482,9 +483,6 @@ the start of each session).
   default on): a browser the login never used -> email. Everything goes to
   `login_events`. Way back in: `php artisan murano:login-reset {email}
   [--no-2fa-types]`. The 2FA secret / recovery codes are in `User::$hidden`.
-  The mobile app's steps are API-ready (`mobile/login` answers 403 with
-  `login_token` + step; `mobile/login/verify | resend | password`); the Flutter
-  app itself (not in this workspace) still needs those screens.
 - **Hostinger allows 20 new MySQL connections per second (its support, 2026-11-04):** over it = `[2002] Operation
   not permitted`. The log showed web requests (no `artisan` trace, no failed scheduled task): each request opens a
   connection, so one user's page with many API calls can exceed it. `App\Support\RetryingMySqlConnector` waits and

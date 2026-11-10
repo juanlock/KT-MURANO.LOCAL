@@ -261,7 +261,6 @@ const Backup = lazy('Backup', () => import('../pages/settings/Backup.vue'));
 const PosSettings = lazy('PosSettings', () => import('../pages/settings/PosSettings.vue'));
 const LoginPageSettings = lazy('LoginPageSettings', () => import('../pages/settings/LoginPageSettings.vue'));
 const PwaSettings = lazy('PwaSettings', () => import('../pages/settings/PwaSettings.vue'));
-const MobileAppSettings = lazy('MobileAppSettings', () => import('../pages/settings/MobileAppSettings.vue'));
 const SmsSettings = lazy('SmsSettings', () => import('../pages/settings/SmsSettings.vue'));
 const Languages = lazy('Languages', () => import('../pages/settings/Languages.vue'));
 const TranslationsView = lazy('TranslationsView', () => import('../pages/settings/TranslationsView.vue'));
@@ -969,7 +968,6 @@ const routes = [
             // must never be delegable to a company-level Admin's role.
             { path: 'settings/login-page', name: 'login-page-settings', component: LoginPageSettings, meta: { title: 'Login Page', systemOnly: true } },
             { path: 'settings/pwa', name: 'pwa-settings', component: PwaSettings, meta: { title: 'PWA Settings', permission: 'appearance_settings' } },
-            { path: 'settings/mobile-app', name: 'mobile-app-settings', component: MobileAppSettings, meta: { title: 'Mobile App Settings', permission: 'appearance_settings' } },
             { path: 'settings/sms', name: 'sms-settings', component: SmsSettings, meta: { title: 'SMS Settings', permission: 'sms_settings' } },
             { path: 'settings/languages', name: 'languages', component: Languages, meta: { title: 'Languages', permission: 'translations_settings' } },
             { path: 'settings/translations/:locale', name: 'translations-view', component: TranslationsView, meta: { title: 'Translations', permission: 'translations_settings' } },

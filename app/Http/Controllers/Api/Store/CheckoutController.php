@@ -1344,18 +1344,5 @@ class CheckoutController extends BaseController
         } catch (\Throwable $e) {
             Log::warning('Admin new-order notification failed: '.$e->getMessage());
         }
-
-        // 3) Push to admins' mobile devices (no-op until FCM is configured).
-        try {
-            $adminIds = ($admins ?? collect())->pluck('id')->all();
-            app(\App\Services\FcmService::class)->sendToUsers(
-                $adminIds,
-                __('messages.OnlineOrder').' '.$order->ref,
-                $order->customer_name.' — '.number_format((float) $order->total, 2),
-                ['type' => 'online_order', 'order_id' => $order->id]
-            );
-        } catch (\Throwable $e) {
-            Log::warning('Admin new-order push failed: '.$e->getMessage());
-        }
     }
 }

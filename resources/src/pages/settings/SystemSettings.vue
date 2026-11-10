@@ -60,7 +60,6 @@
             <a-menu-item-group :title="ls('Integrations')">
               <a-menu-item key="appearance"><SkinOutlined /> {{ ls('Appearance') }}</a-menu-item>
               <a-menu-item key="pwa"><MobileOutlined /> {{ ls('PWA') }}</a-menu-item>
-              <a-menu-item key="mobile_app"><TabletOutlined /> {{ ls('Mobile App') }}</a-menu-item>
               <!-- Mail / SMS / payment gateway: SuperAdmin only (2026-10-20). -->
               <a-menu-item v-if="isSuperAdmin" key="mail"><MailOutlined /> {{ ls('Mail') }}</a-menu-item>
               <a-menu-item v-if="isSuperAdmin" key="sms"><MessageOutlined /> {{ ls('SMS') }}</a-menu-item>
@@ -1418,7 +1417,7 @@ import {
   ShopOutlined, GlobalOutlined, AuditOutlined, ControlOutlined, ExportOutlined,
   ThunderboltOutlined, NumberOutlined, FileTextOutlined, FilePdfOutlined, MedicineBoxOutlined,
   AppstoreOutlined, SafetyOutlined, CloudUploadOutlined, ToolOutlined,
-  CalendarOutlined, SkinOutlined, MobileOutlined, TabletOutlined, MailOutlined, MessageOutlined,
+  CalendarOutlined, SkinOutlined, MobileOutlined, MailOutlined, MessageOutlined,
   CreditCardOutlined, FormOutlined, DatabaseOutlined, LaptopOutlined,
   ExperimentOutlined, TableOutlined, PrinterOutlined,
 } from '@ant-design/icons-vue';
@@ -1503,7 +1502,6 @@ const lazySection = loader => defineAsyncComponent({ loader, loadingComponent: S
 const embeddedPages = {
   appearance: lazySection(() => import('./AppearanceSettings.vue')),
   pwa: lazySection(() => import('./PwaSettings.vue')),
-  mobile_app: lazySection(() => import('./MobileAppSettings.vue')),
   mail: lazySection(() => import('./MailSettings.vue')),
   sms: lazySection(() => import('./SmsSettings.vue')),
   payment: lazySection(() => import('./PaymentGateway.vue')),
@@ -1559,7 +1557,6 @@ const currentSection = computed(() => ({
   calendar: { title: ls('Calendar'), desc: ls('Sync bookings with Google Calendar.') },
   appearance: { title: ls('Appearance'), desc: ls('Branding and login page look.') },
   pwa: { title: t('PWA_Settings'), desc: t('PWA_Settings_Help') },
-  mobile_app: { title: t('Mobile_App_Settings'), desc: t('Mobile_App_Settings_Help') },
   mail: { title: ls('Mail'), desc: ls('Outgoing email (SMTP) configuration.') },
   sms: { title: ls('SMS'), desc: ls('SMS provider configuration.') },
   payment: { title: ls('Payment gateway'), desc: ls('Online payment provider keys.') },
