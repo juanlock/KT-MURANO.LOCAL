@@ -494,6 +494,11 @@ the start of each session).
   not permitted`. The log showed web requests (no `artisan` trace, no failed scheduled task): each request opens a
   connection, so one user's page with many API calls can exceed it. `App\Support\RetryingMySqlConnector` waits and
   retries, leaving a warning in the log. The cron stays: it runs the backups, reminders and mail.
+- **Work after the answer (2026-11-10):** notices by email and the POS receipt PDF run with `dispatch(...)->afterResponse()`.
+  Apache's mod_php (XAMPP on a developer PC) can't end the request first: "Open register" waited 16 s for the email.
+  `App\Http\Middleware\ReleaseResponse` (global) declares the body's length + `Connection: close` there, so the browser has its
+  answer at once; it does nothing where PHP-FPM / LiteSpeed end the request themselves. **A developer PC sends real email**
+  (the company's own mail server comes with the morning's copy): opening or closing a register on dev emails that company's admins.
 - **Production server tasks (2026-10-27):** the Laravel scheduler needs the
   hPanel cron `/usr/bin/php <PROD_PATH>/artisan schedule:run` (Hostinger has no
   `crontab` command). **It runs every 10 minutes for now (user's choice,

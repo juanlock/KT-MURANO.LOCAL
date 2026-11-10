@@ -26,6 +26,8 @@ class Kernel extends HttpKernel
     ];
 
     protected $middleware = [
+        // First = outermost: it sees the final answer. The browser gets it before the "after the response" work.
+        \App\Http\Middleware\ReleaseResponse::class,
         // \App\Http\Middleware\TrustProxies::class,
         \App\Http\Middleware\CheckForMaintenanceMode::class,
         \App\Http\Middleware\CheckInstalled::class,
