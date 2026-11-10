@@ -45,7 +45,9 @@ class MobileAuthController extends BaseController
 
         return response()->json([
             'ok' => true,
-            'server' => 'stocky',
+            // The app checks this to accept the server address it was given (2026-11-10: was the old base's name;
+            // nobody used the app). The KcolTech Flutter app must expect 'murano'.
+            'server' => 'murano',
             'api_version' => (int) config('mobile.api_version'),
             'min_app_version' => $minVersion,
             'app_name' => $settings->mobile_app_name
