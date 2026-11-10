@@ -10,7 +10,8 @@
 
     <!-- The company's logo and name next to the toggle while the side menu (and
          its brand) is hidden or collapsed, so the header is never left empty. -->
-    <div v-if="showBrand" class="tb-brand" :class="{ 'tb-brand--nav': topNav }" @click="$router.push('/')">
+    <!-- With the menu in the bar the logo moves to the account chip (right), leaving the room to the groups. -->
+    <div v-if="showBrand && !topNav" class="tb-brand" @click="$router.push('/')">
       <img v-if="auth.logoUrl" :src="auth.logoUrl" alt="" class="tb-brand-logo" />
       <span v-else class="tb-brand-initial">{{ auth.brandInitial }}</span>
       <!-- The name always (auth.companyName follows the sidebar's own "show name" switch);
@@ -210,7 +211,13 @@
       <a-dropdown v-model:open="userMenuOpen" placement="bottomRight" :trigger="['click']">
         <a-button type="text" class="user-btn">
           <a-space :size="8">
-            <a-avatar :size="28" :src="auth.avatarUrl" class="user-avatar" />
+            <!-- Menu in the bar (side menu collapsed): the company's logo here instead of the person's
+                 picture, so the company is never lost from view (user's rule, 2026-11-10). -->
+            <span v-if="topNav" class="user-logo" :class="{ 'user-logo--plate': lightLogo }" :style="lightLogo ? { background: ui.primaryColor } : null" :title="auth.user?.company">
+              <img v-if="auth.logoUrl" :src="auth.logoUrl" alt="" />
+              <span v-else class="tb-brand-initial">{{ auth.brandInitial }}</span>
+            </span>
+            <a-avatar v-else :size="28" :src="auth.avatarUrl" class="user-avatar" />
             <span class="hide-sm user-name">{{ auth.username || 'User' }}</span>
             <DownOutlined class="user-caret" :class="{ open: userMenuOpen }" />
           </a-space>
@@ -350,6 +357,7 @@ import {
 import TodaySummary from './TodaySummary.vue';
 import ManualDrawer from './ManualDrawer.vue';
 import SidebarMenu from './SidebarMenu.vue';
+import { isLightLogo } from '../lib/logoTone';
 import LoginsDrawer from './LoginsDrawer.vue';
 import { KeyOutlined } from '@ant-design/icons-vue';
 import OpenBookIcon from './icons/OpenBookIcon.vue';
@@ -398,6 +406,9 @@ async function toggleClock() {
 
 const auth = useAuthStore();
 const ui = useUiStore();
+// A white logo needs a coloured plate to be seen on the white bar (lib/logoTone.js).
+const lightLogo = ref(false);
+watch(() => auth.logoUrl, async (u) => { lightLogo.value = await isLightLogo(u); }, { immediate: true });
 // Clock in / out: today's state once the user (and their permissions) are known.
 watch(canClock, v => { if (v) loadClock(); }, { immediate: true });
 const pending = usePendingWorkStore();
@@ -678,7 +689,6 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   display: flex; align-items: center; gap: 10px; min-width: 0;
   margin: 0 auto 0 8px; padding-right: 12px; cursor: pointer;
 }
-.tb-brand--nav { margin-right: 0; padding-right: 4px; }
 .tb-brand-logo { height: 34px; max-width: 120px; width: auto; object-fit: contain; flex: none; }
 .tb-brand-initial {
   width: 34px; height: 34px; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center;
@@ -751,6 +761,12 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
 .user-avatar {
   border: 2px solid rgba(109, 40, 217, 0.35);
 }
+.user-logo { display: inline-flex; align-items: center; height: 30px; }
+/* A white logo (made for a dark background) sits on a plate of the company's colour. */
+.user-logo--plate { padding: 3px 8px; border-radius: 8px; height: 32px; }
+.user-logo--plate img { height: 26px; }
+.user-logo img { height: 30px; max-width: 110px; width: auto; object-fit: contain; }
+.user-logo .tb-brand-initial { width: 28px; height: 28px; font-size: 13px; }
 .user-name {
   font-weight: 500;
 }
