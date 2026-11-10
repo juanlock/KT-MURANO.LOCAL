@@ -61,6 +61,14 @@
           </div>
         </div>
         <div class="fs-muted fs-small">IP {{ openSub.ip || '—' }}<span v-if="openSub.user_agent"> · {{ openSub.user_agent }}</span></div>
+        <!-- Imported rows corrected on 2026-11-10: the data as it was imported, to compare. -->
+        <div v-if="canManage && originalOf(openSub)" class="fs-original">
+          <a @click="showOriginal = !showOriginal">{{ showOriginal ? (es ? 'Ocultar original' : 'Hide original') : (es ? 'Ver original (antes de la corrección)' : 'See original (before the correction)') }}</a>
+          <div v-if="showOriginal" class="fs-original-box">
+            <div class="fs-muted fs-small">{{ es ? 'Así se importó, con cada valor bajo la clave antigua. Se corrigió el 10-11-2026.' : 'As imported, each value under its old key. Corrected on 2026-11-10.' }}</div>
+            <div v-for="(v, k) in originalOf(openSub)" :key="k" class="fs-original-row"><code>{{ k }}</code> <span>{{ text(v) || '—' }}</span></div>
+          </div>
+        </div>
         <a-space wrap style="margin-top: 8px">
           <a-button v-if="!openSub.attended_at" type="primary" @click="attendOpen = true"><CheckOutlined /> {{ es ? 'Marcar atendido' : 'Mark attended' }}</a-button>
           <a-button v-else @click="setAttended(false)">{{ es ? 'Quitar atendido' : 'Not attended' }}</a-button>
@@ -147,6 +155,14 @@ const listState = useListState('form-submissions', { page, perPage, search, unre
 const fmt = d => (d ? dayjs(d).format('YYYY-MM-DD HH:mm') : '');
 const isFile = v => v && typeof v === 'object' && !Array.isArray(v) && v.path;
 const text = v => (Array.isArray(v) ? v.join(', ') : isFile(v) ? v.name : (v ?? '').toString());
+// The original import data a corrected row keeps in its notes ("... correction): {json}"), or null.
+const showOriginal = ref(false);
+function originalOf(s) {
+  const n = s && s.notes;
+  const i = n ? n.indexOf('{') : -1;
+  if (i < 0) return null;
+  try { return JSON.parse(n.slice(i)); } catch (e) { return null; }
+}
 const short = v => { const t = text(v); return t.length > 60 ? t.slice(0, 57) + '…' : t; };
 const shortUrl = u => u.replace(/^https?:\/\//, '').slice(0, 60);
 const modalWidth = computed(() => (window.innerWidth < 700 ? '100%' : Math.min(1000, window.innerWidth - 80)));
@@ -228,6 +244,7 @@ async function openRow(r) {
   try {
     const res = await http.get(`forms/submissions/${r.id}`);
     openSub.value = res.submission;
+    showOriginal.value = false;
     layout.value = res.layout || [];
     drawerOpen.value = true;
     r.is_read = true;
@@ -429,6 +446,10 @@ onMounted(async () => {
 .fs-cell { padding: 3px 10px; border-bottom: 1px solid #f0f0f0; border-right: 1px solid #f0f0f0; min-width: 0; overflow-wrap: anywhere; }
 .fs-full { grid-column: 1 / -1; }
 .fs-label { font-size: 11px; color: #888; }
+.fs-original { margin-top: 6px; font-size: 12px; }
+.fs-original-box { margin-top: 4px; padding: 6px 10px; border: 1px dashed rgba(128, 128, 128, 0.35); border-radius: 6px; max-height: 220px; overflow-y: auto; }
+.fs-original-row { display: flex; gap: 8px; padding: 1px 0; overflow-wrap: anywhere; }
+.fs-original-row code { flex: none; min-width: 90px; opacity: 0.7; }
 :deep(.fs-unread) td { font-weight: 600; }
 :deep(.ant-table-row) { cursor: pointer; }
 </style>

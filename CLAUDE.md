@@ -201,8 +201,9 @@ Reporte de salidas opens on real data. Only Reporte de salidas and Reclamos hold
 
 Waiting for the user's answer -- bring these up, don't decide them alone (remove each one once settled):
 1. **Daily departures screen: built 2026-11-10** (see Transport below). To ask the client at the meeting: who fills the report in each agency and when it is closed, whether every agency will sell on the POS, when toll and fuel are known, who gets the daily PDF.
-2. **337 complaints imported with their answers one field off:** the dashboard reads them through `LEGACY_KEYS`, but the
-   admin who opens one to reply sees them wrong. Recommended: correct them with a migration, production backup first.
+2. **The questions for the meeting are a Murano form (2026-11-10):** Turismo's form "Preguntas para la reunión del 15-11-2026"
+   (public key `tcpreguntas2026`, link `https://murano.kcoltech.com/f/tcpreguntas2026`, migration 2026_11_10_170000; answers in Forms and
+   emailed to juanlock@kcoltech.com). The client's answers there settle items 3, 5, 6 and 7.
 3. **The client's data:** which 4 buses have deluxe seats (all 17 say 15; our guess 103, 104, 370, 380); name, plate and seats of
    the 2 missing buses; where each report's buses go; what CV is; Chiclayo's toll and fuel.
 4. **2026-11-16:** the user reviews the Risks thresholds.
@@ -216,7 +217,8 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
 The monitoring has been tested with simulated GPS only: try it on a real phone with a real trip before the 15th.
 
 Not reviewed yet: PDFs other than the invoice, about 60 store / meeting messages without Spanish, the customer portal, a real
-send of the meeting and asset emails, whether production's `.env` sets `QUEUE_FAILED_DRIVER`.
+send of the meeting and asset emails. (Production's `.env` has no `QUEUE_FAILED_DRIVER`: the default `database-uuids` applies and
+its `failed_jobs` table has the `uuid` column -- checked 2026-11-10; writing `QUEUE_FAILED_DRIVER=database-uuids` only makes it explicit.)
 
 ## The Product & its Architecture
 
@@ -667,8 +669,9 @@ the start of each session).
   **Charts on the dashboard (2026-11-05):** tabs "Indicators" and "Risks" (`TransportIndicatorsPanel.vue`, `App\Services\TransportIndicators`, permission
   `transport_profit`, same figures as Profit by route; the thresholds in `RISK` are ours, not the owner's) and tab "Complaints" (`TransportClaimsPanel.vue`,
   `App\Services\TransportClaims`, `forms_view`, section `transport_claims`): counts from the company's complaints-book form, never who complained or what they wrote.
-  **337 of Turismo's complaints imported from the old forms system have their answers one field off** (the Agency field holds the reason...): `TransportClaims` reads them
-  through `LEGACY_KEYS`; the rows stay as they are. Shared: `lib/transportCharts.js` (`useFitHeight`), `TransportChartBlock.vue`, `TransportStrip.vue`.
+  **337 of Turismo's complaints imported from the old forms system had their answers one field off** (the Agency field held the reason...): corrected on 2026-11-10
+  (migration 2026_11_10_160000, user's yes); each corrected row keeps its original data in `form_submissions.notes` (Forms -> a submission -> "Ver original",
+  forms_manage only); `down()` puts the originals back. `TransportClaims` keeps `LEGACY_KEYS` only as a fallback. Shared: `lib/transportCharts.js` (`useFitHeight`), `TransportChartBlock.vue`, `TransportStrip.vue`.
   **Departures report (2026-11-05):** tab "Reporte de salidas" (`TransportDeparturesPanel.vue`, `App\Services\TransportDepartures`): the content of Turismo's own Excel report per agency, designed as a board, not a copy of the sheet (user's rule): key figures, one row per bus with its boarding points in the client's codes (`transport_trip_boardings.label`), occupancy bar, small charts; a day with only demo trips or none shows the client's latest report;
   boarding points with their time per trip (`transport_trip_boardings`), the day's price (`transport_day_prices`, no screen yet). A trip from the client's report has
   `reported_passengers` / `reported_income` instead of tickets (none are made up); `TransportProfit` counts them. The client's answers (user, 2026-11-05): P.N. = terminal Puente Nuevo, T.Olivos = Terminal Los Olivos,

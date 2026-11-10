@@ -586,6 +586,8 @@ class FormsController extends Controller
             'ip' => $s->ip, 'user_agent' => $s->user_agent, 'page_url' => $s->page_url, 'created_at' => $s->created_at,
             'attended_at' => $s->attended_at ?? null, 'attended_note' => $s->attended_note ?? null,
             'attended_by_name' => ! empty($s->attended_by) ? DB::table('users')->where('id', $s->attended_by)->value('username') : null,
+            // Imported rows corrected on 2026-11-10 keep their original data here (to compare).
+            'notes' => $s->notes ?? null,
         ];
     }
 

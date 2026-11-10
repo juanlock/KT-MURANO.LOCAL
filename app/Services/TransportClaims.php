@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\DB;
  *
  * Rows imported from the old forms system have their answers one field off (FormsImportEasyForms): the Agency field
  * holds the reason, the ID-document field the agency, and so on. They are told apart by the document field not holding
- * a document type, and read through LEGACY_KEYS. The stored rows are left as they are.
+ * a document type, and read through LEGACY_KEYS. Since 2026-11-10 the 337 rows are corrected (migration
+ * 2026_11_10_160000, the original kept in form_submissions.notes); LEGACY_KEYS stays only as a fallback.
  */
 class TransportClaims
 {
