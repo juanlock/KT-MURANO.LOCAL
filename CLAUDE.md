@@ -212,16 +212,6 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
    Also to check on the list: "Lambayeqye 2" (misspelt?), Ilo under Lima, Chimbote and Virú under Trujillo; coordinates missing for Ilo, Oficina Galves, Puente Nuevo, José Gálvez, La Pampa; most others are approximate.
 7. **Not checked:** the other 7 transport permissions are not on the Roles screen (`config/permissions.js`), and saving a role replaces its permissions, so they might be lost.
 
-8. **Bring up at the next Wake-up (user's request, 2026-11-09 night, Optimum -> Thundera):**
-   - Thundera's commit aa7ba2282 (Turismo guide + Turismo's manual in the book) was never pushed: on Thundera, Fetch / Pull
-     first (merges Optimum's 0eb7a0cf4), a README conflict is likely (keep both day blocks), then push.
-   - 0eb7a0cf4 is NOT in production (complaints grouped, dashboard tab Encomiendas, migration
-     2026_11_09_120000 = S/ 250,000 a month for Turismo): deploy only with the user's yes.
-   - Ask: raise the parcels demo volume toward the client's S/ 250,000 a month (today about 12 %, red card)?
-     Does the client have its own parcel sizes (ours: 0-5-15-25 kg by weight)?
-   - The daily departures screen (item 1), before the 15th.
-   Remove this item once mentioned.
-
 Next, once the monitoring is settled: item 1, the daily departures screen. The monitoring has been tested with simulated GPS only: try it on a real phone with a real trip before the 15th.
 
 Not reviewed yet: PDFs other than the invoice, about 60 store / meeting messages without Spanish, the customer portal, a real
