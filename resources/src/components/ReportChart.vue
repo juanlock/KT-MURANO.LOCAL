@@ -41,7 +41,7 @@ const rows = computed(() => {
   if (!Array.isArray(d)) {
     // Says whether the endpoint sent no trend data at all vs an empty range.
     if (d !== undefined && d !== null) {
-      console.warn('[stocky-next] ReportChart: `data` is not an array —', typeof d, d);
+      console.warn('[murano] ReportChart: `data` is not an array —', typeof d, d);
     }
     return [];
   }

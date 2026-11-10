@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Flutterwave v3 payment gateway for the Online Store (same flow as the
- * Stocky SaaS FlutterwaveGateway): keys + webhook Secret Hash on
+ * SaaS edition FlutterwaveGateway): keys + webhook Secret Hash on
  * store_settings (test vs live decided by the FLWPUBK_TEST/FLWSECK_TEST
  * key pair), and the tx_ref / transaction id on online_orders (the tx_ref
  * is how the verify redirect and webhooks find the pending order).

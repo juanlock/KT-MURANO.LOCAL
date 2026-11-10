@@ -157,7 +157,7 @@ async function openAs(r, enablePortal = false) {
   try {
     const res = await http.webPost(`login/as/${r.id}`, enablePortal ? { enable_portal: 1 } : {});
     if (r.type !== 'customer') {
-      try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
+      try { window.localStorage.removeItem('murano_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
     }
     window.location.href = res?.redirect || '/';
   } catch (e) {

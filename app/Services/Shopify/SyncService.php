@@ -821,7 +821,7 @@ class SyncService
             'last_name' => $last,
             'email' => $client->email,
             'phone' => $client->phone ?: null,
-            'tags' => 'stocky-erp',
+            'tags' => 'murano',
         ];
 
         if ($client->adresse || $client->city || $client->country) {

@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  * (`last_id` for local pushes; for remote pulls Salla paginates by page number,
  * returned as `next_page_info` so the shared frontend loop stays unchanged).
  *
- * Product identity is SKU-first (Stocky `products.code` / `product_variants
+ * Product identity is SKU-first (Murano `products.code` / `product_variants
  * .code` <-> Salla `sku`), with salla_mappings rows as the authoritative link.
  * V1 limitation: variant products are not PUSHED (Salla generates variants
  * from options server-side); they are still matched on pull and order import,
@@ -756,7 +756,7 @@ class SyncService
 
     private function mapOrderStatus(string $slug): string
     {
-        // Valid Stocky sale statuses: completed | pending | ordered
+        // Valid Murano sale statuses: completed | pending | ordered
         return match ($slug) {
             'completed', 'delivered' => 'completed',
             'in_progress', 'in-progress', 'delivering', 'shipped' => 'pending',

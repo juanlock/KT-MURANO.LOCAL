@@ -45,7 +45,7 @@ Route::get('password/find/{token}', 'PasswordResetController@find');
 
 // PWA manifests — generated from System Settings → PWA so the install prompt
 // and the installed app reflect the configured name, colors and launch
-// behavior instead of a hardcoded "Stocky". The admin/POS surface stays at
+// behavior instead of a hardcoded "Murano". The admin/POS surface stays at
 // /manifest.webmanifest so existing <link> tags and the service worker
 // precache list need no changes; the other surfaces are served from /pwa/*
 // (the static public/manifest-*.webmanifest files would shadow them otherwise).
@@ -421,7 +421,7 @@ if ($installed === false) {
 
 Route::group(['middleware' => ['web', 'auth:web', 'Is_Active']], function () {
 
-    // Vue 3 + Ant Design app ("Stocky Next") — catch-all under /next/, registered
+    // Vue 3 + Ant Design app ("Murano") — catch-all under /next/, registered
     // before the SPA /{vue?} wildcard so it isn't swallowed by it.
     Route::view('/next/{any?}', 'next')->where('any', '.*')->name('next');
     Route::redirect('/dashboard-next', '/next/dashboard');

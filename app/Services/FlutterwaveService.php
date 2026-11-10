@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * Flutterwave v3 (Standard hosted payments) for the online-store checkout.
  *
- * Ported from the Stocky SaaS FlutterwaveGateway and follows the same rules:
+ * Ported from the SaaS edition FlutterwaveGateway and follows the same rules:
  * ALWAYS the v3 API (https://api.flutterwave.com/v3) with classic keys
  * (FLWPUBK_/FLWSECK_) — never v4, never OAuth. Flow: initialize a payment
  * with a server-generated tx_ref and the SERVER-computed total, redirect to

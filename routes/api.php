@@ -80,7 +80,7 @@ Route::group([
 
 Route::get('/products_clean_names', 'ProductsController@cleanNames');
 
-// Old Stocky token door (the SPA doesn't use it): throttled + LoginSecurity (2026-10-27).
+// Old Murano token door (the SPA doesn't use it): throttled + LoginSecurity (2026-10-27).
 Route::post('getAccessToken', 'AuthController@getAccessToken')->middleware('throttle:5,1');
 
 Route::get('/get-logo-setting', function () {

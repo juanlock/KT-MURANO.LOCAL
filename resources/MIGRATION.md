@@ -1,4 +1,4 @@
-# Stocky Next — Vue 3 + Ant Design migration
+# Murano — Vue 3 + Ant Design migration
 
 Strangler-fig migration off the Vue 2.7 + Bootstrap-Vue admin. This app serves
 migrated pages at `/next/*`; every other module deep-links back to the legacy

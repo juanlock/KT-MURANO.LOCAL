@@ -1,6 +1,6 @@
 @php
     /**
-     * Vue 3 + Ant Design app ("Stocky Next"), built via Vite into public/js/.
+     * Vue 3 + Ant Design app ("Murano"), built via Vite into public/js/.
      *
      * Asset URLs come from Vite's manifest and are content-hashed — do NOT add a
      * `?v=` cache-busting query to the module script. Lazy chunks import the

@@ -21,7 +21,7 @@ class RecruitController extends Controller
     /**
      * Store an uploaded recruit file under the acting company's
      * files/company_{id}/recruit/<dir> folder and return its public-relative
-     * path. Stocky serves uploads from public/images directly (no storage:link).
+     * path. Murano serves uploads from public/images directly (no storage:link).
      */
     private function storeUpload($file, string $dir, int $companyId): string
     {

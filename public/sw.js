@@ -1,5 +1,5 @@
 /*
- * Stocky POS Service Worker
+ * Murano POS Service Worker
  *
  * Goals:
  *   - Make the POS installable and bootable offline (app shell).
@@ -19,7 +19,7 @@
  */
 
 // Bump this when deploying changes so old caches are purged.
-const VERSION = 'stocky-pwa-v9';
+const VERSION = 'murano-pwa-v10';
 
 // Configurable storefront base path, passed on the registration URL as
 // ?store_base=/shop (or '/' when the store runs from the root domain).
@@ -86,7 +86,7 @@ const NETWORK_ONLY_PREFIXES = [
 // producing a burst of 404s whose HTTP referer is this script's URL.
 const MANIFEST_PATH = '/js/.vite/manifest.json';
 
-// Content-hashed output of the admin (Stocky Next) Vite build. Everything the
+// Content-hashed output of the admin (Murano) Vite build. Everything the
 // build emits under /js/ lands in one of these; /js/portal/, /js/customer-display/
 // and /js/storefront.* come from other builds and are deliberately excluded.
 const BUILD_OUTPUT_RE = /^\/js\/(chunks\/|assets\/|app\.)/;

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * Paystack (Transactions API) for the online-store checkout.
  *
- * Ported from the Stocky SaaS PaystackGateway and follows the same payment
+ * Ported from the SaaS edition PaystackGateway and follows the same payment
  * flow: initialize a transaction with a server-generated reference and the
  * SERVER-computed total (in subunits), redirect the customer to the hosted
  * authorization_url, then VERIFY server-side on the callback — never trust

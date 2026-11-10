@@ -12,7 +12,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Mailchimp audience sync: pushes Stocky customers (those with an email) as
+ * Mailchimp audience sync: pushes Murano customers (those with an email) as
  * audience members. Members are addressed by md5(lower(email)), so every push
  * is an idempotent upsert — no mapping table needed.
  *
@@ -215,7 +215,7 @@ class MailchimpService
             throw new RuntimeException('Invalid Mailchimp API key: missing the "-usX" datacenter suffix.');
         }
 
-        return Http::withBasicAuth('stocky', $key)
+        return Http::withBasicAuth('murano', $key)
             ->acceptJson()
             ->timeout(30)
             ->{$method}('https://'.$dc.'.api.mailchimp.com/3.0/'.ltrim($path, '/'), $data);

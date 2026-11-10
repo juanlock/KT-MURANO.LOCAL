@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Paystack payment gateway for the Online Store (same flow as the Stocky
+ * Paystack payment gateway for the Online Store (same flow as the Murano
  * SaaS PaystackGateway): keys on store_settings (test vs live is decided by
  * the sk_test_/sk_live_ key pair, so no sandbox flag), and the reference /
  * transaction id on online_orders (the reference is how the verify callback

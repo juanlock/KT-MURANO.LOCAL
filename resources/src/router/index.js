@@ -21,7 +21,7 @@ import AdminLayout from '../layouts/AdminLayout.vue';
  */
 const lazy = (name, loader) => () =>
     loader().catch(err => {
-        console.error(`[stocky-next] chunk load FAILED for "${name}" — cause of any render error that follows:`, err);
+        console.error(`[murano] chunk load FAILED for "${name}" — cause of any render error that follows:`, err);
         throw err;
     });
 
@@ -1096,9 +1096,9 @@ router.onError((error, to) => {
     // the page refreshed but stayed on the section the user was leaving.
     const msg = String((error && error.message) || '');
     if (/Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(msg)) {
-        if (sessionStorage.getItem('stocky-chunk-reload') === '1') return;
-        sessionStorage.setItem('stocky-chunk-reload', '1');
-        window.__stockyChunkRedirect = true;
+        if (sessionStorage.getItem('murano-chunk-reload') === '1') return;
+        sessionStorage.setItem('murano-chunk-reload', '1');
+        window.__muranoChunkRedirect = true;
         try {
             window.location.assign(router.resolve(to && to.fullPath ? to.fullPath : '/').href);
         } catch (e) {

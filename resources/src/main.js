@@ -23,10 +23,10 @@ import { warmOfflineAssets } from './lib/swWarm';
 const BENIGN = /^ResizeObserver loop/;
 window.addEventListener('error', e => {
     if (BENIGN.test(e.message || '')) return;
-    console.error('[stocky-next] uncaught:', e.message, '\n', e.error && e.error.stack);
+    console.error('[murano] uncaught:', e.message, '\n', e.error && e.error.stack);
 });
 window.addEventListener('unhandledrejection', e => {
-    console.error('[stocky-next] unhandled promise rejection:', e.reason);
+    console.error('[murano] unhandled promise rejection:', e.reason);
 });
 
 // After a rebuild the old hashed chunks are deleted, so a tab loaded before the
@@ -40,9 +40,9 @@ window.addEventListener('unhandledrejection', e => {
 window.addEventListener('vite:preloadError', e => {
     e.preventDefault();
     setTimeout(() => {
-        if (window.__stockyChunkRedirect) return;
-        if (sessionStorage.getItem('stocky-chunk-reload') === '1') return;
-        sessionStorage.setItem('stocky-chunk-reload', '1');
+        if (window.__muranoChunkRedirect) return;
+        if (sessionStorage.getItem('murano-chunk-reload') === '1') return;
+        sessionStorage.setItem('murano-chunk-reload', '1');
         window.location.reload();
     }, 100);
 });
@@ -60,7 +60,7 @@ app.config.errorHandler = (err, instance, info) => {
         chain.push(pt.name || pt.__name || pt.__file || '?');
     }
     console.error(
-        `[stocky-next] error in <${name}> (${info})`
+        `[murano] error in <${name}> (${info})`
         + `\n  message: ${err?.message}`
         + `\n  parents: ${chain.join(' < ') || '(root)'}`
         + `\n  stack:\n${err?.stack || '(none)'}`
@@ -91,7 +91,7 @@ app.component('apexchart', defineAsyncComponent(() => import('vue3-apexcharts'))
 // auth, which reads as a broken refresh.
 Promise.allSettled([loadLocale(storedLocale()), router.isReady()]).then(() => {
     // Booted fine — arm the chunk-failure reload again for the next deploy.
-    sessionStorage.removeItem('stocky-chunk-reload');
+    sessionStorage.removeItem('murano-chunk-reload');
     app.mount('#vue3-app');
     // Pre-cache every built chunk in the service worker (delayed, best-effort)
     // so an offline reload can open screens that were never visited.

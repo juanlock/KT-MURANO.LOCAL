@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Schema;
 class WooCommerceSync extends Command
 {
     protected $signature = 'woocommerce:sync
-        {--scope=all : products|stock|all (push) or pull-products|orders|customers|pull (Woo -> Stocky)}
+        {--scope=all : products|stock|all (push) or pull-products|orders|customers|pull (Woo -> Murano)}
         {--only-unsynced : For products push, sync only products without woocommerce_id}
         {--user= : User id imported orders are attributed to (default: first active all-warehouse user)}
         {--full : For --scope=orders, rescan every order instead of only those changed since the last run}';
@@ -74,12 +74,12 @@ class WooCommerceSync extends Command
             return 1;
         }
 
-        // Push (Stocky -> Woo). "all" stays push-only for backwards compatibility;
-        // use "pull" for the Woo -> Stocky direction.
+        // Push (Murano -> Woo). "all" stays push-only for backwards compatibility;
+        // use "pull" for the Woo -> Murano direction.
         $runProducts = ($scope === 'products' || $scope === 'all');
         $runStock = ($scope === 'stock' || $scope === 'all');
 
-        // Pull (Woo -> Stocky).
+        // Pull (Woo -> Murano).
         $runPullProducts = ($scope === 'pull-products' || $scope === 'pull');
         $runPullOrders = ($scope === 'orders' || $scope === 'pull');
         $runPullCustomers = ($scope === 'customers' || $scope === 'pull');
@@ -215,7 +215,7 @@ class WooCommerceSync extends Command
     }
 
     /**
-     * Dispatch the products PULL job (Woo -> Stocky) and process the queue until finished.
+     * Dispatch the products PULL job (Woo -> Murano) and process the queue until finished.
      *
      * Mirrors runProductsPushSync(); total_items starts at 0 because the job fills it
      * in from the X-WP-Total header of the first page it fetches.
@@ -274,7 +274,7 @@ class WooCommerceSync extends Command
     }
 
     /**
-     * Pull WooCommerce orders into Stocky sales.
+     * Pull WooCommerce orders into Murano sales.
      *
      * Runs inline (no queue): pullOrders() is already page-by-page and idempotent.
      * Incremental by default -- a full history rescan on every schedule tick would be
@@ -336,7 +336,7 @@ class WooCommerceSync extends Command
     }
 
     /**
-     * Pull WooCommerce customers into Stocky clients. Runs inline; full scan
+     * Pull WooCommerce customers into Murano clients. Runs inline; full scan
      * (the Woo customers endpoint has no reliable "modified since" filter).
      */
     private function runCustomersPull(WooCommerceSetting $settings): int

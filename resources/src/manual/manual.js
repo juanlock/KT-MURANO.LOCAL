@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-11-09';
+export const MANUAL_UPDATED = '2026-11-10';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -59,7 +59,6 @@ export const MANUAL = [
           { key: 'summary', title: { en: 'Como Vamos! (today\'s summary)', es: '¡Cómo Vamos! (resumen de hoy)' }, text: { en: 'Today at a glance: sales, payments, bookings and what is pending.', es: 'El día de un vistazo: ventas, pagos, reservas y lo pendiente.' } },
           { key: 'fullscreen', title: { en: 'Full screen', es: 'Pantalla completa' }, text: { en: 'Uses the whole screen; click again (or Esc) to go back. Not on phones.', es: 'Usa toda la pantalla; haga clic otra vez (o Esc) para volver. No en celulares.' } },
           { key: 'manual', title: { en: 'User manual (open book)', es: 'Manual de usuario (libro abierto)' }, text: { en: 'This manual: **This page** shows help for the screen you are on, **Whole manual** has everything with a search. English or Spanish.', es: 'Este manual: **Esta página** muestra la ayuda de la pantalla en la que está, **Todo el manual** tiene todo con búsqueda. Inglés o español.' } },
-          { key: 'language', title: { en: 'Language (globe)', es: 'Idioma (globo)' }, text: { en: 'Changes the language of the app for you. Until you pick one, Murano (sign-in page included) follows your computer\'s language when it is English or Spanish, otherwise the company\'s default language.', es: 'Cambia el idioma de la aplicación para usted. Mientras no elija uno, Murano (incluida la página de ingreso) usa el idioma de su computadora si es español o inglés; si no, el idioma predeterminado de la empresa.' } },
           { key: 'notifications', title: { en: 'Notifications (bell)', es: 'Notificaciones (campana)' }, text: { en: 'Work waiting for you (e.g. bookings to confirm, computers to approve). The number is how many; click an item to go there.', es: 'Trabajo pendiente (p. ej. reservas por confirmar, computadoras por aprobar). El número indica cuántos; haga clic en uno para ir.' } },
           { key: 'clock', title: { en: 'Clock in / out', es: 'Marcar entrada / salida' }, text: { en: 'Clocks you in or out for today (if your role has it). Turns green with the time while you are clocked in.', es: 'Marca su entrada o salida de hoy (si su rol lo tiene). Se pone verde con la hora mientras está marcado.' } },
           { key: 'logout', title: { en: 'Log out', es: 'Cerrar sesión' }, text: { en: 'Signs you out in one click. Always do it on a shared computer.', es: 'Cierra su sesión con un clic. Hágalo siempre en una computadora compartida.' } },
@@ -1412,6 +1411,55 @@ export const MANUAL = [
         steps: {
           en: ['**Settings › Mail Settings**: the mail server the company sends from; **Test** sends a test email.', '**Admin notices** lists who gets the automatic notices (bookings, POS register); the SuperAdmin can also get a copy.', '**Send a copy to other emails**: type the addresses (Enter after each) and tick which emails they copy — **Sales** (invoices and payment receipts), **Payment reminders**, **Purchases** (orders and payments). They get a hidden copy; customers and suppliers never see them. Press **Submit** to save.', 'Every company starts with **AdminSystem\'s mail server**, with the sender name **Admin {company}**. The SuperAdmin, with **AdminSystem** chosen, changes it there and presses **Copy to every company** to send the same server to all companies (each keeps "Admin {company}" as sender name).'],
           es: ['**Configuración › Mail Settings**: el servidor de correo desde el que envía la empresa; **Test** envía un correo de prueba.', '**Admin notices** muestra quién recibe los avisos automáticos (reservas, caja del POS); el SuperAdmin también puede recibir copia.', '**Send a copy to other emails**: escriba las direcciones (Enter después de cada una) y marque qué correos copian — **Ventas** (facturas y recibos de pago), **Recordatorios de pago**, **Compras** (órdenes y pagos). Reciben una copia oculta; clientes y proveedores nunca la ven. Presione **Submit** para guardar.', 'Cada compañía empieza con el **servidor de correo de AdminSystem**, con el remitente **Admin {compañía}**. El SuperAdmin, con **AdminSystem** escogido, lo cambia allí y presiona **Copiar a todas las compañías** para enviar el mismo servidor a todas (cada una conserva "Admin {compañía}" como remitente).'],
+        },
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------- license
+  // KcolTech's license (user's request, 2026-11-10). Shown to everyone; no screen of its own.
+  {
+    key: 'license', module: null, perms: [], paths: [],
+    title: { en: 'License', es: 'Licencia' },
+    intro: {
+      en: 'Murano is software owned by KcolTech. © 2026 KcolTech. All rights reserved.',
+      es: 'Murano es un software de propiedad de KcolTech. © 2026 KcolTech. Todos los derechos reservados.',
+    },
+    sections: [
+      {
+        id: 'license-use',
+        title: { en: 'What your company may do', es: 'Lo que su empresa puede hacer' },
+        steps: {
+          en: ['Your company receives a **license of use**: the right to use Murano for its own business while its contract with KcolTech is in force.', 'The license is not exclusive and cannot be transferred, sold or lent to another company.', 'Using Murano does not transfer ownership of the software, its code, its design or its name.'],
+          es: ['Su empresa recibe una **licencia de uso**: el derecho a usar Murano para su propio negocio mientras esté vigente su contrato con KcolTech.', 'La licencia no es exclusiva y no se puede transferir, vender ni prestar a otra empresa.', 'Usar Murano no transfiere la propiedad del software, su código, su diseño ni su nombre.'],
+        },
+      },
+      {
+        id: 'license-not',
+        title: { en: 'What is not allowed', es: 'Lo que no está permitido' },
+        steps: {
+          en: ['Copying, selling, renting or sublicensing Murano or any part of it.', 'Modifying, decompiling or taking apart its code, or trying to obtain it.', 'Removing or changing KcolTech\'s name, notices or license.', 'Installing Murano on a server or computer that KcolTech has not authorized.', 'Disabling or getting around its security, its activation or its synchronization with KcolTech.'],
+          es: ['Copiar, vender, alquilar o sublicenciar Murano o cualquier parte de él.', 'Modificar, descompilar o desarmar su código, o intentar obtenerlo.', 'Quitar o cambiar el nombre, los avisos o la licencia de KcolTech.', 'Instalar Murano en un servidor o computadora que KcolTech no haya autorizado.', 'Desactivar o evadir su seguridad, su activación o su sincronización con KcolTech.'],
+        },
+      },
+      {
+        id: 'license-installs',
+        title: { en: 'Installations outside KcolTech', es: 'Instalaciones fuera de KcolTech' },
+        steps: {
+          en: ['An installation on your own server or computer works only with KcolTech\'s activation and stays connected to KcolTech to synchronize.', 'KcolTech may suspend an installation that is not authorized, that stops synchronizing or whose controls were altered.'],
+          es: ['Una instalación en su propio servidor o computadora funciona solo con la activación de KcolTech y se mantiene conectada a KcolTech para sincronizar.', 'KcolTech puede suspender una instalación no autorizada, que deje de sincronizar o cuyos controles hayan sido alterados.'],
+        },
+      },
+      {
+        id: 'license-data',
+        title: { en: 'Your data', es: 'Sus datos' },
+        steps: {
+          en: ['The information your company enters in Murano belongs to your company.', 'KcolTech uses it only to provide the service, and gives your company a copy when it asks for one.'],
+          es: ['La información que su empresa registra en Murano pertenece a su empresa.', 'KcolTech la usa solo para prestar el servicio y entrega una copia a su empresa cuando la solicita.'],
+        },
+        note: {
+          en: 'Murano uses open-source components (such as Laravel, Vue and Ant Design), each under its own license.',
+          es: 'Murano usa componentes de código abierto (como Laravel, Vue y Ant Design), cada uno con su propia licencia.',
         },
       },
     ],

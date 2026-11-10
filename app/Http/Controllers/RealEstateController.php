@@ -31,7 +31,7 @@ class RealEstateController extends Controller
 
     /**
      * Store an uploaded file under the acting company's properties folder and
-     * return its public-relative path. Stocky serves uploads from public/images
+     * return its public-relative path. Murano serves uploads from public/images
      * directly.
      */
     private function storeUpload($file, int $companyId): string

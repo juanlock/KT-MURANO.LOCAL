@@ -72,7 +72,7 @@ class AutoUpdateController extends Controller
                 return response()->json(['message' => 'Update URL not found'], 400);
             }
 
-            if (! $this->isAllowedHost($downloadUrl, ['update-stocky.ui-lib.com'])) {
+            if (! $this->isAllowedHost($downloadUrl, \App\Support\UpdateSource::allowedHosts())) {
                 $this->logUpdate('Blocked update from untrusted host: '.$downloadUrl);
                 Artisan::call('up');
 
@@ -289,9 +289,8 @@ class AutoUpdateController extends Controller
 
     private function getLastVersion()
     {
-        $content = file_get_contents('https://update-stocky.ui-lib.com/stocky_version.json');
-
-        return json_decode($content, true);
+        // KcolTech's own version file only; null when MURANO_UPDATE_URL is not set.
+        return \App\Support\UpdateSource::latest(30);
     }
 
     private function isAllowedHost(string $url, array $allowedHosts): bool
@@ -322,12 +321,12 @@ class AutoUpdateController extends Controller
             'http' => [
                 'timeout' => 60,
                 'follow_location' => 1,
-                'header' => "User-Agent: Stocky-Updater\r\n",
+                'header' => "User-Agent: Murano-Updater\r\n",
             ],
             'https' => [
                 'timeout' => 60,
                 'follow_location' => 1,
-                'header' => "User-Agent: Stocky-Updater\r\n",
+                'header' => "User-Agent: Murano-Updater\r\n",
             ],
         ]);
 
@@ -1045,11 +1044,11 @@ class AutoUpdateController extends Controller
         // Network/version JSON
         $net = ['ok' => false, 'error' => null];
         try {
-            $ctx = stream_context_create(['http' => ['timeout' => 10], 'https' => ['timeout' => 10]]);
-            $json = @file_get_contents('https://update-stocky.ui-lib.com/stocky_version.json', false, $ctx);
-            if ($json !== false) {
+            if (! \App\Support\UpdateSource::url()) {
+                $net['error'] = 'No update source set (MURANO_UPDATE_URL)';
+            } elseif (($latest = \App\Support\UpdateSource::latest()) !== null) {
                 $net['ok'] = true;
-                $net['size'] = strlen($json);
+                $net['size'] = strlen((string) json_encode($latest));
             }
         } catch (\Throwable $e) {
             $net['error'] = $e->getMessage();

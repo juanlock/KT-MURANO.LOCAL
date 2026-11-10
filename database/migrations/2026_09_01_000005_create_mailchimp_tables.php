@@ -26,7 +26,7 @@ return new class extends Migration
                 // New members join as 'pending' (Mailchimp sends a confirmation
                 // email) instead of 'subscribed' — the GDPR-safe default.
                 $table->boolean('double_opt_in')->default(true);
-                // Push new Stocky customers automatically (client.created event).
+                // Push new Murano customers automatically (client.created event).
                 $table->boolean('auto_sync')->default(false);
                 $table->timestamp('last_sync_at')->nullable();
                 $table->timestamps();

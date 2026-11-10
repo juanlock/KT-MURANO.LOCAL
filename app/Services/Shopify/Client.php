@@ -326,7 +326,7 @@ class Client
             'Accept: application/json',
             'Content-Type: application/json',
             'X-Shopify-Access-Token: '.$this->token,
-            'User-Agent: Stocky-ERP-Shopify-Integration',
+            'User-Agent: Murano-Shopify-Integration',
         ];
 
         $payload = null;

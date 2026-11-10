@@ -1,5 +1,6 @@
 {
-    "name": "stocky",
+    "name": "murano",
+    "license": "UNLICENSED",
     "private": true,
     "type": "module",
     "scripts": {

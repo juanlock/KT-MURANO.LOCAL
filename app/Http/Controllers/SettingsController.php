@@ -2665,7 +2665,7 @@ class SettingsController extends Controller
         return response()->json(['settings' => [
             'id' => $settings->id,
             // Page title (<title>) and the logo shown above the login form --
-            // same "Stocky | Ultimate Inventory With POS" placeholder every
+            // same "Murano | Ultimate Inventory With POS" placeholder every
             // fresh company's Setting row is cloned with (Setting::forCompany's
             // template-clone), left unedited on the reserved template row
             // specifically. Editable here now instead of only through a

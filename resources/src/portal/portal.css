@@ -151,7 +151,7 @@ body.rst-app {
    Below lg Tabler turns the vertical navbar back into a static horizontal bar,
    which our fixed 16rem width shrank to a stub panel — the brand ended up on a
    256px block with dead space beside it. Instead of patching that bar we drop
-   it entirely and use the stocky_saas pattern: the sidebar is a fixed drawer
+   it entirely and use the SaaS edition pattern: the sidebar is a fixed drawer
    that slides in over a backdrop, driven by the same topbar hamburger, and the
    brand moves into the topbar so it is visible on every screen. */
 @media (max-width: 991.98px) {

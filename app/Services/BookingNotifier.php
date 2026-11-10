@@ -28,7 +28,7 @@ class BookingNotifier
     {
         $co = DB::table('companies')->where('id', $companyId)->first(['name']);
         $settings = DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->first(['CompanyName', 'email', 'CompanyPhone']);
-        // companies.name first: a settings row cloned from the template can still say "Stocky".
+        // companies.name first: a settings row cloned from the template can still say "Murano".
         $company = trim((string) ($co->name ?? '')) ?: (trim((string) ($settings->CompanyName ?? '')) ?: 'Bookings');
         [$mailer, $from] = $mailer ? [$mailer, config('mail.from.address')] : self::mailer($companyId);
 

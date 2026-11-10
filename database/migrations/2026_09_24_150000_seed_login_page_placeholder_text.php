@@ -13,7 +13,7 @@ use App\Models\Setting;
  * login_footer_text is deliberately NOT seeded here -- its fallback splices
  * in the CURRENT year dynamically ('© {date('Y')} ...'); copying it verbatim
  * would freeze that year instead of letting it keep auto-updating.
- * app_name is also left alone -- "Stocky | Ultimate Inventory With POS" is a
+ * app_name is also left alone -- "Murano | Ultimate Inventory With POS" is a
  * branding decision, not placeholder copy, and wasn't part of what was asked
  * to be copied here.
  */

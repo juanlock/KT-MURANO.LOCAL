@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * PayPal (Orders API v2) for the online-store checkout.
  *
- * Ported from the Stocky SaaS PaypalGateway and follows the same payment
+ * Ported from the SaaS edition PaypalGateway and follows the same payment
  * flow: create an order with intent CAPTURE + return/cancel URLs, redirect
  * the customer to the approve link, then capture on return (handling
  * ORDER_ALREADY_CAPTURED by re-reading the order). Credentials and the

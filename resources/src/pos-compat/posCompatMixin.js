@@ -37,7 +37,7 @@ export default {
                         // The POS used to jump straight to /login without ending
                         // the Laravel session, so the guest middleware bounced it
                         // back to the dashboard. Kill the session first, then go.
-                        try { localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) {}
+                        try { localStorage.removeItem('murano_auth_cache_v1'); } catch (e) {}
                         const done = () => window.location.replace('/login');
                         fetch('/logout', {
                             method: 'POST',

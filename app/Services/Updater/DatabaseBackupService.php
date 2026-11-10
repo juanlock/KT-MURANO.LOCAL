@@ -83,7 +83,7 @@ class DatabaseBackupService
                     $tables[] = $vals[0];
                 }
             }
-            $header = "-- Stocky updater PHP dump\n"
+            $header = "-- Murano updater PHP dump\n"
                 ."-- Generated: ".date('Y-m-d H:i:s')."\n"
                 ."SET NAMES utf8mb4;\n"
                 ."SET FOREIGN_KEY_CHECKS=0;\n"

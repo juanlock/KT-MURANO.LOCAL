@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Jumia Seller Center sync engine, same cursor-batch contract as the other
- * connectors. Product identity is the SellerSku (= Stocky product code):
+ * connectors. Product identity is the SellerSku (= Murano product code):
  * price/stock pushes are keyed by SKU with no product mapping needed, and go
  * through async ProductUpdate feeds (the FeedId is logged; per-item rejects
  * appear in Seller Center's feed status). Jumia has no webhooks — orders are

@@ -61,10 +61,10 @@ class AuthController extends BaseController
         $user = auth()->user();
         $tokenResult = $user->createToken('Access Token');
         $token = $tokenResult->token;
-        $this->setCookie('Stocky_token', $tokenResult->accessToken);
+        $this->setCookie('Murano_token', $tokenResult->accessToken);
 
         return response()->json([
-            'Stocky_token' => $tokenResult->accessToken,
+            'Murano_token' => $tokenResult->accessToken,
             'username' => Auth::User()->username,
             'status' => true,
         ]);
@@ -77,7 +77,7 @@ class AuthController extends BaseController
         if (Auth::check()) {
             $user = Auth::user()->token();
             $user->revoke();
-            $this->destroyCookie('Stocky_token');
+            $this->destroyCookie('Murano_token');
 
             return response()->json('success');
         }

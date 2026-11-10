@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
  *   total_spent_max       number   maximum total amount spent
  *
  * NOTE: "Customer Group" segmentation from the feature request is not implemented
- * because Stocky currently has no customer-group concept on the clients table.
+ * because Murano currently has no customer-group concept on the clients table.
  */
 class SegmentResolver
 {

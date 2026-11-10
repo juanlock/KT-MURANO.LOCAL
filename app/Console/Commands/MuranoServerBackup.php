@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
  * The server's own daily database backup (2026-10-27; scheduled 03:20 in Console\Kernel):
  * mysqldump --single-transaction | gzip into ~/murano_backups/ (outside the website
  * folder, never reachable by URL), the newest KEEP kept. The password goes through
- * MYSQL_PWD, never on the command line. Replaces Stocky's database:backup in the
+ * MYSQL_PWD, never on the command line. Replaces Murano's database:backup in the
  * schedule (no frequency = every minute, one uncompressed copy under storage/app/public).
  *
  *   php artisan murano:server-backup
@@ -33,7 +33,7 @@ class MuranoServerBackup extends Command
             .' --single-transaction --quick --no-tablespaces --routines --triggers --default-character-set=utf8mb4 '.$q((string) $db['database'])
             .' | gzip -6 > '.$q($file);
 
-        // Hostinger's PHP has no proc_open (Laravel's Process): exec() like Stocky's
+        // Hostinger's PHP has no proc_open (Laravel's Process): exec() like Murano's
         // backup, the password in the environment; else a pure-PHP dump, gzipped.
         $error = 'exec() is not available';
         if (function_exists('exec')) {

@@ -25,13 +25,9 @@ class UpdateController extends Controller
         $changelog = [];
 
         try {
-            $ctx = stream_context_create([
-                'http' => ['timeout' => 10],
-                'https' => ['timeout' => 10],
-            ]);
-            $json = @file_get_contents('https://update-stocky.ui-lib.com/stocky_version.json', false, $ctx);
-            if ($json !== false) {
-                $latestInfo = json_decode($json, true);
+            // KcolTech's own version file only (App\Support\UpdateSource); none set = no remote check.
+            $latestInfo = \App\Support\UpdateSource::latest();
+            if ($latestInfo !== null) {
                 $latestVersion = $latestInfo['version'] ?? '';
 
                 // Build changelog from remote data if available

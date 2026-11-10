@@ -67,7 +67,7 @@ class Kernel extends ConsoleKernel
             : $schedule->call(fn () => self::runLogged($command))->name($command);
 
         // Server backup (2026-10-27): once a day, gzipped, outside the website folder, 14 kept
-        // (MuranoServerBackup). database:backup (Stocky's) had no frequency = every minute.
+        // (MuranoServerBackup). database:backup (Murano's) had no frequency = every minute.
         // Fixed times on a multiple of 10 minutes: production's cron runs every 10 for now
         // (2026-11-04), so 03:15 would never come up.
         $cmd('murano:server-backup')->dailyAt('03:20')->withoutOverlapping(60);
@@ -116,7 +116,7 @@ class Kernel extends ConsoleKernel
         // peak hours; full-tab rewrites can take a while on big datasets).
         $cmd('google-sheets:auto-export')->dailyAt('02:30')->withoutOverlapping()->when($uses('google_sheets'));
 
-        // WooCommerce push (Stocky -> Woo): push only not-yet-linked products
+        // WooCommerce push (Murano -> Woo): push only not-yet-linked products
         // nightly; stock changes often, so sync it hourly.
         $cmd('woocommerce:sync --scope=products --only-unsynced')
             ->dailyAt('02:00')
@@ -126,8 +126,8 @@ class Kernel extends ConsoleKernel
             ->hourly()
             ->withoutOverlapping()->when($uses('woocommerce_settings'));
 
-        // WooCommerce pull (Woo -> Stocky). Orders run often so online sales land in
-        // Stocky quickly and are incremental (only orders changed since the last run).
+        // WooCommerce pull (Woo -> Murano). Orders run often so online sales land in
+        // Murano quickly and are incremental (only orders changed since the last run).
         // Products and customers are full scans, so keep them to once a night.
         $cmd('woocommerce:sync --scope=orders')
             ->everyFifteenMinutes()

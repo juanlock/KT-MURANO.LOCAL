@@ -306,7 +306,7 @@ class WooCommerceSyncController extends BaseController
 
         $mode = (string) $request->query('mode', 'push');
         if ($mode === 'pull') {
-            // Woo -> Stocky
+            // Woo -> Murano
             $onlyUnsynced = (bool) $request->boolean('only_unsynced', false);
 
             // Try to compute remote total for better UX (X-WP-Total header)
@@ -980,7 +980,7 @@ class WooCommerceSyncController extends BaseController
 
     /**
      * GET /api/woocommerce/products/pull-stats
-     * Get stats for WooCommerce → Stocky: total in WooCommerce, imported (Stocky products with woocommerce_id), not imported
+     * Get stats for WooCommerce → Murano: total in WooCommerce, imported (Murano products with woocommerce_id), not imported
      */
     public function getProductsPullStats(Request $request)
     {
@@ -1116,7 +1116,7 @@ class WooCommerceSyncController extends BaseController
 
     /**
      * GET /api/woocommerce/categories/pull-stats
-     * Get stats for WooCommerce → Stocky categories: total in WooCommerce, imported (Stocky categories with woocommerce_id), not imported
+     * Get stats for WooCommerce → Murano categories: total in WooCommerce, imported (Murano categories with woocommerce_id), not imported
      */
     public function getCategoriesPullStats(Request $request)
     {
@@ -1152,7 +1152,7 @@ class WooCommerceSyncController extends BaseController
 
     /**
      * GET /api/woocommerce/brands/pull-stats
-     * Get stats for WooCommerce → Stocky brands: total in WooCommerce, imported (Stocky brands with woocommerce_id), not imported
+     * Get stats for WooCommerce → Murano brands: total in WooCommerce, imported (Murano brands with woocommerce_id), not imported
      */
     public function getBrandsPullStats(Request $request)
     {
@@ -1220,10 +1220,10 @@ class WooCommerceSyncController extends BaseController
         
         // Bulk sync
         if ($mode === 'pull') {
-            // Pull customers from WooCommerce → Stocky
+            // Pull customers from WooCommerce → Murano
             $result = $sync->pullCustomers();
         } else {
-            // Push customers from Stocky → WooCommerce (default)
+            // Push customers from Murano → WooCommerce (default)
             $onlyUnsynced = (bool) $request->boolean('only_unsynced', false);
             $result = $sync->pushCustomers($onlyUnsynced);
         }
@@ -1236,7 +1236,7 @@ class WooCommerceSyncController extends BaseController
 
     /**
      * POST /api/woocommerce/sync/orders
-     * Pull orders from WooCommerce -> Stocky sales.
+     * Pull orders from WooCommerce -> Murano sales.
      */
     public function syncOrders(Request $request)
     {
@@ -1500,7 +1500,7 @@ class WooCommerceSyncController extends BaseController
                 ];
             }
 
-            // Sync status: check which Woo orders are already imported into Stocky
+            // Sync status: check which Woo orders are already imported into Murano
             $ids = [];
             foreach ($formatted as $it) {
                 $oid = (int) ($it['id'] ?? 0);
@@ -1518,7 +1518,7 @@ class WooCommerceSyncController extends BaseController
             foreach ($formatted as &$it) {
                 $oid = (int) ($it['id'] ?? 0);
                 $saleId = $oid > 0 && isset($importedMap[$oid]) ? (int) $importedMap[$oid] : 0;
-                $it['stocky_sale_id'] = $saleId > 0 ? $saleId : null;
+                $it['murano_sale_id'] = $saleId > 0 ? $saleId : null;
                 $it['sync_status'] = $saleId > 0 ? 'synced' : 'not_synced';
             }
             unset($it);
@@ -1538,7 +1538,7 @@ class WooCommerceSyncController extends BaseController
 
     /**
      * GET /api/woocommerce/orders/imported
-     * Fetch Stocky sales imported from WooCommerce (woocommerce_order_id not null).
+     * Fetch Murano sales imported from WooCommerce (woocommerce_order_id not null).
      */
     public function getImportedWooOrders(Request $request)
     {
@@ -1636,7 +1636,7 @@ class WooCommerceSyncController extends BaseController
 
     /**
      * GET /api/woocommerce/customers/sync-issues
-     * List Stocky clients that have a sync issue recorded.
+     * List Murano clients that have a sync issue recorded.
      */
     public function getCustomerSyncIssues(Request $request)
     {
@@ -1705,7 +1705,7 @@ class WooCommerceSyncController extends BaseController
 
     /**
      * POST /api/woocommerce/customers/sync-issues/{id}/resolve
-     * Clears the issue fields for a Stocky client.
+     * Clears the issue fields for a Murano client.
      */
     public function resolveCustomerSyncIssue(Request $request, int $id)
     {
@@ -1724,7 +1724,7 @@ class WooCommerceSyncController extends BaseController
     /**
      * POST /api/woocommerce/customers/sync-issues/{id}/link
      * Body: { woocommerce_id: int }
-     * Manually links a Stocky client to a WooCommerce customer ID and clears the issue.
+     * Manually links a Murano client to a WooCommerce customer ID and clears the issue.
      */
     public function manualLinkCustomerSyncIssue(Request $request, int $id)
     {
@@ -1774,7 +1774,7 @@ class WooCommerceSyncController extends BaseController
     /**
      * POST /woocommerce/products/auto-link
      *
-     * Walk WooCommerce products and stamp `woocommerce_id` on Stocky products
+     * Walk WooCommerce products and stamp `woocommerce_id` on Murano products
      * (and `woocommerce_variation_id` on variants) where the SKU/code matches
      * exactly and only one match exists. Eliminates the most common cause of
      * "Order contains unmapped products" failures during order pull.
@@ -1833,7 +1833,7 @@ class WooCommerceSyncController extends BaseController
                 if ($id <= 0 || $type === 'variation') continue;
                 if ($sku !== '') {
                     // Case-insensitive match: Woo admin search is case-insensitive,
-                    // and Stocky users routinely enter SKUs in mixed case.
+                    // and Murano users routinely enter SKUs in mixed case.
                     $skuKey = mb_strtolower($sku);
                     $skuToWooId[$skuKey][] = $id;
                 }
@@ -1995,8 +1995,8 @@ class WooCommerceSyncController extends BaseController
      * GET /woocommerce/products/unmapped-report
      *
      * Returns three lists to help the user fix order import failures:
-     *  - unlinked Stocky products (no woocommerce_id)
-     *  - unlinked Stocky variants (no woocommerce_variation_id)
+     *  - unlinked Murano products (no woocommerce_id)
+     *  - unlinked Murano variants (no woocommerce_variation_id)
      *  - aggregated WooCommerce line items from recent failed-order logs
      */
     public function getUnmappedItemsReport(Request $request)

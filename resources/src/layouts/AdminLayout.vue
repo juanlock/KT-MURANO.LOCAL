@@ -93,11 +93,8 @@
       <!-- Single-line footer: the admin's custom text (settings → General),
            falling back to the default copyright line. Version pinned top-right. -->
       <a-layout-footer class="footer">
-        <span v-if="version || auth.ktLogVersion" class="footer-version">
-          <template v-if="version">v{{ version }}</template>
-          <template v-if="version && auth.ktLogVersion"> · </template>
-          <template v-if="auth.ktLogVersion">Version : {{ auth.ktLogVersion }}</template>
-        </span>
+        <!-- Only KcolTech's version (kt_logs); the original vendor's 5.8 is no longer shown (2026-11-10). -->
+        <span v-if="auth.ktLogVersion" class="footer-version">Murano {{ auth.ktLogVersion }}</span>
         <template v-if="auth.footerText">{{ auth.footerText }}</template>
         <template v-else>© {{ year }} {{ auth.developedBy }}. {{ tf('All_rights_reserved', 'All rights reserved') }}.</template>
       </a-layout-footer>
@@ -191,7 +188,7 @@ async function checkSessionUser() {
   try {
     const res = await http.get('session-user');
     if (res?.id && res.id !== auth.user.id) {
-      try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
+      try { window.localStorage.removeItem('murano_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
       window.location.reload();
     }
   } catch (e) { /* offline / signed out: the normal 401 handling applies */ } finally { checkingSession = false; }
@@ -225,8 +222,6 @@ const siderTheme = computed(() =>
   ui.sidebarLayout === 'dark' || ui.dark ? 'dark' : 'light'
 );
 const year = computed(() => new Date().getFullYear());
-// System version injected as a meta tag by next.blade.php (from version.txt).
-const version = document.querySelector('meta[name="app-version"]')?.getAttribute('content') || '';
 
 // Defaults -> Users -> "Sign out after inactivity" (skipped while the user
 // has a POS register open). Restarts when the setting changes (saved/reload).
@@ -264,7 +259,7 @@ async function logout() {
     goCloseRegister(register);
     return;
   }
-  try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) {}
+  try { window.localStorage.removeItem('murano_auth_cache_v1'); } catch (e) {}
   markStartPageOpened(false);
   let res = null;
   try {

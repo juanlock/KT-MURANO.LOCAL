@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
  * PrestaShop sync engine (single store per tenant), same contract as the
  * Salla module: cursor-batched methods driven by the frontend loop.
  *
- * Product identity is the SKU (Stocky `products.code` <-> PrestaShop
+ * Product identity is the SKU (Murano `products.code` <-> PrestaShop
  * `reference`). V1 semantics:
  *  - product PUSH creates missing simple products and SKIPS mapped ones
  *    (PrestaShop's PUT wants the full object back — updates stay in the shop);
@@ -580,7 +580,7 @@ class SyncService
         return null;
     }
 
-    /** Default PrestaShop order-state ids -> Stocky sale statuses. */
+    /** Default PrestaShop order-state ids -> Murano sale statuses. */
     private function mapOrderState(int $stateId): string
     {
         // 5 = delivered; 4 = shipped, 3 = processing in progress.

@@ -486,7 +486,7 @@ async function backToSuperAdmin() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.message || res.statusText);
-    try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
+    try { window.localStorage.removeItem('murano_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
     window.location.replace(data.redirect || '/login/choose');
   } catch (e) {
     message.error(e.message || 'Could not go back to SuperAdmin.');
@@ -500,7 +500,7 @@ async function backToAdmin() {
   adminBackBusy.value = true;
   try {
     const data = await http.webPost('login/as-back');
-    try { window.localStorage.removeItem('stocky_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
+    try { window.localStorage.removeItem('murano_auth_cache_v1'); } catch (e) { /* storage unavailable */ }
     window.location.replace(data?.redirect || '/');
   } catch (e) {
     message.error(e?.data?.message || 'Could not go back to the admin.');

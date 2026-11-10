@@ -10,7 +10,7 @@ use App\Models\XeroSetting;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Xero sync engine: pushes Stocky clients as Xero Contacts and sales as
+ * Xero sync engine: pushes Murano clients as Xero Contacts and sales as
  * ACCREC invoices (plus a Payment when a bank account code is configured).
  *
  * Batch methods are cursor-based (`last_id` + `has_more`) so the frontend
@@ -300,7 +300,7 @@ class SyncService
             'Date' => (string) $sale->date,
             'DueDate' => (string) $sale->date,
             'InvoiceNumber' => (string) $sale->Ref,
-            'Reference' => 'Stocky sale #'.$sale->id,
+            'Reference' => 'Murano sale #'.$sale->id,
             'Status' => 'AUTHORISED',
             'LineAmountTypes' => 'NoTax',
             'LineItems' => $lines,

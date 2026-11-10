@@ -35,7 +35,7 @@ return new class extends Migration
             $table->string('whatsapp_to_field')->default('to');
             $table->string('whatsapp_message_field')->default('message');
 
-            // Email (uses Stocky's existing SMTP / mail config)
+            // Email (uses Murano's existing SMTP / mail config)
             $table->boolean('email_enabled')->default(true);
             $table->string('email_from_name')->nullable();
             $table->string('email_from_address')->nullable();

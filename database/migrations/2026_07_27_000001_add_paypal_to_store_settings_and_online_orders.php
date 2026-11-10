@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * PayPal payment gateway for the Online Store (same flow as the Stocky SaaS
+ * PayPal payment gateway for the Online Store (same flow as the Murano SaaS
  * PaypalGateway): credentials + sandbox switch on store_settings, and the
  * PayPal order/capture ids on online_orders (the paypal_order_id is how the
  * return/cancel redirects find the pending order to capture).

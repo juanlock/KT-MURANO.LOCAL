@@ -8,10 +8,8 @@ still in production.
 One install serves several companies (KT, Ruba, NewEra, ...). Each company sees
 and edits only its own data.
 
-> Built on **Stocky v5.8** (a commercial CodeCanyon Laravel product). Many
-> modules in the codebase (hospital, school, fleet, MRP...) are stock Stocky
-> features. The multi-company layer, the dynamic menu and the modules ported
-> from billing are this project's own work.
+> Murano is a **KcolTech** product. © 2026 KcolTech. All rights reserved.
+> Proprietary software: see the License entry of the in-app manual.
 
 ---
 
@@ -80,7 +78,6 @@ resources/src/           Vue 3 SPA
   config/                Menu, permissions, dashboard sections
   manual/manual.js       In-app user manual (EN + ES), by module
 public/files/company_{id}/{module}/   Uploaded / generated files, per company
-public/documentation/    Stocky's user guide + REST API reference (OpenAPI)
 KT-TOOLS/                Backups (database/, SQL/), reports (Report/), user manual (Manual/), tools
 .claude/commands/        Session protocols (see below)
 CLAUDE.md                Project rules and conventions (read this first)
@@ -325,9 +322,4 @@ force-push, and never commit `.env`.
 - In the app: the header **book** icon (Murano's own manual, by module, EN / ES).
 - `KT-TOOLS/Manual/murano_user_manual.html` / `.pdf`: Murano manual by company
   and role (PDF: `node KT-TOOLS/Manual/export_pdf.cjs`).
-- `public/documentation/index.html`: the full user guide for the base product.
-- `public/documentation/api/index.html` and `openapi.json`: the REST API
-  reference, with about 1,200 endpoints.
 - [CLAUDE.md](CLAUDE.md): the rules, conventions and history of this project.
-- [CHANGELOG-STOCKY.md](CHANGELOG-STOCKY.md): the base product's vendor
-  changelog.

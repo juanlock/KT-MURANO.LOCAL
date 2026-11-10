@@ -51,7 +51,7 @@ class MeetingController extends Controller
 
     /**
      * Store an uploaded meeting file under public/files/company_{id}/meetings
-     * and return its public-relative path. Stocky serves uploads from
+     * and return its public-relative path. Murano serves uploads from
      * public/images directly.
      */
     private function storeUpload($file, int $companyId): string

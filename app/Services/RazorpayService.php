@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * Razorpay (Payment Links API) for the online-store checkout.
  *
- * Razorpay has no Stocky-SaaS counterpart to port, so this follows the same
+ * Razorpay has no Murano-SaaS counterpart to port, so this follows the same
  * redirect-then-verify pattern as the PayPal/Paystack/Flutterwave gateways:
  * create a Payment Link server-side for the SERVER-computed total, redirect
  * the customer to the hosted short_url, then VERIFY by fetching the link

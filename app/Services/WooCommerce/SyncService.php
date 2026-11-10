@@ -28,7 +28,7 @@ class SyncService
 {
     // ---- Meta keys used to create a deterministic mapping POS <-> Woo ----
     private const WOO_META_EXTERNAL_PRODUCT_ID = 'external_product_id';
-    private const WOO_META_STOCKY_PRODUCT_ID   = '_stocky_product_id';
+    private const WOO_META_MURANO_PRODUCT_ID   = '_murano_product_id';
     private const WOO_META_EXTERNAL_VARIANT_ID = 'external_variant_id';
     private const WOO_SYNC_ABORT_EXCEPTION     = '__WOO_SYNC_ABORT__';
 
@@ -75,7 +75,7 @@ class SyncService
     }
 
     /**
-     * Compose Stocky Sale notes from a WooCommerce order payload.
+     * Compose Murano Sale notes from a WooCommerce order payload.
      *
      * - Always includes an import marker.
      * - Appends WooCommerce `customer_note` when present.
@@ -161,17 +161,17 @@ class SyncService
     }
 
     // ---------------------------------------------------------------------
-    // Orders (WooCommerce -> Stocky)
+    // Orders (WooCommerce -> Murano)
     // ---------------------------------------------------------------------
     /**
-     * Map Woo order status to Stocky sale statut (3-state).
+     * Map Woo order status to Murano sale statut (3-state).
      *
      * Mapping (as requested):
-     * - Woo completed -> Stocky completed
-     * - Woo processing / on-hold -> Stocky ordered
-     * - Woo pending / failed / cancelled / refunded (and everything else) -> Stocky pending
+     * - Woo completed -> Murano completed
+     * - Woo processing / on-hold -> Murano ordered
+     * - Woo pending / failed / cancelled / refunded (and everything else) -> Murano pending
      */
-    private function mapWooOrderStatusToStockyStatut(string $wooStatus): string
+    private function mapWooOrderStatusToMuranoStatut(string $wooStatus): string
     {
         $s = strtolower(trim($wooStatus));
         if ($s === 'completed') {
@@ -184,7 +184,7 @@ class SyncService
     }
 
     /**
-     * Woo statuses that should NOT result in a Stocky Sale (or, if a Sale was
+     * Woo statuses that should NOT result in a Murano Sale (or, if a Sale was
      * previously imported, should cause it to be reversed/soft-deleted).
      */
     private const WOO_REVERSAL_STATUSES = ['cancelled', 'canceled', 'failed', 'refunded', 'trash', 'checkout-draft'];
@@ -308,14 +308,14 @@ class SyncService
     }
 
     /**
-     * Pull WooCommerce orders into Stocky sales.
+     * Pull WooCommerce orders into Murano sales.
      *
      * Notes:
      * - Idempotency via sales.woocommerce_order_id (unique).
      * - Skips orders whose line items cannot be mapped to local products.
      */
     /**
-     * Pull WooCommerce orders into Stocky sales.
+     * Pull WooCommerce orders into Murano sales.
      *
      * $modifiedAfterUtc (ISO-8601, UTC) narrows the scan to orders created or
      * changed since that moment. Unattended runs need it: without a filter every
@@ -407,7 +407,7 @@ class SyncService
                                 $updated++;
                                 continue;
                             }
-                            $existingActiveSale->statut = $this->mapWooOrderStatusToStockyStatut($wooStatus);
+                            $existingActiveSale->statut = $this->mapWooOrderStatusToMuranoStatut($wooStatus);
                             $existingActiveSale->woocommerce_order_status = $wooStatus;
                             $existingActiveSale->woocommerce_order_number = (string) ($order['number'] ?? $existingActiveSale->woocommerce_order_number ?? '');
                             $existingActiveSale->save();
@@ -517,7 +517,7 @@ class SyncService
                         $paidAmount = $payment['paid_amount'];
                         $paymentStatut = $payment['payment_statut'];
 
-                        $saleStatut = $this->mapWooOrderStatusToStockyStatut($status);
+                        $saleStatut = $this->mapWooOrderStatusToMuranoStatut($status);
 
                         $ref = 'WO-'.$wooOrderId;
                         $notes = $this->composeSaleNotesFromWooOrder($order, $wooOrderId);
@@ -767,7 +767,7 @@ class SyncService
     }
 
     /**
-     * Pull a single WooCommerce order into Stocky sales (idempotent).
+     * Pull a single WooCommerce order into Murano sales (idempotent).
      *
      * This is a focused version of pullOrders() used by the UI per-row sync button.
      */
@@ -820,7 +820,7 @@ class SyncService
                     $this->reverseImportedSale($existingActiveSale, 'woo status changed to '.$wooStatus, $wooStatus);
                     return ['ok' => true, 'created' => 0, 'updated' => 1, 'skipped' => 0, 'errors' => 0, 'processed' => 1, 'reversed' => true];
                 }
-                $existingActiveSale->statut = $this->mapWooOrderStatusToStockyStatut($wooStatus);
+                $existingActiveSale->statut = $this->mapWooOrderStatusToMuranoStatut($wooStatus);
                 $existingActiveSale->woocommerce_order_status = $wooStatus;
                 $existingActiveSale->woocommerce_order_number = (string) ($order['number'] ?? $existingActiveSale->woocommerce_order_number ?? '');
                 $existingActiveSale->save();
@@ -915,7 +915,7 @@ class SyncService
             $paidAmount = $payment['paid_amount'];
             $paymentStatut = $payment['payment_statut'];
 
-            $saleStatut = $this->mapWooOrderStatusToStockyStatut($status);
+            $saleStatut = $this->mapWooOrderStatusToMuranoStatut($status);
             $ref = 'WO-'.$wooOrderId;
             $notes = $this->composeSaleNotesFromWooOrder($order, $wooOrderId);
 
@@ -1625,7 +1625,7 @@ class SyncService
                             continue;
                         }
 
-                        // If the Woo product has Uncategorized, replace it with the mapped Stocky category.
+                        // If the Woo product has Uncategorized, replace it with the mapped Murano category.
                         $existingIds = $this->wooProductCategoryIds($wooId);
                         $hasUncategorized = in_array((int) $uncatId, $existingIds, true);
                         if (!$hasUncategorized) {
@@ -1725,7 +1725,7 @@ class SyncService
         $skuOk = ($expectedSku !== '' && $remoteSku !== '' && strcasecmp($remoteSku, $expectedSku) === 0);
 
         $meta1 = $this->wooMetaValue($data, self::WOO_META_EXTERNAL_PRODUCT_ID);
-        $meta2 = $this->wooMetaValue($data, self::WOO_META_STOCKY_PRODUCT_ID);
+        $meta2 = $this->wooMetaValue($data, self::WOO_META_MURANO_PRODUCT_ID);
         $metaOk = ($meta1 !== null && $meta1 === (string) $localProductId)
             || ($meta2 !== null && $meta2 === (string) $localProductId);
 
@@ -1753,7 +1753,7 @@ class SyncService
                 'type' => (string) ($data['type'] ?? ''),
                 'sku'  => (string) ($data['sku'] ?? ''),
                 'external_product_id' => $this->wooMetaValue($data, self::WOO_META_EXTERNAL_PRODUCT_ID),
-                'stocky_product_id'   => $this->wooMetaValue($data, self::WOO_META_STOCKY_PRODUCT_ID),
+                'murano_product_id'   => $this->wooMetaValue($data, self::WOO_META_MURANO_PRODUCT_ID),
             ];
         } catch (\Throwable $e) {
             return ['ok' => false, 'status' => null, 'body' => $e->getMessage()];
@@ -1850,9 +1850,9 @@ class SyncService
                             $remoteByExternalId[$external] = $rid;
                         }
 
-                        $stocky = $this->wooMetaValue($it, self::WOO_META_STOCKY_PRODUCT_ID);
-                        if ($stocky !== null && !isset($remoteByExternalId[$stocky])) {
-                            $remoteByExternalId[$stocky] = $rid;
+                        $murano = $this->wooMetaValue($it, self::WOO_META_MURANO_PRODUCT_ID);
+                        if ($murano !== null && !isset($remoteByExternalId[$murano])) {
+                            $remoteByExternalId[$murano] = $rid;
                         }
                     }
                 }
@@ -1883,7 +1883,7 @@ class SyncService
 
     /**
      * Resolve Woo ID for a local product using ONLY strong sources:
-     * 1) Remote meta mapping (external_product_id / _stocky_product_id) from cached index
+     * 1) Remote meta mapping (external_product_id / _murano_product_id) from cached index
      * 2) Remote SKU mapping from cached index
      * 3) Fallback to GET /products?sku=... (short timeout) ONLY if index has no answer
      *
@@ -2132,7 +2132,7 @@ class SyncService
 
     /**
      * Ensure a Woo category exists locally (create/restore + link by woocommerce_id).
-     * Used by Woo -> Stocky product pull to satisfy "auto-create missing" requirement.
+     * Used by Woo -> Murano product pull to satisfy "auto-create missing" requirement.
      */
     private function ensureLocalCategoryFromWoo(int $wooCatId, ?array $inline = null): ?PosCategory
     {
@@ -2210,7 +2210,7 @@ class SyncService
 
     /**
      * Ensure a Woo brand exists locally (create/restore + link by woocommerce_id).
-     * Used by Woo -> Stocky product pull to satisfy "auto-create missing" requirement.
+     * Used by Woo -> Murano product pull to satisfy "auto-create missing" requirement.
      */
     private function ensureLocalBrandFromWoo(int $wooBrandId, ?array $inline = null): ?PosBrand
     {
@@ -2524,9 +2524,9 @@ class SyncService
     }
 
     /**
-     * Woo -> Stocky: pull variations for a variable product into product_variants and product_warehouse.
+     * Woo -> Murano: pull variations for a variable product into product_variants and product_warehouse.
      */
-    private function pullWooVariationsIntoStocky(Product $product, int $wooProductId, int $defaultWarehouseId, ?callable $shouldCancel = null): void
+    private function pullWooVariationsIntoMurano(Product $product, int $wooProductId, int $defaultWarehouseId, ?callable $shouldCancel = null): void
     {
         if ($wooProductId <= 0 || (int) $product->id <= 0) {
             return;
@@ -2643,9 +2643,9 @@ class SyncService
                     }
                     $pv->save();
 
-                    // Dimensions fallback (Woo variations -> Stocky product)
+                    // Dimensions fallback (Woo variations -> Murano product)
                     // Many Woo stores leave parent dimensions empty and set them on variations.
-                    // Stocky stores dimensions on the product record, so fill missing fields from the first variation that provides them.
+                    // Murano stores dimensions on the product record, so fill missing fields from the first variation that provides them.
                     $vdims = $v['dimensions'] ?? null;
                     if (is_array($vdims)) {
                         $lenRaw = trim((string) ($vdims['length'] ?? ''));
@@ -2734,7 +2734,7 @@ class SyncService
             $res = Http::timeout(30)
                 ->connectTimeout(5)
                 ->withHeaders([
-                    'User-Agent' => 'StockyWooSync/1.0',
+                    'User-Agent' => 'MuranoWooSync/1.0',
                     'Accept' => '*/*',
                 ])
                 ->get($url);
@@ -2870,7 +2870,7 @@ class SyncService
     }
 
     /**
-     * Pull WooCommerce products into Stocky.
+     * Pull WooCommerce products into Murano.
      *
      * - Maps by woocommerce_id first, then SKU(code)
      * - Creates missing products with safe defaults
@@ -2958,7 +2958,7 @@ class SyncService
                     continue;
                 }
 
-                // We keep initial pull conservative: skip variations (handled via local variants in Stocky)
+                // We keep initial pull conservative: skip variations (handled via local variants in Murano)
                 if ($type === 'variation') {
                     $skipped++;
                     continue;
@@ -3033,8 +3033,8 @@ class SyncService
                             $product->price = 0;
                         }
 
-                        // Discount sync (Woo sale price -> Stocky fixed discount)
-                        // Stocky encoding: discount_method "2" = fixed amount.
+                        // Discount sync (Woo sale price -> Murano fixed discount)
+                        // Murano encoding: discount_method "2" = fixed amount.
                         // Compute: discount = regular_price - sale_price (clamped to >= 0).
                         $product->discount_method = '2';
                         $saleRaw = trim((string) ($wp['sale_price'] ?? ''));
@@ -3056,12 +3056,12 @@ class SyncService
                         // (overrides any Woo "cost of goods" meta)
                         $product->cost = (float) ($product->price ?? 0);
 
-                        // Weight sync (Woo -> Stocky)
+                        // Weight sync (Woo -> Murano)
                         // WooCommerce sends weight as a string (can be empty). Always overwrite local weight (including clearing it).
                         $wooWeightRaw = trim((string) ($wp['weight'] ?? ''));
                         $product->weight = ($wooWeightRaw !== '' && is_numeric($wooWeightRaw)) ? (float) $wooWeightRaw : null;
 
-                        // Dimensions sync (Woo -> Stocky)
+                        // Dimensions sync (Woo -> Murano)
                         // Woo usually sends: { dimensions: { length, width, height } } (strings),
                         // but some stores/plugins may flatten to top-level keys.
                         // If Woo provides any dimensions container/keys, overwrite local values (including clearing).
@@ -3076,7 +3076,7 @@ class SyncService
                             $product->height = ($heiRaw !== '' && is_numeric($heiRaw)) ? (float) $heiRaw : null;
                         }
 
-                        // Description sync (Woo -> Stocky)
+                        // Description sync (Woo -> Murano)
                         // Prefer full description, fallback to short description.
                         // Always overwrite local note (including clearing it) to keep in sync.
                         $descHtml = (string) ($wp['description'] ?? ($wp['short_description'] ?? ''));
@@ -3184,7 +3184,7 @@ class SyncService
                     if ($isVariable && $localProductId > 0) {
                         $p = Product::whereKey($localProductId)->first();
                         if ($p) {
-                            $this->pullWooVariationsIntoStocky($p, $wooId, $defaultWarehouseId, $shouldCancel);
+                            $this->pullWooVariationsIntoMurano($p, $wooId, $defaultWarehouseId, $shouldCancel);
                         }
                     }
                 } catch (\Throwable $e) {
@@ -3474,7 +3474,7 @@ class SyncService
                         'status' => 'publish',
                         'meta_data' => [
                             ['key' => self::WOO_META_EXTERNAL_PRODUCT_ID, 'value' => (string) $product->id],
-                            ['key' => self::WOO_META_STOCKY_PRODUCT_ID,   'value' => (string) $product->id],
+                            ['key' => self::WOO_META_MURANO_PRODUCT_ID,   'value' => (string) $product->id],
                         ],
                     ];
 
@@ -3482,12 +3482,12 @@ class SyncService
                     // Always send so an emptied local value clears it remotely; ignored by older Woo.
                     $payload['global_unique_id'] = trim((string) ($product->gtin ?? ''));
 
-                    // Weight sync (Stocky -> Woo)
+                    // Weight sync (Murano -> Woo)
                     // Woo expects string; send empty string to clear.
                     $w = $product->weight;
                     $payload['weight'] = ($w !== null && $w !== '' && is_numeric($w)) ? number_format((float) $w, 2, '.', '') : '';
 
-                    // Dimensions sync (Stocky -> Woo)
+                    // Dimensions sync (Murano -> Woo)
                     // Woo expects strings; send empty string to clear.
                     $len = $product->length;
                     $wid = $product->width;
@@ -3498,8 +3498,8 @@ class SyncService
                         'height' => ($hei !== null && $hei !== '' && is_numeric($hei)) ? number_format((float) $hei, 2, '.', '') : '',
                     ];
 
-                    // Description sync (Stocky -> Woo)
-                    // Keep Woo `description` and `short_description` identical to Stocky `note`.
+                    // Description sync (Murano -> Woo)
+                    // Keep Woo `description` and `short_description` identical to Murano `note`.
                     // Include empty string to allow clearing.
                     $note = (string) ($product->note ?? '');
                     $payload['description'] = $note;
@@ -3508,8 +3508,8 @@ class SyncService
                     if (!$isVariant) {
                         $payload['regular_price'] = number_format((float) ($product->price ?? 0), 2, '.', '');
 
-                        // Discount sync (Stocky -> Woo via sale_price)
-                        // Woo uses `sale_price` (string). Stocky stores discount + discount_method.
+                        // Discount sync (Murano -> Woo via sale_price)
+                        // Woo uses `sale_price` (string). Murano stores discount + discount_method.
                         // Encodings:
                         // - discount_method "1" = percent
                         // - discount_method "2" = fixed
@@ -4048,7 +4048,7 @@ class SyncService
 
                                 $payloadAlt = $payload;
                                 $payloadAlt['sku'] = $altSku;
-                                $payloadAlt['meta_data'][] = ['key' => '_stocky_original_sku', 'value' => $sku];
+                                $payloadAlt['meta_data'][] = ['key' => '_murano_original_sku', 'value' => $sku];
 
                                 $resAlt = $this->client->postNoRetry('products', $payloadAlt, 20, 5);
                                 if ($resAlt->successful()) {
@@ -4283,7 +4283,7 @@ class SyncService
                 }
             }
 
-            // IMPORTANT: update existing Woo variations to match Stocky (price/sku/attributes/meta).
+            // IMPORTANT: update existing Woo variations to match Murano (price/sku/attributes/meta).
             // Previous behavior only created missing variations, leaving already-existing ones unchanged.
             try {
                 $batchTimeoutMs = SyncOptions::int('http_timeout_ms', 30000);
@@ -4470,7 +4470,7 @@ class SyncService
 
             // -----------------------------------------------------------------
             // Deletions: if variants were removed locally, delete matching Woo variations.
-            // We only delete Woo variations that we can confidently identify as Stocky-managed:
+            // We only delete Woo variations that we can confidently identify as Murano-managed:
             // - those having meta external_variant_id, whose value is NOT in current local variant ids.
             // This keeps both systems in sync without deleting manually-created Woo variations.
             // -----------------------------------------------------------------
@@ -5995,7 +5995,7 @@ class SyncService
     /**
      * Push POS clients (customers) to WooCommerce.
      *
-     * Loop Stocky customers:
+     * Loop Murano customers:
      *   - If woocommerce_id exists â†’ UPDATE
      *   - Else:
      *       - Search Woo by email (best & safest)
@@ -6017,7 +6017,7 @@ class SyncService
         $linkedByEmail = 0;
         $linkedByPhone = 0;
 
-        // Warm country/state index once (used to convert Stocky names -> Woo codes)
+        // Warm country/state index once (used to convert Murano names -> Woo codes)
         $this->wooCountriesIndex();
 
         $query = PosClient::whereNull('deleted_at');
@@ -6060,10 +6060,10 @@ class SyncService
                     if ($wooCountry !== '') {
                         $billing['country'] = $wooCountry;
                     } else {
-                        $this->setClientSyncIssue($client, 'country_unmapped', 'Could not map Stocky country to a valid WooCommerce country code. Use a supported country name (Woo language) or ISO code.', 'push');
+                        $this->setClientSyncIssue($client, 'country_unmapped', 'Could not map Murano country to a valid WooCommerce country code. Use a supported country name (Woo language) or ISO code.', 'push');
                     }
                     if ($wooState === '' && trim((string) ($client->state ?? '')) !== '') {
-                        $this->setClientSyncIssue($client, 'state_unmapped', 'Could not map Stocky state to a valid WooCommerce state code for the selected country.', 'push');
+                        $this->setClientSyncIssue($client, 'state_unmapped', 'Could not map Murano state to a valid WooCommerce state code for the selected country.', 'push');
                     }
                     if ($email !== '') {
                         $billing['email'] = $email;
@@ -6104,7 +6104,7 @@ class SyncService
                         $meta[] = ['key' => 'nickname', 'value' => (string) $name];
                     }
                     // If tax_number is explicitly set (even empty), propagate to Woo.
-                    // This allows clearing the value in Woo when user clears it in Stocky.
+                    // This allows clearing the value in Woo when user clears it in Murano.
                     if ($client->tax_number !== null) {
                         $meta[] = ['key' => 'tax_number', 'value' => (string) $client->tax_number];
                         $meta[] = ['key' => 'vat_number', 'value' => (string) $client->tax_number];
@@ -6121,7 +6121,7 @@ class SyncService
                     if ($email === '' && $wooId === null) {
                         $skipped++;
                         $this->log('customers.push', 'info', 'Skipped client without email (requires manual link)', ['client_id' => $client->id]);
-                        $this->setClientSyncIssue($client, 'missing_email', 'Stocky customer has no email. Add an email or manually link to a Woo customer.', 'push');
+                        $this->setClientSyncIssue($client, 'missing_email', 'Murano customer has no email. Add an email or manually link to a Woo customer.', 'push');
                         $processed++;
                         continue;
                     }
@@ -6129,8 +6129,8 @@ class SyncService
                     if ($wooId !== null) {
                         // â”€â”€ If woocommerce_id exists â†’ USE AS PRIMARY KEY â†’ UPDATE â”€â”€â”€â”€â”€â”€â”€â”€
                         // Email overwrite rules:
-                        // - If Stocky email is empty: do NOT overwrite Woo email
-                        // - If Stocky email is non-empty: only overwrite if unique in Woo (or belongs to same Woo customer)
+                        // - If Murano email is empty: do NOT overwrite Woo email
+                        // - If Murano email is non-empty: only overwrite if unique in Woo (or belongs to same Woo customer)
                         if ($email !== '') {
                             $emailOwnerId = $this->findWooCustomerIdByEmail($normalizedEmail);
                             if ($emailOwnerId === -1 || ($emailOwnerId > 0 && $emailOwnerId !== $wooId)) {
@@ -6173,7 +6173,7 @@ class SyncService
                         if ($email === '') {
                             $skipped++;
                             $this->log('customers.push', 'info', 'Skipped client without email after Woo ID cleared (requires manual link)', ['client_id' => $client->id]);
-                            $this->setClientSyncIssue($client, 'missing_email', 'Stocky customer has no email. Add an email or manually link to a Woo customer.', 'push');
+                            $this->setClientSyncIssue($client, 'missing_email', 'Murano customer has no email. Add an email or manually link to a Woo customer.', 'push');
                             $processed++;
                             continue;
                         }
@@ -6322,7 +6322,7 @@ class SyncService
     }
 
     /**
-     * Push a single Stocky customer to WooCommerce
+     * Push a single Murano customer to WooCommerce
      */
     public function pushSingleCustomer(int $customerId): array
     {
@@ -6335,7 +6335,7 @@ class SyncService
         $normalizedEmail = $this->normalizeEmail($email);
 
         try {
-            // Warm country/state index once (used to convert Stocky names -> Woo codes)
+            // Warm country/state index once (used to convert Murano names -> Woo codes)
             $this->wooCountriesIndex();
 
             $name = trim((string) ($client->name ?? ''));
@@ -6367,10 +6367,10 @@ class SyncService
             if ($wooCountry !== '') {
                 $billing['country'] = $wooCountry;
             } else {
-                $this->setClientSyncIssue($client, 'country_unmapped', 'Could not map Stocky country to a valid WooCommerce country code. Use a supported country name (Woo language) or ISO code.', 'push');
+                $this->setClientSyncIssue($client, 'country_unmapped', 'Could not map Murano country to a valid WooCommerce country code. Use a supported country name (Woo language) or ISO code.', 'push');
             }
             if ($wooState === '' && trim((string) ($client->state ?? '')) !== '') {
-                $this->setClientSyncIssue($client, 'state_unmapped', 'Could not map Stocky state to a valid WooCommerce state code for the selected country.', 'push');
+                $this->setClientSyncIssue($client, 'state_unmapped', 'Could not map Murano state to a valid WooCommerce state code for the selected country.', 'push');
             }
             if ($email !== '') {
                 $billing['email'] = $email;
@@ -6411,7 +6411,7 @@ class SyncService
                 $meta[] = ['key' => 'nickname', 'value' => (string) $name];
             }
             // If tax_number is explicitly set (even empty), propagate to Woo.
-            // This allows clearing the value in Woo when user clears it in Stocky.
+            // This allows clearing the value in Woo when user clears it in Murano.
             if ($client->tax_number !== null) {
                 $meta[] = ['key' => 'tax_number', 'value' => (string) $client->tax_number];
                 $meta[] = ['key' => 'vat_number', 'value' => (string) $client->tax_number];
@@ -6426,15 +6426,15 @@ class SyncService
 
             // If email is empty and we don't have a Woo ID â†’ can't match/create (manual link required)
             if ($email === '' && $wooId === null) {
-                $this->setClientSyncIssue($client, 'missing_email', 'Stocky customer has no email. Add an email or manually link to a Woo customer.', 'push');
+                $this->setClientSyncIssue($client, 'missing_email', 'Murano customer has no email. Add an email or manually link to a Woo customer.', 'push');
                 return ['ok' => false, 'error' => 'Customer must have an email to sync (requires manual link)'];
             }
 
             if ($wooId !== null) {
                 // If woocommerce_id exists â†’ USE AS PRIMARY KEY â†’ UPDATE
                 // Email overwrite rules:
-                // - If Stocky email is empty: do NOT overwrite Woo email
-                // - If Stocky email is non-empty: only overwrite if unique in Woo (or belongs to same Woo customer)
+                // - If Murano email is empty: do NOT overwrite Woo email
+                // - If Murano email is non-empty: only overwrite if unique in Woo (or belongs to same Woo customer)
                 if ($email !== '') {
                     $emailOwnerId = $this->findWooCustomerIdByEmail($normalizedEmail);
                     if ($emailOwnerId === -1 || ($emailOwnerId > 0 && $emailOwnerId !== $wooId)) {
@@ -6475,7 +6475,7 @@ class SyncService
             if ($wooId === null) {
                 // If woocommerce_id IS null â†’ Match by email (normalize: trim + lowercase)
                 if ($email === '') {
-                    $this->setClientSyncIssue($client, 'missing_email', 'Stocky customer has no email. Add an email or manually link to a Woo customer.', 'push');
+                    $this->setClientSyncIssue($client, 'missing_email', 'Murano customer has no email. Add an email or manually link to a Woo customer.', 'push');
                     return ['ok' => false, 'error' => 'Customer must have an email to sync (requires manual link)'];
                 }
 
@@ -6565,7 +6565,7 @@ class SyncService
     }
 
     /**
-     * Pull customers from WooCommerce â†’ Stocky
+     * Pull customers from WooCommerce â†’ Murano
      * Uses email as the unique identifier to match customers and prevent duplicates
      */
     public function pullCustomers(?callable $progress = null): array
@@ -6578,7 +6578,7 @@ class SyncService
         $linkedByEmail = 0;
 
         try {
-            // Warm country/state index once (used to convert Woo codes -> Stocky names)
+            // Warm country/state index once (used to convert Woo codes -> Murano names)
             $this->wooCountriesIndex();
 
             $page = 1;
@@ -6682,7 +6682,7 @@ class SyncService
 
                         // Find existing customer by email (normalize: trim + lowercase)
                         // Enforce email uniqueness: unique('clients', 'email')->whereNull('deleted_at')
-                        // First check if a Stocky customer already has this woocommerce_id
+                        // First check if a Murano customer already has this woocommerce_id
                         $client = PosClient::where('woocommerce_id', $wooId)
                             ->whereNull('deleted_at')
                             ->first();
@@ -6721,7 +6721,7 @@ class SyncService
                                     $client->tax_number = $taxNumber !== '' ? $taxNumber : null;
                                 }
                                 // Email update rules:
-                                // - If Woo email is empty: do NOT overwrite Stocky email
+                                // - If Woo email is empty: do NOT overwrite Murano email
                                 // - If Woo email is non-empty: only overwrite if unique in clients (exclude soft-deleted, exclude this client)
                                 if ($normalizedEmail !== '') {
                                     $emailConflict = PosClient::whereNull('deleted_at')
@@ -6738,7 +6738,7 @@ class SyncService
                                             'email' => $email,
                                         ]);
                                         $hadIssue = true;
-                                        $this->setClientSyncIssue($client, 'email_conflict', 'Woo email conflicts with an existing Stocky client email. Manual review required.', 'pull');
+                                        $this->setClientSyncIssue($client, 'email_conflict', 'Woo email conflicts with an existing Murano client email. Manual review required.', 'pull');
                                     }
                                 } else {
                                     $hadIssue = true;
@@ -6883,12 +6883,12 @@ class SyncService
     }
 
     /**
-     * Pull a single WooCommerce customer to Stocky
+     * Pull a single WooCommerce customer to Murano
      */
     public function pullSingleCustomer(int $wooCustomerId): array
     {
         try {
-            // Warm country/state index once (used to convert Woo codes -> Stocky names)
+            // Warm country/state index once (used to convert Woo codes -> Murano names)
             $this->wooCountriesIndex();
 
             $res = $this->client->getNoRetry('customers/'.$wooCustomerId, [], 20, 5);
@@ -6958,7 +6958,7 @@ class SyncService
                 }
             }
 
-            // First check if a Stocky customer already has this woocommerce_id (primary key)
+            // First check if a Murano customer already has this woocommerce_id (primary key)
             $client = PosClient::where('woocommerce_id', $wooId)
                 ->whereNull('deleted_at')
                 ->first();
@@ -6979,7 +6979,7 @@ class SyncService
                     $client->tax_number = $taxNumber !== '' ? $taxNumber : null;
                 }
                 // Email update rules:
-                // - If Woo email is empty: do NOT overwrite Stocky email
+                // - If Woo email is empty: do NOT overwrite Murano email
                 // - If Woo email is non-empty: only overwrite if unique in clients (exclude soft-deleted, exclude this client)
                 if ($normalizedEmail !== '') {
                     $emailConflict = PosClient::whereNull('deleted_at')
@@ -6996,7 +6996,7 @@ class SyncService
                             'email' => $email,
                         ]);
                         $hadIssue = true;
-                        $this->setClientSyncIssue($client, 'email_conflict', 'Woo email conflicts with an existing Stocky client email. Manual review required.', 'pull');
+                        $this->setClientSyncIssue($client, 'email_conflict', 'Woo email conflicts with an existing Murano client email. Manual review required.', 'pull');
                     }
                 } else {
                     $hadIssue = true;
@@ -7021,7 +7021,7 @@ class SyncService
                 ->first();
 
             if ($client) {
-                // If a Stocky customer with that email exists â†’ link it by saving woocommerce_id
+                // If a Murano customer with that email exists â†’ link it by saving woocommerce_id
                 $client->name = $name;
                 $client->firstname = $firstName !== '' ? $firstName : null;
                 $client->lastname = $lastName !== '' ? $lastName : null;
@@ -7089,7 +7089,7 @@ class SyncService
     }
 
     /**
-     * Split Stocky single-line address into Woo address_1/address_2.
+     * Split Murano single-line address into Woo address_1/address_2.
      * Best-effort: supports newline-separated values if present.
      *
      * @return array{0:string,1:string}
@@ -7117,7 +7117,7 @@ class SyncService
     }
 
     /**
-     * Join Woo address lines into a Stocky single-line address.
+     * Join Woo address lines into a Murano single-line address.
      */
     private function joinAddressLines(string $address1, string $address2): string
     {
@@ -7542,7 +7542,7 @@ class SyncService
     // ---------------------------------------------------------------------
     /**
      * Resolve a Woo order line item (product_id, variation_id, sku) to a local
-     * Stocky Product (and optional ProductVariant). Used by both bulk and
+     * Murano Product (and optional ProductVariant). Used by both bulk and
      * single-order pull paths so the lookup logic stays in one place.
      *
      * Returns ['product' => Product|null, 'variant' => ProductVariant|null].

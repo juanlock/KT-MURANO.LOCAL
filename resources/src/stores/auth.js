@@ -12,7 +12,7 @@ import { setTitleSuffix } from '../lib/docTitle';
  * Mirrors the legacy Vuex auth module: GET /api/get_user_auth returns
  * { permissions, user, notifs }. Loaded once by the router guard.
  */
-const AUTH_CACHE_KEY = 'stocky_auth_cache_v1';
+const AUTH_CACHE_KEY = 'murano_auth_cache_v1';
 
 function readAuthCache() {
     try {

@@ -90,7 +90,7 @@ const loaded = new Set();
 // stays the source of truth (fetched with cache: 'no-store' every boot); this
 // copy is only read when that fetch fails, so an offline reload of the POS
 // doesn't render raw i18n keys.
-const CACHE_PREFIX = 'stocky_i18n_cache_v1_';
+const CACHE_PREFIX = 'murano_i18n_cache_v1_';
 
 function readCachedMessages(locale) {
     try {
@@ -131,7 +131,7 @@ export async function loadLocale(locale) {
                 writeCachedMessages(locale, messages);
             }
         } catch (e) {
-            console.warn(`[stocky-next] could not load translations for "${locale}" — trying offline cache`);
+            console.warn(`[murano] could not load translations for "${locale}" — trying offline cache`);
         }
         if (!messages) messages = readCachedMessages(locale);
         if (messages) {

@@ -210,39 +210,32 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
 6. **Terminals, the user asks the client (2026-11-06; nothing is built until answered):** the user describes a terminal as a small premises that stores the parcels for the next route, where passengers get on and off. Today terminals have no warehouse, staff or parcels. Does each have its own staff with a login, or is it run from the city's agency? Does it sell tickets and take money, or only board passengers and receive parcels? Is a parcel received at a terminal and picked up there by the bus (terminal -> bus -> terminal, with a history of where it is)? Do all 39 work like that, or are some only sales or stops: Móvil PNorte, Móvil Chiclayo, Oficina Galves?
    Also to check on the list: "Lambayeqye 2" (misspelt?), Ilo under Lima, Chimbote and Virú under Trujillo; coordinates missing for Ilo, Oficina Galves, Puente Nuevo, José Gálvez, La Pampa; most others are approximate.
 7. **Agencies without internet (the client's request, 2026-11-10; proposal given, nothing built):** agencies lose the internet for hours and their tablets / phones only reach the local network. Proposed: a small Murano server in each agency on its LAN, synced with production over HTTPS when the line is back. **The user's direction (2026-11-10), instead of seat quotas between agencies:** a **call center at the head office**; an agency without internet phones it, the call center sells / books in production, and the agency registers locally what it can (the passenger's or parcel's data, photos) and the sync updates production when the line returns. Numbering by agency series, uuid + idempotent sync. The POS's browser offline mode doesn't cover seat selling. Nothing built; the client's answers are in the questions document for 2026-11-15.
-   **The client now prefers its module on its own hosting (2026-11-10):** Murano has NO module export / satellite install / sync today. Proposed, nothing built: a whole Murano install in "satellite mode" (one company, only the transport modules, the rest blocked by the code), activated with a key that the SuperAdmin creates in the central install (systemOnly screen); the central address and key are mandatory and only a SuperAdmin sees or changes them on the satellite; HTTPS sync with the central. On hardware the client controls this can't be enforced 100 % (they hold the code and the database): contract + key the central can revoke. Check the Stocky (CodeCanyon) license for a second install. Questions for the client are in the questions page.
+   **The client now prefers its module on its own hosting (2026-11-10):** Murano has NO module export / satellite install / sync today. Proposed, nothing built: a whole Murano install in "satellite mode" (one company, only the transport modules, the rest blocked by the code), activated with a key that the SuperAdmin creates in the central install (systemOnly screen); the central address and key are mandatory and only a SuperAdmin sees or changes them on the satellite; HTTPS sync with the central. On hardware the client controls this can't be enforced 100 % (they hold the code and the database): contract + key the central can revoke. Questions for the client are in the questions page.
+   **The user's direction (2026-11-10): technical protection, not a contract.** Untrusted but necessary satellites: the client's hosting is their peace of mind, but they get ONLY what they need. Agreed so far: the satellite package carries no source (`.vue`, `resources/src`, scripts, docs, KT-TOOLS) -- only the compiled JS of its screens and the PHP it runs, the PHP encoded (ionCube or similar); each satellite reports its address / IP to the central; the central detects and shows satellites (a dashboard tab; who sees it is still to confirm); a login against the central when the satellite starts, and an unauthorized satellite is refused. Nothing built yet.
 
 The monitoring has been tested with simulated GPS only: try it on a real phone with a real trip before the 15th.
 
 Not reviewed yet: PDFs other than the invoice, about 60 store / meeting messages without Spanish, the customer portal, a real
 send of the meeting and asset emails, whether production's `.env` sets `QUEUE_FAILED_DRIVER`.
 
-## Base Product & Documentation
+## The Product & its Architecture
 
-Murano is built on **Stocky** (a commercial CodeCanyon Laravel product,
-currently v5.8) — a single-business POS/inventory/online-store/accounting/HRM
-system. This explains the ~294 unrelated Models and the Hospital/School/MRP/
-Fleet/etc. modules seen throughout the codebase: they're stock Stocky
-features, not anything built for this project specifically.
+**Murano is KcolTech's product (user's rule, 2026-11-10).** It started years ago from a third-party single-business
+POS / inventory base and has been rebuilt by KcolTech; that base's name appears nowhere any more: not in code,
+comments, screens, docs, translations or package names (a new mention is a bug). The in-app updater never asks the
+old vendor's server (`App\Support\UpdateSource`, `.env` `MURANO_UPDATE_URL`, empty = no remote updates; releases go
+out with the deploy protocol). The footer shows only KcolTech's version (`kt_logs`). The manual has a **License**
+entry (KcolTech, EN + ES). One value is still the old one on purpose: `MobileAuthController` `'server'` (the Flutter
+app may check it; change both together). The historical reports in `KT-TOOLS/Report/` are never edited.
 
-**Full user-facing documentation is at `public/documentation/index.html`**
-(read directly off disk, not a URL — ~2,500 lines covering every feature
-area: install, settings, products, POS, sales, purchasing, the online store,
-accounting, HRM, every business module, integrations, reports). There's also
-a full REST API reference at `public/documentation/api/index.html` with an
-OpenAPI 3 spec at `public/documentation/api/openapi.json` (~9 MB, ~1,200
-endpoints) — too large to read wholesale, but worth grepping/fetching a
-specific path from when a task needs to know an endpoint's exact shape.
+**The ~294 Models and the Hospital / School / MRP / Fleet / ... modules** come with that base: a module nobody asked for
+may still be its original version, so read it before trusting it.
 
-**Important architectural fact from that documentation, stated explicitly:**
-*"No multi-tenant or SaaS mode. One install is one business, with as many
-warehouses, users and stores as you like."* Stocky's native segmentation unit
-is the **warehouse** (physical stock location within one business), not a
-"company." The SuperAdmin/AdminKT/AdminRG multicompany model above is
-**custom work layered on top of this base product** — Stocky was never
-designed for it — which is why it needs its own `company_id` scoping
-(`ScopesToCompany`, `resolveActingCompanyId()`) built out module by module
-rather than being a built-in concept.
+**Important architectural fact:** the base was single-business: one install, one business, segmented by
+**warehouse** (a stock location), not by company. The SuperAdmin / AdminKT / AdminRG multicompany model above is
+KcolTech's own layer, which is why it needs its own `company_id` scoping (`ScopesToCompany`,
+`resolveActingCompanyId()`) built out module by module rather than being a built-in concept. (The old vendor
+documentation under `public/documentation/` is no longer on disk.)
 
 ## Migration Approach
 
@@ -526,7 +519,7 @@ the start of each session).
   integrations (WooCommerce, Google Sheets, QuickBooks, ZATCA, Google Calendar,
   webhooks, customer-display broadcast) neither schedule tasks nor queue jobs
   unless some company uses them (`ModuleFlags::anyCompany`, `enabled()` per
-  company, `DispatchWebhooks::shouldQueue`). Stocky's `database:backup` is no
+  company, `DispatchWebhooks::shouldQueue`). The base's old `database:backup` is no
   longer scheduled (it ran every minute).
 - **Network security** (user's rule, 2026-10-16): per company (Settings ->
   Network security, permission `network_security`, default off; on for

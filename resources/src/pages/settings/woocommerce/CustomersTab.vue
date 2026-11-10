@@ -32,17 +32,17 @@
 
     <a-tabs v-model:activeKey="activeList">
       <!-- ============================ POS customers ============================ -->
-      <a-tab-pane key="stocky" :tab="'POS'">
+      <a-tab-pane key="murano" :tab="'POS'">
         <a-input-search
-          v-model:value="stockySearch" :placeholder="$t('Search')" style="max-width: 280px; margin-bottom: 12px"
-          @search="() => { stockyPage = 1; loadStockyCustomers(); }"
+          v-model:value="muranoSearch" :placeholder="$t('Search')" style="max-width: 280px; margin-bottom: 12px"
+          @search="() => { muranoPage = 1; loadMuranoCustomers(); }"
         />
         <a-table
-          :columns="stockyColumns" :data-source="stockyCustomers" :loading="loadingStocky"
+          :columns="muranoColumns" :data-source="muranoCustomers" :loading="loadingMurano"
           size="small" row-key="id"
           :pagination="{
-            current: stockyPage, total: stockyTotalRows, pageSize: stockyPerPage, showSizeChanger: true,
-            onChange: (p, ps) => { stockyPage = p; stockyPerPage = ps; loadStockyCustomers(); },
+            current: muranoPage, total: muranoTotalRows, pageSize: muranoPerPage, showSizeChanger: true,
+            onChange: (p, ps) => { muranoPage = p; muranoPerPage = ps; loadMuranoCustomers(); },
           }"
         >
           <template #bodyCell="{ column, record }">
@@ -144,7 +144,7 @@ import http from '../../../lib/http';
 const { t } = useI18n();
 const emit = defineEmits(['ready', 'refreshed']);
 
-const activeList = ref('stocky');
+const activeList = ref('murano');
 const syncing = ref(false);
 const syncMode = ref(null);
 const resetting = ref(false);
@@ -154,12 +154,12 @@ const lastSyncResult = ref(null);
 const stats = ref({ total: null, synced: null, unsynced: null });
 const statsLoading = ref(true);
 
-const stockyCustomers = ref([]);
-const stockyTotalRows = ref(0);
-const stockySearch = ref('');
-const stockyPage = ref(1);
-const stockyPerPage = ref(10);
-const loadingStocky = ref(false);
+const muranoCustomers = ref([]);
+const muranoTotalRows = ref(0);
+const muranoSearch = ref('');
+const muranoPage = ref(1);
+const muranoPerPage = ref(10);
+const loadingMurano = ref(false);
 
 const wooCustomers = ref([]);
 const wooTotalRows = ref(0);
@@ -175,7 +175,7 @@ const issuesPage = ref(1);
 const issuesPerPage = ref(10);
 const loadingIssues = ref(false);
 
-const stockyColumns = computed(() => [
+const muranoColumns = computed(() => [
   { title: t('Code'), dataIndex: 'code', key: 'code', width: 100 },
   { title: t('Name'), dataIndex: 'name', key: 'name' },
   { title: t('Email'), dataIndex: 'email', key: 'email' },
@@ -208,23 +208,23 @@ async function loadStats() {
   }
 }
 
-async function loadStockyCustomers() {
-  loadingStocky.value = true;
+async function loadMuranoCustomers() {
+  loadingMurano.value = true;
   try {
     const data = await http.get('clients', {
-      page: stockyPage.value, limit: stockyPerPage.value,
-      SortField: 'id', SortType: 'desc', search: stockySearch.value,
+      page: muranoPage.value, limit: muranoPerPage.value,
+      SortField: 'id', SortType: 'desc', search: muranoSearch.value,
     });
-    stockyCustomers.value = (data.clients || []).map(c => ({
+    muranoCustomers.value = (data.clients || []).map(c => ({
       ...c,
       sync_status: (c.woocommerce_id && parseInt(c.woocommerce_id, 10) > 0) ? 'synced' : 'not_synced',
     }));
-    stockyTotalRows.value = data.totalRows || 0;
+    muranoTotalRows.value = data.totalRows || 0;
   } catch (e) {
-    stockyCustomers.value = [];
-    stockyTotalRows.value = 0;
+    muranoCustomers.value = [];
+    muranoTotalRows.value = 0;
   } finally {
-    loadingStocky.value = false;
+    loadingMurano.value = false;
   }
 }
 
@@ -239,10 +239,10 @@ async function loadWooCustomers() {
       wooTotalRows.value = 0;
       return;
     }
-    let allStocky = [];
+    let allMurano = [];
     try {
-      const stockyData = await http.get('clients', { limit: 10000 });
-      allStocky = stockyData.clients || [];
+      const muranoData = await http.get('clients', { limit: 10000 });
+      allMurano = muranoData.clients || [];
     } catch (e) { /* fall back to unmatched */ }
     wooCustomers.value = (data.customers || []).map(c => {
       const wooId = parseInt(c.id, 10) || 0;
@@ -250,12 +250,12 @@ async function loadWooCustomers() {
       const fullName = `${(c.first_name || '').trim()} ${(c.last_name || '').trim()}`.trim();
       const displayName = fullName || (c.name || '').trim() || (c.username || '').trim();
       let match = null;
-      if (wooId > 0) match = allStocky.find(s => (parseInt(s.woocommerce_id, 10) || 0) === wooId) || null;
-      if (!match && wooEmail) match = allStocky.find(s => (s.email || '').trim().toLowerCase() === wooEmail) || null;
+      if (wooId > 0) match = allMurano.find(s => (parseInt(s.woocommerce_id, 10) || 0) === wooId) || null;
+      if (!match && wooEmail) match = allMurano.find(s => (s.email || '').trim().toLowerCase() === wooEmail) || null;
       return {
         ...c,
         name: displayName,
-        stocky_id: match ? match.id : null,
+        murano_id: match ? match.id : null,
         sync_status: (wooId > 0 && match && (parseInt(match.woocommerce_id, 10) || 0) === wooId) ? 'synced' : 'not_synced',
       };
     });
@@ -291,7 +291,7 @@ async function loadSyncIssues() {
 }
 
 function loadAll() {
-  return Promise.all([loadStats(), loadStockyCustomers(), loadWooCustomers(), loadSyncIssues()]);
+  return Promise.all([loadStats(), loadMuranoCustomers(), loadWooCustomers(), loadSyncIssues()]);
 }
 
 async function manualSync(mode) {
@@ -338,7 +338,7 @@ async function syncOne(customer, mode) {
     if (data.ok) {
       const action = data.created > 0 ? 'created' : 'updated';
       message.success(`Customer "${customer.name}" synced successfully (${action})`);
-      loadStockyCustomers();
+      loadMuranoCustomers();
       loadStats();
       if (mode === 'pull') loadWooCustomers();
       loadSyncIssues();

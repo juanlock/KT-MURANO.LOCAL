@@ -240,7 +240,6 @@ return [
 'Reports_payments_Purchases' => 'Reporta pagos Compras',
 'Reports_payments_Return_Customers' => 'Informes pagos Clientes devueltos',
 'Reports_payments_Return_Suppliers' => 'Proveedores de vuelta de los pagos de los informes',
-'stockyVersion' => 'No puede hacer esto en la versión de stockystración',
 'Expense_Deleted' => 'Este gasto ha sido eliminado',
 'Expense_Updated' => 'Este gasto se ha actualizado',
 'Expense_Created' => 'Este gasto ha sido creado',

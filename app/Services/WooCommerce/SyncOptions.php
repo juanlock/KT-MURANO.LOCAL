@@ -129,7 +129,7 @@ class SyncOptions
         'pull_variations_page_cap' => [
             'WOO_PULL_VARIATIONS_PAGE_CAP', 50, 1, 1000, 'limits',
             'Variation import page limit',
-            'Max pages read when importing variations into Stocky.',
+            'Max pages read when importing variations into Murano.',
         ],
         'delete_variations_page_cap' => [
             'WOO_DELETE_VARIATIONS_PAGE_CAP', 50, 1, 1000, 'limits',
