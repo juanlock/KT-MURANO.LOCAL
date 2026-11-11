@@ -19,7 +19,7 @@
  */
 
 // Bump this when deploying changes so old caches are purged.
-const VERSION = 'murano-pwa-v10';
+const VERSION = 'murano-pwa-v11'; // v11 (2026-11-10): KcolTech app icon and favicon
 
 // Configurable storefront base path, passed on the registration URL as
 // ?store_base=/shop (or '/' when the store runs from the root domain).
