@@ -227,11 +227,11 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
    questionnaire's tabs carry who answers them: DUE owner, GER management, SUP agency supervisor, FLO fleet. DUE-3 asks his email for his own
    owner login. The Manager login (turismo-manager@kcoltech.com) is named **Julio Velarde** (the owner) for the presentation (migration
    2026_11_11_150000).
-9. **To do on Thundera, 2026-11-12, after the Wake-up and BEFORE Pa Llevar (user, 2026-11-11):** calibrate the demo's ticket income to the
-   client's real report (04-11: S/ 37,838 in 15 departures of Lima and Chiclayo, about S/ 1.1 M a month for tickets; the demo gives about
-   S/ 2.7 M a month, so the owner's profit looks ~50 %): fewer seats sold per trip / lower demo fares in `TransportDemoDay` (demoFill,
-   topUp, tickets), check Business summary, Expenses and Profit by route, then **Pa Llevar from Thundera** sends everything of 11-11
-   (commit 3859dbf92 + this) to production, the demo is rebuilt there by the hourly demo routine.
+9. **Demo calibrated on Thundera, 2026-11-12 (user):** six months of history (`TransportDemoDay::HISTORY_DAYS = 182`, was 60) and each trip
+   filled 20 %-70 % of its seats (`demoFill`, was 30 %-100 %): ~S/ 2,750 of tickets a departure (the client's report of 04-11: S/ 2,522),
+   ~20 departures a day over the 4 agencies = ~S/ 1.6 M of tickets a month; the owner's profit ~33 % (was ~50 %) with OUR cost assumptions.
+   The hourly routine only works on trips from 3 days ago on (plus never-filled ones) and `seatState` indexes by id: 666 s -> 1.5 s. The first
+   run on a database without the history takes ~5 min (317 s on Thundera). Production gets it with Pa Llevar.
 
 The monitoring has been tested with simulated GPS only: try it on a real phone with a real trip before the 15th.
 

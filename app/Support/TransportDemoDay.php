@@ -25,8 +25,8 @@ class TransportDemoDay
 {
     private const MODULE = 'transport';
 
-    /** How far back the demo's departures go (user's request, 2026-11-11: two months, every agency). */
-    private const HISTORY_DAYS = 60;
+    /** How far back the demo's departures go (user's request, 2026-11-11: two months; 2026-11-12: six months, to see the trend). */
+    private const HISTORY_DAYS = 182;
 
     public static function run(int $companyId): array
     {
@@ -61,7 +61,12 @@ class TransportDemoDay
             'residual_value' => DB::raw('ROUND(COALESCE(purchase_price, 0) * 0.2, 2)')]);
 
         $trips = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')->leftJoin('vehicles as v', 'v.id', '=', 't.vehicle_id')
-            ->whereIn('t.id', self::ids($cid, 'transport_trips'))->whereNull('t.deleted_at')->where('t.status', '!=', 'cancelled')->orderBy('t.departure_at')
+            ->whereIn('t.id', self::ids($cid, 'transport_trips'))->whereNull('t.deleted_at')->where('t.status', '!=', 'cancelled')
+            // The hourly run (2026-11-12, six months of demo): only the trips that can still change -- from 3 days ago on --
+            // and older ones never filled yet (no ticket: a new history). $all = every demo trip.
+            ->when(! $all, fn ($q) => $q->where(fn ($w) => $w->where('t.departure_at', '>=', now()->subDays(3)->startOfDay())
+                ->orWhereNotExists(fn ($e) => $e->select(DB::raw(1))->from('transport_tickets as k')->whereColumn('k.trip_id', 't.id'))))
+            ->orderBy('t.departure_at')
             ->get(['t.id', 't.route_id', 't.departure_at', 't.status', 't.fuel_cost', 'r.distance_km', 'v.seats', 'v.seats_lower', 'v.vip_seats']);
 
         // Expected tolls on the routes these trips use (about one every 150 km).
@@ -80,21 +85,28 @@ class TransportDemoDay
         return ['tickets' => $tickets, 'topped_up' => $topped, 'fuel' => $fuel, 'parcels' => self::demoParcels($cid, $trips)];
     }
 
-    /** The share of seats a demo trip fills at its fullest: 30 % to 100 % (user's rule), always the same for that trip. */
+    /**
+     * The share of seats a demo trip fills at its fullest, always the same for that trip. 2026-11-12 (user, calibrated to the
+     * client's real report of 04-11: S/ 37,838 in 15 departures = about S/ 2,500 a departure, ~S/ 1.1 M a month): 20 % to 70 %
+     * (it was 30 % to 100 %, which gave ~S/ 2.7 M a month and a profit no owner would believe).
+     */
     private static function demoFill(int $tripId): float
     {
-        return 0.30 + (crc32('fill'.$tripId) % 71) / 100;
+        return 0.20 + (crc32('fill'.$tripId) % 51) / 100;
     }
 
     /** The seats already taken on each demo trip, with their stretch and how many went as VIP. */
     private static function seatState($trips): array
     {
         $state = [];
+        $byId = [];
         foreach ($trips as $t) {
             $state[$t->id] = ['occ' => [], 'vip' => 0];
+            $byId[$t->id] = (int) $t->route_id;
         }
-        foreach (DB::table('transport_tickets')->whereIn('trip_id', $trips->pluck('id'))->whereNotNull('seat_number')->get(['trip_id', 'seat_number', 'from_location_id', 'to_location_id', 'is_vip']) as $x) {
-            $route = (int) $trips->firstWhere('id', $x->trip_id)->route_id;
+        // By id, not firstWhere(): 6 months of demo = ~85,000 tickets x ~3,600 trips took 346 s (2026-11-12).
+        foreach (DB::table('transport_tickets')->whereIn('trip_id', array_keys($byId) ?: [0])->whereNotNull('seat_number')->get(['trip_id', 'seat_number', 'from_location_id', 'to_location_id', 'is_vip']) as $x) {
+            $route = $byId[$x->trip_id];
             [$a, $b] = TransportLegs::ticketStretch($route, $x);
             $state[$x->trip_id]['occ'][] = [(int) $x->seat_number, $a, $b];
             $state[$x->trip_id]['vip'] += $x->is_vip ? 1 : 0;
