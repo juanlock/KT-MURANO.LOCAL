@@ -233,7 +233,11 @@ class SalesController extends BaseController
 
         // Global sums over the SAME filtered set (all pages) for the summary cards.
         $sums = (clone $Filtred)
-            ->selectRaw('COALESCE(SUM(GrandTotal),0) as grand, COALESCE(SUM(paid_amount),0) as paid')
+            // Sales tax of the invoices (2026-11-12, Ruba: "how much tax do we owe"): sales.TaxNet already holds the whole
+            // invoice's tax -- the lines' tax is included in it (imported invoices: order tax = sum of the lines'), so the lines
+            // are not added again. "Collected" = each invoice's tax in the share already paid.
+            ->selectRaw('COALESCE(SUM(GrandTotal),0) as grand, COALESCE(SUM(paid_amount),0) as paid, COALESCE(SUM(TaxNet),0) as tax,
+                COALESCE(SUM(CASE WHEN GrandTotal > 0 THEN TaxNet * LEAST(paid_amount / GrandTotal, 1) ELSE 0 END),0) as tax_paid')
             ->reorder()
             ->first();
         $stats = [
@@ -241,6 +245,8 @@ class SalesController extends BaseController
             'total' => (float) ($sums->grand ?? 0),
             'paid' => (float) ($sums->paid ?? 0),
             'due' => (float) (($sums->grand ?? 0) - ($sums->paid ?? 0)),
+            'tax' => round((float) ($sums->tax ?? 0), 2),
+            'tax_paid' => round((float) ($sums->tax_paid ?? 0), 2),
         ];
         // POS Sales page: money taken per payment method over the same set.
         if ($request->boolean('is_pos')) {

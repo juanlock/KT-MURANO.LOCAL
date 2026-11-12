@@ -27,24 +27,27 @@
 
     <!-- Summary cards — global sums over the whole filtered set (all pages).
          Hidden on phones: there the screen is for the sales themselves. -->
-    <a-row :gutter="[16, 16]" class="stat-row" style="margin-bottom: 16px">
-      <a-col v-for="tile in statTiles" :key="tile.label" :xs="12" :sm="12" :md="6">
-        <a-card size="small" class="stat-card">
-          <div class="stat-inner">
-            <div class="stat-icon" :style="{ background: tile.tint, color: tile.color }">
-              <component :is="tile.icon" />
-            </div>
-            <div class="stat-meta">
-              <div class="stat-label">{{ tile.label }}</div>
-              <div class="stat-value" :style="tile.style">
-                <a-spin v-if="crud.loading.value" size="small" />
-                <template v-else>{{ tile.value }}</template>
-              </div>
-            </div>
+    <!-- One row of equal cards; the tax card (2026-11-12) joins at the right when the invoices carry tax. -->
+    <div class="stat-row" :style="{ gridTemplateColumns: `repeat(${statTiles.length}, minmax(0, 1fr))` }">
+      <a-card v-for="tile in statTiles" :key="tile.label" size="small" class="stat-card" :class="{ 'stat-tax': tile.key === 'tax' }">
+        <div class="stat-inner">
+          <div class="stat-icon" :style="{ background: tile.tint, color: tile.color }">
+            <component :is="tile.icon" />
           </div>
-        </a-card>
-      </a-col>
-    </a-row>
+          <div class="stat-meta">
+            <div class="stat-label">
+              {{ tile.label }}
+              <a-tooltip v-if="tile.help" :title="tile.help"><InfoCircleOutlined class="stat-help" /></a-tooltip>
+            </div>
+            <div class="stat-value" :style="tile.style">
+              <a-spin v-if="crud.loading.value" size="small" />
+              <template v-else>{{ tile.value }}</template>
+            </div>
+            <div v-if="tile.sub && !crud.loading.value" class="stat-sub">{{ tile.sub }}</div>
+          </div>
+        </div>
+      </a-card>
+    </div>
 
     <!-- Phones: the filters fold behind one button so the sales come first. -->
     <a-button v-if="isPhone" block style="margin-bottom: 12px" @click="filtersOpen = !filtersOpen">
@@ -597,6 +600,7 @@ import {
   PaperClipOutlined, UploadOutlined, DownloadOutlined, WhatsAppOutlined,
   ExclamationCircleOutlined, ShoppingCartOutlined, DollarOutlined, CheckCircleOutlined,
   StopOutlined, CopyOutlined, FilterOutlined, BellOutlined, DownOutlined, LockOutlined, LinkOutlined,
+  InfoCircleOutlined, AuditOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import { presetOf, presetRange } from '../../lib/datePresets';
@@ -621,7 +625,8 @@ import { useFilterReset } from '../../composables/useFilterReset';
 import ResetFiltersButton from '../../components/ResetFiltersButton.vue';
 import { printPosReceipt } from '../../lib/printPosReceipt';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const tr = (en, es) => (String(locale.value || '').startsWith('es') ? es : en);
 const { isSystem } = useSystemContext();
 const { money, number, dateTime, roundMoney } = useFormat();
 const auth = useAuthStore();
@@ -844,6 +849,15 @@ const statTiles = computed(() => {
       color: '#ff4d4f', tint: 'rgba(255, 77, 79, 0.12)',
       style: n('due') > 0 ? { color: '#ff4d4f' } : undefined,
     },
+    // Sales tax to pay (2026-11-12, Ruba): the tax of the filtered invoices, and how much of it the customers already paid.
+    ...(n('tax') > 0 ? [{
+      key: 'tax', label: tr('Tax to pay', 'Impuesto a pagar'), value: money(n('tax')), icon: AuditOutlined,
+      color: '#d46b08', tint: 'rgba(250, 140, 22, 0.14)',
+      sub: tr(`Collected ${money(n('tax_paid'))}\nPending ${money(n('tax') - n('tax_paid'))}`,
+        `Cobrado ${money(n('tax_paid'))}\nPor cobrar ${money(n('tax') - n('tax_paid'))}`),
+      help: tr('Sales tax of the invoices in the dates and filters chosen. Collected = the share of each invoice\'s tax the customer already paid; pending = the rest, still to be collected.',
+        'Impuesto (sales tax) de las facturas de las fechas y filtros elegidos. Cobrado = la parte del impuesto de cada factura que el cliente ya pagó; por cobrar = el resto, que aún falta cobrar.'),
+    }] : []),
   ];
 });
 
@@ -1602,9 +1616,16 @@ function removeDocument(doc) {
 }
 
 /* Summary cards — same design as the customers/suppliers lists. */
+/* Grid on computers only: phones keep "display: none" (rule at the top of this block). */
+.stat-row { gap: 16px; margin-bottom: 16px; }
+@media (min-width: 768px) { .stat-row { display: grid; } }
 .stat-card {
   border-radius: 10px;
+  min-width: 0;
 }
+.stat-tax { border-color: rgba(250, 140, 22, 0.45); }
+.stat-help { font-size: 12px; opacity: 0.7; cursor: help; margin-left: 2px; }
+.stat-sub { font-size: 11.5px; opacity: 0.7; line-height: 1.35; white-space: pre-line; }
 .stat-inner {
   display: flex;
   align-items: center;
