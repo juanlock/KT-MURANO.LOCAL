@@ -61,7 +61,9 @@ $since = \Carbon\Carbon::parse($since, config('app.timezone'))->utc()->format('Y
 
 $skip = ['migrations', 'kt_logs', 'translations', 'permissions', 'menu_positions', 'jobs', 'failed_jobs', 'job_batches',
     'cache', 'cache_locks', 'sessions', 'password_reset_tokens', 'user_login_sessions', 'oauth_access_tokens',
-    'oauth_refresh_tokens', 'oauth_auth_codes', 'personal_access_tokens', 'telescope_entries', 'booking_public_requests'];
+    'oauth_refresh_tokens', 'oauth_auth_codes', 'personal_access_tokens', 'telescope_entries', 'booking_public_requests',
+    // Each server's own records (2026-11-12): a developer PC's tests are not production's history, security log or devices.
+    'audit_logs', 'audit_logs_archive', 'login_events', 'login_devices', 'login_links', 'password_histories', 'trusted_devices'];
 $tablesOf = fn ($c) => collect($c->select("SELECT table_name t FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'"))->pluck('t')->all();
 $colsOf = fn ($c, $t) => collect($c->select('SELECT column_name c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? ORDER BY ordinal_position', [$t]))->pluck('c')->all();
 
