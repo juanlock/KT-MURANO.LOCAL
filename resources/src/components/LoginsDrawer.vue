@@ -61,6 +61,37 @@
           <span v-else class="muted">{{ tx('Custom (not visible)', 'Personalizada (no visible)') }}</span>
           <a-button v-if="canSetPw(record)" type="link" size="small" @click="pwOpen(record)"><template #icon><KeyOutlined /></template>{{ tx('Change', 'Cambiar') }}</a-button>
         </template>
+        <!-- Sign-in link by WhatsApp (2026-11-12): no password, first device only (App\Support\LoginLinks). -->
+        <template v-else-if="column.key === 'link'">
+          <span v-if="!record.link_allowed" class="muted">—</span>
+          <a-button v-else-if="!record.link" size="small" :disabled="!record.active" :loading="linkBusy === record.id" @click="makeLink(record)">
+            <template #icon><LinkOutlined /></template>{{ tx('Create link', 'Crear link') }}
+          </a-button>
+          <div v-else class="lnk">
+            <a-tooltip :title="linkInfo(record.link)">
+              <a-tag :color="{ bound: 'green', pending: 'gold', expired: 'red' }[record.link.state]" class="lnk-tag">
+                {{ { bound: tx('Linked', 'Vinculado'), pending: tx('Not opened', 'Sin abrir'), expired: tx('Expired', 'Vencido') }[record.link.state] }}
+              </a-tag>
+            </a-tooltip>
+            <template v-if="record.link.url && record.link.state === 'pending'">
+              <a-tooltip :title="tx('Send by WhatsApp', 'Enviar por WhatsApp')">
+                <a-button size="small" class="wa" :href="waHref(record)" target="_blank" rel="noopener"><template #icon><WhatsAppOutlined /></template></a-button>
+              </a-tooltip>
+              <a-tooltip :title="tx('Copy link', 'Copiar link')">
+                <a-button size="small" @click="copy(record.link.url)"><template #icon><CopyOutlined /></template></a-button>
+              </a-tooltip>
+            </template>
+            <a-dropdown :trigger="['click']">
+              <a-button size="small" type="text"><template #icon><MoreOutlined /></template></a-button>
+              <template #overlay>
+                <a-menu>
+                  <a-menu-item @click="makeLink(record, true)">{{ tx('New link (the current one stops working)', 'Link nuevo (el actual deja de funcionar)') }}</a-menu-item>
+                  <a-menu-item danger @click="removeLink(record)">{{ tx('Remove link', 'Quitar link') }}</a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </div>
+        </template>
         <template v-else-if="column.key === 'open'">
           <a-tooltip v-if="canOpen(record)" :title="tx('Work as this login (Back to admin in the header)', 'Entrar como este login (Volver a admin en el encabezado)')">
             <a-button size="small" :loading="opening === record.id" @click="openAs(record)"><template #icon><LoginOutlined /></template>{{ tx('Enter', 'Entrar') }}</a-button>
@@ -90,7 +121,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue';
-import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, LoginOutlined, KeyOutlined } from '@ant-design/icons-vue';
+import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, LoginOutlined, KeyOutlined, LinkOutlined, WhatsAppOutlined, MoreOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
 import { sortByLabel } from '../lib/filterOptions';
@@ -147,6 +178,7 @@ const columns = computed(() => [
   ...(logins.value.some(l => l.patients) ? [{ title: tx('Patients today', 'Pacientes hoy'), key: 'patients', width: 110 }] : []),
   { title: tx('Status', 'Estado'), key: 'active', width: 110 },
   { title: tx('Password', 'Contraseña'), key: 'password', width: 210 },
+  ...(logins.value.some(l => l.link_allowed) ? [{ title: 'Link', key: 'link', width: 175 }] : []),
   { title: '', key: 'open', width: 100 },
 ]);
 
@@ -280,6 +312,55 @@ async function pwSave() {
     pw.value.busy = false;
   }
 }
+// Sign-in links by WhatsApp (2026-11-12): made here, sent by the admin, valid on the first device that opens them.
+const linkBusy = ref(null);
+const dt = v => (v ? new Date(String(v).replace(' ', 'T')).toLocaleString(ui.locale === 'es' ? 'es-PE' : 'en-US', { dateStyle: 'short', timeStyle: 'short' }) : '');
+function linkInfo(l) {
+  if (l.state === 'bound') return tx(`Linked to ${l.device || 'a device'} on ${dt(l.claimed_at)}. Used ${l.uses} time(s), last ${dt(l.last_used_at)}. It works only on that device.`,
+    `Vinculado a ${l.device || 'un equipo'} el ${dt(l.claimed_at)}. Usado ${l.uses} vez/veces, la última ${dt(l.last_used_at)}. Solo funciona en ese equipo.`);
+  if (l.state === 'expired') return tx('Nobody opened it in time. Make a new link.', 'Nadie lo abrió a tiempo. Cree un link nuevo.');
+  return tx(`Not opened yet. The first phone that opens it keeps it. Valid until ${dt(l.expires_at)}.`,
+    `Todavía sin abrir. El primer celular que lo abra se queda con él. Vale hasta el ${dt(l.expires_at)}.`);
+}
+function waHref(r) {
+  const first = (r.name || '').split(' ')[0];
+  const text = tx(`Hello ${first}, this is your access to Murano. Open it on YOUR phone: it will only work on the first device where you open it.\n${r.link.url}`,
+    `Hola ${first}, este es tu acceso a Murano. Ábrelo en TU celular: solo funcionará en el primer equipo donde lo abras.\n${r.link.url}`);
+  let phone = String(r.phone || '').replace(/\D/g, '');
+  if (phone.length === 9 && phone.startsWith('9')) phone = '51' + phone;   // a Peruvian mobile without its country code
+  return `https://wa.me/${phone.length >= 11 ? phone : ''}?text=${encodeURIComponent(text)}`;
+}
+async function makeLink(r, replace = false) {
+  const go = async () => {
+    linkBusy.value = r.id;
+    try {
+      const res = await http.post(`company-logins/${r.id}/link`);
+      await load();
+      message.success(tx('Link ready: send it by WhatsApp', 'Link listo: envíelo por WhatsApp'));
+      if (res?.url) copy(res.url);
+    } catch (e) {
+      message.error(e?.data?.message || tx('Could not create it', 'No se pudo crear'));
+    } finally {
+      linkBusy.value = null;
+    }
+  };
+  if (!replace) return go();
+  Modal.confirm({
+    title: tx('Make a new link?', '¿Crear un link nuevo?'),
+    content: tx('The current link stops working, also on the device where it was opened.', 'El link actual deja de funcionar, también en el equipo donde se abrió.'),
+    okText: tx('New link', 'Link nuevo'), cancelText: tx('Cancel', 'Cancelar'), onOk: go,
+  });
+}
+function removeLink(r) {
+  Modal.confirm({
+    title: tx('Remove the link?', '¿Quitar el link?'),
+    content: tx('It stops working. The person can still sign in with the password.', 'Deja de funcionar. La persona aún puede entrar con su contraseña.'),
+    okText: tx('Remove', 'Quitar'), okType: 'danger', cancelText: tx('Cancel', 'Cancelar'),
+    onOk: async () => {
+      try { await http.delete(`company-logins/${r.id}/link`); await load(); } catch (e) { message.error(e?.data?.message || tx('Could not remove it', 'No se pudo quitar')); }
+    },
+  });
+}
 async function copy(v) {
   try { await navigator.clipboard.writeText(v); message.success(tx('Copied', 'Copiado')); } catch (e) { /* clipboard blocked */ }
 }
@@ -300,5 +381,8 @@ watch(() => props.open, o => { if (o) load(); });
 .role-tag { cursor: pointer; }
 .acc { font-size: 12px; margin-bottom: 3px; max-width: 460px; }
 .small-b { font-size: 12.5px; }
+.lnk { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.lnk-tag { cursor: help; margin-inline-end: 0; }
+.wa { color: #25d366; border-color: #25d366; }
 .fn { font-size: 12px; opacity: 0.75; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>

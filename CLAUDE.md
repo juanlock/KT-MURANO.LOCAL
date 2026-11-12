@@ -393,6 +393,14 @@ the start of each session).
   SuperAdmin; logged) in the same tab (`/login/as/{id}`, `AdminSwitch` cookie,
   header "Back to admin"; a customer opens the portal instead; any other open
   tab reloads as the login in use).
+- **Sign-in links by WhatsApp (user's rule, 2026-11-12):** for staff who use WhatsApp but not passwords (Turismo's pilots and
+  hostesses). Company logins -> column **Link**: "Crear link" makes `/acceso/{32-char code}` (`App\Support\LoginLinks`, table
+  `login_links`: sha256 of the code + the code encrypted so it can be copied / resent), a WhatsApp button (wa.me with the employee's phone)
+  and copy. **It works on ONE device only:** the first device that opens it binds it to its device key (cookie
+  `LoginSecurity::DEVICE_COOKIE`); any other device gets 403 and the attempt goes to `login_events` (`link_refused`, reason). Unused links
+  expire after 7 days; "Link nuevo" kills the old one, "Quitar link" removes it. Only employee / sales agent / supplier logins -- never admin,
+  SuperAdmin or customer; disabled / locked logins are refused. No password or 2FA is asked (the bound device is the second factor). If the
+  person clears the browser's data or changes phone, the admin makes a new link. The SPA wildcard `/{vue?}` excludes `acceso/`.
 - **Customer portal on by default, every company** (user's rule, 2026-10-25):
   `users.portal_enabled` defaults to 1 and `LinkedUserService` sets it for
   customers; only a deleted customer or one who closed their own portal

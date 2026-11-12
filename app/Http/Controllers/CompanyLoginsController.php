@@ -40,9 +40,12 @@ class CompanyLoginsController extends Controller
         $jobs = DB::table('employees as e')->leftJoin('designations as d', 'd.id', '=', 'e.designation_id')
             ->whereIn('e.user_id', $users->pluck('id'))->whereNull('e.deleted_at')->pluck('d.designation', 'e.user_id');
         $types = ['admin' => null, 'employee' => 'employee', 'customer' => 'customer', 'supplier' => 'supplier', 'sales_agent' => 'sales_agent', 'Online_store' => 'online_store'];
+        // Sign-in links by WhatsApp (2026-11-12): the live link of each login, and who may have one.
+        $links = \Illuminate\Support\Facades\Schema::hasTable('login_links') ? \App\Support\LoginLinks::states($users->pluck('id')->all()) : [];
+        $phones = DB::table('employees')->whereIn('user_id', $users->pluck('id'))->whereNull('deleted_at')->pluck('phone', 'user_id');
 
         return response()->json([
-            'logins' => $users->map(function ($u) use ($roleIds, $roles, $types, $assigned, $jobs) {
+            'logins' => $users->map(function ($u) use ($roleIds, $roles, $types, $assigned, $jobs, $links, $phones) {
                 $role = $roles[$roleIds[$u->id] ?? $u->role_id] ?? null;
                 // Its type's standard password, else the access one (a helpdesk agent is an employee).
                 $candidates = array_filter([$u->type === 'admin' ? null : (CompanyLogins::PASSWORDS[$types[$u->type] ?? ''] ?? null), CompanyLogins::ACCESS_PASSWORD]);
@@ -58,6 +61,9 @@ class CompanyLoginsController extends Controller
                     'role_label' => $role->label ?? null, 'job' => $jobs[$u->id] ?? null,
                     'password' => $standard,
                     'standard_password' => reset($candidates) ?: null,
+                    'link' => $links[$u->id] ?? null,
+                    'link_allowed' => \App\Support\LoginLinks::allowedFor($u),
+                    'phone' => $phones[$u->id] ?? null,
                 ];
             })->values(),
             'role_permissions' => $perms,
@@ -94,6 +100,50 @@ class CompanyLoginsController extends Controller
             'by '.trim($user->firstname.' '.$user->lastname).' (Company logins)');
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * POST company-logins/{id}/link (2026-11-12): a new sign-in link for a staff login, to send by WhatsApp
+     * (App\Support\LoginLinks: first device only). Any earlier link of that login stops working.
+     */
+    public function makeLink(Request $request, $id)
+    {
+        $user = $request->user('api');
+        abort_unless($this->allowed($user), 403, 'Your role cannot change the company logins.');
+        $target = $this->target($request, (int) $id, $user);
+        abort_unless(\App\Support\LoginLinks::allowedFor($target), 422, 'Only staff logins (employees, sales agents, suppliers) can have a link.');
+        abort_unless((int) $target->statut === 1, 422, 'That login is disabled.');
+        $url = \App\Support\LoginLinks::create($target, $user);
+        \App\Support\LoginSecurity::event($target, $target->email, 'web', 'link_created', $request,
+            'by '.trim($user->firstname.' '.$user->lastname).' (Company logins)');
+
+        return response()->json(['ok' => true, 'url' => $url]);
+    }
+
+    /** DELETE company-logins/{id}/link: the login's link stops working. */
+    public function removeLink(Request $request, $id)
+    {
+        $user = $request->user('api');
+        abort_unless($this->allowed($user), 403, 'Your role cannot change the company logins.');
+        $target = $this->target($request, (int) $id, $user);
+        if (\App\Support\LoginLinks::revoke((int) $target->id)) {
+            \App\Support\LoginSecurity::event($target, $target->email, 'web', 'link_removed', $request,
+                'by '.trim($user->firstname.' '.$user->lastname).' (Company logins)');
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** A login of the acting company, never a SuperAdmin nor the admin's own. */
+    private function target(Request $request, int $id, object $admin): object
+    {
+        $cid = \App\Support\CompanyFiles::actingCompanyId($request);
+        $target = DB::table('users')->where('id', $id)->where('company_id', $cid)->whereNull('deleted_at')->first();
+        abort_unless($target, 404);
+        abort_if((int) $target->id === (int) $admin->id, 422, 'That is your own login.');
+        abort_if(strtolower((string) $target->type) === 'superadmin', 403);
+
+        return $target;
     }
 
     /**

@@ -417,6 +417,9 @@ Route::middleware(['auth:api', 'Is_Active', 'request.safety', 'token.timeout'])-
 // Header "Logins" list: the company's logins, roles and standard passwords (admins, 2026-10-25).
 Route::get('company-logins', [\App\Http\Controllers\CompanyLoginsController::class, 'index']);
 Route::post('company-logins/{id}/password', [\App\Http\Controllers\CompanyLoginsController::class, 'setPassword'])->whereNumber('id')->middleware('throttle:30,1');
+// Sign-in link by WhatsApp (2026-11-12): make a new one / remove it.
+Route::post('company-logins/{id}/link', [\App\Http\Controllers\CompanyLoginsController::class, 'makeLink'])->whereNumber('id')->middleware('throttle:30,1');
+Route::delete('company-logins/{id}/link', [\App\Http\Controllers\CompanyLoginsController::class, 'removeLink'])->whereNumber('id')->middleware('throttle:30,1');
 Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class, 'whoami']);
 
     // Product Q&A ("Ask About This Item") — admin answers

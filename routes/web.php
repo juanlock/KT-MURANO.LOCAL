@@ -611,7 +611,8 @@ Route::group(['middleware' => ['web', 'auth:web', 'Is_Active', 'request.safety']
             }
 
             return redirect('/next');
-        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|set-locale|support|book(?:/|$)|invoice/).*$');
+        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|set-locale|support|book(?:/|$)|invoice/|acceso/).*$');
+    // acceso/: the WhatsApp sign-in links (2026-11-12), registered further down.
     // invoice/: the public signed invoice (/invoice/{id}/{signature}, registered further down) --
     // this wildcard swallowed it and sent the customer to /login (2026-10-26).
 
@@ -641,6 +642,8 @@ Route::post('login/back', 'Auth\LoginChooseController@back')->middleware(['auth:
 // Company logins -> Open (company admin works as one of its logins) / back (2026-10-25).
 Route::post('login/as/{id}', 'CompanyLoginsController@open')->middleware(['auth:web', 'throttle:20,1'])->whereNumber('id');
 Route::post('login/as-back', 'CompanyLoginsController@back')->middleware(['auth:web', 'throttle:20,1']);
+// Sign-in link sent by WhatsApp (2026-11-12): works only on the first device that opens it (App\Support\LoginLinks).
+Route::get('acceso/{code}', 'Auth\LoginLinkController@enter')->middleware('throttle:20,1')->where('code', '[A-Za-z0-9]{32}');
 // POS cashier PIN: switches this browser session to the PIN's user (see PosPinController).
 Route::post('pos/pin-switch', 'PosPinController@switchUser')->middleware(['auth:web', 'throttle:10,1'])->name('pos.pin_switch');
 
