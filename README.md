@@ -203,7 +203,22 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
-### 2026-11-11 (Optimum) -- not in production yet
+### 2026-11-12 (Thundera)
+
+- **Sign-in link by WhatsApp** (Company logins › Link): staff who don't use
+  passwords (pilots, hostesses) get a link that signs them in without one,
+  only on the first phone that opens it; it can be renewed or removed.
+- **Change history** (Settings › Historial de cambios, SuperAdmin only): who
+  changed what, when and from where, before and after; the last 6 months,
+  older changes kept in an archive, never deleted.
+- **Turismo's demo** has six months of history, with ticket income per
+  departure close to the client's real report; its hourly routine went from
+  11 minutes to 1.5 seconds.
+- **Sales › Tax to pay** card: the sales tax of the filtered invoices, with
+  what was collected and what is pending (Ruba).
+
+Setup: `php artisan migrate`, `npm run build`.
+### 2026-11-11 (Optimum)
 
 - **Daily departures:** "All agencies" shows every agency's day in one table
   with a card per agency (open / closed, PDF); **History** is now a toggle in
@@ -287,17 +302,6 @@ Setup: `npm run build`.
   complaints about parcels.
 
 Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-06 (Thundera)
-
-- **The invoice note and terms are Ruba's only.** The card fee, late fee and
-  US phones were on the invoices of almost every company: every other company,
-  and the template new companies start from, now has both empty. Each company
-  can write its own in Settings › Invoice PDF.
-- **The morning copy of production** no longer stops when a PC's local
-  database is empty.
-
-Setup: `php artisan migrate`.
 
 ---
 
