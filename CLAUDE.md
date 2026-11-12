@@ -231,7 +231,9 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
    filled 20 %-70 % of its seats (`demoFill`, was 30 %-100 %): ~S/ 2,750 of tickets a departure (the client's report of 04-11: S/ 2,522),
    ~20 departures a day over the 4 agencies = ~S/ 1.6 M of tickets a month; the owner's profit ~33 % (was ~50 %) with OUR cost assumptions.
    The hourly routine only works on trips from 3 days ago on (plus never-filled ones) and `seatState` indexes by id: 666 s -> 1.5 s. The first
-   run on a database without the history takes ~5 min (317 s on Thundera). Production gets it with Pa Llevar.
+   run on a database without the history takes ~5 min (317 s on Thundera; 158 s on the server). **In production (2026-11-12, user's yes):**
+   built once over SSH (`transport:demo-day --company=1025`, production backup first) and `companies.demo_daily = 1` for Turismo, so the hourly
+   `demo:daily` keeps it current -- `demo:daily` only refreshes companies with that switch on (until then only 1021 had it).
 
 The monitoring has been tested with simulated GPS only: try it on a real phone with a real trip before the 15th.
 
