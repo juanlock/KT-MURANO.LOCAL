@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Schema;
 class AuditTrail
 {
     /** Tables never recorded: logs, sessions, tokens, positions, counters, queues. */
-    private const SKIP = ['audit_logs', 'kt_logs', 'login_events', 'login_devices', 'login_links', 'user_login_sessions', 'sessions',
+    private const SKIP = ['audit_logs', 'audit_logs_archive', 'kt_logs', 'login_events', 'login_devices', 'login_links', 'user_login_sessions', 'sessions',
         'jobs', 'failed_jobs', 'job_batches', 'notifications', 'cache', 'cache_locks', 'password_histories', 'password_resets',
         'password_reset_tokens', 'personal_access_tokens', 'trusted_devices', 'transport_vehicle_positions', 'form_stats_daily',
         'booking_public_requests', 'migrations', 'menu_positions'];

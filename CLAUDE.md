@@ -411,7 +411,9 @@ the start of each session).
   delete / restore with before and after) and **DB::listen** for the writes models can't see (`Model::where()->update()`, `DB::table()`), with
   the new values only (marked SQL; flushed when the request ends, skipped when a model event already recorded the same row). Only web / API
   requests (not cron, demo routines, migrations, imports); logs, sessions, tokens, GPS positions, counters and the Email Office mailboxes are
-  skipped; secret fields (password, token, key, secret, pin, otp...) are stored as "••••". `audit:prune` keeps one year (daily 03:50).
+  skipped; secret fields (password, token, key, secret, pin, otp...) are stored as "••••". **Nothing is deleted (user's rule, 2026-11-12):**
+  `audit_logs` keeps the last 6 months; `audit:archive` (daily 03:50) moves older rows to `audit_logs_archive` (same structure and ids,
+  one transaction per batch); the page reads it with "Archivo (más antiguo)".
   A new log-like table that should not be recorded joins `AuditTrail::SKIP`.
 - **Customer portal on by default, every company** (user's rule, 2026-10-25):
   `users.portal_enabled` defaults to 1 and `LinkedUserService` sets it for

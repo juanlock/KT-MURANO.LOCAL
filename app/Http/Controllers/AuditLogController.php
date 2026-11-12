@@ -17,7 +17,9 @@ class AuditLogController extends Controller
     public function index(Request $request)
     {
         $cid = $this->scope($request);
-        $base = DB::table('audit_logs')->when($cid !== null, fn ($q) => $q->where('company_id', $cid));
+        // The last 6 months, or the archive (older rows, moved there every night by audit:archive).
+        $table = $request->boolean('archive') && \Illuminate\Support\Facades\Schema::hasTable('audit_logs_archive') ? 'audit_logs_archive' : 'audit_logs';
+        $base = DB::table($table)->when($cid !== null, fn ($q) => $q->where('company_id', $cid));
         $q = (clone $base)
             ->when($request->filled('from'), fn ($q) => $q->where('created_at', '>=', $request->from.' 00:00:00'))
             ->when($request->filled('to'), fn ($q) => $q->where('created_at', '<=', $request->to.' 23:59:59'))

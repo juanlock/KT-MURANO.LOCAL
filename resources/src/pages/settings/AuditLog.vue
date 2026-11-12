@@ -5,6 +5,8 @@
 
     <a-card size="small">
       <div class="al-filters">
+        <!-- The main history holds 6 months; older changes are in the archive (never deleted). -->
+        <a-segmented v-model:value="source" :options="sourceOptions" @change="reload" />
         <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" apply-default compact @change="reload" />
         <a-select v-model:value="filters.user_id" :options="userOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('User', 'Usuario')" style="width: 200px" @change="reload" />
         <a-select v-model:value="filters.table" :options="tableOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('Module (table)', 'Módulo (tabla)')" style="width: 200px" @change="reload" />
@@ -81,7 +83,12 @@ const range = ref([dayjs().subtract(6, 'day').format('YYYY-MM-DD'), dayjs().form
 const filters = ref({ user_id: undefined, table: undefined, event: undefined, record_id: '', search: '' });
 const page = ref(1);
 const perPage = ref(50);
-useListState('audit-log', { filters, range, page, perPage });
+const source = ref('recent');
+const sourceOptions = computed(() => [
+  { value: 'recent', label: tx('Last 6 months', 'Últimos 6 meses') },
+  { value: 'archive', label: tx('Archive (older)', 'Archivo (más antiguo)') },
+]);
+useListState('audit-log', { filters, range, page, perPage, source });
 
 const loading = ref(false);
 const rows = ref([]);
@@ -125,7 +132,7 @@ async function load() {
   loading.value = true;
   try {
     const res = await http.get('audit-logs', {
-      from: range.value?.[0], to: range.value?.[1], page: page.value, per_page: perPage.value,
+      from: range.value?.[0], to: range.value?.[1], page: page.value, per_page: perPage.value, archive: source.value === 'archive' ? 1 : 0,
       ...Object.fromEntries(Object.entries(filters.value).filter(([, v]) => v !== undefined && v !== null && v !== '')),
     });
     rows.value = res.rows || [];
