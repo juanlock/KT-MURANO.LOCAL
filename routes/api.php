@@ -2115,6 +2115,8 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
 
     // KT-Log (2026-10-26): the kt_logs history -- SuperAdmin on AdminSystem only.
     Route::get('kt_logs', 'KtLogController@index');
+    // Change history (2026-11-12): SuperAdmin only (AuditLogController::scope).
+    Route::get('audit-logs', 'AuditLogController@index');
     Route::get('kt_logs/{id}', 'KtLogController@show')->whereNumber('id');
 
     // ------------------------------- Module Settings ------------------------\\

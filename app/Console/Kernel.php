@@ -86,6 +86,8 @@ class Kernel extends ConsoleKernel
         $cmd('transport:assign-parcels')->everyTenMinutes()->withoutOverlapping()->when($uses('transport'));
         // A bus's GPS trail is kept 30 days (2026-11-06).
         $cmd('transport:prune-positions')->dailyAt('03:40')->withoutOverlapping()->when($uses('transport'));
+        // The change history keeps one year (2026-11-12).
+        $cmd('audit:prune')->dailyAt('03:50')->withoutOverlapping();
 
         $cmd('meetings:send-reminders')->everyMinute()->withoutOverlapping();
         // Bookings: reminder emails before appointments (Settings -> Booking -> Reminders).

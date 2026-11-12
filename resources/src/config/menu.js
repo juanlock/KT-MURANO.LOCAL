@@ -46,6 +46,7 @@ export const MIGRATED_ROUTES = {
     '/app/settings/paypal': '/settings/paypal',
     '/app/settings/system_health': '/settings/system-health',
     '/app/settings/kt_log': '/settings/kt-log',
+    '/app/settings/audit_log': '/settings/audit-log',
     '/app/settings/company_manuals': '/settings/company-manuals',
     '/app/settings/roles_matrix': '/settings/roles-matrix',
     '/app/settings/sms_templates': '/settings/sms-templates',
@@ -1135,6 +1136,8 @@ export const MENU = [
             { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'], systemOnly: true },
             // KT-Log (2026-10-26): the kt_logs work history -- superadmin/AdminSystem only.
             { label: 'KT_Log', to: '/app/settings/kt_log', permissions: ['kt_logs_view'], superAdminOnly: true, systemOnly: true },
+            // Change history (2026-11-12): who changed what -- the SuperAdmin only, any company picked.
+            { label: 'Audit_Log', to: '/app/settings/audit_log', permissions: ['audit_log_view'], superAdminOnly: true },
             // Company manuals (2026-11-01): flyer + text manual per company / business type.
             { label: 'Company_Manuals', to: '/app/settings/company_manuals', permissions: ['company_manuals_view'], superAdminOnly: true, systemOnly: true },
             { label: 'Roles_Matrix', to: '/app/settings/roles_matrix', permissions: ['roles_matrix_view'], superAdminOnly: true, systemOnly: true },

@@ -102,6 +102,9 @@ and can switch/modify which company's data they're viewing or editing; an
 Admin (AdminKT, AdminRG, etc.) is fixed to their own company and never sees
 that selector -- only a SuperAdmin can change the acting company.
 
+**Glossary — "Goku" (user's convention, 2026-11-12):** Goku = the SuperAdmin, the same entity (the user says "superadmin" or,
+when joking, "Goku"). The user is Goku; Claude is Jarvis. "Solo Goku" = SuperAdmin only.
+
 **Glossary — "superadmin/<company>"** (user's convention, 2026-10-21): e.g.
 "superadmin/bicentenario" = the user is signed in to Murano in a browser as
 the SuperAdmin and picked that company (Colegio Bicentenario) in the top-bar
@@ -401,6 +404,15 @@ the start of each session).
   expire after 7 days; "Link nuevo" kills the old one, "Quitar link" removes it. Only employee / sales agent / supplier logins -- never admin,
   SuperAdmin or customer; disabled / locked logins are refused. No password or 2FA is asked (the bound device is the second factor). If the
   person clears the browser's data or changes phone, the admin makes a new link. The SPA wildcard `/{vue?}` excludes `acceso/`.
+- **Change history (user's rule, 2026-11-12): only Goku (the SuperAdmin) sees it.** Settings -> Historial de cambios
+  (`/settings/audit-log`, `superAdminOnly`, permission `audit_log_view`; `AuditLogController` refuses anyone who is not type SuperAdmin, 403;
+  AdminSystem = every company, a company picked = that one). `App\Support\AuditTrail` writes `audit_logs` (who, company, admin behind a
+  Company-logins "Enter", event, table, record, {field: [before, after]}, IP, method, URL) in two ways: **model events** (create / update /
+  delete / restore with before and after) and **DB::listen** for the writes models can't see (`Model::where()->update()`, `DB::table()`), with
+  the new values only (marked SQL; flushed when the request ends, skipped when a model event already recorded the same row). Only web / API
+  requests (not cron, demo routines, migrations, imports); logs, sessions, tokens, GPS positions, counters and the Email Office mailboxes are
+  skipped; secret fields (password, token, key, secret, pin, otp...) are stored as "••••". `audit:prune` keeps one year (daily 03:50).
+  A new log-like table that should not be recorded joins `AuditTrail::SKIP`.
 - **Customer portal on by default, every company** (user's rule, 2026-10-25):
   `users.portal_enabled` defaults to 1 and `LinkedUserService` sets it for
   customers; only a deleted customer or one who closed their own portal

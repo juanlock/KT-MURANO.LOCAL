@@ -65,6 +65,15 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // Change history (2026-11-12, SuperAdmin only): every model written during a request -> audit_logs.
+        foreach (['created', 'updated', 'deleted', 'restored'] as $auditEvent) {
+            \Illuminate\Support\Facades\Event::listen("eloquent.{$auditEvent}: *", function ($name, array $data) use ($auditEvent) {
+                \App\Support\AuditTrail::record($auditEvent, $data[0] ?? null);
+            });
+        }
+        // ... and the writes model events can't see (mass updates, DB::table), new values only.
+        \Illuminate\Support\Facades\DB::listen(fn ($query) => \App\Support\AuditTrail::statement($query));
+
         // A developer PC (database dbmurano) never emails real people: everything to one address.
         \Illuminate\Support\Facades\Event::listen(\Illuminate\Mail\Events\MessageSending::class, [\App\Support\DevMailGuard::class, 'handle']);
 

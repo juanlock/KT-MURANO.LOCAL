@@ -949,6 +949,7 @@ const routes = [
             // Company manuals (2026-11-01): each company's flyer and text manual -- superadmin/AdminSystem only.
             { path: 'settings/company-manuals', name: 'company-manuals', component: () => import('../pages/settings/CompanyManuals.vue'), meta: { title: 'Company manuals', permission: 'company_manuals_view', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/roles-matrix', name: 'roles-matrix', component: () => import('../pages/settings/RolesMatrix.vue'), meta: { title: 'Roles by company', permission: 'roles_matrix_view', superAdminOnly: true, systemOnly: true } },
+            { path: 'settings/audit-log', name: 'audit-log', component: () => import('../pages/settings/AuditLog.vue'), meta: { title: 'Change history', permission: 'audit_log_view', superAdminOnly: true } },
             { path: 'settings/kt-log', name: 'kt-log', component: () => import('../pages/settings/KtLog.vue'), meta: { title: 'KT-Log', permission: 'kt_logs_view', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/sms-templates', name: 'sms-templates', component: SmsTemplates, meta: { title: 'SMS Templates', permission: 'sms_templates' } },
             { path: 'settings/email-templates', name: 'email-templates', component: EmailTemplates, meta: { title: 'Email Templates', permission: 'notification_template' } },
