@@ -809,6 +809,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/indicators', 'indicators');
         Route::get('/claims', 'claims');
         Route::get('/parcels/board', 'parcelsBoard');
+        Route::get('/expenses', 'expenses');
         Route::get('/departures', 'departures');
     });
     // Daily departures (2026-11-10): the agency's day planned, completed and closed (PDF + email + history).
@@ -824,6 +825,13 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/reopen', 'reopen');
         Route::get('/history', 'history');
         Route::get('/pdf/{id}', 'pdf')->whereNumber('id');
+    });
+    // "Mi agencia" (2026-11-11): the supervisor's agency -- summary, complaints, incidents (parcels: transport/parcels/board).
+    Route::prefix('transport/agency')->controller(\App\Http\Controllers\TransportAgencyController::class)->group(function () {
+        Route::get('/summary', 'summary');
+        Route::get('/claims', 'claims');
+        Route::get('/incidents', 'incidents');
+        Route::get('/incident-trips', 'incidentTrips');
     });
     // Vehicle monitoring (2026-11-06): the crew's reports from the phone, the bus's position, punctuality.
     Route::prefix('transport/control')->controller(\App\Http\Controllers\TransportControlController::class)->group(function () {

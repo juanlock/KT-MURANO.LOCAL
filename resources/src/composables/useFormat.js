@@ -71,5 +71,18 @@ export function useFormat() {
         return date(value, `${dateFormat.value} HH:mm`);
     }
 
-    return { money, moneyBase, number, roundMoney, date, dateTime, currency, decimals, dateFormat };
+    /** Day and month only, in the same order as the company's format (DD-MM in Peru, MM-DD in the USA; 2026-11-11). */
+    const dayMonthFormat = computed(() => {
+        const f = String(dateFormat.value).toUpperCase();
+        const sep = (f.match(/[^A-Z]/) || ['-'])[0];
+        return f.startsWith('D') ? `DD${sep}MM` : `MM${sep}DD`;
+    });
+    function dayMonth(value) {
+        return date(value, dayMonthFormat.value);
+    }
+    function dayMonthTime(value) {
+        return date(value, `${dayMonthFormat.value} HH:mm`);
+    }
+
+    return { money, moneyBase, number, roundMoney, date, dateTime, dayMonth, dayMonthTime, currency, decimals, dateFormat };
 }

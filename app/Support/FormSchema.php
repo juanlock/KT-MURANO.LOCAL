@@ -22,7 +22,8 @@ class FormSchema
 {
     public const INPUT_TYPES = ['text', 'email', 'phone', 'url', 'number', 'date', 'time', 'textarea', 'select', 'radio', 'checkbox', 'file', 'hidden'];
 
-    public const LAYOUT_TYPES = ['heading', 'paragraph', 'divider'];
+    // 'tab' (2026-11-11): the fields after it, up to the next tab, show on their own tab of the page.
+    public const LAYOUT_TYPES = ['heading', 'paragraph', 'divider', 'tab'];
 
     public const WIDTHS = ['full', 'half', 'third'];
 
@@ -39,6 +40,7 @@ class FormSchema
             'success_message' => 'Thank you! We received your message.',
             'redirect_url' => '',
             'hide_after_submit' => true,
+            'save_draft' => false,               // 2026-11-11: what is typed stays in the browser to continue later
             'notify' => true,                    // email the company on every submission
             'notify_emails' => [],               // [] = the company's admins
             'notify_subject' => 'New submission: {form}',
@@ -105,7 +107,7 @@ class FormSchema
         foreach (['description', 'success_message', 'confirm_message'] as $k) {
             $s[$k] = mb_substr(strip_tags((string) $s[$k]), 0, 5000);
         }
-        foreach (['hide_after_submit', 'notify', 'honeypot', 'active', 'confirm_email', 'confirm_data'] as $k) {
+        foreach (['hide_after_submit', 'save_draft', 'notify', 'honeypot', 'active', 'confirm_email', 'confirm_data'] as $k) {
             $s[$k] = (bool) $s[$k];
         }
 

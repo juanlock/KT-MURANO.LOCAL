@@ -97,11 +97,12 @@ class TransportDailyController extends Controller
     }
 
     /** The agency's departures of the day with everything the screen and the PDF show. */
-    private function rows(int $cid, int $agencyId, string $day): array
+    private function rows(int $cid, int $agencyId, string $day, ?string $to = null): array
     {
         $trips = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')
             ->join('transport_locations as d', 'd.id', '=', 'r.destination_id')->leftJoin('vehicles as v', 'v.id', '=', 't.vehicle_id')
-            ->where('t.company_id', $cid)->whereNull('t.deleted_at')->where('r.origin_id', $agencyId)->whereDate('t.departure_at', $day)
+            ->where('t.company_id', $cid)->whereNull('t.deleted_at')->where('r.origin_id', $agencyId)
+            ->when($to, fn ($q) => $q->whereBetween('t.departure_at', [$day.' 00:00:00', $to.' 23:59:59']), fn ($q) => $q->whereDate('t.departure_at', $day))
             ->orderBy('t.departure_at')
             ->get(['t.id', 't.route_id', 't.vehicle_id', 't.departure_at', 't.status', 't.confirmed_at', 't.fuel_cost', 't.reported_passengers', 't.reported_income',
                 'd.name as destination', 'v.name as bus', 'v.plate_number', 'v.seats']);
@@ -121,7 +122,7 @@ class TransportDailyController extends Controller
 
             return [
                 'id' => (int) $t->id, 'route_id' => (int) $t->route_id, 'vehicle_id' => $t->vehicle_id ? (int) $t->vehicle_id : null,
-                'time' => Carbon::parse($t->departure_at)->format('H:i'), 'departure_at' => $t->departure_at,
+                'time' => Carbon::parse($t->departure_at)->format('H:i'), 'departure_at' => $t->departure_at, 'date' => substr((string) $t->departure_at, 0, 10),
                 'destination' => $t->destination, 'bus' => trim(($t->bus ?? '').($t->plate_number ? ' ('.$t->plate_number.')' : '')), 'seats' => $seats,
                 'status' => $t->status, 'confirmed' => (bool) $t->confirmed_at,
                 'points' => collect($boardings[$t->id] ?? [])->map(fn ($b) => [
@@ -181,9 +182,20 @@ class TransportDailyController extends Controller
         if ($agencies->isEmpty()) {
             return response()->json(['agencies' => [], 'rows' => []]);
         }
+        // Every agency of the user's locations at once (user's request, 2026-11-11): read the whole day, each row
+        // with its agency; planning, copying, closing and the price stay per agency.
+        // History (user's request, 2026-11-11, replacing the "Closed days" drawer): every departure of the last 60 days and
+        // the week ahead, newest first, for one agency or all of them; each row says whether its day is closed.
+        if ($request->boolean('history')) {
+            return response()->json($this->historyRows($request, $cid, $agencies));
+        }
+        // (A login with one agency simply gets its agency.)
+        if ($request->input('agency_id') === 'all' && $agencies->count() > 1) {
+            return response()->json($this->allAgencies($request, $cid, $day, $agencies));
+        }
         $agency = $this->agency($request, $cid);
         $rows = $this->rows($cid, (int) $agency->id, $day);
-        $price = DB::table('transport_day_prices')->where('location_id', $agency->id)->whereDate('day', $day)->first();
+        $price =DB::table('transport_day_prices')->where('location_id', $agency->id)->whereDate('day', $day)->first();
         $copyFrom = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')->where('t.company_id', $cid)->whereNull('t.deleted_at')
             ->where('t.status', '!=', 'cancelled')->where('r.origin_id', $agency->id)->whereDate('t.departure_at', '<', $day)->max('t.departure_at');
         $manage = $this->can($request, 'transport_departures_manage');
@@ -207,6 +219,66 @@ class TransportDailyController extends Controller
             'points' => DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('active', 1)->orderBy('name')
                 ->get(['id', 'name', 'hub_id'])->map(fn ($l) => ['id' => (int) $l->id, 'name' => $l->name, 'own' => (int) $l->id === (int) $agency->id || (int) $l->hub_id === (int) $agency->id])->values(),
         ]);
+    }
+
+    /** Every departure from 60 days back to a week ahead (one agency or all), newest first, with its day's closure. */
+    private function historyRows(Request $request, int $cid, $agencies): array
+    {
+        $from = now()->subDays(60)->toDateString();
+        $to = now()->addDays(7)->toDateString();
+        $all = $request->input('agency_id') === 'all' && $agencies->count() > 1;
+        $list = $all ? $agencies : collect([$this->agency($request, $cid)]);
+        $closures = DB::table('transport_day_closures')->where('company_id', $cid)->whereIn('location_id', $list->pluck('id'))
+            ->whereBetween('day', [$from, $to])->get(['id', 'location_id', 'day', 'status', 'pdf'])
+            ->keyBy(fn ($c) => $c->location_id.'@'.substr((string) $c->day, 0, 10));
+        $rows = [];
+        foreach ($list as $a) {
+            foreach ($this->rows($cid, (int) $a->id, $from, $to) as $r) {
+                $c = $closures[$a->id.'@'.$r['date']] ?? null;
+                $rows[] = $r + ['agency_id' => (int) $a->id, 'agency' => $a->name, 'closed' => $c && $c->status === 'closed',
+                    'closure_id' => $c && $c->status === 'closed' && $c->pdf ? (int) $c->id : null];
+            }
+        }
+        usort($rows, fn ($x, $y) => strcmp((string) $y['departure_at'], (string) $x['departure_at']) ?: strcmp($x['agency'], $y['agency']));
+        $one = $all ? null : $list->first();
+
+        return [
+            'history' => true, 'from' => $from, 'to' => $to, 'date' => $this->day($request),
+            'agency_id' => $all ? 'all' : (int) $one->id, 'agency' => $one->name ?? null, 'all' => $all,
+            'agencies' => $agencies->map(fn ($a) => ['id' => (int) $a->id, 'name' => $a->name])->values(),
+            'can_manage' => $this->can($request, 'transport_departures_manage'), 'can_reopen' => $this->can($request, 'transport_departures_reopen'),
+            'closure' => null, 'price' => null, 'copy_from' => null, 'emails' => null,
+            'rows' => $rows, 'totals' => $this->totals($rows),
+        ];
+    }
+
+    /** The day of every agency the user has: all the departures (by time), the totals and each agency's state. */
+    private function allAgencies(Request $request, int $cid, string $day, $agencies): array
+    {
+        $rows = [];
+        $summary = [];
+        foreach ($agencies as $a) {
+            $mine = $this->rows($cid, (int) $a->id, $day);
+            $c = $this->closure($cid, (int) $a->id, $day);
+            $closed = $c && $c->status === 'closed';
+            foreach ($mine as $r) {
+                $rows[] = $r + ['agency_id' => (int) $a->id, 'agency' => $a->name, 'closed' => $closed];
+            }
+            $tot = $this->totals($mine);
+            $summary[] = ['id' => (int) $a->id, 'name' => $a->name, 'departures' => $tot['departures'], 'passengers' => $tot['passengers'],
+                'amount' => $tot['amount'], 'state' => $closed ? 'closed' : ($c ? 'reopened' : 'open'), 'closure_id' => $c ? (int) $c->id : null,
+                'has_pdf' => $c ? (bool) $c->pdf : false];
+        }
+        usort($rows, fn ($x, $y) => strcmp((string) $x['departure_at'], (string) $y['departure_at']) ?: strcmp($x['agency'], $y['agency']));
+
+        return [
+            'date' => $day, 'agency_id' => 'all', 'agency' => null, 'all' => true,
+            'agencies' => $agencies->map(fn ($a) => ['id' => (int) $a->id, 'name' => $a->name])->values(),
+            'summary' => $summary,
+            'can_manage' => $this->can($request, 'transport_departures_manage'), 'can_reopen' => $this->can($request, 'transport_departures_reopen'),
+            'closure' => null, 'price' => null, 'copy_from' => null, 'emails' => null,
+            'rows' => $rows, 'totals' => $this->totals($rows),
+        ];
     }
 
     /** A departure of the agency (new or changed): time, route, bus, boarding points and the day's figures. */

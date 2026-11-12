@@ -28,7 +28,8 @@ import TransportStrip from './TransportStrip.vue';
 import { CLAIM_GROUPS, claimDetailName } from '../lib/transportClaimTopics';
 
 // The dashboard's own date filter: [from, to], null = its "All" (all the history here).
-const props = defineProps({ range: { type: Array, default: null } });
+// endpoint: "Mi agencia" (2026-11-11) reads transport/agency/claims, the complaints of the supervisor's agency.
+const props = defineProps({ range: { type: Array, default: null }, endpoint: { type: String, default: 'transport/claims' } });
 
 const { ui, money, tr, small, base, hbar } = useTransportCharts();
 const root = ref(null);
@@ -48,7 +49,7 @@ const data = ref({ enabled: false });
 onMounted(async () => {
   loading.value = true;
   try {
-    data.value = await http.get('transport/claims', { from: props.range?.[0], to: props.range?.[1] });
+    data.value = await http.get(props.endpoint, { from: props.range?.[0], to: props.range?.[1] });
   } catch (e) {
     data.value = { enabled: false };
   } finally {

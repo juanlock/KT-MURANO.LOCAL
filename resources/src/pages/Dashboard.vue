@@ -8,7 +8,9 @@
         <a-typography-text v-if="demoMode" type="secondary">{{ t('Dashboard_Demo_Subtitle') }}</a-typography-text>
       </div>
 
-      <a-space wrap :size="boardMode ? 8 : 12" class="dash-filters">
+      <!-- Hidden on "Business summary" (user's request, 2026-11-11): it is always today, the month in progress and the
+           last 12 months, so a filter that changes nothing there only confuses. -->
+      <a-space v-show="!(boardMode && transportTab === 'transport_owner')" wrap :size="boardMode ? 8 : 12" class="dash-filters">
         <!-- Same date presets + editable Start date / to as Sales -> List Sales. -->
         <DateRangeFields :value="rangeFields" :disabled="loading" @change="onRangeEdit" />
         <!-- Double-click any filter choice = your default when the Dashboard
@@ -83,18 +85,24 @@
         :tab-bar-style="transportTabs.length < 2 ? { display: 'none' } : undefined"
         :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? Infinity)) }"
       >
+        <!-- In the order the owner reads them (user's request, 2026-11-11), the first one opens by default: how the business
+             goes, where the money comes from and what puts it at risk, then the day's operation. -->
+        <a-tab-pane v-if="ownerPanel" key="transport_owner">
+          <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
+          <TransportOwnerPanel />
+        </a-tab-pane>
         <a-tab-pane v-if="departuresPanel" key="transport_departures">
           <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
           <TransportDeparturesPanel :range="rangeFields" />
         </a-tab-pane>
-        <!-- Live: refreshes itself only while it is open. -->
-        <a-tab-pane v-if="monitorPanel" key="transport_monitor" destroy-inactive-tab-pane>
-          <template #tab><EnvironmentOutlined /> {{ es ? 'Tablero de control' : 'Control board' }}</template>
-          <TransportLiveBoard />
-        </a-tab-pane>
         <a-tab-pane v-if="profitPanel" key="transport_profit">
           <template #tab><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</template>
           <TransportProfitPanel :range="rangeFields" />
+        </a-tab-pane>
+        <!-- What the business spends, by kind (2026-11-11): goes with "Profit by route", same permission. -->
+        <a-tab-pane v-if="profitPanel" key="transport_expenses">
+          <template #tab><WalletOutlined /> {{ es ? 'Gastos' : 'Expenses' }}</template>
+          <TransportExpensesPanel :range="rangeFields" />
         </a-tab-pane>
         <!-- Goes with "Profit by route": same permission and same on / off switch in System Settings -> Dashboard. -->
         <a-tab-pane v-if="profitPanel" key="transport_indicators">
@@ -113,18 +121,17 @@
           <template #tab><AuditOutlined /> {{ es ? 'Reclamos' : 'Complaints' }}</template>
           <TransportClaimsPanel :range="period === 'all' ? null : rangeFields" />
         </a-tab-pane>
-        <a-tab-pane v-if="ownerPanel" key="transport_owner">
-          <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
-          <TransportOwnerPanel />
+        <!-- Live: refreshes itself only while it is open. -->
+        <a-tab-pane v-if="monitorPanel" key="transport_monitor" destroy-inactive-tab-pane>
+          <template #tab><EnvironmentOutlined /> {{ es ? 'Tablero de control' : 'Control board' }}</template>
+          <TransportLiveBoard />
         </a-tab-pane>
         <a-tab-pane v-if="transportBoard" key="transport">
           <template #tab><CarOutlined /> {{ es ? 'Tablero de transporte' : 'Transport board' }}</template>
           <TransportBoard :range="rangeFields" />
         </a-tab-pane>
-        <!-- The rest of the dashboard (sales, stock...) has its own tab, so the panels above fit one screen. -->
-        <a-tab-pane key="transport_general">
-          <template #tab><AppstoreOutlined /> General</template>
-        </a-tab-pane>
+        <!-- No "General" tab (user's request, 2026-11-11: it said nothing to a transport company and confused): with the
+             transport panels, the rest of the dashboard (sales, stock...) is not shown. -->
       </a-tabs>
 
       <!-- ================= Stat cards (legacy's two rows of four) ========= -->
@@ -394,6 +401,7 @@ import TransportClaimsPanel from '../components/TransportClaimsPanel.vue';
 import TransportDeparturesPanel from '../components/TransportDeparturesPanel.vue';
 import TransportIndicatorsPanel from '../components/TransportIndicatorsPanel.vue';
 import TransportLiveBoard from '../components/TransportLiveBoard.vue';
+import TransportExpensesPanel from '../components/TransportExpensesPanel.vue';
 import TransportOwnerPanel from '../components/TransportOwnerPanel.vue';
 import TransportParcelsPanel from '../components/TransportParcelsPanel.vue';
 import TransportProfitPanel from '../components/TransportProfitPanel.vue';
@@ -429,13 +437,13 @@ const claimsPanel = computed(() => show('transport_claims') && auth.moduleEnable
 const ownerPanel = computed(() => show('transport_owner') && auth.can('dashboard') && auth.moduleEnabled('transport')
   && (auth.can('transport_view') || auth.can('transport_manage')));
 const es = computed(() => useUiStore().locale === 'es');
-const transportPanels = computed(() => [departuresPanel.value && 'transport_departures', monitorPanel.value && 'transport_monitor', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', ownerPanel.value && 'transport_owner', transportBoard.value && 'transport'].filter(Boolean));
+// Same order as the tabs (the owner's reading order, 2026-11-11); the first one the user has opens by default.
+const transportPanels = computed(() => [ownerPanel.value && 'transport_owner', departuresPanel.value && 'transport_departures', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean));
 const boardMode = computed(() => transportPanels.value.length > 0);
-const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value, 'transport_general'] : []));
+const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value] : []));
 const transportPick = ref(null);
 const transportTab = computed({
-  get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value
-    : (['transport_departures', 'transport'].find(k => transportTabs.value.includes(k)) || transportTabs.value[0])),
+  get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value : transportTabs.value[0]),
   set: v => { transportPick.value = v; },
 });
 // The General tab's charts were drawn hidden: they need their width back when it opens.

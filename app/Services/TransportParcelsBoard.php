@@ -129,7 +129,9 @@ class TransportParcelsBoard
         ksort($trend);
 
         // A complaint names an agency or one of its terminals (PLAZA LIMA NORTE is Lima's).
-        $places = $agency ? $names->filter(fn ($n, $id) => $agencyOf((int) $id) === (int) $agency->id)->values()->all() : null;
+        // A login with only some agencies (a supervisor, 2026-11-11) sees only their complaints.
+        $mine = $agency ? [(int) $agency->id] : ($warehouses !== null ? $agencies->pluck('id')->map(fn ($v) => (int) $v)->all() : null);
+        $places = $mine === null ? null : $names->filter(fn ($n, $id) => in_array($agencyOf((int) $id), $mine, true))->values()->all();
         $claims = TransportClaims::parcels($companyId, $from, $to, $places);
         // The client's monthly figure for the whole company, brought to the period's days (only without an agency picked).
         $monthRef = (float) DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->value('transport_parcel_month_ref');

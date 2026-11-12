@@ -75,6 +75,14 @@ body {
 .fm-alert.ok { background: #e8f5e9; color: #1b5e20; }
 .fm-alert.bad { background: #fdecea; color: #8a1c13; }
 .fm-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+/* Tabs (2026-11-11) and the progress buttons. */
+.fm-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 2px solid var(--fm-line); margin: 4px 0 16px; }
+.fm-tab { background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -2px; padding: 9px 14px; font: inherit; font-weight: 600; color: var(--fm-muted); cursor: pointer; }
+.fm-tab.on { color: var(--fm-primary); border-bottom-color: var(--fm-primary); }
+.fm-tab .fm-dot { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; font-size: .78em; background: color-mix(in srgb, var(--fm-primary) 15%, transparent); }
+.fm-tab.err { color: var(--fm-error); }
+.fm-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fm-btn.light { background: #fff; color: var(--fm-primary); border: 1px solid var(--fm-primary); }
 </style>
 </head>
 <body>
@@ -94,18 +102,43 @@ body {
 
     @if ($open)
     <form id="fm-form" method="post" action="{{ $action }}" enctype="multipart/form-data" novalidate
-          data-hide="{{ $s['hide_after_submit'] ? 1 : 0 }}" @if ($sent && $s['hide_after_submit']) hidden @endif>
+          data-hide="{{ $s['hide_after_submit'] ? 1 : 0 }}" data-draft="{{ $s['save_draft'] ? 1 : 0 }}" @if ($sent && $s['hide_after_submit']) hidden @endif>
+        @if ($s['save_draft'])
+            {{-- 2026-11-11: answer some now and the rest later, on the same device --}}
+            <p class="fm-draft-note" style="font-size: 13px; opacity: .75; margin: 0 0 12px; {{ $center ? 'text-align: center;' : '' }}">
+                {{ $es ? 'Responda las que pueda y pulse «Guardar» para dejar su avance; puede volver cuando quiera a completarlo. «'.($s['submit_text'] ?: 'Enviar').'» nos envía sus respuestas, y puede volver a enviarlas si agrega más.'
+                       : 'Answer what you can and press "Save" to keep your progress; come back any time to finish. "'.($s['submit_text'] ?: 'Send').'" sends us your answers, and you can send again if you add more.' }}
+                <span id="fm-draft-saved" hidden> · {{ $es ? 'Guardado' : 'Saved' }}</span>
+            </p>
+        @endif
         <input type="hidden" name="_t" value="{{ $stamp }}">
         <input type="hidden" name="_page" id="fm-page" value="">
         @if ($s['honeypot'])
             <div class="fm-hp" aria-hidden="true"><label>Website <input type="text" name="_hp" tabindex="-1" autocomplete="off"></label></div>
         @endif
+        @php $btnBar = function () use ($s, $es, $center) { return '<div class="fm-actions" style="'.($center ? 'justify-content: center;' : '').'">'.($s['save_draft'] ? '<button type="button" class="fm-btn light" id="fm-save">'.e($es ? 'Guardar' : 'Save').'</button>' : '').'<button type="submit" class="fm-btn">'.e($s['submit_text'] ?: ($es ? 'Enviar' : 'Send')).'</button></div>'; }; @endphp
         @if ($s['button_position'] === 'top')
-            <div style="margin-bottom: 14px; {{ $center ? 'text-align: center;' : '' }}"><button type="submit" class="fm-btn">{{ $s['submit_text'] ?: ($es ? 'Enviar' : 'Send') }}</button></div>
+            <div style="margin-bottom: 14px">{!! $btnBar() !!}</div>
         @endif
+        @php $tabNames = collect($fields)->where('type', 'tab')->values(); $ti = 0; @endphp
         <div class="fm-grid">
         @foreach ($fields as $f)
             @php $k = $f['key']; $id = 'fm_'.$k; $w = $f['width'] ?? 'full'; @endphp
+            {{-- A tab (2026-11-11): the fields after it, up to the next tab, are its panel; the tab bar comes with the first one. --}}
+            @if ($f['type'] === 'tab')
+                </div>
+                @if ($ti > 0)</div>@endif
+                @if ($ti === 0)
+                    <div class="fm-tabs" role="tablist">
+                        @foreach ($tabNames as $n => $tab)
+                            <button type="button" class="fm-tab {{ $n === 0 ? 'on' : '' }}" data-tab="{{ $n }}" role="tab">{{ $tab['text'] ?: $tab['label'] }}<span class="fm-dot" data-count="{{ $n }}" hidden></span></button>
+                        @endforeach
+                    </div>
+                @endif
+                <div class="fm-panel" data-panel="{{ $ti }}" @if ($ti > 0) hidden @endif><div class="fm-grid">
+                @php $ti++; @endphp
+                @continue
+            @endif
             @if ($f['type'] === 'hidden')
                 <input type="hidden" name="{{ $k }}" value="{{ $val($k, $f['default'] ?? '') }}">
                 @continue
@@ -173,8 +206,9 @@ body {
             </div>
         @endforeach
         </div>
+        @if ($ti > 0)</div>@endif
         @if ($s['button_position'] !== 'top')
-            <div @if ($center) style="text-align: center" @endif><button type="submit" class="fm-btn">{{ $s['submit_text'] ?: ($es ? 'Enviar' : 'Send') }}</button></div>
+            {!! $btnBar() !!}
         @endif
     </form>
     @endif
@@ -218,22 +252,116 @@ body {
     }
     form.addEventListener('input', start);
     form.addEventListener('change', start);
+
+    // Draft (2026-11-11): text, choices and checkboxes kept in this browser while typing, back on the next visit,
+    // removed once the form is sent. Files and hidden fields are never kept.
+    var draftKey = 'murano-form-draft:' + key;
+    var useDraft = form.dataset.draft === '1' && !params.has('preview');
+    function store() { try { return window.localStorage; } catch (e) { return null; } }
+    function draftFields() {
+        return Array.prototype.filter.call(form.elements, function (el) {
+            return el.name && el.name.charAt(0) !== '_' && ['file', 'hidden', 'submit', 'button', 'password'].indexOf(el.type) === -1;
+        });
+    }
+    var savedTag = document.getElementById('fm-draft-saved'), saveTimer = null;
+    function saveDraft() {
+        var ls = store(); if (!ls) return;
+        var data = {};
+        draftFields().forEach(function (el) {
+            if (el.type === 'checkbox' || el.type === 'radio') { if (el.checked) (data[el.name] = data[el.name] || []).push(el.value); }
+            else if (el.multiple) { data[el.name] = Array.prototype.filter.call(el.options, function (o) { return o.selected; }).map(function (o) { return o.value; }); }
+            else data[el.name] = el.value;
+        });
+        try { ls.setItem(draftKey, JSON.stringify(data)); if (savedTag) savedTag.hidden = false; } catch (e) {}
+    }
+    if (useDraft) {
+        var ls0 = store(), raw = null;
+        try { raw = ls0 && ls0.getItem(draftKey); } catch (e) {}
+        if (raw) {
+            try {
+                var data = JSON.parse(raw) || {};
+                draftFields().forEach(function (el) {
+                    if (!(el.name in data)) return;
+                    var v = data[el.name];
+                    if (el.type === 'checkbox' || el.type === 'radio') el.checked = Array.isArray(v) && v.indexOf(el.value) !== -1;
+                    else if (el.multiple) Array.prototype.forEach.call(el.options, function (o) { o.selected = Array.isArray(v) && v.indexOf(o.value) !== -1; });
+                    else el.value = v;
+                });
+                if (savedTag) savedTag.hidden = false;
+            } catch (e) {}
+        }
+        form.addEventListener('input', function () { clearTimeout(saveTimer); saveTimer = setTimeout(saveDraft, 400); });
+        form.addEventListener('change', saveDraft);
+    }
+    function clearDraft() { var ls = store(); try { if (ls) ls.removeItem(draftKey); } catch (e) {} if (savedTag) savedTag.hidden = true; }
+
+    // Tabs (2026-11-11): one panel at a time; each tab counts its answered questions.
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.fm-tab'));
+    function showTab(n) {
+        tabs.forEach(function (t) { t.classList.toggle('on', t.dataset.tab === String(n)); });
+        document.querySelectorAll('.fm-panel').forEach(function (p) { p.hidden = p.dataset.panel !== String(n); });
+        height();
+    }
+    tabs.forEach(function (t) { t.addEventListener('click', function () { showTab(t.dataset.tab); }); });
+    function countTabs() {
+        document.querySelectorAll('.fm-panel').forEach(function (p) {
+            var cols = p.querySelectorAll('.fm-col[data-field]'), total = 0, done = 0;
+            cols.forEach(function (c) {
+                var el = c.querySelector('textarea, input:not([type=hidden]), select');
+                if (!el) return;
+                total++;
+                var choice = el.type === 'radio' || el.type === 'checkbox';
+                if (choice ? c.querySelector('input:checked') : (el.value && el.value.trim() !== '')) done++;
+            });
+            var dot = document.querySelector('.fm-dot[data-count="' + p.dataset.panel + '"]');
+            if (dot && total) { dot.textContent = done + '/' + total; dot.hidden = false; }
+        });
+    }
+    if (tabs.length) { countTabs(); form.addEventListener('input', countTabs); form.addEventListener('change', countTabs); }
+
+    // Progress (2026-11-11): "Guardar" keeps the answers on the server as a draft; "Guardar y enviar" sends them. Both
+    // update the same submission (token kept in this browser), so they can go on and send again later.
+    var resumeKey = 'murano-form-resume:' + key;
+    function resumeToken() { var ls = store(); try { return (ls && ls.getItem(resumeKey)) || ''; } catch (e) { return ''; } }
+    var saveBtn = document.getElementById('fm-save');
+    var asDraft = false;
+    if (saveBtn) saveBtn.addEventListener('click', function () { asDraft = true; if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true })); });
+
     form.addEventListener('submit', function (e) {
         e.preventDefault();
-        var btn = form.querySelector('.fm-btn');
-        btn.disabled = true;
+        var draftNow = asDraft;
+        asDraft = false;
+        var buttons = form.querySelectorAll('.fm-btn');
+        buttons.forEach(function (b) { b.disabled = true; });
         err.hidden = true;
+        msg.hidden = true;
+        tabs.forEach(function (t) { t.classList.remove('err'); });
         form.querySelectorAll('.fm-col').forEach(function (c) {
             c.classList.remove('has-error');
             var x = c.querySelector('.fm-error'); if (x) { x.hidden = true; x.textContent = ''; }
         });
         var body = new FormData(form);
         if (startedAt) body.append('_ms', String(Date.now() - startedAt));   // filling time (dashboard)
+        if (useDraft) {
+            body.append('_resume', resumeToken());
+            if (draftNow) body.append('_draft', '1');
+        }
         fetch(form.action, { method: 'POST', body: body, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json().catch(function () { return { ok: false, message: 'Error ' + r.status }; }); })
             .then(function (res) {
-                btn.disabled = false;
+                buttons.forEach(function (b) { b.disabled = false; });
+                if (res.ok && useDraft) {
+                    // The answers stay on screen and in this browser, to go on later.
+                    try { if (res.token) store().setItem(resumeKey, res.token); } catch (x) {}
+                    saveDraft();
+                    msg.textContent = res.message; msg.hidden = false;
+                    msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (!res.draft && window.parent !== window) window.parent.postMessage({ type: 'murano-form', key: key, submitted: true }, '*');
+                    height();
+                    return;
+                }
                 if (res.ok) {
+                    if (useDraft) clearDraft();
                     if (res.redirect && !res.redirect_after) { go(res.redirect); return; }
                     msg.textContent = res.message; msg.hidden = false;
                     if (res.redirect) {
@@ -256,12 +384,17 @@ body {
                         c.classList.add('has-error');
                         var x = c.querySelector('.fm-error'); if (x) { x.textContent = res.errors[k]; x.hidden = false; }
                         first = first || c;
+                        // The tab holding the field turns red.
+                        var panel = c.closest('.fm-panel');
+                        if (panel) { var t = document.querySelector('.fm-tab[data-tab="' + panel.dataset.panel + '"]'); if (t) t.classList.add('err'); }
                     });
+                    var firstPanel = first && first.closest('.fm-panel');
+                    if (firstPanel) showTab(firstPanel.dataset.panel);
                     (first || err).scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
                 height();
             })
-            .catch(function () { btn.disabled = false; err.textContent = @json(\App\Support\FormSchema::msg($s['language'], 'spam')); err.hidden = false; height(); });
+            .catch(function () { buttons.forEach(function (b) { b.disabled = false; }); err.textContent = @json(\App\Support\FormSchema::msg($s['language'], 'spam')); err.hidden = false; height(); });
     });
 })();
 </script>

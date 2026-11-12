@@ -203,6 +203,33 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-11 (Optimum) -- not in production yet
+
+- **Daily departures:** "All agencies" shows every agency's day in one table
+  with a card per agency (open / closed, PDF); **History** is now a toggle in
+  the same table (60 days back and a week ahead, the day in words and a line
+  between days); buttons for the previous / next day and week and **Today**.
+- **"Mi agencia"**, the agency supervisor's new home: summary of today and the
+  period, parcels, complaints and incidents of their agency only (see and
+  create, with a photo), and **seats used per trip by bus** against the
+  minimum each trip needs to cover its costs (green / orange / red).
+- **Dashboard in the owner's reading order**, opening on **Business summary**
+  (now with the last 12 months of income, costs and profit, and no date
+  filter there); new **Expenses** tab (by kind, trend, against the period
+  before); the **Departures report** shows every agency and never a day ahead;
+  no "General" tab.
+- **Company logins:** a row of buttons by role, and every function in Spanish.
+- **Forms:** a **Tab** element, and progress that can be saved
+  (**Save** / **Save and send**, a draft shows as "Borrador" in Forms).
+  Turismo's questionnaire is one link with 20 questions in 4 tabs coded by
+  who answers (DUE owner, GER, SUP, FLO).
+- **Dates** on transport screens follow the company's format and every date
+  filter uses the standard preset buttons.
+- **Turismo's demo** covers two months and a week ahead with the client's own
+  daily plan for all four agencies (2 demo buses complete their fleet of 19),
+  crew, punctuality, incidents, services paid and parcels near S/ 250,000 a month.
+
+Setup: `php artisan migrate`, `npm run build`.
 ### 2026-11-10 (Thundera)
 
 - **Daily departures** (transport): each agency's day replaces the client's
@@ -271,31 +298,6 @@ Setup: `php artisan migrate`, `npm run build`.
   database is empty.
 
 Setup: `php artisan migrate`.
-
-### 2026-11-05 / 06 (Home)
-
-- **Each company sees only its own warehouses** on every signed-in screen
-  (transfers and adjustments listed all of them); a SuperAdmin follows the
-  company picked, AdminSystem sees all.
-- **Invoices and other printed documents speak the company's language** (they
-  could never come out in Spanish); email and SMS templates have their Spanish
-  for the companies working in Spanish.
-- **Asset validation notices** go only to the asset's own company, once per
-  date and never for demo assets; the wrong notices were removed. Meeting and
-  asset emails now reach their recipient.
-- **Turismo Cautivo**: terminal Puente Nuevo for its departures report.
-- **Turismo Cautivo's dashboard opens on the departures report**, and the
-  pilots' red line is gone from the transport board (their hour bars stay).
-- **Screens in the company's language**: about 870 texts that were written by
-  hand in English now have their Spanish (fleet, email office, contracts,
-  imports, products, customers, payroll, POS and detail screens). English
-  companies keep reading English. Store and meeting messages and the customer
-  portal are still to review.
-- **Turismo's invoices** no longer carry another company's US note (late fee,
-  phone numbers); terms and the ticket's closing line are in Spanish, and its
-  walk-in customer is now "Cliente de mostrador".
-
-Setup: `php artisan migrate`, `npm run build`.
 
 ---
 

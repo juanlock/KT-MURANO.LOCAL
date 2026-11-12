@@ -588,6 +588,8 @@ class FormsController extends Controller
             'attended_by_name' => ! empty($s->attended_by) ? DB::table('users')->where('id', $s->attended_by)->value('username') : null,
             // Imported rows corrected on 2026-11-10 keep their original data here (to compare).
             'notes' => $s->notes ?? null,
+            // Saved as progress, not sent yet (2026-11-11); updated_at = the last save.
+            'status' => $s->status ?? 'sent', 'updated_at' => $s->updated_at ?? null,
         ];
     }
 

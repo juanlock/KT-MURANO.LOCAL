@@ -1417,6 +1417,11 @@ export const PERMISSION_GROUPS = [
                 "f": "Daily departures: reopen a day"
             },
             {
+                "v": "transport_agency_view",
+                "l": "Perm_Transport_Agency",
+                "f": "My agency: summary, parcels, complaints and incidents"
+            },
+            {
                 "v": "transport_boarding",
                 "l": "Perm_Transport_Boarding",
                 "f": "Board passengers"

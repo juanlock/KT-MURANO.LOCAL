@@ -22,7 +22,7 @@ class TransportAgencies
     public const SUPERVISOR_ROLE = 'Supervisor';
 
     /** The agency's supervisor (2026-11-04): decides the day's departures, registers parcels and tolls. */
-    public const SUPERVISOR_PERMISSIONS = ['transport_supervise', 'transport_parcels', 'transport_tolls', 'transport_departures_view', 'transport_departures_manage'];
+    public const SUPERVISOR_PERMISSIONS = ['transport_supervise', 'transport_parcels', 'transport_tolls', 'transport_departures_view', 'transport_departures_manage', 'transport_agency_view'];
 
     /**
      * Each active agency gets its warehouse (the first one takes the company's
@@ -77,7 +77,8 @@ class TransportAgencies
         if (! $role) {
             $role = DB::table('roles')->insertGetId(['company_id' => $companyId, 'name' => self::SUPERVISOR_ROLE, 'label' => self::SUPERVISOR_ROLE,
                 'description' => 'Supervisor of one agency: decides whether each departure runs, is cancelled or is rescheduled; registers parcels and tolls.',
-                'home_path' => '/transport/today', 'status' => 1, 'created_at' => now(), 'updated_at' => now()]);
+                // Home: "Mi agencia" (user's rule, 2026-11-11).
+                'home_path' => '/transport/agency', 'status' => 1, 'created_at' => now(), 'updated_at' => now()]);
         }
         DB::table('permission_role')->where('role_id', $role)->delete();
         DB::table('permission_role')->insert(DB::table('permissions')->whereIn('name', self::SUPERVISOR_PERMISSIONS)->pluck('id')

@@ -63,6 +63,10 @@ import http from '../lib/http';
 import { BLUE, GRAY, RED, useFitHeight, useTransportCharts } from '../lib/transportCharts';
 import TransportChartBlock from './TransportChartBlock.vue';
 import TransportStrip from './TransportStrip.vue';
+import { useFormat } from '../composables/useFormat';
+
+// Dates in the company's format (user's rule, 2026-11-11).
+const { date: fmtDate } = useFormat();
 
 // The dashboard's date filter: a report is one day, the last of the range. Without dates, today.
 const props = defineProps({ range: { type: Array, default: null } });
@@ -81,7 +85,10 @@ const sheet = computed(() => `${data.value.agency_id}-${data.value.date}`);
 async function load() {
   loading.value = true;
   try {
-    data.value = await http.get('transport/departures', { date: props.range?.[1], agency_id: agency.value });
+    // Never a day ahead (2026-11-11: "This month" ends on the 30th, a day with nothing yet): the range's end, at most today.
+    const today = dayjs().format('YYYY-MM-DD');
+    const end = props.range?.[1] && props.range[1] < today ? props.range[1] : today;
+    data.value = await http.get('transport/departures', { date: end, agency_id: agency.value });
     agency.value = data.value.agency_id;
   } catch (e) {
     data.value = { enabled: false, agencies: [], rows: [] };
@@ -109,7 +116,7 @@ const tiles = computed(() => {
   const d = data.value;
   const p = d.price;
   return [
-    { label: tr('Day', 'Día'), value: d.date ? dayjs(d.date).format('DD/MM/YYYY') : '—', help: tr("The end date of the filter above; if it has no real departures, the client's latest report.", 'La fecha final del filtro de arriba; si no tiene salidas reales, el último reporte del cliente.') },
+    { label: tr('Day', 'Día'), value: d.date ? fmtDate(d.date) : '—', help: tr("The end date of the filter above (today at most); if it has no departures, the client's latest report.", 'La fecha final del filtro de arriba (como máximo hoy); si no tiene salidas, el último reporte del cliente.') },
     { label: tr("Day's price", 'Precio del día'), value: p ? `${p.high} / ${p.low}` : '—' },
     { label: tr('Departures', 'Salidas'), value: rows.value.length },
     { label: tr('Passengers', 'Pasajeros'), value: sum('passengers') },

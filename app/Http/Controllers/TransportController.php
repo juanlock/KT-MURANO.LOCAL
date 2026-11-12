@@ -649,7 +649,23 @@ class TransportController extends Controller
             ->whereDate('service_date', '>=', $month)->whereDate('service_date', '<=', $today)->sum('cost');
         $alerts = app(FleetVehicleController::class)->alerts(Carbon::today(), Carbon::today()->addDays(30), $buses);
 
+        // The last 12 months (user's requests, 2026-11-11: "cómo le va"; the line is the profit, not the tickets): income, costs
+        // and profit of the trips run each month, from TransportProfit -- the same figures as "Profit by route" -- the current
+        // month up to today.
+        $since = now()->startOfMonth()->subMonths(11)->toDateString();
+        $run = collect(\App\Services\TransportProfit::compute($cid, $since, $today, $scope)['routes'] ?? [])
+            ->flatMap(fn ($r) => $r['trips'])->where('result', '!=', 'pending');
+        $byMonth = $run->groupBy(fn ($t) => substr((string) $t['departure_at'], 0, 7));
+        $months = [];
+        for ($m = Carbon::parse($since); $m->lte(now()); $m->addMonth()) {
+            $g = $byMonth[$m->format('Y-m')] ?? collect();
+            $in = (float) $g->sum(fn ($t) => $t['income']['total']);
+            $out = (float) $g->sum(fn ($t) => $t['costs']['total']);
+            $months[] = ['month' => $m->format('Y-m'), 'trips' => $g->count(), 'income' => round($in, 2), 'costs' => round($out, 2), 'profit' => round($in - $out, 2)];
+        }
+
         return response()->json([
+            'months' => $months,
             'enabled' => true,
             'income' => ['today' => round((float) $income->sum('today_total'), 2), 'month' => round((float) $income->sum('month_total'), 2)],
             'tickets' => ['today' => (int) $lines->sum('qty_today'), 'month' => (int) $lines->sum('qty')],

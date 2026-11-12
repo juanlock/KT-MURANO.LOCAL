@@ -61,9 +61,13 @@ class TransportClaims
 
     private const TOP = 10;
 
-    /** @param string|null $from null = all the history */
-    public static function compute(int $companyId, ?string $from, ?string $to): array
+    /**
+     * @param string|null $from null = all the history
+     * @param array|null $places agency / terminal names (2026-11-11, a supervisor's own agency): only the complaints that name one of them
+     */
+    public static function compute(int $companyId, ?string $from, ?string $to, ?array $places = null): array
     {
+        $places = $places === null ? null : array_map(fn ($p) => mb_strtoupper(trim($p)), $places);
         $forms = DB::table('forms')->where('company_id', $companyId)->whereNull('deleted_at')
             ->where(fn ($q) => $q->where('name', 'like', '%reclam%')->orWhere('name', 'like', '%complaint%'))->get(['id', 'name', 'fields']);
         if ($forms->isEmpty()) {
@@ -82,7 +86,15 @@ class TransportClaims
 
         // The same number of days just before, to compare.
         $days = Carbon::parse($from)->diffInDays(Carbon::parse($to)) + 1;
-        $previous = $allHistory ? null : (clone $query)->whereDate('created_at', '>=', Carbon::parse($from)->subDays($days)->toDateString())->whereDate('created_at', '<', $from)->count();
+        $mine = fn ($r) => $places === null || in_array(mb_strtoupper((string) self::read($r, $keys[$r->form_id])['agency']), $places, true);
+        if ($places !== null) {
+            $rows = $rows->filter($mine)->values();
+        }
+        $previous = null;
+        if (! $allHistory) {
+            $prevQuery = (clone $query)->whereDate('created_at', '>=', Carbon::parse($from)->subDays($days)->toDateString())->whereDate('created_at', '<', $from);
+            $previous = $places === null ? $prevQuery->count() : $prevQuery->get(['form_id', 'data', 'created_at', 'is_read', 'attended_at'])->filter($mine)->count();
+        }
 
         $unit = $days <= 32 ? 'day' : ($days <= 185 ? 'week' : 'month');
         $types = ['claim' => 0, 'complaint' => 0, 'other' => 0];

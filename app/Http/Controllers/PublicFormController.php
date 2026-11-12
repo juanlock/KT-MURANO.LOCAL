@@ -10,6 +10,7 @@ use App\Support\ModuleFlags;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -143,6 +144,16 @@ class PublicFormController extends Controller
             return $json ? response()->json(['ok' => true, 'message' => $s['success_message']]) : back()->with('form_sent_'.$f->id, true);
         }
 
+        // Progress (2026-11-11): "Guardar" keeps the answers as a draft -- nothing is required yet and nobody is notified;
+        // "Guardar y enviar" sends them. Both update the same submission, found by the token the browser keeps.
+        $draft = $s['save_draft'] && $request->boolean('_draft');
+        $token = $s['save_draft'] ? substr(preg_replace('/[^a-f0-9]/', '', (string) $request->input('_resume')), 0, 64) : '';
+        $existing = $token !== '' && Schema::hasColumn('form_submissions', 'resume_token')
+            ? DB::table('form_submissions')->where('form_id', $f->id)->where('resume_token', $token)->whereNull('deleted_at')->first() : null;
+        if ($draft) {
+            $fields = array_map(fn ($x) => array_merge($x, isset($x['required']) ? ['required' => false] : []), $fields);
+        }
+
         $files = [];
         foreach (FormSchema::inputs($fields) as $fd) {
             if ($fd['type'] === 'file' && $request->hasFile($fd['key'])) {
@@ -159,7 +170,17 @@ class PublicFormController extends Controller
             $data[$k] = ['name' => mb_substr($name, 0, 190), 'path' => CompanyFiles::putUpload((int) $f->company_id, 'forms', $file, true), 'size' => $size];
         }
 
-        $sub = DB::transaction(function () use ($f, $data, $request, $page) {
+        $withDrafts = $s['save_draft'] && Schema::hasColumn('form_submissions', 'resume_token');
+        $sub = DB::transaction(function () use ($f, $data, $request, $page, $draft, $existing, $withDrafts) {
+            if ($existing) {
+                // A draft becomes sent; one already sent stays sent (its answers updated).
+                DB::table('form_submissions')->where('id', $existing->id)->update([
+                    'data' => json_encode($data, JSON_UNESCAPED_UNICODE), 'status' => $draft ? $existing->status : 'sent',
+                    'is_read' => $draft ? $existing->is_read : false, 'updated_at' => now(),
+                ]);
+
+                return DB::table('form_submissions')->find($existing->id);
+            }
             $form = DB::table('forms')->where('id', $f->id)->lockForUpdate()->first();
             $number = (int) $form->next_number;
             DB::table('forms')->where('id', $f->id)->update(['next_number' => $number + 1]);
@@ -168,10 +189,17 @@ class PublicFormController extends Controller
                 'data' => json_encode($data, JSON_UNESCAPED_UNICODE), 'is_read' => false,
                 'ip' => $request->ip(), 'user_agent' => mb_substr((string) $request->userAgent(), 0, 255),
                 'page_url' => $page ?: null, 'created_at' => now(), 'updated_at' => now(),
-            ]);
+            ] + ($withDrafts ? ['status' => $draft ? 'draft' : 'sent', 'resume_token' => bin2hex(random_bytes(20))] : []));
 
             return DB::table('form_submissions')->find($id);
         });
+
+        if ($draft) {
+            $message = $lang === 'es' ? 'Avance guardado. Puede volver cuando quiera a completarlo.' : 'Progress saved. You can come back any time to finish.';
+
+            return $json ? response()->json(['ok' => true, 'draft' => true, 'message' => $message, 'token' => $sub->resume_token ?? null])
+                : back()->with('form_sent_'.$f->id, $message);
+        }
 
         FormStats::submitted($f, $request->input('_ms'));
         if ($s['notify']) {
@@ -187,7 +215,8 @@ class PublicFormController extends Controller
         // message_redirect: the message stays on screen, then the address after N seconds.
         $after = $redirect && $s['confirmation'] === 'message_redirect' ? $s['redirect_seconds'] : 0;
         if ($json) {
-            return response()->json(['ok' => true, 'message' => $message, 'number' => $ref, 'redirect' => $redirect, 'redirect_after' => $after]);
+            return response()->json(['ok' => true, 'message' => $message, 'number' => $ref, 'redirect' => $redirect, 'redirect_after' => $after,
+                'token' => $withDrafts ? ($sub->resume_token ?? null) : null]);
         }
         if ($redirect && ! $after) {
             return redirect()->away($redirect);

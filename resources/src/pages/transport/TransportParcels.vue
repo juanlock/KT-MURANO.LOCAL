@@ -8,7 +8,7 @@
 
     <a-card size="small" :body-style="{ padding: '12px' }">
       <div class="tp-filters">
-        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" allow-all compact @change="reload" />
+        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" allow-all @change="reload" />
         <a-select v-model:value="filters.status" :options="statusOptions" allow-clear style="width: 170px" :placeholder="es ? 'Todos los estados' : 'All statuses'" @change="reload" />
         <a-checkbox v-model:checked="filters.waiting" @change="reload">{{ es ? 'Solo sin bus' : 'Without a bus only' }}</a-checkbox>
         <a-input-search v-model:value="filters.search" allow-clear style="width: 230px" :placeholder="es ? 'Guía, remitente o destinatario' : 'Number, sender or receiver'" @search="reload" />
@@ -99,14 +99,13 @@ import { useFormat } from '../../composables/useFormat';
 import { useListState } from '../../composables/useListState';
 import { useUiStore } from '../../stores/ui';
 
-const { money } = useFormat();
+// Dates in the company's format (user's rule, 2026-11-11), never one written here.
+const { money, dateTime: fmt, dayMonth: day } = useFormat();
 const es = computed(() => useUiStore().locale === 'es');
 const STATUS = [['received', 'At the agency', 'En agencia'], ['on_board', 'On board', 'A bordo'], ['delivered', 'Delivered', 'Entregada'], ['cancelled', 'Cancelled', 'Anulada']];
 const STATUS_COLOR = { received: 'gold', on_board: 'blue', delivered: 'green', cancelled: 'default' };
 const statusLabel = s => { const x = STATUS.find(r => r[0] === s); return x ? (es.value ? x[2] : x[1]) : s; };
 const statusOptions = computed(() => STATUS.map(s => ({ value: s[0], label: es.value ? s[2] : s[1] })));
-const fmt = d => (d ? dayjs(d).format('YYYY-MM-DD HH:mm') : '');
-const day = d => (d ? dayjs(d).format('DD/MM') : '');
 const num = v => Number(v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 });
 const errorOf = e => { const errs = e?.data?.errors; return (errs && Object.values(errs)[0]?.[0]) || e?.data?.message || e.message; };
 
@@ -187,8 +186,8 @@ const suggested = computed(() => {
 watch(suggested, v => { if (v != null && !priceTouched.value) form.value.price = v; });
 const etaText = computed(() => {
   const [a, b] = meta.value.eta_days || [1, 3];
-  const from = dayjs(form.value.received_on).add(a, 'day').format('DD/MM');
-  const to = dayjs(form.value.received_on).add(b, 'day').format('DD/MM');
+  const from = day(dayjs(form.value.received_on).add(a, 'day'));
+  const to = day(dayjs(form.value.received_on).add(b, 'day'));
   return `${es.value ? 'Dígale al cliente: llega entre' : 'Tell the customer: arrives between'} ${from} ${es.value ? 'y' : 'and'} ${to}. ${es.value ? 'El sistema elige el bus.' : 'The system picks the bus.'}`;
 });
 async function save() {

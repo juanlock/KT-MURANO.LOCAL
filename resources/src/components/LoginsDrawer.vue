@@ -9,10 +9,12 @@
   <a-drawer :open="open" width="min(1320px, 96vw)" :title="tx('Company logins', 'Logins de la empresa')" @close="$emit('close')">
     <div class="bar">
       <a-segmented v-model:value="type" :options="typeOptions" />
-      <a-select v-model:value="role" :options="roleOptions" allow-clear show-search option-filter-prop="label"
-        :placeholder="tx('All roles', 'Todos los roles')" style="width: 190px" />
       <a-input-search v-model:value="search" allow-clear :placeholder="tx('Search name, user or email', 'Buscar nombre, usuario o correo')" style="width: 210px" />
       <a-button @click="load"><template #icon><ReloadOutlined /></template></a-button>
+    </div>
+    <!-- Roles as buttons, like the types above (user's request, 2026-11-11). -->
+    <div v-if="roleOptions.length > 1" class="bar roles">
+      <a-segmented v-model:value="role" :options="roleOptions" />
     </div>
     <a-alert type="info" show-icon class="note"
       :message="tx('Passwords are stored encrypted: only the standard password of each type can be shown. One changed by the user shows as Custom.', 'Las contraseñas se guardan cifradas: solo se puede mostrar la contraseña estándar de cada tipo. Si el usuario la cambió, aparece como Personalizada.')" />
@@ -119,19 +121,21 @@ const typeOptions = computed(() => [{ value: 'all', label: `${tx('All', 'Todos')
 // The role as the screen shows it: in Spanish its label (roles.label: Recepción,
 // Médico especialista...), else its name.
 const roleName = r => (ui.locale === 'es' && r.role_label ? r.role_label : r.role);
-// Roles of the logins of the chosen type, with how many each has.
-const role = ref(undefined);
+// Roles of the logins of the chosen type, with how many each has: "All" first,
+// then the roles alphabetically.
+const role = ref('all');
 const roleOptions = computed(() => {
   const counts = {};
   const names = {};
-  logins.value.filter(l => l.role && (type.value === 'all' || l.type === type.value))
-    .forEach(l => { counts[l.role] = (counts[l.role] || 0) + 1; names[l.role] = roleName(l); });
-  return sortByLabel(Object.entries(counts).map(([name, n]) => ({ value: name, label: `${names[name]} (${n})` })));
+  const ofType = logins.value.filter(l => type.value === 'all' || l.type === type.value);
+  ofType.filter(l => l.role).forEach(l => { counts[l.role] = (counts[l.role] || 0) + 1; names[l.role] = roleName(l); });
+  return [{ value: 'all', label: `${tx('All roles', 'Todos los roles')} (${ofType.length})` }]
+    .concat(sortByLabel(Object.entries(counts).map(([name, n]) => ({ value: name, label: `${names[name]} (${n})` }))));
 });
-watch(type, () => { if (role.value && !roleOptions.value.some(o => o.value === role.value)) role.value = undefined; });
+watch(type, () => { if (role.value !== 'all' && !roleOptions.value.some(o => o.value === role.value)) role.value = 'all'; });
 const rows = computed(() => {
   const q = search.value.trim().toLowerCase();
-  return logins.value.filter(l => (type.value === 'all' || l.type === type.value) && (!role.value || l.role === role.value)
+  return logins.value.filter(l => (type.value === 'all' || l.type === type.value) && (role.value === 'all' || l.role === role.value)
     && (!q || [l.name, l.username, l.email, l.role, l.role_label].some(v => String(v || '').toLowerCase().includes(q))));
 });
 const columns = computed(() => [
@@ -199,6 +203,14 @@ const FUNCTION_BY_ROLE = {
   'Operating Room': ['Operating room: surgeries, rooms and moving the patients.', 'Quirófano: cirugías, salas y traslado de los pacientes.'],
   Customer: ['Customer: signs in to the customer portal (invoices, payments, appointments).', 'Cliente: entra al portal del cliente (facturas, pagos, citas).'],
   Supplier: ['Supplier: sees their purchases and payments.', 'Proveedor: ve sus compras y pagos.'],
+  'Sales Agent': ['Sales agent: sales and commissions.', 'Vendedor: ventas y comisiones.'],
+  'Online Store': ['Online store shopper: their own profile and orders.', 'Comprador de la tienda en línea: su perfil y sus pedidos.'],
+  // Transport roles (App\Support\TransportAgencies, 2026-11-03 / 11-04): their descriptions are stored in English.
+  'Terminal POS': ['Ticket office of one agency: sells tickets on the POS, its own sales and cash register.', 'Boletería de una agencia: vende pasajes en el POS, sus ventas y su caja.'],
+  Supervisor: ['Supervisor of one agency: decides whether each departure runs, is cancelled or rescheduled; parcels and tolls.', 'Supervisor de una agencia: decide si cada salida va, se cancela o se reprograma; encomiendas y peajes.'],
+  Piloto: ['Pilot: their trips (route, time, bus, crew) and the buses.', 'Piloto: sus viajes (ruta, hora, bus, tripulación) y los buses.'],
+  'Tripulación': ['Crew: their trips (route, time, bus, crew).', 'Tripulación: sus viajes (ruta, hora, bus, tripulación).'],
+  'Mecánico': ['Mechanic: the buses and their maintenance.', 'Mecánico: los buses y su mantenimiento.'],
 };
 const FUNCTION_BY_TYPE = {
   admin: ['Administrator of the company.', 'Administrador de la empresa.'],
@@ -277,6 +289,9 @@ watch(() => props.open, o => { if (o) load(); });
 <style scoped>
 .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 .note { margin-bottom: 10px; }
+/* Many roles: the buttons wrap onto more lines instead of scrolling sideways. */
+.roles :deep(.ant-segmented) { max-width: 100%; }
+.roles :deep(.ant-segmented-group) { flex-wrap: wrap; }
 .nm { font-weight: 600; }
 .muted { opacity: 0.6; font-size: 12px; }
 .small { font-size: 11px; }

@@ -611,10 +611,26 @@ class TransportOperationsController extends Controller
         return response()->json(TransportDepartures::compute($cid, $request->input('date') ?: now()->toDateString(), $request->filled('agency_id') ? (int) $request->input('agency_id') : null, $this->warehouseScopeIds()));
     }
 
+    /** The dashboard's "Gastos" tab (2026-11-11): what the business spends, by kind, with its trend. */
+    public function expenses(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $to = min($request->input('to') ?: now()->toDateString(), now()->toDateString());
+        $from = $request->input('from') ?: now()->startOfMonth()->toDateString();
+        $es = (string) DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->value('default_language') !== 'en';
+
+        return response()->json(\App\Services\TransportExpenses::compute($cid, $from, $to, $this->warehouseScopeIds(), $es));
+    }
+
     /** The dashboard's Parcels tab (2026-11-09): attended / pending, per agency and route, what they are worth. */
     public function parcelsBoard(Request $request)
     {
-        $this->allow($request, 'transport_profit');
+        // A supervisor too (2026-11-11, "Mi agencia"): the board follows the agencies of their locations.
+        $this->allow($request, 'transport_profit', 'transport_agency_view');
         $cid = (int) $this->resolveActingCompanyId($request);
         if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
             return response()->json(['enabled' => false]);

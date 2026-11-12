@@ -77,7 +77,9 @@ class TransportControlController extends Controller
         if ($role && $this->can($request, 'transport_report')) {
             return [$trip, $role];
         }
-        abort_unless($this->can($request, 'transport_monitor') && $this->scoped($this->trips($cid)->where('t.id', $id))->exists(), 403, 'This trip is not yours.');
+        // The monitor, or an agency supervisor ("Mi agencia" -> incidents, 2026-11-11), on a trip of their locations.
+        abort_unless(($this->can($request, 'transport_monitor') || $this->can($request, 'transport_agency_view'))
+            && $this->scoped($this->trips($cid)->where('t.id', $id))->exists(), 403, 'This trip is not yours.');
 
         return [$trip, $role];
     }

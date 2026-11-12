@@ -24,7 +24,7 @@
         @change="onTable"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'ref'"><b>{{ record.ref }}</b></template>
+          <template v-if="column.key === 'ref'"><b>{{ record.ref }}</b><a-tag v-if="record.status === 'draft'" color="orange" style="margin-left: 6px">{{ es ? 'Borrador' : 'Draft' }}</a-tag></template>
           <template v-else-if="column.key === 'date'">{{ fmt(record.created_at) }}</template>
           <template v-else-if="column.key === 'attended'"><a-tag v-if="record.attended_at" color="green">{{ es ? 'Sí' : 'Yes' }}</a-tag></template>
           <template v-else-if="column.key.startsWith('f:')">{{ cell(record.data[column.key.slice(2)]) }}</template>
@@ -41,6 +41,7 @@
           <span class="fs-meta">
             <span class="fs-muted">{{ position }}</span> · <span>{{ fmt(openSub.created_at) }}</span>
             <span v-if="openSub.page_url" class="fs-muted"> · <a :href="openSub.page_url" target="_blank" rel="noopener">{{ shortUrl(openSub.page_url) }}</a></span>
+            <a-tag v-if="openSub.status === 'draft'" color="orange" style="margin-left: 8px">{{ es ? 'Borrador: guardado, sin enviar' : 'Draft: saved, not sent' }} · {{ fmt(openSub.updated_at) }}</a-tag>
             <a-tag v-if="openSub.attended_at" color="green" style="margin-left: 8px">{{ es ? 'Atendido' : 'Attended' }} {{ fmt(openSub.attended_at) }}<span v-if="openSub.attended_by_name"> · {{ openSub.attended_by_name }}</span></a-tag>
           </span>
           <a-button :disabled="!hasNext" @click="step(1)">{{ es ? 'Siguiente' : 'Next' }} <RightOutlined /></a-button>

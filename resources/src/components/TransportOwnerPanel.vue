@@ -61,6 +61,16 @@
           </div>
         </div>
       </div>
+      <!-- How the business goes (user's request, 2026-11-11): the last 12 months, the current one so far. -->
+      <div v-if="data.months?.length" class="op-box op-trend">
+        <div class="op-sub-title">
+          {{ L('Last 12 months', 'Últimos 12 meses') }}
+          <a-tooltip :title="L('Each month: income (tickets and parcels) and costs (crew, payroll, fuel, maintenance, depreciation, tolls, agencies, meals) of the trips run; the line is the profit. Same figures as Profit by route. The current month counts up to today.', 'Cada mes: ingresos (pasajes y encomiendas) y gastos (tripulación, planilla, combustible, mantenimiento, depreciación, peajes, agencias, refrigerios) de los viajes realizados; la línea es la ganancia. Mismas cifras que Rentabilidad por ruta. El mes en curso cuenta hasta hoy.')">
+            <InfoCircleOutlined class="op-info" />
+          </a-tooltip>
+        </div>
+        <apexchart type="line" :height="trendHeight" :options="trendOptions" :series="trendSeries" />
+      </div>
     </a-card>
   </div>
 </template>
@@ -72,12 +82,44 @@ import { t as tf } from '../i18n';
 import { useFormat } from '../composables/useFormat';
 import { useFitHeight } from '../lib/transportCharts';
 import TransportStrip from './TransportStrip.vue';
+import { InfoCircleOutlined } from '@ant-design/icons-vue';
+import dayjs from 'dayjs';
+import { useUiStore } from '../stores/ui';
 
 const { money } = useFormat();
 const loading = ref(true);
 const root = ref(null);
 const { fit, measure } = useFitHeight(root);
-const gridHeight = computed(() => (fit.value ? fit.value - 16 - 58 : null));
+// The 12-month chart takes its part of the screen; the boxes above keep the rest (one screen, 2026-11-05).
+const trendHeight = 230;
+const gridHeight = computed(() => (fit.value ? fit.value - 16 - 58 - (data.value.months?.length ? trendHeight + 40 : 0) : null));
+const ui = useUiStore();
+const L = (en, es) => (String(ui.locale || 'en').startsWith('es') ? es : en);
+const MONTHS = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], es: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'] };
+const monthLabel = m => { const d = dayjs(m + '-01'); return `${MONTHS[L('en', 'es')][d.month()]} ${d.format('YY')}`; };
+// Income and costs per month as bars, the profit as the line (user's request, 2026-11-11).
+const trendSeries = computed(() => {
+  const ms = data.value.months || [];
+  return [
+    { name: L('Income', 'Ingresos'), type: 'column', data: ms.map(m => m.income) },
+    { name: L('Costs', 'Gastos'), type: 'column', data: ms.map(m => m.costs) },
+    { name: L('Profit', 'Ganancia'), type: 'line', data: ms.map(m => m.profit) },
+  ];
+});const short = v => (Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : Math.abs(v) >= 1e3 ? `${Math.round(v / 1e3)}K` : `${Math.round(v)}`);
+const trendOptions = computed(() => ({
+  chart: { toolbar: { show: false }, fontFamily: 'inherit' },
+  colors: ['#2563eb', '#94a3b8', '#16a34a'],
+  stroke: { width: [0, 0, 3], curve: 'smooth' },
+  markers: { size: [0, 0, 4], colors: ['#16a34a'], strokeWidth: 0 },
+  plotOptions: { bar: { borderRadius: 3, columnWidth: '60%' } },
+  dataLabels: { enabled: false },
+  xaxis: { categories: (data.value.months || []).map(m => monthLabel(m.month)), labels: { style: { fontSize: '11px' } } },
+  yaxis: { title: { text: 'S/', style: { fontWeight: 400 } }, labels: { formatter: v => short(v) }, forceNiceScale: true },
+  annotations: { yaxis: [{ y: 0, borderColor: '#64748b', strokeDashArray: 0 }] },
+  tooltip: { shared: true, intersect: false, y: { formatter: v => money(v) } },
+  legend: { position: 'bottom', fontSize: '12px' },
+  grid: { borderColor: 'rgba(128,128,128,0.15)' },
+}));
 const data = ref({ enabled: false, agencies: [], routes: [], alerts: [], alerts_total: 0 });
 
 onMounted(async () => {
@@ -143,6 +185,8 @@ const alertWhen = days => (days < 0
 .op-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .op-dot.late { background: #dc2626; }
 .op-dot.soon { background: #f59e0b; }
+.op-trend { margin-top: 8px; }
+.op-info { opacity: 0.55; margin-left: 4px; font-size: 12px; cursor: help; }
 @media (min-width: 900px) {
   .op-grid { grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.85fr) minmax(0, 1.1fr); }
 }

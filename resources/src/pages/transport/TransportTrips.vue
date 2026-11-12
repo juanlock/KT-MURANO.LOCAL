@@ -8,7 +8,7 @@
 
     <a-card size="small" :body-style="{ padding: '12px' }">
       <div class="tt-filters">
-        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" allow-all compact @change="reload" />
+        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" allow-all @change="reload" />
         <a-select v-model:value="filters.route_id" :options="routeOptions" allow-clear show-search option-filter-prop="label" style="width: 220px" :placeholder="es ? 'Todas las rutas' : 'All routes'" @change="reload" />
         <a-select v-model:value="filters.vehicle_id" :options="vehicleOptions" allow-clear show-search option-filter-prop="label" style="width: 200px" :placeholder="es ? 'Todos los vehículos' : 'All vehicles'" @change="reload" />
         <a-select v-model:value="filters.status" :options="statusOptions" allow-clear style="width: 160px" :placeholder="es ? 'Todos los estados' : 'All statuses'" @change="reload" />

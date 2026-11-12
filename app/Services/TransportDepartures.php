@@ -78,9 +78,9 @@ class TransportDepartures
         $trips = fn () => DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')
             ->where('t.company_id', $companyId)->whereNull('t.deleted_at')->where('t.status', '!=', 'cancelled')->whereIn('r.origin_id', $agencyIds);
 
-        $real = $trips()->whereDate('t.departure_at', $date)->whereNotExists(fn ($q) => $q->selectRaw('1')->from('demo_records as d')
-            ->where('d.company_id', $companyId)->where('d.record_type', 'transport_trips')->whereColumn('d.record_id', 't.id'))->exists();
-        if ($real) {
+        // Any departure that day, the demo's included (user's request, 2026-11-11: for the presentation every agency must show;
+        // the client's report of one day only had Lima and Chiclayo). Only a day without departures falls back to the report.
+        if ($trips()->whereDate('t.departure_at', $date)->exists()) {
             return $date;
         }
         $latest = $trips()->whereNotNull('t.reported_income')->whereDate('t.departure_at', '<=', $date)->max('t.departure_at');

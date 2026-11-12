@@ -60,6 +60,7 @@
                     </div>
                     <div class="fb-item-body">
                       <template v-if="f.type === 'heading'"><b>{{ f.text || f.label || '—' }}</b></template>
+                      <template v-else-if="f.type === 'tab'"><b class="fb-tab">▸ {{ f.text || '—' }}</b></template>
                       <template v-else-if="f.type === 'paragraph'"><span class="fb-muted">{{ (f.text || '').slice(0, 140) || '—' }}</span></template>
                       <template v-else-if="f.type === 'divider'"><hr class="fb-hr"></template>
                       <template v-else>
@@ -75,9 +76,9 @@
                 <div class="fb-h">{{ es ? 'Propiedades' : 'Properties' }}</div>
                 <a-empty v-if="!current" :description="es ? 'Elige un campo para editarlo.' : 'Pick a field to edit it.'" />
                 <a-form v-else layout="vertical" class="fb-form" @change="dirty = true">
-                  <template v-if="['heading', 'paragraph'].includes(current.type)">
+                  <template v-if="['heading', 'paragraph', 'tab'].includes(current.type)">
                     <a-form-item :label="es ? 'Texto' : 'Text'">
-                      <a-textarea v-model:value="current.text" :auto-size="{ minRows: current.type === 'heading' ? 1 : 3, maxRows: 10 }" />
+                      <a-textarea v-model:value="current.text" :auto-size="{ minRows: current.type === 'paragraph' ? 3 : 1, maxRows: 10 }" />
                     </a-form-item>
                     <a-form-item v-if="current.type === 'heading'" :label="es ? 'Tamaño' : 'Size'">
                       <a-radio-group v-model:value="current.level" button-style="solid" size="small" @change="dirty = true">
@@ -182,6 +183,7 @@
                     </a-col>
                   </a-row>
                   <a-form-item><a-checkbox v-model:checked="s.hide_after_submit" @change="dirty = true">{{ es ? 'Ocultar el formulario después de enviar' : 'Hide the form after sending' }}</a-checkbox></a-form-item>
+                  <a-form-item><a-checkbox v-model:checked="s.save_draft" @change="dirty = true">{{ es ? 'Guardar lo escrito en el equipo para seguir después' : 'Keep what was typed on the device to continue later' }}</a-checkbox></a-form-item>
 
                   <div class="fb-sec">{{ es ? 'Numeración' : 'Numbering' }}</div>
                   <a-row :gutter="12">
@@ -385,6 +387,8 @@ const TYPES = [
   { type: 'heading', en: 'Heading', es: 'Título' },
   { type: 'paragraph', en: 'Paragraph', es: 'Párrafo' },
   { type: 'divider', en: 'Divider', es: 'Separador' },
+  // A tab (2026-11-11): the fields after it, up to the next tab, show on their own tab of the page.
+  { type: 'tab', en: 'Tab', es: 'Pestaña' },
 ];
 const typeLabel = t => { const x = TYPES.find(y => y.type === t); return x ? (es.value ? x.es : x.en) : t; };
 
@@ -402,7 +406,7 @@ let uid = 0;
 
 const s = computed(() => form.value.settings);
 const current = computed(() => form.value?.fields.find(f => f._uid === selected.value) || null);
-const inputCount = computed(() => (form.value?.fields || []).filter(f => !['heading', 'paragraph', 'divider'].includes(f.type)).length);
+const inputCount = computed(() => (form.value?.fields || []).filter(f => !['heading', 'paragraph', 'divider', 'tab'].includes(f.type)).length);
 const hasPlaceholder = computed(() => current.value && ['text', 'textarea', 'email', 'phone', 'number', 'url', 'select'].includes(current.value.type));
 const emailFieldOptions = computed(() => sortByLabel((form.value?.fields || []).filter(f => f.type === 'email').map(f => ({ value: f.key, label: f.label || f.key }))));
 const languageOptions = sortByLabel([{ value: 'en', label: tEs('tx_English_78463', 'English') }, { value: 'es', label: 'Español' }]);
@@ -434,12 +438,13 @@ function newKey(type) {
 
 function add(type) {
   const f = {
-    key: newKey(type), type, label: ['heading', 'paragraph', 'divider'].includes(type) ? '' : typeLabel(type),
+    key: newKey(type), type, label: ['heading', 'paragraph', 'divider', 'tab'].includes(type) ? '' : typeLabel(type),
     required: false, placeholder: '', help: '', width: 'full', default: '',
   };
   if (['select', 'radio', 'checkbox'].includes(type)) f.options = es.value ? ['Opción 1', 'Opción 2'] : ['Option 1', 'Option 2'];
   if (type === 'heading') { f.text = es.value ? 'Título' : 'Heading'; f.level = 3; }
   if (type === 'paragraph') f.text = '';
+  if (type === 'tab') f.text = es.value ? 'Pestaña' : 'Tab';
   if (type === 'textarea') { f.rows = 4; f.max = 5000; }
   if (type === 'text') f.max = 255;
   if (type === 'file') { f.accept = '.pdf,.jpg,.jpeg,.png'; f.max_mb = 5; }

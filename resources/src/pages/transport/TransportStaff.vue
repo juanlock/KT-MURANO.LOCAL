@@ -12,7 +12,7 @@
 
     <a-card size="small" :body-style="{ padding: '12px' }">
       <div class="ts-filters">
-        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" compact @change="load" />
+        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" @change="load" />
         <a-input-search v-model:value="q" allow-clear style="max-width: 240px" :placeholder="es ? 'Buscar' : 'Search'" />
         <span class="ts-muted">{{ es ? 'Viajes y pago: viajes completados en el período.' : 'Trips and pay: trips completed in the period.' }}</span>
       </div>

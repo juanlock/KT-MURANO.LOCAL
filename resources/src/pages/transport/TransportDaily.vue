@@ -5,14 +5,25 @@
     <a-card size="small" :body-style="{ padding: '12px' }">
       <!-- Day, agency and the day's actions -->
       <div class="dd-bar">
-        <a-date-picker v-model:value="date" value-format="YYYY-MM-DD" :allow-clear="false" @change="load" />
-        <a-select v-if="agencyOptions.length > 1" v-model:value="agencyId" :options="agencyOptions" style="width: 190px" @change="load" />
+        <!-- Day by day or a week at a time (user's request, 2026-11-11) -->
+        <a-space :size="2" class="dd-nav">
+          <a-tooltip :title="L('Previous week', 'Semana anterior')"><a-button size="middle" @click="shift(-7)"><DoubleLeftOutlined /></a-button></a-tooltip>
+          <a-tooltip :title="L('Previous day', 'Día anterior')"><a-button @click="shift(-1)"><LeftOutlined /></a-button></a-tooltip>
+          <a-date-picker v-model:value="date" value-format="YYYY-MM-DD" :allow-clear="false" style="width: 140px" @change="pickDate" />
+          <a-tooltip :title="L('Next day', 'Día siguiente')"><a-button @click="shift(1)"><RightOutlined /></a-button></a-tooltip>
+          <a-tooltip :title="L('Next week', 'Semana siguiente')"><a-button @click="shift(7)"><DoubleRightOutlined /></a-button></a-tooltip>
+          <span class="dd-weekday">{{ weekday(date) }}</span>
+          <a-button v-if="date !== today" @click="pickDate(today)">{{ L('Today', 'Hoy') }}</a-button>
+        </a-space>
+        <a-select v-if="agencyOptions.length > 2" v-model:value="agencyId" :options="agencyOptions" style="width: 200px" @change="load" />
         <a-tag v-if="closed" color="green" class="dd-state"><LockOutlined /> {{ L('Closed', 'Cerrado') }} · {{ data.closure.closed_by }} · {{ stamp(data.closure.closed_at) }}</a-tag>
         <a-tag v-else-if="data.closure?.status === 'open'" color="orange" class="dd-state">
           {{ L('Reopened', 'Reabierto') }} · {{ data.closure.reopened_by }}<template v-if="data.closure.reopen_note">: {{ data.closure.reopen_note }}</template>
         </a-tag>
         <div class="dd-grow" />
-        <template v-if="data.can_manage && !closed">
+        <span v-if="isHistory" class="dd-muted dd-hint">{{ L(`Every departure from ${shortDate(data.from)} to ${shortDate(data.to)}. History again = only the date on the left.`, `Todas las salidas del ${shortDate(data.from)} al ${shortDate(data.to)}. Historial otra vez = solo la fecha de la izquierda.`) }}</span>
+        <span v-else-if="isAll && data.can_manage" class="dd-muted dd-hint">{{ L('Pick an agency to plan, copy or close its day.', 'Elige una agencia para planificar, copiar o cerrar su día.') }}</span>
+        <template v-if="data.can_manage && !closed && !wide">
           <a-button v-if="data.copy_from" :loading="busy === 'copy'" @click="copyDay">
             <CopyOutlined /> {{ L('Copy from', 'Copiar del') }} {{ shortDate(data.copy_from) }}
           </a-button>
@@ -21,13 +32,27 @@
         </template>
         <a-button v-if="closed && data.closure.has_pdf" @click="openPdf(data.closure.id)"><FilePdfOutlined /> PDF</a-button>
         <a-button v-if="closed && data.can_reopen" @click="reopenOpen = true"><UnlockOutlined /> {{ L('Reopen', 'Reabrir') }}</a-button>
-        <a-button @click="openHistory"><HistoryOutlined /> {{ L('History', 'Historial') }}</a-button>
-        <a-button v-if="data.can_manage" @click="emailsOpen = true"><MailOutlined /></a-button>
+        <a-button :type="historyMode ? 'primary' : 'default'" @click="toggleHistory"><HistoryOutlined /> {{ L('History', 'Historial') }}</a-button>
+        <a-button v-if="data.can_manage && !wide" @click="emailsOpen = true"><MailOutlined /></a-button>
+      </div>
+
+      <!-- All agencies: each agency's day in one line, a click opens that agency -->
+      <div v-if="isAll && data.summary?.length" class="dd-agencies">
+        <div v-for="a in data.summary" :key="a.id" class="dd-ag" @click="pickAgency(a.id)">
+          <div class="dd-ag-top">
+            <b>{{ a.name }}</b>
+            <a-tag :color="a.state === 'closed' ? 'green' : (a.state === 'reopened' ? 'orange' : 'default')" class="dd-miss">
+              <LockOutlined v-if="a.state === 'closed'" /> {{ a.state === 'closed' ? L('Closed', 'Cerrado') : (a.state === 'reopened' ? L('Reopened', 'Reabierto') : L('Open', 'Abierto')) }}
+            </a-tag>
+            <a-button v-if="a.has_pdf" size="small" type="text" @click.stop="openPdf(a.closure_id)"><FilePdfOutlined /></a-button>
+          </div>
+          <div class="dd-muted">{{ a.departures }} {{ L('departures', 'salidas') }} · {{ a.passengers }} {{ L('pax', 'pas.') }} · {{ money(a.amount) }}</div>
+        </div>
       </div>
 
       <a-spin :spinning="loading">
         <!-- Key figures of the day -->
-        <div v-if="data.rows?.length" class="dd-kpis">
+        <div v-if="data.rows?.length" class="dd-kpis" :class="{ 'dd-kpis-wide': isHistory }">
           <div class="dd-kpi"><b>{{ t.departures }}</b><span>{{ L('Departures', 'Salidas') }}</span></div>
           <div class="dd-kpi"><b>{{ t.passengers }}<small v-if="t.seats"> / {{ t.seats }}</small></b><span>{{ L('Passengers', 'Pasajeros') }}</span></div>
           <div class="dd-kpi"><b>{{ t.occupancy ?? '—' }}<small v-if="t.occupancy !== null"> %</small></b><span>{{ L('Occupancy', 'Ocupación') }}</span></div>
@@ -35,7 +60,7 @@
           <div class="dd-kpi"><b>{{ money(t.tolls) }}</b><span>{{ L('Tolls', 'Peajes') }}<a-tag v-if="t.missing_toll" color="orange" class="dd-miss">{{ t.missing_toll }} {{ L('missing', 'sin dato') }}</a-tag></span></div>
           <div class="dd-kpi"><b>{{ money(t.fuel) }}</b><span>{{ L('Fuel', 'Combustible') }}<a-tag v-if="t.missing_fuel" color="orange" class="dd-miss">{{ t.missing_fuel }} {{ L('missing', 'sin dato') }}</a-tag></span></div>
           <div class="dd-kpi dd-net"><b>{{ money(t.net) }}</b><span>{{ L('Amount - tolls - fuel', 'Monto - peajes - comb.') }}</span></div>
-          <div v-if="data.can_manage || price.high || price.low" class="dd-kpi dd-price">
+          <div v-if="!wide && (data.can_manage || price.high || price.low)" class="dd-kpi dd-price">
             <span>{{ L('Price of the day', 'Precio del día') }}</span>
             <div class="dd-price-in">
               <a-input-number v-model:value="price.high" :min="0" size="small" :disabled="closed || !data.can_manage" :placeholder="L('High', 'Alto')" @blur="savePrice" />
@@ -45,16 +70,25 @@
         </div>
 
         <a-empty v-if="!loading && !data.rows?.length" :description="emptyText">
-          <a-space v-if="data.can_manage && !closed">
+          <a-space v-if="data.can_manage && !closed && !wide">
             <a-button v-if="data.copy_from" type="primary" :loading="busy === 'copy'" @click="copyDay">{{ L('Copy the departures of', 'Copiar las salidas del') }} {{ shortDate(data.copy_from) }}</a-button>
             <a-button @click="openTrip()">{{ L('Add departure', 'Agregar salida') }}</a-button>
           </a-space>
         </a-empty>
 
-        <a-table v-else :columns="columns" :data-source="data.rows" row-key="id" size="small" :pagination="false" :scroll="{ x: 'max-content' }"
-          :row-class-name="r => (r.status === 'cancelled' ? 'dd-cancel' : '')">
+        <a-table v-else :columns="columns" :data-source="data.rows" row-key="id" size="small" :scroll="{ x: 'max-content' }"
+          :pagination="isHistory ? { pageSize: 50, showSizeChanger: false, hideOnSinglePage: true } : false"
+          :row-class-name="rowClass">
           <template #bodyCell="{ column, record: r }">
-            <template v-if="column.key === 'time'"><b class="dd-time">{{ r.time }}</b></template>
+            <template v-if="column.key === 'weekday'"><b>{{ weekday(r.date) }}</b></template>
+            <template v-else-if="column.key === 'date'">
+              <a class="dd-ag-link" @click="openDay(r)">{{ shortDate(r.date) }}</a><LockOutlined v-if="r.closed" class="dd-lock" />
+              <a-button v-if="r.closure_id" size="small" type="text" @click="openPdf(r.closure_id)"><FilePdfOutlined /></a-button>
+            </template>
+            <template v-else-if="column.key === 'time'"><b class="dd-time">{{ r.time }}</b></template>
+            <template v-else-if="column.key === 'agency'">
+              <a class="dd-ag-link" @click="isHistory ? openDay(r) : pickAgency(r.agency_id)">{{ r.agency }}</a><LockOutlined v-if="r.closed && !isHistory" class="dd-lock" />
+            </template>
             <template v-else-if="column.key === 'bus'">{{ r.bus || '—' }}</template>
             <template v-else-if="column.key === 'points'">
               <a-tag v-for="(p, i) in r.points" :key="i" class="dd-pt"><a-tooltip :title="p.name">{{ p.label || p.name }}</a-tooltip> {{ p.time }}</a-tag>
@@ -75,7 +109,9 @@
             <template v-else-if="column.key === 'fuel'"><span :class="{ 'dd-muted': r.fuel === null }">{{ r.fuel === null ? '—' : money(r.fuel) }}</span></template>
             <template v-else-if="column.key === 'status'"><a-tag :color="STATE[stateOf(r)].color">{{ L(STATE[stateOf(r)].en, STATE[stateOf(r)].es) }}</a-tag></template>
             <template v-else-if="column.key === 'actions'">
-              <a-space v-if="data.can_manage && !closed" :size="4">
+              <!-- All agencies: editing opens the departure in its agency's day -->
+              <a-button v-if="wide && data.can_manage && !r.closed" size="small" @click="editInAgency(r)"><EditOutlined /></a-button>
+              <a-space v-else-if="data.can_manage && !closed && !wide" :size="4">
                 <a-button size="small" @click="openTrip(r)"><EditOutlined /></a-button>
                 <a-popconfirm :title="L('Remove this departure?', '¿Quitar esta salida?')" :ok-text="L('Remove', 'Quitar')" :cancel-text="L('Back', 'Volver')" @confirm="removeTrip(r)">
                   <a-button size="small" danger><DeleteOutlined /></a-button>
@@ -136,19 +172,6 @@
       <a-textarea v-model:value="emailsText" :rows="3" :placeholder="L('Emails separated by commas', 'Correos separados por comas')" />
     </a-modal>
 
-    <!-- History -->
-    <a-drawer v-model:open="historyOpen" :title="L('Closed days', 'Días cerrados')" :width="drawerWidth">
-      <PresetRangeFilter v-model:value="historyRange" allow-all compact @change="loadHistory" />
-      <a-table :columns="historyColumns" :data-source="history" row-key="id" size="small" :pagination="{ pageSize: 20 }" :loading="busy === 'history'" style="margin-top: 10px"
-        :custom-row="h => ({ onClick: () => goTo(h), style: 'cursor: pointer' })">
-        <template #bodyCell="{ column, record: h }">
-          <template v-if="column.key === 'day'">{{ shortDate(h.day) }}<a-tag v-if="h.status === 'open'" color="orange" class="dd-miss">{{ L('reopened', 'reabierto') }}</a-tag></template>
-          <template v-else-if="column.key === 'pax'">{{ h.totals?.passengers }}<span v-if="h.totals?.occupancy !== null" class="dd-muted"> ({{ h.totals?.occupancy }} %)</span></template>
-          <template v-else-if="column.key === 'amount'">{{ money(h.totals?.amount) }}</template>
-          <template v-else-if="column.key === 'pdf'"><a-button size="small" @click.stop="openPdf(h.id)"><FilePdfOutlined /></a-button></template>
-        </template>
-      </a-table>
-    </a-drawer>
   </div>
 </template>
 
@@ -161,15 +184,16 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import {
-  CopyOutlined, DeleteOutlined, EditOutlined, FilePdfOutlined, HistoryOutlined, LockOutlined, MailOutlined, PlusOutlined, UnlockOutlined,
+  CopyOutlined, DeleteOutlined, DoubleLeftOutlined, DoubleRightOutlined, EditOutlined, FilePdfOutlined, HistoryOutlined, LeftOutlined, LockOutlined,
+  MailOutlined, PlusOutlined, RightOutlined, UnlockOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
-import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 import http from '../../lib/http';
 import { useUiStore } from '../../stores/ui';
 import { sortByLabel } from '../../lib/filterOptions';
 import { getActingCompanyId } from '../../lib/actingCompany';
+import { useFormat } from '../../composables/useFormat';
 
 const ui = useUiStore();
 const L = (en, es) => (String(ui.locale || 'en').startsWith('es') ? es : en);
@@ -187,17 +211,55 @@ const shortDate = d => (d ? dayjs(d).format(L('MM-DD-YYYY', 'DD-MM-YYYY')) : '')
 const stamp = d => (d ? dayjs(d).format(L('MM-DD HH:mm', 'DD-MM HH:mm')) : '');
 const errorOf = e => { const errs = e?.data?.errors; return (errs && Object.values(errs)[0]?.[0]) || e?.data?.message || e.message; };
 const today = dayjs().format('YYYY-MM-DD');
-const drawerWidth = computed(() => Math.min(640, window.innerWidth));
 
 const date = ref(today);
-const agencyId = ref(undefined);
+// Opens on every agency (user's request, 2026-11-11); a login with one agency gets its own.
+const agencyId = ref('all');
 const data = ref({});
 const loading = ref(false);
 const busy = ref('');
 const price = reactive({ high: null, low: null });
 const t = computed(() => data.value.totals || {});
 const closed = computed(() => data.value.closure?.status === 'closed');
-const agencyOptions = computed(() => sortByLabel((data.value.agencies || []).map(a => ({ value: a.id, label: a.name }))));
+const isAll = computed(() => data.value.agency_id === 'all');
+// History (user's request, 2026-11-11, instead of the "Closed days" drawer): the button shows every departure of the
+// last 60 days and the week ahead in this table; pressed again, only the date on the left.
+const historyMode = ref(false);
+const isHistory = computed(() => !!data.value.history);
+// Many days or many agencies at once: planning, copying and closing are done in one agency's day.
+const wide = computed(() => isAll.value || isHistory.value);
+function toggleHistory() {
+  historyMode.value = !historyMode.value;
+  return load();
+}
+function pickDate(d) {
+  if (typeof d === 'string') date.value = d;
+  historyMode.value = false;
+  return load();
+}
+function shift(days) {
+  return pickDate(dayjs(date.value).add(days, 'day').format('YYYY-MM-DD'));
+}
+// A row of the history: that agency's day.
+function openDay(r) {
+  date.value = r.date;
+  agencyId.value = r.agency_id;
+  historyMode.value = false;
+  return load();
+}
+// "All agencies" first, then the agencies alphabetically.
+const agencyOptions = computed(() => [{ value: 'all', label: L('All agencies', 'Todas las agencias') }]
+  .concat(sortByLabel((data.value.agencies || []).map(a => ({ value: a.id, label: a.name })))));
+function pickAgency(id) {
+  agencyId.value = id;
+  return load();
+}
+async function editInAgency(r) {
+  if (isHistory.value) await openDay(r);
+  else await pickAgency(r.agency_id);
+  const row = (data.value.rows || []).find(x => x.id === r.id);
+  if (row && !closed.value) openTrip(row);
+}
 const routeOptions = computed(() => sortByLabel((data.value.routes || []).map(r => ({ value: r.id, label: r.destination }))));
 const vehicleOptions = computed(() => sortByLabel((data.value.vehicles || []).map(v => ({ value: v.id, label: v.name + (v.seats ? ` · ${v.seats}` : '') }))));
 // The agency and its terminals first, then the rest (each part alphabetical).
@@ -210,8 +272,19 @@ const pointOptions = computed(() => {
 });
 const emptyText = computed(() => (date.value > today ? L('No departures planned for this day yet.', 'Todavía no hay salidas planificadas para este día.') : L('No departures that day.', 'No hay salidas ese día.')));
 
+// The day in words (user's request, 2026-11-11) and a line where a new day starts in the history.
+const WEEKDAYS = { en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], es: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'] };
+const weekday = d => (d ? WEEKDAYS[L('en', 'es')][dayjs(d).day()] : '');
+const firstOfDay = computed(() => {
+  const ids = new Set();
+  (data.value.rows || []).forEach((r, i, all) => { if (i > 0 && r.date !== all[i - 1].date) ids.add(r.id); });
+  return ids;
+});
+const rowClass = r => [r.status === 'cancelled' ? 'dd-cancel' : '', isHistory.value && firstOfDay.value.has(r.id) ? 'dd-newday' : ''].join(' ');
 const columns = computed(() => [
+  ...(isHistory.value ? [{ title: L('Day', 'Día'), key: 'weekday', width: 100 }, { title: L('Date', 'Fecha'), key: 'date', width: 130 }] : []),
   { title: L('Time', 'Hora'), key: 'time', width: 70 },
+  ...(isAll.value ? [{ title: L('Agency', 'Agencia'), key: 'agency' }] : []),
   { title: L('Bus', 'Bus'), key: 'bus' },
   { title: L('Destination', 'Destino'), dataIndex: 'destination', key: 'destination' },
   { title: L('Boarding points', 'Puntos de embarque'), key: 'points' },
@@ -226,7 +299,7 @@ const columns = computed(() => [
 async function load() {
   loading.value = true;
   try {
-    data.value = await http.get('transport/daily', { date: date.value, agency_id: agencyId.value });
+    data.value = await http.get('transport/daily', { date: date.value, agency_id: agencyId.value, history: historyMode.value ? 1 : undefined });
     agencyId.value = data.value.agency_id;
     price.high = data.value.price?.high ?? null;
     price.low = data.value.price?.low ?? null;
@@ -341,34 +414,6 @@ async function openPdf(id) {
   }
 }
 
-// ---------------- history
-const historyOpen = ref(false);
-const history = ref([]);
-const historyRange = ref([dayjs().subtract(60, 'day').format('YYYY-MM-DD'), today]);
-const historyColumns = computed(() => [
-  { title: L('Day', 'Día'), key: 'day' },
-  { title: L('Agency', 'Agencia'), dataIndex: 'agency', key: 'agency' },
-  { title: L('Passengers', 'Pasajeros'), key: 'pax' },
-  { title: L('Amount', 'Monto'), key: 'amount', align: 'right' },
-  { title: L('Closed by', 'Cerrado por'), dataIndex: 'closed_by', key: 'by' },
-  { title: '', key: 'pdf', width: 50 },
-]);
-function openHistory() {
-  historyOpen.value = true;
-  loadHistory();
-}
-async function loadHistory() {
-  const [from, to] = historyRange.value || [];
-  const res = await run('history', () => http.get('transport/daily/history', { from, to }));
-  history.value = res?.rows || [];
-}
-function goTo(h) {
-  date.value = h.day;
-  agencyId.value = h.agency_id;
-  historyOpen.value = false;
-  load();
-}
-
 onMounted(load);
 </script>
 
@@ -382,6 +427,7 @@ onMounted(load);
 .dd-kpi small { font-size: 12px; color: #64748b; font-weight: 400; }
 .dd-kpi span { font-size: 12px; color: #64748b; }
 .dd-net { background: #ecfdf5; }
+.dd-kpis-wide .dd-kpi b { font-size: 15px; white-space: nowrap; }
 .dd-price-in { display: flex; gap: 4px; margin-top: 2px; }
 .dd-miss { margin-left: 6px; font-size: 11px; }
 .dd-time { font-size: 15px; }
@@ -396,6 +442,16 @@ onMounted(load);
 .dd-sub { font-weight: 700; margin: 4px 0 8px; }
 .dd-point { display: flex; gap: 6px; margin-bottom: 6px; }
 .dd-note { margin-bottom: 10px; }
+.dd-hint { font-size: 12px; }
+.dd-agencies { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.dd-ag { border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; }
+.dd-ag:hover { border-color: #7c3aed; }
+.dd-ag-top { display: flex; align-items: center; gap: 4px; }
+.dd-ag-top b { font-size: 13px; }
+.dd-ag-link { font-weight: 600; }
+.dd-lock { color: #16a34a; margin-left: 4px; font-size: 11px; }
 :deep(.dd-cancel) td { opacity: .5; text-decoration: line-through; }
+:deep(.dd-newday) td { border-top: 3px solid #7c3aed !important; }
+.dd-weekday { font-weight: 600; margin: 0 4px; min-width: 70px; }
 @media (max-width: 640px) { .dd-grow { display: none; } .dd-point { flex-wrap: wrap; } }
 </style>

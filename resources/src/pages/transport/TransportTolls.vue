@@ -8,7 +8,7 @@
 
     <a-card size="small" :body-style="{ padding: '12px' }">
       <div class="tl-filters">
-        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" allow-all compact @change="reload" />
+        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" allow-all @change="reload" />
         <span class="tl-muted">{{ total }} {{ es ? 'registros' : 'records' }} · {{ es ? 'Total' : 'Total' }} <b>{{ money(sum) }}</b></span>
       </div>
       <a-table :columns="columns" :data-source="rows" :loading="loading" row-key="id" size="middle" :scroll="{ x: 'max-content' }"
