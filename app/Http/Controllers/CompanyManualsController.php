@@ -58,13 +58,21 @@ class CompanyManualsController extends Controller
         $user = $request->user('api');
         abort_unless($user, 401);
         abort_unless($user->type === 'SuperAdmin' || $user->roles()->first()?->permissions->contains('name', 'dashboard'), 403);
+        $kind = (string) $request->input('kind', 'manual');
+        abort_if($kind === 'flyer' && ! self::seesFlyer($user), 403);
         $companyId = \App\Support\CompanyFiles::actingCompanyId($request);
-        $rel = self::ownPath($companyId, (string) $request->input('lang', 'es'), (string) $request->input('kind', 'manual'));
+        $rel = self::ownPath($companyId, (string) $request->input('lang', 'es'), $kind);
         abort_unless($rel && \App\Support\CompanyFiles::owns($rel, $companyId, 'manual'), 404);
         $name = self::downloadName($companyId, basename($rel));
 
         return response()->json(['url' => \Illuminate\Support\Facades\URL::temporarySignedRoute('company-manual.file', now()->addMinutes(30),
             ['company' => $companyId, 'file' => basename($rel), 'name' => $name], false)]);
+    }
+
+    /** The company's own flyer is the owner's (user's rule, 2026-11-13): only the Manager role and the SuperAdmin. */
+    public static function seesFlyer($user): bool
+    {
+        return $user && ($user->type === 'SuperAdmin' || $user->roles()->first()?->name === 'Manager');
     }
 
     /** "Turismo-Cautivo-Flyer.pdf", "Turismo-Cautivo-Manual.pdf". */

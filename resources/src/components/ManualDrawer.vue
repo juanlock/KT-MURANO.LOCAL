@@ -170,8 +170,8 @@ const flyerUrl = computed(() => `/manual/flyer-${shownType.value}-${lang.value}.
 // The company's own manual (private file, dashboard permission; not when AdminSystem browses another type).
 const hasOwnManual = computed(() => !!auth.user?.company_manual && !pickedType.value
   && (auth.user?.type === 'SuperAdmin' || auth.can('dashboard')));
-const hasOwnFlyer = computed(() => !!auth.user?.company_flyer && !pickedType.value
-  && (auth.user?.type === 'SuperAdmin' || auth.can('dashboard')));
+// Only the Manager and the SuperAdmin (the server sets company_flyer for them only, 2026-11-13).
+const hasOwnFlyer = computed(() => !!auth.user?.company_flyer && !pickedType.value);
 const NO_TYPE_MANUAL = ['tourism'];
 const ownLoading = ref(null);
 // A signed address ending in .pdf (not a "blob:"), so the document opens and saves with its name.
