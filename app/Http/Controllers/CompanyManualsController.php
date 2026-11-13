@@ -35,10 +35,12 @@ class CompanyManualsController extends Controller
      * The book icon's "Download the manual" opens it instead of the type's PDF. It may hold the
      * company's figures, so only roles with the dashboard permission get it.
      */
-    public static function ownPath(int $companyId, string $lang = 'es'): ?string
+    /** $kind: manual (the guide) or flyer (2026-11-13: the owner's flyer, files/company_{id}/manual/flyer-{lang}.pdf). */
+    public static function ownPath(int $companyId, string $lang = 'es', string $kind = 'manual'): ?string
     {
+        $kind = $kind === 'flyer' ? 'flyer' : 'manual';
         foreach (array_unique([$lang === 'en' ? 'en' : 'es', 'es', 'en']) as $l) {
-            $rel = 'files/company_'.$companyId.'/manual/manual-'.$l.'.pdf';
+            $rel = 'files/company_'.$companyId.'/manual/'.$kind.'-'.$l.'.pdf';
             if (is_file(public_path($rel))) {
                 return $rel;
             }
@@ -47,18 +49,44 @@ class CompanyManualsController extends Controller
         return null;
     }
 
+    /**
+     * GET company-manual?lang&kind -- a signed link (30 minutes) to the company's own manual or flyer, so the browser
+     * opens a real address ending in .pdf with the document's name (2026-11-13: it opened as an unnamed "blob:").
+     */
     public function mine(Request $request)
     {
         $user = $request->user('api');
         abort_unless($user, 401);
         abort_unless($user->type === 'SuperAdmin' || $user->roles()->first()?->permissions->contains('name', 'dashboard'), 403);
         $companyId = \App\Support\CompanyFiles::actingCompanyId($request);
-        $rel = self::ownPath($companyId, (string) $request->input('lang', 'es'));
+        $rel = self::ownPath($companyId, (string) $request->input('lang', 'es'), (string) $request->input('kind', 'manual'));
         abort_unless($rel && \App\Support\CompanyFiles::owns($rel, $companyId, 'manual'), 404);
+        $name = self::downloadName($companyId, basename($rel));
+
+        return response()->json(['url' => \Illuminate\Support\Facades\URL::temporarySignedRoute('company-manual.file', now()->addMinutes(30),
+            ['company' => $companyId, 'file' => basename($rel), 'name' => $name], false)]);
+    }
+
+    /** "Turismo-Cautivo-Flyer.pdf", "Turismo-Cautivo-Manual.pdf". */
+    private static function downloadName(int $companyId, string $file): string
+    {
+        $company = \Illuminate\Support\Str::slug((string) DB::table('companies')->where('id', $companyId)->value('name')) ?: 'empresa';
+        $kind = str_starts_with($file, 'flyer') ? 'Flyer' : 'Manual';
+
+        return str_replace(' ', '-', \Illuminate\Support\Str::title(str_replace('-', ' ', $company))).'-'.$kind;
+    }
+
+    /** GET /company-docs/{company}/{name}.pdf?file&signature -- the signed link above (no session needed). */
+    public function file(Request $request, int $company, string $name)
+    {
+        $file = (string) $request->query('file');
+        abort_unless(preg_match('/^(manual|flyer)-(es|en)\.pdf$/', $file), 404);
+        $rel = 'files/company_'.$company.'/manual/'.$file;
+        abort_unless(is_file(public_path($rel)), 404);
 
         return response()->file(public_path($rel), [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.basename($rel).'"',
+            'Content-Disposition' => 'inline; filename="'.str_replace(' ', '-', $name).'.pdf"',
         ]);
     }
 }

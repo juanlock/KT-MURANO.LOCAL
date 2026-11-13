@@ -61,13 +61,18 @@
         <p class="md-intro"><strong>{{ adv.tagline[lang] }}</strong> {{ adv.intro[lang] }}</p>
         <!-- The 2-page promotional flyer of the type (with its graphic) and the full manual. -->
         <!-- The company's own manual (files/company_{id}/manual/, e.g. Turismo Cautivo's guide), when it has one. -->
-        <a-button v-if="hasOwnManual" type="primary" block :loading="ownLoading" style="margin-bottom: 8px" @click="openOwnManual">
+        <!-- The company's own flyer and manual (2026-11-13: Turismo Cautivo's), opened by a signed .pdf address. -->
+        <a-button v-if="hasOwnFlyer" type="primary" block :loading="ownLoading === 'flyer'" style="margin-bottom: 8px" @click="openOwn('flyer')">
+          <DownloadOutlined /> {{ L(`${company}'s flyer (PDF)`, `Flyer de ${company} (PDF)`) }}
+        </a-button>
+        <a-button v-if="hasOwnManual" :type="hasOwnFlyer ? 'default' : 'primary'" block :loading="ownLoading === 'manual'" style="margin-bottom: 8px" @click="openOwn('manual')">
           <DownloadOutlined /> {{ L(`${company}'s manual (PDF)`, `Manual de ${company} (PDF)`) }}
         </a-button>
-        <a-button :type="hasOwnManual ? 'default' : 'primary'" block :href="flyerUrl" target="_blank" style="margin-bottom: 8px">
+        <a-button v-if="!hasOwnFlyer" :type="hasOwnManual ? 'default' : 'primary'" block :href="flyerUrl" target="_blank" style="margin-bottom: 8px">
           <DownloadOutlined /> {{ L('Download the flyer (2 pages, PDF)', 'Descargar el flyer (2 páginas, PDF)') }}
         </a-button>
-        <a-button block :href="pdfUrl" target="_blank" style="margin-bottom: 14px">
+        <!-- The type's generic manual: not when the company has its own, and not for tourism (removed 2026-11-13: too basic). -->
+        <a-button v-if="!hasOwnManual && !NO_TYPE_MANUAL.includes(shownType)" block :href="pdfUrl" target="_blank" style="margin-bottom: 14px">
           <DownloadOutlined /> {{ L('Download the manual (PDF)', 'Descargar el manual (PDF)') }}
         </a-button>
         <div class="md-label">{{ L('What Murano does for you', 'Lo que Murano hace por usted') }}</div>
@@ -165,17 +170,23 @@ const flyerUrl = computed(() => `/manual/flyer-${shownType.value}-${lang.value}.
 // The company's own manual (private file, dashboard permission; not when AdminSystem browses another type).
 const hasOwnManual = computed(() => !!auth.user?.company_manual && !pickedType.value
   && (auth.user?.type === 'SuperAdmin' || auth.can('dashboard')));
-const ownLoading = ref(false);
-async function openOwnManual() {
-  ownLoading.value = true;
+const hasOwnFlyer = computed(() => !!auth.user?.company_flyer && !pickedType.value
+  && (auth.user?.type === 'SuperAdmin' || auth.can('dashboard')));
+const NO_TYPE_MANUAL = ['tourism'];
+const ownLoading = ref(null);
+// A signed address ending in .pdf (not a "blob:"), so the document opens and saves with its name.
+async function openOwn(kind) {
+  ownLoading.value = kind;
+  const win = window.open('', '_blank'); // opened now, before the request, so the browser doesn't block it
   try {
     const cid = getActingCompanyId();
-    const b = await http.blob(`company-manual?lang=${lang.value}${cid ? `&company_id=${cid}` : ''}`);
-    window.open(URL.createObjectURL(b), '_blank');
+    const res = await http.get('company-manual', { lang: lang.value, kind, ...(cid ? { company_id: cid } : {}) });
+    if (win) win.location.href = res.url; else window.location.href = res.url;
   } catch (e) {
-    message.error(L('The manual could not be opened.', 'No se pudo abrir el manual.'));
+    if (win) win.close();
+    message.error(L('The document could not be opened.', 'No se pudo abrir el documento.'));
   } finally {
-    ownLoading.value = false;
+    ownLoading.value = null;
   }
 }
 
