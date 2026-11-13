@@ -887,18 +887,51 @@ onMounted(load);
 /* The blocks in the company's order (CSS order), 16px apart. */
 /* The tab names the panel: little chrome, the content in front. */
 .transport-tabs :deep(.ant-tabs-nav) { margin-bottom: 8px; }
-.board-mode .page-header { margin-bottom: 4px; gap: 8px; }
+/* Board mode (transport), 2026-11-13 "se ve cargado": the filters in their own light bar, the tabs as pills on a tinted
+   strip in the company's colour (--app-primary-rgb), the open one filled; a little more air between them. */
+.board-mode .page-header {
+  margin-bottom: 10px; gap: 8px; padding: 6px 10px; border-radius: 10px;
+  background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.04); border: 1px solid rgba(var(--app-primary-rgb, 22, 119, 255), 0.12);
+}
 .board-mode .dash-blocks.only-tabs > :not(.transport-tabs) { display: none !important; }
-.board-mode .transport-tabs :deep(.ant-tabs-nav) { margin-bottom: 6px; }
-.board-mode .transport-tabs :deep(.ant-tabs-tab) { padding: 5px 0; }
-.board-mode .transport-tabs :deep(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 16px; }
-.board-mode .transport-tabs :deep(.ant-tabs-tab) { font-size: 13px; }
-.board-mode .transport-tabs :deep(.ant-tabs-tab .anticon) { margin-right: 4px; }
+.board-mode .transport-tabs :deep(.ant-tabs-nav) {
+  margin-bottom: 10px; padding: 4px; border-radius: 10px; background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.07);
+}
+.board-mode .transport-tabs :deep(.ant-tabs-nav::before),
+.board-mode .transport-tabs :deep(.ant-tabs-ink-bar) { display: none; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab) {
+  padding: 5px 9px; font-size: 13px; border-radius: 7px; transition: background-color .15s, color .15s;
+}
+.board-mode .transport-tabs :deep(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 2px; }
+.board-mode .transport-tabs :deep(.ant-tabs-tab:hover) { background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.12); }
+.board-mode .transport-tabs :deep(.ant-tabs-tab .anticon) { margin-right: 5px; color: rgb(var(--app-primary-rgb, 22, 119, 255)); }
+.board-mode .transport-tabs :deep(.ant-tabs-tab-active) {
+  background: rgb(var(--app-primary-rgb, 22, 119, 255)); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.board-mode .transport-tabs :deep(.ant-tabs-tab-active .ant-tabs-tab-btn),
+.board-mode .transport-tabs :deep(.ant-tabs-tab-active .anticon) { color: #fff !important; font-weight: 600; }
+/* The open tab keeps its colour under the mouse. */
+.board-mode .transport-tabs :deep(.ant-tabs-tab.ant-tabs-tab-active:hover) { background: rgb(var(--app-primary-rgb, 22, 119, 255)); }
+/* Laptops (1366): the filters stay in one row -- tighter dates, buttons and locations. */
+@media (max-width: 1500px) {
+  .board-mode .dash-filters :deep(.drf-date) { width: 88px; }
+  .board-mode .dash-filters :deep(.drf .ant-picker-suffix) { display: none; }
+  .board-mode .dash-filters :deep(.ant-radio-button-wrapper) { padding: 0 5px; font-size: 13px; }
+  .board-mode .dash-filters .wh-select { width: 116px; min-width: 116px; }
+  .board-mode .dash-filters { column-gap: 6px !important; }
+}
+/* Narrower screens: the closed tabs lose their icon, so all ten fit in the strip (the open one keeps it). */
+@media (max-width: 1600px) {
+  .board-mode .transport-tabs :deep(.ant-tabs-tab:not(.ant-tabs-tab-active) .anticon) { display: none; }
+  .board-mode .transport-tabs :deep(.ant-tabs-tab) { padding: 5px 8px; }
+}
 .board-mode .dash-filters :deep(.drf-label) { display: none; }
 .board-mode .dash-filters :deep(.drf-date) { width: 100px; }
 .board-mode .dash-filters :deep(.drf) { padding: 0 2px; }
-.board-mode .wh-select { width: 150px; }
-.board-mode .dash-filters :deep(.ant-radio-button-wrapper) { padding: 0 6px; }
+.board-mode .wh-select { width: 150px; min-width: 150px; }
+.board-mode .dash-filters :deep(.ant-radio-button-wrapper) { padding: 0 8px; }
+.board-mode .dash-filters :deep(.ant-radio-button-wrapper:first-child) { border-radius: 6px 0 0 6px; }
+.board-mode .dash-filters :deep(.ant-radio-button-wrapper:last-child) { border-radius: 0 6px 6px 0; }
 .transport-tabs :deep(.ant-card-body) { padding: 12px; }
 .dash-blocks {
   display: flex;
