@@ -280,6 +280,9 @@ class UserController extends BaseController
             'company_manual' => \App\Http\Controllers\CompanyManualsController::ownPath(
                 $user->type === 'SuperAdmin' ? (int) $this->resolveActingCompanyId($request) : (int) $user->company_id) !== null,
             // And its own flyer (2026-11-13: Turismo Cautivo's, for the owner): only the Manager and the SuperAdmin.
+            // The company has one at all (then nobody gets the type's generic 2-page flyer instead).
+            'company_has_flyer' => \App\Http\Controllers\CompanyManualsController::ownPath(
+                $user->type === 'SuperAdmin' ? (int) $this->resolveActingCompanyId($request) : (int) $user->company_id, 'es', 'flyer') !== null,
             'company_flyer' => \App\Http\Controllers\CompanyManualsController::seesFlyer($user) && \App\Http\Controllers\CompanyManualsController::ownPath(
                 $user->type === 'SuperAdmin' ? (int) $this->resolveActingCompanyId($request) : (int) $user->company_id, 'es', 'flyer') !== null,
             // Else the company's business-type start page (hospital -> Hospital dashboard, 2026-10-20).

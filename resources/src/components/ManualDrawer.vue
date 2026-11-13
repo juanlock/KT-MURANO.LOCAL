@@ -68,7 +68,7 @@
         <a-button v-if="hasOwnManual" :type="hasOwnFlyer ? 'default' : 'primary'" block :loading="ownLoading === 'manual'" style="margin-bottom: 8px" @click="openOwn('manual')">
           <DownloadOutlined /> {{ L(`${company}'s manual (PDF)`, `Manual de ${company} (PDF)`) }}
         </a-button>
-        <a-button v-if="!hasOwnFlyer" :type="hasOwnManual ? 'default' : 'primary'" block :href="flyerUrl" target="_blank" style="margin-bottom: 8px">
+        <a-button v-if="!hasOwnFlyer && !hideTypeFlyer" :type="hasOwnManual ? 'default' : 'primary'" block :href="flyerUrl" target="_blank" style="margin-bottom: 8px">
           <DownloadOutlined /> {{ L('Download the flyer (2 pages, PDF)', 'Descargar el flyer (2 páginas, PDF)') }}
         </a-button>
         <!-- The type's generic manual: not when the company has its own, and not for tourism (removed 2026-11-13: too basic). -->
@@ -168,10 +168,14 @@ const adv = computed(() => {
 const pdfUrl = computed(() => `/manual/murano-${shownType.value}-${lang.value}.pdf`);
 const flyerUrl = computed(() => `/manual/flyer-${shownType.value}-${lang.value}.pdf`);
 // The company's own manual (private file, dashboard permission; not when AdminSystem browses another type).
-const hasOwnManual = computed(() => !!auth.user?.company_manual && !pickedType.value
+const hasOwnManual = computed(() => !!auth.user?.company_manual && (!pickedType.value || pickedType.value === companyType.value)
   && (auth.user?.type === 'SuperAdmin' || auth.can('dashboard')));
 // Only the Manager and the SuperAdmin (the server sets company_flyer for them only, 2026-11-13).
-const hasOwnFlyer = computed(() => !!auth.user?.company_flyer && !pickedType.value);
+// Its own documents also when the SuperAdmin's type selector shows the company's own type.
+const ownType = computed(() => !pickedType.value || pickedType.value === companyType.value);
+const hasOwnFlyer = computed(() => !!auth.user?.company_flyer && ownType.value);
+// A company with its own flyer never gets the type's generic one (2026-11-13: it downloaded the old 2-page flyer).
+const hideTypeFlyer = computed(() => !!auth.user?.company_has_flyer && ownType.value);
 const NO_TYPE_MANUAL = ['tourism'];
 const ownLoading = ref(null);
 // A signed address ending in .pdf (not a "blob:"), so the document opens and saves with its name.
@@ -181,7 +185,9 @@ async function openOwn(kind) {
   try {
     const cid = getActingCompanyId();
     const res = await http.get('company-manual', { lang: lang.value, kind, ...(cid ? { company_id: cid } : {}) });
-    if (win) win.location.href = res.url; else window.location.href = res.url;
+    // Absolute: a relative address means nothing to the blank tab opened above.
+    const url = new URL(res.url, window.location.origin).href;
+    if (win) win.location.href = url; else window.location.href = url;
   } catch (e) {
     if (win) win.close();
     message.error(L('The document could not be opened.', 'No se pudo abrir el documento.'));
