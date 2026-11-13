@@ -69,10 +69,10 @@ class CompanyManualsController extends Controller
             ['company' => $companyId, 'file' => basename($rel), 'name' => $name], false)]);
     }
 
-    /** The company's own flyer is the owner's (user's rule, 2026-11-13): only the Manager role and the SuperAdmin. */
+    /** The company's own flyer is the Director's (user's rule, 2026-11-13): the Manager and IT Admin roles and the SuperAdmin. */
     public static function seesFlyer($user): bool
     {
-        return $user && ($user->type === 'SuperAdmin' || $user->roles()->first()?->name === 'Manager');
+        return $user && ($user->type === 'SuperAdmin' || in_array($user->roles()->first()?->name, ['Manager', 'IT Admin'], true));
     }
 
     /** "Turismo-Cautivo-Flyer.pdf", "Turismo-Cautivo-Manual.pdf". */
