@@ -338,7 +338,7 @@ class PaymentSalesController extends BaseController
             \Log::warning('Commission calculation failed after payment (non-blocking): '.$e->getMessage(), ['sale_id' => $request['sale_id']]);
         }
 
-        return response()->json(['success' => true, 'message' => 'Payment Create successfully'], 200);
+        return response()->json(['success' => true, 'message' => __('Payment Create successfully')], 200);
     }
 
     // ------------ function show -----------\\
@@ -433,7 +433,7 @@ class PaymentSalesController extends BaseController
 
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Payment Update successfully'], 200);
+        return response()->json(['success' => true, 'message' => __('Payment Update successfully')], 200);
     }
 
     // ----------- Delete Payment Sales --------------\\
@@ -492,7 +492,7 @@ class PaymentSalesController extends BaseController
 
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Payment Delete successfully'], 200);
+        return response()->json(['success' => true, 'message' => __('Payment Delete successfully')], 200);
 
     }
 
@@ -628,7 +628,7 @@ class PaymentSalesController extends BaseController
         $copies = \App\Support\CompanyMail::copyEmails((int) $companyId, 'sales', [$receiver_email]);
         $copies ? Mail::to($receiver_email)->bcc($copies)->send(new CustomEmail($email)) : Mail::to($receiver_email)->send(new CustomEmail($email));
 
-        return response()->json(['message' => 'Email sent successfully'], 200);
+        return response()->json(['message' => __('Email sent successfully')], 200);
 
         // return $mail;
     }
@@ -719,7 +719,7 @@ class PaymentSalesController extends BaseController
             } catch (\Exception $e) {
                 Log::error('Termii SMS Error: '.$e->getMessage());
 
-                return response()->json(['status' => 'error', 'message' => 'Failed to send SMS'], 500);
+                return response()->json(['status' => 'error', 'message' => __('Failed to send SMS')], 500);
             }
 
         }

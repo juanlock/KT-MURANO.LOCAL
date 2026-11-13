@@ -1105,7 +1105,7 @@ class DashboardController extends Controller
         $user = Auth::user();
         $role = $user->roles()->first();
         if (!$role || !$role->inRole('real_time_sales_counter')) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return response()->json(['message' => __('Unauthorized')], 403);
         }
 
         $view_records = $user->hasRecordView();

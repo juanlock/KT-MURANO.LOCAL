@@ -83,15 +83,15 @@
                         </td>
                     </tr>
                     <tr>
-                        <td style="text-align: right; color: #6b7280; font-weight: 600;">Return #:</td>
+                        <td style="text-align: right; color: #6b7280; font-weight: 600;">{{ __('pdf.return_no') }}:</td>
                         <td style="text-align: right; color: #1f2937; font-weight: 500;">{{$return_sale['Ref']}}</td>
                     </tr>
                     <tr>
-                        <td style="text-align: right; color: #6b7280; font-weight: 600;">Sale Ref:</td>
+                        <td style="text-align: right; color: #6b7280; font-weight: 600;">{{ __('pdf.sale_ref') }}:</td>
                         <td style="text-align: right; color: #1f2937; font-weight: 500;">{{$return_sale['sale_ref']}}</td>
                     </tr>
                     <tr>
-                        <td style="text-align: right; color: #6b7280; font-weight: 600;">Status:</td>
+                        <td style="text-align: right; color: #6b7280; font-weight: 600;">{{ __('pdf.status') }}:</td>
                         <td style="text-align: right;">
                             @php
                                 $statusColors = [

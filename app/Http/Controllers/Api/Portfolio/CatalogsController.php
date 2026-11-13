@@ -365,7 +365,7 @@ class CatalogsController extends Controller
 
                 return [$url, $res];
             }
-            abort(422, 'Too many redirects.');
+            abort(422, __('Too many redirects.'));
         };
         [$url, $res] = $fetch($url);
         if (str_contains(strtolower((string) $res->header('Content-Type')), 'text/html')

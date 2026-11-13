@@ -425,7 +425,7 @@ class ExpensesController extends BaseController
         }
 
         return response()->json([
-            'message' => 'Documents uploaded successfully',
+            'message' => __('Documents uploaded successfully'),
             'documents' => $uploadedDocuments,
             'status' => true,
         ]);
@@ -443,7 +443,7 @@ class ExpensesController extends BaseController
 
         if (! $document) {
             return response()->json([
-                'message' => 'Document not found in database',
+                'message' => __('Document not found in database'),
                 'status' => false,
             ], 404);
         }
@@ -452,7 +452,7 @@ class ExpensesController extends BaseController
 
         if (! file_exists($filePath)) {
             return response()->json([
-                'message' => 'Physical file not found on server',
+                'message' => __('Physical file not found on server'),
                 'status' => false,
                 'path' => $document->path,
             ], 404);
@@ -473,7 +473,7 @@ class ExpensesController extends BaseController
 
         if (! $document) {
             return response()->json([
-                'message' => 'Document not found',
+                'message' => __('Document not found'),
                 'status' => false,
             ], 404);
         }
@@ -490,7 +490,7 @@ class ExpensesController extends BaseController
         }
 
         return response()->json([
-            'message' => 'Document deleted successfully',
+            'message' => __('Document deleted successfully'),
             'status' => true,
         ]);
     }

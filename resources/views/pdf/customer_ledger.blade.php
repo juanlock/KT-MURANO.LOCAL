@@ -425,7 +425,7 @@
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="5" class="right">Total Payments</td>
+        <td colspan="5" class="right">{{ __('pdf.total_payments') }}</td>
         <td class="right">{{ formatPrice($paymentsSum, 2, $priceFormat) }}</td>
       </tr>
     </tfoot>

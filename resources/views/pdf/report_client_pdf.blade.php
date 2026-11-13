@@ -152,7 +152,7 @@
 
     <!-- Footer -->
     <div style="margin-top: 20px; padding-top: 10px; border-top: 2px solid #e5e7eb; text-align: center;">
-        <p style="font-size: 9pt; color: #6366f1; font-weight: bold; margin: 0;">Customer Sales Report</p>
+        <p style="font-size: 9pt; color: #6366f1; font-weight: bold; margin: 0;">{{ __('Customer Sales Report') }}</p>
     </div>
 </body>
 </html>

@@ -231,7 +231,7 @@ class PortalStatementController extends Controller
     private function assertPortalActive($portalClient): void
     {
         if ((int) $portalClient->status !== 1) {
-            abort(403, 'Portal access is disabled');
+            abort(403, __('Portal access is disabled'));
         }
     }
 }

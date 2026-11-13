@@ -477,7 +477,7 @@ class ContractController extends Controller
         $att = ContractAttachment::where('contract_id', $contractId)->findOrFail($attachmentId);
         $path = $att->absolutePath();
         if (!file_exists($path)) {
-            return response()->json(['message' => 'File not found'], 404);
+            return response()->json(['message' => __('File not found')], 404);
         }
         return response()->download($path, $att->file_name);
     }

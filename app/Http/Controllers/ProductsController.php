@@ -2957,7 +2957,7 @@ class ProductsController extends BaseController
         $posSetting = \App\Models\PosSetting::forCompany(\App\Support\CompanyFiles::actingCompanyId());
         if (! $posSetting || ! $posSetting->label_printer_enabled) {
             return response()->json(['success' => false, 'configured' => false,
-                'message' => 'Direct label printing is not enabled.'], 422);
+                'message' => __('Direct label printing is not enabled.')], 422);
         }
 
         // The SIZE command must describe the physical sticker, or the printer
@@ -3396,7 +3396,7 @@ class ProductsController extends BaseController
         }));
 
         if (empty($rows)) {
-            return response()->json(['status' => false, 'message' => 'The imported file is empty.']);
+            return response()->json(['status' => false, 'message' => __('The imported file is empty.')]);
         }
 
         // Scoped by company -- otherwise a newly-imported product gets an
@@ -3433,7 +3433,7 @@ class ProductsController extends BaseController
             $minPrice = $row['min_price'] ?? null;
 
             if (! $name) {
-                return response()->json(['status' => false, 'message' => 'Product name is missing.']);
+                return response()->json(['status' => false, 'message' => __('Product name is missing.')]);
             }
             if (! $code) {
                 return response()->json(['status' => false, 'message' => "Product \"$name\" has no code."]);
@@ -3612,7 +3612,7 @@ class ProductsController extends BaseController
         }));
 
         if (empty($rows)) {
-            return response()->json(['status' => false, 'message' => 'The imported file is empty.']);
+            return response()->json(['status' => false, 'message' => __('The imported file is empty.')]);
         }
 
         // Scoped by company -- otherwise a newly-imported service gets an
@@ -3643,7 +3643,7 @@ class ProductsController extends BaseController
             $minPrice = $row['min_price'] ?? null;
 
             if (! $name) {
-                return response()->json(['status' => false, 'message' => 'Service name is missing.']);
+                return response()->json(['status' => false, 'message' => __('Service name is missing.')]);
             }
             if (! $code) {
                 return response()->json(['status' => false, 'message' => "Service \"$name\" has no code."]);
@@ -3803,7 +3803,7 @@ class ProductsController extends BaseController
             return false;
         }));
         if (empty($rows)) {
-            return response()->json(['status' => false, 'message' => 'The imported file is empty.']);
+            return response()->json(['status' => false, 'message' => __('The imported file is empty.')]);
         }
 
         // ---- helpers ----
@@ -3873,7 +3873,7 @@ class ProductsController extends BaseController
             // Optional "type" must be is_variant if present
             $type = $firstVal($r, ['type'], null);
             if ($type !== null && strtolower($type) !== 'is_variant') {
-                return response()->json(['status' => false, 'message' => 'File contains non-variant rows. Use the single-products importer for those.']);
+                return response()->json(['status' => false, 'message' => __('File contains non-variant rows. Use the single-products importer for those.')]);
             }
 
             // Your headers (then sanitize)
@@ -3893,7 +3893,7 @@ class ProductsController extends BaseController
 
             // Required checks (same logic, now on sanitized values)
             if ($parentName === '') {
-                return response()->json(['status' => false, 'message' => 'Parent product name is missing.']);
+                return response()->json(['status' => false, 'message' => __('Parent product name is missing.')]);
             }
             if ($parentCode === '') {
                 return response()->json(['status' => false, 'message' => "Parent product \"$parentName\" has no parent code."]);
@@ -4187,7 +4187,7 @@ class ProductsController extends BaseController
         }));
 
         if (empty($rows)) {
-            return response()->json(['status' => false, 'message' => 'The imported file is empty.']);
+            return response()->json(['status' => false, 'message' => __('The imported file is empty.')]);
         }
 
         $updated = 0;
@@ -4264,7 +4264,7 @@ class ProductsController extends BaseController
         if ($updated === 0 && count($notFound) === 0 && count($errors) === 0) {
             return response()->json([
                 'status' => false,
-                'message' => 'No products were updated. Please check your file format.',
+                'message' => __('No products were updated. Please check your file format.'),
             ]);
         }
 
@@ -4555,7 +4555,7 @@ class ProductsController extends BaseController
 
         $rows = Excel::toArray(new OpeningStockRowsImport, $request->file('products'))[0] ?? [];
         if (empty($rows)) {
-            return response()->json(['status' => false, 'message' => 'The imported file is empty.', 'errors' => ['The imported file is empty.']]);
+            return response()->json(['status' => false, 'message' => __('The imported file is empty.'), 'errors' => ['The imported file is empty.']]);
         }
 
         // Normalize keys expected: product_code, qty
@@ -4697,7 +4697,7 @@ class ProductsController extends BaseController
 
         $rows = Excel::toArray(new OpeningStockRowsImport, $request->file('products'))[0] ?? [];
         if (empty($rows)) {
-            return response()->json(['status' => false, 'message' => 'The imported file is empty.', 'errors' => ['The imported file is empty.']]);
+            return response()->json(['status' => false, 'message' => __('The imported file is empty.'), 'errors' => ['The imported file is empty.']]);
         }
 
         // Expected keys: product_code, variant_code, qty

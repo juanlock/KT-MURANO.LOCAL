@@ -11190,7 +11190,7 @@ public function draftInvoices(Request $request)
             || in_array('view_batches', $perms, true)
             || in_array('batch_view', $perms, true);
         if (! $allowed) {
-            abort(403, 'Permission denied: expiry_report');
+            abort(403, __('Permission denied: expiry_report'));
         }
 
         $perPage = (int) ($request->input('limit', 10));

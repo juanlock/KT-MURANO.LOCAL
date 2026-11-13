@@ -341,7 +341,7 @@ class UserController extends BaseController
         $this->validate($request, ['pin' => 'nullable|digits_between:4,8'], ['pin.digits_between' => 'The PIN must be 4 to 8 digits.']);
         if ($request->filled('pin') && User::pinTaken($companyId, $request['pin'])) {
             return response()->json([
-                'message' => 'This PIN is already used by another user of this company.',
+                'message' => __('This PIN is already used by another user of this company.'),
                 'errors' => ['pin' => ['This PIN is already used by another user of this company.']],
             ], 422);
         }
@@ -365,7 +365,7 @@ class UserController extends BaseController
             ], 422);
         }
         if ($type === 'SuperAdmin' && optional($request->user('api'))->type !== 'SuperAdmin') {
-            abort(403, 'Only a SuperAdmin can create a SuperAdmin user.');
+            abort(403, __('Only a SuperAdmin can create a SuperAdmin user.'));
         }
 
         // employee/customer/sales_agent users get their role auto-assigned
@@ -387,7 +387,7 @@ class UserController extends BaseController
             $roleId = \App\Support\CompanyRoles::ensure($companyId, \App\Support\CompanyRoles::SUPERADMIN);
         } elseif (in_array(Role::whereKey($roleId)->value('name'), \App\Support\CompanyRoles::SUPERADMIN_NAMES, true)) {
             return response()->json([
-                'message' => 'The SuperAdmin role is only for SuperAdmin users.',
+                'message' => __('The SuperAdmin role is only for SuperAdmin users.'),
                 'errors' => ['role' => ['The SuperAdmin role is only for SuperAdmin users.']],
             ], 422);
         }
@@ -588,14 +588,14 @@ class UserController extends BaseController
             unset($prefs[$data['key']]);
         } else {
             if (strlen(json_encode($request->input('value'))) > 20000) {
-                return response()->json(['message' => 'Preference value too large.'], 422);
+                return response()->json(['message' => __('Preference value too large.')], 422);
             }
             $prefs[$data['key']] = $request->input('value');
         }
 
         $encoded = json_encode((object) $prefs);
         if (strlen($encoded) > 200000) {
-            return response()->json(['message' => 'Too many saved preferences.'], 422);
+            return response()->json(['message' => __('Too many saved preferences.')], 422);
         }
 
         $user->ui_preferences = $encoded;
@@ -715,7 +715,7 @@ class UserController extends BaseController
         ]);
         if ($request->filled('pin') && User::pinTaken($targetCompanyId, $request['pin'], $id)) {
             return response()->json([
-                'message' => 'This PIN is already used by another user of this company.',
+                'message' => __('This PIN is already used by another user of this company.'),
                 'errors' => ['pin' => ['This PIN is already used by another user of this company.']],
             ], 422);
         }
@@ -738,7 +738,7 @@ class UserController extends BaseController
             $linked = \App\Support\AdminLogins::linked((int) $id);
             if ($linked && $request->input('make_admin') !== 'release') {
                 return response()->json([
-                    'message' => 'This login belongs to a record: an admin login cannot. Remove that record to make it an admin, or keep it with its own role.',
+                    'message' => __('This login belongs to a record: an admin login cannot. Remove that record to make it an admin, or keep it with its own role.'),
                     'code' => 'admin_linked', 'linked' => $linked,
                 ], 409);
             }
@@ -869,7 +869,7 @@ class UserController extends BaseController
     {
         if (optional($actingUser)->type !== 'SuperAdmin'
             && User::whereKey($targetId)->value('type') === 'SuperAdmin') {
-            abort(403, 'Only a SuperAdmin can change a SuperAdmin user.');
+            abort(403, __('Only a SuperAdmin can change a SuperAdmin user.'));
         }
     }
 
@@ -1008,7 +1008,7 @@ class UserController extends BaseController
         if ($id == $user->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'You cannot delete your own account.',
+                'message' => __('You cannot delete your own account.'),
             ], 403);
         }
 

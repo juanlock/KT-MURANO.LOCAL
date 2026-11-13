@@ -21,6 +21,8 @@ class MeetingReminderNotification extends Notification implements ShouldQueue
     public function __construct(Meeting $meeting)
     {
         $this->meeting = $meeting;
+        // Sent from the queue: the company's language (2026-11-13).
+        $this->locale = optional(Setting::forCompany((int) $meeting->company_id ?: null))->default_language ?: null;
     }
 
     public function via($notifiable)
@@ -43,14 +45,14 @@ class MeetingReminderNotification extends Notification implements ShouldQueue
 
         $url = url('/app/meeting/details/' . $this->meeting->id);
 
-        $subject = __('messages.Meeting reminder') . ': ' . $this->meeting->title;
-        $body = __('messages.This is a reminder for your upcoming meeting.') . '<br><br>'
+        $subject = __('Meeting reminder') . ': ' . $this->meeting->title;
+        $body = __('This is a reminder for your upcoming meeting.') . '<br><br>'
             . '<strong>' . $this->meeting->title . '</strong><br>'
-            . __('messages.When') . ': ' . $this->whenText() . '<br>'
+            . __('When') . ': ' . $this->whenText() . '<br>'
             . ($this->meeting->type === 'online'
-                ? __('messages.Link') . ': ' . ($this->meeting->meeting_link ?: '—') . '<br>'
-                : __('messages.Location') . ': ' . ($this->meeting->location ?: '—') . '<br>')
-            . '<br><a href="' . $url . '">' . __('messages.View meeting') . '</a>';
+                ? __('Link') . ': ' . ($this->meeting->meeting_link ?: '—') . '<br>'
+                : __('Location') . ': ' . ($this->meeting->location ?: '—') . '<br>')
+            . '<br><a href="' . $url . '">' . __('View meeting') . '</a>';
 
         return (new CustomEmail([
             'subject'      => $subject,
@@ -66,7 +68,7 @@ class MeetingReminderNotification extends Notification implements ShouldQueue
             'meeting_id'   => $this->meeting->id,
             'title'        => $this->meeting->title,
             'meeting_when' => $this->whenText(),
-            'message'      => __('messages.Meeting reminder') . ': ' . $this->meeting->title . ' – ' . $this->whenText(),
+            'message'      => __('Meeting reminder') . ': ' . $this->meeting->title . ' – ' . $this->whenText(),
         ];
     }
 }

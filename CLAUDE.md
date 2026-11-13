@@ -237,8 +237,12 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
 
 The monitoring has been tested with simulated GPS only: try it on a real phone with a real trip before the 15th.
 
-Not reviewed yet: PDFs other than the invoice, about 60 store / meeting messages without Spanish, the customer portal, a real
-send of the meeting and asset emails. (Production's `.env` has no `QUEUE_FAILED_DRIVER`: the default `database-uuids` applies and
+Spanish review (2026-11-13): PDFs, the customer portal (485 texts) and the server's messages are done. **The API answers in the
+screen's language:** the SPA sends `X-Locale` (`lib/http.js`, from `<html lang>`), `App\Http\Middleware\SetApiLocale` applies it, so
+`__('English text')` in a controller + its row in `resources/lang/es.json` (and Laravel's validation messages) reach a Spanish screen in
+Spanish -- a new controller message is written that way. Queued notifications set `$this->locale` to the company's `default_language`
+(meetings, asset validation). Left out: the online store's messages (Turismo has no store) and hospital / school / MRP / integrations /
+SuperAdmin-only screens. Not tried yet: a real send of the meeting and asset emails. (Production's `.env` has no `QUEUE_FAILED_DRIVER`: the default `database-uuids` applies and
 its `failed_jobs` table has the `uuid` column -- checked 2026-11-10; writing `QUEUE_FAILED_DRIVER=database-uuids` only makes it explicit.)
 
 ## The Product & its Architecture

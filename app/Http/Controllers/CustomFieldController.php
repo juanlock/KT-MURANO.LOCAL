@@ -52,7 +52,7 @@ class CustomFieldController extends BaseController
             if (!is_array($options)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Default value for select field must be a valid JSON array',
+                    'message' => __('Default value for select field must be a valid JSON array'),
                 ], 422);
             }
         }
@@ -108,7 +108,7 @@ class CustomFieldController extends BaseController
             if (!is_array($options)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Default value for select field must be a valid JSON array',
+                    'message' => __('Default value for select field must be a valid JSON array'),
                 ], 422);
             }
         }

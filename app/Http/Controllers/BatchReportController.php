@@ -282,7 +282,7 @@ class BatchReportController extends BaseController
         if (! $this->reportAllWarehouses()) {
             $accessible = $this->reportWarehouseIdList();
             if (! in_array($batch->warehouse_id, $accessible, true)) {
-                abort(403, 'Location restriction.');
+                abort(403, __('Location restriction.'));
             }
         }
 
@@ -345,7 +345,7 @@ class BatchReportController extends BaseController
             || in_array('expiry_report', $perms, true);
 
         if (! $allowed) {
-            abort(403, 'Permission denied: batch reports require Batch_Register_Report.');
+            abort(403, __('Permission denied: batch reports require Batch_Register_Report.'));
         }
     }
 }

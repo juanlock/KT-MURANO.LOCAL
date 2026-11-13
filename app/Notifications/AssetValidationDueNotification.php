@@ -28,6 +28,8 @@ class AssetValidationDueNotification extends Notification implements ShouldQueue
     public function __construct(Asset $asset)
     {
         $this->asset = $asset;
+        // Sent from the queue: the company's language (2026-11-13).
+        $this->locale = optional(Setting::forCompany($this->companyId()))->default_language ?: null;
     }
 
     /**
@@ -83,11 +85,11 @@ class AssetValidationDueNotification extends Notification implements ShouldQueue
         $emailMessage = EmailMessage::getForLocale('asset_validation_due', null, $this->companyId());
         $tags = $this->getReplacementTags();
 
-        $subject = __('messages.Asset validation due') . ': ' . $tags['{asset_name}'];
-        $body = __('messages.The following asset is due for validation (or is overdue). Please verify the tool or equipment.') . '<br><br>'
-            . __('messages.Asset') . ': ' . $tags['{asset_name}'] . ' (' . $tags['{asset_tag}'] . ')<br>'
-            . __('messages.Next validation date') . ': ' . $tags['{next_validation}'] . '<br><br>'
-            . '<a href="' . $tags['{asset_edit_url}'] . '">' . __('messages.View asset') . '</a>';
+        $subject = __('Asset validation due') . ': ' . $tags['{asset_name}'];
+        $body = __('The following asset is due for validation (or is overdue). Please verify the tool or equipment.') . '<br><br>'
+            . __('Asset') . ': ' . $tags['{asset_name}'] . ' (' . $tags['{asset_tag}'] . ')<br>'
+            . __('Next validation date') . ': ' . $tags['{next_validation}'] . '<br><br>'
+            . '<a href="' . $tags['{asset_edit_url}'] . '">' . __('View asset') . '</a>';
 
         if ($emailMessage && (trim($emailMessage->subject ?? '') !== '' || trim($emailMessage->body ?? '') !== '')) {
             $subject = str_replace(array_keys($tags), array_values($tags), $emailMessage->subject ?? $subject);
@@ -117,7 +119,7 @@ class AssetValidationDueNotification extends Notification implements ShouldQueue
             'asset_name' => $this->asset->name,
             'asset_tag' => $this->asset->tag,
             'next_validation' => $this->asset->next_validation ? $this->asset->next_validation->format('Y-m-d') : null,
-            'message' => ($this->asset->name ?: $this->asset->tag) . ' (' . $this->asset->tag . ') – ' . ($this->asset->next_validation ? $this->asset->next_validation->format('Y-m-d') : '') . ' ' . __('messages.Next validation date'),
+            'message' => ($this->asset->name ?: $this->asset->tag) . ' (' . $this->asset->tag . ') – ' . ($this->asset->next_validation ? $this->asset->next_validation->format('Y-m-d') : '') . ' ' . __('Next validation date'),
         ];
     }
 }

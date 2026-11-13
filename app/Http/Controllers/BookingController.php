@@ -791,7 +791,7 @@ class BookingController extends BaseController
         
         // Check if already deleted
         if ($booking->trashed()) {
-            return response()->json(['success' => true, 'message' => 'Booking already deleted']);
+            return response()->json(['success' => true, 'message' => __('Booking already deleted')]);
         }
         
         $booking->delete();
@@ -919,7 +919,7 @@ class BookingController extends BaseController
 
         $id = $request->input('id');
         if (! $id) {
-            return response()->json(['message' => 'Booking ID is required.'], 422);
+            return response()->json(['message' => __('Booking ID is required.')], 422);
         }
 
         $booking = $this->bookingScope(Booking::query())->with(['customer', 'product'])
@@ -928,12 +928,12 @@ class BookingController extends BaseController
 
         $customer = $booking->customer;
         if (! $customer) {
-            return response()->json(['message' => 'Booking has no customer.'], 422);
+            return response()->json(['message' => __('Booking has no customer.')], 422);
         }
 
         $receiver_email = $customer->email;
         if (empty($receiver_email)) {
-            return response()->json(['message' => 'Customer has no email address.'], 422);
+            return response()->json(['message' => __('Customer has no email address.')], 422);
         }
 
         // Bookings have no company_id of their own -- derive it from the
@@ -984,7 +984,7 @@ class BookingController extends BaseController
 
         Mail::to($receiver_email)->send(new CustomEmail($email));
 
-        return response()->json(['message' => 'Email sent successfully.'], 200);
+        return response()->json(['message' => __('Email sent successfully.')], 200);
     }
 }
 

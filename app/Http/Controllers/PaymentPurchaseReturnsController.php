@@ -277,7 +277,7 @@ class PaymentPurchaseReturnsController extends BaseController
             }, 10);
         }
 
-        return response()->json(['success' => true, 'message' => 'Payment Create successfully'], 200);
+        return response()->json(['success' => true, 'message' => __('Payment Create successfully')], 200);
     }
 
     // ------------ function show -----------\\
@@ -371,7 +371,7 @@ class PaymentPurchaseReturnsController extends BaseController
 
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Payment Update successfully'], 200);
+        return response()->json(['success' => true, 'message' => __('Payment Update successfully')], 200);
     }
 
     // ----------- Remove Payment Purchase Return --------------\\
@@ -438,7 +438,7 @@ class PaymentPurchaseReturnsController extends BaseController
 
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Payment Delete successfully'], 200);
+        return response()->json(['success' => true, 'message' => __('Payment Delete successfully')], 200);
     }
 
     // ------------- Send Payment Purchase Return To Email -----------\\
@@ -457,7 +457,7 @@ class PaymentPurchaseReturnsController extends BaseController
         $this->Set_config_mail(); // Set_config_mail => BaseController
         Mail::to($request->to)->send(new PaymentReturn($payment, $pdf));
 
-        return response()->json(['message' => 'Email sent successfully'], 200);
+        return response()->json(['message' => __('Email sent successfully')], 200);
         // return $mail;
     }
 
@@ -592,7 +592,7 @@ class PaymentPurchaseReturnsController extends BaseController
             } catch (\Exception $e) {
                 Log::error('Termii SMS Error: '.$e->getMessage());
 
-                return response()->json(['status' => 'error', 'message' => 'Failed to send SMS'], 500);
+                return response()->json(['status' => 'error', 'message' => __('Failed to send SMS')], 500);
             }
 
         }

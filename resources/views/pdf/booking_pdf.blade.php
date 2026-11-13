@@ -70,7 +70,7 @@
                 <div style="display: inline-block; background: #f3f4f6; padding: 5px 12px; border-radius: 4px; font-size: 10pt; font-weight: bold; color: #4b5563; margin-bottom: 8px;">{{$booking['Ref'] ?? '#'.$booking['id']}}</div>
                 <table style="width: 100%; font-size: 8pt; margin-top: 6px;" cellpadding="3" cellspacing="0">
                     <tr>
-                        <td style="text-align: right; color: #6b7280; font-weight: 600;">Date:</td>
+                        <td style="text-align: right; color: #6b7280; font-weight: 600;">{{ __('pdf.date') }}:</td>
                         <td style="text-align: right; color: #1f2937; font-weight: 500;">
                             @php
                                 $dateFormat = $setting['date_format'] ?? 'YYYY-MM-DD';
@@ -176,7 +176,7 @@
                 </td>
             </tr>
             <tr style="border-bottom: 1px solid #e5e7eb; background: #ffffff;">
-                <td style="padding: 8px 10px; font-weight: 600; font-size: 8.5pt; color: #1f2937;">Booking Date</td>
+                <td style="padding: 8px 10px; font-weight: 600; font-size: 8.5pt; color: #1f2937;">{{ __('pdf.booking_date') }}</td>
                 <td style="padding: 8px 10px; text-align: right; font-size: 8.5pt; color: #1f2937;">
                     @php
                         $dateFormat = $setting['date_format'] ?? 'YYYY-MM-DD';

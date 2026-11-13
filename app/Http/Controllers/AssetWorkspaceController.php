@@ -410,13 +410,13 @@ class AssetWorkspaceController extends BaseController
             if ($asset->disposal_date) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This asset has already been disposed of.',
+                    'message' => __('This asset has already been disposed of.'),
                 ], 422);
             }
             if ($asset->purchase_date && Carbon::parse($request->disposal_date)->lt(Carbon::parse($asset->purchase_date))) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'The disposal date cannot be before the purchase date.',
+                    'message' => __('The disposal date cannot be before the purchase date.'),
                 ], 422);
             }
 
@@ -426,7 +426,7 @@ class AssetWorkspaceController extends BaseController
             if ($open) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This asset is still checked out. Check it in before disposing of it.',
+                    'message' => __('This asset is still checked out. Check it in before disposing of it.'),
                 ], 422);
             }
 

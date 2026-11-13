@@ -172,7 +172,7 @@ class UnitsController extends BaseController
             // claim the unit was deleted while it is still in the list.
             return response()->json([
                 'success' => false,
-                'message' => 'This unit cannot be deleted while sub-units still use it.',
+                'message' => __('This unit cannot be deleted while sub-units still use it.'),
             ], 422);
         }
 

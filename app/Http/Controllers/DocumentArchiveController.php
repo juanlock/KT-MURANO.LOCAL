@@ -321,7 +321,7 @@ class DocumentArchiveController extends Controller
         $path = public_path($document->file_path);
 
         if (! file_exists($path)) {
-            return response()->json(['message' => 'File not found'], 404);
+            return response()->json(['message' => __('File not found')], 404);
         }
 
         return response()->download($path, $document->file_name);
@@ -365,7 +365,7 @@ class DocumentArchiveController extends Controller
         $path = public_path($version->file_path);
 
         if (! file_exists($path)) {
-            return response()->json(['message' => 'File not found'], 404);
+            return response()->json(['message' => __('File not found')], 404);
         }
 
         return response()->download($path, $version->file_name);
@@ -472,7 +472,7 @@ class DocumentArchiveController extends Controller
         // A folder cannot be filed inside itself or one of its own descendants.
         $parentId = $request->parent_id ?: null;
         if ($parentId && in_array((int) $parentId, DocumentFolder::descendantIds($folder->id), true)) {
-            return response()->json(['message' => 'A folder cannot be moved inside itself.'], 422);
+            return response()->json(['message' => __('A folder cannot be moved inside itself.')], 422);
         }
 
         $folder->update([

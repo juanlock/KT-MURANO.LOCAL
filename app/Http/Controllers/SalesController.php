@@ -1228,7 +1228,7 @@ class SalesController extends BaseController
                 if (empty($current_Sale->warehouse_id) || ! in_array($current_Sale->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (location restriction).',
+                        'message' => __('You are not allowed to access this sale (location restriction).'),
                     ], 403);
                 }
             }
@@ -1712,7 +1712,7 @@ class SalesController extends BaseController
                     // closure -- DB::transaction() treats that as success, and the
                     // method falls through to the real success response below
                     // regardless (the record silently never gets deleted).
-                    abort(403, 'You are not allowed to access this sale (location restriction).');
+                    abort(403, __('You are not allowed to access this sale (location restriction).'));
                 }
             }
 
@@ -1722,7 +1722,7 @@ class SalesController extends BaseController
             $qboInfo['realm'] = $current->quickbooks_realm_id;
 
             if (\App\Models\SaleReturn::where('sale_id', $id)->whereNull('deleted_at')->exists()) {
-                abort(403, 'Return exists for this sale; cannot delete.');
+                abort(403, __('Return exists for this sale; cannot delete.'));
             }
 
             // Warehouse half of the same rule: record_view says whose documents,
@@ -1914,7 +1914,7 @@ class SalesController extends BaseController
             $current = Sale::with(['details.product'])->findOrFail($id);
 
             if ($current->statut !== 'pending') {
-                abort(422, 'Only a pending sale can be cancelled.');
+                abort(422, __('Only a pending sale can be cancelled.'));
             }
 
             $user_auth = auth()->user();
@@ -1924,7 +1924,7 @@ class SalesController extends BaseController
                     ->toArray();
 
                 if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
-                    abort(403, 'You are not allowed to access this sale (location restriction).');
+                    abort(403, __('You are not allowed to access this sale (location restriction).'));
                 }
             }
 
@@ -1939,7 +1939,7 @@ class SalesController extends BaseController
             // trip -- guards against cancelling a sale money was recorded
             // against by some other path.
             if ((float) $current->paid_amount > 0) {
-                abort(422, 'This sale has payments recorded; cannot cancel.');
+                abort(422, __('This sale has payments recorded; cannot cancel.'));
             }
 
             // Restore stock if the sale had somehow already been completed --
@@ -2030,7 +2030,7 @@ class SalesController extends BaseController
             $current = Sale::findOrFail($id);
 
             if ($current->statut !== 'cancelled') {
-                abort(422, 'Only a cancelled sale can be restored.');
+                abort(422, __('Only a cancelled sale can be restored.'));
             }
 
             $client = Client::find($current->client_id);
@@ -2111,7 +2111,7 @@ class SalesController extends BaseController
             if (! $user_auth->is_all_warehouses) {
                 $warehouses_id = UserWarehouse::where('user_id', $user_auth->id)->pluck('warehouse_id')->toArray();
                 if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
-                    abort(403, 'You are not allowed to access this sale (location restriction).');
+                    abort(403, __('You are not allowed to access this sale (location restriction).'));
                 }
             }
 
@@ -2215,7 +2215,7 @@ class SalesController extends BaseController
                             ->toArray();
 
                         if (empty($current_Sale->warehouse_id) || ! in_array($current_Sale->warehouse_id, $warehouses_id)) {
-                            abort(403, 'You are not allowed to access this sale (location restriction).');
+                            abort(403, __('You are not allowed to access this sale (location restriction).'));
                         }
                     }
 
@@ -2797,7 +2797,7 @@ class SalesController extends BaseController
         if (!$pos_settings || !$pos_settings->direct_network_printing) {
             return response()->json([
                 'success' => false,
-                'message' => 'Direct Network Printing is disabled.',
+                'message' => __('Direct Network Printing is disabled.'),
             ], 422);
         }
 
@@ -2807,7 +2807,7 @@ class SalesController extends BaseController
         if ($ip === '' || $port < 1 || $port > 65535) {
             return response()->json([
                 'success' => false,
-                'message' => 'Network printer IP or port is not configured.',
+                'message' => __('Network printer IP or port is not configured.'),
             ], 422);
         }
 
@@ -2929,7 +2929,7 @@ class SalesController extends BaseController
         if ($written === false) {
             return response()->json([
                 'success' => false,
-                'message' => 'Printer connection established but write failed.',
+                'message' => __('Printer connection established but write failed.'),
             ], 502);
         }
 
@@ -3189,7 +3189,7 @@ class SalesController extends BaseController
             $sale_data->save();
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Sale created successfully.']);
+        return response()->json(['success' => true, 'message' => __('Sale created successfully.')]);
     }
 
     /**
@@ -4093,7 +4093,7 @@ class SalesController extends BaseController
                 if (empty($Sale_data->warehouse_id) || ! in_array($Sale_data->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (location restriction).',
+                        'message' => __('You are not allowed to access this sale (location restriction).'),
                     ], 403);
                 }
             }
@@ -4411,7 +4411,7 @@ class SalesController extends BaseController
             if (empty($Quotation->warehouse_id) || ! in_array($Quotation->warehouse_id, $warehouses_id)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access this sale (location restriction).',
+                    'message' => __('You are not allowed to access this sale (location restriction).'),
                 ], 403);
             }
         }
@@ -5052,7 +5052,7 @@ class SalesController extends BaseController
             } catch (\Exception $e) {
                 Log::error('Termii SMS Error: '.$e->getMessage());
 
-                return response()->json(['status' => 'error', 'message' => 'Failed to send SMS'], 500);
+                return response()->json(['status' => 'error', 'message' => __('Failed to send SMS')], 500);
             }
 
         }
@@ -5154,7 +5154,7 @@ class SalesController extends BaseController
 
         // Check if the phone number is empty or null
         if (empty($receiverNumber) || $receiverNumber == null || $receiverNumber == 'null' || $receiverNumber == '') {
-            return response()->json(['error' => 'Phone number is missing'], 400);
+            return response()->json(['error' => __('Phone number is missing')], 400);
         }
 
         // replace the text with tags
@@ -5381,7 +5381,7 @@ class SalesController extends BaseController
                     ]),
                 ]);
 
-                return response()->json(['status' => 'error', 'message' => 'Failed to send SMS'], 500);
+                return response()->json(['status' => 'error', 'message' => __('Failed to send SMS')], 500);
             }
         } elseif ($default_sms_gateway->title == 'infobip') {
             $BASE_URL = env('base_url');
@@ -5482,7 +5482,7 @@ class SalesController extends BaseController
             } catch (\Exception $e) {
                 Log::error('Termii SMS Error: '.$e->getMessage());
 
-                return response()->json(['status' => 'error', 'message' => 'Failed to send SMS'], 500);
+                return response()->json(['status' => 'error', 'message' => __('Failed to send SMS')], 500);
             }
 
         } elseif ($default_sms_gateway->title == 'custom') {
@@ -5593,7 +5593,7 @@ class SalesController extends BaseController
         }
 
         return response()->json([
-            'message' => 'Documents uploaded successfully',
+            'message' => __('Documents uploaded successfully'),
             'documents' => $uploadedDocuments,
             'status' => true,
         ]);
@@ -5611,7 +5611,7 @@ class SalesController extends BaseController
 
         if (! $document) {
             return response()->json([
-                'message' => 'Document not found in database',
+                'message' => __('Document not found in database'),
                 'status' => false,
             ], 404);
         }
@@ -5628,7 +5628,7 @@ class SalesController extends BaseController
 
         if (! file_exists($filePath)) {
             return response()->json([
-                'message' => 'Physical file not found on server',
+                'message' => __('Physical file not found on server'),
                 'status' => false,
                 'path' => $document->path,
             ], 404);
@@ -5649,7 +5649,7 @@ class SalesController extends BaseController
 
         if (! $document) {
             return response()->json([
-                'message' => 'Document not found',
+                'message' => __('Document not found'),
                 'status' => false,
             ], 404);
         }
@@ -5674,7 +5674,7 @@ class SalesController extends BaseController
         }
 
         return response()->json([
-            'message' => 'Document deleted successfully',
+            'message' => __('Document deleted successfully'),
             'status' => true,
         ]);
     }

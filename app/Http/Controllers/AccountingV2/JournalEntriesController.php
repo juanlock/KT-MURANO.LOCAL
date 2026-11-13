@@ -193,7 +193,7 @@ class JournalEntriesController extends Controller
         $debit = (float) ($totals->debit ?? 0);
         $credit = (float) ($totals->credit ?? 0);
         if (round($debit - $credit, 4) !== 0.0) {
-            return response()->json(['message' => 'Entry not balanced. Add lines so debits equal credits before posting.'], 422);
+            return response()->json(['message' => __('Entry not balanced. Add lines so debits equal credits before posting.')], 422);
         }
         $entry->status = 'posted';
         $entry->posted_at = Carbon::now();
@@ -208,7 +208,7 @@ class JournalEntriesController extends Controller
 
         $entry = $this->entries($request)->with('lines')->findOrFail($id);
         if ($entry->status === 'posted') {
-            return response()->json(['message' => 'Posted entries cannot be edited. Create an adjusting entry instead.'], 422);
+            return response()->json(['message' => __('Posted entries cannot be edited. Create an adjusting entry instead.')], 422);
         }
         if ($entry->company_id) {
             $this->assertCompanyAccounts($request->get('lines', []), (int) $entry->company_id);
@@ -252,7 +252,7 @@ class JournalEntriesController extends Controller
 
         $entry = $this->entries($request)->findOrFail($id);
         if ($entry->status === 'posted') {
-            return response()->json(['message' => 'Posted entries cannot be deleted. Create a reversing entry instead.'], 422);
+            return response()->json(['message' => __('Posted entries cannot be deleted. Create a reversing entry instead.')], 422);
         }
         DB::transaction(function () use ($entry) {
             JournalEntryLine::where('journal_entry_id', $entry->id)->delete();

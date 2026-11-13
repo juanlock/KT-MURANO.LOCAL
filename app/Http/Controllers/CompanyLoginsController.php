@@ -171,7 +171,7 @@ class CompanyLoginsController extends Controller
             if ((int) $portal->status !== 1) {
                 // The admin is asked first; on yes the portal is turned on (as People -> Customers does).
                 if (! $request->boolean('enable_portal')) {
-                    return response()->json(['needs_portal' => true, 'message' => 'This customer has no portal access yet.'], 409);
+                    return response()->json(['needs_portal' => true, 'message' => __('This customer has no portal access yet.')], 409);
                 }
                 DB::table('users')->where('id', $portal->id)->update(['portal_enabled' => 1, 'invitation_token' => null, 'updated_at' => now()]);
                 $portal = \App\Models\PortalClient::find($target->id);

@@ -74,11 +74,11 @@ class PosController extends BaseController
     {
         $pin = trim((string) $request->input('sale_pin', ''));
         if ($pin === '') {
-            return response()->json(['success' => false, 'code' => 'sale_pin_required', 'message' => 'Type the PIN of who is making this sale.'], 422);
+            return response()->json(['success' => false, 'code' => 'sale_pin_required', 'message' => __('Type the PIN of who is making this sale.')], 422);
         }
         $key = 'pos_sale_pin_fail:'.Auth::id();
         if ((int) \Illuminate\Support\Facades\Cache::get($key, 0) >= 5) {
-            return response()->json(['success' => false, 'code' => 'sale_pin_locked', 'message' => 'Too many wrong PINs. Wait a minute and try again.'], 429);
+            return response()->json(['success' => false, 'code' => 'sale_pin_locked', 'message' => __('Too many wrong PINs. Wait a minute and try again.')], 429);
         }
         $companyId = (int) \App\Models\Warehouse::whereKey((int) $request->warehouse_id)->value('company_id');
         $owner = User::where('company_id', $companyId)->where('pin', $pin)
@@ -86,7 +86,7 @@ class PosController extends BaseController
         if (! $owner || ! $owner->pinMatches($pin)) {
             \Illuminate\Support\Facades\Cache::put($key, (int) \Illuminate\Support\Facades\Cache::get($key, 0) + 1, now()->addMinute());
 
-            return response()->json(['success' => false, 'code' => 'wrong_pin', 'message' => 'Wrong PIN. Nobody in this company has that PIN.'], 422);
+            return response()->json(['success' => false, 'code' => 'wrong_pin', 'message' => __('Wrong PIN. Nobody in this company has that PIN.')], 422);
         }
         \Illuminate\Support\Facades\Cache::forget($key);
         $userId = (int) $owner->id;
@@ -377,7 +377,7 @@ class PosController extends BaseController
             if (! $hasOpenRegister) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Open a cash register before making sales (Defaults -> POS requires an open register).',
+                    'message' => __('Open a cash register before making sales (Defaults -> POS requires an open register).'),
                 ], 422);
             }
         }
@@ -414,7 +414,7 @@ class PosController extends BaseController
         $totalPaid = collect($request->payments)->sum('amount');
         if (count($request->payments) > 1 && $totalPaid > $request->GrandTotal) {
             return response()->json([
-                'message' => 'Total Paid Exceeds Grand Total',
+                'message' => __('Total Paid Exceeds Grand Total'),
                 'change_return' => $totalPaid - $request->GrandTotal,
             ], 422);
         }
@@ -1136,7 +1136,7 @@ class PosController extends BaseController
         // Sent + recorded on the sale as a POS receipt (sale_email_logs).
         \App\Services\SaleEmailLog::send($sale, 'receipt', [$receiver_email], $email);
 
-        return response()->json(['message' => 'Email sent successfully'], 200);
+        return response()->json(['message' => __('Email sent successfully')], 200);
 
     }
 
@@ -1262,7 +1262,7 @@ class PosController extends BaseController
             } catch (\Exception $e) {
                 Log::error('Termii SMS Error: '.$e->getMessage());
 
-                return response()->json(['status' => 'error', 'message' => 'Failed to send SMS'], 500);
+                return response()->json(['status' => 'error', 'message' => __('Failed to send SMS')], 500);
             }
 
         } elseif ($default_sms_gateway->title == 'custom') {

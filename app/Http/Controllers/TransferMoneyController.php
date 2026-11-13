@@ -92,7 +92,7 @@ class TransferMoneyController extends BaseController
 
         // Additional check if from_account_id and to_account_id are not the same
         if ($request->from_account_id === $request->to_account_id) {
-            return response()->json(['error' => 'Account From and to account cannot be the same.'], 400);
+            return response()->json(['error' => __('Account From and to account cannot be the same.')], 400);
         }
 
         // Retrieve account balances
@@ -101,7 +101,7 @@ class TransferMoneyController extends BaseController
 
         // Check if from_account has enough balance
         if ($from_account->balance < $request->amount) {
-            return response()->json(['error' => 'Insufficient balance in the from account.'], 400);
+            return response()->json(['error' => __('Insufficient balance in the from account.')], 400);
         }
 
         \DB::transaction(function () use ($request, $from_account, $to_account) {
@@ -153,12 +153,12 @@ class TransferMoneyController extends BaseController
 
         // Additional check if from_account_id and to_account_id are not the same
         if ($request->from_account_id === $request->to_account_id) {
-            return response()->json(['error' => 'Account From and to account cannot be the same.'], 400);
+            return response()->json(['error' => __('Account From and to account cannot be the same.')], 400);
         }
 
         // Check if from_account has enough balance
         if (($from_account->balance + $transfer->amount) < $request->amount) {
-            return response()->json(['error' => 'Insufficient balance in the from account.'], 400);
+            return response()->json(['error' => __('Insufficient balance in the from account.')], 400);
         }
 
         \DB::transaction(function () use ($request, $from_account, $to_account, $transfer) {

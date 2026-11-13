@@ -74,6 +74,10 @@ async function request(method, url, { params, body, formData, raw } = {}) {
         'X-Requested-With': 'XMLHttpRequest',
         ...csrfHeaders(),
     };
+    // The language the screen is showing (set on <html lang> by i18n): the
+    // server's messages answer in it (SetApiLocale).
+    const lang = document.documentElement.getAttribute('lang');
+    if (lang) headers['X-Locale'] = lang.slice(0, 2);
     let payload;
     if (formData) {
         payload = formData;

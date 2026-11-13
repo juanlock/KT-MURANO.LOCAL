@@ -390,7 +390,7 @@ class AdjustmentController extends BaseController
             if (empty($current_adjustment->warehouse_id) || ! in_array($current_adjustment->warehouse_id, $warehouses_id)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access this sale (location restriction).',
+                    'message' => __('You are not allowed to access this sale (location restriction).'),
                 ], 403);
             }
         }
@@ -776,7 +776,7 @@ class AdjustmentController extends BaseController
                 if (empty($current_adjustment->warehouse_id) || ! in_array($current_adjustment->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (location restriction).',
+                        'message' => __('You are not allowed to access this sale (location restriction).'),
                     ], 403);
                 }
             }
@@ -1057,7 +1057,7 @@ class AdjustmentController extends BaseController
             if (empty($Adjustment_data->warehouse_id) || ! in_array($Adjustment_data->warehouse_id, $warehouses_id)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access this sale (location restriction).',
+                    'message' => __('You are not allowed to access this sale (location restriction).'),
                 ], 403);
             }
         }

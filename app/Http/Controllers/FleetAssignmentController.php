@@ -91,7 +91,7 @@ class FleetAssignmentController extends Controller
 
         if ($request->status === 'active' && $this->hasActiveAssignment($request->vehicle_id)) {
             return response()->json([
-                'message' => 'This vehicle is already assigned. Close the open assignment first.',
+                'message' => __('This vehicle is already assigned. Close the open assignment first.'),
             ], 422);
         }
 
@@ -114,7 +114,7 @@ class FleetAssignmentController extends Controller
 
         if ($request->status === 'active' && $this->hasActiveAssignment($request->vehicle_id, $assignment->id)) {
             return response()->json([
-                'message' => 'This vehicle is already assigned. Close the open assignment first.',
+                'message' => __('This vehicle is already assigned. Close the open assignment first.'),
             ], 422);
         }
 

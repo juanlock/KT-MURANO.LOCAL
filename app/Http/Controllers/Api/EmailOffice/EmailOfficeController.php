@@ -214,7 +214,7 @@ class EmailOfficeController extends Controller
                     $s->forceFill(['full_import' => $state])->save();
                     break;
                 default:
-                    abort(422, 'Unknown action.');
+                    abort(422, __('Unknown action.'));
             }
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             throw $e;

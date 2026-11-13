@@ -42,7 +42,7 @@ class ModuleSettingsController extends Controller
         $module = Module::find($request->name);
 
         if (!$module) {
-            return response()->json(['message' => 'Module not found'], 404);
+            return response()->json(['message' => __('Module not found')], 404);
         }
 
         if ($request->status) {
@@ -51,7 +51,7 @@ class ModuleSettingsController extends Controller
             $module->disable();
         }
 
-        return response()->json(['message' => 'Module status updated']);
+        return response()->json(['message' => __('Module status updated')]);
     }
 
     public function upload_module(Request $request)
@@ -77,7 +77,7 @@ class ModuleSettingsController extends Controller
             $zip->close();
         } else {
             File::deleteDirectory($tmpPath);
-            return response()->json(['message' => 'Failed to extract zip'], 422);
+            return response()->json(['message' => __('Failed to extract zip')], 422);
         }
 
         // Find the module.json to identify the module
@@ -90,7 +90,7 @@ class ModuleSettingsController extends Controller
                 $sourceDir = $tmpPath;
             } else {
                 File::deleteDirectory($tmpPath);
-                return response()->json(['message' => 'Invalid module: module.json not found'], 422);
+                return response()->json(['message' => __('Invalid module: module.json not found')], 422);
             }
         }
 
@@ -99,7 +99,7 @@ class ModuleSettingsController extends Controller
 
         if (!$moduleName) {
             File::deleteDirectory($tmpPath);
-            return response()->json(['message' => 'Invalid module.json'], 422);
+            return response()->json(['message' => __('Invalid module.json')], 422);
         }
 
         $targetPath = $modulesPath . '/' . $moduleName;
@@ -118,6 +118,6 @@ class ModuleSettingsController extends Controller
             $module->enable();
         }
 
-        return response()->json(['message' => 'Module uploaded successfully']);
+        return response()->json(['message' => __('Module uploaded successfully')]);
     }
 }

@@ -393,7 +393,7 @@ class PurchasesController extends BaseController
                 ->update(['linked_type' => 'purchase', 'linked_id' => $newId, 'party_type' => 'provider', 'party_id' => (int) $request->supplier_id]);
         }
 
-        return response()->json(['success' => true, 'message' => 'Purchase Created !!', 'id' => $newId]);
+        return response()->json(['success' => true, 'message' => __('Purchase Created !!'), 'id' => $newId]);
     }
 
     /**
@@ -458,7 +458,7 @@ class PurchasesController extends BaseController
                 if (empty($current_Purchase->warehouse_id) || ! in_array($current_Purchase->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (location restriction).',
+                        'message' => __('You are not allowed to access this sale (location restriction).'),
                     ], 403);
                 }
             }
@@ -711,7 +711,7 @@ class PurchasesController extends BaseController
 
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Purchase Updated !!']);
+        return response()->json(['success' => true, 'message' => __('Purchase Updated !!')]);
 
     }
 
@@ -753,14 +753,14 @@ class PurchasesController extends BaseController
                     // closure -- DB::transaction() treats that as success, and the
                     // method falls through to the real success response below
                     // regardless (the record silently never gets deleted).
-                    abort(403, 'You are not allowed to access this purchase (location restriction).');
+                    abort(403, __('You are not allowed to access this purchase (location restriction).'));
                 }
             }
 
             $old_purchase_details = PurchaseDetail::where('purchase_id', $id)->get();
 
             if (PurchaseReturn::where('purchase_id', $id)->where('deleted_at', '=', null)->exists()) {
-                abort(403, 'Return exists for this purchase; cannot delete.');
+                abort(403, __('Return exists for this purchase; cannot delete.'));
             } else {
 
                 // Check If User Has Permission view All Records
@@ -857,7 +857,7 @@ class PurchasesController extends BaseController
 
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Purchase Deleted !!']);
+        return response()->json(['success' => true, 'message' => __('Purchase Deleted !!')]);
     }
 
     // -------------- Cancel (pending-only, non-destructive) ---------------\\
@@ -891,7 +891,7 @@ class PurchasesController extends BaseController
             $current = Purchase::with('details')->findOrFail($id);
 
             if ($current->statut !== 'pending') {
-                abort(422, 'Only a pending purchase can be cancelled.');
+                abort(422, __('Only a pending purchase can be cancelled.'));
             }
 
             $user_auth = auth()->user();
@@ -901,7 +901,7 @@ class PurchasesController extends BaseController
                     ->toArray();
 
                 if (empty($current->warehouse_id) || ! in_array($current->warehouse_id, $warehouses_id)) {
-                    abort(403, 'You are not allowed to access this purchase (location restriction).');
+                    abort(403, __('You are not allowed to access this purchase (location restriction).'));
                 }
             }
 
@@ -912,7 +912,7 @@ class PurchasesController extends BaseController
             }
 
             if ((float) $current->paid_amount > 0) {
-                abort(422, 'This purchase has payments recorded; cannot cancel.');
+                abort(422, __('This purchase has payments recorded; cannot cancel.'));
             }
 
             // Reverse warehouse stock if the purchase had somehow already been
@@ -977,7 +977,7 @@ class PurchasesController extends BaseController
             $current = Purchase::findOrFail($id);
 
             if ($current->statut !== 'cancelled') {
-                abort(422, 'Only a cancelled purchase can be restored.');
+                abort(422, __('Only a cancelled purchase can be restored.'));
             }
 
             $current->update(['statut' => 'pending']);
@@ -1033,7 +1033,7 @@ class PurchasesController extends BaseController
                             ->toArray();
 
                         if (empty($current_Purchase->warehouse_id) || ! in_array($current_Purchase->warehouse_id, $warehouses_id)) {
-                            abort(403, 'You are not allowed to access this purchase (location restriction).');
+                            abort(403, __('You are not allowed to access this purchase (location restriction).'));
                         }
                     }
 
@@ -1128,7 +1128,7 @@ class PurchasesController extends BaseController
 
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Purchase Deleted !!']);
+        return response()->json(['success' => true, 'message' => __('Purchase Deleted !!')]);
 
     }
 
@@ -1707,7 +1707,7 @@ class PurchasesController extends BaseController
                 if (empty($Purchase_data->warehouse_id) || ! in_array($Purchase_data->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (location restriction).',
+                        'message' => __('You are not allowed to access this sale (location restriction).'),
                     ], 403);
                 }
             }
@@ -2319,7 +2319,7 @@ class PurchasesController extends BaseController
             } catch (\Exception $e) {
                 Log::error('Termii SMS Error: '.$e->getMessage());
 
-                return response()->json(['status' => 'error', 'message' => 'Failed to send SMS'], 500);
+                return response()->json(['status' => 'error', 'message' => __('Failed to send SMS')], 500);
             }
 
         }
@@ -2416,7 +2416,7 @@ class PurchasesController extends BaseController
 
         // Check if the phone number is empty or null
         if (empty($receiverNumber) || $receiverNumber == null || $receiverNumber == 'null' || $receiverNumber == '') {
-            return response()->json(['error' => 'Phone number is missing'], 400);
+            return response()->json(['error' => __('Phone number is missing')], 400);
         }
 
         // replace the text with tags
@@ -2637,7 +2637,7 @@ class PurchasesController extends BaseController
 
         }, 10);
 
-        return response()->json(['success' => true, 'message' => 'Purchase Created !!']);
+        return response()->json(['success' => true, 'message' => __('Purchase Created !!')]);
     }
 
     // import Products
@@ -2828,7 +2828,7 @@ class PurchasesController extends BaseController
         }
 
         return response()->json([
-            'message' => 'Documents uploaded successfully',
+            'message' => __('Documents uploaded successfully'),
             'documents' => $uploadedDocuments,
             'status' => true
         ]);
@@ -2846,7 +2846,7 @@ class PurchasesController extends BaseController
 
         if (!$document) {
             return response()->json([
-                'message' => 'Document not found in database',
+                'message' => __('Document not found in database'),
                 'status' => false
             ], 404);
         }
@@ -2863,7 +2863,7 @@ class PurchasesController extends BaseController
 
         if (!file_exists($filePath)) {
             return response()->json([
-                'message' => 'Physical file not found on server',
+                'message' => __('Physical file not found on server'),
                 'status' => false,
                 'path' => $document->path
             ], 404);
@@ -2884,7 +2884,7 @@ class PurchasesController extends BaseController
 
         if (!$document) {
             return response()->json([
-                'message' => 'Document not found',
+                'message' => __('Document not found'),
                 'status' => false
             ], 404);
         }
@@ -2909,7 +2909,7 @@ class PurchasesController extends BaseController
         }
 
         return response()->json([
-            'message' => 'Document deleted successfully',
+            'message' => __('Document deleted successfully'),
             'status' => true
         ]);
     }

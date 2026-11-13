@@ -229,7 +229,7 @@ class ProductBatchController extends BaseController
         $this->ensureWarehouseAccess((int) $batch->warehouse_id);
 
         if ($batch->status === 'written_off') {
-            return response()->json(['success' => true, 'message' => 'Already written off']);
+            return response()->json(['success' => true, 'message' => __('Already written off')]);
         }
 
         DB::transaction(function () use ($batch, $request) {
@@ -248,7 +248,7 @@ class ProductBatchController extends BaseController
             $batch->save();
         });
 
-        return response()->json(['success' => true, 'message' => 'Batch written off']);
+        return response()->json(['success' => true, 'message' => __('Batch written off')]);
     }
 
     /**
@@ -377,7 +377,7 @@ class ProductBatchController extends BaseController
             return;
         }
         if (! in_array($warehouseId, $ids, true)) {
-            abort(403, 'Location access denied');
+            abort(403, __('Location access denied'));
         }
     }
 

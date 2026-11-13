@@ -698,7 +698,7 @@ class FormsController extends Controller
         $sent = \App\Services\FormNotifier::reply($f, $fields, $set, $s, trim(strip_tags($v['subject'])), $message,
             filter_var($user->email ?? '', FILTER_VALIDATE_EMAIL) ? $user->email : null);
         if (! $sent) {
-            return response()->json(['message' => 'No email could be sent: the submission has no valid sender email, or the mail server failed.'], 422);
+            return response()->json(['message' => __('No email could be sent: the submission has no valid sender email, or the mail server failed.')], 422);
         }
         $es = $set['language'] === 'es';
         $line = ($es ? 'Respondido por correo' : 'Replied by email').' '.now()->format('Y-m-d H:i').' ('.trim(($user->firstname ?? '').' '.($user->lastname ?? '')).'): '.mb_substr($message, 0, 300);

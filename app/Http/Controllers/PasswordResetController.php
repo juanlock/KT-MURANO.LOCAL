@@ -46,7 +46,7 @@ class PasswordResetController extends BaseController
         Mail::to($user->email)->send(new Password_Reset_Request($passwordReset->token, $url));
 
         return response()->json(['status' => true,
-            'message' => 'We have e-mailed your password reset link!',
+            'message' => __('We have e-mailed your password reset link!'),
         ], 200);
     }
 
@@ -63,7 +63,7 @@ class PasswordResetController extends BaseController
             ->first();
         if (! $passwordReset) {
             return response()->json([
-                'message' => 'This password reset token is invalid.',
+                'message' => __('This password reset token is invalid.'),
                 'success' => false,
             ]);
         }
@@ -72,7 +72,7 @@ class PasswordResetController extends BaseController
             $passwordReset->delete();
 
             return response()->json([
-                'message' => 'This password reset token is invalid.',
+                'message' => __('This password reset token is invalid.'),
                 'success' => false,
             ]);
         }
@@ -105,7 +105,7 @@ class PasswordResetController extends BaseController
         // The link lasts 60 minutes here too (find() checked it, reset() didn't -- 2026-10-27).
         if (! $passwordReset || Carbon::parse($passwordReset->updated_at)->addMinutes(60)->isPast()) {
             return response()->json([
-                'message' => 'This password reset token is invalid.',
+                'message' => __('This password reset token is invalid.'),
                 'status' => false,
                 'code' => 3,
             ]);
@@ -121,7 +121,7 @@ class PasswordResetController extends BaseController
 
         return response()->json([
             'user' => $user,
-            'message' => 'Your Password has been changed.',
+            'message' => __('Your Password has been changed.'),
             'status' => true,
             'code' => 1,
         ]);

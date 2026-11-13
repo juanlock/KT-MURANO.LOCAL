@@ -41,7 +41,7 @@ class TransportDailyController extends Controller
                 return;
             }
         }
-        abort(403, 'You do not have permission for this.');
+        abort(403, __('You do not have permission for this.'));
     }
 
     private function can(Request $request, string $perm): bool
@@ -329,7 +329,7 @@ class TransportDailyController extends Controller
             ->whereNull('t.deleted_at')->where('r.origin_id', $agency->id)->first(['t.*']) : null;
         abort_if($id && ! $old, 404);
         if ($old && substr((string) $old->departure_at, 0, 10) !== $day) {
-            abort(422, 'This departure is on another day.');
+            abort(422, __('This departure is on another day.'));
         }
         $userId = $request->user('api')->id;
 

@@ -54,7 +54,7 @@ class TransportOperationsController extends Controller
                 return;
             }
         }
-        abort(403, 'You do not have permission for this.');
+        abort(403, __('You do not have permission for this.'));
     }
 
     /** The acting company (never AdminSystem), module on. */

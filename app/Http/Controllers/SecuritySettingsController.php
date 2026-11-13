@@ -163,7 +163,7 @@ class SecuritySettingsController extends Controller
 
         if ($currentSessionKey !== null && $tokenId === $currentSessionKey) {
             return response()->json([
-                'message' => 'You cannot logout the current session from this list.',
+                'message' => __('You cannot logout the current session from this list.'),
             ], 422);
         }
 
@@ -174,7 +174,7 @@ class SecuritySettingsController extends Controller
                 ->first();
 
             if (! $session) {
-                return response()->json(['message' => 'Session not found.'], 404);
+                return response()->json(['message' => __('Session not found.')], 404);
             }
 
             $session->revoked_at = now();
@@ -188,7 +188,7 @@ class SecuritySettingsController extends Controller
             ->first();
 
         if (! $token) {
-            return response()->json(['message' => 'Session not found.'], 404);
+            return response()->json(['message' => __('Session not found.')], 404);
         }
 
         OauthAccessToken::query()->where('id', $tokenId)->update([
@@ -219,7 +219,7 @@ class SecuritySettingsController extends Controller
         $currentSessionKey = $this->resolveCurrentSessionKey($request, (int) $user->id, $user->token());
 
         if ($currentSessionKey === null) {
-            return response()->json(['message' => 'Unable to identify the current session.'], 422);
+            return response()->json(['message' => __('Unable to identify the current session.')], 422);
         }
 
         $otherTokenIds = OauthAccessToken::query()

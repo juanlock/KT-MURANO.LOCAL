@@ -685,7 +685,7 @@ class SettingsController extends Controller
 
         $settings = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $settings) {
-            return response()->json(['message' => 'Settings not found'], 404);
+            return response()->json(['message' => __('Settings not found')], 404);
         }
 
         $dark_mode = (
@@ -1560,7 +1560,7 @@ class SettingsController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Setting::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (!$setting) {
-            return response()->json(['message' => 'Settings not found'], 404);
+            return response()->json(['message' => __('Settings not found')], 404);
         }
         $layout = $request->input('dashboard_grid_layout');
         if ($layout !== null && !is_string($layout)) {
@@ -1588,7 +1588,7 @@ class SettingsController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Setting::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
-            return response()->json(['message' => 'Settings not found'], 404);
+            return response()->json(['message' => __('Settings not found')], 404);
         }
 
         $request->validate(['order' => 'required|array']);
@@ -1604,7 +1604,7 @@ class SettingsController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Setting::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
-            return response()->json(['message' => 'Settings not found'], 404);
+            return response()->json(['message' => __('Settings not found')], 404);
         }
 
         $setting->sidebar_menu_order = null;
@@ -1642,7 +1642,7 @@ class SettingsController extends Controller
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
-            return response()->json(['message' => 'Settings not found'], 404);
+            return response()->json(['message' => __('Settings not found')], 404);
         }
 
         $request->validate(['flags' => 'required|array']);
@@ -1667,7 +1667,7 @@ class SettingsController extends Controller
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
-            return response()->json(['message' => 'Settings not found'], 404);
+            return response()->json(['message' => __('Settings not found')], 404);
         }
 
         $setting->module_flags = null;
@@ -1762,7 +1762,7 @@ class SettingsController extends Controller
         $this->authorizeForUser($request->user('api'), 'business_modules', Setting::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
-            return response()->json(['message' => 'Settings not found'], 404);
+            return response()->json(['message' => __('Settings not found')], 404);
         }
 
         $boolFields = [
@@ -1818,7 +1818,7 @@ class SettingsController extends Controller
         $this->authorizeForUser($request->user('api'), 'barcode', \App\Models\Product::class);
         $setting = Setting::forCompany($this->resolveActingCompanyId($request));
         if (! $setting) {
-            return response()->json(['message' => 'Settings not found'], 404);
+            return response()->json(['message' => __('Settings not found')], 404);
         }
 
         $request->validate(['settings' => 'required|array']);
@@ -1946,7 +1946,7 @@ class SettingsController extends Controller
 
         $posSetting = \App\Models\PosSetting::forCompany($this->resolveActingCompanyId($request));
         if (! $posSetting) {
-            return response()->json(['success' => false, 'message' => 'POS settings not found.'], 404);
+            return response()->json(['success' => false, 'message' => __('POS settings not found.')], 404);
         }
 
         foreach (['label_printer_connection', 'label_printer_name', 'label_printer_ip',
@@ -2012,7 +2012,7 @@ class SettingsController extends Controller
 
         $posSetting = \App\Models\PosSetting::forCompany($this->resolveActingCompanyId($request));
         if (! $posSetting) {
-            return response()->json(['success' => false, 'message' => 'POS settings not found.'], 404);
+            return response()->json(['success' => false, 'message' => __('POS settings not found.')], 404);
         }
 
         foreach (['label_printer_connection', 'label_printer_name', 'label_printer_ip',
@@ -2078,7 +2078,7 @@ class SettingsController extends Controller
 
         $posSetting = \App\Models\PosSetting::forCompany($this->resolveActingCompanyId($request));
         if (! $posSetting) {
-            return response()->json(['success' => false, 'message' => 'POS settings not found.'], 404);
+            return response()->json(['success' => false, 'message' => __('POS settings not found.')], 404);
         }
 
         foreach (['label_printer_connection', 'label_printer_name', 'label_printer_ip',

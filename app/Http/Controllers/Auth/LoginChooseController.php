@@ -107,7 +107,7 @@ class LoginChooseController extends Controller
         $current = Auth::guard('web')->user();
         $super = SuperAdminSwitch::superAdminFor($current, $request);
         if (! $super) {
-            return $request->expectsJson() ? response()->json(['message' => 'Not working as a SuperAdmin.'], 403) : redirect('/');
+            return $request->expectsJson() ? response()->json(['message' => __('Not working as a SuperAdmin.')], 403) : redirect('/');
         }
         $this->switchTo($request, $super);
         SuperAdminSwitch::stop();

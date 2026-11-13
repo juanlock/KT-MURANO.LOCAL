@@ -33,7 +33,7 @@ class MarketingController extends Controller
         $permission = Permission::where('name', $permissionName)->first();
 
         if (! $user || ! $permission || ! $user->hasRole($permission->roles)) {
-            abort(403, 'This action is unauthorized.');
+            abort(403, __('This action is unauthorized.'));
         }
     }
 
@@ -251,7 +251,7 @@ class MarketingController extends Controller
         abort_unless($this->canActOnCampaign($request, $campaign), 404);
 
         if (in_array($campaign->status, ['sending', 'sent'])) {
-            return response()->json(['success' => false, 'message' => 'Sent campaigns cannot be edited.'], 422);
+            return response()->json(['success' => false, 'message' => __('Sent campaigns cannot be edited.')], 422);
         }
 
         $request->validate([
@@ -329,7 +329,7 @@ class MarketingController extends Controller
         abort_unless($this->canActOnCampaign($request, $campaign), 404);
 
         if ($campaign->status === 'sending') {
-            return response()->json(['success' => false, 'message' => 'Campaign is already sending.'], 422);
+            return response()->json(['success' => false, 'message' => __('Campaign is already sending.')], 422);
         }
 
         $campaign->update(['status' => 'sending']);

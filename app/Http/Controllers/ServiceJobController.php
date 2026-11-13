@@ -633,7 +633,7 @@ class ServiceJobController extends BaseController
         if (((float) $job->total_amount - (float) $job->paid_amount) > 0.0001) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot deliver: outstanding balance must be paid first.',
+                'message' => __('Cannot deliver: outstanding balance must be paid first.'),
             ], 422);
         }
 
@@ -1353,7 +1353,7 @@ class ServiceJobController extends BaseController
         }
 
         if (! $job->client_id) {
-            return response()->json(['message' => 'This service job has no customer; assign one before creating a quotation.'], 422);
+            return response()->json(['message' => __('This service job has no customer; assign one before creating a quotation.')], 422);
         }
 
         $user = Auth::user();
@@ -1371,7 +1371,7 @@ class ServiceJobController extends BaseController
                 : ($allowed[0] ?? Warehouse::whereNull('deleted_at')->where('company_id', $companyId)->orderBy('id')->value('id'));
         }
         if (! $warehouseId) {
-            return response()->json(['message' => 'No location is accessible to your account; cannot create a quotation.'], 422);
+            return response()->json(['message' => __('No location is accessible to your account; cannot create a quotation.')], 422);
         }
 
         $itemsTotal = (float) $job->items->sum('total');

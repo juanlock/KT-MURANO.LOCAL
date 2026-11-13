@@ -32,7 +32,7 @@ class MeetingController extends Controller
         $permission = Permission::where('name', $permissionName)->first();
 
         if (! $user || ! $permission || ! $user->hasRole($permission->roles)) {
-            abort(403, 'This action is unauthorized.');
+            abort(403, __('This action is unauthorized.'));
         }
     }
 

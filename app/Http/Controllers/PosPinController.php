@@ -49,17 +49,17 @@ class PosPinController extends BaseController
             $target = $current;
         }
         if (! $target) {
-            return response()->json(['success' => false, 'message' => 'Wrong PIN.'], 422);
+            return response()->json(['success' => false, 'message' => __('Wrong PIN.')], 422);
         }
 
         try {
             $this->authorizeForUser($target, 'Sales_pos', Sale::class);
         } catch (AuthorizationException $e) {
-            return response()->json(['success' => false, 'message' => 'This user is not allowed to use the POS.'], 403);
+            return response()->json(['success' => false, 'message' => __('This user is not allowed to use the POS.')], 403);
         }
         if ($target->type !== 'SuperAdmin' && ! $target->is_all_warehouses
             && ! UserWarehouse::where('user_id', $target->id)->where('warehouse_id', $warehouse->id)->exists()) {
-            return response()->json(['success' => false, 'message' => 'This user has no access to this location.'], 403);
+            return response()->json(['success' => false, 'message' => __('This user has no access to this location.')], 403);
         }
 
         // Lets the next "open register" of this user at this location through

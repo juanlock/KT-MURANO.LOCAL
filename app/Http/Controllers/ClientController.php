@@ -635,7 +635,7 @@ class ClientController extends BaseController
         if (empty($sheet)) {
             return response()->json([
                 'status' => false,
-                'message' => 'The imported file is empty.',
+                'message' => __('The imported file is empty.'),
                 'errors' => ['No data found in the uploaded file.'],
             ], 422);
         }
@@ -1106,7 +1106,7 @@ class ClientController extends BaseController
         if (! $client) {
             return response()->json([
                 'success' => false,
-                'message' => 'Client not found',
+                'message' => __('Client not found'),
             ], 404);
         }
 

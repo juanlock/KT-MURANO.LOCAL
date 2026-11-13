@@ -1117,7 +1117,7 @@ class TransferController extends BaseController
             if (! $fromAllowed && ! $toAllowed) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access this transfer (location restriction).',
+                    'message' => __('You are not allowed to access this transfer (location restriction).'),
                 ], 403);
             }
         }
@@ -1550,7 +1550,7 @@ class TransferController extends BaseController
             }
 
             if ($transfer->approval_status === 'rejected') {
-                abort(422, 'Rejected transfers cannot be approved without editing.');
+                abort(422, __('Rejected transfers cannot be approved without editing.'));
             }
 
             // Apply initial stock movement based on the stored header + details.
@@ -1594,7 +1594,7 @@ class TransferController extends BaseController
 
             // If it was already approved, we don't silently roll back stock here.
             if ($transfer->isApproved()) {
-                abort(422, 'Approved transfers cannot be rejected via this action.');
+                abort(422, __('Approved transfers cannot be rejected via this action.'));
             }
 
             $transfer->approval_status = 'rejected';

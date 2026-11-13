@@ -352,7 +352,7 @@ class PurchasesReturnController extends BaseController
                 if (empty($current_PurchaseReturn->warehouse_id) || ! in_array($current_PurchaseReturn->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (location restriction).',
+                        'message' => __('You are not allowed to access this sale (location restriction).'),
                     ], 403);
                 }
             }
@@ -592,7 +592,7 @@ class PurchasesReturnController extends BaseController
                 if (empty($current_PurchaseReturn->warehouse_id) || ! in_array($current_PurchaseReturn->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (location restriction).',
+                        'message' => __('You are not allowed to access this sale (location restriction).'),
                     ], 403);
                 }
             }
@@ -742,7 +742,7 @@ class PurchasesReturnController extends BaseController
                     if (empty($current_PurchaseReturn->warehouse_id) || ! in_array($current_PurchaseReturn->warehouse_id, $warehouses_id)) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'You are not allowed to access this sale (location restriction).',
+                            'message' => __('You are not allowed to access this sale (location restriction).'),
                         ], 403);
                     }
                 }
@@ -1043,7 +1043,7 @@ class PurchasesReturnController extends BaseController
             if (empty($Purchase_Return->warehouse_id) || ! in_array($Purchase_Return->warehouse_id, $warehouses_id)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access this sale (location restriction).',
+                    'message' => __('You are not allowed to access this sale (location restriction).'),
                 ], 403);
             }
         }

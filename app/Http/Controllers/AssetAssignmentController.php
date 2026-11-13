@@ -123,12 +123,12 @@ class AssetAssignmentController extends BaseController
             $asset = Asset::whereNull('deleted_at')->lockForUpdate()->find($request->asset_id);
         if ($asset) { $this->abortIfAssetIdOutOfScope($asset->id); }
             if (! $asset) {
-                return response()->json(['success' => false, 'message' => 'Asset not found.'], 404);
+                return response()->json(['success' => false, 'message' => __('Asset not found.')], 404);
             }
             if ($asset->disposal_date) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This asset has been disposed of and cannot be assigned.',
+                    'message' => __('This asset has been disposed of and cannot be assigned.'),
                 ], 422);
             }
 
@@ -139,7 +139,7 @@ class AssetAssignmentController extends BaseController
             if ($open) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This asset is already assigned. Check it in before assigning it again.',
+                    'message' => __('This asset is already assigned. Check it in before assigning it again.'),
                 ], 422);
             }
 
@@ -198,13 +198,13 @@ class AssetAssignmentController extends BaseController
             if ($assignment->status === 'returned') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This assignment has already been checked in.',
+                    'message' => __('This assignment has already been checked in.'),
                 ], 422);
             }
             if (Carbon::parse($request->returned_on)->lt(Carbon::parse($assignment->assigned_on))) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'The return date cannot be before the assignment date.',
+                    'message' => __('The return date cannot be before the assignment date.'),
                 ], 422);
             }
 

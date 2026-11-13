@@ -123,7 +123,7 @@ class MenuPositionController extends Controller
             sort($currentCustom);
             sort($incomingCustom);
             if ($currentCustom !== $incomingCustom) {
-                abort(403, 'Only a SuperAdmin can add or remove menu items -- you can reorder or hide/show existing ones.');
+                abort(403, __('Only a SuperAdmin can add or remove menu items -- you can reorder or hide/show existing ones.'));
             }
 
             foreach ($positions as $row) {
@@ -245,7 +245,7 @@ class MenuPositionController extends Controller
     private function requireAllConfirmed(Request $request, bool $toAllCompanies): void
     {
         if ($toAllCompanies && ! $request->boolean('apply_to_all')) {
-            abort(409, 'This change applies to EVERY company and must be confirmed (apply_to_all).');
+            abort(409, __('This change applies to EVERY company and must be confirmed (apply_to_all).'));
         }
     }
 

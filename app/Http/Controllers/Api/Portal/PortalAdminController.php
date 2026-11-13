@@ -118,6 +118,6 @@ class PortalAdminController extends Controller
             $portalClient->update(['status' => 0]);
         }
 
-        return response()->json(['success' => true, 'message' => 'Portal access disabled']);
+        return response()->json(['success' => true, 'message' => __('Portal access disabled')]);
     }
 }

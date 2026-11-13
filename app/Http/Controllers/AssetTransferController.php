@@ -119,7 +119,7 @@ class AssetTransferController extends BaseController
         return DB::transaction(function () use ($request) {
             $asset = Asset::whereNull('deleted_at')->lockForUpdate()->find($request->asset_id);
             if (! $asset) {
-                return response()->json(['success' => false, 'message' => 'Asset not found.'], 404);
+                return response()->json(['success' => false, 'message' => __('Asset not found.')], 404);
             }
             if ($asset->warehouse_id) {
                 $this->abortIfWarehouseDenied($asset->warehouse_id);
@@ -127,7 +127,7 @@ class AssetTransferController extends BaseController
             if ((int) $asset->warehouse_id === (int) $request->to_warehouse_id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'The asset is already in that location.',
+                    'message' => __('The asset is already in that location.'),
                 ], 422);
             }
 

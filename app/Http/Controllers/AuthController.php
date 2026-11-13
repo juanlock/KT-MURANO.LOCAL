@@ -34,26 +34,26 @@ class AuthController extends BaseController
         if (! Auth::guard('web')->validate($credentials)) {
             \App\Support\LoginSecurity::recordFailure($logins, (string) $request->email, $request, 'api');
 
-            return response()->json(['message' => 'Incorrect Login', 'status' => false]);
+            return response()->json(['message' => __('Incorrect Login'), 'status' => false]);
         }
         $candidate = Auth::guard('web')->getLastAttempted();
         \App\Support\LoginSecurity::clearFailures($candidate);
         if (\App\Support\LoginSecurity::pendingSteps($candidate, $request, (string) $request->password)) {
-            return response()->json(['message' => 'Sign in on the web login to finish the security steps.', 'status' => false], 403);
+            return response()->json(['message' => __('Sign in on the web login to finish the security steps.'), 'status' => false], 403);
         }
 
         if (Auth::attempt($credentials)) {
             $userStatus = Auth::User()->statut;
             if ($userStatus === 0) {
                 return response()->json([
-                    'message' => 'This user not active',
+                    'message' => __('This user not active'),
                     'status' => 'NotActive',
                 ]);
             }
 
         } else {
             return response()->json([
-                'message' => 'Incorrect Login',
+                'message' => __('Incorrect Login'),
                 'status' => false,
             ]);
         }

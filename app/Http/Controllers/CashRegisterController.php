@@ -64,7 +64,7 @@ class CashRegisterController extends BaseController
             ->where('status', 'open')
             ->first();
         if ($existing) {
-            return response()->json(['success' => false, 'message' => 'Register already open'], 409);
+            return response()->json(['success' => false, 'message' => __('Register already open')], 409);
         }
 
         $register = CashRegister::create([
@@ -119,7 +119,7 @@ class CashRegisterController extends BaseController
 
         $register = CashRegister::findOrFail($data['register_id']);
         if ($register->status !== 'open') {
-            return response()->json(['success' => false, 'message' => 'Register is closed'], 409);
+            return response()->json(['success' => false, 'message' => __('Register is closed')], 409);
         }
 
         if ($data['type'] === 'in') {
@@ -151,7 +151,7 @@ class CashRegisterController extends BaseController
         $register = CashRegister::findOrFail($data['register_id']);
         $this->assertRegisterAccess($register);
         if ($register->status !== 'open') {
-            return response()->json(['success' => false, 'message' => 'Register already closed'], 409);
+            return response()->json(['success' => false, 'message' => __('Register already closed')], 409);
         }
         if ($fail = $this->pinFailure($register->warehouse_id, $data['pin'] ?? null)) {
             return $fail;
@@ -230,7 +230,7 @@ class CashRegisterController extends BaseController
             return response()->json(['success' => false, 'code' => 'no_pin', 'message' => 'You don\'t have a PIN yet. Ask an admin to set one on your user (Users > Edit > PIN).'], 422);
         }
         if (! $user->pinMatches($pin)) {
-            return response()->json(['success' => false, 'code' => 'wrong_pin', 'message' => 'Wrong PIN. Use the PIN of the cashier signed in to the POS.'], 422);
+            return response()->json(['success' => false, 'code' => 'wrong_pin', 'message' => __('Wrong PIN. Use the PIN of the cashier signed in to the POS.')], 422);
         }
 
         return null;
@@ -440,7 +440,7 @@ class CashRegisterController extends BaseController
         $to = array_column(array_filter($recipients, fn ($r) => ! $r['copy']), 'email');
         $copy = array_column(array_filter($recipients, fn ($r) => $r['copy']), 'email');
         if (! $to && ! $copy) {
-            return ['sent' => false, 'to' => [], 'error' => 'No admin email found for this company.'];
+            return ['sent' => false, 'to' => [], 'error' => __('No admin email found for this company.')];
         }
 
         try {

@@ -368,7 +368,7 @@ class QuotationsController extends BaseController
                 if (empty($current_Quotation->warehouse_id) || ! in_array($current_Quotation->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (location restriction).',
+                        'message' => __('You are not allowed to access this sale (location restriction).'),
                     ], 403);
                 }
             }
@@ -511,7 +511,7 @@ class QuotationsController extends BaseController
                 if (empty($Quotation->warehouse_id) || ! in_array($Quotation->warehouse_id, $warehouses_id)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You are not allowed to access this sale (location restriction).',
+                        'message' => __('You are not allowed to access this sale (location restriction).'),
                     ], 403);
                 }
             }
@@ -586,7 +586,7 @@ class QuotationsController extends BaseController
                     if (empty($Quotation->warehouse_id) || ! in_array($Quotation->warehouse_id, $warehouses_id)) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'You are not allowed to access this sale (location restriction).',
+                            'message' => __('You are not allowed to access this sale (location restriction).'),
                         ], 403);
                     }
                 }
@@ -1152,7 +1152,7 @@ class QuotationsController extends BaseController
             if (empty($Quotation->warehouse_id) || ! in_array($Quotation->warehouse_id, $warehouses_id)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access this sale (location restriction).',
+                    'message' => __('You are not allowed to access this sale (location restriction).'),
                 ], 403);
             }
         }
@@ -1529,7 +1529,7 @@ class QuotationsController extends BaseController
             } catch (\Exception $e) {
                 Log::error('Termii SMS Error: '.$e->getMessage());
 
-                return response()->json(['status' => 'error', 'message' => 'Failed to send SMS'], 500);
+                return response()->json(['status' => 'error', 'message' => __('Failed to send SMS')], 500);
             }
 
         } elseif ($default_sms_gateway->title == 'infobip') {
@@ -1619,7 +1619,7 @@ class QuotationsController extends BaseController
 
         // Check if the phone number is empty or null
         if (empty($receiverNumber) || $receiverNumber == null || $receiverNumber == 'null' || $receiverNumber == '') {
-            return response()->json(['error' => 'Phone number is missing'], 400);
+            return response()->json(['error' => __('Phone number is missing')], 400);
         }
 
         // replace the text with tags
