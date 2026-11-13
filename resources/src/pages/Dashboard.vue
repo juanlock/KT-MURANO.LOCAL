@@ -8,9 +8,8 @@
         <a-typography-text v-if="demoMode" type="secondary">{{ t('Dashboard_Demo_Subtitle') }}</a-typography-text>
       </div>
 
-      <!-- Hidden on "Business summary" (user's request, 2026-11-11): it is always today, the month in progress and the
-           last 12 months, so a filter that changes nothing there only confuses. -->
-      <a-space v-show="!(boardMode && transportTab === 'transport_owner')" wrap :size="boardMode ? 8 : 12" class="dash-filters">
+      <!-- "Business summary" follows the filter too since 2026-11-12 (user's request; hidden there 11-11 when it changed nothing). -->
+      <a-space wrap :size="boardMode ? 8 : 12" class="dash-filters">
         <!-- Same date presets + editable Start date / to as Sales -> List Sales. -->
         <DateRangeFields :value="rangeFields" :disabled="loading" @change="onRangeEdit" />
         <!-- Double-click any filter choice = your default when the Dashboard
@@ -89,7 +88,7 @@
              goes, where the money comes from and what puts it at risk, then the day's operation. -->
         <a-tab-pane v-if="ownerPanel" key="transport_owner">
           <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
-          <TransportOwnerPanel />
+          <TransportOwnerPanel :range="rangeFields" />
         </a-tab-pane>
         <a-tab-pane v-if="departuresPanel" key="transport_departures">
           <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>

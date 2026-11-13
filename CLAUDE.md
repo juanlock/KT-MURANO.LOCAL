@@ -734,8 +734,9 @@ the start of each session).
   trip of theirs). Daily departures has "Todas las agencias" and Historial as a toggle in the table. The Turismo demo (`TransportDemoDay`) fills 60 days back
   and a week ahead with the client's own daily plan (`schedule()`), crew, control-point times and incidents (`control()`), parcels near the S/ 250,000.
   Dates shown on screen use `useFormat()` (`date`, `dateTime`, `dayMonth`): the company's format, never one written in the page.
-  **Dashboard tabs in the owner's reading order (2026-11-11), the first one opens:** Resumen del negocio (no date filter there; 12 months of income,
-  costs and profit from `TransportProfit`), Reporte de salidas, Rentabilidad por ruta, **Gastos** (`TransportExpensesPanel.vue`, `App\Services\TransportExpenses`:
+  **Dashboard tabs in the owner's reading order (2026-11-11), the first one opens:** Resumen del negocio (follows the date filter since 2026-11-12: "Todos" = the month in progress + the
+  last 12 months; a filter = the period's figures, the chart by day up to 62 days, else by month; "today" stays today; a click / double click on a
+  bar or the line opens "por qué este monto": income and costs by kind, profit, routes, ▲▼ vs the bucket before; from `TransportProfit`), Reporte de salidas, Rentabilidad por ruta, **Gastos** (`TransportExpensesPanel.vue`, `App\Services\TransportExpenses`:
   the trips' costs by kind + Accounting -> Expenses of the agencies' locations, trend and vs the period before), Indicadores, Riesgos, Encomiendas,
   Reclamos, Tablero de control, Tablero de transporte. No "General" tab.
   **The owner's figures (2026-11-04):** the dashboard's "Business summary" block

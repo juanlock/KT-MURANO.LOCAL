@@ -21,7 +21,8 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import http from '../lib/http';
-import { BLUE, ORANGE, RED, YELLOW, useFitHeight, useTransportCharts } from '../lib/transportCharts';
+import { BLUE, GRAY, ORANGE, RED, YELLOW, useFitHeight, useTransportCharts } from '../lib/transportCharts';
+const GREEN = '#16a34a';
 import TransportChartBlock from './TransportChartBlock.vue';
 import TransportStrip from './TransportStrip.vue';
 
@@ -72,10 +73,6 @@ const tiles = computed(() => {
   ];
 });
 
-const COST = {
-  fuel: ['Fuel', 'Combustible'], payroll: ['Payroll', 'Planilla'], staff: ['Pay per trip', 'Pago por viaje'], depreciation: ['Depreciation', 'Depreciación'],
-  maintenance: ['Maintenance', 'Mantenimiento'], tolls: ['Tolls', 'Peajes'], agency: ['Agencies', 'Agencias'], meals: ['Snack and drink', 'Snack y bebida'],
-};
 const IF = {
   tickets: ['Tickets -10 %', 'Boletos -10 %'], parcels: ['Parcels -10 %', 'Encomiendas -10 %'], fuel: ['Diesel +10 %', 'Diésel +10 %'],
   payroll: ['Crew and payroll +10 %', 'Planilla y tripulación +10 %'], maintenance: ['Maintenance +10 %', 'Mantenimiento +10 %'], tolls: ['Tolls +10 %', 'Peajes +10 %'],
@@ -111,16 +108,61 @@ const profitCharts = computed(() => {
       table: { cols: [tr('Route', 'Ruta'), tr('Income', 'Ingresos'), tr('Profit', 'Ganancia')], rows: routes.map(r => [r.route, money(r.income), money(r.profit)]) },
     });
   }
-  const costs = d.costs || [];
-  if (costs.length) {
-    const income = totals.value.income;
-    out.push({
-      key: 'costs', type: 'bar', height: height.value,
-      title: tr('Where the money goes', 'A dónde se va el dinero'), help: tr('Each cost as a share of income.', 'Cada gasto como parte de los ingresos.'),
-      series: [{ name: tr('Cost', 'Gasto'), data: costs.map(c => c.amount) }],
-      options: hbar(costs.map(c => tr(...COST[c.key])), [{ data: costs.map(c => c.amount) }], { height: height.value, colors: [BLUE], labelWidth: 100, labels: v => pct(v, income) }),
-      table: { cols: [tr('Cost', 'Gasto'), tr('Amount', 'Monto'), tr('Of income', 'De los ingresos')], rows: costs.map(c => [tr(...COST[c.key]), money(c.amount), pct(c.amount, income)]) },
-    });
+  // Where the profit comes from (user's request, 2026-11-12, replacing "Where the money goes", which repeated the Expenses
+  // tab): only the profit, in its two parts (the user, after trying a waterfall: costs on it made it "not profit"). The
+  // tickets' part = tickets - every trip cost; the parcels ride on the same bus with no cost of their own.
+  const t = totals.value;
+  if (t.income) {
+    const P = +t.parcels_income || 0;
+    const fromTrips = (+t.tickets_income || 0) - (+t.costs || 0);
+    const profit = fromTrips + P;
+    const PURPLE = '#7c3aed';
+    const help = tr('Tickets = what the tickets leave after paying every cost of the trips (crew, payroll, fuel, maintenance, depreciation, tolls, agencies, meals). Parcels = what they bring: they ride on the same bus with no cost of their own. Both together are the profit.',
+      'Pasajes = lo que dejan los boletos después de pagar todos los gastos de los viajes (tripulación, planilla, combustible, mantenimiento, depreciación, peajes, agencias, refrigerios). Encomiendas = lo que cobran: van en el mismo bus sin gasto propio. Las dos juntas son la ganancia.');
+    const parts = [
+      { name: tr('Tickets', 'Pasajes'), value: fromTrips, color: BLUE },
+      { name: tr('Parcels', 'Encomiendas'), value: P, color: PURPLE },
+    ];
+    const table = { cols: ['', tr('Amount', 'Monto'), tr('Of the profit', 'De la ganancia')], rows: [
+      ...parts.map(p => [p.name, `${p.value < 0 ? '−' : ''}${money(Math.abs(p.value))}`, profit > 0 ? pct(p.value, profit) : '']),
+      [tr('Profit', 'Ganancia'), money(profit), profit > 0 ? '100 %' : ''],
+    ] };
+    // The profit split in two (user, 2026-11-12: "si la ganancia es 100, 23 es pasajes, 87 encomiendas", no costs on the chart):
+    // a donut with the profit in the middle. Only when both parts are positive; if the tickets don't cover the costs, a donut
+    // can't show it, so two bars (the tickets' part below zero, in red).
+    if (fromTrips >= 0 && P >= 0 && profit > 0) {
+      const o = base('donut');
+      out.push({
+        key: 'sources', type: 'donut', height: height.value,
+        title: tr('Where the profit comes from', 'De dónde viene la ganancia'), help,
+        series: parts.map(p => p.value),
+        options: {
+          ...o,
+          labels: parts.map(p => p.name), colors: parts.map(p => p.color),
+          legend: { position: 'bottom', fontSize: '12px', formatter: (n, { seriesIndex: i }) => `${n}: ${money(parts[i].value)} · ${pct(parts[i].value, profit)}` },
+          dataLabels: { enabled: true, formatter: v => `${Math.round(v)} %`, style: { fontSize: '14px', fontWeight: 700 }, dropShadow: { enabled: false } },
+          stroke: { width: 2, colors: [ui.dark ? '#1a1a19' : '#fff'] },
+          plotOptions: { pie: { donut: { size: '58%', labels: { show: true,
+            name: { show: true, fontSize: '12px', offsetY: -4 },
+            value: { show: true, fontSize: '18px', fontWeight: 700, offsetY: 4, formatter: v => short(+v) },
+            total: { show: true, showAlways: true, label: tr('Profit', 'Ganancia'), fontSize: '12px', formatter: () => short(profit) } } } } },
+          tooltip: { ...o.tooltip, y: { formatter: v => `${money(v)} · ${pct(v, profit)}` } },
+        },
+        table,
+      });
+    } else {
+      const o = base('bar');
+      out.push({
+        key: 'sources', type: 'bar', height: height.value,
+        title: tr('Where the profit comes from', 'De dónde viene la ganancia'), help,
+        series: [{ name: tr('Profit', 'Ganancia'), data: [...parts, { name: tr('Profit', 'Ganancia'), value: profit, color: GREEN }].map(p => ({ x: p.name, y: p.value, fillColor: p.value < 0 ? RED : p.color })) }],
+        options: { ...o, legend: { show: false }, plotOptions: { bar: { columnWidth: '50%', borderRadius: 3 } },
+          dataLabels: { enabled: true, formatter: v => short(v), style: { fontSize: '11px' } },
+          xaxis: { labels: { style: small }, axisTicks: { show: false } }, yaxis: { labels: { formatter: short, style: small } },
+          annotations: { yaxis: [{ y: 0, borderColor: GRAY }] } },
+        table,
+      });
+    }
   }
   return out;
 });
@@ -195,7 +237,7 @@ const riskItems = computed(() => {
 .ti { margin-bottom: 0; }
 .ti-profit, .ti-risks { display: grid; gap: 8px; grid-template-columns: 1fr; }
 @media (min-width: 900px) {
-  .ti-profit { grid-template-columns: 1.5fr 1fr 1fr; }
+  .ti-profit { grid-template-columns: 1.35fr 1fr 1.15fr; }
   .ti-risks { grid-template-columns: 1fr 1fr; }
 }
 </style>

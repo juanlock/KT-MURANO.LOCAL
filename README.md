@@ -203,6 +203,24 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-12 (Optimum) -- not in production yet
+
+- **Turismo Cautivo, dashboard › Business summary:** a click (or double click)
+  on any month of the chart opens "por qué este monto": a sentence with what
+  happened and what moved it against the month before, income and costs by
+  kind with ▲▼, the profit and its margin, trips with profit / loss and the
+  profit of each route.
+- **Business summary follows the dashboard's date filter:** the period's
+  income, tickets, best-selling routes and fleet costs; the chart goes by day
+  up to 62 days, else by month; "Todos" keeps the last 12 months; "today"
+  stays today.
+- **Dashboard › Indicators:** "A dónde se va el dinero" (it repeated the
+  Expenses tab) is replaced by **"De dónde viene la ganancia"**: a donut with
+  the profit in the middle and its two parts, tickets (what they leave after
+  every trip cost) and parcels, with amount and %.
+
+Setup: `npm run build`.
+
 ### 2026-11-12 (Thundera)
 
 - **Sign-in link by WhatsApp** (Company logins › Link): staff who don't use
@@ -285,23 +303,6 @@ Setup: `php artisan migrate`, `npm run build`.
   7 roles and a transport guide.
 
 Setup: `npm run build`.
-
-### 2026-11-09 (Optimum)
-
-- **Turismo Cautivo, dashboard › Complaints:** the reasons are grouped in a
-  few groups (tickets and refunds, the bus and its condition, staff, luggage
-  and parcels, boarding, times, safety). The "Otros reclamos" (44 % of all)
-  are sorted by the words of what the customer wrote (broken seat, bugs on the
-  seats, a different bus from the one bought, date change...); hovering a bar
-  shows its detail. The customer's text is never shown.
-- **New dashboard tab › Parcels:** one button per agency; cards with
-  received, attended, pending today (and late), income against the previous
-  period and against the client's figure (S/ 250,000 a month), average parcel,
-  income per kg and complaints; charts by route, by agency, pending by
-  destination, income by day, parcels by size (by weight) and by type, and the
-  complaints about parcels.
-
-Setup: `php artisan migrate`, `npm run build`.
 
 ---
 

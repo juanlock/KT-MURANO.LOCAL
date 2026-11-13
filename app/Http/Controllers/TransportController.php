@@ -605,16 +605,26 @@ class TransportController extends Controller
         }
         $scope = $this->warehouseScopeIds();
         $today = now()->toDateString();
-        $month = now()->startOfMonth()->toDateString();
+        // The dashboard's date filter (user's request, 2026-11-12): "month" figures become the period's; without a filter
+        // (All) the month in progress and the last 12 months, as before. "Today" stays today.
+        $ranged = $request->filled('from') && $request->filled('to');
+        $from = $ranged ? Carbon::parse($request->query('from'))->toDateString() : null;
+        $to = $ranged ? min(Carbon::parse($request->query('to'))->toDateString(), $today) : null;
+        if ($ranged && $from > $to) {
+            $from = $to;
+        }
+        $month = $ranged ? $from : now()->startOfMonth()->toDateString();
+        $periodEnd = $ranged ? $to : $today;
         $sales = fn () => DB::table('sales as s')->where('s.company_id', $cid)->whereNull('s.deleted_at')->where('s.statut', 'completed')
             ->when($scope !== null, fn ($q) => $q->whereIn('s.warehouse_id', $scope))
-            ->whereDate('s.date', '>=', $month)->whereDate('s.date', '<=', $today);
+            ->where(fn ($q) => $q->where(fn ($p) => $p->whereDate('s.date', '>=', $month)->whereDate('s.date', '<=', $periodEnd))->orWhereDate('s.date', $today));
+        $inPeriod = 'DATE(s.date) BETWEEN ? AND ?';
 
-        $income = $sales()->selectRaw('s.warehouse_id, SUM(s.GrandTotal) month_total, SUM(CASE WHEN DATE(s.date) = ? THEN s.GrandTotal ELSE 0 END) today_total', [$today])
+        $income = $sales()->selectRaw("s.warehouse_id, SUM(CASE WHEN $inPeriod THEN s.GrandTotal ELSE 0 END) month_total, SUM(CASE WHEN DATE(s.date) = ? THEN s.GrandTotal ELSE 0 END) today_total", [$month, $periodEnd, $today])
             ->groupBy('s.warehouse_id')->get()->keyBy('warehouse_id');
         $products = \App\Support\TransportTickets::products($cid);
         $lines = $sales()->join('sale_details as d', 'd.sale_id', '=', 's.id')->whereIn('d.product_id', array_keys($products))
-            ->selectRaw('s.warehouse_id, d.product_id, SUM(d.quantity) qty, SUM(d.total) total, SUM(CASE WHEN DATE(s.date) = ? THEN d.quantity ELSE 0 END) qty_today', [$today])
+            ->selectRaw("s.warehouse_id, d.product_id, SUM(CASE WHEN $inPeriod THEN d.quantity ELSE 0 END) qty, SUM(CASE WHEN $inPeriod THEN d.total ELSE 0 END) total, SUM(CASE WHEN DATE(s.date) = ? THEN d.quantity ELSE 0 END) qty_today", [$month, $periodEnd, $month, $periodEnd, $today])
             ->groupBy('s.warehouse_id', 'd.product_id')->get();
 
         // One row per agency; sales of a location that is no agency go together at the end.
@@ -634,7 +644,7 @@ class TransportController extends Controller
         }
         $routes = $lines->groupBy(fn ($l) => $products[$l->product_id]['route_id'] ?? 0)->map(fn ($g) => [
             'route' => str_replace(' VIP', '', $products[$g->first()->product_id]['label'] ?? ''), 'tickets' => (int) $g->sum('qty'), 'income' => round((float) $g->sum('total'), 2),
-        ])->sortByDesc('tickets')->values();
+        ])->where('tickets', '>', 0)->sortByDesc('tickets')->values();
 
         $trips = DB::table('transport_trips')->where('company_id', $cid)->whereNull('deleted_at')->whereDate('departure_at', $today)
             ->selectRaw('status, COUNT(*) n')->groupBy('status')->pluck('n', 'status');
@@ -643,29 +653,64 @@ class TransportController extends Controller
         $buses = DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')
             ->when($scope !== null, fn ($q) => $q->where(fn ($x) => $x->whereNull('warehouse_id')->orWhereIn('warehouse_id', $scope)))->pluck('id')->all();
         $fuel = (float) DB::table('vehicle_fuel_logs')->whereNull('deleted_at')->whereIn('vehicle_id', $buses)
-            ->whereDate('log_date', '>=', $month)->whereDate('log_date', '<=', $today)->sum('total_cost');
+            ->whereDate('log_date', '>=', $month)->whereDate('log_date', '<=', $periodEnd)->sum('total_cost');
         $maintenance = (float) DB::table('vehicle_maintenances')->whereNull('deleted_at')->whereIn('vehicle_id', $buses)
             ->whereNotIn('status', ['scheduled', 'cancelled'])
-            ->whereDate('service_date', '>=', $month)->whereDate('service_date', '<=', $today)->sum('cost');
+            ->whereDate('service_date', '>=', $month)->whereDate('service_date', '<=', $periodEnd)->sum('cost');
         $alerts = app(FleetVehicleController::class)->alerts(Carbon::today(), Carbon::today()->addDays(30), $buses);
 
         // The last 12 months (user's requests, 2026-11-11: "cómo le va"; the line is the profit, not the tickets): income, costs
         // and profit of the trips run each month, from TransportProfit -- the same figures as "Profit by route" -- the current
         // month up to today.
-        $since = now()->startOfMonth()->subMonths(11)->toDateString();
-        $run = collect(\App\Services\TransportProfit::compute($cid, $since, $today, $scope)['routes'] ?? [])
+        // With the dashboard's filter (2026-11-12): the chart covers the period, by day up to 62 days, else by month.
+        $daily = $ranged && Carbon::parse($from)->diffInDays(Carbon::parse($to)) < 62;
+        $since = $ranged ? ($daily ? $from : Carbon::parse($from)->startOfMonth()->toDateString()) : now()->startOfMonth()->subMonths(11)->toDateString();
+        $until = $ranged ? $to : $today;
+        $run = collect(\App\Services\TransportProfit::compute($cid, max($since, $ranged ? $from : $since), $until, $scope)['routes'] ?? [])
             ->flatMap(fn ($r) => $r['trips'])->where('result', '!=', 'pending');
-        $byMonth = $run->groupBy(fn ($t) => substr((string) $t['departure_at'], 0, 7));
+        $byMonth = $run->groupBy(fn ($t) => substr((string) $t['departure_at'], 0, $daily ? 10 : 7));
         $months = [];
-        for ($m = Carbon::parse($since); $m->lte(now()); $m->addMonth()) {
-            $g = $byMonth[$m->format('Y-m')] ?? collect();
+        for ($m = Carbon::parse($since); $m->lte(Carbon::parse($until)); $daily ? $m->addDay() : $m->addMonth()) {
+            $key = $m->format($daily ? 'Y-m-d' : 'Y-m');
+            $g = $byMonth[$key] ?? collect();
             $in = (float) $g->sum(fn ($t) => $t['income']['total']);
             $out = (float) $g->sum(fn ($t) => $t['costs']['total']);
-            $months[] = ['month' => $m->format('Y-m'), 'trips' => $g->count(), 'income' => round($in, 2), 'costs' => round($out, 2), 'profit' => round($in - $out, 2)];
+            // Why the month reaches its amount (user's request, 2026-11-12: a click on the chart explains it): income and
+            // costs by kind, trips, passengers, occupancy and the routes behind the profit.
+            $sumKey = fn (string $part) => collect($g->pluck($part)->all())->reduce(function ($acc, $x) {
+                foreach ($x as $k => $v) {
+                    if ($k !== 'total') {
+                        $acc[$k] = round(($acc[$k] ?? 0) + (float) $v, 2);
+                    }
+                }
+
+                return $acc;
+            }, []);
+            $seatKm = (float) $g->sum('seat_km');
+            $routesOf = $g->groupBy('route')->map(fn ($r, $name) => [
+                'route' => $name, 'trips' => $r->count(), 'sold' => (int) $r->sum('sold'),
+                'income' => round((float) $r->sum(fn ($t) => $t['income']['total']), 2),
+                'costs' => round((float) $r->sum(fn ($t) => $t['costs']['total']), 2),
+                'profit' => round((float) $r->sum('profit'), 2),
+            ])->sortByDesc('profit')->values()->all();
+            // A month cut by the filter counts only its days inside the period.
+            $mStart = $daily ? $m->copy() : Carbon::parse(max($m->toDateString(), $ranged ? $from : $since));
+            $mEnd = $daily ? $m->copy() : Carbon::parse(min($m->copy()->endOfMonth()->toDateString(), $until));
+            $months[] = ['month' => $key, 'trips' => $g->count(), 'income' => round($in, 2), 'costs' => round($out, 2), 'profit' => round($in - $out, 2),
+                'detail' => [
+                    'income' => $sumKey('income'), 'costs' => $sumKey('costs'),
+                    'sold' => (int) $g->sum('sold'), 'parcels' => (int) $g->sum('parcels'),
+                    'gain_trips' => $g->where('result', 'gain')->count(), 'loss_trips' => $g->where('result', 'loss')->count(),
+                    'occupancy' => $seatKm > 0 ? (int) round($g->sum('pax_km') / $seatKm * 100) : null,
+                    'days' => $mStart->diffInDays($mEnd) + 1,
+                    'partial' => ! $daily && ($mStart->day !== 1 || $mEnd->toDateString() !== $m->copy()->endOfMonth()->toDateString()),
+                    'routes' => $routesOf,
+                ]];
         }
 
         return response()->json([
-            'months' => $months,
+            'months' => $months, 'granularity' => $daily ? 'day' : 'month',
+            'period' => ['from' => $month, 'to' => $periodEnd, 'filtered' => $ranged],
             'enabled' => true,
             'income' => ['today' => round((float) $income->sum('today_total'), 2), 'month' => round((float) $income->sum('month_total'), 2)],
             'tickets' => ['today' => (int) $lines->sum('qty_today'), 'month' => (int) $lines->sum('qty')],
