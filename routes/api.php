@@ -770,6 +770,9 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     Route::prefix('transport')->controller(\App\Http\Controllers\TransportController::class)->group(function () {
         Route::get('/meta', 'meta');
         Route::get('/board', 'board');
+        // Pilots' fatigue alerts (2026-11-13).
+        Route::get('/pilot-fatigue', 'pilotFatigue');
+        Route::put('/pilot-fatigue/rules', 'pilotFatigueRules');
         Route::get('/owner', 'owner');
         Route::get('/pos-tickets', 'posTickets');
         Route::get('/seats', 'seats');
@@ -848,6 +851,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/trips/{id}/skip', 'skip')->whereNumber('id');
         Route::post('/trips/{id}/photo', 'addPhoto')->whereNumber('id');
         Route::post('/trips/{id}/report', 'report')->whereNumber('id');
+        Route::post('/trips/{id}/swap', 'swap')->whereNumber('id');
         Route::get('/photo/{kind}/{id}', 'photoFile')->whereIn('kind', ['checkpoint', 'report'])->whereNumber('id');
     });
     Route::get('employees/{id}/production', 'hrm\EmployeesController@production')->whereNumber('id');

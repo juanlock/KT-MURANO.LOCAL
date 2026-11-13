@@ -142,7 +142,48 @@ class TransportControlController extends Controller
             'must_stop' => $role === 'pilot', 'tracking' => TransportControl::tracking($trip, $points), 'stop_kmh' => TransportControl::STOP_KMH,
             'points' => $this->pointsOut($points), 'next' => $next, 'reports' => $reports,
             'crew' => $this->crew([(int) $trip->id])[(int) $trip->id] ?? [],
+            'swap' => $this->swaps([$trip])[(int) $trip->id] ?? null,
         ];
+    }
+
+    /**
+     * [trip id => the pilot swap of a long trip] (2026-11-13): who hands the wheel to whom and when (PilotFatigue::swapFor).
+     * The first pilot of the crew drives first.
+     */
+    private function swaps($trips): array
+    {
+        $trips = collect($trips);
+        $ids = $trips->pluck('id')->map(fn ($x) => (int) $x)->all();
+        if (! $ids || ! \Illuminate\Support\Facades\Schema::hasTable('transport_trip_swaps')) {
+            return [];
+        }
+        $rules = \App\Services\PilotFatigue::rules((int) $trips->first()->company_id);
+        $pilots = DB::table('transport_trip_crew as c')->join('employees as e', 'e.id', '=', 'c.employee_id')->whereIn('c.trip_id', $ids)->where('c.role', 'pilot')
+            ->orderBy('c.id')->get(['c.trip_id', 'e.firstname', 'e.lastname'])->groupBy('trip_id');
+        $done = DB::table('transport_trip_swaps')->whereIn('trip_id', $ids)->orderBy('id')->get()->keyBy('trip_id');
+        $out = [];
+        foreach ($trips as $t) {
+            $names = collect($pilots[$t->id] ?? [])->map(fn ($p) => trim($p->firstname.' '.$p->lastname))->all();
+            $out[(int) $t->id] = \App\Services\PilotFatigue::swapFor($t, $names, $done[$t->id] ?? null, $rules);
+        }
+
+        return $out;
+    }
+
+    /** POST transport/control/trips/{id}/swap -- the copilot took the wheel (the bus stopped: never while moving). */
+    public function swap(Request $request, int $id)
+    {
+        $cid = $this->company($request);
+        [$trip, $role] = $this->reportable($request, $id, $cid);
+        $fix = $this->fix($request);
+        $this->refuseIfDriving($trip, $role, $fix);
+        abort_unless($trip->status === 'in_progress' || now()->gte(Carbon::parse($trip->departure_at)), 422, __('The trip has not left yet.'));
+        if (! DB::table('transport_trip_swaps')->where('trip_id', $id)->exists()) {
+            DB::table('transport_trip_swaps')->insert(['company_id' => $cid, 'trip_id' => $id, 'user_id' => $request->user('api')->id, 'swapped_at' => now(),
+                'lat' => $fix['lat'] ?? null, 'lng' => $fix['lng'] ?? null, 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        return response()->json(['trip' => $this->detail($this->trips($cid)->where('t.id', $id)->first(), $role)]);
     }
 
     /** [trip id => [{role, name}]] */
@@ -291,9 +332,10 @@ class TransportControlController extends Controller
         $crew = $this->crew($ids);
         $reportRows = DB::table('transport_trip_reports')->whereIn('trip_id', $ids)->orderBy('id')->get(['trip_id', 'kind', 'created_at'])->groupBy('trip_id');
         $latest = DB::table('transport_vehicle_positions')->whereIn('id', DB::table('transport_vehicle_positions')->whereIn('trip_id', $ids)->selectRaw('MAX(id)')->groupBy('trip_id'))->get()->keyBy('trip_id');
+        $swaps = $this->swaps($trips);
         $now = now();
 
-        $rows = $trips->map(function ($t) use ($boardings, $checks, $crew, $reportRows, $latest, $now) {
+        $rows = $trips->map(function ($t) use ($boardings, $checks, $crew, $reportRows, $latest, $now, $swaps) {
             $points = TransportControl::points($t, $boardings[$t->id] ?? collect(), $checks[$t->id] ?? collect());
             $next = TransportControl::next($points);
             $position = $latest[$t->id] ?? null;
@@ -338,6 +380,7 @@ class TransportControlController extends Controller
                 'last_event' => $lastEvent, 'delay_min' => $delay, 'late' => $delay !== null && $delay > TransportControl::LATE_MIN,
                 'photos_missing' => collect($points)->filter(fn ($p) => $p['arrived_at'] && ! $p['has_photo'])->count(), 'reports' => $reports->count(),
                 'alert' => $grave && $t->status === 'in_progress' ? ['kind' => $grave->kind, 'at' => $grave->created_at] : null,
+                'swap' => $swaps[(int) $t->id] ?? null,
                 'position' => $position ? ['lat' => (float) $position->lat, 'lng' => (float) $position->lng, 'speed' => $position->speed_kmh !== null ? (float) $position->speed_kmh : null,
                     'at' => $position->recorded_at, 'age_min' => (int) round(Carbon::parse($position->recorded_at)->diffInMinutes($now, false))] : null,
             ];

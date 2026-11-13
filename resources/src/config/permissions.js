@@ -1422,6 +1422,11 @@ export const PERMISSION_GROUPS = [
                 "f": "My agency: summary, parcels, complaints and incidents"
             },
             {
+                "v": "transport_fleet_board",
+                "l": "Perm_Transport_FleetBoard",
+                "f": "Fleet board: pilots' hours and alerts, control board"
+            },
+            {
                 "v": "transport_boarding",
                 "l": "Perm_Transport_Boarding",
                 "f": "Board passengers"

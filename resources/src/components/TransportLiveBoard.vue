@@ -60,6 +60,7 @@
                 <div class="lb-icons">
                   <span v-if="t.reports" class="lb-icon-bad"><WarningOutlined /> {{ t.reports }}</span>
                   <span v-if="t.photos_missing" class="lb-icon-warn"><CameraOutlined /> {{ t.photos_missing }}</span>
+                  <span v-if="t.swap && t.status !== 'scheduled'" :class="'lb-swap-' + t.swap.state" :title="swapTitle(t.swap)"><SwapOutlined /></span>
                 </div>
               </td>
             </tr>
@@ -73,6 +74,7 @@
       <template v-if="detail">
         <div class="lb-muted">{{ detail.vehicle }}</div>
         <div class="lb-muted lb-crew">{{ detail.crew.map(c => c.name).join(', ') }}</div>
+        <div v-if="detail.swap" class="lb-crew" :class="'lb-swap-' + detail.swap.state"><SwapOutlined /> {{ swapTitle(detail.swap) }}</div>
         <router-link v-if="detail.next && ['scheduled', 'in_progress'].includes(detail.status)" :to="{ path: '/transport/my-trip', query: { trip: detail.id } }">
           <a-button size="small" class="lb-crew">{{ T('Report for the crew', 'Reportar por la tripulación') }}</a-button>
         </router-link>
@@ -118,7 +120,7 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { CameraOutlined, InfoCircleOutlined, WarningFilled, WarningOutlined } from '@ant-design/icons-vue';
+import { CameraOutlined, InfoCircleOutlined, SwapOutlined, WarningFilled, WarningOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import TransportStrip from './TransportStrip.vue';
 import http from '../lib/http';
@@ -158,6 +160,12 @@ const loading = ref(false);
 const selected = ref(null);
 
 const onRoad = computed(() => rows.value.filter(t => t.status === 'in_progress'));
+const swapsLate = computed(() => onRoad.value.filter(t => t.swap?.state === 'late').length);
+const swapTitle = s => ({
+  upcoming: T('Pilot swap at', 'Cambio de piloto a las'), due: T('Pilot swap due now, planned', 'Cambio de piloto ahora, previsto'),
+  late: T('Pilot swap late, planned', 'Cambio de piloto atrasado, previsto'), done: T('Pilot swap done, planned', 'Cambio de piloto hecho, previsto'),
+  missed: T('No pilot swap, planned', 'Sin cambio de piloto, previsto'),
+})[s.state] + ' ' + time(s.due_at) + ' · ' + s.from + ' → ' + s.to;
 const strip = computed(() => {
   const late = onRoad.value.filter(t => t.late).length;
   const lost = onRoad.value.filter(signalLost).length;
@@ -165,6 +173,8 @@ const strip = computed(() => {
     { label: T('On the road', 'En ruta'), value: onRoad.value.length },
     { label: T('Late', 'Con tardanza'), value: late, level: late ? 'bad' : 'ok' },
     { label: T('No signal', 'Sin señal'), value: lost, level: lost ? 'warn' : undefined },
+    // Pilot swaps (2026-11-13): due now, or late (past the swap time and still not done).
+    { label: T('Swap late', 'Cambio atrasado'), value: swapsLate.value, level: swapsLate.value ? 'bad' : 'ok', help: T('Long trips where the copilot has not taken the wheel yet after the swap time.', 'Viajes largos donde el copiloto aún no tomó el volante pasada la hora del cambio.') },
     { label: T('Arrived', 'Llegaron'), value: rows.value.filter(t => t.status === 'completed').length },
     { label: T('Scheduled', 'Programados'), value: rows.value.filter(t => t.status === 'scheduled').length },
   ];
@@ -346,6 +356,10 @@ onBeforeUnmount(() => {
 .lb-icons { display: flex; justify-content: flex-end; gap: 6px; margin-top: 2px; font-size: 11px; }
 .lb-icon-bad { color: #dc2626; }
 .lb-icon-warn { color: #b45309; }
+.lb-swap-upcoming { color: #64748b; }
+.lb-swap-due { color: #b45309; font-weight: 600; }
+.lb-swap-late, .lb-swap-missed { color: #dc2626; font-weight: 600; }
+.lb-swap-done { color: #15803d; }
 .lb-none { text-align: center; color: #64748b; padding: 24px 8px !important; }
 .lb-sub { font-weight: 700; margin: 6px 0; }
 .lb-crew { margin-bottom: 10px; }

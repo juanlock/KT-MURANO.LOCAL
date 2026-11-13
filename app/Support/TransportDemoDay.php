@@ -34,6 +34,7 @@ class TransportDemoDay
             'days' => self::days($companyId), 'schedule' => self::schedule($companyId), 'statuses' => self::statuses($companyId), 'trimmed' => self::trim($companyId),
             'maintenance' => self::maintenance($companyId), 'complaints' => self::complaints($companyId),
             'tickets' => self::tickets($companyId),
+            'crew' => self::crew($companyId),
             'control' => self::control($companyId),
             'services' => self::services($companyId),
             'profit' => self::profitData($companyId),
@@ -495,6 +496,182 @@ class TransportDemoDay
             'created_at' => now(), 'updated_at' => now()]);
     }
 
+    /** Rest the demo gives a pilot / hostess between two trips, in hours. */
+    private const CREW_REST_H = 10;
+
+    /**
+     * The demo's crews (user's request, 2026-11-13: 6 pilots on ~20 departures a day were on several buses at once, 14,569 h
+     * in a year). In departure order every demo trip without crew gets 2 pilots and 1 hostess who are at its origin agency
+     * and rested (CREW_REST_H since their last arrival), the longest rested first, so they rotate; nobody there -> a new
+     * demo pilot / hostess (paid per trip, no salary: the demo's payroll and profit stay as they were). Now and then (1 trip
+     * in 40) the first pilot is one who arrived only 2 h before, and 1 long trip in 25 has no swap on record, so the
+     * fatigue alerts have something real to show. Swaps: the copilot takes the wheel around half way (transport_trip_swaps).
+     * $redo = every demo trip's crew and swaps made again (php artisan transport:demo-day --crew).
+     */
+    public static function crew(int $cid, bool $redo = false): array
+    {
+        $ids = self::ids($cid, 'transport_trips');
+        if (! $ids || ! \Illuminate\Support\Facades\Schema::hasTable('transport_trip_swaps')) {
+            return [];
+        }
+        $demo = array_flip($ids);
+        if ($redo) {
+            foreach (array_chunk($ids, 2000) as $chunk) {
+                DB::table('transport_trip_crew')->whereIn('trip_id', $chunk)->delete();
+                DB::table('transport_trip_swaps')->whereIn('trip_id', $chunk)->delete();
+            }
+        }
+        $trips = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')
+            ->where('t.company_id', $cid)->whereNull('t.deleted_at')->where('t.status', '!=', 'cancelled')->whereNotNull('t.arrival_at')
+            ->where('t.departure_at', '<=', now()->addDays(8))->orderBy('t.departure_at')->orderBy('t.id')
+            ->get(['t.id', 't.departure_at', 't.arrival_at', 't.status', 'r.origin_id', 'r.destination_id']);
+        $crewOf = DB::table('transport_trip_crew')->whereIn('trip_id', $trips->pluck('id'))->orderBy('id')->get(['trip_id', 'employee_id', 'role'])->groupBy('trip_id');
+        $demoStaff = array_flip(self::ids($cid, 'employees'));
+        $staff = DB::table('employees')->where('company_id', $cid)->whereNull('deleted_at')->whereIn('staff_type', ['pilot', 'hostess'])
+            ->get(['id', 'staff_type', 'trip_rate', 'user_id', 'department_id', 'office_shift_id', 'designation_id']);
+        $template = ['pilot' => $staff->where('staff_type', 'pilot')->first(), 'hostess' => $staff->where('staff_type', 'hostess')->first()];
+        if (! $template['pilot']) {
+            return [];
+        }
+        // Who is where and since when (unix time of the last arrival).
+        $origins = $trips->pluck('origin_id')->unique()->values()->all();
+        $state = [];
+        $n = 0;
+        foreach ($staff as $e) {
+            $state[(int) $e->id] = ['type' => $e->staff_type, 'at' => isset($demoStaff[$e->id]) ? (int) $origins[$n++ % count($origins)] : null,
+                'free' => 0, 'rate' => $e->trip_rate, 'user' => $e->user_id, 'demo' => isset($demoStaff[$e->id])];
+        }
+        $made = ['trips' => 0, 'new_pilots' => 0, 'new_hostesses' => 0, 'swaps' => 0];
+        $pick = function (string $type, int $origin, int $dep, bool $tired, array $taken) use (&$state) {
+            $rest = ($tired ? 2 : self::CREW_REST_H) * 3600;
+            // At that agency and rested; or idle a day somewhere else (they rode back as a passenger), after them.
+            $cands = [];
+            foreach ($state as $id => $s) {
+                if (! $s['demo'] || $s['type'] !== $type || in_array($id, $taken, true)) {
+                    continue;
+                }
+                if (($s['at'] === null || $s['at'] === $origin) && $s['free'] + $rest <= $dep) {
+                    $cands[$id] = $s['free'];
+                } elseif (! $tired && $s['free'] + 24 * 3600 <= $dep) {
+                    $cands[$id] = $s['free'] + 10 ** 10; // only when nobody is there
+                }
+            }
+            if (! $cands) {
+                return null;
+            }
+            $tired ? arsort($cands) : asort($cands);
+
+            return (int) array_key_first($cands);
+        };
+
+        DB::transaction(function () use ($trips, $crewOf, $demo, $cid, &$state, $pick, $template, &$made) {
+            foreach ($trips as $t) {
+                $dep = strtotime((string) $t->departure_at);
+                $arr = strtotime((string) $t->arrival_at);
+                $have = $crewOf[$t->id] ?? collect();
+                if ($have->isNotEmpty() || ! isset($demo[$t->id])) {
+                    foreach ($have as $c) {
+                        if (isset($state[$c->employee_id])) {
+                            $state[$c->employee_id]['at'] = (int) $t->destination_id;
+                            $state[$c->employee_id]['free'] = max($state[$c->employee_id]['free'], $arr);
+                        }
+                    }
+
+                    continue;
+                }
+                $taken = [];
+                $rows = [];
+                foreach (['pilot', 'pilot', 'hostess'] as $i => $type) {
+                    if ($type === 'hostess' && ! $template['hostess']) {
+                        continue;
+                    }
+                    $tired = $i === 0 && crc32('fat'.$t->id) % 40 === 0;
+                    $id = ($tired ? $pick($type, (int) $t->origin_id, $dep, true, $taken) : null) ?? $pick($type, (int) $t->origin_id, $dep, false, $taken);
+                    if (! $id) {
+                        $id = self::newCrew($cid, $type, $template[$type], count($state));
+                        $u = (int) DB::table('employees')->where('id', $id)->value('user_id');
+                        $state[$id] = ['type' => $type, 'at' => (int) $t->origin_id, 'free' => 0, 'rate' => $template[$type]->trip_rate, 'user' => $u ?: null, 'demo' => true];
+                        $made[$type === 'pilot' ? 'new_pilots' : 'new_hostesses']++;
+                    }
+                    $taken[] = $id;
+                    $rows[] = ['trip_id' => $t->id, 'employee_id' => $id, 'role' => $type, 'trip_rate' => $state[$id]['rate']];
+                    $state[$id]['at'] = (int) $t->destination_id;
+                    $state[$id]['free'] = $arr;
+                }
+                DB::table('transport_trip_crew')->insert($rows);
+                $made['trips']++;
+            }
+        });
+        if ($made['new_pilots'] || $made['new_hostesses']) {
+            TransportAgencies::staffRoles($cid);
+        }
+        $made['swaps'] = self::swaps($cid, $demo);
+
+        return $made;
+    }
+
+    /** Long demo trips past half way get the copilot's swap, except 1 in 25 (the "never swapped" alert). */
+    private static function swaps(int $cid, array $demo): int
+    {
+        $rules = \App\Services\PilotFatigue::rules($cid);
+        $done = DB::table('transport_trip_swaps')->where('company_id', $cid)->pluck('trip_id')->flip();
+        $trips = DB::table('transport_trips')->whereIn('id', array_keys($demo))->whereNull('deleted_at')->whereIn('status', ['completed', 'in_progress'])
+            ->where('departure_at', '<=', now())->whereNotNull('arrival_at')
+            ->whereRaw('TIMESTAMPDIFF(MINUTE, departure_at, arrival_at) > ?', [$rules['swap_after'] * 60])->get(['id', 'departure_at', 'arrival_at']);
+        $second = DB::table('transport_trip_crew as c')->join('employees as e', 'e.id', '=', 'c.employee_id')->whereIn('c.trip_id', $trips->pluck('id'))
+            ->where('c.role', 'pilot')->orderBy('c.id')->get(['c.trip_id', 'e.user_id'])->groupBy('trip_id');
+        $rows = [];
+        foreach ($trips as $t) {
+            if (isset($done[$t->id]) || crc32('swp'.$t->id) % 25 === 0 || count($second[$t->id] ?? []) < 2) {
+                continue;
+            }
+            $dep = \Carbon\Carbon::parse($t->departure_at);
+            $at = $dep->copy()->addMinutes((int) round($dep->diffInMinutes(\Carbon\Carbon::parse($t->arrival_at)) / 2) + (int) (crc32('swt'.$t->id) % 21) - 10);
+            if ($at->isFuture()) {
+                continue;
+            }
+            $rows[] = ['company_id' => $cid, 'trip_id' => $t->id, 'user_id' => $second[$t->id][1]->user_id, 'swapped_at' => $at, 'created_at' => $at, 'updated_at' => $at];
+        }
+        foreach (array_chunk($rows, 500) as $chunk) {
+            DB::table('transport_trip_swaps')->insert($chunk);
+        }
+
+        return count($rows);
+    }
+
+    /** A new demo pilot / hostess like the first one: per trip, no salary, with the standard login of a demo person. */
+    private static function newCrew(int $cid, string $type, object $like, int $n): int
+    {
+        $male = ['José', 'Luis', 'Carlos', 'Jorge', 'Miguel', 'Renzo', 'Víctor', 'César', 'Raúl', 'Hugo', 'Walter', 'Julio', 'Óscar', 'Manuel', 'Pedro', 'Alberto', 'Freddy', 'Wilmer'];
+        $last =['Quispe', 'Flores', 'Sánchez', 'Rojas', 'Díaz', 'Torres', 'Vargas', 'Castillo', 'Mendoza', 'Ramírez', 'Chávez', 'Huamán', 'Paredes', 'Salazar',
+            'Gutiérrez', 'Romero', 'Cruz', 'Ríos', 'Medina', 'Aguilar', 'Silva', 'Vásquez', 'Cárdenas', 'Espinoza'];
+        $seed = crc32($type.$cid.'-'.$n);
+        $female = $type === 'hostess' || $seed % 9 === 0;
+        $names = $female ? ['María', 'Lucía', 'Gabriela', 'Rosa', 'Carmen', 'Milagros', 'Sofía', 'Patricia', 'Diana', 'Karina', 'Yesenia', 'Fiorella', 'Andrea', 'Pamela'] : $male;
+        $first = $names[$seed % count($names)];
+        $lastName = $last[intdiv($seed, 7) % count($last)].' '.$last[intdiv($seed, 131) % count($last)];
+        $base = strtolower(preg_replace('/[^a-z]/i', '', \Illuminate\Support\Str::ascii($first.'.'.explode(' ', $lastName)[0])));
+        do {
+            $email = $base.'.'.random_int(100, 999).'@example.com';
+        } while (DB::table('users')->where('email', $email)->exists() || DB::table('employees')->where('email', $email)->exists());
+        $e = \App\Models\Employee::create([
+            'company_id' => $cid, 'firstname' => $first, 'lastname' => $lastName, 'username' => $first.' '.$lastName, 'email' => $email,
+            'gender' => $female ? 'female' : 'male', 'avatar' => 'no_avatar.png', 'department_id' => $like->department_id, 'designation_id' => $like->designation_id,
+            'office_shift_id' => $like->office_shift_id, 'joining_date' => now()->subMonths(6 + $seed % 30)->toDateString(), 'employment_type' => 'full_time',
+            'total_leave' => 0, 'remaining_leave' => 0, 'basic_salary' => 0,
+        ]);
+        DB::table('employees')->where('id', $e->id)->update(['staff_type' => $type, 'pay_type' => 'per_trip', 'trip_rate' => $like->trip_rate,
+            'pay_effective_from' => now()->subDays(200)->toDateString(), 'basic_salary' => 0]);
+        self::tag($cid, 'employees', (int) $e->id);
+        $userId = (int) DB::table('employees')->where('id', $e->id)->value('user_id');
+        if ($userId) {
+            self::tag($cid, 'users', $userId);
+            DB::table('users')->where('id', $userId)->update(['password' => \Illuminate\Support\Facades\Hash::make(CompanyLogins::PASSWORDS['employee']), 'statut' => 1]);
+        }
+
+        return (int) $e->id;
+    }
+
     /** The days after the last demo day, up to a week ahead, copied from 6 days before. */
     public static function days(int $cid): int
     {
@@ -525,12 +702,7 @@ class TransportDemoDay
                         'created_at' => now(), 'updated_at' => now(),
                     ]);
                     self::tag($cid, 'transport_trips', $id);
-                    foreach (DB::table('transport_trip_crew')->where('trip_id', $t->id)->get() as $c) {
-                        $row = (array) $c;
-                        unset($row['id']);
-                        $row['trip_id'] = $id;
-                        DB::table('transport_trip_crew')->insert($row);
-                    }
+                    // Its crew comes from crew() (2026-11-13: a copied crew could be on another bus that day).
                     // Its boarding points too (2026-11-11: the full daily plan has them).
                     foreach (DB::table('transport_trip_boardings')->where('trip_id', $t->id)->get() as $b) {
                         $row = (array) $b;
@@ -731,20 +903,8 @@ class TransportDemoDay
             $base = $roll < 82 ? $seed % 7 : ($roll < 95 ? 11 + $seed % 15 : 26 + $seed % 35); // minutes late at the start
             DB::transaction(function () use ($t, $cid, $n, $pilots, $hostesses, $hostRole, $userOf, $hasCrew, $seed, $base, $notes, &$made) {
                 $crewIds = [];
-                if (! isset($hasCrew[$t->id]) && count($pilots) >= 2) {
-                    $p1 = $pilots[$n % count($pilots)];
-                    $p2 = $pilots[($n + 1) % count($pilots)];
-                    $rows = [['pilot', $p1], ['pilot', $p2]];
-                    if ($hostesses) {
-                        $rows[] = [$hostRole, $hostesses[$n % count($hostesses)]];
-                    }
-                    foreach ($rows as [$role, $emp]) {
-                        DB::table('transport_trip_crew')->insert(['trip_id' => $t->id, 'employee_id' => $emp, 'role' => $role]);
-                    }
-                    $crewIds = [$p1];
-                } else {
-                    $crewIds = DB::table('transport_trip_crew')->where('trip_id', $t->id)->where('role', 'pilot')->pluck('employee_id')->all();
-                }
+                // The crew comes from crew() (2026-11-13), which runs before.
+                $crewIds = DB::table('transport_trip_crew')->where('trip_id', $t->id)->where('role', 'pilot')->orderBy('id')->pluck('employee_id')->all();
                 $by = $crewIds ? ($userOf[$crewIds[0]] ?? null) : null;
                 $points = \App\Services\TransportControl::points($t);
                 $delay = $base;

@@ -546,26 +546,11 @@ class TransportController extends Controller
                 'crew' => $people->count(), 'departures' => $out->count()];
         })->values();
 
-        // Pilots' driving hours in the period (trips done or under way).
+        // Pilots: their fatigue alerts in the period (user's rule, 2026-11-13), not a sum of hours.
         $days = max(1, Carbon::parse($from)->diffInDays(Carbon::parse($to)) + 1);
-        $limit = (int) round(self::PILOT_HOURS_30_DAYS * $days / 30);
-        $hours = [];
-        foreach ($trips as $t) {
-            if (! in_array($t->status, ['completed', 'in_progress'], true)) {
-                continue;
-            }
-            $end = $t->arrival_at ? min(Carbon::parse($t->arrival_at), $now) : $now;
-            $h = max(0, Carbon::parse($t->departure_at)->diffInMinutes($end)) / 60;
-            foreach (($crew[$t->id] ?? collect())->where('role', 'pilot') as $c) {
-                $hours[$c->employee_id] = ($hours[$c->employee_id] ?? ['hours' => 0, 'trips' => 0]);
-                $hours[$c->employee_id]['hours'] += $h;
-                $hours[$c->employee_id]['trips']++;
-            }
-        }
-        $names = DB::table('employees')->whereIn('id', array_keys($hours))->get(['id', 'firstname', 'lastname'])->keyBy('id');
-        $pilots = collect($hours)->map(fn ($p, $id) => ['id' => (int) $id, 'name' => isset($names[$id]) ? trim($names[$id]->firstname.' '.$names[$id]->lastname) : '#'.$id,
-            'hours' => round($p['hours'], 1), 'trips' => $p['trips'], 'pct' => $limit ? round($p['hours'] / $limit * 100) : 0])
-            ->sortByDesc('hours')->values();
+        $fatigue = \App\Services\PilotFatigue::analyze($cid, $from, $to);
+        $pilots = $fatigue['pilots'];
+        $limit = 0;
 
         $staff = DB::table('employees')->where('company_id', $cid)->whereNull('deleted_at')
             ->where(fn ($q) => $q->whereNull('leaving_date')->orWhere('leaving_date', '>=', now()->toDateString()))
@@ -582,8 +567,43 @@ class TransportController extends Controller
                 'staff' => array_map('intval', $staff->all()), 'trips' => $trips->count(),
                 'km' => (int) round($trips->where('status', 'completed')->sum(fn ($t) => (float) $t->distance_km)),
             ],
-            'pilot_limit' => $limit, 'pilots' => $pilots,
+            'pilot_limit' => $limit, 'pilots' => $pilots, 'fatigue_rules' => $fatigue['rules'],
         ]);
+    }
+
+    /** Who sees the pilots' alerts: the control board's and fleet board's people, and the owner's. */
+    private function canFatigue(Request $request): void
+    {
+        $user = $request->user('api');
+        abort_unless(collect(['transport_fleet_board', 'transport_monitor', 'transport_profit', 'transport_manage'])->contains(fn ($p) => HelpdeskAccess::can($user, $p)), 403, __('You do not have permission for this.'));
+    }
+
+    /**
+     * GET transport/pilot-fatigue?from&to[&employee_id] -- every pilot's alerts in the period, or one pilot's with the
+     * reason and the trips behind each alert (App\Services\PilotFatigue).
+     */
+    public function pilotFatigue(Request $request)
+    {
+        $this->canFatigue($request);
+        $cid = (int) $this->resolveActingCompanyId($request);
+        abort_if($cid === 999, 422, __('Pick a company in the header first.'));
+        $from = $request->input('from') ?: now()->subDays(29)->toDateString();
+        $to = $request->input('to') ?: now()->toDateString();
+        $res = \App\Services\PilotFatigue::analyze($cid, $from, $to, $request->filled('employee_id') ? (int) $request->input('employee_id') : null);
+
+        return response()->json($res + ['from' => $from, 'to' => $to]);
+    }
+
+    /** PUT transport/pilot-fatigue/rules -- the company's limits (the owner's call: transport_manage). */
+    public function pilotFatigueRules(Request $request)
+    {
+        $this->can($request, 'transport_manage');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        abort_if($cid === 999, 422, __('Pick a company in the header first.'));
+        $v = $request->validate(['continuous' => 'required|numeric|min:1|max:48', 'h48' => 'required|numeric|min:1|max:48', 'h72' => 'required|numeric|min:1|max:72',
+            'swap_after' => 'required|numeric|min:1|max:24', 'gap_min' => 'required|integer|min:5|max:600', 'swap_late_min' => 'required|integer|min:5|max:240']);
+
+        return response()->json(['rules' => \App\Services\PilotFatigue::saveRules($cid, $v)]);
     }
 
     // ------------------------------------------------------------------ owner's panel

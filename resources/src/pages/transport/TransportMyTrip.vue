@@ -57,6 +57,19 @@
           </template>
         </a-card>
 
+        <!-- Pilot swap on a long trip (2026-11-13): when and to whom; "Swap done" with the bus stopped. -->
+        <a-card v-if="trip.swap" size="small" class="mt-gap" :class="{ 'mt-warn': ['due', 'late'].includes(trip.swap.state) }" :body-style="{ padding: '12px' }">
+          <div class="mt-action-title">{{ T('Pilot swap', 'Cambio de piloto') }} · {{ time(trip.swap.due_at) }}</div>
+          <div class="mt-muted">{{ trip.swap.from }} → {{ trip.swap.to }}</div>
+          <div v-if="trip.swap.state === 'done'" class="mt-ok">✓ {{ T('Swap done at', 'Cambio hecho a las') }} {{ time(trip.swap.done_at) }}</div>
+          <div v-else-if="trip.swap.state === 'late'" class="mt-wait">{{ T('The swap is late: stop and hand over the wheel.', 'El cambio está atrasado: detente y entrega el volante.') }}</div>
+          <div v-else-if="trip.swap.state === 'missed'" class="mt-wait">{{ T('The trip ended without the swap.', 'El viaje terminó sin el cambio.') }}</div>
+          <template v-if="running && ['due', 'late'].includes(trip.swap.state)">
+            <div v-if="waitReason" class="mt-wait">{{ waitReason }}</div>
+            <a-button block size="large" type="primary" class="mt-big" :disabled="!canReport" :loading="saving" @click="swapDone"><SwapOutlined /> {{ T('Swap done', 'Cambio hecho') }}</a-button>
+          </template>
+        </a-card>
+
         <a-button v-if="running" block size="large" danger class="mt-gap" :disabled="!canReport" @click="openIncident"><WarningOutlined /> {{ T('Report an incident', 'Reportar una incidencia') }}</a-button>
 
         <a-card size="small" class="mt-gap" :title="T('Control points', 'Puntos de control')" :body-style="{ padding: '12px' }">
@@ -108,7 +121,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
-import { AimOutlined, CameraOutlined, CarOutlined, SendOutlined, WarningOutlined } from '@ant-design/icons-vue';
+import { AimOutlined, CameraOutlined, CarOutlined, SendOutlined, SwapOutlined, WarningOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
@@ -400,6 +413,18 @@ async function act(action, ok) {
   }
 }
 const depart = () => act('depart', T('Departure reported.', 'Salida reportada.'));
+async function swapDone() {
+  saving.value = true;
+  try {
+    const res = await http.post(`transport/control/trips/${trip.value.id}/swap`, fixBody());
+    trip.value = res.trip;
+    message.success(T('Swap reported.', 'Cambio reportado.'));
+  } catch (e) {
+    message.error(errorOf(e));
+  } finally {
+    saving.value = false;
+  }
+}
 const skip = () => act('skip', T('Saved.', 'Guardado.'));
 
 const incidentOpen = ref(false);
@@ -462,6 +487,7 @@ onBeforeUnmount(() => {
 .mt-warn { border-color: #f59e0b; background: #fffbeb; }
 .mt-action-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
 .mt-wait { margin: 8px 0; font-size: 13px; color: #b45309; }
+.mt-ok { margin-top: 6px; font-size: 13px; color: #15803d; font-weight: 600; }
 .mt-big { height: 54px; font-size: 17px; font-weight: 600; margin-top: 8px; }
 .mt-line { margin-top: 6px; }
 .mt-line :deep(.ant-timeline-item:last-child) { padding-bottom: 0; }

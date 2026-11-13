@@ -61,8 +61,60 @@ class TransportAgencies
         self::ticketOffice($companyId, self::posRole($companyId), array_values($map));
         self::staffRoles($companyId);
         self::supervisors($companyId, $map);
+        self::fleetSupervisor($companyId);
 
         return $map;
+    }
+
+    public const FLEET_ROLE = 'Supervisor de flota';
+
+    /** Keeps the fleet running (user's request, 2026-11-13): maintenance, the pilots' reports and hours. No money. */
+    public const FLEET_PERMISSIONS = ['transport_fleet_board', 'transport_monitor', 'transport_view', 'fleet_vehicles_view', 'fleet_vehicles_edit',
+        'fleet_maintenance', 'fleet_parts', 'fleet_plan', 'fleet_fuel', 'fleet_assignments', 'fleet_reports'];
+
+    /**
+     * The fleet supervisor (2026-11-13): an employee with the login {slug}-flota@kcoltech.com, role "Supervisor de
+     * flota", every agency, home "Tablero de flota", the standard employee password. Made once; the role's
+     * permissions are set again each time.
+     */
+    public static function fleetSupervisor(int $companyId): void
+    {
+        if (! DB::table('permissions')->where('name', 'transport_fleet_board')->exists()) {
+            return; // before the migration that brings it
+        }
+        $role = DB::table('roles')->where('company_id', $companyId)->where('name', self::FLEET_ROLE)->whereNull('deleted_at')->value('id');
+        if (! $role) {
+            $role = DB::table('roles')->insertGetId(['company_id' => $companyId, 'name' => self::FLEET_ROLE, 'label' => self::FLEET_ROLE,
+                'description' => 'Keeps the fleet running: maintenance, the pilots\' reports, their hours and alerts. No money.',
+                'home_path' => '/transport/fleet-board', 'status' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        }
+        DB::table('permission_role')->where('role_id', $role)->delete();
+        DB::table('permission_role')->insert(DB::table('permissions')->whereIn('name', self::FLEET_PERMISSIONS)->pluck('id')
+            ->map(fn ($p) => ['permission_id' => $p, 'role_id' => $role])->all());
+
+        $slug = CompanyLogins::slug($companyId);
+        $email = $slug.'-flota@kcoltech.com';
+        $dept = DB::table('departments')->where('company_id', $companyId)->whereNull('deleted_at')->orderBy('id')->value('id');
+        $shift = DB::table('office_shifts')->where('company_id', $companyId)->whereNull('deleted_at')->orderBy('id')->value('id');
+        if (! $dept || ! $shift || DB::table('users')->where('email', $email)->exists()) {
+            return;
+        }
+        $designation = DB::table('designations')->where('company_id', $companyId)->whereNull('deleted_at')->where('designation', self::FLEET_ROLE)->value('id')
+            ?: DB::table('designations')->insertGetId(['company_id' => $companyId, 'department_id' => $dept, 'designation' => self::FLEET_ROLE, 'created_at' => now(), 'updated_at' => now()]);
+        $employee = \App\Models\Employee::create([
+            'company_id' => $companyId, 'firstname' => 'Supervisor', 'lastname' => 'de flota', 'username' => 'Supervisor de flota', 'email' => $email,
+            'gender' => 'other', 'avatar' => 'no_avatar.png', 'department_id' => $dept, 'designation_id' => $designation, 'office_shift_id' => $shift,
+            'joining_date' => now()->toDateString(), 'employment_type' => 'full_time', 'total_leave' => 0, 'remaining_leave' => 0, 'basic_salary' => 0,
+        ]);
+        DB::table('employees')->where('id', $employee->id)->update(['staff_type' => 'administrative']);
+        $userId = (int) DB::table('employees')->where('id', $employee->id)->value('user_id');
+        if (! $userId) {
+            return;
+        }
+        DB::table('users')->where('id', $userId)->update(['role_id' => $role, 'email' => $email, 'statut' => 1, 'is_all_warehouses' => 1, 'record_view' => 1,
+            'password' => \Illuminate\Support\Facades\Hash::make(CompanyLogins::PASSWORDS['employee']), 'updated_at' => now()]);
+        DB::table('role_user')->where('user_id', $userId)->delete();
+        DB::table('role_user')->insert(['user_id' => $userId, 'role_id' => $role]);
     }
 
     /**

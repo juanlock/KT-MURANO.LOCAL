@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
  */
 class TransportDemoDayCommand extends Command
 {
-    protected $signature = 'transport:demo-day {--company= : Only this company id}';
+    protected $signature = 'transport:demo-day {--company= : Only this company id} {--crew : Only make the crew of every demo trip and pilot swaps again (no overlaps, 2026-11-13)}';
 
     protected $description = 'Keep transport demos alive: trips up to a week ahead, statuses, maintenance, complaints';
 
@@ -20,7 +20,8 @@ class TransportDemoDayCommand extends Command
     {
         $ids = $this->option('company') ? [(int) $this->option('company')] : TransportDemoDay::companies();
         foreach ($ids as $cid) {
-            $this->line("company {$cid}: ".json_encode(TransportDemoDay::run($cid)));
+            $out = $this->option('crew') ? TransportDemoDay::crew($cid, true) : TransportDemoDay::run($cid);
+            $this->line("company {$cid}: ".json_encode($out));
         }
 
         return self::SUCCESS;

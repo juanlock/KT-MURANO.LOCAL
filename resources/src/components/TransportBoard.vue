@@ -111,22 +111,9 @@
               </div>
             </div>
 
-            <!-- Pilots' driving hours -->
+            <!-- Pilots: their fatigue alerts in the period (2026-11-13), a click says why -->
             <div class="tb-box tb-grow">
-              <div class="tb-sub-title">
-                {{ tf('Transport_Pilot_Hours', 'Pilot hours') }}
-                <a-tooltip :title="`${tf('Transport_Hours_Limit', 'Safe limit')}: ${data.pilot_limit} h / ${data.days} d`"><InfoCircleOutlined class="tb-info" /></a-tooltip>
-              </div>
-              <div v-if="record" class="tb-list">
-                <div v-for="p in data.pilots.slice(0, 6)" :key="p.id" class="tb-pilot" :title="`${p.name}: ${p.hours} h · ${p.trips} ${tf('Transport_Trips_Period', 'Trips').toLowerCase()} · ${p.pct} %`">
-                  <div class="tb-pilot-row">
-                    <span class="tb-pilot-name">{{ p.name }}</span>
-                    <span class="tb-pilot-hours">{{ p.hours }} h</span>
-                  </div>
-                  <div class="tb-bar"><span :style="{ width: Math.min(100, p.pct) + '%', background: barColor(p.pct) }" /></div>
-                </div>
-              </div>
-              <a-empty v-else :image="simpleImage" />
+              <PilotFatigueList :range="range" :pilots="data.pilots" :rules="data.fatigue_rules" @rules-saved="load" />
             </div>
           </div>
         </div>
@@ -148,6 +135,7 @@ import { t as tf } from '../i18n';
 import { staffTypeLabel } from '../pages/hrm/hrmVocab';
 import { useFitHeight } from '../lib/transportCharts';
 import TransportStrip from './TransportStrip.vue';
+import PilotFatigueList from './PilotFatigueList.vue';
 
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE;
 const H = 700;
@@ -308,9 +296,6 @@ const fleetStates = computed(() => [
   { key: 'maintenance', label: tf('Transport_In_Maintenance', 'In maintenance') },
 ].map(s => ({ ...s, count: data.value.fleet.filter(v => v.state === s.key).length })));
 const routeList = computed(() => [...map.value.routes].sort((x, y) => x.names.localeCompare(y.names)));
-const record = computed(() => data.value.pilots[0] || null);
-const level = pct => (pct >= 90 ? 'danger' : pct >= 75 ? 'warn' : 'ok');
-const barColor = pct => ({ danger: '#dc2626', warn: '#f59e0b', ok: '#16a34a' })[level(pct)];
 // The room left for the three columns: card padding + the strip + the red line, when there is one.
 const gridHeight = computed(() => {
   if (!fit.value) return null;
