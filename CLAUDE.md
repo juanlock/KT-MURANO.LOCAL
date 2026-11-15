@@ -495,6 +495,10 @@ the start of each session).
   `Is_Active` refuses a disabled login before the request runs.
 - **The invoice note and terms with the card fee, late fee and (973) phones are Ruba's only (user's rule, 2026-11-06):** every other
   company and the template 999 (new companies are cloned from it) keep `sale_pdf_company_note` / `sale_pdf_terms_conditions` empty.
+- **Every sale keeps its invoice PDF (user's rule, 2026-11-15):** `files/company_{id}/sales/{Ref}.pdf`, made when the sale is
+  created or edited (Sale model events -> `App\Support\SalePdfArchive::queue`, after the answer; drafts once they stop being one;
+  demo sales never), in the company's language. **A deleted sale's PDF is never deleted:** renamed `{Ref} - Delete.pdf` (also the
+  earlier system's `Invoice_{Ref}.pdf`). `php artisan sales:pdf-archive [--company] [--limit] [--dry]` makes the missing ones.
 - **Sale numbers are per company** (2026-10-07): `SalesController::getNumberOrder($warehouseId, $companyId)`
   = the company's own `settings.sale_prefix` + that company's highest number + 1,
   keeping its separator (Ruba INV_3604, KcolTech PP-…). Every place that creates a

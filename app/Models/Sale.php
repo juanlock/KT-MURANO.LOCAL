@@ -131,5 +131,20 @@ class Sale extends Model
                 }
             }
         });
+        // The invoice PDF in files/company_{id}/sales/ (user's rule, 2026-11-15): made when the sale is created or edited,
+        // after the answer (its lines are final then); a deleted sale's PDF is renamed "{Ref} - Delete.pdf", never removed.
+        // A draft gets its PDF once it stops being one.
+        static::created(function ($sale) {
+            if (! $sale->is_draft && ! $sale->deleted_at) {
+                \App\Support\SalePdfArchive::queue($sale);
+            }
+        });
+        static::updated(function ($sale) {
+            if ($sale->wasChanged('deleted_at') && $sale->deleted_at) {
+                \App\Support\SalePdfArchive::queue($sale, true);
+            } elseif (! $sale->is_draft && ! $sale->deleted_at) {
+                \App\Support\SalePdfArchive::queue($sale);
+            }
+        });
     }
 }
