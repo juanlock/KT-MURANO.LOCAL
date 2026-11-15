@@ -195,6 +195,7 @@ const gpsError = ref('');
 const stoppedSince = ref(null);
 const tick = ref(Date.now());
 let watchId = null;
+let pollTimer = null;
 let lastSample = null;
 let sendTimer = null;
 let tickTimer = null;
@@ -227,7 +228,10 @@ function onPosition(pos) {
   const first = !fix.value;
   fix.value = { lat: c.latitude, lng: c.longitude, accuracy: c.accuracy, speed: speed.value };
   const stop = trip.value?.stop_kmh ?? 5;
-  if (speed.value === null || speed.value > stop || c.accuracy > MAX_ACCURACY_M) stoppedSince.value = null;
+  // An iPhone standing still gives no speed (-1) and hardly sends new positions (2026-11-15, real test in Peru: "I left"
+  // never enabled): an unknown speed with a good fix counts as stopped; the next positions (polled every 10 s) and the
+  // server's own check against the previous position still catch a moving bus.
+  if ((speed.value !== null && speed.value > stop) || c.accuracy > MAX_ACCURACY_M) stoppedSince.value = null;
   else if (!stoppedSince.value) stoppedSince.value = Date.now();
   if (first) sendPosition();
 }
@@ -271,6 +275,8 @@ function startGps() {
     return;
   }
   watchId = navigator.geolocation.watchPosition(onPosition, onGpsError, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  // iOS sends a position only when it changes: ask for a fresh one every 10 s so the speed can be worked out.
+  pollTimer = setInterval(() => navigator.geolocation.getCurrentPosition(onPosition, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 9000 }), 10000);
   keepScreenOn();
 }
 
@@ -279,6 +285,8 @@ function stopGps() {
   simTimer = null;
   if (watchId !== null) navigator.geolocation.clearWatch(watchId);
   watchId = null;
+  clearInterval(pollTimer);
+  pollTimer = null;
   releaseScreen();
 }
 
