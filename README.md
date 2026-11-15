@@ -203,6 +203,24 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-14 / 15 (Optimum)
+
+- **A bus's Fuel tab** (Fleet -> vehicle): when the bus has no refuels, it
+  lists the fuel of its trips (departure, route, km, fuel, per km) with the
+  total and the average per trip; the vehicle's cost, distance and cost per km
+  come from those trips. Notes in Spanish.
+- **WhatsApp sign-in links work on the person's phone:** WhatsApp's link
+  preview used to open the link first and take it ("this link does not work
+  here"); now only a real browser claims it, entering by itself.
+- **My trip on an iPhone:** an iPhone standing still gives no speed, so "I
+  left" took long or never enabled; now it enables after the 30 s stopped and
+  the page asks the phone for its position every 10 s. Tested with a real
+  iPhone in Peru (left, arrived with photo and note).
+- **Turismo:** owner flyer in production, demo crews remade (no pilot on two
+  buses), presentation moved to Monday 2026-11-16.
+
+Setup: `npm run build`.
+
 ### 2026-11-13 (Thundera)
 
 - **Pilot alerts instead of a sum of hours** (Transport board, Fleet board):
@@ -287,30 +305,6 @@ Setup: `php artisan migrate`, `npm run build`.
 - **Turismo's demo** covers two months and a week ahead with the client's own
   daily plan for all four agencies (2 demo buses complete their fleet of 19),
   crew, punctuality, incidents, services paid and parcels near S/ 250,000 a month.
-
-Setup: `php artisan migrate`, `npm run build`.
-### 2026-11-10 (Thundera)
-
-- **Daily departures** (transport): each agency's day replaces the client's
-  Excel; the day is copied from an earlier one, passengers and amounts come
-  from the POS tickets, and **Close day** keeps the totals, makes a PDF and
-  emails it. A closed day can only be reopened by IT Admin / Manager.
-- **Collapsing the side menu moves it to the top bar**: its groups become
-  buttons with their items in a popup, the bar takes the company's colour and
-  the company logo replaces the person's picture.
-- **No language button in the top bar** (it repeated Settings / Profile), and
-  **the alerts bell is each company's choice**, off by default: System
-  Settings › General › Show alerts, then which alerts.
-- **POS "Open register"** answers at once on a developer PC (it waited 16 s
-  for the notice email).
-- **Forms dashboard in tabs**: Summary, Analysis (the complaints book grouped,
-  by agency and route), Submissions and Forms; each fits one screen.
-- **Murano is KcolTech's**: the old base's name is gone from every screen and
-  file, the updater no longer asks the old vendor's server, the footer shows
-  Murano's version, and the manual has a **License** entry.
-- **The unused phone app support was removed** (its API, its settings page
-  and its push notices); phones use the web app.
-- **Developer PCs never email real people**: everything goes to one address.
 
 Setup: `php artisan migrate`, `npm run build`.
 ---
