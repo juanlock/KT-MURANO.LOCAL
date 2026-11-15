@@ -70,19 +70,20 @@ class SalePdfArchive
         if (! $sale->company_id || ! $sale->Ref || self::isDemo((int) $sale->id)) {
             return;
         }
+        // One PDF per invoice (user's rule, 2026-11-15: "solo renómbralo, no tengas la versión anterior, se repite"): the
+        // invoice's PDF is renamed; any other copy of it is removed.
         $target = self::path($sale, true);
-        if (is_file($target)) {
-            return;
-        }
         $dir = public_path(self::dir((int) $sale->company_id));
         foreach (['Invoice_'.self::safe($sale->Ref).'.pdf', self::safe($sale->Ref).'.pdf'] as $name) {
-            if (is_file($dir.'/'.$name)) {
-                @rename($dir.'/'.$name, $target);
-
-                return;
+            $file = $dir.'/'.$name;
+            if (! is_file($file)) {
+                continue;
             }
+            is_file($target) ? @unlink($file) : @rename($file, $target);
         }
-        self::save($sale, true);
+        if (! is_file($target)) {
+            self::save($sale, true);
+        }
     }
 
     /** True when a PDF of this sale is already on disk (Murano's name or the earlier system's). */

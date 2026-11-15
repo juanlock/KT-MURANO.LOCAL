@@ -67,33 +67,60 @@ class SalesPdfArchive extends Command
     }
 
     /**
-     * The names before 2026-11-15 ("INV_1.pdf", "INV_1 - Delete.pdf") become "Invoice_INV_1.pdf" / "Invoice_INV_1 - Delete.pdf"
-     * (user's rule: every invoice PDF starts with "Invoice_"). Nothing is deleted: when the new name is already taken, the old
-     * file is kept as "Invoice_INV_1 (2).pdf".
+     * One PDF per invoice, named "Invoice_{Ref}.pdf" / "Invoice_{Ref} - Delete.pdf" (user's rules, 2026-11-15: every invoice
+     * PDF starts with "Invoice_"; no earlier version is kept, "se repite"):
+     *  - an older name "INV_1.pdf" becomes "Invoice_INV_1.pdf"; if that name is taken, the older copy is removed;
+     *  - copies "Invoice_X (2).pdf" / "Invoice_X (anterior).pdf" are removed when "Invoice_X.pdf" (or its "- Delete") exists;
+     *  - the earlier system's zero-padded "Invoice_INV_0005.pdf" is removed when the sale is INV_5 and has its own PDF;
+     *  - an invoice with both "Invoice_X.pdf" and "Invoice_X - Delete.pdf": the one that matches the sale stays.
      */
     private function renameOld(): void
     {
-        $renamed = $kept = 0;
+        $dry = (bool) $this->option('dry');
+        $renamed = $removed = 0;
+        $drop = function (string $file) use ($dry, &$removed) {
+            if (! $dry) {
+                @unlink($file);
+            }
+            $removed++;
+        };
         foreach (glob(public_path('files/company_*/'.SalePdfArchive::MODULE), GLOB_ONLYDIR) ?: [] as $dir) {
+            $cid = (int) preg_replace('/\D/', '', basename(dirname($dir)));
+            $sales = DB::table('sales')->where('company_id', $cid)->get(['Ref', 'deleted_at'])->keyBy('Ref');
+            $has = fn (string $ref) => is_file($dir.'/Invoice_'.$ref.'.pdf') || is_file($dir.'/Invoice_'.$ref.' - Delete.pdf');
             foreach (glob($dir.'/*.pdf') ?: [] as $file) {
                 $name = basename($file);
-                if (str_starts_with($name, 'Invoice_')) {
+                if (! str_starts_with($name, 'Invoice_')) {
+                    $target = $dir.'/Invoice_'.$name;
+                    if (is_file($target)) {
+                        $drop($file);
+                    } else {
+                        if (! $dry) {
+                            @rename($file, $target);
+                        }
+                        $renamed++;
+                    }
                     continue;
                 }
-                $target = $dir.'/Invoice_'.$name;
-                if (is_file($target)) {
-                    $target = $dir.'/Invoice_'.substr($name, 0, -4).' (2).pdf';
-                    $kept++;
-                    if (is_file($target)) {
-                        continue;
+                $base = substr($name, 8, -4);  // without "Invoice_" and ".pdf"
+                if (preg_match('/^(.*) \((2|anterior)\)$/', $base, $m)) {
+                    if ($has($m[1])) {
+                        $drop($file);
                     }
+                    continue;
                 }
-                if (! $this->option('dry')) {
-                    @rename($file, $target);
+                $ref = preg_replace('/ - Delete$/', '', $base);
+                if (! $sales->has($ref) && preg_match('/^(.*_)0+(\d+)$/', $ref, $m) && $sales->has($m[1].$m[2]) && $has($m[1].$m[2])) {
+                    $drop($file);
+                    continue;
                 }
-                $renamed++;
+                $sale = $sales->get($ref);
+                if ($sale && $base === $ref && is_file($dir.'/Invoice_'.$ref.' - Delete.pdf')) {
+                    // both names: keep the one that matches the sale
+                    $drop($sale->deleted_at ? $file : $dir.'/Invoice_'.$ref.' - Delete.pdf');
+                }
             }
         }
-        $this->line(($this->option('dry') ? '[dry] ' : '')."renamed to Invoice_: $renamed (kept as (2) because the name was taken: $kept)");
+        $this->line(($dry ? '[dry] ' : '')."renamed to Invoice_: $renamed | repeated copies removed: $removed");
     }
 }
