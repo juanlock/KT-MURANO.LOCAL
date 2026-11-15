@@ -17,21 +17,21 @@
       </template>
     </PageHeader>
 
-    <a-card size="small" style="margin-bottom: 16px">
-      <div class="toolbar">
-        <PresetRangeFilter v-model:value="filters.range" value-format="YYYY-MM-DD" @change="crud.reload" />
-        <a-select v-model:value="filters.location" class="tb-item" allow-clear show-search option-filter-prop="label"
-          :placeholder="tx('All locations', 'Todas las ubicaciones')" :options="opt('locations')" @change="crud.reload" />
-        <a-select v-model:value="filters.category" class="tb-item" allow-clear show-search option-filter-prop="label"
-          :placeholder="tx('All categories', 'Todas las categorías')" :options="opt('categories')" @change="crud.reload" />
-        <a-select v-model:value="filters.status" class="tb-item" allow-clear
-          :placeholder="tx('All statuses', 'Todos los estados')" :options="opt('statuses')" @change="crud.reload" />
-        <a-select v-model:value="filters.claude_user" class="tb-item tb-user" allow-clear show-search option-filter-prop="label"
-          :placeholder="tx('All users', 'Todos los usuarios')" :options="opt('users')" @change="crud.reload" />
-      </div>
-    </a-card>
-
     <DataTable :crud="crud" :columns="columns">
+      <!-- The filters beside the search box (user, 2026-11-15), not in a card of their own. -->
+      <template #filters>
+        <div class="toolbar">
+          <PresetRangeFilter v-model:value="filters.range" value-format="YYYY-MM-DD" @change="crud.reload" />
+          <a-select v-model:value="filters.location" class="tb-item" allow-clear show-search option-filter-prop="label"
+            :placeholder="tx('All locations', 'Todas las ubicaciones')" :options="opt('locations')" @change="crud.reload" />
+          <a-select v-model:value="filters.category" class="tb-item" allow-clear show-search option-filter-prop="label"
+            :placeholder="tx('All categories', 'Todas las categorías')" :options="opt('categories')" @change="crud.reload" />
+          <a-select v-model:value="filters.status" class="tb-item" allow-clear
+            :placeholder="tx('All statuses', 'Todos los estados')" :options="opt('statuses')" @change="crud.reload" />
+          <a-select v-model:value="filters.claude_user" class="tb-item tb-user" allow-clear show-search option-filter-prop="label"
+            :placeholder="tx('All users', 'Todos los usuarios')" :options="opt('users')" @change="crud.reload" />
+        </div>
+      </template>
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'id'">
           <a class="link" @click="openLog(record.id)">#{{ record.id }}</a>
