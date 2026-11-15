@@ -17,6 +17,18 @@ class LoginLinkController extends Controller
 {
     public function enter(Request $request, string $code)
     {
+        // A link nobody has claimed yet is claimed only by a POST (2026-11-14): WhatsApp's link preview on the iPhone opened
+        // the link before the person did (user agent "Safari on Mac") and took it. A GET then gets a page that posts by
+        // itself in a browser; previews don't run scripts.
+        if ($request->isMethod('get')) {
+            $link = DB::table('login_links')->where('token_hash', hash('sha256', $code))->first(['company_id', 'device_hash', 'revoked_at']);
+            if ($link && ! $link->device_hash && ! $link->revoked_at) {
+                $lang = (string) DB::table('settings')->where('company_id', $link->company_id)->whereNull('deleted_at')->value('default_language');
+
+                return response()->view('auth.login_link_open', ['code' => $code, 'es' => $lang === '' || str_starts_with($lang, 'es')])
+                    ->header('Cache-Control', 'no-store');
+            }
+        }
         [$user, $reason] = LoginLinks::check($code, $request);
         if ($reason === null) {
             LoginSecurity::event($user, $user->email, 'web', 'link_login', $request);

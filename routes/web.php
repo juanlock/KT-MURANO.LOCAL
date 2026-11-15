@@ -647,6 +647,7 @@ Route::post('login/as-back', 'CompanyLoginsController@back')->middleware(['auth:
 Route::get('company-docs/{company}/{name}.pdf', [\App\Http\Controllers\CompanyManualsController::class, 'file'])->name('company-manual.file')
     ->middleware(['signed:relative', 'throttle:30,1'])->whereNumber('company')->where('name', '[A-Za-z0-9\-]+');
 Route::get('acceso/{code}', 'Auth\LoginLinkController@enter')->middleware('throttle:20,1')->where('code', '[A-Za-z0-9]{32}');
+Route::post('acceso/{code}', 'Auth\LoginLinkController@enter')->middleware('throttle:20,1')->where('code', '[A-Za-z0-9]{32}');
 // POS cashier PIN: switches this browser session to the PIN's user (see PosPinController).
 Route::post('pos/pin-switch', 'PosPinController@switchUser')->middleware(['auth:web', 'throttle:10,1'])->name('pos.pin_switch');
 

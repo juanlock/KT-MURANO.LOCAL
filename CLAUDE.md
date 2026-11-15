@@ -199,7 +199,10 @@ the old `UTC` setting and were not retroactively converted.
 
 ## Open with the user (2026-11-06, KT-HOGWARTS switched off for some weeks)
 
-**Turismo Cautivo's presentation is on 2026-11-15:** everything that company sees must be in Spanish. Before it, check that
+**Turismo Cautivo's presentation moved to Monday 2026-11-16, time not set yet (user, 2026-11-14):** everything that company sees must be in Spanish.
+The user focuses on the dashboard; phone tests with the audience only if the chance comes -- then make, that day, fresh WhatsApp links
+(one per phone, hostess preferred: no 30 s stop wait) and a test trip open at that hour (copy of a demo trip, tagged demo, note "Prueba"),
+and delete the test trips afterwards. Test trip 3743 (2026-11-14, Edward in Peru, pilot Jorge Torres Ramírez) is still in production: delete it. Before it, check that
 Reporte de salidas opens on real data. Only Reporte de salidas and Reclamos hold real data; the other transport tabs are demo.
 
 Waiting for the user's answer -- bring these up, don't decide them alone (remove each one once settled):
