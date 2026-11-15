@@ -243,7 +243,9 @@ function onGpsError(e) {
 }
 
 // ------------------------------------------------------------------ a developer's PC: simulated GPS
-const simulated = /(\.local|\.test)$|^127\.|^localhost$/.test(window.location.hostname);
+// localStorage mt_real_gps = '1' turns the simulator off on a PC, to test the browser's own GPS (2026-11-15: the simulator
+// always gave a speed, so the iPhone's "no speed" case was never seen before a real phone).
+const simulated = /(\.local|\.test)$|^127\.|^localhost$/.test(window.location.hostname) && (() => { try { return localStorage.getItem('mt_real_gps') !== '1'; } catch (e) { return true; } })();
 const simMoving = ref(false);
 const simAt = ref(null);
 let simTimer = null;
