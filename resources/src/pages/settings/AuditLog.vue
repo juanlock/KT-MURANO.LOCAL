@@ -50,6 +50,15 @@
             <div class="muted">{{ record.method }} {{ record.url }}</div>
             <div class="muted">{{ record.ip }}</div>
           </template>
+          <!-- The code file that made the change and the git commit the server ran (2026-11-15; older rows show —). -->
+          <template v-else-if="column.key === 'source'">
+            <code v-if="record.source_file" class="src">{{ record.source_file }}</code>
+            <span v-else class="muted">—</span>
+          </template>
+          <template v-else-if="column.key === 'commit'">
+            <code v-if="record.code_commit" class="src">{{ record.code_commit }}</code>
+            <span v-else class="muted">—</span>
+          </template>
         </template>
       </a-table>
     </a-card>
@@ -111,6 +120,8 @@ const columns = computed(() => [
   { title: tx('Record', 'Registro'), key: 'what', width: 190 },
   { title: tx('What changed', 'Qué cambió'), key: 'changes', width: 420 },
   { title: tx('From', 'Desde'), key: 'where', width: 210 },
+  { title: tx('Code file', 'Archivo de código'), key: 'source', width: 260 },
+  { title: 'Commit', key: 'commit', width: 100 },
 ]);
 const detailColumns = computed(() => [
   { title: tx('Field', 'Campo'), dataIndex: 'field', width: 180 },
@@ -156,6 +167,7 @@ load();
 .chg { font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; max-width: 420px; }
 .chg code { opacity: 0.75; margin-right: 4px; }
 .sql-tag { font-size: 10px; line-height: 16px; padding: 0 4px; margin-left: 4px; cursor: help; }
+.src { font-size: 11.5px; padding: 1px 5px; border-radius: 4px; background: rgba(128, 128, 128, 0.12); word-break: break-all; }
 .old { color: #cf1322; text-decoration: line-through; opacity: 0.8; }
 .new { color: #389e0d; }
 </style>

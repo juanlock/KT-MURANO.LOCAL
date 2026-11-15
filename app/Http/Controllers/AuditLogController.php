@@ -45,6 +45,8 @@ class AuditLogController extends Controller
                 'user_id' => $r->user_id, 'user_name' => $r->user_name, 'as_admin' => $r->as_admin_id ? ($admins[$r->as_admin_id] ?? '#'.$r->as_admin_id) : null,
                 'company_id' => $r->company_id, 'company_name' => $companies[$r->company_id] ?? null,
                 'ip' => $r->ip, 'method' => $r->method, 'url' => $r->url,
+                // which code file made the change and which git commit the server ran (2026-11-15; older rows: null)
+                'source_file' => $r->source_file ?? null, 'code_commit' => $r->code_commit ?? null,
                 'changes' => json_decode((string) $r->changes, true) ?: [],
             ]),
             'total' => $total,

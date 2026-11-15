@@ -227,6 +227,10 @@ function itemIcon(entry, groupIconName) {
  * stable even if an intermediate subgroup gets renamed or the leaf moves
  * between subgroups within the same module.
  */
+// Key suffix = CSS hook: |system for install-wide (systemOnly) entries, |sa for SuperAdmin-only ones that also work
+// on a picked company (e.g. Change history) -- both shown in the global yellow (user, 2026-11-15: not the company's colour).
+const markOf = entry => (entry.systemOnly ? '|system' : entry.superAdminOnly ? '|sa' : '');
+
 function leafItem(groupKey, entry, withIcon) {
   const target = entry.href
     ? { type: 'external', path: entry.href }
@@ -239,7 +243,7 @@ function leafItem(groupKey, entry, withIcon) {
     // independently builds the SAME key from the SAME entry for
     // highlighting the active item; if the two ever disagree, navigating to
     // a systemOnly page stops highlighting/auto-expanding it in the sidebar.
-    key: `${groupKey}|${target.type}|${target.path}${entry.systemOnly ? '|system' : ''}`,
+    key: `${groupKey}|${target.type}|${target.path}${markOf(entry)}`,
     label: labelNode(entry),
     icon: withIcon ? itemIcon(entry, withIcon) : undefined,
   };
@@ -360,7 +364,7 @@ const routeIndex = computed(() => {
     if (entry.href) return;
     const tgt = resolveTarget(entry.to);
     // Must match leafItem()'s key exactly -- see the comment there.
-    if (tgt?.type === 'next') idx[tgt.path] = { key: `${groupKey}|next|${tgt.path}${entry.systemOnly ? '|system' : ''}`, opens };
+    if (tgt?.type === 'next') idx[tgt.path] = { key: `${groupKey}|next|${tgt.path}${markOf(entry)}`, opens };
   };
   const walk = (entry, groupKey, containerKey, opens) => {
     if (entry.children) {
@@ -586,16 +590,19 @@ watch(openKeys, (nv, ov) => {
    here win over the ancestor's --sb-text !important rule despite not using
    !important themselves -- inheritance always loses to any rule that
    targets the element directly. */
-.sidebar-menu :deep([data-menu-id$="|system"]) {
+.sidebar-menu :deep([data-menu-id$="|system"]),
+.sidebar-menu :deep([data-menu-id$="|sa"]) {
   position: relative;
 }
 /* Yellow for every global (superadmin/AdminSystem) item -- 2026-10-21: the
    older dark amber read as red. */
-.sidebar-menu :deep([data-menu-id$="|system"] .ant-menu-title-content) {
+.sidebar-menu :deep([data-menu-id$="|system"] .ant-menu-title-content),
+.sidebar-menu :deep([data-menu-id$="|sa"] .ant-menu-title-content) {
   color: #d4a106;
   font-weight: 600;
 }
-.sidebar-menu :deep([data-menu-id$="|system"])::after {
+.sidebar-menu :deep([data-menu-id$="|system"])::after,
+.sidebar-menu :deep([data-menu-id$="|sa"])::after {
   content: 'Global';
   position: absolute;
   top: 50%;
@@ -611,6 +618,9 @@ watch(openKeys, (nv, ov) => {
   text-transform: uppercase;
   line-height: 16px;
   pointer-events: none;
+}
+.sidebar-menu :deep([data-menu-id$="|sa"])::after {
+  content: 'SuperAdmin';
 }
 
 /* The top bar's menu (side menu collapsed): takes the room between the logo and the icons;

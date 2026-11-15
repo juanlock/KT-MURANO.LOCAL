@@ -64,7 +64,7 @@ class AuditTrail
             }
             $op = strtolower(substr(trim($m[1]), 0, 6));
             self::$pending[] = ['op' => $op === 'insert' ? 'created' : ($op === 'update' ? 'updated' : 'deleted'), 'table' => $table,
-                'sql' => $q->sql, 'bindings' => $q->bindings, 'user' => self::user(), 'at' => now()];
+                'sql' => $q->sql, 'bindings' => $q->bindings, 'user' => self::user(), 'at' => now(), 'src' => self::source()];
             if (! self::$flushRegistered) {
                 self::$flushRegistered = true;
                 app()->terminating(fn () => self::flush());
@@ -87,7 +87,7 @@ class AuditTrail
                 }
                 // A soft delete (only deleted_at set) is a deletion for whoever reads the history.
                 $event = $p['op'] === 'updated' && array_keys($changes) === ['deleted_at'] && $changes['deleted_at'][1] !== null ? 'deleted' : $p['op'];
-                self::write($event, $p['table'], 'SQL', $recordId, $changes, $p['user'], null, $p['at']);
+                self::write($event, $p['table'], 'SQL', $recordId, $changes, $p['user'], null, $p['at'], $p['src'] ?? null);
             } catch (\Throwable $e) {
                 report($e);
             }
@@ -186,13 +186,72 @@ class AuditTrail
             }
 
             self::write($event, $table, get_class($model), $model->getKey() !== null ? (string) $model->getKey() : null,
-                $changes, self::user(), $model->getAttribute('company_id'), now());
+                $changes, self::user(), $model->getAttribute('company_id'), now(), self::source());
         } catch (\Throwable $e) {
             report($e);   // the history never blocks the change itself
         }
     }
 
-    private static function write(string $event, string $table, string $model, ?string $recordId, array $changes, ?object $user, $companyId, $at): void
+    /**
+     * The code file (and line) that made the change (user's request, 2026-11-15): the first frame of the call stack inside
+     * app/ that is not this class nor a service provider -- e.g. "app/Http/Controllers/SalesController.php:1590".
+     */
+    private static function source(): ?string
+    {
+        $app = str_replace('\\', '/', app_path()).'/';
+        $base = str_replace('\\', '/', base_path()).'/';
+        $fallback = null;
+        foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 80) as $f) {
+            $file = str_replace('\\', '/', (string) ($f['file'] ?? ''));
+            if (! str_starts_with($file, $app) || str_ends_with($file, '/Support/AuditTrail.php') || str_contains($file, '/Providers/')) {
+                continue;
+            }
+            $where = mb_substr(substr($file, strlen($base)).':'.($f['line'] ?? ''), 0, 255);
+            // a model's own hook is kept only when nothing outside app/Models called it
+            if (str_contains($file, '/Models/')) {
+                $fallback ??= $where;
+                continue;
+            }
+
+            return $where;
+        }
+
+        return $fallback;
+    }
+
+    /** The git commit the server is running (user's request, 2026-11-15): read once per request from .git. */
+    private static function commit(): ?string
+    {
+        static $hash = false;
+        if ($hash !== false) {
+            return $hash;
+        }
+        $hash = null;
+        try {
+            $git = base_path('.git');
+            $head = trim((string) @file_get_contents($git.'/HEAD'));
+            if (str_starts_with($head, 'ref: ')) {
+                $ref = substr($head, 5);
+                $sha = trim((string) @file_get_contents($git.'/'.$ref));
+                if (! $sha && is_file($git.'/packed-refs')) {
+                    foreach (file($git.'/packed-refs') as $line) {
+                        if (str_ends_with(trim($line), ' '.$ref)) {
+                            $sha = strtok($line, ' ');
+                            break;
+                        }
+                    }
+                }
+                $head = $sha;
+            }
+            $hash = preg_match('/^[0-9a-f]{7,40}$/', (string) $head) ? substr($head, 0, 9) : null;
+        } catch (\Throwable $e) {
+            $hash = null;
+        }
+
+        return $hash;
+    }
+
+    private static function write(string $event, string $table, string $model, ?string $recordId, array $changes, ?object $user, $companyId, $at, ?string $source = null): void
     {
         $request = request();
         $companyId = $companyId ?? ($user->company_id ?? null);
@@ -209,10 +268,18 @@ class AuditTrail
                 'ip' => $request?->ip(), 'method' => $request?->method(),
                 'url' => $request ? mb_substr('/'.ltrim($request->path(), '/'), 0, 255) : null,
                 'created_at' => $at,
-            ]);
+            ] + (self::hasCodeColumns() ? ['source_file' => $source, 'code_commit' => self::commit()] : []));
         } finally {
             self::$writing = false;
         }
+    }
+
+    /** The columns of 2026-11-15 exist (a deploy before its migration must not break the history). */
+    private static function hasCodeColumns(): bool
+    {
+        static $has = null;
+
+        return $has ??= \Illuminate\Support\Facades\Schema::hasColumn('audit_logs', 'source_file');
     }
 
     private static function ready(): bool
