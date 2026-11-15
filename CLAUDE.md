@@ -498,9 +498,12 @@ the start of each session).
 - **Every sale keeps its invoice PDF (user's rule, 2026-11-15):** `files/company_{id}/sales/Invoice_{Ref}.pdf` (the earlier system's name), made when the sale is
   created or edited (Sale model events -> `App\Support\SalePdfArchive::queue`, after the answer; drafts once they stop being one;
   demo sales never), in the company's language. **A deleted sale's PDF is never deleted:** renamed `Invoice_{Ref} - Delete.pdf` (also an older
-  `{Ref}.pdf`; the command renames those older names). **One PDF per invoice, no earlier versions** (user, 2026-11-15: "se
-  repite"): a rename never keeps the other copy; `sales:pdf-archive` removes repeated copies ("(2)", "(anterior)", the earlier
-  system's zero-padded `Invoice_INV_0005.pdf` when INV_5 has its own). `php artisan sales:pdf-archive [--company] [--limit] [--dry]` makes the missing ones.
+  `{Ref}.pdf`; the command renames those older names). **No repeated copies** (user, 2026-11-15: "se repite"): deleting only
+  renames; `sales:pdf-archive` removes repeated copies ("(2)", "(anterior)", the earlier system's zero-padded
+  `Invoice_INV_0005.pdf` when INV_5 has its own). **A modified invoice keeps its earlier PDF** (user, 2026-11-15):
+  `Invoice_{Ref}-ver01-modified-{Y-m-d_H-i}-{username}.pdf`, ver02... -- only when what the invoice shows changes
+  (`SalePdfArchive::DOC_FIELDS`, or saving the Sales edit form, which covers line-only edits), never for a sale created in
+  the same request or an internal update; the current one stays `Invoice_{Ref}.pdf`. `php artisan sales:pdf-archive [--company] [--limit] [--dry]` makes the missing ones.
 - **Sale numbers are per company** (2026-10-07): `SalesController::getNumberOrder($warehouseId, $companyId)`
   = the company's own `settings.sale_prefix` + that company's highest number + 1,
   keeping its separator (Ruba INV_3604, KcolTech PP-…). Every place that creates a

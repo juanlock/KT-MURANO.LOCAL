@@ -35,10 +35,13 @@ class SalePdfArchive
     }
 
     /** Builds the sale's PDF in the company's language and stores it. Returns the file or null. */
-    public static function save(Sale $sale, bool $deleted = false): ?string
+    public static function save(Sale $sale, bool $deleted = false, ?string $versionBy = null): ?string
     {
         if (! $sale->company_id || ! $sale->Ref || self::isDemo((int) $sale->id)) {
             return null;
+        }
+        if ($versionBy !== null && ! $deleted) {
+            self::keepVersion($sale, $versionBy);
         }
         $previous = App::getLocale();
         try {
@@ -105,24 +108,71 @@ class SalePdfArchive
         return DB::table('demo_records')->where('record_type', 'sales')->where('record_id', $saleId)->exists();
     }
 
-    /** After the answer (the browser doesn't wait), once: the sale and its lines are final by then. */
-    public static function queue(Sale $sale, bool $deleted = false): void
+    /**
+     * After the answer (the browser doesn't wait), once per sale and request: the sale and its lines are final by then.
+     * $modified: the invoice was changed (not created in this same request) -- the PDF it had is kept as a version.
+     */
+    public static function queue(Sale $sale, bool $deleted = false, bool $modified = false): void
     {
         static $queued = [];
-        $key = $sale->id.($deleted ? 'd' : '');
-        if (isset($queued[$key])) {
+        $id = (int) $sale->id;
+        if (isset($queued[$id])) {
+            // the same request: a deletion wins; a sale created in this request is never "modified"
+            $queued[$id]['deleted'] = $queued[$id]['deleted'] || $deleted;
+            $queued[$id]['modified'] = $queued[$id]['modified'] || $modified;
+
             return;
         }
-        $queued[$key] = true;
-        $id = (int) $sale->id;
-        app()->terminating(function () use ($id, $deleted) {
+        $queued[$id] = ['deleted' => $deleted, 'modified' => $modified, 'created' => $sale->wasRecentlyCreated, 'by' => self::who()];
+        app()->terminating(function () use ($id, &$queued) {
+            $q = $queued[$id];
+            if (! empty($q['done'])) {
+                return;  // the app can be terminated twice (console); the PDF / version is made once
+            }
+            $queued[$id]['done'] = true;
             $fresh = Sale::query()->find($id);
             if (! $fresh) {
                 return;
             }
-            $deleted || $fresh->deleted_at ? self::markDeleted($fresh) : self::save($fresh);
+            if ($q['deleted'] || $fresh->deleted_at) {
+                self::markDeleted($fresh);
+            } else {
+                self::save($fresh, false, $q['modified'] && ! $q['created'] ? $q['by'] : null);
+            }
         });
     }
+
+    /**
+     * Before the PDF of a modified invoice is replaced, it is kept as
+     * "Invoice_{Ref}-ver01-modified-{Y-m-d_H-i}-{user}.pdf" (user's rule, 2026-11-15), ver02, ver03... in order.
+     */
+    public static function keepVersion(Sale $sale, string $by): ?string
+    {
+        $current = self::path($sale);
+        if (! is_file($current)) {
+            return null;
+        }
+        $dir = dirname($current);
+        $ref = self::safe((string) $sale->Ref);
+        $n = count(glob($dir.'/'.'Invoice_'.$ref.'-ver*-modified-*.pdf') ?: []) + 1;
+        $name = sprintf('Invoice_%s-ver%02d-modified-%s-%s.pdf', $ref, $n, now()->format('Y-m-d_H-i'), $by);
+        $target = $dir.'/'.$name;
+
+        return @rename($current, $target) ? $target : null;
+    }
+
+    /** Who made the change, for the version's name: the login's username, else the part of the email before @. */
+    private static function who(): string
+    {
+        $u = auth('api')->user() ?? auth()->user();
+        $name = $u ? ($u->username ?: strstr((string) $u->email, '@', true) ?: ('user'.$u->id)) : 'system';
+
+        return trim(preg_replace('/[^A-Za-z0-9_.]+/', '_', (string) $name), '_') ?: 'system';
+    }
+
+    /** Fields that change what the invoice PDF shows (an update of anything else is internal and makes no new version). */
+    public const DOC_FIELDS = ['Ref', 'date', 'time', 'client_id', 'GrandTotal', 'TaxNet', 'tax_rate', 'discount', 'discount_Method',
+        'shipping', 'notes', 'statut', 'paid_amount', 'payment_statut', 'warehouse_id', 'discount_from_points'];
 
     private static function safe(string $ref): string
     {

@@ -1598,6 +1598,12 @@ class SalesController extends BaseController
 
         }, 10);
 
+        // Saving the edit form always counts as a modification of the invoice, even when only its lines changed: the PDF
+        // is remade and the one it had is kept as a version (user's rule, 2026-11-15).
+        if (! $sale->is_draft) {
+            \App\Support\SalePdfArchive::queue($sale, false, true);
+        }
+
         // Calculate commissions when sale is completed (idempotent)
         if ($sale->statut === 'completed') {
             try {

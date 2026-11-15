@@ -103,6 +103,9 @@ class SalesPdfArchive extends Command
                     continue;
                 }
                 $base = substr($name, 8, -4);  // without "Invoice_" and ".pdf"
+                if (preg_match('/-ver\d+-modified-/', $base)) {
+                    continue;  // an earlier version of a modified invoice: kept on purpose
+                }
                 if (preg_match('/^(.*) \((2|anterior)\)$/', $base, $m)) {
                     if ($has($m[1])) {
                         $drop($file);

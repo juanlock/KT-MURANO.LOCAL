@@ -139,11 +139,14 @@ class Sale extends Model
                 \App\Support\SalePdfArchive::queue($sale);
             }
         });
+        // A change of what the invoice shows remakes its PDF and keeps the one it had as
+        // "Invoice_{Ref}-verNN-modified-{date}-{user}.pdf" (user's rule, 2026-11-15); internal updates make nothing.
         static::updated(function ($sale) {
             if ($sale->wasChanged('deleted_at') && $sale->deleted_at) {
                 \App\Support\SalePdfArchive::queue($sale, true);
-            } elseif (! $sale->is_draft && ! $sale->deleted_at) {
-                \App\Support\SalePdfArchive::queue($sale);
+            } elseif (! $sale->is_draft && ! $sale->deleted_at
+                && ($sale->wasChanged(\App\Support\SalePdfArchive::DOC_FIELDS) || $sale->wasChanged('is_draft'))) {
+                \App\Support\SalePdfArchive::queue($sale, false, ! $sale->wasChanged('is_draft'));
             }
         });
     }
