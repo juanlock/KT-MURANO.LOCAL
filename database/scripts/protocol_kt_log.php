@@ -21,6 +21,9 @@ if (! is_array($row) || empty($row['summary'])) {
 
     return;
 }
+// Files the request produced (a report, an export): attached after the row exists (protocol_kt_attach.php).
+$attach = (array) ($row['attachments'] ?? []);
+unset($row['attachments']);
 $now = now();
 $row += ['log_date' => $now->toDateString(), 'status' => 'Completed', 'created_at' => $now, 'updated_at' => $now];
 
@@ -43,3 +46,8 @@ try {
 $id = DB::connection($conn)->table('kt_logs')->insertGetId($row);
 $version = DB::connection($conn)->table('kt_logs')->where('id', $id)->value('version');
 echo "kt_logs #{$id} (v{$version}) written to {$where}\n";
+if ($attach) {
+    $ktAttachId = $id;
+    $ktAttachFiles = $attach;
+    require __DIR__.'/protocol_kt_attach.php';
+}

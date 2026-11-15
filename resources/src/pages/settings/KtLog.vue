@@ -71,52 +71,64 @@
       <a-spin :spinning="loadingLog">
         <template v-if="log">
           <a-descriptions bordered size="small" :column="{ xs: 1, md: 2 }" class="head">
-            <a-descriptions-item :label="tx('Date', 'Fecha')">{{ date(log.log_date) }} · {{ time(log.created_at) }}</a-descriptions-item>
-            <a-descriptions-item :label="tx('Location', 'Ubicación')">{{ log.location || '—' }}</a-descriptions-item>
-            <a-descriptions-item :label="tx('Status', 'Estado')"><a-tag :color="statusColor(log.status)">{{ log.status || '—' }}</a-tag></a-descriptions-item>
-            <a-descriptions-item :label="tx('Category', 'Categoría')">{{ log.category || '—' }}</a-descriptions-item>
-            <a-descriptions-item :label="tx('Company', 'Empresa')" :span="2">{{ log.company_context || '—' }}</a-descriptions-item>
-            <a-descriptions-item :label="tx('User', 'Usuario')" :span="2">{{ log.claude_user || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="L('Date', 'Fecha')">{{ date(log.log_date) }} · {{ time(log.created_at) }}</a-descriptions-item>
+            <a-descriptions-item :label="L('Location', 'Ubicación')">{{ log.location || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="L('Status', 'Estado')"><a-tag :color="statusColor(log.status)">{{ log.status || '—' }}</a-tag></a-descriptions-item>
+            <a-descriptions-item :label="L('Category', 'Categoría')">{{ log.category || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="L('Company', 'Empresa')" :span="2">{{ log.company_context || '—' }}</a-descriptions-item>
+            <a-descriptions-item :label="L('User', 'Usuario')" :span="2">{{ log.claude_user || '—' }}</a-descriptions-item>
           </a-descriptions>
 
           <section class="sec">
-            <h4>{{ tx('Summary', 'Resumen') }}</h4>
+            <h4>{{ L('Summary', 'Resumen') }}</h4>
             <p class="plain">{{ log.summary || '—' }}</p>
           </section>
+          <!-- Three columns side by side: the request, what Claude understood, the answer (user, 2026-11-15); the rest below. -->
+          <div class="cols3">
           <section class="sec">
-            <h4>{{ tx('What the user asked', 'Lo que pidió el usuario') }}</h4>
+            <h4>{{ L('What the user asked', 'Lo que pidió el usuario') }}</h4>
             <blockquote class="plain quote">{{ log.request_user || '—' }}</blockquote>
           </section>
           <section class="sec">
-            <h4>{{ tx('What Claude understood', 'Lo que entendió Claude') }}</h4>
+            <h4>{{ L('What Claude understood', 'Lo que entendió Claude') }}</h4>
             <p class="plain">{{ log.claude_understand || '—' }}</p>
           </section>
           <section class="sec sec--done">
             <h4>
-              {{ tx('Closing message (as sent in the chat)', 'Mensaje final (tal como se envió en el chat)') }}
-              <a-button v-if="log.done" type="link" size="small" @click="copy(log.done)"><CopyOutlined /> {{ tx('Copy', 'Copiar') }}</a-button>
+              {{ L('Closing message (as sent in the chat)', 'Mensaje final (tal como se envió en el chat)') }}
+              <a-button v-if="log.done" type="link" size="small" @click="copy(log.done)"><CopyOutlined /> {{ L('Copy', 'Copiar') }}</a-button>
             </h4>
             <!-- eslint-disable-next-line vue/no-v-html -- escaped + DOMPurify (lib below) -->
             <div v-if="log.done" class="md" v-html="markdown(log.done)"></div>
             <p v-else class="muted">—</p>
           </section>
+          </div>
           <section class="sec">
-            <h4>{{ tx('Changes', 'Cambios') }}</h4>
+            <h4>{{ L('Changes', 'Cambios') }}</h4>
             <p class="plain">{{ log.changes_detail || '—' }}</p>
           </section>
           <section class="sec">
-            <h4>{{ tx('Files', 'Archivos') }} <span class="muted small">({{ files(log.files_modified).length }})</span></h4>
+            <h4>{{ L('Files', 'Archivos') }} <span class="muted small">({{ files(log.files_modified).length }})</span></h4>
             <ul v-if="files(log.files_modified).length" class="files">
               <li v-for="f in files(log.files_modified)" :key="f"><code>{{ f }}</code></li>
             </ul>
             <p v-else class="muted">—</p>
           </section>
+          <!-- What the request produced (a report, an export...): kept with the row (2026-11-15). -->
+          <section v-if="attachments(log).length" class="sec">
+            <h4>{{ L('Attached files', 'Archivos adjuntos') }} <span class="muted small">({{ attachments(log).length }})</span></h4>
+            <ul class="files files--att">
+              <li v-for="(a, i) in attachments(log)" :key="a">
+                <a class="link" @click="openAttachment(log.id, i, a)"><PaperClipOutlined /> {{ a.split('/').pop() }}</a>
+              </li>
+            </ul>
+          </section>
           <section class="sec">
-            <h4>{{ tx('What was done', 'Qué se hizo') }}</h4>
+            <h4>{{ L('What was done', 'Qué se hizo') }}</h4>
             <p class="plain">{{ log.actions || '—' }}</p>
           </section>
           <section class="sec">
-            <h4>{{ tx('Conversation', 'Conversación') }}</h4>
+            <h4>{{ L('Conversation', 'Conversación') }}</h4>
             <p class="plain">{{ log.chat_transcript || '—' }}</p>
           </section>
         </template>
@@ -135,7 +147,7 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
-import { UpOutlined, DownOutlined, CopyOutlined } from '@ant-design/icons-vue';
+import { UpOutlined, DownOutlined, CopyOutlined, PaperClipOutlined } from '@ant-design/icons-vue';
 import DOMPurify from 'dompurify';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
@@ -183,13 +195,33 @@ const columns = computed(() => [
   { title: '', key: 'actions', width: 70, align: 'center' },
 ]);
 
+// The drawer speaks the language of the request (user's rule, 2026-11-15: a request made in Spanish gets its titles in
+// Spanish -- Resumen, Lo que pidió el usuario...), whatever the screen's language.
+const SPANISH = /[áéíóúñ¿¡]|\b(que|qué|por|para|porque|como|cómo|favor|porfa|el|la|los|las|del|una|esta|este|dame|revisa|agrega|ponle|quiero|necesito|hola|sí|si|pero|también|ahora)\b/i;
+const isEs = l => SPANISH.test(String(l?.request_user || ''));
+const L = (en, es) => (log.value ? (isEs(log.value) ? es : en) : tx(en, es));
+const attachments = l => { try { return JSON.parse(l?.attachments || '[]') || []; } catch (e) { return []; } };
+async function openAttachment(id, n, path) {
+  try {
+    const b = await http.blob(`kt_logs/${id}/attachments/${n}`, true);
+    const name = path.split('/').pop();
+    const url = URL.createObjectURL(b.type ? b : new Blob([b]));
+    // HTML / PDF / images open in a new tab; anything else is saved
+    if (/\.(html?|pdf|png|jpe?g|gif|svg|txt)$/i.test(name)) window.open(url, '_blank');
+    else { const a = document.createElement('a'); a.href = url; a.download = name; a.click(); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    message.error(L('The file is not on this server yet (it comes with the next Wake-up).', 'El archivo aún no está en este servidor (llega con el próximo Wake-up).'));
+  }
+}
+
 const statusColor = s => ({ completed: 'green', 'in progress': 'blue', blocked: 'red' }[String(s || '').toLowerCase()] || 'default');
 const files = v => String(v || '').split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
 
 // ---------------- drawer ----------------
 const log = ref(null);
 const loadingLog = ref(false);
-const drawerWidth = computed(() => (typeof window !== 'undefined' && window.innerWidth < 900 ? '100%' : 860));
+const drawerWidth = computed(() => (typeof window !== 'undefined' && window.innerWidth < 900 ? '100%' : '92vw'));
 
 async function openLog(id) {
   if (!id) return;
@@ -227,8 +259,39 @@ function markdown(src) {
     while (stack.length && stack[stack.length - 1].indent >= indent) out.push(`</li></${stack.pop().tag}>`);
   };
   let para = [];
+  let table = [];
   const flush = () => { if (para.length) { out.push(`<p>${para.map(inline).join('<br>')}</p>`); para = []; } };
+  // Tables (| a | b | with a |---| line) and headings (#, ##, ###) -- the chat's own format (2026-11-15).
+  const cells = l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(x => x.trim());
+  const flushTable = () => {
+    if (!table.length) return;
+    const rows = table.filter(l => !/^[\s|:-]+$/.test(l));  // drop the |---|---| line
+    const [head, ...body] = rows;
+    out.push('<table class="md-table"><thead><tr>' + cells(head).map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
+      + body.map(r => '<tr>' + cells(r).map(c => `<td>${inline(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>');
+    table = [];
+  };
   for (const raw of String(src).replace(/\r/g, '').split('\n')) {
+    if (/^\s*\|.*\|\s*$/.test(raw)) {
+      flush();
+      closeTo(0);
+      table.push(raw);
+      continue;
+    }
+    flushTable();
+    const h = raw.match(/^\s*(#{1,4})\s+(.*)$/);
+    if (h) {
+      flush();
+      closeTo(0);
+      out.push(`<h5 class="md-h md-h${h[1].length}">${inline(h[2])}</h5>`);
+      continue;
+    }
+    if (/^\s*(---|\*\*\*)\s*$/.test(raw)) {
+      flush();
+      closeTo(0);
+      out.push('<hr>');
+      continue;
+    }
     const m = raw.match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
     if (m) {
       flush();
@@ -255,6 +318,7 @@ function markdown(src) {
       para.push(raw.trim());
     }
   }
+  flushTable();
   flush();
   closeTo(0);
   return DOMPurify.sanitize(out.join(''));
@@ -291,6 +355,16 @@ onMounted(() => {
 .md :deep(li) { margin: 2px 0; }
 .md :deep(code), .files code { font-size: 12px; padding: 1px 5px; border-radius: 4px; background: rgba(128, 128, 128, 0.15); }
 .files { margin: 0; padding-left: 18px; font-size: 12.5px; columns: 2; column-gap: 24px; }
+.files--att { columns: 1; list-style: none; padding-left: 0; }
+.cols3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; align-items: start; }
+.cols3 .sec { margin-top: 12px; }
+@media (max-width: 1100px) { .cols3 { grid-template-columns: 1fr; } }
+.md :deep(.md-table) { border-collapse: collapse; width: 100%; margin: 6px 0 10px; font-size: 12.5px; }
+.md :deep(.md-table th), .md :deep(.md-table td) { border: 1px solid rgba(128, 128, 128, 0.3); padding: 4px 8px; text-align: left; vertical-align: top; }
+.md :deep(.md-table th) { background: rgba(128, 128, 128, 0.1); font-weight: 600; }
+.md :deep(.md-h) { margin: 10px 0 4px; font-size: 14px; font-weight: 700; }
+.md :deep(.md-h1) { font-size: 16px; }
+.md :deep(hr) { border: 0; border-top: 1px solid rgba(128, 128, 128, 0.3); margin: 10px 0; }
 @media (max-width: 767px) {
   .tb-item, .tb-user { width: 100%; }
   .files { columns: 1; }

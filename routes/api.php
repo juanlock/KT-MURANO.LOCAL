@@ -2123,6 +2123,7 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // Change history (2026-11-12): SuperAdmin only (AuditLogController::scope).
     Route::get('audit-logs', 'AuditLogController@index');
     Route::get('kt_logs/{id}', 'KtLogController@show')->whereNumber('id');
+    Route::get('kt_logs/{id}/attachments/{n}', 'KtLogController@attachment')->whereNumber('id')->whereNumber('n');
 
     // ------------------------------- Module Settings ------------------------\\
 

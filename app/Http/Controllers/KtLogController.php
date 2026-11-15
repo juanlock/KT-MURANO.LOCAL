@@ -66,6 +66,23 @@ class KtLogController extends Controller
         return response()->json(['log' => KtLog::on(KtLogSource::connection())->findOrFail($id)]);
     }
 
+    /**
+     * GET kt_logs/{id}/attachments/{n} (2026-11-15): one of the files attached to the row (a report the request produced).
+     * Only paths under files/company_999/kt-logs/{id}/ are served; the folder is private (.htaccess).
+     */
+    public function attachment(Request $request, $id, $n)
+    {
+        $this->authorizeSystem($request);
+        $row = KtLog::on(KtLogSource::connection())->findOrFail($id);
+        $list = json_decode((string) $row->attachments, true) ?: [];
+        $rel = $list[(int) $n] ?? null;
+        abort_unless($rel && str_starts_with($rel, 'files/company_999/kt-logs/'.(int) $id.'/') && ! str_contains($rel, '..'), 404);
+        $file = public_path($rel);
+        abort_unless(is_file($file), 404, __('The file is not on this server yet.'));
+
+        return response()->download($file, basename($file));
+    }
+
     /** superadmin/AdminSystem only: a SuperAdmin with no company or AdminSystem (999) picked. */
     private function authorizeSystem(Request $request): void
     {
