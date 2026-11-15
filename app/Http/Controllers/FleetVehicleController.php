@@ -14,6 +14,7 @@ use App\Traits\ScopesWarehouseAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -168,6 +169,35 @@ class FleetVehicleController extends Controller
         $data['stats'] = $this->vehicleStats($vehicle);
 
         return response()->json(['vehicle' => $data]);
+    }
+
+    /**
+     * The fuel of the bus's trips (2026-11-14): a transport company records it on each trip, not as refuels. The latest 50
+     * trips run, with the route, its km and the fuel; same company and permission as the vehicle.
+     */
+    public function tripFuel(Request $request, $id)
+    {
+        $this->authorizeForUser($request->user('api'), 'view', Vehicle::class);
+        $vehicle = Vehicle::whereNull('deleted_at')->findOrFail($id);
+        abort_unless((int) $vehicle->company_id === $this->resolveActingCompanyId($request), 404);
+        if (! Schema::hasTable('transport_trips')) {
+            return response()->json(['trips' => []]);
+        }
+        $rows = DB::table('transport_trips as t')
+            ->leftJoin('transport_routes as r', 'r.id', '=', 't.route_id')
+            ->leftJoin('transport_locations as o', 'o.id', '=', 'r.origin_id')
+            ->leftJoin('transport_locations as d', 'd.id', '=', 'r.destination_id')
+            ->where('t.vehicle_id', $vehicle->id)->whereNull('t.deleted_at')->whereNotIn('t.status', ['scheduled', 'cancelled'])
+            ->orderByDesc('t.departure_at')->limit(50)
+            ->get(['t.id', 't.departure_at', 't.status', 't.fuel_cost', 'r.distance_km', 'o.name as origin', 'd.name as destination']);
+
+        return response()->json(['trips' => $rows->map(fn ($r) => [
+            'id' => (int) $r->id, 'departure_at' => $r->departure_at, 'status' => $r->status,
+            'route' => trim(($r->origin ?? '').' → '.($r->destination ?? ''), ' →'),
+            'km' => $r->distance_km !== null ? (float) $r->distance_km : null,
+            'fuel_cost' => $r->fuel_cost !== null ? (float) $r->fuel_cost : null,
+            'per_km' => $r->fuel_cost !== null && $r->distance_km > 0 ? round($r->fuel_cost / $r->distance_km, 2) : null,
+        ])]);
     }
 
     public function edit(Request $request, $id)
@@ -412,7 +442,27 @@ class FleetVehicleController extends Controller
         $maintenanceCost = (float) VehicleMaintenance::whereNull('deleted_at')->where('vehicle_id', $vehicle->id)->sum('cost');
         $distance = Vehicle::distanceCovered($vehicle->id);
 
+        // A transport company records the fuel on each trip (transport_trips.fuel_cost, what Profit by route uses), not as
+        // refuels (user's question, 2026-11-14: the Fuel tab of a bus said nothing). Without refuels, the trips run give the
+        // fuel cost and the distance (the route's km).
+        $trips = Schema::hasTable('transport_trips')
+            ? DB::table('transport_trips as t')->leftJoin('transport_routes as r', 'r.id', '=', 't.route_id')
+                ->where('t.vehicle_id', $vehicle->id)->whereNull('t.deleted_at')->whereNotIn('t.status', ['scheduled', 'cancelled'])
+                ->selectRaw('COUNT(*) n, SUM(CASE WHEN t.fuel_cost IS NOT NULL THEN 1 ELSE 0 END) with_fuel, COALESCE(SUM(t.fuel_cost), 0) fuel, COALESCE(SUM(r.distance_km), 0) km')
+                ->first()
+            : null;
+        $fromTrips = $trips && (int) $trips->with_fuel > 0 && $fuelCost == 0.0;
+        if ($fromTrips) {
+            $fuelCost = (float) $trips->fuel;
+        }
+        if ($trips && (int) $trips->n > 0 && ! $distance) {
+            $distance = (float) $trips->km;
+        }
+
         return [
+            'fuel_source' => $fromTrips ? 'trips' : 'logs',
+            'trip_fuel_count' => $trips ? (int) $trips->with_fuel : 0,
+            'trip_count_run' => $trips ? (int) $trips->n : 0,
             'fuel_cost' => $fuelCost,
             'fuel_quantity' => $fuelQty,
             'maintenance_cost' => $maintenanceCost,

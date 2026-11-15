@@ -1160,6 +1160,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     // edit form therefore POSTs with _method spoofing handled below.
     Route::post('fleet/vehicles/delete/by_selection', 'FleetVehicleController@deleteBySelection');
     Route::get('fleet/vehicles/{id}/edit', 'FleetVehicleController@edit');
+    Route::get('fleet/vehicles/{id}/trip-fuel', 'FleetVehicleController@tripFuel');
     Route::post('fleet/vehicles/{id}/update', 'FleetVehicleController@update');
     Route::get('fleet/vehicles', 'FleetVehicleController@index');
     Route::post('fleet/vehicles', 'FleetVehicleController@store');

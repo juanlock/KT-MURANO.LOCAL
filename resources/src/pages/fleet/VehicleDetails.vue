@@ -82,22 +82,22 @@
             <div class="stat">
               <span class="stat-label">{{ $t('TotalCost') }}</span>
               <span class="stat-value">{{ money(stats.total_cost || 0) }}</span>
-              <span class="stat-note">fuel + maintenance</span>
+              <span class="stat-note">{{ tr('fuel + maintenance', 'combustible + mantenimiento') }}</span>
             </div>
             <div class="stat">
               <span class="stat-label">{{ $t('tx_Distance_logged_60d62') }}</span>
               <span class="stat-value">{{ number(stats.distance || 0, 0) }}</span>
-              <span class="stat-note">from fuel readings</span>
+              <span class="stat-note">{{ stats.fuel_source === 'trips' || (!stats.fuel_count && stats.trip_count_run) ? tr('km of the trips run', 'km de los viajes realizados') : tr('from fuel readings', 'de las lecturas de combustible') }}</span>
             </div>
             <div class="stat">
               <span class="stat-label">{{ $t('Cost_per_distance') }}</span>
               <span class="stat-value">{{ stats.cost_per_distance !== null ? money(stats.cost_per_distance) : '—' }}</span>
-              <span class="stat-note">per unit driven</span>
+              <span class="stat-note">{{ tr('per km driven', 'por km recorrido') }}</span>
             </div>
             <div class="stat">
               <span class="stat-label">{{ $t('Efficiency') }}</span>
               <span class="stat-value">{{ stats.efficiency !== null ? number(stats.efficiency, 2) : '—' }}</span>
-              <span class="stat-note">distance per unit of fuel</span>
+              <span class="stat-note">{{ tr('km per unit of fuel (needs refuels)', 'km por unidad de combustible (requiere cargas)') }}</span>
             </div>
           </div>
 
@@ -136,9 +136,31 @@
 
               <a-tab-pane key="fuel">
                 <template #tab>
-                  {{ $t('Fuel') }} <a-badge :count="stats.fuel_count || 0" :number-style="badgeStyle" />
+                  {{ $t('Fuel') }} <a-badge :count="stats.fuel_count || stats.trip_fuel_count || 0" :overflow-count="999" :number-style="badgeStyle" />
+                </template>
+                <!-- No refuels but trips with fuel (transport, 2026-11-14): the fuel of each trip, the same figure Profit by route uses. -->
+                <template v-if="tripFuelMode">
+                  <div class="trip-fuel-head">
+                    <span>{{ tr('Fuel of the trips run', 'Combustible de los viajes realizados') }}: <b>{{ money(stats.fuel_cost || 0) }}</b></span>
+                    <span class="muted">{{ stats.trip_fuel_count }} {{ tr('trips with fuel', 'viajes con combustible') }}<template v-if="avgTripFuel"> · {{ tr('average', 'promedio') }} {{ money(avgTripFuel) }} {{ tr('per trip', 'por viaje') }}</template> · {{ tr('latest 50', 'últimos 50') }}</span>
+                    <a-tooltip :title="tr('This bus has no refuels recorded: its fuel is recorded on each trip (Daily departures or the trip itself). Litres, odometer and efficiency appear when refuels are recorded in Fleet -> Fuel.', 'Este bus no tiene cargas registradas: su combustible se registra en cada viaje (Salidas del día o el propio viaje). Litros, odómetro y rendimiento aparecen cuando se registran cargas en Flota -> Combustible.')">
+                      <InfoCircleOutlined class="muted" />
+                    </a-tooltip>
+                  </div>
+                  <a-table
+                    :columns="tripFuelColumns" :data-source="tripFuel" :loading="tabLoading"
+                    :row-key="r => r.id" :pagination="false" :scroll="{ x: 'max-content' }" size="small"
+                  >
+                    <template #bodyCell="{ column, record }">
+                      <template v-if="column.key === 'departure_at'">{{ dateTime(record.departure_at) }}</template>
+                      <template v-else-if="column.key === 'km'">{{ record.km !== null ? number(record.km, 0) : '—' }}</template>
+                      <template v-else-if="column.key === 'fuel_cost'">{{ record.fuel_cost !== null ? money(record.fuel_cost) : '—' }}</template>
+                      <template v-else-if="column.key === 'per_km'">{{ record.per_km !== null ? money(record.per_km) : '—' }}</template>
+                    </template>
+                  </a-table>
                 </template>
                 <a-table
+                  v-else
                   :columns="fuelColumns" :data-source="fuelLogs" :loading="tabLoading"
                   :row-key="r => r.id" :pagination="false" :scroll="{ x: 'max-content' }" size="small"
                 >
@@ -209,7 +231,8 @@ import { t as tEs } from '../../i18n/index.js';
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { message, Empty } from 'ant-design-vue';
-import { EditOutlined, ArrowLeftOutlined } from '@ant-design/icons-vue';
+import { EditOutlined, ArrowLeftOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
+import { useUiStore } from '../../stores/ui';
 import PageHeader from '../../components/PageHeader.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
@@ -240,6 +263,19 @@ const assignments = ref([]);
 const loadedTabs = ref([]);
 
 const stats = computed(() => vehicle.value?.stats || {});
+const ui = useUiStore();
+const tr = (en, es) => (String(ui.locale || 'en').startsWith('es') ? es : en);
+// A bus with no refuels but with trips that carry their fuel (2026-11-14).
+const tripFuelMode = computed(() => !stats.value.fuel_count && (stats.value.trip_fuel_count || 0) > 0);
+const tripFuel = ref([]);
+const avgTripFuel = computed(() => (stats.value.trip_fuel_count ? (stats.value.fuel_cost || 0) / stats.value.trip_fuel_count : 0));
+const tripFuelColumns = computed(() => [
+  { title: tr('Departure', 'Salida'), key: 'departure_at', dataIndex: 'departure_at', width: 150 },
+  { title: tr('Route', 'Ruta'), key: 'route', dataIndex: 'route' },
+  { title: 'Km', key: 'km', dataIndex: 'km', width: 80, align: 'right' },
+  { title: tr('Fuel', 'Combustible'), key: 'fuel_cost', dataIndex: 'fuel_cost', width: 120, align: 'right' },
+  { title: tr('Per km', 'Por km'), key: 'per_km', dataIndex: 'per_km', width: 90, align: 'right' },
+]);
 
 const renewals = computed(() => {
   const v = vehicle.value;
@@ -302,7 +338,7 @@ async function loadTab(key) {
 
   const endpoints = {
     maintenance: ['fleet/maintenances', 'maintenances', maintenance],
-    fuel: ['fleet/fuel-logs', 'fuel_logs', fuelLogs],
+    fuel: tripFuelMode.value ? [`fleet/vehicles/${id.value}/trip-fuel`, 'trips', tripFuel] : ['fleet/fuel-logs', 'fuel_logs', fuelLogs],
     assignments: ['fleet/assignments', 'assignments', assignments],
   };
   const entry = endpoints[key];
@@ -436,6 +472,8 @@ onMounted(load);
   font-weight: 600;
   line-height: 1.25;
 }
+.trip-fuel-head { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; font-size: 13px; margin-bottom: 8px; }
+.trip-fuel-head .muted { opacity: 0.65; font-size: 12px; }
 .stat-note {
   font-size: 11.5px;
   opacity: 0.5;
