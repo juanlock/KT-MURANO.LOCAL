@@ -1,8 +1,8 @@
-# KT-Murano — Project Context
+﻿# KT-Murano â€” Project Context
 
 This file is auto-loaded by Claude Code at the start of every session in this
 repo, and it's tracked in git so it stays in sync across all machines used to
-work on this project. Treat everything below as standing context — no need to
+work on this project. Treat everything below as standing context â€” no need to
 re-explain it in future sessions.
 
 ## Protocols: Wake-up, Pa Llevar, A Dormir, Copia BD, Kelsy (user's rules, 2026-10-19 / 2026-10-20)
@@ -39,7 +39,7 @@ Turismo Cautivo and Arce were created in production with a one-off script).
   needed), `php artisan murano:from-prod`, `npm run build`, an offer to deploy
   this PC's newer code (the user's yes), this file and the `kt_logs` history
   reloaded (memory digest), and a summary **in the chat** with the **last 5
-  changes** (date and origin). "Preparate" / "buenos días, prepárate" mean
+  changes** (date and origin). "Preparate" / "buenos dÃ­as, prepÃ¡rate" mean
   Wake-up.
 - **Pa Llevar** -- the end of the day: manual (only when asked), build, Kelsy,
   a local backup tagged `pallevar`, README, commit, push, then **the code is
@@ -94,7 +94,7 @@ resources):** Wake-up and Pa Llevar report in the chat only. `KT-TOOLS/Report/`
 keeps the reports already made (never deleted); a report file is written only
 when the user asks for one ("report for the last N requests").
 
-**Glossary — "multicompany"**: when the user uses this word, it refers to the
+**Glossary â€” "multicompany"**: when the user uses this word, it refers to the
 rule spelled out below in "Roles & Multicompany Model" -- the system is
 prepared/built to serve more than one company from a single install. In
 short: a SuperAdmin gets a company dropdown/selector on company-scoped forms
@@ -102,10 +102,10 @@ and can switch/modify which company's data they're viewing or editing; an
 Admin (AdminKT, AdminRG, etc.) is fixed to their own company and never sees
 that selector -- only a SuperAdmin can change the acting company.
 
-**Glossary — "Goku" (user's convention, 2026-11-12):** Goku = the SuperAdmin, the same entity (the user says "superadmin" or,
+**Glossary â€” "Goku" (user's convention, 2026-11-12):** Goku = the SuperAdmin, the same entity (the user says "superadmin" or,
 when joking, "Goku"). The user is Goku; Claude is Jarvis. "Solo Goku" = SuperAdmin only.
 
-**Glossary — "superadmin/<company>"** (user's convention, 2026-10-21): e.g.
+**Glossary â€” "superadmin/<company>"** (user's convention, 2026-10-21): e.g.
 "superadmin/bicentenario" = the user is signed in to Murano in a browser as
 the SuperAdmin and picked that company (Colegio Bicentenario) in the top-bar
 company dropdown, so the changes are made as the SuperAdmin acting on that
@@ -142,7 +142,7 @@ form pickers stay on the acting company. Numbers unique install-wide
 
 ## Roles & Multicompany Model
 
-- **SuperAdmin** — a user (or users) with user type `Superadmin` in the users
+- **SuperAdmin** â€” a user (or users) with user type `Superadmin` in the users
   table. No restrictions, full permissions, role = owner. Can view / edit /
   delete any form in the system. On forms that are company-scoped, a SuperAdmin
   sees a company dropdown/selector and the form's data/behavior follows the
@@ -167,34 +167,34 @@ form pickers stay on the acting company. Numbers unique install-wide
   PayPal) still follows `ModuleFlags::enabled()`. A new company's modules come
   from its business type (`BusinessTypes::modules()`, Companies -> Add ->
   Modules step).
-- **AdminRG** — a user type `Admin`, restricted/limited according to their
+- **AdminRG** â€” a user type `Admin`, restricted/limited according to their
   member role, tied to a specific company (e.g. member of company 2). Example
-  pairing: `AdminKT` ↔ company 1, `AdminRG` ↔ company 2.
+  pairing: `AdminKT` â†” company 1, `AdminRG` â†” company 2.
 - **Multicompany rule (applies system-wide)**:
-  - Logged in as **SuperAdmin** → view/edit forms show a company dropdown to
+  - Logged in as **SuperAdmin** â†’ view/edit forms show a company dropdown to
     select which company's records to operate on.
-  - Logged in as **Admin** (e.g. AdminKT, AdminRG) → can only read/edit/delete
+  - Logged in as **Admin** (e.g. AdminKT, AdminRG) â†’ can only read/edit/delete
     records where `company_id` matches their own company. No company selector.
 
 ## Systems
 
-- **Billing** (aka the "older system") — lives at `KT-BILLING.LOCAL`, database
+- **Billing** (aka the "older system") â€” lives at `KT-BILLING.LOCAL`, database
   `dbbilling`. This is the current system in production use.
   **Read-only for us: never modify billing's code or database.**
   **The user turns billing off by hand on 2026-10-28** (user's rule, 2026-10-27):
   from then on Ruba and New Era work in Murano only.
-- **Murano** (aka "the new system") — lives at `KT-MURANO.LOCAL` (this repo),
+- **Murano** (aka "the new system") â€” lives at `KT-MURANO.LOCAL` (this repo),
   database `dbmurano`. New code, new features/modules.
 
 **App timezone: `America/New_York`** (`.env`'s `APP_TIMEZONE`, deliberately
-set — the business runs on Eastern time; this used to default to `UTC`,
+set â€” the business runs on Eastern time; this used to default to `UTC`,
 which was wrong, not intentional). Don't "fix" this back to `UTC` in a
-future session — `UTC` was the bug. This is a real Settings page feature
+future session â€” `UTC` was the bug. This is a real Settings page feature
 already (Settings updates `APP_TIMEZONE` in `.env` + `artisan config:clear`,
 `SettingsController.php` around the `timezone`/`APP_TIMEZONE` keys), not
 something invented ad hoc. Since `now()`/`Carbon` write literal (timezone-naive
 `DATETIME`) values to the DB, changing this shifts what gets stored for
-*new* rows going forward — existing historical timestamps were written under
+*new* rows going forward â€” existing historical timestamps were written under
 the old `UTC` setting and were not retroactively converted.
 
 ## Open with the user (2026-11-06, KT-HOGWARTS switched off for some weeks)
@@ -213,7 +213,7 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
 1. **Daily departures screen: built 2026-11-10** (see Transport below). To ask the client at the meeting: who fills the report in each agency and when it is closed, whether every agency will sell on the POS, when toll and fuel are known, who gets the daily PDF.
 2. **The questions for the meeting are ONE Murano form (2026-11-10; 2026-11-11: cut to 17 questions, "no quiero cansarlos", one link since
    only the owner and the supervisor answer):** "Cuestionario Nro. 1 - NOV 2026", `https://murano.kcoltech.com/f/tcpreguntas2026`, three tabs
-   (Gerencia y administración, Agencias, Flota y operaciones), "Guardar" / "Guardar y enviar" on top (migrations 2026_11_10_170000,
+   (Gerencia y administraciÃ³n, Agencias, Flota y operaciones), "Guardar" / "Guardar y enviar" on top (migrations 2026_11_10_170000,
    2026_11_11_120000 / 121000 / 140000; answers in Forms and emailed to juanlock@kcoltech.com). Forms gained: the layout element `tab`, the
    switch `save_draft` (what is typed stays on the device; "Guardar" stores it as a draft on the server -- `form_submissions.status` draft / sent,
    `resume_token` kept by the browser -- nobody notified; "Guardar y enviar" sends and notifies; both update the same submission). The 65 original
@@ -222,8 +222,8 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
    the 2 missing buses; where each report's buses go; what CV is; Chiclayo's toll and fuel.
 4. **2026-11-16:** the user reviews the Risks thresholds.
 5. **Vehicle monitoring:** do the buses already have GPS, from which provider, and does it give access to its data? What the client considers late (10 min is ours)? A photo at every arrival, or only at the destination (every arrival is ours)? Keep the GPS trail 30 days (ours)?
-6. **Terminals, the user asks the client (2026-11-06; nothing is built until answered):** the user describes a terminal as a small premises that stores the parcels for the next route, where passengers get on and off. Today terminals have no warehouse, staff or parcels. Does each have its own staff with a login, or is it run from the city's agency? Does it sell tickets and take money, or only board passengers and receive parcels? Is a parcel received at a terminal and picked up there by the bus (terminal -> bus -> terminal, with a history of where it is)? Do all 39 work like that, or are some only sales or stops: Móvil PNorte, Móvil Chiclayo, Oficina Galves?
-   Also to check on the list: "Lambayeqye 2" (misspelt?), Ilo under Lima, Chimbote and Virú under Trujillo; coordinates missing for Ilo, Oficina Galves, Puente Nuevo, José Gálvez, La Pampa; most others are approximate.
+6. **Terminals, the user asks the client (2026-11-06; nothing is built until answered):** the user describes a terminal as a small premises that stores the parcels for the next route, where passengers get on and off. Today terminals have no warehouse, staff or parcels. Does each have its own staff with a login, or is it run from the city's agency? Does it sell tickets and take money, or only board passengers and receive parcels? Is a parcel received at a terminal and picked up there by the bus (terminal -> bus -> terminal, with a history of where it is)? Do all 39 work like that, or are some only sales or stops: MÃ³vil PNorte, MÃ³vil Chiclayo, Oficina Galves?
+   Also to check on the list: "Lambayeqye 2" (misspelt?), Ilo under Lima, Chimbote and VirÃº under Trujillo; coordinates missing for Ilo, Oficina Galves, Puente Nuevo, JosÃ© GÃ¡lvez, La Pampa; most others are approximate.
 7. **Agencies without internet (the client's request, 2026-11-10; proposal given, nothing built):** agencies lose the internet for hours and their tablets / phones only reach the local network. Proposed: a small Murano server in each agency on its LAN, synced with production over HTTPS when the line is back. **The user's direction (2026-11-10), instead of seat quotas between agencies:** a **call center at the head office**; an agency without internet phones it, the call center sells / books in production, and the agency registers locally what it can (the passenger's or parcel's data, photos) and the sync updates production when the line returns. Numbering by agency series, uuid + idempotent sync. The POS's browser offline mode doesn't cover seat selling. Nothing built; the client's answers are in the questions document for 2026-11-15.
    **The client now prefers its module on its own hosting (2026-11-10):** Murano has NO module export / satellite install / sync today. Proposed, nothing built: a whole Murano install in "satellite mode" (one company, only the transport modules, the rest blocked by the code), activated with a key that the SuperAdmin creates in the central install (systemOnly screen); the central address and key are mandatory and only a SuperAdmin sees or changes them on the satellite; HTTPS sync with the central. On hardware the client controls this can't be enforced 100 % (they hold the code and the database): contract + key the central can revoke. Questions for the client are in the questions page.
    **The user's direction (2026-11-10): technical protection, not a contract.** Untrusted but necessary satellites: the client's hosting is their peace of mind, but they get ONLY what they need. Agreed so far: the satellite package carries no source (`.vue`, `resources/src`, scripts, docs, KT-TOOLS) -- only the compiled JS of its screens and the PHP it runs, each satellite reports its address / IP to the central; the central detects and shows satellites in a dashboard tab **for the SuperAdmin only** (approve / revoke); a login against the central when the satellite starts, and an unauthorized satellite is refused (signed permit that expires, offline grace). **No paid tools (user, 2026-11-10): no ionCube** -- free measures instead: minimal PHP, free obfuscation, the owner's figures / reports / profit only in the central, sync keys only in the signed permit. We will have access to the client's computer / hosting to install a cron job (the sync runs from cron). **Fixes reach a satellite only as patches from the central** (user, 2026-11-10: nobody edits code on a satellite): the repo stays readable, the package is obfuscated when built (light: comments out, local variables renamed, class / method / route names kept because Laravel calls them by name; the name map stays in the central to read errors), signed by the central, verified by the satellite before applying, with a backup and rollback; the Satellites tab shows each one's version. **Every satellite keeps a transaction journal** (who, when, which record, before / after, device; numbered and hash-chained so a gap or an edit shows) and the sync sends it to the central, together with its error log. **The user approved these recommendations (2026-11-10)**; building starts after the transport module. **Parked by the user until the transport module is finished; nothing built.**
@@ -274,12 +274,12 @@ documentation under `public/documentation/` is no longer on disk.)
 
 ## Migration Approach
 
-- Murano was not built with a dynamic menu — its menu is currently static.
+- Murano was not built with a dynamic menu â€” its menu is currently static.
   The work is to adapt/port the menu logic from billing so Murano's menu
   behaves the same way (dynamic, like billing).
 - **Direction of adaptation**: keep Murano's new code as the base; adapt/port
-  billing's tables and code *into* Murano to match — not the other way around.
-- **Scope of migration** — only these modules move from billing → murano:
+  billing's tables and code *into* Murano to match â€” not the other way around.
+- **Scope of migration** â€” only these modules move from billing â†’ murano:
   1. Sales
   2. Company
   3. Menu (make it dynamic, matching billing's behavior)
@@ -297,13 +297,13 @@ the start of each session).
 
 - **Every file a module stores** -- uploads, imported email attachments,
   generated documents -- goes to **`public/files/company_{id}/{module}/`**
-  (e.g. `files/company_2/helpdesk/2026/10/…`, `files/company_2/email-office/…`,
-  `files/company_1/products/…`). One folder per company, one sub-folder per
+  (e.g. `files/company_2/helpdesk/2026/10/â€¦`, `files/company_2/email-office/â€¦`,
+  `files/company_1/products/â€¦`). One folder per company, one sub-folder per
   module. Never `storage/app`, never a shared folder for the whole install.
 - Use **`App\Support\CompanyFiles`**: `dir($companyId, $module)`,
   `putUpload(...)` / `putBytes(...)` (adds `{Y}/{m}/{random}-{name}`),
   `owns($path, $companyId, $module)` before serving, `download($path, $name)`.
-  Store the path relative to `public/` in the DB (`files/company_…`).
+  Store the path relative to `public/` in the DB (`files/company_â€¦`).
 - **Private modules** (bills, attachments, contracts, anything nobody should
   open by URL) pass `$private = true`: the module folder gets a `.htaccess`
   that blocks direct web access, and files are served only through an
@@ -424,9 +424,9 @@ the start of each session).
   delete / restore with before and after) and **DB::listen** for the writes models can't see (`Model::where()->update()`, `DB::table()`), with
   the new values only (marked SQL; flushed when the request ends, skipped when a model event already recorded the same row). Only web / API
   requests (not cron, demo routines, migrations, imports); logs, sessions, tokens, GPS positions, counters and the Email Office mailboxes are
-  skipped; secret fields (password, token, key, secret, pin, otp...) are stored as "••••". **Nothing is deleted (user's rule, 2026-11-12):**
+  skipped; secret fields (password, token, key, secret, pin, otp...) are stored as "â€¢â€¢â€¢â€¢". **Nothing is deleted (user's rule, 2026-11-12):**
   `audit_logs` keeps the last 6 months; `audit:archive` (daily 03:50) moves older rows to `audit_logs_archive` (same structure and ids,
-  one transaction per batch); the page reads it with "Archivo (más antiguo)".
+  one transaction per batch); the page reads it with "Archivo (mÃ¡s antiguo)".
   A new log-like table that should not be recorded joins `AuditTrail::SKIP`.
 - **Customer portal on by default, every company** (user's rule, 2026-10-25):
   `users.portal_enabled` defaults to 1 and `LinkedUserService` sets it for
@@ -440,7 +440,7 @@ the start of each session).
   Disabled switch -- never your own account).
 - **Standard roles of every company (user's rules, 2026-11-01 / 2026-11-02,
   `App\Support\CompanyRoles`):** **IT Admin** (the company's IT person -- called
-  "Admin Compañía" until 2026-11-02: users, roles, settings, menu order;
+  "Admin CompaÃ±Ã­a" until 2026-11-02: users, roles, settings, menu order;
   `{slug}-admin@kcoltech.com`, type admin, no employee behind it), **Manager**
   (runs the business: every main module, no configuration; `{slug}-manager@`
   -- `CompanyRoles::syncManager()` = the IT Admin's
@@ -495,13 +495,13 @@ the start of each session).
   `Is_Active` refuses a disabled login before the request runs.
 - **The invoice note and terms with the card fee, late fee and (973) phones are Ruba's only (user's rule, 2026-11-06):** every other
   company and the template 999 (new companies are cloned from it) keep `sale_pdf_company_note` / `sale_pdf_terms_conditions` empty.
-- **Every sale keeps its invoice PDF (user's rule, 2026-11-15):** `files/company_{id}/sales/{Ref}.pdf`, made when the sale is
+- **Every sale keeps its invoice PDF (user's rule, 2026-11-15):** `files/company_{id}/sales/Invoice_{Ref}.pdf` (the earlier system's name), made when the sale is
   created or edited (Sale model events -> `App\Support\SalePdfArchive::queue`, after the answer; drafts once they stop being one;
-  demo sales never), in the company's language. **A deleted sale's PDF is never deleted:** renamed `{Ref} - Delete.pdf` (also the
+  demo sales never), in the company's language. **A deleted sale's PDF is never deleted:** renamed `Invoice_{Ref} - Delete.pdf` (also an older `{Ref}.pdf`; the
   earlier system's `Invoice_{Ref}.pdf`). `php artisan sales:pdf-archive [--company] [--limit] [--dry]` makes the missing ones.
 - **Sale numbers are per company** (2026-10-07): `SalesController::getNumberOrder($warehouseId, $companyId)`
   = the company's own `settings.sale_prefix` + that company's highest number + 1,
-  keeping its separator (Ruba INV_3604, KcolTech PP-…). Every place that creates a
+  keeping its separator (Ruba INV_3604, KcolTech PP-â€¦). Every place that creates a
   sale passes the location / company (sales, POS, bookings, contracts, online store).
 - **Header icons** (2026-10-07): System Settings -> Defaults -> Users -> Header
   icons (whole company) and Profile -> Header icons (each user: Company default /
@@ -707,7 +707,7 @@ the start of each session).
   its agency's departures (`transport_trip_decisions`); rescheduled passengers keep their
   ticket, a cancellation lists who is affected, no refund and no email.
   **Transport works like an airline (user's rule, 2026-11-04):** a trip has stops
-  (`transport_route_stops`, `App\Support\TransportLegs`): the Lima -> Chepén bus reaches Trujillo
+  (`transport_route_stops`, `App\Support\TransportLegs`): the Lima -> ChepÃ©n bus reaches Trujillo
   and leaves 25 minutes later, selling the seats emptied, so a seat is taken PER STRETCH and a
   short stretch is a ticket on a long trip (one set of costs; occupancy = passenger-km /
   seat-km). A ticket product `PAS-{route}` is the passenger's stretch; `PAS-{route}-VIP` = 20 %
@@ -764,7 +764,7 @@ the start of each session).
   Dates shown on screen use `useFormat()` (`date`, `dateTime`, `dayMonth`): the company's format, never one written in the page.
   **Dashboard tabs in the owner's reading order (2026-11-11), the first one opens:** Resumen del negocio (follows the date filter since 2026-11-12: "Todos" = the month in progress + the
   last 12 months; a filter = the period's figures, the chart by day up to 62 days, else by month; "today" stays today; a click / double click on a
-  bar or the line opens "por qué este monto": income and costs by kind, profit, routes, ▲▼ vs the bucket before; from `TransportProfit`), Reporte de salidas, Rentabilidad por ruta, **Gastos** (`TransportExpensesPanel.vue`, `App\Services\TransportExpenses`:
+  bar or the line opens "por quÃ© este monto": income and costs by kind, profit, routes, â–²â–¼ vs the bucket before; from `TransportProfit`), Reporte de salidas, Rentabilidad por ruta, **Gastos** (`TransportExpensesPanel.vue`, `App\Services\TransportExpenses`:
   the trips' costs by kind + Accounting -> Expenses of the agencies' locations, trend and vs the period before), Indicadores, Riesgos, Encomiendas,
   Reclamos, Tablero de control, Tablero de transporte. No "General" tab.
   **The owner's figures (2026-11-04):** the dashboard's "Business summary" block
@@ -773,8 +773,8 @@ the start of each session).
   routes, what falls due on the buses; needs the `dashboard` permission (a pilot's
   `transport_view` never shows money). **Turismo Cautivo's menu has six groups**
   (migration 2026_11_04_121000): Pasajeros, Encomiendas (only the sales' shipments
-  until that module exists), Flota y Logística, Back Office, Módulos adicionales,
-  Configuración.
+  until that module exists), Flota y LogÃ­stica, Back Office, MÃ³dulos adicionales,
+  ConfiguraciÃ³n.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
@@ -881,15 +881,15 @@ the start of each session).
   explanatory text on the board: it goes in an (i) popup (`a-tooltip`) or is cut down. Only a super critical
   message goes in the center, in ONE line on a red background; anything informational is a helper.
   Check it at 1440x900 and 1366x768 (`useFitHeight`, `lib/transportCharts.js`). A phone stacks the blocks.
-- **No text written by hand in one language (user's rule, 2026-11-05: "todo debe ser español para esa empresa").**
+- **No text written by hand in one language (user's rule, 2026-11-05: "todo debe ser espaÃ±ol para esa empresa").**
   A screen's text goes through a translation key with its Spanish (a migration adds the row; `$t('key')`, or `t` from
-  `i18n/index.js` in a script) or `tr('English', 'Español')`. Keys `tx_*` came from a sweep of the screens the companies use
+  `i18n/index.js` in a script) or `tr('English', 'EspaÃ±ol')`. Keys `tx_*` came from a sweep of the screens the companies use
   (migrations 2026_11_05_130000 / 130100); install-wide SuperAdmin screens (Update, Mail, SMS, Backup, Pay gateways) were
   left out. A stored name the code compares (`payment_methods.name`) stays as it is: only what is shown is translated
   (`looseTranslation`).
 - **Collapsing the side menu = the menu goes to the top bar (user's rule, 2026-11-10).** On a computer (not a phone, not a hospital, which has its own button bar) the
   collapse button hides the side menu completely and its groups become buttons next to that button; a click opens the group's items in a popup there (nested
-  groups as submenus), what doesn't fit goes under "Más". The company's logo then replaces the person's picture on the account chip (a white logo on a plate of the primary colour,
+  groups as submenus), what doesn't fit goes under "MÃ¡s". The company's logo then replaces the person's picture on the account chip (a white logo on a plate of the primary colour,
   `lib/logoTone.js`) and leaves the left of the bar to the groups. Same tree, permissions and order as the side menu: `SidebarMenu` with `horizontal` (`AppTopbar` `topNav`,
   `AdminLayout` `topNav`). **The whole bar then takes the company's primary colour** (2026-11-10: it shows that the bar is now the
   menu): white text, the icon buttons on white chips. Rules that reach inside the bar go in an UNSCOPED `<style>` block (a scoped
@@ -937,7 +937,7 @@ the start of each session).
   2026-10-05).** Every list / report / dashboard that filters by a date range
   uses Murano's date filter -- the shared preset buttons (All, Today, This
   Week ... Last Year, `lib/datePresets.js`; double-click = the user's default
-  ★, `lib/datePresetDefault.js`; dropdown on phones) plus the editable
+  â˜…, `lib/datePresetDefault.js`; dropdown on phones) plus the editable
   **Start date ... to ... End date** fields -- never a bare `<a-range-picker>`
   or two separate From / To `<a-date-picker>`s, and never a new ad-hoc
   filter. Use, in this order:
@@ -961,7 +961,7 @@ slash-command protocols from billing into this repo, adapted for `dbmurano`
 and this repo's own `kt_logs` migration (`database/migrations/2026_09_22_120000_create_kt_logs_table.php`,
 model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
 
-- **Kelsy** (`/kelsy`, or "Claude/Jarvis, run protocol Kelsy") — append this
+- **Kelsy** (`/kelsy`, or "Claude/Jarvis, run protocol Kelsy") â€” append this
   conversation's activity to `kt_logs`.
   **Standing rule (user's request, 2026-09-30): log every request right away.**
   As soon as a request is finished -- code change, question, check, anything
@@ -975,7 +975,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   `$ktLog = [...]; require 'database/scripts/protocol_kt_log.php'` (local
   only when production is unreachable; `murano:from-prod` sends those up).
 - **Wake-up** (`/wake-up`, "Jarvis, wake up" / "protocolo wake-up"; also what
-  "preparate" means now) — the start of the day on any PC (user's rules,
+  "preparate" means now) â€” the start of the day on any PC (user's rules,
   2026-10-19 / 2026-10-20). Steps: git pull (GitHub Desktop's last fetch
   without credentials; composer / npm ci only when needed) ->
   `php artisan murano:from-prod` (this PC's missing `kt_logs` up, production
@@ -999,7 +999,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   lives ONLY in `.env.production-db` / `.env.production-ssh` (per machine,
   git-ignored) -- never in `.env`, this file, README, kt_logs, reports or
   commits.
-- **Pa Llevar** (`/pa-llevar`, "Jarvis, run protocolo pa llevar") — the end of
+- **Pa Llevar** (`/pa-llevar`, "Jarvis, run protocolo pa llevar") â€” the end of
   the day: Wake-up's production code step (since 2026-10-25 deployed WITHOUT
   asking, after the commit / push; then the dev data, never the live
   companies' (2026-10-26); the PC is never shut down by a protocol,
@@ -1010,7 +1010,7 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   changes, last 5 kept, plus every section the work changed), commit with a
   summary subject and a detailed description, push (never force-push; without
   CLI credentials the user pushes from GitHub Desktop).
-- **Copia BD** (`/copia-bd`, "Jarvis, run protocolo copia bd") — a database
+- **Copia BD** (`/copia-bd`, "Jarvis, run protocolo copia bd") â€” a database
   copy on demand, tagged `copiabd`. Same script as Wake-up's / Pa Llevar's
   backups (`database/scripts/protocol_copia_bd.php`, `$backupTag`):
   `<archive>/<PC name>/dbmurano_<date>_<time>_<tag>.zip` (every table
@@ -1023,14 +1023,15 @@ model `app/Models/KtLog.php`). Definitions live in `.claude/commands/`:
   DEFINER / MariaDB sandbox line; portable utf8mb4_unicode_ci collations
   (`protocol_sql_clean.php`). Not in git: the copies travel to every PC through
   Google Drive (`<archive>`). Billing's originals stay untouched (billing is read-only, per the Hard Rules
-below) — these are Murano's own copies, kept in sync manually if the protocol
+below) â€” these are Murano's own copies, kept in sync manually if the protocol
 logic evolves.
 
 ## Hard Rules
 
-1. Never modify billing's code or `dbbilling` — read-only source of truth for
+1. Never modify billing's code or `dbbilling` â€” read-only source of truth for
    porting logic/data structure only.
 2. Murano's own new code/architecture is kept; billing is adapted to fit it,
    not the reverse.
 3. Every form/query touching company-scoped data must respect the
    SuperAdmin-vs-Admin multicompany rule above.
+

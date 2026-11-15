@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Every sale keeps its invoice PDF in files/company_{id}/sales/{Ref}.pdf (user's rule, 2026-11-15, Ruba: "cada vez que se
+ * Every sale keeps its invoice PDF in files/company_{id}/sales/Invoice_{Ref}.pdf (user's rule, 2026-11-15, Ruba: "cada vez que se
  * crea un sale, al terminar se debe crear el pdf y guardarlo en el folder"). Made when the sale is created or edited (after
  * the answer, so the sale and its lines are final; Sale model events), and the missing ones by `php artisan sales:pdf-archive`.
- * A deleted sale's PDF is never deleted: it is renamed "{Ref} - Delete.pdf".
+ * A deleted sale's PDF is never deleted: it is renamed "Invoice_{Ref} - Delete.pdf".
  * Demo sales (demo_records) are left out. Never blocks a sale: a failure is only logged.
  */
 class SalePdfArchive
@@ -28,7 +28,8 @@ class SalePdfArchive
 
     public static function path(Sale $sale, bool $deleted = false): string
     {
-        $name = self::safe((string) $sale->Ref).($deleted ? ' - Delete' : '').'.pdf';
+        // "Invoice_{Ref}.pdf" (user's rule, 2026-11-15: the same name as the earlier system's invoices).
+        $name = 'Invoice_'.self::safe((string) $sale->Ref).($deleted ? ' - Delete' : '').'.pdf';
 
         return public_path(self::dir((int) $sale->company_id).'/'.$name);
     }
@@ -61,8 +62,8 @@ class SalePdfArchive
     }
 
     /**
-     * The sale was deleted: its PDF (Murano's "{Ref}.pdf" or the earlier system's "Invoice_{Ref}.pdf") becomes
-     * "{Ref} - Delete.pdf". Without a PDF on disk, one is made from what is left of the sale.
+     * The sale was deleted: its PDF ("Invoice_{Ref}.pdf", or an older "{Ref}.pdf") becomes "Invoice_{Ref} - Delete.pdf".
+     * Without a PDF on disk, one is made from what is left of the sale.
      */
     public static function markDeleted(Sale $sale): void
     {
@@ -74,7 +75,7 @@ class SalePdfArchive
             return;
         }
         $dir = public_path(self::dir((int) $sale->company_id));
-        foreach ([self::safe($sale->Ref).'.pdf', 'Invoice_'.self::safe($sale->Ref).'.pdf'] as $name) {
+        foreach (['Invoice_'.self::safe($sale->Ref).'.pdf', self::safe($sale->Ref).'.pdf'] as $name) {
             if (is_file($dir.'/'.$name)) {
                 @rename($dir.'/'.$name, $target);
 
@@ -89,7 +90,7 @@ class SalePdfArchive
     {
         $dir = public_path(self::dir((int) $sale->company_id));
         $ref = self::safe((string) $sale->Ref);
-        foreach ([$ref.'.pdf', 'Invoice_'.$ref.'.pdf', $ref.' - Delete.pdf'] as $name) {
+        foreach (['Invoice_'.$ref.'.pdf', 'Invoice_'.$ref.' - Delete.pdf'] as $name) {
             if (is_file($dir.'/'.$name)) {
                 return true;
             }

@@ -3788,8 +3788,8 @@ class SalesController extends BaseController
         // addition to streaming the download -- same convention as every
         // other company-owned upload (CompanyFiles::dir()).
         try {
-            $salesDir = \App\Support\CompanyFiles::dir((int) $sale_data->company_id, 'sales');
-            $pdf->save(public_path($salesDir.'/'.$sale_data->Ref.'.pdf'));
+            // Same name as the sale's archived PDF: "Invoice_{Ref}.pdf" (user's rule, 2026-11-15).
+            $pdf->save(\App\Support\SalePdfArchive::path($sale_data));
         } catch (\Throwable $e) {
             // Non-blocking: the browser download must still succeed even if
             // the on-disk copy fails (e.g. permissions).
