@@ -203,6 +203,19 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-16 (Thundera)
+
+- **KcolTech's new logo** (menu, PDFs, company card, website, forms).
+- **Murano's own logo** on the login pages, the SuperAdmin (AdminSystem) and
+  the user manual; the KcolTech logo stays KcolTech's only.
+- **Murano flyer** (3 pages, Spanish) to offer Murano to any company: public
+  link https://murano.kcoltech.com/murano-flyer.pdf; the SuperAdmin opens or
+  copies it from the manual's header.
+
+Already in production (deployed today with the user's yes).
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-11-15 / 16 (Optimum)
 
 - **Every sale keeps its invoice PDF** (all companies), made when it is
@@ -282,22 +295,6 @@ Setup: `php artisan migrate`, `npm run build`.
   every trip cost) and parcels, with amount and %.
 
 Setup: `npm run build`.
-
-### 2026-11-12 (Thundera)
-
-- **Sign-in link by WhatsApp** (Company logins › Link): staff who don't use
-  passwords (pilots, hostesses) get a link that signs them in without one,
-  only on the first phone that opens it; it can be renewed or removed.
-- **Change history** (Settings › Historial de cambios, SuperAdmin only): who
-  changed what, when and from where, before and after; the last 6 months,
-  older changes kept in an archive, never deleted.
-- **Turismo's demo** has six months of history, with ticket income per
-  departure close to the client's real report; its hourly routine went from
-  11 minutes to 1.5 seconds.
-- **Sales › Tax to pay** card: the sales tax of the filtered invoices, with
-  what was collected and what is pending (Ruba).
-
-Setup: `php artisan migrate`, `npm run build`.
 ---
 
 ## Session protocols
