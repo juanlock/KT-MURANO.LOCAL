@@ -611,7 +611,7 @@ Route::group(['middleware' => ['web', 'auth:web', 'Is_Active', 'request.safety']
             }
 
             return redirect('/next');
-        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|set-locale|support|book(?:/|$)|invoice/|acceso/|company-docs/).*$');
+        })->where('vue', '^(?!'.$storeExclusion.'api|setup|update|password|online_store|customer-display|order-ready|quickbooks|salla|xero|google-sheets|portal|recruit|api-docs|next|csrf-token|login|logout|set-locale|support|book(?:/|$)|invoice/|acceso/|company-docs/|murano-docs/).*$');
     // acceso/: the WhatsApp sign-in links (2026-11-12), registered further down.
     // invoice/: the public signed invoice (/invoice/{id}/{signature}, registered further down) --
     // this wildcard swallowed it and sent the customer to /login (2026-10-26).
@@ -646,6 +646,9 @@ Route::post('login/as-back', 'CompanyLoginsController@back')->middleware(['auth:
 // A company's own manual / flyer by a signed link (2026-11-13): a real address ending in .pdf.
 Route::get('company-docs/{company}/{name}.pdf', [\App\Http\Controllers\CompanyManualsController::class, 'file'])->name('company-manual.file')
     ->middleware(['signed:relative', 'throttle:30,1'])->whereNumber('company')->where('name', '[A-Za-z0-9\-]+');
+// Murano's own flyer (2026-11-16, the SuperAdmin only): resources/docs/murano-flyer-{lang}.pdf by a signed link.
+Route::get('murano-docs/{name}.pdf', [\App\Http\Controllers\CompanyManualsController::class, 'muranoFile'])->name('murano-flyer.file')
+    ->middleware(['signed:relative', 'throttle:30,1'])->where('name', '[A-Za-z0-9\-]+');
 Route::get('acceso/{code}', 'Auth\LoginLinkController@enter')->middleware('throttle:20,1')->where('code', '[A-Za-z0-9]{32}');
 Route::post('acceso/{code}', 'Auth\LoginLinkController@enter')->middleware('throttle:20,1')->where('code', '[A-Za-z0-9]{32}');
 // POS cashier PIN: switches this browser session to the PIN's user (see PosPinController).

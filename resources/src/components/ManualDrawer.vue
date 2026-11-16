@@ -11,6 +11,10 @@
       <span class="md-title"><OpenBookIcon style="font-size: 20px" /> {{ L('Manual', 'Manual') }}</span>
     </template>
     <template #extra>
+      <!-- Murano's own flyer, to offer Murano to any company (2026-11-16): the SuperAdmin only. -->
+      <a-button v-if="isSystemView" size="small" type="primary" ghost :loading="ownLoading === 'murano'" style="margin-right: 8px" @click="openMuranoFlyer">
+        <DownloadOutlined /> {{ L('Murano flyer', 'Flyer Murano') }}
+      </a-button>
       <a-segmented v-model:value="lang" size="small" :options="[{ value: 'en', label: 'EN' }, { value: 'es', label: 'ES' }]" />
     </template>
 
@@ -186,6 +190,22 @@ async function openOwn(kind) {
     const cid = getActingCompanyId();
     const res = await http.get('company-manual', { lang: lang.value, kind, ...(cid ? { company_id: cid } : {}) });
     // Absolute: a relative address means nothing to the blank tab opened above.
+    const url = new URL(res.url, window.location.origin).href;
+    if (win) win.location.href = url; else window.location.href = url;
+  } catch (e) {
+    if (win) win.close();
+    message.error(L('The document could not be opened.', 'No se pudo abrir el documento.'));
+  } finally {
+    ownLoading.value = null;
+  }
+}
+
+// Murano's own flyer (resources/docs, SuperAdmin only): the same signed-.pdf way as the company's flyer.
+async function openMuranoFlyer() {
+  ownLoading.value = 'murano';
+  const win = window.open('', '_blank');
+  try {
+    const res = await http.get('murano-flyer', { lang: lang.value });
     const url = new URL(res.url, window.location.origin).href;
     if (win) win.location.href = url; else window.location.href = url;
   } catch (e) {
