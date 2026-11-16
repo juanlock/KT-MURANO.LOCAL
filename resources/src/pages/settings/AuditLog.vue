@@ -5,17 +5,23 @@
 
     <!-- Our standard table (2026-11-15, user: sort by column, choose the columns, density...): DataTable + useCrudTable;
          the search box is DataTable's, the filters sit beside it. -->
-    <DataTable :crud="crud" :columns="columns">
+    <DataTable :crud="crud" :columns="columns" compact-toolbar>
       <template #filters>
-        <div class="al-filters">
-          <!-- The main history holds 6 months; older changes are in the archive (never deleted). -->
-          <a-segmented v-model:value="source" :options="sourceOptions" @change="crud.reload" />
-          <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" apply-default @change="crud.reload" />
-          <a-select v-model:value="filters.user_id" :options="userOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('User', 'Usuario')" style="width: 200px" @change="crud.reload" />
-          <a-select v-model:value="filters.table" :options="tableOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('Module (table)', 'Módulo (tabla)')" style="width: 200px" @change="crud.reload" />
-          <a-select v-model:value="filters.event" :options="eventOptions" allow-clear :placeholder="tx('Action', 'Acción')" style="width: 140px" @change="crud.reload" />
-          <a-input v-model:value="filters.record_id" allow-clear :placeholder="tx('Record #', 'Registro #')" style="width: 110px" @press-enter="crud.reload" @change="e => !e.target.value && crud.reload()" />
-        </div>
+        <!-- One line (user, 2026-11-15): the period and the dates in sight, the rest under "Filtros". -->
+        <!-- The main history holds 6 months; older changes are in the archive (never deleted). -->
+        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" apply-default @change="crud.reload" />
+        <a-popover trigger="click" placement="bottomLeft">
+          <template #content>
+            <div class="al-more">
+              <a-segmented v-model:value="source" :options="sourceOptions" block @change="crud.reload" />
+              <a-select v-model:value="filters.user_id" :options="userOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('User', 'Usuario')" @change="crud.reload" />
+              <a-select v-model:value="filters.table" :options="tableOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('Module (table)', 'Módulo (tabla)')" @change="crud.reload" />
+              <a-select v-model:value="filters.event" :options="eventOptions" allow-clear :placeholder="tx('Action', 'Acción')" @change="crud.reload" />
+              <a-input v-model:value="filters.record_id" allow-clear :placeholder="tx('Record #', 'Registro #')" @press-enter="crud.reload" @change="e => !e.target.value && crud.reload()" />
+            </div>
+          </template>
+          <a-badge :count="activeFilters" size="small"><a-button><FilterOutlined /> {{ tx('Filters', 'Filtros') }}</a-button></a-badge>
+        </a-popover>
       </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'when'">{{ fmt(record.created_at) }}</template>
@@ -72,6 +78,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { FilterOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
@@ -102,6 +109,7 @@ const crud = useCrudTable('audit-logs', {
   }),
 });
 const listState = useListState('audit-log', { filters, range, source }, crud);
+const activeFilters = computed(() => Object.values(filters.value).filter(v => v !== undefined && v !== null && v !== '').length + (source.value === 'archive' ? 1 : 0));
 const users = computed(() => crud.payload.value?.users || []);
 const tables = computed(() => crud.payload.value?.tables || []);
 const detail = ref(null);
@@ -145,7 +153,7 @@ void listState;
 </script>
 
 <style scoped>
-.al-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.al-more { display: grid; gap: 8px; width: 240px; }
 .muted { opacity: 0.6; font-size: 12px; }
 .chg { font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; max-width: 420px; }
 .chg code { opacity: 0.75; margin-right: 4px; }

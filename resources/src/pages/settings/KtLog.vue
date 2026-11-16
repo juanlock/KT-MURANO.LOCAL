@@ -17,20 +17,25 @@
       </template>
     </PageHeader>
 
-    <DataTable :crud="crud" :columns="columns">
-      <!-- The filters beside the search box (user, 2026-11-15), not in a card of their own. -->
+    <DataTable :crud="crud" :columns="columns" compact-toolbar>
+      <!-- The filters beside the search box, all in one line (user, 2026-11-15): the dates in sight, the rest under "Filtros". -->
       <template #filters>
-        <div class="toolbar">
-          <PresetRangeFilter v-model:value="filters.range" value-format="YYYY-MM-DD" @change="crud.reload" />
-          <a-select v-model:value="filters.location" class="tb-item" allow-clear show-search option-filter-prop="label"
-            :placeholder="tx('All locations', 'Todas las ubicaciones')" :options="opt('locations')" @change="crud.reload" />
-          <a-select v-model:value="filters.category" class="tb-item" allow-clear show-search option-filter-prop="label"
-            :placeholder="tx('All categories', 'Todas las categorías')" :options="opt('categories')" @change="crud.reload" />
-          <a-select v-model:value="filters.status" class="tb-item" allow-clear
-            :placeholder="tx('All statuses', 'Todos los estados')" :options="opt('statuses')" @change="crud.reload" />
-          <a-select v-model:value="filters.claude_user" class="tb-item tb-user" allow-clear show-search option-filter-prop="label"
-            :placeholder="tx('All users', 'Todos los usuarios')" :options="opt('users')" @change="crud.reload" />
-        </div>
+        <PresetRangeFilter v-model:value="filters.range" value-format="YYYY-MM-DD" @change="crud.reload" />
+        <a-popover trigger="click" placement="bottomLeft">
+          <template #content>
+            <div class="more-filters">
+              <a-select v-model:value="filters.location" allow-clear show-search option-filter-prop="label"
+                :placeholder="tx('All locations', 'Todas las ubicaciones')" :options="opt('locations')" @change="crud.reload" />
+              <a-select v-model:value="filters.category" allow-clear show-search option-filter-prop="label"
+                :placeholder="tx('All categories', 'Todas las categorías')" :options="opt('categories')" @change="crud.reload" />
+              <a-select v-model:value="filters.status" allow-clear
+                :placeholder="tx('All statuses', 'Todos los estados')" :options="opt('statuses')" @change="crud.reload" />
+              <a-select v-model:value="filters.claude_user" allow-clear show-search option-filter-prop="label"
+                :placeholder="tx('All users', 'Todos los usuarios')" :options="opt('users')" @change="crud.reload" />
+            </div>
+          </template>
+          <a-badge :count="activeFilters" size="small"><a-button><FilterOutlined /> {{ tx('Filters', 'Filtros') }}</a-button></a-badge>
+        </a-popover>
       </template>
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'id'">
@@ -147,7 +152,7 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
-import { UpOutlined, DownOutlined, CopyOutlined, PaperClipOutlined } from '@ant-design/icons-vue';
+import { UpOutlined, DownOutlined, CopyOutlined, PaperClipOutlined, FilterOutlined } from '@ant-design/icons-vue';
 import DOMPurify from 'dompurify';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
@@ -182,6 +187,7 @@ const crud = useCrudTable('kt_logs', {
 const listState = useListState('kt-log', { filters }, crud);
 
 const source = computed(() => crud.payload.value?.source || null);
+const activeFilters = computed(() => ['location', 'category', 'status', 'claude_user'].filter(k => filters.value[k]).length);
 const opt = key => sortByLabel((crud.payload.value?.options?.[key] || []).map(v => ({ value: v, label: v })));
 
 const columns = computed(() => [
@@ -356,6 +362,7 @@ onMounted(() => {
 .md :deep(code), .files code { font-size: 12px; padding: 1px 5px; border-radius: 4px; background: rgba(128, 128, 128, 0.15); }
 .files { margin: 0; padding-left: 18px; font-size: 12.5px; columns: 2; column-gap: 24px; }
 .files--att { columns: 1; list-style: none; padding-left: 0; }
+.more-filters { display: grid; gap: 8px; width: 240px; }
 .cols3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; align-items: start; }
 .cols3 .sec { margin-top: 12px; }
 @media (max-width: 1100px) { .cols3 { grid-template-columns: 1fr; } }

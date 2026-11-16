@@ -3,7 +3,8 @@
     :body-style="{ padding: 0 }" :style="cardVars"
     :class="{ 'dt-th-bg': !!thBg, 'dt-th-color': !!dt.headerColor }"
   >
-    <div v-if="toolbarVisible" class="datatable-toolbar">
+    <a-config-provider :component-size="compactToolbar ? 'small' : undefined">
+    <div v-if="toolbarVisible" class="datatable-toolbar" :class="{ 'datatable-toolbar--one': compactToolbar }">
       <!-- Search + the page's own filters right beside it (#filters slot, 2026-10-27). -->
       <div class="dt-left">
         <a-input-search
@@ -82,6 +83,7 @@
         </a-tooltip>
       </a-space>
     </div>
+    </a-config-provider>
 
     <a-table
       class="dt-managed"
@@ -200,6 +202,9 @@ const props = defineProps({
   // With an #expandedRowRender slot: which rows get the expand arrow (default all).
   rowExpandable: { type: Function, default: undefined },
   searchable: { type: Boolean, default: true },
+  // Search, filters and buttons in ONE line, small controls (user, 2026-11-15: "más compacto"); pages keep their
+  // secondary filters in a "Filtros" popover (KT-Log, Change history).
+  compactToolbar: { type: Boolean, default: false },
   // Row checkboxes + bulk delete (endpoint must support /delete/by_selection).
   // Disabled system-wide (2026-09-23) -- a real server bug let a blocked bulk
   // delete (e.g. one selected row already had a return) silently report
@@ -512,6 +517,19 @@ function sumFor(col) {
   border-bottom: 1px solid rgba(5, 5, 5, 0.06);
 }
 .dt-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+.datatable-toolbar--one { flex-wrap: nowrap; padding: 10px 12px; gap: 8px; }
+.datatable-toolbar--one .dt-left { flex-wrap: nowrap; gap: 6px; }
+.datatable-toolbar--one .dt-search { width: 150px; flex: 0 0 150px; }
+.datatable-toolbar--one :deep(.prf) { flex-wrap: nowrap; gap: 6px; flex: 0 0 auto; }
+.datatable-toolbar--one :deep(.prf-buttons .ant-radio-group) { display: flex; flex-wrap: nowrap; white-space: nowrap; }
+.datatable-toolbar--one :deep(.prf-buttons .ant-radio-button-wrapper) { padding-inline: 7px; }
+.datatable-toolbar--one :deep(.prf .drf) { width: auto; flex: 0 0 auto; }
+.datatable-toolbar--one :deep(.prf .drf .drf-label:first-child) { display: none; }
+.datatable-toolbar--one :deep(.prf .drf .drf-date) { width: 108px; min-width: 108px; flex: 0 0 108px; }
+.datatable-toolbar--one .dt-left > :deep(*) { flex-shrink: 0; }
+@media (max-width: 1500px) {
+  .datatable-toolbar--one, .datatable-toolbar--one .dt-left { flex-wrap: wrap; }
+}
 .dt-search { max-width: 280px; }
 @media (max-width: 767px) {
   .dt-left > * { width: 100% !important; max-width: none; }
