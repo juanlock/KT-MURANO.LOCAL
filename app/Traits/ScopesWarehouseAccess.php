@@ -203,7 +203,9 @@ trait ScopesWarehouseAccess
         }
 
         if (isset($document->warehouse_id)) {
-            $this->abortIfWarehouseDenied($document->warehouse_id);
+            if (! $this->deletedWarehouseStillReadable($document->warehouse_id)) {
+                $this->abortIfWarehouseDenied($document->warehouse_id);
+            }
 
             return;
         }
@@ -248,6 +250,27 @@ trait ScopesWarehouseAccess
      * Hard stop for endpoints addressed by warehouse (a route segment or a
      * required parameter) where silently widening the scope would be wrong.
      */
+    /**
+     * A document whose location was deleted later (Ruba's QT_0005 at
+     * WH-RUBAGARDEN2, 2026-11-16) still opens for whoever has every location of
+     * that company (or the SuperAdmin): the deleted location is no longer in
+     * anybody's list, so the document had become impossible to open.
+     */
+    protected function deletedWarehouseStillReadable($warehouseId): bool
+    {
+        $user = auth()->user();
+        if (! $user || ! $warehouseId) {
+            return false;
+        }
+        $w = Warehouse::withoutGlobalScope('company')->find((int) $warehouseId, ['id', 'company_id', 'deleted_at']);
+        if (! $w || ! $w->deleted_at) {
+            return false;
+        }
+
+        return $user->type === 'SuperAdmin'
+            || ($user->is_all_warehouses && (int) $w->company_id === (int) $user->company_id);
+    }
+
     protected function abortIfWarehouseDenied($warehouseId): void
     {
         if (! $this->canAccessWarehouse($warehouseId)) {

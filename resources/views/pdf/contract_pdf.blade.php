@@ -19,7 +19,7 @@
             <td style="width: 50%; vertical-align: top;">
                 @if(!empty($setting['logo']))
                     @php
-                        $logoPath = public_path('images/'.$setting['logo']);
+                        $logoPath = (str_contains($setting['logo'], '/') ? public_path($setting['logo']) : public_path('images/'.$setting['logo']));
                         $logoSrc = null;
                         if (file_exists($logoPath) && is_readable($logoPath)) {
                             $logoData = @file_get_contents($logoPath);
