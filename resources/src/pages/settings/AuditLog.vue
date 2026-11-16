@@ -3,24 +3,23 @@
   <div class="page">
     <PageHeader :title="tx('Change history', 'Historial de cambios')" :breadcrumb="[tx('Settings', 'Configuración'), tx('Change history', 'Historial de cambios')]" />
 
-    <a-card size="small">
-      <div class="al-filters">
-        <!-- The main history holds 6 months; older changes are in the archive (never deleted). -->
-        <a-segmented v-model:value="source" :options="sourceOptions" @change="reload" />
-        <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" apply-default compact @change="reload" />
-        <a-select v-model:value="filters.user_id" :options="userOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('User', 'Usuario')" style="width: 200px" @change="reload" />
-        <a-select v-model:value="filters.table" :options="tableOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('Module (table)', 'Módulo (tabla)')" style="width: 200px" @change="reload" />
-        <a-select v-model:value="filters.event" :options="eventOptions" allow-clear :placeholder="tx('Action', 'Acción')" style="width: 140px" @change="reload" />
-        <a-input v-model:value="filters.record_id" allow-clear :placeholder="tx('Record #', 'Registro #')" style="width: 110px" @press-enter="reload" @change="e => !e.target.value && reload()" />
-        <a-input-search v-model:value="filters.search" allow-clear :placeholder="tx('Search a value, user or page', 'Buscar un valor, usuario o página')" style="width: 240px" @search="reload" />
-      </div>
-
-      <a-table :data-source="rows" :columns="columns" row-key="id" size="small" :loading="loading" :scroll="{ x: 'max-content' }"
-               :pagination="{ current: page, pageSize: perPage, total, showSizeChanger: true, pageSizeOptions: ['25', '50', '100', '200'], size: 'small',
-                              showTotal: n => tx(`${n} changes`, `${n} cambios`) }"
-               @change="onTable">
+    <!-- Our standard table (2026-11-15, user: sort by column, choose the columns, density...): DataTable + useCrudTable;
+         the search box is DataTable's, the filters sit beside it. -->
+    <DataTable :crud="crud" :columns="columns">
+      <template #filters>
+        <div class="al-filters">
+          <!-- The main history holds 6 months; older changes are in the archive (never deleted). -->
+          <a-segmented v-model:value="source" :options="sourceOptions" @change="crud.reload" />
+          <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" apply-default @change="crud.reload" />
+          <a-select v-model:value="filters.user_id" :options="userOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('User', 'Usuario')" style="width: 200px" @change="crud.reload" />
+          <a-select v-model:value="filters.table" :options="tableOptions" allow-clear show-search option-filter-prop="label" :placeholder="tx('Module (table)', 'Módulo (tabla)')" style="width: 200px" @change="crud.reload" />
+          <a-select v-model:value="filters.event" :options="eventOptions" allow-clear :placeholder="tx('Action', 'Acción')" style="width: 140px" @change="crud.reload" />
+          <a-input v-model:value="filters.record_id" allow-clear :placeholder="tx('Record #', 'Registro #')" style="width: 110px" @press-enter="crud.reload" @change="e => !e.target.value && crud.reload()" />
+        </div>
+      </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'when'">{{ fmt(record.created_at) }}</template>
+          <template v-else-if="column.key === 'company'">{{ record.company_name || '—' }}</template>
           <template v-else-if="column.key === 'user'">
             <div>{{ record.user_name || tx('Public / no session', 'Público / sin sesión') }}</div>
             <div v-if="record.as_admin" class="muted">{{ tx('opened by', 'abierto por') }} {{ record.as_admin }}</div>
@@ -60,8 +59,7 @@
             <span v-else class="muted">—</span>
           </template>
         </template>
-      </a-table>
-    </a-card>
+    </DataTable>
 
     <a-modal :open="!!detail" :footer="null" width="760px" :title="detail ? `${detail.model} #${detail.record_id} · ${eventLabel(detail.event)}` : ''" @cancel="detail = null">
       <template v-if="detail">
@@ -73,12 +71,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { message } from 'ant-design-vue';
+import { ref, computed, onMounted } from 'vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
-import http from '../../lib/http';
+import DataTable from '../../components/DataTable.vue';
+import { useCrudTable } from '../../composables/useCrudTable';
 import { useUiStore } from '../../stores/ui';
 import { useSystemContext } from '../../lib/systemContext';
 import { sortByLabel } from '../../lib/filterOptions';
@@ -89,21 +87,23 @@ const tx = (en, es) => (ui.locale === 'es' ? es : en);
 const { isSystem } = useSystemContext();
 
 const range = ref([dayjs().subtract(6, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')]);
-const filters = ref({ user_id: undefined, table: undefined, event: undefined, record_id: '', search: '' });
-const page = ref(1);
-const perPage = ref(50);
+const filters = ref({ user_id: undefined, table: undefined, event: undefined, record_id: '' });
 const source = ref('recent');
 const sourceOptions = computed(() => [
   { value: 'recent', label: tx('Last 6 months', 'Últimos 6 meses') },
   { value: 'archive', label: tx('Archive (older)', 'Archivo (más antiguo)') },
 ]);
-useListState('audit-log', { filters, range, page, perPage, source });
-
-const loading = ref(false);
-const rows = ref([]);
-const total = ref(0);
-const users = ref([]);
-const tables = ref([]);
+const crud = useCrudTable('audit-logs', {
+  rowsKey: 'rows',
+  limit: 50,
+  params: () => ({
+    from: range.value?.[0] || '', to: range.value?.[1] || '', archive: source.value === 'archive' ? 1 : 0,
+    ...Object.fromEntries(Object.entries(filters.value).filter(([, v]) => v !== undefined && v !== null && v !== '')),
+  }),
+});
+const listState = useListState('audit-log', { filters, range, source }, crud);
+const users = computed(() => crud.payload.value?.users || []);
+const tables = computed(() => crud.payload.value?.tables || []);
 const detail = ref(null);
 
 const EVENTS = { created: ['Created', 'Creado'], updated: ['Changed', 'Modificado'], deleted: ['Deleted', 'Eliminado'], restored: ['Restored', 'Restaurado'] };
@@ -112,16 +112,17 @@ const eventOptions = computed(() => sortByLabel(Object.keys(EVENTS).map(k => ({ 
 const userOptions = computed(() => sortByLabel(users.value.map(u => ({ value: u.user_id, label: u.user_name || `#${u.user_id}` }))));
 const tableOptions = computed(() => sortByLabel(tables.value.map(t => ({ value: t, label: t }))));
 
+// dataIndex = the column the server sorts by (AuditLogController $sortable).
 const columns = computed(() => [
-  { title: tx('When', 'Fecha'), key: 'when', width: 150 },
-  ...(isSystem.value ? [{ title: tx('Company', 'Empresa'), dataIndex: 'company_name', key: 'company', width: 150 }] : []),
-  { title: tx('User', 'Usuario'), key: 'user', width: 170 },
-  { title: tx('Action', 'Acción'), key: 'event', width: 105 },
-  { title: tx('Record', 'Registro'), key: 'what', width: 190 },
+  { title: tx('When', 'Fecha'), key: 'when', dataIndex: 'created_at', width: 150, sorter: true },
+  ...(isSystem.value ? [{ title: tx('Company', 'Empresa'), dataIndex: 'company_id', key: 'company', width: 150, sorter: true }] : []),
+  { title: tx('User', 'Usuario'), key: 'user', dataIndex: 'user_name', width: 170, sorter: true },
+  { title: tx('Action', 'Acción'), key: 'event', dataIndex: 'event', width: 105, sorter: true },
+  { title: tx('Record', 'Registro'), key: 'what', dataIndex: 'table_name', width: 190, sorter: true },
   { title: tx('What changed', 'Qué cambió'), key: 'changes', width: 420 },
-  { title: tx('From', 'Desde'), key: 'where', width: 210 },
-  { title: tx('Code file', 'Archivo de código'), key: 'source', width: 260 },
-  { title: 'Commit', key: 'commit', width: 100 },
+  { title: tx('From', 'Desde'), key: 'where', dataIndex: 'url', width: 210, sorter: true },
+  { title: tx('Code file', 'Archivo de código'), key: 'source', dataIndex: 'source_file', width: 260, sorter: true },
+  { title: 'Commit', key: 'commit', dataIndex: 'code_commit', width: 100, sorter: true },
 ]);
 const detailColumns = computed(() => [
   { title: tx('Field', 'Campo'), dataIndex: 'field', width: 180 },
@@ -139,26 +140,8 @@ const preview = r => Object.fromEntries(Object.entries(r.changes).slice(0, 3));
 const short = v => { const s = show(v); return s.length > 90 ? s.slice(0, 90) + '…' : s; };
 const hasLong = r => Object.values(r.changes).some(([b, a]) => show(b).length > 90 || show(a).length > 90);
 
-async function load() {
-  loading.value = true;
-  try {
-    const res = await http.get('audit-logs', {
-      from: range.value?.[0], to: range.value?.[1], page: page.value, per_page: perPage.value, archive: source.value === 'archive' ? 1 : 0,
-      ...Object.fromEntries(Object.entries(filters.value).filter(([, v]) => v !== undefined && v !== null && v !== '')),
-    });
-    rows.value = res.rows || [];
-    total.value = res.total || 0;
-    users.value = res.users || [];
-    tables.value = res.tables || [];
-  } catch (e) {
-    message.error(e?.data?.message || tx('Could not load', 'No se pudo cargar'));
-  } finally {
-    loading.value = false;
-  }
-}
-function reload() { page.value = 1; load(); }
-function onTable(p) { page.value = p.current; perPage.value = p.pageSize; load(); }
-load();
+onMounted(() => crud.fetchRows());
+void listState;
 </script>
 
 <style scoped>

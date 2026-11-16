@@ -593,12 +593,14 @@ watch(openKeys, (nv, ov) => {
 .sidebar-menu :deep([data-menu-id$="|system"]),
 .sidebar-menu :deep([data-menu-id$="|sa"]) {
   position: relative;
+  /* light yellow row (user, 2026-11-15: "amarillo claro, no naranja"): the dark gold text read as orange */
+  background: #fef9c3 !important;
 }
 /* Yellow for every global (superadmin/AdminSystem) item -- 2026-10-21: the
    older dark amber read as red. */
 .sidebar-menu :deep([data-menu-id$="|system"] .ant-menu-title-content),
 .sidebar-menu :deep([data-menu-id$="|sa"] .ant-menu-title-content) {
-  color: #d4a106;
+  color: #713f12;
   font-weight: 600;
 }
 .sidebar-menu :deep([data-menu-id$="|system"])::after,
@@ -610,8 +612,8 @@ watch(openKeys, (nv, ov) => {
   transform: translateY(-50%);
   padding: 0 6px;
   border-radius: 4px;
-  background: rgba(212, 161, 6, 0.18);
-  color: #d4a106;
+  background: #fde047;
+  color: #713f12;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;

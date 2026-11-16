@@ -29,11 +29,18 @@ class AuditLogController extends Controller
             ->when($request->filled('record_id'), fn ($q) => $q->where('record_id', (string) $request->record_id))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $s = '%'.trim($request->search).'%';
-                $q->where(fn ($w) => $w->where('changes', 'like', $s)->orWhere('user_name', 'like', $s)->orWhere('url', 'like', $s));
+                $q->where(fn ($w) => $w->where('changes', 'like', $s)->orWhere('user_name', 'like', $s)->orWhere('url', 'like', $s)
+                    ->when(\Illuminate\Support\Facades\Schema::hasColumn('audit_logs', 'source_file'),
+                        fn ($x) => $x->orWhere('source_file', 'like', $s)->orWhere('code_commit', 'like', $s)));
             });
         $total = (clone $q)->count();
-        $per = max(10, min(200, (int) $request->input('per_page', 50)));
-        $rows = $q->orderByDesc('id')->forPage(max(1, (int) $request->input('page', 1)), $per)->get();
+        // The standard table (DataTable / useCrudTable, 2026-11-15): limit / SortField / SortType, any column sortable.
+        $per = max(10, min(500, (int) $request->input('limit', $request->input('per_page', 50))));
+        $sortable = ['id', 'created_at', 'company_id', 'user_name', 'event', 'table_name', 'record_id', 'url', 'ip', 'source_file', 'code_commit'];
+        $sort = in_array($request->SortField, $sortable, true) ? $request->SortField : 'id';
+        $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
+        $rows = $q->orderBy($sort, $dir)->when($sort !== 'id', fn ($x) => $x->orderByDesc('id'))
+            ->forPage(max(1, (int) $request->input('page', 1)), $per)->get();
 
         $companies = DB::table('companies')->whereIn('id', $rows->pluck('company_id')->filter()->unique())->pluck('name', 'id');
         $admins = DB::table('users')->whereIn('id', $rows->pluck('as_admin_id')->filter()->unique())->pluck('username', 'id');
@@ -50,6 +57,7 @@ class AuditLogController extends Controller
                 'changes' => json_decode((string) $r->changes, true) ?: [],
             ]),
             'total' => $total,
+            'totalRows' => $total,
             // Filter choices of this scope (the last 2,000 rows' users / tables are enough to pick from).
             'users' => (clone $base)->whereNotNull('user_id')->select('user_id', 'user_name')->distinct()->orderBy('user_name')->limit(500)->get(),
             'tables' => (clone $base)->select('table_name')->distinct()->orderBy('table_name')->pluck('table_name'),

@@ -938,6 +938,13 @@ the start of each session).
   **Cancel** (never a bare `router.push('/list')`, which drops the filters).
   Done for Sales, Purchases, Quotations, Customers, Suppliers -- apply it to
   any list that gets filters.
+- **Every list / table page uses our standard table (user's rule, 2026-11-15, Goku: "cuando debo crear un formulario de
+  tabla y ponerle filtro debo usar el standard"):** `DataTable` + `useCrudTable` (`components/DataTable.vue`), never a bare
+  `<a-table>`: it brings the search box, column chooser, width, density, refresh and server sorting (`sorter: true` + the
+  column's `dataIndex`; the endpoint takes `page` / `limit` / `SortField` / `SortType` / `search` and answers
+  `{ <rows>, totalRows }`). The page's filters go in DataTable's `#filters` slot, **beside the search**, never in a card of
+  their own; the date filter there is the full `PresetRangeFilter` (preset buttons + Start / End fields), **never `compact`**.
+  Examples: KT-Log, Change history (2026-11-15).
 - **Date range filters: our own filter is the standard (user's rule,
   2026-10-05).** Every list / report / dashboard that filters by a date range
   uses Murano's date filter -- the shared preset buttons (All, Today, This
