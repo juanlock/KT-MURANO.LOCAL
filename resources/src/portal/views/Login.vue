@@ -33,6 +33,19 @@
               </form>
             </template>
 
+            <!-- 1b. the email + password open several companies: pick one (2026-11-16) -->
+            <template v-else-if="step === 'company'">
+              <h2 class="h2 text-center mb-1">{{ $t('sec_company_title') }}</h2>
+              <p class="text-secondary text-center mb-4">{{ $t('sec_company_lead') }}</p>
+              <div class="d-grid gap-2">
+                <button v-for="c in companies" :key="c.id" type="button" class="btn btn-outline-primary" :disabled="loading" @click="pickCompany(c.id)">
+                  <i class="ti ti-building-store me-2"></i>{{ c.name }}
+                </button>
+              </div>
+              <div v-if="error" class="invalid-feedback d-block mt-2">{{ error }}</div>
+              <div class="text-end mt-3"><a href="#" class="text-secondary" @click.prevent="restart()">{{ $t('sec_back') }}</a></div>
+            </template>
+
             <!-- 2. two-step code (email or authenticator app) -->
             <template v-else-if="step === '2fa'">
               <h2 class="h2 text-center mb-1">{{ $t('sec_verify_title') }}</h2>
@@ -104,6 +117,7 @@ export default {
       email: '', password: '', error: '', info: '', loading: false,
       // Login security (2026-10-27): the steps the server asks for after the password.
       step: null, method: 'email', maskedEmail: '', code: '', rememberDevice: false, newPassword: '', newPassword2: '',
+      companies: [],
     };
   },
   methods: {
@@ -111,6 +125,7 @@ export default {
     handle(data) {
       if (data && data.step) {
         this.step = data.step;
+        this.companies = data.companies || [];
         this.method = data.method || 'email';
         this.maskedEmail = data.email || '';
         this.info = data.warning || '';
@@ -142,6 +157,9 @@ export default {
     },
     login() {
       return this.run(() => http.post('/portal/login', { email: this.email, password: this.password }));
+    },
+    pickCompany(id) {
+      return this.run(() => http.post('/portal/login/company', { id }));
     },
     verify() {
       return this.run(() => http.post('/portal/login/verify', { code: this.code, remember_device: this.rememberDevice }));

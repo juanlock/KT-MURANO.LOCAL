@@ -360,6 +360,12 @@ the start of each session).
   across companies, never attach to the Walk-in customer; ask before merging.
   Only exception (2026-10-05): Zelle deposit emails carry just the payer's name,
   so there the same exact name in the same company = same customer.
+  **Customers of each company are fully independent (user's rule, 2026-11-16: "esas compañías no se conocen"):** the same
+  name and email can be a customer -- and a customer portal login -- in several companies. A customer login's email is
+  unique only among that company's customer logins (`PortalAdminController::enable`, `LinkedUserService::uniqueEmail`);
+  staff / supplier / agent logins stay unique install-wide. The portal sign-in tries the password on every customer login
+  with that email; when it opens several, it asks which company (`POST portal/login/company`, only the companies that
+  email + password already open). Never tell one company about another's customer.
 - **Online booking (/book, 2026-10-07):** only the name is required (email and
   phone optional; an email given must be valid). No email to the customer when
   they book -- only the company's admins get "new online booking"; the customer

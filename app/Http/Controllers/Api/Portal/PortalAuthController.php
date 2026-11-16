@@ -28,40 +28,97 @@ class PortalAuthController extends Controller
         ]);
 
         // Portal login = the customer's own users row (PortalClient scopes to
-        // type=customer, not deleted). users.email isn't DB-unique, so prefer
-        // the row that actually has the portal on.
-        $portalClient = PortalClient::where('email', $cred['email'])->orderByDesc('portal_enabled')->first();
+        // type=customer, not deleted). Customers of each company are independent
+        // (user's rule, 2026-11-16): the same email can be a customer login in
+        // several companies, so every row with that email is a candidate and the
+        // password decides; when it opens more than one, the person picks the
+        // company (POST login/company).
+        $candidates = PortalClient::where('email', $cred['email'])->orderByDesc('portal_enabled')->orderBy('id')->get();
 
         // Login security (2026-10-27): locked = refused before the password is checked;
         // wrong passwords count towards the lock (App\Support\LoginSecurity).
-        if ($portalClient && ($until = LoginSecurity::lockedUntil($portalClient))) {
-            LoginSecurity::event($portalClient, $cred['email'], 'portal', 'blocked', $request, 'locked');
+        foreach ($candidates as $c) {
+            if ($until = LoginSecurity::lockedUntil($c)) {
+                LoginSecurity::event($c, $cred['email'], 'portal', 'blocked', $request, 'locked');
 
-            return response()->json(['message' => LoginSecurity::lockedMessage($until)], 423);
+                return response()->json(['message' => LoginSecurity::lockedMessage($until)], 423);
+            }
         }
-        if (!$portalClient || !Hash::check($cred['password'], $portalClient->password)) {
-            $locked = LoginSecurity::recordFailure($portalClient ? [$portalClient] : [], $cred['email'], $request, 'portal');
+        $matched = $candidates->filter(fn ($c) => Hash::check($cred['password'], $c->password))->values();
+        if ($matched->isEmpty()) {
+            $locked = LoginSecurity::recordFailure($candidates->all(), $cred['email'], $request, 'portal');
 
             return response()->json(['message' => $locked ? LoginSecurity::lockedMessage($locked) : __('portal.invalid_credentials')], $locked ? 423 : 401);
         }
-        LoginSecurity::clearFailures($portalClient);
-
-        if (!$portalClient->canAccessPortal() || !$portalClient->client) {
-            return response()->json(['message' => __('portal.portal_disabled_account')], 403);
+        foreach ($matched as $c) {
+            LoginSecurity::clearFailures($c);
         }
 
+        $open = $matched->filter(fn ($c) => $c->canAccessPortal() && $c->client)->values();
+        if ($open->isEmpty()) {
+            return response()->json(['message' => __('portal.portal_disabled_account')], 403);
+        }
+        if ($open->count() > 1) {
+            // Only the companies this email + password already open are shown.
+            $request->session()->put(self::CHOOSE, [
+                'ids' => $open->pluck('id')->all(), 'remember' => $request->boolean('remember'),
+                'password' => encrypt($cred['password']), 'at' => time(),
+            ]);
+
+            return response()->json(['step' => 'company', 'companies' => $this->companyChoices($open)]);
+        }
+
+        return $this->afterPassword($request, $open->first(), $cred['password'], $request->boolean('remember'));
+    }
+
+    /** Session key of a sign-in whose email + password open several companies. */
+    private const CHOOSE = 'portal.login.choose';
+
+    /** @return array<int, array{id: int, name: string}> sorted by company name */
+    private function companyChoices($logins): array
+    {
+        $names = \Illuminate\Support\Facades\DB::table('companies')
+            ->whereIn('id', $logins->map(fn ($c) => (int) $c->client->company_id)->all())->pluck('name', 'id');
+
+        return $logins->map(fn ($c) => ['id' => (int) $c->id, 'name' => (string) ($names[(int) $c->client->company_id] ?? $c->client->name)])
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+    }
+
+    /** POST /api/portal/login/company {id} -- the company picked after the password. */
+    public function loginCompany(Request $request)
+    {
+        $c = $request->session()->get(self::CHOOSE);
+        if (! $c || time() - ($c['at'] ?? 0) > 900) {
+            $request->session()->forget(self::CHOOSE);
+
+            return response()->json(['message' => __('portal.sec_expired'), 'code' => 'expired'], 419);
+        }
+        $id = (int) $request->input('id');
+        abort_unless(in_array($id, $c['ids'], true), 422);
+        $request->session()->forget(self::CHOOSE);
+        $client = PortalClient::whereKey($id)->first();
+        if (! $client || ! $client->canAccessPortal() || ! $client->client || LoginSecurity::lockedUntil($client)) {
+            return response()->json(['message' => __('portal.portal_disabled_account'), 'code' => 'restart'], 403);
+        }
+
+        return $this->afterPassword($request, $client, decrypt($c['password']), (bool) $c['remember']);
+    }
+
+    /** The password was right for this login: its pending steps, else in. */
+    private function afterPassword(Request $request, PortalClient $portalClient, string $password, bool $remember)
+    {
         // Two-step code and / or a new password first (loginVerify / loginPassword).
-        $steps = LoginSecurity::pendingSteps($portalClient, $request, $cred['password']);
+        $steps = LoginSecurity::pendingSteps($portalClient, $request, $password);
         if ($steps) {
             $request->session()->put(self::PENDING, [
-                'user_id' => $portalClient->id, 'remember' => $request->boolean('remember'), 'steps' => $steps, 'at' => time(),
+                'user_id' => $portalClient->id, 'remember' => $remember, 'steps' => $steps, 'at' => time(),
                 'code' => null, 'code_exp' => null, 'tries' => 0, 'sent_at' => null, 'remember_device' => false,
             ]);
 
             return response()->json($this->stepResponse($request, $portalClient));
         }
 
-        return $this->finishLogin($request, $portalClient, $request->boolean('remember'));
+        return $this->finishLogin($request, $portalClient, $remember);
     }
 
     /** Session key of a portal sign-in waiting for its steps. */

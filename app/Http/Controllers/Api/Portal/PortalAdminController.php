@@ -78,13 +78,14 @@ class PortalAdminController extends Controller
         $data = $request->validate([
             'email' => [
                 'required', 'email', 'max:190',
-                Rule::unique('users', 'email')->ignore($portalClient->id)->whereNull('deleted_at'),
+                // Customers of each company are independent (user's rule, 2026-11-16):
+                // the email only has to be free among THIS company's customer logins.
+                Rule::unique('users', 'email')->ignore($portalClient->id)->whereNull('deleted_at')
+                    ->where('type', 'customer')->where('company_id', (int) $client->company_id),
             ],
             'password' => [(int) $portalClient->status === 1 ? 'nullable' : 'required', 'string', 'min:8'],
         ], [
-            // A login's email is unique install-wide (sign-in is by email alone);
-            // never say whose it is: it may be another company's customer.
-            'email.unique' => __('This portal sign-in email is already the login of another person (it may be in another company). Use another email for the portal; the customer\'s emails stay as they are.'),
+            'email.unique' => __('Another customer of this company already signs in to the portal with this email.'),
             'password.required' => __('Set a password to turn the portal on for this customer.'),
         ]);
 

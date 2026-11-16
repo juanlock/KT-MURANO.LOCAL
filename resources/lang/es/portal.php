@@ -520,6 +520,8 @@ return [
     'sec_resend' => 'Enviar otro código',
     'sec_resent' => 'Le enviamos un código nuevo.',
     'sec_back' => 'Volver',
+    'sec_company_title' => '¿A qué empresa quiere entrar?',
+    'sec_company_lead' => 'Su email es cliente de varias empresas. Elija una.',
     'sec_password_title' => 'Elija una contraseña nueva',
     'sec_password_lead' => 'Ingresó con una contraseña estándar. Por su seguridad, elija una propia antes de entrar.',
     'sec_new_password' => 'Contraseña nueva',

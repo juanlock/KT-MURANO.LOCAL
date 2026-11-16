@@ -42,7 +42,7 @@ class LinkedUserService
             ?? Role::where('company_id', $companyId)->where('name', 'Customer')->whereNull('deleted_at')->value('id');
 
         $username = self::uniqueUsername($displayName ?: $type);
-        $finalEmail = self::uniqueEmail($email, $username);
+        $finalEmail = self::uniqueEmail($email, $username, $type === 'customer' ? $companyId : null);
         [$firstname, $lastname] = self::splitName($displayName);
 
         $user = User::create([
@@ -278,13 +278,22 @@ class LinkedUserService
         return $username;
     }
 
-    private static function uniqueEmail(?string $email, string $usernameFallback): string
+    /**
+     * $customerCompanyId: a customer login only has to be free among that
+     * company's customer logins -- customers of each company are independent
+     * (user's rule, 2026-11-16), the portal asks which company when one email
+     * + password opens several. Other types stay unique install-wide.
+     */
+    private static function uniqueEmail(?string $email, string $usernameFallback, ?int $customerCompanyId = null): string
     {
         $email = trim((string) $email);
         if ($email === '') {
             $email = strtolower($usernameFallback).'@placeholder.murano.local';
         }
-        if (! User::where('email', $email)->exists()) {
+        $taken = User::where('email', $email)->whereNull('deleted_at')
+            ->when($customerCompanyId, fn ($q) => $q->where('type', 'customer')->where('company_id', $customerCompanyId))
+            ->exists();
+        if (! $taken) {
             return $email;
         }
         // Real collision (a genuine email already used by some other user) --

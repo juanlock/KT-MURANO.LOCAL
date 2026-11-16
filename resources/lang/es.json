@@ -1,5 +1,5 @@
 {
-    "This portal sign-in email is already the login of another person (it may be in another company). Use another email for the portal; the customer's emails stay as they are.": "Este correo de acceso al portal ya es el login de otra persona (puede ser de otra empresa). Usa otro correo para el portal; los correos del cliente quedan como están.",
+    "Another customer of this company already signs in to the portal with this email.": "Otro cliente de esta empresa ya entra al portal con este correo.",
     "Set a password to turn the portal on for this customer.": "Pon una contraseña para activar el portal de este cliente.",
     "A folder cannot be moved inside itself.": "Una carpeta no se puede mover dentro de sí misma.",
     "Account From and to account cannot be the same.": "La cuenta de origen y la de destino no pueden ser la misma.",
