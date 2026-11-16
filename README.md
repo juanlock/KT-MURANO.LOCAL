@@ -203,6 +203,24 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`).
 
+### 2026-11-15 / 16 (Optimum)
+
+- **Every sale keeps its invoice PDF** (all companies), made when it is
+  created; a deleted sale's PDF is renamed "- Delete", never removed; a
+  modified invoice keeps its earlier PDF as `-ver01-modified-<date>-<user>`.
+  Every missing PDF was generated; Ruba's all start with `Invoice_INV_`.
+- **Ruba:** test invoices removed; four deleted invoices are back as
+  cancelled, ready to be activated (they have no lines).
+- **KT-Log:** the closing message with its tables, titles in the request's
+  language, a wider panel in 3 columns, attached files, filters in one line.
+- **Change history** on the standard table (sort, column chooser, standard
+  date filter), with code file and commit columns; global / SuperAdmin menu
+  items on a light-yellow row.
+- **KT-TOOLS** reaches every PC whole through Google Drive (backups, Temp,
+  reports included) -- *not in production yet* (protocol scripts only).
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-11-14 / 15 (Optimum)
 
 - **A bus's Fuel tab** (Fleet -> vehicle): when the bus has no refuels, it
@@ -278,33 +296,6 @@ Setup: `npm run build`.
   11 minutes to 1.5 seconds.
 - **Sales › Tax to pay** card: the sales tax of the filtered invoices, with
   what was collected and what is pending (Ruba).
-
-Setup: `php artisan migrate`, `npm run build`.
-### 2026-11-11 (Optimum)
-
-- **Daily departures:** "All agencies" shows every agency's day in one table
-  with a card per agency (open / closed, PDF); **History** is now a toggle in
-  the same table (60 days back and a week ahead, the day in words and a line
-  between days); buttons for the previous / next day and week and **Today**.
-- **"Mi agencia"**, the agency supervisor's new home: summary of today and the
-  period, parcels, complaints and incidents of their agency only (see and
-  create, with a photo), and **seats used per trip by bus** against the
-  minimum each trip needs to cover its costs (green / orange / red).
-- **Dashboard in the owner's reading order**, opening on **Business summary**
-  (now with the last 12 months of income, costs and profit, and no date
-  filter there); new **Expenses** tab (by kind, trend, against the period
-  before); the **Departures report** shows every agency and never a day ahead;
-  no "General" tab.
-- **Company logins:** a row of buttons by role, and every function in Spanish.
-- **Forms:** a **Tab** element, and progress that can be saved
-  (**Save** / **Save and send**, a draft shows as "Borrador" in Forms).
-  Turismo's questionnaire is one link with 20 questions in 4 tabs coded by
-  who answers (DUE owner, GER, SUP, FLO).
-- **Dates** on transport screens follow the company's format and every date
-  filter uses the standard preset buttons.
-- **Turismo's demo** covers two months and a week ahead with the client's own
-  daily plan for all four agencies (2 demo buses complete their fleet of 19),
-  crew, punctuality, incidents, services paid and parcels near S/ 250,000 a month.
 
 Setup: `php artisan migrate`, `npm run build`.
 ---
