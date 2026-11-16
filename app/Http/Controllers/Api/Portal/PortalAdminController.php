@@ -82,8 +82,10 @@ class PortalAdminController extends Controller
             ],
             'password' => [(int) $portalClient->status === 1 ? 'nullable' : 'required', 'string', 'min:8'],
         ], [
-            'email.unique' => 'This email is already used by another account.',
-            'password.required' => 'Set a password to turn the portal on for this customer.',
+            // A login's email is unique install-wide (sign-in is by email alone);
+            // never say whose it is: it may be another company's customer.
+            'email.unique' => __('This portal sign-in email is already the login of another person (it may be in another company). Use another email for the portal; the customer\'s emails stay as they are.'),
+            'password.required' => __('Set a password to turn the portal on for this customer.'),
         ]);
 
         $portalClient->email = $data['email'];
