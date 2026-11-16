@@ -19,7 +19,7 @@
     <main class="kt-page">
       <div class="kt-card">
         <header class="kt-head">
-          <img class="kt-mark" src="{{ asset('images/login/kcoltech-mark.png') }}" alt="KCOLTECH">
+          <img class="kt-mark" src="{{ asset('images/login/murano-mark.png') }}" alt="KCOLTECH">
           <h1 class="kt-title">{{ $L('Forgot your password?', '¿Olvidó su contraseña?') }}</h1>
           <p class="kt-sub">{{ $L('Enter your email and we will send you a link to reset it.', 'Escriba su correo y le enviaremos un enlace para cambiarla.') }}</p>
         </header>

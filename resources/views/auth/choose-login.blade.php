@@ -87,7 +87,7 @@
   <div class="overlay"></div>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ch-title">
     <div class="head">
-      <img src="{{ asset('images/login/kcoltech-mark.png') }}" alt="KCOLTECH">
+      <img src="{{ asset('images/login/murano-mark.png') }}" alt="KCOLTECH">
       <div>
         <h1 id="ch-title">{{ $L('Hi', 'Hola') }}, {{ $firstName }}</h1>
         <p>{{ $L('How do you want to enter?', '¿Cómo quiere entrar?') }}</p>

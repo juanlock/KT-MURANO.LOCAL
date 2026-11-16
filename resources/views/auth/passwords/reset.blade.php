@@ -24,7 +24,7 @@
     <main class="kt-page">
       <div class="kt-card">
         <header class="kt-head">
-          <img class="kt-mark" src="{{ asset('images/login/kcoltech-mark.png') }}" alt="KCOLTECH">
+          <img class="kt-mark" src="{{ asset('images/login/murano-mark.png') }}" alt="KCOLTECH">
           <h1 class="kt-title">{{ $L('Reset password', 'Cambiar contraseña') }}</h1>
           <p class="kt-sub">{{ $L('Choose a new password for your account.', 'Elija una nueva contraseña para su cuenta.') }}</p>
         </header>

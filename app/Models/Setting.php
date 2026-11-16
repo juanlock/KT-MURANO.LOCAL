@@ -8,6 +8,9 @@ class Setting extends Model
 {
     public const TEMPLATE_COMPANY_ID = 999;
 
+    /** The neutral logo a new company starts with (AdminSystem's own logo is Murano's). */
+    public const DEFAULT_LOGO = 'files/company_999/logos/64513513logo-default.png';
+
     public static function forCompany(?int $companyId): self
     {
         $companyId = $companyId ?: self::TEMPLATE_COMPANY_ID;
@@ -19,6 +22,10 @@ class Setting extends Model
         $attrs = $template
             ? collect($template->getAttributes())->except(['id', 'company_id', 'created_at', 'updated_at', 'deleted_at'])->all()
             : [];
+        // AdminSystem's logo is Murano's own (2026-11-16): a new company starts with the neutral default, not with it.
+        if (str_contains((string) ($attrs['logo'] ?? ''), 'murano-cuadrado')) {
+            $attrs['logo'] = self::DEFAULT_LOGO;
+        }
         // forceFill: company_id isn't mass-assignable (and the cloned template
         // attributes may include non-fillable columns) -- create() silently
         // saved a company-less row, so every later call cloned another one.

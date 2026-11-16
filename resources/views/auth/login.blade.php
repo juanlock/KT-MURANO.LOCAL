@@ -125,7 +125,7 @@
       /* Brand logo at 60% (user, 2026-10-25), a little further left and up. */
       .hero-brand img {
         display: block;
-        width: min(60%, 300px);
+        width: min(75%, 400px);
         height: auto;
         margin-bottom: clamp(1.5rem, 3.5vh, 2.5rem);
         transform: translate(clamp(-28px, -1.6vw, -12px), clamp(-56px, -5vh, -24px));
@@ -674,7 +674,7 @@
       <section class="auth-hero">
         <div class="hero-content">
           <div class="hero-brand">
-            <img src="{{ asset('images/login/kcoltech-logo.png') }}" alt="KCOLTECH - AI Systems Development" width="505" height="132">
+            <img src="{{ asset('images/login/murano-logo.png') }}" alt="KcolTech - Murano" width="505" height="135">
           </div>
 
           @php
@@ -748,9 +748,10 @@
                 // other company-owned image path in this app.
                 $loginLogo = $app_settings->logo ?? 'logo.png';
                 $loginLogoUrl = str_contains($loginLogo, '/') ? asset($loginLogo) : asset('images/'.$loginLogo);
-                // The stock product logo (never customized) -> the KCOLTECH mark of the login design.
-                if (str_contains($loginLogo, 'logo-default') || $loginLogo === 'logo.png') {
-                    $loginLogoUrl = asset('images/login/kcoltech-mark.png');
+                // The stock logo, or Murano's own (AdminSystem, 2026-11-16) -> the Murano mark of the login design
+                // (the hero beside it already shows the full logo).
+                if (str_contains($loginLogo, 'logo-default') || str_contains($loginLogo, 'murano-cuadrado') || $loginLogo === 'logo.png') {
+                    $loginLogoUrl = asset('images/login/murano-mark.png');
                 }
             @endphp
             <div class="auth-logo">
