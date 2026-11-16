@@ -1,9 +1,15 @@
 <template>
   <div class="page">
+    <!-- Like Create / Edit Sale (2026-11-16): the number in the title and its status on the right. -->
     <PageHeader
-      :title="isEdit ? $t('EditQuote') : $t('AddQuote')"
+      :title="isEdit && docRef ? `${$t('EditQuote')} · ${docRef}` : (isEdit ? $t('EditQuote') : $t('AddQuote'))"
       :breadcrumb="[$t('Quotations'), isEdit ? $t('EditQuote') : $t('AddQuote')]"
-    />
+    >
+      <template v-if="isEdit && docRef" #actions>
+        <a-tag :color="quote.statut === 'sent' ? 'blue' : 'orange'">{{ quote.statut === 'sent' ? $t('Sent') : $t('Pending') }}</a-tag>
+        <a-button size="small" @click="$router.push(`/quotations/${id}`)">{{ $t('Details') }}</a-button>
+      </template>
+    </PageHeader>
 
     <div v-if="loadingRecord" style="display: flex; justify-content: center; padding: 96px 0">
       <a-spin size="large" />
@@ -23,24 +29,39 @@
           </a-col>
           <a-col :xs="24" :md="8">
             <a-form-item :label="$t('Customer')" required>
-              <a-select
-                v-model:value="quote.client_id"
-                show-search option-filter-prop="label"
-                :placeholder="$t('Choose_Customer')"
-                :options="clientOptions"
-              />
+              <div style="display: flex; gap: 8px">
+                <a-select
+                  v-model:value="quote.client_id"
+                  show-search option-filter-prop="label"
+                  :placeholder="$t('Choose_Customer')"
+                  :options="clientOptions"
+                  style="flex: 1"
+                />
+                <a-tooltip :title="$t('Quick_Add_Customer')">
+                  <a-button @click="quickAddClientOpen = true">
+                    <template #icon><PlusOutlined /></template>
+                  </a-button>
+                </a-tooltip>
+              </div>
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
             <a-form-item :label="$t('warehouse')" required>
-              <a-select
-                v-model:value="quote.warehouse_id"
-                show-search option-filter-prop="label"
-                :placeholder="$t('Choose_Warehouse')"
-                :options="warehouseOptions"
-                :disabled="isEdit"
-                @change="onWarehouseChange"
-              />
+              <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                <a-select
+                  v-model:value="quote.warehouse_id"
+                  show-search option-filter-prop="label"
+                  :placeholder="$t('Choose_Warehouse')"
+                  :options="warehouseOptions"
+                  :disabled="isEdit"
+                  style="flex: 1 1 170px; min-width: 0"
+                  @change="onWarehouseChange"
+                />
+                <a-button type="primary" :disabled="!quote.warehouse_id" @click="quickAddProductOpen = true">
+                  <template #icon><PlusOutlined /></template>
+                  {{ $t('Add_Product') }}
+                </a-button>
+              </div>
             </a-form-item>
           </a-col>
           <!-- Multi-Currency: entered/displayed amounts are in this currency;
@@ -94,6 +115,8 @@
           <ProductScanModal :disabled="!quote.warehouse_id" @scan="onScan" />
         </div>
 
+        <QuickAddProduct v-model:open="quickAddProductOpen" context="sale" @created="onProductCreated" />
+
         <a-table
           :columns="lineColumns"
           :data-source="lines"
@@ -105,7 +128,9 @@
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'product'">
               <div style="font-weight: 500">{{ productDisplayName(record.name) }}</div>
-              <div class="muted">{{ record.code }}</div>
+              <!-- The line's Description (like the invoice): in place of the code once it has one. -->
+              <div v-if="record.note" style="font-size: 10pt; color: #0252f3; white-space: pre-wrap; text-align: left">{{ $t('tx_Note_fc9d3') }} {{ record.note }}</div>
+              <div v-else class="muted">{{ record.code }}</div>
               <a-tag v-if="record.is_batch_tracked" color="warning" style="margin-top: 2px">{{ $t('tx_Batch_51ffe') }}</a-tag>
               <a-select
                 v-if="showPriceTypeDropdown"
@@ -118,6 +143,21 @@
                 ]"
                 @change="v => onChangePriceType(record, v)"
               />
+              <a-select
+                v-if="record.packs && record.packs.length"
+                :value="record.product_pack_id"
+                size="small"
+                style="width: 100%; min-width: 150px; margin-top: 4px"
+                :placeholder="$t('Pack')"
+                :options="packOptions(record)"
+                @change="v => onChangePack(record, v)"
+              />
+              <div
+                v-if="(Number(record.min_price) || 0) > 0 && Number(record.Net_price) < Number(record.min_price)"
+                class="form-warn"
+              >
+                {{ $t('Price_below_min_not_allowed') }}
+              </div>
             </template>
             <template v-else-if="column.key === 'net_price'">{{ docMoney(record.Net_price) }}</template>
             <template v-else-if="column.key === 'stock'">
@@ -161,9 +201,25 @@
         <a-col :xs="24" :lg="14">
           <a-card size="small" style="margin-bottom: 16px">
             <a-row :gutter="12">
+              <!-- Order tax / discount with their method, shipping, agent and seller: like Create Sale (2026-11-16). -->
               <a-col :xs="12" :md="8">
                 <a-form-item :label="$t('OrderTax')">
-                  <a-input-number v-model:value="quote.tax_rate" style="width: 100%" :min="0" :max="100" addon-after="%" />
+                  <a-input-number
+                    v-model:value="taxInput" style="width: 100%" :min="0"
+                    :max="quote.tax_Method === '1' ? 100 : undefined"
+                    :addon-after="quote.tax_Method === '1' ? '%' : undefined"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="12" :md="8">
+                <a-form-item :label="$t('Tax_Method') || 'Tax Method'">
+                  <a-select
+                    v-model:value="quote.tax_Method"
+                    :options="[
+                      { value: '1', label: $t('Percentage') },
+                      { value: '2', label: $t('Fixed') },
+                    ]"
+                  />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
@@ -172,8 +228,36 @@
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
+                <a-form-item :label="$t('Discount_Method') || 'Discount Method'">
+                  <a-select
+                    v-model:value="quote.discount_Method"
+                    :options="[
+                      { value: '2', label: $t('Fixed') },
+                      { value: '1', label: $t('Percentage') },
+                    ]"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col v-if="shippingEnabled" :xs="12" :md="8">
                 <a-form-item :label="$t('Shipping')">
                   <a-input-number v-model:value="shippingInput" style="width: 100%" :min="0" />
+                </a-form-item>
+              </a-col>
+              <a-col v-if="auth.moduleEnabled('commissions') && salesAgentEnabled" :xs="24" :md="8">
+                <a-form-item :label="$t('Sales_Agent') || 'Sales Agent'">
+                  <a-select
+                    v-model:value="quote.sales_agent_id" allow-clear show-search
+                    option-filter-prop="label" :options="agentOptions"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col v-if="salesSwitchEnabled" :xs="24" :md="8">
+                <a-form-item :label="$t('Seller')">
+                  <a-select
+                    v-model:value="quote.seller_id" allow-clear show-search
+                    option-filter-prop="label" :options="salespersonOptions"
+                    :placeholder="$t('Select_Salesperson')"
+                  />
                 </a-form-item>
               </a-col>
               <a-col :xs="12" :md="8">
@@ -199,12 +283,12 @@
         <a-col :xs="24" :lg="10">
           <a-card size="small">
             <div class="sum-row"><span>{{ $t('Total') }}</span><span>{{ docMoney(totals.total) }}</span></div>
-            <div class="sum-row"><span>{{ $t('OrderTax') }}</span><span>{{ docMoney(totals.TaxNet) }} ({{ Number(quote.tax_rate) || 0 }}%)</span></div>
+            <div class="sum-row"><span>{{ $t('OrderTax') }}</span><span>{{ docMoney(totals.TaxNet) }}<template v-if="quote.tax_Method === '1'"> ({{ Number(quote.tax_rate) || 0 }}%)</template></span></div>
             <div class="sum-row">
               <span>{{ $t('Discount') }}</span>
-              <span style="color: #ff4d4f">- {{ docMoney(quote.discount) }}</span>
+              <span style="color: #ff4d4f">- {{ docMoney(totals.discountAmount) }}</span>
             </div>
-            <div class="sum-row"><span>{{ $t('Shipping') }}</span><span>{{ docMoney(quote.shipping) }}</span></div>
+            <div v-if="shippingEnabled" class="sum-row"><span>{{ $t('Shipping') }}</span><span>{{ docMoney(quote.shipping) }}</span></div>
             <div class="sum-row grand"><span>{{ $t('Total') }}</span><span>{{ docMoney(totals.GrandTotal) }}</span></div>
             <!-- When a foreign currency is active, keep the base total visible -->
             <div v-if="!dcIsBase" class="sum-row" style="border-bottom: none; font-size: 12px; color: rgba(128,128,128,.85)">
@@ -215,11 +299,13 @@
           <a-button
             type="primary" block size="large" style="margin-top: 16px"
             :loading="submitting"
+            :disabled="!isEdit && hasMinPriceViolation"
             @click="submit"
           >
             {{ $t('submit') }}
           </a-button>
-          <a-button block style="margin-top: 8px" @click="$router.push('/quotations')">{{ $t('Cancel') }}</a-button>
+          <div v-if="!isEdit && hasMinPriceViolation" class="form-warn">{{ $t('Price_below_min_not_allowed') }}</div>
+          <a-button block style="margin-top: 8px" @click="$goBack('/quotations')">{{ $t('Cancel') }}</a-button>
         </a-col>
       </a-row>
     </a-form>
@@ -279,6 +365,13 @@
               <a-select v-model:value="lineDraft.sale_unit_id" :options="units.map(u => ({ value: u.id, label: u.name }))" />
             </a-form-item>
           </a-col>
+          <!-- The line's Description (2026-11-16, like Create Sale): shown under the product here, on the
+               quotation and its PDF, and carried to the invoice when the quotation is converted. -->
+          <a-col :span="24">
+            <a-form-item :label="$t('Description')">
+              <a-textarea v-model:value="lineDraft.note" :rows="3" />
+            </a-form-item>
+          </a-col>
           <a-col v-if="editingLine.is_imei" :span="24">
             <!-- Quotations don't reserve stock, so legacy takes serials as a
                  single free-text field rather than a picker or entry list. -->
@@ -297,6 +390,8 @@
         </a-row>
       </a-form>
     </a-modal>
+
+    <QuickAddParty v-model:open="quickAddClientOpen" type="client" @created="onClientCreated" />
   </div>
 </template>
 
@@ -322,17 +417,21 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import FromEmailCard from '../../components/FromEmailCard.vue';
+import QuickAddParty from '../../components/QuickAddParty.vue';
+import QuickAddProduct from '../../components/QuickAddProduct.vue';
+import { useAuthStore } from '../../stores/auth';
+import { goBack } from '../../lib/goBack';
 import ProductScanModal from '../../components/ProductScanModal.vue';
 import { resolveScan } from '../../lib/scanMatch';
 import BatchAllocator from '../../components/BatchAllocator.vue';
 import { useFormat } from '../../composables/useFormat';
 import { useDocCurrency } from '../../composables/useDocCurrency';
 import { productDisplayName, productSearchLabel } from '../../lib/productDisplayName';
-import { recomputeLine, computeSimpleTotals } from '../../lib/lineCalc';
+import { recomputeLine, computeTotals } from '../../lib/lineCalc';
 import { hasBatchSelectErrors, firstBatchSelectError } from '../../lib/batchValidation';
 import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
@@ -340,6 +439,7 @@ import http from '../../lib/http';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const auth = useAuthStore();
 // moneyBase: forms always show base-currency values as base, ignoring the
 // report pages' display-currency selector.
 const { moneyBase } = useFormat();
@@ -379,24 +479,73 @@ const quotationWithStock = ref('');
 const showPriceTypeDropdown = ref(true);
 const defaultQuantity = ref(1);
 let nextDetailId = 1;
+// Like Create Sale (2026-11-16): sales agents, "Change Salesperson", and the company's Default - Sales switches.
+const agents = ref([]);
+const salespeople = ref([]);
+const salesSwitchEnabled = ref(false);
+const shippingEnabled = ref(true);
+const salesAgentEnabled = ref(true);
+const docRef = ref('');
 
 const quote = ref({
   date: dayjs().format('YYYY-MM-DD'),
   client_id: undefined,
   warehouse_id: undefined,
+  sales_agent_id: undefined,
+  seller_id: undefined,
   statut: 'pending',
   notes: '',
   tax_rate: 0,
+  tax_Method: '1',
   discount: 0,
+  discount_Method: '2',
   shipping: 0,
 });
 
-// Monetary inputs are typed in the document currency but stored in base.
-// (The quotation-level discount is always a fixed amount.)
+// Monetary inputs are typed in the document currency but stored in base; a percentage stays as typed.
 const discountInput = computed({
-  get: () => toDocAmt(quote.value.discount),
-  set: (v) => { quote.value.discount = toBaseAmt(v); },
+  get: () => (String(quote.value.discount_Method) === '2' ? toDocAmt(quote.value.discount) : Number(quote.value.discount) || 0),
+  set: (v) => { quote.value.discount = String(quote.value.discount_Method) === '2' ? toBaseAmt(v) : (Number(v) || 0); },
 });
+const taxInput = computed({
+  get: () => (String(quote.value.tax_Method) === '2' ? toDocAmt(quote.value.tax_rate) : Number(quote.value.tax_rate) || 0),
+  set: (v) => { quote.value.tax_rate = String(quote.value.tax_Method) === '2' ? toBaseAmt(v) : (Number(v) || 0); },
+});
+const agentOptions = computed(() => sortByLabel(agents.value.map(a => ({ value: a.id, label: a.name }))));
+const salespersonOptions = computed(() => sortByLabel(salespeople.value.map(s => ({ value: s.id, label: s.name || s.username }))));
+// New quotations start credited to the user (like a new sale).
+function defaultSellerToSelf() {
+  if (!salesSwitchEnabled.value || quote.value.seller_id) return;
+  const uid = Number(auth.user?.id);
+  if (uid && salespeople.value.some(s => Number(s.id) === uid)) quote.value.seller_id = uid;
+}
+const hasMinPriceViolation = computed(() =>
+  lines.value.some(l => (Number(l.min_price) || 0) > 0 && Number(l.Net_price) < Number(l.min_price))
+);
+
+// Quick Add Customer / Product (like Create Sale).
+const quickAddClientOpen = ref(false);
+function onClientCreated(client) {
+  clients.value.push(client);
+  quote.value.client_id = client.id;
+}
+const quickAddProductOpen = ref(false);
+async function onProductCreated({ code }) {
+  await loadProducts();
+  const idx = products.value.findIndex(p => p.product_code === code || p.code === code);
+  if (idx === -1) {
+    message.warning(t('Product_Not_Found'));
+    return;
+  }
+  await onProductPicked(idx);
+}
+function applyFormExtras(data) {
+  agents.value = data.sales_agents || [];
+  salespeople.value = data.salespeople || [];
+  salesSwitchEnabled.value = data.enable_pos_salesperson_switch === true;
+  shippingEnabled.value = data.sale_shipping_enabled !== false;
+  salesAgentEnabled.value = data.sale_sales_agent_enabled !== false;
+}
 const shippingInput = computed({
   get: () => toDocAmt(quote.value.shipping),
   set: (v) => { quote.value.shipping = toBaseAmt(v); },
@@ -463,11 +612,13 @@ async function onBrowseProductPicked(idx) {
 }
 
 const totals = computed(() =>
-  computeSimpleTotals(lines.value, {
+  computeTotals(lines.value, {
     discount: quote.value.discount,
+    discountMethod: quote.value.discount_Method,
     taxRate: quote.value.tax_rate,
-    shipping: quote.value.shipping,
-  }, recomputeLine)
+    taxMethod: quote.value.tax_Method,
+    shipping: shippingEnabled.value ? quote.value.shipping : 0,
+  })
 );
 
 const lineColumns = computed(() => [
@@ -558,8 +709,22 @@ async function onProductPicked(idx) {
       // Immutable baselines the retail/wholesale switch reprices from.
       retail_unit_price: d.Unit_price,
       wholesale_unit_price: d.Unit_price_wholesale,
+      // Like Create Sale (2026-11-16): the product's default Description and its packs.
+      note: d.note || '',
+      packs: d.packs || [],
+      product_pack_id: null,
+      pack_multiplier: 1,
+      pack_name: null,
     };
+    const defPack = (line.packs || []).find(pk => pk.is_default) || null;
+    line.product_pack_id = defPack ? defPack.id : null;
+    line.pack_name = defPack ? defPack.name : null;
     recomputeLine(line);
+    // A wholesale-priced product that breaches its own minimum falls back to retail.
+    if (Number(line.Net_price) < Number(line.min_price || 0)) {
+      line.price_type = 'retail';
+      applyPriceType(line);
+    }
     lines.value.push(line);
   } catch (e) {
     message.error(t('InvalidData'));
@@ -601,12 +766,45 @@ function applyPriceType(line) {
 
 function onChangePriceType(line, newType) {
   if (newType) line.price_type = newType;
+  const pack = getSelectedPack(line);
+  if (pack && !pack.is_default) {
+    // A fixed pack price wins over the retail/wholesale choice.
+    applyPackPrice(line);
+    return;
+  }
   applyPriceType(line);
   if (Number(line.Net_price) < Number(line.min_price || 0)) {
     message.warning(t('Price_below_min_not_allowed'));
     line.price_type = 'retail';
     applyPriceType(line);
   }
+}
+
+// ---------------- multi-pack selling (like Create Sale) ----------------
+function getSelectedPack(line) {
+  if (!line?.packs || !line.product_pack_id) return null;
+  return line.packs.find(p => String(p.id) === String(line.product_pack_id)) || null;
+}
+function packOptions(line) {
+  return (line.packs || []).map(pack => ({ value: pack.id, label: `${pack.name} (x${pack.multiplier})` }));
+}
+function applyPackPrice(line) {
+  const pack = getSelectedPack(line);
+  if (!pack || pack.is_default) {
+    line.product_pack_id = pack ? pack.id : null;
+    line.pack_multiplier = 1;
+    line.pack_name = pack ? pack.name : null;
+    applyPriceType(line);
+    return;
+  }
+  line.pack_multiplier = pack.multiplier;
+  line.pack_name = pack.name;
+  line.Unit_price = parseFloat(pack.price) || 0;
+  recomputeLine(line);
+}
+function onChangePack(line, packId) {
+  line.product_pack_id = packId;
+  applyPackPrice(line);
 }
 
 // ---------------- line edit modal ----------------
@@ -629,6 +827,7 @@ async function openLineEdit(line) {
     discount: String(line.discount_Method || '2') === '2' ? toDocAmt(line.discount) : line.discount,
     sale_unit_id: line.sale_unit_id,
     imei_number: line.imei_number,
+    note: line.note || '',
   };
   units.value = [];
   lineEditLoading.value = true;
@@ -655,6 +854,7 @@ function applyLineEdit() {
       : (Number(lineDraft.value.discount) || 0),
     sale_unit_id: lineDraft.value.sale_unit_id,
     imei_number: lineDraft.value.imei_number,
+    note: lineDraft.value.note || '',
   });
   recomputeLine(line);
   lineEditOpen.value = false;
@@ -708,6 +908,10 @@ function detailsPayload() {
     imei_number: l.imei_number || null,
     batches: Array.isArray(l.batches) ? l.batches : [],
     price_type: l.price_type || 'retail',
+    note: l.note || null,
+    product_pack_id: l.product_pack_id || null,
+    pack_multiplier: Number(l.pack_multiplier) || 1,
+    pack_name: l.pack_name || null,
   }));
 }
 
@@ -721,8 +925,12 @@ async function submit() {
     statut: quote.value.statut,
     notes: quote.value.notes,
     tax_rate: Number(quote.value.tax_rate) || 0,
+    tax_method: quote.value.tax_Method,
+    discount_Method: quote.value.discount_Method,
+    sales_agent_id: quote.value.sales_agent_id || null,
+    seller_id: quote.value.seller_id || null,
     TaxNet: totals.value.TaxNet,
-    shipping: Number(quote.value.shipping) || 0,
+    shipping: shippingEnabled.value ? (Number(quote.value.shipping) || 0) : 0,
     GrandTotal: totals.value.GrandTotal,
     details: detailsPayload(),
     // Multi-Currency snapshot ({} when the module is off)
@@ -745,7 +953,7 @@ async function submit() {
         return;
       }
     }
-    router.push('/quotations');
+    goBack(router, '/quotations');
   } catch (e) {
     const errors = e?.data?.errors;
     if (errors) Object.values(errors).flat().forEach(msg => message.error(String(msg)));
@@ -769,15 +977,21 @@ onMounted(async () => {
       warehouses.value = data.warehouses || [];
       showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
+      applyFormExtras(data);
       const q = data.quote || {};
+      docRef.value = q.Ref || '';
       quote.value = {
         date: q.date,
         client_id: q.client_id,
         warehouse_id: q.warehouse_id,
+        sales_agent_id: q.sales_agent_id || undefined,
+        seller_id: q.seller_id || undefined,
         statut: q.statut,
         notes: q.notes || '',
         tax_rate: Number(q.tax_rate) || 0,
+        tax_Method: String(q.tax_method || '1') === '2' ? '2' : '1',
         discount: Number(q.discount) || 0,
+        discount_Method: String(q.discount_Method || '2') === '1' ? '1' : '2',
         shipping: Number(q.shipping) || 0,
       };
       // Reopen the quotation in its stored currency at its stored rate.
@@ -793,6 +1007,11 @@ onMounted(async () => {
           price_type: d.price_type || 'retail',
           retail_unit_price: d.retail_unit_price ?? d.Unit_price,
           wholesale_unit_price: d.wholesale_unit_price ?? d.Unit_price_wholesale,
+          note: d.note || '',
+          packs: d.packs || [],
+          product_pack_id: d.product_pack_id ?? null,
+          pack_multiplier: d.pack_multiplier ?? 1,
+          pack_name: d.pack_name ?? null,
         };
         recomputeLine(line);
         return line;
@@ -802,6 +1021,10 @@ onMounted(async () => {
       const data = await http.get('quotations/create');
       clients.value = data.clients || [];
       warehouses.value = data.warehouses || [];
+      applyFormExtras(data);
+      defaultSellerToSelf();
+      // Order Tax starts at the company's Default Tax (like a new sale).
+      if (auth.user?.default_tax) quote.value.tax_rate = Number(auth.user.default_tax) || 0;
       quotationWithStock.value = data.quotation_with_stock || '';
       showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
@@ -833,6 +1056,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.form-warn {
+  margin-top: 8px;
+  color: #faad14;
+  font-size: 13px;
+}
 .muted {
   color: rgba(0, 0, 0, 0.45);
   font-size: 12px;

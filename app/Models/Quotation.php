@@ -13,6 +13,8 @@ class Quotation extends Model
         'notes', 'discount', 'shipping', 'TaxNet', 'tax_rate', 'created_at', 'updated_at', 'deleted_at',
         // Multi-Currency snapshot; NULL = base currency, rate 1
         'currency_id', 'exchange_rate',
+        // Like a sale (2026-11-16): order tax / discount method, sales agent, seller.
+        'tax_method', 'discount_Method', 'sales_agent_id', 'seller_id',
     ];
 
     protected $casts = [

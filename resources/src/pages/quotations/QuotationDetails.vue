@@ -116,7 +116,9 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'product'">
             <div style="font-weight: 500">{{ record.name }}</div>
-            <div class="muted">{{ record.code }}</div>
+            <div v-if="record.note" class="muted" style="white-space: pre-wrap; color: #0252f3">{{ record.note }}</div>
+            <div v-else class="muted">{{ record.code }}</div>
+            <div v-if="record.pack_name" class="muted">{{ record.pack_name }}</div>
             <div v-if="record.is_imei && record.imei_number" class="muted">SN: {{ record.imei_number }}</div>
           </template>
           <template v-else-if="column.key === 'price'">{{ docMoney(record.price) }}</template>

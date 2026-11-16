@@ -2201,15 +2201,14 @@ onMounted(async () => {
         client_id: q.client_id || undefined,
         warehouse_id: q.warehouse_id || undefined,
         sales_agent_id: q.sales_agent_id || undefined,
-        seller_id: undefined,
+        // The quotation's seller and order tax / discount method (2026-11-16: a quotation is made like an invoice).
+        seller_id: q.seller_id || undefined,
         statut: q.statut || 'completed',
         notes: q.notes || '',
         tax_rate: Number(q.tax_rate) || 0,
-        // Quotations don't carry a tax method yet -- percent, matching
-        // every sale/quotation's tax_rate meaning before this toggle existed.
-        tax_Method: '1',
+        tax_Method: String(q.tax_Method || '1') === '2' ? '2' : '1',
         discount: Number(q.discount) || 0,
-        discount_Method: '2',
+        discount_Method: String(q.discount_Method || '2') === '1' ? '1' : '2',
         shipping: Number(q.shipping) || 0,
       };
       // The converted sale keeps the quotation's currency snapshot.

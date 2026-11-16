@@ -4457,7 +4457,12 @@ class SalesController extends BaseController
             $sale['warehouse_id'] = '';
         }
 
-        $sale['sales_agent_id'] = null;
+        // The quotation is made like an invoice (2026-11-16): its agent, seller and order tax / discount method carry over.
+        $sale['sales_agent_id'] = $Quotation->sales_agent_id ?: null;
+        $sale['seller_id'] = $Quotation->seller_id ?: null;
+        $sale['tax_Method'] = ($Quotation->tax_method ?? '1') === '2' ? '2' : '1';
+        $sale['discount_Method'] = ($Quotation->discount_Method ?? '2') === '1' ? '1' : '2';
+        $quotePacks = QuotationsController::packsByKey((int) $Quotation->company_id, collect($Quotation['details'])->pluck('product_id')->unique()->values()->all());
 
         $sale['date'] = $Quotation->date;
         $sale['TaxNet'] = $Quotation->TaxNet;
@@ -4546,6 +4551,13 @@ class SalesController extends BaseController
                 $data['tax_method'] = $detail->tax_method;
                 $data['discount'] = $detail->discount;
                 $data['discount_Method'] = $detail->discount_method;
+                // Like a sale line (2026-11-16): Description, pack and price type carry over.
+                $data['note'] = $detail->note ?? '';
+                $data['price_type'] = $detail->price_type ?? 'retail';
+                $data['packs'] = $quotePacks[$detail->product_id.':'.($detail->product_variant_id ?? 0)] ?? [];
+                $data['product_pack_id'] = $detail->product_pack_id;
+                $data['pack_multiplier'] = (float) ($detail->pack_multiplier ?? 1) ?: 1;
+                $data['pack_name'] = $detail->pack_name;
 
                 if ($detail->tax_method == '1') {
                     $data['Net_price'] = $detail->price - $data['DiscountNet'];

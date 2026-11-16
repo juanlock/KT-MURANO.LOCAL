@@ -262,6 +262,11 @@ class QuotationsController extends BaseController
             $order->shipping = $request->shipping;
             $order->notes = $request->notes;
             $order->user_id = Auth::user()->id;
+            // Like a sale (2026-11-16): order tax / discount method, sales agent, seller.
+            $order->tax_method = $request->input('tax_method', '1') === '2' ? '2' : '1';
+            $order->discount_Method = $request->input('discount_Method', '2') === '1' ? '1' : '2';
+            $order->sales_agent_id = $request->sales_agent_id ?: null;
+            $order->seller_id = $request->seller_id ?: null;
             // Multi-Currency snapshot (NULL/NULL = base currency)
             $docCurrency = helpers::resolve_request_currency($request);
             $order->currency_id = $docCurrency['currency_id'];
@@ -290,6 +295,11 @@ class QuotationsController extends BaseController
                     'total' => $value['subtotal'],
                     'imei_number' => $value['imei_number'],
                     'price_type' => $value['price_type'] ?? 'retail',
+                    // Like a sale line (2026-11-16): Description and pack.
+                    'note' => isset($value['note']) && trim((string) $value['note']) !== '' ? $value['note'] : null,
+                    'product_pack_id' => $value['product_pack_id'] ?? null,
+                    'pack_multiplier' => $value['pack_multiplier'] ?? 1,
+                    'pack_name' => $value['pack_name'] ?? null,
                 ]);
             }
 
@@ -430,6 +440,10 @@ class QuotationsController extends BaseController
                 $QuoteDetail['total'] = $product_detail['subtotal'];
                 $QuoteDetail['imei_number'] = $product_detail['imei_number'];
                 $QuoteDetail['price_type'] = $product_detail['price_type'] ?? 'retail';
+                $QuoteDetail['note'] = isset($product_detail['note']) && trim((string) $product_detail['note']) !== '' ? $product_detail['note'] : null;
+                $QuoteDetail['product_pack_id'] = $product_detail['product_pack_id'] ?? null;
+                $QuoteDetail['pack_multiplier'] = $product_detail['pack_multiplier'] ?? 1;
+                $QuoteDetail['pack_name'] = $product_detail['pack_name'] ?? null;
 
                 if (! in_array($product_detail['id'], $old_detail_id)) {
                     $persistedDetail = QuotationDetail::Create($QuoteDetail);
@@ -468,6 +482,10 @@ class QuotationsController extends BaseController
                 'discount' => $request['discount'],
                 'shipping' => $request['shipping'],
                 'GrandTotal' => $request['GrandTotal'],
+                'tax_method' => $request->input('tax_method', $current_Quotation->tax_method ?? '1') === '2' ? '2' : '1',
+                'discount_Method' => $request->input('discount_Method', $current_Quotation->discount_Method ?? '2') === '1' ? '1' : '2',
+                'sales_agent_id' => $request->sales_agent_id ?: null,
+                'seller_id' => $request->seller_id ?: null,
             ] + helpers::resolve_request_currency($request, $current_Quotation->currency_id, $current_Quotation->exchange_rate));
 
         }, 10);
@@ -667,7 +685,10 @@ class QuotationsController extends BaseController
         $quote['date'] = $quotation_data->date.' '.$quotation_data->time;
         $quote['note'] = $quotation_data->notes;
         $quote['statut'] = $quotation_data->statut;
-        $quote['discount'] = $quotation_data->discount * $docCurrency['rate'];
+        // A percentage discount (2026-11-16) is shown as its amount, like a fixed one.
+        $quote['discount'] = self::discountAmount($quotation_data) * $docCurrency['rate'];
+        $quote['discount_Method'] = $quotation_data->discount_Method ?? '2';
+        $quote['discount_value'] = (float) $quotation_data->discount;
         $quote['shipping'] = $quotation_data->shipping * $docCurrency['rate'];
         $quote['tax_rate'] = $quotation_data->tax_rate;
         $quote['TaxNet'] = $quotation_data->TaxNet * $docCurrency['rate'];
@@ -747,6 +768,8 @@ class QuotationsController extends BaseController
 
             $data['is_imei'] = $detail['product']['is_imei'];
             $data['imei_number'] = $detail->imei_number;
+            $data['note'] = $detail->note;
+            $data['pack_name'] = $detail->pack_name;
             $data['is_batch_tracked'] = (bool) ($detail['product']['is_batch_tracked'] ?? false);
             $data['batches'] = array_map(function ($b) use ($docCurrency) {
                 if (isset($b['unit_cost'])) {
@@ -767,6 +790,18 @@ class QuotationsController extends BaseController
             'company' => $company,
         ]);
 
+    }
+
+    /** The order discount as an amount (base currency): a percentage one (discount_Method 1) is that % of the lines' total. */
+    public static function discountAmount($q): float
+    {
+        $value = (float) $q->discount;
+        if (($q->discount_Method ?? '2') !== '1') {
+            return $value;
+        }
+        $lines = (float) collect($q->details ?? [])->sum('total');
+
+        return round($lines * $value / 100, helpers::price_decimals());
     }
 
     // ---------------- Reference Number Of Quotation  ---------------\\
@@ -829,7 +864,7 @@ class QuotationsController extends BaseController
         $quote['client_email'] = $Quotation['client']->email;
         $quote['client_tax'] = $Quotation['client']->tax_number;
         $quote['TaxNet'] = number_format($Quotation->TaxNet * $docCurrency['rate'], helpers::price_decimals(), '.', '');
-        $quote['discount'] = number_format($Quotation->discount * $docCurrency['rate'], helpers::price_decimals(), '.', '');
+        $quote['discount'] = number_format(self::discountAmount($Quotation) * $docCurrency['rate'], helpers::price_decimals(), '.', '');
         $quote['shipping'] = number_format($Quotation->shipping * $docCurrency['rate'], helpers::price_decimals(), '.', '');
         $quote['statut'] = $Quotation->statut;
         $quote['Ref'] = $Quotation->Ref;
@@ -896,6 +931,8 @@ class QuotationsController extends BaseController
 
             $data['is_imei'] = $detail['product']['is_imei'];
             $data['imei_number'] = $detail->imei_number;
+            $data['note'] = $detail->note;
+            $data['pack_name'] = $detail->pack_name;
 
             $details[] = $data;
         }
@@ -954,7 +991,7 @@ class QuotationsController extends BaseController
         $quote['client_email'] = $Quotation['client']->email;
         $quote['client_tax'] = $Quotation['client']->tax_number;
         $quote['TaxNet'] = number_format($Quotation->TaxNet * $docCurrency['rate'], helpers::price_decimals(), '.', '');
-        $quote['discount'] = number_format($Quotation->discount * $docCurrency['rate'], helpers::price_decimals(), '.', '');
+        $quote['discount'] = number_format(self::discountAmount($Quotation) * $docCurrency['rate'], helpers::price_decimals(), '.', '');
         $quote['shipping'] = number_format($Quotation->shipping * $docCurrency['rate'], helpers::price_decimals(), '.', '');
         $quote['statut'] = $Quotation->statut;
         $quote['Ref'] = $Quotation->Ref;
@@ -1021,6 +1058,8 @@ class QuotationsController extends BaseController
 
             $data['is_imei'] = $detail['product']['is_imei'];
             $data['imei_number'] = $detail->imei_number;
+            $data['note'] = $detail->note;
+            $data['pack_name'] = $detail->pack_name;
 
             $details[] = $data;
         }
@@ -1112,7 +1151,7 @@ class QuotationsController extends BaseController
             'quotation_with_stock' => $quotation_with_stock,
             'sale_show_price_type_dropdown' => (bool) ($companySettings->sale_show_price_type_dropdown ?? true),
             'sale_default_quantity' => (int) ($companySettings->sale_default_quantity ?: 1),
-        ]);
+        ] + $this->saleFormExtras($request, (int) $companyId));
     }
 
     // ------------- Show Form Edit Quotation -----------\\
@@ -1203,6 +1242,13 @@ class QuotationsController extends BaseController
         $quote['exchange_rate'] = $Quotation->exchange_rate;
 
         $batchesByDetail = app(BatchService::class)->batchesForQuotationDetails($Quotation['details']);
+        $packsByKey = self::packsByKey((int) $Quotation->company_id, collect($Quotation['details'])->pluck('product_id')->unique()->values()->all());
+        // Like a sale (2026-11-16).
+        $quote['Ref'] = $Quotation->Ref;
+        $quote['tax_method'] = $Quotation->tax_method ?? '1';
+        $quote['discount_Method'] = $Quotation->discount_Method ?? '2';
+        $quote['sales_agent_id'] = $Quotation->sales_agent_id;
+        $quote['seller_id'] = $Quotation->seller_id;
 
         $detail_id = 0;
         foreach ($Quotation['details'] as $detail) {
@@ -1297,6 +1343,12 @@ class QuotationsController extends BaseController
             $data['discount'] = $detail->discount;
             $data['discount_Method'] = $detail->discount_method;
             $data['price_type'] = $detail->price_type ?? 'retail';
+            // Like a sale line (2026-11-16): Description and pack.
+            $data['note'] = $detail->note ?? '';
+            $data['packs'] = $packsByKey[$detail->product_id.':'.($detail->product_variant_id ?? 0)] ?? [];
+            $data['product_pack_id'] = $detail->product_pack_id;
+            $data['pack_multiplier'] = (float) ($detail->pack_multiplier ?? 1) ?: 1;
+            $data['pack_name'] = $detail->pack_name;
 
             if ($detail->tax_method == '1') {
                 $data['Net_price'] = $detail->price - $data['DiscountNet'];
@@ -1347,7 +1399,52 @@ class QuotationsController extends BaseController
             'warehouses' => $warehouses,
             'sale_show_price_type_dropdown' => (bool) ($companySettings->sale_show_price_type_dropdown ?? true),
             'sale_default_quantity' => (int) ($companySettings->sale_default_quantity ?: 1),
-        ]);
+        ] + $this->saleFormExtras($request, (int) $companyId, $Quotation->seller_id ? (int) $Quotation->seller_id : null));
+    }
+
+    /**
+     * What Create / Edit Sale also get (2026-11-16: a quotation is made like an invoice): the sales agents, the
+     * salespeople of "Change Salesperson", and the company's Default - Sales switches for Shipping and Sales Agent.
+     */
+    private function saleFormExtras(Request $request, int $companyId, ?int $keepSellerId = null): array
+    {
+        $user = auth()->user();
+        $agents = \App\Models\SalesAgent::where('deleted_at', '=', null)->where('is_active', true)
+            ->when($user->type !== 'SuperAdmin' || $request->filled('company_id'), fn ($q) => $q->where('company_id', $companyId))
+            ->get(['id', 'name']);
+        $switch = (bool) (Setting::current()->enable_pos_salesperson_switch ?? false);
+        $salespeople = $switch
+            ? \App\Models\User::where('deleted_at', '=', null)->where('company_id', $companyId)
+                ->where(fn ($q) => $q->where('is_sales_staff', 1)->when($keepSellerId, fn ($q2) => $q2->orWhere('id', $keepSellerId)))
+                ->orderBy('username')->get(['id', 'username', 'firstname', 'lastname'])
+                ->map(fn ($u) => ['id' => $u->id, 'name' => trim(($u->firstname ?? '').' '.($u->lastname ?? '')) ?: $u->username, 'username' => $u->username])->values()
+            : [];
+        $s = Setting::forCompany($companyId);
+
+        return [
+            'sales_agents' => $agents,
+            'enable_pos_salesperson_switch' => $switch,
+            'salespeople' => $salespeople,
+            'sale_shipping_enabled' => (bool) ($s->sale_shipping_enabled ?? true),
+            'sale_sales_agent_enabled' => (bool) ($s->sale_sales_agent_enabled ?? true),
+        ];
+    }
+
+    /** Multi-pack selling: the active packs per "productId:variantId" (0 = none), like Edit Sale; empty when off. */
+    public static function packsByKey(?int $companyId, array $productIds): array
+    {
+        if (! $productIds || ! (bool) (Setting::current($companyId ?: null)->enable_multi_pack_selling ?? false)) {
+            return [];
+        }
+        $out = [];
+        foreach (\App\Models\ProductPack::whereIn('product_id', $productIds)->where('is_active', 1)->whereNull('deleted_at')
+            ->orderBy('is_default', 'desc')->orderBy('id')->get() as $pk) {
+            $out[$pk->product_id.':'.($pk->product_variant_id ?? 0)][] = [
+                'id' => $pk->id, 'name' => $pk->name, 'multiplier' => (float) $pk->multiplier, 'price' => (float) $pk->price, 'is_default' => (bool) $pk->is_default,
+            ];
+        }
+
+        return $out;
     }
 
     // ------------- Send Quotation on Email -----------\\
