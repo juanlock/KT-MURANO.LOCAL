@@ -875,7 +875,11 @@ onMounted(async () => {
       const data = await http.get('purchases/create');
       suppliers.value = data.suppliers || [];
       warehouses.value = data.warehouses || [];
-      if (warehouses.value.length === 1) purchase.value.warehouse_id = warehouses.value[0].id;
+      // Only one location: pick it AND load its products (2026-11-16, same fault as Quotations).
+      if (warehouses.value.length === 1) {
+        purchase.value.warehouse_id = warehouses.value[0].id;
+        loadProducts();
+      }
       if (route.query.email) await prefillFromEmail(route.query.email);
     }
   } catch (e) {

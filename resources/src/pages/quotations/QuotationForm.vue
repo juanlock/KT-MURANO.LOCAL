@@ -805,7 +805,12 @@ onMounted(async () => {
       quotationWithStock.value = data.quotation_with_stock || '';
       showPriceTypeDropdown.value = data.sale_show_price_type_dropdown !== false;
       defaultQuantity.value = Math.max(1, Number(data.sale_default_quantity) || 1);
-      if (warehouses.value.length === 1) quote.value.warehouse_id = warehouses.value[0].id;
+      // Only one location: pick it AND load its products (2026-11-16: the search stayed empty for Ruba,
+      // since the products only loaded when the location was changed by hand).
+      if (warehouses.value.length === 1) {
+        quote.value.warehouse_id = warehouses.value[0].id;
+        loadProducts();
+      }
       // From a customer's email (Email Office): customer + notes from it.
       if (route.query.email) {
         try {
