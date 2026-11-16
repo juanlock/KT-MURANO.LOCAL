@@ -9,7 +9,9 @@
  *
  *   php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"
  *
- * Left out: the backups, which already have their place in <archive> (database, SQL, VERSION), Temp, and .env files.
+ * EVERYTHING outside git travels (user's rule, 2026-11-15, replacing 2026-11-04's exclusions: "la sincronización entre todas
+ * las PCs debe ser con todo"): backups (database, SQL, VERSION), Temp, .env_modelo, reports with customer data included.
+ * Only desktop.ini is left out. Git keeps what it tracks; GitHub never gets backups / .env (2026-10-27).
  */
 
 $archive = \App\Support\BackupPaths::archive();
@@ -23,7 +25,7 @@ $local = base_path('KT-TOOLS');
 if (! is_dir($drive)) {
     mkdir($drive, 0775, true);
 }
-$left = fn (string $rel) => (bool) preg_match('#^(database|SQL|VERSION|Temp)(/|$)#i', $rel) || preg_match('#(^|/)\.env#i', $rel) || str_ends_with($rel, 'desktop.ini');
+$left = fn (string $rel) => str_ends_with(strtolower($rel), 'desktop.ini');
 
 // On PATH, or GitHub Desktop's bundled git.
 $git = trim((string) shell_exec('where git 2>NUL')) ? 'git' : (glob(getenv('LOCALAPPDATA').'/GitHubDesktop/app-*/resources/app/git/cmd/git.exe')[0] ?? 'git');

@@ -88,7 +88,11 @@ and leaves a **copy of the latest backup in its root**
 `protocol_backup_tidy.php`; user's rule, 2026-10-19).
 **KT-TOOLS outside git goes through Google Drive (user's rule, 2026-11-04):** photos and material for a company
 (e.g. `KT-TOOLS/turismo`) don't depend on one PC: `database/scripts/protocol_tools_sync.php` syncs them both ways with
-`<archive>\..\KT-TOOLS` (newest wins, nothing deleted; backups, Temp and `.env` left out). Wake-up, Pa Llevar and A Dormir run it.
+`<archive>\..\KT-TOOLS` (newest wins, nothing deleted). Wake-up, Pa Llevar and A Dormir run it. **Everything in KT-TOOLS reaches
+every PC (user's rule, 2026-11-15):** what git doesn't carry travels through Drive -- backups (`database`, `SQL`), `Temp`,
+`.env_modelo` and reports with customer data included (only `desktop.ini` left out); GitHub still never gets backups / `.env`
+(2026-10-27) nor files over 100 MB. The backup tidy removes an old root copy in `KT-TOOLS/database` from Drive's mirror too.
+**Ask before leaving anything out of git or the sync** (user, 2026-11-15: "pregúntame, no tomes decisiones").
 **No HTML reports from the protocols (user's rule, 2026-10-19, to save
 resources):** Wake-up and Pa Llevar report in the chat only. `KT-TOOLS/Report/`
 keeps the reports already made (never deleted); a report file is written only

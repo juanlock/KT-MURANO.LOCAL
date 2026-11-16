@@ -33,7 +33,16 @@ $place = function (string $file, string $pc, string $date, string $time, ?string
     $standard = $tag ? "dbmurano_{$date}_{$time}_{$tag}".($part ?? '').'.zip' : basename($file);
     $target = $dir.DIRECTORY_SEPARATOR.$standard;
     if (is_file($target)) {
-        if (filesize($target) === filesize($file)) { @unlink($file); $removed++; }   // a copy of a file already in place
+        if (filesize($target) === filesize($file)) {
+            @unlink($file);   // a copy of a file already in place
+            $removed++;
+            // KT-TOOLS travels whole through Drive (2026-11-15): the same old copy leaves Drive's KT-TOOLS too, or the
+            // sync would bring it back on every PC.
+            $mirror = dirname(\App\Support\BackupPaths::archive()).DIRECTORY_SEPARATOR.'KT-TOOLS'.DIRECTORY_SEPARATOR.'database'.DIRECTORY_SEPARATOR.basename($file);
+            if (is_file($mirror) && filesize($mirror) === filesize($target)) {
+                @unlink($mirror);
+            }
+        }
         return;
     }
     if (! is_dir($dir)) mkdir($dir, 0777, true);
