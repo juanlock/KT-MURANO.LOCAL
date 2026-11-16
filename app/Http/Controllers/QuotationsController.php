@@ -250,7 +250,7 @@ class QuotationsController extends BaseController
 
             $order->date = $request->date;
             $order->time = now()->toTimeString();
-            $order->Ref = $this->getNumberOrder();
+            $order->Ref = $this->getNumberOrder($companyId);
             $order->statut = $request->statut;
             $order->client_id = $request->client_id;
             $order->GrandTotal = $request->GrandTotal;
@@ -806,35 +806,28 @@ class QuotationsController extends BaseController
 
     // ---------------- Reference Number Of Quotation  ---------------\\
 
-    public function getNumberOrder()
+    /**
+     * Quotation numbers are per company (2026-11-16, like sales): the company's
+     * own settings.quotation_prefix ("QT" when empty; a trailing "_" / "-" is
+     * the separator, not part of it) + that company's highest number + 1,
+     * keeping its separator. It used to read one settings row and the last
+     * quotation of ANY company. Deleted quotations count too (DB::table), so a
+     * number is never given twice.
+     */
+    public function getNumberOrder(?int $companyId = null)
     {
-        // Get prefix from settings, fallback to 'QT' if not set
-        $setting = \App\Models\Setting::current();
-        $prefix = !empty($setting->quotation_prefix) ? $setting->quotation_prefix : 'QT';
-        
-        // Get the last quotation with a reference that starts with the prefix
-        $last = DB::table('quotations')
-            ->where('Ref', 'like', $prefix.'_%')
-            ->latest('id')
-            ->first();
+        $cid = (int) ($companyId ?: $this->resolveActingCompanyId(request()));
+        $setting = \App\Models\Setting::forCompany($cid) ?? \App\Models\Setting::current();
+        $prefix = rtrim(trim((string) ($setting->quotation_prefix ?? '')), '_-') ?: 'QT';
 
-        if ($last) {
-            $item = $last->Ref;
-            $nwMsg = explode('_', $item);
-            
-            // Ensure valid structure before processing
-            if (isset($nwMsg[1]) && is_numeric($nwMsg[1])) {
-                $inMsg = $nwMsg[1] + 1;
-                $code = $nwMsg[0].'_'.str_pad($inMsg, 4, '0', STR_PAD_LEFT);
-            } else {
-                $code = $prefix.'_0001'; // Fallback if reference is corrupted
-            }
-        } else {
-            $code = $prefix.'_0001';
-        }
+        $len = mb_strlen($prefix) + 2;
+        $top = DB::table('quotations')->where('company_id', $cid)
+            ->where(fn ($q) => $q->where('Ref', 'like', str_replace('_', '\_', $prefix).'\_%')->orWhere('Ref', 'like', $prefix.'-%'))
+            ->selectRaw('Ref, CAST(SUBSTRING(Ref, ?) AS UNSIGNED) as n', [$len])
+            ->orderByDesc('n')->first();
+        $sep = $top ? mb_substr((string) $top->Ref, $len - 2, 1) : '_';
 
-        return $code;
-
+        return $prefix.($sep === '-' ? '-' : '_').str_pad((string) ((int) ($top->n ?? 0) + 1), 4, '0', STR_PAD_LEFT);
     }
 
     // ---------------- Quotation PDF ---------------\\
