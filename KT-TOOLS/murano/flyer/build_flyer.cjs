@@ -1,6 +1,6 @@
 // Flyer de Murano (user, 2026-11-16): 3 páginas A4 para ofrecer Murano a cualquier empresa. Solo lo ve el SuperAdmin,
 // desde el libro del manual. Capturas: shots.cjs (datos de demostración de una compañía de prueba) -> crop.ps1 -> img/*.jpg.
-// node KT-TOOLS/murano/flyer/build_flyer.cjs  -> Murano_Flyer.html / .pdf y resources/docs/murano-flyer-es.pdf
+// node KT-TOOLS/murano/flyer/build_flyer.cjs  -> Murano_Flyer.html / .pdf y public/murano-flyer.pdf (dirección pública)
 const path = require('path');
 const fs = require('fs');
 const { chromium } = require(path.join(__dirname, '../../../node_modules/playwright'));
@@ -203,9 +203,8 @@ const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>
   for (const [i, p] of pages.entries()) await p.screenshot({ path: path.join(__dirname, `page_${i + 1}.png`) });
   const pdf = path.join(__dirname, 'Murano_Flyer.pdf');
   await pg.pdf({ path: pdf, format: 'A4', printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 } });
-  const app = path.join(__dirname, '../../../resources/docs');
-  fs.mkdirSync(app, { recursive: true });
-  fs.copyFileSync(pdf, path.join(app, 'murano-flyer-es.pdf'));
+  // Public, no sign-in (user, 2026-11-16: shared with prospective customers): https://murano.kcoltech.com/murano-flyer.pdf
+  fs.copyFileSync(pdf, path.join(__dirname, '../../../public/murano-flyer.pdf'));
   console.log('ok', fs.statSync(pdf).size);
   await b.close();
 })().catch(e => { console.error(e); process.exit(1); });

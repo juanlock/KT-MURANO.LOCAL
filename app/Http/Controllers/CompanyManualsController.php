@@ -84,46 +84,6 @@ class CompanyManualsController extends Controller
         return str_replace(' ', '-', \Illuminate\Support\Str::title(str_replace('-', ' ', $company))).'-'.$kind;
     }
 
-    /**
-     * GET murano-flyer?lang -- Murano's own flyer, to offer Murano to any company (user, 2026-11-16): only the SuperAdmin,
-     * from the book icon's header. The PDF is built by KT-TOOLS/murano/flyer/build_flyer.cjs into resources/docs/ (in git,
-     * outside public/: nobody reaches it by URL). A signed link (30 minutes), like the company's own flyer.
-     */
-    public function muranoFlyer(Request $request)
-    {
-        $user = $request->user('api');
-        abort_unless($user && $user->type === 'SuperAdmin', 403);
-        $file = self::muranoFlyerPath((string) $request->input('lang', 'es'));
-        abort_unless($file, 404);
-
-        return response()->json(['url' => \Illuminate\Support\Facades\URL::temporarySignedRoute('murano-flyer.file', now()->addMinutes(30),
-            ['name' => 'Murano-Flyer', 'file' => basename($file)], false)]);
-    }
-
-    private static function muranoFlyerPath(string $lang): ?string
-    {
-        foreach (array_unique([$lang === 'en' ? 'en' : 'es', 'es']) as $l) {
-            $path = resource_path('docs/murano-flyer-'.$l.'.pdf');
-            if (is_file($path)) {
-                return $path;
-            }
-        }
-
-        return null;
-    }
-
-    /** GET /murano-docs/{name}.pdf?file&signature -- the signed link above. */
-    public function muranoFile(Request $request, string $name)
-    {
-        $file = (string) $request->query('file');
-        abort_unless(preg_match('/^murano-flyer-(es|en)\.pdf$/', $file) && is_file(resource_path('docs/'.$file)), 404);
-
-        return response()->file(resource_path('docs/'.$file), [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$name.'.pdf"',
-        ]);
-    }
-
     /** GET /company-docs/{company}/{name}.pdf?file&signature -- the signed link above (no session needed). */
     public function file(Request $request, int $company, string $name)
     {

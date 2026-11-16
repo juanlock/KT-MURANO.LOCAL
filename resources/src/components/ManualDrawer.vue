@@ -11,10 +11,12 @@
       <span class="md-title"><OpenBookIcon style="font-size: 20px" /> {{ L('Manual', 'Manual') }}</span>
     </template>
     <template #extra>
-      <!-- Murano's own flyer, to offer Murano to any company (2026-11-16): the SuperAdmin only. -->
-      <a-button v-if="isSystemView" size="small" type="primary" ghost :loading="ownLoading === 'murano'" style="margin-right: 8px" @click="openMuranoFlyer">
-        <DownloadOutlined /> {{ L('Murano flyer', 'Flyer Murano') }}
-      </a-button>
+      <!-- Murano's own flyer, to offer Murano to any company (2026-11-16): the button is the SuperAdmin's; the PDF
+           itself is public (public/murano-flyer.pdf) so its link can be sent to prospective customers. -->
+      <a-button-group v-if="isSystemView" size="small" style="margin-right: 8px">
+        <a-button type="primary" ghost :href="MURANO_FLYER" target="_blank"><DownloadOutlined /> {{ L('Murano flyer', 'Flyer Murano') }}</a-button>
+        <a-button type="primary" ghost :title="L('Copy the public link', 'Copiar el enlace público')" @click="copyMuranoFlyer"><CopyOutlined /></a-button>
+      </a-button-group>
       <a-segmented v-model:value="lang" size="small" :options="[{ value: 'en', label: 'EN' }, { value: 'es', label: 'ES' }]" />
     </template>
 
@@ -128,7 +130,7 @@ import { ref, computed, watch, defineComponent, h } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   CalculatorOutlined, SettingOutlined, DownloadOutlined, PieChartOutlined, FullscreenOutlined,
-  GlobalOutlined, BellOutlined, FieldTimeOutlined, LogoutOutlined, UserOutlined, BankOutlined,
+  GlobalOutlined, BellOutlined, FieldTimeOutlined, LogoutOutlined, UserOutlined, BankOutlined, CopyOutlined,
 } from '@ant-design/icons-vue';
 import OpenBookIcon from './icons/OpenBookIcon.vue';
 import { MANUAL, MANUAL_UPDATED } from '../manual/manual';
@@ -200,19 +202,15 @@ async function openOwn(kind) {
   }
 }
 
-// Murano's own flyer (resources/docs, SuperAdmin only): the same signed-.pdf way as the company's flyer.
-async function openMuranoFlyer() {
-  ownLoading.value = 'murano';
-  const win = window.open('', '_blank');
+// Murano's own flyer: a public address (no sign-in) to share with prospective customers.
+const MURANO_FLYER = '/murano-flyer.pdf';
+async function copyMuranoFlyer() {
+  const url = new URL(MURANO_FLYER, window.location.origin).href;
   try {
-    const res = await http.get('murano-flyer', { lang: lang.value });
-    const url = new URL(res.url, window.location.origin).href;
-    if (win) win.location.href = url; else window.location.href = url;
+    await navigator.clipboard.writeText(url);
+    message.success(L('Link copied: ', 'Enlace copiado: ') + url);
   } catch (e) {
-    if (win) win.close();
-    message.error(L('The document could not be opened.', 'No se pudo abrir el documento.'));
-  } finally {
-    ownLoading.value = null;
+    message.info(url);
   }
 }
 
