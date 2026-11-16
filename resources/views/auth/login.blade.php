@@ -674,7 +674,7 @@
       <section class="auth-hero">
         <div class="hero-content">
           <div class="hero-brand">
-            <img src="{{ asset('images/login/kcoltech-logo.png') }}" alt="KCOLTECH - IT Advisory, Development, Security" width="505" height="102">
+            <img src="{{ asset('images/login/kcoltech-logo.png') }}" alt="KCOLTECH - AI Systems Development" width="505" height="132">
           </div>
 
           @php
