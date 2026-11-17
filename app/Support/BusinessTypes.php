@@ -160,7 +160,7 @@ class BusinessTypes
         'laundry' => ['bookings', 'promotions', 'service'],
         'delivery' => ['fleet', 'service'],
         'catering' => ['bookings', 'fleet', 'kitchen', 'promotions'],
-        'call_center' => ['marketing', 'meeting', 'projects', 'recruit'],
+        'call_center' => ['callcenter', 'recruit'],
         // Listings + inquiries (Real Estate), showings (Bookings), agents' commissions, contracts / deeds (Documents).
         'real_estate' => ['bookings', 'commissions', 'documents', 'marketing', 'meeting', 'realestate'],
         // Consultations (Bookings), cases (Projects & Tasks, timesheets), case files (Documents), client meetings.

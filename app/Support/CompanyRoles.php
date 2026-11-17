@@ -58,6 +58,7 @@ class CompanyRoles
         'permissions_view', 'permissions_add', 'permissions_edit', 'permissions_delete',
         'company', 'department', 'designation', 'office_shift',
         'shopify_stores', 'shopify_sync', 'shopify_logs',
+        'callcenter_telephony',
     ];
 
     /** A Manager also sees every employee's file and booking, and records its own attendance. */

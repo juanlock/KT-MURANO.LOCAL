@@ -12,7 +12,7 @@ import {
     Library, CalendarDays, Megaphone, DollarSign, Wrench, Settings, Archive,
     ClipboardList, Check, Book, DatabaseZap, Lightbulb, TrendingUp, Percent,
     FolderArchive, Truck, HeartPulse, GraduationCap, Plug, ChefHat, Menu,
-    LifeBuoy, LayoutGrid, Mails, Camera, Globe, Bus,
+    LifeBuoy, LayoutGrid, Mails, Camera, Globe, Bus, Headset,
 } from 'lucide-vue-next';
 
 /**
@@ -64,6 +64,7 @@ export const MENU_ICONS = {
     'truck': Truck,
     'bus': Bus,
     'heart-pulse': HeartPulse,
+    'headset': Headset,
     'graduation-cap': GraduationCap,
     'plug': Plug,
     'chef-hat': ChefHat,

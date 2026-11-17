@@ -12,6 +12,7 @@
  * EVERYTHING outside git travels (user's rule, 2026-11-15, replacing 2026-11-04's exclusions: "la sincronización entre todas
  * las PCs debe ser con todo"): backups (database, SQL, VERSION), Temp, .env_modelo, reports with customer data included.
  * Only desktop.ini is left out. Git keeps what it tracks; GitHub never gets backups / .env (2026-10-27).
+ * Since 2026-11-17 (user's rule) KT-TOOLS is not in git at all: this sync is the only way it reaches the other PCs.
  */
 
 $archive = \App\Support\BackupPaths::archive();
@@ -27,20 +28,19 @@ if (! is_dir($drive)) {
 }
 $left = fn (string $rel) => str_ends_with(strtolower($rel), 'desktop.ini');
 
-// On PATH, or GitHub Desktop's bundled git.
+// Since 2026-11-17 the whole of KT-TOOLS is out of git (.gitignore /KT-TOOLS/): every file travels by Drive. A file
+// git still tracks (a PC before that commit) is left to git; an empty list from git is normal now.
 $git = trim((string) shell_exec('where git 2>NUL')) ? 'git' : (glob(getenv('LOCALAPPDATA').'/GitHubDesktop/app-*/resources/app/git/cmd/git.exe')[0] ?? 'git');
-$list = fn (string $args) => array_filter(explode("\0", (string) shell_exec('"'.$git.'" -C '.escapeshellarg(base_path()).' -c core.quotepath=off ls-files -z '.$args.' -- KT-TOOLS 2>NUL')));
-$tracked = $list('');
-if (! $tracked) {
-    echo "KT-TOOLS sync: git gave no list of files -- skipped, so nothing in git gets overwritten.\n";
-
-    return;
-}
+$tracked = array_filter(explode("\0", (string) shell_exec('"'.$git.'" -C '.escapeshellarg(base_path()).' -c core.quotepath=off ls-files -z -- KT-TOOLS 2>NUL')));
 $tracked = array_flip(array_map(fn ($p) => substr($p, strlen('KT-TOOLS/')), $tracked));
 
 $files = []; // relative path => true, from both sides
-foreach ($list('--others') as $path) {
-    $files[substr($path, strlen('KT-TOOLS/'))] = true;
+if (is_dir($local)) {
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($local, FilesystemIterator::SKIP_DOTS)) as $f) {
+        if ($f->isFile()) {
+            $files[str_replace('\\', '/', substr($f->getPathname(), strlen($local) + 1))] = true;
+        }
+    }
 }
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($drive, FilesystemIterator::SKIP_DOTS)) as $f) {
     if ($f->isFile()) {

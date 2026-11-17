@@ -18,7 +18,9 @@ class ModuleFlags
         'integrations', 'woocommerce_settings', 'shopify', 'salla', 'jumia', 'prestashop',
         'quickbooks', 'xero', 'google_sheets', 'mailchimp', 'slack', 'telegram',
         // Transport (2026-11-01): trips, routes and crew of a passenger transport / tour company.
-        'transport'];
+        'transport',
+        // Call center (2026-11-17): campaigns, leads and agents; on for the call center type.
+        'callcenter'];
 
     private static array $memo = [];
 

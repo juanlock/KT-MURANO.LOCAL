@@ -93,6 +93,11 @@ every PC (user's rule, 2026-11-15):** what git doesn't carry travels through Dri
 `.env_modelo` and reports with customer data included (only `desktop.ini` left out); GitHub still never gets backups / `.env`
 (2026-10-27) nor files over 100 MB. The backup tidy removes an old root copy in `KT-TOOLS/database` from Drive's mirror too.
 **Ask before leaving anything out of git or the sync** (user, 2026-11-15: "pregúntame, no tomes decisiones").
+**KT-TOOLS is never in git (user's rule, 2026-11-17):** `.gitignore` has `/KT-TOOLS/` and its 117 tracked files (logos, flyer,
+manuals, reports, ARCE, files...) were removed from the index (kept on disk, uploaded to Drive first). The whole folder
+travels ONLY through Drive (`protocol_tools_sync.php`, which no longer needs git's list). A PC that pulls that commit
+loses those files from its disk and the Wake-up sync brings them back from Drive. Scripts that live there (Manual
+export, flyer build, `history_rewrite_map.txt`) are run from the PC's copy. Old commits still hold them (no history rewrite).
 **No HTML reports from the protocols (user's rule, 2026-10-19, to save
 resources):** Wake-up and Pa Llevar report in the chat only. `KT-TOOLS/Report/`
 keeps the reports already made (never deleted); a report file is written only
@@ -790,6 +795,21 @@ the start of each session).
   (migration 2026_11_04_121000): Pasajeros, Encomiendas (only the sales' shipments
   until that module exists), Flota y Logística, Back Office, Módulos adicionales,
   Configuración.
+- **Call center module (user's request, 2026-11-17, Alo Mundo 1016):** Business module `callcenter` (off by default, on for the
+  call_center type; Alo Mundo keeps only callcenter, customers, sales, hrm, recruit, helpdesk, forms). Screens `/callcenter/*`:
+  Indicadores del piso, Mi campaña (agent), Campañas, Leads (+ import), Registro de llamadas, Turnos de agentes, Calidad,
+  Facturación a clientes, Central telefónica -- one permission each (`callcenter_*`; Manager without `callcenter_telephony`).
+  Two kinds of call center: **from the screen** (the agent takes an active campaign and asks for the next lead) and **through a
+  telephone exchange** (click to call = the company's dial address with {extension} / {phone}; the exchange posts each call to
+  the public `api/cc-hook/{token}`, Asterisk / Twilio names accepted). A campaign selects its leads by age, sex, location, source
+  and the import's extra columns (`App\Support\CallCenter::leadsQuery`), "Cargar leads" fills `cc_campaign_leads`; **a lead goes
+  to one agent only** (`CallCenter::claimNext`: one `UPDATE ... LIMIT 1`; released after 15 min without saving), retries /
+  callbacks per the campaign. Agent sessions (work / pause with reason, heartbeat 30 s) feed shifts, indicators and billing per
+  hour. Billing = a sale to the campaign's client (product `CC-SERV`), per agent hour / call / sale. Lead import: Excel or CSV
+  (";" and Windows-1252 too), columns matched on screen, bad rows skipped with their reason, duplicates by phone (last 9 digits)
+  updated or skipped. Agents = employee logins whose role has `callcenter_work` (an admin login is never an agent).
+  Demo: `php artisan callcenter:demo --company=1016` (supervisor + 3 agents `Alomundo-supervisor|agente1..3@kcoltech.com`,
+  4,000 leads, campaign "Seguros de salud", 6 working days of calls; everything in `demo_records`).
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the

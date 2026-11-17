@@ -1,7 +1,6 @@
 /public/js
 # Backup-program profiles and scratch copies (production logs...) -- this PC only
 *.cp2
-/KT-TOOLS/Temp
 # Sube Prod keeps the previous build next to it on the server
 /public/js.prev
 /public/js.new
@@ -26,26 +25,16 @@
 /storage/framework/cache
 /storage/logs/*.log
 
-/KT-TOOLS/apps
-/KT-TOOLS/documentation
-/KT-TOOLS/VERSION
-/KT-TOOLS/database/Older
+# KT-TOOLS is never in git (user's rule, 2026-11-17): backups, reports, manuals, logos, the companies' material and
+# customer files all travel between the PCs through Google Drive (database/scripts/protocol_tools_sync.php, run by
+# Wake-up, Pa Llevar and A Dormir). Before that only parts of it were left out (2026-10-27: backups, .env_modelo...).
+/KT-TOOLS/
+
 # Never in git (2026-10-27, history rewritten and the repository recreated): environment files,
 # database dumps / backups (they live in Google Drive), production logs, customer documents.
 /.env
-/KT-TOOLS/.env_modelo
 /database/dev_sync/
 /database/snapshots/
-/KT-TOOLS/database/
-/KT-TOOLS/SQL/
-/KT-TOOLS/VERSION/
-/KT-TOOLS/prod/
-/KT-TOOLS/sources/
-# Photos and material for a company: they travel through Google Drive (protocol_tools_sync.php).
-/KT-TOOLS/turismo/
-/KT-TOOLS/app.zip
-/KT-TOOLS/invoicesKT.csv
-/KT-TOOLS/Sale-POS-InvoiceNumber_DateTime.pdf
 /storage/app.zip
 /storage/app/public/backup/
 *.sql
@@ -53,16 +42,5 @@
 # The companies' files are not in git (2026-10-27): production owns them; they travel with
 # murano:from-prod / protocol_prod_push and are copied to Google Drive by Pa Llevar.
 /public/files/
-# The backup archive lives in Google Drive (App\Support\BackupPaths, 2026-10-27):
-# in the repo only the copy of the latest backup (KT-TOOLS/database/*.zip).
-/KT-TOOLS/database/*/
-# Production database backups stay on the machine that made them.
-/KT-TOOLS/database/production
-# Protocol A Dormir's production backups (real customer data, 2026-10-20).
-/KT-TOOLS/database/HOSTINGER
-/KT-TOOLS/sources
-/KT-TOOLS/ZIP
 storage/logs/laravel.log
-KT-TOOLS/files/escuela/programa-curricular-educacion-secundaria.pdf
-KT-TOOLS/files/escuela/programa-curricular-educacion-primaria.pdf
 storage/framework/lsp-9f8cde7a723d956b.php

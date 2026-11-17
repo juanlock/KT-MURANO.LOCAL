@@ -80,6 +80,7 @@ export const TOGGLEABLE_MODULES = [
     { key: 'service', label: 'Service & Maintenance', description: 'Service jobs, technicians and checklists.', pathPrefixes: ['service'] },
     { key: 'fleet', label: 'Fleet Management', description: 'Vehicles, maintenance, fuel logs, assignments and fleet reports.', pathPrefixes: ['fleet'] },
     { key: 'transport', label: 'Transport', description: 'Passenger transport: locations, routes, trips (vehicle, 2 pilots, 1-2 hostesses), active staff and pay per trip. Off by default.', pathPrefixes: ['transport'], defaultOff: true },
+    { key: 'callcenter', label: 'Call center', description: 'Campaigns built from the leads (age, sex, location...), the agents\' calling screen (each lead to one agent), call log, lead import, shifts, floor indicators, quality, billing per campaign and the telephone exchange. Off by default.', pathPrefixes: ['callcenter'], defaultOff: true },
     { key: 'hospital', label: 'Hospital Management', description: 'Patients, doctors, appointments, visits, admissions, wards, lab and billing.', pathPrefixes: ['hospital'] },
     { key: 'school', label: 'School Management', description: 'Students, teachers, academics, exams, timetable and fees.', pathPrefixes: ['school'] },
 ];

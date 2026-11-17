@@ -69,6 +69,10 @@ Route::get('/ping', function () {
 // maintenance mode so it also answers during an update.
 Route::get('/system-update/ping', 'SystemUpdateController@ping');
 
+// Call center (2026-11-17): the telephone exchange sends each call here. Public; the 40-character token is the key.
+Route::match(['get', 'post'], '/cc-hook/{token}', [\App\Http\Controllers\CallCenter\CallCenterAdminController::class, 'hook'])
+    ->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:600,1');
+
 // --------------------------- Reset Password  ---------------------------
 
 Route::group([
@@ -831,6 +835,61 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/reopen', 'reopen');
         Route::get('/history', 'history');
         Route::get('/pdf/{id}', 'pdf')->whereNumber('id');
+    });
+    // Call center (2026-11-17): leads (+ import), campaigns, the agent's screen, call log, quality, shifts, indicators,
+    // billing to the clients and the telephone exchange.
+    Route::prefix('callcenter')->group(function () {
+        Route::controller(\App\Http\Controllers\CallCenter\CallCenterLeadsController::class)->group(function () {
+            Route::get('/leads', 'index');
+            Route::get('/leads/options', 'options');
+            Route::get('/leads/template', 'template');
+            Route::get('/leads/imports', 'imports');
+            Route::post('/leads/import/preview', 'preview');
+            Route::post('/leads/import/{id}/run', 'run')->whereNumber('id');
+            Route::post('/leads', 'store');
+            Route::put('/leads/{id}', 'update')->whereNumber('id');
+            Route::delete('/leads/{id}', 'destroy')->whereNumber('id');
+        });
+        Route::controller(\App\Http\Controllers\CallCenter\CallCenterCampaignsController::class)->group(function () {
+            Route::get('/campaigns', 'index');
+            Route::get('/campaigns/options', 'options');
+            Route::post('/campaigns/count', 'count');
+            Route::post('/campaigns', 'store');
+            Route::put('/campaigns/{id}', 'update')->whereNumber('id');
+            Route::delete('/campaigns/{id}', 'destroy')->whereNumber('id');
+            Route::post('/campaigns/{id}/load', 'load')->whereNumber('id');
+            Route::post('/campaigns/{id}/status', 'status')->whereNumber('id');
+        });
+        Route::controller(\App\Http\Controllers\CallCenter\CallCenterWorkController::class)->group(function () {
+            Route::get('/work', 'show');
+            Route::post('/work/session', 'session');
+            Route::post('/work/heartbeat', 'heartbeat');
+            Route::post('/work/next', 'next');
+            Route::post('/work/save', 'save');
+            Route::post('/work/release', 'release');
+            Route::post('/work/dial', 'dial');
+        });
+        Route::controller(\App\Http\Controllers\CallCenter\CallCenterCallsController::class)->group(function () {
+            Route::get('/calls', 'index');
+            Route::get('/quality/criteria', 'criteria');
+            Route::post('/quality/criteria', 'saveCriteria');
+            Route::get('/quality/reviews', 'reviews');
+            Route::post('/quality/reviews', 'saveReview');
+            Route::delete('/quality/reviews/{id}', 'deleteReview')->whereNumber('id');
+        });
+        Route::controller(\App\Http\Controllers\CallCenter\CallCenterAdminController::class)->group(function () {
+            Route::get('/shifts', 'shifts');
+            Route::post('/shifts', 'saveShifts');
+            Route::post('/shifts/copy', 'copyShifts');
+            Route::delete('/shifts/{id}', 'deleteShift')->whereNumber('id');
+            Route::get('/dashboard', 'dashboard');
+            Route::get('/billing', 'billing');
+            Route::post('/billing/preview', 'billingPreview');
+            Route::post('/billing', 'bill');
+            Route::get('/telephony', 'telephony');
+            Route::post('/telephony', 'saveTelephony');
+            Route::post('/telephony/token', 'newToken');
+        });
     });
     // "Mi agencia" (2026-11-11): the supervisor's agency -- summary, complaints, incidents (parcels: transport/parcels/board).
     Route::prefix('transport/agency')->controller(\App\Http\Controllers\TransportAgencyController::class)->group(function () {

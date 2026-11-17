@@ -795,6 +795,16 @@ const routes = [
             { path: 'transport/boarding', name: 'transport-boarding', component: () => import('../pages/transport/TransportBoarding.vue'), meta: { title: 'Transport_Boarding', permission: ['transport_boarding', 'transport_supervise'] } },
             { path: 'fleet/parts', name: 'fleet-parts', component: () => import('../pages/fleet/Parts.vue'), meta: { title: 'Fleet_Parts', permission: 'fleet_parts' } },
             { path: 'fleet/plan', name: 'fleet-plan', component: () => import('../pages/fleet/MaintenancePlan.vue'), meta: { title: 'Fleet_Plan', permission: 'fleet_plan' } },
+            // Call center (2026-11-17).
+            { path: 'callcenter/dashboard', name: 'cc-dashboard', component: () => import('../pages/callcenter/CcDashboard.vue'), meta: { title: 'CC_Dashboard', permission: 'callcenter_dashboard' } },
+            { path: 'callcenter/work', name: 'cc-work', component: () => import('../pages/callcenter/CcWork.vue'), meta: { title: 'CC_Work', permission: 'callcenter_work' } },
+            { path: 'callcenter/campaigns', name: 'cc-campaigns', component: () => import('../pages/callcenter/CcCampaigns.vue'), meta: { title: 'CC_Campaigns', permission: 'callcenter_campaigns' } },
+            { path: 'callcenter/leads', name: 'cc-leads', component: () => import('../pages/callcenter/CcLeads.vue'), meta: { title: 'CC_Leads', permission: 'callcenter_leads' } },
+            { path: 'callcenter/calls', name: 'cc-calls', component: () => import('../pages/callcenter/CcCalls.vue'), meta: { title: 'CC_Calls', permission: 'callcenter_calls' } },
+            { path: 'callcenter/shifts', name: 'cc-shifts', component: () => import('../pages/callcenter/CcShifts.vue'), meta: { title: 'CC_Shifts', permission: 'callcenter_shifts' } },
+            { path: 'callcenter/quality', name: 'cc-quality', component: () => import('../pages/callcenter/CcQuality.vue'), meta: { title: 'CC_Quality', permission: 'callcenter_quality' } },
+            { path: 'callcenter/billing', name: 'cc-billing', component: () => import('../pages/callcenter/CcBilling.vue'), meta: { title: 'CC_Billing', permission: 'callcenter_billing' } },
+            { path: 'callcenter/telephony', name: 'cc-telephony', component: () => import('../pages/callcenter/CcTelephony.vue'), meta: { title: 'CC_Telephony', permission: 'callcenter_telephony' } },
             { path: 'transport/tolls', name: 'transport-tolls', component: () => import('../pages/transport/TransportTolls.vue'), meta: { title: 'Transport_Tolls', permission: 'transport_tolls' } },
             // Hospital Management. `create` is declared before the :id routes
             // so it is never read as a record id.

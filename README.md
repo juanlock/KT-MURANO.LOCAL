@@ -201,7 +201,24 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 ## Latest changes
 
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
-`KT-TOOLS/Report/`).
+`KT-TOOLS/Report/`, in Google Drive).
+
+### 2026-11-17 (Thundera) — not in production yet
+
+- **New module: Call center** (off by default; on for call center companies,
+  e.g. Alo Mundo): campaigns that pick their leads by age, sex, location and
+  any imported column; the agent's screen "Mi campaña" (each lead goes to one
+  agent only, results, callbacks, pauses); leads with an Excel / CSV import
+  that matches the columns on screen and skips only the bad rows; call log;
+  agents' shifts with lateness and absences; floor indicators live; quality
+  reviews; billing per campaign to the client as a sale; telephone exchange
+  (click to call + the exchange sends each call).
+- **Alo Mundo** shows only its call center modules; demo with a supervisor and
+  3 agents (`php artisan callcenter:demo --company=1016`).
+- **KT-TOOLS is out of git:** the whole folder travels between the PCs only
+  through Google Drive (Wake-up / Pa Llevar / A Dormir sync it).
+
+Setup: `php artisan migrate`, `npm run build`.
 
 ### 2026-11-16 (Thundera)
 
@@ -278,23 +295,6 @@ Setup: `npm run build`.
   the Manager, IT Admin and SuperAdmin only; the basic tourism manual was removed.
 
 Setup: `php artisan migrate`, `npm run build`.
-### 2026-11-12 (Optimum)
-
-- **Turismo Cautivo, dashboard › Business summary:** a click (or double click)
-  on any month of the chart opens "por qué este monto": a sentence with what
-  happened and what moved it against the month before, income and costs by
-  kind with ▲▼, the profit and its margin, trips with profit / loss and the
-  profit of each route.
-- **Business summary follows the dashboard's date filter:** the period's
-  income, tickets, best-selling routes and fleet costs; the chart goes by day
-  up to 62 days, else by month; "Todos" keeps the last 12 months; "today"
-  stays today.
-- **Dashboard › Indicators:** "A dónde se va el dinero" (it repeated the
-  Expenses tab) is replaced by **"De dónde viene la ganancia"**: a donut with
-  the profit in the middle and its two parts, tickets (what they leave after
-  every trip cost) and parcels, with amount and %.
-
-Setup: `npm run build`.
 ---
 
 ## Session protocols

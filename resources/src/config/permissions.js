@@ -1383,6 +1383,21 @@ export const PERMISSION_GROUPS = [
         ]
     },
     {
+        "label": "CallCenter",
+        "raw": true,
+        "items": [
+            { "v": "callcenter_work", "l": "Perm_CC_Work", "f": "My campaign: take a campaign and call its leads" },
+            { "v": "callcenter_campaigns", "l": "Perm_CC_Campaigns", "f": "Campaigns: create, filter the leads, start / pause" },
+            { "v": "callcenter_leads", "l": "Perm_CC_Leads", "f": "Leads: add, edit, import" },
+            { "v": "callcenter_calls", "l": "Perm_CC_Calls", "f": "Call log: every agent's calls" },
+            { "v": "callcenter_shifts", "l": "Perm_CC_Shifts", "f": "Agents' shifts and attendance" },
+            { "v": "callcenter_dashboard", "l": "Perm_CC_Dashboard", "f": "Floor indicators" },
+            { "v": "callcenter_quality", "l": "Perm_CC_Quality", "f": "Quality: review calls" },
+            { "v": "callcenter_billing", "l": "Perm_CC_Billing", "f": "Billing to the clients per campaign" },
+            { "v": "callcenter_telephony", "l": "Perm_CC_Telephony", "f": "Telephone exchange settings" }
+        ]
+    },
+    {
         "label": "Transport",
         "raw": true,
         "items": [
