@@ -203,6 +203,28 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-18 (Thundera)
+
+- **Turismo, "Cómo funciona" (presentation):** Manual → Su empresa → "Cómo
+  funciona (presentación)": who takes part (sales, operation and maintenance
+  around the live-data panel), the services table (tickets and parcels: sold,
+  run, quality checked), operation and maintenance; full screen with the
+  arrow keys.
+- **Quality control (Control de Calidad):** a new role whose home is the
+  complaints board (its own page, without the owner's money) and the forms;
+  Turismo has it (its access login and Daniel). Every company will get it.
+- **Turismo demo:** eight months of history, and the demo buses on the road
+  leave a GPS trail on the control board.
+- **Business summary on a 1366x768 laptop:** the agency table no longer
+  overlaps and the chart fits the screen.
+- **Admins and the SuperAdmin are never signed out for inactivity.**
+- **Call center demo (Alo Mundo):** the real leads show 6 rows at most and
+  can't be copied; the floor indicators have colours.
+- **Backups never hold up the work:** the backup before writing to production
+  is made on the server in seconds; bringing it to Drive waits for the next
+  Pa Llevar / A Dormir.
+
+Setup: `php artisan migrate`, `npm run build`.
 ### 2026-11-17 (Optimum)
 
 - **Ready-made websites become the company's own:** Website → Settings →
@@ -269,23 +291,6 @@ Setup: `php artisan migrate`, `npm run build`.
 
 Setup: `php artisan migrate`, `npm run build`.
 
-### 2026-11-14 / 15 (Optimum)
-
-- **A bus's Fuel tab** (Fleet -> vehicle): when the bus has no refuels, it
-  lists the fuel of its trips (departure, route, km, fuel, per km) with the
-  total and the average per trip; the vehicle's cost, distance and cost per km
-  come from those trips. Notes in Spanish.
-- **WhatsApp sign-in links work on the person's phone:** WhatsApp's link
-  preview used to open the link first and take it ("this link does not work
-  here"); now only a real browser claims it, entering by itself.
-- **My trip on an iPhone:** an iPhone standing still gives no speed, so "I
-  left" took long or never enabled; now it enables after the 30 s stopped and
-  the page asks the phone for its position every 10 s. Tested with a real
-  iPhone in Peru (left, arrived with photo and note).
-- **Turismo:** owner flyer in production, demo crews remade (no pilot on two
-  buses), presentation moved to Monday 2026-11-16.
-
-Setup: `npm run build`.
 ---
 
 ## Session protocols
