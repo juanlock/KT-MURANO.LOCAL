@@ -3004,7 +3004,8 @@ class SalesController extends BaseController
         $cid = $warehouseId ? (int) Warehouse::whereKey($warehouseId)->value('company_id') : 0;
         $cid = $cid ?: (int) ($companyId ?: $this->resolveActingCompanyId(request()));
         $setting = \App\Models\Setting::forCompany($cid) ?? \App\Models\Setting::current();
-        $prefix = trim((string) ($setting->sale_prefix ?? '')) ?: 'SL';
+        // A prefix typed with its separator ("PP-", "INV_") is the same series (2026-11-18: KcolTech's "PP-" gave PP-_0001).
+        $prefix = rtrim(trim((string) ($setting->sale_prefix ?? '')), '_-') ?: 'SL';
 
         // Highest number after "PREFIX_" or "PREFIX-" in this company; the next one
         // keeps the separator that company uses (INV_3604, PP-0385).
