@@ -51,6 +51,70 @@ class ProdDump
         return is_file($raw) && filesize($raw) > 100000;
     }
 
+    /**
+     * Quick backup before a write (user's rule, 2026-11-18: "no esperes" -- a backup that takes long is left pending):
+     * mysqldump | gzip ON the server into murano_deploy/backups_pending/ (outside the website, ~30 s) and nothing more.
+     * The download, phpMyAdmin clean-up and zip into <archive>/production/ is done later by
+     * protocol_prod_backup_pending.php (Pa Llevar / A Dormir). Returns the remote path, or null (SSH not available /
+     * dump failed: the caller falls back to the full local backup).
+     */
+    public static function serverBackup(array $prodEnv, string $label): ?string
+    {
+        $sftp = self::sftp();
+        if (! $sftp) {
+            return null;
+        }
+        $sftp->setTimeout(900);
+        $dir = 'murano_deploy/backups_pending';
+        $sftp->mkdir($dir, -1, true);
+        $name = $prodEnv['PROD_DB_DATABASE'].'_'.now()->format('Y-m-d_h-i-s-A').($label ? '_'.$label : '').'.sql.gz';
+        $cnf = 'murano_deploy/.dump_'.bin2hex(random_bytes(4)).'.cnf';
+        $q = fn ($v) => '"'.addcslashes((string) $v, '"\\').'"';
+        $sftp->put($cnf, "[client]\nuser=".$q($prodEnv['PROD_DB_USERNAME'])."\npassword=".$q($prodEnv['PROD_DB_PASSWORD'])."\nhost=localhost\n");
+        $sftp->chmod(0600, $cnf);
+        $out = $sftp->exec('set -o pipefail; mysqldump --defaults-extra-file='.$cnf.' --single-transaction --skip-lock-tables --skip-add-locks'
+            .' --no-tablespaces --routines --triggers --default-character-set=utf8mb4 '.escapeshellarg($prodEnv['PROD_DB_DATABASE'])
+            .' | gzip -1 > '.escapeshellarg("$dir/$name").' && echo DUMP_OK; rm -f '.$cnf);
+        if (! str_contains((string) $out, 'DUMP_OK') || (int) $sftp->filesize("$dir/$name") < 100000) {
+            $sftp->delete("$dir/$name");
+
+            return null;
+        }
+        // remembered on this PC: its next Pa Llevar / A Dormir brings it into <archive>/production/
+        $list = storage_path('app/prod_backups_pending.json');
+        $pending = is_file($list) ? (json_decode((string) file_get_contents($list), true) ?: []) : [];
+        $pending[] = ['remote' => "$dir/$name", 'db' => $prodEnv['PROD_DB_DATABASE'], 'label' => $label, 'at' => now()->toDateTimeString()];
+        file_put_contents($list, json_encode($pending, JSON_PRETTY_PRINT));
+
+        return "$dir/$name";
+    }
+
+    /** SFTP session to production (.env.production-ssh), or null. */
+    public static function sftp(): ?\phpseclib3\Net\SFTP
+    {
+        $envFile = base_path('.env.production-ssh');
+        if (! is_file($envFile)) {
+            return null;
+        }
+        $s = \Dotenv\Dotenv::parse(file_get_contents($envFile));
+        $key = str_replace('~', getenv('USERPROFILE') ?: getenv('HOME'), (string) ($s['PROD_SSH_KEY'] ?? ''));
+        try {
+            $sftp = new \phpseclib3\Net\SFTP($s['PROD_SSH_HOST'], (int) ($s['PROD_SSH_PORT'] ?? 22), 60);
+            if ($key && is_file($key) && $sftp->login($s['PROD_SSH_USER'], \phpseclib3\Crypt\PublicKeyLoader::load(file_get_contents($key)))) {
+                return $sftp;
+            }
+            if (! empty($s['PROD_SSH_PASSWORD'])) {
+                $sftp = new \phpseclib3\Net\SFTP($s['PROD_SSH_HOST'], (int) ($s['PROD_SSH_PORT'] ?? 22), 60);
+                if ($sftp->login($s['PROD_SSH_USER'], $s['PROD_SSH_PASSWORD'])) {
+                    return $sftp;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        return null;
+    }
+
     private static function viaSsh(array $prodEnv, string $raw, callable $say): bool
     {
         $envFile = base_path('.env.production-ssh');

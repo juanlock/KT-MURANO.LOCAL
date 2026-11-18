@@ -18,7 +18,7 @@
               </thead>
               <tbody>
                 <tr v-for="a in data.agencies" :key="a.name || 'other'">
-                  <td>{{ a.name || tf('Owner_Other_Locations', 'Other locations') }}</td>
+                  <td class="op-name" :title="a.name || ''">{{ a.name || tf('Owner_Other_Locations', 'Other locations') }}</td>
                   <td class="num">{{ money(a.today) }}</td>
                   <td class="num">{{ money(a.month) }}</td>
                   <td class="num">{{ a.tickets_month.toLocaleString() }}</td>
@@ -71,7 +71,7 @@
           <span class="op-hint">{{ daily ? L('click a day to see why', 'clic en un día para ver el porqué') : L('click a month to see why', 'clic en un mes para ver el porqué') }}</span>
         </div>
         <div class="op-chart">
-          <apexchart type="line" :height="trendHeight" :options="trendOptions" :series="trendSeries" />
+          <apexchart :key="trendHeight" type="line" width="100%" :height="trendHeight" :options="trendOptions" :series="trendSeries" />
         </div>
       </div>
     </a-card>
@@ -150,8 +150,9 @@ const loading = ref(true);
 const root = ref(null);
 const { fit, measure } = useFitHeight(root);
 // The 12-month chart takes its part of the screen; the boxes above keep the rest (one screen, 2026-11-05).
-const trendHeight = 230;
-const gridHeight = computed(() => (fit.value ? fit.value - 16 - 58 - (data.value.months?.length ? trendHeight + 40 : 0) : null));
+// It shrinks on short screens (1366x768, 2026-11-18) so the boxes above keep room.
+const trendHeight = computed(() => (fit.value ? Math.max(150, Math.min(230, Math.round(fit.value * 0.38))) : 230));
+const gridHeight = computed(() => (fit.value ? fit.value - 16 - 58 - (data.value.months?.length ? trendHeight.value + 40 : 0) : null));
 const ui = useUiStore();
 const L = (en, es) => (String(ui.locale || 'en').startsWith('es') ? es : en);
 const MONTHS = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], es: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'] };
@@ -333,8 +334,18 @@ const alertWhen = days => (days < 0
 .op-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .op-dot.late { background: #dc2626; }
 .op-dot.soon { background: #f59e0b; }
-.op-trend { margin-top: 8px; }
-.op-chart { cursor: pointer; }
+.op-trend { margin-top: 8px; min-width: 0; }
+.op-chart { cursor: pointer; min-width: 0; width: 100%; overflow: hidden; }
+/* Fixed columns on narrow screens (1366x768, 2026-11-18): the agency name is cut with "…" instead of running into the amounts,
+   and the headers may take two lines. */
+.op-grid > .op-box:first-child .op-table { table-layout: fixed; }
+.op-grid > .op-box:first-child .op-table th { white-space: normal; line-height: 1.2; vertical-align: bottom; }
+.op-grid > .op-box:first-child .op-table th:first-child { width: 30%; }
+.op-table td.op-name { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1500px) {
+  .op-table { font-size: 11.5px; }
+  .op-table th, .op-table td { padding-left: 4px; padding-right: 4px; }
+}
 .op-hint { font-weight: 400; font-size: 11px; opacity: 0.6; margin-left: 8px; }
 .why-story { font-size: 13.5px; margin: 0 0 10px; }
 .why-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

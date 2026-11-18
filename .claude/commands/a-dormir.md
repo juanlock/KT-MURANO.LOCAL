@@ -19,6 +19,8 @@ Run Protocol A Dormir (user's rule, 2026-10-20). In this order. Stop and report 
    - `HOSTINGER/` is **git-ignored** (real customer data): each PC keeps its own copies, they are never committed.
    Without production access on this PC: skip it, say so in the report.
 
+2a. **Pending production backups** (user's rule, 2026-11-18) -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_prod_backup_pending.php';"` **in the background** (never waited for): the backups made on the server before today's writes (`murano_deploy/backups_pending/`) are downloaded, made phpMyAdmin-ready and zipped into `<archive>/production/`; a failed one stays pending. Report the count when it finishes, or "still running".
+
 2b. **KT-TOOLS to Google Drive** -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): what is in KT-TOOLS outside git, both ways; newest wins, nothing is deleted. Report the counts.
 
 3. **Kelsy catch-up** -- every request of this conversation not yet in `kt_logs` gets its row (`.claude/commands/kelsy.md`, written to production by `protocol_kt_log.php`).

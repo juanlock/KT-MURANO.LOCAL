@@ -92,6 +92,12 @@ and leaves a **copy of the latest backup in its root**
 every PC (user's rule, 2026-11-15):** what git doesn't carry travels through Drive -- backups (`database`, `SQL`), `Temp`,
 `.env_modelo` and reports with customer data included (only `desktop.ini` left out); GitHub still never gets backups / `.env`
 (2026-10-27) nor files over 100 MB. The backup tidy removes an old root copy in `KT-TOOLS/database` from Drive's mirror too.
+**Never wait on a slow backup step (user's rule, 2026-11-18: "déjalos pendiente y pasa a la siguiente"):** the backup
+before a production write is still made first, but ON the server (`ProdDump::serverBackup`, mysqldump | gzip into
+`murano_deploy/backups_pending/`, ~6 s); bringing it into `<archive>/production/` (download, clean, zip -- 12 min when Drive
+is busy) is left pending in `storage/app/prod_backups_pending.json` for the next Pa Llevar / A Dormir
+(`protocol_prod_backup_pending.php`, run in the background). Any other backup step that drags: background it, go on, and
+report it as pending.
 **Ask before leaving anything out of git or the sync** (user, 2026-11-15: "pregúntame, no tomes decisiones").
 **KT-TOOLS is never in git (user's rule, 2026-11-17):** `.gitignore` has `/KT-TOOLS/` and its 117 tracked files (logos, flyer,
 manuals, reports, ARCE, files...) were removed from the index (kept on disk, uploaded to Drive first). The whole folder

@@ -16,9 +16,20 @@
  * the caller must then write NOTHING to production.
  */
 
+$label = isset($backupLabel) && preg_match('/^[a-z0-9_]+$/', (string) $backupLabel) ? '_'.$backupLabel : '';
+
+// Fast way (user's rule, 2026-11-18: a slow backup step is left pending, never waited for): the backup is made ON the
+// server (gzip, ~30 s) BEFORE anything is written; bringing it into Google Drive (download, clean, zip) is left for the
+// next Pa Llevar / A Dormir (protocol_prod_backup_pending.php). Without SSH, the full local backup below.
+$serverCopy = \App\Services\ProdDump::serverBackup($prodEnv, ltrim($label, '_'));
+if ($serverCopy) {
+    echo 'Production backup (on the server, brought to Drive by the next Pa Llevar / A Dormir): ~/', $serverCopy, PHP_EOL;
+
+    return $serverCopy;
+}
+
 // <archive>/production/ (Google Drive, App\Support\BackupPaths; KT-TOOLS/database/production without it)
 $dir = \App\Support\BackupPaths::production();
-$label = isset($backupLabel) && preg_match('/^[a-z0-9_]+$/', (string) $backupLabel) ? '_'.$backupLabel : '';
 $raw = "$dir/{$prodEnv['PROD_DB_DATABASE']}_".now()->format('Y-m-d_h-i-s-A')."{$label}.raw.sql";
 $dump = env('MYSQLDUMP_PATH', 'mysqldump');
 if ($dump === 'mysqldump' && is_file('C:/Program Files/MariaDB 11.8/bin/mysqldump.exe')) $dump = 'C:/Program Files/MariaDB 11.8/bin/mysqldump.exe';

@@ -21,6 +21,8 @@ Run Protocol Pa Llevar ("to go") -- the end-of-day counterpart of Wake-up (`.cla
 
 5. **Back up the local database** (it is this morning's copy of production + today's migrations; feeds the external backup program): `php artisan tinker --execute="$backupTag = 'pallevar'; require '<repo>\database\scripts\protocol_copia_bd.php';"` -> `<archive>/<PC name>/dbmurano_<date>_<time>_pallevar.zip` + `..._pallevar_office_emails_1/_2/_3.zip` (compressed, phpMyAdmin-ready). Then copy the four zips over the fixed-name files the external backup program picks up: main -> `KT-TOOLS/SQL/backup db.zip`, `_office_emails_N` -> `KT-TOOLS/SQL/backup db office emails N.zip` (N = 1..3). Then **copy `public/files` to Google Drive** (user's rule, 2026-10-27: the files are no longer in git): `php artisan tinker --execute="require '<repo>\database\scripts\protocol_files_mirror.php';"` -> `G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\files` (new / newer files only, never deletes).
 
+5a. **Pending production backups** (user's rule, 2026-11-18) -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_prod_backup_pending.php';"` **in the background** (never waited for): the backups made on the server before the day's writes (`murano_deploy/backups_pending/`) are downloaded, made phpMyAdmin-ready and zipped into `<archive>/production/`; a failed one stays pending. Report the count when it finishes, or "still running".
+
 5b. **KT-TOOLS to Google Drive** -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): what is in KT-TOOLS outside git, both ways; newest wins, nothing is deleted. Report the counts.
 
 6. **README** -- `README.md` (the page GitHub shows), from the `kt_logs` rows being committed:
