@@ -100,6 +100,8 @@ class Kernel extends ConsoleKernel
         // hospital roster / stays, school register, transport trips and statuses.
         // (hospital:demo-day / transport:demo-day remain for a manual run.)
         $cmd('demo:daily')->hourly()->withoutOverlapping();
+        // The demo buses' GPS trail (2026-11-18): the board calls a bus "no signal" after 5 minutes.
+        $cmd('transport:demo-gps')->everyTenMinutes()->withoutOverlapping()->when($uses('transport'));
 
         $cmd('marketing:process-scheduled')->everyMinute()->withoutOverlapping();
 

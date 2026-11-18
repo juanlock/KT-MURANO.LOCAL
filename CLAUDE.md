@@ -249,7 +249,8 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
    questionnaire's tabs carry who answers them: DUE owner, GER management, SUP agency supervisor, FLO fleet. DUE-3 asks his email for his own
    owner login. The Manager login (turismo-manager@kcoltech.com) is named **Julio Velarde** (the owner) for the presentation (migration
    2026_11_11_150000).
-9. **Demo calibrated on Thundera, 2026-11-12 (user):** six months of history (`TransportDemoDay::HISTORY_DAYS = 182`, was 60) and each trip
+9. **Demo calibrated on Thundera, 2026-11-12 (user):** eight months of history since 2026-11-18 (`TransportDemoDay::HISTORY_DAYS = 243`; 182 before, 60 at first;
+   the demo buses on the road leave a GPS trail every 2 min, `TransportDemoDay::gps`, `transport:demo-gps` every 10 min) and each trip
    filled 20 %-70 % of its seats (`demoFill`, was 30 %-100 %): ~S/ 2,750 of tickets a departure (the client's report of 04-11: S/ 2,522),
    ~20 departures a day over the 4 agencies = ~S/ 1.6 M of tickets a month; the owner's profit ~33 % (was ~50 %) with OUR cost assumptions.
    The hourly routine only works on trips from 3 days ago on (plus never-filled ones) and `seatState` indexes by id: 666 s -> 1.5 s. The first
@@ -449,6 +450,10 @@ the start of each session).
   `audit_logs` keeps the last 6 months; `audit:archive` (daily 03:50) moves older rows to `audit_logs_archive` (same structure and ids,
   one transaction per batch); the page reads it with "Archivo (más antiguo)".
   A new log-like table that should not be recorded joins `AuditTrail::SKIP`.
+- **Admins and the SuperAdmin are never signed out for inactivity (user's rule, 2026-11-18).** The company's "Sign out after
+  inactivity" (`settings.idle_logout_minutes`, `UserController` -> `idle_logout_minutes`, `lib/idleLogout.js`) applies only to
+  the other logins; per role / per module is how those are handled later (not built yet). The install-wide server lifetime
+  (`settings.session_timeout_minutes` of 999, `SetSessionConfig`) stays empty = one year; production had both off on 2026-11-18.
 - **Customer portal on by default, every company** (user's rule, 2026-10-25):
   `users.portal_enabled` defaults to 1 and `LinkedUserService` sets it for
   customers; only a deleted customer or one who closed their own portal

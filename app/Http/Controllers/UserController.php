@@ -258,7 +258,10 @@ class UserController extends BaseController
             'ui_preferences' => (object) (json_decode((string) $user->ui_preferences, true) ?: []),
             // System Settings -> Defaults -> Users: inactivity logout (minutes,
             // null = off), what users see after login, dashboard sections off.
-            'idle_logout_minutes' => $settings->idle_logout_minutes ? (int) $settings->idle_logout_minutes : null,
+            // Admin and SuperAdmin logins are never signed out for inactivity (user's rule, 2026-11-18); the other
+            // logins follow the company's setting.
+            'idle_logout_minutes' => (! in_array(strtolower((string) $user->type), ['admin', 'superadmin'], true) && $settings->idle_logout_minutes)
+                ? (int) $settings->idle_logout_minutes : null,
             'start_page_mode' => $settings->start_page_mode ?: 'dashboard',
             'dashboard_hidden_sections' => json_decode((string) ($settings->dashboard_hidden_sections ?? '[]'), true) ?: [],
             // System Settings -> Dashboard: the blocks top to bottom (block ids).

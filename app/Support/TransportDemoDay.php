@@ -25,8 +25,8 @@ class TransportDemoDay
 {
     private const MODULE = 'transport';
 
-    /** How far back the demo's departures go (user's request, 2026-11-11: two months; 2026-11-12: six months, to see the trend). */
-    private const HISTORY_DAYS = 182;
+    /** How far back the demo's departures go (user's request, 2026-11-11: two months; 2026-11-12: six months; 2026-11-18: eight). */
+    private const HISTORY_DAYS = 243;
 
     public static function run(int $companyId): array
     {
@@ -38,7 +38,85 @@ class TransportDemoDay
             'control' => self::control($companyId),
             'services' => self::services($companyId),
             'profit' => self::profitData($companyId),
+            'gps' => self::gps($companyId),
         ];
+    }
+
+    /**
+     * The demo's GPS (user's request, 2026-11-18: "agrega datos demo para los gps"): every demo bus on the road leaves its trail
+     * along the route, a position every 2 minutes from its departure (plus its delay leaving), as a hostess's phone would. The
+     * control board calls a bus "no signal" after 5 minutes and the server's scheduler runs every 10, so each run writes up to
+     * 8 minutes ahead. 1 bus in 9 has no GPS (the board shows the last terminal reported). Only demo trips; the company's own
+     * trips and positions are never touched. Positions are kept 30 days (transport:prune-positions).
+     */
+    public static function gps(int $cid): int
+    {
+        $ids = self::ids($cid, 'transport_trips');
+        if (! $ids || ! \Illuminate\Support\Facades\Schema::hasTable('transport_vehicle_positions')) {
+            return 0;
+        }
+        self::statuses($cid);
+        $now = now();
+        $until = $now->copy()->addMinutes(8);
+        $made = 0;
+        foreach (DB::table('transport_trips')->whereIn('id', $ids)->whereNull('deleted_at')->where('status', 'in_progress')->get() as $t) {
+            if (crc32('gps'.$t->id) % 9 === 0) {
+                continue;
+            }
+            $path = \App\Support\TransportLegs::path((int) $t->route_id);
+            if (count($path) < 2) {
+                continue;
+            }
+            $coords = DB::table('transport_locations')->whereIn('id', array_column($path, 'location_id'))->whereNotNull('lat')->whereNotNull('lng')
+                ->get(['id', 'lat', 'lng'])->keyBy('id');
+            $dep = \Carbon\Carbon::parse($t->departure_at);
+            $delay = (int) DB::table('transport_trip_checkpoints')->where('trip_id', $t->id)->whereNotNull('departed_at')->orderBy('id')->value('depart_delay_min');
+            $last = DB::table('transport_vehicle_positions')->where('trip_id', $t->id)->max('recorded_at');
+            $from = $last ? \Carbon\Carbon::parse($last)->addMinutes(2) : $dep->copy()->addMinutes($delay);
+            $from = $from->max($now->copy()->subHours(14));
+            $rows = [];
+            for ($at = $from->copy(); $at->lte($until); $at->addMinutes(2)) {
+                $p = self::along($path, $coords, $dep->diffInMinutes($at, false) - $delay);
+                if (! $p) {
+                    continue;
+                }
+                $rows[] = ['company_id' => $cid, 'trip_id' => $t->id, 'vehicle_id' => $t->vehicle_id, 'user_id' => null, 'lat' => round($p[0], 6), 'lng' => round($p[1], 6),
+                    'speed_kmh' => $p[2] ? 0 : 55 + crc32($t->id.'-'.$at->format('YmdHi')) % 40, 'accuracy_m' => 8 + crc32('acc'.$t->id) % 20, 'source' => 'phone',
+                    'recorded_at' => $at->copy()];
+            }
+            foreach (array_chunk($rows, 500) as $chunk) {
+                DB::table('transport_vehicle_positions')->insert($chunk);
+            }
+            $made += count($rows);
+        }
+
+        return $made;
+    }
+
+    /** Where a bus is $minutes after leaving: [lat, lng, stopped], straight between the route's places with coordinates. */
+    private static function along(array $path, $coords, float $minutes): ?array
+    {
+        $pts = array_values(array_filter($path, fn ($p) => isset($coords[$p['location_id']])));
+        if (! $pts) {
+            return null;
+        }
+        $first = $coords[$pts[0]['location_id']];
+        if ($minutes <= $pts[0]['minutes']) {
+            return [(float) $first->lat, (float) $first->lng, true];
+        }
+        for ($i = 1; $i < count($pts); $i++) {
+            if ($minutes <= $pts[$i]['minutes']) {
+                $span = max(1, $pts[$i]['minutes'] - $pts[$i - 1]['minutes']);
+                $share = max(0, min(1, ($minutes - $pts[$i - 1]['minutes']) / $span));
+                $a = $coords[$pts[$i - 1]['location_id']];
+                $b = $coords[$pts[$i]['location_id']];
+
+                return [(float) $a->lat + ((float) $b->lat - (float) $a->lat) * $share, (float) $a->lng + ((float) $b->lng - (float) $a->lng) * $share, false];
+            }
+        }
+        $end = $coords[$pts[count($pts) - 1]['location_id']];
+
+        return [(float) $end->lat, (float) $end->lng, true];
     }
 
     /**
