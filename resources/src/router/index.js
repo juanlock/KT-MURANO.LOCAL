@@ -788,6 +788,10 @@ const routes = [
             { path: 'transport/today', name: 'transport-today', component: () => import('../pages/transport/TransportToday.vue'), meta: { title: 'Transport_Today', permission: 'transport_supervise' } },
             { path: 'transport/daily', name: 'transport-daily', component: () => import('../pages/transport/TransportDaily.vue'), meta: { title: 'Transport_Daily', permission: ['transport_departures_view', 'transport_departures_manage'] } },
             { path: 'transport/agency', name: 'transport-agency', component: () => import('../pages/transport/TransportAgency.vue'), meta: { title: 'Transport_MyAgency', permission: 'transport_agency_view' } },
+            // Quality control: the complaints board alone, the "Control de Calidad" role's home (2026-11-18).
+            { path: 'transport/quality', name: 'transport-quality', component: () => import('../pages/transport/TransportQuality.vue'), meta: { title: 'Transport_Quality', permission: ['forms_view', 'forms_manage'] } },
+            // How the system works, for presenting it (2026-11-18): opened from Manual -> Your company.
+            { path: 'transport/how-it-works', name: 'transport-how-it-works', component: () => import('../pages/transport/TransportHowItWorks.vue'), meta: { title: 'Transport_HowItWorks', permission: ['dashboard', 'transport_profit', 'transport_monitor', 'transport_agency_view', 'transport_fleet_board'] } },
             { path: 'transport/fleet-board', name: 'transport-fleet-board', component: () => import('../pages/transport/TransportFleetBoard.vue'), meta: { title: 'Transport_FleetBoard', permission: 'transport_fleet_board' } },
             { path: 'transport/monitor', name: 'transport-monitor', component: () => import('../pages/transport/TransportMonitor.vue'), meta: { title: 'Transport_Monitor', permission: 'transport_monitor' } },
             { path: 'transport/my-trip', name: 'transport-my-trip', component: () => import('../pages/transport/TransportMyTrip.vue'), meta: { title: 'Transport_MyTrip', permission: ['transport_report', 'transport_monitor'] } },

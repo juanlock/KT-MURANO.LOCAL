@@ -81,6 +81,10 @@
         <a-button v-if="!hasOwnManual && !NO_TYPE_MANUAL.includes(shownType)" block :href="pdfUrl" target="_blank" style="margin-bottom: 14px">
           <DownloadOutlined /> {{ L('Download the manual (PDF)', 'Descargar el manual (PDF)') }}
         </a-button>
+        <!-- How the system works, in pictures, for presenting it (2026-11-18): transport companies. -->
+        <a-button v-if="auth.moduleEnabled('transport') && !isSystemView" block style="margin-bottom: 14px" @click="openHow">
+          <ApartmentOutlined /> {{ L('How it works (presentation)', 'Cómo funciona (presentación)') }}
+        </a-button>
         <div class="md-label">{{ L('What Murano does for you', 'Lo que Murano hace por usted') }}</div>
         <ul class="md-adv">
           <li v-for="(p, i) in adv.points" :key="'p' + i"><strong>{{ p.t[lang] }}.</strong> {{ p.d[lang] }}</li>
@@ -127,10 +131,10 @@
  * Spanish, else English) and can be switched in the drawer.
  */
 import { ref, computed, watch, defineComponent, h } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   CalculatorOutlined, SettingOutlined, DownloadOutlined, PieChartOutlined, FullscreenOutlined,
-  GlobalOutlined, BellOutlined, FieldTimeOutlined, LogoutOutlined, UserOutlined, BankOutlined, CopyOutlined,
+  GlobalOutlined, BellOutlined, FieldTimeOutlined, LogoutOutlined, UserOutlined, BankOutlined, CopyOutlined, ApartmentOutlined,
 } from '@ant-design/icons-vue';
 import OpenBookIcon from './icons/OpenBookIcon.vue';
 import { MANUAL, MANUAL_UPDATED } from '../manual/manual';
@@ -142,11 +146,17 @@ import http from '../lib/http';
 import { getActingCompanyId } from '../lib/actingCompany';
 
 const props = defineProps({ open: { type: Boolean, default: false } });
-defineEmits(['close']);
+const emit = defineEmits(['close']);
+// "How it works (presentation)": the diagrams page, the drawer closes (2026-11-18).
+function openHow() {
+  emit('close');
+  router.push('/transport/how-it-works');
+}
 
 const auth = useAuthStore();
 const ui = useUiStore();
 const route = useRoute();
+const router = useRouter();
 
 const appLang = () => (String(ui.locale || 'en').startsWith('es') ? 'es' : 'en');
 const lang = ref(appLang());

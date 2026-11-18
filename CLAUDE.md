@@ -450,6 +450,12 @@ the start of each session).
   `audit_logs` keeps the last 6 months; `audit:archive` (daily 03:50) moves older rows to `audit_logs_archive` (same structure and ids,
   one transaction per batch); the page reads it with "Archivo (más antiguo)".
   A new log-like table that should not be recorded joins `AuditTrail::SKIP`.
+- **"Control de Calidad" is a standard role of every company (user's rule, 2026-11-18): complaints are handled by quality
+  control, never by the owner.** Its home is the complaints board (`/transport/quality`, `TransportQuality.vue`; forms_view) and
+  it opens the forms; access login `{slug}-calidad@kcoltech.com` (access password), part of every demo. **Done only for Turismo
+  Cautivo** (migration 2026_11_18_150000: role, turismo-calidad@, Daniel = administracion@transportescautivo.com moved to it).
+  **Pending: apply it to every company** (CompanyRoles / CompanyLogins + the demos; a non-transport company needs a complaints
+  page of its own -- the board today reads the transport complaints form).
 - **Admins and the SuperAdmin are never signed out for inactivity (user's rule, 2026-11-18).** The company's "Sign out after
   inactivity" (`settings.idle_logout_minutes`, `UserController` -> `idle_logout_minutes`, `lib/idleLogout.js`) applies only to
   the other logins; per role / per module is how those are handled later (not built yet). The install-wide server lifetime
