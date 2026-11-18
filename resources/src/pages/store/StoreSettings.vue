@@ -257,15 +257,15 @@
 
         <!-- ===== Front page: section builder or imported page ===== -->
         <a-tab-pane v-if="inScope('front_page')" key="front_page">
-          <template #tab><span class="stab"><HomeOutlined /> Front page</span></template>
+          <template #tab><span class="stab"><HomeOutlined /> {{ uiEs ? 'Portada' : 'Front page' }}</span></template>
           <a-card size="small" :bordered="false">
             <a-radio-group v-model:value="front.mode" style="width: 100%">
               <a-radio value="sections" class="fp-option">
-                <strong>Our website theme (sections)</strong>
+                <strong>{{ uiEs ? 'Nuestro tema de sitio web (secciones)' : 'Our website theme (sections)' }}</strong>
                 <div class="fp-help">
-                  The website's front page is built with our theme, from sections you create and edit — hero, gallery,
-                  portfolio, collections, banners and more — in the <em>Hero</em> and <em>{{ $t('Homepage_Blocks') }}</em> tabs,
-                  plus your own pages and menus.
+                  {{ uiEs
+                    ? 'La portada se arma con nuestro tema, a partir de secciones que usted crea y edita (portada, galería, portafolio, colecciones, banners y más) en las pestañas Hero y ' + $t('Homepage_Blocks') + ', además de sus propias páginas y menús.'
+                    : 'The website\'s front page is built with our theme, from sections you create and edit — hero, gallery, portfolio, collections, banners and more — in the Hero and ' + $t('Homepage_Blocks') + ' tabs, plus your own pages and menus.' }}
                 </div>
               </a-radio>
               <a-radio value="onepage" class="fp-option">
@@ -277,10 +277,11 @@
                 </div>
               </a-radio>
               <a-radio value="imported" class="fp-option">
-                <strong>Import your existing website from a URL</strong>
+                <strong>{{ uiEs ? 'Sitio web importado (desde una dirección o un sitio listo)' : 'Imported website (from an address or a ready-made one)' }}</strong>
                 <div class="fp-help">
-                  Copies your current website (the front page and the pages it links to) keeping its original design.
-                  If you also sell online, a small bar with <em>Shop</em>, <em>Cart</em> and <em>My Account</em> links to your online store.
+                  {{ uiEs
+                    ? 'Copia su sitio web actual (la portada y las páginas que enlaza) con su diseño original, o usa uno de los sitios listos de abajo. Si también vende en línea, una pequeña barra enlaza a Tienda, Carrito y Mi cuenta.'
+                    : 'Copies your current website (the front page and the pages it links to) keeping its original design, or uses one of the ready-made websites below. If you also sell online, a small bar links to Shop, Cart and My Account.' }}
                 </div>
               </a-radio>
             </a-radio-group>
@@ -291,7 +292,7 @@
             </div>
 
             <template v-if="front.mode === 'imported'">
-              <a-form-item label="Import from (the address of your existing website)" style="margin-top: 12px; max-width: 560px">
+              <a-form-item :label="uiEs ? 'Importar desde (la dirección de su sitio web actual)' : 'Import from (the address of your existing website)'" style="margin-top: 12px; max-width: 560px">
                 <a-input v-model:value="front.url" placeholder="https://www.example.com" />
               </a-form-item>
               <a-alert
@@ -319,12 +320,12 @@
                   :disabled="front.mode === 'imported' ? !front.url : front.saved_mode === front.mode"
                   @click="() => { if (!(front.mode === 'imported' && front.imported_at)) applyFrontPage(); }"
                 >
-                  {{ front.mode === 'imported' ? 'Import now'
+                  {{ front.mode === 'imported' ? (uiEs ? 'Importar ahora' : 'Import now')
                     : front.mode === 'onepage' ? (uiEs ? 'Usar la plantilla de una página' : 'Use the one-page template')
-                    : 'Use our website theme' }}
+                    : (uiEs ? 'Usar nuestro tema' : 'Use our website theme') }}
                 </a-button>
               </a-popconfirm>
-              <span v-if="front.mode !== front.saved_mode" class="fp-help">Not applied yet.</span>
+              <span v-if="front.mode !== front.saved_mode" class="fp-help">{{ uiEs ? 'Todavía no aplicado.' : 'Not applied yet.' }}</span>
             </a-space>
 
             <!-- One-page template: design, sections, texts (prepared and previewed before applying) -->
@@ -334,8 +335,9 @@
             </template>
 
             <!-- Ready-made websites (KcolTech's designs, public/website-templates): use one as the imported website -->
-            <template v-if="front.mode === 'imported' && siteTemplates.length">
-              <a-divider orientation="left">{{ uiEs ? 'O empiece con un sitio web listo' : 'Or start from a ready-made website' }}</a-divider>
+            <!-- Shown whatever option is picked above (user, 2026-11-17: the designs were hidden behind "Import from a URL") -->
+            <template v-if="siteTemplates.length">
+              <a-divider orientation="left">{{ uiEs ? 'Sitios web listos para usar' : 'Ready-made websites' }}</a-divider>
               <div class="fp-help" style="margin-bottom: 10px">
                 {{ uiEs
                   ? 'Diseños completos hechos por KcolTech. Elija uno y luego cambie sus textos, imágenes y enlaces en Sitio web › Páginas. El sitio actual se guarda antes en Sitios guardados.'
@@ -1412,7 +1414,12 @@ async function useSiteTemplate(tp) {
       mode: 'imported', saved_mode: 'imported', url: '', saved_url: '',
       imported_at: st.front_page_imported_at || new Date().toISOString(),
     });
-    message.success(uiEs.value ? `Su sitio web ahora es "${tp.name}". Edítelo en Sitio web › Páginas.` : `Your website is now "${tp.name}". Edit it in Website › Pages.`, 6);
+    const fm = res.forms || {};
+    const extra = fm.forms
+      ? (uiEs.value ? ` Su formulario de contacto quedó conectado al formulario "Contáctenos" (módulo Formularios encendido): los mensajes llegan a Formularios.`
+        : ` Its contact form now uses your "Contact us" form (Forms module on): messages arrive in Forms.`)
+      : '';
+    message.success((uiEs.value ? `Su sitio web ahora es "${tp.name}", con su logo y nombre. Edítelo en Sitio web › Páginas.` : `Your website is now "${tp.name}", with your logo and name. Edit it in Website › Pages.`) + extra, 10);
   } catch (e) {
     message.error(e?.data?.message || (uiEs.value ? 'No se pudo usar este sitio web.' : 'Could not use this website.'), 8);
   } finally {

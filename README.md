@@ -203,7 +203,25 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
-### 2026-11-17 (Thundera) — not in production yet
+### 2026-11-17 (Optimum)
+
+- **Ready-made websites become the company's own:** Website → Settings →
+  Front page now always shows the gallery of 31 ready-made websites (it was
+  hidden behind "import from an address"); using one puts the company's logo
+  (also logos drawn by the stylesheet), name, e-mail and phone in its copy.
+- **Their contact forms work:** a ready-made website with a contact form
+  switches the Forms module on, creates the company's "Contáctenos" form and
+  connects it, so the visitors' messages arrive in Forms (22 of the 31 have one).
+- **No Shop / Cart / My Account bar** on a website whose company has no online
+  store.
+- **"Quotations" was translated as "Citas"** in Spanish: now "Cotizaciones".
+- **Alo Mundo (call center demo):** website with a ready-made design, only the
+  call center modules on, and a 4-page call center flyer (access levels of the
+  supervisor and the agent, security) in the manual's book.
+
+Setup: `php artisan migrate`, `npm run build`.
+
+### 2026-11-17 (Thundera)
 
 - **New module: Call center** (off by default; on for call center companies,
   e.g. Alo Mundo): campaigns that pick their leads by age, sex, location and
@@ -268,33 +286,6 @@ Setup: `php artisan migrate`, `npm run build`.
   buses), presentation moved to Monday 2026-11-16.
 
 Setup: `npm run build`.
-
-### 2026-11-13 (Thundera)
-
-- **Pilot alerts instead of a sum of hours** (Transport board, Fleet board):
-  each pilot's alerts in the period -- more than 12 h in a row at the wheel,
-  30 h in 2 days, 46 h in 3 days, no swap with the copilot on a trip over 6 h,
-  two buses at once -- and a click shows why (dates, hours, trips). Limits per
-  company (Manager / IT Admin).
-- **Pilot swap on long trips:** "My trip" tells the pilot when to hand over the
-  wheel and to whom ("Cambio hecho", bus stopped); the control board counts the
-  late swaps and shows an icon per bus.
-- **Fleet supervisor:** a new role and login with its own "Tablero de flota"
-  (pilot alerts, control board, transport board) plus maintenance, parts,
-  fuel and vehicles; no sales or profit.
-- **Turismo's demo crews** are realistic: 65 pilots and 33 hostesses who rest
-  between trips and are never on two buses at once.
-- **Spanish everywhere:** the server's messages and validation errors follow
-  the screen's language; meeting and asset emails go in the company's
-  language; the last PDF labels are translated.
-- **Dashboard (transport):** filters in a light bar, tabs as pills in the
-  company's colour, all tabs in one row on a laptop; date buttons in one style
-  (Hoy, Esta semana, Último mes...).
-- **A company's own flyer and manual** open as a real PDF address with their
-  name (no more "blob:"); Turismo's 15-page flyer for its Director is shown to
-  the Manager, IT Admin and SuperAdmin only; the basic tourism manual was removed.
-
-Setup: `php artisan migrate`, `npm run build`.
 ---
 
 ## Session protocols

@@ -55,7 +55,10 @@ class FrontPage
         }
 
         $html = file_get_contents(public_path($s->front_page_path));
-        if (! str_contains($html, self::BAR_START)) {
+        // The Shop / Cart / My Account bar only for a company with the online store on (2026-11-17: Alo Mundo has no store).
+        if (! \App\Support\ModuleFlags::enabled($companyId, 'Store')) {
+            $html = preg_replace('/'.preg_quote(self::BAR_START, '/').'.*?'.preg_quote(self::BAR_END, '/').'/s', '', $html);
+        } elseif (! str_contains($html, self::BAR_START)) {
             $html = self::withStoreBar($html);
         }
         // Served at "/" (or the store path), not from its folder: point the

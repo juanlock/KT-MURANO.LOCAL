@@ -97,9 +97,13 @@ class SiteImporter
         $abs = public_path($rel);
         \Illuminate\Support\Facades\File::copyDirectory(\App\Support\WebsiteTemplates::absPath($key), $abs);
         @unlink($abs.'/'.\App\Support\WebsiteTemplates::THUMB);
+        // The company's logo, name, e-mail and phone in its copy (2026-11-17).
+        $brand = \App\Support\WebsiteTemplateBrand::apply($companyId, $abs, $tpl);
+        // Its contact forms -> the company's "Contáctenos" form, the Forms module switched on (2026-11-17).
+        $forms = \App\Support\WebsiteTemplateForms::apply($companyId, $abs);
         $page = self::upsertHome($companyId, $rel.'/'.$tpl['entry']);
 
-        return ['pages' => (int) ($tpl['pages'] ?? 1), 'assets' => (int) ($tpl['files'] ?? 0), 'path' => $rel, 'entry' => $rel.'/'.$tpl['entry'], 'page_id' => $page->id];
+        return ['pages' => (int) ($tpl['pages'] ?? 1), 'assets' => (int) ($tpl['files'] ?? 0), 'path' => $rel, 'entry' => $rel.'/'.$tpl['entry'], 'page_id' => $page->id, 'brand' => $brand, 'forms' => $forms];
     }
 
     /**

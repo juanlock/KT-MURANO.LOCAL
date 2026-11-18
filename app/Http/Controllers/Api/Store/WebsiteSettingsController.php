@@ -299,6 +299,7 @@ class WebsiteSettingsController extends Controller
         \App\Services\FrontPage::setImported($cid, null, $r['entry']);
 
         return response()->json(['ok' => true, 'mode' => 'imported', 'pages' => $r['pages'], 'assets' => $r['assets'], 'template' => $tpl['name'],
+            'brand' => $r['brand'] ?? null, 'forms' => $r['forms'] ?? null,
             'snapshots' => WebsiteSnapshots::list($cid),
             'settings' => StoreSetting::forCompany($cid)->only(['front_page_mode', 'front_page_url', 'front_page_path', 'front_page_imported_at'])]);
     }
