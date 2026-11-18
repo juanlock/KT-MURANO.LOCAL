@@ -78,6 +78,19 @@ class CallCenterLeadsController extends CallCenterBase
         $this->allow($request, 'callcenter_leads', 'callcenter_campaigns');
         $cid = $this->company($request);
         $age = CallCenter::ageSql('l');
+        $demo = $this->demoLeadLimit($request, $cid);
+        if ($demo > 0) {
+            // Always the same first leads: searching, filtering or paging can't reach the others.
+            $rows = DB::table('cc_leads as l')->where('l.company_id', $cid)->whereNull('l.deleted_at')
+                ->select('l.*')->selectRaw("$age as age_now")->orderBy('l.id')->limit($demo)->get();
+
+            return response()->json([
+                'rows' => $rows->map(fn ($l) => $this->out($l) + ['age_now' => $l->age_now !== null ? (int) $l->age_now : null,
+                    'calls' => 0, 'last_call_at' => null, 'last_result' => null, 'last_result_label' => null]),
+                'totalRows' => $rows->count(),
+                'demo_lock' => ['limit' => $demo, 'message' => __('This is a demo: you are not authorized to use this information. Contact KcolTech to acquire the licence to use the application.')],
+            ]);
+        }
         $q = DB::table('cc_leads as l')->where('l.company_id', $cid)->whereNull('l.deleted_at')
             ->when($request->filled('search'), function ($q) use ($request) {
                 $s = '%'.trim($request->search).'%';
@@ -191,6 +204,7 @@ class CallCenterLeadsController extends CallCenterBase
     {
         $this->allow($request, 'callcenter_leads');
         $cid = $this->company($request);
+        abort_if($this->demoLeadLimit($request, $cid) > 0, 423, __('This is a demo: you are not authorized to use this information. Contact KcolTech to acquire the licence to use the application.'));
         $lead = DB::table('cc_leads')->where('company_id', $cid)->whereNull('deleted_at')->find($id);
         abort_unless($lead, 404);
         $d = $this->validated($request);
@@ -211,6 +225,7 @@ class CallCenterLeadsController extends CallCenterBase
     {
         $this->allow($request, 'callcenter_leads');
         $cid = $this->company($request);
+        abort_if($this->demoLeadLimit($request, $cid) > 0, 423, __('This is a demo: you are not authorized to use this information. Contact KcolTech to acquire the licence to use the application.'));
         abort_unless(DB::table('cc_leads')->where('company_id', $cid)->whereNull('deleted_at')->where('id', $id)->exists(), 404);
         DB::transaction(function () use ($id) {
             DB::table('cc_leads')->where('id', $id)->update(['deleted_at' => now()]);

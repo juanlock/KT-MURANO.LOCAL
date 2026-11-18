@@ -12,7 +12,7 @@
     <a-spin :spinning="loading && !d">
       <template v-if="d">
         <div class="tiles">
-          <div v-for="t in tiles" :key="t.key" class="tile">
+          <div v-for="t in tiles" :key="t.key" class="tile" :style="{ '--tone': t.cls === 'warn' ? '#d4380d' : t.tone }">
             <div class="t-label">{{ t.label }}
               <a-tooltip v-if="t.help" :title="t.help"><InfoCircleOutlined class="info" /></a-tooltip>
             </div>
@@ -104,15 +104,15 @@ const campaignOptions = computed(() => sortByLabel(campaigns.value.map(c => ({ v
 const k = computed(() => d.value?.kpis || {});
 const pct = v => (v == null ? '—' : `${v} %`);
 const tiles = computed(() => [
-  { key: 'calls', label: tr('Calls', 'Llamadas'), value: k.value.calls },
-  { key: 'contacts', label: tr('Contacts', 'Contactos'), value: k.value.contacts, sub: pct(k.value.contact_rate), help: tr('The person answered (sale, interested, not interested, callback...).', 'La persona contestó (venta, interesado, no interesado, volver a llamar...).') },
-  { key: 'sales', label: tr('Sales', 'Ventas'), value: k.value.sales, cls: 'ok', sub: k.value.amount ? fmt.money(k.value.amount) : '' },
-  { key: 'conv', label: tr('Conversion', 'Conversión'), value: pct(k.value.conversion), help: tr('Sales out of contacts.', 'Ventas sobre contactos.') },
-  { key: 'aht', label: tr('Average talk', 'Tiempo medio'), value: duration(k.value.aht_sec), help: tr('Average length of the calls answered (AHT).', 'Duración media de las llamadas contestadas (TMO).') },
-  { key: 'cph', label: tr('Calls / hour', 'Llamadas / hora'), value: k.value.calls_per_hour ?? '—', sub: `${k.value.work_h ?? 0} h ${tr('worked', 'trabajadas')}` },
-  { key: 'occ', label: tr('Occupancy', 'Ocupación'), value: pct(k.value.occupancy), help: tr('Time talking out of the time on shift.', 'Tiempo hablando sobre el tiempo en turno.') },
-  { key: 'pause', label: tr('Pauses', 'Pausas'), value: pct(k.value.pause_pct), cls: (k.value.pause_pct || 0) > 15 ? 'warn' : '' },
-  { key: 'pending', label: tr('Leads to call', 'Leads por llamar'), value: k.value.pending },
+  { key: 'calls', tone: '#1677ff', label: tr('Calls', 'Llamadas'), value: k.value.calls },
+  { key: 'contacts', tone: '#13a8a8', label: tr('Contacts', 'Contactos'), value: k.value.contacts, sub: pct(k.value.contact_rate), help: tr('The person answered (sale, interested, not interested, callback...).', 'La persona contestó (venta, interesado, no interesado, volver a llamar...).') },
+  { key: 'sales', tone: '#389e0d', label: tr('Sales', 'Ventas'), value: k.value.sales, sub: k.value.amount ? fmt.money(k.value.amount) : '' },
+  { key: 'conv', tone: '#722ed1', label: tr('Conversion', 'Conversión'), value: pct(k.value.conversion), help: tr('Sales out of contacts.', 'Ventas sobre contactos.') },
+  { key: 'aht', tone: '#2f54eb', label: tr('Average talk', 'Tiempo medio'), value: duration(k.value.aht_sec), help: tr('Average length of the calls answered (AHT).', 'Duración media de las llamadas contestadas (TMO).') },
+  { key: 'cph', tone: '#08979c', label: tr('Calls / hour', 'Llamadas / hora'), value: k.value.calls_per_hour ?? '—', sub: `${k.value.work_h ?? 0} h ${tr('worked', 'trabajadas')}` },
+  { key: 'occ', tone: '#d46b08', label: tr('Occupancy', 'Ocupación'), value: pct(k.value.occupancy), help: tr('Time talking out of the time on shift.', 'Tiempo hablando sobre el tiempo en turno.') },
+  { key: 'pause', tone: '#d48806', label: tr('Pauses', 'Pausas'), value: pct(k.value.pause_pct), cls: (k.value.pause_pct || 0) > 15 ? 'warn' : '', help: (k.value.pause_pct || 0) > 15 ? tr('Over 15 % of the shift.', 'Más del 15 % del turno.') : '' },
+  { key: 'pending', tone: '#c41d7f', label: tr('Leads to call', 'Leads por llamar'), value: k.value.pending },
 ]);
 const maxResult = computed(() => Math.max(1, ...(d.value?.results || []).map(r => r.n)));
 
@@ -175,11 +175,16 @@ onBeforeUnmount(() => { clearInterval(refresh); clearInterval(tick); });
 <style scoped>
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
-.tile { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; padding: 8px 10px; background: var(--card-bg, transparent); }
-.t-label { font-size: 12px; opacity: 0.7; }
-.t-value { font-size: 22px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.t-value.ok { color: #389e0d; }
-.t-value.warn { color: #d46b08; }
+/* Each tile has its colour (2026-11-18): accent on the left, a light tint of it behind, the figure in that colour. */
+.tile {
+  --tone: #1677ff;
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
+  border-left: 4px solid var(--tone);
+  border-radius: 8px; padding: 8px 10px;
+  background: color-mix(in srgb, var(--tone) 9%, transparent);
+}
+.t-label { font-size: 12px; opacity: 0.8; }
+.t-value { font-size: 22px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--tone); }
 .t-sub { font-size: 12px; opacity: 0.7; }
 .info { opacity: 0.5; margin-left: 2px; }
 .mt10 { margin-top: 10px; }

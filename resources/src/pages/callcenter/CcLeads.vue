@@ -8,6 +8,8 @@
       </template>
     </PageHeader>
 
+    <!-- Demo lock (2026-11-18): only the server's few leads, nothing can be selected, copied or dragged. -->
+    <div :class="{ nocopy: demoLock }" @copy="block" @cut="block" @contextmenu="block" @dragstart="block" @selectstart="block">
     <DataTable :crud="crud" :columns="columns" compact-toolbar>
       <template #filters>
         <a-select v-model:value="filters.region" :options="toOpts(opts.regions)" allow-clear show-search :placeholder="tr('Region', 'Departamento')" style="width: 150px" @change="crud.reload" />
@@ -35,7 +37,8 @@
       </template>
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'name'">
-          <a @click="openForm(record)"><b>{{ record.name || '—' }}</b></a>
+          <b v-if="demoLock">{{ record.name || '—' }}</b>
+          <a v-else @click="openForm(record)"><b>{{ record.name || '—' }}</b></a>
           <a-tag v-if="record.do_not_call" color="red" class="ml4">{{ tr('Do not call', 'No llamar') }}</a-tag>
           <div class="muted small">{{ record.document || '' }}</div>
         </template>
@@ -55,10 +58,14 @@
           <span v-else class="muted">{{ tr('Not called', 'Sin llamar') }}</span>
         </template>
         <template v-else-if="column.key === 'actions'">
-          <a-button size="small" danger @click="crud.remove(record, { label: record.name })"><DeleteOutlined /></a-button>
+          <a-button v-if="!demoLock" size="small" danger @click="crud.remove(record, { label: record.name })"><DeleteOutlined /></a-button>
         </template>
       </template>
     </DataTable>
+    </div>
+    <a-alert v-if="demoLock" type="error" show-icon class="mt12 demo-lock" :message="demoLock.message">
+      <template #icon><LockOutlined /></template>
+    </a-alert>
 
     <!-- One lead. -->
     <a-modal :open="!!editing" :title="editing?.id ? tr('Edit lead', 'Editar lead') : tr('New lead', 'Nuevo lead')" width="720px" :confirm-loading="saving" @ok="save" @cancel="editing = null">
@@ -170,7 +177,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
-import { PlusOutlined, DeleteOutlined, UploadOutlined, InboxOutlined, DownloadOutlined, FilterOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, DeleteOutlined, UploadOutlined, InboxOutlined, DownloadOutlined, FilterOutlined, LockOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
@@ -192,6 +199,17 @@ const opts = ref({ regions: [], provinces: [], districts: [], sources: [], extra
 const campaigns = ref([]);
 const editing = ref(null);
 const saving = ref(false);
+
+// Demo lock: the server says so (settings.cc_demo_lead_limit; never for the SuperAdmin).
+const demoLock = computed(() => crud.payload.value?.demo_lock || null);
+function block(e) {
+  if (!demoLock.value) return;
+  const t = e.target;
+  // the search box and the filters stay usable
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && e.type !== 'copy' && e.type !== 'cut') return;
+  e.preventDefault();
+  if (e.type === 'copy' || e.type === 'cut') message.warning(demoLock.value.message);
+}
 
 const toOpts = list => sortByLabel((list || []).map(v => ({ value: v, label: v })));
 const activeFilters = computed(() => Object.entries(filters.value).filter(([k, v]) => k !== 'region' && v !== undefined && v !== null && v !== '').length);
@@ -345,4 +363,7 @@ onMounted(async () => {
 .lead-form :deep(.ant-form-item) { margin-bottom: 10px; }
 .foot { display: flex; justify-content: flex-end; gap: 8px; }
 .bad { color: #cf1322; }
+.nocopy :deep(.ant-table) { user-select: none; -webkit-user-select: none; }
+.demo-lock { font-weight: 600; }
+@media print { .nocopy { display: none; } }
 </style>

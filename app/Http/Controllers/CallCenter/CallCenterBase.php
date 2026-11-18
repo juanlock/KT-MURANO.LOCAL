@@ -45,6 +45,21 @@ abstract class CallCenterBase extends Controller
         return app()->getLocale() === 'es' ? 'es' : 'en';
     }
 
+    /**
+     * Demo lock (user's rule, 2026-11-18, Alo Mundo: the demo holds real leads from the client's Excel): when the company's
+     * `settings.cc_demo_lead_limit` is set, the leads list gives only that many leads -- always the same ones, whatever the
+     * search, filter, sort or page -- and they can't be edited or deleted; the screen blocks copying and shows the licence
+     * notice. 0 / null = off. The SuperAdmin is never limited.
+     */
+    protected function demoLeadLimit(Request $request, int $cid): int
+    {
+        if (optional($request->user('api'))->type === 'SuperAdmin') {
+            return 0;
+        }
+
+        return (int) \Illuminate\Support\Facades\DB::table('settings')->where('company_id', $cid)->value('cc_demo_lead_limit');
+    }
+
     /** The standard table's paging and sorting (DataTable / useCrudTable). */
     protected function page($q, Request $request, array $sortable, string $default, int $max = 500): array
     {

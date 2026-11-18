@@ -30,7 +30,7 @@ Run Protocol A Dormir (user's rule, 2026-10-20). In this order. Stop and report 
    - **Body**: an overview; one bullet per `kt_logs` row since the last commit (`#<id> <category>: <summary>` + lines from its `changes_detail`); "Migrations" (pending on production); "Not deployed -- production unchanged"; `Backups: <archive>/<PC>/<file>.zip (<size>) + office_emails 1/2/3; production: HOSTINGER/<file>.zip (<size>, not committed)`.
    - Write it to a temp file, `git commit -F <file>`. Never `--no-verify`, never amend.
 
-6. **Push** -- `git push` to `origin`. Rejected because the remote is ahead: `git pull --no-rebase`, resolve only trivial conflicts (ask for anything real), push again. **Never force-push.** No GitHub credentials ("could not read Username"): never ask for a password -- tell the user to press **Push origin** in GitHub Desktop.
+6. **Push** -- `git push` to `origin`. Rejected because the remote is ahead: `git pull --no-rebase`, resolve only trivial conflicts (ask for anything real), push again. **Never force-push.** **Claude pushes by SSH, never the user by hand** (user's rule, 2026-11-17): same per-PC key and `.git/config` as Pa Llevar's step 8 (`~/.ssh/id_ed25519_github`, `remote.origin.pushurl` SSH, `core.sshCommand`); a PC without them: create and set them, show the user the public key to paste in GitHub, push once it's there. Never ask for a password or token.
 
 7. **Report -- in the chat**: PC, local backup (files + sizes), production backup (file + size), kt_logs rows added, README block, commit hash + subject, push result, what was left out and why, and a reminder that **production was not updated** (Pa Llevar does that when the work is ready).
 
