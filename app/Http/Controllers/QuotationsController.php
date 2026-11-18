@@ -699,6 +699,7 @@ class QuotationsController extends BaseController
         $quote['client_tax'] = $quotation_data['client']->tax_number;
         $quote['warehouse'] = $quotation_data['warehouse']->name;
         $quote['GrandTotal'] = number_format($quotation_data['GrandTotal'] * $docCurrency['rate'], helpers::price_decimals(), '.', '');
+        $quote['notes'] = $Quotation->notes; // shown like the invoice's notes (2026-11-18)
 
         // Converted flag (null when the linked sale no longer exists, so the
         // quotation becomes convertible again — same rule as the list).
@@ -770,6 +771,7 @@ class QuotationsController extends BaseController
             $data['imei_number'] = $detail->imei_number;
             $data['note'] = $detail->note;
             $data['pack_name'] = $detail->pack_name;
+            $data['pack_multiplier'] = $detail->pack_multiplier ?? 1;
             $data['is_batch_tracked'] = (bool) ($detail['product']['is_batch_tracked'] ?? false);
             $data['batches'] = array_map(function ($b) use ($docCurrency) {
                 if (isset($b['unit_cost'])) {
@@ -863,6 +865,7 @@ class QuotationsController extends BaseController
         $quote['Ref'] = $Quotation->Ref;
         $quote['date'] = $Quotation->date.' '.$Quotation->time;
         $quote['GrandTotal'] = number_format($Quotation->GrandTotal * $docCurrency['rate'], helpers::price_decimals(), '.', '');
+        $quote['notes'] = $Quotation->notes; // shown like the invoice's notes (2026-11-18)
 
         $detail_id = 0;
         foreach ($Quotation['details'] as $detail) {
@@ -926,6 +929,7 @@ class QuotationsController extends BaseController
             $data['imei_number'] = $detail->imei_number;
             $data['note'] = $detail->note;
             $data['pack_name'] = $detail->pack_name;
+            $data['pack_multiplier'] = $detail->pack_multiplier ?? 1;
 
             $details[] = $data;
         }
@@ -990,6 +994,7 @@ class QuotationsController extends BaseController
         $quote['Ref'] = $Quotation->Ref;
         $quote['date'] = $Quotation->date.' '.$Quotation->time;
         $quote['GrandTotal'] = number_format($Quotation->GrandTotal * $docCurrency['rate'], helpers::price_decimals(), '.', '');
+        $quote['notes'] = $Quotation->notes; // shown like the invoice's notes (2026-11-18)
 
         $detail_id = 0;
         foreach ($Quotation['details'] as $detail) {
@@ -1053,6 +1058,7 @@ class QuotationsController extends BaseController
             $data['imei_number'] = $detail->imei_number;
             $data['note'] = $detail->note;
             $data['pack_name'] = $detail->pack_name;
+            $data['pack_multiplier'] = $detail->pack_multiplier ?? 1;
 
             $details[] = $data;
         }
@@ -1342,6 +1348,7 @@ class QuotationsController extends BaseController
             $data['product_pack_id'] = $detail->product_pack_id;
             $data['pack_multiplier'] = (float) ($detail->pack_multiplier ?? 1) ?: 1;
             $data['pack_name'] = $detail->pack_name;
+            $data['pack_multiplier'] = $detail->pack_multiplier ?? 1;
 
             if ($detail->tax_method == '1') {
                 $data['Net_price'] = $detail->price - $data['DiscountNet'];
