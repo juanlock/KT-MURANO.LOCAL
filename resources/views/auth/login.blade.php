@@ -283,17 +283,11 @@
 
       /* The product's name in the card (2026-11-19: the user missed "Murano"; it replaces the repeated AI mark and
          "Welcome back"): the wordmark with KcolTech's gradient bar under it. */
-      .murano-word { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; margin: 0 0 0.9rem; }
-      .murano-word b {
-        font-size: clamp(2.4rem, 3.4vw, 3.1rem); font-weight: 900; letter-spacing: 0.08em; line-height: 1;
-        color: var(--navy);
-      }
-      .murano-word i {
-        display: block; width: 72%; height: 5px; border-radius: 3px;
-        background: linear-gradient(90deg, #22d3ee, #6366f1 40%, #d946ef 60%, #fb923c 85%, #facc15);
-      }
-      .murano-word small { font-size: 0.78rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; }
-      @media (max-width: 640px) { .murano-word b { font-size: 2.1rem; } }
+      /* The user's Murano logo (KT-TOOLS/murano/logo/murano-logo/login.png, resized to 900 px). */
+      .murano-word { display: flex; justify-content: center; margin: 0 0 0.6rem; }
+      /* multiply: the picture's near-white background disappears into the white card. */
+      .murano-word img { display: block; width: 82%; max-width: 360px; height: auto; mix-blend-mode: multiply; }
+      @media (max-width: 640px) { .murano-word img { width: 88%; } }
 
       .auth-card-title {
         font-size: clamp(1.75rem, 2.3vw, 2.3rem);
@@ -769,7 +763,7 @@
             @if ($stockLogo)
               {{-- Murano's own login (2026-11-19, the user): the product's name instead of the AI mark (already in the hero's logo)
                    and of "Welcome back". --}}
-              <h1 class="murano-word" aria-label="Murano"><b>MURANO</b><i></i><small>{{ app()->getLocale() === 'es' ? 'Sistema de gestión' : 'Business management' }}</small></h1>
+              <h1 class="murano-word"><img src="{{ asset('images/login/murano-wordmark.png') }}" alt="Murano" width="900" height="301"></h1>
             @else
               <div class="auth-logo">
                 <img src="{{ $loginLogoUrl }}" alt="{{ $app_settings->app_name ?? 'KcolTech - Murano' }}">
