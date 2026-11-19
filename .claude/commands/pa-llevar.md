@@ -23,7 +23,7 @@ Run Protocol Pa Llevar ("to go") -- the end-of-day counterpart of Wake-up (`.cla
 
 5a. **Pending production backups** (user's rule, 2026-11-18) -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_prod_backup_pending.php';"` **in the background** (never waited for): the backups made on the server before the day's writes (`murano_deploy/backups_pending/`) are downloaded, made phpMyAdmin-ready and zipped into `<archive>/production/`; a failed one stays pending. Report the count when it finishes, or "still running".
 
-5b. **KT-TOOLS to Google Drive** -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): what is in KT-TOOLS outside git, both ways; newest wins, nothing is deleted. Report the counts.
+5b. *(KT-TOOLS: moved to the last step, 12.)*
 
 6. **README** -- `README.md` (the page GitHub shows), from the `kt_logs` rows being committed:
    - **"Latest changes"**: a `### <YYYY-MM-DD> (<location>)` block at the top (extend today's if it exists): one bullet per change the user would notice, with a short line of detail (where it is, what it does, who can use it), the user's language, no file names; then `Setup: php artisan migrate` / `npm run build` / `composer install` when needed. Keep the **last 5 blocks**.
@@ -44,3 +44,5 @@ Run Protocol Pa Llevar ("to go") -- the end-of-day counterpart of Wake-up (`.cla
 11. **Never shut the PC down** (user's rule, 2026-11-03, replacing 2026-10-25's automatic shutdown): no protocol turns the PC off. Only when the user asks for it in that moment ("apaga la PC") -- then `shutdown /s /t 120` and say `shutdown /a` cancels it.
 
 Why this exists: the user works on Murano from several PCs. One phrase at the end of the day leaves production and dev aligned, the work logged and documented, the database backed up and everything on GitHub, so the next PC's Wake-up starts from the same code, history and data. Billing (KT-BILLING.LOCAL) is never touched.
+
+12. **KT-TOOLS up to BOTH clouds -- the LAST step** (user's rule, 2026-11-18) -- `php artisan tinker --execute="$toolsMode = 'up'; require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): this PC's current KT-TOOLS is copied to Google Drive (`<archive>\..\KT-TOOLS`) AND OneDrive (`.env` `ONEDRIVE_TOOLS_DIR`, Thundera `D:\NetLock\OneDrive\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS`): a file missing or older there is copied. **Nothing is ever deleted in a cloud** (a Wake-up on another PC once emptied Google Drive's KT-TOOLS). Report the counts per cloud; a cloud missing on this PC is skipped and said so.

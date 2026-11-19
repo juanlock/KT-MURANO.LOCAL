@@ -87,8 +87,13 @@ and leaves a **copy of the latest backup in its root**
 (`dbmurano_<date>_<PC>_<time>_<tag>...zip`, only the latest one;
 `protocol_backup_tidy.php`; user's rule, 2026-10-19).
 **KT-TOOLS outside git goes through Google Drive (user's rule, 2026-11-04):** photos and material for a company
-(e.g. `KT-TOOLS/files/turismo`, moved there by the user on 2026-11-18) don't depend on one PC: `database/scripts/protocol_tools_sync.php` syncs them both ways with
-`<archive>\..\KT-TOOLS` (newest wins, nothing deleted). Wake-up, Pa Llevar and A Dormir run it. **Everything in KT-TOOLS reaches
+(e.g. `KT-TOOLS/files/turismo`, moved there by the user on 2026-11-18) don't depend on one PC: `database/scripts/protocol_tools_sync.php`.
+**Two clouds, one direction per protocol (user's rule, 2026-11-18, after a Wake-up on another PC emptied Google Drive's
+KT-TOOLS):** Google Drive (`<archive>\..\KT-TOOLS`) and OneDrive (`.env` `ONEDRIVE_TOOLS_DIR`; Thundera
+`D:\NetLock\OneDrive\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS`). **Pa Llevar / A Dormir, as their LAST step**
+(`$toolsMode = 'up'`): this PC's KT-TOOLS is copied to BOTH clouds. **Wake-up** (`$toolsMode = 'down'`): both clouds are read
+and compared, the newest copy of each file comes to this PC. **Nothing is ever deleted in a cloud and a Wake-up never writes
+to one.** Each PC sets its own `ONEDRIVE_TOOLS_DIR` (a missing cloud is skipped and reported). **Everything in KT-TOOLS reaches
 every PC (user's rule, 2026-11-15):** what git doesn't carry travels through Drive -- backups (`database`, `SQL`), `Temp`,
 `.env_modelo` and reports with customer data included (only `desktop.ini` left out); GitHub still never gets backups / `.env`
 (2026-10-27) nor files over 100 MB. The backup tidy removes an old root copy in `KT-TOOLS/database` from Drive's mirror too.

@@ -18,7 +18,7 @@ Needs on this PC (per machine, git-ignored -- never ask for passwords, never pri
    - Report what came in: `git log --oneline <old>..HEAD`, `git diff --stat <old> HEAD` (or "already up to date").
    - `composer.lock` changed -> `composer install`. `package-lock.json` changed, or no `node_modules/vite/bin/vite.js` -> `npm ci` (EPERM on a `.node` file = a stale `vite build --watch` / `npm run dev` holds it: say which node process, stop it, retry).
 
-1b. **KT-TOOLS from Google Drive** -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): what the other PCs keep in KT-TOOLS outside git (photos and material for a company) comes down; this PC's goes up. Newest wins, nothing is deleted. Report the counts; without Drive it says so and goes on.
+1b. **KT-TOOLS down from BOTH clouds** (user's rule, 2026-11-18) -- `php artisan tinker --execute="$toolsMode = 'down'; require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): Google Drive and OneDrive are read and compared; for each file the newest copy among them comes to this PC's `KT-TOOLS` when this PC lacks it or has it older. **A Wake-up never writes to or deletes in a cloud**, and deletes nothing on the PC (an old root company folder -- turismo, ARCE, kcoltech -- is merged into `KT-TOOLS\files\` and removed on the PC only). Report the counts; a cloud missing on this PC is skipped and said so.
 
 2. **Copy production to this PC** -- `php artisan murano:from-prod` (`app/Console/Commands/MuranoFromProd.php`, ~1 minute; long timeout):
    - this PC's `kt_logs` rows production lacks go up first (insert-only, matched by location + summary);

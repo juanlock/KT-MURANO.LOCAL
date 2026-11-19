@@ -21,7 +21,7 @@ Run Protocol A Dormir (user's rule, 2026-10-20). In this order. Stop and report 
 
 2a. **Pending production backups** (user's rule, 2026-11-18) -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_prod_backup_pending.php';"` **in the background** (never waited for): the backups made on the server before today's writes (`murano_deploy/backups_pending/`) are downloaded, made phpMyAdmin-ready and zipped into `<archive>/production/`; a failed one stays pending. Report the count when it finishes, or "still running".
 
-2b. **KT-TOOLS to Google Drive** -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): what is in KT-TOOLS outside git, both ways; newest wins, nothing is deleted. Report the counts.
+2b. *(KT-TOOLS: moved to the last step, 8.)*
 
 3. **Kelsy catch-up** -- every request of this conversation not yet in `kt_logs` gets its row (`.claude/commands/kelsy.md`, written to production by `protocol_kt_log.php`).
 
@@ -37,3 +37,5 @@ Run Protocol A Dormir (user's rule, 2026-10-20). In this order. Stop and report 
 7. **Report -- in the chat**: PC, local backup (files + sizes), production backup (file + size), kt_logs rows added, README block, commit hash + subject, push result, what was left out and why, and a reminder that **production was not updated** (Pa Llevar does that when the work is ready).
 
 Why this exists: Pa Llevar ends the day by updating production; A Dormir ends the day on any developer PC without spending time or risk on production for changes that are not ready, while the code still travels to the other PCs through GitHub and both databases are backed up.
+
+8. **KT-TOOLS up to BOTH clouds -- the LAST step** (user's rule, 2026-11-18) -- `php artisan tinker --execute="$toolsMode = 'up'; require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): this PC's current KT-TOOLS is copied to Google Drive (`<archive>\..\KT-TOOLS`) AND OneDrive (`.env` `ONEDRIVE_TOOLS_DIR`, Thundera `D:\NetLock\OneDrive\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS`): a file missing or older there is copied. **Nothing is ever deleted in a cloud** (a Wake-up on another PC once emptied Google Drive's KT-TOOLS). Report the counts per cloud; a cloud missing on this PC is skipped and said so.
