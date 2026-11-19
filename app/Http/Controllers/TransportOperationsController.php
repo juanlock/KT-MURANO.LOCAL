@@ -498,10 +498,9 @@ class TransportOperationsController extends Controller
         if ((int) $ticket->trip_id !== (int) $trip->id) {
             throw ValidationException::withMessages(['code' => 'This boarding pass is for another trip.']);
         }
-        if ($ticket->boarded_at) {
-            throw ValidationException::withMessages(['code' => 'Already on board since '.substr((string) $ticket->boarded_at, 11, 5).'.']);
+        if ($error = \App\Support\TransportTickets::board($ticket, (int) $request->user('api')->id)) {
+            throw ValidationException::withMessages(['code' => $error]);
         }
-        DB::table('transport_tickets')->where('id', $ticket->id)->update(['boarded_at' => now(), 'boarded_by' => $request->user('api')->id, 'updated_at' => now()]);
 
         return response()->json(['success' => true, 'passenger' => trim($ticket->first_name.' '.$ticket->last_name), 'seat' => $ticket->seat_number, 'vip' => (bool) $ticket->is_vip]);
     }

@@ -900,6 +900,16 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/incidents', 'incidents');
         Route::get('/incident-trips', 'incidentTrips');
     });
+    // "Mi parada" (2026-11-18): the pass-through agency's buses -- passengers off / on, last-minute sales, parcels, dispatch.
+    Route::prefix('transport/stop')->controller(\App\Http\Controllers\TransportStopController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::get('/trips/{id}', 'trip')->whereNumber('id');
+        Route::post('/trips/{id}/arrive', 'arrive')->whereNumber('id');
+        Route::post('/trips/{id}/depart', 'depart')->whereNumber('id');
+        Route::post('/trips/{id}/sell', 'sell')->whereNumber('id');
+        Route::post('/tickets/{id}', 'ticket')->whereNumber('id');
+        Route::post('/parcels/{id}', 'parcel')->whereNumber('id');
+    });
     // Vehicle monitoring (2026-11-06): the crew's reports from the phone, the bus's position, punctuality.
     Route::prefix('transport/control')->controller(\App\Http\Controllers\TransportControlController::class)->group(function () {
         Route::get('/mine', 'mine');

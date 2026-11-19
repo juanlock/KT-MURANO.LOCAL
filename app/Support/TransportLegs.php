@@ -79,11 +79,19 @@ class TransportLegs
         return $out;
     }
 
-    /** Seats taken on the trip anywhere along the stretch [a, b) of its route. */
+    /** Has transport_tickets.no_show_at (migration 2026_11_18_210000)? Once per request. */
+    private static ?bool $noShow = null;
+
+    /**
+     * Seats taken on the trip anywhere along the stretch [a, b) of its route. A passenger marked "no se presentó" at their
+     * boarding stop ("Mi parada", 2026-11-18) frees the seat for their whole stretch, which starts at that stop.
+     */
     public static function takenSeats(int $tripId, int $routeId, int $a, int $b): array
     {
+        self::$noShow ??= \Illuminate\Support\Facades\Schema::hasColumn('transport_tickets', 'no_show_at');
         $taken = [];
-        foreach (DB::table('transport_tickets')->where('trip_id', $tripId)->whereNotNull('seat_number')->get(['seat_number', 'from_location_id', 'to_location_id']) as $t) {
+        foreach (DB::table('transport_tickets')->where('trip_id', $tripId)->whereNotNull('seat_number')->when(self::$noShow, fn ($q) => $q->whereNull('no_show_at'))
+            ->get(['seat_number', 'from_location_id', 'to_location_id']) as $t) {
             [$ta, $tb] = self::ticketStretch($routeId, $t);
             if ($ta < $b && $tb > $a) {
                 $taken[(int) $t->seat_number] = true;
@@ -125,7 +133,7 @@ class TransportLegs
             return "Seat $seat does not exist on this bus.";
         }
         if (in_array($seat, $taken, true)) {
-            return "Seat $seat is already taken on this stretch.";
+            return __('Seat :seat is already taken on this stretch.', ['seat' => $seat]);
         }
         if ($vipTicket && ! $map[$seat]['vip']) {
             return 'A VIP ticket needs a VIP seat.';

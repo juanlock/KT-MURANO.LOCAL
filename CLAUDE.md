@@ -87,7 +87,7 @@ and leaves a **copy of the latest backup in its root**
 (`dbmurano_<date>_<PC>_<time>_<tag>...zip`, only the latest one;
 `protocol_backup_tidy.php`; user's rule, 2026-10-19).
 **KT-TOOLS outside git goes through Google Drive (user's rule, 2026-11-04):** photos and material for a company
-(e.g. `KT-TOOLS/turismo`) don't depend on one PC: `database/scripts/protocol_tools_sync.php` syncs them both ways with
+(e.g. `KT-TOOLS/files/turismo`, moved there by the user on 2026-11-18) don't depend on one PC: `database/scripts/protocol_tools_sync.php` syncs them both ways with
 `<archive>\..\KT-TOOLS` (newest wins, nothing deleted). Wake-up, Pa Llevar and A Dormir run it. **Everything in KT-TOOLS reaches
 every PC (user's rule, 2026-11-15):** what git doesn't carry travels through Drive -- backups (`database`, `SQL`), `Temp`,
 `.env_modelo` and reports with customer data included (only `desktop.ini` left out); GitHub still never gets backups / `.env`
@@ -98,6 +98,10 @@ before a production write is still made first, but ON the server (`ProdDump::ser
 is busy) is left pending in `storage/app/prod_backups_pending.json` for the next Pa Llevar / A Dormir
 (`protocol_prod_backup_pending.php`, run in the background). Any other backup step that drags: background it, go on, and
 report it as pending.
+**`KT-TOOLS\files\<company>\` is the repository of each company's material (user's rule, 2026-11-18):** PDFs, Excel templates,
+screenshots, zips, flyers, manuals and the scripts that build them -- never the Desktop or Downloads (they don't sync between
+PCs) and never a company folder in the root of KT-TOOLS (the user moved turismo, ARCE and kcoltech into `files\`; the old root
+turismo, ARCE and kcoltech copies were deleted locally and on Drive with the user's yes). Then the KT-TOOLS sync.
 **Ask before leaving anything out of git or the sync** (user, 2026-11-15: "pregúntame, no tomes decisiones").
 **KT-TOOLS is never in git (user's rule, 2026-11-17):** `.gitignore` has `/KT-TOOLS/` and its 117 tracked files (logos, flyer,
 manuals, reports, ARCE, files...) were removed from the index (kept on disk, uploaded to Drive first). The whole folder
@@ -473,7 +477,7 @@ the start of each session).
   salidas** (Mayte and Julio's first board), then **Mando operativo** (`transport_outlook`, also `/transport/outlook`: upcoming
   departures red / amber / green against variable and full cost, booking curve, marketing focus by week). The demo sells
   online ahead (`TransportDemoDay::advance`, 3 weeks: `AHEAD_DAYS`). The client fills the requirement workbooks
-  `KT-TOOLS/turismo/requerimientos/Req00..Req12` (our values to confirm in green). Still to build: Jelaf import, the parcels
+  `KT-TOOLS/files/turismo/requerimientos/Req00..Req12` (our values to confirm in green). Still to build: Jelaf import, the parcels
   module (labels, scan states, distribution panel, cargo vehicle), attendance by phone (GPS + selfie), the pass-through agent's
   screen, the maintenance history per vehicle.
 - **Admins and the SuperAdmin are never signed out for inactivity (user's rule, 2026-11-18).** The company's "Sign out after

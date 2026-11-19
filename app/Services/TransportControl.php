@@ -130,6 +130,31 @@ class TransportControl
         return $touched < count($points) - 1 ? ['index' => $touched + 1, 'action' => 'arrive'] : null;
     }
 
+    /**
+     * How late the bus runs (minutes, null = nothing reported yet): the last delay on record, or how far past its plan the
+     * next point already is. The control board and "Mi parada" share it.
+     */
+    public static function carriedDelay(array $points, ?Carbon $now = null, bool $running = true): ?int
+    {
+        $now ??= now();
+        $delay = null;
+        $reported = false;
+        foreach ($points as $p) {
+            $delay = $p['depart_delay_min'] ?? $p['arrive_delay_min'] ?? $delay;
+            $reported = $reported || $p['arrived_at'] || $p['departed_at'] || $p['skipped'];
+        }
+        // A finished (or cancelled) trip keeps the delay on record: its missing points are not "late".
+        $next = $running ? self::next($points) : null;
+        if ($next && $reported) {
+            $plan = $next['action'] === 'arrive' ? $points[$next['index']]['plan_arrive'] : $points[$next['index']]['plan_depart'];
+            if ($plan && $now->gt($plan)) {
+                $delay = max($delay ?? 0, (int) round($plan->diffInMinutes($now, false)));
+            }
+        }
+
+        return $delay;
+    }
+
     /** May a position of this trip be recorded now? From half an hour before leaving, up to six hours past the plan. */
     public static function tracking(object $trip, array $points): bool
     {
@@ -203,19 +228,32 @@ class TransportControl
      * the trip on the road and the last arrival completes it; the planned times stay as they are.
      * Returns an error text, or null when done.
      */
-    public static function mark(int $tripId, int $locationId, string $action, string $source, ?int $userId, array $fix = [], ?string $photo = null, ?string $note = null): ?string
+    public static function mark(int $tripId, int $locationId, string $action, string $source, ?int $userId, array $fix = [], ?string $photo = null, ?string $note = null, bool $ahead = false): ?string
     {
-        return DB::transaction(function () use ($tripId, $locationId, $action, $source, $userId, $fix, $photo, $note) {
+        return DB::transaction(function () use ($tripId, $locationId, $action, $source, $userId, $fix, $photo, $note, $ahead) {
             $trip = DB::table('transport_trips')->where('id', $tripId)->lockForUpdate()->first();
             if (! $trip || ! in_array($trip->status, ['scheduled', 'in_progress'], true)) {
                 return 'This trip is not running.';
             }
             $points = self::points($trip);
             $next = self::next($points);
-            if (! $next || $points[$next['index']]['location_id'] !== $locationId || $next['action'] !== $action) {
+            $index = $next ? $next['index'] : null;
+            if ($ahead && $next) {
+                // The agency at a stop ("Mi parada", 2026-11-18) sees the bus with its own eyes: a point the crew did not
+                // report before it is passed over (next() goes on from the last point touched).
+                $at = array_search($locationId, array_column($points, 'location_id'), true);
+                $ok = $at !== false && ($at > $next['index'] || ($at === $next['index'] && ($action === $next['action'] || $action === 'depart')));
+                if ($ok && $action === 'arrive' && $points[$at]['arrived_at']) {
+                    $ok = false;
+                }
+                $index = $ok ? $at : null;
+            } elseif (! $next || $points[$next['index']]['location_id'] !== $locationId || $next['action'] !== $action) {
+                $index = null;
+            }
+            if ($index === null) {
                 return 'That is not the next control point: refresh the page.';
             }
-            $p = $points[$next['index']];
+            $p = $points[$index];
             $now = now();
             $plan = $action === 'arrive' ? $p['plan_arrive'] : $p['plan_depart'];
             $delay = $plan ? (int) round($plan->diffInMinutes($now, false)) : null;

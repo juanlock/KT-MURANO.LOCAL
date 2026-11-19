@@ -351,16 +351,7 @@ class TransportControlController extends Controller
             }
             $end = $points ? end($points) : null;
             // How late: the last time on record, or how far past its plan the next point already is.
-            $delay = null;
-            foreach ($points as $p) {
-                $delay = $p['depart_delay_min'] ?? $p['arrive_delay_min'] ?? $delay;
-            }
-            if ($next && $reported) {
-                $plan = $next['action'] === 'arrive' ? $points[$next['index']]['plan_arrive'] : $points[$next['index']]['plan_depart'];
-                if ($plan && $now->gt($plan)) {
-                    $delay = max($delay ?? 0, (int) round($plan->diffInMinutes($now, false)));
-                }
-            }
+            $delay = TransportControl::carriedDelay($points, $now);
 
             // When it reaches its destination: the plan moved by the delay it carries, or the real arrival.
             $eta = null;

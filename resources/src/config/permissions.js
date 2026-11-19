@@ -1447,6 +1447,11 @@ export const PERMISSION_GROUPS = [
                 "f": "Board passengers"
             },
             {
+                "v": "transport_stop",
+                "l": "Perm_Transport_Stop",
+                "f": "My stop: receive and dispatch the buses passing through the agency"
+            },
+            {
                 "v": "transport_parcels",
                 "l": "Perm_Transport_Parcels",
                 "f": "Register parcels"
