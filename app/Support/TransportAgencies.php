@@ -16,6 +16,9 @@ class TransportAgencies
 {
     public const POS_ROLE = 'Terminal POS';
 
+    /** One role for an agency's staff (tickets, parcels, boarding), replacing Terminal POS where it exists (2026-11-19). */
+    public const AGENCY_ROLE = 'Agencia';
+
     /** What a ticket office does: the POS, its own sales, customers (passengers) and its cash register. */
     public const POS_PERMISSIONS = ['Pos_view', 'Sales_view', 'Sales_add', 'Customers_view', 'Customers_add', 'register_open_close', 'transport_parcels'];
 
@@ -76,7 +79,8 @@ class TransportAgencies
 
     public const MERGED_ROLES = [self::SUPERVISOR_ROLE, 'Supervisor de flota', 'Control de Calidad'];
 
-    public const OPERATIONS_EXTRA = ['transport_boarding', 'transport_monitor', 'forms_view', 'attendance', 'report_attendance_summary', 'transport_outlook'];
+    // 'dashboard' (2026-11-19): Operations has its own dashboard tabs (roles.dashboard_tabs).
+    public const OPERATIONS_EXTRA = ['transport_boarding', 'transport_monitor', 'forms_view', 'attendance', 'report_attendance_summary', 'transport_outlook', 'dashboard'];
 
     public static function hasOperations(int $companyId): bool
     {
@@ -284,7 +288,12 @@ class TransportAgencies
     /** The company's Terminal POS role (made when missing; its permissions always the ticket office's). */
     public static function posRole(int $companyId): int
     {
-        $id = DB::table('roles')->where('company_id', $companyId)->where('name', self::POS_ROLE)->whereNull('deleted_at')->value('id');
+        // A company with the "Agencia" role (Turismo, 2026-11-19: ticket office + pass-through agent in one) uses it as it is.
+        $agency = DB::table('roles')->where('company_id', $companyId)->where('name', self::AGENCY_ROLE)->whereNull('deleted_at')->value('id');
+        if ($agency) {
+            return (int) $agency;
+        }
+        $id =DB::table('roles')->where('company_id', $companyId)->where('name', self::POS_ROLE)->whereNull('deleted_at')->value('id');
         if (! $id) {
             $id = DB::table('roles')->insertGetId([
                 'company_id' => $companyId, 'name' => self::POS_ROLE, 'label' => self::POS_ROLE,

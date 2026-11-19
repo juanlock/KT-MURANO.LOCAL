@@ -649,6 +649,11 @@ class TransportController extends Controller
     {
         $this->can($request, 'transport_view');
         abort_unless(HelpdeskAccess::can($request->user('api'), 'dashboard'), 403);
+        // A role with its own dashboard tabs (roles.dashboard_tabs, 2026-11-19) sees the owner's figures only when it has that tab
+        // (Turismo's Operaciones has the dashboard but no money).
+        $user = $request->user('api');
+        $tabs = $user && $user->type !== 'SuperAdmin' ? json_decode((string) ($user->roles()->first()?->dashboard_tabs ?? ''), true) : null;
+        abort_if(is_array($tabs) && ! in_array('transport_owner', $tabs, true), 403);
         $cid = (int) $this->resolveActingCompanyId($request);
         if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
             return response()->json(['enabled' => false]);

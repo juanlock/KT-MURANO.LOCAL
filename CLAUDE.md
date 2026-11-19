@@ -480,7 +480,11 @@ the start of each session).
   turismo-contabilidad@kcoltech.com until her email is known) and Daniel (Operaciones). **No hostesses, no snacks**
   (`settings.transport_hostesses` = 0, `transport_meal_cost` = 0); **one pilot**, a copilot only on trips over
   `settings.transport_copilot_after_h` (12 h; null = always 2, the old rule; `TransportController::crewRules()`); 19 buses and
-  38 pilots, 85 % of the staff on the payroll, pilots included (demo pilots monthly, S/ 2,500). **~80 % of the tickets are sold
+  38 pilots, 85 % of the staff on the payroll, pilots included (demo pilots monthly, S/ 2,500); **never more than 38 on the
+  payroll** -- when none of them can go, an **emergency pilot** is hired for that trip, paid per trip (user, 2026-11-19; demo
+  `EMERGENCY_TRIP_RATE` S/ 200, ours). Company data from SUNAT (Req01, 2026-11-19): TURISMO CAUTIVO S.A.C., RUC 20601601282
+  (`settings.vat_number`, shown as "RUC" on invoices and quotations), domicilio fiscal Cal. Los Insurgentes 221, Santiago de
+  Surco, Lima; activity 4922; electronic Factura / Boleta from SUNAT's free portal since 2019 (Murano does not issue to SUNAT). **~80 % of the tickets are sold
   online by Jelaf / PeruBus** (`transport_tickets.channel` agency / jelaf / perubus / phone; such a ticket has no sale:
   `sale_id` null; `settings.transport_channel_commission` JSON % per channel, unknown yet); Jelaf also sends the passenger list
   per trip -- how its data reaches us is settled with Jelaf (meeting the week of 2026-11-23). The dashboard opens on **Reporte de
@@ -490,6 +494,17 @@ the start of each session).
   `KT-TOOLS/files/turismo/requerimientos/Req00..Req12` (our values to confirm in green). Still to build: Jelaf import, the parcels
   module (labels, scan states, distribution panel, cargo vehicle), attendance by phone (GPS + selfie), the pass-through agent's
   screen, the maintenance history per vehicle.
+- **Turismo Cautivo's six roles (user's rule, 2026-11-19: the client was overwhelmed, "focalizar en lo que tiene ahorita"; migration
+  2026_11_19_120000):** **Director** (Julio, `turismo-director@kcoltech.com`: every board), **Manager** (Mayte, `turismo-manager@`:
+  Reporte de salidas, Resumen del negocio, Gastos), **Operaciones** (Daniel: Mando operativo, Reclamos, Tablero de control, Tablero de
+  transporte), **Agencia** (ticket office + parcels + boarding of each agency, home Mi parada; replaces Terminal POS and Agente de agencia --
+  `TransportAgencies::posRole` returns it), **Piloto** (Mi viaje), **IT Admin** (configures transport; products and the transport setup
+  screens are hidden from the others with `menu_hide:*`). Each role's dashboard = `roles.dashboard_tabs` (JSON, Roles -> "Pestañas del
+  tablero"; null = every tab its permissions allow; `transport/owner` refuses a role whose list lacks `transport_owner`). Retired at Turismo:
+  Administración y Contabilidad, Terminal POS, Tripulación, Mecánico, Info, Helpdesk, Website, Sales Agent, Online Store (logins disabled),
+  the per-agency supervisor and calidad logins. Email Office off; Suppliers stays (the workshops are suppliers). Menu: "Módulos adicionales"
+  hidden (Forms in Back Office), Salidas de hoy / fuel / assignments / fleet reports hidden. `CompanyRoles::syncManager` keeps the
+  Manager's `menu_hide:*`. Requirement Excel files and flyers: one per role, `KT-TOOLS/files/turismo/roles/`.
 - **Admins and the SuperAdmin are never signed out for inactivity (user's rule, 2026-11-18).** The company's "Sign out after
   inactivity" (`settings.idle_logout_minutes`, `UserController` -> `idle_logout_minutes`, `lib/idleLogout.js`) applies only to
   the other logins; per role / per module is how those are handled later (not built yet). The install-wide server lifetime

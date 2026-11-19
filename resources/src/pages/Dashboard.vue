@@ -88,50 +88,50 @@
              goes, where the money comes from and what puts it at risk, then the day's operation. -->
         <!-- Turismo, 2026-11-18: the departures report is the first board the owner and accounting need; then the predictive
              "Mando operativo" (upcoming departures at risk, where to push marketing). -->
-        <a-tab-pane v-if="departuresPanel" key="transport_departures">
+        <a-tab-pane v-if="transportTabs.includes('transport_departures')" key="transport_departures">
           <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
           <TransportDeparturesPanel :range="rangeFields" />
         </a-tab-pane>
-        <a-tab-pane v-if="outlookPanel" key="transport_outlook">
+        <a-tab-pane v-if="transportTabs.includes('transport_outlook')" key="transport_outlook">
           <template #tab><AimOutlined /> {{ es ? 'Mando operativo' : 'Operations outlook' }}</template>
           <TransportOutlookPanel />
         </a-tab-pane>
-        <a-tab-pane v-if="ownerPanel" key="transport_owner">
+        <a-tab-pane v-if="transportTabs.includes('transport_owner')" key="transport_owner">
           <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
           <TransportOwnerPanel :range="rangeFields" />
         </a-tab-pane>
-        <a-tab-pane v-if="profitPanel" key="transport_profit">
+        <a-tab-pane v-if="transportTabs.includes('transport_profit')" key="transport_profit">
           <template #tab><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</template>
           <TransportProfitPanel :range="rangeFields" />
         </a-tab-pane>
         <!-- What the business spends, by kind (2026-11-11): goes with "Profit by route", same permission. -->
-        <a-tab-pane v-if="profitPanel" key="transport_expenses">
+        <a-tab-pane v-if="transportTabs.includes('transport_expenses')" key="transport_expenses">
           <template #tab><WalletOutlined /> {{ es ? 'Gastos' : 'Expenses' }}</template>
           <TransportExpensesPanel :range="rangeFields" />
         </a-tab-pane>
         <!-- Goes with "Profit by route": same permission and same on / off switch in System Settings -> Dashboard. -->
-        <a-tab-pane v-if="profitPanel" key="transport_indicators">
+        <a-tab-pane v-if="transportTabs.includes('transport_indicators')" key="transport_indicators">
           <template #tab><BarChartOutlined /> {{ es ? 'Indicadores' : 'Indicators' }}</template>
           <TransportIndicatorsPanel :range="rangeFields" view="profit" />
         </a-tab-pane>
-        <a-tab-pane v-if="profitPanel" key="transport_risks">
+        <a-tab-pane v-if="transportTabs.includes('transport_risks')" key="transport_risks">
           <template #tab><WarningOutlined /> {{ es ? 'Riesgos' : 'Risks' }}</template>
           <TransportIndicatorsPanel :range="rangeFields" view="risks" />
         </a-tab-pane>
-        <a-tab-pane v-if="parcelsPanel" key="transport_parcels">
+        <a-tab-pane v-if="transportTabs.includes('transport_parcels')" key="transport_parcels">
           <template #tab><InboxOutlined /> {{ es ? 'Encomiendas' : 'Parcels' }}</template>
           <TransportParcelsPanel :range="rangeFields" />
         </a-tab-pane>
-        <a-tab-pane v-if="claimsPanel" key="transport_claims">
+        <a-tab-pane v-if="transportTabs.includes('transport_claims')" key="transport_claims">
           <template #tab><AuditOutlined /> {{ es ? 'Reclamos' : 'Complaints' }}</template>
           <TransportClaimsPanel :range="period === 'all' ? null : rangeFields" />
         </a-tab-pane>
         <!-- Live: refreshes itself only while it is open. -->
-        <a-tab-pane v-if="monitorPanel" key="transport_monitor" destroy-inactive-tab-pane>
+        <a-tab-pane v-if="transportTabs.includes('transport_monitor')" key="transport_monitor" destroy-inactive-tab-pane>
           <template #tab><EnvironmentOutlined /> {{ es ? 'Tablero de control' : 'Control board' }}</template>
           <TransportLiveBoard />
         </a-tab-pane>
-        <a-tab-pane v-if="transportBoard" key="transport">
+        <a-tab-pane v-if="transportTabs.includes('transport')" key="transport">
           <template #tab><CarOutlined /> {{ es ? 'Tablero de transporte' : 'Transport board' }}</template>
           <TransportBoard :range="rangeFields" />
         </a-tab-pane>
@@ -446,7 +446,10 @@ const ownerPanel = computed(() => show('transport_owner') && auth.can('dashboard
 const es = computed(() => useUiStore().locale === 'es');
 // Same order as the tabs (the owner's reading order, 2026-11-11); the first one the user has opens by default.
 const outlookPanel = computed(() => show('transport_outlook') && auth.moduleEnabled('transport') && (auth.can('transport_outlook') || auth.can('transport_profit')));
-const transportPanels = computed(() => [departuresPanel.value && 'transport_departures', outlookPanel.value && 'transport_outlook', ownerPanel.value && 'transport_owner', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean));
+// Roles -> "Dashboard tabs" (2026-11-19, Turismo: each role its own board): only those, when the role has a list.
+const roleTabs = computed(() => (Array.isArray(auth.user?.dashboard_tabs) && auth.user.dashboard_tabs.length ? auth.user.dashboard_tabs : null));
+const transportPanels = computed(() => [departuresPanel.value && 'transport_departures', outlookPanel.value && 'transport_outlook', ownerPanel.value && 'transport_owner', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean)
+  .filter(k => !roleTabs.value || roleTabs.value.includes(k)));
 const boardMode = computed(() => transportPanels.value.length > 0);
 const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value] : []));
 // ?tab=transport_outlook (a role's home page or a link) opens that tab.

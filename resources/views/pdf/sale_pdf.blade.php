@@ -210,6 +210,7 @@
                             <tr><td style="width: 28%; padding: 1px 0; vertical-align: top; text-align: left;"><strong style="color: {{ $pdfT['text_color'] }};">{{ __('pdf.phone') }}:</strong></td><td style="padding: 1px 0; vertical-align: top; text-align: left;">{{$setting['CompanyPhone']}}</td></tr>
                             <tr><td style="padding: 1px 0; vertical-align: top; text-align: left;"><strong style="color: {{ $pdfT['text_color'] }};">{{ __('pdf.email') }}:</strong></td><td style="padding: 1px 0; vertical-align: top; text-align: left;">{{$setting['email']}}</td></tr>
                             <tr><td style="padding: 1px 0; vertical-align: top; text-align: left;"><strong style="color: {{ $pdfT['text_color'] }};">{{ __('pdf.address') }}:</strong></td><td style="padding: 1px 0; vertical-align: top; text-align: left;">{{$setting['CompanyAdress']}}</td></tr>
+                            @if(!empty($setting['vat_number']))<tr><td style="padding: 1px 0; vertical-align: top;"><strong style="color: {{ $pdfT['text_color'] }};">{{ preg_match('/^(10|20)\d{9}$/', (string) $setting['vat_number']) ? 'RUC' : __('pdf.tax_no') }}:</strong></td><td style="padding: 1px 0; vertical-align: top;">{{ $setting['vat_number'] }}</td></tr>@endif
                             @endif
                         </table>
                     </div>

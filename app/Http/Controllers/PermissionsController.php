@@ -113,6 +113,7 @@ class PermissionsController extends BaseController
                 $Role->status = 0;
                 $Role->description = $request['role']['description'];
                 $Role->home_path = self::homePath($request['role']['home_path'] ?? null);
+                $Role->dashboard_tabs = self::dashboardTabs($request['role']['dashboard_tabs'] ?? null);
                 $Role->save();
 
                 $role = Role::findOrFail($Role->id);
@@ -161,6 +162,17 @@ class PermissionsController extends BaseController
         return preg_match('#^/[A-Za-z0-9/_\-]{0,190}$#', $v) && $v !== '/' ? $v : null;
     }
 
+    /** Roles -> "Dashboard tabs" (2026-11-19): the known tab keys only; empty = every tab the permissions allow (null). */
+    public const DASHBOARD_TABS = ['transport_departures', 'transport_outlook', 'transport_owner', 'transport_profit', 'transport_expenses',
+        'transport_indicators', 'transport_risks', 'transport_parcels', 'transport_claims', 'transport_monitor', 'transport'];
+
+    private static function dashboardTabs($value): ?string
+    {
+        $tabs = array_values(array_intersect(self::DASHBOARD_TABS, (array) $value));
+
+        return $tabs ? json_encode($tabs) : null;
+    }
+
     // ------------ function show -----------\\
 
     public function show($id)
@@ -191,6 +203,7 @@ class PermissionsController extends BaseController
                     'name' => $request['role']['name'],
                     'description' => $request['role']['description'] ?? null,
                     'home_path' => self::homePath($request['role']['home_path'] ?? null),
+                    'dashboard_tabs' => self::dashboardTabs($request['role']['dashboard_tabs'] ?? null),
                 ]);
 
                 $role = Role::findOrFail($id);
@@ -285,6 +298,7 @@ class PermissionsController extends BaseController
         $item['name'] = $Role->name;
         $item['description'] = $Role->description;
         $item['home_path'] = $Role->home_path;
+        $item['dashboard_tabs'] = json_decode((string) $Role->dashboard_tabs, true) ?: [];
         $item['company_id'] = $Role->company_id;
         $item['company_name'] = optional(\App\Models\Company::find($Role->company_id))->name;
         $data = [];

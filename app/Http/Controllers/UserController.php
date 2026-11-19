@@ -291,6 +291,9 @@ class UserController extends BaseController
             // Else the company's business-type start page (hospital -> Hospital dashboard, 2026-10-20).
             'role_home' => $user->type === 'SuperAdmin' ? $typeHome
                 : ($user->roles()->first()?->home_path ?: $typeHome),
+            // Roles -> "Dashboard tabs" (2026-11-19): the dashboard tabs this role sees; null = every tab its permissions allow.
+            'dashboard_tabs' => $user->type === 'SuperAdmin' ? null
+                : (json_decode((string) ($user->roles()->first()?->dashboard_tabs ?? ''), true) ?: null),
             // The account menu's card (2026-11-03): role, department / job and locations.
             'account_card' => self::accountCard($user),
         ];

@@ -40,6 +40,12 @@
                 <a-select v-model:value="role.home_path" allow-clear show-search option-filter-prop="label" :placeholder="$t('tx_Company_start_page_dashboard_f01e1')" :options="homeOptions" />
               </a-form-item>
             </a-col>
+            <!-- The dashboard tabs this role sees (2026-11-19, transport companies: each role its own board). Empty = all its permissions allow. -->
+            <a-col v-if="auth.moduleEnabled('transport')" :xs="24" :md="12">
+              <a-form-item :label="tr('Dashboard tabs', 'Pestañas del tablero')" :extra="tr('Empty = every tab the role\'s permissions allow.', 'Vacío = todas las que permiten sus permisos.')" style="margin: 12px 0 0">
+                <a-select v-model:value="role.dashboard_tabs" mode="multiple" allow-clear :options="tabOptions" :placeholder="tr('All', 'Todas')" />
+              </a-form-item>
+            </a-col>
           </a-row>
           <!-- SuperAdmin editing another company's role: say whose it is. -->
           <a-alert
@@ -203,6 +209,7 @@ import { t as tf } from '../../i18n';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { allPages, pageFullLabel } from '../../lib/startPage';
+import { useTr } from '../../lib/callcenter';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -219,7 +226,16 @@ const isLoading = ref(isEdit || !!copyFrom);
 const submitting = ref(false);
 const formRef = ref();
 const search = ref('');
-const role = ref({ name: '', description: '', home_path: null });
+const role = ref({ name: '', description: '', home_path: null, dashboard_tabs: [] });
+const tr = useTr();
+// In the dashboard's own order (not alphabetical: it is the order the tabs appear in).
+const tabOptions = computed(() => [
+  ['transport_departures', 'Departures report', 'Reporte de salidas'], ['transport_outlook', 'Operations outlook', 'Mando operativo'],
+  ['transport_owner', 'Business summary', 'Resumen del negocio'], ['transport_profit', 'Profit by route', 'Rentabilidad por ruta'],
+  ['transport_expenses', 'Expenses', 'Gastos'], ['transport_indicators', 'Indicators', 'Indicadores'], ['transport_risks', 'Risks', 'Riesgos'],
+  ['transport_parcels', 'Parcels', 'Encomiendas'], ['transport_claims', 'Complaints', 'Reclamos'], ['transport_monitor', 'Control board', 'Tablero de control'],
+  ['transport', 'Transport board', 'Tablero de transporte'],
+].map(([value, en, es]) => ({ value, label: tr(en, es) })));
 // Role home page choices: any menu page (Daily Tasks for field staff, etc.).
 const homeOptions = computed(() => sortByLabel(allPages().map(p => ({ value: p.path, label: pageFullLabel(p) }))));
 const permissions = ref([]);
@@ -462,7 +478,7 @@ async function submit() {
     return;
   }
   submitting.value = true;
-  const payload = { role: { name: role.value.name, description: role.value.description, home_path: role.value.home_path || null }, permissions: permissions.value };
+  const payload = { role: { name: role.value.name, description: role.value.description, home_path: role.value.home_path || null, dashboard_tabs: role.value.dashboard_tabs || [] }, permissions: permissions.value };
   try {
     if (isEdit) {
       await http.put(`roles/${id}`, payload);
@@ -493,7 +509,7 @@ onMounted(async () => {
     try {
       const [data] = await Promise.all([http.get(`roles/${copyFrom}/edit`), menuReady]);
       const src = data.role || {};
-      role.value = { name: `${src.name || ''} (copy)`.trim(), description: src.description || '', home_path: src.home_path || null };
+      role.value = { name: `${src.name || ''} (copy)`.trim(), description: src.description || '', home_path: src.home_path || null, dashboard_tabs: src.dashboard_tabs || [] };
       permissions.value = Array.isArray(data.permissions) ? [...data.permissions] : [];
       message.info(tEs('tx_Copy_of_the_role_loaded_rename_it_and_adjust_permissions_the_31057', 'Copy of the role loaded -- rename it and adjust permissions, then Submit to create it.'), 6);
     } catch (e) {
@@ -509,7 +525,7 @@ onMounted(async () => {
   }
   try {
     const [data] = await Promise.all([http.get(`roles/${id}/edit`), menuReady]);
-    role.value = { home_path: null, ...(data.role || { name: '', description: '' }) };
+    role.value = { home_path: null, dashboard_tabs: [], ...(data.role || { name: '', description: '' }) };
     permissions.value = Array.isArray(data.permissions) ? data.permissions : [];
   } catch (e) {
     message.error(t('InvalidData'));

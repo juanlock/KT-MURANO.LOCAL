@@ -149,7 +149,9 @@ class CompanyRoles
             ->where('permission_role.role_id', $adminId)->whereNotIn('permissions.name', $excluded)->where('permissions.name', 'not like', 'menu\_hide:%')
             ->pluck('permissions.id')
             ->merge(DB::table('permissions')->whereIn('name', self::MANAGER_EXTRA)->pluck('id'))->unique();
-        DB::table('permission_role')->where('role_id', $id)->delete();
+        // The role's own menu_hide:* marks stay (2026-11-19: Turismo's Manager hides the setup screens).
+        DB::table('permission_role')->where('role_id', $id)
+            ->whereNotIn('permission_id', DB::table('permissions')->where('name', 'like', 'menu\_hide:%')->pluck('id'))->delete();
         DB::table('permission_role')->insert($perms->map(fn ($p) => ['permission_id' => $p, 'role_id' => $id])->values()->all());
 
         return (int) $id;

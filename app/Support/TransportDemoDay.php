@@ -674,7 +674,7 @@ class TransportDemoDay
         $crewOf = DB::table('transport_trip_crew')->whereIn('trip_id', $trips->pluck('id'))->orderBy('id')->get(['trip_id', 'employee_id', 'role'])->groupBy('trip_id');
         $demoStaff = array_flip(self::ids($cid, 'employees'));
         $staff = DB::table('employees')->where('company_id', $cid)->whereNull('deleted_at')->whereIn('staff_type', ['pilot', 'hostess'])
-            ->get(['id', 'staff_type', 'trip_rate', 'user_id', 'department_id', 'office_shift_id', 'designation_id']);
+            ->get(['id', 'staff_type', 'trip_rate', 'pay_type', 'user_id', 'department_id', 'office_shift_id', 'designation_id']);
         $template = ['pilot' => $staff->where('staff_type', 'pilot')->first(), 'hostess' => $staff->where('staff_type', 'hostess')->first()];
         if (! $template['pilot']) {
             return [];
@@ -685,22 +685,25 @@ class TransportDemoDay
         $n = 0;
         // Turismo's own figure (2026-11-18): 38 pilots for 19 buses. With pilots on the payroll the demo keeps that many;
         // the rest get no trips and leave (payrollCrew).
+        // Emergency pilots (user, 2026-11-19: "también hay pilotos que se les contrata por emergencia"): hired per trip only when
+        // none of the 38 can go -- the demo pilots outside those 38 that are paid per trip.
         $keep = $rules['hostesses'] ? null : $staff->filter(fn ($e) => $e->staff_type === 'pilot' && isset($demoStaff[$e->id]))->sortBy('id')
             ->take(self::PAYROLL_PILOTS)->pluck('id')->flip();
         foreach ($staff as $e) {
-            if ($keep !== null && isset($demoStaff[$e->id]) && ($e->staff_type === 'hostess' || ! isset($keep[$e->id]))) {
+            $em = $keep !== null && $e->staff_type === 'pilot' && isset($demoStaff[$e->id]) && ! isset($keep[$e->id]) && $e->pay_type === 'per_trip';
+            if ($keep !== null && isset($demoStaff[$e->id]) && ($e->staff_type === 'hostess' || (! isset($keep[$e->id]) && ! $em))) {
                 continue;
             }
             $state[(int) $e->id] = ['type' => $e->staff_type, 'at' => isset($demoStaff[$e->id]) ? (int) $origins[$n++ % count($origins)] : null,
-                'free' => 0, 'rate' => $e->trip_rate, 'user' => $e->user_id, 'demo' => isset($demoStaff[$e->id])];
+                'free' => 0, 'rate' => $e->trip_rate, 'user' => $e->user_id, 'demo' => isset($demoStaff[$e->id]), 'em' => $em];
         }
-        $made = ['trips' => 0, 'new_pilots' => 0, 'new_hostesses' => 0, 'swaps' => 0];
-        $pick = function (string $type, int $origin, int $dep, bool $tired, array $taken) use (&$state) {
+        $made = ['trips' => 0, 'new_pilots' => 0, 'new_hostesses' => 0, 'swaps' => 0, 'emergency_trips' => 0, 'new_emergency' => 0];
+        $pick = function (string $type, int $origin, int $dep, bool $tired, array $taken, bool $em = false) use (&$state) {
             $rest = ($tired ? 2 : self::CREW_REST_H) * 3600;
             // At that agency and rested; or idle a day somewhere else (they rode back as a passenger), after them.
             $cands = [];
             foreach ($state as $id => $s) {
-                if (! $s['demo'] || $s['type'] !== $type || in_array($id, $taken, true)) {
+                if (! $s['demo'] || $s['type'] !== $type || in_array($id, $taken, true) || ($s['em'] ?? false) !== $em) {
                     continue;
                 }
                 if (($s['at'] === null || $s['at'] === $origin) && $s['free'] + $rest <= $dep) {
@@ -745,6 +748,32 @@ class TransportDemoDay
                     }
                     $tired = $i === 0 && crc32('fat'.$t->id) % 40 === 0;
                     $id = ($tired ? $pick($type, (int) $t->origin_id, $dep, true, $taken) : null) ?? $pick($type, (int) $t->origin_id, $dep, false, $taken);
+                    if (! $id && ! $rules['hostesses'] && $type === 'pilot') {
+                        // Pilots on the payroll (Turismo: 38, user 2026-11-19): never a 39th on the payroll. First one of the 38
+                        // who is free (not on a bus) anywhere, the longest idle first (he rode to that agency); else an EMERGENCY
+                        // pilot hired for this trip (paid per trip): one already known and free, or a new one.
+                        $freeOf = function (bool $em) use (&$state, $taken, $dep) {
+                            $free = [];
+                            foreach ($state as $sid => $s) {
+                                if ($s['demo'] && $s['type'] === 'pilot' && ($s['em'] ?? false) === $em && ! in_array($sid, $taken, true) && $s['free'] <= $dep) {
+                                    $free[$sid] = $s['free'];
+                                }
+                            }
+                            asort($free);
+
+                            return $free ? (int) array_key_first($free) : null;
+                        };
+                        $id = $freeOf(false) ?? $pick($type, (int) $t->origin_id, $dep, false, $taken, true) ?? $freeOf(true);
+                        if (! $id) {
+                            $id = self::newCrew($cid, 'pilot', $template['pilot'], count($state), true);
+                            $u = (int) DB::table('employees')->where('id', $id)->value('user_id');
+                            $state[$id] = ['type' => 'pilot', 'at' => (int) $t->origin_id, 'free' => 0, 'rate' => self::EMERGENCY_TRIP_RATE, 'user' => $u ?: null, 'demo' => true, 'em' => true];
+                            $made['new_emergency']++;
+                        }
+                        if ($state[$id]['em'] ?? false) {
+                            $made['emergency_trips']++;
+                        }
+                    }
                     if (! $id) {
                         $id = self::newCrew($cid, $type, $template[$type], count($state));
                         $u = (int) DB::table('employees')->where('id', $id)->value('user_id');
@@ -765,7 +794,7 @@ class TransportDemoDay
         }
         $made['swaps'] = self::swaps($cid, $demo);
         if ($redo && ! $rules['hostesses']) {
-            $made += self::payrollCrew($cid);
+            $made += self::payrollCrew($cid, array_keys(array_filter($state, fn ($s) => $s['demo'] && $s['type'] === 'pilot' && ! ($s['em'] ?? false))));
         }
 
         return $made;
@@ -780,7 +809,11 @@ class TransportDemoDay
 
     private const PAYROLL_PILOTS = 38;
 
-    private static function payrollCrew(int $cid): array
+    /** What an emergency pilot is paid for one trip (ours, to confirm with the client in Req02 / Req07). */
+    private const EMERGENCY_TRIP_RATE = 200;
+
+    /** $payrollIds = the 38 on the payroll (monthly); every other demo pilot with trips is an emergency pilot (per trip). */
+    private static function payrollCrew(int $cid, array $payrollIds = []): array
     {
         $demoStaff = self::ids($cid, 'employees');
         $busy = DB::table('transport_trip_crew')->distinct()->pluck('employee_id')->flip();
@@ -793,12 +826,16 @@ class TransportDemoDay
                 DB::table('users')->where('id', $e->user_id)->update(['statut' => 0, 'updated_at' => now()]);
             }
         }
-        $paid = DB::table('employees')->whereIn('id', $demoStaff ?: [0])->whereNull('deleted_at')->where('staff_type', 'pilot')
+        $paid = DB::table('employees')->whereIn('id', $payrollIds ?: [0])->whereNull('deleted_at')
             ->update(['pay_type' => 'monthly', 'basic_salary' => self::PILOT_SALARY, 'trip_rate' => 0, 'updated_at' => now()]);
-        DB::table('transport_trip_crew as c')->join('employees as e', 'e.id', '=', 'c.employee_id')->whereIn('e.id', $demoStaff ?: [0])
-            ->where('e.staff_type', 'pilot')->update(['c.trip_rate' => 0]);
+        DB::table('transport_trip_crew')->whereIn('employee_id', $payrollIds ?: [0])->update(['trip_rate' => 0]);
+        $emergency = DB::table('employees')->whereIn('id', $demoStaff ?: [0])->whereNull('deleted_at')->where('staff_type', 'pilot')
+            ->whereNotIn('id', $payrollIds ?: [0])->pluck('id');
+        DB::table('employees')->whereIn('id', $emergency->all() ?: [0])
+            ->update(['pay_type' => 'per_trip', 'basic_salary' => 0, 'trip_rate' => self::EMERGENCY_TRIP_RATE, 'updated_at' => now()]);
+        DB::table('transport_trip_crew')->whereIn('employee_id', $emergency->all() ?: [0])->update(['trip_rate' => self::EMERGENCY_TRIP_RATE]);
 
-        return ['left' => $gone->count(), 'pilots_on_payroll' => $paid];
+        return ['left' => $gone->count(), 'pilots_on_payroll' => $paid, 'emergency_pilots' => $emergency->count()];
     }
 
     /** Long demo trips past half way get the copilot's swap, except 1 in 25 (the "never swapped" alert). */
@@ -831,7 +868,7 @@ class TransportDemoDay
     }
 
     /** A new demo pilot / hostess like the first one: per trip, no salary, with the standard login of a demo person. */
-    private static function newCrew(int $cid, string $type, object $like, int $n): int
+    private static function newCrew(int $cid, string $type, object $like, int $n, bool $emergency = false): int
     {
         $male = ['José', 'Luis', 'Carlos', 'Jorge', 'Miguel', 'Renzo', 'Víctor', 'César', 'Raúl', 'Hugo', 'Walter', 'Julio', 'Óscar', 'Manuel', 'Pedro', 'Alberto', 'Freddy', 'Wilmer'];
         $last =['Quispe', 'Flores', 'Sánchez', 'Rojas', 'Díaz', 'Torres', 'Vargas', 'Castillo', 'Mendoza', 'Ramírez', 'Chávez', 'Huamán', 'Paredes', 'Salazar',
@@ -851,9 +888,11 @@ class TransportDemoDay
             'office_shift_id' => $like->office_shift_id, 'joining_date' => now()->subMonths(6 + $seed % 30)->toDateString(), 'employment_type' => 'full_time',
             'total_leave' => 0, 'remaining_leave' => 0, 'basic_salary' => 0,
         ]);
-        $payroll = ! \App\Http\Controllers\TransportController::crewRules($cid)['hostesses']; // Turismo: pilots on the payroll (2026-11-18)
+        // Turismo: pilots on the payroll (2026-11-18); an emergency pilot is paid per trip (2026-11-19).
+        $payroll = ! $emergency && ! \App\Http\Controllers\TransportController::crewRules($cid)['hostesses'];
+        $rate = $emergency ? self::EMERGENCY_TRIP_RATE : ($payroll ? 0 : $like->trip_rate);
         DB::table('employees')->where('id', $e->id)->update(['staff_type' => $type, 'pay_type' => $payroll ? 'monthly' : 'per_trip',
-            'trip_rate' => $payroll ? 0 : $like->trip_rate, 'pay_effective_from' => now()->subDays(200)->toDateString(), 'basic_salary' => $payroll ? self::PILOT_SALARY : 0]);
+            'trip_rate' => $rate, 'pay_effective_from' => now()->subDays(200)->toDateString(), 'basic_salary' => $payroll ? self::PILOT_SALARY : 0]);
         self::tag($cid, 'employees', (int) $e->id);
         $userId = (int) DB::table('employees')->where('id', $e->id)->value('user_id');
         if ($userId) {
